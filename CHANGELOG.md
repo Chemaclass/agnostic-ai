@@ -109,6 +109,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Project and global settings accept the effort values `none`, `minimal` and `max`; per-agent effort keeps `low`, `medium`, `high` and `xhigh` (#3307).
 
+#### Claude Code
+
+- A chat whose first line is a background task's report takes its title and opening from what you typed, not `<task-notification>` (#3335).
+
 ### Site
 
 - `serve`, the local API, `companion`, `doctor`, `import`, and the `sync` and `gitignore` settings have their own reference pages; old links redirect.

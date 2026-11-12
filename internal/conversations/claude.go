@@ -75,6 +75,12 @@ type claudeLine struct {
 	} `json:"message"`
 }
 
+// fromPerson reports whether a user line is the person's own: a
+// background task's report or a peer's message is not.
+func (line claudeLine) fromPerson() bool {
+	return !line.IsMeta && (line.Origin == nil || line.Origin.Kind == "human")
+}
+
 // claudeReplies follows the lines of a session's end for the agent's
 // latest message and a question still open.
 type claudeReplies struct {
@@ -125,8 +131,7 @@ func (r *claudeReplies) visit(line claudeLine) {
 			r.message, r.known = strings.Join(parts, "\n"), true
 		}
 	case "user":
-		// A background task's report or a peer's message is no prompt.
-		if line.IsMeta || (line.Origin != nil && line.Origin.Kind != "human") || (r.asked == "" && r.known && r.message == "") {
+		if !line.fromPerson() || (r.asked == "" && r.known && r.message == "") {
 			return
 		}
 		text, typed := claudeContentText(line.Message.Content)
@@ -371,7 +376,7 @@ func parseClaudeSession(head, tail []byte) (meta claudeMeta, replyKnown bool) {
 		setOnce(&meta.entrypoint, line.Entrypoint)
 		setLast(&headCustom, line.CustomTitle)
 		setLast(&headAI, line.AITitle)
-		if meta.firstPrompt == "" && line.Type == "user" && !line.IsMeta && line.Message != nil {
+		if meta.firstPrompt == "" && line.Type == "user" && line.fromPerson() && line.Message != nil {
 			if text, typed := claudeContentText(line.Message.Content); typed && typedText(text) != "" {
 				meta.firstPrompt = text
 			}
