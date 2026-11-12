@@ -31,9 +31,24 @@ import (
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
 // when OutputSums and Orphans were added, to 4 when SpecSums was added,
 // to 5 when Unledgered was added, to 6 when Merged was added, and to 7
-// when Merged covered Aider's YAML config.
-// Readers tolerate older versions by treating missing fields as zero values.
-const syncStateVersion = mergedYAMLLedgerVersion
+// when Merged covered Aider's YAML config, and to 8 when every path took
+// the spelling the config's own paths get.
+// Readers tolerate older versions by treating missing fields as zero
+// values, and refuse a newer one.
+const syncStateVersion = 8
+
+// newerLedgerError is a state file a newer release wrote. Its paths or
+// claims may mean something this release misreads, and acting on them
+// can strip merged keys or delete a file it believes it created.
+type newerLedgerError struct {
+	path    string
+	version int
+}
+
+func (e *newerLedgerError) Error() string {
+	return fmt.Sprintf("%s was written by a newer agnostic-ai (ledger version %d, this release reads up to %d); upgrade agnostic-ai with `agnostic-ai upgrade`, then run the command again",
+		filepath.ToSlash(e.path), e.version, syncStateVersion)
+}
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
@@ -170,7 +185,19 @@ func readLedger(root string) ledgerSnapshot {
 		return l
 	}
 	l.state, l.parseErr = decodeLedger(root, l.path, data)
+	if newer := new(newerLedgerError); errors.As(l.parseErr, &newer) {
+		l.readErr, l.parseErr = l.parseErr, nil
+	}
 	return l
+}
+
+// refuseNewer stops a command that acts on a state file a newer release
+// wrote.
+func (l ledgerSnapshot) refuseNewer() error {
+	if newer := new(newerLedgerError); errors.As(l.readErr, &newer) {
+		return newer
+	}
+	return nil
 }
 
 // decodeLedger is every read of the state file: entries outside the
@@ -179,6 +206,9 @@ func readLedger(root string) ledgerSnapshot {
 func decodeLedger(root, path string, data []byte) (syncStateFile, error) {
 	var s syncStateFile
 	err := json.Unmarshal(data, &s)
+	if err == nil && s.Version > syncStateVersion {
+		return s, &newerLedgerError{path: path, version: s.Version}
+	}
 	s.dropEscapingEntries(root, path)
 	s.mergeSpellings(root, config.CleanOutputPath)
 	return s, err
@@ -316,6 +346,9 @@ func readStateFileStrict(projectRoot string) (syncStateFile, error) {
 		return syncStateFile{}, fmt.Errorf("read %s: %w", p, err)
 	}
 	s, err := decodeLedger(projectRoot, p, data)
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return s, err
+	}
 	if err != nil {
 		return s, fmt.Errorf("parse %s: %w", p, err)
 	}
@@ -359,6 +392,9 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 		return nil
 	}
 	s, err := decodeLedger(projectRoot, p, data)
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return err
+	}
 	if err != nil {
 		return nil
 	}
@@ -693,6 +729,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 // runSyncPassWith is runSyncPass with the state file the caller read
 // under root. Nothing writes the state file before the pass ends.
 func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
+	if err := prior.refuseNewer(); err != nil {
+		return err
+	}
 	start := time.Now()
 	originalLog := logOut
 	var earlyMessages strings.Builder
@@ -1361,6 +1400,9 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 // file written, updated, or skipped per target. prior is the state file
 // the caller read under root.
 func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+	if err := prior.refuseNewer(); err != nil {
+		return err
+	}
 	resetSyncBuffers()
 	defer resetSyncBuffers()
 	cfg, b, err := loadProject(root)

@@ -800,6 +800,9 @@ func newDoctorCmd() *cobra.Command {
 			if jsonOut && fix {
 				return errs.Coded(errs.CodeFlagConflict, "--json is read-only and cannot be combined with --fix")
 			}
+			if err := readLedger(".").refuseNewer(); err != nil {
+				return err
+			}
 
 			// JSON mode: emit only the drift report, skip human-readable sections.
 			if jsonOut {

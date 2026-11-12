@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -346,6 +347,9 @@ func updateStateFile(root string, update func(*syncStateFile)) error {
 		return nil
 	}
 	state, err := decodeLedger(root, p, data)
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("parse %s: %w", p, err)
 	}

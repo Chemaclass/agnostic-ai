@@ -80,6 +80,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `sync` also stops with AAI-102 when an adapter writes another target's instructions file, such as an external adapter's `AGENTS.md` (#3302).
 - Cursor and Windsurf load each always-on rule once, from `AGENTS.md`; Trae opts in with `rules-mode: entry-point`, and LINT061 flags an ignored value (#3243).
 
+#### Sync ledger
+
+- `sync` and `doctor` stop on a `.sync-state` that a newer agnostic-ai wrote and ask you to upgrade, rather than misread it.
+- Upgrade every copy of agnostic-ai that syncs a project together: v0.93.0 and older do not check, and strip merged keys when an `outputs` path starts with `./`.
+
 #### Built-ins and settings
 
 - The new `wrap-up` built-in adds a skill that ends a session with what changed, what is still open, and a note to share; `handoff` points to it (#3284).
