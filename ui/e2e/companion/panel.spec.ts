@@ -65,6 +65,71 @@ test('rename then Escape keeps the old name and gives the keys back to the list'
   await expect(selected(page)).not.toHaveText(before ?? '')
 })
 
+const calledPaths = async (page: Page) => ((await (await page.request.get('/dev/calls')).json()) as { path: string }[]).map((call) => call.path)
+
+test('the pencil starts the rename and opens nothing; Escape cancels it', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Plan the sync dry run')
+  await target.hover()
+  const pencil = target.getByRole('button', { name: 'Rename', exact: true })
+  await expect(pencil).toBeVisible()
+  await expect(pencil).toHaveAttribute('title', 'Rename')
+  await pencil.click()
+
+  const field = page.getByLabel('New name')
+  await expect(field).toBeFocused()
+  await expect(field).toHaveValue('Plan the sync dry run')
+  await field.fill('Something else')
+  await field.press('Escape')
+
+  await expect(field).toHaveCount(0)
+  await expect(row(page, 'Plan the sync dry run')).toBeVisible()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/open')
+  expect(calls).not.toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/rename')
+})
+
+test('Enter on the focused pencil starts the rename and opens nothing', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Plan the sync dry run')
+  await target.hover()
+  await target.getByRole('button', { name: 'Rename', exact: true }).press('Enter')
+
+  await expect(page.getByLabel('New name')).toBeFocused()
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/open')
+  expect(calls).not.toContain('/api/panel/hide')
+})
+
+test('F2 renames the selected row and Enter saves the name', async ({ page }) => {
+  await openPanel(page)
+  await page.getByLabel('Search every conversation').fill('sync dry run')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toContainText('Plan the sync dry run')
+  await page.keyboard.press('F2')
+
+  const field = page.getByLabel('New name')
+  await expect(field).toBeFocused()
+  await expect(field).toHaveValue('Plan the sync dry run')
+  const renamed = page.waitForRequest((request) => request.url().endsWith('/api/rename'))
+  await field.fill('Ship the dry run')
+  await field.press('Enter')
+  expect((await renamed).postDataJSON()).toMatchObject({ id: 'active-2', title: 'Ship the dry run' })
+  await expect(field).toHaveCount(0)
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('a click on the name still opens the chat', async ({ page }) => {
+  await openPanel(page)
+  const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await row(page, 'Plan the sync dry run').locator('.title').click()
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2' })
+  await expect(page.getByLabel('New name')).toHaveCount(0)
+})
+
 test('a refused rename keeps the typed name in focus and says why', async ({ page }) => {
   await openPanel(page, 'rename-failure')
   await row(page, 'Plan the sync dry run').click({ button: 'right' })

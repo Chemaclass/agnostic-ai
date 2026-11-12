@@ -71,7 +71,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - A chat started with `agnostic-ai conversations start` sits indented under
   the chat it came from while both are in the same group. A child that waits
   for you stays under Needs you, even when its parent is active or archived.
-- **↑ ↓** move through the list and **Enter** opens the chat. So does a click.
+- **↑ ↓** move through the list and **Enter** opens the chat. So does a click,
+  on the name too. **F2** renames the selected chat.
   A running chat comes up in the Terminal or Ghostty tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
@@ -80,13 +81,15 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still
   running in a terminal never offers it, because that command would start a
   second copy.
-- Hover a row for its one button: **mark complete** a chat, which archives
-  it, or **hide** one that is already archived. A working chat has no button,
-  since the work would bring it back at once. The tick turns green for a
+- Hover a row for its buttons. The pencil, **Rename**, opens the name field
+  without opening the chat. **Mark complete** archives a chat, and **hide**
+  takes one that is already archived out of the list. A working chat has no
+  mark complete button, since the work would bring it back at once. The tick turns green for a
   moment when you mark a chat complete. **Mark all complete** beside Active
   archives every active chat at once, with no tick.
-- **Right-click** a row and choose **Rename…** to give the chat your own
-  name. **Enter** saves it and **Esc** keeps the old one. An empty name is
+- **Right-click** a row and choose **Rename…**, click the pencil, or press
+  **F2** to give the chat your own name. **Enter** saves it and **Esc** keeps
+  the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal or Ghostty tab takes the name too, in place of
   the title the tool sets.
