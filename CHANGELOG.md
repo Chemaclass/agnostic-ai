@@ -68,11 +68,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### The rules-file setting
 
-- `sync` ignores `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, and writes its usual files (#3295).
-- `lint` warns with LINT062 about a `rules-file` on such a target (#3295).
+- `sync` ignores `outputs.<target>.rules-file` on a target that writes no merged rules file, such as Cline or Kiro, and `lint` warns with LINT062 (#3295).
 - `sync` stops with AAI-102, which `validate` reports, when a `rules-file` that another enabled target reads as instructions would lose rules (#3302).
 - For `outputs.codex.rules-file: AGENTS.md` with Cline, point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool (#3302).
 - When the other tool's file already has the rules, as with Amp, `sync` writes what it wrote before and `lint` warns with LINT063 (#3302).
+- A `rules-file` on another target's instructions file, such as Amp's `AGENTS.md`, stops saving a `.bak` on each sync; `./AGENTS.md` is that same file (#3329). If `sync` still keeps a hand edit there, delete that file and its `.bak`, then run `agnostic-ai sync`.
 
 #### Shared instructions files
 
