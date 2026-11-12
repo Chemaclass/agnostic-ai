@@ -307,14 +307,20 @@ func (s *Scanner) fill(c *Conversation, t texts) {
 		shown = showTextsOf(prompts, false)
 	}
 	c.Title, c.Opening, c.Prompt, c.Withheld, c.Parent = shown.title, shown.opening, shown.prompt, shown.withheld, shown.parent
-	if t.reply != "" || t.question != "" {
-		said := s.shown.get(texts{reply: t.reply, question: t.question})
-		c.Reply = said.reply
-		if len(said.withheld) > 0 {
-			c.Withheld = append(slices.Clone(c.Withheld), said.withheld...)
-		}
-	}
+	s.fillReply(c, t)
 	c.showChosenName()
+}
+
+// fillReply sets the row's reply from t, after fill set the other texts.
+func (s *Scanner) fillReply(c *Conversation, t texts) {
+	if t.reply == "" && t.question == "" {
+		return
+	}
+	said := s.shown.get(texts{reply: t.reply, question: t.question})
+	c.Reply = said.reply
+	if len(said.withheld) > 0 {
+		c.Withheld = append(slices.Clone(c.Withheld), said.withheld...)
+	}
 }
 
 // showChosenName puts the name the person chose over the tool's title.

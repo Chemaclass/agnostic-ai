@@ -52,48 +52,59 @@ type cursorPrompts struct {
 // cursorPromptsQuery finds the first and last user message of the given
 // chats, and the agent's latest message with text after the last one.
 // Older chats list their message headers inline; newer ones keep them in
-// composerConvHeaders:<id>:<chunk> keys. A header whose grouping lacks
-// hasText is a tool call or thinking, so its bubble is not read.
+// composerConvHeaders:<id>:<chunk> keys, ordered by the chunk's number.
+// A header whose grouping lacks hasText is a tool call or thinking, so
+// its bubble is not read. Each chat's headers are ranked in one pass:
+// a subquery per chat and end costs five times as much on long chats.
 var cursorPromptsQuery = `WITH chosen(composerId) AS (VALUES %s),
 headers AS (
-  SELECT c.composerId, '' AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.type') AS type, json_extract(h.value, '$.bubbleId') AS bubbleId
+  SELECT c.composerId, -1 AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.type') AS type, json_extract(h.value, '$.bubbleId') AS bubbleId
   FROM chosen c
   JOIN cursorDiskKV d ON d.key = 'composerData:' || c.composerId,
        json_each(d.value, '$.fullConversationHeadersOnly') h
   WHERE json_extract(h.value, '$.type') = 1 OR (json_extract(h.value, '$.type') = 2 AND coalesce(json_extract(h.value, '$.grouping.hasText'), json_type(h.value, '$.grouping') IS NULL))
   UNION ALL
-  SELECT c.composerId, k.key AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.type') AS type, json_extract(h.value, '$.bubbleId') AS bubbleId
+  SELECT c.composerId, CAST(substr(k.key, length('composerConvHeaders:' || c.composerId || ':') + 1) AS INTEGER) AS chunk, CAST(h.key AS INTEGER) AS seq, json_extract(h.value, '$.type') AS type, json_extract(h.value, '$.bubbleId') AS bubbleId
   FROM chosen c
   JOIN cursorDiskKV k ON k.key >= 'composerConvHeaders:' || c.composerId || ':'
                      AND k.key <  'composerConvHeaders:' || c.composerId || ';',
        json_each(k.value) h
   WHERE json_extract(h.value, '$.type') = 1 OR (json_extract(h.value, '$.type') = 2 AND coalesce(json_extract(h.value, '$.grouping.hasText'), json_type(h.value, '$.grouping') IS NULL))
 ),
+ranked AS (
+  SELECT composerId, chunk, seq, type, bubbleId,
+    row_number() OVER (PARTITION BY composerId, type ORDER BY chunk, seq) AS fromStart,
+    row_number() OVER (PARTITION BY composerId, type ORDER BY chunk DESC, seq DESC) AS fromEnd
+  FROM headers
+),
 prompts AS (
   SELECT composerId,
-    (SELECT bubbleId FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk, seq LIMIT 1) AS firstBubble,
-    (SELECT bubbleId FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastBubble,
-    (SELECT chunk FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastChunk,
-    (SELECT seq FROM headers h2 WHERE h2.composerId = h.composerId AND h2.type = 1 ORDER BY chunk DESC, seq DESC LIMIT 1) AS lastSeq
-  FROM headers h GROUP BY composerId
+    max(CASE WHEN fromStart = 1 THEN bubbleId END) AS firstBubble,
+    max(CASE WHEN fromEnd = 1 THEN bubbleId END) AS lastBubble,
+    max(CASE WHEN fromEnd = 1 THEN chunk END) AS lastChunk,
+    max(CASE WHEN fromEnd = 1 THEN seq END) AS lastSeq
+  FROM ranked WHERE type = 1 GROUP BY composerId
 ),
-ends AS (
-  SELECT p.*,
-    (SELECT json_extract(b.value, '$.text') FROM headers h2
-     JOIN cursorDiskKV b ON b.key = 'bubbleId:' || h2.composerId || ':' || h2.bubbleId
-     WHERE h2.composerId = p.composerId AND h2.type = 2
-       AND (p.lastBubble IS NULL OR h2.chunk > p.lastChunk OR (h2.chunk = p.lastChunk AND h2.seq > p.lastSeq))
-       AND coalesce(json_extract(b.value, '$.text'), '') <> ''
-     ORDER BY h2.chunk DESC, h2.seq DESC LIMIT 1) AS reply
-  FROM prompts p
-)
-SELECT e.composerId AS id,
+replies AS (
+  SELECT r.composerId, json_extract(b.value, '$.text') AS text,
+    row_number() OVER (PARTITION BY r.composerId ORDER BY r.chunk DESC, r.seq DESC) AS fromEnd
+  FROM ranked r
+  LEFT JOIN prompts p ON p.composerId = r.composerId
+  JOIN cursorDiskKV b ON b.key = 'bubbleId:' || r.composerId || ':' || r.bubbleId
+  WHERE r.type = 2
+    AND (p.lastBubble IS NULL OR r.chunk > p.lastChunk OR (r.chunk = p.lastChunk AND r.seq > p.lastSeq))
+    AND coalesce(json_extract(b.value, '$.text'), '') <> ''
+),
+chats AS (SELECT DISTINCT composerId FROM headers)
+SELECT c.composerId AS id,
   coalesce(json_extract(fb.value, '$.text'), '') AS first_text,
   coalesce(json_extract(lb.value, '$.text'), '') AS last_text,
-  ` + replyEndsColumns(`coalesce(e.reply, '')`) + `
-FROM ends e
-LEFT JOIN cursorDiskKV fb ON fb.key = 'bubbleId:' || e.composerId || ':' || e.firstBubble
-LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || e.composerId || ':' || e.lastBubble`
+  ` + replyEndsColumns(`coalesce(r.text, '')`) + `
+FROM chats c
+LEFT JOIN prompts p ON p.composerId = c.composerId
+LEFT JOIN replies r ON r.composerId = c.composerId AND r.fromEnd = 1
+LEFT JOIN cursorDiskKV fb ON fb.key = 'bubbleId:' || c.composerId || ':' || p.firstBubble
+LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || c.composerId || ':' || p.lastBubble`
 
 func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult {
 	if _, err := os.Stat(s.Stores.CursorDB); err != nil {
@@ -128,6 +139,7 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 
 // fillPending reads the prompts of the page's Cursor editor chats, the
 // only rows whose prompts wait for a page: the store holds thousands.
+// It also checks the replies of the page's cursor-agent chats.
 func (s *Scanner) fillPending(ctx context.Context, page []Conversation) {
 	prompts := s.cursorEditorPrompts(ctx, pendingRows(page))
 	for i := range page {
@@ -137,12 +149,16 @@ func (s *Scanner) fillPending(ctx context.Context, page []Conversation) {
 			c.pending = nil
 			s.fill(c, t)
 		}
+		if c.pendingReply != nil {
+			s.fillReply(c, *c.pendingReply)
+			c.pendingReply = nil
+		}
 	}
 }
 
 // searchAll keeps the rows whose shown text holds every word. A pending
-// Cursor chat is checked on its raw text first, a superset of what it
-// shows, so only the chats that may match pay for the credential check;
+// Cursor chat or reply is checked on its raw text first, a superset of
+// what it shows, so only the chats that may match pay for the credential check;
 // the match is then made on the shown text, so withheld text never matches.
 func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []string) []Conversation {
 	prompts := s.cursorEditorPrompts(ctx, pendingRows(all))
@@ -155,6 +171,10 @@ func (s *Scanner) searchAll(ctx context.Context, all []Conversation, words []str
 			}
 			c.pending = nil
 			s.fill(&c, t)
+		}
+		if c.pendingReply != nil && holdsAll(strings.Join([]string{asShown(c.Title), c.Folder, c.Branch, asShown(c.Prompt), c.pendingReply.reply, c.pendingReply.question, toolLabels[c.Tool], string(c.App)}, "\n"), words) {
+			s.fillReply(&c, *c.pendingReply)
+			c.pendingReply = nil
 		}
 		maybe = append(maybe, c)
 	}
@@ -236,10 +256,12 @@ func (s *Scanner) cursorOpenChats(ctx context.Context, headers []cursorHeader) m
 // cursorPromptBatch bounds how many chats one prompts query names.
 const cursorPromptBatch = 300
 
-// cursorEditorPrompts reads the first and last prompt of the editor
-// chats among list. A chat's prompts are kept until its last activity
-// time changes, so a search over thousands of chats queries only the
-// ones that are new or changed.
+// cursorEditorPrompts reads the first and last prompt and the latest
+// reply of the editor chats among list. A chat's texts are kept until
+// its last activity time changes, so a search over thousands of chats
+// queries only the ones that are new or changed. A chat open in Cursor
+// is read on every call: nothing shows that Cursor moves that time when
+// only the agent writes.
 func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) map[string]cursorPrompts {
 	if s.cursorPrompts == nil {
 		s.cursorPrompts = map[string]cached[cursorPrompts]{}
@@ -250,7 +272,7 @@ func (s *Scanner) cursorEditorPrompts(ctx context.Context, list []Conversation) 
 		if c.App != AppIDE {
 			continue
 		}
-		if hit, ok := s.cursorPrompts[c.ID]; ok && hit.stamp == c.UpdatedAt {
+		if hit, ok := s.cursorPrompts[c.ID]; ok && hit.stamp == c.UpdatedAt && !c.Live {
 			prompts[c.ID] = hit.value
 			continue
 		}
@@ -335,7 +357,10 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(folder, "cursor-agent --resume "+meta.AgentID)},
 			store: store,
 		}
-		s.fill(&c, texts{title: title, firstPrompt: transcript.first, lastPrompt: transcript.last, reply: transcript.reply, question: transcript.question})
+		s.fill(&c, texts{title: title, firstPrompt: transcript.first, lastPrompt: transcript.last})
+		if transcript.reply != "" || transcript.question != "" {
+			c.pendingReply = &texts{reply: transcript.reply, question: transcript.question}
+		}
 		chats = append(chats, c)
 	}
 	if ctx.Err() == nil {
@@ -458,9 +483,29 @@ func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) cursorA
 	if len(prompts) > 0 {
 		kept.last = prompts[len(prompts)-1]
 	}
+	if len(prompts) == 0 && message == "" && info.Size() > 2*claudeWindow {
+		message = cursorAgentReplyAtEnd(transcript, info.Size())
+	}
 	kept.reply, kept.question = agentSaid(message, message, "")
 	s.cursorTranscripts[transcript] = cached[cursorAgentTexts]{stamp: stamp, value: kept}
 	return kept
+}
+
+// cursorAgentReplyAtEnd looks for the agent's latest message after the
+// last prompt in the last claudeReplyWindow bytes of a transcript whose
+// tail held neither, such as one cut inside a long final message.
+func cursorAgentReplyAtEnd(transcript string, size int64) string {
+	f, err := os.Open(transcript)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	tail, err := readTail(f, size, claudeReplyWindow)
+	if err != nil {
+		return ""
+	}
+	_, message := cursorAgentLines(tail)
+	return message
 }
 
 // cursorAgentLines returns the prompts in data and the agent's latest
