@@ -178,11 +178,11 @@ async function openCircle(page: Page, fixture = 'mixed') {
 
 const circle = (page: Page) => page.locator('#bubble')
 
-test('Hide in the menu names the shortcut and asks the shell to hide', async ({ page }) => {
+test('Hide in the menu asks the shell to hide', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 
-  const hide = page.getByRole('button', { name: 'Hide Agnostic AI companion (⌃⌥Space brings it back)' })
+  const hide = page.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })
   await expect(hide).toBeVisible()
   const hidden = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/hide')
   await hide.click()
@@ -191,13 +191,13 @@ test('Hide in the menu names the shortcut and asks the shell to hide', async ({ 
   expect(appearance.presence).toBe('hidden')
 })
 
-test('Hide follows a new shortcut', async ({ page }) => {
+test('Hide stays plain after a new shortcut', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 
   await page.request.post('/api/preferences/shortcut', { data: { shortcut: 'Ctrl+Shift+K' } })
 
-  await expect(page.getByRole('button', { name: 'Hide Agnostic AI companion (⌃⇧K brings it back)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })).toBeVisible()
 })
 
 test('hidden, a chat that starts waiting brings the circle back at 25% with its count', async ({ page }) => {
@@ -271,7 +271,7 @@ test('the menu shows the shared list, in its order, with the values in effect', 
   await openSettings(page)
 
   const labels = await settingsMenu(page).locator('.menu-label, .menu-item').allTextContents()
-  expect(labels).toEqual(items.map((item) => (item.label.startsWith('Hide') ? `${item.label} (⌃⌥Space brings it back)` : item.label)))
+  expect(labels).toEqual(items.map((item) => item.label))
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toHaveAttribute('aria-checked', 'false')

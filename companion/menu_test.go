@@ -131,7 +131,7 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 		}
 	}
 	want := []string{settingsHeader, "[x] Animate companion", "[x] Dim when idle", "[x] Start at login",
-		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", hideLabel("Hide Agnostic AI companion", s.preferences(), runtime.GOOS == "darwin"), "Quit Agnostic AI companion"}
+		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
 	}
@@ -284,19 +284,17 @@ func TestGetPreferences_ShowsALoginChangeMadeElsewhere(t *testing.T) {
 	}
 }
 
-func TestHideLabel_NamesTheWayBack(t *testing.T) {
+func TestHideLabel_NamesTheCommandOnlyWithoutAWorkingShortcut(t *testing.T) {
 	cases := []struct {
 		name  string
 		prefs preferences
-		mac   bool
 		want  string
 	}{
-		{"mac shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, true, "Hide Agnostic AI companion (⌃⌥Space brings it back)"},
-		{"other shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, false, "Hide Agnostic AI companion (Ctrl+Alt+Space brings it back)"},
-		{"no working shortcut", preferences{Shortcut: "Ctrl+Alt+Space", ShortcutProblem: "Ctrl+Alt+Space is not active: taken"}, true, "Hide Agnostic AI companion (agnostic-ai companion brings it back)"},
+		{"working shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, "Hide Agnostic AI companion"},
+		{"no working shortcut", preferences{Shortcut: "Ctrl+Alt+Space", ShortcutProblem: "Ctrl+Alt+Space is not active: taken"}, "Hide Agnostic AI companion (agnostic-ai companion brings it back)"},
 	}
 	for _, tc := range cases {
-		if got := hideLabel("Hide Agnostic AI companion", tc.prefs, tc.mac); got != tc.want {
+		if got := hideLabel("Hide Agnostic AI companion", tc.prefs); got != tc.want {
 			t.Errorf("%s: hideLabel = %q; want %q", tc.name, got, tc.want)
 		}
 	}
@@ -304,11 +302,10 @@ func TestHideLabel_NamesTheWayBack(t *testing.T) {
 
 func TestHideItem_FollowsTheShortcut(t *testing.T) {
 	s, _, _, _ := menuShell(t)
-	mac := runtime.GOOS == "darwin"
 	routes := s.routes(&inbox{}, fstest.MapFS{})
 
 	routes.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/preferences/shortcut", strings.NewReader(`{"shortcut":"Cmd+Shift+K"}`)))
-	if got, want := s.native["hide"].Label(), hideLabel("Hide Agnostic AI companion", preferences{Shortcut: "Cmd+Shift+K"}, mac); got != want {
+	if got, want := s.native["hide"].Label(), "Hide Agnostic AI companion"; got != want {
 		t.Errorf("label = %q; want %q", got, want)
 	}
 
