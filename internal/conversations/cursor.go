@@ -113,6 +113,7 @@ LEFT JOIN cursorDiskKV lb ON lb.key = 'bubbleId:' || c.composerId || ':' || p.la
 func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult {
 	headers, note, err := s.cursorHeaders(ctx)
 	if err != nil {
+		s.setCursorLiveTranscripts(nil)
 		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
 	}
 
@@ -373,6 +374,7 @@ const cursorAgentDefaultName = "New Agent"
 func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool, roots []string) []Conversation {
 	stores, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "chats", "*", "*", "store.db"))
 	if len(stores) == 0 {
+		s.setCursorLiveTranscripts(nil)
 		return nil
 	}
 	byHash := map[string]string{}
@@ -436,10 +438,14 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 			live = append(live, transcripts[c.store])
 		}
 	}
-	s.rolloutsMu.Lock()
-	s.cursorLiveTranscripts = live
-	s.rolloutsMu.Unlock()
+	s.setCursorLiveTranscripts(live)
 	return chats
+}
+
+func (s *Scanner) setCursorLiveTranscripts(transcripts []string) {
+	s.rolloutsMu.Lock()
+	defer s.rolloutsMu.Unlock()
+	s.cursorLiveTranscripts = transcripts
 }
 
 // markLiveCursorAgentChats marks the chats a running cursor-agent has

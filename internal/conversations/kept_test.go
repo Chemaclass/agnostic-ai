@@ -155,6 +155,7 @@ func TestScan_SeesTheReplyARunningCursorAgentChatAddsToItsTranscript(t *testing.
 		return byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), agent)
 	}
 	scan()
+	scan()
 	before := scanner.Stamp()
 
 	write(t, transcript, lines(append(turn, obj{"role": "assistant", "message": obj{"content": []obj{textPart("Fixed and tested.")}}})...))
