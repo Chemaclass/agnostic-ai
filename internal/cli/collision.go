@@ -124,7 +124,7 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	if err := entryPointOverwrites(cfg, runFiles, overwritten); err != nil {
 		return nil, err
 	}
-	replaced, err := replacedRulesFileWinners(cfg, b, readers, shared)
+	replaced, err := replacedRulesFileWinners(cfg, b, shared)
 	if err != nil {
 		return nil, err
 	}
@@ -174,32 +174,36 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 }
 
 // replacedRulesFileWinners maps each kept shared rules-file to the
-// instructions file the configured targets write there. The owner's
+// instructions file its configured readers write there. The owner's
 // adapter then writes those bytes in every run, so a run of the owner
 // alone leaves the file as the full run wrote it, and a later sync finds
-// no change there and no hand edit to back up.
-func replacedRulesFileWinners(cfg *config.Config, b spec.Bundle, readers []string, shared []sharedRulesFile) (map[string]string, error) {
-	var paths []string
+// no change there and no hand edit to back up. Only those readers are
+// rendered, so another target's instructions file cannot stop the run.
+func replacedRulesFileWinners(cfg *config.Config, b spec.Bundle, shared []sharedRulesFile) (map[string]string, error) {
+	var out map[string]string
+	var body *string
 	for _, s := range shared {
-		if s.kept {
-			paths = append(paths, s.path)
+		if !s.kept {
+			continue
 		}
-	}
-	if len(paths) == 0 {
-		return nil, nil
-	}
-	body, err := previewAgnosticBody()
-	if err != nil {
-		return nil, err
-	}
-	files, err := renderEntryPointFiles(cfg, b, readers, body)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]string{}
-	for _, f := range files {
-		if slices.ContainsFunc(paths, func(p string) bool { return samePath(f.Path, p) }) {
-			out[filepath.Clean(f.Path)] = f.Content
+		if body == nil {
+			resolved, err := previewAgnosticBody()
+			if err != nil {
+				return nil, err
+			}
+			body = &resolved
+		}
+		files, err := renderEntryPointFiles(cfg, b, append(slices.Clone(s.readers), s.owner), *body)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			if samePath(f.Path, s.path) {
+				if out == nil {
+					out = map[string]string{}
+				}
+				out[filepath.Clean(f.Path)] = f.Content
+			}
 		}
 	}
 	return out, nil

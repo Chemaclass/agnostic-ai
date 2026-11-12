@@ -256,9 +256,6 @@ func TestValidate_RulesFileOnAnotherTargetsInstructionsFile_LostWhenTheOwnerDoes
 	}
 }
 
-// A run that writes no instructions file on the path leaves the merged
-// file in place, so it says nothing about the key and checks the merged
-// file.
 // The bytes of a shared rules-file follow the configured targets, not the
 // targets one run writes: a run of the owner alone leaves the file as the
 // full run wrote it (#3330).
@@ -288,6 +285,30 @@ func TestSync_PartialRunOfTheOwnerKeepsTheFullRunsFile(t *testing.T) {
 	}
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil || strings.Contains(out, "AGENTS.md") {
 		t.Errorf("a full sync after the partial ones must change nothing (err %v):\n%s", err, out)
+	}
+}
+
+// Only the targets that read the shared file decide its bytes, so another
+// target's instructions file cannot stop a run of the owner.
+func TestSync_PartialRunOfTheOwnerIgnoresAnotherTargetsBrokenImport(t *testing.T) {
+	dir := sharedRulesFileProject(t, "targets: [codex, amp, gemini]\noutputs:\n  codex:\n    rules-file: AGENTS.md\nsync:\n  resolve-imports: inline\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nSHARED-BODY\n\n::target gemini\n@docs/gemini-only.md\n::\n")
+	mustWriteFile(t, filepath.Join(dir, "docs", "gemini-only.md"), "Gemini only.\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err := os.Remove(filepath.Join(dir, "docs", "gemini-only.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, args := range [][]string{{"sync", "--dry-run"}, {"sync", "--check"}, {"sync", "--gitignore=off"}} {
+		if out, err := runCLI(t, append(args, "--target", "codex")...); err != nil {
+			t.Errorf("%v --target codex: %v\n%s", args, err, out)
+		}
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md")); string(got) != string(want) {
+		t.Errorf("sync --target codex must leave AGENTS.md as the full sync wrote it, got:\n%s", got)
 	}
 }
 
