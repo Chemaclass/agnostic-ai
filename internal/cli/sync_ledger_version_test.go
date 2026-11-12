@@ -18,6 +18,9 @@ func TestSync_RefusesALedgerFromANewerRelease(t *testing.T) {
 		{"sync", "--gitignore=off", "--json"},
 		{"sync", "--check"},
 		{"sync", "--dry-run"},
+		{"sync", "--dry-run", "--json"},
+		{"sync", "--plan"},
+		{"use", "codex"},
 		{"doctor", "--fix"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -73,5 +76,14 @@ func TestUpdateStateFile_RefusesALedgerFromANewerRelease(t *testing.T) {
 		if err := update(); err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
 			t.Errorf("%s must refuse the ledger, got %v", name, err)
 		}
+	}
+}
+
+func TestReadLedger_RefusesANewerLedgerThatDoesNotDecode(t *testing.T) {
+	testutil.TempCwd(t)
+	mustWriteFile(t, stateFilePath("."), `{"version":99,"outputs":[{"path":"a"}]}`)
+
+	if err := readLedger(".").refuseNewer(); err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
+		t.Errorf("a newer ledger must be refused even when a field does not decode, got %v", err)
 	}
 }

@@ -254,6 +254,9 @@ func newSyncCmd() *cobra.Command {
 			// A preview of a tool use has not imported yet would pass while
 			// the next write would replace its native config.
 			if tree == nil {
+				if err := ledger().refuseNewer(); err != nil {
+					return err
+				}
 				if err := stopOnPendingImports(ledger().state, cfg); err != nil {
 					return err
 				}

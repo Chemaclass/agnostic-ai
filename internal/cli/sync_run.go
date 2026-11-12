@@ -206,7 +206,7 @@ func (l ledgerSnapshot) refuseNewer() error {
 func decodeLedger(root, path string, data []byte) (syncStateFile, error) {
 	var s syncStateFile
 	err := json.Unmarshal(data, &s)
-	if err == nil && s.Version > syncStateVersion {
+	if s.Version > syncStateVersion {
 		return s, &newerLedgerError{path: path, version: s.Version}
 	}
 	s.dropEscapingEntries(root, path)
