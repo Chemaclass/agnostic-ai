@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -41,25 +42,35 @@ func TestTypedText_KeepsTextAnUnmatchedTagCannotEnclose(t *testing.T) {
 }
 
 func TestTypedText_StaysLinearOnUnmatchedTags(t *testing.T) {
-	for _, prompt := range []string{
-		strings.Repeat("<system-reminder>", 100000) + "Fix the login bug",
-		strings.Repeat("</rules>", 100000) + "Fix the login bug",
-		strings.Repeat("<rules>", 50000) + strings.Repeat("</rules>", 49999) + "Fix the login bug",
+	for name, prompt := range map[string]func(tags int) string{
+		"unclosed": func(tags int) string { return strings.Repeat("<system-reminder>", tags) },
+		"stray":    func(tags int) string { return strings.Repeat("</rules>", tags) },
+		"nested":   func(tags int) string { return strings.Repeat("<rules>", tags/2) + strings.Repeat("</rules>", tags/2-1) },
+		"mixed": func(tags int) string {
+			return strings.Repeat("<system-reminder>", tags/2) + strings.Repeat("</ide_selection>", tags/2)
+		},
 	} {
-		start := time.Now()
-		injectedTag.FindAllStringSubmatchIndex(prompt, -1)
-		scan := time.Since(start)
-		start = time.Now()
-		typed := withoutInjected(prompt)
-		// Measured against one pass of the tag scan on the same machine, so
-		// a slow or busy runner does not fail it; quadratic work is far over.
-		if removal := time.Since(start); removal > 20*scan+50*time.Millisecond {
-			t.Errorf("removal took %s, one tag scan %s, on %d bytes", removal, scan, len(prompt))
+		small, large := prompt(20000)+"Fix the login bug", prompt(80000)+"Fix the login bug"
+		if typed := typedText(large); !strings.HasSuffix(typed, "Fix the login bug") {
+			t.Errorf("%s: typed text lost its end: %q", name, typed[max(0, len(typed)-40):])
 		}
-		if !strings.HasSuffix(typed, "Fix the login bug") {
-			t.Errorf("typed text lost its end: %q", typed[max(0, len(typed)-40):])
+		// Four times the tags may take about four times as long; quadratic
+		// work takes sixteen. A ratio holds on a slow or instrumented runner
+		// where a time limit does not.
+		if ratio := fastestRemoval(large).Seconds() / fastestRemoval(small).Seconds(); ratio > 10 {
+			t.Errorf("%s: four times the tags took %.1f times as long", name, ratio)
 		}
 	}
+}
+
+func fastestRemoval(prompt string) time.Duration {
+	fastest := time.Duration(math.MaxInt64)
+	for range 3 {
+		start := time.Now()
+		withoutInjected(prompt)
+		fastest = min(fastest, time.Since(start))
+	}
+	return fastest
 }
 
 func BenchmarkTypedText_UnmatchedTags(b *testing.B) {

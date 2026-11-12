@@ -904,4 +904,8 @@
 # measured 25956512 bytes locally on 2026-11-11, on top of main
 # a8023e46; the budget is that plus 8192, rounded up to a multiple of
 # 4096.
-25968640
+# #3328 (remove nested injected blocks whole with a tag scan instead of
+# one regular expression) measured 25968800 bytes locally on
+# 2026-11-12, on top of main f054802cf; main alone measured 25960608.
+# The budget is that plus 8192, rounded up to a multiple of 4096.
+25980928
