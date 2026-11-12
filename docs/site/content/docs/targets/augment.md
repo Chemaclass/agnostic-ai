@@ -83,7 +83,7 @@ Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported event
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
 - `args` is written as its own array, and Auggie runs the command with those arguments and no shell. A command without `args` runs as written: Auggie 1.x hands it to a shell, and 0.x splits it into words or runs it with `bash -c` when it has shell syntax.
 - `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification`, which take none; `sync` prints a note when it leaves one out.
-- Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a sync note.
+- Matchers use Augment's tool names. Auggie 1.x names its tools `bash`, `read`, `edit`, `write`, `grep`, `find`, `web-fetch`, ... and matches them case-insensitively; it still matches the 0.x names `launch-process`, `view`, `str-replace-editor`, and `save-file` for now, and its `/hooks` command flags them ([hooks docs](https://docs.augmentcode.com/cli/hooks.md)). Auggie 0.x knows only the 0.x names and matches case-sensitively. A Claude-style matcher (`Bash`, `Write`, ...) raises a sync note: in 1.x only `Bash`, `Read`, `Edit`, `Write`, and `Grep` reach a tool, and in 0.x none does.
 
 ### Shared memory
 

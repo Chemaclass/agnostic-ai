@@ -17,7 +17,7 @@ func TestBuild_TraeOpenHandsGooseAndAugmentShellPayloads(t *testing.T) {
 		{"trae", "PreToolUse", "RunCommand", "hook_event_name", "command"},
 		{"openhands", "PreToolUse", "terminal", "event_type", "command"},
 		{"goose", "PreToolUse", "shell", "event", "command"},
-		{"augment", "PreToolUse", "launch-process", "hook_event_name", "command"},
+		{"augment", "PreToolUse", "bash", "hook_event_name", "command"},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			p, err := Build(tc.target, tc.event, "", root, Input{Bash: "git push"})
@@ -49,7 +49,7 @@ func TestBuild_EditPayloadsWhereTheToolInputIsDocumented(t *testing.T) {
 	}
 	doc = decode(t, augment.Body)
 	changes, _ := doc["file_changes"].([]any)
-	if input, _ := doc["tool_input"].(map[string]any); doc["tool_name"] != "str-replace-editor" || input["path"] != "src/a.go" || len(changes) != 1 {
+	if input, _ := doc["tool_input"].(map[string]any); doc["tool_name"] != "edit" || input["path"] != "src/a.go" || input["edits"] == nil || len(changes) != 1 || doc["tool_is_error"] != false || doc["tool_result"] == nil {
 		t.Errorf("augment edit payload = %s", augment.Body)
 	}
 	for _, target := range []string{"trae", "openhands"} {
@@ -92,6 +92,10 @@ func TestBuild_MatcherRulesPerTarget(t *testing.T) {
 		{"goose", "*", false},
 		{"goose", "she", true},
 		{"augment", "launch", true},
+		{"augment", "^bash$", true},
+		{"augment", "Bash", true},
+		{"augment", "^launch-process$", true},
+		{"augment", "edit|write", false},
 	} {
 		p, err := Build(tc.target, "PreToolUse", tc.matcher, root, Input{Bash: "ls"})
 		if err != nil {
@@ -212,6 +216,32 @@ func TestOtherArgv_Augment(t *testing.T) {
 		got, ok := otherArgv("augment", tc.goos, tc.h)
 		if !ok || !slices.Equal(got, tc.want) {
 			t.Errorf("%s %+v = %q, want %q", tc.goos, tc.h, got, tc.want)
+		}
+	}
+}
+
+// docs.augmentcode.com/cli/hooks.md: Auggie 1.x names its tools bash,
+// edit, and write, matches case-insensitively, and still matches the
+// 0.x names launch-process, str-replace-editor, and save-file.
+func TestBuild_AugmentEditPicksTheToolTheMatcherNames(t *testing.T) {
+	root := t.TempDir()
+	for _, tc := range []struct {
+		matcher, tool string
+		fires         bool
+	}{
+		{"", "edit", true},
+		{"^write$", "write", true},
+		{"Write", "write", true},
+		{"save-file", "write", true},
+		{"str-replace-editor", "edit", true},
+		{"bash", "edit", false},
+	} {
+		p, err := Build("augment", "PreToolUse", tc.matcher, root, Input{Edit: "src/a.go"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if doc := decode(t, p.Body); doc["tool_name"] != tc.tool || p.Fires != tc.fires {
+			t.Errorf("matcher %q: tool %v fires %v, want %s %v", tc.matcher, doc["tool_name"], p.Fires, tc.tool, tc.fires)
 		}
 	}
 }

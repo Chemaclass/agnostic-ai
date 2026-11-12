@@ -315,11 +315,11 @@ A tool that lacks the input a flag needs is not run, and the other tools still r
 
 ### Augment sample events
 
-`--bash` calls `launch-process`; `--edit` calls `str-replace-editor` or `save-file`. `--prompt` builds `PromptSubmit`, with the text in `user_prompt`. `Stop`, `SessionEnd`, and `Notification` need no input: `Stop` sends `agent_stop_cause: "end_turn"`, and `Notification` sends `notification_type: "info"` with an empty `notification_message`. Every event carries `hook_event_name`, `hook_type`, `cwd`, `conversation_id`, and `workspace_roots`.
+`hook run` sends the tool names Auggie 1.x sends: `--bash` calls `bash`; `--edit` calls `edit`, or `write` when the matcher names only that. Matchers follow Auggie 1.x: case-insensitive, and the 0.x names `launch-process`, `str-replace-editor`, and `save-file` still match `bash`, `edit`, and `write`. For an Auggie 0.x payload, pass `--payload <file>`; its matcher is still read the 1.x way. `--prompt` builds `PromptSubmit`, with the text in `user_prompt`. `Stop`, `SessionEnd`, and `Notification` need no input: `Stop` sends `agent_stop_cause: "end_turn"`, and `Notification` sends `notification_type: "info"` with an empty `notification_message`. Every event carries `hook_event_name`, `hook_type`, `cwd`, `conversation_id`, and `workspace_roots`.
 
 ## Matcher and plugin limits
 
-Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead. Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
+Gemini and Augment matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead. Gemini CLI and Auggie would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
 
 OpenCode and Kilo run hooks as plugins and Zed as tasks, so they are not run. OpenCode V2 plugins receive native event JSON on stdin; the command does not simulate their runtime.
 

@@ -167,12 +167,8 @@ func TestEmit_Hook_ArgsReachTheHandler(t *testing.T) {
 	}
 }
 
-// Augment's own PreToolUse/PostToolUse matcher vocabulary is its tool
-// names (launch-process, str-replace-editor, save-file, ...), not
-// Claude Code's, so a Claude-style matcher parses and then matches
-// nothing; that case surfaces a coverage note rather than a silent
-// pass-through, the same treatment openhands and windsurf give their
-// own mismatched tool vocabularies (#629).
+// A Claude-style matcher matches nothing in Auggie 0.x and only some
+// tools in 1.x, so it surfaces a coverage note (#629, #3347).
 func TestEmit_Hook_ClaudeStyleMatcherSurfacesCoverageNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()

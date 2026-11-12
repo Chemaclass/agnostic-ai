@@ -74,3 +74,13 @@ func TestAugmentHooks_ToolEventsKeepTheirMatcher(t *testing.T) {
 		t.Errorf("PreToolUse lost its matcher: %s", data)
 	}
 }
+
+func TestAugmentHooks_ClaudeStyleMatcherNoteNamesTheAuggie1Tools(t *testing.T) {
+	augmentHookProject(t, "PreToolUse", "matcher: Bash\n")
+	notes := strings.Join(syncNotes(t), "\n")
+	for _, want := range []string{"bash, read, edit, write", "launch-process"} {
+		if !strings.Contains(notes, want) {
+			t.Errorf("matcher note lacks %q:\n%s", want, notes)
+		}
+	}
+}
