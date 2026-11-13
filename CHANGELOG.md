@@ -18,6 +18,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### OpenCode
+
+- `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it and OpenCode keeps routing the command as written (#3383).
+
 #### OpenHands
 
 - `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
