@@ -120,3 +120,17 @@ func TestImportZedMCP_LeavesOutServerWithOAuthSecret(t *testing.T) {
 		return nil
 	})
 }
+
+func TestPreviewMCPSpecZed_RefusesOAuthSecret(t *testing.T) {
+	server := map[string]any{
+		"url":   "https://example.test/mcp",
+		"oauth": map[string]any{"client_id": "abc", "client_secret": "s3cr3t"},
+	}
+	data, _, err := previewMCPSpec("zed", "secure", ".zed/settings.json", "json", server)
+	if err == nil || !strings.Contains(err.Error(), "oauth.client_secret") {
+		t.Fatalf("err = %v, want a credential error naming oauth.client_secret", err)
+	}
+	if data != nil {
+		t.Errorf("no spec data may be returned: %s", data)
+	}
+}
