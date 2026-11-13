@@ -96,6 +96,10 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindRule, Name: "r6", Path: "rules/r6.md", Body: "model decision rule body",
 			Meta: map[string]any{"description": "Applies to API design", "alwaysApply": false},
 		},
+		{
+			Kind: spec.KindRule, Name: "r7", Path: "rules/backend/r7.md", Scope: "backend", Body: "native glob rule body",
+			Meta: map[string]any{"alwaysApply": false, "x-windsurf": map[string]any{"globs": []string{"*.go"}}},
+		},
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},

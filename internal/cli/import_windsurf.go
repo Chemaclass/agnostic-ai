@@ -250,6 +250,8 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		scoped, err := importRulesDirectoryWith(root, filepath.Join(scope, rulesDir), src, rulesDirImportOpts{
 			ScopePrefix:   scope,
 			NormalizeMeta: normalizeWindsurfRuleMeta,
+			NativeTarget:  "windsurf",
+			NativeKeys:    []string{"globs"},
 		})
 		if err != nil {
 			return err

@@ -107,6 +107,12 @@ func CheckScopedDestination(path, content string, replaced map[string]bool) erro
 				return fmt.Errorf("%s: native frontmatter differs from the imported specs; import this file before syncing", path)
 			}
 			have, want = before.Body, after.Body
+		} else {
+			before, beforeErr := spec.ParseMarkdownBytes(spec.KindRule, []byte(header.Strip(have)))
+			after, afterErr := spec.ParseMarkdownBytes(spec.KindRule, []byte(header.Strip(want)))
+			if beforeErr == nil && afterErr == nil && len(before.DuplicateKeys) == 0 && len(after.DuplicateKeys) == 0 && reflect.DeepEqual(before.Meta, after.Meta) {
+				have, want = before.Body, after.Body
+			}
 		}
 		if line, missing := lineMissingFrom(have, want); missing {
 			return fmt.Errorf("%s: %q is in no spec, so sync would drop it; the file changed after import or was never imported: move the text into .agnostic-ai/, or set the file aside with `mv %s %s.before-agnostic` and run `agnostic-ai sync`", p, line, filepath.ToSlash(p), filepath.ToSlash(p))
