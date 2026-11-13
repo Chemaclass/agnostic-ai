@@ -44,6 +44,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
 - `import goose` keeps each hook's own `timeout` and `on_failure` instead of copying the first command's values to its group, and warns when a written command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` (#3399).
 
+#### Antigravity
+
+- `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. An inline `mcpServers` entry that holds a literal credential is left out with a warning that names the server and field. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
+
 #### Kiro
 
 - `import kiro` keeps an agent's native `excludedTools`, `includeMcpJson`, `includePowers`, `resources`, `permissions`, `welcomeMessage` and `hooks` under `x-kiro`, so `sync` no longer drops them; deleting one from the native file drops it on the next import (#3394).

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestImportFromAntigravity_RulesAndAgents(t *testing.T) {
@@ -766,5 +767,188 @@ func TestImportFromAntigravity_MirrorsLegacyAgentsMD(t *testing.T) {
 	}
 	if string(got) != body {
 		t.Errorf("%s not byte-identical to .agent/AGENTS.md. got %q", agnosticMainFile, got)
+	}
+}
+
+const antigravityNativeAgentYAML = "tools: [view_file, run_command]\ncommandExecutionPolicy: sandbox\nmainAgent: false\nsubagent: true\nskills: [skills/security-checklist]\nplugins: [lint-kit]\nmcpServers:\n  - name: probe\n    command: probe\n"
+
+func TestImportAntigravity_KeepsNativeAgentFields(t *testing.T) {
+	for _, form := range []string{".agents/agents/auditor/agent.md", ".agents/agents/auditor.md"} {
+		t.Run(form, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+			native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+			writeFile(t, filepath.Join(dir, form), "---\nname: auditor\ndescription: Audit code\n"+antigravityNativeAgentYAML+"---\n\nAudit.\n")
+
+			execCLI(t, "import", "antigravity")
+			spec := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/auditor.md"))
+			if !strings.Contains(spec, "x-antigravity:") {
+				t.Fatalf("native fields not scoped:\n%s", spec)
+			}
+			head := strings.SplitN(spec, "x-antigravity:", 2)[0]
+			for _, key := range []string{"tools:", "commandExecutionPolicy:", "mainAgent:", "subagent:", "skills:", "plugins:", "mcpServers:"} {
+				if strings.Contains(head, key) {
+					t.Errorf("%s left at the top level:\n%s", key, spec)
+				}
+			}
+
+			execCLI(t, "sync", "-t", "antigravity")
+			got := readFile(t, native)
+			for _, want := range []string{"view_file", "run_command", "commandExecutionPolicy: sandbox", "mainAgent: false", "subagent: true", "skills/security-checklist", "lint-kit", "command: probe"} {
+				if !strings.Contains(got, want) {
+					t.Errorf("missing %q after sync:\n%s", want, got)
+				}
+			}
+			execCLI(t, "sync", "--check", "-t", "antigravity")
+			execCLI(t, "lint")
+		})
+	}
+}
+
+func TestImportAntigravity_DeletedNativeAgentFieldsAreDropped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+	native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\n"+antigravityNativeAgentYAML+"---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\ntools: [view_file]\ncommandExecutionPolicy: sandbox\nmainAgent: false\n---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+	got := readFile(t, native)
+	if strings.Contains(got, "subagent") || !strings.Contains(got, "commandExecutionPolicy: sandbox") || strings.Contains(got, "run_command") {
+		t.Errorf("one removed key not dropped cleanly:\n%s", got)
+	}
+
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\n---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+	got = readFile(t, native)
+	for _, gone := range []string{"tools", "commandExecutionPolicy", "mainAgent", "subagent", "skills", "plugins", "mcpServers", "probe"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("deleted %q returned:\n%s", gone, got)
+		}
+	}
+}
+
+func TestImportAntigravity_AgentMCPServersLeaveOutLiteralSecrets(t *testing.T) {
+	const secret = "s3cr3t-value-9f2c41"
+	cases := []struct{ name, server, secret string }{
+		{"serverUrl userinfo", "serverUrl: https://user:" + secret + "@example.test/mcp", ""},
+		{"serverUrl api_key query", "serverUrl: https://example.test/mcp?api_key=" + secret, ""},
+		{"authorization header", "serverUrl: https://example.test/mcp\nheaders:\n  Authorization: Bearer " + secret, ""},
+		{"env token", "command: probe\nenv:\n  API_TOKEN: " + secret, ""},
+		{"args token", "command: probe\nargs: [--token=" + secret + "]", ""},
+		{"unknown apiKey key", "command: probe\napiKey: " + secret, ""},
+		{"nested auth token", "command: probe\nauth:\n  token: " + secret, ""},
+		{"oauth client secret", "serverUrl: https://example.test/mcp\noauth:\n  client_secret: " + secret, ""},
+		{"non-string key beside header", "serverUrl: https://example.test/mcp\nheaders:\n  Authorization: Bearer " + secret + "\n  1: x", ""},
+		{"unquoted int env token", "command: probe\nenv:\n  API_TOKEN: 1234567890", "1234567890"},
+		{"unquoted int apiKey", "command: probe\napiKey: 9876543210", "9876543210"},
+	}
+	indent := func(text, pad string) string {
+		return pad + strings.ReplaceAll(text, "\n", "\n"+pad)
+	}
+	for _, shape := range []string{"list", "map"} {
+		for _, tc := range cases {
+			t.Run(shape+"/"+tc.name, func(t *testing.T) {
+				secret := secret
+				if tc.secret != "" {
+					secret = tc.secret
+				}
+				dir := testutil.TempCwd(t)
+				writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+				const clean = "command: probe\nenv:\n  MODE: ${MODE}"
+				var servers string
+				if shape == "list" {
+					servers = "mcpServers:\n  - name: bad\n" + indent(tc.server, "    ") + "\n  - name: clean\n" + indent(clean, "    ") + "\n"
+				} else {
+					servers = "mcpServers:\n  bad:\n" + indent(tc.server, "    ") + "\n  clean:\n" + indent(clean, "    ") + "\n"
+				}
+				native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+				writeFile(t, native, "---\nname: auditor\ndescription: Audit code\n"+servers+"---\n\nAudit.\n")
+
+				var buf bytes.Buffer
+				prev := logOut
+				logOut = &buf
+				execCLI(t, "import", "antigravity")
+				logOut = prev
+				out := buf.String()
+				execCLI(t, "sync", "-t", "antigravity")
+
+				if !strings.Contains(out, "MCP server bad: left out") || strings.Contains(out, secret) {
+					t.Errorf("warning must name the server and never the value:\n%s", out)
+				}
+				_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+					if err != nil || d.IsDir() || strings.Contains(path, "/.git/") {
+						return nil
+					}
+					data, _ := os.ReadFile(path)
+					if path == native {
+						return nil
+					}
+					if strings.Contains(string(data), secret) {
+						t.Errorf("secret reached %s", path)
+					}
+					return nil
+				})
+				written := readFile(t, native)
+				if strings.Contains(written, secret) || strings.Contains(written, "bad") {
+					t.Errorf("left-out server written to the agent:\n%s", written)
+				}
+				if !strings.Contains(written, "clean") || !strings.Contains(written, "${MODE}") {
+					t.Errorf("clean server not kept:\n%s", written)
+				}
+			})
+		}
+	}
+}
+
+func TestImportAntigravity_AgentMCPServersFailClosed(t *testing.T) {
+	cases := []struct{ name, servers, left string }{
+		{"scalar server in a list", "mcpServers:\n  - just-a-string\n  - name: clean\n    command: probe\n", "clean"},
+		{"scalar server in a map", "mcpServers:\n  bad: just-a-string\n  clean:\n    command: probe\n", "clean"},
+		{"duplicate key", "mcpServers:\n  - name: bad\n    env:\n      A: x\n      A: y\n  - name: clean\n    command: probe\n", "clean"},
+		{"field is a scalar", "mcpServers: probe\n", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+			native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+			writeFile(t, native, "---\nname: auditor\ndescription: Audit code\n"+tc.servers+"---\n\nAudit.\n")
+			var buf bytes.Buffer
+			prev := logOut
+			logOut = &buf
+			execCLI(t, "import", "antigravity")
+			logOut = prev
+			execCLI(t, "sync", "-t", "antigravity")
+			written := readFile(t, native)
+			if !strings.Contains(buf.String(), "left out") {
+				t.Errorf("no warning:\n%s", buf.String())
+			}
+			if strings.Contains(written, "just-a-string") || strings.Contains(written, "bad") || strings.Contains(written, "probe") != (tc.left != "") {
+				t.Errorf("unexpected agent file:\n%s", written)
+			}
+		})
+	}
+}
+
+func TestImportAntigravity_AgentMCPServersKeepCleanLiteralSettings(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+	native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\nmcpServers:\n  - name: web\n    serverUrl: https://example.test/mcp\n    headers:\n      Accept: application/json\n    env:\n      LOG_LEVEL: debug\n---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+	written := readFile(t, native)
+	for _, want := range []string{"LOG_LEVEL: debug", "Accept: application/json", "name: web"} {
+		if !strings.Contains(written, want) {
+			t.Errorf("clean server lost %q:\n%s", want, written)
+		}
 	}
 }
