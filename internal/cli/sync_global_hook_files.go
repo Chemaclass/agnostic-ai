@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -22,6 +23,9 @@ func addGlobalHookFiles(home, source, target string, g globalTarget, hooks []spe
 	}
 	if target == "cline" {
 		return addGlobalClineHookFiles(home, source, g, hooks, onUnsupported, add)
+	}
+	if target == "goose" {
+		return addGlobalGooseHookFiles(home, source, g, hooks, onUnsupported, add)
 	}
 	if target != "kiro" {
 		return fmt.Errorf("%s: native global hook directory rendering is unsupported", target)
@@ -106,6 +110,43 @@ func addGlobalHookFiles(home, source, target string, g globalTarget, hooks []spe
 		}
 	}
 	return nil
+}
+
+func addGlobalGooseHookFiles(home, source string, g globalTarget, hooks []spec.Entry, onUnsupported string, add func(string, []byte, fs.FileMode) error) error {
+	dir, scriptsDir := g.path(home, g.hooksDir), g.path(home, g.hookScriptsDir)
+	if err := adapters.ReportHookProjectRoot("goose", hooks, onUnsupported, true); err != nil {
+		return err
+	}
+	body, err := goose.GlobalHooksFile(hooks, filepath.ToSlash(scriptsDir))
+	if err != nil || body == nil {
+		return err
+	}
+	if wrapper, ok := adapters.PortableHookWrapperScript(hooks, "goose", scriptsDir); ok {
+		if err := add(wrapper.Path, wrapper.Body, wrapper.Mode); err != nil {
+			return err
+		}
+	}
+	for _, hook := range hooks {
+		for _, command := range globalHookCommands(hook.Meta["command"]) {
+			scripts, err := adapters.NeutralHookScriptsFor(hook, command, "goose", filepath.Join(source, "scripts"), scriptsDir, len(stringSliceFromAny(hook.Meta["args"])) > 0)
+			if err != nil {
+				return err
+			}
+			for _, script := range scripts {
+				if err := add(script.Path, script.Body, script.Mode); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	manifest, err := goose.GlobalPluginManifest(filepath.Dir(dir))
+	if err != nil {
+		return err
+	}
+	if err := add(filepath.Join(filepath.Dir(dir), "plugin.json"), manifest, 0o644); err != nil {
+		return err
+	}
+	return add(filepath.Join(dir, "hooks.json"), body, 0o644)
 }
 
 func addGlobalClineHookFiles(home, source string, g globalTarget, hooks []spec.Entry, onUnsupported string, add func(string, []byte, fs.FileMode) error) error {

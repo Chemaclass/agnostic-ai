@@ -36,6 +36,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Goose
 
+- `sync --global` writes hooks to the user plugin `~/.agents/plugins/agnostic-ai-global/` (`hooks/hooks.json` and `plugin.json`), which Goose loads for every project (#3389).
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
 - `import goose` keeps each hook's own `timeout` and `on_failure` instead of copying the first command's values to its group, and warns when a written command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` (#3399).
 
@@ -165,6 +166,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- `import` reads `.augment/settings.json` with comments and trailing commas, as Auggie does (#3384).
+- The Augment guide and the agent `tools` sync note name both the 0.x and 1.x tool names (#3387).
 - `hook run` expands `${VAR}` and `${VAR:-default}` in a hook's command and `args` as Auggie 1.x does, so a default that blocks now reports block (#3358).
 - `hook run` builds `PromptSubmit`, `Stop`, `SessionEnd` and `Notification` payloads without `--payload`, and reads a background block as allow (#3338, #3350).
 - `hook run --bash` and `--edit` send Auggie 1.x tool names (`bash`, `edit`, `write`), and the next `sync` rewrites portable hook matchers to fit (#3353).
