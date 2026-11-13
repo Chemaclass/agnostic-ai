@@ -939,4 +939,6 @@
 # #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
 # native agent keys and hook aliases; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-26083328
+# #3422 measured 26083488 bytes on CI (linux/amd64): Factory hook groups keep
+# commandRegex; the budget is that plus 8192, rounded up to a multiple of 4096.
+26095616

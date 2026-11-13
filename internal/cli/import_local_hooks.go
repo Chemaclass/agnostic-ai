@@ -260,10 +260,6 @@ func (g *localImportGuard) dropsHookCommandFiltered(target, event, matcher, comm
 // ownsHookHandler reports whether a local or shared hook spec renders
 // one native handler, and names that spec in the closing note. A local
 // spec wins: sync renders both layers into the same native file.
-func (g *localImportGuard) ownsHookHandler(target, event, matcher, key string) bool {
-	return g.ownsFilteredHookHandler(target, event, matcher, key, "")
-}
-
 func (g *localImportGuard) ownsFilteredHookHandler(target, event, matcher, key, commandRegex string) bool {
 	if owner := g.hooks.ownerFiltered(target, event, matcher, key, commandRegex); owner != "" {
 		g.skipped[string(spec.KindHook)+" "+owner] = true
