@@ -297,7 +297,7 @@ func copilotAgentNativeKeys(doc string, specExists bool) (string, error) {
 		moved = true
 	}
 	// An empty block tells the merge those keys were deleted from the native file.
-	if !moved && !(specExists && scoped == nil && len(meta) > 0) {
+	if !moved && (!specExists || scoped != nil || len(meta) == 0) {
 		return doc, nil
 	}
 	if scoped == nil {
