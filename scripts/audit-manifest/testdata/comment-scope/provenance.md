@@ -1,0 +1,3 @@
+The lint_codes.go fixture is the complete pre-change source from 886a0c9fbf11b2d427910db9ae96780ebf0c9d15^:internal/cli/lint_codes.go. The test applies the exact one-line docs-link replacement from that commit and checks both SHA-256 hashes against the original blobs.
+
+The commit changed only that CLI comment, a CLI reference page, and Cline's target page. With fresh unchanged vendor sources, the former classifier requires every requested target's built-in runtime review. The revised classifier retains Cline's target review plus one shared comment review, whose artifact must be recorded before finalization. This comparison establishes routing, not a measured reduction in audit duration or proof that the prose is correct.

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const researchVersion = 1
+const researchVersion = 2
 
 type reuse struct {
 	Target   string   `json:"target"`
@@ -53,6 +53,20 @@ func (a app) resume(m *manifest, priorDir string) (string, error) {
 	}
 	if prior.Commit != m.Commit || prior.Context != m.Context || prior.BuiltinsSince != m.BuiltinsSince || prior.LockBaseline != m.LockBaseline || prior.SourceList != m.SourceList || prior.BuiltinsInventory.SHA256 != m.BuiltinsInventory.SHA256 || !equalSources(prior.Inventory, m.Inventory) || prior.ResearchVersion != m.ResearchVersion {
 		return "", errors.New("prior research context differs; no research reused")
+	}
+	for i := range m.CommentReviews {
+		if m.CommentReviews[i].Outcome != nil {
+			continue
+		}
+		for _, old := range prior.CommentReviews {
+			if old.ID == m.CommentReviews[i].ID && old.Before == m.CommentReviews[i].Before && old.After == m.CommentReviews[i].After && old.Outcome != nil && sameCommentEvidence(m, prior, m.CommentReviews[i].Targets) {
+				copied, err := copyOutcome(m, prior, old.Outcome)
+				if err != nil {
+					return "", err
+				}
+				m.CommentReviews[i].Outcome = copied
+			}
+		}
 	}
 	seen := map[string]bool{}
 	for _, as := range prior.Assignments {
@@ -129,6 +143,26 @@ func findSource(sources []source, key string) *source {
 
 func reusableOutcome(m *manifest, target string, out *outcome) bool {
 	return out != nil && out.Disposition != "research-limit" && (out.Disposition != "fast-path" || !slices.Contains(m.BuiltinDeep, target))
+}
+
+func sameCommentEvidence(current, prior *manifest, targets []string) bool {
+	seen := map[string]bool{}
+	for _, source := range current.Sources {
+		if !slices.Contains(targets, source.Target) {
+			continue
+		}
+		previous := findSource(prior.Sources, source.key())
+		if previous == nil || !sameEvidence(previous.Fetch, source.Fetch) {
+			return false
+		}
+		seen[source.Target] = true
+	}
+	for _, target := range targets {
+		if !seen[target] {
+			return false
+		}
+	}
+	return true
 }
 
 func sameEvidence(a, b *fetch) bool {

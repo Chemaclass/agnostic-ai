@@ -29,6 +29,7 @@
 set -euo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+TARGET_FACTS_CODE_ROOT="${TARGET_FACTS_CODE_ROOT:-$ROOT}"
 REGISTRY="$ROOT/internal/adapters/adapter.go"
 LOCK="${TARGET_AUDIT_LOCK:-$ROOT/scripts/target-audit/sources.lock}"
 TARGETS_DIR="$ROOT/docs/site/content/docs/targets"
@@ -443,7 +444,7 @@ builtin_review_reasons() {
 # require reading the baseline blob as well as the current source.
 builtin_reasons_since() {
   local rev="$1" detailed="$2" requested="$3" baseline="-" failure=""
-  local path rest pkg target owners reason checklist state list
+  local path rest pkg target owners reason checklist state list exclusions
   list=$(mktemp) || return 1
   if [ -z "$rev" ]; then
     echo "built-ins: no --builtins-since baseline, so every requested target is read deep" >&2
@@ -467,7 +468,21 @@ builtin_reasons_since() {
     rm -f "$list"
     return 0
   fi
+  exclusions=$(mktemp) || { rm -f "$list"; return 1; }
+  if [ -n "${TARGET_FACTS_REVIEW_HELPER:-}" ]; then
+    "$TARGET_FACTS_REVIEW_HELPER" --root "$ROOT" comment-paths "$baseline" <"$list" >"$exclusions" 2>/dev/null || : >"$exclusions"
+  elif command -v go >/dev/null 2>&1; then
+    go -C "$TARGET_FACTS_CODE_ROOT" run ./scripts/audit-manifest --root "$ROOT" comment-paths "$baseline" <"$list" >"$exclusions" 2>/dev/null || : >"$exclusions"
+  fi
   while IFS= read -r -d '' path; do
+    if [ -n "$path" ] && ! printf '%s' "$path" | grep '[[:cntrl:]]' >/dev/null && grep -Fx -- "$path" "$exclusions" >/dev/null; then
+      if [ "$detailed" -eq 1 ]; then
+        for target in $requested; do
+          review_row "$target" comment-only "$baseline" "$path" changed shared-comment-review
+        done
+      fi
+      continue
+    fi
     owners="" reason=shared-repository checklist=target-claims,built-in-review
     if builtin_shared_path "$path" || builtin_cli_path "$path"; then
       owners="$requested"
@@ -515,7 +530,7 @@ builtin_reasons_since() {
       break
     fi
   done <"$list"
-  rm -f "$list"
+  rm -f "$list" "$exclusions"
 }
 
 # builtins_baseline <report>... prints the --builtins-since list: each

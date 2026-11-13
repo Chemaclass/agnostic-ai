@@ -12,7 +12,11 @@ Reuse the `scripts/audit-manifest` binary built for isolation, as `scripts/targe
 
 Initialize the run metrics before fetching, using `.agnostic-ai/skills/target-audit/references/metrics.md`. Record observed stages, routing decisions, usage, and outcomes there, including a no-change early return.
 
-Fetch once and capture the fetched evidence using `scripts/target-audit/manifest.md`. The fetch saves fresh bodies, comparison hashes and statuses against `scripts/target-audit/sources.lock`. Read its summary and failed rows before delegating. Fetch-only watcher runs do not need a manifest.
+Export `TARGET_FACTS_REVIEW_HELPER="$audit_tools/audit-manifest"` immediately after building the current helper, as the manifest setup shows. Without a usable helper, routing stays conservative.
+
+Fetch once and capture the fetched evidence using `scripts/target-audit/manifest.md`. The fetch saves fresh bodies, comparison hashes and statuses against `scripts/target-audit/sources.lock`. Read its summary and failed rows before delegating.
+
+After capture, run `<helper> comment-reviews <run>`. Review each pending baseline/path pair once using its saved before/after source. Check changed prose for native behavior claims against this run's vendor evidence. Save a conclusion artifact and record `<helper> review-comment <run> <id> <artifact> <reason>`. Carry confirmed findings and unresolved claims into synthesis. These are prose checks, not permission to infer runtime changes or Clean. Missing or stale shared reviews block fast paths and finalization, including otherwise unchanged runs. Fetch-only watcher runs do not need a manifest.
 
 For an explicit research continuation, independently start, initialize metrics, fetch and capture a new run, then run `resume <new-run> <prior-run-directory>` as the manifest reference defines. Reuse only its validated completed targets; assign the pending targets below. Read `reused` in the new manifest and preserve the findings and coverage in their copied artifacts. Remove those targets from deep batches and sweeps before dispatch or recording. Reused research is completed coverage, not an automatic Clean verdict. A same-day report alone does not authorize evidence reuse.
 

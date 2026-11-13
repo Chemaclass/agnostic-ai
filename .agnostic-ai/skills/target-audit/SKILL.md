@@ -27,7 +27,7 @@ Follow `.agnostic-ai/skills/target-audit/references/preparation.md` for the wind
 
 Freeze repository inputs, source inventory, and lock until finalization. Preserve validated reused assignments; remove them from pending work. Every requested target needs exactly one assignment and every requested source its own disposition. Reuse never implies Clean.
 
-When no pending target needs deep review, record justified fast paths and skip triage and auditors. Reused findings, signals, or uncertain publication still require synthesis and delivery. Only a pure no-change run can skip issue indexing and signals before reporting and finalizing.
+Complete the shared prose checks listed by `comment-reviews` before recording fast paths, even when no target needs deep review. When no pending target needs deep review, record justified fast paths and skip triage and auditors. Reused findings, signals, or uncertain publication still require synthesis and delivery. Only a pure no-change run can skip issue indexing and signals before reporting and finalizing.
 
 Otherwise follow `.agnostic-ai/skills/target-audit/references/triage.md` before dispatch. Deep review remains the default. All-built-in deep work uses offline triage; Jev cannot exempt it.
 

@@ -11,6 +11,7 @@ Build the helper once outside the checkout, then create a dedicated worktree bef
 ```bash
 audit_tools=$(mktemp -d)
 go build -o "$audit_tools/audit-manifest" ./scripts/audit-manifest
+export TARGET_FACTS_REVIEW_HELPER="$audit_tools/audit-manifest"
 worktree=$("$audit_tools/audit-manifest" isolate --out /tmp/agnostic-audit-research)
 cd "$worktree"
 evidence=$(jq -r .evidence_directory "$(git rev-parse --git-path target-audit-isolation.json)")
@@ -152,6 +153,23 @@ HTML comparison text no longer includes `<template>` content or a site banner `<
 GitHub release indexes now start with `# docfetch-release-index-v2` and retain note bodies as well as tags and publication dates, so edits to old release notes change the hash. Existing version-one lock rows deliberately report changed on the first fetch. Review that delta before advancing the lock through the normal validated audit. There is no automatic migration or baseline promotion. Without a valid API array or `jq`, the comparison retains the entire response rather than omitting possibly changed notes.
 
 Download the workflow's `vendor-watch-pages` artifact to inspect each reported `.delta`, its sibling `.body`, and its normalized `.txt` comparison. The issue report names raw delta paths, explains suppressed counters when other changes are reported, and marks historical additions as unreviewed. A counter-only run creates no actionable issue; its classification and raw evidence remain in the artifact. URL/hash deduplication is unchanged. A page that fails the same way as on a run in the last 30 days is a known block: it is reported once, then stays quiet while it keeps failing that way. A new HTTP code is reported again, and for a page that loads but fails on content, so is a new fetch mode such as `soft-404`.
+
+## Shared comment reviews
+
+Research policy version 2 can replace repeated built-in runtime checks for an ordinary comment-only CLI change with one shared prose review. It requires parsed raw Go source, identical noncomment tokens and token line positions, regular tracked files with unchanged modes, and no compiler/build directives or cgo. Changed comments can still make wrong native claims; the coordinator must read them against fresh vendor evidence.
+
+Build the current helper once and export `TARGET_FACTS_REVIEW_HELPER` to that binary before fetching or routing. The shell fallback uses `go run` when available and otherwise retains deep review. `comment-paths <baseline>` reads a NUL-separated changed-path list and is the narrow proof helper used by target-facts; it does not mark prose reviewed.
+
+After capture:
+
+```sh
+"$audit_tools/audit-manifest" comment-reviews "$run"
+"$audit_tools/audit-manifest" review-comment "$run" <check-id> <review.md> '<what was checked and concluded>'
+```
+
+The first command prints each check ID, source path, disposition, and exact saved before/after source paths. Capture records baseline, affected targets, and source hashes. The second command records a nonempty reason and a completed reviewer artifact by hash. Identical retries are harmless; conflicting evidence is rejected. Retain findings and unresolved claims in synthesis rather than treating the token proof as confirmation of prose.
+
+Missing, altered, or omitted checks block finalization. A pending or stale reviewer artifact also blocks fast-path completion and ingestion. Recorded assignment/source coverage remains separate. Explicit resume preserves any review already recorded in the current run. It copies a matching prior reviewed artifact only when its source fingerprints, context, and every affected target's fresh vendor evidence still match and remain usable; old research-policy runs cannot be promoted into these exclusions.
 
 ## Schedule pending deep reviews
 

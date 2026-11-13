@@ -55,30 +55,31 @@ type fetch struct {
 }
 
 type manifest struct {
-	Queue             *reviewQueue   `json:"review_queue,omitempty"`
-	Results           []targetResult `json:"results,omitempty"`
-	Version           int            `json:"version"`
-	ResearchVersion   int            `json:"research_version"`
-	ResumeFrom        string         `json:"resume_prior_run_id,omitempty"`
-	Reused            []reuse        `json:"reused,omitempty"`
-	RunID             string         `json:"run_id"`
-	Directory         string         `json:"directory"`
-	Repository        string         `json:"repository"`
-	SourceLock        string         `json:"source_lock"`
-	Created           string         `json:"created"`
-	Commit            string         `json:"audited_commit"`
-	Context           string         `json:"audited_context_sha256"`
-	BuiltinsSince     string         `json:"builtins_since"`
-	BuiltinsInventory artifact       `json:"builtins_inventory"`
-	BuiltinDeep       []string       `json:"builtin_deep_targets"`
-	SourceList        string         `json:"source_list_sha256"`
-	LockBaseline      string         `json:"lock_baseline_sha256"`
-	Targets           []string       `json:"targets"`
-	Inventory         []source       `json:"inventory"`
-	Sources           []source       `json:"sources"`
-	Assignments       []assignment   `json:"assignments"`
-	RowsSHA256        string         `json:"rows_sha256,omitempty"`
-	Finalized         string         `json:"finalized,omitempty"`
+	CommentReviews    []commentReview `json:"comment_reviews,omitempty"`
+	Queue             *reviewQueue    `json:"review_queue,omitempty"`
+	Results           []targetResult  `json:"results,omitempty"`
+	Version           int             `json:"version"`
+	ResearchVersion   int             `json:"research_version"`
+	ResumeFrom        string          `json:"resume_prior_run_id,omitempty"`
+	Reused            []reuse         `json:"reused,omitempty"`
+	RunID             string          `json:"run_id"`
+	Directory         string          `json:"directory"`
+	Repository        string          `json:"repository"`
+	SourceLock        string          `json:"source_lock"`
+	Created           string          `json:"created"`
+	Commit            string          `json:"audited_commit"`
+	Context           string          `json:"audited_context_sha256"`
+	BuiltinsSince     string          `json:"builtins_since"`
+	BuiltinsInventory artifact        `json:"builtins_inventory"`
+	BuiltinDeep       []string        `json:"builtin_deep_targets"`
+	SourceList        string          `json:"source_list_sha256"`
+	LockBaseline      string          `json:"lock_baseline_sha256"`
+	Targets           []string        `json:"targets"`
+	Inventory         []source        `json:"inventory"`
+	Sources           []source        `json:"sources"`
+	Assignments       []assignment    `json:"assignments"`
+	RowsSHA256        string          `json:"rows_sha256,omitempty"`
+	Finalized         string          `json:"finalized,omitempty"`
 }
 
 func main() {
@@ -676,6 +677,10 @@ func (a app) capture(m *manifest) error {
 	if err != nil {
 		return err
 	}
+	m.CommentReviews, err = a.commentReviews(m, true)
+	if err != nil {
+		return err
+	}
 	return save(m)
 }
 
@@ -707,6 +712,11 @@ func readOutcome(m *manifest, args []string) (*outcome, error) {
 	if err != nil {
 		return nil, err
 	}
+	if args[0] == "fast-path" {
+		if err := requireCommentReviews(m); err != nil {
+			return nil, err
+		}
+	}
 	return &outcome{Disposition: args[0], Reason: args[2], Artifact: a}, nil
 }
 
@@ -719,6 +729,11 @@ func validateOutcome(m *manifest, out *outcome) error {
 	}
 	if out.Disposition == "fast-path" && m.BuiltinsSince == "" {
 		return errors.New("fast path requires a built-in baseline")
+	}
+	if out.Disposition == "fast-path" {
+		if err := requireCommentReviews(m); err != nil {
+			return err
+		}
 	}
 	return checkArtifact(m.Directory, out.Artifact)
 }
@@ -743,6 +758,9 @@ func (a app) validateEvidence(m *manifest, expectedLock string) error {
 	}
 	if !slices.Equal(deep, m.BuiltinDeep) {
 		return errors.New("built-in baseline classification changed")
+	}
+	if err := a.validateCommentEvidence(m); err != nil {
+		return err
 	}
 	rowBytes, err := os.ReadFile(filepath.Join(m.Directory, "docfetch.tsv"))
 	if err != nil {
@@ -796,6 +814,9 @@ func (a app) validate(m *manifest) error {
 
 func (a app) validateAtLock(m *manifest, expectedLock string) error {
 	if err := a.validateEvidence(m, expectedLock); err != nil {
+		return err
+	}
+	if err := requireCommentReviews(m); err != nil {
 		return err
 	}
 	var err error
@@ -943,10 +964,23 @@ func (a app) finalize(m *manifest) (string, error) {
 
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
-		return "", errors.New("usage: isolate|start|capture|resume|checkpoint|checkpoints|schedule|dispatch|release|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
+		return "", errors.New("usage: isolate|start|capture|comment-paths|comment-reviews|review-comment|resume|checkpoint|checkpoints|schedule|dispatch|release|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
 
 	}
 	switch args[0] {
+	case "comment-paths":
+		if len(args) != 2 {
+			return "", errors.New("comment-paths requires a baseline and NUL-separated paths on stdin")
+		}
+		baseline, err := a.command("git", "rev-parse", "--verify", args[1]+"^{commit}")
+		if err != nil {
+			return "", err
+		}
+		paths, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", fmt.Errorf("read changed paths: %w", err)
+		}
+		return a.commentPaths(baseline, paths), nil
 	case "isolate":
 		return a.isolate(args[1:])
 	case "start":
@@ -984,10 +1018,20 @@ func (a app) run(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if m.Finalized != "" && args[0] != "finalize" {
+	if m.Finalized != "" && args[0] != "finalize" && args[0] != "comment-reviews" {
 		return "", errors.New("run already finalized")
 	}
 	switch args[0] {
+	case "comment-reviews":
+		if len(args) != 2 {
+			return "", errors.New("comment-reviews requires only a run directory")
+		}
+		if err := a.validateCommentEvidence(m); err != nil {
+			return "", err
+		}
+		return commentReviewReport(m), nil
+	case "review-comment":
+		return "", a.reviewComment(m, args[2:])
 	case "ingest":
 		if len(args) != 3 {
 			return "", errors.New("ingest requires run and result JSON path")
@@ -1027,6 +1071,11 @@ func (a app) run(args []string) (string, error) {
 		if len(args) != 6 {
 			return "", errors.New("complete requires run, target, disposition, artifact and reason")
 		}
+		if args[3] == "fast-path" {
+			if err := a.validateEvidence(m, m.LockBaseline); err != nil {
+				return "", err
+			}
+		}
 		out, outErr := readOutcome(m, args[3:])
 		if outErr != nil {
 			return "", outErr
@@ -1047,6 +1096,11 @@ func (a app) run(args []string) (string, error) {
 	case "record":
 		if len(args) != 8 {
 			return "", errors.New("record requires run, target, kind, URL, disposition, artifact and reason")
+		}
+		if args[5] == "fast-path" {
+			if err := a.validateEvidence(m, m.LockBaseline); err != nil {
+				return "", err
+			}
 		}
 		out, outErr := readOutcome(m, args[5:])
 		if outErr != nil {
