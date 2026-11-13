@@ -63,7 +63,7 @@ func stageGlobalHookFiles(home, stage string, targets []string, have []spec.Entr
 			}
 			continue
 		}
-		if g.hooksDir == "" {
+		if g.hooksDir == "" || target == "goose" {
 			continue
 		}
 		dir := g.path(home, g.hooksDir)

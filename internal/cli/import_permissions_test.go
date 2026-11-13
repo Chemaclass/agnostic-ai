@@ -97,6 +97,29 @@ func TestImportAugmentPermissions_SkipsWhatCannotRoundTrip(t *testing.T) {
 	}
 }
 
+// Auggie reads settings.json as JSONC, so a comment or a trailing
+// comma must not stop the import.
+func TestImportAugmentPermissions_AcceptsJSONC(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".augment", "settings.json"), `{
+	  // team policy
+	  "defaultModel": "sonnet-4",
+	  "toolPermissions": [
+	    {"toolName": "read", "permission": {"type": "allow"},},
+	  ],
+	}`)
+
+	dst := filepath.Join(root, "settings")
+	n, err := importAugmentPermissions(root, dst)
+	if err != nil || n != 1 {
+		t.Fatalf("import: got (%d, %v), want (1, nil)", n, err)
+	}
+	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
+	if !strings.Contains(got, "- read\n") || !strings.Contains(got, "augment: sonnet-4") {
+		t.Errorf("spec missing the commented file's content:\n%s", got)
+	}
+}
+
 // defaultModel and defaultThinkingLevel come back as the portable
 // model and effort, so a re-sync writes the same file.
 func TestImportAugment_ReadsDefaultModelAndEffort(t *testing.T) {

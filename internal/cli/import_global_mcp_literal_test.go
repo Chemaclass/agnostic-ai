@@ -33,3 +33,21 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 		t.Errorf("lint --global must ask only about API_KEY:\n%s", out)
 	}
 }
+
+// Auggie reads ~/.augment/settings.json as JSONC, so import --global
+// must accept a comment and a trailing comma there.
+func TestImportGlobal_AugmentAcceptsJSONCSettings(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(home, ".augment", "settings.json"), `{
+  // personal servers
+  "mcpServers": {"app": {"command": "app-mcp",},},
+}
+`)
+
+	if _, warnings, err := runImportGlobalTest("augment"); err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, filepath.Join(source, "mcps", "app.yaml")); !strings.Contains(got, "app-mcp") {
+		t.Errorf("spec:\n%s\nwant the app server", got)
+	}
+}
