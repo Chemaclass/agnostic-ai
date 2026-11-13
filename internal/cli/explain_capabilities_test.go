@@ -276,3 +276,23 @@ func TestExplainCapabilities_CodexCoveredExactAllowKeepsNativePrefix(t *testing.
 		})
 	}
 }
+
+func TestExplainCapabilities_NativeToolOverrideKeyMatchesAdapter(t *testing.T) {
+	for _, tc := range []struct{ target, key string }{
+		{"vibe", "enabled_tools"},
+		{"windsurf", "allowed-tools"},
+		{"kilo", "permission"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			entry := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-" + tc.target: map[string]any{tc.key: []any{"grep"}}}}
+			got := explainCapabilities(entry, &config.Config{Targets: []string{tc.target}})
+			if len(got) != 1 || !got[0].Supported || got[0].Override != "x-"+tc.target+"."+tc.key {
+				t.Errorf("report=%+v,want override x-%s.%s", got, tc.target, tc.key)
+			}
+			translated := adapters.TranslateAgentCapabilityIn(tc.target, "Read", entry)
+			if translated.Override != "x-"+tc.target+"."+tc.key {
+				t.Errorf("translation=%+v,want override x-%s.%s", translated, tc.target, tc.key)
+			}
+		})
+	}
+}

@@ -13,29 +13,34 @@ type permissionContextTranslator interface {
 	TranslatePermissionContext(list, rule string, entry spec.Entry, settings []spec.Entry, cfg *config.Config) emit.CapabilityTranslation
 }
 
-func TranslateAgentCapabilityIn(target, rule string, entry spec.Entry) CapabilityTranslation {
-	custom, _ := entry.Meta["x-"+target].(map[string]any)
-	keys := []string{"tools"}
+// AgentCapabilityOverrideKey names the x-<target> key that replaces the portable tool mapping in a target's agent file.
+func AgentCapabilityOverrideKey(target string) string {
 	switch target {
 	case "kilo":
-		keys = []string{"permission"}
+		return "permission"
 	case "windsurf":
-		keys = []string{"allowed-tools"}
+		return "allowed-tools"
+	case "vibe":
+		return "enabled_tools"
 	}
-	for _, key := range keys {
-		if value, overridden := custom[key]; overridden {
-			if target == "cursor" {
+	return "tools"
+}
+
+func TranslateAgentCapabilityIn(target, rule string, entry spec.Entry) CapabilityTranslation {
+	custom, _ := entry.Meta["x-"+target].(map[string]any)
+	key := AgentCapabilityOverrideKey(target)
+	if value, overridden := custom[key]; overridden {
+		if target == "cursor" {
+			return CapabilityTranslation{}
+		}
+		if target == "codex" {
+			tools, ok := value.(map[string]any)
+			if !ok || len(tools) == 0 {
 				return CapabilityTranslation{}
 			}
-			if target == "codex" {
-				tools, ok := value.(map[string]any)
-				if !ok || len(tools) == 0 {
-					return CapabilityTranslation{}
-				}
-			}
-			body, _ := json.Marshal(value)
-			return CapabilityTranslation{Native: []string{key + ": " + string(body)}, Supported: true, Override: "x-" + target + "." + key}
 		}
+		body, _ := json.Marshal(value)
+		return CapabilityTranslation{Native: []string{key + ": " + string(body)}, Supported: true, Override: "x-" + target + "." + key}
 	}
 	return TranslateCapability(target, rule)
 }
