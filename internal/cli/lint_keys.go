@@ -62,6 +62,7 @@ func kindKeys(kind spec.Kind) []string {
 var targetKeys = map[string][]string{
 	"glob":         {"qoder"},
 	"mode":         {"kilo", "opencode"},
+	"subagent":     {"opencode"},
 	"max_turns":    {"gemini"},
 	"mcp_servers":  {"gemini"},
 	"timeout_mins": {"gemini"},
