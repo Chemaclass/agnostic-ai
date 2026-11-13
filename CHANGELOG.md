@@ -35,6 +35,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import openhands` keeps `triggers` on a folder skill under `x-openhands`, so `sync` no longer drops the keyword it loads on (#3381).
 - `import openhands` keeps an agent's native `hooks`, `max_iteration_per_run`, `max_budget_per_run`, `condenser`, `profile_store_dir` and `mcp_config` under `x-openhands`, so `sync` no longer drops them (#3408).
 
+#### Windsurf / Devin Desktop
+
+- `import windsurf` keeps an agent's native `max-nesting` under `x-windsurf`, so `sync` no longer drops it (#3395).
+
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).

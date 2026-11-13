@@ -67,7 +67,7 @@ var (
 	openhandsSkillFields   = specFields{keys: defaultSkillFields.keys, scopedNative: map[string]bool{"triggers": true}}
 	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true, "hooks": true, "max_iteration_per_run": true, "max_budget_per_run": true, "condenser": true, "profile_store_dir": true, "mcp_config": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")
-	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")
+	windsurfAgentFields    = specFields{keys: fieldsOf("name", "description", "model", "allowed-tools").keys, scopedNative: map[string]bool{"max-nesting": true}}
 	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")
 	// slicedAgentFields covers an agent recovered from an `##` section of
 	// a shared instructions file (warp, goose), where the heading and body
