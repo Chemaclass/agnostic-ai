@@ -17,7 +17,7 @@ var specKeys = []string{
 	// Agents and skills.
 	"tools", "allowed-tools", "model", "effort", "color", "readonly", "memory", "mcpServers", "permissionMode",
 	"hooks", "disable-model-invocation", "argument-hint", "reasoningEffort", "temperature",
-	"nickname_candidates", "permission", "agent", "subtask", "subagent",
+	"nickname_candidates", "permission", "agent", "subtask",
 	"license", "workspaces",
 	// Rules.
 	"globs", "paths", "alwaysApply",
@@ -62,6 +62,7 @@ func kindKeys(kind spec.Kind) []string {
 var targetKeys = map[string][]string{
 	"glob":         {"qoder"},
 	"mode":         {"kilo", "opencode"},
+	"subagent":     {"opencode"},
 	"max_turns":    {"gemini"},
 	"mcp_servers":  {"gemini"},
 	"timeout_mins": {"gemini"},

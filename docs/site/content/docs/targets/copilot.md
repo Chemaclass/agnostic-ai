@@ -74,8 +74,9 @@ A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its ow
 
 [custom agent profiles](https://docs.github.com/en/copilot/reference/custom-agents-configuration) at `.github/agents/<name>.agent.md`. An existing `<name>.md` keeps its path. VS Code reads any `.md` there, so a second file would load twice.
 
-- Frontmatter has `name`, `description`, and `tools` and `model` when set.
+- Frontmatter has `name`, `description`, and `tools` and `model` when set. An empty `tools: []` is written as is, because Copilot reads it as no tools while a missing key enables all of them.
 - `x-copilot.name` sets a display name that differs from the file name. Import fills it when the two differ.
+- Import moves native keys with no portable field (`user-invocable`, `disable-model-invocation`, `hooks`, ...) under `x-copilot`.
 - Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) are copied as written.
 - A portable `hooks` field is not written. Set `x-copilot.hooks` for hooks that Copilot CLI runs only while that agent is selected ([agent-scoped hooks](https://docs.github.com/en/copilot/reference/hooks-reference#agent-scoped-hooks)).
 - The profile has no effort key, so a portable `effort` gets a sync note. Per-agent `effortLevel` exists only in the `subagents.agents` setting of your personal `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/global-configuration.md#global-output)).

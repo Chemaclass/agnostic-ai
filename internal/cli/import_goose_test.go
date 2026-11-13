@@ -184,3 +184,205 @@ func TestImportGoose_KnownSourceWiredIn(t *testing.T) {
 		t.Errorf("importSources() missing %q: %s", "goose", sources)
 	}
 }
+
+func writeGoosePlugin(t *testing.T, dir, name, hooksJSON string) {
+	t.Helper()
+	plugin := filepath.Join(dir, ".agents", "plugins", name)
+	writeFile(t, filepath.Join(plugin, "skills", name+"-skill", "SKILL.md"),
+		"---\nname: "+name+"-skill\ndescription: Skill of "+name+"\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(plugin, "hooks", "hooks.json"), hooksJSON)
+}
+
+func gooseGuardHooks(command string) string {
+	return `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"` + command + `"}]}]}}`
+}
+
+// TestImportGoose_SkipsDisabledPlugins: Goose loads neither skills nor
+// hooks of a plugin in `disabledPlugins`, so import must not enable them.
+// A closer scope wins, and `enabledPlugins` re-enables a plugin the user
+// scope disabled.
+func TestImportGoose_SkipsDisabledPlugins(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	home := t.TempDir()
+	t.Setenv("GOOSE_PATH_ROOT", home)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	for _, name := range []string{"on", "off-project", "off-local", "off-user", "back-on"} {
+		writeGoosePlugin(t, dir, name, gooseGuardHooks("echo "+name))
+	}
+	writeFile(t, filepath.Join(dir, ".config", "goose", "settings.json"),
+		`{"disabledPlugins":["off-project"],"enabledPlugins":["back-on"]}`)
+	writeFile(t, filepath.Join(dir, ".config", "goose", "settings.local.json"),
+		`{"disabledPlugins":["off-local"]}`)
+	writeFile(t, filepath.Join(home, ".config", "goose", "settings.json"),
+		`{"disabledPlugins":["off-user","back-on"]}`)
+
+	execCLI(t, "import", "goose")
+
+	for _, name := range []string{"on", "back-on"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "skills", name+"-skill", "SKILL.md")); err != nil {
+			t.Errorf("enabled plugin %s skill not imported: %v", name, err)
+		}
+	}
+	for _, name := range []string{"off-project", "off-local", "off-user"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "skills", name+"-skill")); err == nil {
+			t.Errorf("disabled plugin %s skill was imported", name)
+		}
+	}
+	hooks := readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	joined := strings.Join(sortedValues(hooks), "\n")
+	for _, want := range []string{"echo on", "echo back-on"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("enabled hook %q missing:\n%s", want, joined)
+		}
+	}
+	for _, bad := range []string{"echo off-project", "echo off-local", "echo off-user"} {
+		if strings.Contains(joined, bad) {
+			t.Errorf("disabled hook %q imported:\n%s", bad, joined)
+		}
+	}
+}
+
+// TestImportGoose_SplitsHookGroupBySettings: timeout and on_failure
+// belong to each command, so one matcher group splits per distinct pair
+// instead of the first command's values spreading to the rest.
+func TestImportGoose_SplitsHookGroupBySettings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	writeGoosePlugin(t, dir, "team", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"command","command":"echo strict","timeout":10,"on_failure":"block"},
+{"type":"command","command":"echo plain"},
+{"type":"command","command":"echo strict2","timeout":10,"on_failure":"block"}]}]}}`)
+
+	execCLI(t, "import", "goose")
+
+	hooks := readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(hooks) != 2 {
+		t.Fatalf("expected 2 specs, got %d: %v", len(hooks), keys(hooks))
+	}
+	for _, body := range hooks {
+		switch {
+		case strings.Contains(body, "echo strict"):
+			for _, want := range []string{"echo strict2", "timeout: 10", "on_failure: block"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("strict spec missing %q:\n%s", want, body)
+				}
+			}
+		case strings.Contains(body, "echo plain"):
+			for _, bad := range []string{"timeout", "on_failure"} {
+				if strings.Contains(body, bad) {
+					t.Errorf("plain spec inherited %q:\n%s", bad, body)
+				}
+			}
+		default:
+			t.Errorf("unexpected spec:\n%s", body)
+		}
+	}
+}
+
+// TestImportGoose_SameCommandDifferentSettingsKeepsBoth: split specs
+// must not share a name, or the second overwrites the first.
+func TestImportGoose_SameCommandDifferentSettingsKeepsBoth(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	writeGoosePlugin(t, dir, "team", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"command","command":"x","on_failure":"block"},
+{"type":"command","command":"x"}]}]}}`)
+
+	execCLI(t, "import", "goose")
+
+	hooks := readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(hooks) != 2 {
+		t.Fatalf("expected 2 specs, got %d: %v", len(hooks), keys(hooks))
+	}
+	if !strings.Contains(strings.Join(sortedValues(hooks), "\n"), "on_failure: block") {
+		t.Errorf("block was lost:\n%v", hooks)
+	}
+}
+
+func importWithLog(t *testing.T, dir string) string {
+	t.Helper()
+	var out strings.Builder
+	prev := logOut
+	logOut = &out
+	t.Cleanup(func() { logOut = prev })
+	execCLI(t, "import", "goose")
+	return out.String()
+}
+
+// TestImportGoose_WarnsOnPluginRoot: the emitted plugin has no
+// `scripts/` folder, so a written `$PLUGIN_ROOT` or `${PLUGIN_ROOT}`
+// command needs a warning naming the configured plugin root. The
+// plugin sync writes to, and commands that are not written, stay quiet.
+func TestImportGoose_WarnsOnPluginRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets: [goose]\noutputs:\n  goose:\n    hooks-file: .agents/plugins/mine/hooks/hooks.json\n")
+	writeGoosePlugin(t, dir, "team", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"command","command":"${PLUGIN_ROOT}/scripts/a.sh"},
+{"type":"command","command":"$PLUGIN_ROOT/scripts/b.sh"},
+{"type":"prompt","command":"${PLUGIN_ROOT}/scripts/skipped.sh"}]}]}}`)
+	writeGoosePlugin(t, dir, "mine", gooseGuardHooks("${PLUGIN_ROOT}/scripts/own.sh"))
+
+	got := importWithLog(t, dir)
+
+	for _, want := range []string{"a.sh", "b.sh", "into .agents/plugins/mine"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("warning missing %q:\n%s", want, got)
+		}
+	}
+	for _, bad := range []string{"skipped.sh", "own.sh"} {
+		if strings.Contains(got, bad) {
+			t.Errorf("unexpected warning for %q:\n%s", bad, got)
+		}
+	}
+}
+
+// TestImportGoose_SplitNamesSurviveSyncMerge: sync merges specs with the
+// same event and matcher into one group, so a name must depend on the
+// command and its own settings only. Import, sync and import again must
+// not grow the spec count.
+func TestImportGoose_SplitNamesSurviveSyncMerge(t *testing.T) {
+	cases := map[string]func(t *testing.T, dir string){
+		"two plugins": func(t *testing.T, dir string) {
+			writeGoosePlugin(t, dir, "a", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"x","timeout":5}]}]}}`)
+			writeGoosePlugin(t, dir, "b", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"y","timeout":10}]}]}}`)
+		},
+		"unwritten entry": func(t *testing.T, dir string) {
+			writeGoosePlugin(t, dir, "a", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"x"},{"type":"prompt","command":"p","timeout":5}]}]}}`)
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+			setup(t, dir)
+
+			execCLI(t, "import", "goose")
+			first := len(readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks")))
+			execCLI(t, "sync", "-t", "goose")
+			execCLI(t, "import", "goose")
+			second := len(readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks")))
+			if first == 0 || second != first {
+				t.Errorf("spec count %d, then %d after sync and re-import", first, second)
+			}
+		})
+	}
+}

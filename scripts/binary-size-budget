@@ -931,4 +931,12 @@
 # shared file once and takes the project lock) measured 26058912 bytes
 # locally on 2026-11-12, on top of main 54d201ba; the budget is that
 # plus 8192, rounded up to a multiple of 4096.
-26071040
+# #3398 and #3399 measured 26071200 bytes on CI's linux build, 160 over
+# the previous budget: Goose import reads the plugin settings files and
+# splits hook groups. The budget grows by one 4096 byte page.
+# The follow-up review fixes (distinct split names, PLUGIN_ROOT warning)
+# measured 26075296 bytes on CI, 160 over; one more 4096 byte page.
+# #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
+# native agent keys and hook aliases; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+26083328

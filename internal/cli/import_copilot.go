@@ -175,17 +175,21 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 	}
 	if timeout, exists := native["timeoutSec"]; exists {
 		doc["timeout"] = timeout
+	} else if timeout, exists := native["timeout"]; exists {
+		doc["timeout"] = timeout
 	}
 	switch kind {
 	case "command":
 		cwd, _ := native["cwd"].(string)
-		command, _ := native["command"].(string)
+		command, _ := native["bash"].(string)
 		if command == "" {
-			command, _ = native["bash"].(string)
+			command, _ = native["command"].(string)
 		}
 		if windows, _ := native["powershell"].(string); windows != "" {
 			cwd, _ := native["cwd"].(string)
 			doc["commandWindows"] = copilot.ScriptFromCwd(windows, cwd)
+		} else if fallback, _ := native["command"].(string); fallback != "" && fallback != command {
+			doc["commandWindows"] = copilot.ScriptFromCwd(fallback, cwd)
 		}
 		// A wrapped command came from a portable hook; only that form
 		// syncs the wrapper back.
@@ -272,6 +276,38 @@ func copilotAgentIdentity(doc, stem string) string {
 	return "---\n" + front + "\n---\n" + body
 }
 
+// copilotAgentNativeKeys moves the native profile keys that have no
+// portable field (`user-invocable`, `disable-model-invocation`, `hooks`,
+// ...) under `x-copilot`, the only place the emitter reads them from.
+func copilotAgentNativeKeys(doc string, specExists bool) (string, error) {
+	meta, body := splitMdcFrontmatter([]byte(doc))
+	scoped, _ := meta["x-copilot"].(map[string]any)
+	moved := false
+	for key, value := range meta {
+		if copilotAgentFields.keys[key] || key == "x-copilot" || strings.HasPrefix(key, "x-") {
+			continue
+		}
+		if scoped == nil {
+			scoped = map[string]any{}
+		}
+		if _, set := scoped[key]; !set {
+			scoped[key] = value
+		}
+		delete(meta, key)
+		moved = true
+	}
+	// An empty block tells the merge those keys were deleted from the native file.
+	if !moved && (!specExists || scoped != nil || len(meta) == 0) {
+		return doc, nil
+	}
+	if scoped == nil {
+		scoped = map[string]any{}
+	}
+	meta["x-copilot"] = scoped
+	out, err := writeFrontmatter(meta, body)
+	return string(out), err
+}
+
 // importCopilotAgents copies every native agent profile under
 // `.github/agents/` into the agents source dir. Both documented
 // filename forms are accepted (`<name>.agent.md` and `<name>.md`); the
@@ -299,6 +335,11 @@ func importCopilotAgents(root, dstDir string) (int, error) {
 		}
 		dst := filepath.Join(dstDir, name+".md")
 		body := copilotAgentIdentity(header.Strip(string(data)), name)
+		_, statErr := os.Stat(dst)
+		body, err = copilotAgentNativeKeys(body, statErr == nil)
+		if err != nil {
+			return count, fmt.Errorf("translate %s: %w", srcPath, err)
+		}
 		if err := importWriteSpecMarkdown(dst, []byte(body), 0o644, copilotAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
