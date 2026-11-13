@@ -99,3 +99,25 @@ func TestHookRun_AugmentPromptSubmitBlockReplyReadsAsAllow(t *testing.T) {
 		t.Errorf("output = %s", out)
 	}
 }
+
+func TestHookRun_OpenHandsSessionStartContextNeedsSyncHook(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, tc := range []struct {
+		name, async string
+		want        bool
+	}{{"sync", "", true}, {"async", "async: true\n", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "ctx.yaml"), "name: ctx\nevent: SessionStart\n"+tc.async+"command: >-\n  printf '{\"additionalContext\":\"fixture fact\"}'\n")
+			syncProject(t)
+			out, err := runHookRun(t, "ctx", "--target", "openhands", "--format", "json")
+			if err != nil {
+				t.Fatalf("hook run: %v\n%s", err, out)
+			}
+			if got := strings.Contains(out, `"adds_context": true`); got != tc.want {
+				t.Errorf("adds_context true = %v, want %v:\n%s", got, tc.want, out)
+			}
+		})
+	}
+}
