@@ -23,6 +23,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
 - `import goose` keeps each hook's own `timeout` and `on_failure` instead of copying the first command's values to its group, and warns when a written command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` (#3399).
 
+#### Zed
+
+- `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import (#3390).
+
 #### Copilot
 
 - `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).

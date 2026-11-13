@@ -242,7 +242,23 @@ func zedMCPDocs(servers map[string]any) map[string]any {
 				continue
 			}
 		}
+		if enabled, ok := entry["enabled"].(bool); ok && !enabled {
+			out["disabled"] = true
+		}
+		xzed := map[string]any{}
+		for _, key := range zedMCPNativeKeys {
+			if v, ok := entry[key]; ok {
+				xzed[key] = v
+			}
+		}
+		if len(xzed) > 0 {
+			out["x-zed"] = xzed
+		}
 		flat[name] = out
 	}
 	return flat
 }
+
+// zedMCPNativeKeys are the `context_servers` keys with no portable spec
+// field. They ride under `x-zed` and the emitter writes them back.
+var zedMCPNativeKeys = []string{"timeout", "oauth", "remote"}
