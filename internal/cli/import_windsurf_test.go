@@ -788,3 +788,31 @@ func TestImportWindsurf_PreservesAgentMaxNesting(t *testing.T) {
 		t.Errorf("deleted native field returned: %s", got)
 	}
 }
+
+func TestImportWindsurf_AgentScopedKeysDropOneAtATime(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	path := filepath.Join(dir, ".devin/agents/planner.md")
+	resync := func(native string) string {
+		writeFile(t, path, native)
+		execCLI(t, "import", "windsurf")
+		execCLI(t, "sync", "-t", "windsurf")
+		return readFile(t, path)
+	}
+	got := resync("---\nname: planner\ndescription: Plan work\nallowed-tools: [read, custom_tool]\nmax-nesting: 3\n---\n\nPlan work.\n")
+	for _, want := range []string{"max-nesting: 3", "custom_tool"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q: %s", want, got)
+		}
+	}
+	got = resync("---\nname: planner\ndescription: Plan work\nallowed-tools: [read, custom_tool]\n---\n\nPlan work.\n")
+	if strings.Contains(got, "max-nesting") || !strings.Contains(got, "custom_tool") {
+		t.Errorf("removing max-nesting alone must keep allowed-tools: %s", got)
+	}
+	got = resync("---\nname: planner\ndescription: Plan work\n---\n\nPlan work.\n")
+	if strings.Contains(got, "max-nesting") || strings.Contains(got, "custom_tool") {
+		t.Errorf("removing every native key must drop them all: %s", got)
+	}
+}
