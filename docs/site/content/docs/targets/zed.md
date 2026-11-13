@@ -96,6 +96,8 @@ The first sync after a path correction clears the managed block from the old XDG
 
 `agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (as hook specs), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` with all bundled files.
 
+For MCP servers, `enabled: false` imports as `disabled: true`, and `timeout`, `oauth` and `remote` move under `x-zed`. Removing one from `.zed/settings.json` drops it on the next import. A server whose `oauth` holds a client secret is left out with a warning, so no secret reaches a spec.
+
 ## Protected paths
 
 Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

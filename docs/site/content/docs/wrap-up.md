@@ -67,4 +67,4 @@ agnostic-ai explain builtin:wrap-up
 agnostic-ai why .claude/skills/wrap-up/SKILL.md
 ```
 
-To replace the built-in, create your own project skill named `wrap-up`; it wins over the built-in.
+To replace the built-in, create your own project skill named `wrap-up`; it wins over the built-in. A global copy can still win on some tools; see [shared names](@/docs/global-configuration.md#global-shared-names).
