@@ -125,10 +125,10 @@ Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --globa
 |--------|---------|
 | `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.agents/skills/<name>/SKILL.md` with `paths` (path-triggered rule) | `<rules>/<name>.md` with `paths` |
-| `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` |
+| `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md`, with `triggers` under `x-openhands` |
 | `.openhands/skills/` and `.openhands/microagents/` (legacy) | the same, read after `.agents/skills/` |
 | flat `<name>.md` in any of those three directories | a rule, or a skill when it has `triggers` (kept under `x-openhands`) |
-| `.agents/agents/<name>.md` | `<agents>/<name>.md`, with native `skills`, `tools`, `permission_mode`, `color`, `hooks` and `max_iteration_per_run` under `x-openhands` |
+| `.agents/agents/<name>.md` | `<agents>/<name>.md`, with native `skills`, `tools`, `permission_mode`, `color`, `hooks`, `max_iteration_per_run`, `max_budget_per_run`, `condenser`, `profile_store_dir` and `mcp_config` under `x-openhands` |
 | `.openhands/hooks.json` | one hook spec per matcher group |
 | `config.toml` `[mcp]` table (legacy V0) | `<mcps>/<name>.yaml` per server |
 | `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |

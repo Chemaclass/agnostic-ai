@@ -319,6 +319,13 @@ func TestImportOpenhands_KeepsFolderSkillTriggers(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check", "-t", "openhands")
 	execCLI(t, "lint")
+	writeFile(t, filepath.Join(skill, "SKILL.md"),
+		"---\nname: inspect\ndescription: Inspect the build\n---\n\nLook at the build.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	if got := readFile(t, filepath.Join(skill, "SKILL.md")); strings.Contains(got, "triggers") {
+		t.Errorf("deleted triggers returned:\n%s", got)
+	}
 }
 
 func TestImportOpenhands_PreservesAgentHooksAndMaxIterations(t *testing.T) {
@@ -327,22 +334,36 @@ func TestImportOpenhands_PreservesAgentHooksAndMaxIterations(t *testing.T) {
 	silence(t)
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
 	path := filepath.Join(dir, ".agents/agents/runner.md")
-	writeFile(t, path, "---\nname: runner\ndescription: Run tasks\nmax_iteration_per_run: 7\nhooks:\n  stop:\n    - matcher: \"*\"\n      hooks:\n        - command: ./check.sh\n---\n\nRun tasks.\n")
+	writeFile(t, path, "---\nname: runner\ndescription: Run tasks\nmax_iteration_per_run: 7\nmax_budget_per_run: 1.5\nprofile_store_dir: profiles\ncondenser:\n  type: llm\nmcp_config:\n  mcpServers: {}\nhooks:\n  stop:\n    - matcher: \"*\"\n      hooks:\n        - command: ./check.sh\n---\n\nRun tasks.\n")
 	execCLI(t, "import", "openhands")
 	execCLI(t, "sync", "-t", "openhands")
 	got := readFile(t, path)
-	for _, want := range []string{"max_iteration_per_run: 7", "hooks:", "./check.sh"} {
+	for _, want := range []string{"max_iteration_per_run: 7", "hooks:", "./check.sh", "max_budget_per_run: 1.5", "profile_store_dir: profiles", "condenser:", "mcp_config:"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
 	}
 	execCLI(t, "sync", "--check", "-t", "openhands")
 	execCLI(t, "lint")
+	writeFile(t, path, "---\nname: runner\ndescription: Run tasks\nmax_iteration_per_run: 7\nmax_budget_per_run: 1.5\n---\n\nRun tasks.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got = readFile(t, path)
+	for _, gone := range []string{"hooks", "check.sh", "profile_store_dir", "condenser", "mcp_config"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("deleted native field %q returned: %s", gone, got)
+		}
+	}
+	for _, want := range []string{"max_iteration_per_run: 7", "max_budget_per_run: 1.5"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("kept field %q lost in %s", want, got)
+		}
+	}
 	writeFile(t, path, "---\nname: runner\ndescription: Run tasks\n---\n\nRun tasks.\n")
 	execCLI(t, "import", "openhands")
 	execCLI(t, "sync", "-t", "openhands")
 	got = readFile(t, path)
-	for _, gone := range []string{"max_iteration_per_run", "hooks", "check.sh"} {
+	for _, gone := range []string{"max_iteration_per_run", "hooks", "check.sh", "max_budget_per_run", "profile_store_dir", "condenser", "mcp_config"} {
 		if strings.Contains(got, gone) {
 			t.Errorf("deleted native field %q returned: %s", gone, got)
 		}

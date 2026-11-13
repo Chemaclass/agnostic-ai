@@ -76,7 +76,7 @@ func importFromOpenhands(root string, src config.Sources) error {
 		return err
 	}
 	agents, err := importFlatMarkdownFilesWith(filepath.Join(root, openhandsAgentsDir), importSourcePath(root, src.Agents), openhandsAgentFields, func(data []byte) ([]byte, error) {
-		return importNativeAgentFields(data, "openhands", "skills", "tools", "permission_mode", "color", "hooks", "max_iteration_per_run")
+		return importNativeAgentFields(data, "openhands", "skills", "tools", "permission_mode", "color", "hooks", "max_iteration_per_run", "max_budget_per_run", "condenser", "profile_store_dir", "mcp_config")
 	})
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		}
 		seen[name] = true
 	}
-	n, err := importSkillFoldersWith(root, dir, importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seen, TransformSkill: moveOpenhandsTriggers})
+	n, err := importSkillFoldersWith(root, dir, importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seen, TransformSkill: moveOpenhandsTriggers, Fields: &openhandsSkillFields})
 	return rules, skills + n, err
 }
 
