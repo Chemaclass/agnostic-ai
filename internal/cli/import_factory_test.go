@@ -226,15 +226,66 @@ func TestImportFactory_KeepsCommandRegexThroughSync(t *testing.T) {
 	if strings.Count(first, `"matcher"`) != 1 || !strings.Contains(first, `"commandRegex": "^git "`) {
 		t.Fatalf("want one group with its commandRegex, got:\n%s", first)
 	}
-	names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
 
 	execCLI(t, "import", "factory")
 	execCLI(t, "sync")
-	if again := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")); strings.Join(again, ",") != strings.Join(names, ",") {
-		t.Errorf("spec names changed across a second import: %v then %v", names, again)
-	}
 	if got := factoryHooksJSON(t, dir); got != first {
 		t.Errorf("second round trip changed the file:\n%s\nwant\n%s", got, first)
+	}
+}
+
+func TestImportFactoryHooks_NamesAreStableAcrossRuns(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"), factoryRegexHooks)
+	var runs [2][]string
+	for i := range runs {
+		dst := filepath.Join(dir, "out", string(rune('a'+i)))
+		if err := os.MkdirAll(dst, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := importFactoryHooks(dir, dst); err != nil {
+			t.Fatal(err)
+		}
+		runs[i] = readDirNames(t, dst)
+	}
+	if len(runs[0]) != 1 || strings.Join(runs[0], ",") != strings.Join(runs[1], ",") {
+		t.Errorf("spec names differ between runs: %v and %v", runs[0], runs[1])
+	}
+}
+
+func TestImportFactory_NonStringCommandRegexIsIgnored(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "commandRegex": 5, "hooks": [{"type": "command", "command": "./guard.sh"}]}]}`)
+	execCLI(t, "import", "factory")
+	names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(names) != 1 || strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", names[0])), "x-factory") {
+		t.Errorf("want one hook spec without x-factory, got %v", names)
+	}
+}
+
+func TestImportFactory_NewRegexGroupBesideSyncedSpecIsImported(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"), factoryRegexHooks)
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "commandRegex": "^git ", "hooks": [{"type": "command", "command": "./guard.sh"}]}, {"matcher": "Execute", "commandRegex": "^npm ", "hooks": [{"type": "command", "command": "./guard.sh"}]}]}`)
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+
+	if names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")); len(names) != 2 {
+		t.Errorf("want a second spec for the new regex, got %v", names)
+	}
+	got := factoryHooksJSON(t, dir)
+	if !strings.Contains(got, `"^npm "`) || strings.Count(got, `"^git "`) != 1 {
+		t.Errorf("want one group per regex:\n%s", got)
 	}
 }
 

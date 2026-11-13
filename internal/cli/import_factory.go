@@ -178,7 +178,7 @@ func portableFactoryTools(value any) ([]string, bool) {
 // `commandRegex` filter, which the spec keeps under `x-factory`.
 type factoryHookGroup struct {
 	groupedHookGroup
-	CommandRegex string `json:"commandRegex"`
+	CommandRegex any `json:"commandRegex"`
 }
 
 // importFactoryHooks reads `.factory/hooks.json`, falling back to the
@@ -199,9 +199,9 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 		for _, g := range byEvent[event] {
 			var extra map[string]any
 			salt := ""
-			if g.CommandRegex != "" {
-				extra = map[string]any{factoryNativeMetaKey: map[string]any{"commandRegex": g.CommandRegex}}
-				salt = "commandRegex=" + g.CommandRegex
+			if regex, _ := g.CommandRegex.(string); regex != "" {
+				extra = map[string]any{factoryNativeMetaKey: map[string]any{"commandRegex": regex}}
+				salt = "commandRegex=" + regex
 			}
 			n, err := writeGroupedHookSpecSalted(dstDir, "factory", event, g.Matcher, salt, g.Hooks, extra)
 			if err != nil {
