@@ -39,6 +39,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `import windsurf` keeps an agent's native `max-nesting` under `x-windsurf`, so `sync` no longer drops it (#3395).
 
+#### Crush
+
+- `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
+
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).

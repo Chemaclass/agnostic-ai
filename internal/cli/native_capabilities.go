@@ -225,6 +225,9 @@ var matcherAcceptingEvents = setOf(
 	// subagent-name matcher on Subagent*, trigger matcher on
 	// PreCompact (manual|auto) and SessionStart (startup|resume|clear).
 	"PermissionRequest", "PostToolUseFailure",
+	// crush: PermissionResult carries a tool-name matcher (hooks README
+	// v0.101.0).
+	"PermissionResult",
 	"SubagentStart", "SubagentStop",
 	"PreCompact", "PostCompact", "SessionStart",
 	// SessionEnd: claude filters on why the session ended (clear, resume,
