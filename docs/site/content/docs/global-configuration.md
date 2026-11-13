@@ -78,7 +78,7 @@ A project skill or agent can share its `name` with one in the home. Sync writes 
 ! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on claude
 ```
 
-Claude Code and Amp document no project setting that picks the project copy over a home skill and keeps the other home skills; Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the global agents folders. So sync keeps both copies, explains the limit, and leaves your home files alone. Doctor reports it even when sync warnings are off. A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here; when both copies match, it says to delete one before they drift apart.
+Claude Code, Cline, and Amp document no project setting that picks the project copy over a home skill and keeps the other home skills; Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the global agents folders. So sync keeps both copies, explains the limit, and leaves your home files alone. Doctor reports it even when sync warnings are off. A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here; when both copies match, it says to delete one before they drift apart.
 
 The check covers these targets:
 
@@ -86,6 +86,7 @@ The check covers these targets:
 |--------|--------------------------|--------------------------|
 | Amp | Global wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
 | Claude Code | Global wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
+| Cline | Global wins when the project syncs `cline` and the home syncs `cline`, or any target that writes `~/.agents/skills/`, which Cline also reads ([skills](https://docs.cline.bot/customization/skills.md)) | Not checked |
 | Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
 | Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
 

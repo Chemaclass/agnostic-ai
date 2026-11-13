@@ -18,6 +18,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Cline
+
+- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one, including a home skill written to `~/.agents/skills` by another target (#3400, #3424).
+
 #### Amp
 
 - The note for a portable `model` and the target page now point to Amp's model selector, which replaced the Dial (#3386).
