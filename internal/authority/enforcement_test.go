@@ -215,3 +215,17 @@ func TestBuild_OverlappingRulesResolveOnlyWhereThePrecedenceIsDocumented(t *test
 		t.Error("no target-matching-unverified uncertainty for the overlap on OpenCode")
 	}
 }
+
+func TestBuild_ListedToolOnTheSameNativeKeyDoesNotCloseALeftOutOne(t *testing.T) {
+	for _, target := range []string{"opencode", "kilo"} {
+		root := writeProject(t, map[string]string{
+			"agnostic-ai.yaml":               "version: 1\ntargets: [" + target + "]\n",
+			".agnostic-ai/agents/scanner.md": "---\nname: scanner\ndescription: Scans.\ntools: [Read, Write]\n---\n\nScan.\n",
+		})
+		v := buildView(t, root, Options{AgentID: "scanner", Target: target})
+		edit := findOp(t, v, "files-all:edit")
+		if enforcementOn(t, edit, target).Effect == EffectUnavailable {
+			t.Errorf("%s: edit reported unavailable although Write writes the edit key", target)
+		}
+	}
+}

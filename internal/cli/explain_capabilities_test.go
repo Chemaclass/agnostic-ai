@@ -347,7 +347,11 @@ func TestExplainCapabilities_PermissionAgentRowsMatchSyncedKeys(t *testing.T) {
 					synced = file.Content
 				}
 			}
-			for _, row := range explainCapabilities(entry, cfg) {
+			rows := explainCapabilities(entry, cfg)
+			if len(rows) != 2 || synced == "" {
+				t.Fatalf("rows=%+v synced=%q,want two rows and a synced agent", rows, synced)
+			}
+			for _, row := range rows {
 				if !row.Supported || len(row.Native) != 1 {
 					t.Errorf("row=%+v,want one supported native name", row)
 					continue

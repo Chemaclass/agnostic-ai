@@ -23,7 +23,10 @@ var toolCapabilities = emit.ToolCapabilityTable{
 func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolCapabilities }
 
 func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
-	tool, pattern, ok := translateRule(rule)
+	return nativePermissionName(translateRule(rule))
+}
+
+func nativePermissionName(tool, pattern string, ok bool) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
@@ -36,7 +39,7 @@ func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
 }
 
 func (Adapter) TranslateAgentCapability(rule string) ([]string, bool) {
-	return (Adapter{}).TranslatePermission("", rule)
+	return nativePermissionName(agentRule(rule))
 }
 
 func reportPermissionWidening(settings []spec.Entry, mode string) error {

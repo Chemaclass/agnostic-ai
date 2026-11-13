@@ -409,6 +409,8 @@ func (bd *builder) narrowOn(target string, s *subjectInfo, action string, c cand
 	switch {
 	case t.Override != "":
 		return unexpressed(ResolutionAgentScope, t.Override+" replaces the tool list on "+label+", and this view does not read it")
+	case t.Supported && bd.listedToolSharesKey(target, t, *s.entry):
+		return unexpressed(ResolutionAgentScope, "a tool the agent lists becomes the same native key on "+label+", so leaving "+shown+" out of the tool list does not close it")
 	case t.Supported:
 		return unavailable(nil, "the agent file's tool list leaves this out")
 	case bd.translateAgent(target, capRead, *s.entry).Supported:
@@ -447,6 +449,33 @@ func (bd *builder) translatePermission(target, list, rule string, entry spec.Ent
 	t := adapters.TranslatePermissionCapabilityIn(target, list, rule, entry, bd.b.Settings, bd.cfg)
 	bd.permCache[key] = t
 	return t
+}
+
+// listedToolSharesKey reports whether a tool the agent lists translates
+// to a native key the left-out capability also uses, such as OpenCode's
+// edit key for both Write and Edit.
+func (bd *builder) listedToolSharesKey(target string, left adapters.CapabilityTranslation, entry spec.Entry) bool {
+	keys := map[string]bool{}
+	for _, native := range left.Native {
+		key, _, _ := strings.Cut(native, "(")
+		keys[key] = true
+	}
+	for _, field := range []string{"can", "tools"} {
+		value, set := entry.Meta[field]
+		if !set {
+			continue
+		}
+		for _, raw := range toolEntries(value) {
+			for _, native := range bd.translateAgent(target, raw, entry).Native {
+				key, _, _ := strings.Cut(native, "(")
+				if keys[key] {
+					return true
+				}
+			}
+		}
+		break
+	}
+	return false
 }
 
 func (bd *builder) translateAgent(target, rule string, entry spec.Entry) adapters.CapabilityTranslation {

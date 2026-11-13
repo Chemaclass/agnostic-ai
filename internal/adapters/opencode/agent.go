@@ -240,11 +240,7 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 		}
 	}
 	for _, name := range tools {
-		if server, whole := wholeMCPServer(name); whole {
-			grant(server+"_"+catchAllPattern, catchAllPattern)
-			continue
-		}
-		key, pattern, known := translateRule(name)
+		key, pattern, known := agentRule(name)
 		if !known {
 			unmapped = true
 			continue
@@ -367,6 +363,14 @@ func orderedActions(rules *emit.OrderedJSON) (any, error) {
 }
 
 // wholeMCPServer reports the server a bare `mcp__<server>` names.
+// agentRule is the permission key and pattern one agent tool name becomes.
+func agentRule(name string) (key, pattern string, ok bool) {
+	if server, whole := wholeMCPServer(name); whole {
+		return server + "_" + catchAllPattern, catchAllPattern, true
+	}
+	return translateRule(name)
+}
+
 func wholeMCPServer(name string) (string, bool) {
 	server, found := strings.CutPrefix(name, spec.MCPToolPrefix)
 	if !found || server == "" || strings.Contains(server, "__") {
