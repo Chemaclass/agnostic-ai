@@ -197,6 +197,8 @@ Portable `permissions` are merged into `.devin/config.json`, the committed proje
 - **Skills**: from `outputs.windsurf.skills-dir` when set; otherwise `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`, where the first same-name skill wins. Bundled assets and executable file modes are kept. `triggers` move under `x-windsurf`.
 - **Ignore**: from `.devinignore`, or `.windsurfignore` when the first is absent. When both files have different hand-written patterns, combine them in the imported ignore spec, in that order, before you sync.
 
+Nested rules keep native `globs` under `x-windsurf`, so sync keeps the file in its original scope without adding a directory selector. Sync writes glob selectors as YAML lists, as required by Devin CLI 3000.12.57, such as `globs: ['*.go']`.
+
 ## Protected paths
 
 Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

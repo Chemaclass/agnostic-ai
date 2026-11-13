@@ -75,6 +75,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Windsurf / Devin Desktop
 
+- `import windsurf` keeps nested rules' native globs and placement, so `sync` no longer adds a root rule with a wider selector (#3396).
 - `import windsurf` keeps an agent's native `max-nesting` under `x-windsurf`, so `sync` no longer drops it (#3395).
 
 #### OpenCode

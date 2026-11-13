@@ -431,7 +431,10 @@ func activationFrontmatter(e spec.Entry) string {
 		b.WriteString("description: " + emit.YAMLScalar(desc) + "\n")
 	}
 	if globs != "" {
-		b.WriteString("globs: " + emit.YAMLScalar(globs) + "\n")
+		b.WriteString("globs:\n")
+		for _, glob := range spec.GlobList(m["globs"]) {
+			b.WriteString("  - " + emit.YAMLScalar(glob) + "\n")
+		}
 	}
 	b.WriteString("trigger: " + trigger + "\n")
 	b.WriteString("---\n\n")

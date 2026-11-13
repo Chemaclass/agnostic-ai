@@ -1,5 +1,7 @@
 ---
-globs: src/a/**,tests/a/**
+globs:
+  - src/a/**
+  - tests/a/**
 trigger: glob
 ---
 

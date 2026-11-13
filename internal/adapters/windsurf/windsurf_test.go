@@ -509,10 +509,10 @@ func TestEmit_RuleActivationBecomesTriggerFrontmatter(t *testing.T) {
 		notWant []string
 	}{
 		{"always.md", nil, []string{"trigger:", "---"}},
-		{"globbed.md", []string{"trigger: glob", "globs: '**/*.test.ts'"}, nil},
+		{"globbed.md", []string{"trigger: glob", "globs:\n  - '**/*.test.ts'"}, nil},
 		{"decided.md", []string{"trigger: model_decision", "description: API design"}, []string{"globs:"}},
 		{"manual.md", []string{"trigger: manual"}, []string{"description:", "globs:"}},
-		{"override.md", []string{"trigger: glob", "globs: cmd/**"}, nil},
+		{"override.md", []string{"trigger: glob", "globs:\n  - cmd/**"}, nil},
 	}
 	for _, c := range cases {
 		data, err := os.ReadFile(filepath.Join(dir, ".devin/rules", c.file))

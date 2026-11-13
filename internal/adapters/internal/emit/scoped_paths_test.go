@@ -48,6 +48,26 @@ func TestCheckScopedDestination_NamesTextNoSpecHolds(t *testing.T) {
 	}
 }
 
+func TestCheckScopedDestination_AcceptsEquivalentFrontmatter(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	const path = "backend/.devin/rules/style.md"
+	writeScoped(t, path, "---\ntrigger: glob\nglobs: ['*.go']\n---\nGo style.\n")
+	const generated = "---\nglobs:\n  - '*.go'\ntrigger: glob\n---\n\nGo style.\n"
+	if err := CheckScopedDestination(path, generated, nil); err != nil {
+		t.Errorf("equivalent frontmatter rejected: %v", err)
+	}
+	if err := CheckScopedDestination(path, strings.Replace(generated, "*.go", "*.ts", 1), nil); err == nil {
+		t.Error("changed selector accepted")
+	}
+	if err := CheckScopedDestination(path, strings.Replace(generated, "Go style.", "", 1), nil); err == nil {
+		t.Error("missing body accepted")
+	}
+	writeScoped(t, path, "---\nglobs: ['*.ts']\nglobs: ['*.go']\ntrigger: glob\n---\nGo style.\n")
+	if err := CheckScopedDestination(path, generated, nil); err == nil {
+		t.Error("duplicate selector silently dropped")
+	}
+}
+
 // Text an import captured does not make an alternate file safe: sync
 // never writes it, so the host would load both.
 func TestCheckScopedDestination_RejectsAlternateFileEvenWhenCaptured(t *testing.T) {

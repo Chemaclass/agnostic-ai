@@ -318,10 +318,38 @@ func TestImportWindsurf_ReadsScopedRulesDirs(t *testing.T) {
 	}
 }
 
-// TestImportWindsurf_TriggerBecomesAlwaysApply covers the other import
-// half of #628: Devin's activation key translates back into the generic
-// field, so the next sync re-emits the same trigger instead of
-// defaulting the rule to always-on.
+func TestImportWindsurf_NestedNativeGlobsKeepPlacement(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	nativePath := filepath.Join(dir, "backend", ".devin", "rules", "style.md")
+	writeFile(t, nativePath, "---\ntrigger: glob\nglobs: ['*.go']\n---\n\nGo style.\n")
+	execCLI(t, "import", "windsurf")
+	imported := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "backend", "style.md"))
+	meta, _ := splitMdcFrontmatter([]byte(imported))
+	if _, portable := meta["globs"]; portable {
+		t.Errorf("native selector became portable: %s", imported)
+	}
+	native, _ := meta["x-windsurf"].(map[string]any)
+	if !reflect.DeepEqual(native["globs"], []any{"*.go"}) {
+		t.Errorf("native globs = %#v, want [*.go]", native["globs"])
+	}
+	execCLI(t, "sync")
+	if _, err := os.Stat(filepath.Join(dir, ".devin", "rules", "style.md")); !os.IsNotExist(err) {
+		t.Errorf("unexpected root rule: %v", err)
+	}
+	emitted := readFile(t, nativePath)
+	meta, _ = splitMdcFrontmatter([]byte(emitted))
+	if !reflect.DeepEqual(meta["globs"], []any{"*.go"}) {
+		t.Errorf("emitted globs = %#v, want [*.go]", meta["globs"])
+	}
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
+	execCLI(t, "import", "windsurf", "--overwrite")
+	execCLI(t, "sync", "--check")
+}
+
 func TestImportWindsurf_TriggerBecomesAlwaysApply(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
