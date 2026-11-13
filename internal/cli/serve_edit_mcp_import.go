@@ -47,6 +47,9 @@ func previewMCPSpec(target, name, path, format string, server map[string]any) ([
 			return nil, nil, err
 		}
 	case "zed":
+		if field := mcpOAuthCredential(copy["oauth"]); field != "" {
+			return nil, nil, mcpImportCredentialError(name, field)
+		}
 		servers = zedMCPDocs(servers)
 	case "factory":
 		normalizeFactoryMCPEntry(copy)

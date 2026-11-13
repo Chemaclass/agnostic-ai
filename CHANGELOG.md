@@ -18,6 +18,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Cline
+
+- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one, including a home skill written to `~/.agents/skills` by another target (#3400, #3424).
+
 #### Amp
 
 - The note for a portable `model` and the target page now point to Amp's model selector, which replaced the Dial (#3386).
@@ -38,6 +42,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Antigravity
 
 - `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. Literal `env` and `headers` secrets in `mcpServers` become `${NAME}` references, and a server with an OAuth credential is left out with a warning. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
+
+#### Zed
+
+- `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import. A server whose `oauth` holds a client secret is left out with a warning (#3390).
 
 #### Copilot
 
