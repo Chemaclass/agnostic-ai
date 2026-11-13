@@ -18,6 +18,18 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Amp
+
+- The note for a portable `model` and the target page now point to Amp's model selector, which replaced the Dial (#3386).
+
+#### Jules
+
+- The target page now says Jules is read-only since November 12, 2026, and drops the step that needs a new Jules task (#3388).
+
+#### Continue
+
+- The `assistants-dir` note and adapter comments now say Continue's source loads it as a local profile when it is `.continue/assistants`, `.continue/agents` or `.continue/configs` at the workspace root (#3401).
+
 #### Goose
 
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
