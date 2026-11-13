@@ -86,7 +86,7 @@ The check covers these targets:
 |--------|--------------------------|--------------------------|
 | Amp | Global wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
 | Claude Code | Global wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
-| Cline | Global wins when both home and project sync `cline`; a home copy in `~/.agents/skills/` from another target is not checked yet ([skills](https://docs.cline.bot/customization/skills.md)) | Not checked |
+| Cline | Global wins when the project syncs `cline` and the home syncs `cline`, or any target that writes `~/.agents/skills/`, which Cline also reads ([skills](https://docs.cline.bot/customization/skills.md)) | Not checked |
 | Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
 | Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
 

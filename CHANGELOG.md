@@ -20,7 +20,19 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Cline
 
-- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one (#3400).
+- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one, including a home skill written to `~/.agents/skills` by another target (#3400, #3424).
+
+#### Amp
+
+- The note for a portable `model` and the target page now point to Amp's model selector, which replaced the Dial (#3386).
+
+#### Jules
+
+- The target page now says Jules is read-only since November 12, 2026, and drops the step that needs a new Jules task (#3388).
+
+#### Continue
+
+- The `assistants-dir` note and adapter comments now say Continue's source loads it as a local profile when it is `.continue/assistants`, `.continue/agents` or `.continue/configs` at the workspace root (#3401).
 
 #### Goose
 
@@ -31,6 +43,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
 - `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
+
+#### OpenCode
+
+- `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it and OpenCode keeps routing the command as written (#3383).
 
 #### OpenHands
 

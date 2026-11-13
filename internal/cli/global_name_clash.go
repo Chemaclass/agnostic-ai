@@ -280,6 +280,25 @@ func hasUserLevelSurface(kind spec.Kind, target string) bool {
 	return globalTargets[target].skills != ""
 }
 
+// sharedHomeSkills is the user-level skills folder that Cline scans
+// after ~/.cline/skills (cline v4.1.26 skill-directories.ts), so a home
+// skill that another target writes there reaches Cline too.
+const sharedHomeSkills = globalPathHome + ".agents/skills"
+
+// homeLoads reports whether the home copy g lands where target reads it:
+// in target's own user-level folder, or for cline in the shared one.
+func homeLoads(kind spec.Kind, target string, g spec.Entry, written []string) bool {
+	if g.EmitsTo(target) && slices.Contains(written, target) {
+		return true
+	}
+	if kind != spec.KindSkill || target != "cline" {
+		return false
+	}
+	return slices.ContainsFunc(written, func(w string) bool {
+		return globalTargets[w].skills == sharedHomeSkills && g.EmitsTo(w)
+	})
+}
+
 // sameFile is true when both paths name one file, as they do when the
 // project is the global home or the home links to the project's specs.
 func sameFile(a, b string) bool {
@@ -318,12 +337,7 @@ func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 	if written == nil {
 		written = globalTargetNames()
 	}
-	var shared []string
-	for _, t := range slices.Sorted(slices.Values(targets)) {
-		if slices.Contains(written, t) {
-			shared = append(shared, t)
-		}
-	}
+	projectTargets := slices.Sorted(slices.Values(targets))
 	var out []globalNameClash
 	for _, kind := range []struct {
 		kind            spec.Kind
@@ -338,9 +352,9 @@ func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 					continue
 				}
 				clash := globalNameClash{project: p, global: g}
-				for _, t := range shared {
+				for _, t := range projectTargets {
 					globalWins, documented := globalNameWinners[kind.kind][t]
-					if !documented || !hasUserLevelSurface(kind.kind, t) || !sameNameIn(kind.kind, t, p, g) || !p.EmitsTo(t) || !g.EmitsTo(t) || leftOutOf(kind.kind, t, p, g) {
+					if !documented || !hasUserLevelSurface(kind.kind, t) || !sameNameIn(kind.kind, t, p, g) || !p.EmitsTo(t) || !homeLoads(kind.kind, t, g, written) || leftOutOf(kind.kind, t, p, g) {
 						continue
 					}
 					if globalWins {

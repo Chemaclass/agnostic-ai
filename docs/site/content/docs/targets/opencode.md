@@ -79,7 +79,7 @@ opencode.json                             # when MCP entries exist (merged with 
 
 ### Commands
 
-`.opencode/commands/<name>.md` keeps `description`, `agent`, `model`, and `subtask`.
+`.opencode/commands/<name>.md` keeps `description`, `agent`, `model`, `subtask`, and `subagent`. `subagent` (including an explicit `false`) wins over `subtask`, as in OpenCode.
 
 ### V1 hooks
 

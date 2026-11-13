@@ -17,7 +17,7 @@ set-up-this-tool = "@/docs/targets/jules.md#first-rule"
 
 Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared instructions that point to source specs and the embedded `## Rules` block there.
 
-Google announced that Jules becomes read-only after November 11, 2026 and closes on December 31, 2026. Finish tasks before the read-only cutoff and follow the [official export instructions](https://jules.google/docs/changelog/#jules-turndown) to save your Jules configuration and history.
+Jules has been read-only since November 12, 2026 and closes on December 31, 2026. New tasks cannot start. Follow the [official export instructions](https://jules.google/docs/changelog/#jules-turndown) to save your Jules configuration and history.
 
 ## First rule
 
@@ -27,7 +27,7 @@ Jules is sync-only: there is no importer or output for agents, skills, hooks, or
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Before the read-only cutoff, make sure the generated `AGENTS.md` is committed to the branch Jules reads, then start a Jules task asking for a commit subject for a small fix; it should use `fix:`.
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Jules reads `AGENTS.md` from the branch it works on, so commit the generated file there.
 
 Next, [compare another target](@/docs/compare.md) if you also need skills, hooks, or MCP servers.
 
