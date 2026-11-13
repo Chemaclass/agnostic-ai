@@ -31,13 +31,15 @@
 // Frontmatter carries `name` (required) plus `description` (falls back
 // to the spec name), `color`, and `model` when the spec sets them.
 // `tools` and `disabled_tools` are real Augment agent fields, but only
-// in Augment's own tool vocabulary, which differs by version: Auggie
-// 0.x uses `view`, `codebase-retrieval`, `str-replace-editor`,
+// in Augment's own tool vocabulary, never Claude-style names (`Read`,
+// `Grep`, `Bash`, ...). The `tools` allowlist differs by version:
+// Auggie 0.x uses `view`, `codebase-retrieval`, `str-replace-editor`,
 // `save-file`, `remove-files`, `launch-process`, `github-api`,
-// `web-fetch` and `web-search`; Auggie 1.x uses `read`, `bash`, `edit`,
-// `write`, `grep`, `find`, `ls` and `web-fetch`. Neither takes
-// Claude-style names (`Read`, `Grep`, `Bash`, ...). agnostic-ai's generic cross-tool
-// `tools` field is always the latter, so this adapter never emits it
+// `web-fetch` and `web-search`; Auggie 1.x accepts only `read`, `bash`,
+// `edit`, `write`, `grep`, `find`, `ls` and `web-fetch`. 1.x
+// `disabled_tools` takes any tool name, including MCP, codebase-retrieval
+// and web-search tools. agnostic-ai's generic cross-tool
+// `tools` field is always Claude-style, so this adapter never emits it
 // under either key: doing so would silently restrict nothing, the same
 // failure class as kilo's B2 (target-audit 2026-08-01). An agent that
 // sets `tools` surfaces a coverage note instead of a silent no-op.
@@ -439,7 +441,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 	}
 	emit.NoteAgentToolsNoOp(target, droppedTools,
-		"Augment's tool names (0.x: view, codebase-retrieval, str-replace-editor, ...; 1.x: read, bash, edit, write, grep, find, ls, web-fetch) differ from agnostic-ai's Claude-style tools; set x-augment.tools / x-augment.disabled_tools directly instead")
+		"Augment's tool names differ from agnostic-ai's Claude-style tools (the tools allowlist takes view, codebase-retrieval, str-replace-editor, ... on 0.x and only read, bash, edit, write, grep, find, ls, web-fetch on 1.x; disabled_tools takes any tool name); set x-augment.tools / x-augment.disabled_tools directly instead")
 	return nil
 }
 
