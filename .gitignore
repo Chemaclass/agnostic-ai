@@ -136,6 +136,7 @@ WARP.md
 # Local runtime state written by agnostic-ai.
 # Per-target audit fixtures need to ship their emitted tree intact so
 # the kit-sink golden snapshot replays in CI.
+!internal/adapters/testdata/agents-as-skills/**
 !internal/adapters/*/testdata/**
 # Per-target audit fixtures need to ship their emitted tree intact so
 # the kit-sink golden snapshot replays in CI. The patterns above match
