@@ -35,7 +35,10 @@ func TestReadAntigravity_CountsOnlyTheDocumentedReplies(t *testing.T) {
 		"an undocumented decision":                 {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Error, true},
 		"a reason that is not a string":            {"PreToolUse", Result{Stdout: `{"decision":"allow","reason":1}`}, Error, true},
 		"overrides that are not strings":           {"PreToolUse", Result{Stdout: `{"decision":"allow","permissionOverrides":[1]}`}, Error, true},
-		"a Stop reply without decision":            {"Stop", Result{Stdout: `{}`}, Error, true},
+		"a Stop reply without decision":            {"Stop", Result{Stdout: `{}`}, Allow, false},
+		"a Stop reason without decision":           {"Stop", Result{Stdout: `{"reason":"done"}`}, Allow, false},
+		"a Stop decision that is not a string":     {"Stop", Result{Stdout: `{"decision":true}`}, Error, true},
+		"a Stop reason that is not a string":       {"Stop", Result{Stdout: `{"reason":1}`}, Error, true},
 		"a timeout":                                {"PreToolUse", Result{TimedOut: true}, Timeout, true},
 		"a command that did not start":             {"PreToolUse", Result{StartErr: errors.New("missing")}, Error, true},
 	} {
