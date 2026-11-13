@@ -44,6 +44,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. An inline `mcpServers` entry that holds a literal credential is left out with a warning that names the server and field. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
 
+#### Kiro
+
+- `import kiro` keeps an agent's native `excludedTools`, `includeMcpJson`, `includePowers`, `resources`, `permissions`, `welcomeMessage` and `hooks` under `x-kiro`, so `sync` no longer drops them; deleting one from the native file drops it on the next import (#3394).
+
 #### Zed
 
 - `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import. A server whose `oauth` holds a client secret is left out with a warning (#3390).
