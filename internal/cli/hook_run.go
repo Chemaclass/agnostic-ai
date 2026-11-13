@@ -403,7 +403,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			if target == "copilot" && hookrun.CopilotAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Copilot CLI asks the user before the tool runs, and cloud agent denies it; read as block")
 			}
-			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
+			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, (target != "openhands" || !run.Async) && hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)
 			if (d == hookrun.Timeout || d == hookrun.Error) && uncounted == "" {
 				run.failed = append(run.failed, d)
