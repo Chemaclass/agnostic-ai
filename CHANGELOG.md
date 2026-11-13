@@ -18,6 +18,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### OpenHands
+
+- `import openhands` keeps an agent's native `tools`, `permission_mode` and `color` under `x-openhands`, so `sync` no longer drops them (#3380).
+
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
