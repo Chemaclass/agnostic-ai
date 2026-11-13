@@ -13,10 +13,10 @@ type permissionContextTranslator interface {
 	TranslatePermissionContext(list, rule string, entry spec.Entry, settings []spec.Entry, cfg *config.Config) emit.CapabilityTranslation
 }
 
-// AgentCapabilityOverrideKey names the x-<target> key that replaces the portable tool mapping in a target's agent file.
+// AgentCapabilityOverrideKey names the x-<target> key that overrides the portable tool mapping in a target's agent file. OpenCode merges a map value per key.
 func AgentCapabilityOverrideKey(target string) string {
 	switch target {
-	case "kilo":
+	case "kilo", "opencode":
 		return "permission"
 	case "windsurf":
 		return "allowed-tools"

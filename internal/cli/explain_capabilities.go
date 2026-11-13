@@ -52,7 +52,9 @@ func explainCapabilities(e spec.Entry, cfg *config.Config, settings ...spec.Entr
 						result = append(result, capabilityExplanation(target, "x-"+target+"."+overrideKey, rule, translated))
 					}
 				}
-				continue
+				if _, merged := native.(map[string]any); !merged || target != "opencode" {
+					continue
+				}
 			}
 			for _, rule := range explainToolList(value) {
 				result = append(result, capabilityExplanation(target, field, rule, adapters.TranslateAgentCapabilityIn(target, rule, e)))
