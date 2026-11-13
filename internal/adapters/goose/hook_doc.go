@@ -28,3 +28,31 @@ func HookDoc(cfg *config.Config, h spec.Entry) ([]byte, error) {
 	}
 	return json.Marshal(doc)
 }
+
+// GlobalHooksFile renders the user-level plugin hooks file, or nil when no
+// hook produces a handler. Commands reference scripts in scriptsDir.
+func GlobalHooksFile(hooks []spec.Entry, scriptsDir string) ([]byte, error) {
+	doc := buildHooksWith(hooks, scriptsDir, emit.RewriteGlobalHookRoot)
+	if doc == nil {
+		return nil, nil
+	}
+	body, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(body, '\n'), nil
+}
+
+// GlobalPluginManifest renders the manifest for the user-level plugin
+// named by the directory root.
+func GlobalPluginManifest(root string) ([]byte, error) {
+	body, err := json.MarshalIndent(map[string]string{
+		"name":        filepath.Base(root),
+		"version":     "1.0.0",
+		"description": "Managed by agnostic-ai",
+	}, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(body, '\n'), nil
+}

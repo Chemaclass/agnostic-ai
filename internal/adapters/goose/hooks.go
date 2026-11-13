@@ -92,6 +92,10 @@ func buildHooks(hooks []spec.Entry, scriptDirs ...string) *hooksDoc {
 	if len(scriptDirs) > 0 {
 		scriptsDir = scriptDirs[0]
 	}
+	return buildHooksWith(hooks, scriptsDir, emit.RewriteHookRoot)
+}
+
+func buildHooksWith(hooks []spec.Entry, scriptsDir string, rewriteRoot func(string, string, ...map[string]any) string) *hooksDoc {
 	type groupKey struct{ event, matcher string }
 	byKey := map[groupKey][]hookAction{}
 	var order []groupKey
@@ -120,9 +124,9 @@ func buildHooks(hooks []spec.Entry, scriptDirs ...string) *hooksDoc {
 		args := emit.HookArgs(target, hook.Meta)
 		for _, command := range commands {
 			// Goose runs every command with `sh -c`, Windows included.
-			command = emit.ExecFormCommand(emit.RewriteNeutralHookPath(emit.RewriteHookRoot(command, target, hook.Meta), scriptsDir, len(args) > 0), args)
+			command = emit.ExecFormCommand(emit.RewriteNeutralHookPath(rewriteRoot(command, target, hook.Meta), scriptsDir, len(args) > 0), args)
 			command = emit.PortableHookCommand(hook, target, command, func(path string) string {
-				return emit.RewriteNeutralHookPath(emit.RewriteHookRoot(path, target), scriptsDir)
+				return emit.RewriteNeutralHookPath(rewriteRoot(path, target), scriptsDir)
 			})
 			byKey[key] = append(byKey[key], hookAction{
 				Type: "command", Command: emit.ExportHookTarget(command, target),
