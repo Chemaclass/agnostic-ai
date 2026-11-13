@@ -63,6 +63,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `import windsurf` keeps an agent's native `max-nesting` under `x-windsurf`, so `sync` no longer drops it (#3395).
 
+#### OpenCode
+
+- `explain` reads an OpenCode agent's `x-opencode.permission` override, not `x-opencode.tools`, and still lists the portable tools it merges with (#3407).
+
 #### Crush
 
 - `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
@@ -70,6 +74,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
+- `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable tool mapping it replaces (#3407).
 
 ## v0.94.0 - 2026-11-12
 

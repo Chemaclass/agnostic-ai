@@ -276,3 +276,54 @@ func TestExplainCapabilities_CodexCoveredExactAllowKeepsNativePrefix(t *testing.
 		})
 	}
 }
+
+func TestExplainCapabilities_KiloPermissionOverrideReplacesMapping(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-kilo": map[string]any{"permission": map[string]any{"read": "deny"}}}}
+	got := explainCapabilities(entry, &config.Config{Targets: []string{"kilo"}})
+	if len(got) != 1 || got[0].Capability != "native configuration" || got[0].Override != "x-kilo.permission" {
+		t.Errorf("report=%+v,want one native configuration row for x-kilo.permission", got)
+	}
+}
+
+func TestExplainCapabilities_OpenCodePermissionOverride(t *testing.T) {
+	mapped := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-opencode": map[string]any{"permission": map[string]any{"bash": "deny"}}}}
+	got := explainCapabilities(mapped, &config.Config{Targets: []string{"opencode"}})
+	var override, portable bool
+	for _, row := range got {
+		override = override || row.Override == "x-opencode.permission" && row.Capability == "native configuration"
+		portable = portable || row.Capability == "Read" && row.Field == "tools" && row.Override == ""
+	}
+	if !override || !portable {
+		t.Errorf("map override report=%+v,want native configuration row plus unoverridden portable Read row", got)
+	}
+	covered := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-opencode": map[string]any{"permission": map[string]any{"read": "deny"}}}}
+	for _, row := range explainCapabilities(covered, &config.Config{Targets: []string{"opencode"}}) {
+		if row.Capability == "Read" && row.Override != "x-opencode.permission" {
+			t.Errorf("Read row=%+v,want override when the map sets read", row)
+		}
+	}
+	scalar := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-opencode": map[string]any{"permission": "deny"}}}
+	got = explainCapabilities(scalar, &config.Config{Targets: []string{"opencode"}})
+	if len(got) != 1 || got[0].Override != "x-opencode.permission" {
+		t.Errorf("scalar override report=%+v,want only the override row", got)
+	}
+}
+
+func TestExplainCapabilities_NativeToolOverrideKeyMatchesAdapter(t *testing.T) {
+	for _, tc := range []struct{ target, key string }{
+		{"vibe", "enabled_tools"},
+		{"windsurf", "allowed-tools"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			entry := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-" + tc.target: map[string]any{tc.key: []any{"grep"}}}}
+			got := explainCapabilities(entry, &config.Config{Targets: []string{tc.target}})
+			if len(got) != 1 || !got[0].Supported || got[0].Override != "x-"+tc.target+"."+tc.key {
+				t.Errorf("report=%+v,want override x-%s.%s", got, tc.target, tc.key)
+			}
+			translated := adapters.TranslateAgentCapabilityIn(tc.target, "Read", entry)
+			if translated.Override != "x-"+tc.target+"."+tc.key {
+				t.Errorf("translation=%+v,want override x-%s.%s", translated, tc.target, tc.key)
+			}
+		})
+	}
+}

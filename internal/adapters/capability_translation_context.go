@@ -13,31 +13,51 @@ type permissionContextTranslator interface {
 	TranslatePermissionContext(list, rule string, entry spec.Entry, settings []spec.Entry, cfg *config.Config) emit.CapabilityTranslation
 }
 
+// AgentCapabilityOverrideKey names the x-<target> key that overrides the portable tool mapping in a target's agent file. OpenCode merges a map value per key.
+func AgentCapabilityOverrideKey(target string) string {
+	switch target {
+	case "kilo", "opencode":
+		return "permission"
+	case "windsurf":
+		return "allowed-tools"
+	case "vibe":
+		return "enabled_tools"
+	}
+	return "tools"
+}
+
 func TranslateAgentCapabilityIn(target, rule string, entry spec.Entry) CapabilityTranslation {
 	custom, _ := entry.Meta["x-"+target].(map[string]any)
-	keys := []string{"tools"}
-	switch target {
-	case "kilo":
-		keys = []string{"permission"}
-	case "windsurf":
-		keys = []string{"allowed-tools"}
-	}
-	for _, key := range keys {
-		if value, overridden := custom[key]; overridden {
-			if target == "cursor" {
+	key := AgentCapabilityOverrideKey(target)
+	if value, overridden := custom[key]; overridden {
+		if target == "cursor" {
+			return CapabilityTranslation{}
+		}
+		if target == "codex" {
+			tools, ok := value.(map[string]any)
+			if !ok || len(tools) == 0 {
 				return CapabilityTranslation{}
 			}
-			if target == "codex" {
-				tools, ok := value.(map[string]any)
-				if !ok || len(tools) == 0 {
-					return CapabilityTranslation{}
-				}
-			}
-			body, _ := json.Marshal(value)
-			return CapabilityTranslation{Native: []string{key + ": " + string(body)}, Supported: true, Override: "x-" + target + "." + key}
 		}
+		if permission, merged := value.(map[string]any); merged && target == "opencode" && rule != "" {
+			if !overridesAny(permission, TranslatePermissionCapability(target, "allow", rule, nil).Native) {
+				return TranslateCapability(target, rule)
+			}
+		}
+		body, _ := json.Marshal(value)
+		return CapabilityTranslation{Native: []string{key + ": " + string(body)}, Supported: true, Override: "x-" + target + "." + key}
 	}
 	return TranslateCapability(target, rule)
+}
+
+func overridesAny(permission map[string]any, native []string) bool {
+	for _, name := range native {
+		key, _, _ := strings.Cut(name, "(")
+		if _, set := permission[key]; set {
+			return true
+		}
+	}
+	return false
 }
 
 func TranslatePermissionCapabilityIn(target, list, rule string, entry spec.Entry, settings []spec.Entry, cfg *config.Config) CapabilityTranslation {
