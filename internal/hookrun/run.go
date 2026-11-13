@@ -254,9 +254,10 @@ func AddsContext(target, event string, r Result) bool {
 		}
 		return !r.TimedOut && r.Exit == 0 && json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && reply.AdditionalContext != ""
 	case "openhands":
-		// The SDK reads additionalContext only on UserPromptSubmit and Stop;
-		// other events just log a HookExecutionEvent.
-		if event != "UserPromptSubmit" && event != "Stop" {
+		// The SDK delivers additionalContext on UserPromptSubmit, Stop and
+		// SessionStart (queued, then sent after the system prompt); other
+		// events just log a HookExecutionEvent.
+		if event != "UserPromptSubmit" && event != "Stop" && event != "SessionStart" {
 			return false
 		}
 		var reply struct {

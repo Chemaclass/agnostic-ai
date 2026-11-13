@@ -20,6 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### OpenHands
 
+- `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
 - `import openhands` keeps an agent's native `tools`, `permission_mode` and `color` under `x-openhands`, so `sync` no longer drops them (#3380).
 
 #### Mistral Vibe
