@@ -351,3 +351,38 @@ func TestImportGoose_WarnsOnPluginRoot(t *testing.T) {
 		}
 	}
 }
+
+// TestImportGoose_SplitNamesSurviveSyncMerge: sync merges specs with the
+// same event and matcher into one group, so a name must depend on the
+// command and its own settings only. Import, sync and import again must
+// not grow the spec count.
+func TestImportGoose_SplitNamesSurviveSyncMerge(t *testing.T) {
+	cases := map[string]func(t *testing.T, dir string){
+		"two plugins": func(t *testing.T, dir string) {
+			writeGoosePlugin(t, dir, "a", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"x","timeout":5}]}]}}`)
+			writeGoosePlugin(t, dir, "b", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"y","timeout":10}]}]}}`)
+		},
+		"unwritten entry": func(t *testing.T, dir string) {
+			writeGoosePlugin(t, dir, "a", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"x"},{"type":"prompt","command":"p","timeout":5}]}]}}`)
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+			setup(t, dir)
+
+			execCLI(t, "import", "goose")
+			first := len(readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks")))
+			execCLI(t, "sync", "-t", "goose")
+			execCLI(t, "import", "goose")
+			second := len(readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks")))
+			if first == 0 || second != first {
+				t.Errorf("spec count %d, then %d after sync and re-import", first, second)
+			}
+		})
+	}
+}

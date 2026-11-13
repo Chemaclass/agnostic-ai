@@ -239,7 +239,7 @@ func importGooseHooks(src, dstDir, warnRoot string) (int, error) {
 			}
 			for _, k := range order {
 				salt := ""
-				if len(order) > 1 {
+				if k != (settings{}) {
 					salt = fmt.Sprintf("timeout=%d on_failure=%s", k.timeout, k.onFailure)
 				}
 				var extra map[string]any
