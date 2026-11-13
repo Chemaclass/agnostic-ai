@@ -36,7 +36,7 @@ Open the other tool in the same project and say “resume the handoff”. It fin
 
 Handoffs stay on one machine; teammates never see them. Linked worktrees (extra checkouts of the same repository) can share the notes, which Git ignores. List saved tasks with [`agnostic-ai handoff list`](@/docs/cli-reference/maintain.md#handoff-list).
 
-To replace the built-in, create your own project skill named `handoff`; `agnostic-ai list` shows which one wins. If a global built-in clashes with your project skill, Cline, Claude Code, and Amp load the global one; rename yours or turn the built-in off in the global config.
+To replace the built-in, create your own project skill named `handoff`; `agnostic-ai list` shows which one wins. If a global built-in clashes with your project skill, some tools load the global one first (see [shared names](@/docs/global-configuration.md#global-shared-names)); rename yours or turn the built-in off in the global config.
 
 <details>
 <summary>Inspect note format, branch matching, and fallback stores</summary>

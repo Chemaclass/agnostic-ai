@@ -18,6 +18,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Cline
+
+- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one (#3400).
+
 #### Goose
 
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
@@ -512,7 +516,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Cline
 
-- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one (#3400).
 - Import keeps native agent settings through sync (#2967).
 
 #### OpenHands
