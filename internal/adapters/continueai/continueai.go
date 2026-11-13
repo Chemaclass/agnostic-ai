@@ -100,8 +100,9 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // .yaml per MCP entry under `.continue/mcpServers/`. When
 // `outputs.continue.assistants-dir` is set, each agent additionally
 // emits as a standalone `config.yaml`-shaped YAML at `<dir>/<name>.yaml`
-// (see assistantYAML); whether Continue itself scans that directory is
-// unconfirmed, so treat it as an export, not a native discovery path.
+// (see assistantYAML). Continue's source loads workspace
+// `.continue/assistants/`, `agents/` and `configs/` YAML as local profiles
+// (core/config/ConfigHandler.ts); its docs do not describe the folder.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -151,10 +152,10 @@ func emitAssistants(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // docs.continue.dev/reference documents the same name/version/schema
 // top level (target-audit 2026-08-08, #563; the prior citation here,
 // docs.continue.dev/hub/assistants/intro, 404s and the whole /hub/
-// namespace is gone). No doc confirms Continue scans
-// outputs.continue.assistants-dir as a directory, so this is an export
-// in Continue's own file shape, loadable explicitly (`cn --config
-// <path>`), not a vendor-confirmed native discovery surface. Fields
+// namespace is gone). Continue's source loads such a
+// directory when it is named assistants, agents or configs under
+// `.continue/`, and the file is also loadable explicitly (`cn --config
+// <path>`); no vendor doc states either. Fields
 // like models or `rules:` are intentionally omitted so Continue
 // inherits the user's configured defaults.
 func assistantYAML(e spec.Entry) (string, error) {

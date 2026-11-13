@@ -56,8 +56,8 @@ Next, [add a skill](@/docs/spec-format/skills.md).
   - Every transport keeps `connectionTimeout` (milliseconds). Remote `requestOptions` keeps `timeout`, `verifySsl`, `caBundlePath`, `proxy`, `clientCertificate`, and `headers`. An explicit native header wins a duplicate key. `x-continue` overrides each matching top-level option.
   - No file is written, with a sync note, for `type: ws` (Continue has no websocket transport) or for an entry missing `command` (stdio) or `url` (remote). Either would make Continue reject the whole file.
 - **Assistants**: with `outputs.continue.assistants-dir` set, each agent also gets `<dir>/<name>.yaml` with `name`, `version` (default `0.0.1`), `schema: v1`, and the body as one `prompts: [{name, description, prompt}]` entry, per Continue's schema ([reference](https://docs.continue.dev/reference)).
-  - Continue may not scan this directory. Its [config docs](https://docs.continue.dev/guides/understanding-configs) describe one global `~/.continue/config.yaml` and no project-level agent directory.
-  - Each file is a standalone `config.yaml` for `cn --config <dir>/<name>.yaml` or the IDE's config picker. It has no models or rules, so your defaults apply.
+  - Continue's source loads workspace `.continue/assistants/`, `agents/` and `configs/` YAML as local profiles ([`ConfigHandler.ts`](https://github.com/continuedev/continue/blob/5522c6f/core/config/ConfigHandler.ts)), so a folder set here under one of those names appears as a selectable profile. Continue's docs do not describe this folder, so it is not vendor-documented.
+  - Each file is also a standalone `config.yaml` for `cn --config <dir>/<name>.yaml` or the IDE's config picker. It has no models or rules, so your defaults apply.
   - The rule form (`.continue/rules/agent-<name>.md`) is written either way.
 
 </details>
