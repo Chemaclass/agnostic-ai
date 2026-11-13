@@ -74,7 +74,7 @@ const (
 // commandFrontmatterKeys names the only frontmatter keys OpenCode reads
 // from a custom command file. Anything else in the spec is dropped so
 // internal-only fields (globs, tools, ...) do not leak.
-var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"}
+var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask", "subagent"}
 
 var caps = emit.Capabilities{
 	Target:      target,
