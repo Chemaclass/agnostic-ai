@@ -7,9 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 // antigravityRulesDirs lists the rules directories Antigravity reads,
