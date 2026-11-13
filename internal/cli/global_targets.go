@@ -440,6 +440,10 @@ var globalTargets = map[string]globalTarget{
 		agents:       globalPathHome + ".agents/agents",
 		instructions: globalPathXDG + "goose/.goosehints",
 		skills:       globalPathHome + ".agents/skills",
+		// Goose loads each directory under ~/.agents/plugins as a plugin
+		// and reads its hooks/hooks.json (Paths::plugins_dir, v1.59.0).
+		hooksDir:       globalPathHome + ".agents/plugins/agnostic-ai-global/hooks",
+		hookScriptsDir: globalPathHome + ".agents/plugins/agnostic-ai-global/hooks",
 	},
 	"openhands": {
 		// OpenHands-CLI locations.py reads OPENHANDS_PERSISTENCE_DIR, else
