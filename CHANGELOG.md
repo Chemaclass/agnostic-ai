@@ -18,6 +18,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### OpenHands
+
+- `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
+
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).

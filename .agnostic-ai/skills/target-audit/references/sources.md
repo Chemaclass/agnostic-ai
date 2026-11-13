@@ -331,7 +331,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: `.openhands/hooks.json` uses the Claude-compatible PascalCase wrapper, with a coverage note for OpenHands matchers (`file_editor`, `terminal`).
 - quirk: the agent loader skips subdirectories, so Antigravity coexists at `.agents/agents/<name>/agent.md` (#717).
 - decision: agent `color` stays unemitted with a coverage note (#864). Goose shares `.agents/agents/` and has no such key. Use `x-openhands.color`. Re-open only if Goose adds `color` or OpenHands stops sharing the path.
-- fact: SessionStart adds no context. In software-agent-sdk [`608a102`](https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/hooks/conversation_hooks.py), `run_session_start` only calls `self._emit_hook_execution_event(...)` and logs `result.error`; `additional_context` is read only in `_handle_user_prompt_submit` (into `extended_content`) and `run_stop` (as feedback when stopping is denied). `hook run` reports context on `UserPromptSubmit` and `Stop` only (#1853, checked 2026-10-07).
+- fact: SessionStart context is delivered. In software-agent-sdk [`504a88c`](https://github.com/OpenHands/software-agent-sdk/blob/504a88cab0fb48ee5226238ad7b8f1d865fa84a8/openhands-sdk/openhands/sdk/hooks/conversation_hooks.py) (v1.62.0), `run_session_start` queues `additional_context` and `inject_pending_additional_context` sends it once as a `MessageEvent` after the system prompt. Earlier SDKs (`608a102`) only logged it. `hook run` reports context on `UserPromptSubmit`, `Stop`, and `SessionStart` (#3382, checked 2026-11-13; #1853 was right for the older SDK).
 
 ## factory
 

@@ -143,7 +143,7 @@ Reads stdout, or stderr when stdout is empty. A JSON `"decision": "deny"` or `"b
 As Claude Code.
 ### OpenHands replies
 
-Blocks only on `PreToolUse`, `UserPromptSubmit`, and `Stop`: on exit 2, or a JSON `"decision": "deny"` or `"continue": false` at any exit code. A `context` line marks a JSON `additionalContext` on `UserPromptSubmit` and `Stop` only.
+Blocks only on `PreToolUse`, `UserPromptSubmit`, and `Stop`: on exit 2, or a JSON `"decision": "deny"` or `"continue": false` at any exit code. A `context` line marks a JSON `additionalContext` on `UserPromptSubmit`, `Stop`, and `SessionStart` only. OpenHands SDK 1.62.0 and later queue `SessionStart` context and send it once, after the system prompt.
 ### Goose replies
 
 Blocks only on `PreToolUse` and `Stop`: on exit 2, or stdout starting with `{` whose `decision` is `"block"`, at any exit code. Exit 0 with empty stdout or `"decision": "allow"` allows. Anything else is `error`, or `block` with `x-goose.on_failure: block`.
