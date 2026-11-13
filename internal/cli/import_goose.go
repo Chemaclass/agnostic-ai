@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -133,10 +135,12 @@ func importGooseRules(root, dstDir string) (int, error) {
 // from `<plugin>/hooks/hooks.json`. Returns the skill and hook counts.
 // A missing plugins directory imports nothing.
 //
-// Every plugin is read, not just the `agnostic-ai` one this tool writes.
-// A hand-installed package is exactly the configuration a migrating
-// project wants picked up, and `outputs.goose.hooks-file` can point the
-// emit side at any plugin root already.
+// Every enabled plugin is read, not just the `agnostic-ai` one this
+// tool writes. A hand-installed package is exactly the configuration a
+// migrating project wants picked up, and `outputs.goose.hooks-file` can
+// point the emit side at any plugin root already. A plugin listed in
+// `disabledPlugins` is skipped, because Goose loads neither its skills
+// nor its hooks and importing them would switch them on.
 func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err error) {
 	dir := filepath.Join(root, filepath.FromSlash(goosePluginsDir))
 	entries, err := os.ReadDir(dir)
@@ -146,8 +150,13 @@ func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err
 	if err != nil {
 		return 0, 0, fmt.Errorf("read %s: %w", dir, err)
 	}
+	layers := gooseSettingsLayers(root)
 	for _, e := range entries {
 		if !e.IsDir() {
+			continue
+		}
+		if !gooseEnabled(layers, e.Name()) {
+			keptf("skipping disabled Goose plugin %s\n", e.Name())
 			continue
 		}
 		plugin := filepath.Join(dir, e.Name())
@@ -156,7 +165,11 @@ func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err
 			return skills, hooks, err
 		}
 		skills += n
-		n, err = importGooseHooks(filepath.Join(plugin, "hooks", "hooks.json"), importSourcePath(root, src.Hooks))
+		warnRoot := gooseSyncPluginRoot()
+		if filepath.Clean(plugin) == filepath.Clean(filepath.Join(root, filepath.FromSlash(warnRoot))) {
+			warnRoot = ""
+		}
+		n, err = importGooseHooks(filepath.Join(plugin, "hooks", "hooks.json"), importSourcePath(root, src.Hooks), warnRoot)
 		if err != nil {
 			return skills, hooks, err
 		}
@@ -184,11 +197,14 @@ type gooseHookGroup struct {
 // yaml per matcher group into dstDir. No-op when the file or its `hooks`
 // key is absent.
 //
-// `on_failure` is per-command in the file and per-spec here, so the
-// first non-empty value in a group wins: the emit side writes the spec's
-// single value onto every command in the group, which is the only shape
-// that survives a second round-trip.
-func importGooseHooks(src, dstDir string) (int, error) {
+// `timeout` and `on_failure` are per-command in the file and per-spec
+// here, so a group splits into one spec per distinct pair, in first-seen
+// order. The emit side merges same-event-same-matcher specs back into
+// one group, so the split survives a second round-trip. A command that
+// uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` warns when it is written
+// anywhere but the plugin that sync emits to (warnRoot is empty then):
+// the emitted plugin has no `scripts/`.
+func importGooseHooks(src, dstDir, warnRoot string) (int, error) {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -205,23 +221,37 @@ func importGooseHooks(src, dstDir string) (int, error) {
 	count := 0
 	for _, event := range sortedHookEvents(doc.Hooks) {
 		for _, g := range doc.Hooks[event] {
-			entries := make([]groupedHookEntry, 0, len(g.Hooks))
-			onFailure := ""
+			type settings struct {
+				timeout   int
+				onFailure string
+			}
+			var order []settings
+			bySettings := map[settings][]groupedHookEntry{}
 			for _, h := range g.Hooks {
-				entries = append(entries, h.groupedHookEntry)
-				if onFailure == "" {
-					onFailure = h.OnFailure
+				if warnRoot != "" && usesPluginRoot(h.Command) && writtenGooseCommand(event, g.Matcher, h) {
+					keptf("Goose hook %q uses PLUGIN_ROOT: copy the plugin's scripts into %s or the command cannot run\n", h.Command, warnRoot)
 				}
+				k := settings{h.Timeout, h.OnFailure}
+				if _, seen := bySettings[k]; !seen {
+					order = append(order, k)
+				}
+				bySettings[k] = append(bySettings[k], h.groupedHookEntry)
 			}
-			var extra map[string]any
-			if onFailure != "" {
-				extra = map[string]any{"x-goose": map[string]any{"on_failure": onFailure}}
+			for _, k := range order {
+				salt := ""
+				if k != (settings{}) {
+					salt = fmt.Sprintf("timeout=%d on_failure=%s", k.timeout, k.onFailure)
+				}
+				var extra map[string]any
+				if k.onFailure != "" {
+					extra = map[string]any{"x-goose": map[string]any{"on_failure": k.onFailure}}
+				}
+				n, err := writeGroupedHookSpecSalted(dstDir, "goose", event, g.Matcher, salt, bySettings[k], extra)
+				if err != nil {
+					return count, err
+				}
+				count += n
 			}
-			n, err := writeGroupedHookSpec(dstDir, "goose", event, g.Matcher, entries, extra)
-			if err != nil {
-				return count, err
-			}
-			count += n
 		}
 	}
 	return count, nil
@@ -250,4 +280,30 @@ func importGooseReview(root, dstDir string) (int, error) {
 		return 0, err
 	}
 	return 1, nil
+}
+
+// usesPluginRoot reports whether a command refers to the plugin
+// directory through either spelling Goose expands.
+func usesPluginRoot(command string) bool {
+	return strings.Contains(command, "${PLUGIN_ROOT}") || strings.Contains(command, "$PLUGIN_ROOT")
+}
+
+// writtenGooseCommand mirrors the filter writeGroupedHookSpec applies,
+// so a warning names only commands that land in a spec.
+func writtenGooseCommand(event, matcher string, h gooseHookEntry) bool {
+	if h.Type != "" && h.Type != "command" {
+		return false
+	}
+	command := adapters.StripHookTargetExport(h.Command, "goose")
+	return command != "" && !importLocal.dropsHookCommand("goose", event, matcher, command)
+}
+
+// gooseSyncPluginRoot is the root-relative plugin directory sync writes
+// to, which follows `outputs.goose.hooks-file`.
+func gooseSyncPluginRoot() string {
+	cfg := importHookConfig
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	return goose.PluginRoot(cfg)
 }
