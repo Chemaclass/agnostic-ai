@@ -70,12 +70,16 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 func writeGroupedHookSpecSalted(dstDir, target, event, matcher, salt string, entries []groupedHookEntry, extra map[string]any) (int, error) {
 	var commands []string
 	timeout := 0
+	commandRegex := ""
+	if native, ok := extra["x-"+target].(map[string]any); ok && target == "factory" {
+		commandRegex, _ = native["commandRegex"].(string)
+	}
 	for _, h := range entries {
 		if h.Type != "" && h.Type != "command" {
 			continue
 		}
 		h.Command = adapters.StripHookTargetExport(h.Command, target)
-		if h.Command == "" || importLocal.dropsHookCommand(target, event, matcher, h.Command) {
+		if h.Command == "" || importLocal.dropsHookCommandFiltered(target, event, matcher, h.Command, commandRegex) {
 			continue
 		}
 		commands = append(commands, h.Command)

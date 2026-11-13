@@ -138,7 +138,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
 - `continueOnBlock`: Claude Code, CodeBuddy. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `loop_limit`: Cursor, Trae.
 - `failClosed`: Claude Code (command and HTTP handlers), Cursor. `true` blocks when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output. See [Claude Code hook mappings](@/docs/targets/claude-reference.md#hook-mappings) for the events it ignores there.
-- `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
+- `x-goose.on_failure` (Goose), `x-factory.commandRegex` (Factory, a regex filter on the group), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. A hook with none of these, and no `command` under an `x-<target>` block, runs nothing, so `validate` and `lint` (LINT052) report it. Limit a non-command hook to the tools that support it with `target` or `targets`.
 

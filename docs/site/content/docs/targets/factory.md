@@ -84,7 +84,7 @@ Written once to the tree that codex, amp, zed, and crush share. Factory also rea
 
 - Nine events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`.
 - The file is keyed by event name, `{"<Event>": [{matcher, hooks: [...]}]}`, with no `hooks` wrapper (unlike Claude Code, Codex, Gemini, and Qoder).
-- Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60). Factory's `commandRegex` has no spec field and is not written.
+- Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60). Factory's group-level `commandRegex` is set with `x-factory.commandRegex` on the hook spec; specs with different regexes never share a group, and `import factory` fills the key.
 - `matcher` is a regex over Factory's tool names, which match Claude's except `Bash`, `Write`, and `WebFetch`. A matcher that uses those is written as is, matches nothing, and raises a sync note.
 
 ### MCP
