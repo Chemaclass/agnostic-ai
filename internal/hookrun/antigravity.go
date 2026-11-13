@@ -193,8 +193,11 @@ func antigravityFieldProblem(event string, reply map[string]json.RawMessage) str
 	}
 	switch event {
 	case "PreToolUse", "Stop":
-		if _, present := reply["decision"]; !present || !isString("decision") {
+		if event == "PreToolUse" && !isString("decision") {
 			return "Antigravity requires a string decision in the reply, and this one has none"
+		}
+		if problem := optionalString("decision"); problem != "" {
+			return problem
 		}
 		if event == "PreToolUse" {
 			var decision string

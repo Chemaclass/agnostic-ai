@@ -119,6 +119,8 @@ Hooks are merged into `.agents/hooks.json` (or `outputs.antigravity.hooks-file`)
 - Per handler: `type` (defaults to `"command"`, and is always written), `command`, and optional `timeout` (seconds, vendor default 30).
 - A Claude-style matcher is valid regex that matches none of Antigravity's tool names. It is written as is with a sync note, as in OpenHands, Crush, and Windsurf.
 
+`hook run` reads a successful Stop reply of `{}` as `allow`, matching the [plugin guide](https://antigravity.google/docs/build-plugins) and the `agy` 1.5.8 backend. A string `decision: "continue"` still reads as `block`. `PreToolUse` requires a decision.
+
 ### Commands
 
 The public-preview docs do not confirm them, so they are skipped with a warning. `on-unsupported: silent` suppresses it.
