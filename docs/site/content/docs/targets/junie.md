@@ -69,7 +69,7 @@ A `## Rules` block right after the instructions that point to source specs, mark
 
 - Names, and filenames when `name` is missing, must match `[a-z][a-z0-9_-]*` (underscores allowed, unlike the OpenCode and Zed skill rule). An invalid name such as `Deploy_Bot` fails sync, and the error shows the required format. Sync does not rename it.
 - Frontmatter is copied as written. The documented fields (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) use the same spelling as specs, and `tools` and `disallowedTools` stay YAML lists.
-- Tool group labels match the Claude names for each documented group, plus `AskUserQuestion`. There is no `WebFetch`, `Task`, `TodoWrite`, or `NotebookEdit`.
+- Tool group labels match the Claude names for each documented group, including `WebFetch`, plus `AskUserQuestion`. There is no `Task`, `TodoWrite`, or `NotebookEdit`.
 - `reasoningLevel` also accepts the alias `effort`, which wins when both are set. Both are copied as written.
 - Agent bodies are not copied into `.junie/AGENTS.md`, as with Augment and Kilo Code.
 - Early Access covers only the automatic model-selection toggle (`/settings → Subagents`), not the file format or how Junie finds agents.

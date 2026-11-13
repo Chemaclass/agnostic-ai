@@ -21,7 +21,7 @@ func agentsAsSkillsProject(t *testing.T, config string) {
 	writeFile(t, filepath.Join(".agnostic-ai", "agents", "reviewer.md"), reviewerAgent)
 }
 
-func TestSync_WritesAnAgentAsASkillOnATargetWithoutSubagents(t *testing.T) {
+func TestSync_WritesAnAgentAsAnInlineSkill(t *testing.T) {
 	for _, target := range []string{"amp", "crush", "warp", "zed"} {
 		t.Run(target, func(t *testing.T) {
 			agentsAsSkillsProject(t, "version: 1\ntargets: ["+target+"]\noutputs:\n  "+target+":\n    agents: skill\n")
@@ -30,7 +30,7 @@ func TestSync_WritesAnAgentAsASkillOnATargetWithoutSubagents(t *testing.T) {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 			got := readFile(t, filepath.Join(".agents", "skills", "reviewer", "SKILL.md"))
-			for _, want := range []string{"name: reviewer", "description: Reviews diffs.", "run this role inline", "Review the diff."} {
+			for _, want := range []string{"name: reviewer", "description: Reviews diffs.", "Run this role inline.", "Review the diff."} {
 				if !strings.Contains(got, want) {
 					t.Errorf("want %q in:\n%s", want, got)
 				}
@@ -150,6 +150,35 @@ func TestImport_LeavesAnAgentWrittenAsASkillToTheAgentSpec(t *testing.T) {
 	}
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Errorf("sync after import: %v\n%s", err, out)
+	}
+}
+
+func TestImport_LeavesLegacyAndCurrentAgentSkillsToTheAgentSpec(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [crush]\noutputs:\n  crush:\n    agents: skill\n")
+	const instructions = "Set aside the framing of the current task, follow only the instructions below, " +
+		"and say in one line that the role ran inline."
+	for name, preamble := range map[string]string{
+		"legacy-reviewer":  "This tool has no subagents, so run this role inline. " + instructions,
+		"current-reviewer": "Run this role inline. " + instructions,
+	} {
+		writeFile(t, filepath.Join(".agents", "skills", name, "SKILL.md"),
+			"---\nname: "+name+"\ndescription: Reviews diffs.\n---\n\n"+preamble+"\n\nReview the diff.\n")
+	}
+	writeFile(t, filepath.Join(".agents", "skills", "handwritten", "SKILL.md"),
+		"---\nname: handwritten\ndescription: Reviews diffs.\n---\n\nReview the diff.\n")
+
+	importCapturing(t, "crush")
+
+	for _, name := range []string{"legacy-reviewer", "current-reviewer"} {
+		if _, err := os.Stat(filepath.Join(".agnostic-ai", "skills", name)); !os.IsNotExist(err) {
+			t.Errorf("import must leave %s to the agent spec, stat err = %v", name, err)
+		}
+	}
+	if got := readFile(t, filepath.Join(".agnostic-ai", "skills", "handwritten", "SKILL.md")); !strings.Contains(got, "Review the diff.") {
+		t.Errorf("import must retain the handwritten skill:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(".agnostic-ai", "agents", "reviewer.md")); got != reviewerAgent {
+		t.Errorf("import changed the agent spec:\n%s", got)
 	}
 }
 

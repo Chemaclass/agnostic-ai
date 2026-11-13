@@ -32,16 +32,11 @@
 // MCP doc page.
 //
 // When `outputs.zed.tasks-file` is set, hook specs additionally emit
-// as Zed Tasks (https://zed.dev/docs/tasks): one entry per hook in the
-// configured tasks JSON, runnable on demand from the command palette
-// (Zed has no lifecycle-hook surface). Any other documented Zed Task
-// field passes through verbatim when declared under `x-zed`, since
-// MergeCustomTargetMeta copies whatever key is present rather than
-// checking it against a fixed list; `import zed` captures it back the
-// same way. Zed keeps adding fields (`hooks` with `create_worktree`,
-// `show_summary`, and `show_command` since this adapter's last audit,
-// target-audit 2026-08-08, #563), so an enumerated list here would
-// only go stale again.
+// as Zed Tasks (https://zed.dev/docs/tasks). WorktreeCreate writes
+// `hooks: ["create_worktree"]`, so the task runs after Zed creates a
+// linked Git worktree. Other hooks become on-demand tasks; Zed Tasks
+// has no agent session or tool callbacks. Other documented task fields
+// pass through under `x-zed`, and `import zed` captures them back.
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters separated
 // by single hyphens. Invalid names fail before output is written.

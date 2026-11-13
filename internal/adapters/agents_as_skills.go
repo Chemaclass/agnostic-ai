@@ -12,19 +12,17 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// AgentsAsSkills is the `outputs.<target>.agents` value that writes each
-// agent as an on-demand skill on a target without subagents.
+// AgentsAsSkills selects on-demand skills for the target's agent output.
 const AgentsAsSkills = "skill"
 
-// agentSkillPreamble opens each agent written as a skill. Nothing
-// isolates the role on such a target, so the text asks for it.
-const agentSkillPreamble = "This tool has no subagents, so run this role inline. " +
-	"Set aside the framing of the current task, follow only the instructions below, " +
+const agentSkillInstructions = "Set aside the framing of the current task, follow only the instructions below, " +
 	"and say in one line that the role ran inline."
 
-// subagentlessTargets write skill folders but drop agents by default.
-// Some still declare the agent kind, for an opt-in rules document that
-// carries agent bodies, so the capability list cannot tell them apart.
+const agentSkillPreamble = "Run this role inline. " + agentSkillInstructions
+
+const legacyAgentSkillPreamble = "This tool has no subagents, so run this role inline. " + agentSkillInstructions
+
+// subagentlessTargets allow the opt-in agent-to-skill conversion.
 var subagentlessTargets = map[string]bool{"amp": true, "crush": true, "warp": true, "zed": true}
 
 // AgentsAsSkillsTarget reports whether target can write agents as skills.
@@ -67,7 +65,9 @@ const sharedAgentsSkillsDir = ".agents/skills"
 
 // WrittenFromAgent reports whether a SKILL.md is an agent sync wrote as
 // a skill, so import leaves it to the agent spec.
-func WrittenFromAgent(skillMD string) bool { return strings.Contains(skillMD, agentSkillPreamble) }
+func WrittenFromAgent(skillMD string) bool {
+	return strings.Contains(skillMD, agentSkillPreamble) || strings.Contains(skillMD, legacyAgentSkillPreamble)
+}
 
 // agentSkillFields are the agent fields a skill carries over.
 var agentSkillFields = map[string]bool{
@@ -75,9 +75,7 @@ var agentSkillFields = map[string]bool{
 	"target": true, "targets": true, "target-exclude": true, "targets-exclude": true,
 }
 
-// WritesAgentsAsSkills reports whether target writes agents as skills:
-// it opted in, has skills and no agents, and no other enabled target
-// with agents reads its skills directory.
+// WritesAgentsAsSkills reports whether the target uses inline agent skills.
 func WritesAgentsAsSkills(cfg *config.Config, target string) bool {
 	ok, _ := agentsAsSkills(cfg, target)
 	return ok

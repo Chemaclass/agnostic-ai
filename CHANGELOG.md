@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Agent-as-skill output uses neutral inline instructions, and import still recognizes previously generated agent skills (#3436).
+
 - Target audits review ordinary CLI comment changes once, with recorded source evidence, while keeping runtime changes under deep review (#3372).
 - Target audits can start in an isolated worktree and retain evidence outside it, so concurrent checkout changes do not restart research (#3369).
 
@@ -91,6 +93,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
 - `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable tool mapping it replaces (#3407).
+
+### Site
+
+- Junie lists `WebFetch` as supported, and Zed's adapter guidance describes automatic worktree tasks (#3435, #3437).
 
 ## v0.94.0 - 2026-11-12
 

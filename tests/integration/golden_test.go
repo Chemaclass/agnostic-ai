@@ -250,6 +250,9 @@ func setupGoldenFixture(t *testing.T) string {
 		}
 		rel, _ := filepath.Rel(src, path)
 		// Skip the per-target expected snapshot directories.
+		if rel == "agents-as-skills" {
+			return fs.SkipDir
+		}
 		for _, tgt := range goldenTargets {
 			if rel == tgt || len(rel) > len(tgt) && rel[:len(tgt)+1] == tgt+string(filepath.Separator) {
 				return fs.SkipDir

@@ -178,7 +178,7 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 
 ## Agents as skills {#agents-as-skills}
 
-Amp, Crush, Warp, and Zed have no subagents, so sync drops agents there by default. Set `outputs.<target>.agents: skill` to write each agent as a skill, which loads only when the model needs it.
+Sync drops agent specs for Amp, Crush, Warp, and Zed by default. Set `outputs.<target>.agents: skill` to write each agent as a skill, which loads only when the model needs it.
 
 ```yaml
 outputs:
