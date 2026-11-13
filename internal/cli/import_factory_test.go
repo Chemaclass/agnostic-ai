@@ -323,3 +323,32 @@ func TestImportFactory_SameCommandWithDifferentRegexesKeepsBoth(t *testing.T) {
 		t.Errorf("both regex groups must survive:\n%s", got)
 	}
 }
+
+func TestImportFactory_HandNamedRegexSpecOwnsItsNativeGroup(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "git-guard.yaml"),
+		"name: git-guard\nevent: PreToolUse\nmatcher: Execute\ncommand: ./guard.sh\ntarget: factory\nx-factory:\n  commandRegex: '^git '\n")
+	execCLI(t, "sync")
+	want := factoryHooksJSON(t, dir)
+	if !strings.Contains(want, `"^git "`) {
+		t.Fatalf("sync did not write the regex:\n%s", want)
+	}
+
+	execCLI(t, "import", "factory")
+	if names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")); len(names) != 1 || names[0] != "git-guard.yaml" {
+		t.Errorf("import must not add a spec for the synced group, got %v", names)
+	}
+	execCLI(t, "sync")
+	if got := factoryHooksJSON(t, dir); got != want {
+		t.Errorf("sync after import changed the file:\n%s\nwant\n%s", got, want)
+	}
+
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "commandRegex": "^git ", "hooks": [{"type": "command", "command": "./guard.sh"}]}, {"matcher": "Execute", "hooks": [{"type": "command", "command": "./guard.sh"}]}]}`)
+	execCLI(t, "import", "factory")
+	if names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")); len(names) != 2 {
+		t.Errorf("the hand-written group without a regex must be imported, got %v", names)
+	}
+}

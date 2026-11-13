@@ -76,7 +76,7 @@ func (l *hookOwners) ownerFiltered(target, event, matcher, key, commandRegex str
 				id := hookIdentity(hookEventKey(meta), k)
 				filter := ""
 				if target == "factory" {
-					filter, _ = meta["commandRegex"].(string)
+					filter, _ = adapters.ResolveMeta(native.Meta, target)["commandRegex"].(string)
 				}
 				index[id] = append(index[id], hookOwnerMatcher{matcher: hookMatcher(meta), name: e.Name, commandRegex: filter})
 			}
