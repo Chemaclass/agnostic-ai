@@ -291,10 +291,16 @@ func TestExplainCapabilities_OpenCodePermissionOverride(t *testing.T) {
 	var override, portable bool
 	for _, row := range got {
 		override = override || row.Override == "x-opencode.permission" && row.Capability == "native configuration"
-		portable = portable || row.Capability == "Read" && row.Field == "tools"
+		portable = portable || row.Capability == "Read" && row.Field == "tools" && row.Override == ""
 	}
 	if !override || !portable {
-		t.Errorf("map override report=%+v,want native configuration row plus portable Read row", got)
+		t.Errorf("map override report=%+v,want native configuration row plus unoverridden portable Read row", got)
+	}
+	covered := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-opencode": map[string]any{"permission": map[string]any{"read": "deny"}}}}
+	for _, row := range explainCapabilities(covered, &config.Config{Targets: []string{"opencode"}}) {
+		if row.Capability == "Read" && row.Override != "x-opencode.permission" {
+			t.Errorf("Read row=%+v,want override when the map sets read", row)
+		}
 	}
 	scalar := spec.Entry{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{"Read"}, "x-opencode": map[string]any{"permission": "deny"}}}
 	got = explainCapabilities(scalar, &config.Config{Targets: []string{"opencode"}})

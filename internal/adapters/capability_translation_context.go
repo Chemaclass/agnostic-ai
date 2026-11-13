@@ -39,10 +39,25 @@ func TranslateAgentCapabilityIn(target, rule string, entry spec.Entry) Capabilit
 				return CapabilityTranslation{}
 			}
 		}
+		if permission, merged := value.(map[string]any); merged && target == "opencode" && rule != "" {
+			if !overridesAny(permission, TranslatePermissionCapability(target, "allow", rule, nil).Native) {
+				return TranslateCapability(target, rule)
+			}
+		}
 		body, _ := json.Marshal(value)
 		return CapabilityTranslation{Native: []string{key + ": " + string(body)}, Supported: true, Override: "x-" + target + "." + key}
 	}
 	return TranslateCapability(target, rule)
+}
+
+func overridesAny(permission map[string]any, native []string) bool {
+	for _, name := range native {
+		key, _, _ := strings.Cut(name, "(")
+		if _, set := permission[key]; set {
+			return true
+		}
+	}
+	return false
 }
 
 func TranslatePermissionCapabilityIn(target, list, rule string, entry spec.Entry, settings []spec.Entry, cfg *config.Config) CapabilityTranslation {
