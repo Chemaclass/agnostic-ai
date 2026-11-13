@@ -32,7 +32,9 @@ var globalNameWinners = map[spec.Kind]map[string]bool{
 	// .agents/skills/, the amp target's own paths. Amp reads project
 	// .claude/skills/ before ~/.claude/skills/, so a clash from the
 	// claude target alone loads the project copy there.
-	spec.KindSkill: {"amp": true, "claude": true, "gemini": false},
+	// github.com/cline/cline discoverSkills (v4.1.26): disk-global
+	// over project; docs.cline.bot/customization/skills agrees.
+	spec.KindSkill: {"amp": true, "claude": true, "cline": true, "gemini": false},
 	// code.claude.com/docs/en/sub-agents: .claude/agents/ over
 	// ~/.claude/agents/.
 	spec.KindAgent: {"claude": false},

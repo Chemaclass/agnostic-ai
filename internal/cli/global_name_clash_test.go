@@ -304,6 +304,18 @@ func TestGlobalNameClashes_AmpOnlyWhenBothWriteAmp(t *testing.T) {
 	}
 }
 
+func TestGlobalNameClashes_ClineLoadsTheGlobalSkill(t *testing.T) {
+	globalNameClashProject(t, "cline",
+		map[string]string{"skills/gh-issue/SKILL.md": otherSkill("gh-issue")},
+		map[string]string{"skills/gh-issue/SKILL.md": skillSpec("gh-issue", "")})
+
+	got := clashesInWorkingDir(t)
+
+	if len(got) != 1 || !slices.Equal(got[0].globalWins, []string{"cline"}) {
+		t.Errorf("Cline loads the global skill over the project one: %+v", got)
+	}
+}
+
 func TestGlobalNameClashes_SkipsTargetsWithNoUserLevelSurface(t *testing.T) {
 	prev := globalNameWinners[spec.KindAgent]
 	globalNameWinners[spec.KindAgent] = map[string]bool{"claude": false, "amp": true}

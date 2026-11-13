@@ -66,4 +66,4 @@ agnostic-ai explain builtin:side-conversation
 agnostic-ai why .claude/skills/side-conversation/SKILL.md
 ```
 
-To replace the built-in, create your own project skill named `side-conversation`; it wins over the built-in.
+To replace the built-in, create your own project skill named `side-conversation`; it wins over the built-in. Cline and Claude Code load a global copy before a project one, so if the built-in is also installed globally, rename yours or turn the built-in off in the global config.
