@@ -41,7 +41,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Antigravity
 
-- `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. Literal `env` and `headers` secrets in `mcpServers` become `${NAME}` references, and a server with an OAuth credential is left out with a warning. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
+- `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. An inline `mcpServers` entry that holds a literal credential is left out with a warning that names the server and field. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
 
 #### Zed
 

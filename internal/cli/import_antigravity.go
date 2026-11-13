@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -381,8 +382,8 @@ func importAntigravityAgents(srcDir, dstDir string) (int, error) {
 
 // antigravityNativeAgentFields moves the documented subagent keys that
 // have no shared spec field under x-antigravity, where sync reads them.
-// Inline `mcpServers` can hold credentials, so literals become
-// references first.
+// Inline `mcpServers` can hold credentials, so a server with a literal
+// one is left out.
 func antigravityNativeAgentFields(data []byte) ([]byte, error) {
 	moved, err := importNativeAgentFields(data, "antigravity", "tools", "commandExecutionPolicy", "mainAgent", "subagent", "mcpServers", "skills", "plugins")
 	if err != nil {
@@ -396,7 +397,7 @@ func antigravityNativeAgentFields(data []byte) ([]byte, error) {
 	if servers == nil {
 		return moved, nil
 	}
-	clean, changed, err := referenceAntigravityAgentLiterals(servers)
+	clean, changed, err := withoutAntigravityAgentCredentials(servers)
 	if err != nil || !changed {
 		return moved, err
 	}
@@ -404,57 +405,75 @@ func antigravityNativeAgentFields(data []byte) ([]byte, error) {
 	return encodeFrontmatter(mapping, rest, "antigravity")
 }
 
-// referenceAntigravityAgentLiterals turns literal credentials in an
-// agent's inline servers, a list of objects or a name-keyed map, into
-// `${NAME}` references as MCP file import does, and leaves out a server
-// with an OAuth credential, which has no reference form.
-func referenceAntigravityAgentLiterals(inline *yaml.Node) (*yaml.Node, bool, error) {
-	if inline.Kind == yaml.MappingNode {
-		out, err := referenceKiroAgentLiterals(inline)
-		return out, out != inline, err
-	}
-	if inline.Kind != yaml.SequenceNode {
+// withoutAntigravityAgentCredentials drops each inline server that holds
+// a literal credential anywhere: Antigravity has no `${NAME}` reference
+// form for an agent's servers, so a rewrite would break a working one.
+// A server with no literal stays as written. The list and the
+// name-keyed map shapes are both read; a server is tracked by position,
+// and its name is only for the warning.
+func withoutAntigravityAgentCredentials(inline *yaml.Node) (*yaml.Node, bool, error) {
+	var kept, nodes []*yaml.Node
+	var names []string
+	switch inline.Kind {
+	case yaml.SequenceNode:
+		for i, item := range inline.Content {
+			var entry struct {
+				Name string `yaml:"name"`
+			}
+			_ = item.Decode(&entry)
+			if entry.Name == "" {
+				entry.Name = fmt.Sprintf("#%d", i+1)
+			}
+			names, nodes = append(names, entry.Name), append(nodes, item)
+		}
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(inline.Content); i += 2 {
+			names, nodes = append(names, inline.Content[i].Value), append(nodes, inline.Content[i+1])
+		}
+	default:
 		return inline, false, nil
 	}
-	var items []any
-	if err := inline.Decode(&items); err != nil {
-		return nil, false, err
-	}
-	servers := map[string]any{}
-	keys := make([]string, len(items))
-	for i, item := range items {
-		keys[i] = fmt.Sprintf("server-%d", i+1)
-		if m, ok := item.(map[string]any); ok {
-			if name, _ := m["name"].(string); name != "" {
-				keys[i] = name
-			}
-		}
-		servers[keys[i]] = item
-	}
 	var refs []mcpLiteralRef
-	for _, key := range keys {
-		server, _ := servers[key].(map[string]any)
-		if field := mcpOAuthCredential(server["oauth"]); field != "" {
-			delete(servers, key)
-			refs = append(refs, mcpLiteralRef{server: key, field: field, leftOut: true})
+	for i, node := range nodes {
+		if field := antigravityServerCredential(node); field != "" {
+			refs = append(refs, mcpLiteralRef{server: names[i], field: field, leftOut: true})
+			continue
 		}
+		if inline.Kind == yaml.MappingNode {
+			kept = append(kept, inline.Content[2*i])
+		}
+		kept = append(kept, node)
 	}
-	refs = append(refs, referenceMCPLiterals(servers)...)
 	if len(refs) == 0 {
 		return inline, false, nil
 	}
-	kept := make([]any, 0, len(items))
-	for _, key := range keys {
-		if server, ok := servers[key]; ok {
-			kept = append(kept, server)
-		}
-	}
-	out := &yaml.Node{}
-	if err := out.Encode(kept); err != nil {
-		return nil, false, err
-	}
+	out := &yaml.Node{Kind: inline.Kind, Tag: inline.Tag, Style: inline.Style, Content: kept}
 	reportMCPLiteralRefs(refs)
 	return out, true, nil
+}
+
+// antigravityServerCredential returns the field path of the first literal
+// credential in one inline server, or "". It checks a normalized copy with
+// the detectors the MCP file import uses: `env` and `headers` literals,
+// URL and argument credentials, and a scan of every string, so an unknown
+// key or a nested `auth.token` counts too.
+func antigravityServerCredential(node *yaml.Node) string {
+	var entry map[string]any
+	if err := node.Decode(&entry); err != nil || entry == nil {
+		return ""
+	}
+	normalized := normalizeAntigravityMCPEntry(entry)
+	if field := mcpOAuthCredential(normalized); field != "" {
+		return strings.TrimPrefix(field, "oauth.")
+	}
+	var probe map[string]any
+	if err := node.Decode(&probe); err != nil {
+		return ""
+	}
+	if refs := referenceMCPLiterals(map[string]any{"server": normalizeAntigravityMCPEntry(probe)}); len(refs) > 0 {
+		return refs[0].field
+	}
+	return ""
 }
 
 // antigravityRulesFileFromCfg returns the project-relative
