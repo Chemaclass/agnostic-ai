@@ -141,13 +141,13 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - changelog: https://github.com/continuedev/continue/releases
 - trap: do not bound activity with `pushed_at`. It tracks any branch, dependabot included. Read `repos/continuedev/continue/commits/main` instead.
 - quirk: the MCP prose page names transports but not field placement. Read `packages/config-yaml/src/schemas/mcp/index.ts` for `type` literals and `requestOptions` nesting (#726, #730).
-- decision: `outputs.continue.assistants-dir` is an opt-in export. Its shape matches `configYamlSchema`, but no doc says Continue scans a project directory for it.
+- decision: `outputs.continue.assistants-dir` is an opt-in export. Its shape matches `configYamlSchema`, and no doc says Continue scans a project directory for it. Source evidence: `core/config/ConfigHandler.ts` loads the workspace root's `.continue/assistants`, `.continue/agents` and `.continue/configs` as local profiles (#3401).
 - decision: `.continue/mcpServers/*.yaml` files hold exactly one server. JSONC `.json` files import as a root `mcpServers` map or a bare server (`loadJsonMcpConfigs.ts`).
 - watch: a sixth rule frontmatter key in `docs/customize/deep-dives/rules.mdx`. A hub successor to `.continue/rules/`, since `/hub/` is gone. The MCP zod schema. A vendor-confirmed discovery path for assistants.
 
 ## amp
 
-- docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/the-dial · /docs/orbs/customizing · /docs/orbs/portals · /docs/integrations (Linear subscriptions and project routing, configured in account settings)
+- docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/model-selector · /docs/orbs/customizing · /docs/orbs/portals · /docs/integrations (Linear subscriptions and project routing, configured in account settings)
 - changelog: https://ampcode.com/news.rss (official Chronicle feed; `ampcode.com/chronicle` serves an app shell; individual posts keep `/news/<slug>`)
 - schema: https://ampcode.com/cli-settings.schema.json (the authoritative `.amp/settings.json` key list; `/docs/cli/settings` prose lists a subset)
 - trap: `ampcode.com/manual` returns 200 but serves an empty SvelteKit shell. Do not cite it.

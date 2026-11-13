@@ -39,9 +39,10 @@ const askNoTierReason = "Amp does not ask for approval before running tools, so 
 const denyNoVocabularyReason = "Amp publishes its tool names only through `amp tools list`, so a portable rule has no name to translate to; set x-amp with `" + toolsDisableKey + "` in Amp's own spelling"
 
 // modelNoKeyReason explains why a portable model reaches nothing.
-// Amp routes models through the Dial and its workspace, not through a
+// Amp routes models through its model selector
+// (ampcode.com/docs/model-selector) and its workspace, not through a
 // settings key; no property in cli-settings.schema.json selects one.
-const modelNoKeyReason = "no model key in Amp's settings schema; Amp picks models through the Dial"
+const modelNoKeyReason = "no model key in Amp's settings schema; Amp picks models through its model selector"
 
 // emitSettingsFile writes (or merges into) `.amp/settings.json`, the
 // workspace-tier settings file Amp finds as "the nearest
