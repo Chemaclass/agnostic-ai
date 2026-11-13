@@ -59,14 +59,15 @@ var (
 	claudeAgentFields      = specFields{all: true, scopedReconciled: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
 	clineAgentFields       = specFields{keys: fieldsOf("name", "description").keys, scopedNative: map[string]bool{"tools": true, "skills": true, "providerId": true, "modelId": true, "maxIterations": true}}
 	cursorAgentFields      = specFields{keys: fieldsOf("name", "description", "model", "background").keys, scopedReconciled: true}
-	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")
+	copilotAgentFields     = specFields{keys: fieldsOf("name", "description", "tools", "model").keys, scopedNative: map[string]bool{"user-invocable": true, "disable-model-invocation": true, "hooks": true}}
 	antigravityAgentFields = fieldsOf("name", "description")
 	kiroAgentFields        = fieldsOf("name", "description", "model", "tools", "mcpServers")
 	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}
 	gooseAgentFields       = fieldsOf("name", "description", "model")
-	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true}}
+	openhandsSkillFields   = specFields{keys: defaultSkillFields.keys, scopedNative: map[string]bool{"triggers": true}}
+	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true, "hooks": true, "max_iteration_per_run": true, "max_budget_per_run": true, "condenser": true, "profile_store_dir": true, "mcp_config": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")
-	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")
+	windsurfAgentFields    = specFields{keys: fieldsOf("name", "description", "model", "allowed-tools").keys, scopedNative: map[string]bool{"max-nesting": true}}
 	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")
 	// slicedAgentFields covers an agent recovered from an `##` section of
 	// a shared instructions file (warp, goose), where the heading and body
