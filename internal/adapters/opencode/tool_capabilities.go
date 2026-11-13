@@ -35,6 +35,10 @@ func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
 	return out, true
 }
 
+func (Adapter) TranslateAgentCapability(rule string) ([]string, bool) {
+	return (Adapter{}).TranslatePermission("", rule)
+}
+
 func reportPermissionWidening(settings []spec.Entry, mode string) error {
 	for _, entry := range settings {
 		if _, overridden := nativePermission(entry)["edit"]; overridden {
