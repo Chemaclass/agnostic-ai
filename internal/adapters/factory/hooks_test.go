@@ -228,3 +228,24 @@ func TestEmit_Hooks_NoEventDropsEntry(t *testing.T) {
 		t.Errorf("expected no hooks.json for a hook spec with no event, err=%v", err)
 	}
 }
+
+func TestEmit_Hooks_CommandRegexSplitsGroups(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "git", Meta: map[string]any{
+			"event": "PreToolUse", "matcher": "Execute", "command": "./guard.sh",
+			"x-factory": map[string]any{"commandRegex": "^git "},
+		}},
+		{Kind: spec.KindHook, Name: "plain", Meta: map[string]any{
+			"event": "PreToolUse", "matcher": "Execute", "command": "./guard.sh",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/hooks.json"))
+	if strings.Count(got, `"matcher"`) != 2 || strings.Count(got, `"commandRegex"`) != 1 || !strings.Contains(got, `"^git "`) {
+		t.Errorf("want one plain group and one group with commandRegex:\n%s", got)
+	}
+}

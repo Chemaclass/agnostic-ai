@@ -27,6 +27,8 @@ type hookOwners struct {
 // hookOwnerMatcher is one spec's matcher for an event and handler.
 type hookOwnerMatcher struct {
 	matcher, name string
+	// commandRegex is Factory's group filter; empty for every other target.
+	commandRegex string
 }
 
 func newHookOwners(entries []spec.Entry, cfg *config.Config) *hookOwners {
@@ -41,6 +43,12 @@ func newHookOwners(entries []spec.Entry, cfg *config.Config) *hookOwners {
 // whose matcher covers a spec's is that spec's, even when another spec
 // feeds it too.
 func (l *hookOwners) owner(target, event, matcher, key string) string {
+	return l.ownerFiltered(target, event, matcher, key, "")
+}
+
+// ownerFiltered is owner for a handler in a group with Factory's
+// commandRegex: a spec with another regex does not render it.
+func (l *hookOwners) ownerFiltered(target, event, matcher, key, commandRegex string) string {
 	index, ok := l.byTarget[target]
 	if !ok {
 		index = map[string][]hookOwnerMatcher{}
@@ -66,13 +74,17 @@ func (l *hookOwners) owner(target, event, matcher, key string) string {
 			}
 			for _, k := range keys {
 				id := hookIdentity(hookEventKey(meta), k)
-				index[id] = append(index[id], hookOwnerMatcher{matcher: hookMatcher(meta), name: e.Name})
+				filter := ""
+				if target == "factory" {
+					filter, _ = adapters.ResolveMeta(native.Meta, target)["commandRegex"].(string)
+				}
+				index[id] = append(index[id], hookOwnerMatcher{matcher: hookMatcher(meta), name: e.Name, commandRegex: filter})
 			}
 		}
 		l.byTarget[target] = index
 	}
 	for _, o := range index[hookIdentity(event, key)] {
-		if adapters.HookMatcherCovers(target, matcher, o.matcher) {
+		if o.commandRegex == commandRegex && adapters.HookMatcherCovers(target, matcher, o.matcher) {
 			return o.name
 		}
 	}
@@ -235,21 +247,25 @@ func hookCommandsInEveryView(meta map[string]any) []string {
 // handler first, so the imported spec keeps no field of such a handler.
 // Nil-safe.
 func (g *localImportGuard) dropsHookCommand(target, event, matcher, command string) bool {
+	return g.dropsHookCommandFiltered(target, event, matcher, command, "")
+}
+
+func (g *localImportGuard) dropsHookCommandFiltered(target, event, matcher, command, commandRegex string) bool {
 	if g == nil {
 		return false
 	}
-	return g.ownsHookHandler(target, foldHookEvent(event), matcher, hookCommandKey(command))
+	return g.ownsFilteredHookHandler(target, foldHookEvent(event), matcher, hookCommandKey(command), commandRegex)
 }
 
-// ownsHookHandler reports whether a local or shared hook spec renders
+// ownsFilteredHookHandler reports whether a local or shared hook spec renders
 // one native handler, and names that spec in the closing note. A local
 // spec wins: sync renders both layers into the same native file.
-func (g *localImportGuard) ownsHookHandler(target, event, matcher, key string) bool {
-	if owner := g.hooks.owner(target, event, matcher, key); owner != "" {
+func (g *localImportGuard) ownsFilteredHookHandler(target, event, matcher, key, commandRegex string) bool {
+	if owner := g.hooks.ownerFiltered(target, event, matcher, key, commandRegex); owner != "" {
 		g.skipped[string(spec.KindHook)+" "+owner] = true
 		return true
 	}
-	if owner := g.sharedHooks.owner(target, event, matcher, key); owner != "" {
+	if owner := g.sharedHooks.ownerFiltered(target, event, matcher, key, commandRegex); owner != "" {
 		g.synced[owner] = true
 		return true
 	}
@@ -280,6 +296,10 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 	if event == "" {
 		return false
 	}
+	commandRegex := ""
+	if target == "factory" {
+		commandRegex, _ = meta["commandRegex"].(string)
+	}
 	views := [][]string{writtenHookKeys(meta)}
 	if commandHook(meta) {
 		views = append(views, syncedHookKeys(g.cfg, target, native))
@@ -289,12 +309,12 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 			keys = crushHookOwnershipKeys(native, keys)
 		}
 		if len(keys) == 0 || slices.ContainsFunc(keys, func(k string) bool {
-			return g.hooks.owner(target, event, matcher, k) == "" && g.sharedHooks.owner(target, event, matcher, k) == ""
+			return g.hooks.ownerFiltered(target, event, matcher, k, commandRegex) == "" && g.sharedHooks.ownerFiltered(target, event, matcher, k, commandRegex) == ""
 		}) {
 			continue
 		}
 		for _, k := range keys {
-			g.ownsHookHandler(target, event, matcher, k)
+			g.ownsFilteredHookHandler(target, event, matcher, k, commandRegex)
 		}
 		return true
 	}

@@ -54,13 +54,13 @@ type hookEntry struct {
 // string meaningful rather than absent.
 //
 // The vendor's other matcher-group field, `commandRegex` ("Additional
-// regex filter for Execute commands"), has no counterpart on
-// agnostic-ai's generic hook spec, so it stays documented here but
-// unemitted, the same treatment factory.go's package doc gives
-// Factory's unemitted MCP-only fields.
+// regex filter for Execute commands"), has no portable counterpart, so
+// a hook spec sets it through `x-factory.commandRegex`. Specs with
+// different regexes never share a group.
 type hookGroup struct {
-	Matcher string      `json:"matcher"`
-	Hooks   []hookEntry `json:"hooks"`
+	Matcher      string      `json:"matcher"`
+	CommandRegex string      `json:"commandRegex,omitempty"`
+	Hooks        []hookEntry `json:"hooks"`
 }
 
 // hooksDoc is `.factory/hooks.json`'s exact top-level shape:
@@ -142,7 +142,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 // command" choice qoder.go's buildHooksBlock already makes for the
 // identical reason.
 func buildHooks(hooks []spec.Entry) *hooksDoc {
-	type matcherKey struct{ event, matcher string }
+	type matcherKey struct{ event, matcher, commandRegex string }
 	byKey := map[matcherKey][]hookEntry{}
 	var keyOrder []matcherKey
 	var claudeMatchers int
@@ -161,8 +161,10 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			claudeMatchers++
 		}
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
+		native, _ := emit.CustomTargetMeta(h.Meta, target)
+		commandRegex, _ := native["commandRegex"].(string)
 
-		k := matcherKey{event: event, matcher: matcher}
+		k := matcherKey{event: event, matcher: matcher, commandRegex: commandRegex}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
@@ -185,10 +187,15 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		if _, seen := doc.events[k.event]; !seen {
 			doc.order = append(doc.order, k.event)
 		}
-		doc.events[k.event] = append(doc.events[k.event], hookGroup{Matcher: k.matcher, Hooks: byKey[k]})
+		doc.events[k.event] = append(doc.events[k.event], hookGroup{Matcher: k.matcher, CommandRegex: k.commandRegex, Hooks: byKey[k]})
 	}
 	for event, groups := range doc.events {
-		sort.SliceStable(groups, func(i, j int) bool { return groups[i].Matcher < groups[j].Matcher })
+		sort.SliceStable(groups, func(i, j int) bool {
+			if groups[i].Matcher != groups[j].Matcher {
+				return groups[i].Matcher < groups[j].Matcher
+			}
+			return groups[i].CommandRegex < groups[j].CommandRegex
+		})
 		doc.events[event] = groups
 	}
 	doc.order = emit.OrderByLifecycle(doc.order, hookLifecycle)

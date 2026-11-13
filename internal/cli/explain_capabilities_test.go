@@ -327,3 +327,39 @@ func TestExplainCapabilities_NativeToolOverrideKeyMatchesAdapter(t *testing.T) {
 		})
 	}
 }
+
+func TestExplainCapabilities_PermissionAgentRowsMatchSyncedKeys(t *testing.T) {
+	for _, target := range []string{"opencode", "kilo"} {
+		t.Run(target, func(t *testing.T) {
+			entry := spec.Entry{Kind: spec.KindAgent, Name: "reader", Path: "agents/reader.md", Meta: map[string]any{"description": "Read source.", "tools": []any{"Read", "Bash"}}}
+			cfg := &config.Config{Targets: []string{target}, OnUnsupported: "silent"}
+			adapter, err := adapters.Resolve(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			files, err := captureEmit(adapter, spec.Bundle{Agents: []spec.Entry{entry}}, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			synced := ""
+			for _, file := range files {
+				if strings.HasSuffix(file.Path, "agents/reader.md") {
+					synced = file.Content
+				}
+			}
+			rows := explainCapabilities(entry, cfg)
+			if len(rows) != 2 || synced == "" {
+				t.Fatalf("rows=%+v synced=%q,want two rows and a synced agent", rows, synced)
+			}
+			for _, row := range rows {
+				if !row.Supported || len(row.Native) != 1 {
+					t.Errorf("row=%+v,want one supported native name", row)
+					continue
+				}
+				if !strings.Contains(synced, "\n  "+row.Native[0]+":") {
+					t.Errorf("explain reports %q but the synced agent has no such permission key:\n%s", row.Native[0], synced)
+				}
+			}
+		})
+	}
+}

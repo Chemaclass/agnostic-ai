@@ -89,6 +89,9 @@ func translateCapability(target, list, rule string, cfg *config.Config) Capabili
 				if !supported {
 					result.Supported = false
 				}
+				if target == "opencode" && name == "Write" {
+					result.Widening = append(result.Widening, "OpenCode's edit permission also covers edit and patch")
+				}
 				continue
 			}
 		}
@@ -112,10 +115,6 @@ func translateCapability(target, list, rule string, cfg *config.Config) Capabili
 		}
 		if !slices.Contains(result.Native, native) {
 			result.Native = append(result.Native, native)
-		}
-
-		if target == "opencode" && name == "Write" {
-			result.Widening = append(result.Widening, "OpenCode's edit permission also covers edit and patch")
 		}
 	}
 	if widener, ok := registry[target].(capabilityWidener); ok && list == "" {
