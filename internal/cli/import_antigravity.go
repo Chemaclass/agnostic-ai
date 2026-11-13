@@ -9,6 +9,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // antigravityRulesDirs lists the rules directories Antigravity reads,
@@ -379,8 +380,80 @@ func importAntigravityAgents(srcDir, dstDir string) (int, error) {
 
 // antigravityNativeAgentFields moves the documented subagent keys that
 // have no shared spec field under x-antigravity, where sync reads them.
+// Inline `mcpServers` can hold credentials, so literals become
+// references first.
 func antigravityNativeAgentFields(data []byte) ([]byte, error) {
-	return importNativeAgentFields(data, "antigravity", "tools", "commandExecutionPolicy", "mainAgent", "subagent")
+	moved, err := importNativeAgentFields(data, "antigravity", "tools", "commandExecutionPolicy", "mainAgent", "subagent", "mcpServers", "skills", "plugins")
+	if err != nil {
+		return nil, err
+	}
+	mapping, rest, ok := frontmatterNode(moved)
+	if !ok {
+		return moved, nil
+	}
+	servers := mappingValue(mappingValue(mapping, "x-antigravity"), "mcpServers")
+	if servers == nil {
+		return moved, nil
+	}
+	clean, changed, err := referenceAntigravityAgentLiterals(servers)
+	if err != nil || !changed {
+		return moved, err
+	}
+	setMappingNode(mappingValue(mapping, "x-antigravity"), "mcpServers", clean)
+	return encodeFrontmatter(mapping, rest, "antigravity")
+}
+
+// referenceAntigravityAgentLiterals turns literal credentials in an
+// agent's inline servers, a list of objects or a name-keyed map, into
+// `${NAME}` references as MCP file import does, and leaves out a server
+// with an OAuth credential, which has no reference form.
+func referenceAntigravityAgentLiterals(inline *yaml.Node) (*yaml.Node, bool, error) {
+	if inline.Kind == yaml.MappingNode {
+		out, err := referenceKiroAgentLiterals(inline)
+		return out, out != inline, err
+	}
+	if inline.Kind != yaml.SequenceNode {
+		return inline, false, nil
+	}
+	var items []any
+	if err := inline.Decode(&items); err != nil {
+		return nil, false, err
+	}
+	servers := map[string]any{}
+	keys := make([]string, len(items))
+	for i, item := range items {
+		keys[i] = fmt.Sprintf("server-%d", i+1)
+		if m, ok := item.(map[string]any); ok {
+			if name, _ := m["name"].(string); name != "" {
+				keys[i] = name
+			}
+		}
+		servers[keys[i]] = item
+	}
+	var refs []mcpLiteralRef
+	for _, key := range keys {
+		server, _ := servers[key].(map[string]any)
+		if field := mcpOAuthCredential(server["oauth"]); field != "" {
+			delete(servers, key)
+			refs = append(refs, mcpLiteralRef{server: key, field: field, leftOut: true})
+		}
+	}
+	refs = append(refs, referenceMCPLiterals(servers)...)
+	if len(refs) == 0 {
+		return inline, false, nil
+	}
+	kept := make([]any, 0, len(items))
+	for _, key := range keys {
+		if server, ok := servers[key]; ok {
+			kept = append(kept, server)
+		}
+	}
+	out := &yaml.Node{}
+	if err := out.Encode(kept); err != nil {
+		return nil, false, err
+	}
+	reportMCPLiteralRefs(refs)
+	return out, true, nil
 }
 
 // antigravityRulesFileFromCfg returns the project-relative

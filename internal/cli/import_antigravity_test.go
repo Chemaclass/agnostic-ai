@@ -770,7 +770,7 @@ func TestImportFromAntigravity_MirrorsLegacyAgentsMD(t *testing.T) {
 	}
 }
 
-const antigravityNativeAgentYAML = "tools: [view_file, run_command]\ncommandExecutionPolicy: sandbox\nmainAgent: false\nsubagent: true\n"
+const antigravityNativeAgentYAML = "tools: [view_file, run_command]\ncommandExecutionPolicy: sandbox\nmainAgent: false\nsubagent: true\nskills: [skills/security-checklist]\nplugins: [lint-kit]\nmcpServers:\n  - name: probe\n    command: probe\n"
 
 func TestImportAntigravity_KeepsNativeAgentFields(t *testing.T) {
 	for _, form := range []string{".agents/agents/auditor/agent.md", ".agents/agents/auditor.md"} {
@@ -787,7 +787,7 @@ func TestImportAntigravity_KeepsNativeAgentFields(t *testing.T) {
 				t.Fatalf("native fields not scoped:\n%s", spec)
 			}
 			head := strings.SplitN(spec, "x-antigravity:", 2)[0]
-			for _, key := range []string{"tools:", "commandExecutionPolicy:", "mainAgent:", "subagent:"} {
+			for _, key := range []string{"tools:", "commandExecutionPolicy:", "mainAgent:", "subagent:", "skills:", "plugins:", "mcpServers:"} {
 				if strings.Contains(head, key) {
 					t.Errorf("%s left at the top level:\n%s", key, spec)
 				}
@@ -795,7 +795,7 @@ func TestImportAntigravity_KeepsNativeAgentFields(t *testing.T) {
 
 			execCLI(t, "sync", "-t", "antigravity")
 			got := readFile(t, native)
-			for _, want := range []string{"view_file", "run_command", "commandExecutionPolicy: sandbox", "mainAgent: false", "subagent: true"} {
+			for _, want := range []string{"view_file", "run_command", "commandExecutionPolicy: sandbox", "mainAgent: false", "subagent: true", "skills/security-checklist", "lint-kit", "command: probe"} {
 				if !strings.Contains(got, want) {
 					t.Errorf("missing %q after sync:\n%s", want, got)
 				}
@@ -827,9 +827,28 @@ func TestImportAntigravity_DeletedNativeAgentFieldsAreDropped(t *testing.T) {
 	execCLI(t, "import", "antigravity")
 	execCLI(t, "sync", "-t", "antigravity")
 	got = readFile(t, native)
-	for _, gone := range []string{"tools", "commandExecutionPolicy", "mainAgent", "subagent"} {
+	for _, gone := range []string{"tools", "commandExecutionPolicy", "mainAgent", "subagent", "skills", "plugins", "mcpServers", "probe"} {
 		if strings.Contains(got, gone) {
 			t.Errorf("deleted %q returned:\n%s", gone, got)
 		}
+	}
+}
+
+func TestImportAntigravity_AgentMCPServersHoldNoLiteralSecret(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+	native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\nmcpServers:\n  - name: api\n    url: https://example.test/mcp\n    headers:\n      Authorization: Bearer sk-live-secret-123\n    env:\n      API_TOKEN: literal-token-456\n---\n\nAudit.\n")
+
+	execCLI(t, "import", "antigravity")
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/auditor.md"))
+	for _, secret := range []string{"sk-live-secret-123", "literal-token-456"} {
+		if strings.Contains(spec, secret) {
+			t.Errorf("literal secret %q reached the spec:\n%s", secret, spec)
+		}
+	}
+	if !strings.Contains(spec, "x-antigravity:") || !strings.Contains(spec, "${") {
+		t.Errorf("server not kept as references:\n%s", spec)
 	}
 }
