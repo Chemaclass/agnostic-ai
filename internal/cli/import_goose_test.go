@@ -184,3 +184,119 @@ func TestImportGoose_KnownSourceWiredIn(t *testing.T) {
 		t.Errorf("importSources() missing %q: %s", "goose", sources)
 	}
 }
+
+func writeGoosePlugin(t *testing.T, dir, name, hooksJSON string) {
+	t.Helper()
+	plugin := filepath.Join(dir, ".agents", "plugins", name)
+	writeFile(t, filepath.Join(plugin, "skills", name+"-skill", "SKILL.md"),
+		"---\nname: "+name+"-skill\ndescription: Skill of "+name+"\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(plugin, "hooks", "hooks.json"), hooksJSON)
+}
+
+const gooseGuardHooks = `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo guard"}]}]}}`
+
+// TestImportGoose_SkipsDisabledPlugins: Goose loads neither skills nor
+// hooks of a plugin in `disabledPlugins`, so import must not enable them.
+// A closer scope wins, and `enabledPlugins` re-enables a plugin the user
+// scope disabled.
+func TestImportGoose_SkipsDisabledPlugins(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	home := t.TempDir()
+	t.Setenv("GOOSE_PATH_ROOT", home)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	for _, name := range []string{"on", "off-project", "off-local", "off-user", "back-on"} {
+		writeGoosePlugin(t, dir, name, gooseGuardHooks)
+	}
+	writeFile(t, filepath.Join(dir, ".config", "goose", "settings.json"),
+		`{"disabledPlugins":["off-project"],"enabledPlugins":["back-on"]}`)
+	writeFile(t, filepath.Join(dir, ".config", "goose", "settings.local.json"),
+		`{"disabledPlugins":["off-local"]}`)
+	writeFile(t, filepath.Join(home, ".config", "goose", "settings.json"),
+		`{"disabledPlugins":["off-user","back-on"]}`)
+
+	execCLI(t, "import", "goose")
+
+	for _, name := range []string{"on", "back-on"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "skills", name+"-skill", "SKILL.md")); err != nil {
+			t.Errorf("enabled plugin %s skill not imported: %v", name, err)
+		}
+	}
+	for _, name := range []string{"off-project", "off-local", "off-user"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "skills", name+"-skill")); err == nil {
+			t.Errorf("disabled plugin %s skill was imported", name)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("hooks come from enabled plugins only; same command dedupes to one spec, got %d", len(entries))
+	}
+}
+
+// TestImportGoose_SplitsHookGroupBySettings: timeout and on_failure
+// belong to each command, so one matcher group splits per distinct pair
+// instead of the first command's values spreading to the rest.
+func TestImportGoose_SplitsHookGroupBySettings(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	writeGoosePlugin(t, dir, "team", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"command","command":"echo strict","timeout":10,"on_failure":"block"},
+{"type":"command","command":"echo plain"},
+{"type":"command","command":"echo strict2","timeout":10,"on_failure":"block"}]}]}}`)
+
+	execCLI(t, "import", "goose")
+
+	hooks := readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(hooks) != 2 {
+		t.Fatalf("expected 2 specs, got %d: %v", len(hooks), keys(hooks))
+	}
+	for _, body := range hooks {
+		switch {
+		case strings.Contains(body, "echo strict"):
+			for _, want := range []string{"echo strict2", "timeout: 10", "on_failure: block"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("strict spec missing %q:\n%s", want, body)
+				}
+			}
+		case strings.Contains(body, "echo plain"):
+			for _, bad := range []string{"timeout", "on_failure"} {
+				if strings.Contains(body, bad) {
+					t.Errorf("plain spec inherited %q:\n%s", bad, body)
+				}
+			}
+		default:
+			t.Errorf("unexpected spec:\n%s", body)
+		}
+	}
+}
+
+// TestImportGoose_WarnsOnPluginRoot: the emitted plugin has no
+// `scripts/` folder, so a `${PLUGIN_ROOT}` command needs a warning.
+func TestImportGoose_WarnsOnPluginRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("GOOSE_PATH_ROOT", t.TempDir())
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	writeGoosePlugin(t, dir, "team", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"${PLUGIN_ROOT}/scripts/block.sh"}]}]}}`)
+
+	var out strings.Builder
+	prev := logOut
+	logOut = &out
+	t.Cleanup(func() { logOut = prev })
+	execCLI(t, "import", "goose")
+
+	if !strings.Contains(out.String(), "${PLUGIN_ROOT}") {
+		t.Errorf("no PLUGIN_ROOT warning:\n%s", out.String())
+	}
+}

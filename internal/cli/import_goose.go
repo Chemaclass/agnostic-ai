@@ -133,10 +133,12 @@ func importGooseRules(root, dstDir string) (int, error) {
 // from `<plugin>/hooks/hooks.json`. Returns the skill and hook counts.
 // A missing plugins directory imports nothing.
 //
-// Every plugin is read, not just the `agnostic-ai` one this tool writes.
-// A hand-installed package is exactly the configuration a migrating
-// project wants picked up, and `outputs.goose.hooks-file` can point the
-// emit side at any plugin root already.
+// Every enabled plugin is read, not just the `agnostic-ai` one this
+// tool writes. A hand-installed package is exactly the configuration a
+// migrating project wants picked up, and `outputs.goose.hooks-file` can
+// point the emit side at any plugin root already. A plugin listed in
+// `disabledPlugins` is skipped, because Goose loads neither its skills
+// nor its hooks and importing them would switch them on.
 func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err error) {
 	dir := filepath.Join(root, filepath.FromSlash(goosePluginsDir))
 	entries, err := os.ReadDir(dir)
@@ -146,8 +148,13 @@ func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err
 	if err != nil {
 		return 0, 0, fmt.Errorf("read %s: %w", dir, err)
 	}
+	layers := gooseSettingsLayers(root)
 	for _, e := range entries {
 		if !e.IsDir() {
+			continue
+		}
+		if !gooseEnabled(layers, e.Name()) {
+			keptf("skipping disabled Goose plugin %s\n", e.Name())
 			continue
 		}
 		plugin := filepath.Join(dir, e.Name())
@@ -184,10 +191,11 @@ type gooseHookGroup struct {
 // yaml per matcher group into dstDir. No-op when the file or its `hooks`
 // key is absent.
 //
-// `on_failure` is per-command in the file and per-spec here, so the
-// first non-empty value in a group wins: the emit side writes the spec's
-// single value onto every command in the group, which is the only shape
-// that survives a second round-trip.
+// `timeout` and `on_failure` are per-command in the file and per-spec
+// here, so a group splits into one spec per distinct pair, in first-seen
+// order. The emit side merges same-event-same-matcher specs back into
+// one group, so the split survives a second round-trip. A command that
+// uses `${PLUGIN_ROOT}` warns: the emitted plugin has no `scripts/`.
 func importGooseHooks(src, dstDir string) (int, error) {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -205,23 +213,33 @@ func importGooseHooks(src, dstDir string) (int, error) {
 	count := 0
 	for _, event := range sortedHookEvents(doc.Hooks) {
 		for _, g := range doc.Hooks[event] {
-			entries := make([]groupedHookEntry, 0, len(g.Hooks))
-			onFailure := ""
+			type settings struct {
+				timeout   int
+				onFailure string
+			}
+			var order []settings
+			bySettings := map[settings][]groupedHookEntry{}
 			for _, h := range g.Hooks {
-				entries = append(entries, h.groupedHookEntry)
-				if onFailure == "" {
-					onFailure = h.OnFailure
+				if strings.Contains(h.Command, "${PLUGIN_ROOT}") {
+					keptf("Goose hook %q uses ${PLUGIN_ROOT}: copy its plugin files next to .agents/plugins/agnostic-ai/ or the command cannot run\n", h.Command)
 				}
+				k := settings{h.Timeout, h.OnFailure}
+				if _, seen := bySettings[k]; !seen {
+					order = append(order, k)
+				}
+				bySettings[k] = append(bySettings[k], h.groupedHookEntry)
 			}
-			var extra map[string]any
-			if onFailure != "" {
-				extra = map[string]any{"x-goose": map[string]any{"on_failure": onFailure}}
+			for _, k := range order {
+				var extra map[string]any
+				if k.onFailure != "" {
+					extra = map[string]any{"x-goose": map[string]any{"on_failure": k.onFailure}}
+				}
+				n, err := writeGroupedHookSpec(dstDir, "goose", event, g.Matcher, bySettings[k], extra)
+				if err != nil {
+					return count, err
+				}
+				count += n
 			}
-			n, err := writeGroupedHookSpec(dstDir, "goose", event, g.Matcher, entries, extra)
-			if err != nil {
-				return count, err
-			}
-			count += n
 		}
 	}
 	return count, nil
