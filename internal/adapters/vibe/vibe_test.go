@@ -399,24 +399,25 @@ func TestEmit_WindowsVariantRejectsUnsafeArguments(t *testing.T) {
 	}
 }
 
-func TestEmit_GrepDoesNotAdvertiseRemovedRuntimeTool(t *testing.T) {
+func TestEmit_GrepMapsToNativeGrepTool(t *testing.T) {
 	testutil.TempCwd(t)
 	agent := spec.Entry{Kind: spec.KindAgent, Name: "searcher", Meta: map[string]any{"tools": []any{"Grep"}}}
-	if err := New().Emit(emit.NewSession(), spec.Bundle{Agents: []spec.Entry{agent}}, &config.Config{}, false); err == nil {
-		t.Fatal("search-only agent must fail instead of enabling a removed tool")
+	if err := New().Emit(emit.NewSession(), spec.Bundle{Agents: []spec.Entry{agent}}, &config.Config{}, false); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(".vibe/agents/searcher.toml"); !os.IsNotExist(err) {
-		t.Fatalf("failed search-only agent wrote output: %v", err)
+	data, err := os.ReadFile(".vibe/agents/searcher.toml")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if names, supported := New().TranslateAgentCapability("Grep"); supported || len(names) != 0 {
-		t.Errorf("removed Grep capability is still advertised: %v", names)
+	if !strings.Contains(string(data), `enabled_tools = ["grep"]`) {
+		t.Fatalf("Grep did not map to the native grep tool: %s", data)
 	}
-	if _, supported := New().ToolCapabilities()["Grep"]; supported {
-		t.Error("tool capability table still advertises the removed Grep tool")
+	if names, supported := New().TranslateAgentCapability("Grep"); !supported || len(names) != 1 || names[0] != "grep" {
+		t.Errorf("Grep capability = %v, %v", names, supported)
 	}
 }
 
-func TestEmit_GrepOmissionKeepsReadRestrictionAndReportsCoverage(t *testing.T) {
+func TestEmit_ReadAndGrepKeepBothTools(t *testing.T) {
 	testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
 	t.Cleanup(emit.ResetCoverageNotes)
@@ -428,20 +429,17 @@ func TestEmit_GrepOmissionKeepsReadRestrictionAndReportsCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `enabled_tools = ["read_file"]`) {
-		t.Fatalf("search omission changed the remaining restriction: %s", data)
+	if !strings.Contains(string(data), `enabled_tools = ["read_file", "grep"]`) {
+		t.Fatalf("Read plus Grep restriction wrong: %s", data)
 	}
-	for _, forbidden := range []string{`"grep"`, `"bash"`} {
-		if strings.Contains(string(data), forbidden) {
-			t.Errorf("search omission emitted %s: %s", forbidden, data)
-		}
+	if strings.Contains(string(data), `"bash"`) {
+		t.Errorf("unexpected bash tool: %s", data)
 	}
 	for _, note := range emit.PendingCoverageNotes() {
 		if note.Target == "vibe" && note.Kind == spec.KindAgent && strings.Contains(note.Message, "Grep") {
-			return
+			t.Errorf("Grep still reported as omitted: %s", note.Message)
 		}
 	}
-	t.Fatal("omitted search capability has no coverage note")
 }
 
 func TestEmit_NativeEventOverrides(t *testing.T) {

@@ -86,15 +86,15 @@ func TestImportVibe_RejectsNativeSettingsCredentialWithoutPrintingIt(t *testing.
 	}
 }
 
-func TestSyncVibe_RemovedGrepCoverageStopsBeforeWriting(t *testing.T) {
+func TestSyncVibe_UnmappedToolCoverageStopsBeforeWriting(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	writeFile(t, "agnostic-ai.yaml", "targets: [vibe]\ncoverage:\n  fail-on-notes: true\n")
-	writeFile(t, ".agnostic-ai/agents/reader.md", "---\nname: reader\ndescription: Read source files.\ntools: [Read, Grep]\n---\nReview requested files.\n")
+	writeFile(t, ".agnostic-ai/agents/reader.md", "---\nname: reader\ndescription: Read source files.\ntools: [Read, Glob]\n---\nReview requested files.\n")
 	cmd := NewRootCmd("test")
 	cmd.SetArgs([]string{"sync", "-t", "vibe"})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "coverage.fail-on-notes") {
-		t.Fatalf("removed search capability bypassed coverage policy: %v", err)
+		t.Fatalf("unmapped tool bypassed coverage policy: %v", err)
 	}
 	if _, err := os.Stat(".vibe/agents/reader.toml"); !os.IsNotExist(err) {
 		t.Fatalf("failed coverage check wrote the native agent: %v", err)
