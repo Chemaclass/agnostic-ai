@@ -92,7 +92,7 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindRule, Name: "r4", Path: "rules/backend/r4.md",
 			Scope: "backend", Body: "scoped rule body",
 		},
-		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
+		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body", Meta: map[string]any{"model": "flash_lite"}},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindSkill, Name: "s1", Path: "skills/s1/SKILL.md", Meta: map[string]any{"description": "skill 1"}, Body: "skill 1 body"},

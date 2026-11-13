@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "copilot-native": {
+      "type": "http",
+      "url": "https://example.invalid/mcp"
+    },
+    "copilot-native-stdio": {
+      "command": "server",
+      "cwd": "/tmp",
+      "type": "stdio"
+    }
+  }
+}

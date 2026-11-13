@@ -16,7 +16,8 @@ import (
 )
 
 // DefaultTimeout is how long target waits for a command hook on event
-// that sets no timeout: 600 seconds on Codex, 60 on Gemini CLI
+// that sets no timeout: 600 seconds on Codex (1 on SessionEnd and
+// Interrupt), 60 on Gemini CLI
 // (gemini-cli c6bccb7 hookRunner.ts DEFAULT_HOOK_TIMEOUT), and on Claude
 // Code 600, lowered to 30 on UserPromptSubmit, PreModelSwitch, and
 // PostModelSwitch and to 10 on MessageDisplay (code.claude.com/docs/en/hooks).
@@ -25,6 +26,8 @@ func DefaultTimeout(target, event string) time.Duration {
 		return d
 	}
 	switch {
+	case target == "codex" && (event == "SessionEnd" || event == "Interrupt"):
+		return time.Second
 	case target == "gemini":
 		return 60 * time.Second
 	case target != "claude":
@@ -35,6 +38,17 @@ func DefaultTimeout(target, event string) time.Duration {
 		return 30 * time.Second
 	}
 	return 600 * time.Second
+}
+
+// CommandTimeout applies the native default and event limits to a command.
+func CommandTimeout(target, event string, timeout time.Duration) time.Duration {
+	if timeout <= 0 {
+		timeout = DefaultTimeout(target, event)
+	}
+	if target == "codex" && (event == "SessionEnd" || event == "Interrupt") {
+		return min(timeout, 3*time.Second)
+	}
+	return timeout
 }
 
 // Handler is one command a target runs for a hook, as sync writes it.

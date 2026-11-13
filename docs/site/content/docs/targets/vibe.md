@@ -84,7 +84,7 @@ Not enforced. This target cannot write a rule or hook that blocks edits. Sync pr
 
 ## Import and ownership
 
-Run `agnostic-ai import vibe` before syncing handwritten project files. It imports instructions, agent TOML, skill folders, MCP entries, model and native settings, and hook TOML. Native fields stay under `x-vibe`. Import refuses literal credentials in native settings, profiles, and connection fields; keep credentials in user configuration or use a native environment-variable setting. An agent that references a system prompt without inline instructions stops import; copy that prompt into `instructions` first.
+Run `agnostic-ai import vibe` before syncing handwritten project files. It imports instructions, agent TOML, skill folders, MCP entries, model and native settings, and hook TOML. Native fields stay under `x-vibe`. Skill import moves native `allowed-tools` there too, retaining scalar or list form and names such as `read_file` and `ask_user_question`. These names remain descriptive Vibe metadata. Import refuses literal credentials in native settings, profiles, and connection fields; keep credentials in user configuration or use a native environment-variable setting. An agent that references a system prompt without inline instructions stops import; copy that prompt into `instructions` first.
 
 Global sync adopts equal handwritten entries without rewriting them. Omitted `sampling_enabled` compares as `false`, Vibe's native default; a handwritten `true` conflicts unless the spec sets `x-vibe.sampling_enabled: true`.
 

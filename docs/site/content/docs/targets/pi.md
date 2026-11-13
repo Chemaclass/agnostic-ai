@@ -87,7 +87,7 @@ After sync, `.pi/mcp.json` contains the server with `enabled: false`. Replace th
 
 ## Global configuration
 
-`agnostic-ai sync --global -t pi` writes instructions, skills, MCP, and settings under `~/.pi/agent/`. `PI_CODING_AGENT_DIR` replaces that whole agent directory. See [global configuration](@/docs/global-configuration.md).
+`agnostic-ai sync --global -t pi` writes instructions, skills, MCP, and settings under `~/.pi/agent/`. `PI_CODING_AGENT_DIR` replaces that whole agent directory. Global HTTP MCP entries also keep `x-pi.auth: {provider: radius}`. Pi limits provider auth to global `mcp.json` and extensions ([release reference](https://github.com/earendil-works/pi/releases/tag/v0.99.2)); project output omits it. Existing `x-pi.oauth` stays separate. Global import scopes `auth` under `x-pi`, so equal native entries can be adopted without rewriting user content. See [global configuration](@/docs/global-configuration.md).
 
 ## Config keys
 

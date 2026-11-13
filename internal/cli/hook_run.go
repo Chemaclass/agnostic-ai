@@ -316,6 +316,9 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			}
 		}
 		run.Async = hookRunAsync(target, hook.Meta)
+		if target == "codex" && event == "SessionEnd" {
+			run.Async = false
+		}
 		if hookrun.FireAndForget(target, event) {
 			run.Async, run.fireAndForget = true, true
 		}
@@ -342,6 +345,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			if timeout <= 0 {
 				timeout = hookTimeout(target, hook.Meta)
 			}
+			timeout = hookrun.CommandTimeout(target, event, timeout)
 			shown := shownHookCommand(h)
 			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), prompt: hookrun.PayloadPrompt(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
@@ -788,12 +792,13 @@ func metaTrue(v any) bool {
 }
 
 func hookTimeout(target string, meta map[string]any) time.Duration {
-	// Sync drops the spec's timeout on Cline, which uses its own.
-	if timeout := specTimeout(meta); timeout > 0 && target != "cline" {
-		return timeout
-	}
 	event, _ := meta["event"].(string)
-	return hookrun.DefaultTimeout(target, event)
+	timeout := specTimeout(meta)
+	// Sync drops the spec's timeout on Cline, which uses its own.
+	if target == "cline" {
+		timeout = 0
+	}
+	return hookrun.CommandTimeout(target, event, timeout)
 }
 
 // specTimeout is the spec's own timeout, zero when it sets none.

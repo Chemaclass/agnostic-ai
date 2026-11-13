@@ -77,9 +77,7 @@ func TestEmit_AgentsDirOverrideKeepsNestedProfileLayout(t *testing.T) {
 	}
 }
 
-// Antigravity's `model` is a three-value tier enum (`inherit`, `flash`,
-// `pro`), not a model ID. A cross-target `model: sonnet` names no tier,
-// so it never reaches the file.
+// A cross-target model ID names no Antigravity tier.
 func TestEmit_AgentModelOutsideTierEnumIsDropped(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -92,5 +90,23 @@ func TestEmit_AgentModelOutsideTierEnumIsDropped(t *testing.T) {
 	}
 	if got := readFile(t, filepath.Join(dir, ".agents/agents/auditor/agent.md")); strings.Contains(got, "model:") {
 		t.Errorf("expected no model key for an out-of-enum value:\n%s", got)
+	}
+}
+
+func TestEmit_FlashLitePluginAgentTier(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "portable", Meta: map[string]any{"model": "flash_lite"}},
+		{Kind: spec.KindAgent, Name: "native", Meta: map[string]any{"x-antigravity": map[string]any{"model": "flash_lite"}}},
+	}
+	cfg := &config.Config{Outputs: map[string]config.Output{"antigravity": {AgentsDir: ".agents/plugins/probe/agents"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		got := readFile(t, filepath.Join(dir, ".agents/plugins/probe/agents", entry.Name, "agent.md"))
+		if !strings.Contains(got, "model: flash_lite\n") {
+			t.Errorf("%s tier missing: %s", entry.Name, got)
+		}
 	}
 }

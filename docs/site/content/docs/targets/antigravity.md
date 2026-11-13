@@ -93,7 +93,7 @@ One custom subagent at `.agents/agents/<name>/agent.md`, the nested form in [Ant
 - Goose and OpenHands scan only top-level `.md` files in that folder. The nested form keeps Antigravity's `model` tier apart from their model IDs. `import antigravity` reads flat files only when no nested profile exists, so it skips their agents.
 - **Devin reads this folder too.** With `windsurf` in `targets`, Devin finds this profile and `.devin/agents/<name>.md` under one name, and only the Devin copy has `allowed-tools`. See the [shared agent discovery](@/docs/target-behavior.md#spec-kind-behavior).
 - A portable `tools` list is dropped with a sync note. Antigravity has its own names (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...), and an unknown one can hang the subagent. Set `x-antigravity.tools` instead.
-- `model` is a tier (`inherit`, `flash`, `pro`), so any other value is dropped the same way.
+- `model` is a tier (`inherit`, `flash_lite`, `flash`, `pro`), so any other value is dropped the same way. The [plugin reference](https://antigravity.google/docs/build-plugins) documents `flash_lite`, accepted by the released plugin parser. Set it through `model` or `x-antigravity.model`.
 - Other documented keys (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`, `skills`/`plugins`) go under `x-antigravity`.
 
 ### Skills

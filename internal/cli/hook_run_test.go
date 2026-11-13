@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -275,6 +276,50 @@ func TestHookRun_CodexAcceptsForkSessionSource(t *testing.T) {
 			}
 			if !strings.Contains(out, "stdout: matched-source") || !strings.Contains(out, "event: SessionStart ("+tc.source+")") || strings.Contains(out, "does not match") {
 				t.Errorf("matched source was not run:\n%s", out)
+			}
+		})
+	}
+}
+
+func TestHookRun_CodexSessionEndCountsAuthoredAsyncFailure(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := hookRunProject(t, "name: guard\nevent: SessionEnd\ntargets: [codex]\nasync: true\ncommand: exit 1\n")
+	mustWrite(t, filepath.Join(dir, "payload.json"), `{"hook_event_name":"SessionEnd","cwd":"`+filepath.ToSlash(dir)+`","session_id":"test","reason":"other"}`)
+	out, err := runHookRun(t, "guard", "--target", "codex", "--payload", "payload.json", "--json")
+	if err == nil {
+		t.Errorf("expected synchronous failure: %s", out)
+	}
+	if !strings.Contains(out, `"async": false`) || !strings.Contains(out, `"counted": true`) {
+		t.Errorf("SessionEnd must count: %s", out)
+	}
+}
+
+func TestHookTimeout_CodexShutdownLimits(t *testing.T) {
+	for _, event := range []string{"SessionEnd", "Interrupt"} {
+		for _, tc := range []struct {
+			seconds int
+			want    time.Duration
+		}{{0, time.Second}, {2, 2 * time.Second}, {10, 3 * time.Second}} {
+			if got := hookTimeout("codex", map[string]any{"event": event, "timeout": tc.seconds}); got != tc.want {
+				t.Errorf("%s timeout %d = %s, want %s", event, tc.seconds, got, tc.want)
+			}
+		}
+	}
+}
+
+func TestHookRun_CodexShutdownUsesEffectiveHandlerTimeout(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, tc := range []struct{ event, timeout, sleep string }{
+		{"SessionEnd", "", "1.2"},
+		{"Interrupt", "", "1.2"},
+		{"Interrupt", "timeout: 10\n", "3.2"},
+	} {
+		t.Run(tc.event+tc.timeout, func(t *testing.T) {
+			dir := hookRunProject(t, "name: guard\ntargets: [codex]\nevent: "+tc.event+"\n"+tc.timeout+"command: sleep "+tc.sleep+"\n")
+			mustWrite(t, filepath.Join(dir, "payload.json"), `{"hook_event_name":"`+tc.event+`","cwd":"`+filepath.ToSlash(dir)+`","session_id":"test","reason":"other"}`)
+			out, err := runHookRun(t, "guard", "--target", "codex", "--payload", "payload.json", "--json")
+			if err == nil || !strings.Contains(out, `"timed_out": true`) {
+				t.Errorf("expected native timeout, err=%v: %s", err, out)
 			}
 		})
 	}

@@ -69,7 +69,7 @@ func normalizePiMCPEntry(server map[string]any) {
 	}
 	delete(server, "enabled")
 	native := map[string]any{}
-	for _, key := range []string{"exposure", "toolExposure", "oauth"} {
+	for _, key := range []string{"exposure", "toolExposure", "oauth", "auth"} {
 		if value, ok := server[key]; ok {
 			native[key] = value
 			delete(server, key)

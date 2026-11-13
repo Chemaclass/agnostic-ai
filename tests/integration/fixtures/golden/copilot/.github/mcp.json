@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "copilot-native": {
+      "oauthClientId": "native-client-id",
+      "timeout": 45000,
+      "type": "http",
+      "url": "https://example.invalid/mcp"
+    },
+    "copilot-native-stdio": {
+      "command": "server",
+      "cwd": "/tmp",
+      "timeout": 45000
+    }
+  }
+}

@@ -272,3 +272,29 @@ func TestImportPi_ControlOnlyOverridesRoundTripAndLint(t *testing.T) {
 		}
 	}
 }
+
+func TestImportGlobal_PiProviderAuthRoundTrip(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("PI_CODING_AGENT_DIR", "")
+	path := filepath.Join(home, ".pi/agent/mcp.json")
+	original := "{\n\t\"unrelated\":true,\n\t\"mcpServers\":{\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"auth\":{\"provider\":\"radius\"},\"oauth\":{\"clientRegistration\":\"dcr\"},\"enabled\":false}}\n}\n"
+	mustWriteGlobalTest(t, path, original)
+	if _, warnings, err := runImportGlobalTest("pi"); err != nil {
+		t.Fatalf("import: %v %s", err, warnings)
+	}
+	imported := readGlobalTest(t, filepath.Join(source, "mcps/remote.yaml"))
+	if !strings.Contains(imported, "x-pi:") || !strings.Contains(imported, "provider: radius") {
+		t.Errorf("native auth missing: %s", imported)
+	}
+	for range 2 {
+		if _, warnings, err := runGlobalAgentTest("--only", "pi"); err != nil {
+			t.Fatalf("sync: %v %s", err, warnings)
+		}
+		if got := readGlobalTest(t, path); got != original {
+			t.Errorf("native bytes changed: %s", got)
+		}
+	}
+	if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}
