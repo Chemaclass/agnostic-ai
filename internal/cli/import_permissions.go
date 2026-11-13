@@ -143,6 +143,7 @@ func importAugmentPermissions(root, dstDir string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
+	data, _ = adapters.StripJSONC(data)
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return 0, fmt.Errorf("parse %s: %w", src, err)
 	}

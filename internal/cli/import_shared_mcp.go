@@ -37,12 +37,24 @@ func importJSONMCPMap(target, srcPath, mapKey, dstDir string) (int, error) {
 // nested key without writing custom decoders. Missing file or missing
 // key returns (nil, nil); only IO and parse failures bubble up.
 func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
+	return readJSONMapAtWith(srcPath, mapKey, false)
+}
+
+// readJSONCMapAt is readJSONMapAt for a file the tool reads as JSONC.
+func readJSONCMapAt(srcPath, mapKey string) (map[string]any, error) {
+	return readJSONMapAtWith(srcPath, mapKey, true)
+}
+
+func readJSONMapAtWith(srcPath, mapKey string, jsonc bool) (map[string]any, error) {
 	data, err := os.ReadFile(srcPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", srcPath, err)
+	}
+	if jsonc {
+		data, _ = adapters.StripJSONC(data)
 	}
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {

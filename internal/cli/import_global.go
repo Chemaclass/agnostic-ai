@@ -444,6 +444,8 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				servers, orders, piNative, err = readPiMCPMap(path)
 			case "codebuddy":
 				servers, err = readCodebuddyMCPMap(path)
+			case "augment":
+				servers, err = readJSONCMapAt(path, g.mcp.key)
 			default:
 				servers, err = readJSONMapAt(path, g.mcp.key)
 			}
