@@ -10,7 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-var tools = map[string]string{"Bash": "bash", "Read": "read_file", "Write": "write_file", "Edit": "edit"}
+var tools = map[string]string{"Bash": "bash", "Read": "read_file", "Write": "write_file", "Edit": "edit", "Grep": "grep"}
 
 // Vibe 3.0.3 refuses an agent file whose stem is main in any case: a
 // post_agent hook's match = "main" selects the user's agent.

@@ -16,6 +16,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Target audits ingest a complete target result in one validated write and report recorded coverage and timings (#3370).
 - Target audits refill idle reviewers with pending targets and confirm completed findings while other reviews continue (#3371).
 
+### By tool
+
+#### Mistral Vibe
+
+- A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
+
 ## v0.94.0 - 2026-11-12
 
 ### Highlights
