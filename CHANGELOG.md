@@ -20,8 +20,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Copilot
 
-- `import copilot` keeps an agent's `tools: []`, `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`, and `sync` writes an empty `tools` list back, so a no-tools agent stays a no-tools agent (#3391).
-- `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command` (#3392).
+- `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
+- `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
 
 #### OpenHands
 

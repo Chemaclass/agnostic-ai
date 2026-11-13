@@ -120,8 +120,7 @@ func agentMarkdown(e spec.Entry) (string, bool) {
 	}
 	keys := []string{"name", "description"}
 	// An empty list disables every tool; a missing key enables them all.
-	rawTools, hasTools := resolved["tools"].([]any)
-	if tools := emit.StringSlice(resolved["tools"]); len(tools) > 0 || (hasTools && len(rawTools) == 0) {
+	if tools, ok := profileTools(resolved["tools"]); ok {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}
@@ -136,4 +135,21 @@ func agentMarkdown(e spec.Entry) (string, bool) {
 		return front + "\n", dropped
 	}
 	return front + "\n" + body + "\n", dropped
+}
+
+// profileTools reads a `tools` value written as a list or, as Copilot
+// documents, one comma-separated string. ok is false when nothing is
+// set, so the key stays out and every tool stays enabled.
+func profileTools(v any) (tools []string, ok bool) {
+	if text, isText := v.(string); isText {
+		for _, name := range spec.SplitToolList(text) {
+			if name != "" {
+				tools = append(tools, name)
+			}
+		}
+		return tools, len(tools) > 0
+	}
+	list, isList := v.([]any)
+	tools = emit.StringSlice(v)
+	return tools, len(tools) > 0 || (isList && len(list) == 0)
 }

@@ -279,7 +279,7 @@ func copilotAgentIdentity(doc, stem string) string {
 // copilotAgentNativeKeys moves the native profile keys that have no
 // portable field (`user-invocable`, `disable-model-invocation`, `hooks`,
 // ...) under `x-copilot`, the only place the emitter reads them from.
-func copilotAgentNativeKeys(doc string) (string, error) {
+func copilotAgentNativeKeys(doc string, specExists bool) (string, error) {
 	meta, body := splitMdcFrontmatter([]byte(doc))
 	scoped, _ := meta["x-copilot"].(map[string]any)
 	moved := false
@@ -296,8 +296,12 @@ func copilotAgentNativeKeys(doc string) (string, error) {
 		delete(meta, key)
 		moved = true
 	}
-	if !moved {
+	// An empty block tells the merge those keys were deleted from the native file.
+	if !moved && !(specExists && scoped == nil && len(meta) > 0) {
 		return doc, nil
+	}
+	if scoped == nil {
+		scoped = map[string]any{}
 	}
 	meta["x-copilot"] = scoped
 	out, err := writeFrontmatter(meta, body)
@@ -331,7 +335,8 @@ func importCopilotAgents(root, dstDir string) (int, error) {
 		}
 		dst := filepath.Join(dstDir, name+".md")
 		body := copilotAgentIdentity(header.Strip(string(data)), name)
-		body, err = copilotAgentNativeKeys(body)
+		_, statErr := os.Stat(dst)
+		body, err = copilotAgentNativeKeys(body, statErr == nil)
 		if err != nil {
 			return count, fmt.Errorf("translate %s: %w", srcPath, err)
 		}

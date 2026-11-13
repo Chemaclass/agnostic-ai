@@ -534,3 +534,43 @@ func TestImportCopilotHooks_ReadsTimeoutAliasAndPrefersBash(t *testing.T) {
 		t.Errorf("timeout = %#v, want timeoutSec to win", both["timeout"])
 	}
 }
+
+func TestImportCopilot_AgentReimportDropsDeletedNativeKeys(t *testing.T) {
+	const native = "---\nname: quiet\ndescription: d\nuser-invocable: false\ndisable-model-invocation: true\nhooks:\n  preToolUse:\n    - type: command\n      bash: echo hi\n---\nBody\n"
+	const path = ".github/agents/quiet.agent.md"
+	for name, kept := range map[string]string{
+		"one key removed": "---\nname: quiet\ndescription: d\ndisable-model-invocation: true\nhooks:\n  preToolUse:\n    - type: command\n      bash: echo hi\n---\nBody\n",
+		"all removed":     "---\nname: quiet\ndescription: d\n---\nBody\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+			writeFile(t, path, native)
+			execCLI(t, "import", "copilot")
+			execCLI(t, "sync", "-t", "copilot")
+			writeFile(t, path, kept)
+			execCLI(t, "import", "copilot")
+			execCLI(t, "sync", "-t", "copilot")
+			got := readFile(t, path)
+			for _, key := range []string{"user-invocable", "disable-model-invocation", "hooks:"} {
+				if strings.Contains(got, key) != strings.Contains(kept, key) {
+					t.Errorf("%s: key %q mismatch after re-import:\n%s", name, key, got)
+				}
+			}
+		})
+	}
+}
+
+func TestImportCopilot_AgentToolsCommaStringKeepsTools(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	writeFile(t, ".github/agents/s.agent.md", "---\nname: s\ndescription: d\ntools: read, search\n---\nBody\n")
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync", "-t", "copilot")
+	got := readFile(t, ".github/agents/s.agent.md")
+	if !strings.Contains(got, "tools:") || !strings.Contains(got, "read") || !strings.Contains(got, "search") {
+		t.Errorf("tools dropped:\n%s", got)
+	}
+}
