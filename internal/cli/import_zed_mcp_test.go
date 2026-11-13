@@ -2,7 +2,11 @@ package cli
 
 import (
 	"encoding/json"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -92,4 +96,27 @@ func TestImportZedMCP_DeletedKeysDropOnNextImport(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestImportZedMCP_LeavesOutServerWithOAuthSecret(t *testing.T) {
+	zedMCPProject(t, `{
+  "context_servers": {
+    "secure": {"url": "https://example.test/mcp", "oauth": {"client_id": "abc", "client_secret": "s3cr3t-literal-value-9f8e7d"}},
+    "plain": {"url": "https://example.test/plain", "timeout": 30}
+  }
+}`)
+	execCLI(t, "import", "zed")
+
+	if _, err := os.Stat(filepath.Join(".agnostic-ai", "mcps", "secure.yaml")); !os.IsNotExist(err) {
+		t.Errorf("server with an OAuth secret must be left out: %v", err)
+	}
+	if !strings.Contains(readFile(t, filepath.Join(".agnostic-ai", "mcps", "plain.yaml")), "timeout: 30") {
+		t.Errorf("other servers must still import")
+	}
+	_ = filepath.WalkDir(".agnostic-ai", func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.Contains(readFile(t, path), "s3cr3t-literal") {
+			t.Errorf("secret written to %s", path)
+		}
+		return nil
+	})
 }

@@ -25,7 +25,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Zed
 
-- `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import (#3390).
+- `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import. A server whose `oauth` holds a client secret is left out with a warning (#3390).
 
 #### Copilot
 

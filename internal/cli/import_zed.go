@@ -192,6 +192,8 @@ func importZedContextServers(root, dstDir string) (int, error) {
 	if !ok || len(servers) == 0 {
 		return 0, nil
 	}
+	servers, skipped := withoutMCPOAuthCredentials(servers)
+	reportMCPLiteralRefs(skipped)
 	flat := zedMCPDocs(servers)
 	if len(flat) == 0 {
 		return 0, nil
