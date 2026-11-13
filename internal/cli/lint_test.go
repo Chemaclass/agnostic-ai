@@ -175,6 +175,20 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 	}
 }
 
+// Crush's hooks README (v0.101.0) lists PermissionResult with a tool-name
+// matcher, so flagging it tells a Crush user to drop a working filter.
+func TestLintHookMatcherMisuse_CrushPermissionResultStaysClean(t *testing.T) {
+	hooks := []spec.Entry{
+		{
+			Kind: spec.KindHook, Name: "audit", Path: "hooks/audit.yaml",
+			Meta: map[string]any{"event": "PermissionResult", "matcher": "^bash$"},
+		},
+	}
+	if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+		t.Fatalf("expected no LINT005 for PermissionResult with a matcher, got %v", got)
+	}
+}
+
 // cursor.com/docs/hooks' own "Available matchers by hook" table lists
 // these alongside the tool and shell events already covered:
 // subagentStart/subagentStop filter by subagent type, beforeSubmitPrompt

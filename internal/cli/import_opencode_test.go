@@ -117,6 +117,39 @@ func TestImportFromOpencode_AgentsSkillsAndCommands(t *testing.T) {
 	}
 }
 
+func TestImportFromOpencode_KeepsCommandSubagentFlag(t *testing.T) {
+	dir := t.TempDir()
+	body := "---\nagent: build\nsubagent: false\n---\n\nProbe.\n"
+	writeFile(t, filepath.Join(dir, opencodeCommandsDir, "probe.md"), body)
+	if err := importFromOpencode(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "commands", "probe.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != body {
+		t.Errorf("subagent flag not kept. got %q", got)
+	}
+}
+
+func TestImportFromOpencode_DropsCommandSubagentRemovedNatively(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "commands", "probe.md"), "---\nagent: build\nsubagent: true\n---\n\nProbe.\n")
+	native := "---\nagent: build\n---\n\nProbe.\n"
+	writeFile(t, filepath.Join(dir, opencodeCommandsDir, "probe.md"), native)
+	if err := importFromOpencode(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "commands", "probe.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != native {
+		t.Errorf("subagent should be gone after native removal. got %q", got)
+	}
+}
+
 func TestImportFromOpencode_ImportsMCP(t *testing.T) {
 	dir := t.TempDir()
 	settings := `{
