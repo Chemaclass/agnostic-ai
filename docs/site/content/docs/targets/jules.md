@@ -17,7 +17,7 @@ set-up-this-tool = "@/docs/targets/jules.md#first-rule"
 
 Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared instructions that point to source specs and the embedded `## Rules` block there.
 
-Jules has been read-only since November 11, 2026 and closes on December 31, 2026. New tasks cannot start. Follow the [official export instructions](https://jules.google/docs/changelog/#jules-turndown) to save your Jules configuration and history.
+Jules has been read-only since November 12, 2026 and closes on December 31, 2026. New tasks cannot start. Follow the [official export instructions](https://jules.google/docs/changelog/#jules-turndown) to save your Jules configuration and history.
 
 ## First rule
 

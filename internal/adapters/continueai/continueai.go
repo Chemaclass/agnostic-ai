@@ -100,9 +100,10 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // .yaml per MCP entry under `.continue/mcpServers/`. When
 // `outputs.continue.assistants-dir` is set, each agent additionally
 // emits as a standalone `config.yaml`-shaped YAML at `<dir>/<name>.yaml`
-// (see assistantYAML). Continue's source loads workspace
-// `.continue/assistants/`, `agents/` and `configs/` YAML as local profiles
-// (core/config/ConfigHandler.ts); its docs do not describe the folder.
+// (see assistantYAML). Continue's source loads YAML from the workspace
+// root's `.continue/assistants`, `.continue/agents` and `.continue/configs`
+// as local profiles (core/config/ConfigHandler.ts); its docs do not
+// describe a workspace folder.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -153,9 +154,10 @@ func emitAssistants(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // top level (target-audit 2026-08-08, #563; the prior citation here,
 // docs.continue.dev/hub/assistants/intro, 404s and the whole /hub/
 // namespace is gone). Continue's source loads such a
-// directory when it is named assistants, agents or configs under
-// `.continue/`, and the file is also loadable explicitly (`cn --config
-// <path>`); no vendor doc states either. Fields
+// directory only when it is `.continue/assistants`, `.continue/agents` or
+// `.continue/configs` at the workspace root, and the file is also loadable
+// explicitly (`cn --config <path>`); its docs do not describe a workspace
+// folder. Fields
 // like models or `rules:` are intentionally omitted so Continue
 // inherits the user's configured defaults.
 func assistantYAML(e spec.Entry) (string, error) {

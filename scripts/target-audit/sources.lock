@@ -11,9 +11,9 @@ amp	docs	https://ampcode.com/docs/customize/mcp	200	html	39f5ae9cf0a6108d847493d
 amp	docs	https://ampcode.com/docs/customize/plugins	200	html	55c90426c9e2a34b5f55c8bcb383adbd436a65e8e3bbd7650a3b7a2b012e548b	2026-11-10
 amp	docs	https://ampcode.com/docs/customize/skills	200	html	831450c13f3e922a5ea2f42338cf64ff55844c91555d6324798a47c14ccf40d6	2026-11-08
 amp	docs	https://ampcode.com/docs/integrations	200	html	6c0cd15e7a21d54b8a8e6f3e44de4d53a92caaed0b7e240063e52bc51b996bc2	2026-11-11
+amp	docs	https://ampcode.com/docs/model-selector	200	html	36ff2edd85835d9b40e56bbfd3197af67e00965eb22b06ef9768141c96a82709	2026-11-13
 amp	docs	https://ampcode.com/docs/orbs/customizing	200	html	336e324c71b4c0dffab1a699e3a5b313699ee8c4e2af28bce5d883a13fd79175	2026-11-11
 amp	docs	https://ampcode.com/docs/orbs/portals	200	html	794786562acd9ff66ede78e30dd5f1ff0eedaf802b73c97b4d1b064684092be4	2026-11-11
-amp	docs	https://ampcode.com/docs/the-dial	200	html	63ccc970ecb473dd3de3a90142dde37d00411c2362f1889c2dc27d3da72d8360	2026-11-11
 amp	docs	https://ampcode.com/docs/tools	200	html	3cf811e3c9588875fe78576d92d65b88d149e51a4bc3882b9073cf0b699cf1a2	2026-11-05
 amp	docs	https://ampcode.com/llms.txt	200	text	c0113476574aaa4e9b5fdca0f998d93c3e59e55ecaa77c3b583ab5484a700bd1	2026-11-11
 amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	8722f236c8b33797da5bde3457ed7aedc9a7676ef1076dc97f709b75e728676d	2026-11-10

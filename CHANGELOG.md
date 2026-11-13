@@ -24,11 +24,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Jules
 
-- The target page now says Jules is read-only since November 11, 2026, and drops the step that needs a new Jules task (#3388).
+- The target page now says Jules is read-only since November 12, 2026, and drops the step that needs a new Jules task (#3388).
 
 #### Continue
 
-- The `assistants-dir` note and adapter comments now say Continue's source loads that folder as local profiles when it is named `assistants`, `agents` or `configs` (#3401).
+- The `assistants-dir` note and adapter comments now say Continue's source loads it as a local profile when it is `.continue/assistants`, `.continue/agents` or `.continue/configs` at the workspace root (#3401).
 
 #### Goose
 
