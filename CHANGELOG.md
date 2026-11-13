@@ -28,6 +28,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
 - `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
 
+#### OpenCode
+
+- `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it and OpenCode keeps routing the command as written (#3383).
+
 #### OpenHands
 
 - `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
@@ -42,6 +46,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### OpenCode
 
 - `explain` reads an OpenCode agent's `x-opencode.permission` override, not `x-opencode.tools`, and still lists the portable tools it merges with (#3407).
+
+#### Crush
+
+- `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
 
 #### Mistral Vibe
 
