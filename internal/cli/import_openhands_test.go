@@ -289,3 +289,62 @@ func TestImportOpenhands_PreservesScopedNullModel(t *testing.T) {
 		t.Errorf("scoped null model was lost: %s", got)
 	}
 }
+
+func TestImportOpenhands_KeepsFolderSkillTriggers(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	skill := filepath.Join(dir, ".agents", "skills", "inspect")
+	writeFile(t, filepath.Join(skill, "SKILL.md"),
+		"---\nname: inspect\ndescription: Inspect the build\ntriggers:\n  - inspect\n---\n\nLook at the build.\n")
+	writeFile(t, filepath.Join(skill, "scripts", "check.sh"), "echo ok\n")
+
+	execCLI(t, "import", "openhands")
+
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "inspect", "SKILL.md"))
+	if !strings.Contains(spec, "x-openhands:") || !strings.Contains(spec, "- inspect") {
+		t.Errorf("triggers not kept under x-openhands:\n%s", spec)
+	}
+	if strings.Contains(strings.SplitN(spec, "x-openhands:", 2)[0], "triggers:") {
+		t.Errorf("triggers left at the top level:\n%s", spec)
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "inspect", "scripts", "check.sh")); got != "echo ok\n" {
+		t.Errorf("bundled asset changed: %q", got)
+	}
+
+	execCLI(t, "sync", "-t", "openhands")
+	native := readFile(t, filepath.Join(skill, "SKILL.md"))
+	if !strings.Contains(native, "triggers:") || !strings.Contains(native, "- inspect") {
+		t.Errorf("sync dropped triggers:\n%s", native)
+	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+}
+
+func TestImportOpenhands_PreservesAgentHooksAndMaxIterations(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	path := filepath.Join(dir, ".agents/agents/runner.md")
+	writeFile(t, path, "---\nname: runner\ndescription: Run tasks\nmax_iteration_per_run: 7\nhooks:\n  stop:\n    - matcher: \"*\"\n      hooks:\n        - command: ./check.sh\n---\n\nRun tasks.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got := readFile(t, path)
+	for _, want := range []string{"max_iteration_per_run: 7", "hooks:", "./check.sh"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+	writeFile(t, path, "---\nname: runner\ndescription: Run tasks\n---\n\nRun tasks.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got = readFile(t, path)
+	for _, gone := range []string{"max_iteration_per_run", "hooks", "check.sh"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("deleted native field %q returned: %s", gone, got)
+		}
+	}
+}

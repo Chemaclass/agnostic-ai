@@ -76,7 +76,7 @@ func importFromOpenhands(root string, src config.Sources) error {
 		return err
 	}
 	agents, err := importFlatMarkdownFilesWith(filepath.Join(root, openhandsAgentsDir), importSourcePath(root, src.Agents), openhandsAgentFields, func(data []byte) ([]byte, error) {
-		return importNativeAgentFields(data, "openhands", "skills", "tools", "permission_mode", "color")
+		return importNativeAgentFields(data, "openhands", "skills", "tools", "permission_mode", "color", "hooks", "max_iteration_per_run")
 	})
 	if err != nil {
 		return err
@@ -164,8 +164,27 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		}
 		seen[name] = true
 	}
-	n, err := importSkillFoldersWith(root, dir, importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seen})
+	n, err := importSkillFoldersWith(root, dir, importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seen, TransformSkill: moveOpenhandsTriggers})
 	return rules, skills + n, err
+}
+
+// moveOpenhandsTriggers keeps a folder skill's `triggers` under
+// x-openhands, where the emitter writes it back; the key has no
+// portable spelling and the plain copy would drop it on the next sync.
+func moveOpenhandsTriggers(data []byte) ([]byte, error) {
+	meta, body := splitMdcFrontmatter(data)
+	triggers, ok := meta["triggers"]
+	if !ok {
+		return data, nil
+	}
+	delete(meta, "triggers")
+	native, _ := meta[openhandsNativeMetaKey].(map[string]any)
+	if native == nil {
+		native = map[string]any{}
+	}
+	native["triggers"] = triggers
+	meta[openhandsNativeMetaKey] = native
+	return skillMarkdownOf(meta, body)
 }
 
 // openhandsSkillKind classifies one skill file the way OpenHands loads

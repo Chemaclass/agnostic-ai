@@ -64,7 +64,7 @@ var (
 	kiroAgentFields        = fieldsOf("name", "description", "model", "tools", "mcpServers")
 	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}
 	gooseAgentFields       = fieldsOf("name", "description", "model")
-	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true}}
+	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true, "hooks": true, "max_iteration_per_run": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")
 	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")
 	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")
