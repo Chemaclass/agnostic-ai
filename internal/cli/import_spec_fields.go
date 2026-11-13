@@ -61,7 +61,7 @@ var (
 	cursorAgentFields      = specFields{keys: fieldsOf("name", "description", "model", "background").keys, scopedReconciled: true}
 	copilotAgentFields     = specFields{keys: fieldsOf("name", "description", "tools", "model").keys, scopedNative: map[string]bool{"user-invocable": true, "disable-model-invocation": true, "hooks": true}}
 	antigravityAgentFields = fieldsOf("name", "description")
-	kiroAgentFields        = specFields{keys: fieldsOf("name", "description", "model", "tools", "mcpServers").keys, scopedNative: map[string]bool{"excludedTools": true, "includeMcpJson": true, "includePowers": true, "resources": true, "permissions": true}}
+	kiroAgentFields        = specFields{keys: fieldsOf("name", "description", "model", "tools", "mcpServers").keys, scopedNative: map[string]bool{"excludedTools": true, "includeMcpJson": true, "includePowers": true, "resources": true, "permissions": true, "welcomeMessage": true, "hooks": true}}
 	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	openhandsSkillFields   = specFields{keys: defaultSkillFields.keys, scopedNative: map[string]bool{"triggers": true}}

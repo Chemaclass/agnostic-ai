@@ -394,7 +394,7 @@ func TestImportKiro_OnDemandSteeringWarnsWhenARuleWouldOverwriteIt(t *testing.T)
 	}
 }
 
-const kiroNativeAgentFull = "---\nname: backend-dev\ndescription: Backend agent\ntools: [read, shell]\nexcludedTools: [knowledge]\nincludeMcpJson: true\nincludePowers: false\nresources:\n  - file://./ARCHITECTURE.md\n  - skill://backend-patterns\npermissions:\n  rules:\n    - capability: shell\n      match: [\"npm *\"]\n      effect: allow\n---\n\nBuild the backend.\n"
+const kiroNativeAgentFull = "---\nname: backend-dev\ndescription: Backend agent\ntools: [read, shell]\nexcludedTools: [knowledge]\nincludeMcpJson: true\nincludePowers: false\nresources:\n  - file://./ARCHITECTURE.md\n  - skill://backend-patterns\npermissions:\n  rules:\n    - capability: shell\n      match: [\"npm *\"]\n      effect: allow\nwelcomeMessage: Ready to work.\nhooks:\n  - name: git-status\n    trigger: SessionStart\n    action:\n      type: command\n      command: git status\n---\n\nBuild the backend.\n"
 
 func TestImportKiro_PreservesNativeAgentFieldsAndDropsDeletedOnes(t *testing.T) {
 	dir := t.TempDir()
@@ -409,7 +409,7 @@ func TestImportKiro_PreservesNativeAgentFieldsAndDropsDeletedOnes(t *testing.T) 
 		return readFile(t, path)
 	}
 	got := resync(kiroNativeAgentFull)
-	for _, want := range []string{"excludedTools:", "includeMcpJson: true", "includePowers: false", "skill://backend-patterns", "capability: shell", "effect: allow"} {
+	for _, want := range []string{"excludedTools:", "includeMcpJson: true", "includePowers: false", "skill://backend-patterns", "capability: shell", "effect: allow", "welcomeMessage: Ready to work.", "trigger: SessionStart", "command: git status"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q after import and sync:\n%s", want, got)
 		}
@@ -422,9 +422,23 @@ func TestImportKiro_PreservesNativeAgentFieldsAndDropsDeletedOnes(t *testing.T) 
 	}
 
 	got = resync("---\nname: backend-dev\ndescription: Backend agent\ntools: [read, shell]\n---\n\nBuild the backend.\n")
-	for _, gone := range []string{"excludedTools", "includeMcpJson", "includePowers", "resources", "permissions"} {
+	for _, gone := range []string{"excludedTools", "includeMcpJson", "includePowers", "resources", "permissions", "welcomeMessage", "hooks", "git status"} {
 		if strings.Contains(got, gone) {
 			t.Errorf("deleted native field %q returned:\n%s", gone, got)
 		}
+	}
+}
+
+func TestImportKiro_KeepsPortableHooksOnExistingSpec(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	specPath := filepath.Join(dir, ".agnostic-ai/agents/backend-dev.md")
+	writeFile(t, specPath, "---\nname: backend-dev\ndescription: Backend agent\nhooks:\n  - name: portable-hook\n---\n\nBuild the backend.\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "backend-dev.md"), "---\nname: backend-dev\ndescription: Backend agent\n---\n\nBuild the backend.\n")
+	execCLI(t, "import", "kiro", "--overwrite")
+	if got := readFile(t, specPath); !strings.Contains(got, "portable-hook") {
+		t.Errorf("portable top-level hooks lost:\n%s", got)
 	}
 }

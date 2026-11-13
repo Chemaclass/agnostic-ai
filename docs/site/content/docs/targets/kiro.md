@@ -90,7 +90,7 @@ Older versions flattened skills into `.kiro/steering/skill-<name>.md` and agents
 
 </details>
 
-Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut` (CLI 2.x only), `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` is translated from the portable `can` or `tools` field. Kiro's `mcpServers` holds inline definitions, not names, so set `x-kiro.mcpServers`. Set the rest, and any other key, under `x-kiro`.
+Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut` (CLI 2.x only), `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` is translated from the portable `can` or `tools` field. Kiro's `mcpServers` holds inline definitions, not names, so set `x-kiro.mcpServers`. Set the rest, and any other key, under `x-kiro`, including `resources`.
 
 Kiro groups agent tools into `read`, `write`, `shell`, `web`, and `subagent`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) list the same categories. It also accepts `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`.
 
@@ -160,7 +160,7 @@ A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMe
 | Source | Becomes |
 |--------|---------|
 | `.kiro/prompts/<name>.md` (or the configured command directory) | `<commands>/<name>.md` |
-| `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md`. An inline `mcpServers` map becomes a list of MCP spec names when each server matches its enabled entry in `.kiro/settings/mcp.json` and sets no `timeout` or `requestTimeout`; otherwise the whole map moves to `x-kiro.mcpServers`, with literal credentials turned into `${NAME}` references as in MCP file import. A server whose `oauth` holds a credential is left out with a note. Native `excludedTools`, `includeMcpJson`, `includePowers`, `resources` and `permissions` move under `x-kiro`, and `sync` writes them back; deleting one from the native file drops it on the next import |
+| `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md`. An inline `mcpServers` map becomes a list of MCP spec names when each server matches its enabled entry in `.kiro/settings/mcp.json` and sets no `timeout` or `requestTimeout`; otherwise the whole map moves to `x-kiro.mcpServers`, with literal credentials turned into `${NAME}` references as in MCP file import. A server whose `oauth` holds a credential is left out with a note. Native `excludedTools`, `includeMcpJson`, `includePowers`, `resources`, `permissions`, `welcomeMessage` and `hooks` move under `x-kiro`, and `sync` writes them back; deleting one from the native file drops it on the next import |
 | `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled files next to the skill included |
 | `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (project-wide rule) |
 | `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |

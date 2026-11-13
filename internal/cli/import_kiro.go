@@ -214,7 +214,7 @@ func importKiroAgentDocument(data []byte, canonicalName string, projectServers m
 	if err != nil {
 		return nil, err
 	}
-	data, err = importNativeAgentFields(data, "kiro", "excludedTools", "includeMcpJson", "includePowers", "resources", "permissions")
+	data, err = importNativeAgentFields(data, "kiro", "excludedTools", "includeMcpJson", "includePowers", "resources", "permissions", "welcomeMessage", "hooks")
 	if err != nil {
 		return nil, err
 	}
