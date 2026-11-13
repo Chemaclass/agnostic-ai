@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -163,7 +165,11 @@ func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err
 			return skills, hooks, err
 		}
 		skills += n
-		n, err = importGooseHooks(filepath.Join(plugin, "hooks", "hooks.json"), importSourcePath(root, src.Hooks))
+		warnRoot := gooseSyncPluginRoot()
+		if filepath.Clean(plugin) == filepath.Clean(filepath.Join(root, filepath.FromSlash(warnRoot))) {
+			warnRoot = ""
+		}
+		n, err = importGooseHooks(filepath.Join(plugin, "hooks", "hooks.json"), importSourcePath(root, src.Hooks), warnRoot)
 		if err != nil {
 			return skills, hooks, err
 		}
@@ -195,8 +201,10 @@ type gooseHookGroup struct {
 // here, so a group splits into one spec per distinct pair, in first-seen
 // order. The emit side merges same-event-same-matcher specs back into
 // one group, so the split survives a second round-trip. A command that
-// uses `${PLUGIN_ROOT}` warns: the emitted plugin has no `scripts/`.
-func importGooseHooks(src, dstDir string) (int, error) {
+// uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` warns when it is written
+// anywhere but the plugin that sync emits to (warnRoot is empty then):
+// the emitted plugin has no `scripts/`.
+func importGooseHooks(src, dstDir, warnRoot string) (int, error) {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -220,8 +228,8 @@ func importGooseHooks(src, dstDir string) (int, error) {
 			var order []settings
 			bySettings := map[settings][]groupedHookEntry{}
 			for _, h := range g.Hooks {
-				if strings.Contains(h.Command, "${PLUGIN_ROOT}") {
-					keptf("Goose hook %q uses ${PLUGIN_ROOT}: copy its plugin files next to .agents/plugins/agnostic-ai/ or the command cannot run\n", h.Command)
+				if warnRoot != "" && usesPluginRoot(h.Command) && writtenGooseCommand(event, g.Matcher, h) {
+					keptf("Goose hook %q uses PLUGIN_ROOT: copy the plugin's scripts into %s or the command cannot run\n", h.Command, warnRoot)
 				}
 				k := settings{h.Timeout, h.OnFailure}
 				if _, seen := bySettings[k]; !seen {
@@ -230,11 +238,15 @@ func importGooseHooks(src, dstDir string) (int, error) {
 				bySettings[k] = append(bySettings[k], h.groupedHookEntry)
 			}
 			for _, k := range order {
+				salt := ""
+				if len(order) > 1 {
+					salt = fmt.Sprintf("timeout=%d on_failure=%s", k.timeout, k.onFailure)
+				}
 				var extra map[string]any
 				if k.onFailure != "" {
 					extra = map[string]any{"x-goose": map[string]any{"on_failure": k.onFailure}}
 				}
-				n, err := writeGroupedHookSpec(dstDir, "goose", event, g.Matcher, bySettings[k], extra)
+				n, err := writeGroupedHookSpecSalted(dstDir, "goose", event, g.Matcher, salt, bySettings[k], extra)
 				if err != nil {
 					return count, err
 				}
@@ -268,4 +280,30 @@ func importGooseReview(root, dstDir string) (int, error) {
 		return 0, err
 	}
 	return 1, nil
+}
+
+// usesPluginRoot reports whether a command refers to the plugin
+// directory through either spelling Goose expands.
+func usesPluginRoot(command string) bool {
+	return strings.Contains(command, "${PLUGIN_ROOT}") || strings.Contains(command, "$PLUGIN_ROOT")
+}
+
+// writtenGooseCommand mirrors the filter writeGroupedHookSpec applies,
+// so a warning names only commands that land in a spec.
+func writtenGooseCommand(event, matcher string, h gooseHookEntry) bool {
+	if h.Type != "" && h.Type != "command" {
+		return false
+	}
+	command := adapters.StripHookTargetExport(h.Command, "goose")
+	return command != "" && !importLocal.dropsHookCommand("goose", event, matcher, command)
+}
+
+// gooseSyncPluginRoot is the root-relative plugin directory sync writes
+// to, which follows `outputs.goose.hooks-file`.
+func gooseSyncPluginRoot() string {
+	cfg := importHookConfig
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	return goose.PluginRoot(cfg)
 }
