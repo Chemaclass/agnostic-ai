@@ -247,6 +247,34 @@ func TestImportOpenhands_PreservesAgentSkills(t *testing.T) {
 	}
 }
 
+func TestImportOpenhands_PreservesAgentToolsPermissionModeAndColor(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	path := filepath.Join(dir, ".agents/agents/editor.md")
+	writeFile(t, path, "---\nname: editor\ndescription: Edit files\ntools: [file_editor]\npermission_mode: always_confirm\ncolor: blue\n---\n\nEdit files.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got := readFile(t, path)
+	for _, want := range []string{"file_editor", "permission_mode: always_confirm", "color: blue"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+	writeFile(t, path, "---\nname: editor\ndescription: Edit files\n---\n\nEdit files.\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got = readFile(t, path)
+	for _, gone := range []string{"file_editor", "permission_mode", "color"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("deleted native field %q returned: %s", gone, got)
+		}
+	}
+}
+
 func TestImportOpenhands_PreservesScopedNullModel(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
