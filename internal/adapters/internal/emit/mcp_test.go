@@ -998,3 +998,31 @@ func TestMCPDocument_VSCodeExtras_ReadXCopilot(t *testing.T) {
 		t.Errorf("x-copilot VS Code fields must not appear without WithVSCodeMCPExtras: %s", plain)
 	}
 }
+
+func TestMCPDocument_CopilotNativeClientSettings(t *testing.T) {
+	for _, transport := range []string{"stdio", "http", "sse"} {
+		t.Run(transport, func(t *testing.T) {
+			meta := map[string]any{"type": transport, "command": "server", "url": "https://example.invalid/mcp", "x-copilot": map[string]any{"oauthClientId": "client", "cwd": "/tmp", "timeout": 45000, "oauth": map[string]any{"clientId": "editor"}}}
+			got, err := MCPDocument([]spec.Entry{{Kind: spec.KindMCP, Name: "probe", Meta: meta}}, MCPSchemaServersMap, WithCopilotCLIMCPExtras())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(got, `"timeout": 45000`) {
+				t.Errorf("timeout missing: %s", got)
+			}
+			if transport == "stdio" {
+				if !strings.Contains(got, `"cwd": "/tmp"`) {
+					t.Errorf("cwd missing: %s", got)
+				}
+				if strings.Contains(got, "oauthClientId") {
+					t.Errorf("remote auth leaked into stdio: %s", got)
+				}
+			} else if !strings.Contains(got, `"oauthClientId": "client"`) {
+				t.Errorf("client ID missing: %s", got)
+			}
+			if strings.Contains(got, `"oauth":`) {
+				t.Errorf("editor OAuth leaked: %s", got)
+			}
+		})
+	}
+}

@@ -4,6 +4,8 @@
       "command": "x"
     },
     "http-server": {
+      "oauthClientId": "native-client-id",
+      "timeout": 45000,
       "type": "http",
       "url": "https://example.test/mcp"
     },
@@ -12,7 +14,9 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "command": "npx"
+      "command": "npx",
+      "cwd": "${workspaceFolder}",
+      "timeout": 45000
     }
   }
 }

@@ -113,9 +113,10 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
 
 - `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each with a `type` (`stdio`, `http`, or `sse`). VS Code passes it to Copilot harness sessions, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)). Sync owns `servers` and keeps other top-level keys, such as `inputs` and `sandbox`. It strips JSONC comments and reformats the file. Invalid JSONC stops the write.
 - `.github/mcp.json` carries the same servers under `mcpServers`, since Copilot CLI rejects the `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). Sync owns the whole file, and the whole root copy.
-- A per-server `tools` list of allowed tools (default `*`) goes only to `.github/mcp.json` and the root copy. VS Code documents no such key, and Codex's `tools` means something else.
+- Native files (`.github/mcp.json`, the opted-in root copy, and global `mcp-config.json`) keep `tools`, integer `timeout` in milliseconds, stdio `cwd`, and HTTP/SSE `oauthClientId`. Set these at the spec's top level or under `x-copilot`; `x-copilot` wins.
+- A per-server `tools` list of allowed tools defaults to `*`. The editor file has no such key, and Codex's `tools` means something else.
 - A `roots` list is copied as written. Neither VS Code nor GitHub documents it per server.
-- Only `.vscode/mcp.json` gets the VS Code fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)). Set them at the spec's top level or under `x-copilot`; `x-copilot` wins:
+- `.vscode/mcp.json` keeps the legacy editor fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)). Set them at the spec's top level or under `x-copilot`; `x-copilot` wins:
   - stdio servers: `cwd`, `envFile` (for example `${workspaceFolder}/.env`), and `sandboxEnabled` (macOS and Linux only).
   - stdio servers: `sandbox` with `filesystem.allowWrite`, `filesystem.denyRead`, `filesystem.denyWrite`, `network.allowedDomains`, and `network.deniedDomains`, each a list. VS Code reads allow rules only here, not in the top-level `sandbox`. Other keys are dropped.
   - remote servers: `oauth: {clientId, enterpriseManaged}`.
@@ -129,7 +130,7 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
         root-mcp-file: .mcp.json
     ```
 
-    Sync then also writes the servers there, with the `tools` list of allowed tools and without the VS Code fields.
+    Sync then also writes the servers there with the native fields above. Nested `oauth` and the other legacy editor fields stay in `.vscode/mcp.json`.
 
 <details>
 <summary>Why root .mcp.json is opt-in</summary>
@@ -198,6 +199,8 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 | `.github/copilot/settings.json` `model`, `effortLevel`, `enabledPlugins`, `extraKnownMarketplaces` | `<settings>/copilot.yaml`: `model`, `effort` as in [Settings](#settings), and the plugin keys under `x-copilot`, unless another settings spec for Copilot sets them |
 
 All three skill directories are [documented](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a name clash, `.github/skills` wins, then `.claude/skills`, then `.agents/skills`.
+
+Global import reads native `oauthClientId`, `cwd`, and millisecond `timeout` from `mcp-config.json`. Sync adopts equal imported servers and keeps unrelated user content. Project import continues to read the editor file listed above.
 
 ## Protected paths
 

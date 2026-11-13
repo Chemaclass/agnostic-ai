@@ -105,6 +105,7 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{
 				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
 				"cwd":            "${workspaceFolder}",
+				"x-copilot":      map[string]any{"timeout": 45000},
 				"envFile":        "${workspaceFolder}/.env",
 				"sandboxEnabled": true,
 				"sandbox":        map[string]any{"network": map[string]any{"allowedDomains": []any{"registry.npmjs.org"}}},
@@ -115,7 +116,8 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{
 				"type": "http", "url": "https://example.test/mcp",
-				"oauth": map[string]any{"clientId": "example-client-id"},
+				"oauth":     map[string]any{"clientId": "example-client-id"},
+				"x-copilot": map[string]any{"oauthClientId": "native-client-id", "timeout": 45000},
 			},
 		},
 		{

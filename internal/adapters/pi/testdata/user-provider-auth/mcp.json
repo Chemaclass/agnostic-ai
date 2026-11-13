@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "remote": {
+      "auth": {
+        "provider": "radius"
+      },
+      "enabled": false,
+      "oauth": {
+        "clientRegistration": "dcr"
+      },
+      "type": "http",
+      "url": "https://example.invalid/mcp"
+    }
+  }
+}

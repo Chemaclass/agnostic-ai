@@ -1,0 +1,7 @@
+name: copilot-native-stdio
+targets: [copilot]
+type: stdio
+command: server
+x-copilot:
+  cwd: /tmp
+  timeout: 45000

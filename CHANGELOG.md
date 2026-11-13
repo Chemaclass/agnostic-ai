@@ -18,6 +18,15 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Codex
+
+- `hook run` uses Codex's 1s default and 3s maximum for `SessionEnd` and `Interrupt` (#3432).
+- `hook run` counts Codex `SessionEnd` handlers as synchronous even when authored with `async: true` (#3433).
+
+#### Pi
+
+- `sync --global` and `import --global pi` retain MCP `auth.provider` without enabling it in project files (#3431).
+
 #### Factory
 
 - `import factory` keeps a hook group's `commandRegex` as `x-factory.commandRegex`, and `sync` writes it back on the group instead of adding a second group without it (#3397).
@@ -48,6 +57,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `hook run` reads a successful Stop reply of `{}` as `allow`, matching the released backend; `continue` still reads as `block` (#3402).
 - `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. An inline `mcpServers` entry that holds a literal credential is left out with a warning that names the server and field. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
+- `sync` keeps the `flash_lite` model tier in Antigravity plugin agents (#3429).
 
 #### Kiro
 
@@ -61,6 +71,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
 - `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
+- `sync` and global import keep Copilot MCP `oauthClientId`, `cwd` and millisecond `timeout` in native files (#3430).
 
 #### OpenCode
 
@@ -91,6 +102,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
 - `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable tool mapping it replaces (#3407).
+- `import vibe` keeps native skill `allowed-tools` under `x-vibe`, so names such as `read_file` no longer block sync or lint (#3434).
 
 ## v0.94.0 - 2026-11-12
 

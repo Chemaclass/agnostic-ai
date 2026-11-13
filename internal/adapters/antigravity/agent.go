@@ -8,12 +8,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// modelTiers are the only three values Antigravity documents for a
-// subagent's `model` key: "Model tier used when invoked (`inherit`,
-// `flash`, or `pro`)" (antigravity.google/docs/subagents). It is a
-// closed tier enum, not a model ID, so a cross-target `model: sonnet`
-// names nothing here and is dropped rather than written dead.
-var modelTiers = map[string]bool{"inherit": true, "flash": true, "pro": true}
+// Plugin agents also accept flash_lite (antigravity.google/docs/build-plugins).
+var modelTiers = map[string]bool{"inherit": true, "flash_lite": true, "flash": true, "pro": true}
 
 // emitAgents writes one native `<dir>/<name>/agent.md` per agent spec and
 // sweeps the rule-form file a prior sync left behind for the same name,
@@ -53,7 +49,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	emit.NoteAgentToolsNoOp(target, droppedTools,
 		"Antigravity's tool vocabulary (view_file, run_command, ...) shares no name with agnostic-ai's, and the vendor warns an unmapped name can hang the subagent; set x-antigravity.tools directly")
 	emit.NoteFieldNoOp(target, spec.KindAgent, "model", droppedModel,
-		"Antigravity's model field is the tier enum inherit/flash/pro, not a model ID")
+		"Antigravity's model field is the tier enum inherit/flash_lite/flash/pro, not a model ID")
 	return nil
 }
 

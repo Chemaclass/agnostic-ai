@@ -130,7 +130,7 @@ func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
 			return fmt.Errorf("write %s: %w", dstPath, err)
 		}
 	}
-	if _, err := importSkillFoldersWith(root, filepath.Join(root, skills), importSourcePath(root, src.Skills), skillFolderImportOpts{Fields: &vibeSkillFields}); err != nil {
+	if _, err := importSkillFoldersWith(root, filepath.Join(root, skills), importSourcePath(root, src.Skills), skillFolderImportOpts{Fields: &vibeSkillFields, TransformSkill: scopeVibeSkillFields}); err != nil {
 		return err
 	}
 	doc, err := readVibeTOML(filepath.Join(root, conf))
@@ -349,4 +349,8 @@ func validateVibeMCPImport(root string, cfg *config.Config) error {
 		}
 	}
 	return nil
+}
+
+func scopeVibeSkillFields(data []byte) ([]byte, error) {
+	return importNativeAgentFields(data, "vibe", "allowed-tools")
 }

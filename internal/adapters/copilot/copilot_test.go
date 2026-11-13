@@ -292,11 +292,6 @@ func TestEmit_MCPFile_Unchanged(t *testing.T) {
 	}
 }
 
-// VS Code's five documented mcp.json fields (target-audit 2026-09-08,
-// #692) must reach `.vscode/mcp.json`, VS Code's own file, but not
-// `.github/mcp.json`, Copilot CLI's file: the CLI's schema is the
-// generic mcpServers map, not VS Code's own dev/sandboxEnabled/oauth
-// extension.
 func TestEmit_MCPFile_VSCodeExtras(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -340,15 +335,16 @@ func TestEmit_MCPFile_VSCodeExtras(t *testing.T) {
 	}
 
 	cli := readFile(t, filepath.Join(dir, ".github/mcp.json"))
-	for _, absent := range []string{"cwd", "envFile", "sandboxEnabled", "clientId", "\"dev\""} {
+	if !strings.Contains(cli, `"cwd": "${workspaceFolder}"`) {
+		t.Errorf("missing cwd in %s", cli)
+	}
+	for _, absent := range []string{"envFile", "sandboxEnabled", "clientId", "\"dev\""} {
 		if strings.Contains(cli, absent) {
 			t.Errorf("Copilot CLI's mcpServers schema must not carry VS Code extra %q: %s", absent, cli)
 		}
 	}
 }
 
-// x-copilot carries the same VS Code fields as the top level, and they
-// stay out of the Copilot CLI file and its root mirror (#2224).
 func TestEmit_MCPFile_VSCodeExtrasFromXCopilot(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -367,7 +363,7 @@ func TestEmit_MCPFile_VSCodeExtrasFromXCopilot(t *testing.T) {
 			},
 		},
 	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{Outputs: map[string]config.Output{"copilot": {RootMCPFile: ".mcp.json"}}}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -378,11 +374,11 @@ func TestEmit_MCPFile_VSCodeExtrasFromXCopilot(t *testing.T) {
 		}
 	}
 	for _, path := range []string{".github/mcp.json", ".mcp.json"} {
-		if _, err := os.Stat(filepath.Join(dir, path)); err != nil {
-			continue
-		}
 		cli := readFile(t, filepath.Join(dir, path))
-		for _, absent := range []string{"cwd", "sandbox", "allowWrite", "x-copilot"} {
+		if !strings.Contains(cli, `"cwd": "${workspaceFolder}/app"`) {
+			t.Errorf("missing cwd in %s: %s", path, cli)
+		}
+		for _, absent := range []string{"sandbox", "allowWrite", "x-copilot"} {
 			if strings.Contains(cli, absent) {
 				t.Errorf("%s must not carry %q: %s", path, absent, cli)
 			}
@@ -618,5 +614,32 @@ func TestEmit_EmptyToolsListDisablesTools(t *testing.T) {
 				t.Errorf("missing empty tools list in %s", got)
 			}
 		})
+	}
+}
+
+func TestEmit_NativeMCPClientSettingsKeepEditorShape(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"copilot": {RootMCPFile: ".mcp.json"}}}
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.invalid/mcp", "oauthClientId": "shared-client", "x-copilot": map[string]any{"oauthClientId": "native-client", "timeout": 45000, "oauth": map[string]any{"clientId": "editor-client"}}}},
+		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "server", "cwd": "/tmp", "timeout": 45000}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{".github/mcp.json", ".mcp.json"} {
+		got := readFile(t, filepath.Join(dir, path))
+		for _, want := range []string{`"oauthClientId": "native-client"`, `"cwd": "/tmp"`, `"timeout": 45000`} {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s missing %s: %s", path, want, got)
+			}
+		}
+		if strings.Contains(got, "editor-client") || strings.Contains(got, "shared-client") {
+			t.Errorf("wrong native shape: %s", got)
+		}
+	}
+	editor := readFile(t, filepath.Join(dir, ".vscode/mcp.json"))
+	if !strings.Contains(editor, `"clientId": "editor-client"`) || strings.Contains(editor, "oauthClientId") || strings.Contains(editor, `"timeout":`) {
+		t.Errorf("legacy editor shape changed: %s", editor)
 	}
 }

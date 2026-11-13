@@ -87,8 +87,8 @@
 // an unmapped or misspelled tool name in the `tools` list may cause the
 // subagent process to hang during execution." So it drops with a
 // coverage note, and `x-antigravity.tools` is the one channel trusted
-// to already hold Antigravity's own names. `model` is a three-value
-// tier enum (`inherit`, `flash`, `pro`), not a model ID, so a value
+// to already hold Antigravity's own names. `model` is a tier enum
+// (`inherit`, `flash_lite`, `flash`, `pro`), not a model ID, so a value
 // outside it drops the same way. Every other documented key
 // (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`,
 // `skills`/`plugins`) reaches the file through `x-antigravity` too.

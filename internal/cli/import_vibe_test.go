@@ -100,3 +100,135 @@ func TestSyncVibe_UnmappedToolCoverageStopsBeforeWriting(t *testing.T) {
 		t.Fatalf("failed coverage check wrote the native agent: %v", err)
 	}
 }
+
+func TestImportVibe_NativeSkillToolsStayScoped(t *testing.T) {
+	for _, tools := range []string{"[read_file, ask_user_question]", "read_file", "[ask_user_question]"} {
+		t.Run(tools, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\nbuiltins: []\n")
+			writeFile(t, ".vibe/skills/probe/SKILL.md", "---\nname: probe\ndescription: Inspect files.\nallowed-tools: "+tools+"\n---\nInspect files.\n")
+			execCLI(t, "import", "vibe")
+			imported := readFile(t, filepath.Join(dir, ".agnostic-ai/skills/probe/SKILL.md"))
+			if !strings.Contains(imported, "x-vibe:") {
+				t.Errorf("native tools must be scoped: %s", imported)
+			}
+			execCLI(t, "sync", "--only", "vibe")
+			first := readFile(t, filepath.Join(dir, ".vibe/skills/probe/SKILL.md"))
+			if !strings.Contains(first, "read_file") && !strings.Contains(first, "ask_user_question") {
+				t.Errorf("native spelling lost: %s", first)
+			}
+			execCLI(t, "import", "vibe")
+			execCLI(t, "sync", "--only", "vibe")
+			if got := readFile(t, filepath.Join(dir, ".vibe/skills/probe/SKILL.md")); got != first {
+				t.Errorf("repeat import changed output: %s", got)
+			}
+			execCLI(t, "sync", "--only", "vibe", "--check")
+			execCLI(t, "lint")
+		})
+	}
+}
+
+func TestImportVibe_NativeSkillToolsPreserveSharedCapabilities(t *testing.T) {
+	for _, tc := range []struct{ field, value string }{
+		{"allowed-tools", "Read"},
+		{"can", "read"},
+		{"allowed-tools", "Grep"},
+	} {
+		t.Run(tc.field+tc.value, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe, claude]\nbuiltins: []\n")
+			source := ".agnostic-ai/skills/probe/SKILL.md"
+			writeFile(t, source, "---\nname: probe\ndescription: Inspect files.\n"+tc.field+": ["+tc.value+"]\nx-vibe:\n  allowed-tools: [read_file]\n---\nInspect files.\n")
+			writeFile(t, ".vibe/skills/probe/SKILL.md", "---\nname: probe\ndescription: Inspect files.\nallowed-tools: [ask_user_question]\n---\nInspect files.\n")
+			execCLI(t, "import", "vibe", "--overwrite")
+			imported := readFile(t, filepath.Join(dir, source))
+			mapping, _, ok := frontmatterNode([]byte(imported))
+			if !ok {
+				t.Fatalf("invalid imported spec: %s", imported)
+			}
+			shared := mappingValue(mapping, tc.field)
+			if shared == nil {
+				t.Errorf("shared %s lost: %s", tc.field, imported)
+			} else {
+				var got []string
+				if err := shared.Decode(&got); err != nil || len(got) != 1 || got[0] != tc.value {
+					t.Errorf("shared %s changed: %s", tc.field, imported)
+				}
+			}
+			native := mappingValue(mappingValue(mapping, "x-vibe"), "allowed-tools")
+			var tools []string
+			if native == nil {
+				t.Errorf("native tools lost: %s", imported)
+			} else if err := native.Decode(&tools); err != nil || len(tools) != 1 || tools[0] != "ask_user_question" {
+				t.Errorf("native tools not replaced: %s", imported)
+			}
+			execCLI(t, "sync")
+			execCLI(t, "import", "vibe")
+			execCLI(t, "sync", "--check")
+			execCLI(t, "lint")
+		})
+	}
+}
+
+func TestImportVibe_UnchangedNativeSkillToolsPreserveSharedCapabilities(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\nbuiltins: []\n")
+	source := ".agnostic-ai/skills/probe/SKILL.md"
+	writeFile(t, source, "---\nname: probe\ndescription: Inspect files.\nallowed-tools: [Read]\nx-vibe:\n  allowed-tools: [read_file]\n---\nInspect files.\n")
+	writeFile(t, ".vibe/skills/probe/SKILL.md", "---\nname: probe\ndescription: Inspect files.\nallowed-tools: [read_file]\n---\nInspect files.\n")
+	execCLI(t, "import", "vibe")
+	imported := readFile(t, filepath.Join(dir, source))
+	mapping, _, ok := frontmatterNode([]byte(imported))
+	if !ok {
+		t.Fatalf("invalid imported spec: %s", imported)
+	}
+	shared := mappingValue(mapping, "allowed-tools")
+	var got []string
+	if shared == nil {
+		t.Errorf("shared tools lost: %s", imported)
+	} else if err := shared.Decode(&got); err != nil || len(got) != 1 || got[0] != "Read" {
+		t.Errorf("shared tools changed: %s", imported)
+	}
+	execCLI(t, "sync", "--only", "vibe")
+	execCLI(t, "import", "vibe")
+	execCLI(t, "sync", "--only", "vibe", "--check")
+	execCLI(t, "lint")
+}
+
+func TestImportVibe_NativeSkillBodyEditPreservesSharedTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe, claude]\nbuiltins: []\n")
+	source := ".agnostic-ai/skills/probe/SKILL.md"
+	writeFile(t, source, "---\nname: probe\ndescription: Inspect files.\nallowed-tools: [Read]\n---\nInspect files.\n")
+	execCLI(t, "sync")
+	nativePath := filepath.Join(dir, ".vibe/skills/probe/SKILL.md")
+	native := readFile(t, nativePath)
+	writeFile(t, nativePath, strings.Replace(native, "\nInspect files.\n", "\nInspect updated files.\n", 1))
+	execCLI(t, "import", "vibe", "--overwrite")
+	imported := readFile(t, filepath.Join(dir, source))
+	mapping, _, ok := frontmatterNode([]byte(imported))
+	if !ok {
+		t.Fatalf("invalid imported spec: %s", imported)
+	}
+	shared := mappingValue(mapping, "allowed-tools")
+	var got []string
+	if shared == nil {
+		t.Errorf("shared tools lost after native body edit: %s", imported)
+	} else if err := shared.Decode(&got); err != nil || len(got) != 1 || got[0] != "Read" {
+		t.Errorf("shared tools changed: %s", imported)
+	}
+	if !strings.Contains(imported, "Inspect updated files.") {
+		t.Errorf("native edit lost: %s", imported)
+	}
+	execCLI(t, "sync")
+	claude := readFile(t, filepath.Join(dir, ".claude/skills/probe/SKILL.md"))
+	if !strings.Contains(claude, "allowed-tools:") || !strings.Contains(claude, "Read") {
+		t.Errorf("shared restriction lost on Claude: %s", claude)
+	}
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
+}

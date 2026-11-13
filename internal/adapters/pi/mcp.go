@@ -112,6 +112,15 @@ func (Adapter) CheckedUserMCPServers(entries []spec.Entry) (map[string]any, erro
 	if err != nil {
 		return nil, err
 	}
+	for _, entry := range entries {
+		meta := emit.ResolveMeta(entry.Meta, target)
+		server, _ := servers[entry.Name].(map[string]any)
+		if server["url"] != nil {
+			if auth, ok := meta["auth"]; ok {
+				server["auth"] = auth
+			}
+		}
+	}
 	for name, raw := range servers {
 		server, _ := raw.(map[string]any)
 		if server["command"] == nil && server["url"] == nil {

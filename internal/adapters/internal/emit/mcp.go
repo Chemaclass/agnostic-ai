@@ -51,7 +51,7 @@ type mcpOptions struct {
 	copilotCLIExtras bool
 }
 
-// WithCopilotCLIMCPExtras turns on the per-server `tools` allowlist
+// WithCopilotCLIMCPExtras turns on native client settings and the `tools` allowlist
 // Copilot CLI documents for its own MCP config:
 //
 //	"Next to Tools, specify which tools from the server should be
@@ -219,6 +219,9 @@ func buildServersMap(mcps []spec.Entry, schema MCPSchema, o mcpOptions) map[stri
 func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	if o.factoryExtras {
 		e.Meta = ResolveMeta(e.Meta, "factory")
+	}
+	if o.copilotCLIExtras {
+		e.Meta = ResolveMeta(e.Meta, "copilot")
 	}
 	transport := stringField(e.Meta, "type")
 	if transport == "" {
@@ -397,6 +400,19 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	if o.copilotCLIExtras {
 		if tools := stringSlice(e.Meta, "tools"); len(tools) > 0 {
 			out["tools"] = tools
+		}
+		if timeout, ok := IntField(e.Meta, "timeout"); ok {
+			out["timeout"] = timeout
+		}
+		switch transport {
+		case "stdio":
+			if cwd := stringField(e.Meta, "cwd"); cwd != "" {
+				out["cwd"] = cwd
+			}
+		case "http", "sse":
+			if clientID := stringField(e.Meta, "oauthClientId"); clientID != "" {
+				out["oauthClientId"] = clientID
+			}
 		}
 	}
 	if o.vscodeExtras && (transport == "stdio" || transport == "http" || transport == "sse") {

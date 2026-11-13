@@ -42,9 +42,11 @@ A tool without the hook's event, such as Codex for `Notification`, is not run.
 
 ### Use the configured timeout {#timeout-replies}
 
-The command uses the timeout sync writes, or the tool's default in the table below.
+The command uses the timeout sync writes, or the tool's default in the table below. Codex `SessionEnd` and `Interrupt` default to one second and cap an explicit timeout at three seconds, matching the native loader.
 
 ### Report background hooks {#async-replies}
+
+Codex runs `SessionEnd` synchronously even when its spec sets `async: true`. The diagnostic counts its failures. Other events retain their native execution mode.
 
 An `async: true` hook, or `asyncRewake: true` on Claude Code and Qoder, runs and prints its output, but the tool does not wait for it. Its result is `not judged` and stays out of `--expect` and the comparison. The same holds for Cursor `sessionStart` and `sessionEnd`, Copilot `notification`, and Cline hooks on any event but `PreToolUse` and `PostToolUse`.
 
@@ -90,7 +92,7 @@ Commands come from the spec, so a command that calls a hook script needs a `sync
 | Target | Shell | Default timeout |
 |--------|-------|-----------------|
 | Claude Code | `bash -c`, on Windows with Git Bash (`CLAUDE_CODE_GIT_BASH_PATH`, else the Git install that holds `git.exe`), or PowerShell when there is none and the spec sets no `shell`; exec-form `args` with no shell; `shell: powershell` with PowerShell | 600 seconds, except 30 on `UserPromptSubmit`, `PreModelSwitch`, and `PostModelSwitch`, and 10 on `MessageDisplay` |
-| Codex | `sh -c`; on Windows, `commandWindows` with `powershell.exe -Command` | 600 seconds |
+| Codex | `sh -c`; on Windows, `commandWindows` with `powershell.exe -Command` | 600 seconds; `SessionEnd` and `Interrupt`: 1 second, maximum 3 |
 | Gemini | `bash -c`, or Windows PowerShell on Windows, after Gemini replaces `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_SESSION_ID`, and `$CLAUDE_PROJECT_DIR` with the quoted root | 60 seconds |
 | Trae | `bash -c`, or PowerShell on Windows | 30 seconds |
 | OpenHands | `/bin/sh -c`, or `cmd.exe /c` on Windows | 60 seconds |

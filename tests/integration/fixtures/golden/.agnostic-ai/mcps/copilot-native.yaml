@@ -1,0 +1,7 @@
+name: copilot-native
+targets: [copilot]
+type: http
+url: https://example.invalid/mcp
+x-copilot:
+  oauthClientId: native-client-id
+  timeout: 45000

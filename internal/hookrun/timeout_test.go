@@ -18,6 +18,8 @@ func TestDefaultTimeout_FollowsEachTargetsEvent(t *testing.T) {
 		{"claude", "PostModelSwitch", 30 * time.Second},
 		{"claude", "MessageDisplay", 10 * time.Second},
 		{"codex", "UserPromptSubmit", 600 * time.Second},
+		{"codex", "SessionEnd", time.Second},
+		{"codex", "Interrupt", time.Second},
 		{"gemini", "BeforeTool", 60 * time.Second},
 	} {
 		if got := DefaultTimeout(tc.target, tc.event); got != tc.want {

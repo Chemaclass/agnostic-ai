@@ -210,3 +210,46 @@ func TestEmit_NativeControlOnlyOverride(t *testing.T) {
 		t.Errorf("override: %s", data)
 	}
 }
+
+func TestUserMCP_ProviderAuthIsGlobalOnly(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.invalid/mcp", "x-pi": map[string]any{"auth": map[string]any{"provider": "radius"}, "oauth": map[string]any{"clientRegistration": "dcr"}}}}
+	global, err := New().CheckedUserMCPServers([]spec.Entry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := global["remote"].(map[string]any)
+	if auth, ok := got["auth"].(map[string]any); !ok || auth["provider"] != "radius" {
+		t.Errorf("global auth = %#v", got["auth"])
+	}
+	project, err := buildMCPServers([]spec.Entry{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if project["remote"].(map[string]any)["auth"] != nil {
+		t.Errorf("project auth must be absent: %#v", project)
+	}
+	if got["oauth"] == nil {
+		t.Error("existing oauth was lost")
+	}
+}
+
+func TestUserMCP_ProviderAuthGoldenSnapshot(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.invalid/mcp", "disabled": true, "x-pi": map[string]any{"auth": map[string]any{"provider": "radius"}, "oauth": map[string]any{"clientRegistration": "dcr"}}}}}
+	servers, err := New().CheckedUserMCPServers(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.MarshalIndent(map[string]any{"mcpServers": servers}, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "mcp.json"), append(data, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	testutil.AssertGoldenTree(t, dir, filepath.Join(cwd, "testdata/user-provider-auth"))
+}
