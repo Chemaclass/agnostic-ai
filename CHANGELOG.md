@@ -40,8 +40,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Goose
 
+- `sync --global` writes hooks to the user plugin `~/.agents/plugins/agnostic-ai-global/` (`hooks/hooks.json` and `plugin.json`), which Goose loads for every project (#3389).
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
 - `import goose` keeps each hook's own `timeout` and `on_failure` instead of copying the first command's values to its group, and warns when a written command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` (#3399).
+
+#### Zed
+
+- `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import. A server whose `oauth` holds a client secret is left out with a warning (#3390).
 
 #### Copilot
 
@@ -63,6 +68,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `import windsurf` keeps an agent's native `max-nesting` under `x-windsurf`, so `sync` no longer drops it (#3395).
 
+#### OpenCode
+
+- `explain` reads an OpenCode agent's `x-opencode.permission` override, not `x-opencode.tools`, and still lists the portable tools it merges with (#3407).
+
 #### Crush
 
 - `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
@@ -70,6 +79,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
+- `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable tool mapping it replaces (#3407).
 
 ## v0.94.0 - 2026-11-12
 
@@ -156,6 +166,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
+- `import` reads `.augment/settings.json` with comments and trailing commas, as Auggie does (#3384).
+- The Augment guide and the agent `tools` sync note name both the 0.x and 1.x tool names (#3387).
 - `hook run` expands `${VAR}` and `${VAR:-default}` in a hook's command and `args` as Auggie 1.x does, so a default that blocks now reports block (#3358).
 - `hook run` builds `PromptSubmit`, `Stop`, `SessionEnd` and `Notification` payloads without `--payload`, and reads a background block as allow (#3338, #3350).
 - `hook run --bash` and `--edit` send Auggie 1.x tool names (`bash`, `edit`, `write`), and the next `sync` rewrites portable hook matchers to fit (#3353).

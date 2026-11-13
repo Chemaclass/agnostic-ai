@@ -38,20 +38,23 @@ func explainCapabilities(e spec.Entry, cfg *config.Config, settings ...spec.Entr
 			}
 			value := e.Meta[field]
 			override, _ := e.Meta["x-"+target].(map[string]any)
-			if native, set := override["tools"]; set {
+			overrideKey := adapters.AgentCapabilityOverrideKey(target)
+			if native, set := override[overrideKey]; set {
 				rules := explainToolList(native)
 				if len(rules) == 0 {
-					result = append(result, capabilityExplanation(target, "x-"+target+".tools", "native configuration", adapters.TranslateAgentCapabilityIn(target, "", e)))
+					result = append(result, capabilityExplanation(target, "x-"+target+"."+overrideKey, "native configuration", adapters.TranslateAgentCapabilityIn(target, "", e)))
 				} else {
 					for _, rule := range rules {
 						translated := adapters.TranslateAgentCapabilityIn(target, rule, e)
 						if translated.Supported {
 							translated.Native = []string{rule}
 						}
-						result = append(result, capabilityExplanation(target, "x-"+target+".tools", rule, translated))
+						result = append(result, capabilityExplanation(target, "x-"+target+"."+overrideKey, rule, translated))
 					}
 				}
-				continue
+				if _, merged := native.(map[string]any); !merged || target != "opencode" {
+					continue
+				}
 			}
 			for _, rule := range explainToolList(value) {
 				result = append(result, capabilityExplanation(target, field, rule, adapters.TranslateAgentCapabilityIn(target, rule, e)))
