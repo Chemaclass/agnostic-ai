@@ -939,4 +939,7 @@
 # #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
 # native agent keys and hook aliases; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-26083328
+# #3423 measured 26083488 bytes locally (linux/amd64): Antigravity import keeps
+# native agent keys and references MCP literals; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+26095616
