@@ -1,3 +1,944 @@
+# Bytes allowed for the linux/amd64 release binary, checked by
+# `make size-check` in CI. Raise it in the PR that needs more, and say why.
+# v0.78.0 measured 17137824. main after #1868 measured 18227360.
+# #1888 measured 18301088: the stale memory index fix crossed one page.
+# #1896 measured 18321568: per-skill asset lists on spec entries, checked
+# again at copy time.
+# #1902 adds -trimpath, as releases do, so the size no longer depends on
+# the checkout path: main measured 18280608.
+# #1894 measured 18296992: doctor shares one loaded project with its
+# migration plans and lint.
+# #1922 measured 18309280: doctor names Claude hook specs an older
+# import merged.
+# Go 1.27.2 (GO-2026-6617 fix) measured 18325664: the toolchain alone adds
+# 16 KB.
+# #1919 measured 18370720 on Go 1.27.2: global hooks files are edited in
+# place as text, and sync records the containers it created, so
+# add-then-remove keeps the user's bytes.
+# #1930 measured 18387104: memory lint checks index size per target and
+# shares the hook's index reader.
+# #1938 measured 18456736 on macOS (CI's linux build has run 8 KB
+# larger): import keeps a spec whose tool files still hold what the sync
+# ledger records, and carries back keys and comments the tool never shows.
+# #1945 adds guided upgrades, daily caching, release guidance, and
+# project config, linked spec, and package ownership checks.
+# #1940 measured 18567328 on Go 1.27.2: conservative history absence
+# checks and owned metadata snapshots add 12 KB to main after #1945.
+# #1964 measured 18596000 on Go 1.27.2: the opt-in RTK hook and
+# pinned Caveman skill, source notices, and licenses add 28672 bytes.
+# #1985 measured 18661536 on Go 1.27.2, up 12288 from main 790f22d2:
+# hook comparison traces written event groups and required command fields.
+# #1988 measured 18677920 on Go 1.27.2, up 28672 from main a500a503:
+# Claude file explanations classify planned instructions and import routes.
+# #1986 measured 18714784 on Go 1.27.2, up 24576 from main 5b4990b7:
+# MCP comparison traces written connection fields without exposing values.
+# #1990 measured 18698400 on Go 1.27.2, up 8192 from main 5b4990b7:
+# new creates and previews every spec kind in its configured source folder.
+# After merging #1990, measured 18722976, up 24576 from main b64322dc.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# #2015 measured 18755744, up 32768 from main 7df02fd1: bounded RTK
+# diagnostics compare declared Bash rules while keeping unsupported
+# syntax and live host decisions unknown. Keep CI's 8 KB allowance.
+# #2014 measured 18739360, up 16384 from main 7df02fd1: registered
+# worktree ownership, complete payloads, and hidden index flags are checked
+# before cleanup. Keep the same 8 KB allowance for CI's Linux build.
+# #2012 measured 18763936, up 24576 from main badb5ae3: pinned project
+# binaries, locked bootstrap and portable lifecycle launchers.
+# Keep the established 8 KB allowance for CI.
+# After contract fixes, measured 18784416, up 45056 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+# #2013 measured 18751648, up 28672 from main 7df02fd1: committed
+# native and canonical skill trees produce a deterministic reconciliation
+# plan with explicit migration baselines. Keep CI's 8 KB build allowance.
+# After merging #2014, measured 18768032, up 28672 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+# RTK branch history:
+# After merging #2014, measured 18772128, up 32768 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+# After bounded diagnostic reads and settings identity checks, measured
+# 18776224. Keep the established 8 KB allowance for CI's Linux build.
+# #1989 measured 18702496 before #1990, up 12288 from main 575a8a36:
+# Codex file explanations report planned source and discovery limits.
+# After #1990 and the tagged switch, measured 18706592, up 8192 from b64322dc.
+# After #1986, measured 18735264, up 12288 from main 7df02fd1.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #2014, measured 18751648, up 12288 from main badb5ae3.
+# Context contributions with Codex file explanations measured 18808992.
+# Keep the established 8 KB allowance for CI's Linux build.
+# Lifecycle branch history:
+# After merging Codex file context, measured 18796704.
+# Keep the established 8 KB allowance for CI's Linux build.
+# Source reconciliation branch history:
+# After merging Codex file context, measured 18780320.
+# Keep the established 8 KB allowance for CI's Linux build.
+# RTK branch history:
+# After merging Codex file context, measured 18784416.
+# Keep the established 8 KB allowance for CI's Linux build.
+# After combining reviewed source reconciliation and RTK diagnostics,
+# measured 18813088. Keep the established 8 KB allowance for CI.
+# After combining reviewed lifecycle, source reconciliation and RTK,
+# measured 18858144. Keep the established 8 KB allowance for CI.
+# Permissions branch history:
+# #1987 measured 18768032, up 28672 from main eec372ab: permission
+# comparison checks emitted fields, target overrides, and partial translations.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #1989, measured 18784416, up 32768 from main cc7eb45c.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After lifecycle, reconciliation and RTK changes, #1987 measured18886816,
+# up28672 from mainf535cae3. Keep the established CI allowance.
+# After combining reviewed context reporting with lifecycle, source
+# reconciliation and RTK, measured 18911392. Keep CI's 8 KB allowance.
+# After trusted import spans, frontmatter mapping and native rule output
+# attribution, measured 18923680, up 65536 from main f535cae3.
+# Keep the established 8 KB allowance for CI.
+# Permission comparison with trusted context attribution measured
+# 18952352 bytes, up 28672 from main 66cc90dd.
+# Keep the established allowance for CI.
+# Credential preview branch history:
+# Credential preview redaction including global summaries measured 18964640,
+# up 53248 from main 19a1b04e. Keep CI's 8 KB allowance.
+# With reviewed context attribution fixes, credential previews measured
+# 18976928, up 53248 from main fbf6be54. Keep CI's 8 KB allowance.
+# Permission comparison after credential preview protection measured
+# 19005600 bytes, up 28672 from main 60d9dfb4.
+# Keep the established allowance for CI.
+# Worktree refresh with owned setup cancellation measured 19034272.
+# Keep the established 8 KB allowance for CI.
+# #2055 after #2060 measured 19046560 on Go 1.27.2, up 4096:
+# indexed shared-link lookups avoid scanning every tracked path per link.
+# #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
+# preserve native V2 MCP fields and reject conflicting effective owners.
+# #2062 after #2063 measured 19108000 on Go 1.27.2, up 40960
+# from main 784cba1d (19067040 bytes):
+# native V2 hook validation, runner and Windows child ownership helper.
+# Keep the established CI build allowance for the combined changes.
+# #2068 measured 19091616 on Go 1.27.2, up 24576 from main 784cba1d:
+# Claude handoff hooks read native input and select the active checkout.
+# #2065 measured 19095712 on Go 1.27.2, up 28672 from main 784cba1d:
+# preserve Copilot user hooks and validate their imported source files.
+# Keep the established CI build allowance.
+# #2064 after #2063 measured 19079328 on Go 1.27.2, up 12288
+# from main 784cba1d (19067040 bytes):
+# preserve native skill policy and reconcile imported YAML ownership.
+# Keep the established CI build allowance.
+# #2062 macOS/Linux V2 hooks measured 19128480 on Go 1.27.2,
+# up 24576 from main 1d425332 (19103904 bytes).
+# Keep the established CI build allowance.
+# #2065 with #2064 measured 19103904, up 24576 from main 34d870e6
+# (19079328 bytes). Keep the established CI build allowance.
+# #2068 with merged #2062 measured 19153056 on Go 1.27.2,
+# up 24576 from main 70ccdb86 (19128480 bytes).
+# Keep the established CI build allowance.
+# #2087 measured 19161248 on Go 1.27.2, up 8192 from main
+# ebe5835c (19153056): Qoder project MCP import and OAuth secret checks.
+# Keep the established 8 KB build allowance.
+# #2086 measured 19165344 on Go 1.27.2, up 12288 from main
+# 38016ea0 (19153056): validated Crush MCP channels and reply routes.
+# Keep the established 8 KB build allowance.
+# Combined with #2087, measured 19165344, up 4096 from main
+# e48c1499 (19161248). Keep the established 8 KB build allowance.
+# #2100 measured 19251360 on Go 1.27.2, up 86016 from main 3891b845
+# (19165344): memory import copies earlier facts safely (Git checks, a
+# store lock, atomic writes) and lets users pick facts, the first sync
+# seeds them from Claude Code's own store, and LINT043 names stores left
+# behind. Keep the established 8 KB build allowance.
+# #2103 measured 19181728 on Go 1.27.2, up 16384 from main 766b81b9
+# (19165344): built-in rules for one tool stay out of entry files other
+# tools share, and out of sync --global. Keep the established 8 KB allowance.
+# #2112 after Gemini routing measured 19271840, up 90112 from main
+# 5d2c14be (19181728): safe memory import, resolved private destinations,
+# and worktree seeding. Keep the established 8 KB build allowance.
+# #2114 measured 19280032, up 8192 from main b3525196 (19271840):
+# hidden-character checks and cleaned hook context. Keep the established
+# 8 KB build allowance.
+# #2115 measured 19284128, up 4096 from main 3564b706 (19280032):
+# Kiro selects the personal include from its configured memory mode.
+# Keep the established 8 KB build allowance.
+# #2116 measured 19304608, up 20480 from the validated Kiro tree
+# (19284128): native Claude memory availability and worktree subagent
+# context. Keep the established 8 KB build allowance.
+# #2104 measured 19312800, up 8192 from main 124d29e9 (19304608):
+# worktree mode inheritance and guarded mode migration.
+# Keep the established 8 KB build allowance.
+# #2109 measured 19316896, up 4096 from the shared-memory tree
+# (19312800): opt-in shared memory during init.
+# Keep the established 8 KB build allowance.
+# #2117 access measured 19443872 on Go 1.27.2, up 16384 from
+# 3a2fed2a (19427488): native sandbox access to the shared handoff store.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 measured 19333280 on Go 1.27.2, up 20480 from
+# 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 list measured 19427488 on Go 1.27.2, up 61440 from
+# 2cb6bbfe (19366048): the task listing command and bounded local Git state lookup.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2126 measured 19320992 on Go 1.27.2, up 8192 from
+# 5e78c4a5 (19312800): Cline global hook scripts and their helper directory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#2126 with init repo memory measured 19325088 on Go 1.27.2, up
+# 8192 from main d20fe354 (19316896): Cline global hooks reuse the
+# project renderer. Keep the established 8 KB build allowance.
+# #2126 with shared handoffs measured 19341472 on Go 1.27.2, up
+# 8192 from main 2e6c2ec9 (19333280). Same Linux build flags;
+# keep the established 8 KB build allowance.
+#
+# #2127 measured 19341472, up 28672 from main 1880e7a2 (19312800):
+# personal session retention and exact native-value restoration.
+# Go 1.27.2, linux/amd64, CGO disabled, using make size-check flags.
+# Keep the established 8 KB build allowance.
+#2127 with Cline global hooks measured 19345568 on Go 1.27.2, up
+# 28672 from main d20fe354 (19316896): portable session retention,
+# original setting tokens, and state version 7. Keep the 8 KB allowance.
+# #2127 with Cline and shared handoffs measured 19366048 on
+# Go 1.27.2, up 32768 from main 2e6c2ec9 (19333280).
+# Same release build flags; keep the established 8 KB allowance.
+# #2117 sandbox access with retention and Cline measured 19488928
+# on Go1.27.2, up 147456 from main cd938228 (19341472).
+# Same release flags; keep the established 8 KB build allowance.
+# #2106 Cline VS Code measured 19488928 on Go1.27.2, up 20480 from
+# main 6b1dbe92 (19468448): native TaskStart context and runtime diagnostics.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2106 Cline VS Code with handoff access measured 19509408, up 20480 from
+# main 71d583c4 (19488928): native startup context, diagnostics and bounded reader.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+# #2108 Antigravity measured 19488928 on Go1.27.2, up 20480 from
+# main 6b1dbe92 (19468448): native includes retain inherited body and scoped paths.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2108 Antigravity with handoff access measured 19513504, up 24576 from
+# main 71d583c4 (19488928): inherited native includes use their actual scoped directory.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+# #2106 Augment measured 19493024 on Go1.27.2, up 24576 from
+# main 6b1dbe92 (19468448): executable builtin scripts retain inherited command assets.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2106 Augment with handoff access measured 19517600, up 28672 from
+# main 71d583c4 (19488928): inherited executable scripts and bounded startup context.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+# #2106 Augment combined with Antigravity measured 19542176, up 28672
+# from main cb4df9bc (19513504), using the same Linux amd64 release flags.
+# Keep the established 8 KB build allowance.
+# #2106 Cline with Augment and Antigravity measured 19562656, up 49152
+# from main cb4df9bc (19513504), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2106 Devin combined memory measured 19562656, up 49152
+# from main cb4df9bc (19513504), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2106 Trae combined memory measured 19562656, up 20480
+# from main 27cb3ad8 (19542176), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2165 measured 19587232 on Go1.27.2, up 16384 from main 8e2f291a
+# (19570848): agent TOML keeps nested booleans, arrays of tables, quoted
+# keys, and names the values it leaves out. Same Linux amd64 release
+# flags; retain the 8 KB allowance.
+# #2155 measured 19603616 on Go1.27.2, up 16384 from main 7efb85b9
+# (19587232): OpenCode and Devin write grants for the shared handoff store,
+# with ownership checks for hand-written and tracked config. Same Linux
+# amd64 release flags; retain the 8 KB allowance.
+# #2175 measured 19615904 on Go1.27.2, up 4096 from main 4a846b4b
+# (19611808): OpenCode permission keys are claimed per tool, and a
+# replaced hand key is backed up. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2179 measured 19640480 on Go1.27.2, up 16384 from main ba45a3f8
+# (19624096): one cached Git layout and file lookup per run instead of
+# repeated git processes. Same Linux amd64 release flags; retain the
+# 8 KB allowance.
+# #2184 measured 19632288 on Go1.27.2, up 8192 from main 038fdee4
+# (19624096): Devin permission lists are claimed per rule. Same Linux
+# amd64 release flags; retain the 8 KB allowance.
+# Combined with #2179 and #2181, #2184 measured 19656864; retain the 8 KB allowance.
+# #2183 measured 19652768 on Go1.27.2, up 4096 from main: built-in specs
+# leave .sync-state alone and the summary names only configured targets.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+# Combined with #2184, #2183 measured 19660960; retain the 8 KB allowance.
+# #2186 measured 19689632 on Go1.27.2, up 32768 from main 038fdee4 and
+# #2184 (19656864): import drops the writable roots sync grants and edits
+# Codex overlays in place. Same Linux amd64 release flags; retain the
+# 8 KB allowance.
+# Combined with #2183, #2186 measured 19697824; retain the 8 KB allowance.
+# #2187 measured 19738784 on Go1.27.2, up 40960 from main fbcf93e5
+# (19697824): the Ellipsis review target, its import, and the x-ellipsis
+# settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2196 review fixes measured 19742880, up 4096: the import keeps every
+# ellipsis key, a broken reviewer keeps the deployed file, and previews show
+# on_pass. Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2188 measured 19857568 on Go1.27.2, up 114688 from main 610ad66c
+# (19742880): the Ellipsis environment and MCP output, its import, and the
+# settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2204 measured 19869856 on Go1.27.2, up 8192 from main b9f4806c
+# (19861664): the sync summary counts a shared entry-point file for each
+# target that reads it. Same Linux amd64 release flags; retain the 8 KB
+# allowance.
+# #2252 measured 19882144 on Go1.27.2, up 8192 from main 8b5ac293
+# (19873952): Copilot sets chat.useAgentsMdFile in .vscode/settings.json and notes a double load. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2236 measured 19923104 on Go1.27.2, up 40960 from main b38b1b72
+# (19882144): OpenCode restricted agents replay the project rules and
+# defaults per listed tool, read back the planned opencode.json, and match
+# ask and deny rules regardless of case. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2250 measured 19947680 on Go1.27.2, up 24576 from main ca6776ae
+# (19923104): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2251 measured 19959968 on Go1.27.2, up 12288 from main 77792f6a
+# (19947680): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2254 measured 20013216 on Go1.27.2, up 53248 from main bfddcf0e
+# (19959968): Kilo restricted agents replay the project rules and Kilo defaults per listed tool, read back the planned kilo.jsonc, and map Write to edit. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2264 measured 20029600 on Go1.27.2, up 8192 from main 2e5866a6
+# (20021408): prefer-spec names the target whose version each shared file takes.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2259 measured 20050080 on Go 1.27.2, up 45056 from main 0ad5df49
+# (20005024): global Claude permissions import, managed rule merging,
+# shape validation and credential safeguards. Same Linux amd64 release
+# flags; retain the current 32 KB headroom. No new dependencies.
+# #2325 measured 20099232 on Go 1.27.2, up 24576 from main 3ba67b58
+# (20074656): Claude agents get a name and description fallback, agents
+# with an empty tool list are left out with notes in sync, doctor and
+# compare, and lint reads Claude Code's agent fields. Same Linux amd64
+# release flags; retain the 8 KB allowance. No new dependencies.
+# #2334 measured 20140192 on Go 1.27.2, up 40960 from main 165b90b5
+# (20099232): agent-only MCP servers, inline agent servers for Claude Code,
+# Qoder, Kiro and OpenHands, and the agent-file credential check. Same
+# Linux amd64 release flags; retain the 8 KB allowance. No new dependencies.
+# With validate and lint reporting agent-file credentials, #2334 measured
+# 20144288, up 45056 from main 165b90b5. Retain the 8 KB allowance.
+# #2333 measured 20164768 on Go 1.27.2, up 20480 from main dcaf4a81
+# (20144288): Claude agents write the plain tool for a scoped capability,
+# report the widening in project and global sync, and import keeps the
+# spec's pattern. Same Linux amd64 release flags; retain the 8 KB
+# allowance. No new dependencies.
+# #2327 measured 20185248 on Go 1.27.2 after merging main 7fcdf7d2,
+# 12288 over the budget: portable agent maxTurns and background map to
+# each tool's key, with validation, LINT050, import back, and notes for
+# an override of the wrong type. Same Linux amd64 release flags; retain
+# the 8 KB allowance. No new dependencies.
+# The scoped import write-back that keeps key order and comments measured
+# 20197536, 4096 more. Retain the 8 KB allowance.
+# #2340 measured 20209824 on Go 1.27.2, 4096 over the budget: agent
+# import returns keys the spec scopes under x-<target> to that block for
+# Cursor, Claude Code, Qoder, Junie, Gemini CLI and OpenCode. Same Linux
+# amd64 release flags; retain the 8 KB allowance. No new dependencies.
+# #2342 measured 20226208 on Go 1.27.2, 8192 over the budget: every
+# importer's skills, rules, commands and agents keep x-<target> keys
+# scoped, Gemini maps mcp_servers back, and Kiro agents import in place.
+# Same Linux amd64 release flags; retain the 8 KB allowance. No new
+# dependencies. Keeping scoped keys a rule format cannot hold, and the
+# note naming them, measured 20234400, 8192 more. Retain the 8 KB
+# allowance.
+# #2350 measured 20254880 on Go 1.27.2, up 16384 from main 72f0e416
+# (20238496): explain --layers records the source replacement/extension
+# chain and reports it in text and JSON. Same Linux amd64 release flags;
+# retain the 8 KB allowance. No new dependencies.
+# #2357 measured 20283552 on Go 1.27.3, up 24576 from main 15ce4fe4
+# (20258976): doctor reports synced skills that Claude skillOverrides turns
+# off, and doctor --fix removes confirmed entries in place. Same Linux amd64
+# release flags; retain the 8 KB allowance. No new dependencies.
+# #2368 measured 20328608 on Go 1.27.3, up 36864 from main f44ef240
+# (20291744): sync notes and LINT051 name overlay files no tool reads,
+# from one registry of the overlays adapters read, with typo and
+# case-only hints. Same Linux amd64 release flags; retain the 8 KB
+# allowance. No new dependencies.
+# #2374 measured 20373664 on Go 1.27.3, up 45056 from main a3e64150
+# (20328608): doctor reads skillOverrides from every Claude settings file
+# in precedence order, finds the git root or main checkout local file,
+# and adds skill_overrides to --json. Same Linux amd64 release flags;
+# retain the 8 KB allowance. No new dependencies.
+# #2371 measured 20402336 on Go 1.27.3, up 28672 from main 307e5a27
+# (20373664): explain <skill> lists each Claude settings file whose
+# skillOverrides names the skill and adds overrides to --json; doctor
+# reads those files as strict JSON and flags rejected values and keys
+# that conflict in one file. Same Linux amd64 release flags; retain the
+# 8 KB allowance. No new dependencies.
+# #2382 measured 20435104 on Go 1.27.3, up 32768 from main 0e28b055
+# (20402336): commands are written as user-run skills on Codex and
+# Copilot, with clash, shared-folder and hand-written skill checks, and
+# Copilot skills keep argument-hint and disable-model-invocation. Same
+# Linux amd64 release flags; retain the 8 KB allowance. No new
+# dependencies.
+# #2389 measured 20459680 on Go 1.27.3, up 24576 from #2382's
+# 20435104: Zed, Windsurf, and Crush write their own user-only skill
+# fields, import reads them back and lets the native file decide the
+# policy, and commands reach those tools as user-run skills. Same Linux
+# amd64 release flags; retain the 8 KB allowance. No new dependencies.
+# #2418 measured 20537504 on Go 1.27.3, up 65536 from main 59e68498
+# (20471968): Pi native project output, import, global sync and ordered
+# MCP exposure ownership. Same Linux amd64 release flags, no added
+# headroom or dependencies.
+# #2419 measured 20725920 on Go 1.27.3, up 188416 from main 2f0e27fd
+# (20537504): Vibe native output and import, with reversible global TOML
+# array ownership for MCP servers and hooks. Same Linux amd64 release
+# flags, no added headroom or dependencies.
+# #2417 measured 20836512 on Go 1.27.3, up 110592 from main c0c0581b
+# (20725920): Qwen native output, import, global ownership, and credential guards.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2423 measured 21020832 on Go 1.27.3, up 180224 from parent 403eea57
+# (20840608): explicit Grok native output, import, and private global ownership.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# Final grok Windows hook integration measured 21024928 bytes.
+# Go 1.27.3, Linux amd64 release flags; no added headroom or dependencies.
+# #2420 measured 21106848 on Go 1.27.3, up 86016 from parent fb3ce289
+# (21020832): maintained Kimi Code native output, import, and private global ownership.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2420 final integration measured 21102752 on Go 1.27.3, up 81920
+# from measured parent 9a47b2a8 (21020832): native kimi-code support.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2420 final opt-in integration measured 21110944 on Go 1.27.3.
+# Native Kimi Code support, same Linux amd64 release flags; no headroom or deps.
+# #2421 final integration measured 21254304 on Go 1.27.3, up 151552
+# from measured parent 2468d58d (21102752): native codebuddy support.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2421 final opt-in integration measured 21258400 on Go 1.27.3.
+# Native CodeBuddy support, same Linux amd64 release flags; no headroom or deps.
+# Final codebuddy Windows hook integration measured 21262496 bytes.
+# Go 1.27.3, Linux amd64 release flags; no added headroom or dependencies.
+# #2319 measured 22565024 on Go 1.27.3, up 1302528
+# from main 80e54f1f (21262496): local configuration views, safe edits,
+# MCP probes and process ownership. Linux amd64 release flags; no headroom.
+# #2453 measured 22974624 on Go 1.27.3, up 409600
+# from main 48db905c (22565024): embedded web client, third-party
+# notices, and static asset serving. Linux amd64 release flags; no headroom.
+# #2454 measured 23146656 on Go 1.27.3, up 172032
+# from main 27c2c202 (22974624): guarded project Caveman changes,
+# same-session undo, and web controls. Linux amd64 release flags; no headroom.
+# #2460 measured 23154848 on Go 1.27.3, up 8192
+# from main 953125fb (23146656): native command groups and task help.
+# Linux amd64 release flags; no added headroom or dependencies.
+# Tool logos, finding fix prompts, native settings layout, and bundled
+# license texts add 81920 bytes over main 8433ffb0 on Go 1.27.3.
+# Linux amd64 release flags; no added headroom or dependencies.
+# Compact source lists, responsive support groups, field disclosures,
+# and header cleanup add 4096 bytes over main 7b133db3 on Go 1.27.3.
+# Linux amd64 release flags; no added headroom or dependencies.
+# Caveman preview source boundaries add 8192 bytes over main bc4e1bd4
+# on Go 1.27.3. Linux amd64 release flags; no added headroom or dependencies.
+# #2468 measured 23261344 on Go 1.27.3, 12288 over the prior budget:
+# all project built-ins share guarded preview, apply, and undo, including
+# pending owned outputs, merged settings release, and memory migration checks.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2455 result recording and comparison measured 23298208 bytes on Go 1.27.3,
+# 36864 over the prior budget. Private atomic records, identity checks,
+# and comparison output use Linux amd64 release flags, with no headroom or deps.
+# #2477 measured 23306400 bytes on Go 1.27.3, up 8192 from main
+# f6b405c7 (23298208): loopback health probe, running-server reuse, alias
+# completion, and the second probe after an address-in-use error. Same
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2476 measured 23343264 on Go 1.27.3, up 36864 from main
+# 0503f2ba (23306400): guarded scalar settings edits that pick the spec in
+# effect across packs and targets, and the embedded form.
+# Linux amd64 release flags; no added dependencies or headroom.
+# Settings polish measured 23347360 on Go 1.27.3, up 4096 from main
+# a7abfbdb (23343264): settings shown once beside their edit controls and the
+# configuration path in the header. Embedded client only; Linux amd64
+# release flags; no added headroom or dependencies.
+# #2486 measured 23351456 on Go 1.27.3, up 4096 from main 872e180c
+# (23347360): the memory built-in preview adds the info/exclude line sync
+# writes for Claude's private settings. Same Linux amd64 release flags;
+# no added headroom or dependencies.
+# #2494 measured 23380128 on Go 1.27.3, up 45056 from main 60a8f29a
+# (23335072): personal built-in outputs go to a locked .git/info/exclude
+# block, shared with the memory exclusion, instead of the committed
+# .gitignore. Same Linux amd64 release flags; no added headroom or dependencies.
+# #2482 measured 23462048 on Go 1.27.3, up 81920 from main 6f9fcec6
+# (23380128): a Team or Just me scope for settings and built-in edits in
+# the web interface, with local badges, resets, and one guard that keeps
+# personal writes out of team and tracked files. Same Linux amd64 release
+# flags; no added headroom or dependencies.
+# #2498 measured 23466144 on Go 1.27.3, up 4096 from main 9e00f17c
+# (23462048): compare reads the sync state once per run, split from the
+# report loop so a test can check both give the same report. Same Linux
+# amd64 release flags; no added headroom or dependencies.
+# #2502 measured 23474336 on Go 1.27.3, up 8192 from main df4802ae
+# (23466144): Qwen rules with file patterns go to .qwen/rules/ with
+# paths, and import reads them back. Same Linux amd64 release flags; no
+# added headroom or dependencies.
+# #2508 measured 23478432 on Go 1.27.3, up 4096 from main 184f91a8
+# (23474336): sync, lint and validate --global refuse a rule whose
+# x-<target> block sets a condition. Same Linux amd64 release flags; no
+# added headroom or dependencies.
+# #2518 measured 23490720 on Go 1.27.3, up 12288 from main c048d4e0
+# (23478432): web Settings saves send the value the page showed, the
+# server refuses a stale one with a conflict, and the page keeps the draft
+# and offers a reload. Same Linux amd64 release flags; no added headroom
+# or dependencies.
+# #2510 measured 23498912 on Go 1.27.3, up 8192 from main 6b4fd7d9
+# (23490720): the web interface shows whether each configured tool's
+# generated files match the source, with the check time and Refresh.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2514 measured 23507104 on Go 1.27.3, up 8192 from main 367286c5
+# (23498912): the web interface searches every section and links to each
+# item, setting, and finding. Same Linux amd64 release flags; no added
+# headroom or dependencies.
+# #2512 measured 23535776 on Go 1.27.3, up 28672 from main b47ff9b4
+# (23507104): the web Settings page explains which model and effort value
+# each configured tool gets, from where, and why other values lose. Same
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2516 measured 23539872 on Go 1.27.3, up 4096 from main 4fa3f4db
+# (23535776): sync --global --backup keeps a .bak of each file it
+# removes, and rollback restores an earlier .bak. Same Linux amd64
+# release flags; no added headroom or dependencies.
+# #2513 measured 23548064 on Go 1.27.3, up 8192 from main cf9ea2b5
+# (23539872): the web interface opens files and findings in Cursor or VS
+# Code, and findings carry the path of the file they name. Same Linux
+# amd64 release flags; no added headroom or dependencies.
+# #2511 measured 23572640 on Go 1.27.3, up 24576 from main 60245961
+# (23548064): the web interface previews, applies, and undoes a model or
+# effort change, loading planned settings bytes without writing them.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2552 measured 23576736 on Go 1.27.3: cancelling a built-in preview
+# persists across reloads, with recovery when cancellation fails.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2556 measured 23580832 on Go 1.27.3: personal saves check Git
+# exclusions before writing and retry Git layout checks after failures.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2558 measured 23589024 on Go 1.27.3: findings can be rechecked in
+# place, including moved findings and incomplete checks.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2557 measured 23601312 on Go 1.27.3: global settings retain user-owned
+# empty objects and track sync-created parents across changes.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2558 combined with #2557 measured 23605408 on Go 1.27.3.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2542 measured 23629984 on Go 1.27.3: boolean and built-in edits
+# reject stale values and protect personal sources during conflicts.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2560 measured 23609504 on Go 1.27.3: the overview skips installed-file
+# comparisons and labels settings results that were not checked.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2542 combined with #2560 measured 23634080 on Go 1.27.3.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2561 measured 23638176 on Go 1.27.3: shared skill ownership reads
+# wait for emitted file mutations before checking the generated marker.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2567 measured 23646368 on Go 1.27.3: the refine prompt text for the
+# global instructions file in the embedded UI bundle crosses one page.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2570 measured 23675040 on Go 1.27.3: sync tracks diagnostics
+# across partial runs without hiding reintroduced warnings.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2573 measured 23716000 on Go 1.27.3: explain --context finds duplicated
+# startup passages, serve answers /api/views/context, and the embedded UI
+# bundle carries the Context size panel.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2581 measured 23724192 on Go 1.27.3: sync --global notes that a global
+# Claude effort reaches older models only; one 8 KiB linker step.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2578 measured 23728288 on Go 1.27.3: CodeBuddy writes and imports prompt
+# hooks on the three events its docs list.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2582 measured 23732384 on Go 1.27.3 on top of #2578: Claude sync notes
+# hook types and if filters on events that cannot run them, from one
+# vendor table. Linux amd64 release flags; no added headroom or dependencies.
+# #2579 measured 23740576 on Go 1.27.3 on top of main: Claude writes url-only dev commands to launch.json, with a Codex skip note.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2583 measured 23748768 on Go 1.27.3 on top of main: Claude sync notes settings keys a scope ignores, from one vendor scope table.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2602 measured 23769248 on Go 1.27.3 on top of main: the settings page opens the global server, or starts it, and links back.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2602 measured 23810208 on Go 1.27.3 on top of main: the settings page edits model and effort per tool, with a YAML writer for the per-tool map.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2602 measured 23818400 on Go 1.27.3 on top of main: edit requests take audience, with scope kept as an alias for one release.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2616 measured 23826592 on Go 1.27.3 on top of main: a started server goes back to the server that started it on any address.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2635 measured 23834784 on Go 1.27.3 on top of main: serve closes connections that sent no request when it shuts down.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2672 measured 23855264 on Go 1.27.3: sync preserves edited outputs
+# before removal, and revert restores their bytes and permissions.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2631 measured 23859360 on Go 1.27.3: collapsed lifecycle summaries,
+# controls, and recheck ownership add one page to the embedded UI.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2679 measured 23863456 on Go 1.27.3: doctor --json runs the glob,
+# nested CLAUDE.md, and hook script checks and lists their findings.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2655 measured 23875744 on Go 1.27.3 on top of main after #2679: upgrade verifies the build provenance of the release it installs with gh.
+# Linux amd64 release flags; no added headroom or dependencies.
+# The open fix PRs of the review batch (#2630 to #2675) each measured 23867552 on
+# Go 1.27.3 against the 23863456 their base allowed, 4096 over, on main's growth
+# rather than their own; main after #2686 allows 23875744. Set to 23900000 for 24 KB
+# of headroom over the batch's remaining validation and error paths, a few KB each.
+# Main after #2700 measured 23908512 on Go 1.27.3, 8512 over the budget, after five
+# review batch fixes landed in one hour at 4 to 8 KB each. Ten more are open. Set to
+# 24000000: 90 KB of headroom so the rest of the batch (#2630 to #2704) lands without a
+# raise per merge.
+# Main after #2709 measured 24002720 on Go 1.27.3, 2720 over the budget. The review batch
+# (#2630 to #2704) grew the binary 168 KB over 36 merges, about 4.7 KB each, as the PRs
+# claimed. Five of its PRs are still open. Set to 24060000 for them. The next raise needs
+# a size review first: what grew, and whether any of it can be trimmed.
+# Interactive version recovery adds 16384 bytes to main 5ce97e81:
+# 24051872 to 24068256 with Go 1.27.3 and Linux amd64 release flags.
+# Project-root context, the action menu, prompt handoff, and ignoring
+# Ctrl-C while the launched AI tool runs use existing dependencies.
+# Raise only to the measured size, with no added headroom.
+#
+# Reading the sync ledger once per run (#2713) adds 20480 bytes to main c3e96337:
+# 24068256 to 24088736 with Go 1.27.3 and Linux amd64 release flags. Symbol diff of
+# unstripped builds (19.4 KB): the sync pass, drift collection, and entry-point drift
+# grow about 3.2 KB together from the extra ledger parameter; the sync command closure
+# grows 5.3 KB because it copies the ledger struct into ten call sites; Go func
+# metadata grows 6.7 KB with the new functions; readLedger and the snapshot methods
+# add 2.2 KB. No new dependency. Passing the snapshot by pointer would trim part of
+# the closure growth and is left for part 2 of #2667, which reshapes these call sites.
+#
+# Keeping one project escape check (#2730) adds 10 bytes of symbols to main f74b8c69
+# (checkProjectPath +75, removeOwned +71, escapesProjectRoot -136) and crosses a page
+# boundary: 24088736 to 24092832 with Go 1.27.3 and Linux amd64 release flags. Main sat
+# at 0 bytes under its budget, so any growth needed a raise. No new dependency.
+#
+# One literal value rule for credential settings (#2732) adds 3149 bytes of symbols to
+# main 348ddd46 and crosses a page boundary: 24092832 to 24096928 with Go 1.27.3 and
+# Linux amd64 release flags. The shared rule removes three per-tool helpers (-464) but
+# adds the path, file name, and base64 shape checks that keep harmless values
+# (settingPathShaped +703, withoutReferenceSettings +572, literalSettingValue +390,
+# settingNamesNoSecret +302, settingBase64Like +203). No new dependency.
+#
+# Size review of the review batch (#2721): each first-parent merge from cd1549bf
+# (#2613) to ec3bdb27 (#2715), built with the size-check flags on Go 1.27.3. Sizes move
+# in pages of 4096 bytes. Merges over 8 KB, with the symbols that grew in unstripped
+# builds:
+# ee59348b #2701 +24576: validateProjectPaths 3.2 KB and Output.outputPaths 2.5 KB in
+#   the new internal/config/project_paths.go, dropEscapingEntries 2.6 KB in the ledger.
+# 8318b77f #2672 +20480: Session.removeOwned 5.8 KB and removeWithBackup 3.6 KB in emit,
+#   plus revertOne and withLeftoverBackups.
+# 90860689 #2691 +16384: refusal hooks in five adapters, adapters.RefuseSpecs 1.5 KB,
+#   lintTargetRefusals 1.3 KB.
+# 231072ff #2693 +12288: the new internal/config/types.go walks config types with
+#   reflect (walkTypes 1.7 KB).
+# bdd515e6 #2686 +12288: release provenance, installVerifiedRelease 3.8 KB and
+#   checkReleaseProvenance 2.6 KB.
+# 1f677329 #2683 +12288: hookRunnable 1.3 KB and the hook lint messages.
+# 62422d85 #2689 +12288: gitFetchCommit 2.5 KB for packs pinned in the lockfile.
+# 7b0175de #2711 +12288: Codex overlay credential filtering, codexCredentialIn,
+#   codexCredentialPaths, and withoutCodexCredentials, about 3.9 KB.
+# Batch summary: 23818400 to 24002720, +184320 bytes over 48 merges. 19 grew, 27 stayed
+# the same, 2 shrank. go.mod and go.sum did not change. Of the code growth, about 71 KB
+# is internal/cli, 18 KB func metadata, 12.5 KB internal/config, 9 KB emit. No single
+# merge explains the raises: the eight above add 122880 bytes, the rest a page or two
+# each. Two duplications can win some back: the credential checks that still repeat
+# across compare, global import, and the overlay filters (#2737), and the kept-file
+# block that removeOwned repeats three times (#2738). Each saves under one page.
+#
+# The merges from ec3bdb27 to 5ce97e81 (#2725), measured the same way, add 49152 bytes
+# (24002720 to 24051872) with no new dependency:
+# bb5d6eff #2712 +28672: listing MCP servers found only in a tool's own config, the new
+#   internal/cli/overview_native_mcp.go (293 lines) and overview types.
+# 50a12102 #2692 +12288: one git call per run for Grok rule visibility, a batch query
+#   in internal/gitquery.
+# 1f38f738 #2706 +20480: refusing project writes through links that leave the project,
+#   the new internal/config/project_links.go (331 lines).
+# 5ce97e81 #2725 -12288: one shared shell command credential detector replaces the
+#   copies in global_permissions.go and import_shared_mcp.go.
+# #2722, #2688, and three docs merges left the size unchanged.
+#
+# Main 349a0b8a after #2732 measured 24092832 on Go 1.27.3 with Linux amd64 release
+# flags, 4096 under the 24096928 the #2732 note measured: #2733 dropped a sidebar card
+# from the embedded UI (-8192, 24092832 to 24084640) and merged before #2732 (+8192).
+# Set to the measured size plus 8192, two pages: one typical PR, since 15 of the 19
+# merges that grew the review batch grew it by 8192 or more. It covers whichever lands
+# first of the #2731 fix (Go) and the UI polish branch (the embedded UI is compiled into
+# the binary, so UI changes move the size too). The next growing PR after that one will
+# need a raise.
+# From here on the rule is the measured size plus one typical PR (8192), which replaces
+# the "no added headroom" line in the #2726 note. Each raise still needs its own note.
+#
+# Rendering each adapter once per run (#2745) adds 23088 bytes of symbols to main
+# f97f83f8: 24092832 to 24117408 with Go 1.27.3 and Linux amd64 release flags. Go func
+# metadata grows 16304 with the new functions; the per-run render set (targetRenders,
+# captureRender, the config guard) adds 2.8 KB; detectRenderedCollisions (+6152) replaces
+# detectCollisions (-5502); copying settings hatch values so adapters cannot edit the
+# spec adds 824. No new dependency. Budget: measured size plus one typical PR (8192).
+#
+# Nested Gemini command folders (#2752) add 4520 bytes of symbols to main ff21493a:
+# 24117408 to 24125600 with Go 1.27.3 and Linux amd64 release flags. The stale host
+# file check (ClearStaleStreamHost +1670, recordedColonOutputs +677), the nested import
+# walk (importGeminiCommands +646 net), and the shared command path helper (+1150 net)
+# explain it. No new dependency. Budget: measured size plus one typical PR (8192).
+#
+# The colon refusal on Windows import (#2751) and the shared credential walker
+# (#2754) add 6161 bytes of symbols to main 5380afab: 24125600 to 24133792 with
+# Go 1.27.3 and Linux amd64 release flags. RedactTree (+2802) replaces the two
+# walkers it unifies (-2419 net across redactPermissionOverride and the Codex
+# helpers); the guarded import rollback, the stream name check and the Kimi and
+# Vibe path wrapping (+2300) are the rest. No new dependency. Budget: measured
+# size plus one typical PR (8192).
+#
+# The OpenCode provider import (#2764) adds 9782 bytes of symbols to main
+# 0caad6fe: 24133792 to 24146080 with Go 1.27.3 and Linux amd64 release flags.
+# planOpencodeProvider (+2746), importSettingsHatch (+2366), loadOpencodeOwners
+# (+1581), yamlNumbers (+779) and opencodeSettingsOwner (+773) explain it; the
+# shared owner check removes 1344 from planOpencodeV2MCP. No new dependency.
+# Budget: measured size plus one typical PR (8192).
+#
+# The local settings look-alike check (#2772) adds 3503 bytes of symbols to main
+# 37028251, which puts the stripped binary at 24158368 with Go 1.27.3 and Linux
+# amd64 release flags. TrackedAnyCase (+1197, plus +330 for its list closure)
+# holds the index listing and the SameFile loop; the cache for the listing is a
+# new memo instantiation (+1064 across its methods and dictionary); Go func
+# metadata grows 528; build info and module strings add the remaining 384. No
+# new dependency. Budget: measured size plus one typical PR (8192).
+#
+# Line-ending aware drift checks (#2780) add 7522 bytes of symbols to main
+# 9f99944c: 24158368 to 24170656 with Go 1.27.3 and Linux amd64 release flags.
+# checkedPaths (+2673), plainFileLinkFailures (+1847), exportedLinks (+1225),
+# the sync command wiring (+1280), reportCheckDrift (+1110) and trackedLinks
+# (+645) carry the new link and CRLF diagnosis; printDrift shrinks by 1152 as
+# its work moves. No new dependency. Budget: measured size plus one typical
+# PR (8192).
+#
+# #2634 adds single-server MCP previews, source-only saves, and their web UI.
+# Go 1.27.3 release flags: main cf183582 measured 24174752; this change
+# measures 24211616 (+36864). Keep the existing 8192-byte allowance.
+# #2805 adds responsive views, section tabs, and guarded permission saves.
+# Go 1.27.3 Linux amd64 release flags: 24285344, up 73728 from main
+# 53e9dc18 (24211616). Keep the existing 8192-byte build allowance.
+# Target audit fixes for Crush lifecycle hooks, Kimi executor checks, Gemini
+# MCP OAuth, and the Vibe sampling default: 24301728 on Go 1.27.3 Linux
+# amd64 release flags, up 16384 from main c44ed244. Keep the 8192-byte allowance.
+# #2829 imports Antigravity MCP from outputs.antigravity.mcp-file: 24314016 on
+# Go 1.27.3 Linux amd64 release flags, up 4096 from main e3824f18 (24309920).
+# Keep the 8192-byte allowance.
+# #2832 adds portable voice validation and per-key personal settings restoration.
+# Go 1.27.3 Linux amd64 release flags: 24346784, versus 24314016 on main
+# 8456ab7c9 (+32768). Keep the existing 8192-byte build allowance.
+# #2833 maps four more voice targets and restores TOML values and separated UI
+# table fragments while preserving user comments. Go 1.27.3 Linux amd64 release
+# flags: 24387744, versus 24346784 on main f7e02dcc2 (+40960). No new dependency.
+# Keep the existing 8192-byte build allowance.
+# #2834 imports native voice settings through the shared write mappings and
+# safely extends earlier model imports without narrowing the layered voice scope.
+# Go 1.27.3 Linux amd64 release flags: 24420512, versus 24395936 on main
+# 08e85bebf (+24576). No new dependency. Keep the 8192-byte build allowance.
+# #2831 checks the original project boundary before mapping absolute Antigravity
+# MCP paths into a preview. Go 1.27.3 Linux amd64 release flags: 24424608,
+# versus 24420512 on main fe909c147 (+4096). No new dependency.
+# Keep the existing 8192-byte build allowance.
+# #2835 adds global voice controls, safe nested edits, and their embedded UI.
+# Go 1.27.3 Linux amd64 release flags: 24445088, versus 24424608 on main
+# a66f3d802 (+20480). No new dependency. Keep the 8192-byte build allowance.
+# #2836 writes Warp voice settings with native table restoration and platform paths.
+# Go 1.27.3 Linux amd64 release flags: 24461472, versus 24445088 on main
+# 15b3b6190 (+16384). No new dependency. Keep the 8192-byte build allowance.
+# #2857 routes Zed Windows instructions and safely retires old managed blocks.
+# Shared instruction edits preserve private modes and guard concurrent changes.
+# Go 1.27.3 Linux amd64 release flags: 24477856, versus 24465568 on main
+# 6c3f4808e (+12288). No new dependency. Keep the 8192-byte build allowance.
+# With the global hook explain change, the combined build is 24481952 bytes.
+# Keep the existing 8192-byte allowance.
+# #2898 refuses incomplete managed ignore blocks to preserve user exclusions.
+# Go 1.27.3 Linux amd64 release flags: 24506528, versus 24502432 on main
+# 9b6b98d9a (+4096). No new dependency. Keep the 8192-byte allowance.
+# Main through #2905 measured 24527008 bytes; Git query isolation adds 4096.
+# Sync state error handling also grows the combined build.
+# #2884 measured 24543392 on Go 1.27.3: ignore files are replaced whole
+# through a shared atomic write helper. Keeps the 8192-byte allowance.
+# #2913 measured 24555680: empty local keys keep shared settings, and lint warns
+# about them. Adds 4096 over main.
+# #2893 splices YAML merge keys into specs: 24563872 bytes on Linux amd64
+# release flags, 8192 over main. Rounded up to a multiple of 4096.
+# Follow-up to #2913: LINT055 reads the base config to word its message by
+# the shared value kind. Measured 24567968 after #2893; adds 4096 over main.
+# Permission editor: the per-rule Edit and Remove buttons and a readable rejection
+# message grow the embedded UI. Measured 24572064 bytes, 4096 over main.
+# The Context size PR (#2924) measured 24592544 on Go 1.27.3 with main through
+# #2922: context size advice and the editor switch grow the embedded UI. The
+# budget rises by 24576 (24600576 minus 24576000).
+# The Coding tools PR (#2930) measured 24637600 on Go 1.27.3: the targets endpoint and
+# the new Settings tab grow the binary. The budget rises by 49152 (24649728
+# minus 24600576).
+# The import claude fix (#2935) measured 24653984 after main; the budget rises by 8192.
+# The sync.unmanaged ** warning (#2937) measured 24662176 after main; the budget rises by 8192.
+# The global setup panel and create endpoint measured 24674464 after main; the budget rises by 12288.
+# The LINT057 file name fix (#2956) measured 24678560 after main; the budget rises by 4096.
+# The Kiro settings model (#2960) measured 24682656 after main; the budget rises by 4096.
+# The Claude companion revert and cleanup fix (#2965) measured 24686752 bytes
+# on Go 1.27.3. Raise the budget by 8192 to keep a build allowance.
+# The empty targets guard (#2963) measured 24694944 bytes; the budget rises by 8192.
+# Target import preservation (#2967) measured 24703136 bytes; the budget rises by 8192.
+# The sidebar version badge (#2974) measured 24711328 bytes, 8192 over main
+# 24703136 (embedded client styles and markup); the budget rises by 8192.
+# The Codex MCP environment_id migration and lint (#2976) measured 24723616
+# bytes; the budget rises by 8192.
+# Crush and Pi MCP timeouts in seconds, Ellipsis compute.idle, and LINT059
+# (#2997, #2998, #3002) measured 24744096 bytes; the budget is that plus 8192.
+# Codex global MCP matching without description and roots (#2999), merged
+# with #3008, measured 24752288 bytes; the budget is that plus 8192.
+# The sync --allow-empty-targets removal preview (#2995) measured 24768672
+# bytes; the budget is that plus 8192.
+# Junie timeout range warnings (#3014), combined with roots validation (#3016),
+# measured 24780960 bytes on Go 1.27.3; keep the 8192-byte build allowance.
+# The sidebar footer with the configuration switch, Overview JSON and the
+# required version on /api/health (#3034, #3035, #3036) measured 24793248
+# bytes; the budget is that plus 8192.
+# Qwen agent background and hooks (#3043) measured 24805536 bytes on Go 1.27.3,
+# up 8192 from main d36dce97; keep the 8192-byte build allowance.
+# The setup health badge and view (#3032) measured 24813728 bytes; the
+# budget is that plus 8192, rounded up to 4096.
+# Adding a hook from the Lifecycle page (#3037), merged with the setup
+# health view, measured 24854688 bytes; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+# Show content on Context rows (#3025), on top of the sidebar footer change,
+# measured 24813728 bytes on Go 1.27.3: serve answers /api/views/source and the
+# embedded UI bundle carries the row disclosure. The budget is that plus 8192, rounded up to a multiple of 4096.
+# The #3025 review fixes (open the file inside its root, one chip per nested
+# field) measured 24826016 bytes on Go 1.27.3; rounded up to the next 4096 bytes.
+# Reading frontmatter whole before cutting the body (#3025) measured 24834208
+# bytes on Go 1.27.3; the budget is that plus 8192, rounded up to a multiple of 4096.
+# After merging main, the branch measured 24875168 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+# The Field Ledger tokens and bundled fonts (#3026), merged with Show content,
+# measured 24924320 bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Authority protected paths and the global default permission mode (#3039),
+# merged with the Field Ledger fonts, measured 24981664 bytes; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+# The Kiro agent MCP import (#3051) measured 24993952 bytes in CI; the budget is
+# that plus 8192, rounded up to a multiple of 4096.
+# Global findings in setup health (#3069) and the Kiro env references (#3067)
+# measured 25006240 bytes in CI; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+# Setup gaps in setup health (#3070) measured 25034912 bytes; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+# Agent notes on sync --global (#3073), merged with setup gaps, measured 25063584
+# bytes; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Spec copy and move between project and global (#3027), merged with the
+# improvements count, measured 25116832 bytes; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+# The Field Ledger chrome (#3026 slice 8) measured 25129120 bytes; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+# The Conversations page and its store readers measured 25309344 bytes,
+# up 180224 from main 366005e4; the budget is that plus 8192, rounded
+# up to a multiple of 4096. After merging main at 0823bad4 it measured
+# 25321632 on CI, 160 bytes over, so the budget follows the same rule.
+# The Mineral shell (#3120 slice 2) swaps Archivo Narrow for two Fraunces
+# subsets and measured 25350304 bytes; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+# #3133: curl credential redaction and cursor-agent cache measured 25366688
+# bytes after merging main at 50ed867c; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+# The Authority editor restyle (#3151: FileDiff and the refresh guard in the
+# embedded bundle) measured 25378976 bytes on CI; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+# Plain finding titles (#3120 H1: a title per finding code in the embedded
+# bundle) measured 25391264 bytes locally; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+# The Conversations skeleton, kept first page and shown-text cache
+# measured 25403552 bytes locally; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+# The dropdown panel for Safari and Firefox measured 25415840 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+# The Authority rules table and Add a rule menu measured 25428128 bytes
+# locally; the budget is that plus 8192, rounded up to a multiple of 4096.
+# The Tools and Settings calm rows measured 25440416 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# #3198 measured 25452704 bytes in CI: the Grok error names the ignore file
+# and pattern, and the guided upgrade prints each requires change. The
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# The conversations search, states, marks and kept Codex and Cursor reads
+# measured 25489568 bytes locally; the budget is that plus 8192, rounded up
+# to a multiple of 4096.
+# The companion command (install and start), the list ETag, the hidden
+# mark and serve --stop-with-stdin measured 25530528 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# serve --cloud-sessions, which lists Claude Code cloud sessions, measured
+# 25559200 bytes locally; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+# Codex cloud threads under the same flag, and working local Codex
+# threads read from their rollouts, measured 25591968 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# The lock on the conversation marks file, shared by every server on
+# the machine, measured 25600160 bytes locally; the budget is that plus
+# 8192, rounded up to a multiple of 4096.
+# `companion stop` and `companion uninstall`, with an install that stops
+# and restarts a running companion, measured 25616544 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# #3231 measured 25637024 bytes locally, up 20480: memory import declines
+# facts and keeps a checksum of each with crypto/sha256; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+# #3234 installs the companion on macOS as an app with the agnostic-ai
+# icon, embedded as a 36 KB PNG, and measured 25706656 bytes locally on
+# top of #3231; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+# #3230 loads each always-on rule once for Cursor, Windsurf and Trae and
+# warns about an unread rules-mode (LINT061); it measured 25718944 bytes
+# locally on top of #3241; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+# #3228 focuses the exact Terminal, iTerm2 or Ghostty tab of a running
+# session, finds the Codex terminal behind its background service, and
+# remembers each session's tab; it measured 25743520 bytes locally on top
+# of #3234; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Both together measured 25764000 bytes locally on Go 1.27.4; the budget
+# is that plus 8192, rounded up to a multiple of 4096.
+# #3247 rebuilds the installed companion on upgrade; with main it
+# measured 25772192 bytes locally; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+# Built-in Details text (summary, points, docs links) and the rebuilt
+# web bundle measured 25784480 bytes locally, 8192 above main ed0eccd3;
+# the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3280 (Auggie 1.x default model and effort, import read-back) measured
+# 25796768 bytes in CI; the budget is that plus 8192, rounded up to a
+# multiple of 4096.
+# #3275 (delete an archived Claude Code conversation: the endpoint, its
+# checks and the rebuilt web bundle) measured 25825440 bytes locally; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# #3284 (wrap-up built-in) and #3286 (model tier descriptions) together
+# measured 25837728 bytes locally; the budget is that plus 8192, rounded
+# up to a multiple of 4096.
+# #3283 (the agent's latest reply on each conversation row: the Claude
+# Code and Codex readers and the rebuilt web bundle) measured 25866400
+# bytes locally on 2026-11-11, 28672 above main c30c8e29; the budget is
+# that plus 8192, rounded up to a multiple of 4096.
+# #3285 (conversations start, the brief runner, the side-conversation
+# built-in and the rebuilt web bundle) measured 25911456 bytes locally on
+# 2026-11-11; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+# #3295 (rules-file has no effect on a built-in target that writes none,
+# LINT062 and the rebuilt web bundle) measured 25923744 bytes locally on
+# 2026-11-11, on top of main c9bb14de; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+# #3302 (an adapter file on an instructions file path: stop when rules
+# are lost, LINT063 when they survive, and the rebuilt web bundle)
+# measured 25956512 bytes locally on 2026-11-11, on top of main
+# a8023e46; the budget is that plus 8192, rounded up to a multiple of
+# 4096.
+# #3331 (hook run builds Augment PromptSubmit, Stop, SessionEnd and
+# Notification payloads) measured 25968800 bytes locally on 2026-11-12,
+# 8192 above main f054802c; the budget is that plus 8192, rounded up to
+# a multiple of 4096.
+# #3337 (one spelling for output paths in the config and the ledger,
+# and old ledger entries read in that spelling) builds to 25993376 bytes
+# at c1458b45, measured on 2026-11-12. The budget came from an earlier
+# build of 25985184 bytes, plus 8192, rounded up to a multiple of 4096.
+# #3342 (conversations start in cursor-agent, the chat variable check,
+# and cursor-agent chat folders found from their project) measured
+# 25997472 bytes locally on 2026-11-12, on top of main c1458b45; the
+# budget is that plus 8192, rounded up to a multiple of 4096.
+# #3348 (Augment skips hooks on events Auggie never fires, and validate
+# reads each target's x-<target> hook event) measured 26009760 bytes
+# locally on 2026-11-12, on top of main 6bc63897; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+# #3345 (a .bak sync saved heals a stuck file, an output at another
+# output's .bak stops sync, one ledger reader, and a ledger from a newer
+# release refused by writers under the lock and warned about by
+# reports) measured 26038432 bytes locally on 2026-11-12, on top of
+# main ecd8394e; the budget is that plus 8192, rounded up to a multiple
+# of 4096.
+# The sync review follow-up (outputs that differ only in letter case
+# stop sync, an output on a saved backup stops sync, revert restores a
+# shared file once and takes the project lock) measured 26058912 bytes
+# locally on 2026-11-12, on top of main 54d201ba; the budget is that
+# plus 8192, rounded up to a multiple of 4096.
+# #3398 and #3399 measured 26071200 bytes on CI's linux build, 160 over
+# the previous budget: Goose import reads the plugin settings files and
+# splits hook groups. The budget grows by one 4096 byte page.
+# The follow-up review fixes (distinct split names, PLUGIN_ROOT warning)
+# measured 26075296 bytes on CI, 160 over; one more 4096 byte page.
+# #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
+# native agent keys and hook aliases; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
 # #3419 measured 26087584 bytes on CI (linux/amd64): Goose user plugin hooks
 # on global sync; the budget is that plus 8192, rounded up to a multiple of 4096.
 26099712
