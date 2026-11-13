@@ -3,8 +3,11 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 func TestSyncGlobal_GoosePluginHooks(t *testing.T) {
@@ -75,15 +78,20 @@ func TestSyncGlobal_GooseHookScriptPaths(t *testing.T) {
 	}
 	doc := readGlobalJSON(t, filepath.Join(scripts, "hooks.json"))
 	const goosePrefix = "export AGNOSTIC_AI_TARGET=goose; "
-	want := map[string]string{
-		"PreToolUse": goosePrefix + `"` + filepath.ToSlash(scripts) + `/no-force-push.sh"`,
-		"Stop":       goosePrefix + filepath.ToSlash(scripts) + "/no-force-push.sh",
+	dir := filepath.ToSlash(scripts)
+	bare := goosePrefix + dir + "/no-force-push.sh"
+	// A directory with a character outside the shell word set, such as the
+	// `~` in a Windows short path, is single-quoted.
+	quotedDir := goosePrefix + adapters.ShellQuote(dir) + "/no-force-push.sh"
+	want := map[string][]string{
+		"PreToolUse": {goosePrefix + `"` + dir + `/no-force-push.sh"`},
+		"Stop":       {bare, quotedDir},
 	}
-	for event, command := range want {
+	for event, accepted := range want {
 		groups := doc["hooks"].(map[string]any)[event].([]any)
-		got := groups[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)["command"]
-		if got != command {
-			t.Errorf("%s command = %v, want %s", event, got, command)
+		got, _ := groups[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)["command"].(string)
+		if !slices.Contains(accepted, got) {
+			t.Errorf("%s command = %q, want one of %q", event, got, accepted)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(scripts, "no-force-push.sh")); err != nil {
