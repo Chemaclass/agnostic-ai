@@ -393,3 +393,38 @@ func TestImportKiro_OnDemandSteeringWarnsWhenARuleWouldOverwriteIt(t *testing.T)
 		t.Error("expected the existing rule source to stay untouched")
 	}
 }
+
+const kiroNativeAgentFull = "---\nname: backend-dev\ndescription: Backend agent\ntools: [read, shell]\nexcludedTools: [knowledge]\nincludeMcpJson: true\nincludePowers: false\nresources:\n  - file://./ARCHITECTURE.md\n  - skill://backend-patterns\npermissions:\n  rules:\n    - capability: shell\n      match: [\"npm *\"]\n      effect: allow\n---\n\nBuild the backend.\n"
+
+func TestImportKiro_PreservesNativeAgentFieldsAndDropsDeletedOnes(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	path := filepath.Join(dir, kiroAgentsDir, "backend-dev.md")
+	resync := func(native string) string {
+		writeFile(t, path, native)
+		execCLI(t, "import", "kiro")
+		execCLI(t, "sync", "-t", "kiro")
+		return readFile(t, path)
+	}
+	got := resync(kiroNativeAgentFull)
+	for _, want := range []string{"excludedTools:", "includeMcpJson: true", "includePowers: false", "skill://backend-patterns", "capability: shell", "effect: allow"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q after import and sync:\n%s", want, got)
+		}
+	}
+	execCLI(t, "sync", "--check", "-t", "kiro")
+
+	got = resync(strings.Replace(kiroNativeAgentFull, "excludedTools: [knowledge]\n", "", 1))
+	if strings.Contains(got, "excludedTools") || !strings.Contains(got, "includeMcpJson: true") || !strings.Contains(got, "capability: shell") {
+		t.Errorf("removing excludedTools alone must keep the rest:\n%s", got)
+	}
+
+	got = resync("---\nname: backend-dev\ndescription: Backend agent\ntools: [read, shell]\n---\n\nBuild the backend.\n")
+	for _, gone := range []string{"excludedTools", "includeMcpJson", "includePowers", "resources", "permissions"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("deleted native field %q returned:\n%s", gone, got)
+		}
+	}
+}

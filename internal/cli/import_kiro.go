@@ -214,6 +214,10 @@ func importKiroAgentDocument(data []byte, canonicalName string, projectServers m
 	if err != nil {
 		return nil, err
 	}
+	data, err = importNativeAgentFields(data, "kiro", "excludedTools", "includeMcpJson", "includePowers", "resources", "permissions")
+	if err != nil {
+		return nil, err
+	}
 	mapping, rest, ok := frontmatterNode(data)
 	if !ok {
 		return data, nil

@@ -160,7 +160,7 @@ A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMe
 | Source | Becomes |
 |--------|---------|
 | `.kiro/prompts/<name>.md` (or the configured command directory) | `<commands>/<name>.md` |
-| `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md`. An inline `mcpServers` map becomes a list of MCP spec names when each server matches its enabled entry in `.kiro/settings/mcp.json` and sets no `timeout` or `requestTimeout`; otherwise the whole map moves to `x-kiro.mcpServers`, with literal credentials turned into `${NAME}` references as in MCP file import. A server whose `oauth` holds a credential is left out with a note |
+| `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md`. An inline `mcpServers` map becomes a list of MCP spec names when each server matches its enabled entry in `.kiro/settings/mcp.json` and sets no `timeout` or `requestTimeout`; otherwise the whole map moves to `x-kiro.mcpServers`, with literal credentials turned into `${NAME}` references as in MCP file import. A server whose `oauth` holds a credential is left out with a note. Native `excludedTools`, `includeMcpJson`, `includePowers`, `resources` and `permissions` move under `x-kiro`, and `sync` writes them back; deleting one from the native file drops it on the next import |
 | `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled files next to the skill included |
 | `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (project-wide rule) |
 | `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |
