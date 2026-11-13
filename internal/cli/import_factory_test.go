@@ -206,3 +206,69 @@ func TestImportFactory_MCPEnabledToolsRoundTrip(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 }
+
+const factoryRegexHooks = `{"PreToolUse": [{"matcher": "Execute", "commandRegex": "^git ", "hooks": [{"type": "command", "command": "./guard.sh"}]}]}`
+
+func factoryHooksJSON(t *testing.T, dir string) string {
+	t.Helper()
+	return readFile(t, filepath.Join(dir, ".factory", "hooks.json"))
+}
+
+func TestImportFactory_KeepsCommandRegexThroughSync(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"), factoryRegexHooks)
+
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+	first := factoryHooksJSON(t, dir)
+	if strings.Count(first, `"matcher"`) != 1 || !strings.Contains(first, `"commandRegex": "^git "`) {
+		t.Fatalf("want one group with its commandRegex, got:\n%s", first)
+	}
+	names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+	if again := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")); strings.Join(again, ",") != strings.Join(names, ",") {
+		t.Errorf("spec names changed across a second import: %v then %v", names, again)
+	}
+	if got := factoryHooksJSON(t, dir); got != first {
+		t.Errorf("second round trip changed the file:\n%s\nwant\n%s", got, first)
+	}
+}
+
+func TestImportFactory_GroupWithoutCommandRegexImportsPlain(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "hooks": [{"type": "command", "command": "./guard.sh"}]}]}`)
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+
+	for _, name := range readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")) {
+		if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", name)); strings.Contains(got, "x-factory") {
+			t.Errorf("a group with no commandRegex must not gain x-factory:\n%s", got)
+		}
+	}
+	got := factoryHooksJSON(t, dir)
+	if strings.Contains(got, "commandRegex") || strings.Count(got, `"matcher"`) != 1 {
+		t.Errorf("want one plain group:\n%s", got)
+	}
+}
+
+func TestImportFactory_SameCommandWithDifferentRegexesKeepsBoth(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "commandRegex": "^git ", "hooks": [{"type": "command", "command": "./guard.sh"}]}, {"matcher": "Execute", "commandRegex": "^npm ", "hooks": [{"type": "command", "command": "./guard.sh"}]}]}`)
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+
+	got := factoryHooksJSON(t, dir)
+	if !strings.Contains(got, `"^git "`) || !strings.Contains(got, `"^npm "`) || strings.Count(got, `"matcher"`) != 2 {
+		t.Errorf("both regex groups must survive:\n%s", got)
+	}
+}

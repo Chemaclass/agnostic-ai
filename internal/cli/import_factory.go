@@ -174,6 +174,13 @@ func portableFactoryTools(value any) ([]string, bool) {
 	return importNativeAgentCan(value, "factory")
 }
 
+// factoryHookGroup is a grouped hook plus Factory's group-level
+// `commandRegex` filter, which the spec keeps under `x-factory`.
+type factoryHookGroup struct {
+	groupedHookGroup
+	CommandRegex string `json:"commandRegex"`
+}
+
 // importFactoryHooks reads `.factory/hooks.json`, falling back to the
 // legacy `.factory/hooks/hooks.json`, and writes one hook spec per
 // matcher group. Reading one file and not both keeps a project that
@@ -183,14 +190,20 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 	if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
 		src = filepath.Join(root, factoryLegacyHooksFile)
 	}
-	byEvent, err := readEventKeyedHooks[groupedHookGroup](src)
+	byEvent, err := readEventKeyedHooks[factoryHookGroup](src)
 	if err != nil {
 		return 0, err
 	}
 	count := 0
 	for _, event := range sortedHookEvents(byEvent) {
 		for _, g := range byEvent[event] {
-			n, err := writeGroupedHookSpec(dstDir, "factory", event, g.Matcher, g.Hooks, nil)
+			var extra map[string]any
+			salt := ""
+			if g.CommandRegex != "" {
+				extra = map[string]any{factoryNativeMetaKey: map[string]any{"commandRegex": g.CommandRegex}}
+				salt = "commandRegex=" + g.CommandRegex
+			}
+			n, err := writeGroupedHookSpecSalted(dstDir, "factory", event, g.Matcher, salt, g.Hooks, extra)
 			if err != nil {
 				return count, err
 			}
