@@ -931,4 +931,6 @@
 # shared file once and takes the project lock) measured 26058912 bytes
 # locally on 2026-11-12, on top of main 54d201ba; the budget is that
 # plus 8192, rounded up to a multiple of 4096.
-26071040
+# #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
+# native agent keys and hook aliases; the budget rises one 4096 byte page.
+26075136
