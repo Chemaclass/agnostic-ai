@@ -213,7 +213,7 @@ func globalImportNextStep(targets, managed []string) string {
 func globalImportTargets(args []string) ([]string, error) {
 	importable := func(name string) bool {
 		g, ok := globalTargets[name]
-		return ok && (g.settings.path != "" || g.mcp.path != "" || g.hooksDir != "" && name != "cline")
+		return ok && (g.settings.path != "" || g.mcp.path != "" || g.hooksDir != "" && name != "cline" && name != "goose")
 	}
 	if len(args) == 0 || (len(args) == 1 && args[0] == "all") {
 		var out []string

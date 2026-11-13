@@ -939,4 +939,6 @@
 # #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
 # native agent keys and hook aliases; the budget is that plus 8192,
 # rounded up to a multiple of 4096.
-26083328
+# #3419 measured 26087584 bytes on CI (linux/amd64): Goose user plugin hooks
+# on global sync; the budget is that plus 8192, rounded up to a multiple of 4096.
+26099712
