@@ -250,7 +250,7 @@ A dash means global sync writes nothing for that kind.
 | **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` | - | - |
 | **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` | `~/.factory/droids/<name>.md` | - |
 | **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` | `~/.config/kilo/agents/<name>.md` | - |
-| **goose** | `~/.config/goose/.goosehints` | inlined | `~/.agents/plugins/agnostic-ai/hooks/hooks.json` | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
+| **goose** | `~/.config/goose/.goosehints` | inlined | `~/.agents/plugins/agnostic-ai-global/hooks/hooks.json` | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
 | **openhands** | - | - | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` | - |
 | **grok** | `~/.grok/AGENTS.md` | inlined | `~/.grok/hooks/<name>.json` | `~/.grok/skills/<name>/` | `~/.grok/agents/<name>.md` | - |

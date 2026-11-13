@@ -32,7 +32,11 @@ func HookDoc(cfg *config.Config, h spec.Entry) ([]byte, error) {
 // GlobalHooksFile renders the user-level plugin hooks file, or nil when no
 // hook produces a handler. Commands reference scripts in scriptsDir.
 func GlobalHooksFile(hooks []spec.Entry, scriptsDir string) ([]byte, error) {
-	doc := buildHooksWith(hooks, scriptsDir, emit.RewriteGlobalHookRoot)
+	doc := buildHooksWith(hooks, func(command string, meta map[string]any) string {
+		return emit.RewriteGlobalHookPath(command, target, scriptsDir, meta)
+	}, func(path string) string {
+		return emit.RewriteGlobalHookPath(path, target, scriptsDir)
+	})
 	if doc == nil {
 		return nil, nil
 	}
