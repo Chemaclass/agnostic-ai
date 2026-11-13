@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestImportFromAntigravity_RulesAndAgents(t *testing.T) {
@@ -766,5 +767,69 @@ func TestImportFromAntigravity_MirrorsLegacyAgentsMD(t *testing.T) {
 	}
 	if string(got) != body {
 		t.Errorf("%s not byte-identical to .agent/AGENTS.md. got %q", agnosticMainFile, got)
+	}
+}
+
+const antigravityNativeAgentYAML = "tools: [view_file, run_command]\ncommandExecutionPolicy: sandbox\nmainAgent: false\nsubagent: true\n"
+
+func TestImportAntigravity_KeepsNativeAgentFields(t *testing.T) {
+	for _, form := range []string{".agents/agents/auditor/agent.md", ".agents/agents/auditor.md"} {
+		t.Run(form, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+			native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+			writeFile(t, filepath.Join(dir, form), "---\nname: auditor\ndescription: Audit code\n"+antigravityNativeAgentYAML+"---\n\nAudit.\n")
+
+			execCLI(t, "import", "antigravity")
+			spec := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/auditor.md"))
+			if !strings.Contains(spec, "x-antigravity:") {
+				t.Fatalf("native fields not scoped:\n%s", spec)
+			}
+			head := strings.SplitN(spec, "x-antigravity:", 2)[0]
+			for _, key := range []string{"tools:", "commandExecutionPolicy:", "mainAgent:", "subagent:"} {
+				if strings.Contains(head, key) {
+					t.Errorf("%s left at the top level:\n%s", key, spec)
+				}
+			}
+
+			execCLI(t, "sync", "-t", "antigravity")
+			got := readFile(t, native)
+			for _, want := range []string{"view_file", "run_command", "commandExecutionPolicy: sandbox", "mainAgent: false", "subagent: true"} {
+				if !strings.Contains(got, want) {
+					t.Errorf("missing %q after sync:\n%s", want, got)
+				}
+			}
+			execCLI(t, "sync", "--check", "-t", "antigravity")
+			execCLI(t, "lint")
+		})
+	}
+}
+
+func TestImportAntigravity_DeletedNativeAgentFieldsAreDropped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [antigravity]\n")
+	native := filepath.Join(dir, ".agents/agents/auditor/agent.md")
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\n"+antigravityNativeAgentYAML+"---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\ntools: [view_file]\ncommandExecutionPolicy: sandbox\nmainAgent: false\n---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+	got := readFile(t, native)
+	if strings.Contains(got, "subagent") || !strings.Contains(got, "commandExecutionPolicy: sandbox") || strings.Contains(got, "run_command") {
+		t.Errorf("one removed key not dropped cleanly:\n%s", got)
+	}
+
+	writeFile(t, native, "---\nname: auditor\ndescription: Audit code\n---\n\nAudit.\n")
+	execCLI(t, "import", "antigravity")
+	execCLI(t, "sync", "-t", "antigravity")
+	got = readFile(t, native)
+	for _, gone := range []string{"tools", "commandExecutionPolicy", "mainAgent", "subagent"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("deleted %q returned:\n%s", gone, got)
+		}
 	}
 }

@@ -362,7 +362,11 @@ func importAntigravityAgents(srcDir, dstDir string) (int, error) {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
 		dstPath := filepath.Join(dstDir, entry.Name()+".md")
-		if err := importWriteSpecMarkdown(dstPath, []byte(header.Strip(string(data))), 0o644, antigravityAgentFields); err != nil {
+		moved, err := antigravityNativeAgentFields([]byte(header.Strip(string(data))))
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", srcPath, err)
+		}
+		if err := importWriteSpecMarkdown(dstPath, moved, 0o644, antigravityAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dstPath, err)
 		}
 		count++
@@ -370,7 +374,13 @@ func importAntigravityAgents(srcDir, dstDir string) (int, error) {
 	if count > 0 {
 		return count, nil
 	}
-	return importFlatMarkdownFiles(srcDir, dstDir, antigravityAgentFields)
+	return importFlatMarkdownFilesWith(srcDir, dstDir, antigravityAgentFields, antigravityNativeAgentFields)
+}
+
+// antigravityNativeAgentFields moves the documented subagent keys that
+// have no shared spec field under x-antigravity, where sync reads them.
+func antigravityNativeAgentFields(data []byte) ([]byte, error) {
+	return importNativeAgentFields(data, "antigravity", "tools", "commandExecutionPolicy", "mainAgent", "subagent")
 }
 
 // antigravityRulesFileFromCfg returns the project-relative
