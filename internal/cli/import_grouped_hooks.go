@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"gopkg.in/yaml.v3"
@@ -60,6 +61,13 @@ func sortedHookEvents[T any](byEvent map[string][]T) []string {
 // goose's `x-goose.on_failure`) onto the spec. Returns 1 when a spec was
 // written and 0 when the group carried no command at all.
 func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []groupedHookEntry, extra map[string]any) (int, error) {
+	return writeGroupedHookSpecSalted(dstDir, target, event, matcher, "", entries, extra)
+}
+
+// writeGroupedHookSpecSalted is writeGroupedHookSpec with a salt mixed
+// into the spec name, so specs split from one group never share a name
+// when their commands match. An empty salt keeps the plain name.
+func writeGroupedHookSpecSalted(dstDir, target, event, matcher, salt string, entries []groupedHookEntry, extra map[string]any) (int, error) {
 	var commands []string
 	timeout := 0
 	for _, h := range entries {
@@ -78,7 +86,11 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 	if len(commands) == 0 {
 		return 0, nil
 	}
-	name := hookSpecName(event, matcher, commands)
+	nameParts := commands
+	if salt != "" {
+		nameParts = append(slices.Clone(commands), salt)
+	}
+	name := hookSpecName(event, matcher, nameParts)
 	doc := map[string]any{
 		"name":    name,
 		"event":   event,

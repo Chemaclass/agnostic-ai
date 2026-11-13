@@ -91,14 +91,14 @@ Sync keeps an existing `plugin.json` it did not write and prints a note. Manifes
 | `.goosehints` | the same, read only when `AGENTS.md` carried no rules |
 | `.agents/agents/<name>.md` | `<agents>/<name>.md`, unchanged except for the generated-file header |
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
-| `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every plugin in the project |
-| `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group, `on_failure` under `x-goose` |
+| `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every enabled plugin in the project |
+| `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group and distinct `timeout` and `on_failure` pair, `on_failure` under `x-goose` |
 | `.agents/REVIEW.md` | `<reviews>/review.md` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 `.goosehints` is a fallback. With `rules-file` set, both files hold the same rules.
 
-Import reads every plugin, including hand-installed ones.
+Import reads every enabled plugin, including hand-installed ones. A plugin listed in `disabledPlugins` in the user, project, or local Goose settings is skipped, as Goose does not load it. A plugin named in `enabledPlugins` in a closer file stays enabled. The `plugins` switch in Goose's `config.yaml` is not read, so a plugin turned off there still imports.
 
 `agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/REVIEW.md`, or a plugin with `hooks/hooks.json` under `.agents/plugins/`. Antigravity plugins share `.agents/plugins/`, and OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`, so those alone do not count. For a Goose project with only rules or plugin skills, run `agnostic-ai import goose` directly.
 
@@ -107,6 +107,8 @@ Import loses the following, but the next sync still writes the same Goose files:
 - Only the rules block in the root file is read back, as with `import claude` and nested `CLAUDE.md` files.
 - Review specs with the same scope come back as one spec.
 - Scoped `<scope>/.agents/REVIEW.md` files are not read back.
+- A plugin's `scripts/` folder is not copied. Import warns when a written hook command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}`, outside the plugin sync writes to. The command cannot run from the emitted plugin until you copy the scripts there.
+- A hook group splits into one spec per distinct `timeout` and `on_failure` pair, so each command keeps its own values. The emitted file merges them back into one group.
 
 See [scoped context](@/docs/scoped-context.md).
 
