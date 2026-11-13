@@ -198,8 +198,8 @@ func skillMarkdownOf(meta map[string]any, body string) ([]byte, error) {
 //     of candidate directories so a scope named `.github`, `vendor`, or
 //     anything else `CheckScopePath` accepts still round-trips (#1123).
 //   - `.devin/agents/*.md` (the native subagent directory) reconstructs
-//     agents, byte-for-byte minus the provenance header, so `model`,
-//     `max-nesting`, and any `x-windsurf` key round-trip untouched. One
+//     agents, minus the provenance header. `model` and any `x-windsurf` key
+//     round-trip untouched, and `max-nesting` moves under `x-windsurf`. One
 //     list becomes can only when every native name has an exact neutral form.
 //   - `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/`
 //     reconstruct native skill folders with bundled assets. Earlier paths
@@ -256,7 +256,13 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		}
 		c.add(scoped)
 	}
-	nativeAgents, err := importFlatMarkdownFilesWith(filepath.Join(root, windsurfAgentsDir), importSourcePath(root, src.Agents), windsurfAgentFields, func(data []byte) ([]byte, error) { return importNativeAgentTools(data, "windsurf", "allowed-tools") })
+	nativeAgents, err := importFlatMarkdownFilesWith(filepath.Join(root, windsurfAgentsDir), importSourcePath(root, src.Agents), windsurfAgentFields, func(data []byte) ([]byte, error) {
+		data, err := importNativeAgentTools(data, "windsurf", "allowed-tools")
+		if err != nil {
+			return nil, err
+		}
+		return importNativeAgentFields(data, "windsurf", "max-nesting")
+	})
 	if err != nil {
 		return err
 	}

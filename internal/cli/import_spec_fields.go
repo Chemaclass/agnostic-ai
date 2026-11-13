@@ -66,7 +66,7 @@ var (
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")
-	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")
+	windsurfAgentFields    = specFields{keys: fieldsOf("name", "description", "model", "allowed-tools").keys, scopedNative: map[string]bool{"max-nesting": true}}
 	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")
 	// slicedAgentFields covers an agent recovered from an `##` section of
 	// a shared instructions file (warp, goose), where the heading and body

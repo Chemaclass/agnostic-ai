@@ -192,6 +192,7 @@ Portable `permissions` are merged into `.devin/config.json`, the committed proje
 `agnostic-ai import windsurf` reads:
 
 - **Rules**: from `outputs.windsurf.rules-dir` when set, else `.devin/rules/`, then legacy `.windsurf/rules/`, sorted by [filename prefix](@/docs/cli-reference/import.md#filename-prefix-reclassification). Scoped copies (`<scope>/<rules-dir>/*.md`) become scoped rules again, including scopes like `.github` or `vendor`. It skips every `node_modules/`.
+- **Agents**: from `.devin/agents/*.md`. A native `max-nesting` moves under `x-windsurf`, and `sync` writes it back.
 - **Permissions**: from `.devin/config.json`. `Exec` has no exact-command form, so it imports as `Bash(<cmd>:*)`, not `Bash(<cmd>)`.
 - **Skills**: from `outputs.windsurf.skills-dir` when set; otherwise `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`, where the first same-name skill wins. Bundled assets and executable file modes are kept. `triggers` move under `x-windsurf`.
 - **Ignore**: from `.devinignore`, or `.windsurfignore` when the first is absent. When both files have different hand-written patterns, combine them in the imported ignore spec, in that order, before you sync.

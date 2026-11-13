@@ -766,3 +766,25 @@ func TestImportWindsurf_RemovedScopedInvocationFieldsStayRemoved(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 }
+
+func TestImportWindsurf_PreservesAgentMaxNesting(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [windsurf]\n")
+	path := filepath.Join(dir, ".devin/agents/planner.md")
+	writeFile(t, path, "---\nname: planner\ndescription: Plan work\nmax-nesting: 3\n---\n\nPlan work.\n")
+	execCLI(t, "import", "windsurf")
+	execCLI(t, "sync", "-t", "windsurf")
+	if got := readFile(t, path); !strings.Contains(got, "max-nesting: 3") {
+		t.Errorf("max-nesting dropped after import and sync: %s", got)
+	}
+	execCLI(t, "sync", "--check", "-t", "windsurf")
+	execCLI(t, "lint")
+	writeFile(t, path, "---\nname: planner\ndescription: Plan work\n---\n\nPlan work.\n")
+	execCLI(t, "import", "windsurf")
+	execCLI(t, "sync", "-t", "windsurf")
+	if got := readFile(t, path); strings.Contains(got, "max-nesting") {
+		t.Errorf("deleted native field returned: %s", got)
+	}
+}
