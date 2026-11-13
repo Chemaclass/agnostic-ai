@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -343,7 +344,7 @@ func TestExplainCapabilities_PermissionAgentRowsMatchSyncedKeys(t *testing.T) {
 			}
 			synced := ""
 			for _, file := range files {
-				if strings.HasSuffix(file.Path, "agents/reader.md") {
+				if strings.HasSuffix(filepath.ToSlash(file.Path), "agents/reader.md") {
 					synced = file.Content
 				}
 			}
