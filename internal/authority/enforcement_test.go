@@ -229,3 +229,24 @@ func TestBuild_ListedToolOnTheSameNativeKeyDoesNotCloseALeftOutOne(t *testing.T)
 		}
 	}
 }
+
+func TestBuild_ScopedListedToolLeavesALeftOutOneClosed(t *testing.T) {
+	cases := []struct {
+		target, field, list, op string
+		want                    Effect
+	}{
+		{"opencode", "tools", "[Read, Bash(git status)]", "shell-any:run", EffectUnavailable},
+		{"claude", "tools", "[Bash(git status)]", "shell-any:run", EffectUnavailable},
+		{"kiro", "can", "[write]", "files-all:edit", EffectUnresolved},
+	}
+	for _, c := range cases {
+		root := writeProject(t, map[string]string{
+			"agnostic-ai.yaml":               "version: 1\ntargets: [" + c.target + "]\n",
+			".agnostic-ai/agents/scanner.md": "---\nname: scanner\ndescription: Scans.\n" + c.field + ": " + c.list + "\n---\n\nScan.\n",
+		})
+		op := findOp(t, buildView(t, root, Options{AgentID: "scanner", Target: c.target}), c.op)
+		if got := enforcementOn(t, op, c.target); got.Effect != c.want {
+			t.Errorf("%s %s: effect=%s, want %s (%s)", c.target, c.op, got.Effect, c.want, got.Note)
+		}
+	}
+}

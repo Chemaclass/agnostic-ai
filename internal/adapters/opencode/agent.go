@@ -362,7 +362,6 @@ func orderedActions(rules *emit.OrderedJSON) (any, error) {
 	return node, nil
 }
 
-// wholeMCPServer reports the server a bare `mcp__<server>` names.
 // agentRule is the permission key and pattern one agent tool name becomes.
 func agentRule(name string) (key, pattern string, ok bool) {
 	if server, whole := wholeMCPServer(name); whole {
@@ -371,6 +370,7 @@ func agentRule(name string) (key, pattern string, ok bool) {
 	return translateRule(name)
 }
 
+// wholeMCPServer reports the server a bare `mcp__<server>` names.
 func wholeMCPServer(name string) (string, bool) {
 	server, found := strings.CutPrefix(name, spec.MCPToolPrefix)
 	if !found || server == "" || strings.Contains(server, "__") {

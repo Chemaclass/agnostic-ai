@@ -452,7 +452,7 @@ func (bd *builder) translatePermission(target, list, rule string, entry spec.Ent
 }
 
 // listedToolSharesKey reports whether a tool the agent lists translates
-// to a native key the left-out capability also uses, such as OpenCode's
+// to the bare native key the left-out capability also uses, such as OpenCode's
 // edit key for both Write and Edit.
 func (bd *builder) listedToolSharesKey(target string, left adapters.CapabilityTranslation, entry spec.Entry) bool {
 	keys := map[string]bool{}
@@ -466,9 +466,11 @@ func (bd *builder) listedToolSharesKey(target string, left adapters.CapabilityTr
 			continue
 		}
 		for _, raw := range toolEntries(value) {
+			if _, _, scoped := spec.SplitPermissionRule(raw); scoped {
+				continue
+			}
 			for _, native := range bd.translateAgent(target, raw, entry).Native {
-				key, _, _ := strings.Cut(native, "(")
-				if keys[key] {
+				if keys[native] {
 					return true
 				}
 			}
