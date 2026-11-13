@@ -12,6 +12,8 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // antigravityRulesDirs lists the rules directories Antigravity reads,
@@ -397,46 +399,53 @@ func antigravityNativeAgentFields(data []byte) ([]byte, error) {
 	if servers == nil {
 		return moved, nil
 	}
-	clean, changed, err := withoutAntigravityAgentCredentials(servers)
-	if err != nil || !changed {
-		return moved, err
+	block := mappingValue(mapping, "x-antigravity")
+	clean := withoutAntigravityAgentCredentials(servers)
+	switch clean {
+	case servers:
+		return moved, nil
+	case nil:
+		removeOrShare(block, "mcpServers", nil)
+	default:
+		setMappingNode(block, "mcpServers", clean)
 	}
-	setMappingNode(mappingValue(mapping, "x-antigravity"), "mcpServers", clean)
 	return encodeFrontmatter(mapping, rest, "antigravity")
 }
 
-// withoutAntigravityAgentCredentials drops each inline server that holds
-// a literal credential anywhere: Antigravity has no `${NAME}` reference
-// form for an agent's servers, so a rewrite would break a working one.
-// A server with no literal stays as written. The list and the
-// name-keyed map shapes are both read; a server is tracked by position,
-// and its name is only for the warning.
-func withoutAntigravityAgentCredentials(inline *yaml.Node) (*yaml.Node, bool, error) {
-	var kept, nodes []*yaml.Node
+// withoutAntigravityAgentCredentials drops each inline server that may
+// hold a literal credential: Antigravity has no `${NAME}` reference form
+// for an agent's servers, so a rewrite would break a working one. A
+// server that cannot be read with confidence (not a mapping, a duplicate
+// or non-text key) is left out too. A server with no hit stays as
+// written. The list and name-keyed map shapes are both read; a server is
+// tracked by position, and its name is only for the warning. It returns
+// nil when the field is neither a list nor a map.
+func withoutAntigravityAgentCredentials(inline *yaml.Node) *yaml.Node {
+	var nodes []*yaml.Node
 	var names []string
 	switch inline.Kind {
 	case yaml.SequenceNode:
 		for i, item := range inline.Content {
-			var entry struct {
-				Name string `yaml:"name"`
+			name := fmt.Sprintf("#%d", i+1)
+			if v := mappingValue(item, "name"); v != nil && v.Kind == yaml.ScalarNode && v.Value != "" {
+				name = v.Value
 			}
-			_ = item.Decode(&entry)
-			if entry.Name == "" {
-				entry.Name = fmt.Sprintf("#%d", i+1)
-			}
-			names, nodes = append(names, entry.Name), append(nodes, item)
+			names, nodes = append(names, name), append(nodes, item)
 		}
 	case yaml.MappingNode:
 		for i := 0; i+1 < len(inline.Content); i += 2 {
 			names, nodes = append(names, inline.Content[i].Value), append(nodes, inline.Content[i+1])
 		}
 	default:
-		return inline, false, nil
+		keptf("%s Antigravity agent mcpServers: left out; the field is neither a list nor a map\n", bang())
+		return nil
 	}
-	var refs []mcpLiteralRef
+	var kept []*yaml.Node
+	changed := false
 	for i, node := range nodes {
 		if field := antigravityServerCredential(node); field != "" {
-			refs = append(refs, mcpLiteralRef{server: names[i], field: field, leftOut: true})
+			keptf("%s MCP server %s: left out; %s holds a credential import cannot rewrite\n", bang(), names[i], field)
+			changed = true
 			continue
 		}
 		if inline.Kind == yaml.MappingNode {
@@ -444,36 +453,72 @@ func withoutAntigravityAgentCredentials(inline *yaml.Node) (*yaml.Node, bool, er
 		}
 		kept = append(kept, node)
 	}
-	if len(refs) == 0 {
-		return inline, false, nil
+	if !changed {
+		return inline
 	}
-	out := &yaml.Node{Kind: inline.Kind, Tag: inline.Tag, Style: inline.Style, Content: kept}
-	reportMCPLiteralRefs(refs)
-	return out, true, nil
+	return &yaml.Node{Kind: inline.Kind, Tag: inline.Tag, Style: inline.Style, Content: kept}
 }
 
-// antigravityServerCredential returns the field path of the first literal
-// credential in one inline server, or "". It checks a normalized copy with
-// the detectors the MCP file import uses: `env` and `headers` literals,
-// URL and argument credentials, and a scan of every string, so an unknown
-// key or a nested `auth.token` counts too.
+// antigravityServerCredential returns the field path of the first thing
+// in one inline server that may be a credential, or "". It reads the
+// yaml tree, so a number, a non-text key or an unknown key counts like
+// any other string: every scalar is checked with its key, and a value of
+// only `${NAME}` references passes.
 func antigravityServerCredential(node *yaml.Node) string {
-	var entry map[string]any
-	if err := node.Decode(&entry); err != nil || entry == nil {
-		return ""
+	if node.Kind != yaml.MappingNode {
+		return "server (not an object)"
 	}
-	normalized := normalizeAntigravityMCPEntry(entry)
-	if field := mcpOAuthCredential(normalized); field != "" {
-		return strings.TrimPrefix(field, "oauth.")
-	}
-	var probe map[string]any
-	if err := node.Decode(&probe); err != nil {
-		return ""
-	}
-	if refs := referenceMCPLiterals(map[string]any{"server": normalizeAntigravityMCPEntry(probe)}); len(refs) > 0 {
-		return refs[0].field
+	return antigravityNodeCredential(node, "", "")
+}
+
+func antigravityNodeCredential(node *yaml.Node, key, path string) string {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		if antigravityLiteralCredential(key, node.Value) {
+			return path
+		}
+	case yaml.MappingNode:
+		seen := map[string]bool{}
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			k := node.Content[i]
+			sub := strings.TrimPrefix(path+"."+k.Value, ".")
+			if k.Kind != yaml.ScalarNode || seen[k.Value] {
+				return sub + " (unreadable key)"
+			}
+			seen[k.Value] = true
+			if field := antigravityNodeCredential(node.Content[i+1], k.Value, sub); field != "" {
+				return field
+			}
+		}
+	case yaml.SequenceNode:
+		var words []string
+		for i, item := range node.Content {
+			sub := fmt.Sprintf("%s[%d]", path, i)
+			if field := antigravityNodeCredential(item, key, sub); field != "" {
+				return field
+			}
+			if item.Kind == yaml.ScalarNode {
+				words = append(words, item.Value)
+			}
+		}
+		if len(words) > 1 && antigravityLiteralCredential(key, strings.Join(words, " ")) {
+			return path
+		}
+	case yaml.AliasNode:
+		return path + " (alias)"
 	}
 	return ""
+}
+
+func antigravityLiteralCredential(key, value string) bool {
+	if value == "" {
+		return false
+	}
+	if spec.OnlyEnvRefs(value) {
+		_, defaulted := spec.StripEnvRefDefaults(value)
+		return len(defaulted) > 0
+	}
+	return credentialSettingValue(key, value) || mcpCredentialUnder(key, value) || preview.CredentialDetected(value)
 }
 
 // antigravityRulesFileFromCfg returns the project-relative
