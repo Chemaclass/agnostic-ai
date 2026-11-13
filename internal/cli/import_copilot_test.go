@@ -499,3 +499,38 @@ func TestImportCopilot_ImportsPluginKeysASpecForAnotherToolSets(t *testing.T) {
 		t.Errorf("sync never sends team.yaml to copilot, so import must carry the native plugins:\n%s", spec)
 	}
 }
+
+func TestImportCopilot_AgentKeepsToolsInvocationFlagsAndHooks(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	const native = "---\nname: quiet\ndescription: No tools\ntools: []\nuser-invocable: false\ndisable-model-invocation: true\nhooks:\n  preToolUse:\n    - type: command\n      bash: echo hi\n---\nBody\n"
+	writeFile(t, filepath.Join(copilotAgentsDir, "quiet.agent.md"), native)
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync", "-t", "copilot")
+
+	got := readFile(t, filepath.Join(copilotAgentsDir, "quiet.agent.md"))
+	for _, want := range []string{"tools: []", "user-invocable: false", "disable-model-invocation: true", "hooks:", "bash: echo hi"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("agent lost %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestImportCopilotHooks_ReadsTimeoutAliasAndPrefersBash(t *testing.T) {
+	alias := normalizeCopilotHook("sessionStart", map[string]any{"type": "command", "command": "run.sh", "timeout": 90})
+	if alias["timeout"] != 90 {
+		t.Errorf("timeout alias = %#v", alias["timeout"])
+	}
+	both := normalizeCopilotHook("sessionStart", map[string]any{"type": "command", "command": "fallback.sh", "bash": "linux.sh", "timeoutSec": 5, "timeout": 90})
+	if both["command"] != "linux.sh" {
+		t.Errorf("command = %#v, want the bash entry", both["command"])
+	}
+	if both["commandWindows"] != "fallback.sh" {
+		t.Errorf("commandWindows = %#v, want the command fallback kept", both["commandWindows"])
+	}
+	if both["timeout"] != 5 {
+		t.Errorf("timeout = %#v, want timeoutSec to win", both["timeout"])
+	}
+}

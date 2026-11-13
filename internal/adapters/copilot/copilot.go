@@ -329,6 +329,7 @@ func renderChatmode(e spec.Entry) string {
 	desc, _ := m["description"].(string)
 	model, _ := m["model"].(string)
 	tools := emit.StringSlice(m["tools"])
+	rawTools, hasTools := m["tools"].([]any)
 	var b strings.Builder
 	b.WriteString("---\n")
 	if desc != "" {
@@ -337,7 +338,7 @@ func renderChatmode(e spec.Entry) string {
 	if model != "" {
 		b.WriteString("model: " + model + "\n")
 	}
-	if len(tools) > 0 {
+	if len(tools) > 0 || (hasTools && len(rawTools) == 0) {
 		b.WriteString("tools: [")
 		for i, t := range tools {
 			if i > 0 {

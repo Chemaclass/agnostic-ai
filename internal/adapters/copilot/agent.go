@@ -119,7 +119,9 @@ func agentMarkdown(e spec.Entry) (string, bool) {
 		"description": desc,
 	}
 	keys := []string{"name", "description"}
-	if tools := emit.StringSlice(resolved["tools"]); len(tools) > 0 {
+	// An empty list disables every tool; a missing key enables them all.
+	rawTools, hasTools := resolved["tools"].([]any)
+	if tools := emit.StringSlice(resolved["tools"]); len(tools) > 0 || (hasTools && len(rawTools) == 0) {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}

@@ -18,6 +18,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Copilot
+
+- `import copilot` keeps an agent's `tools: []`, `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`, and `sync` writes an empty `tools` list back, so a no-tools agent stays a no-tools agent (#3391).
+- `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command` (#3392).
+
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
