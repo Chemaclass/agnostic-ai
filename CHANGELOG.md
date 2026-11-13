@@ -59,6 +59,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### OpenCode
 
+- `explain` reports the `read`, `bash` and other permission keys that `sync` writes for an agent's `tools`, instead of listing them as unsupported (#3425).
 - `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it and OpenCode keeps routing the command as written (#3383).
 
 #### OpenHands
