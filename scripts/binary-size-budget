@@ -936,4 +936,7 @@
 # splits hook groups. The budget grows by one 4096 byte page.
 # The follow-up review fixes (distinct split names, PLUGIN_ROOT warning)
 # measured 26075296 bytes on CI, 160 over; one more 4096 byte page.
-26079232
+# #3410 measured 26071200 bytes on CI (linux/amd64): Copilot import keeps
+# native agent keys and hook aliases; the budget is that plus 8192,
+# rounded up to a multiple of 4096.
+26083328

@@ -59,7 +59,7 @@ var (
 	claudeAgentFields      = specFields{all: true, scopedReconciled: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
 	clineAgentFields       = specFields{keys: fieldsOf("name", "description").keys, scopedNative: map[string]bool{"tools": true, "skills": true, "providerId": true, "modelId": true, "maxIterations": true}}
 	cursorAgentFields      = specFields{keys: fieldsOf("name", "description", "model", "background").keys, scopedReconciled: true}
-	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")
+	copilotAgentFields     = specFields{keys: fieldsOf("name", "description", "tools", "model").keys, scopedNative: map[string]bool{"user-invocable": true, "disable-model-invocation": true, "hooks": true}}
 	antigravityAgentFields = fieldsOf("name", "description")
 	kiroAgentFields        = fieldsOf("name", "description", "model", "tools", "mcpServers")
 	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}

@@ -595,3 +595,28 @@ func TestEmit_RootMCPFile_SkippedWhenNoServers(t *testing.T) {
 		t.Errorf("no MCP specs means no root file, err=%v", err)
 	}
 }
+
+func TestEmit_EmptyToolsListDisablesTools(t *testing.T) {
+	for name, cfg := range map[string]*config.Config{
+		"agent":    {},
+		"chatmode": {Outputs: map[string]config.Output{target: {ChatmodesDir: ".github/chatmodes"}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entries := []spec.Entry{{Kind: spec.KindAgent, Name: "quiet", Meta: map[string]any{
+				"description": "No tools.",
+				"x-copilot":   map[string]any{"tools": []any{}},
+			}, Body: "body"}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			path := ".github/agents/quiet.agent.md"
+			if name == "chatmode" {
+				path = ".github/chatmodes/quiet.chatmode.md"
+			}
+			if got := readFile(t, filepath.Join(dir, path)); !strings.Contains(got, "tools: []") {
+				t.Errorf("missing empty tools list in %s", got)
+			}
+		})
+	}
+}

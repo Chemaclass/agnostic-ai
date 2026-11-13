@@ -23,6 +23,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
 - `import goose` keeps each hook's own `timeout` and `on_failure` instead of copying the first command's values to its group, and warns when a written command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` (#3399).
 
+#### Copilot
+
+- `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
+- `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
+
 #### OpenHands
 
 - `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
