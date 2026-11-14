@@ -31,6 +31,7 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
   const order = [
     menu.getByRole('switch', { name: 'Animate companion' }),
     menu.getByRole('switch', { name: 'Dim when idle' }),
+    menu.getByRole('switch', { name: 'Small companion' }),
     menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
     menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
@@ -274,6 +275,7 @@ test('the menu shows the shared list, in its order, with the values in effect', 
   expect(labels).toEqual(items.map((item) => item.label))
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Small companion' })).toHaveAttribute('aria-checked', 'false')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toHaveAttribute('aria-checked', 'false')
 })
 
@@ -302,16 +304,48 @@ test('switching Dim when idle in the menu saves it', async ({ page }) => {
   expect((await (await page.request.get('/api/appearance')).json()).dimWhenIdle).toBe(true)
 })
 
+test('switching Small companion in the menu saves it', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+
+  const saved = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/appearance/small-companion')
+  await settingsMenu(page).getByRole('switch', { name: 'Small companion' }).click()
+  expect((await saved).postDataJSON()).toEqual({ enabled: true })
+
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Small companion' })).toHaveAttribute('aria-checked', 'true')
+  expect((await (await page.request.get('/api/appearance')).json()).smallCompanion).toBe(true)
+})
+
+test('the small window shows the circle, its mark, ring and badge at two thirds', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
+  // The shell sizes the native window: 84 points for the regular circle, 56 for the small one.
+  await page.setViewportSize({ width: 84, height: 84 })
+  await page.goto('/')
+  await expect(page.locator('#badge')).toBeVisible()
+  await expect(page.locator('#bubble')).toHaveCSS('width', '60px')
+  await expect(page.locator('.mark')).toHaveCSS('width', '32px')
+  await expect(page.locator('.ring')).toHaveCSS('width', '68px')
+  await expect(page.locator('#badge')).toHaveCSS('height', '22px')
+
+  await page.setViewportSize({ width: 56, height: 56 })
+
+  await expect(page.locator('#bubble')).toHaveCSS('width', '40px')
+  await expect(page.locator('.mark')).toHaveCSS('width', '21px')
+  await expect(page.locator('.ring')).toHaveCSS('width', '46px')
+  await expect(page.locator('#badge')).toHaveCSS('height', '16px')
+})
+
 test('a change made in the right-click menu shows in the open menu', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 
   // The tests post what the right-click menu would change.
-  await page.request.post('/dev/appearance', { data: { animate: false, dimWhenIdle: true } })
+  await page.request.post('/dev/appearance', { data: { animate: false, dimWhenIdle: true, smallCompanion: true } })
   await page.request.post('/api/preferences/start-at-login', { data: { enabled: true } })
 
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'false')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'true')
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Small companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toHaveAttribute('aria-checked', 'true')
 })
 

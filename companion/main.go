@@ -60,9 +60,6 @@ func asked(args []string) string {
 var embedded embed.FS
 
 const (
-	// bubbleSide is the bubble window: the 60-point circle and room for
-	// its shadow and badge.
-	bubbleSide = 84
 	// panelWidth and panelHeight are the list window: the card and room
 	// for its shadow.
 	panelWidth  = 432
@@ -157,6 +154,8 @@ type shell struct {
 	presence presence
 	// shownAgainAt is when a hidden companion last came back.
 	shownAgainAt time.Time
+	// resizedAt is when the circle size last changed.
+	resizedAt time.Time
 }
 
 // presenceNow is the companion's presence, shown before any change.
@@ -229,8 +228,9 @@ func (s *shell) changePresenceLocked(from, to presence) bool {
 // gives way to the default one.
 func (s *shell) placeReturningBubble() {
 	areas := s.workAreas()
-	if len(areas) > 0 && !onScreen(rect{X: s.hiddenAt.X, Y: s.hiddenAt.Y, Width: bubbleSide, Height: bubbleSide}, areas) {
-		x, y := defaultBubblePosition(areas[0], bubbleSide)
+	side := s.bubbleSide()
+	if len(areas) > 0 && !onScreen(rect{X: s.hiddenAt.X, Y: s.hiddenAt.Y, Width: side, Height: side}, areas) {
+		x, y := defaultBubblePosition(areas[0], side)
 		s.bubble.SetPosition(x, y)
 		return
 	}
@@ -420,21 +420,61 @@ func (s *shell) placeBubble(saved *point) {
 		log.Print("no screen was listed in time; the bubble stays where the system opened it")
 		return
 	}
-	if saved != nil && onScreen(rect{X: saved.X, Y: saved.Y, Width: bubbleSide, Height: bubbleSide}, workAreas) {
+	side := s.bubbleSide()
+	if saved != nil && onScreen(rect{X: saved.X, Y: saved.Y, Width: side, Height: side}, workAreas) {
 		s.bubble.SetPosition(saved.X, saved.Y)
 		return
 	}
-	x, y := defaultBubblePosition(workAreas[0], bubbleSide)
+	x, y := defaultBubblePosition(workAreas[0], side)
 	s.bubble.SetPosition(x, y)
+}
+
+// bubbleSide is the bubble window's side for the saved circle size.
+func (s *shell) bubbleSide() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings.bubbleSide()
+}
+
+// fitBubble sizes the bubble window to the saved circle size, keeping the
+// screen edges it sits nearest, and keeps an open list beside it.
+func (s *shell) fitBubble() {
+	if s.bubble == nil {
+		return
+	}
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	side := s.bubbleSide()
+	before := windowRect(s.bubble)
+	if before.Width == side && before.Height == side {
+		return
+	}
+	work := s.workArea()
+	x, y := resizedBubble(before, work, side)
+	s.mu.Lock()
+	s.resizedAt = time.Now()
+	s.mu.Unlock()
+	s.bubble.SetSize(side, side)
+	s.bubble.SetPosition(x, y)
+	// The window system may report no move for a resize, so the place is saved here.
+	if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: x, Y: y} }); err != nil {
+		log.Print(err)
+	}
+	if s.panel.IsVisible() {
+		// The halves come from before the resize: near the middle, the new
+		// size alone would move the list to the other side.
+		panelX, panelY, _ := placePanelOn(halvesOf(before, work), rect{X: x, Y: y, Width: side, Height: side}, work, panelWidth, panelHeight)
+		s.panel.SetPosition(panelX, panelY)
+	}
 }
 
 // bubbleMoved closes the panel, which no longer sits beside the bubble,
 // and saves the bubble's new place once it rests.
 func (s *shell) bubbleMoved() {
 	s.mu.Lock()
-	settled := time.Since(s.shownAgainAt) >= returnSettle
+	settled := time.Since(s.shownAgainAt) >= returnSettle && time.Since(s.resizedAt) >= returnSettle
 	s.mu.Unlock()
-	// A circle shown again can report moves after the list opened beside it.
+	// A circle shown again or resized can report moves after the list opened beside it.
 	if settled && s.panel.IsVisible() {
 		s.panel.Hide()
 	}
@@ -495,6 +535,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/appearance", s.getAppearance)
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
+	mux.HandleFunc("POST /api/appearance/small-companion", s.setAppearanceSwitch(s.setSmallCompanion))
 	mux.HandleFunc("POST /api/dashboard", dashboard)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -615,8 +656,8 @@ func main() {
 	s.bubble = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "bubble",
 		Title:  "agnostic-ai",
-		Width:  bubbleSide,
-		Height: bubbleSide,
+		Width:  saved.bubbleSide(),
+		Height: saved.bubbleSide(),
 		// The bubble is index.html: Wails serves pages only from a folder that has one.
 		URL: "/",
 	}))

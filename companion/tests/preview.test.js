@@ -194,10 +194,10 @@ test('the menu list is served with the pages', async (t) => {
   t.after(preview.close)
   const menu = await fetch(preview.url + '/menu.json')
   assert.equal(menu.status, 200)
-  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'startAtLogin', 'shortcut', 'hide', 'quit'])
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'shortcut', 'hide', 'quit'])
 })
 
-test('the list menu turns animation and dimming on and off and answers the appearance', async (t) => {
+test('the list menu turns animation, dimming and the small circle on and off and answers the appearance', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)
 
@@ -205,6 +205,8 @@ test('the list menu turns animation and dimming on and off and answers the appea
   assert.equal(animate.status, 200)
   assert.equal((await animate.json()).animate, false)
   const dim = await postJSON(preview.url + '/api/appearance/dim-when-idle', { enabled: true })
-  assert.deepEqual(await dim.json(), { animate: false, dimWhenIdle: true, presence: 'shown' })
-  assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, presence: 'shown' })
+  assert.deepEqual(await dim.json(), { animate: false, dimWhenIdle: true, smallCompanion: false, presence: 'shown' })
+  const small = await postJSON(preview.url + '/api/appearance/small-companion', { enabled: true })
+  assert.deepEqual(await small.json(), { animate: false, dimWhenIdle: true, smallCompanion: true, presence: 'shown' })
+  assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, smallCompanion: true, presence: 'shown' })
 })

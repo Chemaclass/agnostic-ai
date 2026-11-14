@@ -66,10 +66,11 @@ export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
-/** How the pages look: {animate, dimWhenIdle, presence}: presence is shown, hidden or faded. */
+/** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}: presence is shown, hidden or faded. */
 export const readAppearance = () => call('/api/appearance')
 export const saveAnimate = (enabled) => post('/api/appearance/animate', { enabled })
 export const saveDimWhenIdle = (enabled) => post('/api/appearance/dim-when-idle', { enabled })
+export const saveSmallCompanion = (enabled) => post('/api/appearance/small-companion', { enabled })
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 

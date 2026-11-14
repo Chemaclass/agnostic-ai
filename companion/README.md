@@ -147,6 +147,10 @@ change made in one shows in the other.
   of your way. It comes back to full color when you point at it, even with
   another app in front, and while any conversation needs you. A working agent
   alone does not bring it back. It stays easy to click and drag while faded.
+- **Small companion** shows a 40-point circle instead of the 60-point one. The
+  mark, the working arc and the count shrink with it, and so does its window,
+  so clicks around the small circle reach the app behind it. The circle keeps
+  the screen edges it sits nearest, and an open list moves to stay beside it.
 - **Start at login** starts the companion when you log in. The system keeps this
   setting. On macOS the app shows under System Settings > General > Login Items,
   in Open at Login, with its name and icon. Elsewhere it points at the
@@ -279,7 +283,7 @@ Both are in the `agnostic-ai` folder of your user configuration folder
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
 - `companion.json`: where you left the circle, your shortcut, whether it
-  animates, and whether it dims when idle.
+  animates, whether it dims when idle, and whether it is small.
 
 ## When it reads
 

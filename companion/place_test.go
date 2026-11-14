@@ -60,3 +60,36 @@ func TestOnScreen_SaysWhetherThePersonCanReachTheBubble(t *testing.T) {
 		}
 	}
 }
+
+func TestBubbleSideFor_IsTwoThirdsForTheSmallCircle(t *testing.T) {
+	if got := bubbleSideFor(false); got != 84 {
+		t.Errorf("regular window side = %d; want 84, the 60-point circle and room for its badge", got)
+	}
+	if got := bubbleSideFor(true); got != 56 {
+		t.Errorf("small window side = %d; want 56, the 40-point circle and room for its badge", got)
+	}
+}
+
+func TestResizedBubble_KeepsTheEdgesNearestTheCircle(t *testing.T) {
+	work := rect{X: 0, Y: 25, Width: 1440, Height: 875}
+	defaultX, defaultY := defaultBubblePosition(work, 84)
+	smallX, smallY := defaultBubblePosition(work, 56)
+	cases := []struct {
+		name         string
+		bubble       rect
+		side         int
+		wantX, wantY int
+	}{
+		{"the default place stays the default place", rect{defaultX, defaultY, 84, 84}, 56, smallX, smallY},
+		{"and grows back to it", rect{smallX, smallY, 56, 56}, 84, defaultX, defaultY},
+		{"upper left keeps its top and left", rect{20, 40, 84, 84}, 56, 20, 40},
+		{"upper right keeps its top and right", rect{1340, 40, 84, 84}, 56, 1340 + 28, 40},
+		{"lower left keeps its bottom and left", rect{20, 800, 84, 84}, 56, 20, 800 + 28},
+	}
+	for _, tc := range cases {
+		x, y := resizedBubble(tc.bubble, work, tc.side)
+		if x != tc.wantX || y != tc.wantY {
+			t.Errorf("%s: bubble at (%d, %d), want (%d, %d)", tc.name, x, y, tc.wantX, tc.wantY)
+		}
+	}
+}

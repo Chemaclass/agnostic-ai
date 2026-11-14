@@ -6,14 +6,15 @@ import (
 )
 
 type appearance struct {
-	Animate     bool `json:"animate"`
-	DimWhenIdle bool `json:"dimWhenIdle"`
+	Animate        bool `json:"animate"`
+	DimWhenIdle    bool `json:"dimWhenIdle"`
+	SmallCompanion bool `json:"smallCompanion"`
 	// Presence is the shell's state, never saved: a restart starts shown.
 	Presence presence `json:"presence"`
 }
 
 func (s settings) appearance() appearance {
-	return appearance{Animate: s.animate(), DimWhenIdle: s.DimWhenIdle, Presence: shown}
+	return appearance{Animate: s.animate(), DimWhenIdle: s.DimWhenIdle, SmallCompanion: s.SmallCompanion, Presence: shown}
 }
 
 func (s *shell) appearance() appearance {
@@ -37,6 +38,15 @@ func (s *shell) setDimWhenIdle(on bool) error {
 	if err := s.changeLook(func(saved *settings) { saved.DimWhenIdle = on }); err != nil {
 		return fmt.Errorf("save the dim choice: %w", err)
 	}
+	return nil
+}
+
+// setSmallCompanion saves the circle size and fits the bubble window to it.
+func (s *shell) setSmallCompanion(on bool) error {
+	if err := s.changeLook(func(saved *settings) { saved.SmallCompanion = on }); err != nil {
+		return fmt.Errorf("save the circle size: %w", err)
+	}
+	s.fitBubble()
 	return nil
 }
 

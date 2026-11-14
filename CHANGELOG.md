@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Both companion menus offer Small companion, a 40px circle in a smaller window instead of the 60px one (#3447).
+
 - Agent-as-skill output uses neutral inline instructions, and import still recognizes previously generated agent skills (#3436).
 
 - Target audits review ordinary CLI comment changes once, with recorded source evidence, while keeping runtime changes under deep review (#3372).

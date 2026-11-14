@@ -57,11 +57,14 @@ func TestSettings_DimIsOffWhenTheFileHasNoKey(t *testing.T) {
 	if saved.DimWhenIdle {
 		t.Error("a file without the key turned dimming on")
 	}
+	if saved.SmallCompanion {
+		t.Error("a file without the key made the circle small")
+	}
 }
 
 func TestSettings_KeepsDimOnAcrossAWrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "companion.json")
-	written := settings{Bubble: &point{X: 10, Y: 20}, Shortcut: "Cmd+Shift+K", DimWhenIdle: true}
+	written := settings{Bubble: &point{X: 10, Y: 20}, Shortcut: "Cmd+Shift+K", DimWhenIdle: true, SmallCompanion: true}
 
 	if err := writeSettings(path, written); err != nil {
 		t.Fatal(err)
@@ -73,6 +76,9 @@ func TestSettings_KeepsDimOnAcrossAWrite(t *testing.T) {
 
 	if !read.DimWhenIdle {
 		t.Error("dimming came back off")
+	}
+	if !read.SmallCompanion {
+		t.Error("the small circle came back regular")
 	}
 	if read.Bubble == nil || *read.Bubble != (point{X: 10, Y: 20}) || read.Shortcut != "Cmd+Shift+K" || !read.animate() {
 		t.Errorf("the other settings changed: %+v", read)
