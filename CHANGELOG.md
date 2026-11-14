@@ -69,6 +69,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Kiro
 
+- `lint` no longer warns (LINT005) about a `matcher` on the `PostFileCreate`, `PostFileSave` and `PostFileDelete` hook events, which Kiro reads as a regex against the file path (#3455).
 - `import kiro` keeps an agent's native `excludedTools`, `includeMcpJson`, `includePowers`, `resources`, `permissions`, `welcomeMessage` and `hooks` under `x-kiro`, so `sync` no longer drops them; deleting one from the native file drops it on the next import (#3394).
 - `import kiro` prints a note naming each `.json` agent and each agent file in a subfolder of `.kiro/agents/`, which import skips, instead of skipping them silently (#3454).
 

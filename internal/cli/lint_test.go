@@ -175,6 +175,27 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 	}
 }
 
+// kiro.dev/docs/hooks.md: for file events the matcher is a regex against
+// the file path. An event that takes no matcher still warns.
+func TestLintHookMatcherMisuse_KiroFileEventsStayClean(t *testing.T) {
+	for _, event := range []string{"PostFileCreate", "PostFileSave", "PostFileDelete"} {
+		hooks := []spec.Entry{{
+			Kind: spec.KindHook, Name: "lint", Path: "hooks/lint.yaml",
+			Meta: map[string]any{"event": event, "matcher": `\.(ts|tsx)$`},
+		}}
+		if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+			t.Errorf("expected no LINT005 for %s with a matcher, got %v", event, got)
+		}
+	}
+	hooks := []spec.Entry{{
+		Kind: spec.KindHook, Name: "bad", Path: "hooks/bad.yaml",
+		Meta: map[string]any{"event": "Stop", "matcher": `\.ts$`},
+	}}
+	if got := lintHookMatcherMisuse(hooks); len(got) != 1 || got[0].Code != "LINT005" {
+		t.Errorf("expected LINT005 for Stop with a matcher, got %v", got)
+	}
+}
+
 // Crush's hooks README (v0.101.0) lists PermissionResult with a tool-name
 // matcher, so flagging it tells a Crush user to drop a working filter.
 func TestLintHookMatcherMisuse_CrushPermissionResultStaysClean(t *testing.T) {
