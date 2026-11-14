@@ -58,6 +58,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 - Re-importing tool files that still match the last sync keeps the spec exactly as written, including `::target` blocks, `workspaces`, comments, and overlays an older release wrote.
 - An edit in a tool's file goes back into the spec. The spec keeps frontmatter keys the tool never shows (such as `workspaces` for Claude) and comments on kept keys, with `--overwrite` too. A spec with `::target` blocks stops with AAI-203 instead.
+- When an agent's `effort` is a [map per target](@/docs/spec-format/agents.md#per-target-model-and-effort), import changes only the imported tool's entry. A value the map already gives that tool leaves it as written, a deleted native key removes only that tool's entry, and a scalar `effort` stays a scalar. `model` maps are not merged yet.
 - A skill or agent spec keeps keys the tool has no place for, such as Cursor's `argument-hint`. Deleting a key the tool does write reaches the spec: removing `model` from a Qoder agent removes it there. Rules are rebuilt from the native file.
 
 ### Files and source order
