@@ -949,4 +949,5 @@
 # #3464 measured 26136736 bytes on CI (linux/amd64): Augment agent import and the
 # agent thinking key; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3462 measured 26157216 bytes (make size-check): Kiro JSON and nested agent import; the budget is that plus 8192, rounded up to a multiple of 4096.
-26169344
+# #3470 measured 26169504 bytes (make size-check): one reconcile helper now serves `effort` and `model` when an agent map is re-imported; the budget is that plus 8192, rounded up to a multiple of 4096.
+26181632

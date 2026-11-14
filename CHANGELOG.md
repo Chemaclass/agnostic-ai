@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - Re-importing an agent whose `effort` is a map per target changes only the imported tool's entry and keeps the other targets' values (#3466).
+- Re-importing an agent whose `model` is a map per target changes only the imported tool's entry and keeps the other targets' values; a tier named in `default` counts as its model for that tool (#3470).
 
 - A local Claude Code, Codex or `cursor-agent` chat closed in its terminal moves to Archived in the companion and the web interface as soon as you have seen its last reply, instead of a day later (#3457).
 

@@ -50,7 +50,7 @@ func TestMergeCodexAgentIntoExisting_Model(t *testing.T) {
 		wantModel      any
 		wantXCodex     any
 	}{
-		{"per-target map with codex keeps it", "model: {claude: opus, codex: gpt-5}\n", map[string]any{"claude": "opus", "codex": "gpt-5"}, nil},
+		{"per-target map with codex follows the native model", "model: {claude: opus, codex: gpt-5}\n", map[string]any{"claude": "opus", "codex": "gpt-5.5"}, nil},
 		{"per-target map with default adds codex", "model: {default: gpt-5}\n", map[string]any{"default": "gpt-5", "codex": "gpt-5.5"}, nil},
 		{"shared value that differs", "model: sonnet\n", "sonnet", "gpt-5.5"},
 		{"shared value that matches", "model: gpt-5.5\n", "gpt-5.5", nil},
