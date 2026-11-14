@@ -1072,8 +1072,18 @@ func TestMCPDocument_CopilotNativeExtraServerFields(t *testing.T) {
 		}
 	}
 	local := build("stdio", extras)
-	has(local, "disableToolCache", "deferTools", "filterMapping", "slowConnectionThresholdMs")
-	lacks(local, "oauthScopes", "oauthPublicClient", "oauthGrantType", "oidc")
+	has(local, "disableToolCache", "deferTools", "filterMapping", "slowConnectionThresholdMs", "oidc")
+	lacks(local, "oauthScopes", "oauthPublicClient", "oauthGrantType")
+	for _, v := range []any{0, -1, 2147483648, 1.5, "5"} {
+		lacks(build("http", map[string]any{"slowConnectionThresholdMs": v}), "slowConnectionThresholdMs")
+	}
+	if got := build("http", map[string]any{"slowConnectionThresholdMs": 2147483647}); got["slowConnectionThresholdMs"] == nil {
+		t.Errorf("max value dropped: %v", got)
+	}
+	if got := build("http", map[string]any{"slowConnectionThresholdMs": 5000.0}); got["slowConnectionThresholdMs"] == nil {
+		t.Errorf("whole float dropped: %v", got)
+	}
+	lacks(build("http", map[string]any{"oauthScopes": []any{"read", 1}}), "oauthScopes")
 
 	bad := build("http", map[string]any{
 		"oauthScopes": []any{}, "oauthPublicClient": "no", "oauthGrantType": "password", "deferTools": "x",

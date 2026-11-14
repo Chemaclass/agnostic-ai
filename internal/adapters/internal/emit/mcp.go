@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -412,8 +413,11 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 				out[key] = v
 			}
 		}
-		if ms, ok := IntField(e.Meta, "slowConnectionThresholdMs"); ok && ms > 0 {
+		if ms, ok := wholeNumber(e.Meta["slowConnectionThresholdMs"]); ok && ms > 0 && ms <= math.MaxInt32 {
 			out["slowConnectionThresholdMs"] = ms
+		}
+		if v, ok := e.Meta["oidc"].(bool); ok {
+			out["oidc"] = v
 		}
 		switch transport {
 		case "stdio":
@@ -427,16 +431,14 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 			if clientID := stringField(e.Meta, "oauthClientId"); clientID != "" {
 				out["oauthClientId"] = clientID
 			}
-			if scopes := stringSlice(e.Meta, "oauthScopes"); len(scopes) > 0 {
+			if scopes, ok := strictStringSlice(e.Meta, "oauthScopes"); ok {
 				out["oauthScopes"] = scopes
 			}
 			if grant := stringField(e.Meta, "oauthGrantType"); copilotMCPEnums["oauthGrantType"][grant] {
 				out["oauthGrantType"] = grant
 			}
-			for _, key := range []string{"oauthPublicClient", "oidc"} {
-				if v, ok := e.Meta[key].(bool); ok {
-					out[key] = v
-				}
+			if v, ok := e.Meta["oauthPublicClient"].(bool); ok {
+				out["oauthPublicClient"] = v
 			}
 		}
 	}
@@ -457,6 +459,38 @@ var copilotMCPEnums = map[string]map[string]bool{
 	"deferTools":     {"auto": true, "never": true},
 	"filterMapping":  {"none": true, "markdown": true, "hidden_characters": true},
 	"oauthGrantType": {"authorization_code": true, "client_credentials": true},
+}
+
+// wholeNumber reads an integer-valued number, rejecting fractions.
+func wholeNumber(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int64:
+		return n, true
+	case float64:
+		if n == math.Trunc(n) && math.Abs(n) < 1<<53 {
+			return int64(n), true
+		}
+	}
+	return 0, false
+}
+
+// strictStringSlice returns a non-empty list only when every element is a string.
+func strictStringSlice(m map[string]any, key string) ([]string, bool) {
+	raw, ok := m[key].([]any)
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		s, ok := v.(string)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, s)
+	}
+	return out, true
 }
 
 // buildClaudeMCPOAuth reads the spec's `oauth` object into the shape

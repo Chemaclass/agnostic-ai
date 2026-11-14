@@ -346,7 +346,7 @@ func TestImportGlobal_CopilotExtraServerFieldsRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("COPILOT_HOME", "")
 	path := filepath.Join(home, ".copilot/mcp-config.json")
-	original := "{\n\t\"mcpServers\":{\n\t\t\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"oauthClientId\":\"abc\",\"oauthScopes\":[\"read\"],\"oauthPublicClient\":false,\"oauthGrantType\":\"client_credentials\",\"deferTools\":\"never\",\"filterMapping\":\"markdown\",\"slowConnectionThresholdMs\":5000,\"oidc\":true},\n\t\t\"local\":{\"command\":\"server\",\"disableToolCache\":true,\"deferTools\":\"never\",\"filterMapping\":\"none\"}\n\t}\n}\n"
+	original := "{\n\t\"mcpServers\":{\n\t\t\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"oauthClientId\":\"abc\",\"oauthScopes\":[\"read\"],\"oauthPublicClient\":false,\"oauthGrantType\":\"client_credentials\",\"deferTools\":\"never\",\"filterMapping\":\"markdown\",\"slowConnectionThresholdMs\":5000,\"oidc\":true},\n\t\t\"local\":{\"command\":\"server\",\"disableToolCache\":true,\"oidc\":true,\"slowConnectionThresholdMs\":2147483647,\"deferTools\":\"never\",\"filterMapping\":\"none\"}\n\t}\n}\n"
 	mustWriteGlobalTest(t, path, original)
 	if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)

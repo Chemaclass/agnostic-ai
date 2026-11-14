@@ -78,7 +78,7 @@
 // #692, #2212). `.github/mcp.json` and the root mirror stay on the plain
 // schema, since Copilot CLI's own docs never name any of them. The CLI
 // files do carry the CLI's own per-server client settings (`timeout`,
-// `deferTools`, `filterMapping`, OAuth and `oidc` keys on remote servers,
+// `deferTools`, `filterMapping`, `oidc`, OAuth keys on remote servers,
 // `disableToolCache` on local ones), read from the top level or
 // `x-copilot` (#3442).
 //
