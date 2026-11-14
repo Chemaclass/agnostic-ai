@@ -82,3 +82,23 @@ func TestImportClaude_ReimportDropsItsDeleteMarkerWhenTheNativeFileShowsTheKey(t
 		t.Errorf("sync must keep the restored effort:\n%s", native)
 	}
 }
+
+// Without an unrelated edit, import leaves the spec as written, so the
+// marker only reaches the merge once the native file changes.
+func TestImportClaude_KeepsItsDeleteMarkerAcrossAnUnrelatedEdit(t *testing.T) {
+	for _, targets := range []string{"claude", "claude, qoder"} {
+		t.Run(targets, func(t *testing.T) {
+			markerProject(t, targets, "effort: high\nx-claude:\n  effort: null\n")
+			native := readFile(t, ".claude/agents/rev.md")
+			mustWriteFile(t, ".claude/agents/rev.md", strings.Replace(native, "description: r\n", "description: r2\n", 1))
+
+			if got := reimportEffortMap(t, "claude"); !strings.Contains(got, "effort: null") || !strings.Contains(got, "description: r2") {
+				t.Errorf("the edit must land and the marker must stay:\n%s", got)
+			}
+			runSyncOK(t)
+			if claude := readFile(t, ".claude/agents/rev.md"); strings.Contains(claude, "effort:") {
+				t.Errorf("claude must still get no effort:\n%s", claude)
+			}
+		})
+	}
+}
