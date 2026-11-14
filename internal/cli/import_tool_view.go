@@ -268,6 +268,9 @@ func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adap
 	before := g.files[path].before
 	var hidden, unknown []string
 	for _, key := range missingKeys(path, before, now) {
+		if strings.HasPrefix(key, "x-") && onlyDeleteMarkers(old.Meta[key]) {
+			continue
+		}
 		switch hides, known := v.hidesKey(tools, old, key); {
 		case !known:
 			unknown = append(unknown, key)
@@ -286,6 +289,22 @@ func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adap
 		unknown = append(unknown, hidden...)
 	}
 	return carriedLosses(path, before, now, unknown, presentKeys(path, now)), nil
+}
+
+// onlyDeleteMarkers reports whether value is an `x-<tool>` block of
+// nothing but `key: null` markers. An import drops one when the tool's
+// file shows the value again, so it is not a key the tools failed to show.
+func onlyDeleteMarkers(value any) bool {
+	block, ok := value.(map[string]any)
+	if !ok || len(block) == 0 {
+		return false
+	}
+	for _, v := range block {
+		if v != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // carriedLosses names what now loses from before that no tool file

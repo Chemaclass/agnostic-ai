@@ -52,13 +52,13 @@ func TestImportAgents_ReimportOfARestoredModelDropsTheDeleteMarker(t *testing.T)
 
 			got := reimportModelMap(t, tc.target)
 			want := fmt.Sprintf("model:\n  zed: low\n  default: m-two\n  %s: m-new\n", tc.target)
-			// Trae drops an unscoped model anyway, so the settle step that
-			// keeps keys no tool shows puts its marker back; it does nothing.
-			markerGone := tc.target == "trae" || !strings.Contains(got, "model: null")
-			if !hasBlock(got, want) || !markerGone {
+			if !hasBlock(got, want) || strings.Contains(got, "model: null") {
 				t.Errorf("the native model joins the map and the marker goes:\n%s", got)
 			}
 			assertSyncCheckClean(t)
+			if native := readFile(t, tc.file); !strings.Contains(native, "m-new") {
+				t.Errorf("sync must keep the restored model in %s:\n%s", tc.file, native)
+			}
 		})
 	}
 }
