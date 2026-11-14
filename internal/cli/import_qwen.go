@@ -15,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/qwen"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -53,7 +54,11 @@ func importFromQwen(root string, src config.Sources) error {
 		if err != nil {
 			return nil, err
 		}
-		return scopeQwenAgentFields(data)
+		data, err = scopeQwenAgentFields(data)
+		if err != nil {
+			return nil, err
+		}
+		return importQwenReadonly(data)
 	})
 	if err != nil {
 		return err
@@ -137,6 +142,37 @@ func noteQwenRuleFiles(root string) error {
 		return nil
 	}
 	return err
+}
+
+// importQwenReadonly reads the write-tool blocklist sync writes for
+// `readonly: true` back as that key. It runs after the scoped move, so
+// any other blocklist stays under x-qwen and so does a native `readonly`.
+func importQwenReadonly(data []byte) ([]byte, error) {
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok || mappingValue(mapping, "readonly") != nil {
+		return data, nil
+	}
+	native := mappingValue(mapping, "x-qwen")
+	blocklist := mappingValue(native, "disallowedTools")
+	if blocklist == nil {
+		return data, nil
+	}
+	var tools []string
+	want := qwen.ReadonlyDisallowedTools()
+	if blocklist.Decode(&tools) != nil || len(tools) != len(want) {
+		return data, nil
+	}
+	for _, tool := range want {
+		if !slices.Contains(tools, tool) {
+			return data, nil
+		}
+	}
+	removeMappingKey(native, "disallowedTools")
+	if len(native.Content) == 0 {
+		removeMappingKey(mapping, "x-qwen")
+	}
+	setMappingValue(mapping, "readonly", true)
+	return encodeFrontmatter(mapping, rest, "qwen")
 }
 
 func scopeQwenAgentFields(data []byte) ([]byte, error) {

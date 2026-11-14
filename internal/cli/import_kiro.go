@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -29,8 +32,9 @@ const (
 // importFromKiro reads an existing AWS Kiro project and writes specs into
 // the configured source directories, reversing the kiro emit:
 //
-//   - `.kiro/agents/*.md` native agent profiles carry a frontmatter-first
-//     block. The filename remains the canonical spec name; an explicit
+//   - `.kiro/agents/**/*.md` and `*.json` native agent profiles carry a
+//     frontmatter-first block (JSON keys map the same way; `prompt` is the
+//     body). A nested path joins with hyphens. The path remains the canonical spec name; an explicit
 //     native `name` display value imports as `x-kiro.name` so the two
 //     identities survive a round-trip.
 //   - `.kiro/skills/<name>/SKILL.md` native skill folders copy
@@ -165,72 +169,253 @@ func importKiroCommands(root, dstDir string, cfg *config.Config) (int, error) {
 }
 
 // importKiroAgents copies every native agent profile under
-// `.kiro/agents/` into the agents source dir. An explicit native `name`
-// becomes `x-kiro.name`, leaving the filename as the canonical spec name.
-// An inline `mcpServers` map is read by importKiroAgentServers. A
-// missing directory imports nothing.
+// `.kiro/agents/` into the agents source dir: `.md` and `.json` files,
+// at the top or in subfolders. A nested file `team/planner.md` becomes
+// the spec `team-planner`, since a spec name is one path segment. An
+// explicit native `name` becomes `x-kiro.name`, leaving the path as the
+// canonical spec name. An inline `mcpServers` map is read by
+// importKiroAgentServers. A JSON profile is converted to the Markdown
+// form first (its `prompt` becomes the body), so one mapping serves
+// both. A JSON profile that cannot be read as one is skipped with a
+// note. When two files map to one spec name, the first in this order
+// wins and the rest are reported: top-level `.md`, top-level `.json`,
+// subfolder `.md`, then subfolder `.json`. A missing directory imports
+// nothing.
 func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, error) {
 	src := filepath.Join(root, kiroAgentsDir)
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
 	}
+	files, err := kiroAgentFiles(src)
 	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
+		return 0, err
 	}
-	noteKiroSkippedAgents(root)
+	type winner struct {
+		rel       string
+		topMD     bool
+		generated bool
+	}
+	imported := map[string]winner{}
 	count := 0
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+	for _, f := range files {
+		rel := filepath.ToSlash(filepath.Join(kiroAgentsDir, f.rel))
+		if first, taken := imported[f.name]; taken {
+			if first.topMD && first.generated && (f.json || f.nested) {
+				keptf("note: %s already imported as %s, which sync wrote, so the original can be removed (%s)\n", rel, first.rel, f.leftoverEffect())
+			} else {
+				keptf("note: skipped %s: spec agent %s already imported from %s; rename one of them to import both\n", rel, f.name, first.rel)
+			}
 			continue
 		}
-		srcPath := filepath.Join(src, e.Name())
-		data, err := os.ReadFile(srcPath)
+		data, err := os.ReadFile(f.path)
 		if err != nil {
-			return count, fmt.Errorf("read %s: %w", srcPath, err)
+			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
-		canonicalName := strings.TrimSuffix(e.Name(), ".md")
-		dst := filepath.Join(dstDir, e.Name())
+		generated := header.Has(string(data))
+		if f.json {
+			data, err = kiroJSONAgentToMarkdown(data, filepath.Dir(f.path), root)
+			if err != nil {
+				keptf("note: skipped %s: %v\n", rel, err)
+				continue
+			}
+		}
+		dst := filepath.Join(dstDir, f.name+".md")
 		shared := projectServers
 		// A spec that scopes its servers to Kiro keeps them as a map: a
 		// list of names there would bypass sync's server expansion.
 		if specScopesKiroServers(dst) {
 			shared = nil
 		}
-		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), canonicalName, shared)
+		translated, err := importKiroAgentDocument([]byte(header.Strip(string(data))), f.name, shared)
 		if err != nil {
-			return count, fmt.Errorf("translate %s: %w", srcPath, err)
+			return count, fmt.Errorf("translate %s: %w", f.path, err)
 		}
 		if err := importWriteSpecMarkdown(dst, translated, 0o644, kiroAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
+		imported[f.name] = winner{rel: rel, topMD: !f.json && !f.nested, generated: generated}
 		count++
+		if f.json || f.nested {
+			keptf("note: imported %s as spec agent %s; sync writes %s, so remove the original (%s)\n",
+				rel, f.name, filepath.ToSlash(filepath.Join(kiroAgentsDir, f.name+".md")), f.leftoverEffect())
+		}
 	}
 	return count, nil
 }
 
-// noteKiroSkippedAgents names the agent files import leaves to the user:
-// a `.json` profile and any agent file in a subfolder. It only informs,
-// so a folder it cannot read is passed over rather than failing import.
-func noteKiroSkippedAgents(root string) {
-	dir := filepath.Join(root, kiroAgentsDir)
-	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+type kiroAgentFile struct {
+	path, rel, name string
+	json, nested    bool
+}
+
+// leftoverEffect says what Kiro does when the original stays beside the
+// file sync writes.
+func (f kiroAgentFile) leftoverEffect() string {
+	if f.nested {
+		return fmt.Sprintf("Kiro would list two agents, %s and %s", strings.TrimSuffix(filepath.ToSlash(f.rel), filepath.Ext(f.rel)), f.name)
+	}
+	return fmt.Sprintf("Kiro would read both files as the agent %s and they would clash", f.name)
+}
+
+// kiroAgentFiles lists agent files under dir in import precedence order.
+func kiroAgentFiles(dir string) ([]kiroAgentFile, error) {
+	var files []kiroAgentFile
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
 			return nil
 		}
-		isJSON := strings.HasSuffix(d.Name(), ".json")
-		if !isJSON && !strings.HasSuffix(d.Name(), ".md") {
+		ext := filepath.Ext(d.Name())
+		if ext != ".md" && ext != ".json" {
 			return nil
 		}
-		rel := filepath.ToSlash(filepath.Join(kiroAgentsDir, strings.TrimPrefix(path, dir+string(filepath.Separator))))
-		switch {
-		case filepath.Dir(path) != dir:
-			keptf("note: %s is in a subfolder, so import skipped it and it stays as written; import reads only top-level .md agents\n", rel)
-		case isJSON:
-			keptf("note: %s is a JSON agent, so import skipped it and it stays as written; import reads only top-level .md agents\n", rel)
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
 		}
+		slashed := filepath.ToSlash(rel)
+		files = append(files, kiroAgentFile{
+			path:   path,
+			rel:    rel,
+			name:   strings.ReplaceAll(strings.TrimSuffix(slashed, ext), "/", "-"),
+			json:   ext == ".json",
+			nested: strings.Contains(slashed, "/"),
+		})
 		return nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", dir, err)
+	}
+	rank := func(f kiroAgentFile) int {
+		r := 0
+		if f.nested {
+			r = 2
+		}
+		if f.json {
+			r++
+		}
+		return r
+	}
+	sort.SliceStable(files, func(i, j int) bool { return rank(files[i]) < rank(files[j]) })
+	return files, nil
+}
+
+// kiroJSONAgentToMarkdown rewrites a JSON agent profile as the Markdown
+// form Kiro documents as equivalent: every key but `prompt` becomes
+// frontmatter and `prompt` becomes the body. Keys keep their order.
+// `prompt` is a string, null (empty), or a `file://` URI read relative
+// to the profile's folder; the file must sit inside the project.
+func kiroJSONAgentToMarkdown(data []byte, dir, root string) ([]byte, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		if err == nil {
+			err = errors.New("agent profile is not a JSON object")
+		}
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	mapping := &yaml.Node{Kind: yaml.MappingNode}
+	prompt := ""
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		key, _ := tok.(string)
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		value, err := decodeJSONValue(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		if key == "prompt" {
+			if prompt, err = kiroPromptText(value, dir, root); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		var node yaml.Node
+		if err := node.Encode(value); err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		mapping.Content = append(mapping.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, &node)
+	}
+	if _, err := dec.Token(); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	front, err := yaml.Marshal(mapping)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	out := "---\n" + string(front) + "---\n"
+	if prompt != "" {
+		out += "\n" + strings.TrimRight(prompt, "\n") + "\n"
+	}
+	return []byte(out), nil
+}
+
+// decodeJSONValue decodes one JSON value, keeping whole numbers whole.
+func decodeJSONValue(raw json.RawMessage) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	return plainJSONNumbers(v), nil
+}
+
+func plainJSONNumbers(v any) any {
+	switch x := v.(type) {
+	case json.Number:
+		if i, err := x.Int64(); err == nil {
+			return i
+		}
+		f, _ := x.Float64()
+		return f
+	case []any:
+		for i := range x {
+			x[i] = plainJSONNumbers(x[i])
+		}
+	case map[string]any:
+		for k := range x {
+			x[k] = plainJSONNumbers(x[k])
+		}
+	}
+	return v
+}
+
+func kiroPromptText(value any, dir, root string) (string, error) {
+	switch p := value.(type) {
+	case nil:
+		return "", nil
+	case string:
+		uri, isFile := strings.CutPrefix(p, "file://")
+		if !isFile {
+			return p, nil
+		}
+		path := filepath.FromSlash(uri)
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(dir, path)
+		}
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			return "", fmt.Errorf("prompt file %s cannot be read", uri)
+		}
+		absPath, err := filepath.Abs(path)
+		if err != nil || !pathInside(resolveSymlinks(absRoot), resolveSymlinks(absPath)) {
+			return "", fmt.Errorf("prompt file %s is outside the project", uri)
+		}
+		text, err := os.ReadFile(absPath)
+		if err != nil {
+			return "", fmt.Errorf("prompt file %s cannot be read", uri)
+		}
+		return string(text), nil
+	}
+	return "", errors.New("prompt must be a string or a file:// URI")
 }
 
 func importKiroAgentDocument(data []byte, canonicalName string, projectServers map[string]any) ([]byte, error) {

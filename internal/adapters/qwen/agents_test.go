@@ -11,6 +11,41 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+func TestEmitAgents_ReadonlyWritesDisallowedTools(t *testing.T) {
+	testutil.TempCwd(t)
+	err := New().EmitAgents(emit.NewSession(), []spec.Entry{
+		{Kind: spec.KindAgent, Name: "ro", Meta: map[string]any{"description": "d", "readonly": true}},
+		{Kind: spec.KindAgent, Name: "rw", Meta: map[string]any{"description": "d", "readonly": false}},
+		{Kind: spec.KindAgent, Name: "native", Meta: map[string]any{"description": "d", "readonly": true, "x-qwen": map[string]any{"disallowedTools": []any{"write_file"}}}},
+		{Kind: spec.KindAgent, Name: "cleared", Meta: map[string]any{"description": "d", "readonly": true, "x-qwen": map[string]any{"disallowedTools": nil}}},
+	}, ".qwen/agents", false)
+	if err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	want := map[string]any{
+		"ro":      []any{"write_file", "edit", "notebook_edit"},
+		"rw":      nil,
+		"native":  []any{"write_file"},
+		"cleared": nil,
+	}
+	for name, tools := range want {
+		raw, err := os.ReadFile(".qwen/agents/" + name + ".md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry, err := spec.ParseMarkdownBytes(spec.KindAgent, raw)
+		if err != nil {
+			t.Fatalf("parse: %v\n%s", err, raw)
+		}
+		if !reflect.DeepEqual(entry.Meta["disallowedTools"], tools) {
+			t.Errorf("%s disallowedTools = %#v, want %#v\n%s", name, entry.Meta["disallowedTools"], tools, raw)
+		}
+		if _, ok := entry.Meta["readonly"]; ok {
+			t.Errorf("%s wrote readonly:\n%s", name, raw)
+		}
+	}
+}
+
 func TestEmitAgents_WritesBackgroundAndHooks(t *testing.T) {
 	testutil.TempCwd(t)
 	hooks := map[string]any{"PreToolUse": []any{map[string]any{

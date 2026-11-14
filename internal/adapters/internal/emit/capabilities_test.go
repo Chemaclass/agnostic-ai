@@ -276,3 +276,15 @@ func TestReportUnsupported_NativeKeyUnderTargetBlockSilencesTheNote(t *testing.T
 		t.Errorf("expected the note without the native key, got:\n%s", got)
 	}
 }
+
+func TestNoteDroppedAgentReadonly_SkipsTargetsThatMapIt(t *testing.T) {
+	agents := []spec.Entry{{Kind: spec.KindAgent, Name: "ro", Meta: map[string]any{"readonly": true}}}
+	for target, want := range map[string]bool{"qwen": false, "claude": false, "aider": true} {
+		ResetCoverageNotes()
+		NoteDroppedAgentReadonly(target, agents)
+		if got := PendingCoverageNotesCount() > 0; got != want {
+			t.Errorf("%s: note = %v, want %v", target, got, want)
+		}
+		ResetCoverageNotes()
+	}
+}

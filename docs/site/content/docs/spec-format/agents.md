@@ -72,10 +72,11 @@ Any other frontmatter field is written as given.
 | Cursor | Restricted |
 | Claude Code | `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed) |
 | Codex | `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), and a sync note |
+| Qwen Code | `disallowedTools: [write_file, edit, notebook_edit]` (shell stays allowed) |
 | Factory | `tools: read-only` with `mcpServers: []` unless servers are listed. Wins over a portable `tools` list |
 | Other targets | Sync note |
 
-An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.
+An explicit `x-claude.disallowedTools`, `x-qwen.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.
 
 ## Capabilities {#capabilities}
 
