@@ -369,3 +369,45 @@ func TestImportOpenhands_PreservesAgentHooksAndMaxIterations(t *testing.T) {
 		}
 	}
 }
+
+func TestImportOpenhands_KeepsAgentMCPServers(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	path := filepath.Join(dir, ".agents/agents/web-researcher.md")
+	writeFile(t, path, "---\nname: web-researcher\ndescription: Researches\ntools:\n  - file_editor\nmcp_servers:\n  fetch:\n    command: uvx\n    args:\n      - mcp-server-fetch\n  search:\n    command: uvx\n    args:\n      - mcp-server-search\n---\n\nBody\n")
+	execCLI(t, "import", "openhands")
+	specBytes := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/web-researcher.md"))
+	if before := strings.SplitN(specBytes, "x-openhands:", 2)[0]; strings.Contains(before, "mcp_servers") {
+		t.Errorf("mcp_servers left at the top level:\n%s", specBytes)
+	}
+	execCLI(t, "sync", "-t", "openhands")
+	got := readFile(t, path)
+	for _, want := range []string{"mcp_servers:", "fetch:", "mcp-server-fetch", "search:", "mcp-server-search"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+
+	writeFile(t, path, "---\nname: web-researcher\ndescription: Researches\ntools:\n  - file_editor\nmcp_servers:\n  fetch:\n    command: uvx\n    args:\n      - mcp-server-fetch\n---\n\nBody\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got = readFile(t, path)
+	if !strings.Contains(got, "mcp-server-fetch") || strings.Contains(got, "mcp-server-search") {
+		t.Errorf("one removed server not dropped alone: %s", got)
+	}
+
+	writeFile(t, path, "---\nname: web-researcher\ndescription: Researches\ntools:\n  - file_editor\n---\n\nBody\n")
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync", "-t", "openhands")
+	got = readFile(t, path)
+	if strings.Contains(got, "mcp_servers") || strings.Contains(got, "fetch") {
+		t.Errorf("removed mcp_servers returned: %s", got)
+	}
+	if !strings.Contains(got, "file_editor") {
+		t.Errorf("kept tools lost: %s", got)
+	}
+}

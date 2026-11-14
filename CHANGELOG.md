@@ -74,6 +74,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
 - `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
 - `sync` and global import keep Copilot MCP `oauthClientId`, `cwd` and millisecond `timeout` in native files (#3430).
+- `sync` and global import also keep Copilot MCP `oauthScopes`, `oauthPublicClient`, `oauthGrantType`, `deferTools`, `filterMapping`, `slowConnectionThresholdMs`, `disableToolCache` and `oidc` in native files, never in `.vscode/mcp.json` (#3442).
 
 #### OpenCode
 
@@ -86,6 +87,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import openhands` keeps an agent's native `tools`, `permission_mode` and `color` under `x-openhands`, so `sync` no longer drops them (#3380).
 - `import openhands` keeps `triggers` on a folder skill under `x-openhands`, so `sync` no longer drops the keyword it loads on (#3381).
 - `import openhands` keeps an agent's native `hooks`, `max_iteration_per_run`, `max_budget_per_run`, `condenser`, `profile_store_dir` and `mcp_config` under `x-openhands`, so `sync` no longer drops them (#3408).
+- `import openhands` keeps an agent's native `mcp_servers` under `x-openhands`, so `sync` no longer drops them; deleting one or all servers from the agent file drops them on the next import (#3443).
 
 #### Windsurf / Devin Desktop
 

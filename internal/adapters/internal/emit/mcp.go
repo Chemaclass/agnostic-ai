@@ -52,7 +52,10 @@ type mcpOptions struct {
 }
 
 // WithCopilotCLIMCPExtras turns on native client settings and the `tools` allowlist
-// Copilot CLI documents for its own MCP config:
+// Copilot CLI documents (`timeout`, `deferTools`, `filterMapping`,
+// `slowConnectionThresholdMs`, local `cwd` and `disableToolCache`, and
+// remote `oauthClientId`, `oauthScopes`, `oauthPublicClient`,
+// `oauthGrantType` and `oidc`, each type-checked) for its own MCP config:
 //
 //	"Next to Tools, specify which tools from the server should be
 //	available. Enter `*` to include all tools, or provide a
@@ -404,14 +407,36 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		if timeout, ok := IntField(e.Meta, "timeout"); ok {
 			out["timeout"] = timeout
 		}
+		for _, key := range []string{"deferTools", "filterMapping"} {
+			if v := stringField(e.Meta, key); copilotMCPEnums[key][v] {
+				out[key] = v
+			}
+		}
+		if ms, ok := IntField(e.Meta, "slowConnectionThresholdMs"); ok && ms > 0 {
+			out["slowConnectionThresholdMs"] = ms
+		}
 		switch transport {
 		case "stdio":
 			if cwd := stringField(e.Meta, "cwd"); cwd != "" {
 				out["cwd"] = cwd
 			}
+			if disable, ok := e.Meta["disableToolCache"].(bool); ok {
+				out["disableToolCache"] = disable
+			}
 		case "http", "sse":
 			if clientID := stringField(e.Meta, "oauthClientId"); clientID != "" {
 				out["oauthClientId"] = clientID
+			}
+			if scopes := stringSlice(e.Meta, "oauthScopes"); len(scopes) > 0 {
+				out["oauthScopes"] = scopes
+			}
+			if grant := stringField(e.Meta, "oauthGrantType"); copilotMCPEnums["oauthGrantType"][grant] {
+				out["oauthGrantType"] = grant
+			}
+			for _, key := range []string{"oauthPublicClient", "oidc"} {
+				if v, ok := e.Meta[key].(bool); ok {
+					out[key] = v
+				}
 			}
 		}
 	}
@@ -424,6 +449,14 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		addFactoryMCPFields(out, e.Meta, transport)
 	}
 	return out
+}
+
+// copilotMCPEnums lists the string values Copilot CLI documents for its
+// enum-typed server fields (docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference).
+var copilotMCPEnums = map[string]map[string]bool{
+	"deferTools":     {"auto": true, "never": true},
+	"filterMapping":  {"none": true, "markdown": true, "hidden_characters": true},
+	"oauthGrantType": {"authorization_code": true, "client_credentials": true},
 }
 
 // buildClaudeMCPOAuth reads the spec's `oauth` object into the shape

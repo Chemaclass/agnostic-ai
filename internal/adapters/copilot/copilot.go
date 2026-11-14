@@ -76,7 +76,11 @@
 // server, `dev.watch` on every server, `dev.debug` on stdio, and `oauth`
 // on HTTP/SSE (code.visualstudio.com/docs/agents/reference/mcp-configuration,
 // #692, #2212). `.github/mcp.json` and the root mirror stay on the plain
-// schema, since Copilot CLI's own docs never name any of them.
+// schema, since Copilot CLI's own docs never name any of them. The CLI
+// files do carry the CLI's own per-server client settings (`timeout`,
+// `deferTools`, `filterMapping`, OAuth and `oidc` keys on remote servers,
+// `disableToolCache` on local ones), read from the top level or
+// `x-copilot` (#3442).
 //
 // Hooks emit to `.github/hooks/agnostic-ai.json`, one of possibly
 // several `*.json` files Copilot loads from that directory and merges:

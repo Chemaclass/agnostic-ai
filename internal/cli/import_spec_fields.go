@@ -65,7 +65,7 @@ var (
 	qoderAgentFields       = specFields{keys: fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background").keys, scopedReconciled: true}
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	openhandsSkillFields   = specFields{keys: defaultSkillFields.keys, scopedNative: map[string]bool{"triggers": true}}
-	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true, "hooks": true, "max_iteration_per_run": true, "max_budget_per_run": true, "condenser": true, "profile_store_dir": true, "mcp_config": true}}
+	openhandsAgentFields   = specFields{keys: fieldsOf("name", "description", "model").keys, scopedNative: map[string]bool{"skills": true, "tools": true, "permission_mode": true, "color": true, "hooks": true, "max_iteration_per_run": true, "max_budget_per_run": true, "condenser": true, "profile_store_dir": true, "mcp_config": true, "mcp_servers": true}}
 	traeAgentFields        = fieldsOf("name", "description", "tools")
 	windsurfAgentFields    = specFields{keys: fieldsOf("name", "description", "model", "allowed-tools").keys, scopedNative: map[string]bool{"max-nesting": true}}
 	factoryAgentFields     = fieldsOf("name", "description", "model", "tools", "effort", "reasoningEffort")

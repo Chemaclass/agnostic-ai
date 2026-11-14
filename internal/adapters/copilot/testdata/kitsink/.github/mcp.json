@@ -4,7 +4,16 @@
       "command": "x"
     },
     "http-server": {
+      "deferTools": "never",
+      "filterMapping": "markdown",
       "oauthClientId": "native-client-id",
+      "oauthGrantType": "client_credentials",
+      "oauthPublicClient": false,
+      "oauthScopes": [
+        "read"
+      ],
+      "oidc": true,
+      "slowConnectionThresholdMs": 5000,
       "timeout": 45000,
       "type": "http",
       "url": "https://example.test/mcp"
@@ -16,6 +25,8 @@
       ],
       "command": "npx",
       "cwd": "${workspaceFolder}",
+      "deferTools": "auto",
+      "disableToolCache": true,
       "timeout": 45000
     }
   }
