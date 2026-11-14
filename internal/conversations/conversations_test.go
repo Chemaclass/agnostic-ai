@@ -1376,7 +1376,13 @@ func TestSystemProcesses_NothingRunningIsAnAnswerNotAFailedRead(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("ps and lsof are not on Windows")
 	}
-	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: 99_999_999}}); err != nil || len(alive) != 0 {
+	// The pid of a process that has exited: a made-up large pid can be
+	// past the system's limit, which ps reports as an error.
+	gone := exec.Command("true")
+	if err := gone.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: gone.Process.Pid}}); err != nil || len(alive) != 0 {
 		t.Errorf("a pid that does not run must read as none running, got %v, %v", alive, err)
 	}
 	if _, err := exec.LookPath("lsof"); err != nil {
@@ -1388,6 +1394,24 @@ func TestSystemProcesses_NothingRunningIsAnAnswerNotAFailedRead(t *testing.T) {
 	}
 	if held, err := (SystemProcesses{}).Holders([]string{closed}); err != nil || len(held) != 0 {
 		t.Errorf("a file no process holds must read as held by none, got %v, %v", held, err)
+	}
+}
+
+func TestSystemProcesses_APsThatComplainsIsAFailedRead(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ps is not on Windows")
+	}
+	bin := t.TempDir()
+	// Git for Windows ships a ps that exits 1 on -o, the same code procps
+	// uses for a pid that does not run, but says why on stderr.
+	write(t, filepath.Join(bin, "ps"), "#!/bin/sh\necho 'ps: unknown option -- o' >&2\nexit 1\n")
+	if err := os.Chmod(filepath.Join(bin, "ps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+
+	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: 4242}}); err == nil {
+		t.Errorf("a ps that fails with a message must be a failed read, got %v", alive)
 	}
 }
 

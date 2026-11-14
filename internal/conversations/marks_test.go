@@ -171,6 +171,7 @@ func TestMark_OpenTakesACompletionBack(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	claudeWritesSessions(t, stores)
 	for _, mark := range []Mark{MarkCompleted, MarkOpen} {
 		if err := scanner.Mark(ToolClaude, id, mark); err != nil {
 			t.Fatal(err)
@@ -515,6 +516,15 @@ func TestRename_TwoServersSharingTheMarksFileAgree(t *testing.T) {
 	}
 }
 
+// claudeWritesSessions makes the sessions folder a Claude Code that
+// records its open sessions has, with none open.
+func claudeWritesSessions(t *testing.T, stores Stores) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(stores.ClaudeDir, "sessions"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func writeClaudeProcess(t *testing.T, stores Stores, pid int, id, status string) {
 	t.Helper()
 	write(t, filepath.Join(stores.ClaudeDir, "sessions", fmt.Sprintf("%d.json", pid)), fmt.Sprintf(`{"pid":%d,"sessionId":%q,"status":%q}`, pid, id, status))
@@ -721,25 +731,42 @@ func TestScan_ASessionKnownClosedIsArchivedAtOnce(t *testing.T) {
 	if c := byID(t, view, closed); c.State != StateActive {
 		t.Errorf("when the process table cannot be read, a closed session keeps the day, actual %s", c.State)
 	}
+
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.Now = func() time.Time { return now }
+	writeMarkedSession(t, stores, closed, "2026-11-07T11:00:00.000Z")
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), closed); c.State != StateActive {
+		t.Errorf("a Claude Code that writes no sessions folder cannot show a session closed, so it keeps the day, actual %s", c.State)
+	}
 }
 
 func TestScan_ACodexOrCursorAgentChatKnownClosedIsArchivedAtOnce(t *testing.T) {
-	loaded, idle := "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666"
-	codex := func(processes fakeProcesses) View {
+	loaded, idle, desktop := "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"
+	codexWith := func(processes fakeProcesses, locks bool) View {
 		scanner, stores := testScanner(t, fakeStores(t, map[string]string{
 			"state_5.sqlite|FROM threads": `[
 				{"id":"` + loaded + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Loaded"},
-				{"id":"` + idle + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Closed"}
+				{"id":"` + idle + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Closed"},
+				{"id":"` + desktop + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"Codex Desktop","source":"vscode","name":"Desktop"}
 			]`,
 		}), processes)
 		scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
 		write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
-		write(t, filepath.Join(stores.CodexDir, "thread-writer-locks", loaded+".lock"), "")
+		if locks {
+			write(t, filepath.Join(stores.CodexDir, "thread-writer-locks", loaded+".lock"), "")
+		}
 		return scanner.Scan(context.Background(), ScanOptions{})
 	}
+	codex := func(processes fakeProcesses) View { return codexWith(processes, true) }
 	view := codex(fakeProcesses{held: map[string]int{loaded + ".lock": 4242}})
 	if byID(t, view, loaded).State != StateActive || byID(t, view, idle).State != StateDormant {
 		t.Errorf("only the loaded Codex thread stays active: %s", asJSON(t, view.Conversations))
+	}
+	if c := byID(t, view, desktop); c.App != AppDesktop || c.State != StateActive {
+		t.Errorf("a Codex desktop thread keeps the day, actual %s in %s", c.State, c.App)
+	}
+	if view := codexWith(fakeProcesses{}, false); byID(t, view, idle).State != StateActive {
+		t.Errorf("a Codex that keeps no lock folder cannot show a thread closed, so it keeps the day: %s", asJSON(t, view.Conversations))
 	}
 	if view := codex(fakeProcesses{readFails: true}); byID(t, view, idle).State != StateActive {
 		t.Errorf("when lsof fails, a closed Codex thread keeps the day: %s", asJSON(t, view.Conversations))
@@ -752,5 +779,12 @@ func TestScan_ACodexOrCursorAgentChatKnownClosedIsArchivedAtOnce(t *testing.T) {
 	view = scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
 	if byID(t, view, running).State != StateActive || byID(t, view, ended).State != StateDormant {
 		t.Errorf("only the running cursor-agent chat stays active: %s", asJSON(t, view.Conversations))
+	}
+
+	failing := terminalProcesses(4242, map[string]int{}, nil)
+	failing.readFails = true
+	scanner, _ = cursorAgentScanner(t, failing, ended)
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), ended); c.State != StateActive {
+		t.Errorf("when lsof fails, a closed cursor-agent chat keeps the day, actual %s", c.State)
 	}
 }

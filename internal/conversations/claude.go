@@ -458,6 +458,11 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 	// One question for every session: asking about each in turn starts
 	// a ps per open session on every scan.
 	alive, err := s.Processes.AliveAmong(processes)
+	// A Claude Code too old to write sessions/ leaves no mark of an open
+	// session, so its absence says nothing about which ones are closed.
+	if _, statErr := os.Stat(filepath.Join(s.Stores.ClaudeDir, "sessions")); statErr != nil {
+		err = statErr
+	}
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -87,7 +88,7 @@ func (SystemProcesses) Alive(pid int, procStart string) bool {
 func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) {
 	alive := map[int]bool{}
 	// Asked about no pid, it still checks ps exists, so a system without it does not pass for one where nothing runs.
-	if _, err := exec.LookPath("ps"); err != nil {
+	if err := canRead("ps"); err != nil {
 		return alive, err
 	}
 	var pids []string
@@ -100,7 +101,7 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) 
 		return alive, nil
 	}
 	out, err := ps("-o", "pid=,lstart=", "-p", strings.Join(pids, ","))
-	if err != nil && !exitedWith(err, 1) {
+	if !answered(err) {
 		return alive, err
 	}
 	started := psStartTimes(out)
@@ -113,10 +114,29 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) 
 	return alive, nil
 }
 
-// exitedWith reports whether err is a command that ran and exited with code.
-func exitedWith(err error, code int) bool {
+// errNoProcessRead: Windows has no ps or lsof that answers like the
+// Unix ones. Git for Windows ships a ps that rejects -o lstart.
+var errNoProcessRead = errors.New("running processes cannot be read on Windows")
+
+// canRead says whether the command can answer which processes run.
+func canRead(command string) error {
+	if runtime.GOOS == "windows" {
+		return errNoProcessRead
+	}
+	_, err := exec.LookPath(command)
+	return err
+}
+
+// answered reports whether ps or lsof answered: it exited 0, or exited 1
+// without a word on stderr, which both print for "none of these runs" or
+// "none of these is open". Any other exit, or exit 1 with a message,
+// such as an option this ps does not know, is a failed read.
+func answered(err error) bool {
+	if err == nil {
+		return true
+	}
 	var exit *exec.ExitError
-	return errors.As(err, &exit) && exit.ExitCode() == code
+	return errors.As(err, &exit) && exit.ExitCode() == 1 && len(strings.TrimSpace(string(exit.Stderr))) == 0
 }
 
 // psStartTimes reads `ps -o pid=,lstart=` output: a pid, then its start
@@ -192,7 +212,7 @@ func (SystemProcesses) Cwds(pids []int) map[int]string {
 }
 
 func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
-	if _, err := exec.LookPath("lsof"); err != nil {
+	if err := canRead("lsof"); err != nil {
 		return map[string]int{}, err
 	}
 	if len(paths) == 0 {
@@ -212,8 +232,9 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 	defer cancel()
 	// lsof exits 1 when none of the files is open; its output still lists
 	// the ones that are.
-	out, err := exec.CommandContext(ctx, "lsof", append([]string{"-F", "pcn", "--"}, paths...)...).Output()
-	if err != nil && !exitedWith(err, 1) {
+	// -w keeps warnings, such as a file system lsof cannot stat, off stderr.
+	out, err := exec.CommandContext(ctx, "lsof", append([]string{"-w", "-F", "pcn", "--"}, paths...)...).Output()
+	if !answered(err) {
 		return map[string]int{}, fmt.Errorf("lsof: %w", err)
 	}
 	return parseHolders(string(out), asked), nil
