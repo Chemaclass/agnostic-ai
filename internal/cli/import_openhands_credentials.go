@@ -14,7 +14,7 @@ func openhandsNativeAgentFields(data []byte) ([]byte, error) {
 		var meta map[string]any
 		if err := mapping.Decode(&meta); err == nil {
 			for _, key := range []string{"mcp_servers", "mcp_config"} {
-				if err := validateGrokRetainedCredentials(openhandsInlineServers(meta[key])); err != nil {
+				if err := validateRetainedCredentials(openhandsInlineServers(meta[key])); err != nil {
 					return nil, fmt.Errorf("%s: %w", key, err)
 				}
 			}
