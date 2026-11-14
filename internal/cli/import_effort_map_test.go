@@ -132,6 +132,7 @@ func TestImportAgents_ReimportDropsTheEffortMapWhenItsLastEntryGoes(t *testing.T
 			if got := reimportEffortMap(t, tc.target); strings.Contains(got, "effort") {
 				t.Errorf("an empty map should go:\n%s", got)
 			}
+			assertSyncCheckClean(t)
 		})
 	}
 }
@@ -145,6 +146,7 @@ func TestImportAgents_ReimportKeepsAScalarEffortScalar(t *testing.T) {
 			if got := reimportEffortMap(t, tc.target); !strings.Contains(got, "effort: medium\n") {
 				t.Errorf("a scalar effort should stay one:\n%s", got)
 			}
+			assertSyncCheckClean(t)
 		})
 	}
 }
@@ -156,5 +158,45 @@ func TestImportAugment_ReimportKeepsAMapEntryAugmentCannotWrite(t *testing.T) {
 	got := reimportEffortMap(t, "augment")
 	if !strings.Contains(got, "effort:\n  augment: 8000\n  zed: low\n") {
 		t.Errorf("a budget Augment cannot show must survive in the map:\n%s", got)
+	}
+	assertSyncCheckClean(t)
+}
+
+func assertSyncCheckClean(t *testing.T) {
+	t.Helper()
+	runSyncOK(t)
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}
+
+func TestImportAgents_DeletedNativeEffortStaysGoneWhenTheMapHasADefault(t *testing.T) {
+	shapes := map[string]string{
+		"entry and default": "effort:\n  %s: high\n  default: max\n",
+		"default only":      "effort:\n  zed: low\n  default: high\n",
+	}
+	for _, tc := range effortMapTargets {
+		for name, shape := range shapes {
+			t.Run(tc.target+"/"+name, func(t *testing.T) {
+				effort := shape
+				if strings.Contains(shape, "%s") {
+					effort = fmt.Sprintf(shape, tc.target)
+				}
+				effortMapProject(t, tc.target, effort)
+				if tc.target != "augment" && tc.target != "factory" && !strings.Contains(readFile(t, tc.file), tc.key+":") {
+					t.Skip("target writes no native key for this map")
+				}
+				editNativeEffort(t, tc.file, tc.key, "")
+
+				got := reimportEffortMap(t, tc.target)
+				if !strings.Contains(got, "default:") {
+					t.Errorf("the other targets keep their values:\n%s", got)
+				}
+				assertSyncCheckClean(t)
+				if native := readFile(t, tc.file); strings.Contains(native, tc.key+":") {
+					t.Errorf("the deleted %s must stay gone after sync:\n%s\nspec:\n%s", tc.key, native, got)
+				}
+			})
+		}
 	}
 }

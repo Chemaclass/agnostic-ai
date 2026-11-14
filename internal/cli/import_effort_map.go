@@ -57,7 +57,28 @@ func reconcileEffortMap(existing, data []byte, target string, expressesEffort bo
 		merged = withMappingValue(effort, target, imported)
 	}
 	setOrDropEffort(importedMap, merged)
+	if imported == nil && perTargetEffort(merged, target) != nil {
+		markEffortDeleted(importedMap, target)
+	}
 	return encodeFrontmatter(importedMap, rest, target)
+}
+
+// markEffortDeleted writes `x-<target>.effort: null`, the documented way
+// to stop one target from receiving an effort the map's `default` gives.
+func markEffortDeleted(mapping *yaml.Node, target string) {
+	null := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"}
+	scoped := mappingValue(mapping, "x-"+target)
+	if scoped == nil || scoped.Kind != yaml.MappingNode {
+		scoped = &yaml.Node{Kind: yaml.MappingNode}
+		mapping.Content = append(mapping.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "x-" + target}, scoped)
+	}
+	for i := 0; i+1 < len(scoped.Content); i += 2 {
+		if scoped.Content[i].Value == "effort" {
+			scoped.Content[i+1] = null
+			return
+		}
+	}
+	scoped.Content = append(scoped.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "effort"}, null)
 }
 
 // setOrDropEffort writes effort under the `effort` key of mapping, or
