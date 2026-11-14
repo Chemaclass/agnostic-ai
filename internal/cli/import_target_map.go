@@ -2,6 +2,9 @@ package cli
 
 import (
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // perTargetValue returns the value a spec's key gives target: the
@@ -21,22 +24,25 @@ func perTargetValue(value *yaml.Node, target string) *yaml.Node {
 // model for target, the way ApplyModelTiers expands it.
 func resolvedTargetValue(key string, value *yaml.Node, target string) *yaml.Node {
 	resolved := perTargetValue(value, target)
-	if key != "model" || resolved == nil || resolved.Kind != yaml.ScalarNode || importHookConfig == nil {
+	if key != "model" || resolved == nil || resolved.Kind != yaml.ScalarNode {
 		return resolved
 	}
-	if value.Kind == yaml.MappingNode && mappingValue(value, target) != nil {
-		return resolved
+	model := resolved.Value
+	own := value.Kind == yaml.MappingNode && mappingValue(value, target) != nil
+	var tiers map[string]config.ModelTier
+	if importHookConfig != nil {
+		tiers = importHookConfig.Models
 	}
-	tier, named := importHookConfig.Models[resolved.Value]
-	if !named {
-		return resolved
+	if tier, named := tiers[model]; named && !own {
+		var ok bool
+		if model, ok = tier.Models[target]; !ok {
+			if model, ok = tier.Models["default"]; !ok {
+				return nil
+			}
+		}
 	}
-	model, ok := tier.Models[target]
-	if !ok {
-		model, ok = tier.Models["default"]
-	}
-	if !ok {
-		return nil
+	if id, isAlias := adapters.ModelAlias(target, model); isAlias {
+		model = id
 	}
 	return &yaml.Node{Kind: yaml.ScalarNode, Value: model}
 }
@@ -69,7 +75,10 @@ func importedHasKey(data []byte, key string) bool {
 // shows the key removes only target's entry, and the key when none is
 // left. A target whose native format cannot show the key never reaches
 // here with a changed value, so its entry is kept. A spec with
-// `x-<target>.<key>` already says what target gets, so it is left alone.
+// `x-<target>.<key>` already says what target gets, so it is left alone;
+// a `null` there is a delete marker, which a value shown again replaces.
+// A `model` alias such as Codex's `sol` is compared by the id it resolves
+// to, since that is what the native file holds.
 func reconcileTargetMap(existing, data []byte, key, target string, expresses bool) ([]byte, error) {
 	if target == "" || !expresses {
 		return data, nil
@@ -82,7 +91,9 @@ func reconcileTargetMap(existing, data []byte, key, target string, expresses boo
 	if current == nil || current.Kind != yaml.MappingNode {
 		return data, nil
 	}
-	if mappingValue(mappingValue(existingMap, "x-"+target), key) != nil {
+	scoped := mappingValue(mappingValue(existingMap, "x-"+target), key)
+	deleted := scoped != nil && scoped.Tag == "!!null"
+	if scoped != nil && !deleted {
 		return data, nil
 	}
 	importedMap, rest, ok := frontmatterNode(data)
@@ -96,6 +107,9 @@ func reconcileTargetMap(existing, data []byte, key, target string, expresses boo
 
 	merged := current
 	given := resolvedTargetValue(key, current, target)
+	if deleted {
+		given = nil
+	}
 	switch {
 	case imported == nil:
 		if mappingValue(current, target) != nil {
@@ -105,6 +119,9 @@ func reconcileTargetMap(existing, data []byte, key, target string, expresses boo
 		merged = withMappingValue(current, target, imported)
 	}
 	setOrDropKey(importedMap, key, merged)
+	if deleted && imported != nil {
+		dropScopedKey(importedMap, key, target)
+	}
 	if imported == nil && resolvedTargetValue(key, merged, target) != nil {
 		markKeyDeleted(importedMap, key, target)
 	}
@@ -127,6 +144,20 @@ func markKeyDeleted(mapping *yaml.Node, key, target string) {
 		}
 	}
 	scoped.Content = append(scoped.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, null)
+}
+
+// dropScopedKey removes `x-<target>.<key>` from mapping.
+func dropScopedKey(mapping *yaml.Node, key, target string) {
+	scoped := mappingValue(mapping, "x-"+target)
+	if scoped == nil || scoped.Kind != yaml.MappingNode {
+		return
+	}
+	for i := 0; i+1 < len(scoped.Content); i += 2 {
+		if scoped.Content[i].Value == key {
+			scoped.Content = append(scoped.Content[:i], scoped.Content[i+2:]...)
+			return
+		}
+	}
 }
 
 // setOrDropKey writes value under key in mapping, or removes the key

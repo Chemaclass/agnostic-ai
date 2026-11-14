@@ -47,7 +47,7 @@ func editNativeModel(t *testing.T, file, key, value string) {
 	t.Helper()
 	needNativeModel(t, file, key)
 	if value == "" && strings.HasPrefix(file, ".trae/") {
-		t.Skip("Trae's field set does not list model, so a missing line is not read as a deletion")
+		t.Skip("covered by TestImportTrae_ReimportKeepsTheModelEntryWhenTheNativeLineIsGone")
 	}
 	lines := strings.Split(readFile(t, file), "\n")
 	for i, line := range lines {

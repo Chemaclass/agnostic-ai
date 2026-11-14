@@ -264,6 +264,8 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any,
 	}
 	if len(xcodex) > 0 {
 		fm["x-codex"] = xcodex
+	} else {
+		delete(fm, "x-codex")
 	}
 	raw, err := marshalAgentFrontmatter(fm)
 	if err != nil {
@@ -278,18 +280,22 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any,
 }
 
 func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
-	if _, set := xcodex["model"]; set {
-		return
-	}
 	codexModel, _ := doc["model"].(string)
+	restored := false
+	if marker, set := xcodex["model"]; set {
+		if marker != nil || codexModel == "" {
+			return
+		}
+		delete(xcodex, "model")
+		restored = true
+	}
 	if codexModel == "" {
 		if model, isMap := fm["model"].(map[string]any); isMap {
-			_, had := model["codex"]
 			delete(model, "codex")
 			if len(model) == 0 {
 				delete(fm, "model")
 			}
-			if shared, _ := model["default"].(string); had && shared == "" {
+			if shared, _ := model["default"].(string); shared == "" {
 				return
 			}
 		}
@@ -300,9 +306,15 @@ func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 	case nil:
 		fm["model"] = map[string]any{"codex": codexModel}
 	case map[string]any:
-		given, _ := model["codex"].(string)
-		if given == "" {
-			given, _ = model["default"].(string)
+		var given string
+		if !restored {
+			given, _ = model["codex"].(string)
+			if given == "" {
+				given, _ = model["default"].(string)
+			}
+		}
+		if id, isAlias := adapters.ModelAlias("codex", given); isAlias {
+			given = id
 		}
 		if given != codexModel {
 			model["codex"] = codexModel

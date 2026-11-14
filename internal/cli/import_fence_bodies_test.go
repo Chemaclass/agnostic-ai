@@ -213,10 +213,9 @@ func TestImportFromCodex_AgentDescriptionDiverges_RoutesViaXCodex(t *testing.T) 
 	if !strings.Contains(got, "description: codex says Y") {
 		t.Errorf("codex description must land under x-codex:\n%s", got)
 	}
-	// claude has model: haiku but codex doesn't → expect x-codex.model: null
-	// so codex emit drops the key.
-	if !strings.Contains(got, "model: null") {
-		t.Errorf("x-codex.model should mark deletion for codex:\n%s", got)
+	// claude scopes its model, so codex gets none and needs no marker.
+	if strings.Contains(got, "model: null") {
+		t.Errorf("a model only claude has needs no x-codex.model marker:\n%s", got)
 	}
 }
 
