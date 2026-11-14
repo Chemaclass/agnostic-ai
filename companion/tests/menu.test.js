@@ -5,15 +5,16 @@ import { escapeTarget, hideLabelOf, menuRowsOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', startAtLogin: true }
-const appearance = { animate: false, dimWhenIdle: true, presence: 'shown' }
+const appearance = { animate: false, dimWhenIdle: true, smallCompanion: false, presence: 'shown' }
 
-test('the menu shows the six items in the list order, with the values in effect', () => {
+test('the menu shows the seven items in the list order, with the values in effect', () => {
   const rows = menuRowsOf(items, { preferences, appearance })
   assert.deepEqual(
     rows.map(({ id, kind, value }) => [id, kind, value]),
     [
       ['animate', 'switch', false],
       ['dimWhenIdle', 'switch', true],
+      ['smallCompanion', 'switch', false],
       ['startAtLogin', 'switch', true],
       ['shortcut', 'shortcut', 'Ctrl+Alt+Space'],
       ['hide', 'action', undefined],

@@ -6,6 +6,48 @@ type rect struct {
 	X, Y, Width, Height int
 }
 
+const (
+	// bubbleSide is the bubble window for the 60-point circle: the circle
+	// and room for its shadow, progress ring and badge.
+	bubbleSide = 84
+	// smallBubbleSide is the same room for the 40-point circle, two thirds.
+	smallBubbleSide = 56
+)
+
+func bubbleSideFor(small bool) int {
+	if small {
+		return smallBubbleSide
+	}
+	return bubbleSide
+}
+
+// halves says which halves of the work area the bubble's middle sits in.
+type halves struct {
+	right, below bool
+}
+
+func halvesOf(bubble, work rect) halves {
+	return halves{
+		right: bubble.X+bubble.Width/2 > work.X+work.Width/2,
+		below: bubble.Y+bubble.Height/2 > work.Y+work.Height/2,
+	}
+}
+
+// resizedBubble is where a bubble window of the new side goes so the
+// circle keeps the screen edges it sits nearest: a bubble in the right
+// half keeps its right edge, one in the lower half its bottom edge.
+func resizedBubble(bubble, work rect, side int) (x, y int) {
+	x, y = bubble.X, bubble.Y
+	sits := halvesOf(bubble, work)
+	if sits.right {
+		x = bubble.X + bubble.Width - side
+	}
+	if sits.below {
+		y = bubble.Y + bubble.Height - side
+	}
+	return x, y
+}
+
 // corner is the corner of the panel that sits nearest the bubble. The
 // panel grows out of it when it opens.
 type corner string
@@ -25,8 +67,12 @@ const panelGap = 4
 // bubble in the right half gets the panel on its left; a bubble in the
 // lower half gets the panel's bottom edge level with its own.
 func placePanel(bubble, work rect, width, height int) (x, y int, nearest corner) {
-	bubbleOnRight := bubble.X+bubble.Width/2 > work.X+work.Width/2
-	bubbleBelow := bubble.Y+bubble.Height/2 > work.Y+work.Height/2
+	return placePanelOn(halvesOf(bubble, work), bubble, work, width, height)
+}
+
+// placePanelOn is placePanel for a bubble taken to sit in the given halves.
+func placePanelOn(sits halves, bubble, work rect, width, height int) (x, y int, nearest corner) {
+	bubbleOnRight, bubbleBelow := sits.right, sits.below
 
 	x = bubble.X + bubble.Width + panelGap
 	if bubbleOnRight {

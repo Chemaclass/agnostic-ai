@@ -64,6 +64,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - The list's ⋯ menu and the circle's right-click menu hold the same settings, in the same order. A change in one shows in the other:
   - **Animate companion** turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
   - **Dim when idle** fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
+  - **Small companion** shows a 40px circle instead of the 60px one. Its mark, working ring and count shrink with it, and so does its window, so clicks just outside the small circle reach the app behind it. It keeps the screen edges it sits nearest. The choice is kept across restarts.
   - **Start at login** starts the companion when you log in.
   - **Open from anywhere** shows the shortcut. In the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
   - **Hide Agnostic AI companion** takes the circle and the list off the screen. The companion keeps running and reading. While the shortcut is not active, the entry names `agnostic-ai companion` as the way back. The shortcut, `agnostic-ai companion` or opening the app again shows the circle where it was and opens the list.

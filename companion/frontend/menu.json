@@ -1,6 +1,7 @@
 [
   { "id": "animate", "label": "Animate companion", "kind": "switch" },
   { "id": "dimWhenIdle", "label": "Dim when idle", "kind": "switch" },
+  { "id": "smallCompanion", "label": "Small companion", "kind": "switch" },
   { "id": "startAtLogin", "label": "Start at login", "kind": "switch" },
   { "id": "shortcut", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
   { "id": "hide", "label": "Hide Agnostic AI companion", "kind": "action", "hint": "Takes the circle and the list off the screen. The shortcut brings them back. The circle comes back faded on its own when something new waits." },

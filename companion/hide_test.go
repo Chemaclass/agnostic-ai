@@ -30,6 +30,8 @@ type fakeWindow struct {
 	showsAt *point
 	// reportedMoves counts the moves the window system reports later.
 	reportedMoves int
+	// side is the window's width and height; zero is the regular bubble.
+	side int
 }
 
 func newFakeWindow() *fakeWindow {
@@ -74,7 +76,22 @@ func (w *fakeWindow) Position() (int, int) {
 	return w.x, w.y
 }
 
-func (w *fakeWindow) Size() (int, int) { return bubbleSide, bubbleSide }
+func (w *fakeWindow) Size() (int, int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.side == 0 {
+		return bubbleSide, bubbleSide
+	}
+	return w.side, w.side
+}
+
+func (w *fakeWindow) SetSize(width, _ int) application.Window {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.side = width
+	return w
+}
+
 func (w *fakeWindow) SetPosition(x, y int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -510,7 +527,7 @@ func TestGetAppearance_SaysThePresence(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.getAppearance(rec, httptest.NewRequest(http.MethodGet, "/api/appearance", nil))
 
-	if body := strings.TrimSpace(rec.Body.String()); body != `{"animate":true,"dimWhenIdle":false,"presence":"hidden"}` {
+	if body := strings.TrimSpace(rec.Body.String()); body != `{"animate":true,"dimWhenIdle":false,"smallCompanion":false,"presence":"hidden"}` {
 		t.Errorf("appearance = %s", body)
 	}
 }
@@ -665,4 +682,33 @@ func TestServer_ARestWhileAServerStartsStopsThatServer(t *testing.T) {
 	}
 	<-rested
 	waitFor(t, "the new server to stop", exists(stopped))
+}
+
+func TestShowingAgain_PutsASmallCircleNoScreenShowsAtItsDefaultPlace(t *testing.T) {
+	s, _ := placedShell(t)
+	s.settings.SmallCompanion = true
+	bubble := s.bubble.(*fakeWindow)
+	bubble.side = smallBubbleSide
+	bubble.x, bubble.y = 9000, 9000
+
+	s.setPresence(hidden)
+	s.comeBack()
+
+	wantX, wantY := defaultBubblePosition(rect{Width: 1440, Height: 900}, smallBubbleSide)
+	if bubble.x != wantX || bubble.y != wantY {
+		t.Errorf("circle at %d,%d; want the small default place %d,%d", bubble.x, bubble.y, wantX, wantY)
+	}
+}
+
+func TestPlaceBubble_StartsASmallCircleAtItsDefaultPlace(t *testing.T) {
+	s, _ := placedShell(t)
+	s.settings.SmallCompanion = true
+
+	s.placeBubble(nil)
+
+	bubble := s.bubble.(*fakeWindow)
+	wantX, wantY := defaultBubblePosition(rect{Width: 1440, Height: 900}, smallBubbleSide)
+	if bubble.x != wantX || bubble.y != wantY {
+		t.Errorf("circle at %d,%d; want the small default place %d,%d", bubble.x, bubble.y, wantX, wantY)
+	}
 }

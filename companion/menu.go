@@ -54,6 +54,11 @@ func (s *shell) menuActions() map[string]func(on bool) {
 				log.Print(err)
 			}
 		},
+		"smallCompanion": func(on bool) {
+			if err := s.setSmallCompanion(on); err != nil {
+				log.Print(err)
+			}
+		},
 		"startAtLogin": func(on bool) {
 			if err := s.changeStartAtLogin(on); err != nil {
 				log.Print(err)
@@ -95,7 +100,7 @@ func (s *shell) bubbleMenu() error {
 }
 
 // shownIDs are the items refreshNative keeps current; the list must hold each.
-var shownIDs = []string{"animate", "dimWhenIdle", "startAtLogin", "shortcut", "hide"}
+var shownIDs = []string{"animate", "dimWhenIdle", "smallCompanion", "startAtLogin", "shortcut", "hide"}
 
 // fillBubbleMenu adds the shared list to the circle's menu, with a
 // separator before the actions, and shows the values in effect.
@@ -153,6 +158,7 @@ func (s *shell) refreshNative() {
 	prefs := s.preferences()
 	s.native["animate"].SetChecked(looks.Animate)
 	s.native["dimWhenIdle"].SetChecked(looks.DimWhenIdle)
+	s.native["smallCompanion"].SetChecked(looks.SmallCompanion)
 	s.native["startAtLogin"].SetChecked(prefs.StartAtLogin)
 	s.native["shortcut"].SetLabel(shortcutLabel(prefs.Shortcut, runtime.GOOS == "darwin"))
 	s.native["hide"].SetLabel(hideLabel(s.hideBase, prefs))

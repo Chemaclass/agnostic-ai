@@ -54,8 +54,19 @@
         // The preview stopped; the next try shows the calls again once it is back.
       }
     }
+    // The shell gives the small circle a 56-point window.
+    const bubbleFrame = document.querySelector('iframe.bubble')
+    async function sizeBubble() {
+      try {
+        const { smallCompanion } = await (await fetch('/api/appearance')).json()
+        bubbleFrame.style.width = bubbleFrame.style.height = smallCompanion ? '56px' : '84px'
+      } catch {
+        // The preview stopped; the next try sizes the frame once it is back.
+      }
+    }
     showCalls()
-    setInterval(showCalls, 1000)
+    sizeBubble()
+    setInterval(() => { showCalls(); sizeBubble() }, 1000)
   </script>
 </body>
 </html>

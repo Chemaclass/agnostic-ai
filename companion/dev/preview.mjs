@@ -38,7 +38,7 @@ function fixtureState(name, now) {
     fixture,
     conversations,
     preferences: { shortcut: 'Ctrl+Alt+Space', startAtLogin: false },
-    appearance: { animate: true, dimWhenIdle: false, presence: 'shown' },
+    appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
     /** What waited in the last list, as the shell remembers it. */
     waitingSeen: waitingIn(conversations),
   }
@@ -282,6 +282,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       sendJSON(response, 200, state.appearance)
       emit('appearance', state.appearance)
     },
+    'POST /api/appearance/small-companion': async (request, response) => {
+      state.appearance.smallCompanion = (await bodyOf(request)).enabled === true
+      sendJSON(response, 200, state.appearance)
+      emit('appearance', state.appearance)
+    },
     'POST /api/dashboard': (request, response) => { logCall('/api/dashboard'); noContent(response) },
     'POST /api/hide': (request, response) => {
       logCall('/api/hide')
@@ -316,9 +321,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     },
     // Stands in for the circle's right-click menu, which the preview has not.
     'POST /dev/appearance': async (request, response) => {
-      const { animate, dimWhenIdle } = await bodyOf(request)
+      const { animate, dimWhenIdle, smallCompanion } = await bodyOf(request)
       if (typeof animate === 'boolean') state.appearance.animate = animate
       if (typeof dimWhenIdle === 'boolean') state.appearance.dimWhenIdle = dimWhenIdle
+      if (typeof smallCompanion === 'boolean') state.appearance.smallCompanion = smallCompanion
       noContent(response)
       emit('appearance', state.appearance)
     },

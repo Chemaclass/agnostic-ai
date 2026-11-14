@@ -59,8 +59,8 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 6 {
-		t.Fatalf("menu.json has %d items; want 6", len(items))
+	if len(items) != 7 {
+		t.Fatalf("menu.json has %d items; want 7", len(items))
 	}
 	actions := shellWith(t, &fakeShortcuts{}).menuActions()
 	for _, item := range items {
@@ -130,7 +130,7 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 			got = append(got, item.Label())
 		}
 	}
-	want := []string{settingsHeader, "[x] Animate companion", "[x] Dim when idle", "[x] Start at login",
+	want := []string{settingsHeader, "[x] Animate companion", "[x] Dim when idle", "[x] Small companion", "[x] Start at login",
 		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
@@ -165,6 +165,7 @@ func TestAppearanceRoutes_SaveTellThePagesAndCheckTheNativeItem(t *testing.T) {
 	}{
 		{"/api/appearance/animate", "animate", func(a appearance) bool { return a.Animate }},
 		{"/api/appearance/dim-when-idle", "dimWhenIdle", func(a appearance) bool { return a.DimWhenIdle }},
+		{"/api/appearance/small-companion", "smallCompanion", func(a appearance) bool { return a.SmallCompanion }},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			s, looks, _, _ := menuShell(t)

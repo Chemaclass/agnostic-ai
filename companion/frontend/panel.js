@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveStartAtLogin, showPanel } from '/api.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveSmallCompanion, saveStartAtLogin, showPanel } from '/api.js'
 import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
 
 const card = document.getElementById('card')
@@ -831,7 +831,7 @@ const settings = {
   controls: new Map(),
   /** What the shell last said: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
   preferences: undefined,
-  /** How the pages look: {animate, dimWhenIdle, presence}. */
+  /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}. */
   appearance: undefined,
   /** True while the next key press becomes the shortcut. */
   recording: false,
@@ -856,6 +856,7 @@ const flip = (id) => !menuRowsOf(settings.items, settings).find((row) => row.id 
 const MENU_ACTIONS = {
   animate: () => change('appearance', () => saveAnimate(flip('animate'))),
   dimWhenIdle: () => change('appearance', () => saveDimWhenIdle(flip('dimWhenIdle'))),
+  smallCompanion: () => change('appearance', () => saveSmallCompanion(flip('smallCompanion'))),
   startAtLogin: () => change('preferences', () => saveStartAtLogin(flip('startAtLogin'))),
   shortcut: () => {
     settings.recording = !settings.recording
