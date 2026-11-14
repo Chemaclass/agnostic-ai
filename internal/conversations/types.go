@@ -185,6 +185,9 @@ type Conversation struct {
 	// untyped is a thread opened and never written in: no title, prompt
 	// or reply. The list leaves it out unless the person named it.
 	untyped bool
+	// liveRead: the scan asked whether a process holds this row and got
+	// an answer, so a row that is not Live is closed, not unknown.
+	liveRead bool
 	// readAt is when the read that gave this row began. A kept result
 	// or a cloud list can be older than the scan that shows it.
 	readAt time.Time

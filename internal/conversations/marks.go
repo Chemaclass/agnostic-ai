@@ -26,13 +26,15 @@ const (
 	StateCompleted State = "completed"
 	// StateUnread: something was written after the person last saw it.
 	StateUnread State = "unread"
-	// StateActive: open now, or written within activeSpan.
+	// StateActive: open now, or written within activeSpan when the scan
+	// cannot tell whether it is closed.
 	StateActive State = "active"
-	// StateDormant: closed and quiet for longer than activeSpan.
+	// StateDormant: known to be closed, or quiet for longer than activeSpan.
 	StateDormant State = "dormant"
 )
 
-// activeSpan is how long a closed conversation stays active after its last write.
+// activeSpan is how long a conversation the scan cannot see close stays
+// active after its last write.
 const activeSpan = 24 * time.Hour
 
 // Mark is what the person says about a conversation.
@@ -162,7 +164,7 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 		return StateCompleted
 	case !seenAt.IsZero() && written.After(seenAt):
 		return StateUnread
-	case c.Live || now.Sub(written) < activeSpan:
+	case c.Live || (!c.liveRead && now.Sub(written) < activeSpan):
 		return StateActive
 	default:
 		return StateDormant

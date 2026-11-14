@@ -186,7 +186,14 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 			locks = append(locks, lock)
 		}
 	}
-	for lock, pid := range s.Processes.Holders(locks) {
+	held, err := s.Processes.Holders(locks)
+	if err == nil {
+		// Only a terminal thread is known to hold its lock while it runs.
+		for i := range conversations {
+			conversations[i].liveRead = conversations[i].App == AppCLI
+		}
+	}
+	for lock, pid := range held {
 		i, ok := lockOf[lock]
 		if !ok {
 			continue

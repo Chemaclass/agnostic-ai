@@ -144,8 +144,10 @@ Each row has a `state`, the first of these that holds:
 2. `working`: open, and its tool says the agent is busy.
 3. `completed`: you marked it completed. It holds until something is written or its tool says the agent is working.
 4. `unread`: written after you last saw it.
-5. `active`: open, or written in the last 24 hours.
-6. `dormant`: closed and quiet for longer.
+5. `active`: open, or written in the last 24 hours when the server cannot tell whether it is closed.
+6. `dormant`: closed, or quiet for longer than 24 hours.
+
+The server knows a chat is closed for local Claude Code and Codex sessions started in a terminal, and for `cursor-agent` chats, on macOS and Linux: no process holds them. Such a chat is `dormant` as soon as you have seen its last write. Cursor editor chats, editor and desktop app sessions, cloud sessions, and every chat on Windows keep the 24 hours. So does every chat in a scan where `ps` or `lsof` failed.
 
 The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold. Such a row carries `quietSince`, and the web interface and the companion show "No activity for 7m" instead of "Waiting for you".
 

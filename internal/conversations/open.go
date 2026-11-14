@@ -192,7 +192,8 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	if c.Tool != ToolCursor || c.store == "" {
 		return c, false
 	}
-	pid := processes.Holders([]string{c.store})[c.store]
+	held, _ := processes.Holders([]string{c.store})
+	pid := held[c.store]
 	if pid <= 0 {
 		return c, false
 	}

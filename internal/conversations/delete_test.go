@@ -191,7 +191,7 @@ func TestDelete_RefusesAConversationThatIsNotArchived(t *testing.T) {
 		"hidden, so not in lists": {[]Mark{MarkCompleted, MarkHidden}, DeleteNotListed},
 	} {
 		t.Run(name, func(t *testing.T) {
-			scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+			scanner, stores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
 			scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 			scanner.Now = func() time.Time { return archivedAt }
 			files := sessionFiles(t, stores, idSafari)
@@ -212,7 +212,7 @@ func TestDelete_RefusesAConversationThatIsNotArchived(t *testing.T) {
 }
 
 func TestDelete_SaysWhyAConversationThatIsNotArchivedStays(t *testing.T) {
-	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	sessionFiles(t, stores, idSafari)
 
@@ -472,7 +472,7 @@ func TestScan_SaysOnAnArchivedRowWhyItCannotBeDeleted(t *testing.T) {
 			{"id":"` + codexDone + `","cwd":"/tmp/app","created_at_ms":1794045600000,"updated_at_ms":1794049200000,"originator":"codex-tui","source":"cli","name":"Done"},
 			{"id":"` + codexOpen + `","cwd":"/tmp/app","created_at_ms":1794045600000,"updated_at_ms":1794049200000,"originator":"codex-tui","source":"cli","name":"Open"}
 		]`,
-	}), fakeProcesses{})
+	}), fakeProcesses{readFails: true})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	scanner.Now = func() time.Time { return archivedAt }
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
@@ -702,7 +702,9 @@ func TestDelete_RefusesASessionThatWritesBetweenItsReads(t *testing.T) {
 // pid always answers that none runs, as a failed ps does.
 type tableOnly struct{ fakeProcesses }
 
-func (tableOnly) AliveAmong([]ProcessRef) map[int]bool { return map[int]bool{} }
+func (tableOnly) AliveAmong([]ProcessRef) (map[int]bool, error) {
+	return map[int]bool{}, errProcessRead
+}
 
 func TestDelete_DecidesWhetherTheSessionRunsFromTheTableItRead(t *testing.T) {
 	scanner, stores, target, _ := deleteScanner(t, fakeProcesses{})
@@ -989,7 +991,7 @@ func TestScan_SaysOnADormantRowWhyItCannotBeDeleted(t *testing.T) {
 	const codexQuiet = "55555555-5555-4555-8555-555555555555"
 	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
 		"state_5.sqlite|FROM threads": `[{"id":"` + codexQuiet + `","cwd":"/tmp/app","created_at_ms":1793786400000,"updated_at_ms":1793790000000,"originator":"codex-tui","source":"cli","name":"Quiet"}]`,
-	}), fakeProcesses{})
+	}), fakeProcesses{readFails: true})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
 	sessionFiles(t, stores, idSafari)

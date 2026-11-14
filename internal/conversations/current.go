@@ -119,7 +119,8 @@ func claudeSessionOf(stores Stores, process ProcessInfo) (string, bool) {
 func codexThreadOf(processes Processes, stores Stores, getenv func(string) string, pid int) (Ref, error) {
 	locks, _ := filepath.Glob(filepath.Join(stores.CodexDir, "thread-writer-locks", "*.lock"))
 	var held []string
-	for path, holder := range processes.Holders(locks) {
+	holders, _ := processes.Holders(locks)
+	for path, holder := range holders {
 		id := strings.TrimSuffix(filepath.Base(path), ".lock")
 		if holder == pid && sessionIDPattern.MatchString(id) {
 			held = append(held, id)
@@ -145,7 +146,8 @@ func cursorChatOf(processes Processes, stores Stores, getenv func(string) string
 		}
 	}
 	var held []string
-	for path, holder := range processes.Holders(recent) {
+	holders, _ := processes.Holders(recent)
+	for path, holder := range holders {
 		id := filepath.Base(filepath.Dir(path))
 		if holder == pid && cursorIDPattern.MatchString(id) {
 			held = append(held, id)

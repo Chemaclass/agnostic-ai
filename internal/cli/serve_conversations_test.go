@@ -22,13 +22,13 @@ import (
 type stillProcesses struct{}
 
 func (stillProcesses) Alive(int, string) bool { return false }
-func (stillProcesses) AliveAmong([]conversations.ProcessRef) map[int]bool {
-	return nil
+func (stillProcesses) AliveAmong([]conversations.ProcessRef) (map[int]bool, error) {
+	return nil, nil
 }
 func (stillProcesses) Table() ([]conversations.ProcessInfo, error) { return nil, nil }
 func (stillProcesses) Args([]int) map[int]string                   { return nil }
 func (stillProcesses) Cwds([]int) map[int]string                   { return nil }
-func (stillProcesses) Holders([]string) map[string]int             { return nil }
+func (stillProcesses) Holders([]string) (map[string]int, error)    { return nil, nil }
 func (stillProcesses) AppRunning(string) bool                      { return false }
 
 // runningProcesses has one process running, with every other answer of stillProcesses.
@@ -37,14 +37,14 @@ type runningProcesses struct {
 	pid int
 }
 
-func (r runningProcesses) AliveAmong(processes []conversations.ProcessRef) map[int]bool {
+func (r runningProcesses) AliveAmong(processes []conversations.ProcessRef) (map[int]bool, error) {
 	alive := map[int]bool{}
 	for _, process := range processes {
 		if process.PID == r.pid {
 			alive[process.PID] = true
 		}
 	}
-	return alive
+	return alive, nil
 }
 
 type recordingLauncher struct{ calls []string }
@@ -624,14 +624,14 @@ type holdingProcesses struct {
 	held map[string]int
 }
 
-func (h holdingProcesses) Holders(paths []string) map[string]int {
+func (h holdingProcesses) Holders(paths []string) (map[string]int, error) {
 	holders := map[string]int{}
 	for _, path := range paths {
 		if pid, ok := h.held[filepath.Base(path)]; ok {
 			holders[path] = pid
 		}
 	}
-	return holders
+	return holders, nil
 }
 
 func TestConversationsHandler_EveryServerSaysWhenACodexWaitIsReadFromSilence(t *testing.T) {
