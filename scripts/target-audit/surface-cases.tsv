@@ -150,3 +150,5 @@ crush-background-subagent-conversations	crush	check on them, send them mid-run f
 ellipsis-session-api-operation-permissions	ellipsis	Ellipsis API rules for the session token. Default every operation a session token can use, and an empty list is the same as leaving it out.	yes	signal:cap-ellipsis-session-api-permissions
 codebuddy-builtin-subagent-model-routing	codebuddy	Written to the `subagents.agents.<sub-agent-name>.model` field in settings	yes	signal:cap-codebuddy-builtin-subagent-model-routing
 amp-linear-admin-routing	amp	A route can replace the default start instructions for its Linear team or project	no	signal:cap-scheduled-project-agents
+augment-agent-run-controls	augment	| `isolation` | No | `worktree` to run the agent in a separate git worktree |	yes	signal:cap-augment-agent-run-controls
+qwen-fork-profiles	qwen	A project can save a named fork restriction in .qwen/fork-profiles/<name>.md and select it with fork_profile.	yes	signal:cap-qwen-fork-profiles
