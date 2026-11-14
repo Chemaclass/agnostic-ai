@@ -524,11 +524,16 @@ func TestImportKiroAgents_JSONMatchesMarkdownMapping(t *testing.T) {
 	}
 }
 
-func TestImportKiroAgents_InvalidJSONFails(t *testing.T) {
+func TestImportKiroAgents_NonObjectJSONIsSkippedWithANote(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, kiroAgentsDir, "bad.json"), "[1, 2]\n")
-	if _, err := importKiroAgents(dir, kiroAgentsDst(t, dir), nil); err == nil || !strings.Contains(err.Error(), "bad.json") {
-		t.Errorf("err = %v, want a failure naming bad.json", err)
+	log := captureLog(t)
+	count, err := importKiroAgents(dir, kiroAgentsDst(t, dir), nil)
+	if err != nil || count != 0 {
+		t.Fatalf("count = %d, err = %v, want a skip", count, err)
+	}
+	if !strings.Contains(log.String(), "note: skipped .kiro/agents/bad.json:") {
+		t.Errorf("missing skip note:\n%s", log.String())
 	}
 }
 
@@ -592,4 +597,116 @@ func TestImportKiro_NestedAndJSONAgentsRoundTrip(t *testing.T) {
 		t.Errorf("re-import changed reviewer:\n%s\n---\n%s", firstReviewer, got)
 	}
 	execCLI(t, "sync", "-t", "kiro", "--check")
+}
+
+func TestImportKiroAgents_ReadsFileURIPrompt(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "team", "aws.json"), `{"description":"AWS.","prompt":"file://./prompts/aws.md"}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "team", "prompts", "aws.md"), "You know AWS.\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "top.json"), `{"description":"Top.","prompt":"file://../../shared/top.md"}`)
+	writeFile(t, filepath.Join(dir, "shared", "top.md"), "Shared prompt.\n")
+	dst := kiroAgentsDst(t, dir)
+	if _, err := importKiroAgents(dir, dst, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dst, "team-aws.md")); !strings.Contains(got, "You know AWS.") || strings.Contains(got, "file://") {
+		t.Errorf("file prompt not inlined:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(dst, "top.md")); !strings.Contains(got, "Shared prompt.") {
+		t.Errorf("prompt above the agents folder not inlined:\n%s", got)
+	}
+}
+
+func TestImportKiroAgents_SkipsProfileWithUnusablePrompt(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "project")
+	writeFile(t, filepath.Join(root, "outside.md"), "Secret.\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "missing.json"), `{"prompt":"file://./nope.md"}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "escape.json"), `{"prompt":"file://../../../outside.md"}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "arr.json"), `{"prompt":["a","b"]}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "obj.json"), `{"prompt":{"a":1}}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "good.md"), "---\ndescription: G.\n---\n\nBody.\n")
+	dst := kiroAgentsDst(t, dir)
+	log := captureLog(t)
+	count, err := importKiroAgents(dir, dst, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("count = %d, want 1", count)
+	}
+	for _, name := range []string{"missing", "escape", "arr", "obj"} {
+		if _, err := os.Stat(filepath.Join(dst, name+".md")); err == nil {
+			t.Errorf("%s was imported", name)
+		}
+		if !strings.Contains(log.String(), "note: skipped .kiro/agents/"+name+".json:") {
+			t.Errorf("no skip note for %s:\n%s", name, log.String())
+		}
+	}
+}
+
+func TestImportKiroAgents_NullPromptIsEmptyBody(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "n.json"), `{"description":"N.","prompt":null}`)
+	dst := kiroAgentsDst(t, dir)
+	if _, err := importKiroAgents(dir, dst, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dst, "n.md")); strings.Contains(got, "null") {
+		t.Errorf("null prompt became text:\n%s", got)
+	}
+}
+
+func TestImportKiroAgents_EscapedSlashAndBrokenJSON(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "a-first.md"), "---\ndescription: F.\n---\n\nFirst.\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "slash.json"), `{"description":"See https:\/\/example.test\/docs","prompt":"Go."}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "broken.json"), `{"description": `)
+	dst := kiroAgentsDst(t, dir)
+	log := captureLog(t)
+	count, err := importKiroAgents(dir, dst, nil)
+	if err != nil {
+		t.Fatalf("one bad profile aborted import: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
+	}
+	if got := readFile(t, filepath.Join(dst, "slash.md")); !strings.Contains(got, "https://example.test/docs") {
+		t.Errorf("escaped slash not decoded:\n%s", got)
+	}
+	if !strings.Contains(log.String(), "note: skipped .kiro/agents/broken.json:") {
+		t.Errorf("no note for broken JSON:\n%s", log.String())
+	}
+}
+
+func TestImportKiroAgents_NestedMarkdownBeatsNestedJSON(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "team", "planner.json"), `{"prompt":"JSON body."}`)
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "team", "planner.md"), "---\ndescription: M.\n---\n\nMD body.\n")
+	dst := kiroAgentsDst(t, dir)
+	if _, err := importKiroAgents(dir, dst, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dst, "team-planner.md")); !strings.Contains(got, "MD body.") {
+		t.Errorf("nested JSON won:\n%s", got)
+	}
+}
+
+func TestImportKiro_ReimportSaysTheOriginalCanBeRemoved(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "team", "planner.md"), "---\ndescription: Plans.\n---\n\nPlan.\n")
+	execCLI(t, "import", "kiro")
+	execCLI(t, "sync", "-t", "kiro")
+	log := captureLog(t)
+	execCLI(t, "import", "kiro", "--overwrite")
+	out := log.String()
+	if !strings.Contains(out, "the original can be removed") {
+		t.Errorf("missing remove note:\n%s", out)
+	}
+	if strings.Contains(out, "rename one of them") {
+		t.Errorf("re-import asked to rename a synced copy:\n%s", out)
+	}
 }
