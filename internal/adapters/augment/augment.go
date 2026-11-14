@@ -29,7 +29,10 @@
 // Agents emit as one Markdown file per agent spec at
 // `.augment/agents/<name>.md` (override via outputs.augment.agents-dir).
 // Frontmatter carries `name` (required) plus `description` (falls back
-// to the spec name), `color`, and `model` when the spec sets them.
+// to the spec name), `color`, and `model` when the spec sets them, plus
+// `thinking` (Auggie 1.x) when the portable `effort` is one of off,
+// minimal, low, medium, high, or xhigh (an explicit `x-augment.thinking`
+// wins). Any other `effort` value raises a sync note.
 // `tools` and `disabled_tools` are real Augment agent fields, but only
 // in Augment's own tool vocabulary, never Claude-style names (`Read`,
 // `Grep`, `Bash`, ...). The `tools` allowlist differs by version:
@@ -152,6 +155,7 @@ package augment
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -182,6 +186,7 @@ const (
 var caps = emit.Capabilities{
 	Target:         target,
 	Supports:       []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
 }
 
@@ -429,6 +434,7 @@ func ruleMarkdown(e spec.Entry) string {
 // (see agentMarkdown), so the whole batch surfaces one coverage note
 // instead of a silent drop.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	noteUnsupportedAgentEffort(agents)
 	var droppedTools []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
@@ -474,6 +480,10 @@ func agentMarkdown(a spec.Entry) (body string, droppedTools bool) {
 			keys = append(keys, k)
 		}
 	}
+	if level, ok := agentThinking(a); ok {
+		meta["thinking"] = level
+		keys = append(keys, "thinking")
+	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, "name", "description", "color", "model")
 	front := emit.FrontmatterOrdered(meta, keys)
 	droppedTools = len(emit.StringSlice(a.Meta["tools"])) > 0 && !xAugmentSetsTools(a.Meta)
@@ -482,6 +492,46 @@ func agentMarkdown(a spec.Entry) (body string, droppedTools bool) {
 		return front + "\n", droppedTools
 	}
 	return front + "\n" + trimmed + "\n", droppedTools
+}
+
+// agentThinking maps the portable `effort` onto the Auggie 1.x agent
+// `thinking` key when it is one of effortLevels and `x-augment.thinking`
+// is not set, since the explicit key wins.
+func agentThinking(a spec.Entry) (string, bool) {
+	level, _ := emit.ResolveMeta(a.Meta, target)["effort"].(string)
+	if !slices.Contains(effortLevels, level) {
+		return "", false
+	}
+	x, _ := emit.CustomTargetMeta(a.Meta, target)
+	if _, explicit := x["thinking"]; explicit {
+		return "", false
+	}
+	return level, true
+}
+
+// noteUnsupportedAgentEffort reports an `effort` that has no `thinking`
+// level: a value outside effortLevels, or an integer budget. An agent
+// that sets `x-augment.thinking` is skipped.
+func noteUnsupportedAgentEffort(agents []spec.Entry) {
+	unsupported := 0
+	for _, a := range agents {
+		resolved := emit.ResolveMeta(a.Meta, target)
+		v := resolved["effort"]
+		if v == nil || v == "" {
+			continue
+		}
+		if level, ok := v.(string); ok && slices.Contains(effortLevels, level) {
+			continue
+		}
+		if x, _ := emit.CustomTargetMeta(a.Meta, target); x != nil {
+			if _, explicit := x["thinking"]; explicit {
+				continue
+			}
+		}
+		unsupported++
+	}
+	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", unsupported,
+		"the agent file has no reasoning effort key for this value; thinking takes off, minimal, low, medium, high or xhigh, or set x-augment.thinking")
 }
 
 // xAugmentSetsTools reports whether the spec already carries an
