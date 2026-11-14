@@ -61,6 +61,9 @@
 // Amp's side (ampcode.com/docs/customize/plugins:
 // `amp.createAgent(...)` and `amp.registerAgentMode(...)`), but it is
 // programmatic TypeScript, out of reach of a declarative emitter.
+// `outputs.amp.agents: skill` opts in to writing agents there as
+// skills. Sync keeps it off while an enabled target with subagents
+// reads that directory, and fails on an agent and skill of one name.
 //
 // The Command spec kind is not declared in caps.Supports: Amp's docs
 // (ampcode.com/docs/customize/skills) document `.agents/skills/`, but a
@@ -138,7 +141,8 @@ func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool 
 // `.amp/settings.json` for MCP servers and settings, Amp's two
 // environment files, and, when opted in via outputs.amp.rules-file, a
 // legacy concatenated rules document that also carries the agent
-// bodies. Agents get no file of their own; see the package doc. The
+// bodies. Agents get no file of their own unless outputs.amp.agents
+// is skill; see the package doc. The
 // project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {

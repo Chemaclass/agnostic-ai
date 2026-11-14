@@ -95,7 +95,7 @@ Under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `comm
 
 ### Environments
 
-`install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing), which Amp runs while preparing a project orb or snapshot. Amp runs it again when it refreshes a snapshot, so write it to be safe to repeat. Amp stops setup after 20 minutes, including the time the project's pre-setup script (set in project settings) takes. Named `terminals` write [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals): services Amp keeps running, apart from the setup script.
+`install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing), which Amp runs while preparing a project orb or snapshot. Amp runs it again when it refreshes a snapshot, so write it to be safe to repeat. A shared project snapshot keeps only the `PATH` directories that setup adds through `~/.bashrc` and the other bash profile files; put aliases, shell functions or `eval "$(mise activate bash)"` in a hand-written `.agents/resume`. Amp stops setup after 20 minutes, including the time the project's pre-setup script (set in project settings) takes. Named `terminals` write [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals): services Amp keeps running, apart from the setup script.
 
 - Each service needs `command`. Its name uses only lowercase letters, numbers, and hyphens, starts with a letter or number, and has at most 32 characters.
 - `x-amp.terminals` can set `cwd`, `port`, `env`, `health`, `portal`, `portals`, `review`, and `platforms`.
