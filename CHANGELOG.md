@@ -24,6 +24,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### OpenHands
+
+- `import openhands` stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential instead of copying it into a committed spec, and keeps `${VAR}` and `$VAR` references as written (#3450).
+
 #### Codex
 
 - `hook run` uses Codex's 1s default and 3s maximum for `SessionEnd` and `Interrupt` (#3432).
