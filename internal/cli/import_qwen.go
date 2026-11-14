@@ -167,19 +167,9 @@ func importQwenReadonly(data []byte) ([]byte, error) {
 			return data, nil
 		}
 	}
-	for i := 0; i+1 < len(native.Content); i += 2 {
-		if native.Content[i].Value == "disallowedTools" {
-			native.Content = append(native.Content[:i], native.Content[i+2:]...)
-			break
-		}
-	}
+	removeMappingKey(native, "disallowedTools")
 	if len(native.Content) == 0 {
-		for i := 0; i+1 < len(mapping.Content); i += 2 {
-			if mapping.Content[i].Value == "x-qwen" {
-				mapping.Content = append(mapping.Content[:i], mapping.Content[i+2:]...)
-				break
-			}
-		}
+		removeMappingKey(mapping, "x-qwen")
 	}
 	setMappingValue(mapping, "readonly", true)
 	return encodeFrontmatter(mapping, rest, "qwen")
