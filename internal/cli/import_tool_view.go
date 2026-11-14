@@ -268,7 +268,15 @@ func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adap
 	before := g.files[path].before
 	var hidden, unknown []string
 	for _, key := range missingKeys(path, before, now) {
-		if strings.HasPrefix(key, "x-") && onlyDeleteMarkers(old.Meta[key]) {
+		if tool, ok := strings.CutPrefix(key, "x-"); ok && onlyDeleteMarkers(old.Meta[key]) && slices.Contains(g.files[path].sources, tool) {
+			// The importing tool's own markers say what its file lacks. One
+			// the file shows again is gone; one it still lacks stays.
+			markers, _ := old.Meta[key].(map[string]any)
+			shown := shownMarkers(now, markers, tool)
+			if len(shown) < len(markers) {
+				hidden = append(hidden, key)
+				before = withoutMarkers(path, before, key, shown)
+			}
 			continue
 		}
 		switch hides, known := v.hidesKey(tools, old, key); {
@@ -291,9 +299,50 @@ func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adap
 	return carriedLosses(path, before, now, unknown, presentKeys(path, now)), nil
 }
 
+// shownMarkers lists the marker keys whose value now shows for tool: a
+// single value, or a map with an entry for tool.
+func shownMarkers(now []byte, markers map[string]any, tool string) []string {
+	top, _, ok := frontmatterNode(now)
+	if !ok {
+		return nil
+	}
+	var shown []string
+	for key := range markers {
+		value := mappingValue(top, key)
+		if value != nil && (value.Kind == yaml.ScalarNode || mappingValue(value, tool) != nil) {
+			shown = append(shown, key)
+		}
+	}
+	return shown
+}
+
+// withoutMarkers returns the spec at path with the shown markers removed
+// from its key block, or it unchanged when it cannot edit it.
+func withoutMarkers(path string, spec []byte, key string, shown []string) []byte {
+	if len(shown) == 0 || filepath.Ext(path) != ".md" {
+		return spec
+	}
+	top, rest, ok := frontmatterNode(spec)
+	if !ok {
+		return spec
+	}
+	block := mappingValue(top, key)
+	if block == nil || block.Kind != yaml.MappingNode {
+		return spec
+	}
+	for _, name := range shown {
+		block = withoutMappingKey(block, name)
+	}
+	setOrDropKey(top, key, block)
+	out, err := encodeFrontmatter(top, rest, key)
+	if err != nil {
+		return spec
+	}
+	return out
+}
+
 // onlyDeleteMarkers reports whether value is an `x-<tool>` block of
-// nothing but `key: null` markers. An import drops one when the tool's
-// file shows the value again, so it is not a key the tools failed to show.
+// nothing but `key: null` markers.
 func onlyDeleteMarkers(value any) bool {
 	block, ok := value.(map[string]any)
 	if !ok || len(block) == 0 {
