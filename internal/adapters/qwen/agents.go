@@ -27,6 +27,15 @@ func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolCapabili
 // (qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/).
 var agentFields = []string{"model", "color", "maxTurns", "background", "hooks"}
 
+// readonlyDisallowedTools is the portable `readonly: true` in Qwen terms:
+// block the tools that write files (ToolNames in
+// packages/core/src/tools/tool-names.ts at v0.27.3). Shell stays allowed.
+var readonlyDisallowedTools = []string{"write_file", "edit", "notebook_edit"}
+
+// ReadonlyDisallowedTools is the blocklist sync writes for `readonly: true`,
+// which import reads back as that key.
+func ReadonlyDisallowedTools() []string { return slices.Clone(readonlyDisallowedTools) }
+
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	permissionModes := 0
 	for _, a := range agents {
@@ -70,6 +79,13 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 				// Qwen treats an empty list as inherit-all, so unresolved names stay restrictive.
 				meta["tools"] = tools
 				keys = append(keys, "tools")
+			}
+		}
+		if a.Meta["readonly"] == true {
+			custom, _ := a.Meta[emit.XPrefix+target].(map[string]any)
+			if _, explicit := custom["disallowedTools"]; !explicit {
+				meta["disallowedTools"] = ReadonlyDisallowedTools()
+				keys = append(keys, "disallowedTools")
 			}
 		}
 		if _, present := a.Meta["permissionMode"]; present {

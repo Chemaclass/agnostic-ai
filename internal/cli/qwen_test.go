@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -248,5 +249,81 @@ func TestQwen_PermissionScopesReachNativeSettings(t *testing.T) {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("missing %q: %s", want, data)
 		}
+	}
+}
+
+func TestQwen_ImportReadsWriteBlocklistAsReadonly(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	writeFile(t, filepath.Join(dir, ".qwen/agents/ro.md"), "---\nname: ro\ndescription: d\ndisallowedTools: [notebook_edit, write_file, edit]\n---\nBody\n")
+	writeFile(t, filepath.Join(dir, ".qwen/agents/custom.md"), "---\nname: custom\ndescription: d\ndisallowedTools: [write_file]\n---\nBody\n")
+	for _, args := range [][]string{{"import", "qwen"}, {"sync"}, {"sync", "--check"}, {"lint"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	ro, err := spec.ParseMarkdownBytes(spec.KindAgent, []byte(readFile(t, filepath.Join(dir, ".agnostic-ai/agents/ro.md"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ro.Meta["readonly"] != true || ro.Meta["disallowedTools"] != nil || ro.Meta["x-qwen"] != nil {
+		t.Errorf("ro meta = %#v", ro.Meta)
+	}
+	custom, err := spec.ParseMarkdownBytes(spec.KindAgent, []byte(readFile(t, filepath.Join(dir, ".agnostic-ai/agents/custom.md"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	native, _ := custom.Meta["x-qwen"].(map[string]any)
+	if _, ok := custom.Meta["readonly"]; ok || fmt.Sprint(native["disallowedTools"]) != "[write_file]" {
+		t.Errorf("custom meta = %#v", custom.Meta)
+	}
+}
+
+func TestQwen_ReadonlySpecRoundTripsAndNativeDeletionReachesSpec(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	specPath := filepath.Join(dir, ".agnostic-ai/agents/reviewer.md")
+	nativePath := filepath.Join(dir, ".qwen/agents/reviewer.md")
+	writeFile(t, specPath, "---\nname: reviewer\ndescription: r\nreadonly: true\n---\nBody\n")
+	for _, args := range [][]string{{"sync"}, {"import", "qwen"}, {"sync", "--check"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	if !strings.Contains(readFile(t, nativePath), "disallowedTools") || !strings.Contains(readFile(t, specPath), "readonly: true") {
+		t.Fatalf("round trip lost readonly:\n%s\n%s", readFile(t, specPath), readFile(t, nativePath))
+	}
+	writeFile(t, nativePath, "---\nname: reviewer\ndescription: r\n---\nBody\n")
+	for _, args := range [][]string{{"import", "qwen", "--overwrite"}, {"sync"}, {"sync", "--check"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	if got := readFile(t, specPath); strings.Contains(got, "readonly") || strings.Contains(got, "disallowedTools") {
+		t.Errorf("native deletion did not reach the spec:\n%s", got)
+	}
+	if strings.Contains(readFile(t, nativePath), "disallowedTools") {
+		t.Errorf("sync restored the blocklist:\n%s", readFile(t, nativePath))
+	}
+}
+
+func TestQwen_NativeBlocklistEditKeepsReadonlyAndExplicitBlocklist(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	specPath := filepath.Join(dir, ".agnostic-ai/agents/reviewer.md")
+	nativePath := filepath.Join(dir, ".qwen/agents/reviewer.md")
+	writeFile(t, specPath, "---\nname: reviewer\ndescription: r\nreadonly: true\nx-qwen:\n  disallowedTools: [write_file]\n---\nBody\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	writeFile(t, nativePath, strings.Replace(readFile(t, nativePath), "description: r", "description: edited", 1))
+	for _, args := range [][]string{{"import", "qwen", "--overwrite"}, {"sync"}, {"sync", "--check"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	got := readFile(t, specPath)
+	if !strings.Contains(got, "readonly: true") || !strings.Contains(got, "write_file") || !strings.Contains(got, "edited") {
+		t.Errorf("spec after native edit:\n%s", got)
 	}
 }

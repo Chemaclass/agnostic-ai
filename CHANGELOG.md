@@ -227,6 +227,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qwen Code
 
+- An agent with `readonly: true` gets `disallowedTools: [write_file, edit, notebook_edit]` instead of a sync note, and `import` reads that list back as `readonly: true` (#3452).
 - A command hook `timeout` of 1000 seconds or more is written in milliseconds; `timeout: 1200` gave a 1.2 second limit (#3316).
 - `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3277).
 
