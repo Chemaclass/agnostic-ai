@@ -6,6 +6,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // augmentNativeAgentKeys are the Auggie agent keys with no portable
@@ -14,29 +15,42 @@ var augmentNativeAgentKeys = []string{"tools", "disabled_tools", "max_turns", "r
 
 // importAugmentAgents reads `.augment/agents/*.md`. The Auggie 1.x
 // `thinking` key becomes `effort` when it holds one of the six levels
-// sync writes it from; any other value stays under `x-augment`.
+// sync writes it from, unless the spec scopes `thinking` under
+// `x-augment`; any other `thinking` stays under `x-augment`.
 func importAugmentAgents(root string, src config.Sources) (int, error) {
-	return importFlatMarkdownFilesWith(filepath.Join(root, ".augment", "agents"), importSourcePath(root, src.Agents), augmentAgentFields, func(data []byte) ([]byte, error) {
-		natives := augmentNativeAgentKeys
-		if mapping, rest, ok := frontmatterNode(data); ok {
-			if node := mappingValue(mapping, "thinking"); node != nil && mappingValue(mapping, "effort") == nil {
-				if slices.Contains(augment.Adapter{}.SettingsEffortLevels(), node.Value) {
-					for i := 0; i+1 < len(mapping.Content); i += 2 {
-						if mapping.Content[i].Value == "thinking" {
-							mapping.Content[i].Value = "effort"
-						}
-					}
-					out, err := encodeFrontmatter(mapping, rest, "augment")
-					if err != nil {
-						return nil, err
-					}
-					data = out
-				}
-			}
+	return importFlatMarkdownFilesAt(filepath.Join(root, ".augment", "agents"), importSourcePath(root, src.Agents), augmentAgentFields, func(data []byte, dst string) ([]byte, error) {
+		mapping, rest, ok := frontmatterNode(data)
+		if !ok {
+			return data, nil
 		}
-		if mapping, _, ok := frontmatterNode(data); ok && mappingValue(mapping, "thinking") != nil {
-			natives = append(slices.Clone(natives), "thinking")
+		natives := augmentNativeAgentKeys
+		if thinking := mappingValue(mapping, "thinking"); thinking != nil {
+			portable := slices.Contains(augment.Adapter{}.SettingsEffortLevels(), thinking.Value) &&
+				mappingValue(mapping, "effort") == nil && !specScopesKey(dst, "augment", "thinking")
+			if portable {
+				renameMappingKey(mapping, "thinking", "effort")
+				var err error
+				if data, err = encodeFrontmatter(mapping, rest, "augment"); err != nil {
+					return nil, err
+				}
+			} else {
+				natives = append(slices.Clone(natives), "thinking")
+			}
 		}
 		return importNativeAgentFields(data, "augment", natives...)
 	})
+}
+
+// preserveAugmentEffort keeps the spec's `effort` when Augment's file
+// cannot show it: a value that is not one of the six levels, or a level
+// the spec overrides with `x-augment.thinking`.
+func preserveAugmentEffort(existing, imported *yaml.Node) {
+	effort := mappingValue(existing, "effort")
+	if effort == nil || mappingValue(imported, "effort") != nil {
+		return
+	}
+	overridden := mappingValue(mappingValue(existing, "x-augment"), "thinking") != nil
+	if overridden || !slices.Contains(augment.Adapter{}.SettingsEffortLevels(), effort.Value) {
+		imported.Content = append(imported.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "effort"}, effort)
+	}
 }
