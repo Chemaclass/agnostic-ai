@@ -71,7 +71,7 @@ func TestLiteralSettingValueRuleAgrees(t *testing.T) {
 			"claude hook":         claudeHookCredentialField(claudehooks.CommandEntry{URL: "https://hooks.example.com", Headers: map[string]string{c.key: c.value}}) != "",
 			"claude settings env": claudeSettingsEnvLeftOut(t, c.key, c.value),
 			"codex overlay":       codexCredentialIn(c.key, c.value, false),
-			"grok hook":           validateGrokRetainedCredentials(map[string]any{"hook": map[string]any{"env": map[string]any{c.key: c.value}}}) != nil,
+			"grok hook":           validateRetainedCredentials(map[string]any{"hook": map[string]any{"env": map[string]any{c.key: c.value}}}) != nil,
 		}
 		for name, got := range checks {
 			if got != c.out {

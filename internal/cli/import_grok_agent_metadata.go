@@ -70,7 +70,7 @@ func importGrokAgentMetadata(data []byte) ([]byte, error) {
 					probe[field] = values
 				}
 			}
-			if err := validateGrokRetainedCredentials(map[string]any{"inline": probe}); err != nil {
+			if err := validateRetainedCredentials(map[string]any{"inline": probe}); err != nil {
 				return nil, err
 			}
 		}
@@ -80,7 +80,7 @@ func importGrokAgentMetadata(data []byte) ([]byte, error) {
 		if !ok {
 			return nil, errors.New("invalid Grok agent hook metadata")
 		}
-		if err := validateGrokRetainedCredentials(map[string]any{"inline": hooks}); err != nil {
+		if err := validateRetainedCredentials(map[string]any{"inline": hooks}); err != nil {
 			return nil, err
 		}
 		if err := validateGrokHookCredentials(grokHookEntries(hooks)); err != nil {
@@ -124,7 +124,7 @@ func grokNonStringKeyPath(value any, path string) string {
 	return ""
 }
 
-func validateGrokRetainedCredentials(entries map[string]any) error {
+func validateRetainedCredentials(entries map[string]any) error {
 	unsafe := false
 	walkMCPStrings("", "", entries, func(_, key, value string) {
 		if credentialSettingValue(key, value) {
@@ -176,7 +176,7 @@ func withoutReferenceSettings(entries map[string]any) map[string]any {
 }
 
 func validateGrokHookCredentials(entries map[string]any) error {
-	if err := validateGrokRetainedCredentials(entries); err != nil {
+	if err := validateRetainedCredentials(entries); err != nil {
 		return fmt.Errorf("%w; hook env values are literal, inherit credentials from the process and reference them in command or url", err)
 	}
 	return nil

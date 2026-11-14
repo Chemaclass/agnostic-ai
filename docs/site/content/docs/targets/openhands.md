@@ -136,6 +136,8 @@ Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --globa
 
 `.agents/skills/` wins a name clash with the legacy folders, as in OpenHands. Hooks import from both layouts. Snake_case `pre_tool_use` comes back as `PreToolUse`.
 
+Import stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential, such as `API_KEY: sk-...`, because specs are committed. Replace the value with a `${VAR}` or `$VAR` reference, which OpenHands resolves from the environment at load time. Import keeps references as written.
+
 Import loses these details (none change what OpenHands loads):
 
 - Unnamed `sse_servers` and `shttp_servers` entries are named after the URL host (`docs-example-test`).
