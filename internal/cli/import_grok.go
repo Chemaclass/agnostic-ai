@@ -130,7 +130,7 @@ func importGrokSkillName(data []byte) ([]byte, error) {
 	if err := validateGrokMetadataKeys(meta); err != nil {
 		return nil, err
 	}
-	if err := validateGrokRetainedCredentials(map[string]any{"inline": meta}); err != nil {
+	if err := validateRetainedCredentials(map[string]any{"inline": meta}); err != nil {
 		return nil, err
 	}
 	if name := mappingValue(mapping, "name"); name != nil {
