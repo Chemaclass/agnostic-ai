@@ -38,6 +38,7 @@ func TestSpecFields_MatchWhatSyncEmits(t *testing.T) {
 		{"cline", "agents", agentSpec, ".cline/agents/rev.yml", clineAgentFields},
 		{"kiro", "agents", agentSpec, ".kiro/agents/rev.md", kiroAgentFields},
 		{"qoder", "agents", agentSpec, ".qoder/agents/rev.md", qoderAgentFields},
+		{"augment", "agents", agentSpec, ".augment/agents/rev.md", augmentAgentFields},
 		{"trae", "agents", agentSpec, ".trae/agents/rev.md", traeAgentFields},
 		{"goose", "agents", agentSpec, ".agents/agents/rev.md", gooseAgentFields},
 		{"windsurf", "agents", agentSpec, ".devin/agents/rev.md", windsurfAgentFields},

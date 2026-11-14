@@ -23,7 +23,7 @@ Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-
 
 MCP and permission settings on this page apply to Auggie CLI. The IDE reads the project rules and skills, and runs project hooks from `.augment/settings.json` once you trust the workspace ([Augment changelog](https://www.augmentcode.com/changelog)).
 
-For an existing setup, [import](#import) reads ignore patterns, selected permission rules, and the default model and effort only. Review the remaining native files before syncing.
+For an existing setup, [import](#import) reads agents, ignore patterns, selected permission rules, and the default model and effort only. Review the remaining native files before syncing.
 
 ## Verify
 
@@ -55,6 +55,7 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
   - A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). Rules have no `name` key.
 - **Legacy guidelines**: `outputs.augment.rules-file: .augment-guidelines` also writes all rules as one document. It is opt-in, because Augment cuts it first when context runs short.
 - **Agents** ([subagents docs](https://docs.augmentcode.com/cli/subagents)): `.augment/agents/<name>.md` with `name` (required), `description` (falls back to the spec name), and, when set, `color` (written as is; Augment expects an ANSI color name) and `model`.
+  - `effort` becomes `thinking` when it is `off`, `minimal`, `low`, `medium`, `high`, or `xhigh`. Any other value raises a sync note. `x-augment: {thinking: ...}` wins over `effort`. Auggie 1.x lists `thinking` in its [agent fields](https://docs.augmentcode.com/cli/subagents.md); the 0.x agent docs do not, so 0.x may ignore it.
   - Augment's `tools` and `disabled_tools` take its own tool names, not Claude-style ones. The `tools` allowlist takes `view`, `codebase-retrieval`, `str-replace-editor`, ... on Auggie 0.x and only `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`, `web-fetch` on 1.x; `disabled_tools` takes any tool name. The generic `tools` field uses neither, so it raises a sync note. Set `x-augment: {tools: [...]}` or `x-augment: {disabled_tools: [...]}` instead.
 - **Skills**: Augment also scans `.claude/skills/` and `.augment/skills/`.
 - **Commands**: `.augment/commands/<scope>/<name>.md`, with a directory scope from the source folder as a nested folder name. `description`, `argument-hint`, and `model` stay in frontmatter.
@@ -125,7 +126,7 @@ Path- or URL-scoped rules such as `Read(src/**)` are not written and raise a syn
 
 ## Import
 
-`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. An `ask-user` rule goes to the `ask` list. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). Nothing else is imported.
+`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. An `ask-user` rule goes to the `ask` list. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). `import augment` also reads `.augment/agents/*.md`: `thinking` becomes `effort` when it is one of the six levels, and keys with no portable field (`tools`, `max_turns`, and similar) go under `x-augment`. Nothing else is imported.
 
 ## Protected paths
 

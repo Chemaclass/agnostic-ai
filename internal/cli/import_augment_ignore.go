@@ -5,10 +5,15 @@ import (
 )
 
 // importFromAugment restores the Augment surfaces sync can own safely:
-// the workspace indexing exclusions, the committed tool permission
-// policy, and the default model and effort. The rest of Augment's configuration has no native importer.
+// the agents, the workspace indexing exclusions, the committed tool
+// permission policy, and the default model and effort. The rest of
+// Augment's configuration has no native importer.
 func importFromAugment(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Settings); err != nil {
+	if err := mkdirAllSources(root, src.Settings, src.Agents); err != nil {
+		return err
+	}
+	agents, err := importAugmentAgents(root, src)
+	if err != nil {
 		return err
 	}
 	ignores, err := importIgnoreFile(root, "augment", src)
@@ -19,7 +24,7 @@ func importFromAugment(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d ignores, %d settings (other Augment configuration is not imported)\n", ignores, settings)
+	summaryf("imported %d agents, %d ignores, %d settings (other Augment configuration is not imported)\n", agents, ignores, settings)
 	printImportNextSteps(root, "augment")
 	return nil
 }

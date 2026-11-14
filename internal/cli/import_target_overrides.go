@@ -292,13 +292,22 @@ func importScopedRename(data []byte, dst, target, native, specKey string) ([]byt
 	if !ok || mappingValue(mapping, specKey) != nil {
 		return data, nil
 	}
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == native {
-			mapping.Content[i].Value = specKey
-			return encodeFrontmatter(mapping, rest, target)
-		}
+	if renameMappingKey(mapping, native, specKey) {
+		return encodeFrontmatter(mapping, rest, target)
 	}
 	return data, nil
+}
+
+// renameMappingKey renames the top-level key from to to, and reports
+// whether from was there.
+func renameMappingKey(mapping *yaml.Node, from, to string) bool {
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == from {
+			mapping.Content[i].Value = to
+			return true
+		}
+	}
+	return false
 }
 
 // noteUnseenScopedKeys prints one note for a spec whose scoped keys the
