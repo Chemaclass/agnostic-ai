@@ -4,6 +4,11 @@
 // `.qwen/rules/<name>.md` with `paths:` frontmatter, which Qwen keeps out of
 // the prompt until a tool reads or edits a matching file
 // (packages/core/src/config/rulesDiscovery.ts at v0.27.0).
+//
+// An agent with `readonly: true` gets `disallowedTools: [write_file, edit,
+// notebook_edit]`, Qwen's agent blocklist (packages/core/src/subagents/types.ts
+// at v0.27.3); an explicit `x-qwen.disallowedTools` wins. Import reads that
+// exact list back as `readonly: true`.
 package qwen
 
 import (

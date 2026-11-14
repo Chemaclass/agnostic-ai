@@ -56,7 +56,7 @@ QWEN.md                         # root instructions and rules
 
 Project-wide rules go into `QWEN.md`, and `scope` rules go into `<scope>/QWEN.md`. A rule with `globs` or `paths` and no `scope` goes to `.qwen/rules/<name>.md` with a `paths:` list. Qwen leaves that rule out of the prompt until a tool reads or edits a matching file. `alwaysApply: true` keeps a rule in `QWEN.md`. See [scoped context](@/docs/scoped-context.md#qwen-code-rules-with-globs-alone) for the limits.
 
-Agents get YAML frontmatter and a prompt body. Portable tool names map to Qwen names; use `x-qwen.tools` for an explicit native list. Native agent fields such as `approvalMode` and record-valued `mcpServers` belong under `x-qwen`.
+Agents get YAML frontmatter and a prompt body. Portable tool names map to Qwen names; use `x-qwen.tools` for an explicit native list. An agent with `readonly: true` gets `disallowedTools: [write_file, edit, notebook_edit]`, so it cannot write files; shell stays allowed, and an explicit `x-qwen.disallowedTools` wins. Import reads that exact list back as `readonly: true` and keeps any other blocklist under `x-qwen`. Native agent fields such as `approvalMode` and record-valued `mcpServers` belong under `x-qwen`.
 
 Skills keep their bundled files. Qwen Code also reads `.agents/skills/`, and its own `.qwen/skills/` wins a same-name clash. `disable-model-invocation`, `user-invocable`, and `paths` (always as a list) are written to `SKILL.md` as Qwen reads them, unless another target writes the same skills folder; `allowed-tools` is not, since Qwen's own `allowedTools` grants permissions. Set `x-qwen.model` on a skill to select its native model; the shared skill `model` field is not promoted.
 
