@@ -178,6 +178,7 @@ func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, 
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
+	noteKiroSkippedAgents(root)
 	count := 0
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
@@ -206,6 +207,30 @@ func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, 
 		count++
 	}
 	return count, nil
+}
+
+// noteKiroSkippedAgents names the agent files import leaves to the user:
+// a `.json` profile and any agent file in a subfolder. It only informs,
+// so a folder it cannot read is passed over rather than failing import.
+func noteKiroSkippedAgents(root string) {
+	dir := filepath.Join(root, kiroAgentsDir)
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		isJSON := strings.HasSuffix(d.Name(), ".json")
+		if !isJSON && !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+		rel := filepath.ToSlash(filepath.Join(kiroAgentsDir, strings.TrimPrefix(path, dir+string(filepath.Separator))))
+		switch {
+		case filepath.Dir(path) != dir:
+			keptf("note: %s is in a subfolder, so import skipped it and it stays as written; import reads only top-level .md agents\n", rel)
+		case isJSON:
+			keptf("note: %s is a JSON agent, so import skipped it and it stays as written; import reads only top-level .md agents\n", rel)
+		}
+		return nil
+	})
 }
 
 func importKiroAgentDocument(data []byte, canonicalName string, projectServers map[string]any) ([]byte, error) {
