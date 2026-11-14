@@ -61,8 +61,11 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
-	if data, err = reconcileEffortMap(existing, data, importScopeTarget, fields.expresses("effort")); err != nil {
-		return fmt.Errorf("merge %s: %w", path, err)
+	for _, key := range []string{"effort", "model"} {
+		shown := fields.expresses(key) || key == "model" && importedHasKey(data, key)
+		if data, err = reconcileTargetMap(existing, data, key, importScopeTarget, shown); err != nil {
+			return fmt.Errorf("merge %s: %w", path, err)
+		}
 	}
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err

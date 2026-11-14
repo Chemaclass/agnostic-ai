@@ -283,6 +283,16 @@ func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 	}
 	codexModel, _ := doc["model"].(string)
 	if codexModel == "" {
+		if model, isMap := fm["model"].(map[string]any); isMap {
+			_, had := model["codex"]
+			delete(model, "codex")
+			if len(model) == 0 {
+				delete(fm, "model")
+			}
+			if shared, _ := model["default"].(string); had && shared == "" {
+				return
+			}
+		}
 		mergeDivergentMetaKey(fm, xcodex, doc, "model")
 		return
 	}
@@ -290,7 +300,11 @@ func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 	case nil:
 		fm["model"] = map[string]any{"codex": codexModel}
 	case map[string]any:
-		if _, set := model["codex"]; !set && model["default"] != codexModel {
+		given, _ := model["codex"].(string)
+		if given == "" {
+			given, _ = model["default"].(string)
+		}
+		if given != codexModel {
 			model["codex"] = codexModel
 		}
 	default:
