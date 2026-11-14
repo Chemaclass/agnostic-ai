@@ -251,6 +251,8 @@ var matcherAcceptingEvents = setOf(
 	// beforeTabFileRead matches TabRead, afterTabFileEdit matches
 	// TabWrite.
 	"beforeTabFileRead", "afterTabFileEdit",
+	// kiro: file events take a regex against the file path (kiro.dev/docs/hooks.md).
+	"PostFileCreate", "PostFileSave", "PostFileDelete",
 	// copilot: matcher-accepting events per
 	// docs.github.com/en/copilot/reference/hooks-reference's own
 	// matcher-filtering table (notification, permissionRequest,

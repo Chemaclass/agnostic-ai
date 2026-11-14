@@ -149,6 +149,7 @@ Claude gets `opus` and `xhigh`. Qoder gets `gpt-6.1-sol` and `8000`. Cursor gets
 | [Codex](@/docs/targets/codex.md) | Any string | `model_reasoning_effort`; an integer raises a note |
 | [Cursor](@/docs/targets/cursor.md) | none | Sync note. Put it in the model id, as above |
 | [Copilot](@/docs/targets/copilot.md) | none | Sync note. `x-copilot.effort` still passes through |
+| [Augment](@/docs/targets/augment.md) | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` | `thinking` (Auggie 1.x); other values raise a sync note, and `x-augment.thinking` wins |
 | Every other target | none | Sync note |
 
 **Claude model names on other targets.** A shared `model` (a single value or `default`) set to a Claude model name is left out, with a sync note, on a tool that cannot load it, so that tool uses its own default. The note suggests `model: {claude: <name>}`, or names the tier to fix when the name sits in a tier's `default`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` is written as given. `import claude` writes these names as `model: {claude: <name>}`, and `import codex` adds a Codex agent model as `model.codex`.
