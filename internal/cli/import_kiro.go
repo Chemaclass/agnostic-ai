@@ -178,6 +178,9 @@ func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, 
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
+	if err := noteKiroSkippedAgents(root); err != nil {
+		return 0, err
+	}
 	count := 0
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
@@ -206,6 +209,33 @@ func importKiroAgents(root, dstDir string, projectServers map[string]any) (int, 
 		count++
 	}
 	return count, nil
+}
+
+// noteKiroSkippedAgents names the agent files import leaves to the user:
+// a `.json` profile and any agent file in a subfolder.
+func noteKiroSkippedAgents(root string) error {
+	dir := filepath.Join(root, kiroAgentsDir)
+	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		isJSON := strings.HasSuffix(d.Name(), ".json")
+		if !isJSON && !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		switch {
+		case filepath.Dir(path) != dir:
+			keptf("note: %s is in a subfolder, so import skipped it; move it into %s/ as a .md file and import again\n", rel, kiroAgentsDir)
+		case isJSON:
+			keptf("note: %s is a JSON agent, so import skipped it; convert it to a .md file and import again\n", rel)
+		}
+		return nil
+	})
 }
 
 func importKiroAgentDocument(data []byte, canonicalName string, projectServers map[string]any) ([]byte, error) {
