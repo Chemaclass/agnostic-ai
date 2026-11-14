@@ -944,4 +944,6 @@
 # is that plus 8192, rounded up to a multiple of 4096.
 # #3419 measured 26087584 bytes on CI (linux/amd64): Goose user plugin hooks
 # on global sync; the budget is that plus 8192, rounded up to a multiple of 4096.
-26116096
+# #3446 measured 26116256 bytes on CI (linux/amd64): Copilot MCP client fields and
+# OpenHands agent mcp_servers; the budget is that plus 8192, rounded up to a multiple of 4096.
+26128384

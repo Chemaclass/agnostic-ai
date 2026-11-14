@@ -1026,3 +1026,68 @@ func TestMCPDocument_CopilotNativeClientSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestMCPDocument_CopilotNativeExtraServerFields(t *testing.T) {
+	extras := map[string]any{
+		"oauthClientId": "abc", "oauthScopes": []any{"read"}, "oauthPublicClient": false,
+		"oauthGrantType": "client_credentials", "deferTools": "never", "filterMapping": "markdown",
+		"slowConnectionThresholdMs": 5000, "disableToolCache": true, "oidc": true,
+	}
+	build := func(transport string, x map[string]any) map[string]any {
+		meta := map[string]any{"type": transport, "command": "server", "url": "https://example.invalid/mcp", "x-copilot": x}
+		got, err := MCPDocument([]spec.Entry{{Kind: spec.KindMCP, Name: "probe", Meta: meta}}, MCPSchemaServersMap, WithCopilotCLIMCPExtras())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Servers map[string]map[string]any `json:"mcpServers"`
+		}
+		if err := json.Unmarshal([]byte(got), &doc); err != nil {
+			t.Fatal(err)
+		}
+		return doc.Servers["probe"]
+	}
+	has := func(m map[string]any, keys ...string) {
+		t.Helper()
+		for _, k := range keys {
+			if _, ok := m[k]; !ok {
+				t.Errorf("missing %s: %v", k, m)
+			}
+		}
+	}
+	lacks := func(m map[string]any, keys ...string) {
+		t.Helper()
+		for _, k := range keys {
+			if _, ok := m[k]; ok {
+				t.Errorf("unexpected %s: %v", k, m)
+			}
+		}
+	}
+	for _, transport := range []string{"http", "sse"} {
+		got := build(transport, extras)
+		has(got, "oauthScopes", "oauthPublicClient", "oauthGrantType", "oidc", "deferTools", "filterMapping", "slowConnectionThresholdMs")
+		lacks(got, "disableToolCache")
+		if got["oauthPublicClient"] != false {
+			t.Errorf("false lost: %v", got)
+		}
+	}
+	local := build("stdio", extras)
+	has(local, "disableToolCache", "deferTools", "filterMapping", "slowConnectionThresholdMs", "oidc")
+	lacks(local, "oauthScopes", "oauthPublicClient", "oauthGrantType")
+	for _, v := range []any{0, -1, 2147483648, 1.5, "5"} {
+		lacks(build("http", map[string]any{"slowConnectionThresholdMs": v}), "slowConnectionThresholdMs")
+	}
+	if got := build("http", map[string]any{"slowConnectionThresholdMs": 2147483647}); got["slowConnectionThresholdMs"] == nil {
+		t.Errorf("max value dropped: %v", got)
+	}
+	if got := build("http", map[string]any{"slowConnectionThresholdMs": 5000.0}); got["slowConnectionThresholdMs"] == nil {
+		t.Errorf("whole float dropped: %v", got)
+	}
+	lacks(build("http", map[string]any{"oauthScopes": []any{"read", 1}}), "oauthScopes")
+
+	bad := build("http", map[string]any{
+		"oauthScopes": []any{}, "oauthPublicClient": "no", "oauthGrantType": "password", "deferTools": "x",
+		"filterMapping": "other", "slowConnectionThresholdMs": 0, "oidc": "yes",
+	})
+	lacks(bad, "oauthScopes", "oauthPublicClient", "oauthGrantType", "deferTools", "filterMapping", "slowConnectionThresholdMs", "oidc")
+}

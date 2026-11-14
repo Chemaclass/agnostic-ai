@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -52,7 +53,10 @@ type mcpOptions struct {
 }
 
 // WithCopilotCLIMCPExtras turns on native client settings and the `tools` allowlist
-// Copilot CLI documents for its own MCP config:
+// Copilot CLI documents (`timeout`, `deferTools`, `filterMapping`,
+// `slowConnectionThresholdMs`, local `cwd` and `disableToolCache`, and
+// remote `oauthClientId`, `oauthScopes`, `oauthPublicClient`,
+// `oauthGrantType` and `oidc`, each type-checked) for its own MCP config:
 //
 //	"Next to Tools, specify which tools from the server should be
 //	available. Enter `*` to include all tools, or provide a
@@ -404,14 +408,37 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		if timeout, ok := IntField(e.Meta, "timeout"); ok {
 			out["timeout"] = timeout
 		}
+		for _, key := range []string{"deferTools", "filterMapping"} {
+			if v := stringField(e.Meta, key); copilotMCPEnums[key][v] {
+				out[key] = v
+			}
+		}
+		if ms, ok := wholeNumber(e.Meta["slowConnectionThresholdMs"]); ok && ms > 0 && ms <= math.MaxInt32 {
+			out["slowConnectionThresholdMs"] = ms
+		}
+		if v, ok := e.Meta["oidc"].(bool); ok {
+			out["oidc"] = v
+		}
 		switch transport {
 		case "stdio":
 			if cwd := stringField(e.Meta, "cwd"); cwd != "" {
 				out["cwd"] = cwd
 			}
+			if disable, ok := e.Meta["disableToolCache"].(bool); ok {
+				out["disableToolCache"] = disable
+			}
 		case "http", "sse":
 			if clientID := stringField(e.Meta, "oauthClientId"); clientID != "" {
 				out["oauthClientId"] = clientID
+			}
+			if scopes, ok := strictStringSlice(e.Meta, "oauthScopes"); ok {
+				out["oauthScopes"] = scopes
+			}
+			if grant := stringField(e.Meta, "oauthGrantType"); copilotMCPEnums["oauthGrantType"][grant] {
+				out["oauthGrantType"] = grant
+			}
+			if v, ok := e.Meta["oauthPublicClient"].(bool); ok {
+				out["oauthPublicClient"] = v
 			}
 		}
 	}
@@ -424,6 +451,46 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		addFactoryMCPFields(out, e.Meta, transport)
 	}
 	return out
+}
+
+// copilotMCPEnums lists the string values Copilot CLI documents for its
+// enum-typed server fields (docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference).
+var copilotMCPEnums = map[string]map[string]bool{
+	"deferTools":     {"auto": true, "never": true},
+	"filterMapping":  {"none": true, "markdown": true, "hidden_characters": true},
+	"oauthGrantType": {"authorization_code": true, "client_credentials": true},
+}
+
+// wholeNumber reads an integer-valued number, rejecting fractions.
+func wholeNumber(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int64:
+		return n, true
+	case float64:
+		if n == math.Trunc(n) && math.Abs(n) < 1<<53 {
+			return int64(n), true
+		}
+	}
+	return 0, false
+}
+
+// strictStringSlice returns a non-empty list only when every element is a string.
+func strictStringSlice(m map[string]any, key string) ([]string, bool) {
+	raw, ok := m[key].([]any)
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		s, ok := v.(string)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, s)
+	}
+	return out, true
 }
 
 // buildClaudeMCPOAuth reads the spec's `oauth` object into the shape

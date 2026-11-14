@@ -341,3 +341,30 @@ func TestImportGlobal_CopilotNativeClientSettingsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestImportGlobal_CopilotExtraServerFieldsRoundTrip(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("COPILOT_HOME", "")
+	path := filepath.Join(home, ".copilot/mcp-config.json")
+	original := "{\n\t\"mcpServers\":{\n\t\t\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"oauthClientId\":\"abc\",\"oauthScopes\":[\"read\"],\"oauthPublicClient\":false,\"oauthGrantType\":\"client_credentials\",\"deferTools\":\"never\",\"filterMapping\":\"markdown\",\"slowConnectionThresholdMs\":5000,\"oidc\":true},\n\t\t\"local\":{\"command\":\"server\",\"disableToolCache\":true,\"oidc\":true,\"slowConnectionThresholdMs\":2147483647,\"deferTools\":\"never\",\"filterMapping\":\"none\"}\n\t}\n}\n"
+	mustWriteGlobalTest(t, path, original)
+	if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
+		t.Fatalf("import: %v %s", err, warnings)
+	}
+	for _, name := range []string{"remote", "local"} {
+		if _, err := os.Stat(filepath.Join(source, "mcps", name+".yaml")); err != nil {
+			t.Errorf("server %s not adopted: %v", name, err)
+		}
+	}
+	for range 2 {
+		if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
+			t.Fatalf("sync: %v %s", err, warnings)
+		}
+		if got := readGlobalTest(t, path); got != original {
+			t.Errorf("native bytes changed: %s", got)
+		}
+	}
+	if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}
