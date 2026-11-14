@@ -24,6 +24,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Antigravity
+
+- `hook run --target antigravity` adds `lastUserInput`, `hookEventName`, `cwd` and `toolCall.id` to the payload, so a hook that reads them takes the same branch as in Antigravity (#3453).
+
 #### Codex
 
 - `hook run` uses Codex's 1s default and 3s maximum for `SessionEnd` and `Interrupt` (#3432).

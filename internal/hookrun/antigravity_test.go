@@ -85,7 +85,11 @@ func TestBuildAntigravity_WritesTheDocumentedPayloads(t *testing.T) {
 		WorkspacePaths []string `json:"workspacePaths"`
 		StepIdx        *int     `json:"stepIdx"`
 		Error          *string  `json:"error"`
+		LastUserInput  *string  `json:"lastUserInput"`
+		HookEventName  string   `json:"hookEventName"`
+		Cwd            string   `json:"cwd"`
 		ToolCall       struct {
+			ID   string         `json:"id"`
 			Name string         `json:"name"`
 			Args map[string]any `json:"args"`
 		} `json:"toolCall"`
@@ -93,6 +97,9 @@ func TestBuildAntigravity_WritesTheDocumentedPayloads(t *testing.T) {
 	if err := json.Unmarshal(p.Body, &doc); err != nil || doc.ConversationID == "" || len(doc.WorkspacePaths) != 1 || doc.StepIdx == nil ||
 		doc.ToolCall.Args["CommandLine"] != "ls" || doc.ToolCall.Args["Cwd"] != "/project" || doc.Error != nil {
 		t.Errorf("payload = %s", p.Body)
+	}
+	if doc.LastUserInput == nil || *doc.LastUserInput != "" || doc.HookEventName != "PreToolUse" || doc.Cwd != "/project" || doc.ToolCall.ID != toolUseID {
+		t.Errorf("payload lacks the lastUserInput, hookEventName, cwd and toolCall.id fields: %s", p.Body)
 	}
 
 	p, err = buildAntigravity("PostToolUse", "replace_file_content|multi_replace_file_content", "/project", Input{Edit: "a.go"})
@@ -153,5 +160,23 @@ func TestReadAntigravity_DoesNotCountPolicyDependentAllow(t *testing.T) {
 	r := Result{Stdout: `{"decision":"allow"}`}
 	if got := AntigravityUncounted("PreToolUse", r); got == "" {
 		t.Error("allow defers to unseen policy and must not count toward an expectation")
+	}
+}
+
+func TestBuildAntigravity_PostToolUseSharesTheToolCallID(t *testing.T) {
+	pre, _ := buildAntigravity("PreToolUse", "", "/project", Input{Bash: "ls"})
+	post, err := buildAntigravity("PostToolUse", "", "/project", Input{Bash: "ls"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var a, b struct {
+		HookEventName string `json:"hookEventName"`
+		ToolCall      struct {
+			ID string `json:"id"`
+		} `json:"toolCall"`
+	}
+	if json.Unmarshal(pre.Body, &a) != nil || json.Unmarshal(post.Body, &b) != nil ||
+		a.ToolCall.ID == "" || a.ToolCall.ID != b.ToolCall.ID || b.HookEventName != "PostToolUse" {
+		t.Errorf("pre %s, post %s", pre.Body, post.Body)
 	}
 }
