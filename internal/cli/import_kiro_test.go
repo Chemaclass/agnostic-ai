@@ -442,3 +442,34 @@ func TestImportKiro_KeepsPortableHooksOnExistingSpec(t *testing.T) {
 		t.Errorf("portable top-level hooks lost:\n%s", got)
 	}
 }
+
+func TestImportKiroAgents_NotesSkippedJSONAndNestedFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "top.md"), "---\ndescription: Top.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "jsonagent.json"), "{\"name\": \"jsonagent\"}\n")
+	writeFile(t, filepath.Join(dir, kiroAgentsDir, "team", "planner.md"), "---\ndescription: Plans.\n---\n\nPlan.\n")
+	dst := filepath.Join(dir, ".agnostic-ai/agents")
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLog(t)
+	count, err := importKiroAgents(dir, dst, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("count = %d, want 1", count)
+	}
+	out := log.String()
+	for _, want := range []string{
+		"note: .kiro/agents/jsonagent.json is a JSON agent, so import skipped it",
+		"note: .kiro/agents/team/planner.md is in a subfolder, so import skipped it",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in output:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "top.md") {
+		t.Errorf("imported agent was noted:\n%s", out)
+	}
+}
