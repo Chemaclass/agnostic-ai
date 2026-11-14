@@ -4,9 +4,10 @@ import (
 	"path/filepath"
 	"slices"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 // augmentNativeAgentKeys are the Auggie agent keys with no portable
