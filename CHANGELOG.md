@@ -39,6 +39,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Amp
 
+- The target page says a shared orb snapshot keeps only the `PATH` additions setup makes to shell profiles, and that other profile lines belong in `.agents/resume` (#3444).
 - The note for a portable `model` and the target page now point to Amp's model selector, which replaced the Dial (#3386).
 
 #### Jules
