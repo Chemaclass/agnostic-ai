@@ -10,13 +10,20 @@ import (
 	"time"
 )
 
-// Source: antigravity.google/docs/hooks (rechecked 2026-10-13). Documented
-// there:
+// Sources: antigravity.google/docs/hooks?tab=ide (rechecked 2026-11-14) and
+// the CLI v1.5.4 entry of antigravity.google/docs/changelog (2026-11-10).
+// Documented there:
 //   - Payload: "Hooks receive input through stdin as JSON and return
 //     output through stdout as JSON. Field names use camelCase." Every
 //     hook gets conversationId, workspacePaths, transcriptPath,
-//     artifactDirectoryPath, and modelName; PreToolUse and PostToolUse add
-//     toolCall (name, args) and stepIdx, and PostToolUse an optional error.
+//     artifactDirectoryPath, modelName, and lastUserInput (the hooks
+//     page); PreToolUse and PostToolUse add toolCall (name, args) and
+//     stepIdx, and PostToolUse an optional error. The changelog says
+//     v1.5.4 "Added hookEventName, cwd, and toolCall.id to the JSON
+//     input"; the hooks page does not list them yet. hookEventName is the
+//     event name itself, which is already Antigravity's native one, and
+//     toolCall.id is the fixed toolUseID, so a PostToolUse call matches
+//     its PreToolUse call.
 //   - Tools: "run_command : Propose a Bash command to run. Arguments :
 //     CommandLine , Cwd , WaitMsBeforeAsync"; "write_to_file : Create new
 //     files. Arguments : TargetFile , Overwrite , CodeContent ,
@@ -72,6 +79,7 @@ func buildAntigravity(event, matcher, root string, in Input) (Payload, error) {
 	doc := map[string]any{
 		"conversationId": SessionID, "workspacePaths": []string{root}, "transcriptPath": "",
 		"artifactDirectoryPath": "", "modelName": "", "stepIdx": 0,
+		"lastUserInput": "", "hookEventName": event,
 	}
 	p := Payload{}
 	var args map[string]any
@@ -99,7 +107,8 @@ func buildAntigravity(event, matcher, root string, in Input) (Payload, error) {
 	if err != nil {
 		return Payload{}, err
 	}
-	doc["toolCall"] = map[string]any{"name": p.Trigger, "args": args}
+	doc["cwd"] = root
+	doc["toolCall"] = map[string]any{"id": toolUseID, "name": p.Trigger, "args": args}
 	if event == "PostToolUse" {
 		doc["error"] = ""
 	}
