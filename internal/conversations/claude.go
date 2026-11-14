@@ -193,7 +193,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	if err != nil {
 		return missing(ToolClaude, "Could not list "+projects)
 	}
-	live := s.claudeLiveSessions()
+	live, liveRead := s.claudeLiveSessions()
 	jobs := s.claudeActiveJobs()
 	editor := extensionEditor(s.Stores.Home, "anthropic.claude-code", opts.Editor)
 	if s.claude == nil {
@@ -225,6 +225,8 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			entrypoint = session.entrypoint
 		}
 		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
+		// Only a terminal session is known to write sessions/<pid>.json while it runs.
+		c.liveRead = liveRead && c.App == AppCLI
 		conversations = append(conversations, c)
 	}
 	for file := range s.claude {
@@ -446,8 +448,8 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // process holds to that process. Each sessions/<pid>.json belongs to
 // one process; a crash leaves it behind, so the pid must still be the
 // process that wrote it. The sibling *.key files hold credentials and
-// are never read.
-func (s *Scanner) claudeLiveSessions() map[string]liveSession {
+// are never read. read is false when the process table could not be read.
+func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool) {
 	entries := s.claudeLiveEntries()
 	var processes []ProcessRef
 	for _, entry := range entries {
@@ -455,14 +457,19 @@ func (s *Scanner) claudeLiveSessions() map[string]liveSession {
 	}
 	// One question for every session: asking about each in turn starts
 	// a ps per open session on every scan.
-	alive := s.Processes.AliveAmong(processes)
+	alive, err := s.Processes.AliveAmong(processes)
+	// A Claude Code too old to write sessions/ leaves no mark of an open
+	// session, so its absence says nothing about which ones are closed.
+	if _, statErr := os.Stat(filepath.Join(s.Stores.ClaudeDir, "sessions")); statErr != nil {
+		err = statErr
+	}
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {
 			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID}
 		}
 	}
-	return live
+	return live, err == nil
 }
 
 // claudeLiveEntries reads sessions/<pid>.json, which a Claude Code

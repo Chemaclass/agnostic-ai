@@ -2,10 +2,12 @@ package conversations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -19,8 +21,9 @@ type Processes interface {
 	Alive(pid int, procStart string) bool
 	// AliveAmong answers Alive for many processes at once and returns
 	// the pids that passed. A scan asks about every open session, so
-	// the system reader does it with one look at the process table.
-	AliveAmong(processes []ProcessRef) map[int]bool
+	// the system reader does it with one look at the process table. The
+	// error says the table could not be read, which differs from none running.
+	AliveAmong(processes []ProcessRef) (map[int]bool, error)
 	// Table lists every process, with its parent, terminal and start.
 	Table() ([]ProcessInfo, error)
 	// Args maps each of pids that runs to its command line.
@@ -28,8 +31,8 @@ type Processes interface {
 	// Cwds maps each of pids that runs to its working folder.
 	Cwds(pids []int) map[int]string
 	// Holders maps each of paths a running process has open to that
-	// process's pid.
-	Holders(paths []string) map[string]int
+	// process's pid. The error says the open files could not be read.
+	Holders(paths []string) (map[string]int, error)
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
 }
@@ -54,8 +57,10 @@ func ps(args ...string) (string, error) {
 	// the C locale.
 	cmd.Env = append(os.Environ(), "TZ=UTC", "LC_ALL=C")
 	out, err := cmd.Output()
+	// The output stays with an error: procps ps exits 1 when one of
+	// several pids does not run, and still lists those that do.
 	if err != nil {
-		return "", fmt.Errorf("ps %s: %w", strings.Join(args, " "), err)
+		return strings.TrimSpace(string(out)), fmt.Errorf("ps %s: %w", strings.Join(args, " "), err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -79,9 +84,13 @@ func (SystemProcesses) Alive(pid int, procStart string) bool {
 }
 
 // AliveAmong runs ps once for every pid. ps prints a line for each pid
-// that runs and fails when none does, which leaves the result empty.
-func (SystemProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
+// that runs, and exits 1 when some or all of them do not.
+func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) {
 	alive := map[int]bool{}
+	// Asked about no pid, it still checks ps exists, so a system without it does not pass for one where nothing runs.
+	if err := canRead("ps"); err != nil {
+		return alive, err
+	}
 	var pids []string
 	for _, process := range processes {
 		if process.PID > 0 {
@@ -89,11 +98,11 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
 		}
 	}
 	if len(pids) == 0 {
-		return alive
+		return alive, nil
 	}
 	out, err := ps("-o", "pid=,lstart=", "-p", strings.Join(pids, ","))
-	if err != nil {
-		return alive
+	if !answered(err) {
+		return alive, err
 	}
 	started := psStartTimes(out)
 	for _, process := range processes {
@@ -102,7 +111,32 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
 			alive[process.PID] = true
 		}
 	}
-	return alive
+	return alive, nil
+}
+
+// errNoProcessRead: Windows has no ps or lsof that answers like the
+// Unix ones. Git for Windows ships a ps that rejects -o lstart.
+var errNoProcessRead = errors.New("running processes cannot be read on Windows")
+
+// canRead says whether the command can answer which processes run.
+func canRead(command string) error {
+	if runtime.GOOS == "windows" {
+		return errNoProcessRead
+	}
+	_, err := exec.LookPath(command)
+	return err
+}
+
+// answered reports whether ps or lsof answered: it exited 0, or exited 1
+// without a word on stderr, which both print for "none of these runs" or
+// "none of these is open". Any other exit, or exit 1 with a message,
+// such as an option this ps does not know, is a failed read.
+func answered(err error) bool {
+	if err == nil {
+		return true
+	}
+	var exit *exec.ExitError
+	return errors.As(err, &exit) && exit.ExitCode() == 1 && len(strings.TrimSpace(string(exit.Stderr))) == 0
 }
 
 // psStartTimes reads `ps -o pid=,lstart=` output: a pid, then its start
@@ -177,9 +211,12 @@ func (SystemProcesses) Cwds(pids []int) map[int]string {
 	return cwds
 }
 
-func (SystemProcesses) Holders(paths []string) map[string]int {
+func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
+	if err := canRead("lsof"); err != nil {
+		return map[string]int{}, err
+	}
 	if len(paths) == 0 {
-		return map[string]int{}
+		return map[string]int{}, nil
 	}
 	// lsof names each open file by its resolved path, so a path under a
 	// symlinked folder, such as a linked ~/.codex, is looked up by its target.
@@ -195,8 +232,12 @@ func (SystemProcesses) Holders(paths []string) map[string]int {
 	defer cancel()
 	// lsof exits 1 when none of the files is open; its output still lists
 	// the ones that are.
-	out, _ := exec.CommandContext(ctx, "lsof", append([]string{"-F", "pcn", "--"}, paths...)...).Output()
-	return parseHolders(string(out), asked)
+	// -w keeps warnings, such as a file system lsof cannot stat, off stderr.
+	out, err := exec.CommandContext(ctx, "lsof", append([]string{"-w", "-F", "pcn", "--"}, paths...)...).Output()
+	if !answered(err) {
+		return map[string]int{}, fmt.Errorf("lsof: %w", err)
+	}
+	return parseHolders(string(out), asked), nil
 }
 
 // parseHolders reads `lsof -F pcn` output: a "p<pid>" line and a

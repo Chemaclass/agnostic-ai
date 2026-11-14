@@ -29,10 +29,17 @@ type fakeProcesses struct {
 	cwds    map[int]string
 	held    map[string]int
 	running map[string]bool
+	// readFails makes every read of running processes fail, as a missing or timed-out ps or lsof does.
+	readFails bool
 }
 
-func (f fakeProcesses) Holders(paths []string) map[string]int {
+var errProcessRead = errors.New("process read failed")
+
+func (f fakeProcesses) Holders(paths []string) (map[string]int, error) {
 	held := map[string]int{}
+	if f.readFails {
+		return held, errProcessRead
+	}
 	for _, path := range paths {
 		if pid, ok := f.held[path]; ok {
 			held[path] = pid
@@ -40,21 +47,24 @@ func (f fakeProcesses) Holders(paths []string) map[string]int {
 			held[path] = pid
 		}
 	}
-	return held
+	return held, nil
 }
 
 func (f fakeProcesses) AppRunning(name string) bool { return f.running[name] }
 
 func (f fakeProcesses) Alive(pid int, _ string) bool { return f.alive[pid] }
 
-func (f fakeProcesses) AliveAmong(processes []ProcessRef) map[int]bool {
+func (f fakeProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) {
 	alive := map[int]bool{}
+	if f.readFails {
+		return alive, errProcessRead
+	}
 	for _, process := range processes {
 		if f.alive[process.PID] {
 			alive[process.PID] = true
 		}
 	}
-	return alive
+	return alive, nil
 }
 
 func (f fakeProcesses) Table() ([]ProcessInfo, error) { return f.table, nil }
@@ -1188,8 +1198,8 @@ func TestSystemProcesses_HoldersFindsALockUnderASymlinkedFolder(t *testing.T) {
 	}
 	defer func() { _ = f.Close() }()
 
-	if held := (SystemProcesses{}).Holders([]string{lock}); held[lock] != os.Getpid() {
-		t.Errorf("a lock this process holds through a symlink must be held, actual %v", held)
+	if held, err := (SystemProcesses{}).Holders([]string{lock}); err != nil || held[lock] != os.Getpid() {
+		t.Errorf("a lock this process holds through a symlink must be held, actual %v, %v", held, err)
 	}
 }
 
@@ -1350,14 +1360,76 @@ func TestSystemProcesses_AliveAmongKeepsThisProcessAndDropsAWrongStartTime(t *te
 		t.Skip("ps is not on Windows")
 	}
 	self := os.Getpid()
-	alive := SystemProcesses{}.AliveAmong([]ProcessRef{{PID: self}, {PID: 0}})
-	if len(alive) != 1 || !alive[self] {
-		t.Errorf("alive = %v, want only this process %d", alive, self)
+	alive, err := SystemProcesses{}.AliveAmong([]ProcessRef{{PID: self}, {PID: 0}})
+	if err != nil || len(alive) != 1 || !alive[self] {
+		t.Errorf("alive = %v, %v, want only this process %d", alive, err, self)
 	}
-	if alive := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: self, ProcStart: "Thu Jan  1 00:00:00 1970"}}); len(alive) != 0 {
-		t.Errorf("a pid that started at another time counted as alive: %v", alive)
+	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: self, ProcStart: "Thu Jan  1 00:00:00 1970"}}); err != nil || len(alive) != 0 {
+		t.Errorf("a pid that started at another time counted as alive: %v, %v", alive, err)
 	}
-	if alive := (SystemProcesses{}).AliveAmong(nil); len(alive) != 0 {
-		t.Errorf("no processes asked about, got %v", alive)
+	if alive, err := (SystemProcesses{}).AliveAmong(nil); err != nil || len(alive) != 0 {
+		t.Errorf("no processes asked about, got %v, %v", alive, err)
+	}
+}
+
+func TestSystemProcesses_NothingRunningIsAnAnswerNotAFailedRead(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ps and lsof are not on Windows")
+	}
+	// The pid of a process that has exited: a made-up large pid can be
+	// past the system's limit, which ps reports as an error.
+	gone := exec.Command("true")
+	if err := gone.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: gone.Process.Pid}}); err != nil || len(alive) != 0 {
+		t.Errorf("a pid that does not run must read as none running, got %v, %v", alive, err)
+	}
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof is not installed")
+	}
+	closed := filepath.Join(t.TempDir(), "store.db")
+	if err := os.WriteFile(closed, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if held, err := (SystemProcesses{}).Holders([]string{closed}); err != nil || len(held) != 0 {
+		t.Errorf("a file no process holds must read as held by none, got %v, %v", held, err)
+	}
+}
+
+func TestSystemProcesses_APsThatComplainsIsAFailedRead(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ps is not on Windows")
+	}
+	bin := t.TempDir()
+	// Git for Windows ships a ps that exits 1 on -o, the same code procps
+	// uses for a pid that does not run, but says why on stderr.
+	write(t, filepath.Join(bin, "ps"), "#!/bin/sh\necho 'ps: unknown option -- o' >&2\nexit 1\n")
+	if err := os.Chmod(filepath.Join(bin, "ps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+
+	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: 4242}}); err == nil {
+		t.Errorf("a ps that fails with a message must be a failed read, got %v", alive)
+	}
+}
+
+func TestSystemProcesses_AliveAmongKeepsThePidsPsListsWhenAnotherIsGone(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ps is not on Windows")
+	}
+	bin := t.TempDir()
+	// procps ps lists the pids that run and exits 1 when one of them does not.
+	write(t, filepath.Join(bin, "ps"), "#!/bin/sh\necho '4242 Sat Nov  7 11:00:00 2026'\nexit 1\n")
+	if err := os.Chmod(filepath.Join(bin, "ps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+
+	alive, err := SystemProcesses{}.AliveAmong([]ProcessRef{{PID: 4242}, {PID: 4343}})
+
+	if err != nil || !alive[4242] || alive[4343] {
+		t.Errorf("alive = %v, %v, want only 4242", alive, err)
 	}
 }

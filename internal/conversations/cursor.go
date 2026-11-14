@@ -465,7 +465,11 @@ func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
 			recent = append(recent, c.store)
 		}
 	}
-	for store, pid := range s.Processes.Holders(recent) {
+	held, err := s.Processes.Holders(recent)
+	for i := range chats {
+		chats[i].liveRead = err == nil
+	}
+	for store, pid := range held {
 		i, ok := chatOf[store]
 		if !ok {
 			continue

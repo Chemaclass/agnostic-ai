@@ -186,7 +186,15 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 			locks = append(locks, lock)
 		}
 	}
-	for lock, pid := range s.Processes.Holders(locks) {
+	held, err := s.Processes.Holders(locks)
+	// A Codex that keeps no lock folder leaves no mark of a loaded thread.
+	if _, statErr := os.Stat(filepath.Join(s.Stores.CodexDir, "thread-writer-locks")); err == nil && statErr == nil {
+		// Only a terminal thread is known to hold its lock while it runs.
+		for i := range conversations {
+			conversations[i].liveRead = conversations[i].App == AppCLI
+		}
+	}
+	for lock, pid := range held {
 		i, ok := lockOf[lock]
 		if !ok {
 			continue

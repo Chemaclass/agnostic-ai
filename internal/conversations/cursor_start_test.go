@@ -291,7 +291,7 @@ type askedProcesses struct {
 	asked *[]string
 }
 
-func (p askedProcesses) Holders(paths []string) map[string]int {
+func (p askedProcesses) Holders(paths []string) (map[string]int, error) {
 	*p.asked = append(*p.asked, paths...)
 	return p.fakeProcesses.Holders(paths)
 }
