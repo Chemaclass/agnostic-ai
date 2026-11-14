@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Re-importing an agent whose `effort` is a map per target changes only the imported tool's entry and keeps the other targets' values (#3466).
+
 - A local Claude Code, Codex or `cursor-agent` chat closed in its terminal moves to Archived in the companion and the web interface as soon as you have seen its last reply, instead of a day later (#3457).
 
 - Both companion menus offer Small companion, a 40px circle in a smaller window instead of the 60px one (#3447).

@@ -61,6 +61,9 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
+	if data, err = reconcileEffortMap(existing, data, importScopeTarget, fields.expresses("effort")); err != nil {
+		return fmt.Errorf("merge %s: %w", path, err)
+	}
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err
 	}
@@ -142,8 +145,11 @@ func mergeSpecFrontmatter(existing, imported []byte, fields specFields) ([]byte,
 	if importedMap == nil {
 		importedMap = &yaml.Node{Kind: yaml.MappingNode}
 	}
+	preserved := false
 	if fields.preserve != nil {
+		before := len(importedMap.Content)
 		fields.preserve(existingMap, importedMap)
+		preserved = len(importedMap.Content) != before
 	}
 
 	importedKeys := make(map[string]*yaml.Node, len(importedMap.Content)/2)
@@ -152,7 +158,7 @@ func mergeSpecFrontmatter(existing, imported []byte, fields specFields) ([]byte,
 	}
 
 	merged := &yaml.Node{Kind: yaml.MappingNode}
-	carried := false
+	carried := preserved
 	for i := 0; i+1 < len(existingMap.Content); i += 2 {
 		key := existingMap.Content[i]
 		if value, ok := importedKeys[key.Value]; ok {

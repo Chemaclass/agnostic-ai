@@ -46,8 +46,8 @@ func importAugmentAgents(root string, src config.Sources) (int, error) {
 // cannot show it: a value that is not one of the six levels, or a level
 // the spec overrides with `x-augment.thinking`.
 func preserveAugmentEffort(existing, imported *yaml.Node) {
-	effort := mappingValue(existing, "effort")
-	if effort == nil || mappingValue(imported, "effort") != nil {
+	effort := perTargetEffort(mappingValue(existing, "effort"), "augment")
+	if effort == nil || effort.Kind != yaml.ScalarNode || mappingValue(imported, "effort") != nil {
 		return
 	}
 	overridden := mappingValue(mappingValue(existing, "x-augment"), "thinking") != nil
