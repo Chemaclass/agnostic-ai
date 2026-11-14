@@ -24,10 +24,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
-#### Antigravity
-
-- `hook run --target antigravity` adds `lastUserInput`, `hookEventName`, `cwd` and `toolCall.id` to the payload, so a hook that reads them takes the same branch as in Antigravity (#3453).
-
 #### Codex
 
 - `hook run` uses Codex's 1s default and 3s maximum for `SessionEnd` and `Interrupt` (#3432).
@@ -66,6 +62,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Antigravity
 
+- `hook run --target antigravity` adds `lastUserInput`, `hookEventName`, `cwd` and `toolCall.id` to the payload, so a hook that reads them takes the same branch as in Antigravity (#3453).
 - `hook run` reads a successful Stop reply of `{}` as `allow`, matching the released backend; `continue` still reads as `block` (#3402).
 - `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. An inline `mcpServers` entry that holds a literal credential is left out with a warning that names the server and field. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
 - `sync` keeps the `flash_lite` model tier in Antigravity plugin agents (#3429).
@@ -92,6 +89,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### OpenHands
 
+- `import openhands` stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential instead of copying it into a committed spec, and keeps `${VAR}` and `$VAR` references as written (#3450).
 - `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
 - `import openhands` keeps an agent's native `tools`, `permission_mode` and `color` under `x-openhands`, so `sync` no longer drops them (#3380).
 - `import openhands` keeps `triggers` on a folder skill under `x-openhands`, so `sync` no longer drops the keyword it loads on (#3381).
