@@ -46,6 +46,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Factory
 
+- `import factory` keeps each hook command's own timeout through sync, including repeated commands with different timeouts (#3490).
+
 - Hooks write `onFailure: "block"` from `failClosed` and `preserveRiskLevel` from `x-factory`; import reads both back, so sync adds no copy (#3476).
 - `hook run` reads Factory 1.11 replies: `ask` allows, top-level `decision: "block"` denies, and JSON applies on any exit but 2 (#3477).
 - `import factory` keeps a hook group's `commandRegex` as `x-factory.commandRegex`, and `sync` writes it back on the group instead of adding a second group without it (#3397).

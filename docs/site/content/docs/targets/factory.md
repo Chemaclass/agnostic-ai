@@ -149,7 +149,7 @@ With `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store
 | `<scope>/.factory/skills/<name>/SKILL.md` | `<skills>/<scope>/<name>/SKILL.md` |
 | `.factory/commands/<name>.md` | `<commands>/<name>.md` |
 | `.factory/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
-| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group and distinct `onFailure` and `preserveRiskLevel`; `onFailure: "block"` becomes `failClosed: true` |
+| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group and distinct `timeout`, `onFailure`, and `preserveRiskLevel`; `onFailure: "block"` becomes `failClosed: true` |
 | `.factory/settings.json` `model`, `reasoningEffort`, and command lists | `<settings>/factory.yaml`; `reasoningEffort` becomes `effort`, or `x-factory.reasoningEffort` when another settings spec sets a different effort |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
