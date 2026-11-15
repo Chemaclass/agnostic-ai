@@ -46,6 +46,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Factory
 
+- Fresh Factory hook imports keep command order through sync across mixed timeout, failure, and risk settings (#3492).
+
 - `import factory` keeps each hook command's own timeout through sync, including repeated commands with different timeouts (#3490).
 
 - Hooks write `onFailure: "block"` from `failClosed` and `preserveRiskLevel` from `x-factory`; import reads both back, so sync adds no copy (#3476).

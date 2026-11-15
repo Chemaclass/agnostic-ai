@@ -61,6 +61,10 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 // into the spec name, so specs split from one group never share a name
 // when their commands match. An empty salt keeps the plain name.
 func writeGroupedHookSpecSalted(dstDir, target, event, matcher, salt string, entries []groupedHookEntry, extra map[string]any) (int, error) {
+	return writeGroupedHookSpecWithPrefix(dstDir, target, event, matcher, "", salt, entries, extra)
+}
+
+func writeGroupedHookSpecWithPrefix(dstDir, target, event, matcher, prefix, salt string, entries []groupedHookEntry, extra map[string]any) (int, error) {
 	var commands []string
 	timeout := 0
 	commandRegex := ""
@@ -87,7 +91,7 @@ func writeGroupedHookSpecSalted(dstDir, target, event, matcher, salt string, ent
 	if salt != "" {
 		nameParts = append(slices.Clone(commands), salt)
 	}
-	name := hookSpecName(event, matcher, nameParts)
+	name := prefix + hookSpecName(event, matcher, nameParts)
 	doc := map[string]any{
 		"name":    name,
 		"event":   event,

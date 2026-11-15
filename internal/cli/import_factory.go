@@ -201,8 +201,8 @@ type factoryEntrySettings struct {
 
 // importFactoryHooks reads `.factory/hooks.json`, falling back to the
 // legacy `.factory/hooks/hooks.json`, and writes one hook spec per
-// matcher group and distinct entry settings. Reading one file and not
-// both keeps a project that carries both from importing every hook
+// consecutive run of commands with the same entry settings. Reading
+// one file keeps a project that carries both from importing every hook
 // twice. `onFailure: "block"` becomes the portable `failClosed: true`;
 // another `onFailure` value and `preserveRiskLevel` stay under
 // `x-factory`, which sync writes back.
@@ -217,22 +217,27 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 	}
 	count := 0
 	for _, event := range sortedHookEvents(byEvent) {
-		for _, g := range byEvent[event] {
+		for groupIndex, g := range byEvent[event] {
 			regex, _ := g.CommandRegex.(string)
-			var order []factoryEntrySettings
-			bySettings := map[factoryEntrySettings][]groupedHookEntry{}
+			type hookRun struct {
+				settings factoryEntrySettings
+				entries  []groupedHookEntry
+			}
+			var runs []hookRun
 			for _, h := range g.Hooks {
 				k := factoryEntrySettings{timeout: h.Timeout}
 				k.onFailure, _ = h.OnFailure.(string)
 				k.preserveRisk, _ = h.PreserveRiskLevel.(bool)
-				if _, seen := bySettings[k]; !seen {
-					order = append(order, k)
+				if len(runs) == 0 || runs[len(runs)-1].settings != k {
+					runs = append(runs, hookRun{settings: k})
 				}
-				bySettings[k] = append(bySettings[k], h.groupedHookEntry)
+				last := &runs[len(runs)-1]
+				last.entries = append(last.entries, h.groupedHookEntry)
 			}
-			for _, k := range order {
-				extra, salt := factoryHookExtra(regex, k)
-				n, err := writeGroupedHookSpecSalted(dstDir, "factory", event, g.Matcher, salt, bySettings[k], extra)
+			for runIndex, run := range runs {
+				extra, salt := factoryHookExtra(regex, run.settings)
+				prefix := fmt.Sprintf("factory-%09d-%09d-", groupIndex, runIndex)
+				n, err := writeGroupedHookSpecWithPrefix(dstDir, "factory", event, g.Matcher, prefix, salt, run.entries, extra)
 				if err != nil {
 					return count, err
 				}
@@ -245,8 +250,7 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 
 // factoryHookExtra is the spec's Factory-only keys for one group's
 // commandRegex and entry settings, and the salt that keeps its name
-// apart from a spec split from the same group. Default settings add no
-// salt, so a plain group keeps its earlier name.
+// apart from a spec split from the same group. Default settings add no salt.
 func factoryHookExtra(regex string, k factoryEntrySettings) (map[string]any, string) {
 	native := map[string]any{}
 	extra := map[string]any{}
