@@ -31,13 +31,6 @@ type groupedHookEntry struct {
 	Timeout int    `json:"timeout"`
 }
 
-// groupedHookGroup is one `{matcher, hooks: [...]}` object under an
-// event key.
-type groupedHookGroup struct {
-	Matcher string             `json:"matcher"`
-	Hooks   []groupedHookEntry `json:"hooks"`
-}
-
 // sortedHookEvents returns the event keys of a decoded hook map in a
 // stable order, so re-importing the same file writes the same specs in
 // the same order every time.
