@@ -220,14 +220,14 @@ func TestServeEditMCP_OpencodeOAuthEnvReferenceSurvivesPreviewApplyAndSync(t *te
 }
 
 func TestServeEditMCP_OpencodeOAuthLiteralCredentialIsRefused(t *testing.T) {
-	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":{"clientSecret":"literal-credential-for-test"}}}}`
+	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":{"clientSecret":"s3cr3t-literal-value-9f8e7d"}}}}`
 	_, h, request := mcpConversionProject(t, "opencode", "opencode.json", native)
 	request["target"] = "opencode"
 	rec := mcpEditRequest(t, h, request)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Errorf("credential preview status = %d, want 422", rec.Code)
 	}
-	if strings.Contains(rec.Body.String(), "literal-credential-for-test") {
+	if strings.Contains(rec.Body.String(), "s3cr3t-literal-value-9f8e7d") {
 		t.Error("credential refusal exposes its value")
 	}
 }
