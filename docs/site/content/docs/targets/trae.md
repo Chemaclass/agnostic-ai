@@ -149,13 +149,15 @@ For every current agent, sync removes a generated copy at the old `.trae/rules/a
 | `.trae/agents/<name>.md` | `<agents>/<name>.md`, copied, minus the generated header |
 | `.trae/skills/<name>/SKILL.md` and `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied as is) |
 | `.trae/commands/<name>.md` | `<commands>/<name>.md` |
-| `.trae/hooks.json` | one hook spec per matcher group, carrying `loop_limit` |
+| `.trae/hooks.json` | one spec for consecutive commands with the same `timeout` in a matcher group, carrying `loop_limit` |
 | `.trae/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml`, a `url`-only entry becomes `type: http` |
 | `.trae/.ignore` | an ignore spec |
 
 Import reads `.trae/skills/` first, then `.agents/skills/`. When both hold a skill with the same folder name, Trae's own copy wins. Shared skills keep the same checks for existing specs and generated assets. Sync still writes `.trae/skills/` by default.
 
-Hook commands that share an event and matcher become one spec with a `command:` list, as sync merges them into one group. Import skips `version` (always 1), a `loop_limit` of 0 (Trae treats it as unset), and the global `~/.trae/hooks.json`.
+Consecutive hook commands with the same event, matcher, and timeout share a spec with a `command:` list. Fresh imports keep native command order with position prefixes in spec names. Keep those prefixes when renaming imported hooks.
+
+Import skips `version` (always 1), a `loop_limit` of 0 (Trae treats it as unset), and the global `~/.trae/hooks.json`.
 
 ## Protected paths
 

@@ -288,8 +288,7 @@ func usesPluginRoot(command string) bool {
 	return strings.Contains(command, "${PLUGIN_ROOT}") || strings.Contains(command, "$PLUGIN_ROOT")
 }
 
-// writtenGooseCommand mirrors the filter writeGroupedHookSpec applies,
-// so a warning names only commands that land in a spec.
+// Keep warnings limited to commands the grouped writer will import.
 func writtenGooseCommand(event, matcher string, h gooseHookEntry) bool {
 	if h.Type != "" && h.Type != "command" {
 		return false

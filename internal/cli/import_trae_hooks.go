@@ -25,9 +25,8 @@ type traeHookGroup struct {
 	Hooks     []groupedHookEntry `json:"hooks"`
 }
 
-// importTraeHooks reads `.trae/hooks.json` and writes one yaml per
-// matcher group into dstDir. No-op when the file or its `hooks` key is
-// absent.
+// importTraeHooks writes one spec per consecutive run with the same
+// timeout. No-op when `.trae/hooks.json` or its `hooks` key is absent.
 //
 // The integer `version` envelope is read past rather than carried onto
 // the specs: the vendor says "The default value is 1, and currently only
@@ -55,16 +54,32 @@ func importTraeHooks(root, dstDir string) (int, error) {
 	}
 	count := 0
 	for _, event := range sortedHookEvents(doc.Hooks) {
-		for _, g := range doc.Hooks[event] {
+		for groupIndex, g := range doc.Hooks[event] {
+			type hookRun struct {
+				timeout int
+				entries []groupedHookEntry
+			}
+			var runs []hookRun
+			for _, h := range g.Hooks {
+				if len(runs) == 0 || runs[len(runs)-1].timeout != h.Timeout {
+					runs = append(runs, hookRun{timeout: h.Timeout})
+				}
+				last := &runs[len(runs)-1]
+				last.entries = append(last.entries, h)
+			}
 			var extra map[string]any
 			if g.LoopLimit > 0 {
 				extra = map[string]any{"loop_limit": g.LoopLimit}
 			}
-			n, err := writeGroupedHookSpec(dstDir, "trae", event, g.Matcher, g.Hooks, extra)
-			if err != nil {
-				return count, err
+			for runIndex, run := range runs {
+				prefix := fmt.Sprintf("trae-%09d-%09d-", groupIndex, runIndex)
+				salt := fmt.Sprintf("timeout=%d", run.timeout)
+				n, err := writeGroupedHookSpecWithPrefix(dstDir, "trae", event, g.Matcher, prefix, salt, run.entries, extra)
+				if err != nil {
+					return count, err
+				}
+				count += n
 			}
-			count += n
 		}
 	}
 	return count, nil
