@@ -34,9 +34,11 @@
 // When `outputs.zed.tasks-file` is set, hook specs additionally emit
 // as Zed Tasks (https://zed.dev/docs/tasks). WorktreeCreate writes
 // `hooks: ["create_worktree"]`, so the task runs after Zed creates a
-// linked Git worktree. Other hooks become on-demand tasks; Zed Tasks
-// has no agent session or tool callbacks. Other documented task fields
-// pass through under `x-zed`, and `import zed` captures them back.
+// linked Git worktree in a trusted project; restricted mode skips it
+// (https://zed.dev/docs/worktree-trust). Other hooks become on-demand
+// tasks; Zed Tasks has no agent session or tool callbacks. Other
+// documented task fields pass through under `x-zed`, and `import zed`
+// captures them back.
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters separated
 // by single hyphens. Invalid names fail before output is written.

@@ -62,7 +62,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
   - `disabled: true` becomes `enabled: false`. Enabled servers get no key, because Zed defaults to true. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
   - Set `timeout` (both transports; seconds per tool call, default 60), `oauth` (HTTP), and `remote` (stdio and extension servers) through `x-zed`. No other tool has them.
 - **Hooks**: with `outputs.zed.tasks-file` set, hooks become [Zed Tasks](https://zed.dev/docs/tasks) running `sh -c "<hook command>"`.
-  - `WorktreeCreate` writes `hooks: ["create_worktree"]`, so the task runs after Zed creates a linked worktree. Import restores it. Other tasks import as `OnDemand` (command palette).
+  - `WorktreeCreate` writes `hooks: ["create_worktree"]`, so the task runs after Zed creates a linked worktree. Since Zed 1.28.1, it is skipped while the project is in [restricted mode](https://zed.dev/docs/worktree-trust), so trust the project first. Import restores it. Other tasks import as `OnDemand` (command palette).
   - Sync controls `label`, `command`, `args`, and `hooks` (adding `create_worktree` keeps other hook names). `x-zed` sets other fields, such as `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, and `reevaluate_context`.
 
 <details>
