@@ -27,6 +27,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Kilo
+
+- The agent `effort` note points to `x-kilo.variant`; setting that native override suppresses the note (#3484).
+
 #### Augment
 
 - An agent's `effort` becomes the Auggie 1.x `thinking` key when it is `off`, `minimal`, `low`, `medium`, `high` or `xhigh`; other values still raise a sync note, and `x-augment.thinking` wins. `import augment` now reads `.augment/agents/` and turns `thinking` back into `effort` (#3451).

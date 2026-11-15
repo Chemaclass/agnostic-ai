@@ -919,3 +919,29 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+func TestEmit_AgentEffortNamesVariantOverride(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	notes := swapNoteWarner(t)
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"effort": "high"}, Body: "Review code."}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{agent}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), "x-kilo.variant") {
+		t.Errorf("note does not name variant override: %s", notes.String())
+	}
+	notes.Reset()
+	agent.Meta["x-kilo"] = map[string]any{"variant": "high"}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{agent}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(notes.String(), "`effort`") {
+		t.Errorf("explicit variant still raises effort note: %s", notes.String())
+	}
+	got := readFile(t, filepath.Join(dir, ".kilo/agents/reviewer.md"))
+	if !strings.Contains(got, "variant: high") {
+		t.Errorf("agent lacks variant: %s", got)
+	}
+}
