@@ -149,9 +149,13 @@ With `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store
 | `<scope>/.factory/skills/<name>/SKILL.md` | `<skills>/<scope>/<name>/SKILL.md` |
 | `.factory/commands/<name>.md` | `<commands>/<name>.md` |
 | `.factory/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
-| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group and distinct `timeout`, `onFailure`, and `preserveRiskLevel`; `onFailure: "block"` becomes `failClosed: true` |
+| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per consecutive run of commands with the same `timeout`, `onFailure`, and `preserveRiskLevel`; `onFailure: "block"` becomes `failClosed: true` |
 | `.factory/settings.json` `model`, `reasoningEffort`, and command lists | `<settings>/factory.yaml`; `reasoningEffort` becomes `effort`, or `x-factory.reasoningEffort` when another settings spec sets a different effort |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+Imported hook names start with their group and command-run positions, so sync preserves command order within each matcher group. Keep those prefixes when renaming imported hooks.
+
+Existing hook specs stay authoritative during re-import. Order prefixes apply to fresh imports. To adopt a changed native order, import the desired hook file in a temporary project and replace the affected specs after review.
 
 - **Droids**: `tools` names map back (`Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`). A list with a category (`read-only`) or an MCP tool ID goes under `x-factory.tools` as written. `reasoningEffort` becomes `effort`. Other droid keys go under `x-factory`.
 - **MCP servers**: `enabledTools` imports under `x-factory.enabledTools`. Empty lists and names shared with `disabledTools` stay intact.

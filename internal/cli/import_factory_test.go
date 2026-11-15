@@ -475,3 +475,44 @@ func TestImportFactory_KeepsEachHookTimeoutThroughSync(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 }
+
+func TestImportFactory_PreservesMixedHookOrderThroughSync(t *testing.T) {
+	for _, tc := range []struct{ name, settingsA, settingsB string }{
+		{"failure", `,"onFailure":"block"`, `,"onFailure":"continue"`},
+		{"risk", `,"preserveRiskLevel":true`, ""},
+		{"timeout", `,"timeout":5`, `,"timeout":60`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+			native := `{"PreToolUse":[{"matcher":"Execute","hooks":[` +
+				`{"type":"command","command":"echo first"` + tc.settingsA + `},` +
+				`{"type":"command","command":"echo middle"` + tc.settingsB + `},` +
+				`{"type":"command","command":"echo last"` + tc.settingsA + `}]}]}`
+			writeFile(t, filepath.Join(dir, ".factory", "hooks.json"), native)
+			execCLI(t, "import", "factory")
+			execCLI(t, "sync")
+			first := factoryHooksJSON(t, dir)
+			var doc map[string][]factoryHookGroup
+			if err := json.Unmarshal([]byte(first), &doc); err != nil {
+				t.Fatal(err)
+			}
+			var commands []string
+			for _, group := range doc["PreToolUse"] {
+				for _, hook := range group.Hooks {
+					commands = append(commands, hook.Command)
+				}
+			}
+			if !slices.Equal(commands, []string{"echo first", "echo middle", "echo last"}) {
+				t.Errorf("command order changed: %v\n%s", commands, first)
+			}
+			execCLI(t, "import", "factory")
+			execCLI(t, "sync")
+			if got := factoryHooksJSON(t, dir); got != first {
+				t.Errorf("second round trip changed hooks:\n%s\nwant\n%s", got, first)
+			}
+			execCLI(t, "sync", "--check")
+		})
+	}
+}
