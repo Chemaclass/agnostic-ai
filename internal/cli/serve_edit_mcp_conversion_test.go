@@ -164,6 +164,41 @@ func TestServeEditMCP_ClaudeDisabledChangeInvalidatesPreview(t *testing.T) {
 	}
 }
 
+func TestServeEditMCP_OpencodeOAuthFalseSurvivesPreviewApplyAndSync(t *testing.T) {
+	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":false}}}`
+	project, h, request := mcpConversionProject(t, "opencode", "opencode.json", native)
+	request["target"] = "opencode"
+	preview := mcpEditPreview(t, h, request)
+	doc := mcpConversionDoc(t, preview)
+	custom, ok := doc["x-opencode"].(map[string]any)
+	if !ok || custom["oauth"] != false || doc["oauth"] != nil {
+		t.Errorf("OpenCode OAuth override not nested: %s", preview.Spec)
+	}
+	mcpEditApply(t, h, request, preview)
+	syncProject(t)
+	server := readNativeMCPServers(filepath.Join(project, "opencode.json"), "json", "mcp")["docs"]
+	if server["oauth"] != false {
+		t.Errorf("OpenCode OAuth override lost after sync: %#v", server)
+	}
+}
+
+func TestServeEditMCP_KiloOAuthFalseSurvivesPreviewApplyAndSync(t *testing.T) {
+	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":false}}}`
+	project, h, request := mcpConversionProject(t, "kilo", "kilo.jsonc", native)
+	request["target"] = "kilo"
+	preview := mcpEditPreview(t, h, request)
+	doc := mcpConversionDoc(t, preview)
+	if doc["oauth"] != false || doc["x-opencode"] != nil {
+		t.Errorf("Kilo OAuth override not at top level: %s", preview.Spec)
+	}
+	mcpEditApply(t, h, request, preview)
+	syncProject(t)
+	server := readNativeMCPServers(filepath.Join(project, "kilo.jsonc"), "json", "mcp")["docs"]
+	if server["oauth"] != false {
+		t.Errorf("Kilo OAuth override lost after sync: %#v", server)
+	}
+}
+
 func TestServeEditMCP_OpencodeOAuthEnvReferenceSurvivesPreviewApplyAndSync(t *testing.T) {
 	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":{"clientSecret":"{env:GH_SECRET}"}}}}`
 	project, h, request := mcpConversionProject(t, "opencode", "opencode.json", native)

@@ -102,6 +102,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### OpenCode
 
 - `import opencode` keeps OAuth secrets written only as `{env:NAME}` references under `x-opencode`; literal credentials are still refused (#3493).
+- The web editor keeps `oauth: false` under `x-opencode` when adding an MCP server, so sync keeps OAuth disabled (#3491).
 
 - `import opencode` keeps MCP keys such as `oauth: false` under `x-opencode`, so sync writes them back; a literal OAuth secret is left out (#3479).
 - `explain` reports the `read`, `bash` and other permission keys that `sync` writes for an agent's `tools`, instead of listing them as unsupported (#3425).
