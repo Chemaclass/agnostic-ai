@@ -170,8 +170,6 @@ func importOpencodeMCP(root, dstDir string) (int, error) {
 	if err != nil || len(servers) == 0 {
 		return 0, err
 	}
-	servers, skipped := withoutMCPOAuthCredentials(servers)
-	reportMCPLiteralRefs(skipped)
 	normalized := map[string]any{}
 	for name, raw := range servers {
 		entry, ok := raw.(map[string]any)
@@ -189,7 +187,8 @@ var opencodePortableMCPKeys = []string{"command", "args", "env", "cwd", "url", "
 
 // nestOpencodeOnlyMCPKeys moves every key sync would not read at the top
 // level, such as `oauth: false`, under `x-opencode`, which sync writes
-// back to the server entry.
+// back to the server entry. The spec writer still leaves out a server
+// whose `x-opencode` holds a credential.
 func nestOpencodeOnlyMCPKeys(entry map[string]any) map[string]any {
 	native := map[string]any{}
 	for k, v := range entry {

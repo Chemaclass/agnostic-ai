@@ -342,3 +342,23 @@ func TestImportOpencode_MCPOAuthSecretIsLeftOut(t *testing.T) {
 		t.Errorf("other servers still import: %v", err)
 	}
 }
+
+// TestImportOpencode_MCPOAuthEnvReferenceStaysNative: the spec writer
+// cannot tell OpenCode's `{env:NAME}` inside `oauth` from a secret, so
+// the server is left out and sync keeps the native entry.
+func TestImportOpencode_MCPOAuthEnvReferenceStaysNative(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
+	native := `{"mcp":{"gh":{"type":"remote","url":"https://example.com/mcp","oauth":{"clientId":"app","clientSecret":"{env:GH_SECRET}"}}}}`
+	writeFile(t, filepath.Join(dir, opencodeMCPFile), native)
+
+	silence(t)
+	execCLI(t, "import", "opencode")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml")); !os.IsNotExist(err) {
+		t.Errorf("the server must be left out: %v", err)
+	}
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, opencodeMCPFile)); !strings.Contains(got, "{env:GH_SECRET}") {
+		t.Errorf("sync must keep the native entry:\n%s", got)
+	}
+}
