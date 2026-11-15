@@ -122,6 +122,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `hook run` reads Crush 0.101 replies: `decision: "block"` blocks, `continue: false` halts, and JSON applies on any exit but 2 and 49 (#3478).
 - `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
 
+#### Grok
+
+- `import grok` keeps an MCP header or env value that is a `{{session_id}}` template, which Grok fills in, instead of turning it into a variable (#3480).
+
 #### Mistral Vibe
 
 - A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).

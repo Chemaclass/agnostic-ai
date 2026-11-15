@@ -219,3 +219,45 @@ func TestImportGrok_PortableAgentDropsUnrequestedMCPBridge(t *testing.T) {
 		}
 	}
 }
+
+// TestImportGrok_KeepsSessionTemplateHeader: Grok fills `{{session_id}}`
+// per session (docs.x.ai/build/features/mcp-servers), so import keeps the
+// vendor example as written instead of reading it as a secret.
+func TestImportGrok_KeepsSessionTemplateHeader(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [grok]\n")
+	writeFile(t, filepath.Join(dir, ".grok", "config.toml"),
+		"[mcp_servers.linear]\nurl = \"https://mcp.linear.app/mcp\"\nheaders = { \"x-mcp-session-id\" = \"{{session_id}}\", \"x-team\" = \"core\" }\n")
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	out, err := runCLI(t, "import", "grok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "LINEAR_X_MCP_SESSION_ID") {
+		t.Errorf("import must not ask for a variable for the template:\n%s", out)
+	}
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"))
+	if !strings.Contains(spec, "x-mcp-session-id: !literal '{{session_id}}'") || !strings.Contains(spec, "${LINEAR_X_TEAM}") {
+		t.Errorf("want the template kept and other literals still referenced:\n%s", spec)
+	}
+	execCLI(t, "sync", "-t", "grok")
+	if got := readFile(t, filepath.Join(dir, ".grok", "config.toml")); !strings.Contains(got, `"{{session_id}}"`) {
+		t.Errorf("sync must write the template back:\n%s", got)
+	}
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
+}
+
+func TestImportGrok_AgentMCPSessionTemplateIsNoCredential(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [grok]\n")
+	writeFile(t, filepath.Join(dir, ".grok/agents/reviewer.md"),
+		"---\nname: reviewer\ndescription: Review work\nmcpServers:\n  - name: linear\n    url: https://mcp.linear.app/mcp\n    headers: {x-mcp-session-id: '{{session_id}}'}\n---\nRead docs.\n")
+	execCLI(t, "import", "grok")
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/reviewer.md")); !strings.Contains(got, "{{session_id}}") {
+		t.Errorf("agent metadata must keep the template:\n%s", got)
+	}
+}

@@ -57,7 +57,7 @@ func previewMCPSpec(target, name, path, format string, server map[string]any) ([
 	if target != "codex" {
 		normalizeImportedMCP(target, servers)
 	}
-	for _, ref := range referenceMCPLiterals(servers) {
+	for _, ref := range referenceMCPLiteralsFor(target, servers) {
 		if ref.leftOut {
 			return nil, nil, mcpImportCredentialError(name, ref.field)
 		}
