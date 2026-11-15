@@ -40,13 +40,14 @@ import (
 //     (hooks/input.go:23-49); env adds CRUSH_* (hooks/input.go:53-76,
 //     shell/shell.go:43-49) and forces non-interactive variables
 //     (shell/run.go:222-255).
-//   - exit codes: 2 blocks the tool call, 49 halts the whole turn, any
-//     other non-zero exit does not block (hooks/runner.go:220-255,
-//     hooks/hooks.go:22).
-//   - JSON reply at exit 0: decision deny blocks, halt halts, and a
-//     hookSpecificOutput object is read as Claude Code's
-//     permissionDecision instead (hooks/input.go:80-124,159-182,
-//     agent/hooked_tool.go:62-73).
+//   - replies, rechecked on 2026-11-15 at tag v0.101.0
+//     (github.com/charmbracelet/crush/tree/v0.101.0/internal): exit 2 blocks
+//     the tool call and 49 halts the whole turn; on any other exit a
+//     JSON object on stdout applies as on exit 0, and without one the
+//     exit does not block (hooks/runner.go:224-263, hooks/hooks.go:17).
+//     A reply blocks on decision deny or block, halts on halt or
+//     continue false, and a hookSpecificOutput merges over the top-level
+//     fields (hooks/input.go:100-248, agent/hooked_tool.go:61-72).
 //   - timeout: the hook's timeout in seconds, 30 by default
 //     (config/config.go:806-823); a timed-out hook does not block
 //     (hooks/runner.go:210-218).
@@ -543,49 +544,72 @@ func RunCrush(command, dir string, env []string, stdin []byte, timeout time.Dura
 	return r
 }
 
-// crushReply is what Crush takes from stdout at exit 0.
+// crushReply is what Crush takes from a JSON reply on stdout.
 type crushReply struct {
 	deny, halt bool
 	context    string
 }
 
-// parseCrushReply follows hooks/input.go:80-211 step by step, with the
-// same encoding/json decoding, so a field of the wrong type, such as a
-// non-string reason, voids the reply as it does in Crush. A
-// hookSpecificOutput key, even null, switches to Claude Code's shape.
-func parseCrushReply(stdout string) crushReply {
+// parseCrushReply follows parseStdout and applyClaudeCodeOutput at
+// v0.101.0 (hooks/input.go:100-235) with the same encoding/json decoding.
+// ok is false when stdout is not a JSON object, which is how Crush tells
+// a reply from none: a field of the wrong type voids it. The top-level
+// fields read first, Crush's own and Claude Code's `decision: "block"`
+// and `continue: false`; then a hookSpecificOutput that decodes merges
+// over them, its permissionDecision only when it names one.
+func parseCrushReply(stdout string) (crushReply, bool) {
 	stdout = strings.TrimSpace(stdout)
 	if stdout == "" {
-		return crushReply{}
+		return crushReply{}, false
 	}
-	var raw map[string]json.RawMessage
-	if json.Unmarshal([]byte(stdout), &raw) != nil {
-		return crushReply{}
+	var parsed struct {
+		Version            int             `json:"version"`
+		Decision           string          `json:"decision"`
+		Halt               bool            `json:"halt"`
+		Reason             string          `json:"reason"`
+		Context            json.RawMessage `json:"context"`
+		UpdatedInput       json.RawMessage `json:"updated_input"`
+		UpdatedOutput      json.RawMessage `json:"updated_output"`
+		Continue           *bool           `json:"continue"`
+		StopReason         string          `json:"stopReason"`
+		HookSpecificOutput json.RawMessage `json:"hookSpecificOutput"`
 	}
-	if hso, ok := raw["hookSpecificOutput"]; ok {
+	if json.Unmarshal([]byte(stdout), &parsed) != nil {
+		return crushReply{}, false
+	}
+	decision := crushDecision(parsed.Decision)
+	reply := crushReply{halt: parsed.Halt || parsed.Continue != nil && !*parsed.Continue, context: crushContext(parsed.Context)}
+	if len(parsed.HookSpecificOutput) > 0 {
 		var cc struct {
 			PermissionDecision       string          `json:"permissionDecision"`
 			PermissionDecisionReason string          `json:"permissionDecisionReason"`
 			UpdatedInput             json.RawMessage `json:"updatedInput"`
+			UpdatedToolOutput        json.RawMessage `json:"updatedToolOutput"`
 			AdditionalContext        string          `json:"additionalContext"`
 		}
-		if json.Unmarshal(hso, &cc) != nil {
-			return crushReply{}
+		if json.Unmarshal(parsed.HookSpecificOutput, &cc) == nil {
+			if d := crushDecision(cc.PermissionDecision); d != "" {
+				decision = d
+			}
+			if cc.AdditionalContext != "" {
+				reply.context = strings.TrimSpace(reply.context + "\n" + cc.AdditionalContext)
+			}
 		}
-		return crushReply{deny: strings.EqualFold(cc.PermissionDecision, "deny"), context: cc.AdditionalContext}
 	}
-	var parsed struct {
-		Version      int             `json:"version"`
-		Decision     string          `json:"decision"`
-		Halt         bool            `json:"halt"`
-		Reason       string          `json:"reason"`
-		Context      json.RawMessage `json:"context"`
-		UpdatedInput json.RawMessage `json:"updated_input"`
+	reply.deny = decision == "deny"
+	return reply, true
+}
+
+// crushDecision follows parseDecision (hooks/input.go:239-248): "allow"
+// and "approve" allow, "deny" and "block" deny, in any case.
+func crushDecision(s string) string {
+	switch strings.ToLower(s) {
+	case "allow", "approve":
+		return "allow"
+	case "deny", "block":
+		return "deny"
 	}
-	if json.Unmarshal([]byte(stdout), &parsed) != nil {
-		return crushReply{}
-	}
-	return crushReply{deny: strings.EqualFold(parsed.Decision, "deny"), halt: parsed.Halt, context: crushContext(parsed.Context)}
+	return ""
 }
 
 // crushContext follows parseContext (hooks/input.go:128-155): a string,
@@ -609,8 +633,11 @@ func crushContext(raw json.RawMessage) string {
 	return ""
 }
 
-// decideCrush reads a result as hooks/runner.go:210-264 and
-// agent/hooked_tool.go:62-73 do.
+// decideCrush reads a result as runOne (hooks/runner.go:213-263) and
+// agent/hooked_tool.go:61-72 do at v0.101.0: exit 2 blocks and 49 halts
+// whatever stdout holds; on any other exit, a JSON reply applies as on
+// exit 0, "as in Claude Code", and without one a non-zero exit is a
+// non-blocking error.
 func decideCrush(r Result) Decision {
 	switch {
 	case r.TimedOut:
@@ -619,28 +646,32 @@ func decideCrush(r Result) Decision {
 		return Error
 	case r.Exit == 2 || r.Exit == crushHaltExit:
 		return Block
-	case r.Exit != 0:
-		return Error
 	}
-	if reply := parseCrushReply(r.Stdout); reply.deny || reply.halt {
+	reply, ok := parseCrushReply(r.Stdout)
+	switch {
+	case !ok && r.Exit != 0:
+		return Error
+	case reply.deny || reply.halt:
 		return Block
 	}
 	return Allow
 }
 
 // CrushHalts reports whether Crush ends the whole turn on r, not only
-// the tool call: exit 49, or halt in a JSON reply.
+// the tool call: exit 49, or a halt in a JSON reply on any exit but 2.
 func CrushHalts(r Result) bool {
-	if r.TimedOut || r.StartErr != nil {
+	if r.TimedOut || r.StartErr != nil || r.Exit == 2 {
 		return false
 	}
-	return r.Exit == crushHaltExit || (r.Exit == 0 && parseCrushReply(r.Stdout).halt)
+	reply, _ := parseCrushReply(r.Stdout)
+	return r.Exit == crushHaltExit || reply.halt
 }
 
 // crushAddsContext reports whether Crush appends the reply's context to
 // the tool result, which it does only when the tool runs.
 func crushAddsContext(r Result) bool {
-	return decideCrush(r) == Allow && parseCrushReply(r.Stdout).context != ""
+	reply, _ := parseCrushReply(r.Stdout)
+	return decideCrush(r) == Allow && reply.context != ""
 }
 
 // CrushAssumptions names what r ran from PATH that Crush runs as its

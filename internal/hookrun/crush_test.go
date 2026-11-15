@@ -140,37 +140,64 @@ func TestRunCrush_RecordsCoreUtilsOnlyWhereCrushServesThem(t *testing.T) {
 
 func TestDecideCrush_FollowsTheSource(t *testing.T) {
 	for name, tc := range map[string]struct {
-		r    Result
-		want Decision
+		r     Result
+		want  Decision
+		halts bool
 	}{
-		"exit 2 blocks":                        {Result{Exit: 2}, Block},
-		"exit 49 halts":                        {Result{Exit: 49}, Block},
-		"another exit does not block":          {Result{Exit: 1}, Error},
-		"a timeout does not block":             {Result{TimedOut: true}, Timeout},
-		"no output allows":                     {Result{}, Allow},
-		"text allows":                          {Result{Stdout: "ok"}, Allow},
-		"decision deny blocks":                 {Result{Stdout: `{"decision":"DENY"}`}, Block},
-		"halt blocks":                          {Result{Stdout: `{"halt":true}`}, Block},
-		"decision allow allows":                {Result{Stdout: `{"decision":"allow"}`}, Allow},
-		"permissionDecision deny blocks":       {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"deny"}}`}, Block},
-		"hookSpecificOutput hides decision":    {Result{Stdout: `{"decision":"deny","hookSpecificOutput":{}}`}, Allow},
-		"a JSON reply on a failed exit is off": {Result{Exit: 1, Stdout: `{"decision":"deny"}`}, Error},
-		"a non-string reason voids the reply":  {Result{Stdout: `{"decision":"deny","reason":{}}`}, Allow},
-		"a non-int version voids the reply":    {Result{Stdout: `{"decision":"deny","version":"1"}`}, Allow},
-		"a non-bool halt voids the reply":      {Result{Stdout: `{"halt":"yes"}`}, Allow},
-		"a non-string decision voids it":       {Result{Stdout: `{"decision":true}`}, Allow},
-		"keys match case-insensitively":        {Result{Stdout: `{"Decision":"deny"}`}, Block},
-		"a null hookSpecificOutput still wins": {Result{Stdout: `{"decision":"deny","hookSpecificOutput":null}`}, Allow},
-		"a bad hookSpecificOutput voids it":    {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":1}}`}, Allow},
-		"a bad hookSpecificOutput reason":      {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":[]}}`}, Allow},
-		"a JSON array is no reply":             {Result{Stdout: `[{"decision":"deny"}]`}, Allow},
-		"null is no reply":                     {Result{Stdout: `null`}, Allow},
+		"exit 2 blocks":                                {Result{Exit: 2}, Block, false},
+		"exit 2 ignores a JSON halt":                   {Result{Exit: 2, Stdout: `{"continue":false}`}, Block, false},
+		"exit 49 halts":                                {Result{Exit: 49}, Block, true},
+		"another exit does not block":                  {Result{Exit: 1}, Error, false},
+		"another exit with text does not block":        {Result{Exit: 1, Stdout: "oops"}, Error, false},
+		"a timeout does not block":                     {Result{TimedOut: true}, Timeout, false},
+		"no output allows":                             {Result{}, Allow, false},
+		"text allows":                                  {Result{Stdout: "ok"}, Allow, false},
+		"decision deny blocks":                         {Result{Stdout: `{"decision":"DENY"}`}, Block, false},
+		"decision block blocks":                        {Result{Stdout: `{"decision":"block","reason":"no"}`}, Block, false},
+		"decision approve allows":                      {Result{Stdout: `{"decision":"approve"}`}, Allow, false},
+		"halt blocks":                                  {Result{Stdout: `{"halt":true}`}, Block, true},
+		"continue false halts":                         {Result{Stdout: `{"continue":false,"stopReason":"stop"}`}, Block, true},
+		"continue true allows":                         {Result{Stdout: `{"continue":true}`}, Allow, false},
+		"decision allow allows":                        {Result{Stdout: `{"decision":"allow"}`}, Allow, false},
+		"permissionDecision deny blocks":               {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"deny"}}`}, Block, false},
+		"hookSpecificOutput keeps the top-level deny":  {Result{Stdout: `{"decision":"deny","hookSpecificOutput":{}}`}, Block, false},
+		"hookSpecificOutput keeps continue false":      {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"allow"},"continue":false}`}, Block, true},
+		"permissionDecision overrides decision":        {Result{Stdout: `{"decision":"deny","hookSpecificOutput":{"permissionDecision":"allow"}}`}, Allow, false},
+		"a JSON deny on another exit blocks":           {Result{Exit: 1, Stdout: `{"decision":"deny","reason":"no"}`}, Block, false},
+		"a JSON halt on another exit halts":            {Result{Exit: 1, Stdout: `{"halt":true}`}, Block, true},
+		"a JSON object on another exit has no opinion": {Result{Exit: 1, Stdout: `{}`}, Allow, false},
+		"a non-string reason voids the reply":          {Result{Stdout: `{"decision":"deny","reason":{}}`}, Allow, false},
+		"a non-int version voids the reply":            {Result{Stdout: `{"decision":"deny","version":"1"}`}, Allow, false},
+		"a non-bool halt voids the reply":              {Result{Stdout: `{"halt":"yes"}`}, Allow, false},
+		"a non-string decision voids it":               {Result{Stdout: `{"decision":true}`}, Allow, false},
+		"a void reply on another exit is an error":     {Result{Exit: 1, Stdout: `{"halt":"yes"}`}, Error, false},
+		"keys match case-insensitively":                {Result{Stdout: `{"Decision":"deny"}`}, Block, false},
+		"a null hookSpecificOutput keeps the deny":     {Result{Stdout: `{"decision":"deny","hookSpecificOutput":null}`}, Block, false},
+		"a bad hookSpecificOutput is skipped":          {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":1}}`}, Allow, false},
+		"a bad hookSpecificOutput keeps the top level": {Result{Stdout: `{"decision":"deny","hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":[]}}`}, Block, false},
+		"a JSON array is no reply":                     {Result{Stdout: `[{"decision":"deny"}]`}, Allow, false},
+		"null is no reply":                             {Result{Stdout: `null`}, Allow, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := decideCrush(tc.r); got != tc.want {
 				t.Errorf("decideCrush = %s, want %s", got, tc.want)
 			}
+			if got := CrushHalts(tc.r); got != tc.halts {
+				t.Errorf("CrushHalts = %t, want %t", got, tc.halts)
+			}
 		})
+	}
+}
+
+func TestCrushAddsContext_OnAnyExitThatAllows(t *testing.T) {
+	if !crushAddsContext(Result{Exit: 1, Stdout: `{"context":"note"}`}) {
+		t.Error("a JSON reply on another exit still carries its context")
+	}
+	if !crushAddsContext(Result{Stdout: `{"context":"a","hookSpecificOutput":{"additionalContext":"b"}}`}) {
+		t.Error("additionalContext adds to context")
+	}
+	if crushAddsContext(Result{Stdout: `{"context":"a","decision":"block"}`}) {
+		t.Error("a blocked tool gets no context")
 	}
 }
 
@@ -260,7 +287,7 @@ func TestCrushAddsContext_ReadsContextAsCrushDoes(t *testing.T) {
 		`{"context":"note","reason":5}`:                         false,
 		`{"context":"note","decision":"deny"}`:                  false,
 		`{"hookSpecificOutput":{"additionalContext":"note"}}`:   true,
-		`{"hookSpecificOutput":null,"context":"note"}`:          false,
+		`{"hookSpecificOutput":null,"context":"note"}`:          true,
 		`{"hookSpecificOutput":{"additionalContext":["note"]}}`: false,
 	} {
 		if got := AddsContext("crush", "PreToolUse", Result{Stdout: out}); got != want {
