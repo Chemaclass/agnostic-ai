@@ -147,6 +147,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- The Factory guide shows how to adopt a changed native hook order through a clean import and reviewed spec replacement (#3499).
+
 - Junie lists `WebFetch` as supported, and Zed's adapter guidance describes automatic worktree tasks (#3435, #3437).
 
 ## v0.94.0 - 2026-11-12

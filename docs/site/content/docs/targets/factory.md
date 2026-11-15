@@ -155,8 +155,6 @@ With `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store
 
 Imported hook names start with their group and command-run positions, so sync preserves command order within each matcher group. Keep those prefixes when renaming imported hooks.
 
-Existing hook specs stay authoritative during re-import. Order prefixes apply to fresh imports. To adopt a changed native order, import the desired hook file in a temporary project and replace the affected specs after review.
-
 - **Droids**: `tools` names map back (`Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`). A list with a category (`read-only`) or an MCP tool ID goes under `x-factory.tools` as written. `reasoningEffort` becomes `effort`. Other droid keys go under `x-factory`.
 - **MCP servers**: `enabledTools` imports under `x-factory.enabledTools`. Empty lists and names shared with `disabledTools` stay intact.
 - **Command lists**: these read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes `Bash(x:*)`. Other `settings.json` keys stay in the file.
@@ -167,6 +165,41 @@ Existing hook specs stay authoritative during re-import. Order prefixes apply to
 A `tools: read-only` that came from a portable `readonly: true` also goes under `x-factory.tools`, because import does not turn it back into `readonly`. Syncing again writes the same droid file.
 
 </details>
+
+### Adopt a changed hook order
+
+Existing hook specs stay authoritative during re-import. To adopt an order edited in the native file, first import it into a temporary project with no existing specs.
+
+From your project root, run these commands. Use your configured `outputs.factory.hooks-file` path for the copy when it differs from `.factory/hooks.json`.
+
+```sh
+factory_import_dir=$(mktemp -d) &&
+mkdir -p "$factory_import_dir/.factory" &&
+printf '%s\n' 'version: 1' 'targets: [factory]' > "$factory_import_dir/agnostic-ai.yaml" &&
+cp .factory/hooks.json "$factory_import_dir/.factory/hooks.json" &&
+(
+  cd "$factory_import_dir" &&
+  agnostic-ai import factory &&
+    agnostic-ai sync --only factory --dry-run --diff
+) &&
+printf 'Review hook specs in %s\n' "$factory_import_dir/.agnostic-ai/hooks"
+```
+
+Review the new specs against your hook source folder. Carry over comments, descriptions, target filters, and other spec-only edits. A command inserted inside an existing run can split one spec into several. Update references to each old hook name or path to the replacement hook or hooks they should run.
+
+Keep copies of the affected matcher group's old spec files outside your hook source folder. Remove only those old source files, then copy in the reviewed replacements. Keep unrelated specs. In the original project, validate and preview the planned native output:
+
+```sh
+agnostic-ai validate &&
+  agnostic-ai sync --only factory --dry-run --diff
+```
+
+Read the diff and confirm the desired command order and settings. Then write the native file and check it:
+
+```sh
+agnostic-ai sync --only factory &&
+  agnostic-ai sync --only factory --check
+```
 
 ## Protected paths
 
