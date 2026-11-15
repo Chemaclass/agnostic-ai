@@ -511,7 +511,7 @@ func referenceMCPLiteralsFor(target string, servers map[string]any) []mcpLiteral
 				literals = append(literals, l)
 			}
 		}
-		urlLiterals, urlRefs, unreadable := mcpURLLiterals(name, server, referenced)
+		urlLiterals, urlRefs, unreadable := mcpURLLiterals(target, name, server, referenced)
 		if unreadable != "" {
 			delete(servers, name)
 			literals = slices.DeleteFunc(literals, func(l mcpLiteral) bool { return l.server == name })
@@ -559,7 +559,7 @@ func referenceMCPLiteralsFor(target string, servers map[string]any) []mcpLiteral
 // field, and then the server must be left out. It records the references
 // a value already holds in referenced. A literal reports only its own
 // reference, never the value around it.
-func mcpURLLiterals(name string, server map[string]any, referenced map[string]bool) (literals []mcpLiteral, refs []mcpLiteralRef, unreadable string) {
+func mcpURLLiterals(target, name string, server map[string]any, referenced map[string]bool) (literals []mcpLiteral, refs []mcpLiteralRef, unreadable string) {
 	record := func(value string) {
 		for _, t := range spec.EnvRefTokens(value) {
 			if t.Known() {
@@ -687,7 +687,7 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 	for _, field := range slices.Sorted(maps.Keys(server)) {
 		if field == "command" || field == "cwd" || field == "requestOptions" || strings.HasPrefix(field, "x-") {
 			walkMCPStrings(field, field, server[field], func(path, key, value string) {
-				if unreadable != "" {
+				if unreadable != "" || opencodeMCPEnvReference(target, path, value) {
 					return
 				}
 				named := preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)

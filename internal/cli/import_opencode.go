@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -256,4 +257,20 @@ func splitOpencodeCommand(v any) (string, []string) {
 		}
 	}
 	return cmd, args
+}
+
+func opencodeMCPEnvReference(target, field, value string) bool {
+	if target != "opencode" || !strings.HasPrefix(strings.TrimPrefix(field, "."), "x-opencode.") {
+		return false
+	}
+	refs := opencodeReference.FindAllString(value, -1)
+	if len(refs) == 0 {
+		return false
+	}
+	for _, ref := range refs {
+		if !strings.HasPrefix(ref, "{env:") {
+			return false
+		}
+	}
+	return strings.TrimSpace(opencodeReference.ReplaceAllString(value, "")) == ""
 }

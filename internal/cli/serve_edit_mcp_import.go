@@ -71,7 +71,7 @@ func previewMCPSpec(target, name, path, format string, server map[string]any) ([
 	variables := map[string]bool{}
 	unsafe := ""
 	walkMCPStrings("", "", jsonRoundTrip(entry), func(field, key, value string) {
-		if unsafe == "" && (preview.CredentialDetected(value) || preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)) {
+		if unsafe == "" && !opencodeMCPEnvReference(target, field, value) && (preview.CredentialDetected(value) || preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)) {
 			unsafe = strings.TrimPrefix(field, ".")
 		}
 		for _, token := range spec.EnvRefTokens(value) {

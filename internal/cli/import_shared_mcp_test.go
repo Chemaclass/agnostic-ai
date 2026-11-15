@@ -49,3 +49,20 @@ func TestWriteMCPYAMLs_InvalidNameWritesNothing(t *testing.T) {
 		t.Errorf("invalid import wrote %d specs", len(entries))
 	}
 }
+
+func TestReferenceMCPLiterals_OpencodeEnvReferenceDoesNotExemptOtherTargets(t *testing.T) {
+	for _, tc := range []struct{ target, field string }{
+		{"opencode", "x-claude"}, {"claude", "x-opencode"}, {"kilo", "x-kilo"},
+	} {
+		t.Run(tc.target+"/"+tc.field, func(t *testing.T) {
+			servers := map[string]any{"gh": map[string]any{"url": "https://example.test/mcp", tc.field: map[string]any{"oauth": map[string]any{"clientSecret": "{env:GH_SECRET}"}}}}
+			refs := referenceMCPLiteralsFor(tc.target, servers)
+			if _, exists := servers["gh"]; exists {
+				t.Error("native reference exemption applied outside OpenCode's own block")
+			}
+			if len(refs) != 1 || !refs[0].leftOut {
+				t.Errorf("missing credential refusal: %#v", refs)
+			}
+		})
+	}
+}
