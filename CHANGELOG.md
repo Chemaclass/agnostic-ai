@@ -6,158 +6,151 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.95.0 - 2026-11-15
+
+### Highlights
+
+- `import` keeps native settings under `x-<target>` for seven tools, so `sync` no longer drops them (#3380, #3390, #3391, #3393, #3394, #3395, #3479).
+- `import kiro` reads `.json` agent profiles and agents in subfolders of `.kiro/agents/`, which it used to skip (#3462).
+- `hook run` reads Factory 1.11 and Crush 0.101 replies the way those tools do, and sets Crush's `CLAUDE_PROJECT_DIR` (#3477, #3478, #3489).
+- Re-importing an agent with a per-target `effort` or `model` map changes only the imported tool's value (#3466, #3470).
+- A chat closed in its terminal moves to Archived as soon as you have seen its last reply, and the companion offers a smaller circle (#3447, #3457).
+
 ### General
 
-- Re-importing an agent whose `effort` is a map per target changes only the imported tool's entry and keeps the other targets' values (#3466).
-- Re-importing an agent whose `model` is a map per target changes only the imported tool's entry and keeps the other targets' values; a tier named in `default` counts as its model for that tool (#3470).
-
-- A local Claude Code, Codex or `cursor-agent` chat closed in its terminal moves to Archived in the companion and the web interface as soon as you have seen its last reply, instead of a day later (#3457).
-
+- Re-importing an agent whose `effort` or `model` is a map per target changes only that tool's entry and keeps the others (#3466, #3470).
+- A Claude Code, Codex or `cursor-agent` chat closed in its terminal moves to Archived once you have seen its last reply, not a day later (#3457).
 - Both companion menus offer Small companion, a 40px circle in a smaller window instead of the 60px one (#3447).
-
-- Agent-as-skill output uses neutral inline instructions, and import still recognizes previously generated agent skills (#3436).
-
-- Target audits review ordinary CLI comment changes once, with recorded source evidence, while keeping runtime changes under deep review (#3372).
-- Target audits can start in an isolated worktree and retain evidence outside it, so concurrent checkout changes do not restart research (#3369).
-
-### Tooling
-
-- Target audits ingest a complete target result in one validated write and report recorded coverage and timings (#3370).
-- Target audits refill idle reviewers with pending targets and confirm completed findings while other reviews continue (#3371).
+- Agent-as-skill output uses neutral inline instructions, and import still recognizes agent skills generated before (#3436).
+- Target audits can run in an isolated worktree, save each result in one checked write, and keep idle reviewers busy (#3369, #3370, #3371, #3372).
 
 ### By tool
 
-#### Kilo
+#### OpenHands
 
-- The agent `effort` note points to `x-kilo.variant`; setting that native override suppresses the note (#3484).
+- Agent import keeps native tools, permissions, color, hooks, MCP servers and run settings, including MCP deletions (#3380, #3408, #3443).
+- Agent MCP import refuses literal credentials and keeps environment references (#3450).
+- Fresh hook imports keep each command's timeout, async mode and order through sync (#3496).
+- `hook run` reports added context from SDK 1.62.0 `SessionStart` replies that hold `additionalContext` (#3382).
+- Folder skill import keeps native keyword triggers through sync (#3381).
+
+#### OpenCode
+
+- `import opencode` keeps MCP keys such as `oauth: false` and `{env:NAME}` OAuth secrets under `x-opencode`; literal secrets are refused (#3479, #3493).
+- The web editor keeps `oauth: false` under `x-opencode` when it adds an MCP server, so sync keeps OAuth off (#3491).
+- `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it (#3383).
+- `explain` reports the permission keys `sync` writes for an agent's `tools`, and reads an `x-opencode.permission` override (#3407, #3425).
+
+#### Factory
+
+- `hook run` reads Factory 1.11 replies: `ask` allows, top-level `decision: "block"` denies, and JSON applies on any exit but 2 (#3477).
+- Hooks write `onFailure: "block"` from `failClosed` and `preserveRiskLevel` from `x-factory`, and import reads both back (#3476).
+- `import factory` keeps each hook command's own timeout and the command order through sync (#3490, #3492).
+- `import factory` keeps a group's `commandRegex` as `x-factory.commandRegex`, and `sync` writes it back on that group (#3397).
+
+#### Antigravity
+
+- `import antigravity` keeps an agent's `tools`, `mcpServers`, `skills` and other native keys under `x-antigravity`; inline credentials are left out (#3393).
+- `hook run --target antigravity` adds `lastUserInput`, `hookEventName`, `cwd` and `toolCall.id` to the payload (#3453).
+- `hook run` reads a successful Stop reply of `{}` as `allow`, matching the released backend (#3402).
+- `sync` keeps the `flash_lite` model tier in Antigravity plugin agents (#3429).
+
+#### Copilot
+
+- `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot` (#3391).
+- `sync` and global import keep Copilot-only MCP keys, such as `oauthClientId`, `cwd` and `oidc`, out of `.vscode/mcp.json` (#3430, #3442).
+- `import copilot` reads a hook's `timeout` alias and prefers an explicit `bash` entry over `command` (#3392).
+
+#### Crush
+
+- `hook run` reads Crush 0.101 replies: `decision: "block"` blocks, `continue: false` halts, and JSON applies on any exit but 2 and 49 (#3478).
+- `hook run --target crush` sets `CLAUDE_PROJECT_DIR` to the project root, matching Crush 0.101.0 (#3489).
+- `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters it by tool name (#3385).
+
+#### Goose
+
+- `sync --global` writes hooks to the user plugin `~/.agents/plugins/agnostic-ai-global/`, which Goose loads for every project (#3389).
+- `import goose` skips plugins in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
+- `import goose` keeps each hook's own `timeout` and `on_failure`, and warns about a `$PLUGIN_ROOT` command (#3399).
+
+#### Kiro
+
+- `import kiro` reads `.json` agent profiles and agents in subfolders, and notes the original to remove after sync (#3454, #3462).
+- `import kiro` keeps an agent's `excludedTools`, `resources`, `permissions`, `hooks` and other native keys under `x-kiro` (#3394).
+- `lint` no longer warns (LINT005) about a `matcher` on the `PostFileCreate`, `PostFileSave` and `PostFileDelete` events (#3455).
+
+#### Mistral Vibe
+
+- A portable `Grep` tool maps to Vibe's native `grep`, so a `Grep`-only agent no longer fails `sync` (#3379).
+- `import vibe` keeps native skill `allowed-tools` under `x-vibe`, so names such as `read_file` no longer block sync or lint (#3434).
+- `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable mapping it replaces (#3407).
 
 #### Augment
 
-- An agent's `effort` becomes the Auggie 1.x `thinking` key when it is `off`, `minimal`, `low`, `medium`, `high` or `xhigh`; other values still raise a sync note, and `x-augment.thinking` wins. `import augment` now reads `.augment/agents/` and turns `thinking` back into `effort` (#3451).
+- An agent's `effort` becomes the Auggie 1.x `thinking` key, and `import augment` reads `.augment/agents/` back into `effort` (#3451).
+- `import augment` reads `.augment/settings.json` with comments and trailing commas, as Auggie does (#3384).
+- The Augment guide and the agent `tools` sync note name both the 0.x and 1.x tool names (#3387).
 
 #### Codex
 
 - `hook run` uses Codex's 1s default and 3s maximum for `SessionEnd` and `Interrupt` (#3432).
-- `hook run` counts Codex `SessionEnd` handlers as synchronous even when authored with `async: true` (#3433).
-
-#### Pi
-
-- `sync --global` and `import --global pi` retain MCP `auth.provider` without enabling it in project files (#3431).
-
-#### Factory
-
-- Fresh Factory hook imports keep command order through sync across mixed timeout, failure, and risk settings (#3492).
-
-- `import factory` keeps each hook command's own timeout through sync, including repeated commands with different timeouts (#3490).
-
-- Hooks write `onFailure: "block"` from `failClosed` and `preserveRiskLevel` from `x-factory`; import reads both back, so sync adds no copy (#3476).
-- `hook run` reads Factory 1.11 replies: `ask` allows, top-level `decision: "block"` denies, and JSON applies on any exit but 2 (#3477).
-- `import factory` keeps a hook group's `commandRegex` as `x-factory.commandRegex`, and `sync` writes it back on the group instead of adding a second group without it (#3397).
-
-#### Cline
-
-- `sync` and `doctor` warn when a global skill hides a project skill of the same name, since Cline loads the global one, including a home skill written to `~/.agents/skills` by another target (#3400, #3424).
+- `hook run` treats Codex `SessionEnd` handlers as synchronous, even with `async: true` (#3433).
 
 #### Amp
 
-- The target page says a shared orb snapshot keeps only the `PATH` additions setup makes to shell profiles, and that other profile lines belong in `.agents/resume` (#3444).
-- The note for a portable `model` and the target page now point to Amp's model selector, which replaced the Dial (#3386).
-
-#### Jules
-
-- The target page now says Jules is read-only since November 12, 2026, and drops the step that needs a new Jules task (#3388).
-
-#### Continue
-
-- The `assistants-dir` note and adapter comments now say Continue's source loads it as a local profile when it is `.continue/assistants`, `.continue/agents` or `.continue/configs` at the workspace root (#3401).
-
-#### Goose
-
-- `sync --global` writes hooks to the user plugin `~/.agents/plugins/agnostic-ai-global/` (`hooks/hooks.json` and `plugin.json`), which Goose loads for every project (#3389).
-- `import goose` skips plugins listed in `disabledPlugins`, so `sync` no longer turns their hooks and skills on (#3398).
-- `import goose` keeps each hook's own `timeout` and `on_failure` instead of copying the first command's values to its group, and warns when a written command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}` (#3399).
-
-#### Antigravity
-
-- `hook run --target antigravity` adds `lastUserInput`, `hookEventName`, `cwd` and `toolCall.id` to the payload, so a hook that reads them takes the same branch as in Antigravity (#3453).
-- `hook run` reads a successful Stop reply of `{}` as `allow`, matching the released backend; `continue` still reads as `block` (#3402).
-- `import antigravity` keeps an agent's `tools`, `commandExecutionPolicy`, `mainAgent`, `subagent`, `mcpServers`, `skills` and `plugins` under `x-antigravity`, for nested and flat agent files, so `sync` writes them back; deleting one from the native file drops it on the next import. An inline `mcpServers` entry that holds a literal credential is left out with a warning that names the server and field. A spec imported before this fix keeps a stale top-level `tools`; delete it by hand, or delete the spec and import again (#3393).
-- `sync` keeps the `flash_lite` model tier in Antigravity plugin agents (#3429).
-
-#### Kiro
-
-- `lint` no longer warns (LINT005) about a `matcher` on the `PostFileCreate`, `PostFileSave` and `PostFileDelete` hook events, which Kiro reads as a regex against the file path (#3455).
-- `import kiro` keeps an agent's native `excludedTools`, `includeMcpJson`, `includePowers`, `resources`, `permissions`, `welcomeMessage` and `hooks` under `x-kiro`, so `sync` no longer drops them; deleting one from the native file drops it on the next import (#3394).
-- `import kiro` imports `.json` agent profiles and agent files in subfolders of `.kiro/agents/`, which it used to skip. `team/planner.md` becomes the spec agent `team-planner`, and a JSON profile's `prompt` becomes the body; a `file://` prompt is read from the profile's folder. A profile that is not valid JSON, has a prompt that is not text, or points at a file that is missing or outside the project is skipped with a note. A name two files share keeps the first one and prints a note about the other. Import also prints a note to remove the original, since `sync` writes `.kiro/agents/team-planner.md` beside it: a leftover JSON file clashes with the generated file under one Kiro name, and a leftover nested file gives a second agent (#3462).
-
-#### Zed
-
-- `import zed` keeps `enabled: false` as a disabled server and moves `timeout`, `oauth` and `remote` under `x-zed`, so `sync` no longer turns a server on or drops its settings; deleting them from `.zed/settings.json` drops them on the next import. A server whose `oauth` holds a client secret is left out with a warning (#3390).
-- The target page says a `WorktreeCreate` task runs only in a trusted project; Zed skips it in restricted mode (#3485).
-
-#### Copilot
-
-- `import copilot` keeps an agent's `tools: []` and moves `user-invocable`, `disable-model-invocation` and `hooks` under `x-copilot`; deleting them from the native file drops them on the next import. `sync` writes an empty `tools` list and a comma-separated `tools` string back, so a no-tools agent stays a no-tools agent (#3391).
-- `import copilot` reads a hook's `timeout` alias when `timeoutSec` is absent, and takes an explicit `bash` entry over `command`; a differing `command` becomes the Windows command (#3392).
-- `sync` and global import keep Copilot MCP `oauthClientId`, `cwd` and millisecond `timeout` in native files (#3430).
-- `sync` and global import also keep Copilot MCP `oauthScopes`, `oauthPublicClient`, `oauthGrantType`, `deferTools`, `filterMapping`, `slowConnectionThresholdMs`, `disableToolCache` and `oidc` in native files, never in `.vscode/mcp.json` (#3442).
-
-#### OpenCode
-
-- `import opencode` keeps OAuth secrets written only as `{env:NAME}` references under `x-opencode`; literal credentials are still refused (#3493).
-- The web editor keeps `oauth: false` under `x-opencode` when adding an MCP server, so sync keeps OAuth disabled (#3491).
-
-- `import opencode` keeps MCP keys such as `oauth: false` under `x-opencode`, so sync writes them back; a literal OAuth secret is left out (#3479).
-- `explain` reports the `read`, `bash` and other permission keys that `sync` writes for an agent's `tools`, instead of listing them as unsupported (#3425).
-- `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it and OpenCode keeps routing the command as written (#3383).
-
-#### OpenHands
-
-- Fresh OpenHands hook imports keep each command's timeout, async mode, and order through sync (#3496).
-- Agent MCP import refuses literal credentials and keeps environment references (#3450).
-- `hook run` reports added context for OpenHands SDK 1.62.0 `SessionStart` replies containing `additionalContext` (#3382).
-- Agent import keeps native tools, permissions, color, hooks, MCP servers, and run settings, including MCP deletions (#3380, #3408, #3443).
-- Folder skill import keeps native keyword triggers through sync (#3381).
+- The note for a portable `model` and the target page point to Amp's model selector, which replaced the Dial (#3386).
+- The target page says a shared orb snapshot keeps only the `PATH` additions setup makes to shell profiles (#3444).
 
 #### Windsurf / Devin Desktop
 
-- `import windsurf` keeps nested rules' native globs and placement, so `sync` no longer adds a root rule with a wider selector (#3396).
+- `import windsurf` keeps nested rules' native globs and placement, so `sync` no longer adds a wider root rule (#3396).
 - `import windsurf` keeps an agent's native `max-nesting` under `x-windsurf`, so `sync` no longer drops it (#3395).
 
-#### OpenCode
+#### Zed
 
-- `explain` reads an OpenCode agent's `x-opencode.permission` override, not `x-opencode.tools`, and still lists the portable tools it merges with (#3407).
+- `import zed` keeps `enabled: false` and moves `timeout`, `oauth` and `remote` under `x-zed`; an `oauth` client secret is left out (#3390).
+- The target page says a `WorktreeCreate` task runs only in a trusted project; Zed skips it in restricted mode (#3485).
 
-#### Crush
+#### Qwen Code
 
-- `hook run --target crush` sets `CLAUDE_PROJECT_DIR` to the project root, matching Crush 0.101.0 (#3489).
-
-- `hook run` reads Crush 0.101 replies: `decision: "block"` blocks, `continue: false` halts, and JSON applies on any exit but 2 and 49 (#3478).
-- `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
-
-#### Trae
-
-- Fresh Trae hook imports keep each command's timeout and order through sync, with the group's loop limit (#3496).
-
-#### Grok
-
-- `import grok` keeps an MCP header or env value that is a `{{session_id}}` template, which Grok fills in, instead of turning it into a variable (#3480).
-
-#### Mistral Vibe
-
-- A portable `Grep` tool now maps to Vibe's native `grep` tool, so a search agent keeps it and `sync` no longer fails for a `Grep`-only agent (#3379).
-- `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable tool mapping it replaces (#3407).
-- `import vibe` keeps native skill `allowed-tools` under `x-vibe`, so names such as `read_file` no longer block sync or lint (#3434).
+- `readonly: true` writes `disallowedTools: [write_file, edit, notebook_edit]` instead of a sync note, and import reads it back (#3452).
 
 #### CodeBuddy Code
 
-- Sub-agents can restrict tools to a named MCP server with `mcp__docs` or `mcp__docs__*` on CodeBuddy 2.181.0 or later (#3486).
+- Sub-agents can restrict tools to one MCP server with `mcp__docs` or `mcp__docs__*` on CodeBuddy 2.181.0 or later (#3486).
+
+#### Cline
+
+- `sync` and `doctor` warn when a global skill, including one in `~/.agents/skills`, hides a project skill of the same name (#3400, #3424).
+
+#### Pi
+
+- `sync --global` and `import --global pi` keep MCP `auth.provider` without turning it on in project files (#3431).
+
+#### Grok
+
+- `import grok` keeps a `{{session_id}}` template in an MCP header or env value, which Grok fills in, instead of a variable (#3480).
+
+#### Trae
+
+- Fresh hook imports keep each command's timeout and order through sync, with the group's loop limit (#3496).
+
+#### Kilo
+
+- The agent `effort` note points to `x-kilo.variant`, and setting that override hides the note (#3484).
+
+#### Jules
+
+- The target page says Jules is read-only since November 12, 2026, and drops the step that needs a new Jules task (#3388).
+
+#### Continue
+
+- The `assistants-dir` note says Continue loads it as a local profile at `.continue/assistants`, `agents` or `configs` (#3401).
 
 ### Site
 
-- The Factory guide shows how to adopt a changed native hook order through a clean import and reviewed spec replacement (#3499).
-
-- Junie lists `WebFetch` as supported, and Zed's adapter guidance describes automatic worktree tasks (#3435, #3437).
+- The Factory guide shows how to adopt a changed native hook order through a clean import and a reviewed spec swap (#3499).
+- Junie lists `WebFetch` as supported, and Zed's guidance describes automatic worktree tasks (#3435, #3437).
 
 ## v0.94.0 - 2026-11-12
 
@@ -244,8 +237,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Augment
 
-- `import` reads `.augment/settings.json` with comments and trailing commas, as Auggie does (#3384).
-- The Augment guide and the agent `tools` sync note name both the 0.x and 1.x tool names (#3387).
 - `hook run` expands `${VAR}` and `${VAR:-default}` in a hook's command and `args` as Auggie 1.x does, so a default that blocks now reports block (#3358).
 - `hook run` builds `PromptSubmit`, `Stop`, `SessionEnd` and `Notification` payloads without `--payload`, and reads a background block as allow (#3338, #3350).
 - `hook run --bash` and `--edit` send Auggie 1.x tool names (`bash`, `edit`, `write`), and the next `sync` rewrites portable hook matchers to fit (#3353).
@@ -261,7 +252,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qwen Code
 
-- An agent with `readonly: true` gets `disallowedTools: [write_file, edit, notebook_edit]` instead of a sync note, and `import` reads that list back as `readonly: true` (#3452).
 - A command hook `timeout` of 1000 seconds or more is written in milliseconds; `timeout: 1200` gave a 1.2 second limit (#3316).
 - `lint` no longer raises LINT005 for a `matcher` on a `FileChanged` hook, which names the files to watch (#3277).
 
