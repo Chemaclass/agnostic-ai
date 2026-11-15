@@ -152,3 +152,5 @@ codebuddy-builtin-subagent-model-routing	codebuddy	Written to the `subagents.age
 amp-linear-admin-routing	amp	A route can replace the default start instructions for its Linear team or project	no	signal:cap-scheduled-project-agents
 augment-agent-run-controls	augment	| `isolation` | No | `worktree` to run the agent in a separate git worktree |	yes	signal:cap-augment-agent-run-controls
 qwen-fork-profiles	qwen	A project can save a named fork restriction in .qwen/fork-profiles/<name>.md and select it with fork_profile.	yes	signal:cap-qwen-fork-profiles
+factory-hook-onfailure	factory	| `onFailure` | No | `"continue"` (default) or `"block"`. With `"block"`, a failure of this hook blocks the event the way exit `2` would	yes	signal:cap-factory-hook-fail-closed
+kilo-agent-variant	kilo	Default model variant for this agent (applies only when using the agent's configured model).	yes	3484
