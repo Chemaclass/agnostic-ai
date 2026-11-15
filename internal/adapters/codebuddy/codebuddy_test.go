@@ -211,7 +211,7 @@ func TestEmit_NativeToolsWithoutListKeepTheirText(t *testing.T) {
 }
 
 func TestEmit_RejectsRestrictionsWithoutNativeMeaning(t *testing.T) {
-	for _, tools := range []any{[]any{}, []any{"Read", "Delete"}, []any{"Read", "Bash(ls *)"}, []any{"mcp__docs"}} {
+	for _, tools := range []any{[]any{}, []any{"Read", "Delete"}, []any{"Read", "Bash(ls *)"}, []any{"mcp__*"}} {
 		t.Run("agent", func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			b := spec.Bundle{Agents: []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"tools": tools}}}}
