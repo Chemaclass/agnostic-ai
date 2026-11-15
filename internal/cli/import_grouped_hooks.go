@@ -43,23 +43,7 @@ func sortedHookEvents[T any](byEvent map[string][]T) []string {
 	return events
 }
 
-// writeGroupedHookSpec collapses one matcher group into a single hook
-// spec and writes it into dstDir. Multiple commands sharing a matcher
-// render as one yaml whose `command:` field is a list, the same
-// collapsing importClaudeHooks applies, because the emit side merges
-// same-event-same-matcher specs back into one group: exploding them
-// into N files would not survive a second round-trip.
-//
-// extra carries the target's own group-level keys (trae's `loop_limit`,
-// goose's `x-goose.on_failure`) onto the spec. Returns 1 when a spec was
-// written and 0 when the group carried no command at all.
-func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []groupedHookEntry, extra map[string]any) (int, error) {
-	return writeGroupedHookSpecSalted(dstDir, target, event, matcher, "", entries, extra)
-}
-
-// writeGroupedHookSpecSalted is writeGroupedHookSpec with a salt mixed
-// into the spec name, so specs split from one group never share a name
-// when their commands match. An empty salt keeps the plain name.
+// Salt keeps specs with identical commands but different settings distinct.
 func writeGroupedHookSpecSalted(dstDir, target, event, matcher, salt string, entries []groupedHookEntry, extra map[string]any) (int, error) {
 	return writeGroupedHookSpecWithPrefix(dstDir, target, event, matcher, "", salt, entries, extra)
 }
@@ -115,11 +99,6 @@ func writeGroupedHookSpecWithPrefix(dstDir, target, event, matcher, prefix, salt
 	return 1, nil
 }
 
-// writeHookSpecFile marshals one hook spec document into
-// `<dstDir>/<name>.yaml`. Every hook importer writes through it.
-// Importers that build the document key by key (crush, kiro) call this
-// directly instead of writeGroupedHookSpec, which owns the claude-style
-// matcher-group collapse they have no groups to apply.
 func writeHookSpecFile(dstDir, name string, doc map[string]any) error {
 	if err := spec.ValidateName(spec.KindHook, name); err != nil {
 		return fmt.Errorf("import hook: %w", err)

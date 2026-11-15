@@ -129,12 +129,14 @@ Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --globa
 | `.openhands/skills/` and `.openhands/microagents/` (legacy) | the same, read after `.agents/skills/` |
 | flat `<name>.md` in any of those three directories | a rule, or a skill when it has `triggers` (kept under `x-openhands`) |
 | `.agents/agents/<name>.md` | `<agents>/<name>.md`, with native `skills`, `tools`, `permission_mode`, `color`, `hooks`, `max_iteration_per_run`, `max_budget_per_run`, `condenser`, `profile_store_dir`, `mcp_config` and `mcp_servers` under `x-openhands` |
-| `.openhands/hooks.json` | one hook spec per matcher group |
+| `.openhands/hooks.json` | one spec for consecutive commands with the same `timeout` and `async` in a matcher group |
 | `config.toml` `[mcp]` table (legacy V0) | `<mcps>/<name>.yaml` per server |
 | `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 `.agents/skills/` wins a name clash with the legacy folders, as in OpenHands. Hooks import from both layouts. Snake_case `pre_tool_use` comes back as `PreToolUse`.
+
+Fresh hook imports keep native command order with position prefixes in their spec names. Keep those prefixes when renaming imported hooks.
 
 Import stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential, such as `API_KEY: sk-...`, because specs are committed. Replace the value with a `${VAR}` or `$VAR` reference, which OpenHands resolves from the environment at load time. Import keeps references as written.
 

@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -410,4 +413,47 @@ func TestImportOpenhands_KeepsAgentMCPServers(t *testing.T) {
 	if !strings.Contains(got, "file_editor") {
 		t.Errorf("kept tools lost: %s", got)
 	}
+}
+
+func TestImportOpenhands_KeepsHookTimeoutsAndAsyncInOrder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	const native = `{"hooks":{"PreToolUse":[{"matcher":"terminal","hooks":[
+ {"type":"command","command":"echo repeated","timeout":5,"async":true},
+ {"type":"command","command":"echo repeated","timeout":60},
+ {"type":"command","command":"echo default"},
+ {"type":"command","command":"echo middle","timeout":5,"async":true},
+ {"type":"command","command":"echo last","timeout":5}]}]}}`
+	path := filepath.Join(dir, ".openhands", "hooks.json")
+	writeFile(t, path, native)
+	execCLI(t, "import", "openhands")
+	if names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks")); len(names) != 5 {
+		t.Errorf("want 5 timeout/async runs, got %v", names)
+	}
+	execCLI(t, "sync")
+	first := readFile(t, path)
+	var want, got struct {
+		Hooks map[string][]openhandsHookGroup `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(native), &want); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(first), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, group := range got.Hooks["PreToolUse"] {
+		for i := range group.Hooks {
+			group.Hooks[i].Command = adapters.StripHookTargetExport(group.Hooks[i].Command, "openhands")
+		}
+	}
+	if !reflect.DeepEqual(got.Hooks["PreToolUse"], want.Hooks["PreToolUse"]) {
+		t.Errorf("per-command timeout, async, or order changed:\n%s", first)
+	}
+	execCLI(t, "import", "openhands")
+	execCLI(t, "sync")
+	if next := readFile(t, path); next != first {
+		t.Errorf("second round trip changed hooks:\n%s\nwant\n%s", next, first)
+	}
+	execCLI(t, "sync", "--check")
 }

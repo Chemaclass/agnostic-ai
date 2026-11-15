@@ -112,12 +112,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### OpenHands
 
-- `import openhands` stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential instead of copying it into a committed spec, and keeps `${VAR}` and `$VAR` references as written (#3450).
-- `hook run` now reports `adds_context: true` for a `SessionStart` hook that returns `additionalContext`, since OpenHands SDK 1.62.0 delivers it to the agent (#3382).
-- `import openhands` keeps an agent's native `tools`, `permission_mode` and `color` under `x-openhands`, so `sync` no longer drops them (#3380).
-- `import openhands` keeps `triggers` on a folder skill under `x-openhands`, so `sync` no longer drops the keyword it loads on (#3381).
-- `import openhands` keeps an agent's native `hooks`, `max_iteration_per_run`, `max_budget_per_run`, `condenser`, `profile_store_dir` and `mcp_config` under `x-openhands`, so `sync` no longer drops them (#3408).
-- `import openhands` keeps an agent's native `mcp_servers` under `x-openhands`, so `sync` no longer drops them; deleting one or all servers from the agent file drops them on the next import (#3443).
+- Fresh OpenHands hook imports keep each command's timeout, async mode, and order through sync (#3496).
+- Agent MCP import refuses literal credentials and keeps environment references (#3450).
+- `hook run` reports added context for OpenHands SDK 1.62.0 `SessionStart` replies containing `additionalContext` (#3382).
+- Agent import keeps native tools, permissions, color, hooks, MCP servers, and run settings, including MCP deletions (#3380, #3408, #3443).
+- Folder skill import keeps native keyword triggers through sync (#3381).
 
 #### Windsurf / Devin Desktop
 
@@ -134,6 +133,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `hook run` reads Crush 0.101 replies: `decision: "block"` blocks, `continue: false` halts, and JSON applies on any exit but 2 and 49 (#3478).
 - `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
+
+#### Trae
+
+- Fresh Trae hook imports keep each command's timeout and order through sync, with the group's loop limit (#3496).
 
 #### Grok
 

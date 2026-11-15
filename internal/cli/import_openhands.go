@@ -286,10 +286,9 @@ type openhandsHookGroup struct {
 	Hooks   []openhandsHookEntry `json:"hooks"`
 }
 
-// importOpenhandsHooks reads `.openhands/hooks.json` and writes one hook
-// spec per matcher group. The native layout keys events in snake_case
-// (`pre_tool_use`); spec events are PascalCase, the spelling sync
-// writes and OpenHands accepts as well.
+// importOpenhandsHooks writes one spec per consecutive run with the
+// same timeout and async setting. Native snake_case events become
+// PascalCase, which both sync and OpenHands accept.
 func importOpenhandsHooks(src, dstDir string) (int, error) {
 	byEvent, err := readEventKeyedHooks[openhandsHookGroup](src)
 	if err != nil {
@@ -298,23 +297,33 @@ func importOpenhandsHooks(src, dstDir string) (int, error) {
 	count := 0
 	for _, key := range sortedHookEvents(byEvent) {
 		event := pascalHookEvent(key)
-		for _, g := range byEvent[key] {
-			entries := make([]groupedHookEntry, 0, len(g.Hooks))
-			var extra map[string]any
+		for groupIndex, g := range byEvent[key] {
+			type hookRun struct {
+				timeout int
+				async   bool
+				entries []groupedHookEntry
+			}
+			var runs []hookRun
 			for _, h := range g.Hooks {
-				if h.Command != "" && importLocal.dropsHookCommand("openhands", event, g.Matcher, h.Command) {
-					continue
+				if len(runs) == 0 || runs[len(runs)-1].timeout != h.Timeout || runs[len(runs)-1].async != h.Async {
+					runs = append(runs, hookRun{timeout: h.Timeout, async: h.Async})
 				}
-				entries = append(entries, h.groupedHookEntry)
-				if h.Async {
+				last := &runs[len(runs)-1]
+				last.entries = append(last.entries, h.groupedHookEntry)
+			}
+			for runIndex, run := range runs {
+				var extra map[string]any
+				if run.async {
 					extra = map[string]any{"async": true}
 				}
+				prefix := fmt.Sprintf("openhands-%09d-%09d-", groupIndex, runIndex)
+				salt := fmt.Sprintf("timeout=%d async=%t", run.timeout, run.async)
+				n, err := writeGroupedHookSpecWithPrefix(dstDir, "openhands", event, g.Matcher, prefix, salt, run.entries, extra)
+				if err != nil {
+					return count, err
+				}
+				count += n
 			}
-			n, err := writeGroupedHookSpec(dstDir, "openhands", event, g.Matcher, entries, extra)
-			if err != nil {
-				return count, err
-			}
-			count += n
 		}
 	}
 	return count, nil
