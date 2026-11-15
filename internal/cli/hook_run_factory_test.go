@@ -188,3 +188,13 @@ func TestHookRun_FactoryAskLeavesNormalPermissions(t *testing.T) {
 		t.Errorf("ask must read as allow with a note:\n%s", out)
 	}
 }
+
+func TestHookRun_FactoryFailClosedAskOnAFailedExitBlocksWithoutTheAskNote(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	factoryProject(t, factoryHookSpec+"failClosed: true\n", "#!/bin/sh\ncat >/dev/null\necho '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\"}}'\nexit 1\n")
+
+	out, _ := runHookRun(t, "protect-files", "--bash", "ls", "--include-assumed")
+	if !strings.Contains(out, "factory: block (exit 1") || strings.Contains(out, "replied ask") {
+		t.Errorf("onFailure block wins over the ask, and the note must not say allow:\n%s", out)
+	}
+}
