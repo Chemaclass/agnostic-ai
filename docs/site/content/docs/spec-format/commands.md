@@ -1,6 +1,6 @@
 +++
 title = "Commands"
-description = "commands/: slash commands a person runs by name, written once for every tool's command picker."
+description = "commands/: slash commands you run by name, written once for every tool's command picker."
 weight = 40
 
 [extra]
