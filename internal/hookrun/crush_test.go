@@ -229,7 +229,7 @@ func TestBuildCrush_WritesTheToolInputCrushSends(t *testing.T) {
 
 func TestCrushEnv_SetsCrushVariablesAndForcesNonInteractive(t *testing.T) {
 	env := CrushEnv([]string{"EDITOR=vim", "HOME=/h"}, "/project", []byte(`{"tool_name":"bash","tool_input":{"command":"ls"}}`))
-	for _, want := range []string{"HOME=/h", "CRUSH=1", "AGENT=crush", "CRUSH_TOOL_NAME=bash", "CRUSH_PROJECT_DIR=/project", "CRUSH_TOOL_INPUT_COMMAND=ls", "EDITOR=false"} {
+	for _, want := range []string{"HOME=/h", "CRUSH=1", "AGENT=crush", "CRUSH_TOOL_NAME=bash", "CRUSH_PROJECT_DIR=/project", "CLAUDE_PROJECT_DIR=/project", "CRUSH_TOOL_INPUT_COMMAND=ls", "EDITOR=false"} {
 		if !slices.Contains(env, want) {
 			t.Errorf("env misses %s: %v", want, env)
 		}

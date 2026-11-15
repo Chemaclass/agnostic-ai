@@ -37,8 +37,9 @@ import (
 //   - working directory: the project directory (agent/coordinator.go:872,
 //     hooks/runner.go:182).
 //   - stdin payload: event, session_id, cwd, tool_name, and tool_input
-//     (hooks/input.go:23-49); env adds CRUSH_* (hooks/input.go:53-76,
-//     shell/shell.go:43-49) and forces non-interactive variables
+//     (hooks/input.go:23-49); env, rechecked at tag v0.101.0, adds
+//     CRUSH_* and CLAUDE_PROJECT_DIR (hooks/input.go:68-94), shell
+//     markers (shell/shell.go:43-49), and non-interactive variables
 //     (shell/run.go:222-255).
 //   - replies, rechecked on 2026-11-15 at tag v0.101.0
 //     (github.com/charmbracelet/crush/tree/v0.101.0/internal): exit 2 blocks
@@ -130,7 +131,7 @@ func buildCrush(event, matcher, root string, in Input) (Payload, error) {
 }
 
 // CrushEnv is the environment Crush gives a hook: the process env, its
-// agent markers, the CRUSH_* event variables, and the non-interactive
+// agent markers, CRUSH_* and CLAUDE_PROJECT_DIR, and the non-interactive
 // overrides, in that order.
 func CrushEnv(base []string, root string, body []byte) []string {
 	var call struct {
@@ -140,7 +141,7 @@ func CrushEnv(base []string, root string, body []byte) []string {
 	_ = json.Unmarshal(body, &call)
 	env := append(slices.Clone(base), "CRUSH=1", "AGENT=crush", "AI_AGENT=crush",
 		"CRUSH_EVENT="+crushEvent, "CRUSH_TOOL_NAME="+call.ToolName, "CRUSH_SESSION_ID="+SessionID,
-		"CRUSH_CWD="+root, "CRUSH_PROJECT_DIR="+root)
+		"CRUSH_CWD="+root, "CRUSH_PROJECT_DIR="+root, "CLAUDE_PROJECT_DIR="+root)
 	if v, ok := call.ToolInput["command"]; ok {
 		env = append(env, "CRUSH_TOOL_INPUT_COMMAND="+fmt.Sprint(v))
 	}
