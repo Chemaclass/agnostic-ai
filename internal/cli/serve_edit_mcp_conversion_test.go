@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -160,5 +161,38 @@ func TestServeEditMCP_ClaudeDisabledChangeInvalidatesPreview(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(".agnostic-ai", "mcps", "docs.yaml")); !os.IsNotExist(err) {
 		t.Errorf("stale preview wrote a spec: %v", err)
+	}
+}
+
+func TestServeEditMCP_OpencodeOAuthEnvReferenceSurvivesPreviewApplyAndSync(t *testing.T) {
+	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":{"clientSecret":"{env:GH_SECRET}"}}}}`
+	project, h, request := mcpConversionProject(t, "opencode", "opencode.json", native)
+	request["target"] = "opencode"
+	preview := mcpEditPreview(t, h, request)
+	doc := mcpConversionDoc(t, preview)
+	custom, _ := doc["x-opencode"].(map[string]any)
+	oauth, _ := custom["oauth"].(map[string]any)
+	if oauth["clientSecret"] != "{env:GH_SECRET}" {
+		t.Errorf("native OAuth reference lost from preview: %s", preview.Spec)
+	}
+	mcpEditApply(t, h, request, preview)
+	syncProject(t)
+	server := readNativeMCPServers(filepath.Join(project, "opencode.json"), "json", "mcp")["docs"]
+	oauth, _ = server["oauth"].(map[string]any)
+	if oauth["clientSecret"] != "{env:GH_SECRET}" {
+		t.Errorf("native OAuth reference lost after sync: %#v", server)
+	}
+}
+
+func TestServeEditMCP_OpencodeOAuthLiteralCredentialIsRefused(t *testing.T) {
+	const native = `{"mcp":{"docs":{"type":"remote","url":"https://example.test/mcp","oauth":{"clientSecret":"literal-credential-for-test"}}}}`
+	_, h, request := mcpConversionProject(t, "opencode", "opencode.json", native)
+	request["target"] = "opencode"
+	rec := mcpEditRequest(t, h, request)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("credential preview status = %d, want 422", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "literal-credential-for-test") {
+		t.Error("credential refusal exposes its value")
 	}
 }
