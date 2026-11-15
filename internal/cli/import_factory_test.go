@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -432,4 +433,45 @@ func TestImportFactory_SplitsHookGroupByFailureSettings(t *testing.T) {
 			t.Errorf("%s written %d times:\n%s", command, n, got)
 		}
 	}
+}
+
+func TestImportFactory_KeepsEachHookTimeoutThroughSync(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"), `{"PreToolUse":[{"matcher":"Execute","hooks":[
+ {"type":"command","command":"./same.sh","timeout":5},
+ {"type":"command","command":"./same.sh","timeout":60},
+ {"type":"command","command":"./default.sh"}]}]}`)
+	execCLI(t, "import", "factory")
+	names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(names) != 3 {
+		t.Errorf("want 3 timeout-specific specs, got %v", names)
+	}
+	execCLI(t, "sync")
+	first := factoryHooksJSON(t, dir)
+	var doc map[string][]factoryHookGroup
+	if err := json.Unmarshal([]byte(first), &doc); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][]int{}
+	for _, group := range doc["PreToolUse"] {
+		for _, hook := range group.Hooks {
+			got[hook.Command] = append(got[hook.Command], hook.Timeout)
+		}
+	}
+	same := got["./same.sh"]
+	slices.Sort(same)
+	if !slices.Equal(same, []int{5, 60}) {
+		t.Errorf("same command lost its distinct timeouts: %v\n%s", same, first)
+	}
+	if defaults := got["./default.sh"]; !reflect.DeepEqual(defaults, []int{0}) {
+		t.Errorf("default timeout changed: %v\n%s", defaults, first)
+	}
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+	if got := factoryHooksJSON(t, dir); got != first {
+		t.Errorf("second round trip changed hooks:\n%s\nwant\n%s", got, first)
+	}
+	execCLI(t, "sync", "--check")
 }

@@ -196,6 +196,7 @@ type factoryHookGroup struct {
 type factoryEntrySettings struct {
 	onFailure    string
 	preserveRisk bool
+	timeout      int
 }
 
 // importFactoryHooks reads `.factory/hooks.json`, falling back to the
@@ -221,7 +222,7 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 			var order []factoryEntrySettings
 			bySettings := map[factoryEntrySettings][]groupedHookEntry{}
 			for _, h := range g.Hooks {
-				k := factoryEntrySettings{}
+				k := factoryEntrySettings{timeout: h.Timeout}
 				k.onFailure, _ = h.OnFailure.(string)
 				k.preserveRisk, _ = h.PreserveRiskLevel.(bool)
 				if _, seen := bySettings[k]; !seen {
@@ -265,7 +266,7 @@ func factoryHookExtra(regex string, k factoryEntrySettings) (map[string]any, str
 		native["preserveRiskLevel"] = true
 	}
 	if k != (factoryEntrySettings{}) {
-		salt = append(salt, fmt.Sprintf("onFailure=%s preserveRiskLevel=%t", k.onFailure, k.preserveRisk))
+		salt = append(salt, fmt.Sprintf("onFailure=%s preserveRiskLevel=%t timeout=%d", k.onFailure, k.preserveRisk, k.timeout))
 	}
 	if len(native) > 0 {
 		extra[factoryNativeMetaKey] = native
