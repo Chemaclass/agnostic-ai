@@ -98,11 +98,11 @@
 // also carries. Nine events: `PreToolUse`, `PostToolUse`,
 // `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`,
 // `PreCompact`, `SessionStart`, `SessionEnd`. `timeout` is seconds
-// (vendor default 60 when absent), not milliseconds. See hooks.go for
-// the field mapping, the matcher-vocabulary note, and the vendor
-// quote (#629). "Written to", not "merged into", for the same reason
-// as `.factory/mcp.json` above: this is a plain WriteFile, so a hand
-// edit to the file is lost on the next sync (#745).
+// (vendor default 60 when absent), not milliseconds. A portable
+// `failClosed: true` writes the entry's `onFailure: "block"`, and
+// `x-factory.preserveRiskLevel` writes `preserveRiskLevel`. Sync keeps
+// entries it did not write (#1858). See hooks.go for the field mapping,
+// the matcher-vocabulary note, and the vendor quote (#629).
 //
 // Factory MCP options preserve enabledTools, disabledTools, timeout and connectTimeout
 // (milliseconds, including zero). HTTP/SSE oauth accepts false or Factory

@@ -236,7 +236,7 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 	case "crush":
 		return decideCrush(r)
 	case "factory":
-		return decideFactory(event, r)
+		return decideFactory(event, h, r)
 	case "copilot":
 		return decideCopilot(event, r)
 	case "qoder":
@@ -408,7 +408,7 @@ func HandlersFromDoc(target string, body []byte) ([]Handler, error) {
 				if n.Type != "" && n.Type != "command" {
 					continue
 				}
-				out = append(out, Handler{Command: n.Command, Args: n.Args, Timeout: n.timeout(target), FailClosed: n.OnFailure == "block"})
+				out = append(out, Handler{Command: n.Command, Args: n.Args, Timeout: n.timeout(target), FailClosed: n.OnFailure == "block" || target == "factory" && n.ClaudeOnFailure == "block"})
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package factory
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -35,16 +36,41 @@ var hookLifecycle = []string{
 // windsurf hit with their own tool vocabularies.
 var claudeToolNames = map[string]bool{"Bash": true, "Write": true, "WebFetch": true}
 
-// hookEntry mirrors one `{type, command, timeout}` object in a matcher
-// group's `hooks` array. docs.factory.com/harness/hooks' own field
-// table marks `type` required and states "Currently only \"command\"
-// is supported", so this always writes "command"; there is no `type:
-// mcp_tool` or `type: prompt` alternative the way Codex and
-// Windsurf/Devin CLI's own hook schemas carry.
+// hookEntry mirrors one command object in a matcher group's `hooks`
+// array. docs.factory.com/harness/hooks' own field table marks `type`
+// required and states "Currently only \"command\" is supported", so
+// this always writes "command"; there is no `type: mcp_tool` or `type:
+// prompt` alternative the way Codex and Windsurf/Devin CLI's own hook
+// schemas carry. `onFailure` comes from the portable `failClosed`, or
+// from `x-factory.onFailure` for another value; `preserveRiskLevel`
+// comes from `x-factory.preserveRiskLevel`.
 type hookEntry struct {
-	Type    string `json:"type"`
-	Command string `json:"command"`
-	Timeout int    `json:"timeout,omitempty"`
+	Type              string `json:"type"`
+	Command           string `json:"command"`
+	Timeout           int    `json:"timeout,omitempty"`
+	PreserveRiskLevel bool   `json:"preserveRiskLevel,omitempty"`
+	OnFailure         string `json:"onFailure,omitempty"`
+}
+
+// failureBlockEvents are where `onFailure: "block"` blocks: "on
+// `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, or `PreCompact`"
+// (docs.factory.com/harness/hooks, Hook output).
+var failureBlockEvents = []string{"PreToolUse", "PostToolUse", "UserPromptSubmit", "PreCompact"}
+
+// FailureBlocks reports whether Factory honors `onFailure: "block"` on
+// event.
+func FailureBlocks(event string) bool {
+	return slices.Contains(failureBlockEvents, event)
+}
+
+// onFailure is the entry's `onFailure`: "block" for a portable
+// `failClosed: true`, else `x-factory.onFailure` as written.
+func onFailure(meta, native map[string]any) string {
+	if emit.HookBoolMeta(meta, "failClosed") {
+		return "block"
+	}
+	value, _ := native["onFailure"].(string)
+	return value
 }
 
 // hookGroup mirrors one `{matcher, hooks}` object in a hook event's
@@ -145,7 +171,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 	type matcherKey struct{ event, matcher, commandRegex string }
 	byKey := map[matcherKey][]hookEntry{}
 	var keyOrder []matcherKey
-	var claudeMatchers int
+	var claudeMatchers, ignoredFailClosed, ignoredPreserveRisk int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -163,6 +189,15 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
 		native, _ := emit.CustomTargetMeta(h.Meta, target)
 		commandRegex, _ := native["commandRegex"].(string)
+		failure := onFailure(h.Meta, native)
+		if failure == "block" && !FailureBlocks(event) {
+			ignoredFailClosed++
+		}
+		// Written on any event, so import reads back the entry it came from.
+		preserveRisk, _ := native["preserveRiskLevel"].(bool)
+		if preserveRisk && event != "PreToolUse" {
+			ignoredPreserveRisk++
+		}
 
 		k := matcherKey{event: event, matcher: matcher, commandRegex: commandRegex}
 		if _, seen := byKey[k]; !seen {
@@ -170,14 +205,20 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		}
 		for _, command := range commands {
 			byKey[k] = append(byKey[k], hookEntry{
-				Type:    "command",
-				Command: emit.WrapPortableHook(h, target, emit.ShellHookCommand(command, target, h.Meta)),
-				Timeout: timeout,
+				Type:              "command",
+				Command:           emit.WrapPortableHook(h, target, emit.ShellHookCommand(command, target, h.Meta)),
+				Timeout:           timeout,
+				PreserveRiskLevel: preserveRisk,
+				OnFailure:         failure,
 			})
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
 		"Droid CLI's own tool matchers are Execute, Create, and FetchUrl in place of Claude's Bash, Write, and WebFetch (the same three renames tools.go's factoryToolID performs for the tools frontmatter field); a Claude-style matcher parses but matches nothing")
+	emit.NoteFieldNoOp(target, spec.KindHook, "failClosed", ignoredFailClosed,
+		"Factory's onFailure block has no effect on Stop, SubagentStop, Notification, SessionStart, or SessionEnd; use PreToolUse, PostToolUse, UserPromptSubmit, or PreCompact for a failure gate")
+	emit.NoteFieldNoOp(target, spec.KindHook, "x-factory.preserveRiskLevel", ignoredPreserveRisk,
+		"Factory reads preserveRiskLevel on PreToolUse only, where a hook rewrites an Execute command")
 	if len(keyOrder) == 0 {
 		return nil
 	}

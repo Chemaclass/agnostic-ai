@@ -174,17 +174,37 @@ func portableFactoryTools(value any) ([]string, bool) {
 	return importNativeAgentCan(value, "factory")
 }
 
-// factoryHookGroup is a grouped hook plus Factory's group-level
+// factoryHookEntry is a grouped hook entry plus Factory's per-entry
+// `onFailure` and `preserveRiskLevel`. Both are `any` so a value of
+// another type is skipped instead of failing the whole file.
+type factoryHookEntry struct {
+	groupedHookEntry
+	OnFailure         any `json:"onFailure"`
+	PreserveRiskLevel any `json:"preserveRiskLevel"`
+}
+
+// factoryHookGroup is a matcher group plus Factory's group-level
 // `commandRegex` filter, which the spec keeps under `x-factory`.
 type factoryHookGroup struct {
-	groupedHookGroup
-	CommandRegex any `json:"commandRegex"`
+	Matcher      string             `json:"matcher"`
+	CommandRegex any                `json:"commandRegex"`
+	Hooks        []factoryHookEntry `json:"hooks"`
+}
+
+// factoryEntrySettings are the per-entry keys that split a group into
+// specs, since every command in one spec shares them.
+type factoryEntrySettings struct {
+	onFailure    string
+	preserveRisk bool
 }
 
 // importFactoryHooks reads `.factory/hooks.json`, falling back to the
 // legacy `.factory/hooks/hooks.json`, and writes one hook spec per
-// matcher group. Reading one file and not both keeps a project that
-// carries both from importing every hook twice.
+// matcher group and distinct entry settings. Reading one file and not
+// both keeps a project that carries both from importing every hook
+// twice. `onFailure: "block"` becomes the portable `failClosed: true`;
+// another `onFailure` value and `preserveRiskLevel` stay under
+// `x-factory`, which sync writes back.
 func importFactoryHooks(root, dstDir string) (int, error) {
 	src := filepath.Join(root, factoryHooksFile)
 	if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
@@ -197,20 +217,63 @@ func importFactoryHooks(root, dstDir string) (int, error) {
 	count := 0
 	for _, event := range sortedHookEvents(byEvent) {
 		for _, g := range byEvent[event] {
-			var extra map[string]any
-			salt := ""
-			if regex, _ := g.CommandRegex.(string); regex != "" {
-				extra = map[string]any{factoryNativeMetaKey: map[string]any{"commandRegex": regex}}
-				salt = "commandRegex=" + regex
+			regex, _ := g.CommandRegex.(string)
+			var order []factoryEntrySettings
+			bySettings := map[factoryEntrySettings][]groupedHookEntry{}
+			for _, h := range g.Hooks {
+				k := factoryEntrySettings{}
+				k.onFailure, _ = h.OnFailure.(string)
+				k.preserveRisk, _ = h.PreserveRiskLevel.(bool)
+				if _, seen := bySettings[k]; !seen {
+					order = append(order, k)
+				}
+				bySettings[k] = append(bySettings[k], h.groupedHookEntry)
 			}
-			n, err := writeGroupedHookSpecSalted(dstDir, "factory", event, g.Matcher, salt, g.Hooks, extra)
-			if err != nil {
-				return count, err
+			for _, k := range order {
+				extra, salt := factoryHookExtra(regex, k)
+				n, err := writeGroupedHookSpecSalted(dstDir, "factory", event, g.Matcher, salt, bySettings[k], extra)
+				if err != nil {
+					return count, err
+				}
+				count += n
 			}
-			count += n
 		}
 	}
 	return count, nil
+}
+
+// factoryHookExtra is the spec's Factory-only keys for one group's
+// commandRegex and entry settings, and the salt that keeps its name
+// apart from a spec split from the same group. Default settings add no
+// salt, so a plain group keeps its earlier name.
+func factoryHookExtra(regex string, k factoryEntrySettings) (map[string]any, string) {
+	native := map[string]any{}
+	extra := map[string]any{}
+	var salt []string
+	if regex != "" {
+		native["commandRegex"] = regex
+		salt = append(salt, "commandRegex="+regex)
+	}
+	switch k.onFailure {
+	case "":
+	case "block":
+		extra["failClosed"] = true
+	default:
+		native["onFailure"] = k.onFailure
+	}
+	if k.preserveRisk {
+		native["preserveRiskLevel"] = true
+	}
+	if k != (factoryEntrySettings{}) {
+		salt = append(salt, fmt.Sprintf("onFailure=%s preserveRiskLevel=%t", k.onFailure, k.preserveRisk))
+	}
+	if len(native) > 0 {
+		extra[factoryNativeMetaKey] = native
+	}
+	if len(extra) == 0 {
+		extra = nil
+	}
+	return extra, strings.Join(salt, " ")
 }
 
 // importFactorySettings reads `model`, `reasoningEffort`, and the three

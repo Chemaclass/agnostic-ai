@@ -377,7 +377,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 				run.Notes = append(run.Notes, "halt: Crush ends the whole turn, not only this tool call")
 			}
 			if target == "factory" && hookrun.FactoryAsks(event, r) {
-				run.Notes = append(run.Notes, "replied ask: Factory asks the user before the tool runs; read as block")
+				run.Notes = append(run.Notes, "replied ask: Factory's normal permissions decide, so a call they allow runs without a prompt; read as allow")
 			}
 			// uncounted is why this command's result is not counted, "" when
 			// the target documents it.

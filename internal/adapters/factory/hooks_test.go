@@ -249,3 +249,78 @@ func TestEmit_Hooks_CommandRegexSplitsGroups(t *testing.T) {
 		t.Errorf("want one plain group and one group with commandRegex:\n%s", got)
 	}
 }
+
+func swapFactoryNoteWarner(t *testing.T) *strings.Builder {
+	t.Helper()
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	return buf
+}
+
+func TestEmit_Hooks_WritesOnFailureAndPreserveRiskLevel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+			"event": "PreToolUse", "matcher": "Execute", "command": "./guard.sh", "failClosed": true,
+			"x-factory": map[string]any{"preserveRiskLevel": true},
+		}},
+		{Kind: spec.KindHook, Name: "log", Meta: map[string]any{
+			"event": "PostToolUse", "matcher": "Execute", "command": "./log.sh",
+			"x-factory": map[string]any{"onFailure": "continue"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string][]struct {
+		Hooks []map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".factory/hooks.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	guard := doc["PreToolUse"][0].Hooks[0]
+	if guard["onFailure"] != "block" || guard["preserveRiskLevel"] != true {
+		t.Errorf("failClosed and x-factory.preserveRiskLevel must reach the entry: %v", guard)
+	}
+	if log := doc["PostToolUse"][0].Hooks[0]; log["onFailure"] != "continue" || log["preserveRiskLevel"] != nil {
+		t.Errorf("x-factory.onFailure passes through: %v", log)
+	}
+}
+
+func TestEmit_Hooks_NotesWhereFactoryIgnoresTheFailureSettings(t *testing.T) {
+	for name, tc := range map[string]struct {
+		meta     map[string]any
+		wantNote string
+	}{
+		"failClosed on Stop":               {map[string]any{"event": "Stop", "failClosed": true}, "`failClosed`"},
+		"failClosed on SessionStart":       {map[string]any{"event": "SessionStart", "failClosed": true}, "`failClosed`"},
+		"preserveRiskLevel on PostToolUse": {map[string]any{"event": "PostToolUse", "x-factory": map[string]any{"preserveRiskLevel": true}}, "`x-factory.preserveRiskLevel`"},
+		"failClosed on PreCompact is kept": {map[string]any{"event": "PreCompact", "failClosed": true}, ""},
+		"preserveRiskLevel on PreToolUse":  {map[string]any{"event": "PreToolUse", "x-factory": map[string]any{"preserveRiskLevel": true}}, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			buf := swapFactoryNoteWarner(t)
+			meta := map[string]any{"command": "./guard.sh"}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			entry := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: meta}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			emit.FlushCoverageNotes()
+			note := buf.String()
+			if tc.wantNote == "" && strings.Contains(note, "failClosed") || tc.wantNote == "" && strings.Contains(note, "preserveRiskLevel") {
+				t.Errorf("no note expected: %s", note)
+			}
+			if tc.wantNote != "" && !strings.Contains(note, tc.wantNote) {
+				t.Errorf("note must name %s: %s", tc.wantNote, note)
+			}
+		})
+	}
+}

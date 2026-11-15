@@ -1,13 +1,14 @@
 package hookrun
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 	"time"
 )
 
 // Source: docs.factory.com/harness/hooks (rechecked
-// 2026-10-15). Documented there:
+// 2026-11-15, CLI v1.11.0). Documented there:
 //   - Project root: "Use `"$FACTORY_PROJECT_DIR"/path/to/script.sh` for
 //     project scripts". The command runs as written, with
 //     FACTORY_PROJECT_DIR in its env; see expandRootVar.
@@ -152,58 +153,215 @@ func buildFactory(event, matcher, root string, in Input) (Payload, error) {
 	return marshal(p, doc)
 }
 
-// factoryLifecycleEvents only surface exit 2's stderr: "`PreToolUse`
-// blocks the tool call, `PostToolUse` and `Stop` feed stderr back to
-// Droid, and `UserPromptSubmit` blocks prompt processing. Other
-// lifecycle events surface stderr to the user."
-var factoryLifecycleEvents = []string{"Notification", "SubagentStop", "PreCompact", "SessionStart", "SessionEnd"}
+// factoryExitTwoErrors read exit 2 as a non-blocking error: "On
+// `Notification`, `SessionStart`, and `SessionEnd`, exit `2` is a
+// non-blocking error and none of the hook's JSON applies", and
+// "`SubagentStop` and automatic `PreCompact` cannot be blocked". hook run
+// reads PreCompact as the manual compaction, which exit 2 blocks.
+var factoryExitTwoErrors = []string{"Notification", "SubagentStop", "SessionStart", "SessionEnd"}
 
-// factoryDecisionEvents block on a JSON `decision: "block"`: PostToolUse,
-// UserPromptSubmit, Stop, and SubagentStop.
-var factoryDecisionEvents = []string{"PostToolUse", "UserPromptSubmit", "Stop", "SubagentStop"}
+// factoryBlockEvents are where `continue: false`, `decision: "block"`, and
+// `onFailure: "block"` block (Control by event, Block when a hook fails).
+// Stop is apart: `decision: "block"` keeps Droid running, while
+// `continue: false` stops the turn, which is what Stop asked for.
+var factoryBlockEvents = []string{"PreToolUse", "PostToolUse", "UserPromptSubmit", "PreCompact"}
 
-// decideFactory follows the hooks guide: exit 2 blocks, except on the
-// lifecycle events; "Any other non-zero exit" is a "Non-blocking error";
-// on exit 0 a JSON reply blocks with `continue: false` ("Stops processing
-// after the hook"), except on SessionEnd, which "Cannot block session
-// termination"; with `permissionDecision` deny, or ask, which "Forces a
-// user confirmation prompt", on PreToolUse; and with `decision: "block"`
-// on the factoryDecisionEvents.
-func decideFactory(event string, r Result) Decision {
+// factoryDecisionEvents act on `decision: "block"` outside PreToolUse,
+// whose permission decision reads it apart.
+var factoryDecisionEvents = []string{"PostToolUse", "UserPromptSubmit", "Stop", "PreCompact"}
+
+// factoryOutputFields are the keys that make stdout JSON output: "an
+// object that sets at least one output field".
+var factoryOutputFields = []string{"continue", "stopReason", "suppressOutput", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+
+type factoryStdout int
+
+const (
+	factoryPlain factoryStdout = iota
+	factoryJSON
+	factoryInvalid
+)
+
+// factoryReply is a JSON reply as Droid validates it: a field of the
+// wrong type fails the decode.
+type factoryReply struct {
+	Continue           *bool   `json:"continue"`
+	StopReason         *string `json:"stopReason"`
+	SuppressOutput     *bool   `json:"suppressOutput"`
+	SystemMessage      *string `json:"systemMessage"`
+	Decision           *string `json:"decision"`
+	Reason             *string `json:"reason"`
+	HookSpecificOutput *struct {
+		HookEventName            *string         `json:"hookEventName"`
+		PermissionDecision       *string         `json:"permissionDecision"`
+		PermissionDecisionReason *string         `json:"permissionDecisionReason"`
+		AdditionalContext        *string         `json:"additionalContext"`
+		UpdatedInput             json.RawMessage `json:"updatedInput"`
+	} `json:"hookSpecificOutput"`
+}
+
+// readFactory sorts stdout as "How Droid reads stdout" does: text in
+// braces is JSON output when it is `{}` or sets an output field, plain
+// text when it is one object or several lines of objects that set none,
+// and invalid otherwise, as is output with a wrong type, an unknown
+// decision, or another event's hookEventName.
+func readFactory(event, stdout string) (factoryReply, factoryStdout) {
+	var reply factoryReply
+	out := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(stdout), "\ufeff"))
+	if !strings.HasPrefix(out, "{") || !strings.HasSuffix(out, "}") {
+		return reply, factoryPlain
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal([]byte(out), &fields) != nil {
+		if factoryPlainLines(out) {
+			return reply, factoryPlain
+		}
+		return reply, factoryInvalid
+	}
+	if len(fields) > 0 && !factorySetsOutput(fields) {
+		return reply, factoryPlain
+	}
+	if json.Unmarshal([]byte(out), &reply) != nil {
+		return reply, factoryInvalid
+	}
+	if d := factoryString(reply.Decision); d != "" && d != "approve" && d != "block" {
+		return reply, factoryInvalid
+	}
+	if hso := reply.HookSpecificOutput; hso != nil {
+		switch factoryString(hso.PermissionDecision) {
+		case "", "allow", "deny", "ask":
+		default:
+			return reply, factoryInvalid
+		}
+		if name := factoryString(hso.HookEventName); name != "" && name != event {
+			return reply, factoryInvalid
+		}
+	}
+	return reply, factoryJSON
+}
+
+// factoryPlainLines reports whether every nonblank line is a JSON object
+// that sets no output field, such as a log line per row.
+func factoryPlainLines(out string) bool {
+	for line := range strings.Lines(out) {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var fields map[string]json.RawMessage
+		if json.Unmarshal([]byte(line), &fields) != nil || factorySetsOutput(fields) {
+			return false
+		}
+	}
+	return true
+}
+
+func factorySetsOutput(fields map[string]json.RawMessage) bool {
+	for _, key := range factoryOutputFields {
+		if raw, ok := fields[key]; ok && string(raw) != "null" {
+			return true
+		}
+	}
+	return false
+}
+
+func factoryString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// factoryPermission is a PreToolUse reply's decision: permissionDecision,
+// else the older top-level decision, where approve is allow and block is
+// deny. "When both are set, `permissionDecision` wins."
+func factoryPermission(reply factoryReply) string {
+	if hso := reply.HookSpecificOutput; hso != nil {
+		if d := factoryString(hso.PermissionDecision); d != "" {
+			return d
+		}
+	}
+	switch factoryString(reply.Decision) {
+	case "approve":
+		return "allow"
+	case "block":
+		return "deny"
+	}
+	return ""
+}
+
+// decideFactory follows the hooks guide (Hook output, Control by event,
+// Block when a hook fails). Exit 2 blocks, except where the event cannot
+// block. On any other exit, a JSON reply applies as on exit 0, and plain
+// or empty stdout on a non-zero exit is a non-blocking error, as are a
+// timeout and JSON that cannot be applied. With `onFailure: "block"`, on
+// the factoryBlockEvents, each of those failures blocks, and so does any
+// stdout on a non-zero exit. A JSON reply blocks with:
+//   - PreToolUse: a deny, from permissionDecision or the older top-level
+//     decision. "ask" does not block: "normal permissions apply".
+//   - `decision: "block"` on PostToolUse, UserPromptSubmit, Stop, and
+//     PreCompact; SubagentStop: "Neither a block nor `continue: false`
+//     keeps the subagent running".
+//   - `continue: false` on the factoryBlockEvents. It "stops nothing" on
+//     Notification, SessionStart, and SessionEnd, and on Stop it ends the
+//     turn.
+func decideFactory(event string, h Handler, r Result) Decision {
+	failure := Error
+	if h.FailClosed && slices.Contains(factoryBlockEvents, event) {
+		failure = Block
+	}
 	switch {
+	case r.TimedOut && failure == Block:
+		return Block
 	case r.TimedOut:
 		return Timeout
 	case r.StartErr != nil:
-		return Error
-	case r.Exit == 2 && slices.Contains(factoryLifecycleEvents, event):
+		return failure
+	case r.Exit == 2 && slices.Contains(factoryExitTwoErrors, event):
 		return Error
 	case r.Exit == 2:
 		return Block
-	case r.Exit != 0:
-		return Error
 	}
-	reply, ok := readReply(r)
+	reply, kind := readFactory(event, r.Stdout)
 	switch {
-	case !ok:
+	case kind == factoryInvalid:
+		return failure
+	case r.Exit != 0 && (failure == Block || kind == factoryPlain):
+		return failure
+	case kind == factoryPlain:
 		return Allow
-	case reply.Continue != nil && !*reply.Continue && event != "SessionEnd":
+	case event == "PreToolUse" && factoryPermission(reply) == "deny":
 		return Block
-	case event == "PreToolUse" && reply.HookSpecificOutput.PermissionDecision == "deny":
+	case reply.Continue != nil && !*reply.Continue && slices.Contains(factoryBlockEvents, event):
 		return Block
-	case FactoryAsks(event, r):
-		return Block
-	case reply.Decision == "block" && slices.Contains(factoryDecisionEvents, event):
+	case factoryString(reply.Decision) == "block" && slices.Contains(factoryDecisionEvents, event):
 		return Block
 	}
 	return Allow
 }
 
-// FactoryAsks reports whether a PreToolUse hook replied
-// `permissionDecision: "ask"`, which Factory enforces by asking the user.
+// FactoryAsks reports whether a PreToolUse hook's applied JSON reply is
+// `ask`, which leaves the call to Factory's normal permissions.
 func FactoryAsks(event string, r Result) bool {
-	if event != "PreToolUse" || r.TimedOut || r.StartErr != nil || r.Exit != 0 {
+	if event != "PreToolUse" || r.TimedOut || r.StartErr != nil || r.Exit == 2 {
 		return false
 	}
-	reply, ok := readReply(r)
-	return ok && reply.HookSpecificOutput.PermissionDecision == "ask"
+	reply, kind := readFactory(event, r.Stdout)
+	return kind == factoryJSON && factoryPermission(reply) == "ask"
+}
+
+// factoryAddsContext reports whether Droid adds the hook's output to the
+// session: a JSON reply's additionalContext when the hook did not block,
+// or plain stdout on exit 0 for UserPromptSubmit and SessionStart.
+func factoryAddsContext(event string, r Result) bool {
+	if decideFactory(event, Handler{}, r) != Allow || r.Exit == 2 {
+		return false
+	}
+	reply, kind := readFactory(event, r.Stdout)
+	switch kind {
+	case factoryJSON:
+		return reply.HookSpecificOutput != nil && factoryString(reply.HookSpecificOutput.AdditionalContext) != ""
+	case factoryPlain:
+		return r.Exit == 0 && slices.Contains(contextEvents, event) && strings.TrimSpace(r.Stdout) != ""
+	}
+	return false
 }

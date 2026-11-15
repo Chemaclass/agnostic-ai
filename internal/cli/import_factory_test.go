@@ -352,3 +352,84 @@ func TestImportFactory_HandNamedRegexSpecOwnsItsNativeGroup(t *testing.T) {
 		t.Errorf("the hand-written group without a regex must be imported, got %v", names)
 	}
 }
+
+// TestImportFactory_KeepsOnFailureAndPreserveRiskLevelThroughSync: the
+// two entry keys reach the spec, as failClosed and x-factory, so import
+// then sync leaves the one hand-written entry instead of adding a copy.
+func TestImportFactory_KeepsOnFailureAndPreserveRiskLevelThroughSync(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "hooks": [{"type": "command", "command": "./x.sh", "timeout": 5, "onFailure": "block", "preserveRiskLevel": true}]}]}`)
+
+	execCLI(t, "import", "factory")
+	names := readDirNames(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(names) != 1 {
+		t.Fatalf("want one hook spec, got %v", names)
+	}
+	body := readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", names[0]))
+	for _, want := range []string{"failClosed: true", "preserveRiskLevel: true", "x-factory:"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("spec missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "onFailure") {
+		t.Errorf("onFailure block must become failClosed:\n%s", body)
+	}
+
+	execCLI(t, "sync")
+	first := factoryHooksJSON(t, dir)
+	if strings.Count(first, `"command"`) != 2 || !strings.Contains(first, `"onFailure": "block"`) || !strings.Contains(first, `"preserveRiskLevel": true`) {
+		t.Fatalf("want the one entry with both keys:\n%s", first)
+	}
+	execCLI(t, "import", "factory")
+	execCLI(t, "sync")
+	if got := factoryHooksJSON(t, dir); got != first {
+		t.Errorf("second round trip changed the file:\n%s\nwant\n%s", got, first)
+	}
+	execCLI(t, "sync", "--check")
+}
+
+// TestImportFactory_SplitsHookGroupByFailureSettings: onFailure and
+// preserveRiskLevel belong to each command, so one group splits per
+// distinct pair, and a value other than block stays under x-factory.
+func TestImportFactory_SplitsHookGroupByFailureSettings(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".factory", "hooks.json"),
+		`{"PreToolUse": [{"matcher": "Execute", "hooks": [
+{"type": "command", "command": "./a.sh", "onFailure": "block"},
+{"type": "command", "command": "./b.sh"},
+{"type": "command", "command": "./c.sh", "onFailure": "continue"}]}]}`)
+
+	execCLI(t, "import", "factory")
+	hooks := readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
+	if len(hooks) != 3 {
+		t.Fatalf("want 3 specs, got %d: %v", len(hooks), keys(hooks))
+	}
+	for _, body := range hooks {
+		switch {
+		case strings.Contains(body, "./a.sh"):
+			if !strings.Contains(body, "failClosed: true") || strings.Contains(body, "./b.sh") {
+				t.Errorf("block spec:\n%s", body)
+			}
+		case strings.Contains(body, "./b.sh"):
+			if strings.Contains(body, "failClosed") || strings.Contains(body, "onFailure") {
+				t.Errorf("plain spec inherited a failure setting:\n%s", body)
+			}
+		case strings.Contains(body, "./c.sh"):
+			if !strings.Contains(body, "onFailure: continue") || strings.Contains(body, "failClosed") {
+				t.Errorf("continue spec:\n%s", body)
+			}
+		}
+	}
+	execCLI(t, "sync")
+	got := factoryHooksJSON(t, dir)
+	for _, command := range []string{"./a.sh", "./b.sh", "./c.sh"} {
+		if n := strings.Count(got, command); n != 1 {
+			t.Errorf("%s written %d times:\n%s", command, n, got)
+		}
+	}
+}

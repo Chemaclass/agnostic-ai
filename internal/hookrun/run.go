@@ -72,7 +72,8 @@ type Handler struct {
 	// If is Claude Code's `if` permission rule.
 	If string
 	// FailClosed is a failed run that blocks: Goose's `on_failure: block`,
-	// Cursor's `failClosed`, and Claude Code's `onFailure: "block"`.
+	// Cursor's `failClosed`, and Claude Code's and Factory's
+	// `onFailure: "block"`.
 	FailClosed bool
 	// Script is the body of Cline's event script; Command is its path.
 	Script string
@@ -252,6 +253,8 @@ func AddsContext(target, event string, r Result) bool {
 		return false
 	case "crush":
 		return crushAddsContext(r)
+	case "factory":
+		return factoryAddsContext(event, r)
 	case "copilot":
 		return copilotAddsContext(event, r)
 	case "antigravity":
