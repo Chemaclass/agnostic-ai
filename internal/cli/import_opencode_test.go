@@ -294,3 +294,71 @@ func TestImportThenSync_HandWrittenEntryPointWritesEachSectionOnce(t *testing.T)
 		t.Errorf("section written %d times, want once:\n%s", n, readFile(t, "AGENTS.md"))
 	}
 }
+
+// TestImportOpencode_MCPOAuthFalseSurvivesSync: an OpenCode-only key such
+// as `oauth: false` goes under x-opencode, which sync writes back, so
+// OpenCode does not start the OAuth flow again after a round trip.
+func TestImportOpencode_MCPOAuthFalseSurvivesSync(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
+	writeFile(t, filepath.Join(dir, opencodeMCPFile),
+		`{"mcp":{"gh":{"type":"remote","url":"https://example.com/mcp","oauth":false,"timeout":5000}}}`)
+
+	execCLI(t, "import", "opencode")
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"))
+	if !strings.Contains(spec, "x-opencode:\n    oauth: false") || !strings.Contains(spec, "\ntimeout: 5000") {
+		t.Errorf("oauth must sit under x-opencode and timeout stay portable:\n%s", spec)
+	}
+
+	execCLI(t, "sync")
+	first := readFile(t, filepath.Join(dir, opencodeMCPFile))
+	if !strings.Contains(first, `"oauth": false`) || !strings.Contains(first, `"timeout": 5000`) {
+		t.Fatalf("sync must write oauth and timeout back:\n%s", first)
+	}
+	execCLI(t, "import", "opencode")
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, opencodeMCPFile)); got != first {
+		t.Errorf("second round trip changed the file:\n%s\nwant\n%s", got, first)
+	}
+	execCLI(t, "sync", "--check")
+}
+
+// TestImportOpencode_MCPOAuthSecretIsLeftOut: an `oauth` that holds a
+// literal client secret has no reference form, so the server is left
+// out with a warning instead of reaching a committed spec.
+func TestImportOpencode_MCPOAuthSecretIsLeftOut(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
+	writeFile(t, filepath.Join(dir, opencodeMCPFile),
+		`{"mcp":{"gh":{"type":"remote","url":"https://example.com/mcp","oauth":{"clientId":"app","clientSecret":"sk-live-9f8e7d6c5b4a39281706f5e4d3c2b1a0"}},"docs":{"type":"remote","url":"https://example.com/docs"}}}`)
+
+	execCLI(t, "import", "opencode")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml")); !os.IsNotExist(err) {
+		t.Errorf("a server whose oauth holds a secret must be left out: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "mcps", "docs.yaml")); err != nil {
+		t.Errorf("other servers still import: %v", err)
+	}
+}
+
+// TestImportOpencode_MCPOAuthEnvReferenceStaysNative: the spec writer
+// cannot tell OpenCode's `{env:NAME}` inside `oauth` from a secret, so
+// the server is left out and sync keeps the native entry.
+func TestImportOpencode_MCPOAuthEnvReferenceStaysNative(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
+	native := `{"mcp":{"gh":{"type":"remote","url":"https://example.com/mcp","oauth":{"clientId":"app","clientSecret":"{env:GH_SECRET}"}}}}`
+	writeFile(t, filepath.Join(dir, opencodeMCPFile), native)
+
+	silence(t)
+	execCLI(t, "import", "opencode")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml")); !os.IsNotExist(err) {
+		t.Errorf("the server must be left out: %v", err)
+	}
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, opencodeMCPFile)); !strings.Contains(got, "{env:GH_SECRET}") {
+		t.Errorf("sync must keep the native entry:\n%s", got)
+	}
+}

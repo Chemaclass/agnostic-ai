@@ -10,32 +10,95 @@ import (
 )
 
 func TestDecideFactory_FollowsTheHooksGuide(t *testing.T) {
+	deny := `{"hookSpecificOutput":{"permissionDecision":"deny"}}`
 	for name, tc := range map[string]struct {
 		event string
 		r     Result
 		want  Decision
 	}{
-		"exit 2 blocks a tool call":                {"PreToolUse", Result{Exit: 2}, Block},
-		"exit 2 blocks a prompt":                   {"UserPromptSubmit", Result{Exit: 2}, Block},
-		"exit 2 feeds Stop back":                   {"Stop", Result{Exit: 2}, Block},
-		"exit 2 only surfaces on SubagentStop":     {"SubagentStop", Result{Exit: 2}, Error},
-		"exit 2 only surfaces on SessionStart":     {"SessionStart", Result{Exit: 2}, Error},
-		"another exit is a non-blocking error":     {"PreToolUse", Result{Exit: 1}, Error},
-		"deny blocks a tool call":                  {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"deny"}}`}, Block},
-		"ask blocks until the user answers":        {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"ask"}}`}, Block},
-		"allow allows":                             {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"allow"}}`}, Allow},
-		"decision block blocks SubagentStop":       {"SubagentStop", Result{Stdout: `{"decision":"block"}`}, Block},
-		"decision block is not a PreToolUse reply": {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Allow},
-		"continue false stops":                     {"PostToolUse", Result{Stdout: `{"continue":false}`}, Block},
-		"SessionEnd cannot block":                  {"SessionEnd", Result{Stdout: `{"continue":false}`}, Allow},
-		"plain stdout allows":                      {"UserPromptSubmit", Result{Stdout: "context"}, Allow},
-		"a timeout":                                {"PreToolUse", Result{TimedOut: true}, Timeout},
+		"exit 2 blocks a tool call":                    {"PreToolUse", Result{Exit: 2}, Block},
+		"exit 2 blocks a prompt":                       {"UserPromptSubmit", Result{Exit: 2}, Block},
+		"exit 2 feeds Stop back":                       {"Stop", Result{Exit: 2}, Block},
+		"exit 2 blocks a manual compaction":            {"PreCompact", Result{Exit: 2}, Block},
+		"exit 2 cannot block SubagentStop":             {"SubagentStop", Result{Exit: 2}, Error},
+		"exit 2 only surfaces on SessionStart":         {"SessionStart", Result{Exit: 2}, Error},
+		"exit 2 ignores the JSON on Notification":      {"Notification", Result{Exit: 2, Stdout: `{"continue":false}`}, Error},
+		"another exit with plain stdout is an error":   {"PreToolUse", Result{Exit: 1, Stdout: "oops"}, Error},
+		"another exit with a JSON deny denies":         {"PreToolUse", Result{Exit: 1, Stdout: deny}, Block},
+		"another exit with a JSON allow allows":        {"PreToolUse", Result{Exit: 3, Stdout: `{}`}, Allow},
+		"deny blocks a tool call":                      {"PreToolUse", Result{Stdout: deny}, Block},
+		"ask leaves normal permissions":                {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"ask"}}`}, Allow},
+		"allow allows":                                 {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"allow"}}`}, Allow},
+		"top-level decision block denies a tool call":  {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Block},
+		"permissionDecision wins over decision":        {"PreToolUse", Result{Stdout: `{"decision":"block","hookSpecificOutput":{"permissionDecision":"allow"}}`}, Allow},
+		"decision approve allows":                      {"PreToolUse", Result{Stdout: `{"decision":"approve"}`}, Allow},
+		"decision block feeds PostToolUse back":        {"PostToolUse", Result{Stdout: `{"decision":"block"}`}, Block},
+		"decision block keeps Stop running":            {"Stop", Result{Stdout: `{"decision":"block"}`}, Block},
+		"decision block blocks a manual compaction":    {"PreCompact", Result{Stdout: `{"decision":"block"}`}, Block},
+		"decision block does not stop a subagent":      {"SubagentStop", Result{Stdout: `{"decision":"block"}`}, Allow},
+		"continue false ends the turn before the tool": {"PreToolUse", Result{Stdout: `{"continue":false}`}, Block},
+		"continue false blocks a prompt":               {"UserPromptSubmit", Result{Stdout: `{"continue":false}`}, Block},
+		"continue false lets Stop stop":                {"Stop", Result{Stdout: `{"continue":false}`}, Allow},
+		"continue false does not stop a subagent":      {"SubagentStop", Result{Stdout: `{"continue":false}`}, Allow},
+		"continue false stops nothing on Notification": {"Notification", Result{Stdout: `{"continue":false}`}, Allow},
+		"continue false stops nothing on SessionStart": {"SessionStart", Result{Stdout: `{"continue":false}`}, Allow},
+		"continue false stops nothing on SessionEnd":   {"SessionEnd", Result{Stdout: `{"continue":false}`}, Allow},
+		"plain stdout allows":                          {"UserPromptSubmit", Result{Stdout: "context"}, Allow},
+		"an object with no output field is plain text": {"PreToolUse", Result{Stdout: `{"message":"done"}`}, Allow},
+		"JSON that does not parse is an error":         {"PreToolUse", Result{Stdout: `{"continue":}`}, Error},
+		"an unknown permissionDecision is an error":    {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"defer"}}`}, Error},
+		"a field of the wrong type is an error":        {"PreToolUse", Result{Stdout: `{"continue":"no"}`}, Error},
+		"another event's hookEventName is an error":    {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"hookEventName":"PostToolUse","permissionDecision":"deny"}}`}, Error},
+		"a null field counts as absent":                {"PreToolUse", Result{Stdout: `{"reason":null,"hookSpecificOutput":{"permissionDecision":"deny"}}`}, Block},
+		"a timeout":                                    {"PreToolUse", Result{TimedOut: true}, Timeout},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := decideFactory(tc.event, tc.r); got != tc.want {
+			if got := decideFactory(tc.event, Handler{}, tc.r); got != tc.want {
 				t.Errorf("decideFactory = %s, want %s", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestDecideFactory_OnFailureBlock(t *testing.T) {
+	h := Handler{FailClosed: true}
+	for name, tc := range map[string]struct {
+		event string
+		r     Result
+		want  Decision
+	}{
+		"a timeout blocks":                         {"PreToolUse", Result{TimedOut: true}, Block},
+		"a start failure blocks":                   {"PostToolUse", Result{StartErr: os.ErrNotExist}, Block},
+		"another exit blocks":                      {"UserPromptSubmit", Result{Exit: 1}, Block},
+		"another exit blocks even with JSON allow": {"PreToolUse", Result{Exit: 1, Stdout: `{}`}, Block},
+		"invalid JSON blocks":                      {"PreCompact", Result{Stdout: `{"continue":}`}, Block},
+		"exit 0 with an allow still allows":        {"PreToolUse", Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"allow"}}`}, Allow},
+		"no effect on Stop":                        {"Stop", Result{Exit: 1}, Error},
+		"no effect on SubagentStop":                {"SubagentStop", Result{TimedOut: true}, Timeout},
+		"no effect on SessionStart":                {"SessionStart", Result{Exit: 1}, Error},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := decideFactory(tc.event, h, tc.r); got != tc.want {
+				t.Errorf("decideFactory = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFactoryAsks_OnlyAnAppliedPreToolUseAsk(t *testing.T) {
+	ask := `{"hookSpecificOutput":{"permissionDecision":"ask"}}`
+	if !FactoryAsks("PreToolUse", Result{Exit: 1, Stdout: ask}) {
+		t.Error("a JSON ask applies on any exit but 2")
+	}
+	if FactoryAsks("PreToolUse", Result{Exit: 2, Stdout: ask}) || FactoryAsks("PostToolUse", Result{Stdout: ask}) {
+		t.Error("exit 2 and other events carry no ask")
+	}
+}
+
+func TestHandlersFromDoc_FactoryReadsOnFailure(t *testing.T) {
+	handlers, err := HandlersFromDoc("factory", []byte(`{"PreToolUse":[{"matcher":"Execute","hooks":[{"type":"command","command":"./a.sh","onFailure":"block"},{"type":"command","command":"./b.sh"}]}]}`))
+	if err != nil || len(handlers) != 2 || !handlers[0].FailClosed || handlers[1].FailClosed {
+		t.Errorf("handlers = %+v %v; want only ./a.sh fail closed", handlers, err)
 	}
 }
 

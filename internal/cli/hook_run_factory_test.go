@@ -165,3 +165,36 @@ func TestHookRun_FactoryJSONListsItsAssumptions(t *testing.T) {
 	}
 	t.Fatalf("no factory result:\n%s", out)
 }
+
+func TestHookRun_FactoryFailClosedBlocksAFailedHook(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	factoryProject(t, factoryHookSpec+"failClosed: true\n", "#!/bin/sh\ncat >/dev/null\nexit 1\n")
+
+	out, _ := runHookRun(t, "protect-files", "--bash", "ls", "--include-assumed")
+	if !strings.Contains(out, "factory: block (exit 1") {
+		t.Errorf("onFailure block must turn exit 1 into a block:\n%s", out)
+	}
+	if strings.Contains(out, "factory: warning: runs") {
+		t.Errorf("the synced onFailure matches the spec, so no drift warning:\n%s", out)
+	}
+}
+
+func TestHookRun_FactoryAskLeavesNormalPermissions(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	factoryProject(t, factoryHookSpec, "#!/bin/sh\ncat >/dev/null\necho '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\"}}'\n")
+
+	out, _ := runHookRun(t, "protect-files", "--bash", "ls", "--include-assumed")
+	if !strings.Contains(out, "factory: allow (exit 0") || !strings.Contains(out, "replied ask: Factory's normal permissions decide") {
+		t.Errorf("ask must read as allow with a note:\n%s", out)
+	}
+}
+
+func TestHookRun_FactoryFailClosedAskOnAFailedExitBlocksWithoutTheAskNote(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	factoryProject(t, factoryHookSpec+"failClosed: true\n", "#!/bin/sh\ncat >/dev/null\necho '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\"}}'\nexit 1\n")
+
+	out, _ := runHookRun(t, "protect-files", "--bash", "ls", "--include-assumed")
+	if !strings.Contains(out, "factory: block (exit 1") || strings.Contains(out, "replied ask") {
+		t.Errorf("onFailure block wins over the ask, and the note must not say allow:\n%s", out)
+	}
+}

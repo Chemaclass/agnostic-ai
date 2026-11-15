@@ -42,6 +42,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Factory
 
+- Hooks write `onFailure: "block"` from `failClosed` and `preserveRiskLevel` from `x-factory`; import reads both back, so sync adds no copy (#3476).
+- `hook run` reads Factory 1.11 replies: `ask` allows, top-level `decision: "block"` denies, and JSON applies on any exit but 2 (#3477).
 - `import factory` keeps a hook group's `commandRegex` as `x-factory.commandRegex`, and `sync` writes it back on the group instead of adding a second group without it (#3397).
 
 #### Cline
@@ -93,6 +95,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### OpenCode
 
+- `import opencode` keeps MCP keys such as `oauth: false` under `x-opencode`, so sync writes them back; a literal OAuth secret is left out (#3479).
 - `explain` reports the `read`, `bash` and other permission keys that `sync` writes for an agent's `tools`, instead of listing them as unsupported (#3425).
 - `import opencode` keeps a command's native `subagent` flag, including `false`, so `sync` no longer drops it and OpenCode keeps routing the command as written (#3383).
 
@@ -116,7 +119,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Crush
 
+- `hook run` reads Crush 0.101 replies: `decision: "block"` blocks, `continue: false` halts, and JSON applies on any exit but 2 and 49 (#3478).
 - `lint` no longer tells you to drop the matcher from a `PermissionResult` hook, since Crush filters that event by tool name (#3385).
+
+#### Grok
+
+- `import grok` keeps an MCP header or env value that is a `{{session_id}}` template, which Grok fills in, instead of turning it into a variable (#3480).
 
 #### Mistral Vibe
 

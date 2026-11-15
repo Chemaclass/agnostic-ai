@@ -99,7 +99,7 @@ func writeMCPYAMLs(target string, servers map[string]any, dstDir string, orders 
 			adapters.ReadMCPEnvRefs(target, server)
 		}
 	}
-	refs := referenceMCPLiterals(servers)
+	refs := referenceMCPLiteralsFor(target, servers)
 	count, err := writeMCPSpecs(servers, dstDir, orders...)
 	if err != nil {
 		return count, err
@@ -460,6 +460,18 @@ var (
 // becomes a reference too (see mcpURLLiterals). See mcpLiteralNames for
 // the variable names.
 func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
+	return referenceMCPLiteralsFor("", servers)
+}
+
+// grokTemplateValue is a whole value Grok fills in itself, such as the
+// `{{session_id}}` header in docs.x.ai/build/features/mcp-servers.
+var grokTemplateValue = regexp.MustCompile(`^\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}$`)
+
+// referenceMCPLiteralsFor is referenceMCPLiterals for one target's
+// servers. On Grok, a `{{name}}` template stays as written: it holds no
+// secret, and a reference would send a fixed value in place of the one
+// Grok fills in.
+func referenceMCPLiteralsFor(target string, servers map[string]any) []mcpLiteralRef {
 	var refs []mcpLiteralRef
 	var literals []mcpLiteral
 	referenced := map[string]bool{}
@@ -474,7 +486,7 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 				}
 				// An escaped placeholder is text a server expands itself,
 				// not a secret.
-				if spec.OnlyEscapedEnvRefs(value) {
+				if spec.OnlyEscapedEnvRefs(value) || target == "grok" && grokTemplateValue.MatchString(value) {
 					continue
 				}
 				if spec.OnlyEnvRefs(value) {

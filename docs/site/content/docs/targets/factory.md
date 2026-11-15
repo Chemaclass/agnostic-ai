@@ -84,7 +84,10 @@ Written once to the tree that codex, amp, zed, and crush share. Factory also rea
 
 - Nine events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`.
 - The file is keyed by event name, `{"<Event>": [{matcher, hooks: [...]}]}`, with no `hooks` wrapper (unlike Claude Code, Codex, Gemini, and Qoder).
-- Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60). Factory's group-level `commandRegex` is set with `x-factory.commandRegex` on the hook spec; specs with different regexes never share a group, and `import factory` fills the key.
+- Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60).
+- `failClosed: true` writes `"onFailure": "block"`, so a hook that fails, times out, or exits with a code other than 0 or 2 blocks the event as exit 2 would. Factory honors it on `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, and `PreCompact`; sync notes the other events. Another `onFailure` value goes in `x-factory.onFailure`.
+- `x-factory.preserveRiskLevel: true` writes `preserveRiskLevel`, which keeps the model's `riskLevel` when a `PreToolUse` hook rewrites an `Execute` command. Sync notes it on other events.
+- Factory's group-level `commandRegex` is set with `x-factory.commandRegex` on the hook spec; specs with different regexes never share a group, and `import factory` fills the key.
 - `matcher` is a regex over Factory's tool names, which match Claude's except `Bash`, `Write`, and `WebFetch`. A matcher that uses those is written as is, matches nothing, and raises a sync note.
 
 ### MCP
@@ -146,7 +149,7 @@ With `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store
 | `<scope>/.factory/skills/<name>/SKILL.md` | `<skills>/<scope>/<name>/SKILL.md` |
 | `.factory/commands/<name>.md` | `<commands>/<name>.md` |
 | `.factory/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
-| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group |
+| `.factory/hooks.json`, else the legacy `.factory/hooks/hooks.json` | one hook spec per matcher group and distinct `onFailure` and `preserveRiskLevel`; `onFailure: "block"` becomes `failClosed: true` |
 | `.factory/settings.json` `model`, `reasoningEffort`, and command lists | `<settings>/factory.yaml`; `reasoningEffort` becomes `effort`, or `x-factory.reasoningEffort` when another settings spec sets a different effort |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 

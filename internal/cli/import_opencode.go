@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -175,9 +176,31 @@ func importOpencodeMCP(root, dstDir string) (int, error) {
 		if !ok {
 			continue
 		}
-		normalized[name] = normalizeOpencodeMCPEntry(entry)
+		normalized[name] = nestOpencodeOnlyMCPKeys(normalizeOpencodeMCPEntry(entry))
 	}
 	return writeMCPYAMLs("opencode", normalized, dstDir)
+}
+
+// opencodePortableMCPKeys are the spec keys the OpenCode adapter reads
+// at the top level of an MCP spec (buildMCPEntry).
+var opencodePortableMCPKeys = []string{"command", "args", "env", "cwd", "url", "headers", "disabled", "timeout"}
+
+// nestOpencodeOnlyMCPKeys moves every key sync would not read at the top
+// level, such as `oauth: false`, under `x-opencode`, which sync writes
+// back to the server entry. The spec writer still leaves out a server
+// whose `x-opencode` holds a credential.
+func nestOpencodeOnlyMCPKeys(entry map[string]any) map[string]any {
+	native := map[string]any{}
+	for k, v := range entry {
+		if !slices.Contains(opencodePortableMCPKeys, k) {
+			native[k] = v
+			delete(entry, k)
+		}
+	}
+	if len(native) > 0 {
+		entry["x-opencode"] = native
+	}
+	return entry
 }
 
 // normalizeOpencodeMCPEntry maps OpenCode's MCP entry shape to the
