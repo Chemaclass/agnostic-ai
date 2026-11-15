@@ -73,7 +73,7 @@ Commands come from the spec, so a command that calls a hook script needs a `sync
 | Goose | `PLUGIN_ROOT`, with `AGNOSTIC_AI_TARGET=goose` from its command |
 | Augment | `AUGMENT_PROJECT_DIR`, `AUGMENT_CONVERSATION_ID`, `AUGMENT_HOOK_EVENT`, `AUGMENT_TOOL_NAME` |
 | Cursor | `CURSOR_PROJECT_DIR`, `CURSOR_VERSION` (empty), `CLAUDE_PROJECT_DIR`, and `AGNOSTIC_AI_TARGET=cursor`, which the `sessionStart` entry that sync adds sets for later hooks |
-| Crush | `CRUSH=1`, `AGENT=crush`, `AI_AGENT=crush`, `CRUSH_EVENT`, `CRUSH_TOOL_NAME`, `CRUSH_SESSION_ID`, `CRUSH_CWD`, `CRUSH_PROJECT_DIR`, `CRUSH_TOOL_INPUT_COMMAND` or `CRUSH_TOOL_INPUT_FILE_PATH` when the tool input has one, and editor and pager variables that keep anything from waiting for a terminal; `AGNOSTIC_AI_TARGET=crush` comes from its command |
+| Crush | `CRUSH=1`, `AGENT=crush`, `AI_AGENT=crush`, `CRUSH_EVENT`, `CRUSH_TOOL_NAME`, `CRUSH_SESSION_ID`, `CRUSH_CWD`, `CRUSH_PROJECT_DIR`, `CLAUDE_PROJECT_DIR`, `CRUSH_TOOL_INPUT_COMMAND` or `CRUSH_TOOL_INPUT_FILE_PATH` when the tool input has one, and editor and pager variables that keep anything from waiting for a terminal; `AGNOSTIC_AI_TARGET=crush` comes from its command |
 | Copilot | the handler's `env`, which holds `AGNOSTIC_AI_TARGET=copilot`. Copilot is not run when a value holds `$`. |
 | Factory | `FACTORY_PROJECT_DIR` |
 | Qoder | `QODER_PROJECT_DIR`, then the handler's `env`, which holds `AGNOSTIC_AI_TARGET=qoder` |

@@ -110,3 +110,12 @@ func TestHookRun_CrushLifecycleEventsRemainUnsupported(t *testing.T) {
 		t.Errorf("lifecycle event should remain outside the diagnostic: %v\n%s", err, out)
 	}
 }
+
+func TestHookRun_CrushSetsClaudeProjectDir(t *testing.T) {
+	crushProject(t, "name: guard\nevent: PreToolUse\ncommand: ./.agnostic-ai/scripts/guard.sh\n", `test "$CLAUDE_PROJECT_DIR" = "$CRUSH_PROJECT_DIR" && test -f "$CLAUDE_PROJECT_DIR/agnostic-ai.yaml" && printf project-dir-ok`)
+	t.Setenv("CLAUDE_PROJECT_DIR", "/elsewhere")
+	out, err := runHookRun(t, "guard", "--bash", "ls", "--expect", "allow")
+	if err != nil || !strings.Contains(out, "project-dir-ok") {
+		t.Errorf("Crush hook cannot use CLAUDE_PROJECT_DIR: %v\n%s", err, out)
+	}
+}
