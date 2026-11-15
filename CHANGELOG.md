@@ -142,6 +142,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `explain` reports a Vibe agent's `x-vibe.enabled_tools` override instead of the portable tool mapping it replaces (#3407).
 - `import vibe` keeps native skill `allowed-tools` under `x-vibe`, so names such as `read_file` no longer block sync or lint (#3434).
 
+#### CodeBuddy Code
+
+- Sub-agents can restrict tools to a named MCP server with `mcp__docs` or `mcp__docs__*` on CodeBuddy 2.181.0 or later (#3486).
+
 ### Site
 
 - Junie lists `WebFetch` as supported, and Zed's adapter guidance describes automatic worktree tasks (#3435, #3437).

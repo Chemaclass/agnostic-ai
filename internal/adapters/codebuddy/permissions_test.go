@@ -3,6 +3,7 @@ package codebuddy
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -47,7 +48,7 @@ func TestPermissionMCPRulesFollowNativeSegmentGrammar(t *testing.T) {
 }
 
 func TestPermissionMCPRulesStaySeparateFromAgentExposure(t *testing.T) {
-	for _, rule := range []string{"mcp__github", "mcp__github__*", "mcp__*", "mcp____get_issue", "mcp__github____get_issue"} {
+	for _, rule := range []string{"mcp__*", "mcp____get_issue", "mcp__github____get_issue"} {
 		if _, ok := New().TranslateAgentCapability(rule); ok {
 			t.Errorf("agent accepted permission-only or malformed rule %q", rule)
 		}
@@ -76,5 +77,20 @@ func TestEmit_PreservesVerifiedPermissionMCPRules(t *testing.T) {
 		if !slices.Equal(got.Permissions[key], list(want)) {
 			t.Errorf("%s=%v, want %v", key, got.Permissions[key], want)
 		}
+	}
+}
+
+func TestEmit_AgentMCPServerRestrictions(t *testing.T) {
+	for _, rule := range []string{"mcp__docs", "mcp__docs__*", "mcp__docs__ping"} {
+		t.Run(rule, func(t *testing.T) {
+			testutil.TempCwd(t)
+			b := spec.Bundle{Agents: []spec.Entry{{Kind: spec.KindAgent, Name: "reader", Meta: map[string]any{"tools": []any{rule}}}}}
+			if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+				t.Fatalf("native server restriction rejected: %v", err)
+			}
+			if got := read(t, ".codebuddy/agents/reader.md"); !strings.Contains(got, "\ntools: "+rule+"\n") {
+				t.Errorf("native restriction changed:\n%s", got)
+			}
+		})
 	}
 }

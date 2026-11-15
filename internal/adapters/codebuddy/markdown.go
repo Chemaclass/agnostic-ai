@@ -21,7 +21,7 @@ var toolTable = emit.ToolCapabilityTable{
 
 func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolTable }
 func (Adapter) TranslateAgentCapability(rule string) ([]string, bool) {
-	if server, tool, ok := mcpRuleParts(rule); ok && server != "*" && tool != "" && tool != "*" || nativeTool(rule) {
+	if server, _, ok := mcpRuleParts(rule); ok && server != "*" || nativeTool(rule) {
 		return []string{rule}, true
 	}
 	return nil, false

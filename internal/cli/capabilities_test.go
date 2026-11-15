@@ -35,7 +35,7 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 		{"read-only", "can: [read]", "tools: [Read]", "", "", ""},
 		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", "would restore all tools", ""},
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", "would restore all tools", ""},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "", "would restore all tools", ""},
 		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping", "would restore all tools", ""},
 		{"empty", "can: []", "tools: []", "empty tools list gives every tool before CodeBuddy 2.179.0", "empty tools would inherit all tools", "no supported allowed tools"},
 		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
@@ -82,6 +82,9 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 					}
 					if target == "codebuddy" && tc.name == "exact-tools" && !strings.Contains(neutral[filepath.Join(".codebuddy", "agents", "reviewer.md")], "mcp__github__get_issue") {
 						t.Error("verified native agent tools were not emitted")
+					}
+					if target == "codebuddy" && tc.name == "server-tools" && !strings.Contains(neutral[filepath.Join(".codebuddy", "agents", "reviewer.md")], ", mcp__github,") {
+						t.Error("whole-server MCP restriction was not emitted")
 					}
 					for rel, want := range legacy {
 						if got, ok := neutral[rel]; !ok || got != want {

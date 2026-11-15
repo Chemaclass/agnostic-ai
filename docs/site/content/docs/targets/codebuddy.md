@@ -83,7 +83,9 @@ At user scope, sync and import use the first existing file: `~/.codebuddy/.mcp.j
 
 ## Fields and limits
 
-Agent names use lowercase letters and hyphens. Sync rejects scoped tool patterns and MCP server names used as tool restrictions because their native equivalents have not been verified. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
+Agent names use lowercase letters and hyphens. Sync rejects scoped shell and file tool patterns. Keep those policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
+
+On CodeBuddy 2.181.0 or later, a sub-agent can use a named MCP server with `mcp__docs` or `mcp__docs__*`, or one tool with `mcp__docs__search` ([sub-agent MCP tools](https://www.codebuddy.ai/docs/cli/sub-agents)). Portable `can: [mcp:docs]` writes `mcp__docs`. The server forms expose that server's tools and exclude other servers. The global wildcard `mcp__*` remains unsupported in an agent allow list. Do not use `--agent` to isolate a main session's MCP tools; CodeBuddy 2.181.0 still exposed other configured servers in that mode.
 
 A portable empty `tools` or `can` list also fails sync, because CodeBuddy before 2.179.0 gives such an agent every tool. To run an agent without tools, set `x-codebuddy.tools: []`. Sync writes `tools: []` and prints a note that only CodeBuddy [2.179.0](https://www.codebuddy.ai/docs/cli/release-notes/v2.179.0) or later reads it as no tools; older versions still give every tool. CodeBuddy still adds its messaging tools and the plan-exit tool to such an agent. Import keeps a native `tools: []` as `x-codebuddy.tools: []`.
 
