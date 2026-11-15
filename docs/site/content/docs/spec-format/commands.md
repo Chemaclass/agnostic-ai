@@ -1,6 +1,6 @@
 +++
 title = "Commands"
-description = "commands/: slash commands a person runs by name, written once for every tool's command picker."
+description = "commands/: slash commands you run by name, written once for every tool's command picker."
 weight = 40
 
 [extra]
@@ -9,7 +9,7 @@ group = "Reference"
 
 # Commands
 
-`commands/` holds slash commands: saved prompts a person starts by name, such as `/deploy`. The body is the prompt the tool sends.
+`commands/` holds slash commands: saved prompts you start by name, such as `/deploy`. The body is the prompt the tool sends. Claude Code can also run a command on its own; add `disable-model-invocation: true` to the command's frontmatter to stop that ([Claude Code](@/docs/targets/claude.md#loading-and-limits)).
 
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
 
