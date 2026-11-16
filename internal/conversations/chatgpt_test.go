@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -78,6 +79,20 @@ func TestScan_ListsTheChatGPTAppsChats(t *testing.T) {
 	}
 }
 
+func TestScan_WithholdsAChatGPTTitleThatMayHoldACredential(t *testing.T) {
+	scanner, stores := testScanner(t, chatGPTCatalog(t, `[
+		{"thread_id":"`+chatGPTDone+`","display_title":"Debug ghp_abcdefghijklmnopqrstuvwxyz0123456789","source_created_at":1762505759,"source_updated_at":1762509394,"chatgpt_async_status":null,"running":0}
+	]`), fakeProcesses{})
+	writeChatGPTApp(t, stores)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	row := chatGPTRows(view)[chatGPTDone]
+	if row.Title != "" || !slices.Equal(row.Withheld, []string{FieldTitle}) {
+		t.Errorf("row = %s", asJSON(t, row))
+	}
+}
+
 func TestScan_LeavesChatGPTOutWithoutTheApp(t *testing.T) {
 	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
 
@@ -111,6 +126,39 @@ func TestScan_SaysWhyTheChatGPTAppCouldNotBeRead(t *testing.T) {
 				t.Errorf("source = %s", asJSON(t, source))
 			}
 		})
+	}
+}
+
+func TestScan_ReadsTheChatGPTAppAgainAfterAFailedRead(t *testing.T) {
+	good := chatGPTCatalog(t, `[
+		{"thread_id":"`+chatGPTDone+`","display_title":"Lunch","source_created_at":1762505759,"source_updated_at":1762509394,"chatgpt_async_status":null,"running":0}
+	]`)
+	failing := true
+	sqlite := func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if failing {
+			return nil, errors.New("sqlite3 codex.db: database is locked")
+		}
+		return good(ctx, path, query)
+	}
+	scanner, stores := testScanner(t, sqlite, fakeProcesses{})
+	writeChatGPTApp(t, stores)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	source, _ := chatGPTSource(t, view)
+	if source.Note != "Could not read the ChatGPT app's chat list codex.db" || len(chatGPTRows(view)) != 0 {
+		t.Fatalf("source = %s, rows = %s", asJSON(t, source), asJSON(t, chatGPTRows(view)))
+	}
+
+	// The app writes its database again, and the next scan reads it.
+	failing = false
+	write(t, filepath.Join(stores.CodexDir, "sqlite", "codex.db-wal"), "new pages")
+
+	view = scanner.Scan(context.Background(), ScanOptions{})
+
+	source, _ = chatGPTSource(t, view)
+	if source.Note != "" || len(chatGPTRows(view)) != 1 {
+		t.Fatalf("source = %s, rows = %s", asJSON(t, source), asJSON(t, chatGPTRows(view)))
 	}
 }
 
