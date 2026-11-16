@@ -49,7 +49,8 @@ test('both motion controls leave a still, readable working state', async ({ page
 test('redrawing a selected row keeps its orbital phase', async ({ page }) => {
   const drift = async () => page.locator('.work-cage').evaluate((element) => {
     const animation = element.getAnimations()[0]
-    const delay = animation.effect!.getTiming().delay
+    const delay = animation.effect?.getTiming().delay
+    if (delay === undefined) throw new Error('the work cage animation has no timing delay to compare')
     return Number(animation.currentTime) - delay - performance.now()
   })
   // Wait until the animation has a start time before comparing its timeline.
