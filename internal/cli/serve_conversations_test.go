@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -141,6 +143,9 @@ func conversationsFixture(t *testing.T, global bool) (*conversationsHandler, *re
 		scanner:   scanner,
 		launcher:  launcher,
 		worktrees: func(string) []string { return []string{project, worktree} },
+		// No test writes into a real tool.
+		renameInTool: func(context.Context, conversations.Conversation, string) error { return nil },
+		logOut:       io.Discard,
 	}
 	return h, launcher, project
 }
@@ -492,6 +497,81 @@ func TestConversationsHandler_RenamesAConversation(t *testing.T) {
 	if c, _ := stateOfListed(t, h, inWorktree); c.Title != "Review the branch" {
 		t.Errorf("another conversation's title = %q", c.Title)
 	}
+}
+
+func TestConversationsHandler_WritesTheNameIntoTheToolAfterTheReply(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	type asked struct{ id, title string }
+	renamed := make(chan asked, 1)
+	h.renameInTool = func(_ context.Context, c conversations.Conversation, title string) error {
+		renamed <- asked{c.ID, title}
+		return nil
+	}
+
+	if rec := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"  Parser   fix "}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("rename = %d %s", rec.Code, rec.Body)
+	}
+
+	select {
+	case got := <-renamed:
+		if got != (asked{inProject, "Parser fix"}) {
+			t.Errorf("the tool was asked for %+v", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the tool was never asked for the name")
+	}
+}
+
+func TestConversationsHandler_LogsANameTheToolDidNotTake(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	h.renameInTool = func(context.Context, conversations.Conversation, string) error {
+		return &conversations.RenameError{Tool: conversations.ToolClaude, Reason: conversations.RenameInUse, Cause: errors.New("the last line is unfinished")}
+	}
+	logged := &signalledWriter{written: make(chan struct{}, 1)}
+	h.logOut = logged
+
+	if rec := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Parser fix"}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("a rename the tool refuses still answers = %d %s", rec.Code, rec.Body)
+	}
+
+	select {
+	case <-logged.written:
+	case <-time.After(5 * time.Second):
+		t.Fatal("nothing was logged")
+	}
+	want := "! could not rename claude conversation " + inProject + " in the tool: Claude Code has the conversation open and would write its old name back: the last line is unfinished\n"
+	if got := logged.String(); got != want {
+		t.Errorf("logged %q\nwant   %q", got, want)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.Title != "Parser fix" {
+		t.Errorf("the saved name = %q", c.Title)
+	}
+}
+
+// signalledWriter keeps what is written and signals each write.
+type signalledWriter struct {
+	mu      sync.Mutex
+	text    strings.Builder
+	written chan struct{}
+}
+
+func (w *signalledWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.text.Write(p)
+	select {
+	case w.written <- struct{}{}:
+	default:
+	}
+	return len(p), nil
+}
+
+func (w *signalledWriter) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.text.String()
 }
 
 func TestConversationsHandler_RefusesARenameItCannotKeep(t *testing.T) {

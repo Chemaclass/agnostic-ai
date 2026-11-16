@@ -89,3 +89,41 @@ func queryRows[T any](ctx context.Context, run SQLiteQuery, path, query string) 
 	}
 	return rows, nil
 }
+
+// errSQLiteBusy means another program held the database past the busy
+// timeout.
+var errSQLiteBusy = errors.New("the database is locked by another program")
+
+// sqliteWriteBusyMillis is how long a write waits for another program
+// to let go of the database.
+const sqliteWriteBusyMillis = 2000
+
+// RunSQLiteWrite is the SQLiteWrite that runs the system sqlite3
+// command. The database must exist: mode=rw never creates one. With
+// -bail the first failing statement stops the script, and its open
+// transaction is rolled back when sqlite3 exits.
+func RunSQLiteWrite(ctx context.Context, path, script string) ([]json.RawMessage, error) {
+	binary, err := exec.LookPath("sqlite3")
+	if err != nil {
+		return nil, errNoSQLite
+	}
+	ctx, cancel := context.WithTimeout(ctx, sqliteTimeout)
+	defer cancel()
+	var stdout, stderr bytes.Buffer
+	uri := (&url.URL{Scheme: "file", Path: uriPath(path), RawQuery: "mode=rw"}).String()
+	cmd := exec.CommandContext(ctx, binary, "-bail", "-json", "-cmd", fmt.Sprintf(".timeout %d", sqliteWriteBusyMillis), uri, script)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		said := bytes.TrimSpace(stderr.Bytes())
+		if bytes.Contains(said, []byte("database is locked")) {
+			return nil, fmt.Errorf("sqlite3 %s: %w: %s", path, errSQLiteBusy, said)
+		}
+		return nil, fmt.Errorf("sqlite3 %s: %w: %s", path, err, said)
+	}
+	rows, err := decodeRowSets(stdout.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("sqlite3 %s: read rows: %w", path, err)
+	}
+	return rows, nil
+}

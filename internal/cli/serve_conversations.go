@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -83,16 +85,23 @@ type conversationsHandler struct {
 	launcher conversations.Launcher
 	// worktrees lists a project's Git worktrees; nil skips them.
 	worktrees func(root string) []string
+	// renameInTool writes a new name into the tool that keeps the
+	// conversation.
+	renameInTool func(ctx context.Context, c conversations.Conversation, title string) error
+	// logOut takes the lines serve logs, such as a name a tool did not take.
+	logOut io.Writer
 }
 
 func newConversationsHandler(root string, global bool) *conversationsHandler {
 	scanner := conversations.NewScanner()
 	return &conversationsHandler{
-		root:      root,
-		global:    global,
-		scanner:   scanner,
-		launcher:  conversations.SystemLauncher(),
-		worktrees: gitWorktrees,
+		root:         root,
+		global:       global,
+		scanner:      scanner,
+		launcher:     conversations.SystemLauncher(),
+		worktrees:    gitWorktrees,
+		renameInTool: conversations.NewRenamer(scanner.Stores).Rename,
+		logOut:       os.Stderr,
 	}
 }
 
@@ -274,12 +283,26 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	// The saved name is the rename. The tab follows after the reply, since
-	// an unanswered Automation prompt holds osascript; a tab that cannot
-	// take the name keeps its own.
+	// The saved name is the rename. The tool and the tab follow after the
+	// reply: a tool may take seconds, and an unanswered Automation prompt
+	// holds osascript. A tool that does not take the name is logged; a tab
+	// that cannot take it keeps its own.
 	go func(ctx context.Context) {
+		if err := h.renameInTool(ctx, conversation, title); err != nil {
+			h.logRenameFailure(conversation, err)
+		}
 		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
 	}(context.WithoutCancel(r.Context()))
+}
+
+// logRenameFailure logs a name the tool did not take, with what the
+// tool said. Neither ever holds a credential.
+func (h *conversationsHandler) logRenameFailure(c conversations.Conversation, err error) {
+	if cause := errors.Unwrap(err); cause != nil {
+		_, _ = fmt.Fprintf(h.logOut, "! could not rename %s conversation %s in the tool: %v: %v\n", c.Tool, c.ID, err, cause)
+		return
+	}
+	_, _ = fmt.Fprintf(h.logOut, "! could not rename %s conversation %s in the tool: %v\n", c.Tool, c.ID, err)
 }
 
 // delete removes a conversation under Archived from this machine for good.
