@@ -123,6 +123,7 @@ func TestReadLevelDBKeepsTheNewestWriteOfEveryKey(t *testing.T) {
 		// Larger than a block, so it is split across three.
 		batch(12, write{key: []byte("large"), value: big}),
 	))
+	writeManifest(t, dir, 6, 0, 5)
 	got, err := readLevelDB(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -137,6 +138,7 @@ func TestReadLevelDBLetsAnOlderLogLose(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "000007.ldb"), tableFile(false, tableEntry{key: []byte("k"), sequence: 20, value: []byte("table")}))
 	writeFile(t, filepath.Join(dir, "000003.log"), logFile(batch(4, write{key: []byte("k"), value: []byte("log")})))
+	writeManifest(t, dir, 3, 0, 7)
 	got, err := readLevelDB(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -150,6 +152,7 @@ func TestReadLevelDBLeavesOutARecordStillBeingWritten(t *testing.T) {
 	dir := t.TempDir()
 	log := logFile(batch(1, write{key: []byte("done"), value: []byte("1")}), batch(2, write{key: []byte("half"), value: []byte("2")}))
 	writeFile(t, filepath.Join(dir, "000001.log"), log[:len(log)-3])
+	writeManifest(t, dir, 1, 0)
 	got, err := readLevelDB(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -180,6 +183,7 @@ func folderWithDatabase(t *testing.T, idValue []byte, id uint64, records ...writ
 	}
 	writes = append(writes, records...)
 	writeFile(t, filepath.Join(dir, "000003.log"), logFile(batch(1, writes...)))
+	writeManifest(t, dir, 3, 0)
 	return dir
 }
 
@@ -370,6 +374,7 @@ func TestOpenSaysATableWithDamagedBlockHandlesIsUnreadable(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "https_app.example_0.indexeddb.leveldb")
 			writeFile(t, filepath.Join(dir, "000005.ldb"), footerOnlyTable(tc.offset, tc.size))
+			writeManifest(t, dir, 0, 0, 5)
 			_, err := Open(dir)
 			var e *Error
 			want := "indexeddb unreadable: table 000005.ldb: " + tc.want
@@ -387,6 +392,7 @@ func TestReadLevelDBLeavesOutATableStillBeingWritten(t *testing.T) {
 	// LevelDB writes a table's footer last, so an unfinished one has none.
 	writeFile(t, filepath.Join(dir, "000009.ldb"), finished[:len(finished)-10])
 	writeFile(t, filepath.Join(dir, "000010.ldb"), make([]byte, 20))
+	writeManifest(t, dir, 3, 0)
 	got, err := readLevelDB(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -402,6 +408,7 @@ func TestReadLevelDBGivesUpOnAFileThatKeepsVanishing(t *testing.T) {
 	if err := os.Symlink(filepath.Join(dir, "gone"), filepath.Join(dir, "000004.ldb")); err != nil {
 		t.Fatal(err)
 	}
+	writeManifest(t, dir, 0, 0, 4)
 	_, err := readLevelDB(dir)
 	if err == nil || !strings.HasPrefix(err.Error(), "files kept changing over 3 reads: table 000004.ldb: ") {
 		t.Fatalf("error %v", err)

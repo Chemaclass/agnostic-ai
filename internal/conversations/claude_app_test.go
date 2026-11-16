@@ -78,7 +78,13 @@ func TestScan_ListsTheClaudeAppsChatsAndCoworkTasks(t *testing.T) {
 			coworkTask(appCloudID, "Haiku", "2026-11-07T08:00:00Z", true, false),
 		}}},
 	)
-	rows := appRows(scanner.Scan(context.Background(), ScanOptions{}))
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	for _, source := range view.Tools {
+		if source.Tool == ToolClaude && !source.Found {
+			t.Errorf("Claude app chats are listed but the source is unavailable: %+v", source)
+		}
+	}
+	rows := appRows(view)
 	if len(rows) != 4 {
 		t.Fatalf("rows = %s", asJSON(t, rows))
 	}

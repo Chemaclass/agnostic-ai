@@ -161,7 +161,7 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 		return claudeAppRead{note: claudeAppNotes[claudeAppReason(err)]}
 	}
 	// The decoded value is plain maps and slices; JSON gives it types.
-	raw, err := json.Marshal(value)
+	raw, err := claudeAppCacheJSON(value)
 	if err != nil {
 		return claudeAppRead{note: claudeAppNoteUnreadable}
 	}
