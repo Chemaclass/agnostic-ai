@@ -405,6 +405,16 @@ func companionFile(dir, goos string) string {
 	return filepath.Join(companionFolder(dir), companionProgramName(goos))
 }
 
+// buildModuleVersion is the version Go stamped on this agnostic-ai: the
+// tag for a release build, a pseudo-version for any other commit.
+func buildModuleVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return info.Main.Version
+}
+
 // buildRevision is the commit this agnostic-ai was built from; empty
 // when the build does not record one.
 func buildRevision() string {
@@ -430,6 +440,8 @@ type companionBuild struct {
 	source string
 	// revision is that commit.
 	revision string
+	// module is the version Go stamped on this agnostic-ai.
+	module string
 	// into is the folder the built program is written to.
 	into string
 }
@@ -504,9 +516,11 @@ func (p *buildProgress) done() {
 }
 
 // downloads reports whether b can be the released companion rather than
-// a build: a release on macOS, fetched from its own commit.
+// a build: on macOS, for an agnostic-ai built from that release's tag.
+// A build of any other commit still reports the last release's version,
+// so only the version Go stamped from the tag tells them apart.
 func (b companionBuild) downloads() bool {
-	return b.goos == "darwin" && b.source == "" && releaseVersionRE.MatchString(b.version)
+	return b.goos == "darwin" && b.source == "" && releaseVersionRE.MatchString(b.version) && b.module == "v"+b.version
 }
 
 // installCompanion puts the companion in place: on macOS the one the
@@ -759,7 +773,7 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 		Long: "On macOS, downloads the companion this release built, checks it against the " +
 			"release's checksums and build provenance, and installs it in your configuration " +
 			"folder; a download that does not verify stops the install. A release without a built " +
-			"companion, a version with no published release, --source, and other systems build it from " +
+			"companion, an agnostic-ai built from any commit but a release tag, --source, and other systems build it from " +
 			"the same commit as this agnostic-ai instead. The build " +
 			"needs Go, and on macOS the Xcode Command Line Tools, on Linux a C compiler with the " +
 			"GTK 4, WebKitGTK 6.0 and X11 development packages; it names what is missing. On " +
@@ -778,7 +792,7 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			build := companionBuild{goos: runtime.GOOS, version: cmd.Root().Version, revision: buildRevision()}
+			build := companionBuild{goos: runtime.GOOS, version: cmd.Root().Version, revision: buildRevision(), module: buildModuleVersion()}
 			if source != "" {
 				build.source, err = filepath.Abs(source)
 				if err != nil {

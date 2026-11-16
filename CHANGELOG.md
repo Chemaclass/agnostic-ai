@@ -10,7 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
-- On macOS, `agnostic-ai companion install` downloads the companion the release built, for Apple silicon and Intel, instead of building it. It needs no Go and no Xcode Command Line Tools, and checks the download against the release's checksums and build provenance. A download that does not verify stops the install. A release without a built companion, a version with no published release, and `--source` still build it on your machine.
+- On macOS, `agnostic-ai companion install` downloads the companion the release built, for Apple silicon and Intel, instead of building it. It needs no Go and no Xcode Command Line Tools, and checks the download against the release's checksums and build provenance. A download that does not verify stops the install. A release without a built companion, an `agnostic-ai` built from any commit but a release tag, and `--source` still build it on your machine.
 
 #### Chat list
 

@@ -41,6 +41,8 @@ jobs:
   companion:
     name: macOS companion
     runs-on: macos-latest
+    # GoReleaser waits for this job, so a hung build must not hold the release.
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -192,6 +194,8 @@ jobs:
     # Its own job for the same reason as ui-bundle: Node never runs where
     # the publish tokens or the OIDC request token are.
     needs: goreleaser
+    # A failed companion job upstream would otherwise skip this check.
+    if: ${{ !cancelled() && needs.goreleaser.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

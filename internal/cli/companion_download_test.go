@@ -151,6 +151,13 @@ func TestDownloadCompanion_RefusesAnArchiveThatDoesNotVerify(t *testing.T) {
 	}
 }
 
+// releasedMacBuild is macBuild from an agnostic-ai built at its release tag.
+func releasedMacBuild() companionBuild {
+	build := macBuild()
+	build.module = "v" + build.version
+	return build
+}
+
 // downloadedTools are tools whose download writes a released companion,
 // on a machine that has nothing a build needs.
 func downloadedTools(t *testing.T) companionTools {
@@ -175,7 +182,7 @@ func TestInstallCompanion_InstallsTheReleasedCompanionOnMacOSWithoutBuilding(t *
 	dir := t.TempDir()
 	var out bytes.Buffer
 
-	err := installCompanion(context.Background(), &out, false, downloadedTools(t), dir, macBuild(), nil)
+	err := installCompanion(context.Background(), &out, false, downloadedTools(t), dir, releasedMacBuild(), nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -201,7 +208,7 @@ func TestInstallCompanion_BuildsWhenTheReleaseHasNoBuiltCompanion(t *testing.T) 
 	}
 	var out bytes.Buffer
 
-	err := installCompanion(context.Background(), &out, false, tools, dir, macBuild(), nil)
+	err := installCompanion(context.Background(), &out, false, tools, dir, releasedMacBuild(), nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +231,7 @@ func TestInstallCompanion_StopsWhenTheDownloadDoesNotVerify(t *testing.T) {
 		return "", errors.New("agnostic-ai-companion_darwin_arm64.tar.gz: checksum mismatch")
 	}
 
-	err := installCompanion(context.Background(), io.Discard, false, tools, dir, macBuild(), nil)
+	err := installCompanion(context.Background(), io.Discard, false, tools, dir, releasedMacBuild(), nil)
 
 	if err == nil || err.Error() != "download the companion: agnostic-ai-companion_darwin_arm64.tar.gz: checksum mismatch" {
 		t.Errorf("err = %v", err)
@@ -240,11 +247,12 @@ func TestInstallCompanion_DownloadsOnlyAReleaseForMacOSFetchedFromItsCommit(t *t
 		t.Fatal(err)
 	}
 	for name, build := range map[string]companionBuild{
-		"a checkout":     {goos: "darwin", version: "1.2.3", source: source},
-		"Linux":          {goos: "linux", version: "1.2.3", revision: "abc123"},
-		"a dev build":    {goos: "darwin", version: "(devel)", revision: "abc123"},
-		"Windows":        {goos: "windows", version: "1.2.3", revision: "abc123"},
-		"a dirty commit": {goos: "darwin", version: "1.2.3-dirty extra", revision: "abc123"},
+		"a checkout":             {goos: "darwin", version: "1.2.3", source: source, module: "v1.2.3"},
+		"Linux":                  {goos: "linux", version: "1.2.3", revision: "abc123", module: "v1.2.3"},
+		"Windows":                {goos: "windows", version: "1.2.3", revision: "abc123", module: "v1.2.3"},
+		"a commit after the tag": {goos: "darwin", version: "1.2.3", revision: "abc123", module: "v1.2.4-0.20261116213956-abc123abc123"},
+		"changes not committed":  {goos: "darwin", version: "1.2.3", revision: "abc123", module: "v1.2.3+dirty"},
+		"no version stamped":     {goos: "darwin", version: "1.2.3", revision: "abc123", module: "(devel)"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tools := builtTools(t)

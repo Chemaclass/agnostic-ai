@@ -21,8 +21,8 @@ agnostic-ai companion uninstall   # remove it from this machine
 
 On macOS, `install` downloads the companion the release built, checks it
 against the release's checksums and build provenance, and needs no compiler.
-A release without one, a version with no published release, `--source`, and other
-systems build it from the same commit as your `agnostic-ai`, with Go, and
+A release without one, an `agnostic-ai` built from any commit but a release
+tag, `--source`, and other systems build it from the same commit as your `agnostic-ai`, with Go, and
 print each step as it goes. A build names what your machine lacks before it
 starts. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
 lists what each system needs. On macOS it installs the companion as an app,

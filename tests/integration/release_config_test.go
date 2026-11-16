@@ -24,12 +24,13 @@ var (
 
 // workflowJob is the slice of a workflow job these tests read.
 type workflowJob struct {
-	RunsOn      string            `yaml:"runs-on"`
-	Needs       any               `yaml:"needs"`
-	If          string            `yaml:"if"`
-	Permissions map[string]string `yaml:"permissions"`
-	Env         map[string]string `yaml:"env"`
-	Strategy    struct {
+	RunsOn         string            `yaml:"runs-on"`
+	TimeoutMinutes int               `yaml:"timeout-minutes"`
+	Needs          any               `yaml:"needs"`
+	If             string            `yaml:"if"`
+	Permissions    map[string]string `yaml:"permissions"`
+	Env            map[string]string `yaml:"env"`
+	Strategy       struct {
 		Matrix struct {
 			OS []string `yaml:"os"`
 		} `yaml:"matrix"`
@@ -709,12 +710,21 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 	}
 
 	goreleaser := jobs["goreleaser"]
-	needs, _ := goreleaser.Needs.([]any)
-	if !slices.Contains(needs, any("companion")) {
+	if !needsJob(goreleaser.Needs, "companion") {
 		t.Errorf("goreleaser needs %v, want it to wait for companion", goreleaser.Needs)
 	}
 	if !strings.Contains(goreleaser.If, "!cancelled()") || strings.Contains(goreleaser.If, "needs.companion") {
 		t.Errorf("goreleaser runs if %q; a failed companion build must not hold back the release", goreleaser.If)
+	}
+	if job.TimeoutMinutes == 0 {
+		t.Error("the companion job has no timeout; goreleaser waits for it")
+	}
+	// A job with no `if` is skipped when any job before it failed, so each
+	// one after goreleaser must say it runs past a failed companion build.
+	for name, later := range jobs {
+		if needsJob(later.Needs, "goreleaser") && !strings.Contains(later.If, "cancelled()") && !strings.Contains(later.If, "always()") {
+			t.Errorf("the %s job runs if %q, so a failed companion build skips it", name, later.If)
+		}
 	}
 	download, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Download the companion archives")
 	if download.If != "needs.companion.result == 'success'" {
@@ -764,4 +774,15 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 			t.Errorf("scripts/companion-release.sh no longer has %q; the archives must keep the names the CLI downloads", want)
 		}
 	}
+}
+
+// needsJob reports whether a job's `needs`, one name or a list, names job.
+func needsJob(needs any, job string) bool {
+	switch needs := needs.(type) {
+	case string:
+		return needs == job
+	case []any:
+		return slices.Contains(needs, any(job))
+	}
+	return false
 }

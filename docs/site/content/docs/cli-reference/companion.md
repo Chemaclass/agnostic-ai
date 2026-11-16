@@ -22,7 +22,7 @@ agnostic-ai companion uninstall
 
 The companion is a separate program. Run `companion install` first. `agnostic-ai upgrade` then replaces an installed companion when its version differs.
 
-On macOS, `companion install` downloads the companion that the release built for your Mac (Apple silicon or Intel). It checks the download against the release's `checksums.txt` and, when the GitHub CLI (`gh`) is installed and logged in, against the release's build provenance, the same way `agnostic-ai upgrade` checks the CLI. It needs no compiler. A download that does not verify stops the install and leaves the installed companion as it was. A release that ships no built companion, an `agnostic-ai` version with no published release, and `--source` build it on your machine instead.
+On macOS, `companion install` downloads the companion that the release built for your Mac (Apple silicon or Intel). It checks the download against the release's `checksums.txt` and, when the GitHub CLI (`gh`) is installed and logged in, against the release's build provenance, the same way `agnostic-ai upgrade` checks the CLI. It needs no compiler. A download that does not verify stops the install and leaves the installed companion as it was. A release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source` build it on your machine instead.
 
 Everywhere else, and in those cases, it builds the companion from the same commit as the `agnostic-ai` you run and prints each step. A build needs:
 
