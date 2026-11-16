@@ -31,6 +31,23 @@ type fakeProcesses struct {
 	running map[string]bool
 	// readFails makes every read of running processes fail, as a missing or timed-out ps or lsof does.
 	readFails bool
+	// parents maps a pid to the Claude Code session in its environment.
+	parents map[int]string
+	// environmentFails makes reading environments fail, as ps -E on an unsupported system does.
+	environmentFails bool
+}
+
+func (f fakeProcesses) ClaudeParents(pids []int) (map[int]string, error) {
+	parents := map[int]string{}
+	if f.environmentFails {
+		return parents, &environmentError{reason: environmentUnsupported}
+	}
+	for _, pid := range pids {
+		if parent, ok := f.parents[pid]; ok {
+			parents[pid] = parent
+		}
+	}
+	return parents, nil
 }
 
 var errProcessRead = errors.New("process read failed")

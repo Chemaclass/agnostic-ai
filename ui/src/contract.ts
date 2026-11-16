@@ -894,6 +894,18 @@ export interface ConversationRoute {
   link?: string
 }
 
+/** An agent a conversation started that is no row of its own. A Claude Code subagent runs inside its conversation and has no route of its own; a Codex one opens with `POST /api/conversations/open` and its own `tool` and `id`. */
+export interface ConversationHelper {
+  tool: ConversationTool
+  id: string
+  /** Empty when the tool gave none or it may hold a credential. */
+  title: string
+  /** The agent type the tool gives, such as `Explore`, when it gives one. */
+  kind?: string
+  state: 'working' | 'finished'
+  updatedAt: string
+}
+
 export interface Conversation {
   tool: ConversationTool
   app: ConversationApp
@@ -920,6 +932,8 @@ export interface Conversation {
   quietSince?: string
   /** Native working subagents; omitted when activity cannot be established. */
   workingSubagents?: number
+  /** The agents this conversation started that are no rows of their own: its native subagents, and the Codex runs a local Claude Code session started with `codex exec`. Omitted when there are none or their states are unknown. */
+  helpers?: ConversationHelper[]
   /** Absent from a server older than the marks. */
   state?: ConversationState
   /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */

@@ -956,4 +956,5 @@
 # #3512 measured 26337440 bytes locally (make size-check) once a failed rename says why and Claude Code cloud sessions take the name; the budget is that plus 8192, rounded up to a multiple of 4096.
 # The local desktop-chat stack, rename in each tool and native worker tracking (companion orbits) measured 26374304 bytes (make size-check, 2026-11-16); the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3513 measured 26390688 bytes locally (make size-check) after merging the rename and size fixes from #3511 and #3512; the budget is that plus 8192, rounded up to a multiple of 4096.
-26402816
+# The helper-agents branch measured 26443936 bytes locally (make size-check): a chat's subagents and its Codex exec runs listed under it; the budget is that plus 8192, rounded up to a multiple of 4096.
+26456064

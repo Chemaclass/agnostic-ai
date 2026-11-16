@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -103,8 +104,13 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	conversations := make([]Conversation, 0, len(threads))
 	rollouts := map[string]string{}
 	textsOf := map[string]texts{}
+	var execThreads []codexThread
 	for _, thread := range threads {
-		if !sessionIDPattern.MatchString(thread.ID) || codexExec(thread) {
+		if !sessionIDPattern.MatchString(thread.ID) {
+			continue
+		}
+		if codexExec(thread) {
+			execThreads = append(execThreads, thread)
 			continue
 		}
 		c := Conversation{
@@ -116,8 +122,9 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		conversations = append(conversations, c)
 		rollouts[thread.ID] = thread.RolloutPath
 	}
-	s.markLiveCodexThreads(conversations, rollouts)
-	workerRollouts := s.codexWorkingSubagents(ctx, statePath, conversations)
+	runPIDs := s.markLiveCodexThreads(conversations, rollouts, execThreads)
+	runs, runRows, linkErr := s.codexRuns(execThreads, runPIDs, editor)
+	workerRollouts, workerRows := s.codexWorkingSubagents(ctx, statePath, conversations, editor)
 	s.rolloutsMu.Lock()
 	s.codexLiveRollouts = append(s.codexLiveRollouts, workerRollouts...)
 	s.rolloutsMu.Unlock()
@@ -136,9 +143,17 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		s.fill(&conversations[i], t)
 	}
 	result := found(ToolCodex, conversations)
+	result.runs = runs
+	result.unlisted = append(runRows, workerRows...)
+	var notes []string
 	if err != nil {
-		result.source.Note = "Could not read Codex's latest replies from " + filepath.Base(newestNumbered(s.Stores.CodexDir, codexHistoryPattern))
+		notes = append(notes, "Could not read Codex's latest replies from "+filepath.Base(newestNumbered(s.Stores.CodexDir, codexHistoryPattern)))
 	}
+	var unread *environmentError
+	if errors.As(linkErr, &unread) {
+		notes = append(notes, "Codex runs started from Claude Code could not be linked to their session: "+string(unread.reason))
+	}
+	result.source.Note = strings.Join(notes, ". ")
 	return result
 }
 
@@ -174,8 +189,10 @@ const liveWindow = 7 * 24 * time.Hour
 // holds the thread; the files stay after it exits, so the test is
 // whether a process still has one open. An open CLI thread switches to
 // the terminal that runs it, since a second resume would compete with it.
-// A loaded thread whose rollout says a turn runs is working.
-func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string) {
+// A loaded thread whose rollout says a turn runs is working. The same
+// read asks which `codex exec` runs a process still holds, and returns
+// the pid that holds each.
+func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string, execThreads []codexThread) map[string]int {
 	var liveRollouts []string
 	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
 	lockOf := map[string]int{}
@@ -190,6 +207,18 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 			locks = append(locks, lock)
 		}
 	}
+	runOf := map[string]codexThread{}
+	for _, thread := range execThreads {
+		if timeFromMillis(thread.UpdatedAtMs) < cutoff {
+			continue
+		}
+		lock := filepath.Join(s.Stores.CodexDir, "thread-writer-locks", thread.ID+".lock")
+		if _, err := os.Stat(lock); err == nil {
+			runOf[lock] = thread
+			locks = append(locks, lock)
+		}
+	}
+	runPIDs := map[string]int{}
 	held, err := s.Processes.Holders(locks)
 	// A Codex that keeps no lock folder leaves no mark of a loaded thread.
 	if _, statErr := os.Stat(filepath.Join(s.Stores.CodexDir, "thread-writer-locks")); err == nil && statErr == nil {
@@ -199,6 +228,14 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 		}
 	}
 	for lock, pid := range held {
+		if run, isRun := runOf[lock]; isRun {
+			runPIDs[run.ID] = pid
+			// A run that ends writes its last turn to its rollout.
+			if rollout, ok := s.codexRollout(run.RolloutPath); ok {
+				liveRollouts = append(liveRollouts, rollout)
+			}
+			continue
+		}
 		i, ok := lockOf[lock]
 		if !ok {
 			continue
@@ -223,6 +260,43 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 	s.rolloutsMu.Lock()
 	s.codexLiveRollouts = liveRollouts
 	s.rolloutsMu.Unlock()
+	return runPIDs
+}
+
+// codexRuns turns `codex exec` threads into runs a row can list, and
+// into the rows that open them, the way a Codex thread opens. A run a
+// process holds works; its parent is the Claude Code session in that
+// process's environment. A run no process holds is finished, and its
+// parent is only what the marks file saved while it ran. When the
+// environments cannot be read, this read links no run.
+func (s *Scanner) codexRuns(execThreads []codexThread, runPIDs map[string]int, editor editorApp) ([]codexExecRun, []Conversation, error) {
+	parents := map[int]string{}
+	var err error
+	if len(runPIDs) > 0 {
+		pids := slices.Sorted(maps.Values(runPIDs))
+		parents, err = s.Processes.ClaudeParents(slices.Compact(pids))
+	}
+	runs := make([]codexExecRun, 0, len(execThreads))
+	rows := make([]Conversation, 0, len(execThreads))
+	for _, thread := range execThreads {
+		pid, running := runPIDs[thread.ID]
+		run := codexExecRun{helper: helper{
+			Tool: ToolCodex, ID: thread.ID, State: helperFinished,
+			Title:     s.helperTitle(firstNonEmpty(thread.Name, thread.Title), thread.FirstUserMessage),
+			UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
+		}}
+		if running {
+			run.helper.State = helperWorking
+		}
+		if parent, linked := parents[pid]; running && linked {
+			run.startedBy = &Ref{Tool: ToolClaude, ID: parent}
+		}
+		runs = append(runs, run)
+		row := Conversation{Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Title: run.helper.Title, UpdatedAt: run.helper.UpdatedAt}
+		codexRoute(&row, thread, editor)
+		rows = append(rows, row)
+	}
+	return runs, rows, err
 }
 
 // codexRollout checks a rollout path from the thread index before it

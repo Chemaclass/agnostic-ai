@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -83,6 +84,11 @@ type markEntry struct {
 	// Title is the name the person chose, shown over the tool's own. A
 	// new message keeps it.
 	Title string `json:"title,omitempty"`
+	// StartedBy is the conversation that started this Codex run, saved
+	// the first time a scan saw the run's process carry its session id,
+	// since nothing names it once the run ends. Files written before it
+	// existed have none, and read as before.
+	StartedBy *Ref `json:"startedBy,omitempty"`
 }
 
 func markKey(tool Tool, id string) string { return string(tool) + ":" + id }
@@ -182,14 +188,16 @@ func needsPerson(state State) bool {
 
 // applyMarks sets the state and marks of every conversation in
 // results, in place, takes out the ones the person hid and the empty
-// ones the person did not name, and returns how many need the person. A completion or a hiding that a later write
+// ones the person did not name, and returns how many need the person.
+// It saves each run's parent in observed that the file does not hold
+// yet, and returns every run's parent the file and observed hold. A completion or a hiding that a later write
 // overtook, or whose conversation its tool reported working in a read
 // that began after the mark, is cleared in the file, so the file holds only those that still stand, and a
 // conversation that worked is not completed or hidden again once the
 // work ends. The entry keeps its seen mark and chosen name. Without a
 // marks path, or with a file that cannot be read, nothing is unread,
 // completed or hidden.
-func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
+func (s *Scanner) applyMarks(results []sourceResult, observed map[string]Ref) (needsYou int, runParents map[string]Ref, err error) {
 	now := s.Now()
 	file := marksFile{Marks: map[string]markEntry{}}
 	changed := false
@@ -207,6 +215,23 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		} else {
 			err = lockErr
 		}
+	}
+	runParents = map[string]Ref{}
+	for key, entry := range file.Marks {
+		if id, isCodex := strings.CutPrefix(key, string(ToolCodex)+":"); isCodex && entry.StartedBy != nil {
+			runParents[id] = *entry.StartedBy
+		}
+	}
+	for id, parent := range observed {
+		if _, saved := runParents[id]; saved {
+			continue
+		}
+		key := markKey(ToolCodex, id)
+		entry := file.Marks[key]
+		entry.StartedBy = &parent
+		file.Marks[key] = entry
+		runParents[id] = parent
+		changed = true
 	}
 	since := parseStamp(file.Since)
 	for r := range results {
@@ -248,10 +273,11 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		}
 		results[r].conversations = listed
 	}
-	if err == nil && changed {
+	// Without a marks path, the runs seen in this read are linked for this read only.
+	if s.MarksPath != "" && err == nil && changed {
 		err = writeMarks(s.MarksPath, file)
 	}
-	return needsYou, err
+	return needsYou, runParents, err
 }
 
 // laterStamp is the later of two marks; an empty one is never later.

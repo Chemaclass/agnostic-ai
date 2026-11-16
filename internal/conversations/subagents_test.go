@@ -128,7 +128,7 @@ func TestCodexWorkingSubagents_CountsLiveDescendantsAndObservesCompletion(t *tes
 	rows := []Conversation{{ID: parent}}
 	check := func(want int) {
 		t.Helper()
-		watched := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+		watched, _ := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 		if rows[0].WorkingSubagents == nil || *rows[0].WorkingSubagents != want || len(watched) != 2 {
 			t.Fatalf("working = %v, watched = %v, want %d and two rollouts", rows[0].WorkingSubagents, watched, want)
 		}
@@ -139,7 +139,7 @@ func TestCodexWorkingSubagents_CountsLiveDescendantsAndObservesCompletion(t *tes
 	appendWorkerEvent(t, first, obj{"type": "event_msg", "payload": obj{"type": "turn_aborted"}})
 	check(0)
 	scanner.Processes = fakeProcesses{}
-	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if *rows[0].WorkingSubagents != 0 {
 		t.Fatal("dead process retained working children")
 	}
@@ -147,7 +147,7 @@ func TestCodexWorkingSubagents_CountsLiveDescendantsAndObservesCompletion(t *tes
 	scanner.SQLite = func(context.Context, string, string) ([]json.RawMessage, error) {
 		return nil, errors.New("unavailable")
 	}
-	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if rows[0].WorkingSubagents != nil {
 		t.Fatal("an unavailable index became a known count")
 	}

@@ -94,6 +94,7 @@ type Scanner struct {
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
 	claudeWorkers     map[string]*claudeWorkerCache
+	claudeAgentMetas  map[string]cached[claudeAgentMeta]
 	codexWorkers      map[string]*nativeLog[codexWorkerTurn]
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[texts]
@@ -163,7 +164,8 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.shown.start()
 	defer s.shown.finish()
 	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, marksErr := s.applyMarks(results)
+	needsYou, runParents, marksErr := s.applyMarks(results, observedRunParents(results))
+	attachRuns(results, runParents)
 	var all []Conversation
 	for _, result := range results {
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
@@ -221,9 +223,11 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return s.find(ctx, tool, id, opts, false)
 }
 
-// find is Find that, with sharedPage, also gives the cloud row a shared
-// row took in: only opening its page names that row.
-func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, sharedPage bool) (Conversation, bool) {
+// find is Find that, with opening, also gives the rows only an open
+// names: the cloud row a shared row took in, which opens its page, and
+// the threads a row's helpers open. The mark and rename requests,
+// which use Find, never reach those.
+func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, opening bool) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	results, _ := s.readAll(ctx, opts)
@@ -232,8 +236,16 @@ func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptio
 			if c.Tool == tool && c.ID == id {
 				return c, true
 			}
-			if sharedPage && c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
+			if opening && c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
 				return *c.Cloud.row, true
+			}
+		}
+		if !opening {
+			continue
+		}
+		for _, c := range result.unlisted {
+			if c.Tool == tool && c.ID == id {
+				return c, true
 			}
 		}
 	}
@@ -336,6 +348,11 @@ func lastWritten(c Conversation) time.Time {
 type sourceResult struct {
 	source        Source
 	conversations []Conversation
+	// runs are the Codex exec runs, listed under the session that started them.
+	runs []codexExecRun
+	// unlisted are threads that are no row but open from a row's helpers:
+	// Codex exec runs and Codex native subagents.
+	unlisted []Conversation
 }
 
 func missing(tool Tool, note string) sourceResult {

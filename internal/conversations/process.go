@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +36,10 @@ type Processes interface {
 	Holders(paths []string) (map[string]int, error)
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
+	// ClaudeParents maps each of pids that a Claude Code session started,
+	// as a command of its Bash tool, to that session's id. The error is an
+	// *environmentError: the environments could not be read.
+	ClaudeParents(pids []int) (map[int]string, error)
 }
 
 // ProcessRef names a process by its pid and, when known, by when it
@@ -288,4 +293,137 @@ func (SystemProcesses) AppRunning(name string) bool {
 		}
 	}
 	return false
+}
+
+// Claude Code puts these in the environment of every command its Bash
+// tool runs, and a program such as codex inherits them. Only these two
+// are read; every other variable, credentials among them, is dropped
+// as the line is read and never kept or logged.
+const (
+	claudeSessionVar = "CLAUDE_CODE_SESSION_ID"
+	claudeChildVar   = "CLAUDE_CODE_CHILD_SESSION"
+)
+
+// environmentReason is why process environments could not be read.
+type environmentReason string
+
+const (
+	// environmentUnsupported: this system has no way to read them here.
+	environmentUnsupported environmentReason = "this system cannot read another process's environment"
+	// environmentUnreadable: the reader failed, such as ps exiting with an error.
+	environmentUnreadable environmentReason = "the environment of running processes could not be read"
+)
+
+// environmentError is the one error ClaudeParents returns. cause holds
+// the reader's own error for logs; it never holds an environment value.
+type environmentError struct {
+	reason environmentReason
+	cause  error
+}
+
+func (e *environmentError) Error() string {
+	if e.cause == nil {
+		return string(e.reason)
+	}
+	return string(e.reason) + ": " + e.cause.Error()
+}
+
+func (e *environmentError) Unwrap() error { return e.cause }
+
+// environmentReaders reads the environments of pids, one reader for each
+// system that has one, as lists of NAME=value entries.
+var environmentReaders = map[string]func(pids []int) (map[int][]string, error){
+	"darwin": psEnvironments,
+	"linux":  procEnvironments,
+}
+
+func (SystemProcesses) ClaudeParents(pids []int) (map[int]string, error) {
+	parents := map[int]string{}
+	read, supported := environmentReaders[runtime.GOOS]
+	if !supported {
+		return parents, &environmentError{reason: environmentUnsupported}
+	}
+	if len(pids) == 0 {
+		return parents, nil
+	}
+	environments, err := read(pids)
+	if err != nil {
+		return parents, &environmentError{reason: environmentUnreadable, cause: err}
+	}
+	for pid, entries := range environments {
+		if parent, ok := claudeParentIn(entries); ok {
+			parents[pid] = parent
+		}
+	}
+	return parents, nil
+}
+
+// claudeParentIn finds the session id in a process's NAME=value entries:
+// set only when CLAUDE_CODE_CHILD_SESSION is 1 and the id is a session
+// id. The last entry of a name wins, as the environment follows the
+// arguments in ps output.
+func claudeParentIn(entries []string) (string, bool) {
+	session, child := "", false
+	for _, entry := range entries {
+		name, value, found := strings.Cut(entry, "=")
+		if !found {
+			continue
+		}
+		switch name {
+		case claudeSessionVar:
+			session = value
+		case claudeChildVar:
+			child = value == "1"
+		}
+	}
+	if !child || !sessionIDPattern.MatchString(session) {
+		return "", false
+	}
+	return session, true
+}
+
+// psEnvironments asks macOS ps once for every pid: a pid, the command
+// line and then the environment, all on one line split by spaces. A
+// value with spaces splits into several entries, which only the two
+// names above are looked up in.
+func psEnvironments(pids []int) (map[int][]string, error) {
+	out, err := ps("-E", "-ww", "-o", "pid=,command=", "-p", pidList(pids))
+	if !answered(err) {
+		return nil, err
+	}
+	return parsePSEnvironments(out), nil
+}
+
+// parsePSEnvironments reads `ps -E -o pid=,command=` output.
+func parsePSEnvironments(out string) map[int][]string {
+	environments := map[int][]string{}
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue
+		}
+		environments[pid] = fields[1:]
+	}
+	return environments
+}
+
+// procEnvironments reads /proc/<pid>/environ, whose entries are split
+// by NUL bytes. A pid that no longer runs has none.
+func procEnvironments(pids []int) (map[int][]string, error) {
+	environments := map[int][]string{}
+	for _, pid := range pids {
+		raw, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "environ"))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		environments[pid] = strings.Split(string(raw), "\x00")
+	}
+	return environments, nil
 }

@@ -202,6 +202,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		s.claude = map[string]claudeCacheEntry{}
 	}
 	seen := map[string]bool{}
+	seenMetas := map[string]bool{}
 	var conversations []Conversation
 	var workerFiles []string
 	for _, file := range files {
@@ -222,11 +223,19 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
+		// A subagent runs inside its session's process, so none of a
+		// session no process runs is working.
+		work := noClaudeWork
 		if isLive {
 			var watched []string
-			c.WorkingSubagents, watched = s.claudeWorkingSubagents(file, session)
+			work, watched = s.claudeWorkOf(file, session)
 			workerFiles = append(workerFiles, watched...)
+			if work != nil {
+				count := work.count()
+				c.WorkingSubagents = &count
+			}
 		}
+		c.Helpers = s.claudeHelpers(file, work, seenMetas)
 		c.bridge = session.bridge
 		entrypoint := meta.entrypoint
 		if isLive && session.entrypoint != "" {
@@ -241,6 +250,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		if ctx.Err() == nil && !seen[file] {
 			delete(s.claude, file)
 		}
+	}
+	if ctx.Err() == nil {
+		forget(s.claudeAgentMetas, seenMetas)
 	}
 	s.rolloutsMu.Lock()
 	s.claudeWorkerFiles = workerFiles

@@ -353,6 +353,57 @@ export function detailsOf(conversation, now, names = new Map()) {
   return parts.join(' · ')
 }
 
+/** How many subagents show under a chat before "+N more". */
+export const HELPERS_SHOWN = 5
+
+/** Agent types that say nothing beyond "a subagent", so their meta line leaves them out. */
+const PLAIN_KINDS = new Set(['general-purpose', 'default'])
+
+/** The toggle in a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded. */
+export function helpersToggleOf(conversation, open) {
+  const count = conversation.helpers.length
+  return `${open ? '▾' : '▸'} ${count} subagent${count === 1 ? '' : 's'}`
+}
+
+/** Working subagents first, then finished ones, each newest first. */
+function byWorkThenAge(a, b) {
+  const working = Number(b.state === 'working') - Number(a.state === 'working')
+  if (working !== 0) return working
+  return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+}
+
+/**
+ * The subagents a chat shows unfolded, in order, and how many more a "+N more" button hides:
+ * HELPERS_SHOWN at most, or every one once the person asked for all.
+ */
+export function helperRowsOf(conversation, showAll) {
+  const ordered = [...conversation.helpers].sort(byWorkThenAge)
+  if (showAll || ordered.length <= HELPERS_SHOWN) return { rows: ordered, more: 0 }
+  return { rows: ordered.slice(0, HELPERS_SHOWN), more: ordered.length - HELPERS_SHOWN }
+}
+
+/** A subagent's title; one whose tool gave none, or whose title may hold a credential, gets a neutral label. */
+export function helperTitleOf(helper) {
+  return helper.title === '' ? 'Untitled subagent' : helper.title
+}
+
+/** "Claude Code · Explore · 1m" while it works, "Codex · done 4m" once finished. */
+export function helperDetailsOf(helper, now) {
+  const parts = [TOOL_LABELS[helper.tool]]
+  if (helper.kind && !PLAIN_KINDS.has(helper.kind)) parts.push(helper.kind)
+  const age = ago(helper.updatedAt, now)
+  parts.push(helper.state === 'working' ? age : 'done ' + age)
+  return parts.join(' · ')
+}
+
+/**
+ * What a click on a subagent opens: a Codex thread opens itself, as a Codex chat does.
+ * A Claude Code subagent runs inside its chat and has no place of its own, so its chat opens.
+ */
+export function helperOpenOf(parent, helper) {
+  return helper.tool === 'codex' ? { tool: 'codex', id: helper.id } : parent
+}
+
 /** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */
 function piecesOf(folder) {
   const pieces = folder.replace(/[\\/]+$/, '').split(/([\\/]+)/)
