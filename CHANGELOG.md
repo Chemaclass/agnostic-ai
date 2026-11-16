@@ -14,6 +14,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Your ChatGPT chats show too, as the new `chatgpt` tool, read from the ChatGPT desktop app on this computer with no network call. A new reply shows within seconds. They open on chatgpt.com and count under Needs you once answered, like Claude chats. A chat started on the web or your phone shows once the app has synced it.
 - The conversations API gains the `chat` and `cowork` app values; the companion reads them as "Claude · Chat" and "Claude · Cowork", and puts chats under Cloud.
 
+#### Opening and resuming chats
+
+- Clicking a Claude Code session started with `claude --bg` switches to a Terminal or Ghostty tab that already runs `claude attach` on it, or opens a new tab that runs `claude attach` in its folder, in the app it last ran in. When that fails, the `claude attach` command is offered to copy. It used to say the session ran in an app it could not switch to.
+
 ## v0.95.0 - 2026-11-15
 
 ### Highlights

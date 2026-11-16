@@ -30,6 +30,9 @@ func (stillProcesses) Args([]int) map[int]string                   { return nil 
 func (stillProcesses) Cwds([]int) map[int]string                   { return nil }
 func (stillProcesses) Holders([]string) (map[string]int, error)    { return nil, nil }
 func (stillProcesses) AppRunning(string) bool                      { return false }
+func (stillProcesses) ClaudeJobs(context.Context) ([]conversations.ClaudeJob, error) {
+	return nil, nil
+}
 
 // runningProcesses has one process running, with every other answer of stillProcesses.
 type runningProcesses struct {

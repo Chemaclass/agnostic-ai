@@ -207,7 +207,7 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	c.process = &liveProcess{PID: pid}
 	c.Open.Kind = RouteFocus
 	if table, err := processes.Table(); err == nil {
-		place(&c, nil, table)
+		place(&c, nil, table, processes.Args)
 	}
 	return c, true
 }
@@ -293,7 +293,6 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 		return controlled
 	}
 	opened := openInTab(ctx, launcher, app, c.Open.Command)
-	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
 	switch {
 	case opened.err == nil && opened.window:
 		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
@@ -301,6 +300,16 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", opened.app)}
 	case errors.Is(opened.err, errControlCharacters):
 		return controlled
+	default:
+		return notOpenedInTab(opened, c.Open.Command)
+	}
+}
+
+// notOpenedInTab says why openInTab could not run command, and offers
+// it to run by hand.
+func notOpenedInTab(opened tabOpening, command string) OpenReply {
+	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: command} }
+	switch {
 	case errors.Is(opened.err, errAutomationDenied):
 		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
 	case opened.window && errors.Is(opened.err, errNotHere):
@@ -373,6 +382,18 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	if placed == nil {
 		return switchThere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found. Switch to it there.", c.process.PID))
 	}
+	if placed.claudeBackground {
+		return openClaudeBackground(ctx, c, processes, launcher)
+	}
+	return switchToHost(ctx, c.Folder, *placed, launcher)
+}
+
+// switchToHost brings forward the terminal placed shows: the exact tab
+// in a tab app, else the app, or the editor window open on folder.
+func switchToHost(ctx context.Context, folder string, placed placement, launcher Launcher) OpenReply {
+	switchThere := func(message string) OpenReply {
+		return OpenReply{Message: message}
+	}
 	app, pid, tty := placed.host.App, placed.process.PID, shortTTY(placed.host.TTY)
 	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
@@ -387,8 +408,8 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 			return OpenReply{Opened: true, Message: fmt.Sprintf("Switched to the %s tab that runs it.", app)}
 		}
 	}
-	if editor, ok := editorTerminals[app]; ok && c.Folder != "" {
-		if err := launcher.OpenFolder(ctx, editor, c.Folder); err != nil {
+	if editor, ok := editorTerminals[app]; ok && folder != "" {
+		if err := launcher.OpenFolder(ctx, editor, folder); err != nil {
 			return switchThere(fmt.Sprintf("It runs in %s's terminal on %s (process %d). Switch to it there.", app, tty, pid))
 		}
 		return switchThere(fmt.Sprintf("Brought its %s window to the front, but the terminal inside it cannot be selected from outside. It runs on %s (process %d).", app, tty, pid))
