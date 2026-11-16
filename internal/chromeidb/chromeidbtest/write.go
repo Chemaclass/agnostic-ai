@@ -6,6 +6,7 @@ package chromeidbtest
 import (
 	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"math"
 	"os"
 	"path/filepath"
@@ -39,6 +40,14 @@ func WriteRecord(t *testing.T, dir, database, store, key string, value any) {
 	}
 	if err := os.WriteFile(filepath.Join(dir, "000003.log"), logRecord(batch(writes)), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	for name, data := range map[string][]byte{
+		"CURRENT":         []byte("MANIFEST-000002\n"),
+		"MANIFEST-000002": logRecord([]byte{2, 3}),
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -98,7 +107,9 @@ func logRecord(record []byte) []byte {
 		case last:
 			kind = 4
 		}
-		out = append(out, 0, 0, 0, 0)
+		crc := crc32.Update(0, crc32.MakeTable(crc32.Castagnoli), []byte{kind})
+		crc = crc32.Update(crc, crc32.MakeTable(crc32.Castagnoli), fragment)
+		out = binary.LittleEndian.AppendUint32(out, (crc>>15|crc<<17)+0xa282ead8)
 		out = binary.LittleEndian.AppendUint16(out, uint16(len(fragment)))
 		out = append(out, kind)
 		out = append(out, fragment...)

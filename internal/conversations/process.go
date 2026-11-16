@@ -35,6 +35,8 @@ type Processes interface {
 	Holders(paths []string) (map[string]int, error)
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
+	// ClaudeJobs lists the Claude Code background sessions that run.
+	ClaudeJobs(ctx context.Context) ([]ClaudeJob, error)
 	// ClaudeParents maps each of pids that a Claude Code session started,
 	// as a command of its Bash tool, to that session's id. The error is an
 	// *environmentError: the environments could not be read.
@@ -392,4 +394,9 @@ func claudeParentIn(entries []string) (string, bool) {
 		return "", false
 	}
 	return sessions[0], true
+}
+
+func (SystemProcesses) ClaudeJobs(ctx context.Context) ([]ClaudeJob, error) {
+	locate := func() (string, error) { return findClaude(claudeFolders()) }
+	return listClaudeJobs(ctx, locate, runClaudeCommand)
 }
