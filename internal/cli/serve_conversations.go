@@ -246,8 +246,9 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// rename saves the name the person chose for a conversation, which
-// every server sharing the marks file then shows.
+// rename writes the name the person chose into the conversation's tool
+// and then saves it in the marks file, which every server sharing it
+// then shows. A name the tool does not take is not saved.
 func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
@@ -278,21 +279,55 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return
 	}
+	// The tool takes the name first, so the list never shows a name the
+	// tool behind it does not have. It may take seconds.
+	if err := h.renameInTool(r.Context(), conversation, title); err != nil {
+		h.logRenameFailure(conversation, err)
+		status, message := renameFailureReply(err)
+		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
 	if err := h.scanner.Rename(req.Tool, req.ID, title); err != nil {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	// The saved name is the rename. The tool and the tab follow after the
-	// reply: a tool may take seconds, and an unanswered Automation prompt
-	// holds osascript. A tool that does not take the name is logged; a tab
-	// that cannot take it keeps its own.
+	// The tab follows after the reply, since an unanswered Automation
+	// prompt holds osascript; a tab that cannot take the name keeps its own.
 	go func(ctx context.Context) {
-		if err := h.renameInTool(ctx, conversation, title); err != nil {
-			h.logRenameFailure(conversation, err)
-		}
 		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
 	}(context.WithoutCancel(r.Context()))
+}
+
+// renameFailureStatuses is the status each reason a tool did not take a
+// name answers with.
+var renameFailureStatuses = map[conversations.RenameReason]int{
+	// This kind of conversation cannot be renamed by this server.
+	conversations.RenameNotSupported: http.StatusNotImplemented,
+	// The program the tool needs is missing on this machine.
+	conversations.RenameNoProgram: http.StatusServiceUnavailable,
+	// The tool's sign-in is missing or no longer accepted.
+	conversations.RenameSignedOut: http.StatusForbidden,
+	// A running program holds the conversation.
+	conversations.RenameInUse: http.StatusConflict,
+	// The tool, standing behind this server, failed.
+	conversations.RenameRefused:     http.StatusBadGateway,
+	conversations.RenameUnreachable: http.StatusBadGateway,
+	conversations.RenameUnexpected:  http.StatusBadGateway,
+}
+
+// renameFailureReply is the status and the person's message for a name
+// the tool did not take. What the tool said stays in the log.
+func renameFailureReply(err error) (int, string) {
+	var renameErr *conversations.RenameError
+	if !errors.As(err, &renameErr) {
+		return http.StatusInternalServerError, "The name could not be saved in the tool. The server log says why."
+	}
+	status, known := renameFailureStatuses[renameErr.Reason]
+	if !known {
+		return http.StatusInternalServerError, renameErr.Message()
+	}
+	return status, renameErr.Message()
 }
 
 // logRenameFailure logs a name the tool did not take, with what the

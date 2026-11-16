@@ -12,18 +12,22 @@ import (
 	"path/filepath"
 )
 
-// A name the person chooses is saved in the marks file first (see
-// Scanner.Rename). Renamer then writes it into the tool that keeps the
-// conversation, so the tool's own list shows it too. Each tool takes it
-// its own way: Claude Code from a line in the session's transcript,
-// Codex from its app-server, Cursor from its databases, and ChatGPT from
-// chatgpt.com.
+// A name the person chooses is written into the tool that keeps the
+// conversation first, so the tool's own list shows it too; the marks
+// file saves it only once the tool has it (see Scanner.Rename). Each
+// tool takes it its own way: Claude Code from a line in the session's
+// transcript, Codex from its app-server, Cursor from its databases,
+// ChatGPT from chatgpt.com and Claude Code's cloud from its session API.
 
 // RenameReason is why a name could not be written into a tool. The list
-// is closed: each reason has one sentence for the log.
+// is closed: each reason has one sentence for the log and one for the
+// person.
 type RenameReason string
 
 const (
+	// RenameNotSupported: this version has no way to rename this kind of
+	// conversation in its tool.
+	RenameNotSupported RenameReason = "not-supported"
 	// RenameNoProgram: the program the write needs is not installed.
 	RenameNoProgram RenameReason = "no-program"
 	// RenameSignedOut: no sign-in that may rename the chat was found, or
@@ -41,23 +45,47 @@ const (
 	RenameUnexpected RenameReason = "unexpected"
 )
 
-// renameReasonTexts is what the log says for each reason; %s is the tool.
+// renameReasonTexts is what the log says for each reason; %s is the
+// tool, or for RenameNotSupported the kind of conversation.
 var renameReasonTexts = map[RenameReason]string{
-	RenameNoProgram:   "the program that writes names into %s is not installed",
-	RenameSignedOut:   "no sign-in that may rename %s chats was found, or it expired",
-	RenameInUse:       "%s has the conversation open and would write its old name back",
-	RenameRefused:     "%s did not take the name",
-	RenameUnreachable: "%s did not answer in time",
-	RenameUnexpected:  "%s keeps the conversation in a way this version does not know",
+	RenameNotSupported: "renaming %s is not supported",
+	RenameNoProgram:    "the program that writes names into %s is not installed",
+	RenameSignedOut:    "no sign-in that may rename %s chats was found, or it expired",
+	RenameInUse:        "%s has the conversation open and would write its old name back",
+	RenameRefused:      "%s did not take the name",
+	RenameUnreachable:  "%s did not answer in time",
+	RenameUnexpected:   "%s keeps the conversation in a way this version does not know",
+}
+
+// renameMissingProgram is what the person reads when a tool's program
+// is missing.
+var renameMissingProgram = map[Tool]string{
+	ToolClaude:  "Claude Code is not installed. Install it and try again.",
+	ToolCodex:   "Codex is not installed, and renaming a Codex chat needs its codex command. Install Codex and try again.",
+	ToolCursor:  "Renaming a Cursor chat needs the sqlite3 command, which is not installed. Install it and try again.",
+	ToolChatGPT: "ChatGPT chats are renamed with the Codex login, and Codex is not installed. Install Codex and try again.",
+}
+
+// renameSignIn is what the person reads when a tool's sign-in is
+// missing or expired.
+var renameSignIn = map[Tool]string{
+	ToolClaude:  "Claude Code is signed out. Run claude, sign in with /login, and try again.",
+	ToolCodex:   "Codex is signed out. Sign in to Codex and try again.",
+	ToolCursor:  "Cursor is signed out. Sign in to Cursor and try again.",
+	ToolChatGPT: "Sign in to ChatGPT in the Codex app, or run codex login, and try again.",
 }
 
 // RenameError is a name that could not be written into its tool. Error
-// is the sentence for the log; Cause keeps what the tool or the system
-// said. Neither ever holds a credential.
+// is the sentence for the log and Message the one for the person; Cause
+// keeps what the tool or the system said. None of them ever holds a
+// credential.
 type RenameError struct {
 	Tool   Tool
 	Reason RenameReason
-	Cause  error
+	// Kind names the kind of conversation, such as "Claude app chats";
+	// RenameNotSupported reads it.
+	Kind  string
+	Cause error
 }
 
 func (e *RenameError) Error() string {
@@ -65,10 +93,36 @@ func (e *RenameError) Error() string {
 	if !known {
 		return fmt.Sprintf("%s: an unknown problem", toolLabels[e.Tool])
 	}
+	if e.Reason == RenameNotSupported {
+		return fmt.Sprintf(text, e.Kind)
+	}
 	return fmt.Sprintf(text, toolLabels[e.Tool])
 }
 
 func (e *RenameError) Unwrap() error { return e.Cause }
+
+// Message says, for the person, why the name was not saved and what to
+// do. It never holds what the tool said.
+func (e *RenameError) Message() string {
+	tool := toolLabels[e.Tool]
+	switch e.Reason {
+	case RenameNotSupported:
+		return fmt.Sprintf("Renaming %s is not supported yet. The name was not changed.", e.Kind)
+	case RenameNoProgram:
+		return renameMissingProgram[e.Tool]
+	case RenameSignedOut:
+		return renameSignIn[e.Tool]
+	case RenameInUse:
+		return fmt.Sprintf("%s has this conversation open and would put the old name back. Stop or close it there, then try again.", tool)
+	case RenameRefused:
+		return fmt.Sprintf("%s did not take the new name. Try again, or rename it in %s.", tool, tool)
+	case RenameUnreachable:
+		return fmt.Sprintf("%s did not answer in time. Try again.", tool)
+	case RenameUnexpected:
+		return fmt.Sprintf("This version cannot rename this %s conversation. Rename it in %s.", tool, tool)
+	}
+	return fmt.Sprintf("%s did not take the new name.", tool)
+}
 
 // codexThreadNamer sets a Codex thread's name.
 type codexThreadNamer interface {
@@ -80,48 +134,60 @@ type chatGPTTitler interface {
 	SetTitle(ctx context.Context, chatID, title string) error
 }
 
+// claudeSessionTitler sets a Claude Code cloud session's title.
+type claudeSessionTitler interface {
+	SetTitle(ctx context.Context, sessionID, title string) error
+}
+
 // Renamer writes a name the person chose into the tool that keeps the
 // conversation.
 type Renamer struct {
 	// CursorDB is Cursor's global state database.
-	CursorDB string
-	sqlite   SQLiteWrite
-	codex    codexThreadNamer
-	chatGPT  chatGPTTitler
+	CursorDB    string
+	sqlite      SQLiteWrite
+	codex       codexThreadNamer
+	chatGPT     chatGPTTitler
+	claudeCloud claudeSessionTitler
 }
 
 // NewRenamer writes names with the programs and sign-ins on this machine.
 func NewRenamer(stores Stores) *Renamer {
 	return &Renamer{
-		CursorDB: stores.CursorDB,
-		sqlite:   RunSQLiteWrite,
-		codex:    newCodexAppServer(),
-		chatGPT:  newChatGPTTitles(),
+		CursorDB:    stores.CursorDB,
+		sqlite:      RunSQLiteWrite,
+		codex:       newCodexAppServer(),
+		chatGPT:     newChatGPTTitles(),
+		claudeCloud: NewClaudeCloud(),
 	}
 }
 
 // Rename writes title into the tool that keeps c. It returns nil once
-// the tool has it, and also for a conversation whose name stays in the
-// marks file only, which each case below names.
+// the tool has it, and a *RenameError otherwise, also for a kind of
+// conversation no tool can rename from here, which each case names.
 func (r *Renamer) Rename(ctx context.Context, c Conversation, title string) error {
 	switch c.Tool {
 	case ToolClaude:
 		switch c.App {
 		case AppCLI, AppIDE, AppDesktop, AppBackground:
 			return appendClaudeTitle(c.file, c.ID, title)
-		case AppChat, AppCowork, AppCloud:
-			// Kept in the marks file only: claude.ai refuses the sign-in
-			// this server can read.
-			return nil
+		case AppCloud:
+			return r.claudeCloud.SetTitle(ctx, c.ID, title)
+		case AppChat:
+			// claude.ai refuses the sign-in this server can read.
+			return &RenameError{Tool: ToolClaude, Reason: RenameNotSupported, Kind: "Claude app chats"}
+		case AppCowork:
+			// Kept by the Claude app, which takes no rename from outside.
+			return &RenameError{Tool: ToolClaude, Reason: RenameNotSupported, Kind: "Cowork tasks"}
 		}
 	case ToolCodex:
 		switch c.App {
 		case AppCLI, AppIDE, AppDesktop:
 			return r.codex.SetName(ctx, c.ID, title)
 		case AppCloud:
-			// Kept in the marks file only: the app-server names the
-			// threads on this machine.
-			return nil
+			// The local app-server finds no rollout for a cloud thread, and
+			// the Codex app renames one over the cloud's own app-server
+			// connection, which this version does not speak.
+			return &RenameError{Tool: ToolCodex, Reason: RenameNotSupported, Kind: "Codex cloud threads"}
 		}
 	case ToolCursor:
 		switch c.App {
@@ -136,7 +202,7 @@ func (r *Renamer) Rename(ctx context.Context, c Conversation, title string) erro
 			return r.chatGPT.SetTitle(ctx, c.ID, title)
 		}
 	}
-	return fmt.Errorf("no way to rename a %s %s conversation", c.Tool, c.App)
+	return &RenameError{Tool: c.Tool, Reason: RenameNotSupported, Kind: fmt.Sprintf("%s %s conversations", toolLabels[c.Tool], c.App)}
 }
 
 // claudeTitleLine is the line Claude Code's own /rename appends to a

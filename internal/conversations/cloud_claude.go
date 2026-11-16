@@ -28,6 +28,12 @@ const claudeCloudBase = "https://api.anthropic.com"
 // most 100; how to ask for more is not known yet.
 const claudeCloudSessionsPath = "/v1/code/sessions?limit=100"
 
+// claudeCloudSessionPath is one session's route; the id follows it. A
+// PUT with {"title"} renames the session, as Claude Code's own
+// updateSessionTitle does; seen in Claude Code 2.1.325 and checked with
+// a rename to the same title on 2026-11-16.
+const claudeCloudSessionPath = "/v1/code/sessions/"
+
 // claudeCloudLink is where cloud sessions are listed in the browser.
 const claudeCloudLink = "https://claude.ai/code"
 
@@ -192,6 +198,71 @@ type claudeCloudRow struct {
 	CreatedAt    string `json:"created_at"`
 	UpdatedAt    string `json:"updated_at"`
 	LastEventAt  string `json:"last_event_at"`
+}
+
+// claudeCloudTitleChange is the body of a rename.
+type claudeCloudTitleChange struct {
+	Title string `json:"title"`
+}
+
+// claudeCloudRenamed is the rename answer, with the field it checks.
+type claudeCloudRenamed struct {
+	Session *struct {
+		Title string `json:"title"`
+	} `json:"session"`
+}
+
+// claudeCloudRenameRefusals maps an answer to a reason; any other
+// answer that is not 200 is a refusal.
+var claudeCloudRenameRefusals = map[int]RenameReason{
+	http.StatusUnauthorized: RenameSignedOut,
+}
+
+// SetTitle renames one cloud session, asking once with no retry. It
+// returns nil only when the answer holds the new title.
+func (c *ClaudeCloud) SetTitle(ctx context.Context, sessionID, title string) error {
+	if !cloudSessionIDPattern.MatchString(sessionID) {
+		return &RenameError{Tool: ToolClaude, Reason: RenameUnexpected, Cause: fmt.Errorf("%q is not a cloud session id", sessionID)}
+	}
+	token, err := c.Credentials.AccessToken(ctx)
+	if err != nil {
+		// The credentials error names the store, never the token.
+		return &RenameError{Tool: ToolClaude, Reason: RenameSignedOut, Cause: err}
+	}
+	body, err := json.Marshal(claudeCloudTitleChange{Title: title})
+	if err != nil {
+		return &RenameError{Tool: ToolClaude, Reason: RenameUnexpected, Cause: err}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.BaseURL+claudeCloudSessionPath+sessionID, bytes.NewReader(body))
+	if err != nil {
+		return &RenameError{Tool: ToolClaude, Reason: RenameUnreachable, Cause: err}
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("anthropic-client-platform", runtime.GOOS)
+	req.Header.Set("User-Agent", "agnostic-ai")
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return &RenameError{Tool: ToolClaude, Reason: RenameUnreachable, Cause: err}
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		reason, known := claudeCloudRenameRefusals[resp.StatusCode]
+		if !known {
+			reason = RenameRefused
+		}
+		said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
+		return &RenameError{Tool: ToolClaude, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
+	}
+	var renamed claudeCloudRenamed
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxCloudReplyBytes)).Decode(&renamed); err != nil {
+		return &RenameError{Tool: ToolClaude, Reason: RenameUnexpected, Cause: fmt.Errorf("rename answer: %w", err)}
+	}
+	if renamed.Session == nil || renamed.Session.Title != title {
+		return &RenameError{Tool: ToolClaude, Reason: RenameUnexpected, Cause: errors.New("the rename answer does not hold the new title")}
+	}
+	return nil
 }
 
 // List asks for the sessions once, with no retry.

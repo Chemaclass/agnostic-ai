@@ -96,21 +96,134 @@ func TestRename_ClaudeCodeLeavesATranscriptItCannotSafelyAppendTo(t *testing.T) 
 	}
 }
 
-func TestRename_KeepsTheNameHereForConversationsNoToolCanRenameFromHere(t *testing.T) {
+func TestRename_SaysWhichConversationsCannotBeRenamedInTheirTool(t *testing.T) {
 	r := &Renamer{}
-	for _, c := range []Conversation{
-		{Tool: ToolClaude, App: AppChat, ID: "chat"},
-		{Tool: ToolClaude, App: AppCowork, ID: "task"},
-		{Tool: ToolClaude, App: AppCloud, ID: "cse_01"},
-		{Tool: ToolCodex, App: AppCloud, ID: "thread"},
+	for _, tc := range []struct {
+		c    Conversation
+		want string
+	}{
+		{Conversation{Tool: ToolClaude, App: AppChat, ID: "chat"}, "Renaming Claude app chats is not supported yet. The name was not changed."},
+		{Conversation{Tool: ToolClaude, App: AppCowork, ID: "task"}, "Renaming Cowork tasks is not supported yet. The name was not changed."},
+		{Conversation{Tool: ToolCodex, App: AppCloud, ID: "thread"}, "Renaming Codex cloud threads is not supported yet. The name was not changed."},
+		{Conversation{Tool: ToolChatGPT, App: AppCLI, ID: "x"}, "Renaming ChatGPT cli conversations is not supported yet. The name was not changed."},
 	} {
-		if err := r.Rename(context.Background(), c, "New name"); err != nil {
-			t.Errorf("%s %s: %v", c.Tool, c.App, err)
+		err := r.Rename(context.Background(), tc.c, "New name")
+		var renameErr *RenameError
+		if !errors.As(err, &renameErr) || renameErr.Reason != RenameNotSupported || renameErr.Message() != tc.want {
+			t.Errorf("%s %s = %s\nwant %s", tc.c.Tool, tc.c.App, renameError(err), tc.want)
 		}
 	}
-	err := r.Rename(context.Background(), Conversation{Tool: ToolChatGPT, App: AppCLI, ID: "x"}, "New name")
-	if err == nil || err.Error() != "no way to rename a chatgpt cli conversation" {
-		t.Errorf("an unknown kind of conversation = %v", err)
+}
+
+func TestRenameError_TellsThePersonWhatToDoForEveryReasonAndTool(t *testing.T) {
+	cause := errors.New("what the tool said")
+	for _, reason := range []RenameReason{RenameNotSupported, RenameNoProgram, RenameSignedOut, RenameInUse, RenameRefused, RenameUnreachable, RenameUnexpected} {
+		for _, tool := range []Tool{ToolClaude, ToolCodex, ToolCursor, ToolChatGPT} {
+			err := &RenameError{Tool: tool, Reason: reason, Kind: "these chats", Cause: cause}
+			message := err.Message()
+			if message == "" || strings.Contains(message, cause.Error()) || strings.Contains(message, "%!") {
+				t.Errorf("%s %s: message %q", tool, reason, message)
+			}
+			if strings.Contains(err.Error(), "unknown problem") {
+				t.Errorf("%s %s: no log sentence", tool, reason)
+			}
+		}
+	}
+}
+
+// claudeCloudRenameAPI serves answer for a session rename from a fake
+// API and refuses a request that lacks the headers the real one needs.
+func claudeCloudRenameAPI(t *testing.T, answer func(w http.ResponseWriter, r *http.Request)) *ClaudeCloud {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/v1/code/sessions/cse_01Rename" {
+			http.Error(w, "unexpected request "+r.Method+" "+r.URL.String(), http.StatusTeapot)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("anthropic-version") != "2023-06-01" || r.Header.Get("Content-Type") != "application/json" {
+			http.Error(w, "missing the sign-in headers", http.StatusTeapot)
+			return
+		}
+		answer(w, r)
+	}))
+	t.Cleanup(server.Close)
+	return &ClaudeCloud{BaseURL: server.URL, Client: newCloudClient(), Credentials: fakeCredentials{token: fakeToken}}
+}
+
+func TestRename_ClaudeCloudSessionChangesItsTitleOnTheSessionAPI(t *testing.T) {
+	var asked string
+	cloud := claudeCloudRenameAPI(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		asked = string(body)
+		_, _ = io.WriteString(w, `{"session":{"id":"cse_01Rename","title":"Trip plans, day 2","status_bucket":"completed"}}`)
+	})
+
+	err := (&Renamer{claudeCloud: cloud}).Rename(context.Background(), Conversation{Tool: ToolClaude, App: AppCloud, ID: "cse_01Rename"}, "Trip plans, day 2")
+
+	if err != nil {
+		t.Fatal(renameError(err))
+	}
+	if asked != `{"title":"Trip plans, day 2"}` {
+		t.Errorf("sent %s", asked)
+	}
+}
+
+func TestRename_ClaudeCloudSessionSaysWhyTheTitleDidNotChange(t *testing.T) {
+	answer := func(status int, body string) func(http.ResponseWriter, *http.Request) {
+		return func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(status)
+			_, _ = io.WriteString(w, body)
+		}
+	}
+	for name, tc := range map[string]struct {
+		cloud *ClaudeCloud
+		id    string
+		want  string
+	}{
+		"an expired sign-in": {
+			claudeCloudRenameAPI(t, answer(http.StatusUnauthorized, `{"error":{"type":"authentication_error"}}`)),
+			"cse_01Rename",
+			`no sign-in that may rename Claude Code chats was found, or it expired (signed-out): HTTP 401: {"error":{"type":"authentication_error"}}`,
+		},
+		"a refusal": {
+			claudeCloudRenameAPI(t, answer(http.StatusNotFound, `{"error":{"type":"not_found_error"}}`)),
+			"cse_01Rename",
+			`Claude Code did not take the name (refused): HTTP 404: {"error":{"type":"not_found_error"}}`,
+		},
+		"an answer without the new title": {
+			claudeCloudRenameAPI(t, answer(http.StatusOK, `{"session":{"title":"Old name"}}`)),
+			"cse_01Rename",
+			"Claude Code keeps the conversation in a way this version does not know (unexpected): the rename answer does not hold the new title",
+		},
+		"an answer that is not JSON": {
+			claudeCloudRenameAPI(t, answer(http.StatusOK, `<html>`)),
+			"cse_01Rename",
+			"Claude Code keeps the conversation in a way this version does not know (unexpected): rename answer: invalid character '<' looking for beginning of value",
+		},
+		"no sign-in": {
+			func() *ClaudeCloud {
+				cloud := claudeCloudRenameAPI(t, answer(http.StatusOK, `{}`))
+				cloud.Credentials = fakeCredentials{err: &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: errors.New("no keychain entry")}}
+				return cloud
+			}(),
+			"cse_01Rename",
+			"no sign-in that may rename Claude Code chats was found, or it expired (signed-out): " + (&CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: errors.New("no keychain entry")}).Error(),
+		},
+		"an id that is not a session id": {
+			claudeCloudRenameAPI(t, answer(http.StatusOK, `{}`)),
+			"../admin",
+			`Claude Code keeps the conversation in a way this version does not know (unexpected): "../admin" is not a cloud session id`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := (&Renamer{claudeCloud: tc.cloud}).Rename(context.Background(), Conversation{Tool: ToolClaude, App: AppCloud, ID: tc.id}, "New name")
+			if got := renameError(err); got != tc.want {
+				t.Errorf("got  %s\nwant %s", got, tc.want)
+			}
+			if strings.Contains(renameError(err), fakeToken) {
+				t.Error("the error holds the token")
+			}
+		})
 	}
 }
 
