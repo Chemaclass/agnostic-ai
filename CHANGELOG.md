@@ -6,6 +6,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### General
+
+#### Opening and resuming chats
+
+- Clicking a Claude Code session started with `claude --bg` switches to a Terminal or Ghostty tab that already runs `claude attach` on it, or opens a new tab that runs `claude attach` in its folder. It used to say the session ran in an app it could not switch to.
+
 ## v0.95.0 - 2026-11-15
 
 ### Highlights

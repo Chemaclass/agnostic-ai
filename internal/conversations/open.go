@@ -292,7 +292,6 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 		return controlled
 	}
 	opened := openInTab(ctx, launcher, app, c.Open.Command)
-	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: c.Open.Command} }
 	switch {
 	case opened.err == nil && opened.window:
 		return OpenReply{Opened: true, Message: "Resumed in a new Terminal window."}
@@ -300,6 +299,16 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Resumed in a new %s tab.", opened.app)}
 	case errors.Is(opened.err, errControlCharacters):
 		return controlled
+	default:
+		return notOpenedInTab(opened, c.Open.Command)
+	}
+}
+
+// notOpenedInTab says why openInTab could not run command, and offers
+// it to run by hand.
+func notOpenedInTab(opened tabOpening, command string) OpenReply {
+	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: command} }
+	switch {
 	case errors.Is(opened.err, errAutomationDenied):
 		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
 	case opened.window && errors.Is(opened.err, errNotHere):
@@ -371,6 +380,18 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	}
 	if placed == nil {
 		return switchThere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found. Switch to it there.", c.process.PID))
+	}
+	if placed.claudeBackground {
+		return openClaudeBackground(ctx, c, processes, launcher)
+	}
+	return switchToHost(ctx, c, *placed, launcher)
+}
+
+// switchToHost brings forward the terminal placed shows c in: the
+// exact tab in a tab app, else the app or editor window that holds it.
+func switchToHost(ctx context.Context, c Conversation, placed placement, launcher Launcher) OpenReply {
+	switchThere := func(message string) OpenReply {
+		return OpenReply{Message: message}
 	}
 	app, pid, tty := placed.host.App, placed.process.PID, shortTTY(placed.host.TTY)
 	if tabApps[app] {

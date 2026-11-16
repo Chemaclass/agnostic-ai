@@ -351,6 +351,30 @@ type placement struct {
 	process liveProcess
 	host    terminalHost
 	ttys    []string
+	// claudeBackground is true for a Claude Code session started with
+	// claude --bg, whose terminal belongs to Claude's daemon, not an app.
+	claudeBackground bool
+}
+
+// claudePTYHost is the parent Claude Code's daemon gives each claude
+// --bg session: it renames itself, so ps comm shows these words.
+const claudePTYHost = "claude bg-pty-host"
+
+// claudeBackgroundSession reports whether pid's parent is the terminal
+// Claude Code's daemon runs a background session in.
+func claudeBackgroundSession(table []ProcessInfo, pid int) bool {
+	var parentPID int
+	for _, process := range table {
+		if process.PID == pid {
+			parentPID = process.PPID
+		}
+	}
+	for _, process := range table {
+		if process.PID == parentPID && process.Command == claudePTYHost {
+			return true
+		}
+	}
+	return false
 }
 
 // placeLive finds the terminal of each session a process runs, with one
@@ -426,6 +450,9 @@ func place(c *Conversation, clients *codexClients, table []ProcessInfo) (ok bool
 		return false
 	}
 	c.placed = &placement{process: process, host: host}
+	if c.Tool == ToolClaude && host.App == "" && claudeBackgroundSession(table, process.PID) {
+		c.placed.claudeBackground = true
+	}
 	if !isTabApp(host.App) {
 		return false
 	}
