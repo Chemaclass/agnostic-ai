@@ -124,3 +124,7 @@ The same flag adds the threads that run in the Codex cloud. They count among Cod
 - **Status.** An `active` thread shows as working. It shows as waiting for you when it waits on an approval or on your input. Other statuses are not live.
 
 Both endpoints are undocumented and can change with any release of either tool.
+
+Your Claude chats and Cowork tasks show too, with no flag: they are read from what the Claude desktop app keeps on this computer. A row reads "Claude · Chat" or "Claude · Cowork" and opens in the Claude app. A chat the assistant answered counts as waiting for you until you see it. Chats sit under **Cloud**, Cowork tasks under **Local**.
+
+Your ChatGPT chats show too, with no flag, when the ChatGPT desktop app is installed: they are read from the chat list it keeps on this computer, in `codex.db` under `$CODEX_HOME/sqlite` (default `~/.codex`). Nothing is asked over the network, and a new reply shows within the companion's 5-second check. A row reads "ChatGPT · Chat" and opens on chatgpt.com. A chat you started on chatgpt.com or your phone shows once the app has synced it. That list is undocumented and can change with any release of the app.

@@ -128,6 +128,8 @@ func (s *Scanner) claudeFiles() []string {
 func (s *Scanner) Stamp() string {
 	files := append(s.claudeFiles(), s.codexFiles()...)
 	files = append(files, s.cursorFiles()...)
+	files = append(files, s.claudeAppFiles()...)
+	files = append(files, s.chatGPTFiles()...)
 	if s.MarksPath != "" {
 		files = append(files, s.MarksPath)
 	}

@@ -118,7 +118,7 @@ Returns `tools` and `conversations`:
 
 Conversation fields:
 
-- `app` is `cli`, `ide`, `desktop`, `background` or `cloud`.
+- `app` is `cli`, `ide`, `desktop`, `background`, `cloud`, `chat` or `cowork`.
 - `folder` is where the conversation started and where it resumes.
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
@@ -164,6 +164,8 @@ Marks:
 Cloud sessions and refresh:
 
 - On a server started with `--cloud-sessions`, Claude Code cloud sessions and Codex cloud threads are listed too, with `app` `cloud`. `cloudNote` says why they are missing when they could not be read.
+- When the ChatGPT desktop app is installed, its chats are listed as the tool `chatgpt` with `app` `chat`, read from the chat list the app keeps in `$CODEX_HOME/sqlite/codex.db`, with no network call and no flag. A project server lists none. Without the app the `chatgpt` tool is left out.
+- Claude chats (`app` `chat`) and Cowork tasks (`app` `cowork`) are listed under Claude Code, from what the Claude desktop app keeps on this computer. The server reads only the lists the app last fetched, never a chat's messages, and makes no network call. A chat you have not opened in the app since claude.ai changed it may be missing or out of date. These rows open in the Claude app and cannot be deleted from here. A project server lists no chats, because a chat names no folder. It lists a Cowork task whose folder is inside the project. When the app's lists cannot be read, the Claude Code tool's `note` says so and none of these rows are listed; the server reads them again after the app's next write.
 - Codex and Cursor chats are read again only when their files change, for at most a minute. One of them can show as open for up to a minute after its app quit.
 - The reply has an `ETag`. It changes when a chat or a mark changed, when a new minute began (a process that ended or a chat that went dormant shows no other way), or when the query differs.
 - Sent back as `If-None-Match`, an unchanged list answers 304 with no body and reads no chat.

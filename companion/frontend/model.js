@@ -18,11 +18,14 @@ export const PLACES = [
   { id: 'cloud', label: 'Cloud', title: 'Conversations that run in a tool\'s cloud' },
 ]
 
+/** The apps whose conversations live online, not on this machine: a tool's cloud and plain chats. */
+const ONLINE_APPS = new Set(['cloud', 'chat'])
+
 /** Whether a conversation runs in `place`. */
 const IN_PLACE = {
   all: () => true,
-  local: (conversation) => conversation.app !== 'cloud',
-  cloud: (conversation) => conversation.app === 'cloud' || conversation.cloud !== undefined,
+  local: (conversation) => !ONLINE_APPS.has(conversation.app),
+  cloud: (conversation) => ONLINE_APPS.has(conversation.app) || conversation.cloud !== undefined,
 }
 
 const NEEDS_PERSON = { blocked: true, unread: true }
@@ -59,6 +62,7 @@ const TOOL_LABELS = {
   claude: 'Claude Code',
   codex: 'Codex',
   cursor: 'Cursor',
+  chatgpt: 'ChatGPT',
 }
 
 /** The agent's latest reply as the server sent it, or '' when it sent none. */
@@ -317,17 +321,31 @@ export function deletedOf(reply) {
   return { message: freed === '' ? 'Deleted.' : `Deleted. ${freed}.`, note: reply.note }
 }
 
-/** Where a row runs, said only when it is not on this machine. */
+/** What a row is, said when it is not a coding session on this machine: one in a tool's cloud, a plain chat or a Cowork task. */
 const PLACE_LABELS = {
   cloud: 'Cloud',
+  chat: 'Chat',
+  cowork: 'Cowork',
+}
+
+/** The product a chat or Cowork task belongs to, where it is not the tool's coding agent. */
+const APP_TOOL_LABELS = {
+  chat: { claude: 'Claude' },
+  cowork: { claude: 'Claude' },
+}
+
+/** The tool a row names: "Claude" for a Claude chat, "Claude Code" for a Claude Code session. */
+function toolLabelOf(conversation) {
+  return APP_TOOL_LABELS[conversation.app]?.[conversation.tool] ?? TOOL_LABELS[conversation.tool]
 }
 
 /**
  * "Claude Code · agnostic-ai · 5m": the tool, where it runs when not here or Shared when also on claude.ai, the folder's name and how long ago it was written.
+ * A chat reads "Claude · Chat · 2h".
  * `names` holds what folderNamesOf gave for the folders in view; without one the folder shows its last name.
  */
 export function detailsOf(conversation, now, names = new Map()) {
-  const parts = [TOOL_LABELS[conversation.tool]]
+  const parts = [toolLabelOf(conversation)]
   const place = conversation.cloud ? 'Shared' : PLACE_LABELS[conversation.app]
   if (place) parts.push(place)
   if (conversation.folder) parts.push(names.get(conversation.folder) ?? folderName(conversation.folder))
