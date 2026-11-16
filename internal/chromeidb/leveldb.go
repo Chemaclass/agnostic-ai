@@ -9,19 +9,7 @@ import (
 	"path/filepath"
 )
 
-// This file reads a LevelDB folder as Chrome writes it, for one need:
-// the newest value of every key. It never writes, never takes the
-// folder's lock, and keeps no key order: each entry carries a sequence
-// number, and the highest one per key wins. A table that a compaction
-// has just replaced may still be on disk, which is harmless: its
-// entries are older than the ones that replaced them.
-//
-// It lists the folder's files rather than reading the MANIFEST, so it
-// can meet a table LevelDB is still writing. Such a table has no footer
-// magic yet and is left out: until LevelDB finishes it and records it
-// as live, its entries are still in the log or tables it replaces. A
-// file that LevelDB removes while the folder is read means a flush or
-// a compaction finished in between, so the whole folder is read again.
+// Obsolete tables can outlive deletion markers, so only committed tables are safe to read.
 
 // LevelDB entry kinds, the low byte of an internal key's trailer and
 // the tag of a write batch entry.
@@ -84,14 +72,14 @@ func readLevelDB(dir string) (map[string][]byte, error) {
 	for range maxFolderReads {
 		var values map[string][]byte
 		values, err = readLevelDBOnce(dir)
-		if !errors.Is(err, fs.ErrNotExist) {
+		if !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, errFileSetChanged) {
 			return values, err
 		}
 	}
 	return nil, fmt.Errorf("files kept changing over %d reads: %w", maxFolderReads, err)
 }
 
-// readLevelDBOnce reads the folder's files as they are listed now.
+// readLevelDBOnce reads one committed version and its remaining logs.
 func readLevelDBOnce(dir string) (map[string][]byte, error) {
 	newest := map[string]entry{}
 	keep := func(key []byte, e entry) {
@@ -100,21 +88,17 @@ func readLevelDBOnce(dir string) (map[string][]byte, error) {
 		}
 		newest[string(key)] = e
 	}
-	tables, err := filepath.Glob(filepath.Join(dir, "*.ldb"))
+	snapshot, err := readManifest(dir)
 	if err != nil {
 		return nil, err
 	}
-	for _, table := range tables {
-		err := readTable(table, keep)
-		switch {
-		case errors.Is(err, errUnfinishedTable):
-			// Its entries are still where LevelDB wrote them before.
-			continue
-		case err != nil:
+	for number := range snapshot.tables {
+		table := filepath.Join(dir, fmt.Sprintf("%06d.ldb", number))
+		if err := readTable(table, keep); err != nil {
 			return nil, fmt.Errorf("table %s: %w", filepath.Base(table), err)
 		}
 	}
-	logs, err := filepath.Glob(filepath.Join(dir, "*.log"))
+	logs, err := snapshot.logs(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +106,9 @@ func readLevelDBOnce(dir string) (map[string][]byte, error) {
 		if err := readLog(log, keep); err != nil {
 			return nil, fmt.Errorf("log %s: %w", filepath.Base(log), err)
 		}
+	}
+	if err := snapshot.unchanged(dir, logs); err != nil {
+		return nil, err
 	}
 	values := make(map[string][]byte, len(newest))
 	for key, e := range newest {
@@ -140,47 +127,7 @@ func readLog(path string, keep func([]byte, entry)) error {
 	if err != nil {
 		return err
 	}
-	var pending []byte
-	at := 0
-	for at+logHeaderSize <= len(data) {
-		left := logBlockSize - at%logBlockSize
-		if left < logHeaderSize {
-			// The end of a block too short for a header is padding.
-			at += left
-			continue
-		}
-		size := int(binary.LittleEndian.Uint16(data[at+4:]))
-		kind := data[at+6]
-		start := at + logHeaderSize
-		if kind == 0 && size == 0 {
-			// Preallocated zeroes: the rest of the block is unused.
-			at += left
-			continue
-		}
-		if start+size > len(data) {
-			return nil
-		}
-		fragment := data[start : start+size]
-		at = start + size
-		switch kind {
-		case logFull:
-			if err := readBatch(fragment, keep); err != nil {
-				return err
-			}
-		case logFirst:
-			pending = append([]byte(nil), fragment...)
-		case logMiddle:
-			pending = append(pending, fragment...)
-		case logLast:
-			if err := readBatch(append(pending, fragment...), keep); err != nil {
-				return err
-			}
-			pending = nil
-		default:
-			return fmt.Errorf("record type %d at byte %d", kind, at)
-		}
-	}
-	return nil
+	return logRecords(data, false, func(record []byte) error { return readBatch(record, keep) })
 }
 
 // readBatch hands the writes of one write batch to keep: a sequence

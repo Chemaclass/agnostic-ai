@@ -17,6 +17,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Working agents show a quiet five-dot rainbow gyroscope, with a miniature fractal per native Claude Code or Codex sub-agent and reduced-motion support. Waiting parents keep a plain orange dot while their working satellites animate independently in blue.
 - Dragging the companion keeps its open conversation list beside it, preserving the search.
 
+#### Opening and resuming chats
+
+- Clicking a Claude Code session started with `claude --bg` switches to a Terminal or Ghostty tab that already runs `claude attach` on it, or opens a new tab that runs `claude attach` in its folder, in the app it last ran in. When that fails, the `claude attach` command is offered to copy. It used to say the session ran in an app it could not switch to.
+
 ## v0.95.0 - 2026-11-15
 
 ### Highlights

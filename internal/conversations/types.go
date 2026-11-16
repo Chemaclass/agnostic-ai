@@ -176,8 +176,8 @@ type Conversation struct {
 	process *liveProcess
 	// placed is where that session shows, when its terminal was found.
 	placed *placement
-	// lastTab is the tab an ended session last ran in, when remembered;
-	// its app gets the new tab.
+	// lastTab is the tab an ended session, or a Claude Code background
+	// session, last ran in, when remembered; its app gets the new tab.
 	lastTab *terminalHost
 	// editor is set for an editor extension's link: its folder opens
 	// there first, so the link reaches the window that holds it.
@@ -236,6 +236,7 @@ type liveProcess struct {
 // server could not open it here; Message says why and Command, when
 // set, resumes the session by hand. A Claude Code, Codex or cursor-agent
 // session that still runs in a terminal gets none: running it would start a second copy.
+// A Claude Code background session gets claude attach, which starts no copy.
 type OpenReply struct {
 	Opened  bool   `json:"opened"`
 	Message string `json:"message"`

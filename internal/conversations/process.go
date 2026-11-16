@@ -35,6 +35,8 @@ type Processes interface {
 	Holders(paths []string) (map[string]int, error)
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
+	// ClaudeJobs lists the Claude Code background sessions that run.
+	ClaudeJobs(ctx context.Context) ([]ClaudeJob, error)
 }
 
 // ProcessRef names a process by its pid and, when known, by when it
@@ -288,4 +290,9 @@ func (SystemProcesses) AppRunning(name string) bool {
 		}
 	}
 	return false
+}
+
+func (SystemProcesses) ClaudeJobs(ctx context.Context) ([]ClaudeJob, error) {
+	locate := func() (string, error) { return findClaude(claudeFolders()) }
+	return listClaudeJobs(ctx, locate, runClaudeCommand)
 }

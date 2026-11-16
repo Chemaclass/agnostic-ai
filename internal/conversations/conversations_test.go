@@ -29,6 +29,8 @@ type fakeProcesses struct {
 	cwds    map[int]string
 	held    map[string]int
 	running map[string]bool
+	jobs    []ClaudeJob
+	jobsErr error
 	// readFails makes every read of running processes fail, as a missing or timed-out ps or lsof does.
 	readFails bool
 	// missingFails makes Holders fail when asked about a file that does not exist, as lsof does.
@@ -77,6 +79,8 @@ func (f fakeProcesses) Table() ([]ProcessInfo, error) { return f.table, nil }
 func (f fakeProcesses) Args([]int) map[int]string { return f.args }
 
 func (f fakeProcesses) Cwds([]int) map[int]string { return f.cwds }
+
+func (f fakeProcesses) ClaudeJobs(context.Context) ([]ClaudeJob, error) { return f.jobs, f.jobsErr }
 
 func write(t *testing.T, path, content string) {
 	t.Helper()

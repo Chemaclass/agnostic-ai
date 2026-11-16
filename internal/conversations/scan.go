@@ -256,6 +256,9 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 		}
 	}
 	appRows, appNote := s.claudeAppRows(opts)
+	if len(appRows) > 0 {
+		claude.source.Found = true
+	}
 	claude.conversations = append(claude.conversations, readAt(s.Now(), sourceResult{conversations: appRows}).conversations...)
 	claude.source.Note = joinNotes(claude.source.Note, appNote)
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
