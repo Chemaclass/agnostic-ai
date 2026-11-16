@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -144,6 +147,9 @@ func conversationsFixture(t *testing.T, global bool) (*conversationsHandler, *re
 		scanner:   scanner,
 		launcher:  launcher,
 		worktrees: func(string) []string { return []string{project, worktree} },
+		// No test writes into a real tool.
+		renameInTool: func(context.Context, conversations.Conversation, string) error { return nil },
+		logOut:       io.Discard,
 	}
 	return h, launcher, project
 }
@@ -497,6 +503,111 @@ func TestConversationsHandler_RenamesAConversation(t *testing.T) {
 	}
 }
 
+func TestConversationsHandler_SavesTheNameOnlyOnceTheToolHasIt(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	type asked struct {
+		id, title, savedBefore string
+	}
+	var got []asked
+	h.renameInTool = func(_ context.Context, c conversations.Conversation, title string) error {
+		saved, _ := stateOfListed(t, h, c.ID)
+		got = append(got, asked{c.ID, title, saved.Title})
+		return nil
+	}
+
+	rec := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"  Parser   fix "}`, nil)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("rename = %d %s", rec.Code, rec.Body)
+	}
+	// The tool is asked before the reply, while the list still shows the old name.
+	if want := []asked{{inProject, "Parser fix", "Fix the parser"}}; !slices.Equal(got, want) {
+		t.Errorf("the tool was asked for %+v\nwant %+v", got, want)
+	}
+	if c, _ := stateOfListed(t, h, inProject); c.Title != "Parser fix" {
+		t.Errorf("the saved name = %q", c.Title)
+	}
+}
+
+func TestConversationsHandler_KeepsTheOldNameAndSaysWhyWhenTheToolRefuses(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err        error
+		wantStatus int
+		wantBody   string
+		wantLog    string
+	}{
+		"not supported": {
+			&conversations.RenameError{Tool: conversations.ToolClaude, Reason: conversations.RenameNotSupported, Kind: "Claude app chats"},
+			http.StatusNotImplemented,
+			`{"error":"Renaming Claude app chats is not supported yet. The name was not changed."}`,
+			"! could not rename claude conversation " + inProject + " in the tool: renaming Claude app chats is not supported\n",
+		},
+		"no program": {
+			&conversations.RenameError{Tool: conversations.ToolCodex, Reason: conversations.RenameNoProgram, Cause: errors.New(`exec: "codex": executable file not found in $PATH`)},
+			http.StatusServiceUnavailable,
+			`{"error":"Codex is not installed, and renaming a Codex chat needs its codex command. Install Codex and try again."}`,
+			"! could not rename claude conversation " + inProject + " in the tool: the program that writes names into Codex is not installed: exec: \"codex\": executable file not found in $PATH\n",
+		},
+		"signed out": {
+			&conversations.RenameError{Tool: conversations.ToolChatGPT, Reason: conversations.RenameSignedOut, Cause: errors.New(`HTTP 401: {"detail":"token expired"}`)},
+			http.StatusForbidden,
+			`{"error":"Sign in to ChatGPT in the Codex app, or run codex login, and try again."}`,
+			"! could not rename claude conversation " + inProject + ` in the tool: no sign-in that may rename ChatGPT chats was found, or it expired: HTTP 401: {"detail":"token expired"}` + "\n",
+		},
+		"in use": {
+			&conversations.RenameError{Tool: conversations.ToolClaude, Reason: conversations.RenameInUse, Cause: errors.New("the last line is unfinished")},
+			http.StatusConflict,
+			`{"error":"Claude Code has this conversation open and would put the old name back. Stop or close it there, then try again."}`,
+			"! could not rename claude conversation " + inProject + " in the tool: Claude Code has the conversation open and would write its old name back: the last line is unfinished\n",
+		},
+		"refused": {
+			&conversations.RenameError{Tool: conversations.ToolChatGPT, Reason: conversations.RenameRefused, Cause: errors.New(`HTTP 404: {"detail":"Can't load conversation"}`)},
+			http.StatusBadGateway,
+			`{"error":"ChatGPT did not take the new name. Try again, or rename it in ChatGPT."}`,
+			"! could not rename claude conversation " + inProject + ` in the tool: ChatGPT did not take the name: HTTP 404: {"detail":"Can't load conversation"}` + "\n",
+		},
+		"unreachable": {
+			&conversations.RenameError{Tool: conversations.ToolCodex, Reason: conversations.RenameUnreachable, Cause: context.DeadlineExceeded},
+			http.StatusBadGateway,
+			`{"error":"Codex did not answer in time. Try again."}`,
+			"! could not rename claude conversation " + inProject + " in the tool: Codex did not answer in time: context deadline exceeded\n",
+		},
+		"unexpected": {
+			&conversations.RenameError{Tool: conversations.ToolCursor, Reason: conversations.RenameUnexpected, Cause: errors.New("changed 1 rows, want 2")},
+			http.StatusBadGateway,
+			`{"error":"This version cannot rename this Cursor conversation. Rename it in Cursor."}`,
+			"! could not rename claude conversation " + inProject + " in the tool: Cursor keeps the conversation in a way this version does not know: changed 1 rows, want 2\n",
+		},
+		"not a rename error": {
+			errors.New("disk on fire"),
+			http.StatusInternalServerError,
+			`{"error":"The name could not be saved in the tool. The server log says why."}`,
+			"! could not rename claude conversation " + inProject + " in the tool: disk on fire\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, _, _ := conversationsFixture(t, false)
+			h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+			h.renameInTool = func(context.Context, conversations.Conversation, string) error { return tc.err }
+			var logged strings.Builder
+			h.logOut = &logged
+
+			rec := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Parser fix"}`, nil)
+
+			if rec.Code != tc.wantStatus || strings.TrimSpace(rec.Body.String()) != tc.wantBody {
+				t.Errorf("reply = %d %s\nwant    %d %s", rec.Code, rec.Body, tc.wantStatus, tc.wantBody)
+			}
+			if got := logged.String(); got != tc.wantLog {
+				t.Errorf("logged %q\nwant   %q", got, tc.wantLog)
+			}
+			if c, _ := stateOfListed(t, h, inProject); c.Title != "Fix the parser" {
+				t.Errorf("a name the tool did not take was saved: %q", c.Title)
+			}
+		})
+	}
+}
+
 func TestConversationsHandler_RefusesARenameItCannotKeep(t *testing.T) {
 	h, _, _ := conversationsFixture(t, false)
 	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
@@ -553,6 +664,62 @@ func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
 	var view conversations.View
 	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil || ids(view) != inProject {
 		t.Errorf("the dashboard's search = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestConversationsHandler_RefusesASecondRenameOfAConversationWhileTheFirstRuns(t *testing.T) {
+	companion, _, _ := conversationsFixture(t, true)
+	companion.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	shared := companion.scanner
+	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
+		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,
+	}, worktrees: companion.worktrees, logOut: io.Discard}
+	var inTool []string
+	var toolMu sync.Mutex
+	takeName := func(title string) {
+		toolMu.Lock()
+		defer toolMu.Unlock()
+		inTool = append(inTool, title)
+	}
+	firstAsked, firstGoesOn := make(chan struct{}), make(chan struct{})
+	companion.renameInTool = func(_ context.Context, _ conversations.Conversation, title string) error {
+		close(firstAsked)
+		<-firstGoesOn
+		takeName(title)
+		return nil
+	}
+	dashboard.renameInTool = func(_ context.Context, _ conversations.Conversation, title string) error {
+		takeName(title)
+		return nil
+	}
+	first := make(chan *httptest.ResponseRecorder)
+	go func() {
+		first <- postEdit(t, companion, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"First"}`, nil)
+	}()
+	<-firstAsked
+
+	second := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Second"}`, nil)
+	other := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inWorktree+`","title":"Other"}`, nil)
+	close(firstGoesOn)
+	firstReply := <-first
+
+	if second.Code != http.StatusConflict || strings.TrimSpace(second.Body.String()) != `{"error":"This conversation is being renamed already. Wait for that to finish, then try again."}` {
+		t.Errorf("the second rename = %d %s", second.Code, second.Body)
+	}
+	if other.Code != http.StatusNoContent {
+		t.Errorf("a rename of another conversation = %d %s", other.Code, other.Body)
+	}
+	if firstReply.Code != http.StatusNoContent {
+		t.Errorf("the first rename = %d %s", firstReply.Code, firstReply.Body)
+	}
+	if want := []string{"Other", "First"}; !slices.Equal(inTool, want) {
+		t.Errorf("the tool took %q, want %q", inTool, want)
+	}
+	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "First" {
+		t.Errorf("the list shows %q, while the tool has First", c.Title)
+	}
+	if third := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Third"}`, nil); third.Code != http.StatusNoContent {
+		t.Errorf("a rename after the first ended = %d %s", third.Code, third.Body)
 	}
 }
 

@@ -206,16 +206,24 @@ Replies:
 
 Body: `{tool, id, title}` with `Content-Type: application/json`, from the server's own origin.
 
-- Saves `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search.
+- Renames the conversation in its own tool first, before it replies. See [the companion's Rename](@/docs/cli-reference/companion.md) for how each tool takes the name. Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
+- Only once the tool has the name does it save `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search. A name the tool did not take is not saved.
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
 - On macOS, a running session's Terminal or Ghostty tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes.
 
 Replies:
 
-- Returns 204.
+- Returns 204 once the tool and the marks file both have the name.
 - A conversation outside the list returns 404.
 - An empty name, a name longer than 120 characters, a name that may hold a credential, or any other field is a 400.
+- While another rename of the same conversation runs, on this server or another one that shares the marks file, a second one returns 409 and changes nothing.
+- When the tool does not take the name, the reply is `{"error": "..."}` with a sentence for the person that names the tool and what to do. What the tool said goes to the server's standard error only.
+  - 501: this kind of conversation cannot be renamed yet.
+  - 503: the program the tool needs is not installed, such as `codex` or `sqlite3`.
+  - 403: the tool's sign-in is missing or expired.
+  - 409: a running program holds the conversation and would write the old name back.
+  - 502: the tool refused the name, did not answer in time, or keeps the conversation in a way this version does not know.
 
 ## `POST /api/conversations/delete`
 
