@@ -351,11 +351,56 @@ type placement struct {
 	process liveProcess
 	host    terminalHost
 	ttys    []string
+	// claudeBackground is true for a Claude Code session started with
+	// claude --bg, whose terminal belongs to Claude's daemon, not an app.
+	claudeBackground bool
+}
+
+// claudePTYHost is the parent Claude Code's daemon gives each claude
+// --bg session: it renames itself, so macOS ps comm shows these words.
+const claudePTYHost = "claude bg-pty-host"
+
+// linuxCommLimit is how many characters of a process name Linux keeps,
+// so ps comm there shows claudePTYHost as "claude bg-pty-h". See
+// proc_pid_comm(5).
+const linuxCommLimit = 15
+
+// claudeBackgroundSession reports whether pid's parent is the terminal
+// Claude Code's daemon runs a background session in. A parent whose
+// name is cut to Linux's limit is confirmed by its full command line,
+// which starts "claude bg-pty-host".
+func claudeBackgroundSession(table []ProcessInfo, pid int, args func(pids []int) map[int]string) bool {
+	var parentPID int
+	for _, process := range table {
+		if process.PID == pid {
+			parentPID = process.PPID
+		}
+	}
+	for _, process := range table {
+		if process.PID != parentPID {
+			continue
+		}
+		switch process.Command {
+		case claudePTYHost:
+			return true
+		case claudePTYHost[:linuxCommLimit]:
+			return isClaudePTYHostArgs(args([]int{process.PID})[process.PID])
+		}
+	}
+	return false
+}
+
+// isClaudePTYHostArgs reads the parent's command line, such as
+// "claude bg-pty-host --bg-pty-host /tmp/cc-daemon-501/x.pty.sock ...".
+func isClaudePTYHostArgs(args string) bool {
+	fields := strings.Fields(args)
+	return len(fields) >= 2 && filepath.Base(fields[0]) == "claude" && fields[1] == "bg-pty-host"
 }
 
 // placeLive finds the terminal of each session a process runs, with one
 // look at the process table, and remembers its app so that an ended
-// session resumes in a new tab there. A Codex thread the app-server daemon
+// session resumes in a new tab there, as does claude attach for a
+// Claude Code background session. A Codex thread the app-server daemon
 // holds shows in a terminal client, which is looked for.
 func (s *Scanner) placeLive(results []sourceResult) {
 	var live []*Conversation
@@ -377,7 +422,7 @@ func (s *Scanner) placeLive(results []sourceResult) {
 			seen := map[string]terminalHost{}
 			clients := newCodexClients(table, threads, s.Processes)
 			for _, c := range live {
-				if place(c, clients, table) {
+				if place(c, clients, table, s.Processes.Args) {
 					seen[markKey(c.Tool, c.ID)] = c.placed.host
 				}
 			}
@@ -389,12 +434,20 @@ func (s *Scanner) placeLive(results []sourceResult) {
 	for r := range results {
 		for i := range results[r].conversations {
 			c := &results[r].conversations[i]
-			if c.Open.Kind != RouteTerminal || c.App != AppCLI {
+			endedInTerminal := c.Open.Kind == RouteTerminal && c.App == AppCLI
+			claudeBackground := c.placed != nil && c.placed.claudeBackground
+			if !endedInTerminal && !claudeBackground {
 				continue
 			}
-			if tab, ok := tabs.Tabs[markKey(c.Tool, c.ID)]; ok && isTabApp(tab.Host.App) {
-				host := tab.Host
-				c.lastTab = &host
+			tab, ok := tabs.Tabs[markKey(c.Tool, c.ID)]
+			if !ok || !isTabApp(tab.Host.App) {
+				continue
+			}
+			host := tab.Host
+			c.lastTab = &host
+			// A background session's click may switch to a tab of
+			// another app that already shows it, so its label stays.
+			if endedInTerminal {
 				c.Open.Label = "Open in " + host.App
 			}
 		}
@@ -408,7 +461,7 @@ func isTabApp(app string) bool {
 
 // place sets where c shows. ok is true when it shows in a tab of an app
 // in tabApps, which is worth remembering.
-func place(c *Conversation, clients *codexClients, table []ProcessInfo) (ok bool) {
+func place(c *Conversation, clients *codexClients, table []ProcessInfo, args func(pids []int) map[int]string) (ok bool) {
 	process := *c.process
 	host, _ := hostOf(table, process.PID)
 	if host.TTY == "" && c.Tool == ToolCodex {
@@ -426,6 +479,9 @@ func place(c *Conversation, clients *codexClients, table []ProcessInfo) (ok bool
 		return false
 	}
 	c.placed = &placement{process: process, host: host}
+	if c.Tool == ToolClaude && host.App == "" && claudeBackgroundSession(table, process.PID, args) {
+		c.placed.claudeBackground = true
+	}
 	if !isTabApp(host.App) {
 		return false
 	}

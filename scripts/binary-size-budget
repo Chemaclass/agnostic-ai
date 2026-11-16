@@ -951,10 +951,13 @@
 # #3462 measured 26157216 bytes (make size-check): Kiro JSON and nested agent import; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3470 measured 26169504 bytes (make size-check): one reconcile helper now serves `effort` and `model` when an agent map is re-imported; the budget is that plus 8192, rounded up to a multiple of 4096.
 # The 2026-11-15 audit fixes measured 26194080 bytes (make size-check): Factory and Crush hook replies as their vendors read them, Factory onFailure and preserveRiskLevel, OpenCode MCP x-opencode import, and Grok templates; the budget is that plus 8192, rounded up to a multiple of 4096.
+# Opening a claude --bg session with claude attach measured 26218656 bytes locally (make size-check, darwin): claude agents --json lookup and attached-tab search; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3511 measured 26284192 bytes on CI (linux/amd64): the read-only Chromium IndexedDB reader and the Claude app and ChatGPT desktop chat lists; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3511 review fixes measured 26304672 bytes (make size-check): committed LevelDB file selection and bounded cache JSON expansion; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3511 with merged background-session support measured 26325152 bytes (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 measured 26321056 bytes on CI (linux/amd64): rename in each tool; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 measured 26337440 bytes locally (make size-check) once a failed rename says why and Claude Code cloud sessions take the name; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 measured 26357920 bytes locally (make size-check) once the review fixes check each tool's answer, lock a rename and stop the Codex app-server's programs; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 with desktop cache safeguards measured 26382496 bytes (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
-26394624
+# #3512 with merged background-session support measured 26402976 bytes (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
+26415104
