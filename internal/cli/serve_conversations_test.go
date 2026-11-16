@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -660,6 +661,62 @@ func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
 	var view conversations.View
 	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil || ids(view) != inProject {
 		t.Errorf("the dashboard's search = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestConversationsHandler_RefusesASecondRenameOfAConversationWhileTheFirstRuns(t *testing.T) {
+	companion, _, _ := conversationsFixture(t, true)
+	companion.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	shared := companion.scanner
+	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
+		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,
+	}, worktrees: companion.worktrees, logOut: io.Discard}
+	var inTool []string
+	var toolMu sync.Mutex
+	takeName := func(title string) {
+		toolMu.Lock()
+		defer toolMu.Unlock()
+		inTool = append(inTool, title)
+	}
+	firstAsked, firstGoesOn := make(chan struct{}), make(chan struct{})
+	companion.renameInTool = func(_ context.Context, _ conversations.Conversation, title string) error {
+		close(firstAsked)
+		<-firstGoesOn
+		takeName(title)
+		return nil
+	}
+	dashboard.renameInTool = func(_ context.Context, _ conversations.Conversation, title string) error {
+		takeName(title)
+		return nil
+	}
+	first := make(chan *httptest.ResponseRecorder)
+	go func() {
+		first <- postEdit(t, companion, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"First"}`, nil)
+	}()
+	<-firstAsked
+
+	second := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Second"}`, nil)
+	other := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inWorktree+`","title":"Other"}`, nil)
+	close(firstGoesOn)
+	firstReply := <-first
+
+	if second.Code != http.StatusConflict || strings.TrimSpace(second.Body.String()) != `{"error":"This conversation is being renamed already. Wait for that to finish, then try again."}` {
+		t.Errorf("the second rename = %d %s", second.Code, second.Body)
+	}
+	if other.Code != http.StatusNoContent {
+		t.Errorf("a rename of another conversation = %d %s", other.Code, other.Body)
+	}
+	if firstReply.Code != http.StatusNoContent {
+		t.Errorf("the first rename = %d %s", firstReply.Code, firstReply.Body)
+	}
+	if want := []string{"Other", "First"}; !slices.Equal(inTool, want) {
+		t.Errorf("the tool took %q, want %q", inTool, want)
+	}
+	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "First" {
+		t.Errorf("the list shows %q, while the tool has First", c.Title)
+	}
+	if third := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Third"}`, nil); third.Code != http.StatusNoContent {
+		t.Errorf("a rename after the first ended = %d %s", third.Code, third.Body)
 	}
 }
 

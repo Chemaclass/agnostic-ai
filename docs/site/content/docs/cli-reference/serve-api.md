@@ -217,6 +217,7 @@ Replies:
 - Returns 204 once the tool and the marks file both have the name.
 - A conversation outside the list returns 404.
 - An empty name, a name longer than 120 characters, a name that may hold a credential, or any other field is a 400.
+- While another rename of the same conversation runs, on this server or another one that shares the marks file, a second one returns 409 and changes nothing.
 - When the tool does not take the name, the reply is `{"error": "..."}` with a sentence for the person that names the tool and what to do. What the tool said goes to the server's standard error only.
   - 501: this kind of conversation cannot be renamed yet.
   - 503: the program the tool needs is not installed, such as `codex` or `sqlite3`.

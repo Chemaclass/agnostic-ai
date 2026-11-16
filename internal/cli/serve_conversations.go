@@ -100,7 +100,7 @@ func newConversationsHandler(root string, global bool) *conversationsHandler {
 		scanner:      scanner,
 		launcher:     conversations.SystemLauncher(),
 		worktrees:    gitWorktrees,
-		renameInTool: conversations.NewRenamer(scanner.Stores).Rename,
+		renameInTool: conversations.NewRenamer(scanner.Stores, scanner.Processes).Rename,
 		logOut:       os.Stderr,
 	}
 }
@@ -274,6 +274,19 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 		return
 	}
+	// The lock spans the tool's write and the marks' write, so a second
+	// rename of the conversation cannot put its name in one and leave
+	// this one's in the other.
+	release, err := h.scanner.LockRename(req.Tool, req.ID)
+	if errors.Is(err, conversations.ErrRenameInProgress) {
+		writeEditJSON(w, http.StatusConflict, editError{Error: "This conversation is being renamed already. Wait for that to finish, then try again."})
+		return
+	}
+	if err != nil {
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+		return
+	}
+	defer release()
 	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
 	if !ok {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})

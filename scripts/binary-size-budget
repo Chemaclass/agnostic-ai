@@ -954,4 +954,5 @@
 # #3511 measured 26284192 bytes on CI (linux/amd64): the read-only Chromium IndexedDB reader and the Claude app and ChatGPT desktop chat lists; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 measured 26321056 bytes on CI (linux/amd64): rename in each tool; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 measured 26337440 bytes locally (make size-check) once a failed rename says why and Claude Code cloud sessions take the name; the budget is that plus 8192, rounded up to a multiple of 4096.
-26349568
+# #3512 measured 26357920 bytes locally (make size-check) once the review fixes check each tool's answer, lock a rename and stop the Codex app-server's programs; the budget is that plus 8192, rounded up to a multiple of 4096.
+26370048

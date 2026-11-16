@@ -59,7 +59,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
   - **Claude Code**: adds the same `custom-title` line Claude Code's own `/rename` writes to the session's transcript. A session that is still running may write its old name back.
   - **Claude Code cloud sessions**: changes the session's title on claude.ai/code, signed in with the login Claude Code keeps in the macOS keychain.
   - **Codex**: asks `codex app-server` to rename the thread (`thread/name/set`), so `codex` must be installed.
-  - **Cursor**: an editor chat's name changes in Cursor's state database, in the chat list and in the chat's own data, and nothing else. Cursor may write the old name back if it has the chat loaded. A cursor-agent chat's name changes in its `store.db`, but only while the chat is not running, since a running chat writes its old name back. Both need the `sqlite3` command.
+  - **Cursor**: an editor chat's name changes in Cursor's state database, in the chat list and in the chat's own data, and nothing else. Cursor may write the old name back if it has the chat loaded. A cursor-agent chat's name changes in its `store.db`, but only when a look at the open files just before the write finds the chat not running, since a running chat writes its old name back. The rename keeps the chat's done and read marks. Both need the `sqlite3` command.
   - **ChatGPT**: asks chatgpt.com to change the chat's title, signed in with the ChatGPT login the Codex command keeps. The ChatGPT app shows it once it syncs.
   - **Claude app chats, Cowork tasks and Codex cloud threads** cannot be renamed yet.
 
