@@ -12,6 +12,8 @@ const APP_LABELS = {
   desktop: 'Desktop app',
   background: 'Background',
   cloud: 'Cloud',
+  chat: 'Chat',
+  cowork: 'Cowork',
 } satisfies Record<ConversationApp, string>
 
 /** Where the chat lives, in words; an app this client does not know shows its raw name. */

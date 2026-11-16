@@ -201,6 +201,20 @@ test('says Cloud for a session that runs in the cloud, and nothing for one on th
   assert.equal(detailsOf(row('a', 'active', { app: 'desktop' }), now), 'Claude Code · 5m')
 })
 
+test('names a Claude chat and a Cowork task after Claude, not Claude Code', () => {
+  const now = Date.parse('2026-11-09T12:05:00Z')
+  assert.equal(detailsOf(row('6dad25fc-d7d3-413d-92de-b34e6d3aed07', 'unread', { app: 'chat' }), now), 'Claude · Chat · 5m')
+  assert.equal(detailsOf(row('local_a', 'active', { app: 'cowork', folder: '/tmp/notes' }), now), 'Claude · Cowork · notes · 5m')
+  assert.equal(detailsOf(row('6abcd7fe-837c-83ed-919e-a699ea6b4809', 'unread', { tool: 'chatgpt', app: 'chat' }), now), 'ChatGPT · Chat · 5m')
+})
+
+test('places chats with the cloud and Cowork tasks on this machine', () => {
+  const view = { needsYou: 2, conversations: [row('chat', 'unread', { app: 'chat' }), row('task', 'unread', { app: 'cowork' }), row('session', 'active', { app: 'cli' })] }
+  assert.deepEqual(viewIn(view, 'cloud').conversations.map((c) => c.id), ['chat'])
+  assert.equal(viewIn(view, 'cloud').needsYou, 1)
+  assert.deepEqual(viewIn(view, 'local').conversations.map((c) => c.id), ['task', 'session'])
+})
+
 test('adds parent folders only when two folders in view share a last name', () => {
   const now = Date.parse('2026-11-09T12:05:00Z')
   const folders = ['/Users/me/a/api', '/Users/me/b/api', '/Users/me/web', '/Users/me/b/api/']

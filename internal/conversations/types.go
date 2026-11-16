@@ -1,5 +1,6 @@
 // Package conversations lists recent chats from the coding tools' own
-// stores (Claude Code, Codex and Cursor), reopens one where it lives:
+// stores (Claude Code, Codex and Cursor) and the Claude app's chats and
+// Cowork tasks, reopens one where it lives:
 // the terminal tab that still runs it, a new terminal that resumes it,
 // or the editor panel or desktop app it came from, and deletes an
 // archived Claude Code session from this machine.
@@ -25,6 +26,8 @@ const (
 	ToolClaude Tool = "claude"
 	ToolCodex  Tool = "codex"
 	ToolCursor Tool = "cursor"
+	// ToolChatGPT is ChatGPT's plain chats, read from the ChatGPT desktop app.
+	ToolChatGPT Tool = "chatgpt"
 )
 
 // App is where a conversation runs inside its tool. Runs a program
@@ -41,6 +44,11 @@ const (
 	// this machine: a Claude Code session at claude.ai/code, or a Codex
 	// cloud thread.
 	AppCloud App = "cloud"
+	// AppChat is a plain chat with an assistant, outside any coding
+	// tool: a claude.ai chat the Claude app keeps, or a ChatGPT chat.
+	AppChat App = "chat"
+	// AppCowork is a Claude Cowork task the Claude app keeps.
+	AppCowork App = "cowork"
 )
 
 // Activity is what a live conversation is doing, when its tool says.
@@ -232,7 +240,8 @@ type OpenReply struct {
 }
 
 var toolLabels = map[Tool]string{
-	ToolClaude: "Claude Code",
-	ToolCodex:  "Codex",
-	ToolCursor: "Cursor",
+	ToolClaude:  "Claude Code",
+	ToolCodex:   "Codex",
+	ToolCursor:  "Cursor",
+	ToolChatGPT: "ChatGPT",
 }

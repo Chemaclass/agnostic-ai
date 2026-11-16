@@ -861,10 +861,10 @@ export interface ContextView {
 // the opening lines, the latest prompt and the agent's latest reply,
 // each withheld when it may hold a credential. Mirrors internal/conversations/types.go.
 
-export type ConversationTool = 'claude' | 'codex' | 'cursor'
+export type ConversationTool = 'claude' | 'codex' | 'cursor' | 'chatgpt'
 
-/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, a background job, or the tool's cloud, such as Claude Code at claude.ai/code or a Codex cloud thread (listed only by a server started with --cloud-sessions). Runs a program started (SDK sessions, Codex exec) are not listed. */
-export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud'
+/** Where the chat lives: a terminal, an editor extension or panel, a desktop app, a background job, the tool's cloud, such as Claude Code at claude.ai/code or a Codex cloud thread (listed only by a server started with --cloud-sessions), a plain chat with an assistant (`chat`), or a Claude Cowork task (`cowork`). Chats and Cowork tasks of the Claude app are read from what the app cached on this machine. Runs a program started (SDK sessions, Codex exec) are not listed. */
+export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud' | 'chat' | 'cowork'
 
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
 export type ConversationActivity = 'working' | 'waiting' | 'idle'

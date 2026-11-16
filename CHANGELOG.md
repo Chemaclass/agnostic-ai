@@ -6,6 +6,14 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### General
+
+#### Chat list
+
+- Your Claude chats and Cowork tasks show beside your coding sessions, read from what the Claude desktop app keeps on this computer, with no network call. A chat the assistant answered counts under Needs you until you see it, and opens in the Claude app.
+- Your ChatGPT chats show too, as the new `chatgpt` tool, read from the ChatGPT desktop app on this computer with no network call. A new reply shows within seconds. They open on chatgpt.com and count under Needs you once answered, like Claude chats. A chat started on the web or your phone shows once the app has synced it.
+- The conversations API gains the `chat` and `cowork` app values; the companion reads them as "Claude · Chat" and "Claude · Cowork", and puts chats under Cloud.
+
 ## v0.95.0 - 2026-11-15
 
 ### Highlights

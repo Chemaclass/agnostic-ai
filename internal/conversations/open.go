@@ -167,7 +167,7 @@ func SystemLauncher() Launcher {
 // Open reopens a conversation along its route. The conversation comes
 // from the server's own scan, never from the request.
 func Open(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
-	if c.App == AppCloud {
+	if c.App == AppCloud || c.Tool == ToolChatGPT {
 		return openCloud(ctx, c, launcher)
 	}
 	switch c.Open.Kind {
@@ -242,8 +242,9 @@ type cloudOpening struct {
 }
 
 var cloudOpenings = map[Tool]cloudOpening{
-	ToolClaude: {opened: "Opened on claude.ai.", failed: "Could not open a browser. This session runs in the cloud: open ", home: claudeCloudLink},
-	ToolCodex:  {opened: "Opened in the Codex app.", failed: "Could not open the Codex app. This thread runs in the cloud: open ", home: "the Codex app"},
+	ToolClaude:  {opened: "Opened on claude.ai.", failed: "Could not open a browser. This session runs in the cloud: open ", home: claudeCloudLink},
+	ToolCodex:   {opened: "Opened in the Codex app.", failed: "Could not open the Codex app. This thread runs in the cloud: open ", home: "the Codex app"},
+	ToolChatGPT: {opened: "Opened on chatgpt.com.", failed: "Could not open a browser. Open ", home: "chatgpt.com"},
 }
 
 // openCloud opens a cloud conversation where its tool shows it: a
@@ -426,8 +427,8 @@ func shortTTYs(ttys []string) []string {
 }
 
 func checkedLink(link string) error {
-	// The one kind of web page the server opens: a cloud session's own.
-	if cloudSessionLinkPattern.MatchString(link) {
+	// The web pages the server opens: a cloud session's or a ChatGPT chat's own.
+	if cloudSessionLinkPattern.MatchString(link) || chatGPTLinkPattern.MatchString(link) {
 		return nil
 	}
 	parsed, err := url.Parse(link)

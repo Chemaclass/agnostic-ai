@@ -1,0 +1,265 @@
+package conversations
+
+import (
+	"encoding/json"
+	"path/filepath"
+	"regexp"
+	"slices"
+
+	"github.com/chemaclass/agnostic-ai/internal/chromeidb"
+)
+
+// This file is the only code that knows how the Claude desktop app
+// caches the person's chats and Cowork tasks. The app is claude.ai in
+// a window: its web page keeps the lists it last fetched in IndexedDB,
+// as a persisted react-query cache. What it reads was measured on the
+// app on 2026-11-12 and can change with any app release. It reads the
+// lists only, never a chat's messages, and sends nothing anywhere.
+
+// The cache is one record in the page's keyval store.
+const (
+	claudeAppOrigin   = "https_claude.ai_0.indexeddb.leveldb"
+	claudeAppDatabase = "keyval-store"
+	claudeAppStore    = "keyval"
+	claudeAppCacheKey = "react-query-cache"
+)
+
+// The cached queries the list is built from.
+const (
+	claudeChatListQuery     = "chat_conversation_list"
+	claudeCoworkLocalQuery  = "cowork-local-sessions"
+	claudeCoworkRemoteQuery = "cowork-remote-sessions"
+	// claudeInfinite marks the chat list the sidebar pages through, as
+	// against a one-page list such as the starred chats.
+	claudeInfinite = "infinite"
+)
+
+// Ids the app's links accept: a chat is a UUID; a Cowork task is a
+// local_ UUID on this machine or a cse_ session in the cloud.
+var (
+	claudeChatIDPattern   = sessionIDPattern
+	claudeCoworkIDPattern = regexp.MustCompile(`^(local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|cse_[A-Za-z0-9]{1,64})$`)
+)
+
+type claudeAppCache struct {
+	ClientState struct {
+		Queries []claudeAppQuery `json:"queries"`
+	} `json:"clientState"`
+}
+
+type claudeAppQuery struct {
+	QueryKey []json.RawMessage `json:"queryKey"`
+	State    struct {
+		Data json.RawMessage `json:"data"`
+	} `json:"state"`
+}
+
+// claudeChatListFilter is the last part of the chat list's query key.
+type claudeChatListFilter struct {
+	Starred  *bool `json:"starred"`
+	Archived *bool `json:"archived"`
+}
+
+type claudeChatListData struct {
+	Pages []struct {
+		Data []claudeChat `json:"data"`
+	} `json:"pages"`
+}
+
+// claudeChat is one row of claude.ai's chat list.
+type claudeChat struct {
+	UUID      string `json:"uuid"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	// LiveStatus is set while the assistant answers, and empty once it
+	// is done. Only empty values were seen; that a set one means an
+	// answer in progress is inferred from its name. last_settled_at
+	// cannot tell: the server touches updated_at a second after it.
+	LiveStatus json.RawMessage `json:"live_status"`
+}
+
+// claudeCowork is one Cowork task, local or in the cloud.
+type claudeCowork struct {
+	SessionID      string  `json:"sessionId"`
+	Title          string  `json:"title"`
+	Cwd            string  `json:"cwd"`
+	CreatedAt      float64 `json:"createdAt"`
+	LastActivityAt float64 `json:"lastActivityAt"`
+	IsRunning      bool    `json:"isRunning"`
+	IsArchived     bool    `json:"isArchived"`
+}
+
+type claudeCoworkLocalData struct {
+	Rows []claudeCowork `json:"rows"`
+}
+
+// claudeAppRows returns the chats and Cowork tasks the Claude app has
+// cached, read again only when its storage files change. An app that
+// was never used, or a cache this version cannot read, gives none.
+func (s *Scanner) claudeAppRows(opts ScanOptions) []Conversation {
+	if s.Stores.ClaudeAppDir == "" {
+		return nil
+	}
+	stamp := fileStamp(s.claudeAppFiles()...)
+	if s.claudeApp.stamp != stamp {
+		s.claudeApp = cached[[]Conversation]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
+	}
+	return within(slices.Clone(s.claudeApp.value), opts.Within)
+}
+
+// claudeAppDB is the LevelDB folder of the app's web storage.
+func (s *Scanner) claudeAppDB() string {
+	return filepath.Join(s.Stores.ClaudeAppDir, "IndexedDB", claudeAppOrigin)
+}
+
+// claudeAppFiles are the files the app's cached lists are read from.
+// A large record lives in the .blob folder, but writing one also
+// writes the LevelDB log, so the LevelDB files tell every change.
+func (s *Scanner) claudeAppFiles() []string {
+	if s.Stores.ClaudeAppDir == "" {
+		return nil
+	}
+	files, _ := filepath.Glob(filepath.Join(s.claudeAppDB(), "*"))
+	return files
+}
+
+func (s *Scanner) readClaudeApp(dir string) []Conversation {
+	folder, err := chromeidb.Open(dir)
+	if err != nil {
+		return nil
+	}
+	value, err := folder.Get(claudeAppDatabase, claudeAppStore, claudeAppCacheKey)
+	if err != nil {
+		return nil
+	}
+	// The decoded value is plain maps and slices; JSON gives it types.
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
+	var cache claudeAppCache
+	if json.Unmarshal(raw, &cache) != nil {
+		return nil
+	}
+	var rows []Conversation
+	seen := map[string]bool{}
+	keep := func(c Conversation) {
+		if seen[c.ID] {
+			return
+		}
+		seen[c.ID] = true
+		rows = append(rows, c)
+	}
+	for _, query := range cache.ClientState.Queries {
+		switch queryName(query) {
+		case claudeChatListQuery:
+			for _, chat := range claudeChatsOf(query) {
+				if c, ok := s.claudeChatRow(chat); ok {
+					keep(c)
+				}
+			}
+		case claudeCoworkLocalQuery:
+			var data claudeCoworkLocalData
+			if json.Unmarshal(query.State.Data, &data) == nil {
+				for _, task := range data.Rows {
+					if c, ok := s.claudeCoworkRow(task); ok {
+						keep(c)
+					}
+				}
+			}
+		case claudeCoworkRemoteQuery:
+			var tasks []claudeCowork
+			if json.Unmarshal(query.State.Data, &tasks) == nil {
+				for _, task := range tasks {
+					if c, ok := s.claudeCoworkRow(task); ok {
+						keep(c)
+					}
+				}
+			}
+		}
+	}
+	return rows
+}
+
+func queryName(query claudeAppQuery) string {
+	if len(query.QueryKey) == 0 {
+		return ""
+	}
+	var name string
+	if json.Unmarshal(query.QueryKey[0], &name) != nil {
+		return ""
+	}
+	return name
+}
+
+// claudeChatsOf returns the chats of the sidebar's list: the paged one
+// that holds every chat not archived, starred or not.
+func claudeChatsOf(query claudeAppQuery) []claudeChat {
+	key := query.QueryKey
+	if len(key) != 4 {
+		return nil
+	}
+	var marker string
+	var filter claudeChatListFilter
+	if json.Unmarshal(key[2], &marker) != nil || marker != claudeInfinite || json.Unmarshal(key[3], &filter) != nil {
+		return nil
+	}
+	if filter.Starred != nil || filter.Archived == nil || *filter.Archived {
+		return nil
+	}
+	var data claudeChatListData
+	if json.Unmarshal(query.State.Data, &data) != nil {
+		return nil
+	}
+	var chats []claudeChat
+	for _, page := range data.Pages {
+		chats = append(chats, page.Data...)
+	}
+	return chats
+}
+
+func (s *Scanner) claudeChatRow(chat claudeChat) (Conversation, bool) {
+	updated := isoTime(chat.UpdatedAt)
+	if !claudeChatIDPattern.MatchString(chat.UUID) || updated == "" {
+		return Conversation{}, false
+	}
+	c := Conversation{
+		Tool: ToolClaude, App: AppChat, ID: chat.UUID,
+		StartedAt: isoTime(chat.CreatedAt), UpdatedAt: updated,
+		Open: Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://claude.ai/chat/" + chat.UUID},
+	}
+	if answering(chat.LiveStatus) {
+		c.Live, c.Activity = true, ActivityWorking
+	}
+	s.fill(&c, texts{title: chat.Name})
+	return c, true
+}
+
+// answering reports whether a chat's live status is set: anything but
+// absent, null or an empty string.
+func answering(status json.RawMessage) bool {
+	switch string(status) {
+	case "", "null", `""`:
+		return false
+	default:
+		return true
+	}
+}
+
+func (s *Scanner) claudeCoworkRow(task claudeCowork) (Conversation, bool) {
+	updated := timeFromMillis(int64(task.LastActivityAt))
+	if task.IsArchived || !claudeCoworkIDPattern.MatchString(task.SessionID) || updated == "" {
+		return Conversation{}, false
+	}
+	c := Conversation{
+		Tool: ToolClaude, App: AppCowork, ID: task.SessionID, Folder: task.Cwd,
+		StartedAt: timeFromMillis(int64(task.CreatedAt)), UpdatedAt: updated,
+		Open: Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://claude.ai/cowork/" + task.SessionID},
+	}
+	if task.IsRunning {
+		c.Live, c.Activity = true, ActivityWorking
+	}
+	s.fill(&c, texts{title: task.Title})
+	return c, true
+}

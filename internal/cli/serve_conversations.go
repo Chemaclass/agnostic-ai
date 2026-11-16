@@ -165,7 +165,7 @@ func (h *conversationsHandler) listTag(r *http.Request) string {
 const maxConversationQuery = 200
 
 func knownConversationTool(tool conversations.Tool) bool {
-	return tool == conversations.ToolClaude || tool == conversations.ToolCodex || tool == conversations.ToolCursor
+	return tool == conversations.ToolClaude || tool == conversations.ToolCodex || tool == conversations.ToolCursor || tool == conversations.ToolChatGPT
 }
 
 func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {

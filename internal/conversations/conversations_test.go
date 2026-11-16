@@ -103,11 +103,12 @@ func testScanner(t *testing.T, sqlite SQLiteQuery, processes Processes) (*Scanne
 	t.Helper()
 	home := t.TempDir()
 	stores := Stores{
-		Home:      home,
-		ClaudeDir: filepath.Join(home, ".claude"),
-		CodexDir:  filepath.Join(home, ".codex"),
-		CursorDB:  filepath.Join(home, "Cursor", "state.vscdb"),
-		CursorDir: filepath.Join(home, ".cursor"),
+		Home:         home,
+		ClaudeDir:    filepath.Join(home, ".claude"),
+		CodexDir:     filepath.Join(home, ".codex"),
+		CursorDB:     filepath.Join(home, "Cursor", "state.vscdb"),
+		CursorDir:    filepath.Join(home, ".cursor"),
+		ClaudeAppDir: filepath.Join(home, "Claude"),
 	}
 	now := func() time.Time { return time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC) }
 	return &Scanner{Stores: stores, SQLite: sqlite, Processes: processes, Now: now}, stores

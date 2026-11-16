@@ -189,6 +189,8 @@ func (s *Scanner) deleteUnsupported(c Conversation) string {
 	switch {
 	case c.App == AppCloud:
 		return "This conversation is stored in the tool's cloud, not on this computer. Delete it there."
+	case c.App == AppChat || c.App == AppCowork:
+		return "This conversation is kept by its app, not in a file here. Delete it in the app."
 	case c.Tool == ToolCodex:
 		return "Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open. Close it, then run this in a terminal: codex delete " + c.ID
 	case c.Tool == ToolCursor && c.store != "":

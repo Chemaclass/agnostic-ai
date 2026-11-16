@@ -25,6 +25,9 @@ type Stores struct {
 	CursorDB string
 	// CursorDir is ~/.cursor, which holds cursor-agent chats and extensions.
 	CursorDir string
+	// ClaudeAppDir is the Claude desktop app's data folder, whose web
+	// storage caches the person's chats and Cowork tasks.
+	ClaudeAppDir string
 }
 
 // DefaultStores finds the stores for the current user and OS.
@@ -39,11 +42,23 @@ func DefaultStores() Stores {
 		codex = filepath.Join(home, ".codex")
 	}
 	return Stores{
-		Home:      home,
-		ClaudeDir: claude,
-		CodexDir:  codex,
-		CursorDB:  filepath.Join(cursorUserDir(home), "globalStorage", "state.vscdb"),
-		CursorDir: filepath.Join(home, ".cursor"),
+		Home:         home,
+		ClaudeDir:    claude,
+		CodexDir:     codex,
+		CursorDB:     filepath.Join(cursorUserDir(home), "globalStorage", "state.vscdb"),
+		CursorDir:    filepath.Join(home, ".cursor"),
+		ClaudeAppDir: claudeAppDir(home),
+	}
+}
+
+func claudeAppDir(home string) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support", "Claude")
+	case "windows":
+		return filepath.Join(os.Getenv("APPDATA"), "Claude")
+	default:
+		return filepath.Join(home, ".config", "Claude")
 	}
 }
 
@@ -84,6 +99,7 @@ type Scanner struct {
 	// gives, since finding them reads folders from the root down.
 	cursorSlugs   map[string][]string
 	cursorPrompts map[string]cached[texts]
+	claudeApp     cached[[]Conversation]
 	shown         shownCache
 	keptSources   map[Tool]keptSource
 	keptClouds    map[Tool]*keptCloud
@@ -234,6 +250,7 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 			s.sharedClouds[markKey(c.Tool, c.ID)] = c.Cloud.ID
 		}
 	}
+	claude.conversations = append(claude.conversations, readAt(s.Now(), sourceResult{conversations: s.claudeAppRows(opts)}).conversations...)
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
 	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
 	codex.conversations = append(codex.conversations, codexCloud...)
@@ -247,6 +264,9 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 		claude,
 		codex,
 		s.kept(ctx, ToolCursor, opts, s.cursorFiles(), func() sourceResult { return s.scanCursor(ctx, opts) }),
+	}
+	if s.hasChatGPTApp() {
+		results = append(results, s.kept(ctx, ToolChatGPT, opts, s.chatGPTFiles(), func() sourceResult { return s.scanChatGPT(ctx, opts) }))
 	}
 	s.placeLive(results)
 	return results, strings.Join(notes, " ")
