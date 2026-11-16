@@ -122,8 +122,14 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		conversations = append(conversations, c)
 		rollouts[thread.ID] = thread.RolloutPath
 	}
-	runPIDs := s.markLiveCodexThreads(conversations, rollouts, execThreads)
-	runs, runRows, linkErr := s.codexRuns(execThreads, runPIDs, editor)
+	runPIDs, holdersErr := s.markLiveCodexThreads(conversations, rollouts, execThreads)
+	// Runs whose locks cannot be read may work or not; none is listed.
+	var runs []codexExecRun
+	var runRows []Conversation
+	var linkErr error
+	if holdersErr == nil {
+		runs, runRows, linkErr = s.codexRuns(execThreads, runPIDs, editor)
+	}
 	workerRollouts, workerRows := s.codexWorkingSubagents(ctx, statePath, conversations, editor)
 	s.rolloutsMu.Lock()
 	s.codexLiveRollouts = append(s.codexLiveRollouts, workerRollouts...)
@@ -191,8 +197,8 @@ const liveWindow = 7 * 24 * time.Hour
 // the terminal that runs it, since a second resume would compete with it.
 // A loaded thread whose rollout says a turn runs is working. The same
 // read asks which `codex exec` runs a process still holds, and returns
-// the pid that holds each.
-func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string, execThreads []codexThread) map[string]int {
+// the pid that holds each, or the error when the holders could not be read.
+func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string, execThreads []codexThread) (map[string]int, error) {
 	var liveRollouts []string
 	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
 	lockOf := map[string]int{}
@@ -250,53 +256,67 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 				c.QuietSince = quiet.UTC().Format(time.RFC3339)
 			}
 		}
-		if c.App == AppCLI {
-			c.process = &liveProcess{PID: pid}
-			c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: c.Open.Command}
-		}
+		focusLive(c, pid)
 	}
 	// A turn that begins or ends writes only to the rollout, so the
 	// rollouts of loaded threads are among the files a Codex read depends on.
 	s.rolloutsMu.Lock()
 	s.codexLiveRollouts = liveRollouts
 	s.rolloutsMu.Unlock()
-	return runPIDs
+	return runPIDs, err
 }
 
-// codexRuns turns `codex exec` threads into runs a row can list, and
-// into the rows that open them, the way a Codex thread opens. A run a
-// process holds works; its parent is the Claude Code session in that
-// process's environment. A run no process holds is finished, and its
-// parent is only what the marks file saved while it ran. When the
-// environments cannot be read, this read links no run.
+// codexRuns turns the `codex exec` threads a process holds into runs
+// listed under the Claude Code session in that process's environment,
+// and into the rows that open them: the process that runs one is
+// focused, never resumed a second time. A run whose process names no
+// session, or one no process holds, which has finished, is not listed.
+// When the environments cannot be read, no run is linked.
 func (s *Scanner) codexRuns(execThreads []codexThread, runPIDs map[string]int, editor editorApp) ([]codexExecRun, []Conversation, error) {
-	parents := map[int]string{}
-	var err error
-	if len(runPIDs) > 0 {
-		pids := slices.Sorted(maps.Values(runPIDs))
-		parents, err = s.Processes.ClaudeParents(slices.Compact(pids))
+	if len(runPIDs) == 0 {
+		return nil, nil, nil
 	}
-	runs := make([]codexExecRun, 0, len(execThreads))
-	rows := make([]Conversation, 0, len(execThreads))
+	pids := slices.Sorted(maps.Values(runPIDs))
+	parents, err := s.Processes.ClaudeParents(slices.Compact(pids))
+	if err != nil {
+		return nil, nil, err
+	}
+	var runs []codexExecRun
+	var rows []Conversation
 	for _, thread := range execThreads {
 		pid, running := runPIDs[thread.ID]
-		run := codexExecRun{helper: helper{
-			Tool: ToolCodex, ID: thread.ID, State: helperFinished,
-			Title:     s.helperTitle(firstNonEmpty(thread.Name, thread.Title), thread.FirstUserMessage),
-			UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
-		}}
-		if running {
-			run.helper.State = helperWorking
+		if !running {
+			continue
 		}
-		if parent, linked := parents[pid]; running && linked {
-			run.startedBy = &Ref{Tool: ToolClaude, ID: parent}
+		parent, linked := parents[pid]
+		if !linked {
+			continue
+		}
+		run := codexExecRun{
+			helper: helper{
+				Tool: ToolCodex, ID: thread.ID, State: helperWorking,
+				Title:     s.helperTitle(firstNonEmpty(thread.Name, thread.Title), thread.FirstUserMessage),
+				UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
+			},
+			startedBy: Ref{Tool: ToolClaude, ID: parent},
 		}
 		runs = append(runs, run)
 		row := Conversation{Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Title: run.helper.Title, UpdatedAt: run.helper.UpdatedAt}
 		codexRoute(&row, thread, editor)
+		focusLive(&row, pid)
 		rows = append(rows, row)
 	}
-	return runs, rows, err
+	return runs, rows, nil
+}
+
+// focusLive makes a terminal thread that process pid holds open by
+// switching to that process, since a second resume would compete with it.
+func focusLive(c *Conversation, pid int) {
+	if c.App != AppCLI {
+		return
+	}
+	c.process = &liveProcess{PID: pid}
+	c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: c.Open.Command}
 }
 
 // codexRollout checks a rollout path from the thread index before it

@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveSmallCompanion, saveStartAtLogin, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, titleOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -238,7 +238,7 @@ function rowOf(conversation, order, folderNames, under) {
     if (reason) {
       meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
     }
-    if (conversation.helpers?.length > 0) {
+    if (workingHelpersOf(conversation).length > 0) {
       meta.append(helpersToggle(conversation, key), ' · ')
     } else if (conversation.workingSubagents > 0) {
       const count = conversation.workingSubagents
@@ -300,15 +300,12 @@ function helpersId(key) {
   return 'helpers-' + key.replace(/[^A-Za-z0-9_-]/g, '-')
 }
 
-/** A subagent's mark: the working gyroscope while it works, the active dot once finished. */
-function helperMark(helper) {
-  const working = helper.state === 'working'
-  const mark = element('span', 'state ' + (working ? 'is-working' : 'is-active'))
+/** A subagent's mark: the working gyroscope, since only working subagents are listed. */
+function helperMark() {
+  const mark = element('span', 'state is-working')
   mark.setAttribute('aria-hidden', 'true')
-  if (working) {
-    mark.style.setProperty('--work-phase', `-${performance.now()}ms`)
-    mark.append(workSystem())
-  }
+  mark.style.setProperty('--work-phase', `-${performance.now()}ms`)
+  mark.append(workSystem())
   return mark
 }
 
@@ -323,7 +320,7 @@ function helperList(conversation, key, now) {
     const text = element('span', 'text')
     text.append(element('span', 'title', helperTitleOf(helper)), element('span', 'meta', helperDetailsOf(helper, now)))
     row.title = helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in'
-    row.append(helperMark(helper), text)
+    row.append(helperMark(), text)
     row.addEventListener('click', () => openRow(helperOpenOf(conversation, helper)))
     box.append(row)
   }
@@ -471,7 +468,7 @@ function draw({ force } = { force: false }) {
     for (const conversation of group.rows) {
       list.append(rowOf(conversation, order, folderNames, group.under.get(keyOf(conversation))))
       order += 1
-      if (conversation.helpers?.length > 0 && state.helpersOpen.has(keyOf(conversation))) {
+      if (workingHelpersOf(conversation).length > 0 && state.helpersOpen.has(keyOf(conversation))) {
         list.append(helperList(conversation, keyOf(conversation), now))
       }
     }
@@ -1128,8 +1125,8 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  // A focused notice, group header, row button or settings menu button takes Enter as its own click.
-  if (event.target.closest('#notice button, .group-head button, .action, #menu')) return
+  // A focused notice, group header, row button, subagent control or settings menu button takes Enter as its own click.
+  if (event.target.closest('#notice button, .group-head button, .action, .helpers-toggle, .helper-row, .helpers-more, #menu')) return
   if (event.key === 'Enter') {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)

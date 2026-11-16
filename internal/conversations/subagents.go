@@ -291,9 +291,6 @@ func (work *claudeWork) count() int {
 	return count
 }
 
-// noClaudeWork is a session no process runs: none of its subagents works.
-var noClaudeWork = &claudeWork{}
-
 func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) (*int, []string) {
 	work, watch := s.claudeWorkOf(file, session)
 	if work == nil {
@@ -411,13 +408,12 @@ func (s *Scanner) claudeAgentMetaOf(path string) claudeAgentMeta {
 	return meta
 }
 
-// claudeHelpers lists a session's native subagents from its subagents
-// folder. A subagent works when work names it working, or names the call
-// that spawned it as waiting for its result; every other one finished.
-// Nil work is unknown, and lists none: a finished subagent cannot be
-// told from one that works.
+// claudeHelpers lists a live session's native subagents that work, from
+// its subagents folder: those work names working, and those whose
+// spawning call work names as waiting for its result. A finished one is
+// not listed. Nil work is unknown, and lists none.
 func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]bool) []helper {
-	if work == nil {
+	if work == nil || work.count() == 0 {
 		return nil
 	}
 	dir := claudeSubagentsDir(file)
@@ -438,12 +434,12 @@ func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]b
 		metaPath := filepath.Join(dir, "agent-"+id+".meta.json")
 		seen[metaPath] = true
 		meta := s.claudeAgentMetaOf(metaPath)
-		state := helperFinished
-		if work.agents[id] || (meta.ToolUseID != "" && work.pending[meta.ToolUseID]) {
-			state = helperWorking
+		working := work.agents[id] || (meta.ToolUseID != "" && work.pending[meta.ToolUseID])
+		if !working {
+			continue
 		}
 		helpers = append(helpers, helper{
-			Tool: ToolClaude, ID: id, Kind: meta.AgentType, State: state,
+			Tool: ToolClaude, ID: id, Kind: meta.AgentType, State: helperWorking,
 			Title:     s.helperTitle(meta.Description, ""),
 			UpdatedAt: stamp(info.ModTime()),
 		})
@@ -500,10 +496,11 @@ func codexWorkerEvent(turn *codexWorkerTurn, line []byte) error {
 }
 
 // codexWorkingSubagents sets, on each Codex row, how many native
-// subagents under it work, and lists its direct subagents as helpers. A
-// subagent works while a process holds its thread and its rollout says a
-// turn runs; one no process holds is finished. It returns the rollouts it
-// read, and the rows that open each subagent the way a Codex thread opens.
+// subagents under it work, and lists its direct subagents that work as
+// helpers. A subagent works while a process holds its thread and its
+// rollout says a turn runs. It returns the rollouts it read, and the
+// rows that open each working subagent the way a Codex thread opens:
+// one in a terminal switches to the process that holds it.
 func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, conversations []Conversation, editor editorApp) ([]string, []Conversation) {
 	workers, err := queryRows[codexWorker](ctx, s.SQLite, statePath, codexWorkersQuery)
 	if err != nil {
@@ -537,7 +534,8 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 	}
 	counts := map[string]int{}
 	unknown := map[string]bool{}
-	working := map[string]bool{}
+	// working maps each subagent that works to the pid that holds it.
+	working := map[string]int{}
 	var watched []string
 	if s.codexWorkers == nil {
 		s.codexWorkers = map[string]*nativeLog[codexWorkerTurn]{}
@@ -546,7 +544,7 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 	if err != nil {
 		return nil, nil // Running workers that cannot be listed must not become a zero count.
 	}
-	for lock := range held {
+	for lock, pid := range held {
 		id := locks[lock]
 		worker := byID[id]
 		path, valid := s.codexRollout(worker.Rollout)
@@ -558,7 +556,9 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 			s.codexWorkers[id] = log
 		}
 		known := valid && readErr == nil && log.value.known
-		working[id] = known && log.value.running
+		if known && log.value.running {
+			working[id] = pid
+		}
 		seen := map[string]bool{id: true}
 		for parent := parents[id]; parent != "" && !seen[parent]; parent = parents[parent] {
 			seen[parent] = true
@@ -570,20 +570,21 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 		}
 	}
 	helpers := map[string][]helper{}
-	rows := make([]Conversation, 0, len(workers))
+	var rows []Conversation
 	for _, worker := range workers {
-		spawn := spawns[worker.ID]
-		state := helperFinished
-		if working[worker.ID] {
-			state = helperWorking
+		pid, isWorking := working[worker.ID]
+		if !isWorking {
+			continue // A finished subagent is not listed.
 		}
+		spawn := spawns[worker.ID]
 		helpers[spawn.ParentID] = append(helpers[spawn.ParentID], helper{
-			Tool: ToolCodex, ID: worker.ID, Kind: spawn.Role, State: state,
+			Tool: ToolCodex, ID: worker.ID, Kind: spawn.Role, State: helperWorking,
 			Title:     s.helperTitle(codexWorkerTitle(worker, spawn), worker.FirstUserMessage),
 			UpdatedAt: timeFromMillis(worker.UpdatedAtMs),
 		})
 		row := Conversation{Tool: ToolCodex, ID: worker.ID, Folder: worker.Cwd, UpdatedAt: timeFromMillis(worker.UpdatedAtMs)}
 		codexRoute(&row, codexThread{ID: worker.ID, Cwd: worker.Cwd, Originator: worker.Originator, Source: worker.Source}, editor)
+		focusLive(&row, pid)
 		rows = append(rows, row)
 	}
 	for i := range conversations {

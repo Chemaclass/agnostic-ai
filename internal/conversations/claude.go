@@ -223,19 +223,17 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
-		// A subagent runs inside its session's process, so none of a
-		// session no process runs is working.
-		work := noClaudeWork
+		// A subagent runs inside its session's process, so only a live
+		// session lists working ones. Work that cannot be read lists none.
 		if isLive {
-			var watched []string
-			work, watched = s.claudeWorkOf(file, session)
+			work, watched := s.claudeWorkOf(file, session)
 			workerFiles = append(workerFiles, watched...)
 			if work != nil {
 				count := work.count()
 				c.WorkingSubagents = &count
 			}
+			c.Helpers = s.claudeHelpers(file, work, seenMetas)
 		}
-		c.Helpers = s.claudeHelpers(file, work, seenMetas)
 		c.bridge = session.bridge
 		entrypoint := meta.entrypoint
 		if isLive && session.entrypoint != "" {

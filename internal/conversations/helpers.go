@@ -6,16 +6,16 @@ import (
 )
 
 // A helper is an agent a conversation started that is no row of its
-// own: a Claude Code or Codex native subagent, or a Codex run a Claude
-// Code session started with `codex exec`. Helpers never become rows.
+// own and still works: a Claude Code or Codex native subagent, or a
+// Codex run a Claude Code session started with `codex exec`. Helpers
+// never become rows, and one that finished is not listed.
 //
 // Which session started a Codex run is read from the run's process, not
 // guessed from its title, folder or time: the codex process holds its
 // thread's writer lock, and inherits CLAUDE_CODE_SESSION_ID and
 // CLAUDE_CODE_CHILD_SESSION=1 from the Claude Code Bash tool that
-// started it. The process is gone once the run ends, so the link is
-// saved in the marks file the first time it is seen. A run never seen
-// running has no link and shows nowhere.
+// started it. Every scan reads that link again; a run whose process is
+// gone has finished, so nothing needs to remember it.
 type helper struct {
 	Tool  Tool   `json:"tool"`
 	ID    string `json:"id"`
@@ -27,13 +27,11 @@ type helper struct {
 	UpdatedAt string      `json:"updatedAt"`
 }
 
-// helperState is whether a helper still runs.
+// helperState is whether a helper still runs. Only working helpers are
+// listed, so it is always helperWorking; the API names it all the same.
 type helperState string
 
-const (
-	helperWorking  helperState = "working"
-	helperFinished helperState = "finished"
-)
+const helperWorking helperState = "working"
 
 // helperTitle is a helper's title, read like a row's: its own title, or
 // the first line of its first prompt. Empty when it may hold a credential.
@@ -41,25 +39,22 @@ func (s *Scanner) helperTitle(title, firstPrompt string) string {
 	return s.shown.get(texts{title: title, firstPrompt: firstPrompt}).title
 }
 
-// codexExecRun is a `codex exec` thread: never a row, and listed only under
-// the Claude Code session that started it.
+// codexExecRun is a running `codex exec` thread: never a row, and listed
+// only under the Claude Code session that started it.
 type codexExecRun struct {
 	helper helper
-	// startedBy is the session this read saw running it; nil when no
-	// process ran it at this read.
-	startedBy *Ref
+	// startedBy is the session the run's process environment names.
+	startedBy Ref
 }
 
 // attachRuns lists each Codex run under the row of the session that
-// started it, as parents names them. A row's own helpers are shared
-// with kept results, so they are copied before the runs join them.
-func attachRuns(results []sourceResult, parents map[string]Ref) {
+// started it. A row's own helpers are shared with kept results, so they
+// are copied before the runs join them.
+func attachRuns(results []sourceResult) {
 	byParent := map[Ref][]helper{}
 	for _, result := range results {
 		for _, run := range result.runs {
-			if parent, linked := parents[run.helper.ID]; linked {
-				byParent[parent] = append(byParent[parent], run.helper)
-			}
+			byParent[run.startedBy] = append(byParent[run.startedBy], run.helper)
 		}
 	}
 	if len(byParent) == 0 {
@@ -76,18 +71,20 @@ func attachRuns(results []sourceResult, parents map[string]Ref) {
 	}
 }
 
-// observedRunParents are the links between a Codex run and the session
-// that started it that this read saw in running processes.
-func observedRunParents(results []sourceResult) map[string]Ref {
-	parents := map[string]Ref{}
+// listsHelper reports whether a row in results lists the helper. Only
+// such a helper may be opened: results hold only the rows of the
+// requested scope, so a run or subagent of a chat outside it is not.
+func listsHelper(results []sourceResult, tool Tool, id string) bool {
 	for _, result := range results {
-		for _, run := range result.runs {
-			if run.startedBy != nil {
-				parents[run.helper.ID] = *run.startedBy
+		for _, c := range result.conversations {
+			for _, h := range c.Helpers {
+				if h.Tool == tool && h.ID == id {
+					return true
+				}
 			}
 		}
 	}
-	return parents
+	return false
 }
 
 // sortedHelpers orders helpers newest first, then by tool and id, so a

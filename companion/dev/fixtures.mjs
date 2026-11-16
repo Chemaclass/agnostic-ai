@@ -163,26 +163,28 @@ export const FIXTURES = {
     ],
   },
   helpers: {
-    label: 'Subagents under their chat: Claude Code and Codex, working and finished',
+    label: 'Working subagents under their chat, Claude Code and Codex; a chat whose subagents all finished shows none',
     conversations: (now) => {
-      const helper = (tool, id, title, state, minutesAgo, kind) => ({ tool, id, title, ...(kind ? { kind } : {}), state, updatedAt: new Date(now - minutesAgo * MINUTE).toISOString() })
+      const helper = (tool, id, title, minutesAgo, kind, state = 'working') => ({ tool, id, title, ...(kind ? { kind } : {}), state, updatedAt: new Date(now - minutesAgo * MINUTE).toISOString() })
       return [
         {
           ...conversation(now, 'claude', 'helpers-1', 'Rename chats', 'working', { minutesAgo: 0, reply: 'All four Codex reviews are running.' }),
-          workingSubagents: 2,
+          workingSubagents: 4,
           helpers: [
-            helper('codex', 'run-3511', 'Review #3511: local app chats', 'working', 2),
-            helper('claude', 'agent-explore', 'Find rename call sites', 'working', 1, 'Explore'),
-            helper('claude', 'agent-size', 'Size budget check', 'working', 1, 'general-purpose'),
-            helper('codex', 'run-3512', 'Review #3512: rename in each app', 'finished', 4),
-            helper('claude', 'agent-plan', 'Helper rows design', 'finished', 6, 'Plan'),
-            helper('codex', 'run-3513', 'Review #3513: working orbits', 'finished', 9),
-            helper('claude', 'agent-old', '', 'finished', 30, 'general-purpose'),
+            helper('codex', 'run-3511', 'Review #3511: local app chats', 2),
+            helper('claude', 'agent-explore', 'Find rename call sites', 1, 'Explore'),
+            helper('claude', 'agent-size', 'Size budget check', 1, 'general-purpose'),
+            helper('codex', 'run-3512', 'Review #3512: rename in each app', 4),
+            helper('claude', 'agent-plan', 'Helper rows design', 6, 'Plan'),
+            helper('codex', 'run-3513', 'Review #3513: working orbits', 9),
+            helper('claude', 'agent-old', '', 30, 'general-purpose'),
           ],
         },
         {
+          // The server sends only working subagents; a finished one that still came is not shown.
           ...conversation(now, 'codex', 'helpers-2', 'Plan the migration', 'active', { minutesAgo: 20 }),
-          helpers: [helper('codex', 'sub-1', 'Aquinas', 'finished', 25, 'explorer')],
+          workingSubagents: 0,
+          helpers: [helper('codex', 'sub-1', 'Aquinas', 25, 'explorer', 'finished')],
         },
       ]
     },

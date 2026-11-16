@@ -164,8 +164,7 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.shown.start()
 	defer s.shown.finish()
 	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, runParents, marksErr := s.applyMarks(results, observedRunParents(results))
-	attachRuns(results, runParents)
+	needsYou, marksErr := s.applyMarks(results)
 	var all []Conversation
 	for _, result := range results {
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
@@ -225,8 +224,8 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 
 // find is Find that, with opening, also gives the rows only an open
 // names: the cloud row a shared row took in, which opens its page, and
-// the threads a row's helpers open. The mark and rename requests,
-// which use Find, never reach those.
+// the threads of the helpers a row in scope lists. The mark and rename
+// requests, which use Find, never reach those.
 func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, opening bool) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -240,9 +239,11 @@ func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptio
 				return *c.Cloud.row, true
 			}
 		}
-		if !opening {
-			continue
-		}
+	}
+	if !opening || !listsHelper(results, tool, id) {
+		return Conversation{}, false
+	}
+	for _, result := range results {
 		for _, c := range result.unlisted {
 			if c.Tool == tool && c.ID == id {
 				return c, true
@@ -287,6 +288,7 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	if s.hasChatGPTApp() {
 		results = append(results, s.kept(ctx, ToolChatGPT, opts, s.chatGPTFiles(), func() sourceResult { return s.scanChatGPT(ctx, opts) }))
 	}
+	attachRuns(results)
 	s.placeLive(results)
 	return results, strings.Join(notes, " ")
 }
@@ -363,10 +365,10 @@ func lastWritten(c Conversation) time.Time {
 type sourceResult struct {
 	source        Source
 	conversations []Conversation
-	// runs are the Codex exec runs, listed under the session that started them.
+	// runs are the running Codex exec runs, listed under the session that started them.
 	runs []codexExecRun
 	// unlisted are threads that are no row but open from a row's helpers:
-	// Codex exec runs and Codex native subagents.
+	// running Codex exec runs and working Codex native subagents.
 	unlisted []Conversation
 }
 

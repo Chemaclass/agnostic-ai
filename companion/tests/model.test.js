@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, PLACES, ago, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startsRename, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '../frontend/model.js'
+import { HELPERS_SHOWN, PLACES, ago, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startsRename, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -397,42 +397,47 @@ test('offers Open on claude.ai only on a shared row, and names its cloud session
 
 const helper = (id, state, minutesAgo, extra = {}) => ({ tool: 'claude', id, title: id, state, updatedAt: new Date(Date.parse('2026-11-09T12:00:00Z') - minutesAgo * 60000).toISOString(), ...extra })
 
-test('the subagent toggle counts every subagent, in plain words, and says whether it is unfolded', () => {
+test('the subagent toggle counts working subagents only, in plain words, and says whether it is unfolded', () => {
   assert.equal(helpersToggleOf(row('a', 'working', { helpers: [helper('h', 'working', 1)] }), false), '▸ 1 subagent')
-  const three = row('a', 'working', { helpers: [helper('h1', 'working', 1), helper('h2', 'finished', 2), helper('h3', 'finished', 3)] })
-  assert.equal(helpersToggleOf(three, false), '▸ 3 subagents')
-  assert.equal(helpersToggleOf(three, true), '▾ 3 subagents')
+  const mixed = row('a', 'working', { helpers: [helper('h1', 'working', 1), helper('h2', 'working', 2), helper('h3', 'finished', 3)] })
+  assert.equal(helpersToggleOf(mixed, false), '▸ 2 subagents')
+  assert.equal(helpersToggleOf(mixed, true), '▾ 2 subagents')
 })
 
-test('shows working subagents first, then finished ones, each newest first, five at most until all are asked for', () => {
+test('a finished subagent leaves the list; a chat whose subagents all finished lists none', () => {
+  const done = row('a', 'working', { helpers: [helper('h1', 'finished', 1), helper('h2', 'finished', 2)] })
+  assert.deepEqual(workingHelpersOf(done), [])
+  assert.deepEqual(helperRowsOf(done, true), { rows: [], more: 0 })
+  assert.deepEqual(workingHelpersOf(row('b', 'working')), [], 'a chat without the field lists none')
+})
+
+test('shows working subagents newest first, five at most until all are asked for', () => {
   const helpers = [
     helper('done-new', 'finished', 1),
     helper('work-old', 'working', 9),
-    helper('done-old', 'finished', 20),
+    helper('work-older', 'working', 20),
     helper('work-new', 'working', 2),
-    helper('done-mid', 'finished', 5),
-    helper('done-older', 'finished', 30),
-    helper('done-oldest', 'finished', 40),
+    helper('work-mid', 'working', 5),
+    helper('work-oldest', 'working', 40),
+    helper('work-ancient', 'working', 50),
   ]
   const conversation = row('a', 'working', { helpers })
   const folded = helperRowsOf(conversation, false)
   assert.equal(HELPERS_SHOWN, 5)
-  assert.deepEqual(folded.rows.map((h) => h.id), ['work-new', 'work-old', 'done-new', 'done-mid', 'done-old'])
-  assert.equal(folded.more, 2)
+  assert.deepEqual(folded.rows.map((h) => h.id), ['work-new', 'work-mid', 'work-old', 'work-older', 'work-oldest'])
+  assert.equal(folded.more, 1)
   const all = helperRowsOf(conversation, true)
-  assert.deepEqual(all.rows.map((h) => h.id), ['work-new', 'work-old', 'done-new', 'done-mid', 'done-old', 'done-older', 'done-oldest'])
+  assert.deepEqual(all.rows.map((h) => h.id), ['work-new', 'work-mid', 'work-old', 'work-older', 'work-oldest', 'work-ancient'])
   assert.equal(all.more, 0)
-  assert.equal(helperRowsOf(row('b', 'working', { helpers: helpers.slice(0, 5) }), false).more, 0)
   assert.deepEqual(helpers.map((h) => h.id)[0], 'done-new', 'the server order is left as it came')
 })
 
-test('a subagent names its tool, its type when it has a telling one, and its age, or since when it is done', () => {
+test('a subagent names its tool, its type when it has a telling one, and its age', () => {
   const now = Date.parse('2026-11-09T12:00:00Z')
   assert.equal(helperDetailsOf(helper('h', 'working', 2, { tool: 'codex' }), now), 'Codex · 2m')
   assert.equal(helperDetailsOf(helper('h', 'working', 1, { kind: 'Explore' }), now), 'Claude Code · Explore · 1m')
-  assert.equal(helperDetailsOf(helper('h', 'working', 1, { kind: 'general-purpose' }), now), 'Claude Code · 1m')
-  assert.equal(helperDetailsOf(helper('h', 'finished', 4, { tool: 'codex', kind: 'default' }), now), 'Codex · done 4m')
-  assert.equal(helperTitleOf(helper('h', 'finished', 4, { title: '' })), 'Untitled subagent')
+  assert.equal(helperDetailsOf(helper('h', 'working', 1, { kind: 'general-purpose', tool: 'codex' }), now), 'Codex · 1m')
+  assert.equal(helperTitleOf(helper('h', 'working', 4, { title: '' })), 'Untitled subagent')
 })
 
 test('a Codex subagent opens its own thread; a Claude Code subagent opens the chat it runs in', () => {

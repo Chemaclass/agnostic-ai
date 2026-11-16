@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -330,23 +329,26 @@ func (e *environmentError) Error() string {
 
 func (e *environmentError) Unwrap() error { return e.cause }
 
-// environmentReaders reads the environments of pids, one reader for each
-// system that has one, as lists of NAME=value entries.
-var environmentReaders = map[string]func(pids []int) (map[int][]string, error){
-	"darwin": psEnvironments,
-	"linux":  procEnvironments,
-}
+// environmentRead reads the Claude Code entries of the environments of
+// pids, one list of NAME=value entries per process that runs. Each
+// system that can read another process's environment sets
+// environmentReader in its own file; on any other it is nil.
+//
+// A reader keeps only the entries claudeEntries keeps, and only entries
+// whose boundaries it read from the environment itself: never words
+// split out of a command line, whose arguments or values could hold
+// such a name.
+type environmentRead func(pids []int) (map[int][]string, error)
 
 func (SystemProcesses) ClaudeParents(pids []int) (map[int]string, error) {
 	parents := map[int]string{}
-	read, supported := environmentReaders[runtime.GOOS]
-	if !supported {
+	if environmentReader == nil {
 		return parents, &environmentError{reason: environmentUnsupported}
 	}
 	if len(pids) == 0 {
 		return parents, nil
 	}
-	environments, err := read(pids)
+	environments, err := environmentReader(pids)
 	if err != nil {
 		return parents, &environmentError{reason: environmentUnreadable, cause: err}
 	}
@@ -358,72 +360,36 @@ func (SystemProcesses) ClaudeParents(pids []int) (map[int]string, error) {
 	return parents, nil
 }
 
+// claudeEntries keeps the entries of an environment that name the
+// Claude Code session, and drops every other, credentials among them.
+func claudeEntries(entries []string) []string {
+	var kept []string
+	for _, entry := range entries {
+		name, _, _ := strings.Cut(entry, "=")
+		if name == claudeSessionVar || name == claudeChildVar {
+			kept = append(kept, entry)
+		}
+	}
+	return kept
+}
+
 // claudeParentIn finds the session id in a process's NAME=value entries:
 // set only when CLAUDE_CODE_CHILD_SESSION is 1 and the id is a session
-// id. The last entry of a name wins, as the environment follows the
-// arguments in ps output.
+// id. A name set twice is ambiguous and links nothing.
 func claudeParentIn(entries []string) (string, bool) {
-	session, child := "", false
+	values := map[string][]string{}
 	for _, entry := range entries {
 		name, value, found := strings.Cut(entry, "=")
-		if !found {
-			continue
-		}
-		switch name {
-		case claudeSessionVar:
-			session = value
-		case claudeChildVar:
-			child = value == "1"
+		if found {
+			values[name] = append(values[name], value)
 		}
 	}
-	if !child || !sessionIDPattern.MatchString(session) {
+	sessions, children := values[claudeSessionVar], values[claudeChildVar]
+	if len(sessions) != 1 || len(children) != 1 {
 		return "", false
 	}
-	return session, true
-}
-
-// psEnvironments asks macOS ps once for every pid: a pid, the command
-// line and then the environment, all on one line split by spaces. A
-// value with spaces splits into several entries, which only the two
-// names above are looked up in.
-func psEnvironments(pids []int) (map[int][]string, error) {
-	out, err := ps("-E", "-ww", "-o", "pid=,command=", "-p", pidList(pids))
-	if !answered(err) {
-		return nil, err
+	if children[0] != "1" || !sessionIDPattern.MatchString(sessions[0]) {
+		return "", false
 	}
-	return parsePSEnvironments(out), nil
-}
-
-// parsePSEnvironments reads `ps -E -o pid=,command=` output.
-func parsePSEnvironments(out string) map[int][]string {
-	environments := map[int][]string{}
-	for _, line := range strings.Split(out, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		pid, err := strconv.Atoi(fields[0])
-		if err != nil {
-			continue
-		}
-		environments[pid] = fields[1:]
-	}
-	return environments
-}
-
-// procEnvironments reads /proc/<pid>/environ, whose entries are split
-// by NUL bytes. A pid that no longer runs has none.
-func procEnvironments(pids []int) (map[int][]string, error) {
-	environments := map[int][]string{}
-	for _, pid := range pids {
-		raw, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "environ"))
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		environments[pid] = strings.Split(string(raw), "\x00")
-	}
-	return environments, nil
+	return sessions[0], true
 }

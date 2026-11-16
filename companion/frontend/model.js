@@ -359,25 +359,28 @@ export const HELPERS_SHOWN = 5
 /** Agent types that say nothing beyond "a subagent", so their meta line leaves them out. */
 const PLAIN_KINDS = new Set(['general-purpose', 'default'])
 
-/** The toggle in a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded. */
+/** The subagents a chat shows: only those still working. A finished subagent leaves the list and the count. */
+export function workingHelpersOf(conversation) {
+  return (conversation.helpers ?? []).filter((helper) => helper.state === 'working')
+}
+
+/** The toggle in a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded. It counts working subagents only. */
 export function helpersToggleOf(conversation, open) {
-  const count = conversation.helpers.length
+  const count = workingHelpersOf(conversation).length
   return `${open ? '▾' : '▸'} ${count} subagent${count === 1 ? '' : 's'}`
 }
 
-/** Working subagents first, then finished ones, each newest first. */
-function byWorkThenAge(a, b) {
-  const working = Number(b.state === 'working') - Number(a.state === 'working')
-  if (working !== 0) return working
+/** Newest first. */
+function byAge(a, b) {
   return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
 }
 
 /**
- * The subagents a chat shows unfolded, in order, and how many more a "+N more" button hides:
+ * The working subagents a chat shows unfolded, newest first, and how many more a "+N more" button hides:
  * HELPERS_SHOWN at most, or every one once the person asked for all.
  */
 export function helperRowsOf(conversation, showAll) {
-  const ordered = [...conversation.helpers].sort(byWorkThenAge)
+  const ordered = workingHelpersOf(conversation).sort(byAge)
   if (showAll || ordered.length <= HELPERS_SHOWN) return { rows: ordered, more: 0 }
   return { rows: ordered.slice(0, HELPERS_SHOWN), more: ordered.length - HELPERS_SHOWN }
 }
@@ -387,12 +390,11 @@ export function helperTitleOf(helper) {
   return helper.title === '' ? 'Untitled subagent' : helper.title
 }
 
-/** "Claude Code · Explore · 1m" while it works, "Codex · done 4m" once finished. */
+/** "Claude Code · Explore · 1m": the subagent's tool, its agent type when that says something, and its age. */
 export function helperDetailsOf(helper, now) {
   const parts = [TOOL_LABELS[helper.tool]]
   if (helper.kind && !PLAIN_KINDS.has(helper.kind)) parts.push(helper.kind)
-  const age = ago(helper.updatedAt, now)
-  parts.push(helper.state === 'working' ? age : 'done ' + age)
+  parts.push(ago(helper.updatedAt, now))
   return parts.join(' · ')
 }
 
