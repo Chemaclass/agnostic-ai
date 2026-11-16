@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -304,7 +306,12 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 		}
 		parents[worker.ID] = source.Subagent.Spawn.ParentID
 		byID[worker.ID] = worker
+		// A worker whose lock file is gone has no process holding it, and
+		// lsof fails the whole call on a missing file, so it is not asked.
 		lock := filepath.Join(s.Stores.CodexDir, "thread-writer-locks", worker.ID+".lock")
+		if _, err := os.Stat(lock); errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		locks[lock] = worker.ID
 		paths = append(paths, lock)
 	}
@@ -346,5 +353,8 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 			conversations[i].WorkingSubagents = &count
 		}
 	}
+	// The watched rollouts join the scan's stamp, which hashes them in
+	// order, so they are sorted to keep an unchanged set's stamp stable.
+	slices.Sort(watched)
 	return watched
 }

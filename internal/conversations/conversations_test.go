@@ -31,6 +31,8 @@ type fakeProcesses struct {
 	running map[string]bool
 	// readFails makes every read of running processes fail, as a missing or timed-out ps or lsof does.
 	readFails bool
+	// missingFails makes Holders fail when asked about a file that does not exist, as lsof does.
+	missingFails bool
 }
 
 var errProcessRead = errors.New("process read failed")
@@ -41,6 +43,9 @@ func (f fakeProcesses) Holders(paths []string) (map[string]int, error) {
 		return held, errProcessRead
 	}
 	for _, path := range paths {
+		if _, err := os.Stat(path); f.missingFails && err != nil {
+			return held, errProcessRead
+		}
 		if pid, ok := f.held[path]; ok {
 			held[path] = pid
 		} else if pid, ok := f.held[filepath.Base(path)]; ok {
