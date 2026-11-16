@@ -2,7 +2,9 @@ package conversations
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,6 +145,64 @@ func TestScan_ListsACoworkTaskInsideTheFolderScope(t *testing.T) {
 	rows := appRows(scanner.Scan(context.Background(), ScanOptions{Within: []string{stores.Home}}))
 	if len(rows) != 1 || rows[appTaskID].Folder != filepath.Join(stores.Home, "project") {
 		t.Fatalf("rows = %s", asJSON(t, rows))
+	}
+}
+
+func claudeSourceNote(t *testing.T, view View) string {
+	t.Helper()
+	for _, source := range view.Tools {
+		if source.Tool == ToolClaude {
+			return source.Note
+		}
+	}
+	t.Fatalf("no Claude source in %s", asJSON(t, view.Tools))
+	return ""
+}
+
+func TestScan_SaysWhyTheClaudeAppsChatsCouldNotBeRead(t *testing.T) {
+	noSessions := "No Claude Code sessions in "
+	for name, tc := range map[string]struct {
+		write func(t *testing.T, dir string)
+		note  string
+	}{
+		"a log in a shape the reader does not know": {func(t *testing.T, dir string) {
+			// One log record of an unknown type, 9.
+			write(t, filepath.Join(dir, "000003.log"), "\x00\x00\x00\x00\x01\x00\x09x")
+		}, claudeAppNoteUnreadable},
+		"a store with no chat list": {func(t *testing.T, dir string) {
+			chromeidbtest.WriteRecord(t, dir, "keyval-store", "keyval", "something-else", obj{})
+		}, claudeAppNoteMissing},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+			dir := filepath.Join(stores.ClaudeAppDir, "IndexedDB", "https_claude.ai_0.indexeddb.leveldb")
+			tc.write(t, dir)
+
+			view := scanner.Scan(context.Background(), ScanOptions{})
+
+			if rows := appRows(view); len(rows) != 0 {
+				t.Fatalf("rows = %s", asJSON(t, rows))
+			}
+			note := claudeSourceNote(t, view)
+			if !strings.HasPrefix(note, noSessions) || !strings.HasSuffix(note, " "+tc.note) {
+				t.Fatalf("note = %q", note)
+			}
+
+			// The app writes its cache again, and the next scan reads it.
+			if err := os.RemoveAll(dir); err != nil {
+				t.Fatal(err)
+			}
+			writeClaudeApp(t, stores, chatListQuery(obj{"limit": 30, "starred": nil, "archived": false}, chat(appChatID, "Vague request", "2026-11-07T11:00:00.000Z", nil)))
+
+			view = scanner.Scan(context.Background(), ScanOptions{})
+
+			if rows := appRows(view); len(rows) != 1 {
+				t.Fatalf("rows = %s", asJSON(t, rows))
+			}
+			if note := claudeSourceNote(t, view); strings.Contains(note, "Claude app") {
+				t.Fatalf("note = %q", note)
+			}
+		})
 	}
 }
 

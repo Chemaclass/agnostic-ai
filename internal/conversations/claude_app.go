@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -94,18 +95,34 @@ type claudeCoworkLocalData struct {
 	Rows []claudeCowork `json:"rows"`
 }
 
+// What the Claude source's note says when the app's lists could not be
+// read. The reader's own error text stays out of it.
+const (
+	claudeAppNoteMissing    = "Could not find the chat list in the Claude app's storage."
+	claudeAppNoteUnreadable = "Could not read the chat list in the Claude app's storage."
+)
+
+// claudeAppRead is one read of the app's cached lists: the rows, or the
+// note that says why there are none.
+type claudeAppRead struct {
+	rows []Conversation
+	note string
+}
+
 // claudeAppRows returns the chats and Cowork tasks the Claude app has
-// cached, read again only when its storage files change. An app that
-// was never used, or a cache this version cannot read, gives none.
-func (s *Scanner) claudeAppRows(opts ScanOptions) []Conversation {
+// cached, and a note when they could not be read. A read, failed or
+// not, is kept until the app's storage files change, so the next write
+// reads them again. An app that was never used gives no rows and no
+// note.
+func (s *Scanner) claudeAppRows(opts ScanOptions) ([]Conversation, string) {
 	if s.Stores.ClaudeAppDir == "" {
-		return nil
+		return nil, ""
 	}
 	stamp := fileStamp(s.claudeAppFiles()...)
 	if s.claudeApp.stamp != stamp {
-		s.claudeApp = cached[[]Conversation]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
+		s.claudeApp = cached[claudeAppRead]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
 	}
-	return within(slices.Clone(s.claudeApp.value), opts.Within)
+	return within(slices.Clone(s.claudeApp.value.rows), opts.Within), s.claudeApp.value.note
 }
 
 // claudeAppDB is the LevelDB folder of the app's web storage.
@@ -124,23 +141,33 @@ func (s *Scanner) claudeAppFiles() []string {
 	return files
 }
 
-func (s *Scanner) readClaudeApp(dir string) []Conversation {
+// claudeAppNotes is what the note says for each reason a read failed.
+var claudeAppNotes = map[chromeidb.Reason]string{
+	chromeidb.ReasonMissing:    claudeAppNoteMissing,
+	chromeidb.ReasonUnreadable: claudeAppNoteUnreadable,
+}
+
+func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 	folder, err := chromeidb.Open(dir)
+	if claudeAppReason(err) == chromeidb.ReasonMissing {
+		// No storage folder: the app was never used, which is no failure.
+		return claudeAppRead{}
+	}
 	if err != nil {
-		return nil
+		return claudeAppRead{note: claudeAppNotes[claudeAppReason(err)]}
 	}
 	value, err := folder.Get(claudeAppDatabase, claudeAppStore, claudeAppCacheKey)
 	if err != nil {
-		return nil
+		return claudeAppRead{note: claudeAppNotes[claudeAppReason(err)]}
 	}
 	// The decoded value is plain maps and slices; JSON gives it types.
 	raw, err := json.Marshal(value)
 	if err != nil {
-		return nil
+		return claudeAppRead{note: claudeAppNoteUnreadable}
 	}
 	var cache claudeAppCache
 	if json.Unmarshal(raw, &cache) != nil {
-		return nil
+		return claudeAppRead{note: claudeAppNoteUnreadable}
 	}
 	var rows []Conversation
 	seen := map[string]bool{}
@@ -179,7 +206,17 @@ func (s *Scanner) readClaudeApp(dir string) []Conversation {
 			}
 		}
 	}
-	return rows
+	return claudeAppRead{rows: rows}
+}
+
+// claudeAppReason is why the reader failed with err, or no reason for
+// no error. The reader returns only its own error type.
+func claudeAppReason(err error) chromeidb.Reason {
+	var readErr *chromeidb.Error
+	if !errors.As(err, &readErr) {
+		return ""
+	}
+	return readErr.Reason
 }
 
 func queryName(query claudeAppQuery) string {

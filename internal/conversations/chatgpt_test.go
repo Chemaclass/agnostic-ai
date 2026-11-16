@@ -129,6 +129,39 @@ func TestScan_SaysWhyTheChatGPTAppCouldNotBeRead(t *testing.T) {
 	}
 }
 
+func TestScan_ReadsTheChatGPTAppAgainAfterAFailedRead(t *testing.T) {
+	good := chatGPTCatalog(t, `[
+		{"thread_id":"`+chatGPTDone+`","display_title":"Lunch","source_created_at":1762505759,"source_updated_at":1762509394,"chatgpt_async_status":null,"running":0}
+	]`)
+	failing := true
+	sqlite := func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if failing {
+			return nil, errors.New("sqlite3 codex.db: database is locked")
+		}
+		return good(ctx, path, query)
+	}
+	scanner, stores := testScanner(t, sqlite, fakeProcesses{})
+	writeChatGPTApp(t, stores)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	source, _ := chatGPTSource(t, view)
+	if source.Note != "Could not read the ChatGPT app's chat list codex.db" || len(chatGPTRows(view)) != 0 {
+		t.Fatalf("source = %s, rows = %s", asJSON(t, source), asJSON(t, chatGPTRows(view)))
+	}
+
+	// The app writes its database again, and the next scan reads it.
+	failing = false
+	write(t, filepath.Join(stores.CodexDir, "sqlite", "codex.db-wal"), "new pages")
+
+	view = scanner.Scan(context.Background(), ScanOptions{})
+
+	source, _ = chatGPTSource(t, view)
+	if source.Note != "" || len(chatGPTRows(view)) != 1 {
+		t.Fatalf("source = %s, rows = %s", asJSON(t, source), asJSON(t, chatGPTRows(view)))
+	}
+}
+
 func TestScan_ListsNoChatGPTChatsInAFolder(t *testing.T) {
 	scanner, stores := testScanner(t, chatGPTCatalog(t, `[
 		{"thread_id":"`+chatGPTDone+`","display_title":"Lunch","source_created_at":1762505759,"source_updated_at":1762509394,"chatgpt_async_status":null,"running":0}
