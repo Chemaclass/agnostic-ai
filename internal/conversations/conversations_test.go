@@ -35,6 +35,8 @@ type fakeProcesses struct {
 	parents map[int]string
 	// environmentFails makes reading environments fail, as ps -E on an unsupported system does.
 	environmentFails bool
+	// missingFails makes Holders fail when asked about a file that does not exist, as lsof does.
+	missingFails bool
 }
 
 func (f fakeProcesses) ClaudeParents(pids []int) (map[int]string, error) {
@@ -58,6 +60,9 @@ func (f fakeProcesses) Holders(paths []string) (map[string]int, error) {
 		return held, errProcessRead
 	}
 	for _, path := range paths {
+		if _, err := os.Stat(path); f.missingFails && err != nil {
+			return held, errProcessRead
+		}
 		if pid, ok := f.held[path]; ok {
 			held[path] = pid
 		} else if pid, ok := f.held[filepath.Base(path)]; ok {

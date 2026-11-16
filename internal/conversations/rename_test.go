@@ -13,8 +13,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // renameError says what a rename error is, for comparing with a want.
@@ -190,6 +193,14 @@ func TestRename_ClaudeCloudSessionSaysWhyTheTitleDidNotChange(t *testing.T) {
 			"cse_01Rename",
 			`Claude Code did not take the name (refused): HTTP 404: {"error":{"type":"not_found_error"}}`,
 		},
+		"a refusal that echoes the token": {
+			claudeCloudRenameAPI(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = io.WriteString(w, `{"error":{"message":"bad token `+strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")+`"}}`)
+			}),
+			"cse_01Rename",
+			`no sign-in that may rename Claude Code chats was found, or it expired (signed-out): HTTP 401: {"error":{"message":"bad token <redacted>"}}`,
+		},
 		"an answer without the new title": {
 			claudeCloudRenameAPI(t, answer(http.StatusOK, `{"session":{"title":"Old name"}}`)),
 			"cse_01Rename",
@@ -250,9 +261,24 @@ func TestFakeCodexAppServer(t *testing.T) {
 		switch {
 		case req.Method == "initialize" && mode == "exit":
 			os.Exit(1)
+		case req.Method == "initialize" && mode == "hang":
+			// A program it started keeps the output open, and no answer comes.
+			child := exec.Command("sleep", "30")
+			child.Stdout = os.Stdout
+			if err := child.Start(); err != nil {
+				os.Exit(4)
+			}
+			_ = os.WriteFile(os.Getenv("FAKE_CODEX_LOG")+".child", []byte(strconv.Itoa(child.Process.Pid)), 0o600)
+			select {}
+		case req.Method == "initialize" && mode == "init-without-result":
+			fmt.Printf(`{"id":%d}`+"\n", req.ID)
 		case req.Method == "initialize":
 			fmt.Println(`{"method":"remoteControl/status/changed","params":{"status":"disabled"}}`)
 			fmt.Printf(`{"id":%d,"result":{"userAgent":"fake"}}`+"\n", req.ID)
+		case req.Method == "thread/name/set" && mode == "rename-without-result":
+			fmt.Printf(`{"id":%d}`+"\n", req.ID)
+		case req.Method == "thread/name/set" && mode == "rename-with-null-result":
+			fmt.Printf(`{"id":%d,"result":null}`+"\n", req.ID)
 		case req.Method == "thread/name/set" && mode == "refuse":
 			fmt.Printf(`{"error":{"code":-32600,"message":"no rollout found for thread id x"},"id":%d}`+"\n", req.ID)
 		case req.Method == "thread/name/set":
@@ -309,6 +335,18 @@ func TestRename_CodexSaysWhyTheAppServerDidNotTakeTheName(t *testing.T) {
 			func() codexThreadNamer { s, _ := fakeCodexAppServer(t, "exit"); return s }(),
 			"Codex did not answer in time (unreachable): the app-server ended before it answered",
 		},
+		"an initialize reply without a result": {
+			func() codexThreadNamer { s, _ := fakeCodexAppServer(t, "init-without-result"); return s }(),
+			`Codex keeps the conversation in a way this version does not know (unexpected): the app-server's reply to initialize holds no result: {"id":1}`,
+		},
+		"a rename reply without a result": {
+			func() codexThreadNamer { s, _ := fakeCodexAppServer(t, "rename-without-result"); return s }(),
+			`Codex keeps the conversation in a way this version does not know (unexpected): the app-server's reply to thread/name/set holds no result: {"id":2}`,
+		},
+		"a rename reply with a null result": {
+			func() codexThreadNamer { s, _ := fakeCodexAppServer(t, "rename-with-null-result"); return s }(),
+			`Codex keeps the conversation in a way this version does not know (unexpected): the app-server's reply to thread/name/set holds no result: {"id":2,"result":null}`,
+		},
 		"no codex command": {
 			&codexAppServer{command: func(context.Context) (*exec.Cmd, error) { return nil, exec.ErrNotFound }},
 			"the program that writes names into Codex is not installed (no-program): executable file not found in $PATH",
@@ -320,6 +358,41 @@ func TestRename_CodexSaysWhyTheAppServerDidNotTakeTheName(t *testing.T) {
 				t.Errorf("got  %s\nwant %s", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestRename_CodexStopsAtTheDeadlineWhenAProgramItStartedKeepsTheOutputOpen(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake starts sleep, and Windows has no process group to kill")
+	}
+	server, log := fakeCodexAppServer(t, "hang")
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+
+	err := (&Renamer{codex: server}).Rename(ctx, Conversation{Tool: ToolCodex, App: AppCLI, ID: renamedCodexThread}, "Release notes")
+
+	if took := time.Since(started); took > 3*time.Second {
+		t.Errorf("the rename took %s past a 200ms deadline", took)
+	}
+	if got, want := renameError(err), "Codex did not answer in time (unreachable): context deadline exceeded"; got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+	pid, readErr := os.ReadFile(log + ".child")
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	child, _ := strconv.Atoi(string(pid))
+	gone := false
+	for wait := time.Now().Add(3 * time.Second); time.Now().Before(wait); time.Sleep(20 * time.Millisecond) {
+		if exec.Command("kill", "-0", string(pid)).Run() != nil {
+			gone = true
+			break
+		}
+	}
+	if !gone {
+		_ = exec.Command("kill", "-9", string(pid)).Run()
+		t.Errorf("the program the app-server started (pid %d) still runs", child)
 	}
 }
 
@@ -390,6 +463,52 @@ func TestRename_CursorEditorChatChangesNothingWhenOneOfItsPlacesIsMissing(t *tes
 	}
 }
 
+func TestRename_CursorEditorChatChangesNothingUnlessBothPlacesHoldAnObject(t *testing.T) {
+	needSQLite(t)
+	for name, change := range map[string]string{
+		"NULL chat data":   `UPDATE cursorDiskKV SET value = NULL WHERE key = 'composerData:` + renamedCursorChat + `'`,
+		"scalar chat data": `UPDATE cursorDiskKV SET value = '3' WHERE key = 'composerData:` + renamedCursorChat + `'`,
+		"text chat data":   `UPDATE cursorDiskKV SET value = 'not json' WHERE key = 'composerData:` + renamedCursorChat + `'`,
+		"NULL header":      `UPDATE composerHeaders SET value = NULL WHERE composerId = '` + renamedCursorChat + `'`,
+		"array header":     `UPDATE composerHeaders SET value = '["Old name"]' WHERE composerId = '` + renamedCursorChat + `'`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			db := cursorEditorDB(t, true)
+			sqliteExec(t, db, change)
+			before := sqliteExec(t, db, `SELECT quote(value) FROM composerHeaders ORDER BY recency; SELECT quote(value) FROM cursorDiskKV ORDER BY key;`)
+			r := &Renamer{CursorDB: db, sqlite: RunSQLiteWrite}
+
+			err := r.Rename(context.Background(), Conversation{Tool: ToolCursor, App: AppIDE, ID: renamedCursorChat}, "New name")
+
+			if got, want := renameError(err), "Cursor keeps the conversation in a way this version does not know (unexpected): "+db+": changed 0 rows, want 2"; got != want {
+				t.Errorf("got  %s\nwant %s", got, want)
+			}
+			if after := sqliteExec(t, db, `SELECT quote(value) FROM composerHeaders ORDER BY recency; SELECT quote(value) FROM cursorDiskKV ORDER BY key;`); after != before {
+				t.Errorf("the database changed:\n%s", after)
+			}
+		})
+	}
+}
+
+func TestRename_CursorRefusesAWriteWhoseRowsDoNotHoldTheNewName(t *testing.T) {
+	for name, rows := range map[string][]json.RawMessage{
+		"a row without the name": {json.RawMessage(`{"named":1}`), json.RawMessage(`{"named":0}`)},
+		"a row it cannot read":   {json.RawMessage(`{"named":1}`), json.RawMessage(`{"named":null}`)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			write := func(context.Context, string, string) ([]json.RawMessage, error) { return rows, nil }
+			r := &Renamer{CursorDB: "state.vscdb", sqlite: write}
+
+			err := r.Rename(context.Background(), Conversation{Tool: ToolCursor, App: AppIDE, ID: renamedCursorChat}, "New name")
+
+			var renameErr *RenameError
+			if !errors.As(err, &renameErr) || renameErr.Reason != RenameUnexpected {
+				t.Errorf("= %s", renameError(err))
+			}
+		})
+	}
+}
+
 func TestRename_CursorEditorChatSaysWhenTheDatabaseIsMissing(t *testing.T) {
 	needSQLite(t)
 	db := filepath.Join(t.TempDir(), "state.vscdb")
@@ -421,7 +540,7 @@ INSERT INTO meta VALUES ('0', '`+meta+`');`)
 func TestRename_CursorAgentChatChangesOnlyItsName(t *testing.T) {
 	needSQLite(t)
 	store := cursorAgentStore(t)
-	r := &Renamer{sqlite: RunSQLiteWrite}
+	r := &Renamer{sqlite: RunSQLiteWrite, holders: fakeProcesses{}}
 
 	if err := r.Rename(context.Background(), Conversation{Tool: ToolCursor, App: AppCLI, ID: "bc-adbb6bdc-fea5-4d14-aa4b-1adcd8d6c3a0", store: store}, "Release notes"); err != nil {
 		t.Fatal(renameError(err))
@@ -440,19 +559,111 @@ func TestRename_CursorAgentChatChangesOnlyItsName(t *testing.T) {
 	}
 }
 
-func TestRename_CursorAgentChatThatRunsKeepsItsStore(t *testing.T) {
+func TestRename_CursorAgentChatKeepsItsStoreUnlessAFreshLookFindsItStopped(t *testing.T) {
 	needSQLite(t)
-	store := cursorAgentStore(t)
-	before := sqliteExec(t, store, `SELECT value FROM meta`)
-	r := &Renamer{sqlite: RunSQLiteWrite}
+	for name, tc := range map[string]struct {
+		processes fakeProcesses
+		live      bool
+		want      string
+	}{
+		"a chat that started after the list was read": {
+			fakeProcesses{held: map[string]int{"store.db": 4242}},
+			false,
+			"Cursor has the conversation open and would write its old name back (in-use): cursor-agent (pid 4242) runs the chat bc-chat",
+		},
+		"open files that cannot be read": {
+			fakeProcesses{readFails: true},
+			false,
+			"Cursor did not take the name (refused): could not check whether cursor-agent runs the chat bc-chat: process read failed",
+		},
+		"a chat the list saw running": {
+			fakeProcesses{held: map[string]int{"store.db": 4242}},
+			true,
+			"Cursor has the conversation open and would write its old name back (in-use): cursor-agent (pid 4242) runs the chat bc-chat",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			store := cursorAgentStore(t)
+			before := sqliteExec(t, store, `SELECT value FROM meta`)
+			r := &Renamer{sqlite: RunSQLiteWrite, holders: tc.processes}
 
-	err := r.Rename(context.Background(), Conversation{Tool: ToolCursor, App: AppCLI, ID: "bc-chat", store: store, Live: true}, "Release notes")
+			err := r.Rename(context.Background(), Conversation{Tool: ToolCursor, App: AppCLI, ID: "bc-chat", store: store, Live: tc.live}, "Release notes")
 
-	if got, want := renameError(err), "Cursor has the conversation open and would write its old name back (in-use): cursor-agent runs the chat bc-chat"; got != want {
-		t.Errorf("got  %s\nwant %s", got, want)
+			if got := renameError(err); got != tc.want {
+				t.Errorf("got  %s\nwant %s", got, tc.want)
+			}
+			if after := sqliteExec(t, store, `SELECT value FROM meta`); after != before {
+				t.Error("the store changed")
+			}
+		})
 	}
-	if after := sqliteExec(t, store, `SELECT value FROM meta`); after != before {
-		t.Error("the store changed")
+}
+
+func TestRename_CursorAgentChatChangesNothingUnlessItsMetaIsAnObject(t *testing.T) {
+	needSQLite(t)
+	for name, value := range map[string]string{
+		"NULL meta":   `NULL`,
+		"scalar meta": `'` + hex.EncodeToString([]byte(`3`)) + `'`,
+		"array meta":  `'` + hex.EncodeToString([]byte(`["New Agent"]`)) + `'`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			store := cursorAgentStore(t)
+			sqliteExec(t, store, `UPDATE meta SET value = `+value+` WHERE key = '0'`)
+			before := sqliteExec(t, store, `SELECT quote(value) FROM meta`)
+			r := &Renamer{sqlite: RunSQLiteWrite, holders: fakeProcesses{}}
+
+			err := r.Rename(context.Background(), Conversation{Tool: ToolCursor, App: AppCLI, ID: "bc-chat", store: store}, "Release notes")
+
+			if got, want := renameError(err), "Cursor keeps the conversation in a way this version does not know (unexpected): "+store+": changed 0 rows, want 1"; got != want {
+				t.Errorf("got  %s\nwant %s", got, want)
+			}
+			if after := sqliteExec(t, store, `SELECT quote(value) FROM meta`); after != before {
+				t.Errorf("the store changed: %s", after)
+			}
+		})
+	}
+}
+
+// A name is not a message: a cursor-agent chat marked done and read
+// stays so after it is renamed in its store and in the marks.
+func TestRename_CursorAgentChatKeepsItsCompletedAndSeenMarks(t *testing.T) {
+	needSQLite(t)
+	scanner, stores := testScanner(t, RunSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	agent := "bc-adbb6bdc-fea5-4d14-aa4b-1adcd8d6c3a0"
+	store := filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), agent, "store.db")
+	if err := os.MkdirAll(filepath.Dir(store), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := hex.EncodeToString([]byte(`{"agentId":"` + agent + `","name":"New Agent","createdAt":1777203106986}`))
+	sqliteExec(t, store, `PRAGMA journal_mode = WAL; CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT); INSERT INTO meta VALUES ('0', '`+meta+`');`)
+	// The last message was an hour ago. sqlite3 on macOS keeps the WAL
+	// file after it closes the store.
+	written := scanner.Now().Add(-time.Hour)
+	if err := keepModified(written, store, store+"-wal"); err != nil {
+		t.Fatal(err)
+	}
+	c, ok := scanner.Find(context.Background(), ToolCursor, agent, ScanOptions{})
+	if !ok {
+		t.Fatal("the chat is not listed")
+	}
+	if err := scanner.Mark(ToolCursor, agent, MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&Renamer{sqlite: RunSQLiteWrite, holders: fakeProcesses{}}).Rename(context.Background(), c, "Release notes"); err != nil {
+		t.Fatal(renameError(err))
+	}
+	if err := scanner.Rename(ToolCursor, agent, "Release notes"); err != nil {
+		t.Fatal(err)
+	}
+
+	renamed := byID(t, scanner.Scan(context.Background(), ScanOptions{}), agent)
+	if renamed.Title != "Release notes" || renamed.State != StateCompleted || renamed.CompletedAt == "" || renamed.SeenAt == "" {
+		t.Errorf("after the rename: title %q, state %s, completedAt %q, seenAt %q", renamed.Title, renamed.State, renamed.CompletedAt, renamed.SeenAt)
+	}
+	if stored := sqliteExec(t, store, `SELECT value FROM meta WHERE key = '0'`); decodeCursorAgentMeta([]cursorAgentMetaRow{{Value: stored}}).Name != "Release notes" {
+		t.Errorf("the store holds %s", stored)
 	}
 }
 
@@ -512,6 +723,25 @@ func TestRename_ChatGPTSaysWhyTheTitleDidNotChange(t *testing.T) {
 		"a refusal": {
 			chatGPTServer(t, answer(http.StatusNotFound, `{"detail":"Can't load conversation"}`)),
 			`ChatGPT did not take the name (refused): HTTP 404: {"detail":"Can't load conversation"}`,
+		},
+		"an answer that says it failed": {
+			chatGPTServer(t, answer(http.StatusOK, `{"success":false}`)),
+			"ChatGPT did not take the name (refused): the rename answer says the title did not change",
+		},
+		"an answer that does not say": {
+			chatGPTServer(t, answer(http.StatusOK, `{}`)),
+			"ChatGPT keeps the conversation in a way this version does not know (unexpected): the rename answer does not say whether the title changed",
+		},
+		"an answer that is not JSON": {
+			chatGPTServer(t, answer(http.StatusOK, `<html>`)),
+			"ChatGPT keeps the conversation in a way this version does not know (unexpected): rename answer: invalid character '<' looking for beginning of value",
+		},
+		"a refusal that echoes the token": {
+			chatGPTServer(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, strings.Repeat("x", 260)+" sent: "+r.Header.Get("Authorization"))
+			}),
+			"ChatGPT did not take the name (refused): HTTP 400: " + strings.Repeat("x", 260) + " sent: Bearer <redacted>",
 		},
 		"no Codex login": {
 			func() *chatGPTTitles {

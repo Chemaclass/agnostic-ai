@@ -213,6 +213,7 @@ func TestCodexWorkingSubagents_ListsDirectSubagentsAndTheRowsThatOpenThem(t *tes
 	scanner.SQLite = func(context.Context, string, string) ([]json.RawMessage, error) {
 		return []json.RawMessage{worker(child, parent, "Aquinas", "explorer", ""), worker(grandchild, child, "Leibniz", "", "Check the timer\nthen report")}, nil
 	}
+	writeWorkerLocks(t, stores.CodexDir, child, grandchild)
 	scanner.Processes = fakeProcesses{held: map[string]int{child + ".lock": 10}}
 	rows := []Conversation{{ID: parent}, {ID: child}}
 

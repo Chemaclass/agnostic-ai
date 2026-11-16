@@ -102,7 +102,7 @@ type Scanner struct {
 	// gives, since finding them reads folders from the root down.
 	cursorSlugs   map[string][]string
 	cursorPrompts map[string]cached[texts]
-	claudeApp     cached[[]Conversation]
+	claudeApp     cached[claudeAppRead]
 	shown         shownCache
 	keptSources   map[Tool]keptSource
 	keptClouds    map[Tool]*keptCloud
@@ -267,7 +267,9 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 			s.sharedClouds[markKey(c.Tool, c.ID)] = c.Cloud.ID
 		}
 	}
-	claude.conversations = append(claude.conversations, readAt(s.Now(), sourceResult{conversations: s.claudeAppRows(opts)}).conversations...)
+	appRows, appNote := s.claudeAppRows(opts)
+	claude.conversations = append(claude.conversations, readAt(s.Now(), sourceResult{conversations: appRows}).conversations...)
+	claude.source.Note = joinNotes(claude.source.Note, appNote)
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
 	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
 	codex.conversations = append(codex.conversations, codexCloud...)
@@ -287,6 +289,19 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	}
 	s.placeLive(results)
 	return results, strings.Join(notes, " ")
+}
+
+// joinNotes puts two notes about one source together, leaving out an
+// empty one.
+func joinNotes(first, second string) string {
+	switch {
+	case first == "":
+		return second
+	case second == "":
+		return first
+	default:
+		return first + " " + second
+	}
 }
 
 // weekPage picks one page from all: below to, from a week earlier, or

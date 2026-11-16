@@ -154,10 +154,11 @@ export const FIXTURES = {
   workers: {
     label: 'Native sub-agents: three working, two while waiting, unknown',
     conversations: (now) => [
-      { ...conversation(now, 'claude', 'workers-1', 'Build the companion', 'working'), workingSubagents: 3 },
+      { ...conversation(now, 'claude', 'workers-1', 'Build the companion', 'working'), activity: 'working', workingSubagents: 3 },
       { ...conversation(now, 'codex', 'workers-2', 'Review the implementation', 'blocked'), workingSubagents: 2 },
       { ...conversation(now, 'claude', 'workers-idle', 'Idle parent with a worker', 'working'), activity: 'idle', workingSubagents: 1 },
       { ...conversation(now, 'codex', 'workers-wait-read', 'Waiting parent already read', 'working'), activity: 'waiting', workingSubagents: 1 },
+      { ...conversation(now, 'codex', 'workers-codex-done', 'Codex parent after its turn', 'working'), workingSubagents: 1 },
       conversation(now, 'claude', 'workers-unknown', 'Activity not available', 'working'),
     ],
   },

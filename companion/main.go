@@ -147,6 +147,17 @@ type shell struct {
 	save            *time.Timer
 	// presence is how the companion sits on the screen; the zero value is shown.
 	presence presence
+	// resized is where the last size change put the circle and the
+	// halves its list keeps; nil once the circle moved anywhere else.
+	resized *resizedPlace
+}
+
+// resizedPlace is a circle a size change placed, with the halves it sat
+// in before the change. The move events the window system reports for
+// the resize keep the list on that side.
+type resizedPlace struct {
+	bubble rect
+	sits   halves
 }
 
 // presenceNow is the companion's presence, shown before any change.
@@ -445,19 +456,37 @@ func (s *shell) fitBubble() {
 	if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: x, Y: y} }); err != nil {
 		log.Print(err)
 	}
+	// The halves come from before the resize: near the middle, the new
+	// size alone would move the list to the other side.
+	placed := resizedPlace{bubble: rect{X: x, Y: y, Width: side, Height: side}, sits: halvesOf(before, work)}
+	s.mu.Lock()
+	s.resized = &placed
+	s.mu.Unlock()
 	if s.panel.IsVisible() {
-		// The halves come from before the resize: near the middle, the new
-		// size alone would move the list to the other side.
-		panelX, panelY, _ := placePanelOn(halvesOf(before, work), rect{X: x, Y: y, Width: side, Height: side}, work, panelWidth, panelHeight)
+		panelX, panelY, _ := placePanelOn(placed.sits, placed.bubble, work, panelWidth, panelHeight)
 		s.panel.SetPosition(panelX, panelY)
 	}
+}
+
+// panelHalves is the halves an open list keeps beside the circle: the
+// ones a size change kept while the circle stays where it put it,
+// otherwise the ones the circle sits in now.
+func (s *shell) panelHalves(bubble, work rect) halves {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.resized != nil && s.resized.bubble == bubble {
+		return s.resized.sits
+	}
+	s.resized = nil
+	return halvesOf(bubble, work)
 }
 
 // bubbleMoved keeps an open panel beside the bubble without reopening it or
 // moving keyboard focus, and saves the bubble's new place once it rests.
 func (s *shell) bubbleMoved() {
 	if s.panel.IsVisible() {
-		x, y, _ := placePanel(windowRect(s.bubble), s.workArea(), panelWidth, panelHeight)
+		bubble, work := windowRect(s.bubble), s.workArea()
+		x, y, _ := placePanelOn(s.panelHalves(bubble, work), bubble, work, panelWidth, panelHeight)
 		s.panel.SetPosition(x, y)
 	}
 	s.mu.Lock()

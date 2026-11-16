@@ -46,7 +46,7 @@ test('both motion controls leave a still, readable working state', async ({ page
   await expect(mark).toBeVisible()
 })
 
-test('redrawing a selected row keeps its orbital phase', async ({ page }) => {
+test('redrawing a working row keeps its orbital phase', async ({ page }) => {
   const drift = async () => page.locator('.work-cage').evaluate((element) => {
     const animation = element.getAnimations()[0]
     const delay = animation.effect?.getTiming().delay
@@ -56,9 +56,11 @@ test('redrawing a selected row keeps its orbital phase', async ({ page }) => {
   // Wait until the animation has a start time before comparing its timeline.
   await expect.poll(() => page.locator('.work-cage').evaluate((element) => Number(element.getAnimations()[0].currentTime))).toBeGreaterThan(100)
   const before = await drift()
-  await page.getByLabel('Search every conversation').focus()
-  await page.keyboard.press('ArrowDown')
-  await expect(page.locator('.row[aria-selected="true"]')).toHaveCount(1)
+  const oldCage = await page.locator('.work-cage').elementHandle()
+  // A new arrival replaces every row, so the working row's mark is drawn again.
+  await page.request.post('/dev/arrive')
+  await expect.poll(() => oldCage?.evaluate((element) => element.isConnected)).toBe(false)
+  await expect(page.locator('.work-cage')).toHaveCount(1)
   await expect.poll(() => page.locator('.work-cage').evaluate((element) => Number(element.getAnimations()[0].currentTime))).toBeGreaterThan(100)
   expect(Math.abs(await drift() - before)).toBeLessThan(100)
 })
@@ -109,7 +111,11 @@ test('waiting and idle parents keep ordinary still dots while workers retain the
   expect(await satellite.evaluate((element) => getComputedStyle(element, '::before').backgroundImage)).toBe(workingCore)
   await expect.poll(() => satellite.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBeGreaterThan(0)
 
-  for (const [name, state] of [['Idle parent with a worker', 'active'], ['Waiting parent already read', 'blocked']]) {
+  for (const [name, state] of [
+    ['Idle parent with a worker', 'active'],
+    ['Codex parent after its turn', 'active'],
+    ['Waiting parent already read', 'blocked'],
+  ]) {
     const row = page.getByRole('option', { name: new RegExp(name) })
     await expect(row.locator('.state')).toHaveClass(`state is-${state}`)
     await expect(row.locator('.state > .work-system')).toHaveCount(0)

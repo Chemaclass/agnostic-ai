@@ -172,8 +172,11 @@ function stateMark(conversation) {
   // The row can be under Working because its children are busy. The parent's
   // own dot still describes the parent, independently of those satellites.
   let parentState = MARK_OF[conversation.state] ?? conversation.state
+  const childrenWork = conversation.state === 'working' && conversation.workingSubagents > 0
   if (conversation.state === 'working' && conversation.activity === 'waiting') parentState = 'blocked'
-  if (conversation.state === 'working' && conversation.activity === 'idle') parentState = 'active'
+  // Codex leaves the activity out once the parent's turn ends, so only the
+  // parent's own working activity keeps its mark moving.
+  else if (childrenWork && conversation.activity !== 'working') parentState = 'active'
   const mark = element('span', 'state is-' + parentState)
   mark.setAttribute('aria-hidden', 'true')
   if (parentState === 'working' || conversation.workingSubagents > 0) {

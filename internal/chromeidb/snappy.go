@@ -53,6 +53,9 @@ func decodeSnappy(src []byte) ([]byte, error) {
 			if at+size > len(src) {
 				return nil, fmt.Errorf("snappy: literal cut short")
 			}
+			if err := checkRoom(out, length, size); err != nil {
+				return nil, err
+			}
 			out = append(out, src[at:at+size]...)
 			at += size
 			continue
@@ -81,6 +84,9 @@ func decodeSnappy(src []byte) ([]byte, error) {
 		if offset <= 0 || offset > len(out) {
 			return nil, fmt.Errorf("snappy: copy from %d bytes back, with %d written", offset, len(out))
 		}
+		if err := checkRoom(out, length, size); err != nil {
+			return nil, err
+		}
 		// A copy may overlap what it writes, so it goes byte by byte.
 		from := len(out) - offset
 		for i := range size {
@@ -91,4 +97,13 @@ func decodeSnappy(src []byte) ([]byte, error) {
 		return nil, fmt.Errorf("snappy: decoded %d bytes, expected %d", len(out), length)
 	}
 	return out, nil
+}
+
+// checkRoom says whether size more bytes fit in the length the stream
+// declared, so a stream cannot grow past it before the end.
+func checkRoom(out []byte, length uint64, size int) error {
+	if uint64(size) > length-uint64(len(out)) {
+		return fmt.Errorf("snappy: %d more bytes after %d written overrun the declared %d", size, len(out), length)
+	}
+	return nil
 }

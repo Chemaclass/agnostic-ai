@@ -87,19 +87,22 @@ func (s *Scanner) scanChatGPT(ctx context.Context, opts ScanOptions) sourceResul
 		if !chatGPTIDPattern.MatchString(row.ID) {
 			continue
 		}
-		conversations = append(conversations, chatGPTConversation(row))
+		conversations = append(conversations, s.chatGPTConversation(row))
 	}
 	return found(ToolChatGPT, conversations)
 }
 
-func chatGPTConversation(row chatGPTRow) Conversation {
+// chatGPTConversation builds a chat's row. Its title goes through the
+// same credential check as every other reader's texts.
+func (s *Scanner) chatGPTConversation(row chatGPTRow) Conversation {
 	c := Conversation{
-		Tool: ToolChatGPT, App: AppChat, ID: row.ID, Title: row.Title,
+		Tool: ToolChatGPT, App: AppChat, ID: row.ID,
 		StartedAt: timeFromMillis(int64(row.CreatedAt * 1000)), UpdatedAt: timeFromMillis(int64(row.UpdatedAt * 1000)),
 		Open: Route{Kind: RouteLink, Label: "Open on chatgpt.com", Link: chatGPTLink + row.ID},
 	}
 	if row.Running == 1 || row.AsyncStatus != nil {
 		c.Live, c.Activity = true, ActivityWorking
 	}
+	s.fill(&c, texts{title: row.Title})
 	return c
 }

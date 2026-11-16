@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 )
 
 // This file is the only code that renames a ChatGPT chat. It asks
@@ -37,6 +37,12 @@ func newChatGPTTitles() *chatGPTTitles {
 
 type chatGPTTitleChange struct {
 	Title string `json:"title"`
+}
+
+// chatGPTTitleChanged is chatgpt.com's answer to a title change, which
+// says {"success":true} once the chat has the title.
+type chatGPTTitleChanged struct {
+	Success *bool `json:"success"`
 }
 
 // chatGPTRenameRefusals maps an answer to a reason; any other answer
@@ -76,13 +82,22 @@ func (c *chatGPTTitles) SetTitle(ctx context.Context, chatID, title string) erro
 		return &RenameError{Tool: ToolChatGPT, Reason: RenameUnreachable, Cause: err}
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return nil
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		reason, known := chatGPTRenameRefusals[resp.StatusCode]
+		if !known {
+			reason = RenameRefused
+		}
+		return &RenameError{Tool: ToolChatGPT, Reason: reason, Cause: refusalCause(resp.StatusCode, resp.Body, login.AccessToken)}
 	}
-	reason, known := chatGPTRenameRefusals[resp.StatusCode]
-	if !known {
-		reason = RenameRefused
+	var answer chatGPTTitleChanged
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxRenameAnswerBytes)).Decode(&answer); err != nil {
+		return &RenameError{Tool: ToolChatGPT, Reason: RenameUnexpected, Cause: fmt.Errorf("rename answer: %w", err)}
 	}
-	said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
-	return &RenameError{Tool: ToolChatGPT, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
+	switch {
+	case answer.Success == nil:
+		return &RenameError{Tool: ToolChatGPT, Reason: RenameUnexpected, Cause: errors.New("the rename answer does not say whether the title changed")}
+	case !*answer.Success:
+		return &RenameError{Tool: ToolChatGPT, Reason: RenameRefused, Cause: errors.New("the rename answer says the title did not change")}
+	}
+	return nil
 }
