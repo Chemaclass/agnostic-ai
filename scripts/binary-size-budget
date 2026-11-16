@@ -951,5 +951,8 @@
 # #3462 measured 26157216 bytes (make size-check): Kiro JSON and nested agent import; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3470 measured 26169504 bytes (make size-check): one reconcile helper now serves `effort` and `model` when an agent map is re-imported; the budget is that plus 8192, rounded up to a multiple of 4096.
 # The 2026-11-15 audit fixes measured 26194080 bytes (make size-check): Factory and Crush hook replies as their vendors read them, Factory onFailure and preserveRiskLevel, OpenCode MCP x-opencode import, and Grok templates; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3511 measured 26284192 bytes on CI (linux/amd64): the read-only Chromium IndexedDB reader and the Claude app and ChatGPT desktop chat lists; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3512 measured 26321056 bytes on CI (linux/amd64): rename in each tool; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3512 measured 26337440 bytes locally (make size-check) once a failed rename says why and Claude Code cloud sessions take the name; the budget is that plus 8192, rounded up to a multiple of 4096.
 # The local desktop-chat stack, rename in each tool and native worker tracking (companion orbits) measured 26374304 bytes (make size-check, 2026-11-16); the budget is that plus 8192, rounded up to a multiple of 4096.
 26386432
