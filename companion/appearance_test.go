@@ -299,11 +299,34 @@ func TestSetSmallCompanion_KeepsTheListOnItsSideNearTheMiddle(t *testing.T) {
 	if err := s.setSmallCompanion(false); err != nil {
 		t.Fatal(err)
 	}
+	for range bubble.reportedMoves {
+		s.bubbleMoved()
+	}
 
 	if bubble.x != 672 {
 		t.Errorf("circle at x %d; want 672, its right edge kept", bubble.x)
 	}
 	if x, _ := s.panel.Position(); x != 672-panelGap-panelWidth || beforeX != 700-panelGap-panelWidth {
 		t.Errorf("list at x %d (was %d); want it still left of the circle at %d", x, beforeX, 672-panelGap-panelWidth)
+	}
+}
+
+func TestBubbleMoved_ADragAfterAResizePlacesTheListByTheNewPlace(t *testing.T) {
+	s, _ := placedShell(t)
+	s.settings.SmallCompanion = true
+	bubble := s.bubble.(*fakeWindow)
+	bubble.side = smallBubbleSide
+	bubble.x, bubble.y = 700, 700
+	s.togglePanel()
+	if err := s.setSmallCompanion(false); err != nil {
+		t.Fatal(err)
+	}
+
+	bubble.SetPosition(200, 700)
+	s.bubbleMoved()
+
+	wantX, wantY, _ := placePanel(windowRect(s.bubble), rect{Width: 1440, Height: 900}, panelWidth, panelHeight)
+	if x, y := s.panel.Position(); x != wantX || y != wantY {
+		t.Errorf("list at %d,%d; want %d,%d beside the dragged circle", x, y, wantX, wantY)
 	}
 }
