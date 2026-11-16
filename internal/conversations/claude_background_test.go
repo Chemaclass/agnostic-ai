@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -63,7 +64,9 @@ func TestListClaudeJobs_KeepsBackgroundSessions(t *testing.T) {
 		return []byte(out), nil
 	}
 
-	jobs, err := listClaudeJobs(context.Background(), run)
+	locate := func() (string, error) { return "/Users/me/.local/bin/claude", nil }
+
+	jobs, err := listClaudeJobs(context.Background(), locate, run)
 
 	if err != nil {
 		t.Fatal(err)
@@ -72,26 +75,29 @@ func TestListClaudeJobs_KeepsBackgroundSessions(t *testing.T) {
 	if fmt.Sprint(jobs) != fmt.Sprint(want) {
 		t.Errorf("jobs = %+v, want %+v", jobs, want)
 	}
-	if strings.Join(asked, "; ") != "claude agents --json" {
+	if strings.Join(asked, "; ") != "/Users/me/.local/bin/claude agents --json" {
 		t.Errorf("ran %v", asked)
 	}
 }
 
 func TestListClaudeJobs_TurnsEachFailureIntoOneReason(t *testing.T) {
 	for name, tc := range map[string]struct {
-		out     string
-		err     error
-		message string
+		locateErr error
+		out       string
+		err       error
+		message   string
 	}{
-		"claude missing":   {err: &exec.Error{Name: "claude", Err: exec.ErrNotFound}, message: "no claude command on PATH"},
+		"claude not found": {locateErr: exec.ErrNotFound, message: "no claude command on PATH or in its usual install folders"},
+		"claude gone":      {err: &exec.Error{Name: "claude", Err: exec.ErrNotFound}, message: "no claude command on PATH or in its usual install folders"},
 		"command failed":   {err: errors.New("exit status 1: unknown command agents"), message: "claude agents --json failed"},
 		"output not JSON":  {out: "Usage: claude agents", message: "claude agents --json printed what this version cannot read"},
 		"output not array": {out: `{"id": "e3469759"}`, message: "claude agents --json printed what this version cannot read"},
 	} {
 		t.Run(name, func(t *testing.T) {
+			locate := func() (string, error) { return "/usr/local/bin/claude", tc.locateErr }
 			run := func(context.Context, string, ...string) ([]byte, error) { return []byte(tc.out), tc.err }
 
-			jobs, err := listClaudeJobs(context.Background(), run)
+			jobs, err := listClaudeJobs(context.Background(), locate, run)
 
 			var failure *claudeJobsError
 			if !errors.As(err, &failure) || err.Error() != tc.message || jobs != nil {
@@ -101,6 +107,61 @@ func TestListClaudeJobs_TurnsEachFailureIntoOneReason(t *testing.T) {
 				t.Error("the command's own error must stay in cause")
 			}
 		})
+	}
+}
+
+// fakeExecutable writes an executable file named name in folder.
+func fakeExecutable(t *testing.T, folder, name string) string {
+	t.Helper()
+	path := filepath.Join(folder, name)
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestFindClaude_LooksInTheInstallFoldersADesktopPathLeavesOut(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	// The PATH an app started from the desktop gets, with no claude on it.
+	t.Setenv("PATH", t.TempDir())
+	installed := fakeExecutable(t, filepath.Join(home, ".local", "bin"), "claude")
+
+	found, err := findClaude(claudeFolders())
+
+	if err != nil || found != installed {
+		t.Errorf("found %q, %v, want %q", found, err, installed)
+	}
+}
+
+func TestFindClaude_PathComesFirstAndNoneFoundIsNotFound(t *testing.T) {
+	onPath := t.TempDir()
+	t.Setenv("PATH", onPath)
+	folder := t.TempDir()
+	fakeExecutable(t, folder, "claude")
+	fromPath := fakeExecutable(t, onPath, "claude")
+
+	found, err := findClaude([]string{folder})
+	if err != nil || found != fromPath {
+		t.Errorf("found %q, %v, want %q", found, err, fromPath)
+	}
+
+	t.Setenv("PATH", t.TempDir())
+	found, err = findClaude([]string{t.TempDir()})
+	if !errors.Is(err, exec.ErrNotFound) || found != "" {
+		t.Errorf("found %q, %v, want exec.ErrNotFound", found, err)
+	}
+}
+
+func TestClaudeFolders_ListsTheNativeInstallFirst(t *testing.T) {
+	t.Setenv("HOME", "/Users/me")
+
+	want := []string{"/Users/me/.local/bin", "/Users/me/.claude/local", "/opt/homebrew/bin", "/usr/local/bin"}
+	if folders := claudeFolders(); fmt.Sprint(folders) != fmt.Sprint(want) {
+		t.Errorf("folders = %v, want %v", folders, want)
 	}
 }
 
@@ -129,14 +190,47 @@ func TestScan_ClaudeBackgroundSessionOpensWithClaudeAttach(t *testing.T) {
 	}
 }
 
+func TestScan_ClaudeBackgroundSessionAttachesInTheTabAppItRanIn(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, nil)
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	write(t, filepath.Join(filepath.Dir(scanner.MarksPath), "conversation-tabs.json"),
+		`{"version":1,"tabs":{"claude:`+bgSession+`":{"host":{"app":"Ghostty","tty":"/dev/ttys030"},"at":"2026-11-16T15:00:00Z"}}}`)
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", bgSession+".jsonl"), lines(
+		obj{"type": "user", "message": obj{"role": "user", "content": "Bring the docs up to date"}, "timestamp": "2026-11-16T15:25:44.000Z", "cwd": "/tmp/app"},
+	))
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "77663.json"), `{"pid":77663,"sessionId":"`+bgSession+`","status":"idle"}`)
+	processes := processesWithTable(claudeDaemonTable())
+	processes.jobs = []ClaudeJob{bgJob}
+	scanner.Processes = processes
+
+	c, _ := scanner.Find(context.Background(), ToolClaude, bgSession, ScanOptions{})
+	launcher := &fakeLauncher{}
+	reply := Open(context.Background(), c, scanner.Processes, launcher)
+
+	if want := (OpenReply{Opened: true, Message: "Opened it in a new Ghostty tab with claude attach."}); reply != want {
+		t.Errorf("reply = %+v, want %+v", reply, want)
+	}
+	if want := "new tab Ghostty cd '/tmp/app' && claude attach e3469759"; strings.Join(launcher.calls, "; ") != want {
+		t.Errorf("calls = %v, want %q", launcher.calls, want)
+	}
+}
+
 func TestPlace_OnlyASessionUnderClaudeBgPtyHostIsABackgroundSession(t *testing.T) {
+	linuxTable := claudeDaemonTable()
+	// Linux ps comm keeps 15 characters of the parent's name.
+	linuxTable[1].Command = "claude bg-pty-h"
+	ptyHostArgs := map[int]string{77661: "claude bg-pty-host --bg-pty-host /tmp/cc-daemon-1000/c0f11278/spare/ac5ee99d.pty.sock 200 50 -- /home/me/.local/share/claude/versions/2.1.325 --bg-spare /tmp/cc-daemon-1000/c0f11278/spare/ac5ee99d.claim.sock"}
 	for name, tc := range map[string]struct {
 		table []ProcessInfo
+		args  map[int]string
 		tool  Tool
 		want  bool
 	}{
-		"under claude bg-pty-host":             {table: claudeDaemonTable(), tool: ToolClaude, want: true},
-		"Codex under a process named the same": {table: claudeDaemonTable(), tool: ToolCodex},
+		"under claude bg-pty-host":                       {table: claudeDaemonTable(), tool: ToolClaude, want: true},
+		"Linux, name cut, command line confirms":         {table: linuxTable, args: ptyHostArgs, tool: ToolClaude, want: true},
+		"Linux, name cut, another command line":          {table: linuxTable, args: map[int]string{77661: "claude bg-pty-helper --watch"}, tool: ToolClaude},
+		"Linux, name cut, command line no longer listed": {table: linuxTable, tool: ToolClaude},
+		"Codex under a process named the same":           {table: claudeDaemonTable(), tool: ToolCodex},
 		"terminal with no known app": {table: []ProcessInfo{
 			{PID: 500, PPID: 1, Stat: "S", Started: "Mon Nov 16 16:25:43 2026", Command: "/usr/bin/tmux"},
 			{PID: 77663, PPID: 500, Stat: "S+", TTY: "/dev/ttys004", Started: "Mon Nov 16 16:25:44 2026", Command: "claude"},
@@ -145,7 +239,7 @@ func TestPlace_OnlyASessionUnderClaudeBgPtyHostIsABackgroundSession(t *testing.T
 		t.Run(name, func(t *testing.T) {
 			c := Conversation{Tool: tc.tool, process: &liveProcess{PID: 77663}}
 
-			place(&c, nil, tc.table)
+			place(&c, nil, tc.table, fakeProcesses{args: tc.args}.Args)
 
 			if c.placed == nil || c.placed.claudeBackground != tc.want {
 				t.Errorf("placed = %+v, want claudeBackground %v", c.placed, tc.want)
@@ -158,6 +252,11 @@ func TestOpen_ClaudeBackgroundSession(t *testing.T) {
 	alive := map[int]bool{77663: true}
 	attachIn := func(pid int, target string) map[int]string { return map[int]string{pid: "claude attach " + target} }
 	terminalTab := terminalHost{App: "Ghostty", TTY: "/dev/ttys030"}
+	cursorAttach := []ProcessInfo{
+		{PID: 900, PPID: 1, Stat: "S", Started: "Mon Nov 16 09:00:00 2026", Command: "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper.app/Contents/MacOS/Cursor Helper"},
+		{PID: 99267, PPID: 900, Stat: "Ss", TTY: "/dev/ttys040", Started: "Mon Nov 16 16:43:20 2026", Command: "/bin/zsh"},
+		{PID: 99268, PPID: 99267, Stat: "S+", TTY: "/dev/ttys040", Started: "Mon Nov 16 16:43:20 2026", Command: "claude"},
+	}
 	ranInGhostty := backgroundConversation()
 	ranInGhostty.lastTab = &terminalTab
 	for name, tc := range map[string]struct {
@@ -191,14 +290,35 @@ func TestOpen_ClaudeBackgroundSession(t *testing.T) {
 		},
 		"attached tab no longer shown": {
 			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(terminalAttach("/dev/ttys012", 99268, "Mon Nov 16 16:43:20 2026")...), args: attachIn(99268, bgShortID)},
-			reply:     OpenReply{Message: "It runs in Terminal on ttys012 (process 99268), but no tab shows that terminal. Switch to it there."},
+			reply:     OpenReply{Message: "It runs in Terminal on ttys012 (process 99268), but no tab shows that terminal. Switch to it there.", Command: "cd '/tmp/app' && claude attach e3469759"},
 			calls:     "focus Terminal /dev/ttys012",
+		},
+		"switching to the attached tab refused by macOS": {
+			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(terminalAttach("/dev/ttys012", 99268, "Mon Nov 16 16:43:20 2026")...), args: attachIn(99268, bgShortID)},
+			launcher:  fakeLauncher{err: errAutomationDenied},
+			reply:     OpenReply{Message: "macOS blocked switching to Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, then click again.", Command: "cd '/tmp/app' && claude attach e3469759"},
+			calls:     "focus Terminal /dev/ttys012",
+		},
+		"attached in Cursor's terminal in another project": {
+			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(cursorAttach...), args: attachIn(99268, bgShortID), cwds: map[int]string{99268: "/tmp/viewer-project"}},
+			reply:     OpenReply{Message: "Brought its Cursor window to the front, but the terminal inside it cannot be selected from outside. It runs on ttys040 (process 99268).", Command: "cd '/tmp/app' && claude attach e3469759"},
+			calls:     "folder Cursor /tmp/viewer-project",
+		},
+		"attached in Cursor's terminal, its folder unknown": {
+			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(cursorAttach...), args: attachIn(99268, bgShortID)},
+			reply:     OpenReply{Message: "Brought Cursor to the front, but its tab cannot be selected from outside. It runs on ttys040 (process 99268).", Command: "cd '/tmp/app' && claude attach e3469759"},
+			calls:     "activate Cursor",
 		},
 		"a tab attached to another session": {
 			conversation: ranInGhostty,
 			processes:    fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(terminalAttach("/dev/ttys012", 99268, "Mon Nov 16 16:43:20 2026")...), args: attachIn(99268, "787d5d52")},
 			reply:        OpenReply{Opened: true, Message: "Opened it in a new Ghostty tab with claude attach."},
 			calls:        "new tab Ghostty cd '/tmp/app' && claude attach e3469759",
+		},
+		"a tab running claude attach with the full session id, which it does not take": {
+			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(terminalAttach("/dev/ttys012", 99268, "Mon Nov 16 16:43:20 2026")...), args: attachIn(99268, bgSession)},
+			reply:     OpenReply{Opened: true, Message: "Opened it in a new Terminal window with claude attach."},
+			calls:     "terminal cd '/tmp/app' && claude attach e3469759",
 		},
 		"no attached tab and no tab remembered": {
 			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable()},
@@ -218,7 +338,7 @@ func TestOpen_ClaudeBackgroundSession(t *testing.T) {
 		},
 		"claude agents cannot run": {
 			processes: fakeProcesses{alive: alive, jobsErr: &claudeJobsError{reason: claudeNotInstalled, cause: exec.ErrNotFound}, table: claudeDaemonTable()},
-			reply:     OpenReply{Message: "It runs as a Claude Code background session (process 77663), but the list of those sessions could not be read: no claude command on PATH. Run claude agents to find its id, then claude attach <id>."},
+			reply:     OpenReply{Message: "It runs as a Claude Code background session (process 77663), but the list of those sessions could not be read: no claude command on PATH or in its usual install folders. Run claude agents to find its id, then claude attach <id>."},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

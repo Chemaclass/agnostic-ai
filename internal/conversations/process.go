@@ -293,5 +293,6 @@ func (SystemProcesses) AppRunning(name string) bool {
 }
 
 func (SystemProcesses) ClaudeJobs(ctx context.Context) ([]ClaudeJob, error) {
-	return listClaudeJobs(ctx, runClaudeCommand)
+	locate := func() (string, error) { return findClaude(claudeFolders()) }
+	return listClaudeJobs(ctx, locate, runClaudeCommand)
 }

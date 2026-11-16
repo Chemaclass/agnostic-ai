@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -26,7 +28,7 @@ type ClaudeJob struct {
 type claudeJobsReason string
 
 const (
-	claudeNotInstalled   claudeJobsReason = "no claude command on PATH"
+	claudeNotInstalled   claudeJobsReason = "no claude command on PATH or in its usual install folders"
 	claudeListFailed     claudeJobsReason = "claude agents --json failed"
 	claudeListUnreadable claudeJobsReason = "claude agents --json printed what this version cannot read"
 )
@@ -57,9 +59,47 @@ type claudeAgentsRow struct {
 // rows, such as interactive sessions, carry no id claude attach takes.
 const claudeBackgroundKind = "background"
 
-// listClaudeJobs is the only code that runs claude agents --json.
-func listClaudeJobs(ctx context.Context, runCommand commandRunner) ([]ClaudeJob, error) {
-	out, err := runCommand(ctx, "claude", "agents", "--json")
+// claudeHomeFolders and claudeSystemFolders are where claude is looked
+// for after PATH, in this order: an app started from the desktop gets a
+// short PATH that leaves them out. ~/.local/bin holds the claude that
+// Claude Code's native installer puts there, ~/.claude/local the one its
+// older local install put there, and the system folders Homebrew's and
+// npm's.
+var claudeHomeFolders = []string{".local/bin", ".claude/local"}
+var claudeSystemFolders = []string{"/opt/homebrew/bin", "/usr/local/bin"}
+
+// claudeFolders lists the folders findClaude looks in after PATH.
+func claudeFolders() []string {
+	var folders []string
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, folder := range claudeHomeFolders {
+			folders = append(folders, filepath.Join(home, folder))
+		}
+	}
+	return append(folders, claudeSystemFolders...)
+}
+
+// findClaude locates the claude command: on PATH, then in folders.
+func findClaude(folders []string) (string, error) {
+	if found, err := exec.LookPath("claude"); err == nil {
+		return found, nil
+	}
+	for _, folder := range folders {
+		if found, err := exec.LookPath(filepath.Join(folder, "claude")); err == nil {
+			return found, nil
+		}
+	}
+	return "", exec.ErrNotFound
+}
+
+// listClaudeJobs is the only code that runs claude agents --json. locate
+// finds the claude command to run.
+func listClaudeJobs(ctx context.Context, locate func() (string, error), runCommand commandRunner) ([]ClaudeJob, error) {
+	claude, err := locate()
+	if err != nil {
+		return nil, &claudeJobsError{reason: claudeNotInstalled, cause: err}
+	}
+	out, err := runCommand(ctx, claude, "agents", "--json")
 	if errors.Is(err, exec.ErrNotFound) {
 		return nil, &claudeJobsError{reason: claudeNotInstalled, cause: err}
 	}

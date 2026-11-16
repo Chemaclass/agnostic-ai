@@ -165,8 +165,8 @@ type Conversation struct {
 	process *liveProcess
 	// placed is where that session shows, when its terminal was found.
 	placed *placement
-	// lastTab is the tab an ended session last ran in, when remembered;
-	// its app gets the new tab.
+	// lastTab is the tab an ended session, or a Claude Code background
+	// session, last ran in, when remembered; its app gets the new tab.
 	lastTab *terminalHost
 	// editor is set for an editor extension's link: its folder opens
 	// there first, so the link reaches the window that holds it.

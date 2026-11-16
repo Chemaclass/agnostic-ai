@@ -207,7 +207,7 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	c.process = &liveProcess{PID: pid}
 	c.Open.Kind = RouteFocus
 	if table, err := processes.Table(); err == nil {
-		place(&c, nil, table)
+		place(&c, nil, table, processes.Args)
 	}
 	return c, true
 }
@@ -384,12 +384,12 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	if placed.claudeBackground {
 		return openClaudeBackground(ctx, c, processes, launcher)
 	}
-	return switchToHost(ctx, c, *placed, launcher)
+	return switchToHost(ctx, c.Folder, *placed, launcher)
 }
 
-// switchToHost brings forward the terminal placed shows c in: the
-// exact tab in a tab app, else the app or editor window that holds it.
-func switchToHost(ctx context.Context, c Conversation, placed placement, launcher Launcher) OpenReply {
+// switchToHost brings forward the terminal placed shows: the exact tab
+// in a tab app, else the app, or the editor window open on folder.
+func switchToHost(ctx context.Context, folder string, placed placement, launcher Launcher) OpenReply {
 	switchThere := func(message string) OpenReply {
 		return OpenReply{Message: message}
 	}
@@ -407,8 +407,8 @@ func switchToHost(ctx context.Context, c Conversation, placed placement, launche
 			return OpenReply{Opened: true, Message: fmt.Sprintf("Switched to the %s tab that runs it.", app)}
 		}
 	}
-	if editor, ok := editorTerminals[app]; ok && c.Folder != "" {
-		if err := launcher.OpenFolder(ctx, editor, c.Folder); err != nil {
+	if editor, ok := editorTerminals[app]; ok && folder != "" {
+		if err := launcher.OpenFolder(ctx, editor, folder); err != nil {
 			return switchThere(fmt.Sprintf("It runs in %s's terminal on %s (process %d). Switch to it there.", app, tty, pid))
 		}
 		return switchThere(fmt.Sprintf("Brought its %s window to the front, but the terminal inside it cannot be selected from outside. It runs on %s (process %d).", app, tty, pid))

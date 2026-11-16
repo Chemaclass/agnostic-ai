@@ -34,7 +34,13 @@ func openClaudeBackground(ctx context.Context, c Conversation, processes Process
 		return OpenReply{Message: fmt.Sprintf("It runs as a Claude Code background session, and the terminals that show it could not be looked for (%v). Run this command in a terminal.", err), Command: command}
 	}
 	if viewer, ok := attachedViewer(table, processes, job); ok {
-		return switchToHost(ctx, c, viewer, launcher)
+		reply := switchToHost(ctx, viewerFolder(viewer, processes), viewer, launcher)
+		// claude attach starts no second copy, so a switch that did not
+		// show the session still offers it.
+		if !reply.Opened {
+			reply.Command = command
+		}
+		return reply
 	}
 	app := ""
 	if c.lastTab != nil {
@@ -49,6 +55,18 @@ func openClaudeBackground(ctx context.Context, c Conversation, processes Process
 	default:
 		return notOpenedInTab(opened, command)
 	}
+}
+
+// viewerFolder is the folder an editor's attach client runs in, which
+// names the editor window that shows it; the session's own folder may
+// be another project. It is empty for any other app, and when the
+// folder cannot be read, so no window is guessed.
+func viewerFolder(viewer placement, processes Processes) string {
+	if _, editor := editorTerminals[viewer.host.App]; !editor {
+		return ""
+	}
+	pid := viewer.process.PID
+	return processes.Cwds([]int{pid})[pid]
 }
 
 // jobOfSession finds the background session whose transcript id is sessionID.
@@ -73,9 +91,9 @@ func attachCommand(folder, shortID string) string {
 }
 
 // attachedViewer finds a terminal that already shows job: a claude
-// attach process whose argument is the job's short id, its session id
-// or its name. claude attach also takes the start of an id or part of
-// a name; those are not matched, since they may name another session.
+// attach process whose argument is the job's short id or its exact
+// name. claude attach also takes the start of an id or part of a name;
+// those are not matched, since they may name another session.
 // Of several, one in a tab app wins, then the latest started.
 func attachedViewer(table []ProcessInfo, processes Processes, job ClaudeJob) (placement, bool) {
 	var clients []ProcessInfo
@@ -94,7 +112,7 @@ func attachedViewer(table []ProcessInfo, processes Processes, job ClaudeJob) (pl
 	found := false
 	for _, client := range clients {
 		target, attaches := claudeAttachTarget(args[client.PID])
-		if !attaches || (target != job.ShortID && target != job.SessionID && target != job.Name) {
+		if !attaches || (target != job.ShortID && target != job.Name) {
 			continue
 		}
 		host, ok := hostOf(table, client.PID)
