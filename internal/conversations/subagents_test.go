@@ -280,3 +280,122 @@ func TestClaudeWorkingSubagents_AParentCanStopAndResumeANestedWorker(t *testing.
 	appendWorkerEvent(t, file, resumed)
 	check(2)
 }
+
+// A subagent's transcript has no toolUseResult. These lines keep the shapes
+// Claude Code 2.1.321 writes there, with their content redacted.
+func sidechainDispatch(name, id string) obj {
+	return obj{"type": "assistant", "isSidechain": true, "message": obj{"content": []obj{{"type": "tool_use", "name": name, "id": id, "input": obj{}}}}}
+}
+
+func sidechainResult(call string, content any) obj {
+	return obj{"type": "user", "isSidechain": true, "message": obj{"role": "user", "content": []obj{{"tool_use_id": call, "type": "tool_result", "content": content}}}}
+}
+
+func textBlocks(texts ...string) []obj {
+	blocks := make([]obj, 0, len(texts))
+	for _, text := range texts {
+		blocks = append(blocks, obj{"type": "text", "text": text})
+	}
+	return blocks
+}
+
+func TestClaudeWorkingSubagents_ReadsSubagentsThatStartOrStopOtherAgents(t *testing.T) {
+	scanner, stores := testScanner(t, nil, fakeProcesses{})
+	file := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari+".jsonl")
+	child := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari, "subagents", "agent-child.jsonl")
+	fork := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari, "subagents", "agent-fork.jsonl")
+	write(t, file, "")
+	write(t, child, "")
+	write(t, fork, "")
+	started, _ := time.Parse(time.RFC3339, workerTime)
+	session := liveSession{startedAt: started.Add(-time.Minute).UnixMilli()}
+	appendWorkerEvent(t, file, workerDispatch("root-call"))
+	appendWorkerEvent(t, file, workerResult("root-call", obj{"status": "async_launched", "agentId": "child"}))
+	appendWorkerEvent(t, file, workerDispatch("fork-call"))
+	appendWorkerEvent(t, file, workerResult("fork-call", obj{"status": "async_launched", "agentId": "fork"}))
+	appendWorkerEvent(t, fork, obj{"type": "fork-context-ref"})
+	appendWorkerEvent(t, fork, sidechainDispatch("Agent", "fork-call"))
+	appendWorkerEvent(t, fork, sidechainResult("fork-call", textBlocks("Fork started — that fork is you.")))
+	touch := func(path string) {
+		t.Helper()
+		// The fixture clock is independent of the machine running this test.
+		if err := os.Chtimes(path, started, started); err != nil {
+			t.Fatal(err)
+		}
+	}
+	touch(fork)
+	check := func(want int) {
+		t.Helper()
+		touch(child)
+		count, _ := scanner.claudeWorkingSubagents(file, session)
+		if count == nil {
+			t.Fatal("working count is unknown")
+		}
+		if *count != want {
+			t.Fatalf("working = %d, want %d", *count, want)
+		}
+	}
+	check(2)
+	appendWorkerEvent(t, child, sidechainDispatch("Agent", "nested-agent"))
+	check(3)
+	appendWorkerEvent(t, child, sidechainResult("nested-agent", textBlocks(
+		"  This agent's report was delivered to you as a message from \"grandchild\" (its SubagentHandback call). Read it there; it is not repeated here.",
+		"[Harness note, redacted]",
+	)))
+	check(2)
+	appendWorkerEvent(t, child, sidechainDispatch("SendMessage", "nested-resume"))
+	appendWorkerEvent(t, child, sidechainResult("nested-resume", textBlocks(`{"success":true,"message":"Resuming agent grandc","resumedAgentId":"grandchild"}`)))
+	check(3)
+	appendWorkerEvent(t, child, sidechainDispatch("SendMessage", "nested-report"))
+	appendWorkerEvent(t, child, sidechainResult("nested-report", textBlocks(`{"success":true,"message":"Message queued for the main conversation's next turn."}`)))
+	check(3)
+	appendWorkerEvent(t, child, sidechainDispatch("TaskStop", "nested-stop"))
+	stopped := sidechainResult("nested-stop", `{"message":"Successfully stopped task: grandchild (redacted)","task_id":"grandchild","task_type":"local_agent","command":"redacted"}`)
+	stopped["timestamp"] = started.Add(time.Second).Format(time.RFC3339)
+	appendWorkerEvent(t, child, stopped)
+	check(2)
+}
+
+func TestClaudeWorkingSubagents_UnreadableSubagentResultsKeepTheCountUnknown(t *testing.T) {
+	started, _ := time.Parse(time.RFC3339, workerTime)
+	session := liveSession{startedAt: started.Add(-time.Minute).UnixMilli()}
+	for name, lines := range map[string][]obj{
+		"async launch without metadata": {
+			sidechainDispatch("Agent", "call"),
+			sidechainResult("call", textBlocks("Async agent launched successfully. (redacted)")),
+		},
+		"stop result that is not JSON": {
+			sidechainDispatch("TaskStop", "call"),
+			sidechainResult("call", "Stopped (redacted)"),
+		},
+		"message result without a text block": {
+			sidechainDispatch("SendMessage", "call"),
+			sidechainResult("call", []obj{{"type": "image"}}),
+		},
+		"main transcript result without metadata": {
+			workerDispatch("call"),
+			{"type": "user", "message": obj{"content": []obj{{"type": "tool_result", "tool_use_id": "call", "content": "redacted"}}}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores := testScanner(t, nil, fakeProcesses{})
+			file := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari+".jsonl")
+			child := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari, "subagents", "agent-child.jsonl")
+			write(t, file, "")
+			write(t, child, "")
+			target := child
+			if name == "main transcript result without metadata" {
+				target = file
+			}
+			for _, line := range lines {
+				appendWorkerEvent(t, target, line)
+			}
+			if err := os.Chtimes(child, started, started); err != nil {
+				t.Fatal(err)
+			}
+			if count, _ := scanner.claudeWorkingSubagents(file, session); count != nil {
+				t.Fatalf("working = %d, want unknown", *count)
+			}
+		})
+	}
+}

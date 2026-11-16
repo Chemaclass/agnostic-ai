@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -78,11 +79,12 @@ func newClaudeWorkerEvents() claudeWorkerEvents {
 // worker output is returned to the client.
 func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 	var event struct {
-		Type      string `json:"type"`
-		Timestamp string `json:"timestamp"`
-		Operation string `json:"operation"`
-		Content   string `json:"content"`
-		Message   struct {
+		Type        string `json:"type"`
+		Timestamp   string `json:"timestamp"`
+		IsSidechain bool   `json:"isSidechain"`
+		Operation   string `json:"operation"`
+		Content     string `json:"content"`
+		Message     struct {
 			Content json.RawMessage `json:"content"`
 		} `json:"message"`
 		Result json.RawMessage `json:"toolUseResult"`
@@ -106,11 +108,12 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		}
 	}
 	var blocks []struct {
-		Type      string `json:"type"`
-		Name      string `json:"name"`
-		ID        string `json:"id"`
-		ToolUseID string `json:"tool_use_id"`
-		IsError   bool   `json:"is_error"`
+		Type      string          `json:"type"`
+		Name      string          `json:"name"`
+		ID        string          `json:"id"`
+		ToolUseID string          `json:"tool_use_id"`
+		IsError   bool            `json:"is_error"`
+		Content   json.RawMessage `json:"content"`
 	}
 	if len(event.Message.Content) == 0 || event.Message.Content[0] != '[' {
 		return nil
@@ -141,19 +144,20 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		if called == "" {
 			continue
 		}
-		var result struct {
-			AgentID        string `json:"agentId"`
-			Status         string `json:"status"`
-			TaskID         string `json:"task_id"`
-			Success        bool   `json:"success"`
-			ResumedAgentID string `json:"resumedAgentId"`
-			RevivedAgentID string `json:"revivedAgentId"`
-		}
-		if len(event.Result) == 0 || event.Result[0] != '{' {
+		var result nativeTaskResult
+		switch {
+		case len(event.Result) > 0 && event.Result[0] == '{':
+			if err := json.Unmarshal(event.Result, &result); err != nil {
+				return err
+			}
+		case event.IsSidechain:
+			sidechain, err := sidechainTaskResult(called, block.Content)
+			if err != nil {
+				return err
+			}
+			result = sidechain
+		default:
 			return errors.New("native task result has no activity metadata")
-		}
-		if err := json.Unmarshal(event.Result, &result); err != nil {
-			return err
 		}
 		if wasAgent && result.Status == "async_launched" && result.AgentID != "" {
 			events.tasks[result.AgentID] = nativeTaskEvent{working: true, at: when}
@@ -172,6 +176,83 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		}
 	}
 	return nil
+}
+
+type nativeTaskResult struct {
+	AgentID        string `json:"agentId"`
+	Status         string `json:"status"`
+	TaskID         string `json:"task_id"`
+	Success        bool   `json:"success"`
+	ResumedAgentID string `json:"resumedAgentId"`
+	RevivedAgentID string `json:"revivedAgentId"`
+}
+
+// A fork's own transcript opens with its launch. The parent's transcript
+// already records that launch with its metadata.
+const forkStartedResult = "Fork started — that fork is you."
+
+// An async launch names its agent only in prose meant for the model.
+const asyncLaunchedPrefix = "Async agent launched"
+
+// Claude Code writes toolUseResult only in the main transcript. A subagent's
+// transcript (isSidechain) keeps just the tool_result content, so the
+// activity is read from that content by tool name:
+//   - TaskStop and SendMessage: the content is the same JSON object.
+//   - Agent and Task: a subagent's call runs in the foreground, so its result
+//     means the nested agent has returned and no task keeps working. The
+//     fork's record of its own launch adds nothing either. An async launch
+//     cannot be read and keeps the count unknown.
+func sidechainTaskResult(called string, content json.RawMessage) (nativeTaskResult, error) {
+	text, err := toolResultText(content)
+	if err != nil {
+		return nativeTaskResult{}, err
+	}
+	switch called {
+	case "TaskStop", "SendMessage":
+		var result nativeTaskResult
+		if err := json.Unmarshal([]byte(text), &result); err != nil {
+			return nativeTaskResult{}, fmt.Errorf("subagent %s result is not a JSON object: %w", called, err)
+		}
+		return result, nil
+	case "Agent", "Task":
+		if text == forkStartedResult {
+			return nativeTaskResult{}, nil
+		}
+		if strings.HasPrefix(text, asyncLaunchedPrefix) {
+			return nativeTaskResult{}, errors.New("subagent async launch has no activity metadata")
+		}
+		return nativeTaskResult{}, nil
+	}
+	return nativeTaskResult{}, fmt.Errorf("subagent %s result has no activity metadata", called)
+}
+
+// A tool_result's content is either a string or a list of blocks whose first
+// text block carries the result.
+func toolResultText(content json.RawMessage) (string, error) {
+	if len(content) == 0 {
+		return "", errors.New("tool result has no content")
+	}
+	if content[0] == '"' {
+		var text string
+		err := json.Unmarshal(content, &text)
+		return text, err
+	}
+	if content[0] != '[' {
+		return "", errors.New("tool result content is neither text nor blocks")
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(content, &blocks); err != nil {
+		return "", err
+	}
+	for _, block := range blocks {
+		if block.Type == "text" {
+			return block.Text, nil
+		}
+	}
+	return "", errors.New("tool result content has no text block")
 }
 
 func notificationField(content, name string) string {
