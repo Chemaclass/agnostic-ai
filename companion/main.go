@@ -104,7 +104,8 @@ type shell struct {
 	inbox  *inbox
 	server *server
 
-	settingsPath string
+	settingsPath  string
+	bubblePressed func() bool
 
 	// screens lists the displays.
 	screens func() []*application.Screen
@@ -511,7 +512,18 @@ func (s *shell) changeSettings(change func(saved *settings)) error {
 	return writeSettings(s.settingsPath, s.settings)
 }
 
+// Clicking the bubble to drag it must not dismiss its open panel.
 func (s *shell) panelLostFocus() {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	if !s.panel.IsVisible() || s.panel.IsFocused() {
+		return
+	}
+	if s.bubble.IsFocused() || (s.bubblePressed != nil && s.bubblePressed()) {
+		s.panel.Focus()
+		return
+	}
+	s.panel.Hide()
 	s.mu.Lock()
 	s.hiddenByFocusAt = time.Now()
 	s.mu.Unlock()
@@ -673,17 +685,19 @@ func main() {
 		URL: "/",
 	}))
 	s.panel = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
-		Name:            "panel",
-		Title:           "agnostic-ai conversations",
-		Width:           panelWidth,
-		Height:          panelHeight,
-		URL:             "/panel.html",
-		Hidden:          true,
-		HideOnFocusLost: true,
+		Name:   "panel",
+		Title:  "agnostic-ai conversations",
+		Width:  panelWidth,
+		Height: panelHeight,
+		URL:    "/panel.html",
+		Hidden: true,
 		// The page handles Escape: it first closes its menu or a rename.
 	}))
 
+	s.bubblePressed = func() bool { return mousePressedOver(s.bubble.NativeWindow()) }
+
 	s.bubble.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) { s.bubbleMoved() })
+	s.bubble.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 	s.panel.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 
 	s.app.Event.RegisterApplicationEventHook(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
