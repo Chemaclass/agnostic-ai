@@ -18,8 +18,10 @@ ui-check:
 
 # The floating companion is its own Go module (companion/go.mod), so
 # Wails stays out of the CLI's dependencies and its binary. It builds for
-# the system it runs on; see companion/README.md. Users build it with
-# `agnostic-ai companion install`; these targets are for working on it.
+# the system it runs on; see companion/README.md. Users get it with
+# `agnostic-ai companion install`, which on macOS downloads the archives
+# scripts/companion-release.sh builds for each release; these targets are
+# for working on it.
 # private_mac_apis lets the macOS web view draw without a background,
 # which has no public API; other systems ignore the tag.
 companion:

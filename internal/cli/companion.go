@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -86,6 +87,9 @@ type companionTools struct {
 	succeeds func(ctx context.Context, name string, args ...string) bool
 	// build runs the Go command, sending every line it prints to lines.
 	build func(ctx context.Context, dir string, env []string, lines func(string), args ...string) error
+	// download writes the released macOS companion for version into a
+	// folder and returns its path; nil where nothing is downloaded.
+	download func(out io.Writer, version, into string) (string, error)
 	// start runs the companion apart from this terminal.
 	start func(path string, env []string) error
 	// builtFor asks a companion which agnostic-ai release it was built for.
@@ -106,7 +110,10 @@ func systemCompanionTools() companionTools {
 		succeeds: func(ctx context.Context, name string, args ...string) bool {
 			return exec.CommandContext(ctx, name, args...).Run() == nil
 		},
-		build:    runGoBuild,
+		build: runGoBuild,
+		download: func(out io.Writer, version, into string) (string, error) {
+			return downloadCompanion(out, &http.Client{Timeout: time.Minute}, releasesBaseURL, version, runtime.GOARCH, into, ghProvenance)
+		},
 		start:    startCompanion,
 		builtFor: companionBuiltFor,
 		quit:     quitCompanion,
@@ -496,32 +503,21 @@ func (p *buildProgress) done() {
 	_, _ = fmt.Fprintf(p.out, "  %d modules fetched, %d packages compiled\n", p.fetched, p.compiled)
 }
 
-// installCompanion builds the companion and puts it in place. On macOS,
-// loginEntries are where a bare program an earlier install left kept
-// its start at login.
+// downloads reports whether b can be the released companion rather than
+// a build: a release on macOS, fetched from its own commit.
+func (b companionBuild) downloads() bool {
+	return b.goos == "darwin" && b.source == "" && releaseVersionRE.MatchString(b.version)
+}
+
+// installCompanion puts the companion in place: on macOS the one the
+// release ships, otherwise one built here. On macOS, loginEntries are
+// where a bare program an earlier install left kept its start at login.
 func installCompanion(ctx context.Context, out io.Writer, live bool, tools companionTools, dir string, build companionBuild, loginEntries []string) error {
-	_, _ = fmt.Fprintf(out, "Building the companion for agnostic-ai %s on this machine.\n", build.version)
-	needs, known := companionNeeds[build.goos]
-	if !known {
+	if _, known := companionNeeds[build.goos]; !known {
 		return fmt.Errorf("the companion does not build on %s", build.goos)
 	}
-	for _, need := range needs {
-		if !tools.succeeds(ctx, need.check[0], need.check[1:]...) {
-			return fmt.Errorf("the companion needs %s to build. %s, then run this again", need.what, need.fix)
-		}
-		_, _ = fmt.Fprintf(out, "✓ %s found\n", need.what)
-	}
-	if build.source == "" && build.revision == "" {
-		return errors.New("this agnostic-ai does not record the commit it was built from, so it cannot fetch the companion's source; pass --source with the companion folder of an agnostic-ai checkout")
-	}
-	if build.source != "" {
-		if _, err := os.Stat(filepath.Join(build.source, "go.mod")); err != nil {
-			return fmt.Errorf("--source %s is not the companion folder of an agnostic-ai checkout: %w", build.source, err)
-		}
-	}
-
-	// The program is built in a folder of its own and moved into place
-	// at the end, so a build that fails leaves the installed one alone.
+	// The program is written in a folder of its own and moved into place
+	// at the end, so a failure leaves the installed one alone.
 	if err := os.MkdirAll(companionFolder(dir), 0o700); err != nil {
 		return fmt.Errorf("install the companion: %w", err)
 	}
@@ -535,17 +531,24 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		return fmt.Errorf("install the companion: %w", err)
 	}
 
-	_, _ = fmt.Fprintln(out, "→ Fetching and compiling. The first build takes a few minutes.")
-	progress := &buildProgress{out: out, live: live}
-	args, runIn := build.goArgs()
-	buildErr := tools.build(ctx, runIn, build.goEnv(os.Environ()), progress.line, args...)
-	progress.done()
-	if buildErr != nil {
-		return fmt.Errorf("the build failed (%w):\n%s", buildErr, strings.Join(progress.last, "\n"))
+	built := ""
+	if tools.download != nil && build.downloads() {
+		_, _ = fmt.Fprintf(out, "Downloading the companion for agnostic-ai %s.\n", build.version)
+		built, err = tools.download(out, build.version, build.into)
+		switch {
+		case errors.Is(err, errNoPrebuiltCompanion):
+			_, _ = fmt.Fprintln(out, "! This release ships no built companion for this Mac, so it is built here.")
+		case err != nil:
+			// A download that does not verify is never replaced by a build.
+			return fmt.Errorf("download the companion: %w", err)
+		default:
+			_, _ = fmt.Fprintln(out, "✓ Downloaded and verified the companion")
+		}
 	}
-	built, err := builtCompanion(build)
-	if err != nil {
-		return err
+	if built == "" {
+		if built, err = buildCompanion(ctx, out, live, tools, build); err != nil {
+			return err
+		}
 	}
 	target := companionFile(dir, build.goos)
 	place := func() error { return os.Rename(built, target) }
@@ -615,6 +618,34 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	return err
 }
 
+// buildCompanion builds the companion into build.into and returns the program.
+func buildCompanion(ctx context.Context, out io.Writer, live bool, tools companionTools, build companionBuild) (string, error) {
+	_, _ = fmt.Fprintf(out, "Building the companion for agnostic-ai %s on this machine.\n", build.version)
+	for _, need := range companionNeeds[build.goos] {
+		if !tools.succeeds(ctx, need.check[0], need.check[1:]...) {
+			return "", fmt.Errorf("the companion needs %s to build. %s, then run this again", need.what, need.fix)
+		}
+		_, _ = fmt.Fprintf(out, "✓ %s found\n", need.what)
+	}
+	if build.source == "" && build.revision == "" {
+		return "", errors.New("this agnostic-ai does not record the commit it was built from, so it cannot fetch the companion's source; pass --source with the companion folder of an agnostic-ai checkout")
+	}
+	if build.source != "" {
+		if _, err := os.Stat(filepath.Join(build.source, "go.mod")); err != nil {
+			return "", fmt.Errorf("--source %s is not the companion folder of an agnostic-ai checkout: %w", build.source, err)
+		}
+	}
+	_, _ = fmt.Fprintln(out, "→ Fetching and compiling. The first build takes a few minutes.")
+	progress := &buildProgress{out: out, live: live}
+	args, runIn := build.goArgs()
+	buildErr := tools.build(ctx, runIn, build.goEnv(os.Environ()), progress.line, args...)
+	progress.done()
+	if buildErr != nil {
+		return "", fmt.Errorf("the build failed (%w):\n%s", buildErr, strings.Join(progress.last, "\n"))
+	}
+	return builtCompanion(build)
+}
+
 // whileHeld runs change again for a while when it fails. A program that
 // just ended can keep its file a moment longer on Windows.
 func whileHeld(tools companionTools, change func() error) error {
@@ -671,7 +702,7 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 		return err
 	}
 	if !found {
-		return errors.New("the companion is not installed yet. Build it for this machine with: agnostic-ai companion install")
+		return errors.New("the companion is not installed yet. Install it with: agnostic-ai companion install")
 	}
 	if err := recordCompanionCommand(dir); err != nil {
 		return err
@@ -681,7 +712,7 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 	}
 	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.")
 	if builtFor := tools.builtFor(ctx, installed); builtFor != version {
-		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %q and this is %s. Build it again with: agnostic-ai companion install\n", builtFor, version)
+		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %q and this is %s. Install it again with: agnostic-ai companion install\n", builtFor, version)
 	}
 	return nil
 }
@@ -698,10 +729,10 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			"Claude Code, Codex and Cursor conversations that wait for you, with a searchable " +
 			"list that opens each one where it lives. It asks a server of its own, " +
 			"`agnostic-ai serve --global`, which it starts when it needs a list and stops when " +
-			"it quits. The companion is built on your machine first, with " +
+			"it quits. Install it first with " +
 			"`agnostic-ai companion install`. Starting it again brings back a hidden companion. " +
 			"`agnostic-ai companion stop` ends it and `agnostic-ai companion uninstall` removes it.",
-		Example: `  # Build the companion for this machine, once and after each upgrade
+		Example: `  # Install the companion on this machine, once and after each external upgrade
   agnostic-ai companion install
 
   # Start it
@@ -724,9 +755,12 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 	var source string
 	install := &cobra.Command{
 		Use:   "install",
-		Short: "Build the companion on this machine.",
-		Long: "Builds the companion from the same commit as this agnostic-ai and installs it in " +
-			"your configuration folder. Nothing is downloaded but source code, through Go. It " +
+		Short: "Put the companion on this machine.",
+		Long: "On macOS, downloads the companion this release built, checks it against the " +
+			"release's checksums and build provenance, and installs it in your configuration " +
+			"folder; a download that does not verify stops the install. A release without a built " +
+			"companion, a version with no published release, --source, and other systems build it from " +
+			"the same commit as this agnostic-ai instead. The build " +
 			"needs Go, and on macOS the Xcode Command Line Tools, on Linux a C compiler with the " +
 			"GTK 4, WebKitGTK 6.0 and X11 development packages; it names what is missing. On " +
 			"macOS it installs an app with the agnostic-ai icon, signed on this machine, and " +

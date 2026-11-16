@@ -414,6 +414,28 @@ jobs:
         shell: bash
         run: go test -vet=all -timeout=10m -count=1 -race ./tests/integration/...
 
+  # The release builds the macOS companion with this script. Running it here
+  # finds a compile error before a tag does.
+  macos-companion:
+    name: Build companion (macos-latest)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: companion/go.mod
+          cache-dependency-path: companion/go.sum
+
+      - name: Build the release archives
+        run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
+
 
   opencode-hooks:
     name: OpenCode hooks
