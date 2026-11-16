@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -75,6 +76,20 @@ func TestScan_ListsTheChatGPTAppsChats(t *testing.T) {
 	}
 	if source, ok := chatGPTSource(t, view); !ok || !source.Found {
 		t.Errorf("source = %s", asJSON(t, view.Tools))
+	}
+}
+
+func TestScan_WithholdsAChatGPTTitleThatMayHoldACredential(t *testing.T) {
+	scanner, stores := testScanner(t, chatGPTCatalog(t, `[
+		{"thread_id":"`+chatGPTDone+`","display_title":"Debug ghp_abcdefghijklmnopqrstuvwxyz0123456789","source_created_at":1762505759,"source_updated_at":1762509394,"chatgpt_async_status":null,"running":0}
+	]`), fakeProcesses{})
+	writeChatGPTApp(t, stores)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	row := chatGPTRows(view)[chatGPTDone]
+	if row.Title != "" || !slices.Equal(row.Withheld, []string{FieldTitle}) {
+		t.Errorf("row = %s", asJSON(t, row))
 	}
 }
 

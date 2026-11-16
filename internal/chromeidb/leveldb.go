@@ -2,7 +2,9 @@ package chromeidb
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -13,6 +15,13 @@ import (
 // number, and the highest one per key wins. A table that a compaction
 // has just replaced may still be on disk, which is harmless: its
 // entries are older than the ones that replaced them.
+//
+// It lists the folder's files rather than reading the MANIFEST, so it
+// can meet a table LevelDB is still writing. Such a table has no footer
+// magic yet and is left out: until LevelDB finishes it and records it
+// as live, its entries are still in the log or tables it replaces. A
+// file that LevelDB removes while the folder is read means a flush or
+// a compaction finished in between, so the whole folder is read again.
 
 // LevelDB entry kinds, the low byte of an internal key's trailer and
 // the tag of a write batch entry.
@@ -36,8 +45,23 @@ const (
 	logLast   = 4
 )
 
-// tableFooterSize is the fixed footer at the end of every table file.
-const tableFooterSize = 48
+// tableFooterSize is the fixed footer at the end of every table file,
+// which ends in tableMagic. LevelDB writes the footer last.
+const (
+	tableFooterSize = 48
+	tableMagic      = 0xdb4775248b80fb57
+)
+
+// blockTrailerSize is the compression type byte and the checksum after
+// every table block.
+const blockTrailerSize = 5
+
+// maxFolderReads bounds how often a folder is read again because
+// LevelDB removed one of its files during a read.
+const maxFolderReads = 3
+
+// errUnfinishedTable marks a table LevelDB is still writing.
+var errUnfinishedTable = errors.New("the table has no footer magic yet")
 
 // Block compression types, the byte after each block.
 const (
@@ -53,8 +77,22 @@ type entry struct {
 }
 
 // readLevelDB returns the newest live value of every key in the LevelDB
-// folder dir.
+// folder dir. It reads the folder again when LevelDB removed a file
+// during the read, at most maxFolderReads times in all.
 func readLevelDB(dir string) (map[string][]byte, error) {
+	var err error
+	for range maxFolderReads {
+		var values map[string][]byte
+		values, err = readLevelDBOnce(dir)
+		if !errors.Is(err, fs.ErrNotExist) {
+			return values, err
+		}
+	}
+	return nil, fmt.Errorf("files kept changing over %d reads: %w", maxFolderReads, err)
+}
+
+// readLevelDBOnce reads the folder's files as they are listed now.
+func readLevelDBOnce(dir string) (map[string][]byte, error) {
 	newest := map[string]entry{}
 	keep := func(key []byte, e entry) {
 		if old, ok := newest[string(key)]; ok && old.sequence > e.sequence {
@@ -67,7 +105,12 @@ func readLevelDB(dir string) (map[string][]byte, error) {
 		return nil, err
 	}
 	for _, table := range tables {
-		if err := readTable(table, keep); err != nil {
+		err := readTable(table, keep)
+		switch {
+		case errors.Is(err, errUnfinishedTable):
+			// Its entries are still where LevelDB wrote them before.
+			continue
+		case err != nil:
 			return nil, fmt.Errorf("table %s: %w", filepath.Base(table), err)
 		}
 	}
@@ -181,8 +224,8 @@ func readTable(path string, keep func([]byte, entry)) error {
 	if err != nil {
 		return err
 	}
-	if len(data) < tableFooterSize {
-		return fmt.Errorf("%d bytes is shorter than a footer", len(data))
+	if len(data) < tableFooterSize || binary.LittleEndian.Uint64(data[len(data)-8:]) != tableMagic {
+		return errUnfinishedTable
 	}
 	footer := reader{data: data[len(data)-tableFooterSize:]}
 	// The metaindex handle comes first; only the index is needed.
@@ -220,11 +263,14 @@ func readTable(path string, keep func([]byte, entry)) error {
 }
 
 // tableBlock returns the block at offset, expanded when compressed.
+// The bounds are checked by subtraction, so no damaged offset or size
+// can wrap around.
 func tableBlock(data []byte, offset, size uint64) ([]byte, error) {
-	end := offset + size
-	if end+1 > uint64(len(data)) {
-		return nil, fmt.Errorf("block at %d runs past the file", offset)
+	fileSize := uint64(len(data))
+	if offset > fileSize || fileSize-offset < blockTrailerSize || size > fileSize-offset-blockTrailerSize {
+		return nil, fmt.Errorf("block of %d bytes at %d runs past the file of %d", size, offset, fileSize)
 	}
+	end := offset + size
 	block := data[offset:end]
 	switch data[end] {
 	case blockPlain:
@@ -243,11 +289,11 @@ func eachBlockEntry(block []byte, visit func(key, value []byte) error) error {
 	if len(block) < 4 {
 		return fmt.Errorf("block of %d bytes", len(block))
 	}
-	restarts := int(binary.LittleEndian.Uint32(block[len(block)-4:]))
-	end := len(block) - 4 - 4*restarts
-	if end < 0 {
-		return fmt.Errorf("block claims %d restarts", restarts)
+	restarts := uint64(binary.LittleEndian.Uint32(block[len(block)-4:]))
+	if restarts > uint64(len(block)-4)/4 {
+		return fmt.Errorf("block of %d bytes claims %d restarts", len(block), restarts)
 	}
+	end := len(block) - 4 - 4*int(restarts)
 	r := reader{data: block[:end]}
 	var key []byte
 	for r.at < end {

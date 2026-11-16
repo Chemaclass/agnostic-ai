@@ -170,13 +170,28 @@ func (f *Folder) databaseID(name string) (uint64, error) {
 		if err != nil || databaseName != name {
 			continue
 		}
-		id, err := (&reader{data: value}).uvarint()
+		id, err := decodeInt(value)
 		if err != nil {
 			return 0, unreadable(fmt.Errorf("database %q id: %w", name, err))
 		}
 		return id, nil
 	}
 	return 0, missing("no database %q", name)
+}
+
+// decodeInt reads an integer as Chromium's EncodeInt writes it: the
+// whole value, little-endian, eight bits a byte, in as few bytes as it
+// takes. A database id is stored this way, while the ids inside keys
+// and metadata use varints.
+func decodeInt(raw []byte) (uint64, error) {
+	if len(raw) == 0 || len(raw) > 8 {
+		return 0, fmt.Errorf("an integer of %d bytes", len(raw))
+	}
+	var value uint64
+	for i, b := range raw {
+		value |= uint64(b) << (8 * i)
+	}
+	return value, nil
 }
 
 // storeID finds an object store by name in its database's metadata.
@@ -229,15 +244,27 @@ func (f *Folder) decodeRecord(databaseID, storeID uint64, key string, raw []byte
 		return nil, fmt.Errorf("record version: %w", err)
 	}
 	value := raw[r.at:]
+	// Blink compresses a value at most once and then moves it to a blob
+	// at most once, so each envelope may be unwrapped once. A blob that
+	// names a blob again, itself included, is damage, not a value.
+	movedToBlob, compressed := false, false
 	for {
 		switch {
 		case bytes.HasPrefix(value, []byte{blinkVersionTag, blinkProcessed, blinkReplaceWithBlob}):
+			if movedToBlob || compressed {
+				return nil, errors.New("a blob reference inside a blob or a compressed value")
+			}
+			movedToBlob = true
 			blob, err := f.blob(databaseID, storeID, key, value[3:])
 			if err != nil {
 				return nil, err
 			}
 			value = blob
 		case bytes.HasPrefix(value, []byte{blinkVersionTag, blinkProcessed, blinkSnappy}):
+			if compressed {
+				return nil, errors.New("a compressed value inside a compressed value")
+			}
+			compressed = true
 			expanded, err := decodeSnappy(value[3:])
 			if err != nil {
 				return nil, err
@@ -288,11 +315,23 @@ func (f *Folder) blob(databaseID, storeID uint64, key string, reference []byte) 
 	if !ok {
 		return nil, errors.New("the value is in a blob, and the record lists none")
 	}
+	if size > maxDecodedBytes {
+		return nil, fmt.Errorf("blob of %d bytes is more than %d", size, maxDecodedBytes)
+	}
 	number, err := blobNumber(list, position)
 	if err != nil {
 		return nil, err
 	}
 	path := filepath.Join(f.blobDir, fmt.Sprintf("%x", databaseID), fmt.Sprintf("%02x", number>>8&0xFF), fmt.Sprintf("%x", number))
+	// The size is checked before the read too, so a damaged or swapped
+	// file is not read whole.
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if uint64(info.Size()) != size {
+		return nil, fmt.Errorf("blob %x holds %d bytes, the record says %d", number, info.Size(), size)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

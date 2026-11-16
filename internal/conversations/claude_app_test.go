@@ -130,6 +130,22 @@ func TestScan_KeepsTheClaudeAppsChatsOutOfAFolderScope(t *testing.T) {
 	}
 }
 
+func TestScan_ListsACoworkTaskInsideTheFolderScope(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	inside := coworkTask(appTaskID, "Inside", "2026-11-07T09:00:00Z", false, false)
+	inside["cwd"] = filepath.Join(stores.Home, "project")
+	outside := coworkTask("local_11111111-1111-4111-8111-111111111111", "Outside", "2026-11-07T09:00:00Z", false, false)
+	outside["cwd"] = filepath.Join(t.TempDir(), "elsewhere")
+	writeClaudeApp(t, stores,
+		chatListQuery(obj{"limit": 30, "starred": nil, "archived": false}, chat(appChatID, "Vague request", "2026-11-07T11:00:00.000Z", nil)),
+		obj{"queryKey": []any{"cowork-local-sessions", "org"}, "state": obj{"data": obj{"v": 1.0, "rows": []any{inside, outside}}}},
+	)
+	rows := appRows(scanner.Scan(context.Background(), ScanOptions{Within: []string{stores.Home}}))
+	if len(rows) != 1 || rows[appTaskID].Folder != filepath.Join(stores.Home, "project") {
+		t.Fatalf("rows = %s", asJSON(t, rows))
+	}
+}
+
 func TestScan_CountsAClaudeChatTheAssistantAnsweredUntilSeen(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
