@@ -1,15 +1,15 @@
 ---
-name: agnostic-ai-gh-issues
+name: gh-issues
 description: "Use to work the backlog: open issues unassigned or assigned to you, one at a time"
 argument-hint: "[--limit N] [--label foo] [--dry-run]"
 disable-model-invocation: false
 x-claude:
-  allowed-tools: "Read, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *), Skill(agnostic-ai-gh-issue)"
+  allowed-tools: "Read, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *), Skill(gh-issue)"
 ---
 
 # GitHub issues watcher
 
-Work open issues that are unassigned or assigned only to the current user through `.agnostic-ai/skills/agnostic-ai-gh-issue/SKILL.md`, one at a time. That skill owns implementation, validation, review, and authorized merging. Carry the user's scope into each issue, including any restriction on pushing or merging.
+Work open issues that are unassigned or assigned only to the current user through `.agnostic-ai/skills/gh-issue/SKILL.md`, one at a time. That skill owns implementation, validation, review, and authorized merging. Carry the user's scope into each issue, including any restriction on pushing or merging.
 
 ## Discover
 
