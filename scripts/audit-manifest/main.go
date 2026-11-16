@@ -381,6 +381,12 @@ func (a app) start(args []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if err = os.MkdirAll(evidence, 0o755); err != nil {
+			return "", fmt.Errorf("%s: %w", evidence, err)
+		}
+		if err = excludeFromGoModule(evidence); err != nil {
+			return "", err
+		}
 		*out = filepath.Join(evidence, time.Now().UTC().Format("2006-01-02T150405Z")+"-"+runID)
 	}
 	abs, err := filepath.Abs(*out)
