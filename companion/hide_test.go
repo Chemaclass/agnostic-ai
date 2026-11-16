@@ -69,6 +69,12 @@ func (w *fakeWindow) Focus() {
 	w.focused = true
 }
 
+func (w *fakeWindow) IsFocused() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.focused
+}
+
 func (w *fakeWindow) Position() (int, int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -720,5 +726,66 @@ func TestPlaceBubble_StartsASmallCircleAtItsDefaultPlace(t *testing.T) {
 	wantX, wantY := defaultBubblePosition(rect{Width: 1440, Height: 900}, smallBubbleSide)
 	if bubble.x != wantX || bubble.y != wantY {
 		t.Errorf("circle at %d,%d; want the small default place %d,%d", bubble.x, bubble.y, wantX, wantY)
+	}
+}
+
+func TestPanelLostFocus_KeepsTheListOnlyWhileUsingTheCompanion(t *testing.T) {
+	for name, tc := range map[string]struct {
+		bubbleFocused, panelFocused, bubblePressed, visible bool
+	}{
+		"focusing the bubble":       {bubbleFocused: true, visible: true},
+		"returning to the panel":    {panelFocused: true, visible: true},
+		"dragging a non-key bubble": {bubblePressed: true, visible: true},
+		"switching to another app":  {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, _ := placedShell(t)
+			s.togglePanel()
+			bubble, panel := s.bubble.(*fakeWindow), s.panel.(*fakeWindow)
+			bubble.focused, panel.focused = tc.bubbleFocused, tc.panelFocused
+			s.bubblePressed = func() bool { return tc.bubblePressed }
+
+			s.panelLostFocus()
+
+			if panel.IsVisible() != tc.visible {
+				t.Errorf("panel visible %v, want %v", panel.IsVisible(), tc.visible)
+			}
+			if tc.visible && !panel.IsFocused() {
+				t.Error("using the companion did not keep the keyboard focus in its panel")
+			}
+			if s.hiddenByFocusAt.IsZero() != tc.visible {
+				t.Errorf("focus dismissal recorded at %v, want dismissal %v", s.hiddenByFocusAt, !tc.visible)
+			}
+		})
+	}
+}
+
+func TestPanelLostFocus_ClosesAfterANonKeyBubbleDrag(t *testing.T) {
+	s, _ := placedShell(t)
+	s.togglePanel()
+	bubble, panel := s.bubble.(*fakeWindow), s.panel.(*fakeWindow)
+	bubble.focused, panel.focused = false, false
+	pressed := true
+	s.bubblePressed = func() bool { return pressed }
+	s.panelLostFocus()
+	if !panel.IsVisible() || !panel.IsFocused() {
+		t.Fatal("dragging did not leave the panel open with keyboard focus")
+	}
+
+	pressed, panel.focused = false, false
+	s.panelLostFocus()
+	if panel.IsVisible() || s.hiddenByFocusAt.IsZero() {
+		t.Error("switching away after dragging did not dismiss the panel")
+	}
+}
+
+func TestPanelLostFocus_DoesNotReopenAClosedPanel(t *testing.T) {
+	s, _ := placedShell(t)
+	s.bubblePressed = func() bool { return true }
+
+	s.panelLostFocus()
+
+	if s.panel.IsVisible() {
+		t.Error("pressing the bubble reopened the panel through its focus handler")
 	}
 }
