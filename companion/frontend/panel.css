@@ -399,10 +399,14 @@ body {
   color: var(--action);
 }
 
+.group-title.is-working {
+  color: #9bbdce;
+}
+
 .row {
   position: relative;
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 56px 1fr auto;
   align-items: center;
   gap: 8px;
   padding: 8px 8px;
@@ -413,6 +417,10 @@ body {
 .row.is-active,
 .row:hover {
   background: rgba(242, 237, 229, 0.07);
+}
+
+.row.has-workers {
+  min-height: 68px;
 }
 
 .row.is-active {
@@ -449,6 +457,7 @@ body {
 /* The state mark at the row's left. */
 
 .state {
+  position: relative;
   justify-self: center;
   width: 8px;
   height: 8px;
@@ -463,9 +472,161 @@ body {
 }
 
 .state.is-working {
-  background: var(--busy);
-  box-shadow: 0 0 0 3px var(--busy-soft);
-  animation: breathe 1.4s ease-in-out infinite;
+  width: 32px;
+  height: 32px;
+  background: none;
+  box-shadow: none;
+  perspective: 80px;
+}
+
+/* A matte core and five tilted tracks. Only transforms move; brightness stays
+   fixed. The whole cage precesses slowly while markers travel along its tracks. */
+.work-system {
+  position: absolute;
+  inset: 0;
+  width: 32px;
+  height: 32px;
+  perspective: 80px;
+}
+
+.work-system::before {
+  content: '';
+  position: absolute;
+  inset: 12.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #cadde7, #769fb5 50%, #365467);
+  box-shadow: inset -0.5px -0.5px 0.5px rgba(0, 0, 0, 0.3);
+}
+
+.work-cage,
+.work-orbit,
+.work-traveller {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+}
+
+.work-cage {
+  animation: work-orbit 36s linear infinite;
+  animation-delay: var(--work-phase);
+}
+
+.work-orbit {
+  inset: 1px;
+  border: 1px solid rgba(117, 168, 196, 0.2);
+  transform: rotate(-30deg) rotateX(56deg);
+}
+
+.work-orbit:nth-child(2) {
+  inset: 4px;
+  border-color: rgba(117, 168, 196, 0.18);
+  transform: rotate(30deg) rotateX(35deg) translateZ(2px);
+}
+
+.work-orbit:nth-child(3) {
+  inset: 6px;
+  border-color: rgba(117, 168, 196, 0.16);
+  transform: rotate(90deg) rotateX(62deg) translateZ(-3px);
+}
+
+.work-orbit:nth-child(4) {
+  inset: 2px;
+  border-color: rgba(169, 151, 189, 0.16);
+  transform: rotate(6deg) rotateX(72deg) translateZ(3px);
+}
+
+.work-orbit:nth-child(5) {
+  inset: 5px;
+  border-color: rgba(174, 173, 127, 0.14);
+  transform: rotate(78deg) rotateX(24deg) translateZ(-2px);
+}
+
+.work-traveller {
+  inset: -1px;
+  animation: work-orbit 4.8s linear infinite;
+  animation-delay: var(--work-phase);
+}
+
+.work-orbit:nth-child(2) .work-traveller {
+  animation-duration: 7.2s;
+  animation-direction: reverse;
+  animation-delay: calc(var(--work-phase) - 2.4s);
+}
+
+.work-orbit:nth-child(3) .work-traveller {
+  animation-duration: 9.6s;
+  animation-delay: calc(var(--work-phase) - 6.4s);
+}
+
+.work-orbit:nth-child(4) .work-traveller {
+  animation-duration: 12s;
+  animation-direction: reverse;
+  animation-delay: calc(var(--work-phase) - 4s);
+}
+
+.work-orbit:nth-child(5) .work-traveller {
+  animation-duration: 14.4s;
+  animation-delay: calc(var(--work-phase) - 10s);
+}
+
+.work-traveller::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 3px;
+  border-radius: 50%;
+  background: #d7ad8b;
+}
+
+.work-orbit:nth-child(2) .work-traveller::before { background: #8ec6b7; }
+.work-orbit:nth-child(3) .work-traveller::before { background: #90b4d3; }
+.work-orbit:nth-child(4) .work-traveller::before { background: #baa1cd; }
+.work-orbit:nth-child(5) .work-traveller::before { background: #c4bf88; }
+
+/* Worker satellites repeat the same five-dot system at a smaller scale.
+   Nest only once: the base markers within every system remain plain dots. */
+.work-workers {
+  position: absolute;
+  inset: -2px;
+  animation: work-orbit 18s linear infinite;
+  animation-delay: var(--work-phase);
+}
+
+.work-worker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: rotate(var(--worker-angle)) translateY(calc(-1 * var(--worker-radius)));
+}
+
+.work-worker > .work-system {
+  inset: auto;
+  transform: translate(-50%, -50%) scale(0.38);
+}
+
+.work-traveller::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-top-color: rgba(155, 189, 206, 0.24);
+  border-radius: 50%;
+  transform: rotate(-45deg);
+}
+
+@keyframes work-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-workers,
+  .work-cage,
+  .work-traveller {
+    animation: none !important;
+  }
 }
 
 .state.is-active {
@@ -477,12 +638,6 @@ body {
 .state.is-archived {
   background: none;
   box-shadow: inset 0 0 0 1.5px var(--paper-faint);
-}
-
-@keyframes breathe {
-  50% {
-    opacity: 0.45;
-  }
 }
 
 .text {
@@ -529,6 +684,24 @@ body {
 .meta .why {
   color: var(--action);
   font-weight: 560;
+}
+
+.worker-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: bottom;
+  color: #9bbdce;
+}
+
+.worker-count svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .actions {

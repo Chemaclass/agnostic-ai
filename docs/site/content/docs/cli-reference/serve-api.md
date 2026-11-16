@@ -114,7 +114,7 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, parent?, cloud?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, workingSubagents?, deleteUnsupported?, parent?, cloud?, open}`.
 
 Conversation fields:
 
@@ -123,6 +123,7 @@ Conversation fields:
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
+- `workingSubagents` is an optional native task count for local Claude Code and Codex. Zero means none; omission means unavailable. Claude uses task dispatch, launch, completion, stop and resume events from the current live process; Codex uses native parent relationships, live writer locks and unfinished turn events, including nested workers. It does not count linked child conversations or cloud workers. An unfinished native task may be waiting on a tool. Native logs that cannot be read leave the count unavailable. Worker event writes invalidate the cached list; process exits can take up to a minute to show. Positive counts keep an otherwise idle parent in `working`, while a parent's unread question still takes priority.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.

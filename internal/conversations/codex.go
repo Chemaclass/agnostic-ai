@@ -117,6 +117,10 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		rollouts[thread.ID] = thread.RolloutPath
 	}
 	s.markLiveCodexThreads(conversations, rollouts)
+	workerRollouts := s.codexWorkingSubagents(ctx, statePath, conversations)
+	s.rolloutsMu.Lock()
+	s.codexLiveRollouts = append(s.codexLiveRollouts, workerRollouts...)
+	s.rolloutsMu.Unlock()
 	conversations = within(conversations, opts.Within)
 	ids := make([]string, 0, len(conversations))
 	for _, c := range conversations {

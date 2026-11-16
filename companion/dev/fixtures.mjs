@@ -151,6 +151,16 @@ export const FIXTURES = {
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
   nested: { label: 'Chats started from other chats', conversations: nested },
   shared: { label: 'A local chat also open on claude.ai', conversations: shared },
+  workers: {
+    label: 'Native sub-agents: three working, two while waiting, unknown',
+    conversations: (now) => [
+      { ...conversation(now, 'claude', 'workers-1', 'Build the companion', 'working'), workingSubagents: 3 },
+      { ...conversation(now, 'codex', 'workers-2', 'Review the implementation', 'blocked'), workingSubagents: 2 },
+      { ...conversation(now, 'claude', 'workers-idle', 'Idle parent with a worker', 'working'), activity: 'idle', workingSubagents: 1 },
+      { ...conversation(now, 'codex', 'workers-wait-read', 'Waiting parent already read', 'working'), activity: 'waiting', workingSubagents: 1 },
+      conversation(now, 'claude', 'workers-unknown', 'Activity not available', 'working'),
+    ],
+  },
   'needs-you-mark-failure': {
     label: 'Mark all as read failure',
     conversations: needsYou,

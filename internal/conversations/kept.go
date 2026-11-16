@@ -115,7 +115,10 @@ func (s *Scanner) claudeFiles() []string {
 	transcripts, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "projects", "*", "*.jsonl"))
 	running, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "sessions", "*.json"))
 	jobs, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "jobs", "*", "state.json"))
-	return append(append(transcripts, running...), jobs...)
+	files := append(append(transcripts, running...), jobs...)
+	s.rolloutsMu.Lock()
+	defer s.rolloutsMu.Unlock()
+	return append(files, s.claudeWorkerFiles...)
 }
 
 // Stamp changes whenever a scan could answer differently: a file that a

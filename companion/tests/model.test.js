@@ -129,7 +129,7 @@ test('says how much a delete freed', () => {
   assert.deepEqual(deletedOf({ deleted: true, note: 'The session data is gone.' }), { message: 'Deleted.', note: 'The session data is gone.' })
 })
 
-test('says why a row waits for the person, and nothing its group header already says', () => {
+test('names waiting and working states without relying on color or motion', () => {
   assert.equal(reasonOf(row('a', 'blocked')), 'Waiting for you')
   assert.equal(reasonOf(row('a', 'unread')), undefined)
   assert.equal(reasonOf(row('a', 'working')), undefined)

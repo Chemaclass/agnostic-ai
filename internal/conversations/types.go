@@ -150,6 +150,9 @@ type Conversation struct {
 	Withheld []string `json:"withheld,omitempty"`
 	Live     bool     `json:"live,omitempty"`
 	Activity Activity `json:"activity,omitempty"`
+	// WorkingSubagents counts native tasks with a live owner and an unfinished
+	// lifecycle. Nil means unavailable; zero means no working subagents.
+	WorkingSubagents *int `json:"workingSubagents,omitempty"`
 	// QuietSince is set when the wait was read from silence, not reported
 	// by the tool: the time of the last write, since when nothing came.
 	QuietSince string `json:"quietSince,omitempty"`

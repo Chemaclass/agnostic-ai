@@ -93,11 +93,6 @@ const (
 // arrives after; without the guard it would open again.
 const reopenGuard = 250 * time.Millisecond
 
-// returnSettle is how long after a hidden companion comes back the
-// circle's moves leave its list open: the window system may still be
-// placing it.
-const returnSettle = 500 * time.Millisecond
-
 // savePause is how long the bubble must rest before its place is saved.
 const savePause = 500 * time.Millisecond
 
@@ -152,10 +147,6 @@ type shell struct {
 	save            *time.Timer
 	// presence is how the companion sits on the screen; the zero value is shown.
 	presence presence
-	// shownAgainAt is when a hidden companion last came back.
-	shownAgainAt time.Time
-	// resizedAt is when the circle size last changed.
-	resizedAt time.Time
 }
 
 // presenceNow is the companion's presence, shown before any change.
@@ -201,9 +192,6 @@ func (s *shell) changePresenceLocked(from, to presence) bool {
 		return false
 	}
 	s.presence = to
-	if was == hidden {
-		s.shownAgainAt = time.Now()
-	}
 	looks := s.settings.appearance()
 	looks.Presence = to
 	s.mu.Unlock()
@@ -451,9 +439,6 @@ func (s *shell) fitBubble() {
 	}
 	work := s.workArea()
 	x, y := resizedBubble(before, work, side)
-	s.mu.Lock()
-	s.resizedAt = time.Now()
-	s.mu.Unlock()
 	s.bubble.SetSize(side, side)
 	s.bubble.SetPosition(x, y)
 	// The window system may report no move for a resize, so the place is saved here.
@@ -468,15 +453,12 @@ func (s *shell) fitBubble() {
 	}
 }
 
-// bubbleMoved closes the panel, which no longer sits beside the bubble,
-// and saves the bubble's new place once it rests.
+// bubbleMoved keeps an open panel beside the bubble without reopening it or
+// moving keyboard focus, and saves the bubble's new place once it rests.
 func (s *shell) bubbleMoved() {
-	s.mu.Lock()
-	settled := time.Since(s.shownAgainAt) >= returnSettle && time.Since(s.resizedAt) >= returnSettle
-	s.mu.Unlock()
-	// A circle shown again or resized can report moves after the list opened beside it.
-	if settled && s.panel.IsVisible() {
-		s.panel.Hide()
+	if s.panel.IsVisible() {
+		x, y, _ := placePanel(windowRect(s.bubble), s.workArea(), panelWidth, panelHeight)
+		s.panel.SetPosition(x, y)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

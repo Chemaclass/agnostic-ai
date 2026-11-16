@@ -14,6 +14,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Your ChatGPT chats show too, as the new `chatgpt` tool, read from the ChatGPT desktop app on this computer with no network call. A new reply shows within seconds. They open on chatgpt.com and count under Needs you once answered, like Claude chats. A chat started on the web or your phone shows once the app has synced it.
 - The conversations API gains the `chat` and `cowork` app values; the companion reads them as "Claude · Chat" and "Claude · Cowork", and puts chats under Cloud.
 - Renaming a conversation now also renames it in its own tool, so Claude Code, Codex, Cursor and ChatGPT show the new name in their own lists. Claude app chats, Cowork tasks and cloud sessions keep the name in this list only. A tool that does not take the name is logged; the list keeps showing your name either way.
+- Working agents show a quiet five-dot rainbow gyroscope, with a miniature fractal per native Claude Code or Codex sub-agent and reduced-motion support. Waiting parents keep a plain orange dot while their working satellites animate independently in blue.
+- Dragging the companion keeps its open conversation list beside it, preserving the search.
 
 ## v0.95.0 - 2026-11-15
 

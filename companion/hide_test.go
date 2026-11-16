@@ -10,7 +10,6 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -480,18 +479,29 @@ func TestShortcut_KeepsTheListOpenThoughTheReturningCircleReportsMoves(t *testin
 	}
 }
 
-func TestBubbleMoved_StillClosesTheListOnceTheReturnSettled(t *testing.T) {
+func TestBubbleMoved_KeepsAnOpenListBesideTheCircle(t *testing.T) {
 	s, _ := placedShell(t)
-	s.setPresence(hidden)
 	s.togglePanel()
-	s.mu.Lock()
-	s.shownAgainAt = time.Now().Add(-returnSettle)
-	s.mu.Unlock()
+	s.bubble.SetPosition(200, 100)
+	panel := s.panel.(*fakeWindow)
+	shows := panel.shows
 
 	s.bubbleMoved()
 
+	if !panel.IsVisible() || panel.shows != shows {
+		t.Error("dragging closed or reopened the list")
+	}
+	x, y := panel.Position()
+	if x != 288 || y != 100 {
+		t.Errorf("list at (%d, %d), want (288, 100) beside the circle", x, y)
+	}
+}
+
+func TestBubbleMoved_LeavesAClosedListClosed(t *testing.T) {
+	s, _ := placedShell(t)
+	s.bubbleMoved()
 	if s.panel.IsVisible() {
-		t.Error("dragging the circle left the list open")
+		t.Error("dragging opened a closed list")
 	}
 }
 
