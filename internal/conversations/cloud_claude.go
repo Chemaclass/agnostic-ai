@@ -252,8 +252,7 @@ func (c *ClaudeCloud) SetTitle(ctx context.Context, sessionID, title string) err
 		if !known {
 			reason = RenameRefused
 		}
-		said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
-		return &RenameError{Tool: ToolClaude, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
+		return &RenameError{Tool: ToolClaude, Reason: reason, Cause: refusalCause(resp.StatusCode, resp.Body, token)}
 	}
 	var renamed claudeCloudRenamed
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxCloudReplyBytes)).Decode(&renamed); err != nil {

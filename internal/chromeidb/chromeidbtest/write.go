@@ -28,8 +28,9 @@ func WriteRecord(t *testing.T, dir, database, store, key string, value any) {
 	blink := append([]byte{0xFF, 0x15, 0xFE}, make([]byte, 12)...)
 	blink = append(blink, 0xFF, 0x10)
 	record := append(binary.AppendUvarint(nil, 1), append(blink, encoded...)...)
+	// The database name maps to id 1, as Chromium's EncodeInt writes it.
 	writes := [][2][]byte{
-		{join([]byte{0, 0, 0, 0, 201}, keyString("https_claude.ai_0@1"), keyString(database)), binary.AppendUvarint(nil, 1)},
+		{join([]byte{0, 0, 0, 0, 201}, keyString("https_claude.ai_0@1"), keyString(database)), []byte{1}},
 		{[]byte{0, 1, 0, 0, 50, 1, 0}, be16(store)},
 		{join([]byte{0, 1, 1, 1, 1}, keyString(key)), record},
 	}

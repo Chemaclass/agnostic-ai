@@ -154,12 +154,27 @@ func tableFile(compress bool, entries ...tableEntry) []byte {
 	indexOffset, indexSize := appendBlock(block([][2][]byte{{[]byte("\xff"), handle}}), false)
 	footer := join(uvarint(metaOffset), uvarint(metaSize), uvarint(indexOffset), uvarint(indexSize))
 	footer = append(footer, make([]byte, tableFooterSize-8-len(footer))...)
-	footer = binary.LittleEndian.AppendUint64(footer, 0xdb4775248b80fb57)
+	footer = binary.LittleEndian.AppendUint64(footer, tableMagic)
 	return append(out, footer...)
 }
 
-// prefix encodes an IndexedDB key prefix with one byte per id.
-func prefix(database, store, index byte) []byte { return []byte{0, database, store, index} }
+// prefix encodes an IndexedDB key prefix: a byte of id lengths, then
+// each id little-endian in as few bytes as it takes.
+func prefix(database, store, index uint64) []byte {
+	db, st, ix := idbInt(database), idbInt(store), idbInt(index)
+	lengths := byte(len(db)-1)<<5 | byte(len(st)-1)<<2 | byte(len(ix)-1)
+	return join([]byte{lengths}, db, st, ix)
+}
+
+// idbInt encodes n as Chromium's EncodeInt does: little-endian, in as
+// few bytes as it takes, at least one.
+func idbInt(n uint64) []byte {
+	out := []byte{byte(n)}
+	for n >>= 8; n > 0; n >>= 8 {
+		out = append(out, byte(n))
+	}
+	return out
+}
 
 func be16(s string) []byte {
 	var out []byte
@@ -177,11 +192,11 @@ func namedDatabaseKey(name string) []byte {
 	return join(prefix(0, 0, 0), []byte{databaseNameKey}, keyString("https_app.example_0@1"), keyString(name))
 }
 
-func storeNameKey(database, store byte) []byte {
-	return join(prefix(database, 0, 0), []byte{objectStoreMetaKey}, uvarint(uint64(store)), []byte{objectStoreName})
+func storeNameKey(database, store uint64) []byte {
+	return join(prefix(database, 0, 0), []byte{objectStoreMetaKey}, uvarint(store), []byte{objectStoreName})
 }
 
-func recordKey(database, store, index byte, key string) []byte {
+func recordKey(database, store, index uint64, key string) []byte {
 	return join(prefix(database, store, index), []byte{keyTypeString}, keyString(key))
 }
 

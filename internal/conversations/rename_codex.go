@@ -19,6 +19,10 @@ import (
 // codexAppServerTimeout bounds one rename, from start to exit.
 const codexAppServerTimeout = 20 * time.Second
 
+// codexWaitDelay is how long Wait waits for the app-server after its
+// kill.
+const codexWaitDelay = time.Second
+
 // maxCodexLineBytes bounds one line the app-server writes.
 const maxCodexLineBytes = 4 << 20
 
@@ -85,14 +89,25 @@ func (a *codexAppServer) SetName(ctx context.Context, threadID, name string) err
 	if err != nil {
 		return &RenameError{Tool: ToolCodex, Reason: RenameUnexpected, Cause: err}
 	}
+	// The app-server runs in a process group of its own, so the deadline
+	// stops it and every program it started, and Wait gives up on a
+	// program that outlives the kill.
+	ownCodexTree(cmd)
+	cmd.WaitDelay = codexWaitDelay
 	if err := cmd.Start(); err != nil {
 		return &RenameError{Tool: ToolCodex, Reason: RenameNoProgram, Cause: err}
 	}
+	// A program the app-server started can keep its output open after
+	// it ends, so the deadline also closes the output: a read waiting on
+	// it then ends.
+	stopClosing := context.AfterFunc(ctx, func() { _ = stdout.Close() })
 	talkErr := codexSetName(ctx, stdin, stdout, threadID, name)
+	stopClosing()
 	_ = stdin.Close()
 	// Once its input closes the app-server exits; how it exits says
 	// nothing about the name, which its reply already settled.
 	_ = cmd.Wait()
+	reapCodexTree(cmd)
 	return talkErr
 }
 
@@ -105,7 +120,7 @@ func codexSetName(ctx context.Context, in io.Writer, out io.Reader, threadID, na
 	if err := codexSend(in, codexRPCRequest{ID: 1, Method: "initialize", Params: init}); err != nil {
 		return err
 	}
-	if _, err := codexAwait(ctx, lines, 1); err != nil {
+	if err := codexAwait(ctx, lines, 1, "initialize"); err != nil {
 		return err
 	}
 	if err := codexSend(in, codexRPCRequest{Method: "initialized"}); err != nil {
@@ -114,8 +129,7 @@ func codexSetName(ctx context.Context, in io.Writer, out io.Reader, threadID, na
 	if err := codexSend(in, codexRPCRequest{ID: 2, Method: "thread/name/set", Params: codexSetNameParams{ThreadID: threadID, Name: name}}); err != nil {
 		return err
 	}
-	_, err := codexAwait(ctx, lines, 2)
-	return err
+	return codexAwait(ctx, lines, 2, "thread/name/set")
 }
 
 func codexSend(in io.Writer, req codexRPCRequest) error {
@@ -129,28 +143,34 @@ func codexSend(in io.Writer, req codexRPCRequest) error {
 	return nil
 }
 
-// codexAwait reads lines until the reply to id, skipping notifications.
-func codexAwait(ctx context.Context, lines *bufio.Scanner, id int) (json.RawMessage, error) {
+// codexAwait reads lines until the reply to id, skipping
+// notifications. The reply must hold an error or a result that is a
+// JSON object, as every reply to method does.
+func codexAwait(ctx context.Context, lines *bufio.Scanner, id int, method string) error {
 	want, _ := json.Marshal(id)
 	for lines.Scan() {
 		var reply codexRPCReply
 		if err := json.Unmarshal(lines.Bytes(), &reply); err != nil {
-			return nil, &RenameError{Tool: ToolCodex, Reason: RenameUnexpected, Cause: fmt.Errorf("app-server line: %w", err)}
+			return &RenameError{Tool: ToolCodex, Reason: RenameUnexpected, Cause: fmt.Errorf("app-server line: %w", err)}
 		}
 		if reply.ID == nil || string(*reply.ID) != string(want) {
 			continue
 		}
 		if reply.Error != nil {
-			return nil, &RenameError{Tool: ToolCodex, Reason: RenameRefused, Cause: fmt.Errorf("app-server error %d: %s", reply.Error.Code, reply.Error.Message)}
+			return &RenameError{Tool: ToolCodex, Reason: RenameRefused, Cause: fmt.Errorf("app-server error %d: %s", reply.Error.Code, reply.Error.Message)}
 		}
-		return reply.Result, nil
+		var result map[string]json.RawMessage
+		if err := json.Unmarshal(reply.Result, &result); err != nil || result == nil {
+			return &RenameError{Tool: ToolCodex, Reason: RenameUnexpected, Cause: fmt.Errorf("the app-server's reply to %s holds no result: %s", method, lines.Bytes())}
+		}
+		return nil
 	}
 	if ctx.Err() != nil {
-		return nil, &RenameError{Tool: ToolCodex, Reason: RenameUnreachable, Cause: ctx.Err()}
+		return &RenameError{Tool: ToolCodex, Reason: RenameUnreachable, Cause: ctx.Err()}
 	}
 	cause := lines.Err()
 	if cause == nil {
 		cause = errors.New("the app-server ended before it answered")
 	}
-	return nil, &RenameError{Tool: ToolCodex, Reason: RenameUnreachable, Cause: cause}
+	return &RenameError{Tool: ToolCodex, Reason: RenameUnreachable, Cause: cause}
 }

@@ -41,6 +41,13 @@ const (
 // maxV8Depth bounds nesting, so a damaged value cannot recurse forever.
 const maxV8Depth = 256
 
+// maxV8SparseItems bounds the slots all sparse arrays of one value may
+// take together. A sparse array stores only its present items, so its
+// length says nothing about the bytes it was read from; this budget is
+// what stops a damaged length from asking for gigabytes. 1 << 22 slots
+// is 64 MB of items.
+const maxV8SparseItems = 1 << 22
+
 // decodeV8 decodes one serialized value, after its version header.
 func decodeV8(data []byte) (any, error) {
 	d := v8Decoder{r: reader{data: data}}
@@ -65,19 +72,42 @@ type v8Decoder struct {
 	// objects holds every object, array and date in the order read, for
 	// a later reference to name by position.
 	objects []any
+	// sparseItems counts the slots of the sparse arrays read so far.
+	sparseItems uint64
+}
+
+// tag reads the next tag, past any padding, as V8 itself does.
+func (d *v8Decoder) tag() (byte, error) {
+	tag, err := d.peekTag()
+	if err != nil {
+		return 0, err
+	}
+	d.r.at++
+	return tag, nil
+}
+
+// peekTag returns the next tag without reading it, after reading any
+// padding before it. Padding is skipped in a loop: a long run of it
+// must not take one stack frame per byte.
+func (d *v8Decoder) peekTag() (byte, error) {
+	for {
+		tag, err := d.r.peek()
+		if err != nil || tag != v8Padding {
+			return tag, err
+		}
+		d.r.at++
+	}
 }
 
 func (d *v8Decoder) value(depth int) (any, error) {
 	if depth > maxV8Depth {
 		return nil, fmt.Errorf("v8: nested deeper than %d", maxV8Depth)
 	}
-	tag, err := d.r.byte()
+	tag, err := d.tag()
 	if err != nil {
 		return nil, err
 	}
 	switch tag {
-	case v8Padding:
-		return d.value(depth)
 	case v8Undefined, v8Hole, v8Null:
 		return nil, nil
 	case v8True:
@@ -141,7 +171,7 @@ func (d *v8Decoder) object(depth int) (any, error) {
 	object := map[string]any{}
 	d.objects = append(d.objects, object)
 	for {
-		tag, err := d.r.peek()
+		tag, err := d.peekTag()
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +226,11 @@ func (d *v8Decoder) denseArray(depth int) (any, error) {
 		}
 	}
 	// Named properties may follow the items; data arrays have none.
-	if err := d.skipProperties(depth, v8EndDense); err != nil {
+	properties, err := d.skipProperties(depth, v8EndDense)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.endCounts(properties, length); err != nil {
 		return nil, err
 	}
 	return array, nil
@@ -207,23 +241,24 @@ func (d *v8Decoder) sparseArray(depth int) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if length > uint64(len(d.r.data)) {
-		return nil, fmt.Errorf("v8: array of %d items in %d bytes", length, len(d.r.data))
+	if length > maxV8SparseItems-d.sparseItems {
+		return nil, fmt.Errorf("v8: sparse array of %d items, with %d of %d read before", length, d.sparseItems, maxV8SparseItems)
 	}
+	d.sparseItems += length
 	array := make([]any, length)
 	d.objects = append(d.objects, array)
+	var properties uint64
 	for {
-		tag, err := d.r.peek()
+		tag, err := d.peekTag()
 		if err != nil {
 			return nil, err
 		}
 		if tag == v8EndSparse {
 			d.r.at++
-			if _, err := d.r.uvarint(); err != nil {
+			if err := d.endCounts(properties, length); err != nil {
 				return nil, err
 			}
-			_, err := d.r.uvarint()
-			return array, err
+			return array, nil
 		}
 		key, err := d.propertyKey(depth)
 		if err != nil {
@@ -233,6 +268,7 @@ func (d *v8Decoder) sparseArray(depth int) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		properties++
 		index, err := strconv.ParseUint(key, 10, 64)
 		if err != nil || index >= length {
 			// A named property on an array: kept out of the items.
@@ -242,29 +278,45 @@ func (d *v8Decoder) sparseArray(depth int) (any, error) {
 	}
 }
 
-// skipProperties reads the named properties up to end and the two
-// counts after it.
-func (d *v8Decoder) skipProperties(depth int, end byte) error {
+// skipProperties reads the named properties up to end, and the end tag,
+// and says how many it read.
+func (d *v8Decoder) skipProperties(depth int, end byte) (uint64, error) {
+	var properties uint64
 	for {
-		tag, err := d.r.peek()
+		tag, err := d.peekTag()
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if tag == end {
 			d.r.at++
-			if _, err := d.r.uvarint(); err != nil {
-				return err
-			}
-			_, err := d.r.uvarint()
-			return err
+			return properties, nil
 		}
 		if _, err := d.propertyKey(depth); err != nil {
-			return err
+			return 0, err
 		}
 		if _, err := d.value(depth + 1); err != nil {
-			return err
+			return 0, err
 		}
+		properties++
 	}
+}
+
+// endCounts reads the two counts after an array's end tag, the
+// properties written and the length, and checks them against what was
+// read, as V8 does.
+func (d *v8Decoder) endCounts(properties, length uint64) error {
+	wroteProperties, err := d.r.uvarint()
+	if err != nil {
+		return err
+	}
+	wroteLength, err := d.r.uvarint()
+	if err != nil {
+		return err
+	}
+	if wroteProperties != properties || wroteLength != length {
+		return fmt.Errorf("v8: array ends with %d properties and length %d, read %d and %d", wroteProperties, wroteLength, properties, length)
+	}
+	return nil
 }
 
 func latin1(raw []byte) string {
