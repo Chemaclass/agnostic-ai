@@ -126,6 +126,37 @@ function nested(now) {
 }
 
 /**
+ * Chats that wait on the person, as the server says what for: a command, an edit and an MCP tool to approve,
+ * a question, and a Codex cloud thread whose approval names no call. Two have working subagents.
+ */
+function approvals(now) {
+  const helper = (id, title, minutesAgo) => ({ tool: 'claude', id, title, kind: 'Explore', state: 'working', updatedAt: new Date(now - minutesAgo * MINUTE).toISOString() })
+  const permission = (tool, detail) => ({ activity: 'waiting', live: true, waiting: { for: 'permission', ...(tool ? { tool } : {}), ...(detail ? { detail } : {}) } })
+  return [
+    {
+      ...conversation(now, 'claude', 'approve-bash', 'Refactor PRs', 'blocked', { folder: '/Users/you/Code/shop', minutesAgo: 2, reply: 'The seed fix and the flag rename are still running.' }),
+      ...permission('Bash', 'git push origin…'),
+    },
+    { ...conversation(now, 'claude', 'approve-edit', 'Webhooks v2 dashboard', 'blocked', { folder: '/Users/you/Code/kombo', minutesAgo: 30 }), ...permission('Edit', 'dashboard.tsx') },
+    {
+      ...conversation(now, 'claude', 'approve-mcp', 'Rider lifecycle gaps in Notion', 'blocked', { folder: '/Users/you/Code/glue', minutesAgo: 4, reply: 'Pulling the rider pages to compare stages.' }),
+      ...permission('mcp__bfe9f18c-b8fd-43ae-b28d-268779cd446a__notion-fetch', 'Notion fetch'),
+      workingSubagents: 2,
+      helpers: [helper('agent-pages', 'Read the rider pages', 1), helper('agent-stages', 'List the stages', 2)],
+    },
+    {
+      ...conversation(now, 'claude', 'question', 'SFTP write: discussion', 'blocked', { folder: '/Users/you/Code/shop', minutesAgo: 6, reply: 'Should the upload overwrite existing files?' }),
+      activity: 'waiting',
+      live: true,
+      waiting: { for: 'answer' },
+      workingSubagents: 1,
+      helpers: [helper('agent-sftp', 'Check the SFTP folder', 3)],
+    },
+    { ...conversation(now, 'codex', 'approve-cloud', 'Release notes draft', 'blocked', { app: 'cloud', minutesAgo: 12 }), ...permission() },
+  ]
+}
+
+/**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
  * markProblem, renameProblem, deleteProblem, openProblem (a conversation that did not open) with its openCommand,
@@ -151,6 +182,7 @@ export const FIXTURES = {
   },
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
   nested: { label: 'Chats started from other chats', conversations: nested },
+  approvals: { label: 'Chats waiting for an approval or an answer', conversations: approvals },
   shared: { label: 'A local chat also open on claude.ai', conversations: shared },
   workers: {
     label: 'Native sub-agents: three working, two while waiting, unknown',

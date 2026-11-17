@@ -80,7 +80,8 @@ test('adds one miniature fractal per native working sub-agent, with five plain b
   await expect(working.getByRole('img', { name: '3 working sub-agents', exact: true })).toHaveCount(1)
   const waiting = page.getByRole('option', { name: /Review the implementation/ })
   await expect(waiting.locator('.work-worker')).toHaveCount(2)
-  await expect(waiting.locator('.why')).toHaveText('Waiting for you')
+  // Needs you names the wait; the meta line does not repeat it.
+  await expect(waiting.locator('.meta')).not.toContainText('Waiting for you')
   const unknown = page.getByRole('option', { name: /Activity not available/ })
   await expect(unknown.locator('.work-worker')).toHaveCount(0)
   await expect(unknown.locator('.worker-count')).toHaveCount(0)

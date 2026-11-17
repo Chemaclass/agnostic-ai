@@ -53,11 +53,6 @@ const GROUP_OF_STATE = {
   dormant: 'archived',
 }
 
-/** Waiting needs a row-level reason; Working is named by its section. */
-const REASON_OF_STATE = {
-  blocked: 'Waiting for you',
-}
-
 const TOOL_LABELS = {
   claude: 'Claude Code',
   codex: 'Codex',
@@ -308,15 +303,66 @@ export function stillWaits(view, shown) {
 }
 
 /**
- * A wait the server read from silence carries `quietSince`: it says how long nothing came,
- * not that the agent asked. "Waiting for you" stays for a tool that reports its wait.
+ * A wait the server read from silence carries `quietSince`: "No activity for 7m" says how long nothing came,
+ * not that the agent asked. Undefined for any other row. The row's tooltip says it; the meta line's age already shows it.
  */
-export function reasonOf(conversation, now) {
-  if (conversation.state === 'blocked' && !Number.isNaN(Date.parse(conversation.quietSince))) {
-    const quiet = ago(conversation.quietSince, now)
-    return quiet === 'now' ? 'No activity' : 'No activity for ' + quiet
+export function quietNoteOf(conversation, now) {
+  if (conversation.state !== 'blocked' || Number.isNaN(Date.parse(conversation.quietSince))) return undefined
+  const quiet = ago(conversation.quietSince, now)
+  return quiet === 'now' ? 'No activity' : 'No activity for ' + quiet
+}
+
+/** The word an approval puts before a tool's detail when the detail is a file: "Approve edit dashboard.tsx". */
+const APPROVAL_VERBS = {
+  Edit: 'edit',
+  MultiEdit: 'edit',
+  Write: 'edit',
+  NotebookEdit: 'edit',
+  Read: 'read',
+}
+
+/** How Claude Code names an MCP server's tool: mcp__<server>__<action>. The server sends its detail as "Notion fetch". */
+const MCP_TOOL_PREFIX = 'mcp__'
+
+const NEEDS_PERMISSION = { icon: 'lock', label: 'Needs permission', text: 'Needs permission' }
+
+/**
+ * The pill a row shows in place of its reply while a tool call waits for the person's approval:
+ * `{ icon: 'key', label: 'Approve edit', code: 'dashboard.tsx', text }`, `{ icon: 'key', label: 'Approve Notion fetch', text }`
+ * for an MCP tool, `{ icon: 'key', label: 'Approve Bash', text }` when the detail was withheld, or the lock's "Needs permission"
+ * when the server could not say which call waits. `text` is the pill read as one line.
+ * Undefined for a question or a wait of unknown kind: the reply line shows as it is.
+ */
+export function approvalOf(conversation) {
+  const waiting = conversation.waiting
+  if (waiting?.for !== 'permission') return undefined
+  if (!waiting.tool) return NEEDS_PERMISSION
+  if (waiting.tool.startsWith(MCP_TOOL_PREFIX)) {
+    if (!waiting.detail) return NEEDS_PERMISSION
+    const label = 'Approve ' + waiting.detail
+    return { icon: 'key', label, text: label }
   }
-  return REASON_OF_STATE[conversation.state]
+  if (!waiting.detail) {
+    const label = 'Approve ' + waiting.tool
+    return { icon: 'key', label, text: label }
+  }
+  const verb = APPROVAL_VERBS[waiting.tool]
+  const label = verb ? 'Approve ' + verb : 'Approve'
+  return { icon: 'key', label, code: waiting.detail, text: label + ' ' + waiting.detail }
+}
+
+/**
+ * The row's tooltip, one fact a line: how it opens, its folder, how long a silent chat has said nothing,
+ * and the agent's reply when an approval pill takes the reply line's place.
+ */
+export function rowTooltipOf(conversation, now) {
+  const lines = [conversation.open.label]
+  if (conversation.folder) lines.push(conversation.folder)
+  const quiet = quietNoteOf(conversation, now)
+  if (quiet) lines.push(quiet)
+  const reply = replyOf(conversation)
+  if (reply && approvalOf(conversation)) lines.push(reply)
+  return lines.join('\n')
 }
 
 /**
@@ -433,7 +479,7 @@ export function workingHelpersOf(conversation) {
   return (conversation.helpers ?? []).filter((helper) => helper.state === 'working')
 }
 
-/** The toggle in a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded. It counts working subagents only. */
+/** The toggle on the line under a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded. It counts working subagents only. */
 export function helpersToggleOf(conversation, open) {
   const count = workingHelpersOf(conversation).length
   return `${open ? '▾' : '▸'} ${count} subagent${count === 1 ? '' : 's'}`

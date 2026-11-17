@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -42,6 +43,9 @@ type claudeMeta struct {
 	cwd, branch, entrypoint        string
 	started, updated               string
 	sidechain                      bool
+	// pending is the tool call at the end of the transcript that has no
+	// result yet, for a session that waits for an approval.
+	pending *toolCall
 }
 
 type claudeCacheEntry struct {
@@ -88,17 +92,34 @@ type claudeReplies struct {
 	// known is set once the lines held a message or a typed prompt:
 	// what came before it cannot change the reply.
 	known bool
+	// pending are the tool calls with no result yet, oldest first.
+	pending []toolCall
+}
+
+// waitingCall is the oldest tool call that has no result yet: Claude
+// Code asks about the calls of one message in order, so a later one
+// waits behind it. Nil when every call has its result.
+func (r *claudeReplies) waitingCall() *toolCall {
+	if len(r.pending) == 0 {
+		return nil
+	}
+	call := r.pending[0]
+	return &call
 }
 
 // claudeBlock is one part of a message's content.
 type claudeBlock struct {
-	Type  string `json:"type"`
-	Text  string `json:"text"`
-	Name  string `json:"name"`
-	Input struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+	Name string `json:"name"`
+	// ID names a tool call; ToolUseID names the call a result answers.
+	ID        string `json:"id"`
+	ToolUseID string `json:"tool_use_id"`
+	Input     struct {
 		Questions []struct {
 			Question string `json:"question"`
 		} `json:"questions"`
+		toolInput
 	} `json:"input"`
 }
 
@@ -120,6 +141,9 @@ func (r *claudeReplies) visit(line claudeLine) {
 		}
 		var parts []string
 		for _, block := range blocks {
+			if block.Type == "tool_use" && block.ID != "" {
+				r.pending = append(r.pending, toolCall{id: block.ID, name: block.Name, input: block.Input.toolInput})
+			}
 			switch {
 			case block.Type == "text" && strings.TrimSpace(block.Text) != "":
 				parts = append(parts, block.Text)
@@ -131,6 +155,7 @@ func (r *claudeReplies) visit(line claudeLine) {
 			r.message, r.known = strings.Join(parts, "\n"), true
 		}
 	case "user":
+		r.answered(line.Message.Content)
 		if !line.fromPerson() || (r.asked == "" && r.known && r.message == "") {
 			return
 		}
@@ -142,7 +167,26 @@ func (r *claudeReplies) visit(line claudeLine) {
 		}
 		if typedText(text) != "" {
 			r.message, r.asked, r.known = "", "", true
+			// A new prompt starts a new turn: no call of an older one waits.
+			r.pending = nil
 		}
+	}
+}
+
+// answered drops the pending calls a user line's tool results answer.
+func (r *claudeReplies) answered(content json.RawMessage) {
+	if len(r.pending) == 0 {
+		return
+	}
+	var blocks []claudeBlock
+	if json.Unmarshal(content, &blocks) != nil {
+		return
+	}
+	for _, block := range blocks {
+		if block.Type != "tool_result" {
+			continue
+		}
+		r.pending = slices.DeleteFunc(r.pending, func(call toolCall) bool { return call.id == block.ToolUseID })
 	}
 }
 
@@ -160,6 +204,8 @@ type claudeLive struct {
 	Entrypoint string `json:"entrypoint"`
 	// BridgeSessionID is session_<id> while Remote Control shares it.
 	BridgeSessionID string `json:"bridgeSessionId"`
+	// WaitingFor says what a waiting session waits for; see claudeWaitKinds.
+	WaitingFor string `json:"waitingFor"`
 }
 
 // claudeActivity maps a live session's status to what the page shows.
@@ -177,6 +223,7 @@ type liveSession struct {
 	activity   Activity
 	entrypoint string
 	bridge     string
+	waitingFor string
 }
 
 type claudeJob struct {
@@ -223,6 +270,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
+		if isLive && session.activity == ActivityWaiting {
+			c.Waiting = claudeWaiting(session.waitingFor, meta.pending)
+		}
 		// A subagent runs inside its session's process, so only a live
 		// session lists working ones. Work that cannot be read lists none.
 		if isLive {
@@ -309,6 +359,7 @@ func (s *Scanner) claudeMeta(file string) (claudeMeta, bool) {
 			var replies claudeReplies
 			eachClaudeLine(lines, replies.visit)
 			meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)
+			meta.pending = replies.waitingCall()
 		}
 	}
 	if meta.cwd == "" || meta.entrypoint == "" {
@@ -442,6 +493,7 @@ func parseClaudeSession(head, tail []byte) (meta claudeMeta, replyKnown bool) {
 	meta.entrypoint = firstNonEmpty(tailEntry, meta.entrypoint)
 	meta.updated = firstNonEmpty(lastMessage, lastAny)
 	meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)
+	meta.pending = replies.waitingCall()
 	return meta, replies.known
 }
 
@@ -497,7 +549,7 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			if json.Unmarshal(entry.StartedAt, &startedAt) != nil {
 				startedAt = 0 // An unsupported start format leaves only the worker count unknown.
 			}
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt}
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor}
 		}
 	}
 	return live, err == nil

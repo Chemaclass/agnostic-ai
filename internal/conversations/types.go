@@ -159,6 +159,10 @@ type Conversation struct {
 	// a Claude Code session started with `codex exec`. Nil when none works
 	// or their states are unknown; see helpers.go.
 	Helpers []helper `json:"helpers,omitempty"`
+	// Waiting says what a waiting conversation waits for, when its tool
+	// says: an approval, with the call when the transcript shows it, or
+	// an answer. Nil when the kind is unknown.
+	Waiting *waitingOn `json:"waiting,omitempty"`
 	// QuietSince is set when the wait was read from silence, not reported
 	// by the tool: the time of the last write, since when nothing came.
 	QuietSince string `json:"quietSince,omitempty"`

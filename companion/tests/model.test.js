@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -129,24 +129,65 @@ test('says how much a delete freed', () => {
   assert.deepEqual(deletedOf({ deleted: true, note: 'The session data is gone.' }), { message: 'Deleted.', note: 'The session data is gone.' })
 })
 
-test('names waiting and working states without relying on color or motion', () => {
-  assert.equal(reasonOf(row('a', 'blocked')), 'Waiting for you')
-  assert.equal(reasonOf(row('a', 'unread')), undefined)
-  assert.equal(reasonOf(row('a', 'working')), undefined)
-  assert.equal(reasonOf(row('a', 'active')), undefined)
-})
-
 test('says how long a chat has been silent when its wait is read from that silence, not reported', () => {
   const now = Date.parse('2026-11-09T12:00:00Z')
   const quiet = (since) => row('a', 'blocked', { tool: 'codex', activity: 'waiting', quietSince: since })
-  assert.equal(reasonOf(quiet('2026-11-09T11:55:00Z'), now), 'No activity for 5m')
-  assert.equal(reasonOf(quiet('2026-11-09T11:53:00Z'), now), 'No activity for 7m')
-  assert.equal(reasonOf(quiet('2026-11-09T09:00:00Z'), now), 'No activity for 3h')
+  assert.equal(quietNoteOf(quiet('2026-11-09T11:55:00Z'), now), 'No activity for 5m')
+  assert.equal(quietNoteOf(quiet('2026-11-09T11:53:00Z'), now), 'No activity for 7m')
+  assert.equal(quietNoteOf(quiet('2026-11-09T09:00:00Z'), now), 'No activity for 3h')
   // A clock that runs behind the server's must not say "for now".
-  assert.equal(reasonOf(quiet('2026-11-09T12:00:30Z'), now), 'No activity')
-  assert.equal(reasonOf(row('a', 'blocked', { tool: 'codex', activity: 'waiting' }), now), 'Waiting for you')
-  assert.equal(reasonOf(quiet('not a time'), now), 'Waiting for you')
-  assert.equal(reasonOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), undefined)
+  assert.equal(quietNoteOf(quiet('2026-11-09T12:00:30Z'), now), 'No activity')
+  // A wait the tool reports needs no note: Needs you already says it.
+  assert.equal(quietNoteOf(row('a', 'blocked', { tool: 'codex', activity: 'waiting' }), now), undefined)
+  assert.equal(quietNoteOf(quiet('not a time'), now), undefined)
+  assert.equal(quietNoteOf(row('a', 'unread', { tool: 'codex', quietSince: '2026-11-09T11:53:00Z' }), now), undefined)
+})
+
+test('the meta line says only the tool, the place, the folder and the age, whatever the row waits for', () => {
+  const now = Date.parse('2026-11-09T12:05:00Z')
+  const rows = [
+    row('a', 'blocked', { folder: '/tmp/shop', waiting: { for: 'permission', tool: 'Bash', detail: 'git push' } }),
+    row('a', 'blocked', { folder: '/tmp/shop', waiting: { for: 'answer' } }),
+    row('a', 'blocked', { folder: '/tmp/shop', tool: 'codex', activity: 'waiting', quietSince: '2026-11-09T11:53:00Z' }),
+    row('a', 'blocked', { folder: '/tmp/shop', helpers: [{ tool: 'claude', id: 'h', title: 'h', state: 'working', updatedAt: '2026-11-09T12:00:00Z' }], workingSubagents: 1 }),
+  ]
+  for (const conversation of rows) {
+    assert.match(detailsOf(conversation, now), /^(Claude Code|Codex) · shop · 5m$/)
+  }
+  assert.equal(detailsOf(row('a', 'blocked', { tool: 'codex', app: 'cloud', waiting: { for: 'permission' } }), now), 'Codex · Cloud · 5m')
+})
+
+test('a pending approval names what it approves, in the words each tool calls for', () => {
+  const waiting = (tool, detail) => approvalOf(row('a', 'blocked', { waiting: { for: 'permission', ...(tool ? { tool } : {}), ...(detail ? { detail } : {}) } }))
+  assert.deepEqual(waiting('Bash', 'git push origin…'), { icon: 'key', label: 'Approve', code: 'git push origin…', text: 'Approve git push origin…' })
+  assert.deepEqual(waiting('Edit', 'dashboard.tsx'), { icon: 'key', label: 'Approve edit', code: 'dashboard.tsx', text: 'Approve edit dashboard.tsx' })
+  assert.deepEqual(waiting('Write', 'notes.md'), { icon: 'key', label: 'Approve edit', code: 'notes.md', text: 'Approve edit notes.md' })
+  assert.deepEqual(waiting('Read', '.env.example'), { icon: 'key', label: 'Approve read', code: '.env.example', text: 'Approve read .env.example' })
+  assert.deepEqual(waiting('WebFetch', 'github.com'), { icon: 'key', label: 'Approve', code: 'github.com', text: 'Approve github.com' })
+  // An MCP tool reads as words, not code; its server name never shows as an id.
+  assert.deepEqual(waiting('mcp__bfe9f18c-b8fd-43ae-b28d-268779cd446a__notion-fetch', 'Notion fetch'), { icon: 'key', label: 'Approve Notion fetch', text: 'Approve Notion fetch' })
+  // A withheld detail leaves the tool's name; an MCP tool's raw name is not shown.
+  assert.deepEqual(waiting('Bash'), { icon: 'key', label: 'Approve Bash', text: 'Approve Bash' })
+  assert.deepEqual(waiting('mcp__claude_ai_Notion__notion-fetch'), { icon: 'lock', label: 'Needs permission', text: 'Needs permission' })
+  // A permission whose call is unknown, as a Codex cloud thread's.
+  assert.deepEqual(waiting(), { icon: 'lock', label: 'Needs permission', text: 'Needs permission' })
+})
+
+test('a question, a wait of unknown kind and a row that waits for nothing show no approval', () => {
+  assert.equal(approvalOf(row('a', 'blocked', { waiting: { for: 'answer' }, reply: 'Overwrite the files?' })), undefined)
+  assert.equal(approvalOf(row('a', 'blocked', { activity: 'waiting' })), undefined)
+  assert.equal(approvalOf(row('a', 'working')), undefined)
+})
+
+test('the tooltip keeps what the row no longer shows: the quiet time, and the reply an approval replaced', () => {
+  const now = Date.parse('2026-11-09T12:00:00Z')
+  const open = { kind: 'focus', label: 'Open in Terminal' }
+  const approving = row('a', 'blocked', { open, folder: '/tmp/shop', reply: 'Pushing the branch.', waiting: { for: 'permission', tool: 'Bash', detail: 'git push' } })
+  assert.equal(rowTooltipOf(approving, now), 'Open in Terminal\n/tmp/shop\nPushing the branch.')
+  const asking = row('a', 'blocked', { open, folder: '/tmp/shop', reply: 'Overwrite the files?', waiting: { for: 'answer' } })
+  assert.equal(rowTooltipOf(asking, now), 'Open in Terminal\n/tmp/shop')
+  const quiet = row('a', 'blocked', { open, tool: 'codex', activity: 'waiting', quietSince: '2026-11-09T11:53:00Z' })
+  assert.equal(rowTooltipOf(quiet, now), 'Open in Terminal\nNo activity for 7m')
 })
 
 test('a row shown as needing the person is still marked read only while nothing new came in', () => {
