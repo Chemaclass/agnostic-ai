@@ -234,3 +234,29 @@ func TestScan_ASeenMarkInTheSecondOfTheReplyCoversIt(t *testing.T) {
 		t.Errorf("a seen mark in the reply's own second covers it: %s, needsYou %d", asJSON(t, c), view.NeedsYou)
 	}
 }
+
+func TestScan_TheFirstPageHoldsAnOldClosedUnreadSession(t *testing.T) {
+	const old, recent = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{}})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	if err := writeMarks(scanner.MarksPath, marksFile{SchemaVersion: marksSchemaVersion, Since: "2026-10-01T00:00:00Z", Marks: map[string]markEntry{}}); err != nil {
+		t.Fatal(err)
+	}
+	writeMarkedSession(t, stores, old, "2026-10-20T10:00:00.000Z")
+	writeMarkedSession(t, stores, recent, "2026-11-07T10:00:00.000Z")
+	writeClaudeProcess(t, stores, 4242, idCache, "idle")
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	if c := byID(t, view, old); c.State != StateDormant || !c.Unread {
+		t.Errorf("the old closed session is archived with its marker on the first page: %s", asJSON(t, c))
+	}
+	before, err := time.Parse(time.RFC3339, view.From)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range scanner.Scan(context.Background(), ScanOptions{Before: before}).Conversations {
+		if c.ID == old {
+			t.Error("a later page lists it again")
+		}
+	}
+}
