@@ -154,7 +154,10 @@ type shell struct {
 	sendShortcutProblem string
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
-	save            *time.Timer
+	// panelAsked is whether the panel was last asked to show. A window
+	// asked to hide still reads as visible for a moment.
+	panelAsked bool
+	save       *time.Timer
 	// presence is how the companion sits on the screen; the zero value is shown.
 	presence presence
 	// resized is where the last size change put the circle and the
@@ -221,7 +224,7 @@ func (s *shell) changePresenceLocked(from, to presence) bool {
 	case to == hidden:
 		x, y := s.bubble.Position()
 		s.hiddenAt = point{X: x, Y: y}
-		s.panel.Hide()
+		s.hidePanelLocked()
 		s.bubble.Hide()
 	case was == hidden:
 		s.bubble.Show()
@@ -352,8 +355,11 @@ func (s *shell) togglePanel() {
 		s.showPanelOn(eventPanelShown)
 		return
 	}
-	if s.panel.IsVisible() {
-		s.panel.Hide()
+	s.mu.Lock()
+	asked := s.panelAsked
+	s.mu.Unlock()
+	if asked && s.panel.IsVisible() {
+		s.hidePanelLocked()
 		return
 	}
 	s.mu.Lock()
@@ -380,6 +386,9 @@ func (s *shell) showPanelWhileShown() {
 func (s *shell) showPanelOn(event string) {
 	x, y, nearest := placePanel(windowRect(s.bubble), s.workArea(), panelWidth, panelHeight)
 	s.panel.SetPosition(x, y)
+	s.mu.Lock()
+	s.panelAsked = true
+	s.mu.Unlock()
 	s.panel.Show()
 	s.panel.Focus()
 	s.panel.EmitEvent(event, string(nearest))
@@ -534,14 +543,38 @@ func (s *shell) panelLostFocus() {
 	if !s.panel.IsVisible() || s.panel.IsFocused() {
 		return
 	}
+	s.mu.Lock()
+	asked := s.panelAsked
+	s.mu.Unlock()
+	// Hiding the panel hands the keys to the bubble. Focusing the panel
+	// then would show it again.
+	if !asked {
+		s.panel.Hide()
+		return
+	}
 	if s.bubble.IsFocused() || (s.bubblePressed != nil && s.bubblePressed()) {
 		s.panel.Focus()
 		return
 	}
-	s.panel.Hide()
+	s.hidePanelLocked()
 	s.mu.Lock()
 	s.hiddenByFocusAt = time.Now()
 	s.mu.Unlock()
+}
+
+// hidePanel hides the list because the page or the person asked.
+func (s *shell) hidePanel() {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	s.hidePanelLocked()
+}
+
+// hidePanelLocked is hidePanel for a caller holding placing.
+func (s *shell) hidePanelLocked() {
+	s.mu.Lock()
+	s.panelAsked = false
+	s.mu.Unlock()
+	s.panel.Hide()
 }
 
 // routes serves the companion's pages and the few calls they make.
@@ -561,7 +594,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /api/panel/hide", func(w http.ResponseWriter, _ *http.Request) {
-		s.panel.Hide()
+		s.hidePanel()
 		w.WriteHeader(http.StatusNoContent)
 	})
 	// Unlike toggle, show skips the reopen guard: the page hid the panel itself.
