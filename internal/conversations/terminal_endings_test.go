@@ -196,8 +196,10 @@ func TestScan_ASessionSwitchArchivesTheOldIDAndKeepsTheNewOneOpen(t *testing.T) 
 				t.Errorf("the old id is archived: %s", asJSON(t, c))
 			}
 			if name == "fork" {
-				if c := byID(t, view, next); !c.Live {
-					t.Errorf("the fork is open: %s", asJSON(t, c))
+				// Today's behavior, an accepted limit in decision 018: the
+				// copied reply counts again on the fork's new id.
+				if c := byID(t, view, next); !c.Live || c.State != StateUnread || view.NeedsYou != 1 {
+					t.Errorf("a fork with a copied reply is open and listed unread (needsYou %d): %s", view.NeedsYou, asJSON(t, c))
 				}
 				return
 			}

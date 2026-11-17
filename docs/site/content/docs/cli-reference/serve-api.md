@@ -172,7 +172,7 @@ After you resume a closed session by hand, the reply it had while closed does no
 
 A Claude Code session that began in the desktop app or an editor, and was last used in a terminal, is a terminal session only while a terminal holds it. Once closed it opens where it began and follows that app's rule.
 
-After `/clear`, an in-process `/resume` or a fork, the old session id is archived once no process holds it, and the new id stays hidden until it holds a prompt. This is tested only on the scanner's side: it assumes Claude Code points `sessions/<pid>.json` at the new id, which was not checked against Claude Code itself.
+After `/clear`, an in-process `/resume` or a fork, the old session id is archived once no process holds it, and the new id stays hidden until it holds a prompt. This is tested only on the scanner's side: it assumes Claude Code points `sessions/<pid>.json` at the new id, which was not checked against Claude Code itself. A fork copies the old reply under the new id, so that reply can show under Needs you once more on the fork. What a real fork transcript looks like could not be confirmed, so nothing links the fork to its parent.
 
 Codex thread locks and `cursor-agent` chat stores are checked with one `lsof` run over their folder, so a held thread of any age stays open and the cost does not grow with old threads.
 
