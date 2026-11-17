@@ -9,7 +9,19 @@ group = "Reference"
 
 # Conversations API
 
-These routes of the [local API](@/docs/cli-reference/serve-api.md) serve the Conversations list and the [companion](@/docs/cli-reference/companion.md).
+These routes of the [local API](@/docs/cli-reference/serve-api.md) serve the Conversations list and the [companion](@/docs/cli-reference/companion.md). Use them to list your AI chats, reopen one where it lives, send it text, or mark it read.
+
+The three calls most people use, against `agnostic-ai serve --global` on the default port:
+
+```bash
+curl -s "http://127.0.0.1:4310/api/views/conversations?tool=claude"
+curl -s -X POST http://127.0.0.1:4310/api/conversations/open \
+  -H 'Content-Type: application/json' -d '{"tool":"claude","id":"<id>"}'
+curl -s -X POST http://127.0.0.1:4310/api/conversations/mark \
+  -H 'Content-Type: application/json' -d '{"tool":"claude","id":"<id>","as":"seen"}'
+```
+
+The first call lists chats and their `state`. The second reopens one. The third marks one read. POST routes must come from the server's own origin. The sections below list every route, field and status code.
 
 ## `GET /api/views/conversations`
 
@@ -26,6 +38,7 @@ A search keeps the conversations of every age where each word appears in the tit
 - Its pages hold only matches, and the page adds `matches`, the count across all pages.
 - A `q` over 200 characters, or another `tool`, is a 400.
 
+{% <details summary="Paging, scope and what is left out"> %}
 The route lists Claude Code, Codex and Cursor conversations from each tool's own store. The newest come first, by the last message from the person or the agent.
 
 - Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so, without a search or tool filter, it holds every conversation `needsYou` counts. A later page leaves those out.
@@ -35,12 +48,14 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 - A project server lists the conversations started in the project or one of its Git worktrees. A global server lists them all.
 - Runs a program started (Claude Code SDK sessions, `codex exec`) are left out. A `codex exec` run that a local Claude Code session started shows in that session's `helpers` instead while it runs.
 - A Claude Code session or Codex thread that was opened and never typed in is left out: it has no title and no prompt to show. A Codex thread stays when the agent replied, or when you named it with `POST /api/conversations/rename`. A left-out one is not counted in `needsYou` or a tool's `count`.
+{% </details> %}
 
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, deleteUnsupported?, parent?, cloud?, open}`.
 
+{% <details summary="Conversation fields"> %}
 Conversation fields:
 
 - `app` is `cli`, `ide`, `desktop`, `background`, `cloud`, `chat` or `cowork`.
@@ -69,6 +84,7 @@ Conversation fields:
   - `focus` switches to the Terminal or Ghostty tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
   - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. For a terminal session `label` says it resumes, such as `Resume in Ghostty` or `Resume in Terminal`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
+{% </details> %}
 
 Codex and Cursor stores are read with the `sqlite3` command.
 
@@ -82,6 +98,8 @@ Each row has a `state`, the first of these that holds:
 6. `unread`: written after you last saw it.
 7. `active`: open; a desktop, chat, Cowork or cloud conversation of any age; or written within 24 hours when the server cannot tell whether it is closed.
 8. `dormant`: otherwise.
+
+{% <details summary="How closed sessions are detected"> %}
 
 The server knows a terminal session is closed for local Claude Code and Codex sessions started in a terminal, and for `cursor-agent` chats, on macOS and Linux: a full read of `ps` or `lsof` finds no process that holds them, whatever their age. A session file Claude Code left behind after a crash, a kill or a reboot does not count when its process is gone or its pid now belongs to another process. A session stays open while any process holds it: in a detached `tmux`, `screen` or `zellij` session, stopped with Ctrl+Z, or after its tab closed. With two holders it closes when the last one ends.
 
@@ -102,6 +120,10 @@ After `/clear`, an in-process `/resume` or a fork, the old session id is archive
 Codex thread locks and `cursor-agent` chat stores are checked with one `lsof` run over their folder, so a held thread of any age stays open and the cost does not grow with old threads.
 
 The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold. Such a row carries `quietSince`, shown as "No activity for 7m".
+
+{% </details> %}
+
+{% <details summary="Marks, cloud sessions and refresh"> %}
 
 Marks:
 
@@ -128,11 +150,15 @@ Cloud sessions and refresh:
 - The reply has an `ETag`. It changes when a chat or a mark changed, when a new minute began (a process that ended or a chat that went dormant shows no other way), or when the query differs.
 - Sent back as `If-None-Match`, an unchanged list answers 304 with no body and reads no chat.
 
+{% </details> %}
+
 ## `POST /api/conversations/open`
 
 Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the server's own origin.
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?}`.
+
+{% <details summary="Open details: results, limits, tabs and timing"> %}
 - For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
 - Not supported yet: iTerm2, tmux, WezTerm, kitty and Warp. For their sessions the app comes forward, or `message` names the terminal device.
@@ -145,6 +171,7 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - A second open of the same conversation while one runs starts nothing: it waits for the first and returns the same reply. Opens of different conversations run side by side.
 - While a list read runs, an open takes its row from the read before it, so it does not wait. A row that would resume a session waits for a fresh read instead: an ended terminal session, and any Claude Code session of the desktop app or an editor, which may run in a terminal since. Such an open can take as long as that read.
 - An open may take up to 90 seconds to answer. When its caller left before that, the server logs whether it opened on its standard error, without the reason.
+{% </details> %}
 
 ## `POST /api/conversations/send`
 
@@ -152,6 +179,7 @@ Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the 
 
 Types `text` into a conversation's input, never pressing Enter, and returns `{sent, message}`.
 
+{% <details summary="Send details: what is typed, and which chats get no text"> %}
 - `sent` is true only when the text was typed into a live Terminal or Ghostty tab.
 - The conversation comes from the server's own scan, never from the request.
 - Right before typing, the server checks that the session still runs and holds its terminal in front. An ended session is never resumed and typed into.
@@ -161,6 +189,7 @@ Types `text` into a conversation's input, never pressing Enter, and returns `{se
 - Never typed into: a Cursor session, which does not say when it waits; a working Codex session, which may drop the text; a session waiting for your answer, or in a state it does not report; a Codex thread shown by a client, which may have switched thread. Working Claude Code keeps the text.
 - Anywhere else the server switches to the conversation as `POST /api/conversations/open` does, and `message` says to paste with Cmd+V, such as for editor terminals.
 - macOS asks once for Automation access to each app. Terminal also needs Accessibility access.
+{% </details> %}
 
 Replies:
 
@@ -190,11 +219,13 @@ Replies:
 
 Body: `{tool, id, title}` with `Content-Type: application/json`, from the server's own origin.
 
+{% <details summary="Rename details"> %}
 - Renames the conversation in its own tool first, before it replies. See [the companion's Rename](@/docs/cli-reference/companion.md) for how each tool takes the name. Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
 - Only once the tool has the name does it save `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search. A name the tool did not take is not saved.
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
 - On macOS, a running session's Terminal or Ghostty tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes.
+{% </details> %}
 
 Replies:
 
@@ -221,6 +252,8 @@ Deletes one conversation under Archived from this machine for good. Only a local
 - None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
 - Its session id names exactly one transcript.
 
+{% <details summary="What delete removes, what stays, and its limits"> %}
+
 What it removes, each only when its name is exactly the session id:
 
 - `projects/<project>/<id>/`: subagent transcripts, saved tool output and the chosen title.
@@ -242,6 +275,8 @@ Accepted limits:
 
 - A session that starts in the moment between the last check and the removal is not seen.
 - A forked session may still point at saved tool output under its parent's `projects/<project>/<parent id>/tool-results/`. Deleting the parent removes that output.
+
+{% </details> %}
 
 Replies:
 

@@ -14,93 +14,208 @@ delete-an-archived-chat = "@/docs/cli-reference/companion-list.md"
 
 # Companion
 
-## companion
+The companion is a small circle that floats over every app. It counts the Claude Code, Codex and Cursor conversations that wait for you. Click it for a searchable list: see [Companion list](@/docs/cli-reference/companion-list.md).
 
-Show a small circle that floats over every app. It counts the Claude Code, Codex and Cursor conversations that wait for you. While a chat waits for a permission or an answer, its count turns solid orange with a lock and an orange halo; unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". Click it, or press its shortcut, for a searchable list. The list opens each conversation where it lives and marks it as read or done. Right-click a conversation and choose **Rename…** to give it your own name. The web interface shows the same name. On a conversation that needs you, the same menu offers **Mark as read**, which clears it without opening it.
+<span id="companion" hidden></span>
 
-```bash
-agnostic-ai companion install
-agnostic-ai companion
-agnostic-ai companion stop
-agnostic-ai companion uninstall
-```
+## Install and start {#install}
 
-The companion is a separate program. Run `companion install` first. `agnostic-ai upgrade` then replaces an installed companion when its version differs.
+Put the circle on your screen.
 
-On macOS, `companion install` downloads the companion that the release built for your Mac (Apple silicon or Intel). It checks the download against the release's `checksums.txt` and, when the GitHub CLI (`gh`) is installed and logged in, against the release's build provenance, the same way `agnostic-ai upgrade` checks the CLI. It needs no compiler. A download that does not verify stops the install and leaves the installed companion as it was. A release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source` build it on your machine instead.
+1. Run `agnostic-ai companion install`. On macOS it downloads the build for your Mac. Elsewhere it builds the companion.
+2. Run `agnostic-ai companion`. It starts the companion and returns.
+3. Run it again to bring back a hidden companion and open its list. It tells you when the companion was built for another release.
 
-Everywhere else, and in those cases, it builds the companion from the same commit as the `agnostic-ai` you run and prints each step. A build needs:
+| System | Status |
+|--------|--------|
+| macOS | Supported. Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later. |
+| Windows | Not supported. It compiles, but nobody has run it. [Help with #3221](https://github.com/Chemaclass/agnostic-ai/issues/3221). |
+| Linux | Not supported. Nobody has built or run it. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
 
-| System | Status | Needs |
-|--------|--------|-------|
-| macOS | **Supported.** Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later. | Nothing to download it. To build it: Go and the Xcode Command Line Tools. |
-| Windows | **Not supported.** It compiles, but nobody has run it on a Windows machine. | Go. |
-| Linux | **Not supported.** Nobody has built or run it on a Linux machine. Wayland compositors decide what stays on top, so the circle may not float there. | Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. |
-
-Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Chemaclass/agnostic-ai/issues/3221) and [Linux (#3222)](https://github.com/Chemaclass/agnostic-ai/issues/3222) list what to run and verify.
-
+{% <details summary="Details: download, build, signing, login item"> %}
+- Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). It needs no compiler.
+- Checks: the download is checked against the release's `checksums.txt`. When `gh` is installed and logged in, it is also checked against the release's build provenance, as `agnostic-ai upgrade` checks the CLI.
+- A download that does not verify stops the install and leaves the installed companion as it was.
+- Build instead of download: a release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source`.
+- A build uses the same commit as the `agnostic-ai` you run, and prints each step.
+- Build needs on macOS: Go and the Xcode Command Line Tools.
+- Build needs on Windows: Go.
+- Build needs on Linux: Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. Wayland compositors decide what stays on top, so the circle may not float there.
 - When something is missing, the command names it, says how to get it, and builds nothing.
-- On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. It signs the app on your machine with `codesign`, without a developer identity. The app stays out of the Dock.
-- Start at login on macOS registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
-- An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
 - A build that fails leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
+- On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. The app stays out of the Dock.
+- The app is signed on your machine with `codesign`, without a developer identity.
+- Start at login registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
+- An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
+{% </details> %}
 
-| Flag | Description |
-|------|-------------|
-| `install --source` | Build from this folder instead of fetching the source. It is the `companion` folder of an agnostic-ai checkout. |
-
-`agnostic-ai companion` starts the companion and returns. Run it again to bring back a hidden companion and open its list. It tells you when the companion was built for another release.
+## Commands {#commands}
 
 | Command | What it does |
 |---------|--------------|
-| `companion stop` | Ends the companion and the server it started. When none runs, it succeeds and says so. Start at login stays as you set it. **Quit Agnostic AI companion** in the companion's menus does the same. |
-| `companion uninstall` | Ends the companion and turns off start at login. Deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) and `companion-command` (where the CLI is). Keeps `conversation-marks.json`, which `serve` uses too. On macOS and Linux it also removes a login entry that a deleted program left behind. On Windows it names the registry value to delete. |
+| `companion install` | Installs it. `--source` builds from this folder instead of fetching the source: the `companion` folder of an agnostic-ai checkout. |
+| `companion` | Starts it, or brings back a hidden one and opens its list. |
+| `companion stop` | Ends the companion and the server it started. Start at login stays as you set it. |
+| `companion uninstall` | Ends the companion, turns off start at login, and deletes what install made. |
 
-- The companion reads no chat itself. It starts its own `agnostic-ai serve --global --api-only --cloud-sessions` on a free loopback port.
-- Every 5 seconds it asks that server whether the list changed, and sends the list's `ETag`. While no chat changed, the server answers without reading anything.
-- What the list does when you click, send to, rename, mark or delete a chat, how it groups and archives them, and what a waiting chat asks: see [Companion list](@/docs/cli-reference/companion-list.md).
-- The list's ⋯ menu and the circle's right-click menu hold the same settings, in the same order. A change in one shows in the other:
-  - **Animate companion** turns its movement on and off. Working rows show a five-bulb gyroscope at constant brightness, with bulbs at different orbital radii and depths. Each working native Claude Code or Codex sub-agent adds one blue miniature of the same five-dot fractal. A number and agent icon show the count, with a tooltip and accessible label; unavailable counts add none. Working is named once in the blue section header. Working sub-agents keep an idle parent in Working, with its own still dot. A parent asking you a question stays in Needs you with a plain orange dot and no orbiting bulbs of its own; its working satellites keep their blue cores and animation. Cloud and other tools' sub-agents are not tracked. A chat with working subagents shows "▸ 3 subagents" on its own line under the meta line, in place of the count. When the server counts working subagents but cannot list them, the count sits on that line instead. The list starts folded. Click it to fold them out under the chat, newest first, five at most, then a "+N more" button. Only working subagents are listed and counted: one that finished leaves the list, and the toggle goes away once none works. Each shows the working gyroscope, its title, its tool, its type when it has one, and its age. Its Codex runs started with `codex exec` count among them while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. A Claude Code subagent opens its chat. Which chats are unfolded is kept until the companion quits. Turning animation off or enabling the system's Reduce Motion keeps the indicator still with its section heading and worker count visible. The circle shows a still ring and its count keeps updating. The choice is kept across restarts.
-  - **Dim when idle** fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
-  - **Small companion** shows a 40px circle instead of the 60px one. Its mark, working ring and count shrink with it, and so does its window, so clicks just outside the small circle reach the app behind it. It keeps the screen edges it sits nearest. The choice is kept across restarts.
-  - **Start at login** starts the companion when you log in.
-  - **Open from anywhere** shows the shortcut. In the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
-  - **Send copied text** shows the send shortcut, Ctrl+Alt+V until you change it, and changes the same way. It is the way to send what you copied to a chat: see [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). The two shortcuts cannot share keys. Keys the system refuses are kept, and the menu says why the shortcut is not active.
-  - **Hide Agnostic AI companion** takes the circle and the list off the screen. The companion keeps running and reading. While the shortcut is not active, the entry names `agnostic-ai companion` as the way back. The shortcut, `agnostic-ai companion` or opening the app again shows the circle where it was and opens the list.
-  - **Quit Agnostic AI companion** asks first: the program stops, so the shortcut will not bring it back, and `agnostic-ai companion` (or your AI tool running it) starts it again. The question offers **Quit**, **Hide instead** and **Cancel**; Escape or a click elsewhere cancels. Quit ends the companion and its server, as `companion stop` does. `stop`, `install`, `upgrade`, `uninstall` and logging out never ask. Start at login stays as you set it.
-- The companion is shown, hidden, or back dimmed. While hidden, a conversation that starts waiting for you brings the circle back on its own at 25%, with its count, without opening the list. On macOS it does not take the keys. Conversations that already waited when you hid it do not bring it back. A click on the circle or the shortcut brings back full color. **Dim when idle** does not change a dimmed circle, and **Animate companion** still applies to it. None of the three states is saved: a restart starts shown.
+{% <details summary="Details: stop and uninstall"> %}
+- `stop` when nothing runs: it succeeds and says so.
+- **Quit Agnostic AI companion** in the menus does the same as `stop`.
+- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) and `companion-command` (where the CLI is).
+- `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
+- On macOS and Linux it also removes a login entry that a deleted program left behind.
+- On Windows it names the registry value to delete.
+{% </details> %}
+
+## The circle and its menus {#menus}
+
+The circle's count turns solid orange, with a lock and a halo, while a chat waits for a permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread".
+
+Right-click the circle, or open the list's ⋯ menu. Both hold the same items in the same order, and a change in one shows in the other.
+
+| Menu item | What it does |
+|-----------|--------------|
+| **Animate companion** | Movement on or off. Off, or with Reduce Motion on, the circle shows a still ring and its count keeps updating. |
+| **Dim when idle** | Fades the circle while nothing needs you. |
+| **Small companion** | A 40px circle instead of 60px. |
+| **Start at login** | Starts the companion when you log in. |
+| **Open from anywhere** | Shows the shortcut that opens the list, and changes it. |
+| **Send copied text** | Shows the send shortcut, Ctrl+Alt+V until you change it. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
+| **Hide Agnostic AI companion** | Takes the circle and the list off the screen. It keeps running. |
+| **Quit Agnostic AI companion** | Asks first, then ends the companion and its server. |
+
+Animate companion, Dim when idle and Small companion are kept across restarts. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
+
+{% <details summary="Details: dim, small, shortcuts"> %}
+- Dim: pointing at the circle, or any conversation that needs you, brings back full color.
+- Small: its mark, working ring, count and window shrink with it, so clicks just outside the small circle reach the app behind it. It keeps the screen edges it sits nearest.
+- Open from anywhere: in the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
+- The open and send shortcuts cannot share keys.
+- Keys the system refuses are kept, and the menu says why the shortcut is not active.
+{% </details> %}
+
+## Hide and quit {#hide-and-quit}
+
+**Hide** takes the circle and the list off the screen. The shortcut, `agnostic-ai companion` or opening the app again brings them back where they were and opens the list. **Quit** stops the program.
+
+| State | What happens |
+|-------|--------------|
+| Hidden | A chat that starts waiting for you brings the circle back on its own at 25%, with its count, without opening the list. |
+| Dimmed | A click on the circle or the shortcut brings back full color. |
+| Quit | The shortcut cannot bring it back. Run `agnostic-ai companion` to start it again. |
+
+{% <details summary="Details: hidden, dimmed and quit states"> %}
+- While the shortcut is not active, the Hide entry names `agnostic-ai companion` as the way back.
+- A hidden companion keeps running and reading.
+- A returned circle on macOS does not take the keys.
+- Chats that already waited when you hid it do not bring it back.
+- **Dim when idle** does not change a dimmed circle. **Animate companion** still applies to it.
+- None of the shown, hidden and dimmed states is saved. A restart starts shown.
+- Quit asks first. The question offers **Quit**, **Hide instead** and **Cancel**. Escape or a click elsewhere cancels.
+- Quit ends the companion and its server, as `companion stop` does. Start at login stays as you set it.
+- `stop`, `install`, `upgrade`, `uninstall` and logging out never ask.
+- Your AI tool running `agnostic-ai companion` also starts it again.
+{% </details> %}
+
+## How it reads conversations {#how-it-reads}
+
+The companion reads no chat itself. It starts its own `agnostic-ai serve --global --api-only --cloud-sessions` on a free loopback port. Every 5 seconds it asks that server whether the list changed.
+
+{% <details summary="Details: polling"> %}
+- The request sends the list's `ETag`.
+- While no chat changed, the server answers without reading anything.
+{% </details> %}
 
 ## Upgrade the companion
 
-`agnostic-ai upgrade` uses the updated CLI to replace an installed companion, downloaded or built as `companion install` does. It prints progress and restarts the companion only if it was running. Settings and Start at login stay as they were. It does not install a companion if none is installed. `upgrade --check` and `upgrade --requires` do not replace it.
+`agnostic-ai upgrade` replaces an installed companion, downloaded or built as `companion install` does.
 
-A companion update failure leaves the CLI upgraded and the old companion usable. The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
+- It prints progress.
+- It restarts the companion only if it was running.
+- Settings and Start at login stay as they were.
+- It installs none if none is installed.
+- `upgrade --check` and `upgrade --requires` do not replace it.
 
-After a direct Homebrew or npm upgrade, run `agnostic-ai companion install`. A fresh companion/server start shows a panel notice when their versions differ, including the command to run. Starting through the CLI also prints a warning. A companion and server already running before an external upgrade can keep their old versions until restarted.
+After a direct Homebrew or npm upgrade, run `agnostic-ai companion install`.
+
+{% <details summary="Details: failures and version mismatch"> %}
+- A companion update failure leaves the CLI upgraded and the old companion usable.
+- The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
+- A fresh companion/server start shows a panel notice when their versions differ, with the command to run. Starting through the CLI also prints a warning.
+- A companion and server already running before an external upgrade can keep their old versions until restarted.
+{% </details> %}
 
 ## Cloud sessions {#claude-code-cloud-sessions}
 
-`agnostic-ai serve --global --cloud-sessions` adds the Claude Code sessions that run at claude.ai/code to the conversations list. They count among Claude Code's conversations, with `app` `cloud`. They take the same states and marks as the others. A project server lists none, because a cloud session names no folder.
+Add the sessions that run in the cloud to the list.
 
-- **What it reads.** It asks `GET https://api.anthropic.com/v1/code/sessions?limit=100`, which answers at most 100 sessions. It does not page past them yet. It uses their id, title, status and times. It never reads a session's messages.
-- **The sign-in.** For each call it reads the claude.ai sign-in that Claude Code keeps in the macOS keychain (the `Claude Code-credentials` entry). It sends it only to `api.anthropic.com`. It never keeps, prints or logs it, and never uses the refresh token. Run `claude` to sign in or renew it. Windows and Linux are not supported yet.
-- **How often.** At most once a minute, with a 5-second timeout and no retry. A cloud change reaches the list at most a minute late. The web interface shows it when you open or reload the page. The companion asks every 5 seconds, so it shows there at most 65 seconds late.
-- **When it fails.** Local conversations still list. A refusal, no answer in time, or an answer this version cannot read passes by itself: the last good list stands in for up to 10 minutes and `cloudNote` stays empty. After that, no cloud row shows and `cloudNote` says why. A missing or expired sign-in does the same at once. A system with no supported sign-in store lists none and says nothing.
-- **Opening one** opens the session's own page, `https://claude.ai/code/session_<id>`, in the browser. It is the only kind of web page the server opens.
-- **Status.** `working` shows as working, only while the session's worker runs. `blocked` shows as waiting for you. Other statuses are not live. No process on this machine can be checked for a cloud conversation, so either cloud's status is believed for a day after the conversation's last write. After that the session is active, or unread, under Active: it is never archived by its age.
-- **Remote Control.** A Claude Code session that runs here with Remote Control on is also listed at claude.ai. It shows as one row: the local one, marked **Shared** on its meta line ("Also open on claude.ai" on hover and for screen readers). It counts once, takes its state from the local session, and shows under both Local and Cloud. Clicking it opens the local session as before. Its second action, **Open on claude.ai**, also in its right-click menu, opens the session's page. The match uses only the session's ids: the running session's `bridgeSessionId`, `session_<id>`, names the cloud session `cse_<id>`. This relation is undocumented and was measured on one account on 2026-11-12. When it does not match, both rows show as before. A closed session stays shared while the server that saw it shared runs. A seen mark on the cloud row carries over to the shared row. Its completed and hidden marks and its name do not. Marking the shared row read or complete, opening it, or taking a completion back marks the cloud row the same way, so it does not come back unread when a restarted server lists it apart. Opening the cloud row on claude.ai marks the local row read too.
+1. Run `agnostic-ai serve --global --cloud-sessions`. The companion starts its server with this flag already.
+2. Claude Code sessions from claude.ai/code and Codex cloud threads join the conversations, with `app` `cloud`.
+3. They take the same states and marks as the others.
 
-The same flag adds the threads that run in the Codex cloud. They count among Codex's conversations, with `app` `cloud`.
+A project server lists none, because a cloud session names no folder. Both endpoints are undocumented and can change with any release of either tool.
 
-- **What it reads.** It asks `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads, which answers at most 100 threads. It does not page past them yet. It uses their id, name, status and times. It never reads a thread's messages.
-- **The sign-in.** For each call it reads the ChatGPT login that the Codex command keeps in `auth.json` (in `$CODEX_HOME`, default `~/.codex`). It sends it only to that host. It never keeps, prints or logs it, and never reads the refresh token or an API key. Without that file it asks nothing and says nothing, because you do not use Codex. A login with an API key has no cloud threads, and `cloudNote` says so.
-- **How often, and failures:** as for Claude Code above. `cloudNote` holds one sentence for each cloud that could not be read.
-- **Opening one** opens `codex://threads/<id>?hostId=durable`, which the Codex app handles.
-- **Status.** An `active` thread shows as working. It shows as waiting for you when it waits on an approval or on your input. Other statuses are not live.
+| | Claude Code cloud | Codex cloud |
+|---|---|---|
+| Reads | `GET https://api.anthropic.com/v1/code/sessions?limit=100` | `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads |
+| Sign-in | The claude.ai login in the macOS keychain (`Claude Code-credentials`). Run `claude` to renew it. | The ChatGPT login in `auth.json` (in `$CODEX_HOME`, default `~/.codex`) |
+| Opens | `https://claude.ai/code/session_<id>` in the browser | `codex://threads/<id>?hostId=durable`, handled by the Codex app |
+| Working | Status `working`, only while the worker runs | Status `active` |
+| Waiting for you | Status `blocked` | Waits on an approval or on your input |
 
-Both endpoints are undocumented and can change with any release of either tool.
+{% <details summary="Details: privacy, refresh, failures, status"> %}
+- Limit: at most 100 sessions or threads. It does not page past them yet.
+- It uses their id, title or name, status and times. It never reads their messages.
+- The sign-in is sent only to its own host. It is never kept, printed or logged, and the refresh token is never used.
+- Claude Code sign-in: Windows and Linux are not supported yet.
+- Codex sign-in: without `auth.json` it asks nothing and says nothing, because you do not use Codex. A login with an API key has no cloud threads, and `cloudNote` says so.
+- Flag off: without `--cloud-sessions`, nothing reads your sign-in or leaves this machine.
+- Refresh: at most once a minute, with a 5-second timeout and no retry.
+- A cloud change reaches the list at most a minute late. The web interface shows it when you open or reload the page. The companion asks every 5 seconds, so it shows there at most 65 seconds late.
+- Failures: local conversations still list.
+- A refusal, no answer in time, or an answer this version cannot read passes by itself. The last good list stands in for up to 10 minutes and `cloudNote` stays empty.
+- After that, no cloud row shows and `cloudNote` says why. A missing or expired sign-in does the same at once.
+- A system with no supported sign-in store lists none and says nothing.
+- `cloudNote` holds one sentence for each cloud that could not be read.
+- The Claude Code session page is the only kind of web page the server opens.
+- Other statuses are not live.
+- No process on this machine can be checked for a cloud conversation, so either cloud's status is believed for a day after the conversation's last write.
+- After that day, a Claude Code cloud session is active, or unread, under Active. It is never archived by its age.
+{% </details> %}
 
-Your Claude chats and Cowork tasks show too, with no flag: they are read from what the Claude desktop app keeps on this computer. A row reads "Claude · Chat" or "Claude · Cowork" and opens in the Claude app. A chat the assistant answered counts as waiting for you until you see it. Chats sit under **Cloud**, Cowork tasks under **Local**.
+## Remote Control twin {#remote-control}
 
-Your ChatGPT chats show too, with no flag, when the ChatGPT desktop app is installed: they are read from the chat list it keeps on this computer, in `codex.db` under `$CODEX_HOME/sqlite` (default `~/.codex`). Nothing is asked over the network, and a new reply shows within the companion's 5-second check. A row reads "ChatGPT · Chat" and opens on chatgpt.com. A chat you started on chatgpt.com or your phone shows once the app has synced it. That list is undocumented and can change with any release of the app.
+A Claude Code session that runs here with Remote Control on is also listed at claude.ai. It shows as one row: the local one, marked **Shared** ("Also open on claude.ai" on hover and for screen readers).
+
+- It counts once and takes its state from the local session.
+- It shows under both Local and Cloud.
+- Clicking it opens the local session. **Open on claude.ai**, also in its right-click menu, opens the cloud page.
+
+{% <details summary="Details: how the match works, marks"> %}
+- The match uses only ids: the running session's `bridgeSessionId`, `session_<id>`, names the cloud session `cse_<id>`.
+- This relation is undocumented and was measured on one account on 2026-11-12.
+- When it does not match, both rows show as before.
+- A closed session stays shared while the server that saw it shared runs.
+- A seen mark on the cloud row carries over to the shared row. Its completed and hidden marks and its name do not.
+- Marking the shared row read or complete, opening it, or taking a completion back marks the cloud row the same way. It then does not come back unread when a restarted server lists it apart.
+- Opening the cloud row on claude.ai marks the local row read too.
+- After it closes: see [Shared Remote Control rows](@/docs/cli-reference/companion-list.md#remote-control).
+{% </details> %}
+
+## Claude chats, Cowork tasks and ChatGPT chats {#other-chats}
+
+These show with no flag. The companion reads what the desktop apps keep on this computer.
+
+| Row | Reads from | Opens in | Sits under |
+|-----|------------|----------|------------|
+| "Claude · Chat" | The Claude desktop app | The Claude app | Cloud |
+| "Claude · Cowork" | The Claude desktop app | The Claude app | Local |
+| "ChatGPT · Chat" | `codex.db` under `$CODEX_HOME/sqlite` (default `~/.codex`), when the ChatGPT desktop app is installed | chatgpt.com | |
+
+{% <details summary="Details: waiting, sync, stability"> %}
+- A Claude chat the assistant answered counts as waiting for you until you see it.
+- ChatGPT reads nothing over the network. A new reply shows within the companion's 5-second check.
+- A ChatGPT chat you started on chatgpt.com or your phone shows once the app has synced it.
+- The ChatGPT chat list is undocumented and can change with any release of the app.
+{% </details> %}

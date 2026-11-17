@@ -65,7 +65,20 @@ agnostic-ai serve --api-only
 | `--no-installed` | Skip comparing generated files with disk. |
 | `--cloud-sessions` | Also list Claude Code cloud sessions, the ones at claude.ai/code, and Codex cloud threads. Needs `--global`. Off by default: without it nothing reads your sign-in or leaves this machine. See [cloud sessions](@/docs/cli-reference/companion.md#claude-code-cloud-sessions). |
 
-In the browser:
+In the browser, the pages are:
+
+| Page | What it is for |
+|------|----------------|
+| Conversations (`/`) | Recent Claude Code, Codex and Cursor chats. Reopen one where it lives. |
+| Context | Size of what each coding tool reads at startup, ranked by source. |
+| Authority | Permission rules and protected paths, with a preview before every save. |
+| Tools | MCP server specs, and servers found only in a tool's own file. |
+| Lifecycle | Hooks by stage. **Add hook** opens a form. |
+| Settings | Built-in switches, coding tools, model, effort and editor. |
+
+Every edit shows a preview first, then **Apply** writes only the source file. Run the `agnostic-ai sync` command the page names afterward. Details for each page follow.
+
+{% <details summary="Authority, MCP servers, hooks and copy to global"> %}
 
 - **Docs** beside each section heading opens the matching spec or reference page in a new tab, including empty sections.
 - **Authority** lists permission files and rules. **Add rules** or **Edit rules** opens an editor for Allow, Ask first, or Always blocked. Preview the source-file change before saving. You can also edit protected paths there, and the default permission mode in the global view. See [permission editing](#permission-editing).
@@ -95,6 +108,11 @@ In the browser:
   - Built-ins, pack specs, and local specs have no such action. Commands, review instructions, and settings stay too, since the global setup does not read them as specs.
   - A rule with a scope, paths, or a target condition cannot go to the global setup, where rules apply to every file.
   - When the global setup does not exist yet, create it with **Open global settings** first.
+
+{% </details> %}
+
+{% <details summary="The Conversations page"> %}
+
 - **Conversations** (`/`) is the page the interface opens on. A static snapshot has no server to read chats, so it opens on **Context** instead.
   - It lists recent Claude Code, Codex and Cursor chats from each tool's own store.
   - Open chats come first under **Open now**, with **Working** or **Waiting for you** when the tool reports it. A local Codex chat that wrote nothing for 5 minutes shows **No activity for 7m** instead, since Codex does not say when it waits. The rest follow by day, newest last message first.
@@ -106,6 +124,11 @@ In the browser:
   - The first time, macOS asks to let agnostic-ai control each terminal app.
   - Codex and Cursor chats need the `sqlite3` command.
   - See [`/api/views/conversations`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
+
+{% </details> %}
+
+{% <details summary="Navigation, global setup, editor choice and tabs"> %}
+
 - On wide screens, the rail labels the page **Project** or **Global** and shows its path under the name. On phones, the top bar shows the name and **Menu** shows the path.
 - The foot of the rail (in **Menu** on phones) names the agnostic-ai version that serves the page. When the config sets [`requires`](@/docs/configuration.md#requires), the line under it names that range. When the running release is outside that range, the line uses the warning color and the rail shows **Update needed** beside the version.
 - **Overview JSON** at the foot of the rail (in **Menu** on phones) opens the overview document behind the page, with its endpoint, schema version, revision, and the command that prints it (`agnostic-ai view --json`). `Esc` closes it.
@@ -137,7 +160,11 @@ In the browser:
 - With `--global`, the `AGNOSTIC_AI.md` row in **Context** has **Copy refine prompt**. The prompt asks a coding agent to review the file against current guidance for instruction files, propose a full rewrite with a change table, recommend which rules belong in an existing or new skill or agent, and leave the file unchanged until you approve.
 - **Context size** opens first in **Context** for a project served by a running server. Static snapshots, user configuration, and projects with no coding tool open the first tab with content instead.
 
-Choose a coding tool to see its [context report](@/docs/cli-reference/inspect.md#rank-context-contributions): startup, file-scoped, and on-demand sizes in words and bytes. **Check against a file** updates the file scope as you type. The page compares startup words with [`lint.instructions-words`](@/docs/configuration-reference.md#lint).
+{% </details> %}
+
+{% <details summary="Context size and setup health"> %}
+
+Choose a coding tool to see its [context report](@/docs/cli-reference/inspect.md#rank-context-contributions): startup, file-scoped, and on-demand sizes in words and bytes. **Check against a file** updates the file scope as you type. The page compares startup words with [`lint.instructions-words`](@/docs/configuration.md#lint).
 
 **How this is counted** explains when text loads and links to the tool's model and effort in Settings. Sources are ranked by words, with each source's share of its group. Duplicate startup passages follow. The tool and file stay in the page address.
 
@@ -166,6 +193,11 @@ Select findings or suggestions with their checkboxes. A bar at the foot of the p
   - Without a global setup there are none.
   - The JSON overview marks them `"layer": "global"`, with `path` relative to the global source.
 - With warnings only, a line under the page title counts them and **Review** opens the folded list at the end of the page. Errors stay visible above the tabs with their findings.
+
+{% </details> %}
+
+{% <details summary="Lifecycle hooks, settings and model or effort"> %}
+
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links.
 - **Lifecycle** lists stages with hooks. **Show all stages** adds the rest. Events specific to one tool, such as `SubagentStart`, have their own heading and a description of what their hooks do.
 
@@ -189,6 +221,11 @@ On a running server, **Full file** shows every source field, unless the file app
   - The origin line says where the value comes from, such as `local · codex` or `project · all tools` (`global · all tools` in the global view), and names the `agnostic-ai.yaml` key that replaces it when one does.
   - **Use the value for every tool** removes that tool's entry.
   - Effort has a control only for tools that take an effort setting. A spec whose `model` names a model tier stays read-only here, and so does one tool's effort when the tier gives the effort.
+
+{% </details> %}
+
+{% <details summary="Built-in switches, coding tools, apply and undo"> %}
+
 - In a project, each built-in switch previews the config edit, generated files, and findings for every target.
 - **Apply** and **Cancel** stay at the top. Tools, files, and review notes start collapsed. Notes group by tool in a bounded list, with **Copy notes** for the full messages. Pending source changes remain visible.
 - **Apply** writes the change. **Cancel** discards the preview, so a reload does not bring it back.
@@ -225,11 +262,14 @@ Apply and its preview:
 
 Edits keep unrelated text and private file permissions. A validation failure puts the file back as it was, unless another process changed the file. Then the save fails with an error that says the file could not be restored.
 
+{% </details> %}
+
 ### Save project or local changes {#edit-scope}
 
-- **View and edit**, beside the filter at the top of **Settings** and **Authority**, selects the values shown and where every editor on the page saves.
+**View and edit**, beside the filter at the top of **Settings** and **Authority**, picks where every editor on the page saves: Project (Global in the global view) writes files Git tracks, Local writes git-ignored [local overrides](@/docs/local-overrides.md). The browser remembers your choice.
+
+{% <details summary="Project and local saves in detail"> %}
 - It reads **Project | Local** in a project and **Global | Local** in the global view, matching the chip beside the project name.
-- The browser remembers your choice.
 - **Project**, the default, shows the project's built-in states and settings, and writes files Git tracks.
 - **Local** shows your overrides, with values inherited from the project labeled. It writes git-ignored [local overrides](@/docs/local-overrides.md):
   - Built-ins go to `agnostic-ai.local.yaml`.
@@ -254,10 +294,14 @@ Before a local save writes its file, the server checks that Git ignores it.
 - Outside a Git repository there is nothing to ignore, so the save writes the file directly.
 
 In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first local change keeps the `memory.personal` mode inherited from the main checkout. A reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
+{% </details> %}
 
 ### Edit permission rules {#permission-editing}
 
-In **Authority**, select Project or Local, then **Add rules** or **Edit rules** on Allow, Ask first, or Always blocked. Enter one [permission rule](@/docs/spec-format/settings.md#permission-rules) per line, such as `shell(git status)` or `read(src/**)`. Blank lines are ignored.
+In **Authority**, pick Project or Local, then **Add rules** or **Edit rules** on Allow, Ask first, or Always blocked. Enter one [permission rule](@/docs/spec-format/settings.md#permission-rules) per line, such as `shell(git status)` or `read(src/**)`. **Preview** shows the exact diff, then **Apply** saves only that source file. Run the displayed `agnostic-ai sync` command to apply it.
+
+{% <details summary="Permission editing in detail"> %}
+Blank lines are ignored.
 
 Each saved rule also has **Edit**, which opens the editor on that line, and **Remove**, which goes straight to the preview without that rule.
 
@@ -287,3 +331,4 @@ If a local spec clears the whole group with `permissions: null`, individual list
 When several settings files are editable, choose one explicitly. Lists from other specs still contribute their rules. With no settings spec, the editor creates `settings/permissions.yaml` under the configured source root, or `local/settings/permissions.yaml` for Local. Pack-only sources remain read-only.
 
 Invalid rules, unsafe file paths, and credentials are refused. A changed file stops saving and offers **Reload**, which keeps your draft for a fresh preview. Permission saves have no browser undo.
+{% </details> %}

@@ -17,9 +17,19 @@ post-api-conversations-delete = "@/docs/cli-reference/conversations-api.md"
 
 # Local API
 
-The routes that list, open, send to, mark, rename and delete conversations are on [Conversations API](@/docs/cli-reference/conversations-api.md).
+`agnostic-ai serve` runs a JSON API on `127.0.0.1:4310` (change it with `--addr`). The web interface uses it, and scripts can too. The routes that list, open, send to, mark, rename and delete conversations are on [Conversations API](@/docs/cli-reference/conversations-api.md).
 
-Edit and impact requests take JSON.
+The calls most people use:
+
+- `GET /api/health` checks that the server runs and which folder it reads.
+- `GET /api/views/overview` returns what the setup holds and what is missing.
+- An edit in two steps: send the request with `"action": "preview"`, read the plan, then send it again with `"action": "apply"` and the `expected` value the preview returned. Nothing is written until apply.
+
+```bash
+curl -s http://127.0.0.1:4310/api/health
+```
+
+The routes below are the full reference. Edit and impact requests take JSON.
 
 - Every edit and preview names its `audience`: `shared` or `personal`.
 - The older `scope` field (`team` or `local`) is accepted until the next minor release, except on `/api/edit/mcp`, `/api/edit/hook`, `/api/edit/permissions`, and `/api/edit/protected`. A request that sends both with different meanings returns 400.

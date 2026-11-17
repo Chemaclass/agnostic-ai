@@ -208,6 +208,7 @@ Some tools' docs leave out part of how a command runs. `hook run` runs those com
 
 ### Counted and assumed results
 
+{% <details summary="Which results are counted"> %}
 A `not counted` result is one the replies above mark `not counted`. It stays out of `--expect` and the comparison even with `--include-assumed`, though with that flag a timeout or error from another of that tool's commands still fails the run.
 
 Kiro is not run for an `agent` action, which runs no command; a hook with `confirm`, which asks the user first; and every trigger but `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop`, whose event data the docs do not show.
@@ -215,10 +216,13 @@ Kiro is not run for an `agent` action, which runs no command; a hook with `confi
 A Cursor hook spec uses Cursor's own event names, so other tools are not run. A Copilot hook spec with a PascalCase event such as `PreToolUse` also runs on Claude Code, which counts, so `--expect` checks Claude Code and shows Copilot beside it.
 
 The Cline VS Code extension does not read stdout when the script exits non-zero, so a reply printed before a failing exit blocks in the CLI and not in the extension.
+{% </details> %}
 
 ## JSON output
 
 `--format json`, or `--json`, prints the same results as one JSON object; `--json` fails with any other `--format`. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, its `assumptions`, whether it is `counted`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails. When a target cannot be set up, such as a matcher that is not a valid pattern, the object still prints, with the targets checked before it and `error` naming that target. The exit code is the same as in text:
+
+{% <details summary="Example JSON output"> %}
 
 ```json
 {
@@ -250,6 +254,8 @@ The Cline VS Code extension does not read stdout when the script exits non-zero,
   ]
 }
 ```
+
+{% </details> %}
 
 ## Sample event inputs
 
@@ -327,15 +333,19 @@ OpenCode and Kilo run hooks as plugins and Zed as tasks, so they are not run. Op
 
 ### Kiro matchers {#kiro-hook-run-matchers}
 
+{% <details summary="Kiro matcher rules"> %}
 Kiro tool matchers without regular-expression syntax select tool IDs, the documented `read`, `write`, `shell`, and `web` categories, or source tags. They support `*` and `?` wildcards and also try an unanchored regular expression against the tool ID. A matcher with regular-expression syntax uses that expression only.
 
 `@mcp`, `@builtin`, `@server`, and `@server/tool` select MCP or built-in tools. `execute_bash` and `execute_pwsh` selectors match each other. CLI 2.x aliases are not expanded.
 
 `@powers`, `spec`, `subagent`, and `context` are not run because their complete tool membership is undocumented. A named MCP selector is also not run when underscores make its server/tool boundary ambiguous. Use an anchored regular expression against the internal tool ID.
+{% </details> %}
 
 ## Sources
 
-Vendor docs and pinned source each tool's hook behavior is checked against:
+{% <details summary="Vendor docs and pinned source"> %}
+
+Each tool's hook behavior is checked against these vendor docs and pinned source:
 
 - **Claude Code:** [Hooks guide](https://code.claude.com/docs/en/hooks-guide).
 - **Codex:** [Hooks](https://learn.chatgpt.com/docs/hooks).
@@ -354,3 +364,4 @@ Vendor docs and pinned source each tool's hook behavior is checked against:
 - **Cline:** source [`39ff235`](https://github.com/cline/cline/tree/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks): [`hook-file-hooks.ts`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks/hook-file-hooks.ts#L234-L254), [`subprocess-runner.ts`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks/subprocess-runner.ts#L68-L97), [tool schemas](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/extensions/tools/schemas.ts#L149-L224).
 - **Crush:** source [`76cc5c5`](https://github.com/charmbracelet/crush/tree/76cc5c574e15072b15aaed0f4f843a5711fae0d9/internal): [`config/config.go`](https://github.com/charmbracelet/crush/tree/76cc5c574e15072b15aaed0f4f843a5711fae0d9/internal/config/config.go), [`hooks/input.go`](https://github.com/charmbracelet/crush/tree/76cc5c574e15072b15aaed0f4f843a5711fae0d9/internal/hooks/input.go), [`hooks/runner.go`](https://github.com/charmbracelet/crush/tree/76cc5c574e15072b15aaed0f4f843a5711fae0d9/internal/hooks/runner.go), [`shell/dispatch.go`](https://github.com/charmbracelet/crush/tree/76cc5c574e15072b15aaed0f4f843a5711fae0d9/internal/shell/dispatch.go), [`shell/run.go`](https://github.com/charmbracelet/crush/tree/76cc5c574e15072b15aaed0f4f843a5711fae0d9/internal/shell/run.go); replies from tag [`v0.101.0`](https://github.com/charmbracelet/crush/tree/v0.101.0/internal/hooks): [`hooks/input.go`](https://github.com/charmbracelet/crush/blob/v0.101.0/internal/hooks/input.go), [`hooks/runner.go`](https://github.com/charmbracelet/crush/blob/v0.101.0/internal/hooks/runner.go).
 - **`hook run` shell:** [mvdan.cc/sh](https://github.com/mvdan/sh) and its [core utilities](https://github.com/mvdan/sh/blob/b5028a3332a4d5d5a6cc62a999c1ba7993eb3627/x/coreutils/coreutils.go), [gojq](https://github.com/itchyny/gojq).
+{% </details> %}
