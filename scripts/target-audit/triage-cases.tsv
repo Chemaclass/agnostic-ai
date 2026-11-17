@@ -156,3 +156,15 @@ factory-hook-ask-normal-permissions	factory	A Factory PreToolUse hook that retur
 factory-hook-subagentstop-block	factory	A Factory SubagentStop hook that returns `decision: "block"` keeps the subagent running.	Neither a block nor `continue: false` keeps the subagent running or changes its result.	contradicts	3477
 crush-hook-json-any-exit	crush	Crush treats a hook that exits with a code other than 0 or 2 as an error and ignores its JSON reply.	As in Claude Code, a JSON object on stdout still counts and is applied.	contradicts	3478
 claude-commands-model-invocation	claude	Claude Code slash commands are saved prompts a person starts by name.	Claude can invoke them without you typing the command.	contradicts	3481
+kiro-permission-request-validation	kiro	Kiro supports no PermissionRequest hook event.	the `PermissionRequest` trigger runs in a V3 session	contradicts	3554
+junie-digit-leading-agent-name	junie	Junie agent names must start with a lowercase letter.	[a-z0-9][a-z0-9_-]*	contradicts	3555
+qwen-project-settings-effort	qwen	The settings file has no repository effort key.	How hard reasoning-capable models think, applied across all providers.	contradicts	3556
+copilot-project-skill-priority	copilot	Copilot chooses .claude/skills before .agents/skills.	first found wins	contradicts	3557
+vibe-native-hook-matcher-lint	vibe	The native pre_tool event does not consume a matcher.	regex with the re: prefix	contradicts	3558
+kiro-oauth-scope-order	kiro	Nested oauth.oauthScopes always wins over top-level oauthScopes.	top-level `oauthScopes` takes priority	contradicts	3559
+vibe-native-protected-setting-note	vibe	This target cannot write a rule or hook that blocks edits.	denies the tool call	contradicts	3560
+factory-native-protected-setting-note	factory	This target cannot write a rule or hook that blocks edits.	Blocks the tool call and sends the reason to Droid.	contradicts	3560
+qoder-native-protected-setting-note	qoder	This target cannot write a rule or hook that blocks edits.	exit 2; stderr is returned to the Agent as an error.	contradicts	3560
+windsurf-indexing-only-ignore	windsurf	Devin cannot view, edit or create paths matched by .devinignore.	`.devinignore` does not block the file tools of Devin Local.	contradicts	3561
+opencode-v2-claude-fallback-current	opencode	V2 discovers only AGENTS.md.	V2 keeps the V1 `CLAUDE.md` fallback	contradicts	3562
+copilot-native-profile-effort-key	copilot	Copilot agent profiles have no effort key.	Default reasoning effort for this agent	contradicts	3563

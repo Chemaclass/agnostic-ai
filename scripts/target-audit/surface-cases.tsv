@@ -154,3 +154,6 @@ augment-agent-run-controls	augment	| `isolation` | No | `worktree` to run the ag
 qwen-fork-profiles	qwen	A project can save a named fork restriction in .qwen/fork-profiles/<name>.md and select it with fork_profile.	yes	signal:cap-qwen-fork-profiles
 factory-hook-onfailure	factory	| `onFailure` | No | `"continue"` (default) or `"block"`. With `"block"`, a failure of this hook blocks the event the way exit `2` would	yes	signal:cap-factory-hook-fail-closed
 kilo-agent-variant	kilo	Default model variant for this agent (applies only when using the agent's configured model).	yes	3484
+qwen-project-worktree-session-default	qwen	a new session in a trusted Git workspace defaults to Worktree mode in the composer	yes	signal:cap-session-managed-worktrees
+devin-kiro-skills-import-toggle	windsurf	Set `read_config_from.kiro` to `false` to turn them off.	yes	signal:cap-cross-tool-config-import-toggle
+amp-project-portal-domain-default	amp	A project can also choose its own default portal domain under Portals on its Orb settings page	yes	signal:cap-orb-environment-lifecycle
