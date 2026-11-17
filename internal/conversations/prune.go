@@ -371,7 +371,7 @@ var (
 	// and no release reads, so a write drops it.
 	markEntryKeys = map[string]bool{
 		"seenAt": true, "completedAt": true, "hiddenAt": true, "closedWrittenAt": true,
-		"title": true, "source": true, "store": true, "file": true, "missingSince": true, "lastMissAt": true, "startedBy": true,
+		"title": true, "twinShownAt": true, "source": true, "store": true, "file": true, "missingSince": true, "lastMissAt": true, "startedBy": true,
 	}
 	marksFileKeys = map[string]bool{"schemaVersion": true, "since": true, "marks": true, "stores": true}
 )

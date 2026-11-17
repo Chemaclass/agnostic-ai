@@ -896,3 +896,38 @@ func TestScan_SavesTheMissingMarksOfAStoreTogether(t *testing.T) {
 		t.Errorf("four days of scans wrote the marks %d times, want one a day", n)
 	}
 }
+
+func TestScan_ACloudTwinMarkIsNeverTiedToAStoreOrPruned(t *testing.T) {
+	p := newPruning(t)
+	const cloudID = "session_01ABCDEFGHJKMNPQRSTVWXYZ0"
+	markAll(t, p.scanner, ToolClaude, keptID)
+	p.scan(t, context.Background())
+	raw, err := os.ReadFile(p.scanner.MarksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file map[string]any
+	if err := json.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	// A shared cloud key carries only the twin's shown write, beside a
+	// field a newer version wrote.
+	file["marks"].(map[string]any)[markKey(ToolClaude, cloudID)] = map[string]any{"twinShownAt": "2026-11-07T11:00:00Z", "laterField": 1}
+	raw, err = json.Marshal(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, p.scanner.MarksPath, string(raw))
+
+	p.daily(t, 40)
+	// A mark on another row makes the scan write the file again.
+	markAll(t, p.scanner, ToolClaude, keptID)
+	p.daily(t, 1)
+	entry, ok := p.entry(t, ToolClaude, cloudID)
+	if !ok || entry.TwinShownAt != "2026-11-07T11:00:00Z" || entry.Source != "" || entry.Store != "" || entry.MissingSince != "" {
+		t.Fatalf("the cloud twin's mark: %+v, kept %v", entry, ok)
+	}
+	if raw, _ := os.ReadFile(p.scanner.MarksPath); !strings.Contains(string(raw), `"laterField": 1`) || !strings.Contains(string(raw), "\n") {
+		t.Errorf("an unknown field beside twinShownAt was lost:\n%s", raw)
+	}
+}
