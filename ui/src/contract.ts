@@ -869,6 +869,18 @@ export type ConversationApp = 'cli' | 'ide' | 'desktop' | 'background' | 'cloud'
 /** What an open conversation is doing, when its tool says: the agent is working, it waits for the person, or it sits idle. */
 export type ConversationActivity = 'working' | 'waiting' | 'idle'
 
+/**
+ * What a waiting conversation waits for: a tool call to approve, or an answer. For a permission, `tool` is the call's
+ * tool as its tool names it (`Bash`, `Edit`, `mcp__claude_ai_Notion__notion-fetch`), when the transcript shows the call,
+ * and `detail` is what it acts on, shortened: a command's first words, a file name, a domain, an MCP server and action.
+ * `detail` is absent when it may hold a credential.
+ */
+export interface ConversationWaiting {
+  for: 'permission' | 'answer'
+  tool?: string
+  detail?: string
+}
+
 /** Where a conversation stands for the person. The first that holds wins: `working` (open, and its tool says the agent is busy), `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `completed` (marked completed, and since then nothing written and never reported working), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours when the server cannot tell whether it is closed), `dormant` (known to be closed, or quiet for longer than 24 hours). */
 export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
 
@@ -929,6 +941,8 @@ export interface Conversation {
   live?: boolean
   /** Set for a live conversation whose tool reports it. */
   activity?: ConversationActivity
+  /** What a `waiting` conversation waits for, when its tool says; absent when the kind is unknown. */
+  waiting?: ConversationWaiting
   /** Set with a `waiting` activity that the server read from silence, not from the tool: when the tool last wrote. Local Codex never says it waits, so a turn that wrote nothing for five minutes is taken to wait. Absent for a wait the tool reported. */
   quietSince?: string
   /** Native working subagents; omitted when activity cannot be established. */

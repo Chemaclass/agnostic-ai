@@ -247,6 +247,7 @@ func codexCloudConversation(row codexCloudRow) (Conversation, error) {
 	}
 	live := codexStatuses[row.Status.Type]
 	activity := Activity("")
+	var waits *waitingOn
 	if live {
 		activity = ActivityWorking
 		for _, flag := range row.Status.ActiveFlags {
@@ -254,6 +255,7 @@ func codexCloudConversation(row codexCloudRow) (Conversation, error) {
 				activity = ActivityWaiting
 			}
 		}
+		waits = codexCloudWaiting(row.Status.ActiveFlags)
 	}
 	return Conversation{
 		Tool:      ToolCodex,
@@ -264,6 +266,7 @@ func codexCloudConversation(row codexCloudRow) (Conversation, error) {
 		UpdatedAt: codexCloudTime(written),
 		Live:      live,
 		Activity:  activity,
+		Waiting:   waits,
 		// hostId=durable is how the Codex app names a thread that lives in its cloud.
 		Open: Route{Kind: RouteLink, Label: "Open in Codex app", Link: "codex://threads/" + row.ID + "?hostId=durable"},
 	}, nil

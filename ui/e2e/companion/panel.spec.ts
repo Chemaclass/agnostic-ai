@@ -530,7 +530,7 @@ test('only Needs you offers mark all as read, and its rows do not repeat the hea
   await expect(groupTitle(page, 'Active').locator('..')).not.toContainText('Mark all as read')
 
   await expect(page.locator('#list')).not.toContainText('New reply')
-  await expect(row(page, 'Approve the database migration').locator('.meta')).toHaveText('Waiting for you · Claude Code · shop · 2m')
+  await expect(row(page, 'Approve the database migration').locator('.meta')).toHaveText('Claude Code · shop · 2m')
   await expect(row(page, 'Draft the release notes').locator('.meta')).toHaveText('Codex · agnostic-ai · 12m')
   await expect(row(page, 'Refactor the search index').locator('.meta')).toHaveText('Claude Code · agnostic-ai · now')
 })
@@ -835,6 +835,57 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   const claude = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await helpers.filter({ hasText: 'Find rename call sites' }).click()
   expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1' })
+})
+
+test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {
+  await openPanel(page, 'approvals')
+  const bash = row(page, 'Refactor PRs')
+  await expect(bash.locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'meta'])
+  await expect(bash.locator('.approval')).toHaveText('Approve git push origin…')
+  await expect(bash.locator('.approval-code')).toHaveText('git push origin…')
+  await expect(bash.locator('.approval svg')).toHaveCount(1)
+  await expect(bash).not.toContainText('The seed fix')
+  await expect(bash).toHaveAttribute('title', 'Open in Terminal\n/Users/you/Code/shop\nThe seed fix and the flag rename are still running.')
+  await expect(bash.locator('.meta')).toHaveText('Claude Code · shop · 2m')
+  await expect(bash.locator('.approval')).toHaveCSS('color', await page.locator('.group-title').first().evaluate((element) => getComputedStyle(element).color))
+
+  await expect(row(page, 'Webhooks v2 dashboard').locator('.approval')).toHaveText('Approve edit dashboard.tsx')
+  // An MCP tool reads as words, and a connector registered by id never shows the id.
+  const mcp = row(page, 'Rider lifecycle gaps in Notion')
+  await expect(mcp.locator('.approval')).toHaveText('Approve Notion fetch')
+  await expect(mcp.locator('.approval-code')).toHaveCount(0)
+  await expect(mcp).not.toContainText('bfe9f18c')
+  // A long detail stays inside the row, cut with an ellipsis, and reads whole on hover.
+  await expect(mcp.locator('.approval')).toHaveAttribute('title', 'Approve Notion fetch')
+  await mcp.locator('.approval-label').evaluate((element) => { element.textContent = 'Approve Google Calendar list events in every calendar' })
+  const fits = await mcp.locator('.approval').evaluate((pill) => pill.getBoundingClientRect().right <= pill.closest('.text')!.getBoundingClientRect().right + 0.5)
+  expect(fits).toBe(true)
+})
+
+test('a permission whose call is unknown shows a lock, and a question keeps its reply line', async ({ page }) => {
+  await openPanel(page, 'approvals')
+  const cloud = row(page, 'Release notes draft')
+  await expect(cloud.locator('.approval.is-lock')).toHaveText('Needs permission')
+  await expect(cloud.locator('.meta')).toHaveText('Codex · Cloud · 12m')
+
+  const question = row(page, 'SFTP write: discussion')
+  await expect(question.locator('.approval')).toHaveCount(0)
+  await expect(question.locator('.reply')).toHaveText('Should the upload overwrite existing files?')
+  await expect(question.locator('.meta')).toHaveText('Claude Code · shop · 6m')
+  await expect(page.locator('.meta')).not.toContainText(['Waiting for you'])
+})
+
+test('working subagents get their own line under the meta line, and it still folds them out', async ({ page }) => {
+  await openPanel(page, 'approvals')
+  const question = row(page, 'SFTP write: discussion')
+  await expect(question.locator('.text > *')).toHaveClass(['title', 'reply', 'meta', 'subagents'])
+  await expect(question.locator('.meta')).not.toContainText('subagent')
+  await question.getByRole('button', { name: '▸ 1 subagent' }).click()
+  await expect(page.locator('.helper-row .title')).toHaveText(['Check the SFTP folder'])
+  await expect(row(page, 'SFTP write: discussion').getByRole('button', { name: '▾ 1 subagent' })).toHaveAttribute('aria-expanded', 'true')
+  await expect(row(page, 'Rider lifecycle gaps in Notion').locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'meta', 'subagents'])
+  // A chat with no working subagent has no such line.
+  await expect(row(page, 'Webhooks v2 dashboard').locator('.subagents')).toHaveCount(0)
 })
 
 test('a chat whose subagents all finished shows no subagent toggle', async ({ page }) => {

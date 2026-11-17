@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -123,6 +123,8 @@ const ICONS = {
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
   agents: 'M8 2.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4M4 13v-1a4 4 0 0 1 8 0v1M3 4a1.5 1.5 0 1 0 0 3M13 4a1.5 1.5 0 1 1 0 3M1 12v-1a3 3 0 0 1 2-2.8M15 12v-1a3 3 0 0 0-2-2.8',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
+  key: 'M2.5 10.8a2.7 2.7 0 1 0 5.4 0a2.7 2.7 0 1 0-5.4 0M7.2 8.8L13 3M11 5l1.6 1.6M9.6 6.4l1.2 1.2',
+  lock: 'M4.6 7h6.8a1.6 1.6 0 0 1 1.6 1.6v3.8a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 12.4V8.6A1.6 1.6 0 0 1 4.6 7zM5.5 7V5a2.5 2.5 0 0 1 5 0v2',
 }
 
 function icon(name, viewBox) {
@@ -232,8 +234,9 @@ function rowOf(conversation, order, folderNames, under) {
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
-  row.title = conversation.folder ? conversation.open.label + '\n' + conversation.folder : conversation.open.label
-  const described = [under && startedFromOf(under), conversation.folder && row.title, conversation.cloud && SHARED_TITLE].filter(Boolean)
+  const now = Date.now()
+  row.title = rowTooltipOf(conversation, now)
+  const described = [under && startedFromOf(under), row.title !== conversation.open.label && row.title, conversation.cloud && SHARED_TITLE].filter(Boolean)
   if (described.length > 0) row.setAttribute('aria-description', described.join('\n'))
 
   const text = element('div', 'text')
@@ -243,35 +246,23 @@ function rowOf(conversation, order, folderNames, under) {
   } else {
     text.append(element('div', 'title', titleOf(conversation)))
   }
+  const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
-  if (reply) text.append(element('div', 'reply', reply))
+  if (approval) text.append(approvalLine(approval))
+  else if (reply) text.append(element('div', 'reply', reply))
+  // The meta line is the same in every group: tool, place, folder and age.
   const meta = element('div', 'meta')
   if (renaming?.problem) {
     meta.classList.add('is-problem')
     meta.title = renaming.problem
     meta.append(renaming.problem)
   } else {
-    const now = Date.now()
-    const reason = reasonOf(conversation, now)
-    if (reason) {
-      meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
-    }
-    if (workingHelpersOf(conversation).length > 0) {
-      meta.append(helpersToggle(conversation, key), ' · ')
-    } else if (conversation.workingSubagents > 0) {
-      const count = conversation.workingSubagents
-      const workers = element('span', 'worker-count', String(count))
-      const description = `${count} working sub-agent${count === 1 ? '' : 's'}`
-      workers.title = description
-      workers.setAttribute('role', 'img')
-      workers.setAttribute('aria-label', description)
-      workers.append(icon('agents', '0 0 16 16'))
-      meta.append(workers, ' · ')
-    }
     meta.append(detailsOf(conversation, now, folderNames))
     if (conversation.cloud) meta.title = SHARED_TITLE
   }
   text.append(meta)
+  const subagents = subagentsLine(conversation, key)
+  if (subagents) text.append(subagents)
 
   const actions = element('div', 'actions')
   // Opening an archived chat, a new message in it, or its tool starting work brings it back.
@@ -299,7 +290,42 @@ function rowOf(conversation, order, folderNames, under) {
   return row
 }
 
-/** The meta line's "▸ 3 subagents": it folds the chat's subagents out under it, and back. */
+/** The reply line's stand-in while a tool call waits for approval: a key and "Approve edit dashboard.tsx", or a lock and "Needs permission". */
+function approvalLine(approval) {
+  const line = element('div', 'reply is-approval')
+  const pill = element('span', 'approval is-' + approval.icon)
+  // A long detail is cut on screen; the whole pill reads on hover.
+  pill.title = approval.text
+  pill.append(icon(approval.icon, '0 0 16 16'), element('span', 'approval-label', approval.label))
+  // The space is for screen readers and copied text; the pill's gap spaces the words on screen.
+  if (approval.code) pill.append(' ', element('code', 'approval-code', approval.code))
+  line.append(pill)
+  return line
+}
+
+/** The line under the meta line while subagents work: "▸ 3 subagents", or their count when the server lists none of them. */
+function subagentsLine(conversation, key) {
+  if (workingHelpersOf(conversation).length > 0) {
+    const line = element('div', 'subagents')
+    line.append(helpersToggle(conversation, key))
+    return line
+  }
+  if (conversation.workingSubagents > 0) {
+    const count = conversation.workingSubagents
+    const workers = element('span', 'worker-count', String(count))
+    const description = `${count} working sub-agent${count === 1 ? '' : 's'}`
+    workers.title = description
+    workers.setAttribute('role', 'img')
+    workers.setAttribute('aria-label', description)
+    workers.append(icon('agents', '0 0 16 16'))
+    const line = element('div', 'subagents')
+    line.append(workers)
+    return line
+  }
+  return undefined
+}
+
+/** The "▸ 3 subagents" under a chat's meta line: it folds the chat's subagents out under it, and back. */
 function helpersToggle(conversation, key) {
   const open = state.helpersOpen.has(key)
   const toggle = element('button', 'helpers-toggle', helpersToggleOf(conversation, open))
@@ -463,9 +489,9 @@ function draw({ force } = { force: false }) {
     list.replaceChildren()
     return
   }
-  // The reasons go in too: a silent chat's "No activity for 7m" changes with no new row data.
+  // The quiet notes go in too: a silent chat's "No activity for 7m" tooltip changes with no new row data.
   const now = Date.now()
-  const reasons = view.conversations.map((conversation) => reasonOf(conversation, now))
+  const reasons = view.conversations.map((conversation) => quietNoteOf(conversation, now))
   const signature = JSON.stringify([view.conversations, reasons, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place, state.pick?.hash])
   if (!force && signature === state.drawn) return
   state.drawn = signature

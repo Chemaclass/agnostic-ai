@@ -681,9 +681,78 @@ body {
   color: var(--paper-dim);
 }
 
-.meta .why {
+/* While a tool call waits for approval, a pill in the Needs you orange takes the
+   reply line's place: a key and "Approve edit dashboard.tsx", or a lock and
+   "Needs permission" when the call is not known. The reply moves to the tooltip. */
+
+.reply.is-approval {
+  display: flex;
+  min-width: 0;
+}
+
+.approval {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  height: 16px;
+  padding: 0 6px 0 5px;
+  border-radius: 8px;
+  background: var(--action-soft);
   color: var(--action);
+  font-size: 10.5px;
+  font-weight: 620;
+}
+
+.approval.is-lock {
+  padding: 0;
+  background: none;
+  font-size: 11.5px;
   font-weight: 560;
+}
+
+.approval svg {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.approval.is-lock svg {
+  width: 11px;
+  height: 11px;
+}
+
+.approval-label,
+.approval-code {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.approval-code {
+  /* The detail gives way before "Approve edit" beside it. */
+  flex-shrink: 100;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Working subagents get their own line under the meta line, shown only while they work. */
+
+.subagents {
+  margin-top: 1px;
+  font-size: 11.5px;
+  line-height: 15px;
+  white-space: nowrap;
 }
 
 .worker-count {

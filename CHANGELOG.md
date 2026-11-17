@@ -22,6 +22,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Dragging the companion keeps its open conversation list beside it, preserving the search.
 - A Codex thread, Cursor chat, Claude chat or Claude Cowork task you archive in its own app now shows under Archived instead of leaving the list. Un-archive it in the app, or write in it, and it comes back. A Claude chat counts as archived when it leaves the Claude app's chat list while older chats are still in it, so a deleted one shows there too for a while. (#3524)
 - A chat with working subagents shows "▸ 3 subagents" in the companion. Click it to see them under the chat, newest first, each with its tool, type and age. A subagent that finished leaves the list and the count. Codex runs a Claude Code session started with `codex exec` are listed too while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. The conversations API gains an optional `helpers` field for this.
+- When a chat waits for you to approve a tool call, the companion row shows what it asks in place of the reply, such as "Approve `git push origin…`", "Approve edit `dashboard.tsx`" or "Approve Notion fetch", and "Needs permission" when the tool does not say which call. The meta line now shows only the tool, place, folder and age, and "▸ 3 subagents" moves to its own line. The conversations API gains `waiting` (#3526).
 
 #### Sending copied text
 
