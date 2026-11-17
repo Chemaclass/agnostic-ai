@@ -376,17 +376,11 @@ func (a app) start(args []string) (string, error) {
 		return "", fmt.Errorf("run identity: %w", err)
 	}
 	runID := hex.EncodeToString(id)
+	evidence, err := a.evidenceDirectory()
+	if err != nil {
+		return "", err
+	}
 	if *out == "" {
-		evidence, err := a.evidenceDirectory()
-		if err != nil {
-			return "", err
-		}
-		if err = os.MkdirAll(evidence, 0o755); err != nil {
-			return "", fmt.Errorf("%s: %w", evidence, err)
-		}
-		if err = excludeFromGoModule(evidence); err != nil {
-			return "", err
-		}
 		*out = filepath.Join(evidence, time.Now().UTC().Format("2006-01-02T150405Z")+"-"+runID)
 	}
 	abs, err := filepath.Abs(*out)
@@ -402,6 +396,9 @@ func (a app) start(args []string) (string, error) {
 	abs, err = filepath.EvalSymlinks(abs)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", *out, err)
+	}
+	if err = excludeEvidenceFromGoModule(evidence, abs); err != nil {
+		return "", err
 	}
 	m := &manifest{Version: 1, ResearchVersion: researchVersion, RunID: runID, Directory: abs, Created: time.Now().UTC().Format(time.RFC3339), Commit: commit, Context: context, BuiltinsSince: *baseline, SourceList: sourceList, LockBaseline: lock, Targets: targets, Inventory: inventory, Assignments: []assignment{}}
 	m.Repository, err = filepath.EvalSymlinks(a.root)

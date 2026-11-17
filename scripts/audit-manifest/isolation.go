@@ -54,8 +54,19 @@ func (a app) evidenceDirectory() (string, error) {
 }
 
 // A nested go.mod makes Go skip saved .go evidence when it expands ./... in the checkout.
-func excludeFromGoModule(dir string) error {
-	path := filepath.Join(dir, "go.mod")
+func excludeEvidenceFromGoModule(evidence, run string) error {
+	resolved, err := filepath.EvalSymlinks(evidence)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", evidence, err)
+	}
+	rel, err := filepath.Rel(resolved, run)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil
+	}
+	path := filepath.Join(resolved, "go.mod")
 	if _, err := os.Lstat(path); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {

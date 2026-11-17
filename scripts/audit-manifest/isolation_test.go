@@ -160,7 +160,7 @@ func TestStartKeepsSavedGoEvidenceOutOfTheCheckoutModule(t *testing.T) {
 	}
 	cmd := exec.Command("go", "list", "./...")
 	cmd.Dir = a.root
-	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off", "GOTOOLCHAIN=local")
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off", "GOTOOLCHAIN=local", "GOMODCACHE="+t.TempDir(), "GOCACHE="+t.TempDir())
 	out, err := cmd.CombinedOutput()
 	if err != nil || strings.TrimSpace(string(out)) != "example.test/checkout" {
 		t.Fatalf("go list ./...: %v\n%s", err, out)
@@ -184,5 +184,21 @@ func TestStartKeepsAnExistingEvidenceGoMod(t *testing.T) {
 	}
 	if string(got) != want {
 		t.Errorf("go.mod = %q, want %q", got, want)
+	}
+}
+
+func TestStartWritesTheEvidenceGoModForAnExplicitRunInsideIt(t *testing.T) {
+	a, _ := fixture(t)
+	call(t, a, "start", "--builtins-since", "HEAD", "--out", filepath.Join(a.root, "local/target-audit/named-run"))
+	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit/go.mod")); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestStartLeavesTheEvidenceFolderAloneForARunOutsideIt(t *testing.T) {
+	a, _ := fixture(t)
+	call(t, a, "start", "--builtins-since", "HEAD", "--out", filepath.Join(t.TempDir(), "run"))
+	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit")); !os.IsNotExist(err) {
+		t.Errorf("evidence folder created: %v", err)
 	}
 }
