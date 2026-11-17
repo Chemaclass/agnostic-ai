@@ -36,6 +36,28 @@ function write_lock() {
   } >"$LOCK"
 }
 
+# ---- evidence_dir ------------------------------------------------------------
+
+function test_evidence_dir_keeps_saved_go_evidence_out_of_the_module() {
+  local root_before="$ROOT"
+  ROOT="$FIXTURES/checkout"
+  local dir
+  dir=$(evidence_dir)
+  ROOT="$root_before"
+  assert_same "$FIXTURES/checkout/local/target-audit" "$dir"
+  assert_same "module localtargetaudit" "$(cat "$dir/go.mod")"
+}
+
+function test_evidence_dir_keeps_an_existing_go_mod() {
+  local root_before="$ROOT"
+  ROOT="$FIXTURES/checkout"
+  mkdir -p "$ROOT/local/target-audit"
+  printf 'module mine\n\ngo 1.27\n' >"$ROOT/local/target-audit/go.mod"
+  evidence_dir >/dev/null
+  ROOT="$root_before"
+  assert_same "$(printf 'module mine\n\ngo 1.27')" "$(cat "$FIXTURES/checkout/local/target-audit/go.mod")"
+}
+
 # ---- resolve_urls ------------------------------------------------------------
 
 function test_resolve_urls_expands_origin_relative_shorthand() {

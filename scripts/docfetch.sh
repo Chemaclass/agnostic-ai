@@ -1458,6 +1458,17 @@ run_missing_sources() {
   '
 }
 
+# evidence_dir creates the default evidence folder and prints it. Its go.mod
+# makes Go skip saved .go evidence when it expands ./... in the checkout.
+evidence_dir() {
+  local dir="$ROOT/local/target-audit"
+  mkdir -p "$dir" || return
+  if [ ! -e "$dir/go.mod" ] && [ ! -L "$dir/go.mod" ]; then
+    printf 'module localtargetaudit\n' >"$dir/go.mod" || return
+  fi
+  printf '%s\n' "$dir"
+}
+
 docfetch_main() {
   local out="" mode=fetch DOCFETCH_MIRRORS="${DOCFETCH_MIRRORS:-}"
   while [ "$#" -gt 0 ]; do
@@ -1573,8 +1584,9 @@ docfetch_main() {
     targets="$*"
   fi
   if [ -z "$out" ]; then
-    mkdir -p "$ROOT/local/target-audit"
-    out=$(mktemp -d "$ROOT/local/target-audit/$(date -u +%Y-%m-%dT%H%M%SZ)-fetch.XXXXXX")
+    local evidence
+    evidence=$(evidence_dir) || return
+    out=$(mktemp -d "$evidence/$(date -u +%Y-%m-%dT%H%M%SZ)-fetch.XXXXXX")
     printf 'run: %s\n' "$out"
   fi
   mkdir -p "$out/rows"
