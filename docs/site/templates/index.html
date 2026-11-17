@@ -85,7 +85,7 @@
           {% for output in fanout.outputs %}
           <li><span class="fanout-head"><span class="fanout-tool">{{ output.tools }}</span><code class="fanout-path">{{ output.path }}</code></span><code class="fanout-line">{{ output.line }}</code></li>
           {% endfor %}
-          <li class="fanout-more"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ targets.supported - fanout.targets | length }} {{ fanout.more_label }} <span aria-hidden="true">&rarr;</span></a></li>
+          <li class="fanout-more"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ <span class="fanout-count">{{ targets.supported - fanout.outputs | length }}</span><span class="fanout-count-narrow">{{ targets.supported - fanout.outputs | length + 1 }}</span> {{ fanout.more_label }} <span aria-hidden="true">&rarr;</span></a></li>
         </ul>
       </figure>
     </div>

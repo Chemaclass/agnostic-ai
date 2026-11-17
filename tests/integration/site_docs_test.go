@@ -605,7 +605,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`href="https://agnostic-ai.org/playground/">Try it in the browser`,
 		`href="https://agnostic-ai.org/docs/getting-started/">Get started</a>`,
 		fmt.Sprintf("any of %d tools", len(adapters.Names())),
-		fmt.Sprintf("+ %d more tools", len(adapters.Names())-3),
+		fmt.Sprintf(`+ <span class="fanout-count">%d</span><span class="fanout-count-narrow">%d</span> more tools`, len(adapters.Names())-3, len(adapters.Names())-2),
 		`href="https://agnostic-ai.org/docs/installation/" data-hero-installer-others>Windows, Homebrew or npm</a>`,
 		`data-installer-os="macos"`,
 		`data-installer-os="windows"`,
