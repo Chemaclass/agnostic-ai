@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Inspect your configuration
 
-Open the local browser interface to inspect warnings and find the source files to fix.
+Use the local browser interface to find warnings and the source files to fix.
 
 ## Open the project
 
@@ -19,15 +19,13 @@ From the folder containing `agnostic-ai.yaml` or any folder inside it, run:
 agnostic-ai ui
 ```
 
-Keep the terminal running. The browser opens at `http://127.0.0.1:4310`, or the next free port it prints. Outside a project, or with `--global`, it opens your user configuration. See [`view`](@/docs/cli-reference/serve.md#view) for ports and flags.
+Keep the terminal running. The browser opens at `http://127.0.0.1:4310`, or the next free port it prints. Outside a project, or with `--global`, it shows your user configuration. Ports and flags: [`view`](@/docs/cli-reference/serve.md#view).
 
 ## Fix a warning
 
-Select a section to see its files and problems reported by `lint` and `doctor`. Reports appear beside the affected file, or at the top when no file matches.
+Select a section to see its files and the `lint` and `doctor` problems, beside the affected file or at the top when no file matches.
 
-For example, a warning about bare `read` in **Authority** means the rule allows reading every file. Open the path beside the warning in your editor, or use the edit icon to open it in the editor chosen in Settings > Editor.
-
-If the rule should cover only `src/`, replace `read` with `read(src/**)`:
+Example: a warning about bare `read` in **Authority** means the rule allows reading every file. Open the path in your editor, or use the edit icon (editor set in Settings > Editor). To cover only `src/`, use `read(src/**)`:
 
 ```yaml
 permissions:
@@ -35,7 +33,7 @@ permissions:
     - read(src/**)
 ```
 
-Keep the other entries. Other rules and tool defaults still affect access; see [permission rules](@/docs/spec-format/settings.md#permission-rules).
+Keep the other entries. Other rules and tool defaults still affect access ([permission rules](@/docs/spec-format/settings.md#permission-rules)).
 
 ## Sync and check
 
@@ -47,8 +45,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Review the plan before syncing. `sync --check` should exit 0 once the generated files match the source. Then reload the browser page to see the updated findings. The view and search stay in the address bar; unsaved input is lost.
+Review the plan first. `sync --check` exits 0 once files match. Reload the page to see updated findings; the view and search stay in the address bar, unsaved input is lost.
 
-For per-agent permission decisions, browser switches, and undo, see [`serve`](@/docs/cli-reference/serve.md#serve).
-
-Open **Settings**, then **Preferences**, in `agnostic-ai ui --global` to turn voice dictation on, choose hold or tap, and set the spoken language. Run `agnostic-ai sync --global` to apply the saved values.
+- Per-agent permission decisions, browser switches, and undo: [`serve`](@/docs/cli-reference/serve.md#serve).
+- Voice dictation: in `agnostic-ai ui --global`, open **Settings > Preferences** to turn it on, choose hold or tap, and set the language. Then run `agnostic-ai sync --global`.
