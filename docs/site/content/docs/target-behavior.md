@@ -124,7 +124,7 @@ See each [spec reference](@/docs/spec-format/_index.md). [`on-unsupported`](@/do
 
 ### Hooks loaded through another tool
 
-Cursor, Copilot, and Trae can read `.claude/settings.json` beside their own hooks, so a shared hook can run twice. Cursor reads it by default, Trae only on opt-in, and Copilot has no switch. Fixes: [Cursor](@/docs/targets/cursor.md#third-party-reads), [Copilot](@/docs/targets/copilot.md#hooks), [Trae](@/docs/targets/trae.md).
+Cursor, Copilot, and Trae can read `.claude/settings.json` beside their own hooks, so a shared hook can run twice. Cursor reads it by default, Trae only on opt-in, and Copilot has no switch. Fixes: [Cursor](@/docs/targets/cursor-reference.md#third-party-reads), [Copilot](@/docs/targets/copilot-reference.md#hooks), [Trae](@/docs/targets/trae.md).
 
 <details>
 <summary>Hook differences between tools</summary>

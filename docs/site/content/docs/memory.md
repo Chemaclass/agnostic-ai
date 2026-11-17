@@ -104,7 +104,7 @@ The `shared-memory-policy` rule asks tools to save only facts the code, history,
 | Antigravity | An always-on rule includes project memory and, in checkout mode, personal memory |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
-Kiro shows a marker for an included list that has no file yet, and the marker goes away once a tool saves a fact there. If you added the include to a steering file by hand, remove it. With `memory.personal: repo`, Kiro and Antigravity include only the project list and find personal memory with `agnostic-ai memory path`. With `sync --global`, both get only the rule, because a home file cannot name a project's lists. See [Kiro](@/docs/targets/kiro.md#native-mappings) and [Antigravity shared memory](@/docs/targets/antigravity.md#shared-memory), which covers its rule size limits.
+Kiro shows a marker for an included list that has no file yet, and the marker goes away once a tool saves a fact there. If you added the include to a steering file by hand, remove it. With `memory.personal: repo`, Kiro and Antigravity include only the project list and find personal memory with `agnostic-ai memory path`. With `sync --global`, both get only the rule, because a home file cannot name a project's lists. See [Kiro](@/docs/targets/kiro-reference.md#native-mappings) and [Antigravity shared memory](@/docs/targets/antigravity.md#shared-memory), which covers its rule size limits.
 
 Aider gets only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
 
@@ -118,7 +118,7 @@ On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Augg
 - Hooks you wrote yourself stay.
 - It keeps the first 6,000 bytes, after dropping hidden characters. Facts past the cut never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, hidden characters included, so `memory lint` also warns there once they pass 6,000 bytes. Remove the hidden characters it reports.
 
-Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. Global sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline.md#vs-code-memory-startup).
+Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. Global sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline-reference.md#vs-code-memory-startup).
 
 Devin CLI uses the `memory-windsurf-session-start` hook with an explicit POSIX `sh` launcher and a 10-second timeout. It starts from `DEVIN_PROJECT_DIR` even when its process runs elsewhere. Native Windows hook execution is undocumented.
 

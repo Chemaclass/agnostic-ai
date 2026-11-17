@@ -67,7 +67,7 @@ A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$AR
 | [OpenCode](@/docs/targets/opencode.md) | yes | yes | yes |
 | [Codex](@/docs/targets/codex.md) | no | yes | yes |
 | [Augment](@/docs/targets/augment.md), [Factory](@/docs/targets/factory.md) | no | yes | no |
-| [Kiro CLI V3](@/docs/targets/kiro.md#commands) | no | yes | no |
+| [Kiro CLI V3](@/docs/targets/kiro-reference.md#commands) | no | yes | no |
 | Cursor, Gemini, Junie, Kilo, Qoder, Trae | no | no | no |
 
 A tool that reads the syntax as plain text gets a note naming each line; `on-unsupported: error` fails the sync, and `lint` reports LINT019. Write a tool's own placeholders in a `::target` fence: Gemini's argument and shell forms ([custom commands](https://geminicli.com/docs/cli/custom-commands)), or Kiro's `${1}` through `${10}` and `${@}`, which sync keeps as written (it does not map a bare `$1`).

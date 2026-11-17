@@ -34,19 +34,15 @@ set-up-this-tool = "@/docs/targets/codex.md#first-rule"
 ## Import {#import .legacy-anchor}
 
 
-Write project instructions and rules under `.agnostic-ai/`. Sync gives Codex `AGENTS.md`, native skill folders, and any configured agents, hooks, MCP servers, or settings. The same sources can also feed Claude Code.
-
-Using this provider through Composer? Follow the [Composer setup guide](@/docs/composer.md).
+Write instructions and rules once under `.agnostic-ai/`. Sync writes `AGENTS.md`, skill folders, and any agents, hooks, MCP servers, or settings. The same sources can feed Claude Code. Using this provider through Composer? See the [Composer setup guide](@/docs/composer.md).
 
 ## First rule
 
-Follow the [official setup guide](https://learn.chatgpt.com/docs/codex/cli), then open your project in the tool.
+1. Follow the [official setup guide](https://learn.chatgpt.com/docs/codex/cli).
+2. Select `codex` in `agnostic-ai.yaml`.
+3. Follow [First rule](@/docs/getting-started.md#first-rule). The commit-prefix rule becomes a section in root `AGENTS.md`. With Claude Code also selected, it becomes `.claude/rules/conventional-commits.md` too.
 
-Select `codex` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes a section in root `AGENTS.md`. With Claude Code also selected, the same source becomes `.claude/rules/conventional-commits.md`.
-
-Write shared project instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync combines them with the Codex rules in `AGENTS.md`. Edit those sources for later changes.
-
-Already configured? Check [import coverage](@/docs/targets/codex-reference.md#import) before syncing. Import reads root and nested instruction files, agents, skill folders, hooks, MCP servers, environments, and remaining project config into an overlay.
+Write shared instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync merges them with the Codex rules in `AGENTS.md`. Already configured? Read [import coverage](@/docs/targets/codex-reference.md#import) first. Import reads root and nested instruction files, agents, skill folders, hooks, MCP servers, environments, and remaining project config into an overlay.
 
 ## Output
 
@@ -62,26 +58,39 @@ Already configured? Check [import coverage](@/docs/targets/codex-reference.md#im
 | App environment | `.codex/environments/environment.toml`, when configured |
 | Exec policies | `.codex/rules/default.rules`, opt-in |
 
-An empty kind creates no corresponding files. Prefer skills for prompt procedures: project custom-prompt output is a deprecated compatibility option that Codex does not discover. With `outputs.codex.commands-dir` set, commands go there instead of becoming skills. See [output overrides](@/docs/targets/codex-reference.md#config-keys).
-
-## Loading and limits
-
-- Codex [discovers instructions from the project root to the session's working directory](https://learn.chatgpt.com/docs/agent-configuration/agents-md). Start inside a subtree to load its nested `AGENTS.md`; editing there from a root-started session does not load it. Start a new session after changing instructions.
-- Command and MCP-tool hooks require trust through `/hooks`, including after their configuration changes. Project hooks also need a trusted project. `agnostic-ai doctor -t codex` checks saved trust, not whether an already-running session bypasses it.
-- Agents inherit the session sandbox. Codex v0.155.0 and later ignore an agent's `sandbox_mode`, so `readonly: true` does not enforce read-only behavior there. Use session limits and [exec policies](@/docs/targets/codex-reference.md#codex-exec-policies).
-
-Codex [project config takes precedence over user config in a trusted project](https://learn.chatgpt.com/docs/config-file/config-basic). Keep user-level keys in the [home configuration](@/docs/global-configuration.md), and use the [Codex native reference](@/docs/targets/codex-reference.md#codex-config) for supported project fields and overlay precedence.
-
-## Protected paths
-
-A settings spec's `protected` block creates an `apply_patch` hook and `.codex/hooks/agnostic-ai-protect.sh`. It checks added, edited, deleted, and moved paths in a patch. `decision: ask` blocks and tells the agent to ask you; the hook cannot open an approval prompt.
-
-The guard needs trusted hooks, `sh`, and `awk`. It does not see shell commands that write files. On Windows, if `sh` is missing, the hook cannot start and the edit goes through. See [protected paths](@/docs/spec-format/settings.md#protected-paths).
+An empty kind writes no files. Prefer skills for prompt procedures: project custom-prompt output is deprecated and Codex does not discover it. With `outputs.codex.commands-dir` set, commands go there instead of becoming skills. See [output overrides](@/docs/targets/codex-reference.md#config-keys).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect root `AGENTS.md` for the commit-prefix rule. Start Codex from the project root and ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Check root `AGENTS.md` for the commit-prefix rule.
+3. Start Codex in the project root and ask for a commit subject for a small fix. It should use `fix:`.
 
-For a scoped rule, start a new session inside its directory. `agnostic-ai explain --file services/api/handler.go --target codex` reports planned instruction files and discovery limits; it does not confirm the files loaded in a running session.
+For a scoped rule, start a new session inside its directory. `agnostic-ai explain --file services/api/handler.go --target codex` lists planned instruction files and discovery limits. It does not confirm what a running session loaded.
 
-Next, [add a reusable skill](@/docs/spec-format/skills.md) or compare the same setup in [Claude Code](@/docs/targets/claude.md).
+## Loading and limits
+
+- Codex [reads instructions from the project root down to the working directory](https://learn.chatgpt.com/docs/agent-configuration/agents-md). Start inside a subtree to load its nested `AGENTS.md`. Start a new session after changing instructions.
+- Command and MCP-tool hooks need trust through `/hooks`, again after each configuration change. Project hooks also need a trusted project.
+- `agnostic-ai doctor -t codex` checks saved trust, not whether a running session bypasses it.
+- Agents inherit the session sandbox. Codex v0.155.0 and later ignore an agent's `sandbox_mode`, so `readonly: true` is not enforced. Use session limits and [exec policies](@/docs/targets/codex-reference.md#codex-exec-policies).
+
+{% <details summary="Project and user config"> %}
+- Codex [project config wins over user config in a trusted project](https://learn.chatgpt.com/docs/config-file/config-basic).
+- Keep user-level keys in the [home configuration](@/docs/global-configuration.md).
+- Supported project fields and overlay precedence: [Codex native reference](@/docs/targets/codex-reference.md#codex-config).
+- Editing a nested `AGENTS.md` from a root-started session does not load it.
+{% </details> %}
+
+## Protected paths
+
+A settings spec's `protected` block writes an `apply_patch` hook and `.codex/hooks/agnostic-ai-protect.sh`. It checks added, edited, deleted, and moved paths in a patch.
+
+- `decision: ask` blocks and tells the agent to ask you. The hook cannot open an approval prompt.
+- The guard needs trusted hooks, `sh`, and `awk`.
+- It does not see shell commands that write files.
+- On Windows without `sh`, the hook cannot start and the edit goes through.
+
+See [protected paths](@/docs/spec-format/settings.md#protected-paths).
+
+Next, [add a reusable skill](@/docs/spec-format/skills.md) or compare [Claude Code](@/docs/targets/claude.md).

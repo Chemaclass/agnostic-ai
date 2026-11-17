@@ -64,7 +64,7 @@ x-ellipsis:
     session: 3
 ```
 
-The reviewer needs a name, one engine (`claude_code`, `codex`, or `gemini`), and an explicit model supported by Ellipsis. The review prompt comes from the review spec, not the agent specs or a settings `prompt` field.
+The reviewer needs a name, one engine (`claude_code`, `codex`, or `gemini`), and an explicit model Ellipsis supports. The prompt comes from the review spec, not agent specs or a settings `prompt` field.
 
 Preview with `agnostic-ai sync --dry-run`, then run `agnostic-ai sync` and `agnostic-ai sync --check`. A review spec and complete reviewer produce `.ellipsis/code-review.yaml`. Missing requirements produce a note with the key to fix.
 
@@ -79,9 +79,18 @@ Existing native files? Check [import coverage](@/docs/targets/ellipsis-reference
 
 The review-only example needs no environment file. Rules, agents, skills, and hooks have no Ellipsis output. Directory-specific review checks become conditional text in the prompt, rather than separate reviewers or enforced path filters.
 
+## Verify
+
+1. Install the [Ellipsis GitHub App](https://www.ellipsis.dev/docs/code-review).
+2. Publish `.ellipsis/code-review.yaml` to the default branch.
+3. Open a pull request that breaks your check, then one that passes it.
+4. Confirm one review per push and no config errors.
+
+Without an output override, Ellipsis comments on failure and stays silent on a pass. It never approves automatically. These real review trials have not been run for this adapter; local tests cover written files and previews only.
+
 ## Keep the files in Git
 
-Ellipsis reads the default branch, so commit the generated review file. If managed Git ignores are enabled, allow its outputs:
+Ellipsis reads the default branch, so commit the generated review file. If managed Git ignores are on, allow its outputs:
 
 ```yaml
 gitignore:
@@ -94,11 +103,5 @@ This also keeps an environment named by that review trackable. Independent envir
 ## Protected paths
 
 Not enforced. Put path-specific checks in a review spec and verify that they trigger on relevant pull requests. Portable `permissions` and `protected` settings have no Ellipsis effect.
-
-## Verify
-
-Install the [Ellipsis GitHub App](https://www.ellipsis.dev/docs/code-review) and publish `.ellipsis/code-review.yaml` to the default branch. Open a pull request that violates the chosen check, then one that satisfies it. Confirm one review per push and no config errors. Without an explicit output override, Ellipsis comments on failure and stays silent on a pass; it does not approve automatically.
-
-These real review trials have not been run for this adapter. Local tests cover written files and previews only.
 
 Next, [add an environment or MCP server](@/docs/targets/ellipsis-reference.md#environment-and-mcp-servers) if the review needs setup commands or external tools. Store referenced secrets in Ellipsis before running a session; sync does not create them.
