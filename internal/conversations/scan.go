@@ -289,9 +289,9 @@ func (s *Scanner) findToOpen(ctx context.Context, tool Tool, id string, opts Sca
 
 // wouldResume reports whether opening c would resume its session in a
 // new tab: its route says so, or the process that ran it has ended. A
-// closed Claude Code session that began in the desktop app or an editor
-// opens through a link, which resumes it there; a fresh read routes it
-// to the terminal that may run it again since.
+// Claude Code session of the desktop app or an editor opens through a
+// link, which resumes it there and names no process to check, so it
+// always waits: the session may have moved to a terminal since.
 func (s *Scanner) wouldResume(c Conversation) bool {
 	switch c.Open.Kind {
 	case RouteTerminal:
@@ -299,7 +299,7 @@ func (s *Scanner) wouldResume(c Conversation) bool {
 	case RouteFocus:
 		return c.process == nil || !s.Processes.Alive(c.process.PID, c.process.ProcStart)
 	case RouteLink:
-		return c.Tool == ToolClaude && (c.App == AppDesktop || c.App == AppIDE) && !c.Live
+		return c.Tool == ToolClaude && (c.App == AppDesktop || c.App == AppIDE)
 	default:
 		return false
 	}

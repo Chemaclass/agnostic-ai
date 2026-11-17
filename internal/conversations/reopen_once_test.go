@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -242,5 +243,61 @@ func TestReopen_AnOpenThatPanicsLeavesNothingBehind(t *testing.T) {
 
 	if again := answerOf(t, reopenIn(scanner, id, &fakeLauncher{})); !again.reply.Opened {
 		t.Errorf("an open after one that panicked = %+v", again)
+	}
+}
+
+func TestReopen_WaitsForTheRunningScanBeforeItFollowsTheLinkOfARunningDesktopSession(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	alive := map[int]bool{4242: true, 4343: false}
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: alive})
+	var clock atomic.Int64
+	clock.Store(time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC).Unix())
+	scanner.Now = func() time.Time { return time.Unix(clock.Load(), 0).UTC() }
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "claude-desktop", "timestamp": "2026-11-07T10:00:00.000Z", "message": obj{"role": "user", "content": "Plan the release"}},
+	))
+	desktop := filepath.Join(stores.ClaudeDir, "sessions", "4242.json")
+	write(t, desktop, `{"pid":4242,"sessionId":"`+id+`","status":"idle","entrypoint":"claude-desktop"}`)
+	asked, release := make(chan struct{}), make(chan struct{})
+	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
+		func() ([]Conversation, error) { return nil, nil },
+		func() ([]Conversation, error) {
+			close(asked)
+			<-release
+			return nil, nil
+		},
+		func() ([]Conversation, error) { return nil, nil },
+	}}
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.Open.Kind != RouteLink || !c.Live {
+		t.Fatalf("the desktop session's row = %s; this test needs a link to a running session", asJSON(t, c))
+	}
+	clock.Add(61)
+	scanned := make(chan struct{})
+	go func() {
+		defer close(scanned)
+		scanner.Scan(context.Background(), ScanOptions{})
+	}()
+	<-asked
+	// The app closed it and the person resumed it in a terminal, after the running scan looked.
+	if err := os.Remove(desktop); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "4343.json"), `{"pid":4343,"sessionId":"`+id+`","status":"idle","entrypoint":"cli"}`)
+	alive[4242], alive[4343] = false, true
+	launcher := &fakeLauncher{focusOK: true}
+	opened := make(chan OpenReply, 1)
+	go func() {
+		reply, _ := scanner.Reopen(context.Background(), ToolClaude, id, ScanOptions{}, launcher)
+		opened <- reply
+	}()
+	time.Sleep(sharedWait)
+	close(release)
+	<-scanned
+	reply := <-opened
+
+	for _, call := range launcher.calls {
+		if strings.HasPrefix(call, "link ") {
+			t.Fatalf("the open followed the old link while the session runs in a terminal: %q, reply %+v", call, reply)
+		}
 	}
 }

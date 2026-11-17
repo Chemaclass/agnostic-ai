@@ -137,6 +137,7 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
 - A second open of the same conversation while one runs starts nothing: it waits for the first and returns the same reply. Opens of different conversations run side by side.
+- While a list read runs, an open takes its row from the read before it, so it does not wait. A row that would resume a session waits for a fresh read instead: an ended terminal session, and any Claude Code session of the desktop app or an editor, which may run in a terminal since. Such an open can take as long as that read.
 - An open may take up to 90 seconds to answer. When its caller left before that, the server logs whether it opened on its standard error, without the reason.
 
 ## `POST /api/conversations/send`

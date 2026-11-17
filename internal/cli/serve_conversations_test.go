@@ -297,6 +297,68 @@ func (b *lockedBuffer) String() string {
 	return b.buf.String()
 }
 
+// heldTerminalLauncher holds each new terminal until release closes, and counts them.
+type heldTerminalLauncher struct {
+	*recordingLauncher
+	mu        sync.Mutex
+	terminals int
+	started   chan struct{}
+	release   chan struct{}
+}
+
+func (l *heldTerminalLauncher) RunInNewTerminal(context.Context, string) error {
+	l.mu.Lock()
+	l.terminals++
+	l.mu.Unlock()
+	l.started <- struct{}{}
+	<-l.release
+	return nil
+}
+
+func TestConversationsHandler_TwoOpensOfOneEndedChatStartOneTerminal(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	held := &heldTerminalLauncher{recordingLauncher: launcher, started: make(chan struct{}, 4), release: make(chan struct{})}
+	h.launcher = held
+	srv := httptest.NewServer(newServeServer(h).Handler)
+	t.Cleanup(srv.Close)
+	type answer struct {
+		status int
+		body   string
+	}
+	open := func() <-chan answer {
+		answered := make(chan answer, 1)
+		go func() {
+			resp, err := http.Post(srv.URL+conversationOpenPath, "application/json", strings.NewReader(`{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`))
+			if err != nil {
+				answered <- answer{body: err.Error()}
+				return
+			}
+			defer func() { _ = resp.Body.Close() }()
+			body, _ := io.ReadAll(resp.Body)
+			answered <- answer{resp.StatusCode, string(body)}
+		}()
+		return answered
+	}
+
+	first := open()
+	<-held.started
+	second := open()
+	// The second open, the same row clicked again, has time to reach the first one.
+	time.Sleep(500 * time.Millisecond)
+	close(held.release)
+	one, two := <-first, <-second
+
+	held.mu.Lock()
+	terminals := held.terminals
+	held.mu.Unlock()
+	if terminals != 1 {
+		t.Errorf("two opens of one ended chat started %d terminals", terminals)
+	}
+	if one.status != http.StatusOK || one != two {
+		t.Errorf("the opens answered %+v and %+v; want the same reply", one, two)
+	}
+}
+
 func TestCompanionOpenLateWait_OutlastsTheOpenReplyTimeout(t *testing.T) {
 	source, err := os.ReadFile(filepath.Join("..", "..", "companion", "server.go"))
 	if err != nil {
