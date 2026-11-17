@@ -225,7 +225,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     }
     if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
     state.conversations = state.conversations.filter((other) => other !== row)
-    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000 })
+    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
     listChanged()
   }
 
@@ -255,11 +255,13 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   async function send(request, response) {
     const body = await bodyOf(request)
     logCall('/api/send', body)
+    if (state.fixture.sendProblem) return sendJSON(response, 502, { error: state.fixture.sendProblem })
     const copied = clipboardOf(state.clipboard)
     if (copied.words === 0) return sendJSON(response, 409, { error: 'Nothing to send: copy some text first.' })
     if (body.hash !== copied.hash) return sendJSON(response, 409, { error: 'The copied text changed. Check the new text, then send again.' })
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this list any more. Refresh the page.' })
+    if (state.fixture.unsent) return sendJSON(response, 200, { sent: false, message: state.fixture.unsent })
     sendJSON(response, 200, sendReplyOf(row, state.copiedMarkdown))
   }
 
