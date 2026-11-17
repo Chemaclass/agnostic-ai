@@ -361,8 +361,12 @@ export function rowTooltipOf(conversation, now) {
   if (quiet) lines.push(quiet)
   const reply = replyOf(conversation)
   if (reply && approvalOf(conversation)) lines.push(reply)
+  if (conversation.unread) lines.push(CLOSED_UNREAD)
   return lines.join('\n')
 }
+
+/** What an archived chat's marker says: it closed after a reply the person has not read. It does not count as needing them. */
+export const CLOSED_UNREAD = 'Closed with a reply you have not read'
 
 /**
  * The one action a row offers: hide a chat that is archived, archive one that
@@ -375,11 +379,11 @@ export function rowActionOf(conversation) {
 
 /**
  * What the row menu offers: Mark as read clears a wait or a reply without opening the chat.
- * Only a chat under Archived, archived by hand or quiet for days, and that no process holds, can be deleted.
+ * Only a chat under Archived that no process holds, and whose latest reply was read, can be deleted.
  */
 export function rowMenuOf(conversation) {
-  const offered = NEEDS_PERSON[conversation.state] ? ['read', 'rename'] : ['rename']
-  if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
+  const offered = NEEDS_PERSON[conversation.state] || conversation.unread ? ['read', 'rename'] : ['rename']
+  if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live && !conversation.unread) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   return offered
 }

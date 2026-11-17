@@ -195,6 +195,7 @@ function stateMark(conversation) {
   // parent's own working activity keeps its mark moving.
   else if (childrenWork && conversation.activity !== 'working') parentState = 'active'
   const mark = element('span', 'state is-' + parentState)
+  mark.classList.toggle('has-unread', conversation.unread === true)
   mark.setAttribute('aria-hidden', 'true')
   if (parentState === 'working' || conversation.workingSubagents > 0) {
     // Keep the mechanism's phase when a new reply or selection redraws the list.
