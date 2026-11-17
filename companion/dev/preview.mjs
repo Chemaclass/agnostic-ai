@@ -172,7 +172,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   // Opens a fixture holds, answered when a test releases them.
   let heldOpens = []
   // Like the shell: the failure of an open answered as pending, kept once it settles until it is dismissed.
-  // A newer open drops it. A fixture chosen meanwhile keeps it, as the shell knows nothing of fixtures.
+  // A newer open drops it, and so does choosing a fixture, so one test's failure does not reach the next.
   let lateOpen = { waiting: undefined, settled: undefined }
   let opensMade = 0
 
@@ -296,6 +296,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const body = await bodyOf(request)
     state = fixtureState(body.name, timeOf())
     calls = []
+    lateOpen = { waiting: undefined, settled: undefined }
     noContent(response)
     listChanged()
   }

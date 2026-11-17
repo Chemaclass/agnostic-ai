@@ -1154,7 +1154,7 @@ test('a copied web page does not promise Markdown in the banner, since the serve
   await openPanel(page, 'markdown-clipboard')
   await page.keyboard.press('Meta+Shift+KeyV')
 
-  await expect(pickBanner(page)).toContainText('Send 12 words to…')
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 12 words there')
   await expect(pickBanner(page)).not.toContainText('Markdown')
   await expect(pickBanner(page)).toContainText('Release notes')
 })
@@ -1163,9 +1163,8 @@ test('Cmd+Shift+V picks a conversation for the copied text, and Enter sends it t
   await openPanel(page)
   await page.keyboard.press('Meta+Shift+KeyV')
 
-  await expect(pickBanner(page)).toContainText('Send 14 words to…')
-  await expect(pickBanner(page)).toContainText('Fix the flaky login test.')
-  await expect(page.getByRole('button', { name: 'Send the copied text' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 14 words there')
+  await expect(page.locator('#pick-preview')).toHaveText(/^Fix the flaky login test\./)
   // Only this machine's conversations, and no Archived: those cannot take the text.
   await expect(page.getByRole('button', { name: 'Local' })).toHaveAttribute('aria-pressed', 'true')
   await expect(groupTitle(page, 'Archived')).toHaveCount(0)
@@ -1232,7 +1231,7 @@ test('a double click sends once, and Escape while the chip flies takes the send 
 
 test('a send that only switched to the conversation comes back to say to paste', async ({ page }) => {
   await openPanel(page)
-  await page.getByRole('button', { name: 'Send the copied text' }).click()
+  await pressSendShortcut(page)
   await expect(pickBanner(page)).toBeVisible()
 
   await row(page, 'Fix the login redirect').click()
@@ -1249,7 +1248,7 @@ for (const [fixture, message] of [
 ]) {
   test(`a send that neither typed nor switched (${fixture}) comes back as an error`, async ({ page }) => {
     await openPanel(page, fixture)
-    await page.getByRole('button', { name: 'Send the copied text' }).click()
+    await pressSendShortcut(page)
     await expect(pickBanner(page)).toBeVisible()
 
     await row(page, 'Fix the login redirect').click()
@@ -1286,29 +1285,37 @@ test('Escape leaves pick mode first, and a second Escape closes the list', async
 test('a clipboard that changed since the banner showed it sends nothing and refreshes the banner', async ({ page }) => {
   await openPanel(page)
   await page.keyboard.press('Meta+Shift+KeyV')
-  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 14 words there')
 
   expect((await page.request.post('/dev/clipboard', { data: { text: 'Two words' } })).ok()).toBe(true)
   await page.keyboard.press('Enter')
 
   await expect(page.locator('#notice')).toContainText('The copied text changed. Check the new text, then send again.')
   await expectErrorNotice(page, 'Why nothing was sent')
-  await expect(pickBanner(page)).toContainText('Send 2 words to…')
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 2 words there')
   expect(await calledPaths(page)).not.toContain('/api/send')
 })
 
-test('a search in pick mode shows a matching archived chat dimmed, and it cannot be picked', async ({ page }) => {
+test('a search in pick mode never offers an archived chat, and Enter then sends nothing', async ({ page }) => {
   await openPanel(page)
-  await page.keyboard.press('Meta+Shift+KeyV')
+  await page.getByLabel('Search every conversation').fill('go version')
+  await expect(row(page, 'Bump the Go version')).toHaveCount(1)
+  await pressSendShortcut(page)
+  await expect(pickBanner(page)).toBeVisible()
   await page.getByLabel('Search every conversation').fill('go version')
 
-  const archived = row(page, 'Bump the Go version')
-  await expect(archived).toHaveAttribute('aria-disabled', 'true')
-  await expect(archived).toHaveCSS('opacity', '0.4')
-  await archived.click({ force: true })
+  // The search's answer is in once the list says nothing matches.
+  await expect(page.locator('#list > .empty')).toContainText('Nothing matches')
+  await expect(page.locator('#summary')).toHaveText('No conversation matches')
+  await expect(groupTitle(page, 'Archived')).toHaveCount(0)
+  await expect(row(page, 'Bump the Go version')).toHaveCount(0)
   await page.keyboard.press('Enter')
-
   await expect(pickBanner(page)).toBeVisible()
+
+  await page.getByLabel('Search every conversation').fill('login')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await expect(row(page, 'Fix the login redirect')).toBeVisible()
+  await expect(page.locator('#summary')).toHaveText('1 conversation matches')
   const calls = await calledPaths(page)
   expect(calls).not.toContain('/api/send')
   expect(calls).not.toContain('/api/open')
@@ -1363,7 +1370,7 @@ test('the send shortcut with no row to type into opens pick mode and sends nothi
 
   await pressSendShortcut(page)
 
-  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 14 words there')
   await expect(page.getByLabel('Search every conversation')).toHaveValue('')
   await expect(selected(page)).toContainText('Approve the database migration')
   await page.waitForTimeout(600)
@@ -1375,13 +1382,77 @@ test('the send shortcut with several rows to type into opens pick mode on the fi
 
   await pressSendShortcut(page)
 
-  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 14 words there')
   await expect(selected(page)).toContainText('Refactor the search index')
   await page.waitForTimeout(600)
   expect(await calledPaths(page)).not.toContain('/api/send')
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
   await row(page, 'Plan the sync dry run').click()
   expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('the send shortcut with a clipboard that cannot be read says so and opens no pick mode', async ({ page }) => {
+  await openPanel(page)
+  await page.route('**/api/clipboard', (route) => route.abort())
+
+  await pressSendShortcut(page)
+
+  await expect(page.locator('#toast')).toHaveText('Could not read the copied text. The companion could not reach its own shell.')
+  await expect(page.locator('#toast')).toHaveAttribute('role', 'alert')
+  await expect(pickBanner(page)).toBeHidden()
+  expect(await calledPaths(page)).not.toContain('/api/send')
+})
+
+test('the header has no clipboard button', async ({ page }) => {
+  await openPanel(page)
+  await expect(page.locator('.head button')).toHaveCount(2)
+  await expect(page.locator('.head').getByRole('button', { name: /copied text/i })).toHaveCount(0)
+})
+
+test('in pick mode Enter does nothing while a search is on its way, and its answer selects a row it offers', async ({ page }) => {
+  await openPanel(page)
+  await page.route('**/api/inbox?q=*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    await route.continue()
+  })
+  await pressSendShortcut(page)
+  await expect(selected(page)).toContainText('Approve the database migration')
+
+  await page.getByLabel('Search every conversation').fill('login')
+  await expect(page.locator('#summary')).toHaveText('Searching…')
+  await page.keyboard.press('Enter')
+  await expect(row(page, 'Fix the login redirect')).toBeVisible()
+  expect(await calledPaths(page)).not.toContain('/api/send')
+
+  await expect(selected(page)).toContainText('Fix the login redirect')
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await page.keyboard.press('Enter')
+  expect((await sent).postDataJSON()).toMatchObject({ tool: 'cursor', id: 'active-1' })
+})
+
+test('the send shortcut does not send straight to a row in a folded group, and opens the picker instead', async ({ page }) => {
+  await openPanel(page, 'one-terminal')
+  await groupTitle(page, 'Active').click()
+  await expect(row(page, 'Plan the sync dry run')).toHaveCount(0)
+
+  await pressSendShortcut(page)
+
+  await expect(pickBanner(page)).toContainText('Click a chat or press Enter to paste these 14 words there')
+  await expect(row(page, 'Plan the sync dry run')).toHaveCount(0)
+  await page.waitForTimeout(600)
+  expect(await calledPaths(page)).not.toContain('/api/send')
+})
+
+test('a clipboard that cannot be read when a picked row sends says so plainly and sends nothing', async ({ page }) => {
+  await openPanel(page)
+  await pressSendShortcut(page)
+  await expect(pickBanner(page)).toBeVisible()
+  await page.route('**/api/clipboard', (route) => route.abort())
+
+  await page.keyboard.press('Enter')
+
+  await expect(page.locator('#toast')).toHaveText('Could not read the copied text. The companion could not reach its own shell.')
+  expect(await calledPaths(page)).not.toContain('/api/send')
 })
 
 test('the send shortcut with nothing copied says so and opens no pick mode', async ({ page }) => {

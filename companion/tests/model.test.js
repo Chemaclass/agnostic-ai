@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -433,11 +433,25 @@ test('Escape leaves pick mode before it closes the panel, and after the settings
   assert.equal(escapeTarget({ picking: false }), 'panel')
 })
 
-test('pick mode hides Archived until a search is typed, and archived rows never take the text', () => {
-  const groups = grouped([row('a', 'blocked'), row('b', 'working'), row('c', 'active'), row('d', 'completed'), row('e', 'dormant')])
-  assert.deepEqual(pickGroupsOf(groups, '').map((group) => group.id), ['needs-you', 'working', 'active'])
-  assert.deepEqual(pickGroupsOf(groups, 'parser').map((group) => group.id), ['needs-you', 'working', 'active', 'archived'])
+test('pick mode never offers Archived, and archived rows never take the text', () => {
+  const rows = [row('a', 'blocked'), row('b', 'working'), row('c', 'active'), row('d', 'completed'), row('e', 'dormant')]
+  assert.deepEqual(grouped(pickViewOf({ conversations: rows, needsYou: 1 }).conversations).map((group) => group.id), ['needs-you', 'working', 'active'])
   assert.deepEqual(['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => takesText(row('x', state))), [true, true, true, true, false, false])
+})
+
+test('pick mode counts only the rows it offers, so a search foot never counts an archived match', () => {
+  const view = { conversations: [row('a', 'unread'), row('d', 'completed'), row('e', 'dormant')], needsYou: 1, matches: 3 }
+  assert.deepEqual(pickViewOf(view), { conversations: [row('a', 'unread')], needsYou: 1, matches: 1 })
+  assert.deepEqual(pickViewOf({ conversations: [row('d', 'dormant')], needsYou: 0 }), { conversations: [], needsYou: 0 })
+  assert.equal(summaryOf(pickViewOf({ conversations: [row('d', 'dormant')], needsYou: 0, matches: 1 }), 'go'), 'No conversation matches')
+})
+
+test('pick mode keeps the selected row while it is offered, else selects the first row the text can be typed into, else the first row', () => {
+  assert.equal(pickKeyOf(['a', 'b', 'c'], ['c'], 'b'), 'b')
+  assert.equal(pickKeyOf(['a', 'b', 'c'], ['c'], 'gone'), 'c')
+  assert.equal(pickKeyOf(['a', 'b', 'c'], ['c'], undefined), 'c')
+  assert.equal(pickKeyOf(['a', 'b'], ['folded'], 'gone'), 'a')
+  assert.equal(pickKeyOf([], [], 'gone'), undefined)
 })
 
 test('only live rows in a Terminal or Ghostty tab, outside Archived, can be typed into', () => {
@@ -470,6 +484,9 @@ test('the send shortcut sends straight only when exactly one row can be typed in
   assert.equal(straightSendOf([ended]), undefined)
   assert.equal(straightSendOf([one, other]), undefined)
   assert.equal(straightSendOf([]), undefined)
+  // A folded group hides its rows: the one row the text could go to must show.
+  assert.equal(straightSendOf([ended, one], ['claude:ended', 'claude:one']), one)
+  assert.equal(straightSendOf([ended, one], ['claude:ended']), undefined)
   assert.equal(sendingTitleOf(one), 'Sending to one')
   assert.equal(sendingTitleOf({ ...one, title: '' }), 'Sending to Untitled conversation')
   assert.equal(sendingTitleOf(one, { format: 'markdown' }), 'Sending to one')
@@ -480,9 +497,10 @@ test('pick mode opens only on copied text, and names it by its words', () => {
   assert.equal(pickableClip(clip), clip)
   assert.equal(pickableClip({ preview: '', words: 0, chars: 0, hash: '' }), undefined)
   assert.equal(pickableClip(undefined), undefined)
-  assert.equal(pickTitleOf(clip), 'Send 8 words to…')
-  assert.equal(pickTitleOf({ ...clip, words: 1 }), 'Send 1 word to…')
-  assert.equal(pickTitleOf({ ...clip, format: 'markdown', words: 412 }), 'Send 412 words to…')
+  assert.equal(pickTitleOf(clip), 'Click a chat or press Enter to paste these 8 words there')
+  assert.equal(pickTitleOf({ ...clip, words: 1 }), 'Click a chat or press Enter to paste this word there')
+  assert.equal(pickTitleOf({ ...clip, format: 'markdown', words: 412 }), 'Click a chat or press Enter to paste these 412 words there')
+  assert.equal(unreadableClipOf(new Error('The companion could not reach its own shell.')), 'Could not read the copied text. The companion could not reach its own shell.')
   assert.equal(chipTextOf(clip), 'Fix the flaky login…')
   assert.equal(chipTextOf({ ...clip, preview: 'Two words' }), 'Two words')
   assert.equal(NOTHING_TO_SEND, 'Nothing to send: copy some text first.')

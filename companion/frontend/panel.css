@@ -1331,12 +1331,6 @@ button:focus-visible {
 
 /* Pick mode: the copied text waits in a banner under the search for the row it goes to. */
 
-#send-clipboard[aria-pressed='true'] {
-  background: var(--action-soft);
-  color: var(--action);
-  box-shadow: inset 0 0 0 1px rgba(240, 163, 94, 0.4);
-}
-
 .pick {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1394,14 +1388,6 @@ button:focus-visible {
 
 .card.is-picking .row .actions {
   display: none;
-}
-
-.card.is-picking .row.is-unpickable {
-  opacity: 0.4;
-}
-
-.card.is-picking .row.is-unpickable:hover {
-  background: none;
 }
 
 .place:disabled {

@@ -243,3 +243,16 @@ test('the list menu turns animation, dimming and the small circle on and off and
   assert.deepEqual(await small.json(), { animate: false, dimWhenIdle: true, smallCompanion: true, presence: 'shown' })
   assert.deepEqual(await (await fetch(preview.url + '/api/appearance')).json(), { animate: false, dimWhenIdle: true, smallCompanion: true, presence: 'shown' })
 })
+
+test('choosing a fixture drops a late open failure from the one before', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  assert.equal((await postJSON(preview.url + '/dev/fixture', { name: 'late-open-failure' })).status, 204)
+  const opened = await postJSON(preview.url + '/api/open', { tool: 'claude', id: 'done-2', title: 'Tidy the old branches' })
+  assert.equal(opened.status, 202)
+  assert.deepEqual(await (await postJSON(preview.url + '/dev/settle-late-opens', {})).json(), { settled: 1 })
+  assert.notEqual((await fetch(preview.url + '/api/open/late')).status, 204)
+
+  assert.equal((await postJSON(preview.url + '/dev/fixture', { name: 'mixed' })).status, 204)
+  assert.equal((await fetch(preview.url + '/api/open/late')).status, 204)
+})
