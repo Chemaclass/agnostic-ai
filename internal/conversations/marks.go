@@ -285,9 +285,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			if entry.HiddenAt != "" || (c.untyped && entry.Title == "") {
 				continue
 			}
-			if c.Cloud != nil {
-				entry.SeenAt = laterStamp(entry.SeenAt, file.Marks[markKey(c.Tool, c.Cloud.ID)].SeenAt)
-			}
+			entry = withTwinSeen(file, c, entry)
 			if s.MarksPath != "" && knownClosed(c) && unseen(c, entry, since) && written.After(parseStamp(entry.ClosedWrittenAt)) {
 				entry.ClosedWrittenAt = written.UTC().Format(time.RFC3339Nano)
 				file.Marks[key] = entry
@@ -375,6 +373,15 @@ func archiveStart(c Conversation, written time.Time) time.Time {
 		return written
 	}
 	return c.appArchivedAt
+}
+
+// withTwinSeen gives a shared row the later seen mark of its own id and
+// its cloud id, so a mark on either counts for both.
+func withTwinSeen(file marksFile, c Conversation, entry markEntry) markEntry {
+	if c.Cloud != nil {
+		entry.SeenAt = laterStamp(entry.SeenAt, file.Marks[markKey(c.Tool, c.Cloud.ID)].SeenAt)
+	}
+	return entry
 }
 
 // laterStamp is the later of two marks; an empty one is never later.
