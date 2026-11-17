@@ -20,16 +20,16 @@ test('under Needs you a permission to give comes first, then another wait, then 
   assert.deepEqual(grouped(rows)[0].rows.map((r) => r.id), ['permission-1', 'permission-2', 'question-1', 'unknown-1', 'reply-1', 'reply-2'])
 })
 
-test('a child under Needs you stays right after its parent, wherever the parent moves', () => {
+test('under Needs you a family ranks by its most urgent row, and a child stays right after its parent', () => {
   const groups = grouped([row('parent', 'unread'), child('kid', 'blocked', 'parent', { waiting: { for: 'permission' } }), row('other', 'blocked')])
-  assert.deepEqual(drawn(groups), [['needs-you', [['other', null], ['parent', null], ['kid', 'parent']]]])
+  assert.deepEqual(drawn(groups), [['needs-you', [['parent', null], ['kid', 'parent'], ['other', null]]]])
+  const asking = grouped([row('asks', 'blocked', { waiting: { for: 'answer' } }), child('reply', 'unread', 'asks'), row('approve', 'blocked', { waiting: { for: 'permission' } }), row('read', 'unread')])
+  assert.deepEqual(drawn(asking), [['needs-you', [['approve', null], ['asks', null], ['reply', 'asks'], ['read', null]]]])
 })
 
 test('the circle tells the chats that wait for the person apart from the unread ones', () => {
   const view = { needsYou: 4, conversations: [row('a', 'blocked'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'unread')] }
   assert.deepEqual(waitingOf(view), { blocked: 2, unread: 2 })
-  // Unread chats older than the rows the list holds still count.
-  assert.deepEqual(waitingOf({ needsYou: 5, conversations: [row('a', 'blocked')] }), { blocked: 1, unread: 4 })
   assert.deepEqual(waitingOf({ needsYou: 0, conversations: [] }), { blocked: 0, unread: 0 })
 })
 

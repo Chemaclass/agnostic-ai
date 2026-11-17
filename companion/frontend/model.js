@@ -229,7 +229,8 @@ export function withTitle(view, key, title) {
 export function grouped(conversations) {
   return GROUPS.map((group) => {
     const rows = conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)
-    return { ...group, ...nested(group.id === 'needs-you' ? rows.sort(byUrgency) : rows) }
+    const drawn = nested(rows)
+    return { ...group, ...(group.id === 'needs-you' ? mostUrgentFirst(drawn) : drawn) }
   }).filter((group) => group.rows.length > 0)
 }
 
@@ -239,15 +240,23 @@ function urgencyOf(conversation) {
   return conversation.waiting?.for === 'permission' ? 0 : 1
 }
 
-const byUrgency = (a, b) => urgencyOf(a) - urgencyOf(b)
+/** Each family, a row with the rows drawn under it, ranked by its most urgent row, in list order within a rank. */
+function mostUrgentFirst({ rows, under }) {
+  const families = []
+  for (const conversation of rows) {
+    if (!under.has(keyOf(conversation))) families.push({ rows: [], urgency: Infinity })
+    const family = families[families.length - 1]
+    family.rows.push(conversation)
+    family.urgency = Math.min(family.urgency, urgencyOf(conversation))
+  }
+  families.sort((a, b) => a.urgency - b.urgency)
+  return { rows: families.flatMap((family) => family.rows), under }
+}
 
-/**
- * What the circle counts: the chats that wait for the person to act, and the unread replies. `needsYou`
- * also covers chats older than the rows the list holds, which are unread, never waiting.
- */
+/** What the circle counts: the rows that wait for the person to act, and the rest of the server's count, the unread replies. */
 export function waitingOf(view) {
   const blocked = view.conversations.filter((conversation) => conversation.state === 'blocked').length
-  return { blocked, unread: Math.max(0, view.needsYou - blocked) }
+  return { blocked, unread: view.needsYou - blocked }
 }
 
 /** What the circle tells a screen reader, such as "Conversations: 2 waiting for you, 4 unread". */
