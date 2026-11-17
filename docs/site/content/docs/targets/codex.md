@@ -42,7 +42,7 @@ Write instructions and rules once under `.agnostic-ai/`. Sync writes `AGENTS.md`
 2. Select `codex` in `agnostic-ai.yaml`.
 3. Follow [First rule](@/docs/getting-started.md#first-rule). The commit-prefix rule becomes a section in root `AGENTS.md`. With Claude Code also selected, it becomes `.claude/rules/conventional-commits.md` too.
 
-Write shared instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync merges them with the Codex rules in `AGENTS.md`. Already configured? Read [import coverage](@/docs/targets/codex-reference.md#import) first. Import reads root and nested instruction files, agents, skill folders, hooks, MCP servers, environments, and remaining project config into an overlay.
+Write shared instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync merges them with the Codex rules in `AGENTS.md`. Already configured? Read [import coverage](@/docs/targets/codex-reference.md#import) first.
 
 ## Output
 
@@ -72,10 +72,10 @@ For a scoped rule, start a new session inside its directory. `agnostic-ai explai
 
 - Codex [reads instructions from the project root down to the working directory](https://learn.chatgpt.com/docs/agent-configuration/agents-md). Start inside a subtree to load its nested `AGENTS.md`. Start a new session after changing instructions.
 - Command and MCP-tool hooks need trust through `/hooks`, again after each configuration change. Project hooks also need a trusted project.
-- `agnostic-ai doctor -t codex` checks saved trust, not whether a running session bypasses it.
 - Agents inherit the session sandbox. Codex v0.155.0 and later ignore an agent's `sandbox_mode`, so `readonly: true` is not enforced. Use session limits and [exec policies](@/docs/targets/codex-reference.md#codex-exec-policies).
 
-{% <details summary="Project and user config"> %}
+{% <details summary="Trust checks and project config"> %}
+- `agnostic-ai doctor -t codex` checks saved trust, not whether a running session bypasses it.
 - Codex [project config wins over user config in a trusted project](https://learn.chatgpt.com/docs/config-file/config-basic).
 - Keep user-level keys in the [home configuration](@/docs/global-configuration.md).
 - Supported project fields and overlay precedence: [Codex native reference](@/docs/targets/codex-reference.md#codex-config).

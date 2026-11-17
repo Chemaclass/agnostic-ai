@@ -164,7 +164,7 @@ command: 'files=$(agnostic-ai hook paths) || exit 1; printf "%s\n" "$files" | gr
 - Command hooks receive event JSON on stdin. Read the shell command from `tool_input`.
 - `AGNOSTIC_AI_TARGET` names the tool that ran the hook ([details](@/docs/spec-format/hook-reference.md#hook-target)).
 - [Vibe](@/docs/targets/vibe.md#connections-settings-and-hooks) uses snake_case native events such as `pre_agent` and `session_start`, and gets no portable events.
-- OpenCode runs hooks as plugins ([V1 and V2 runtimes](@/docs/targets/opencode.md#opencode-v2-hooks)).
+- OpenCode runs hooks as plugins ([V1 and V2 runtimes](@/docs/targets/opencode-reference.md#opencode-v2-hooks)).
 
 <details>
 <summary>Hand-written hook entries stay</summary>
