@@ -969,5 +969,7 @@
 # #3520 measured 26521760 bytes locally (make size-check) after merging #3518: the companion install downloads and verifies the released macOS archive; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3517 measured 26534048 bytes locally (make size-check): the companion sends copied text into a chat's input; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3517 slice 2 measured 27009184 bytes locally (make size-check): copied HTML goes as Markdown through github.com/JohannesKaufmann/html-to-markdown/v2 (about 455 KB with golang.org/x/net/html); the budget is that plus 8192, rounded up to a multiple of 4096.
+# The app-archived-chats branch measured 27021472 bytes locally (make size-check): chats archived in Codex, Cursor or Claude Cowork are listed as archived; the budget is that plus 8192, rounded up to a multiple of 4096.
 # The permission pill measured 27033760 bytes locally (make size-check): rows say what a waiting chat asks to have approved (internal/conversations/waiting.go); the budget is that plus 8192, rounded up to a multiple of 4096.
-27045888
+# The permission pill stacked on #3524 measured 27050144 bytes locally (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
+27062272

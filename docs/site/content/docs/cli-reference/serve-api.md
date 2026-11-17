@@ -150,10 +150,11 @@ Each row has a `state`, the first of these that holds:
 
 1. `blocked`: open, and its tool says it waits for you.
 2. `working`: open, and its tool says the agent is busy.
-3. `completed`: you marked it completed. It holds until something is written or its tool says the agent is working.
-4. `unread`: written after you last saw it.
-5. `active`: open, or written in the last 24 hours when the server cannot tell whether it is closed.
-6. `dormant`: closed, or quiet for longer than 24 hours.
+3. `dormant`: [archived in its app](@/docs/cli-reference/companion.md#chats-archived-in-their-app).
+4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
+5. `unread`: written after you last saw it.
+6. `active`: open, or written within 24 hours when the server cannot tell whether it is closed.
+7. `dormant`: closed, or quiet for over 24 hours.
 
 The server knows a chat is closed for local Claude Code and Codex sessions started in a terminal, and for `cursor-agent` chats, on macOS and Linux: no process holds them. Such a chat is `dormant` as soon as you have seen its last write. Cursor editor chats, editor and desktop app sessions, cloud sessions, and every chat on Windows keep the 24 hours. So do Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps` or `lsof` failed.
 

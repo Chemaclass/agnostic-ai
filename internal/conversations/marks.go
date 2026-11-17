@@ -146,7 +146,8 @@ func parseStamp(value string) time.Time {
 // like a new reply, a wait needs the person only while nothing shows
 // they saw it since its last write. So opening or archiving a waiting
 // conversation takes it out of the count, and the next write, which
-// every new prompt is, puts it back.
+// every new prompt is, puts it back. A conversation its own app archived
+// is dormant, the state of a closed one, while that archive holds.
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
@@ -160,6 +161,8 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 		return StateBlocked
 	case workingNow(c):
 		return StateWorking
+	case c.underAppArchive:
+		return StateDormant
 	case !completedAt.IsZero() && !written.After(completedAt):
 		return StateCompleted
 	case !seenAt.IsZero() && written.After(seenAt):
@@ -252,6 +255,68 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		err = writeMarks(s.MarksPath, file)
 	}
 	return needsYou, err
+}
+
+// appArchive is what the scanner remembers of one conversation its own
+// app keeps archived.
+type appArchive struct {
+	// since is when the archive began: the app's own time when it keeps
+	// one, else the last write the scanner saw when it first read the
+	// conversation as archived.
+	since time.Time
+	// lifted: a write after since, or work, took it out of Archived.
+	// It stays out while the app keeps it archived.
+	lifted bool
+}
+
+// followAppArchives sets underAppArchive on every row of results. Every
+// read goes through it, the scan and the lookups behind open, mark,
+// rename and delete alike, so the scanner sees each change of an app's
+// flag, however short.
+func (s *Scanner) followAppArchives(results []sourceResult) {
+	for r := range results {
+		for i := range results[r].conversations {
+			c := &results[r].conversations[i]
+			c.underAppArchive = s.stillAppArchived(markKey(c.Tool, c.ID), *c, lastWritten(*c), workingNow(*c))
+		}
+	}
+}
+
+// stillAppArchived reports whether a conversation shows under Archived
+// because its own app archived it. Like a completion, the archive holds
+// until something is written after it or its tool says it is working.
+// Writes are compared in whole seconds, since an app may keep the
+// archive's time in whole seconds. The scanner remembers each archive
+// in memory and never in the marks file, so un-archiving in the app
+// brings the conversation back on the next read; a new server begins
+// again from what the app says.
+func (s *Scanner) stillAppArchived(key string, c Conversation, written time.Time, working bool) bool {
+	if !c.appArchived {
+		delete(s.appArchives, key)
+		return false
+	}
+	if s.appArchives == nil {
+		s.appArchives = map[string]appArchive{}
+	}
+	archive, known := s.appArchives[key]
+	archivedAgain := !c.appArchivedAt.IsZero() && !c.appArchivedAt.Equal(archive.since)
+	if !known || archivedAgain {
+		archive = appArchive{since: archiveStart(c, written)}
+	}
+	if written.Truncate(time.Second).After(archive.since) || working {
+		archive.lifted = true
+	}
+	s.appArchives[key] = archive
+	return !archive.lifted
+}
+
+// archiveStart is when an app archive began: the app's own time when it
+// keeps one, else the conversation's last write as read now.
+func archiveStart(c Conversation, written time.Time) time.Time {
+	if c.appArchivedAt.IsZero() {
+		return written
+	}
+	return c.appArchivedAt
 }
 
 // laterStamp is the later of two marks; an empty one is never later.

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/chromeidb"
 )
@@ -107,6 +108,9 @@ const (
 type claudeAppRead struct {
 	rows []Conversation
 	note string
+	// sidebarRead: the read found the sidebar's chat list and decoded it.
+	// Only such a read tells which chats left the list.
+	sidebarRead bool
 }
 
 // claudeAppRows returns the chats and Cowork tasks the Claude app has
@@ -122,7 +126,59 @@ func (s *Scanner) claudeAppRows(opts ScanOptions) ([]Conversation, string) {
 	if s.claudeApp.stamp != stamp {
 		s.claudeApp = cached[claudeAppRead]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
 	}
-	return within(slices.Clone(s.claudeApp.value.rows), opts.Within), s.claudeApp.value.note
+	rows := slices.Clone(s.claudeApp.value.rows)
+	if s.claudeApp.value.sidebarRead {
+		rows = append(rows, s.claudeChatsGone(rows)...)
+	}
+	return within(rows, opts.Within), s.claudeApp.value.note
+}
+
+// claudeChatsGone remembers the chats of the app's cached list and
+// returns, as archived, the remembered ones that left it. The list holds
+// only chats that are not archived, newest first, and the app caches
+// only the pages the person scrolled to. So a chat that left it is
+// archived, or deleted, which cannot be told apart, only when it is not
+// older than the oldest chat still cached; an older one may just sit on
+// a page the app did not load, and is forgotten. The memory is the
+// scanner's alone: the marks file never holds it, and a new server
+// knows none. Call it only with a read that decoded the sidebar's list.
+func (s *Scanner) claudeChatsGone(rows []Conversation) []Conversation {
+	cached := map[string]bool{}
+	var oldest time.Time
+	for _, c := range rows {
+		if c.App != AppChat {
+			continue
+		}
+		cached[c.ID] = true
+		updated := parseStamp(c.UpdatedAt)
+		if oldest.IsZero() || updated.Before(oldest) {
+			oldest = updated
+		}
+	}
+	var gone []Conversation
+	for id, c := range s.claudeChatsSeen {
+		if cached[id] {
+			continue
+		}
+		if len(cached) == 0 || parseStamp(c.UpdatedAt).Before(oldest) {
+			delete(s.claudeChatsSeen, id)
+			delete(s.appArchives, markKey(c.Tool, id))
+			continue
+		}
+		c.appArchived = true
+		gone = append(gone, c)
+	}
+	if s.claudeChatsSeen == nil {
+		s.claudeChatsSeen = map[string]Conversation{}
+	}
+	for _, c := range rows {
+		if c.App == AppChat {
+			// A chat that left the list no longer answers.
+			c.Live, c.Activity = false, ""
+			s.claudeChatsSeen[c.ID] = c
+		}
+	}
+	return gone
 }
 
 // claudeAppDB is the LevelDB folder of the app's web storage.
@@ -170,6 +226,7 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 		return claudeAppRead{note: claudeAppNoteUnreadable}
 	}
 	var rows []Conversation
+	sidebarRead := false
 	seen := map[string]bool{}
 	keep := func(c Conversation) {
 		if seen[c.ID] {
@@ -181,7 +238,9 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 	for _, query := range cache.ClientState.Queries {
 		switch queryName(query) {
 		case claudeChatListQuery:
-			for _, chat := range claudeChatsOf(query) {
+			chats, sidebar := claudeChatsOf(query)
+			sidebarRead = sidebarRead || sidebar
+			for _, chat := range chats {
 				if c, ok := s.claudeChatRow(chat); ok {
 					keep(c)
 				}
@@ -206,7 +265,7 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 			}
 		}
 	}
-	return claudeAppRead{rows: rows}
+	return claudeAppRead{rows: rows, sidebarRead: sidebarRead}
 }
 
 // claudeAppReason is why the reader failed with err, or no reason for
@@ -231,29 +290,31 @@ func queryName(query claudeAppQuery) string {
 }
 
 // claudeChatsOf returns the chats of the sidebar's list: the paged one
-// that holds every chat not archived, starred or not.
-func claudeChatsOf(query claudeAppQuery) []claudeChat {
+// that holds every chat not archived, starred or not. The app keeps no
+// list of archived chats on this machine (none was cached on
+// 2026-11-17), so a chat archived in the app leaves this list; see
+// claudeChatsGone. sidebar says whether query is that list, decoded.
+func claudeChatsOf(query claudeAppQuery) (chats []claudeChat, sidebar bool) {
 	key := query.QueryKey
 	if len(key) != 4 {
-		return nil
+		return nil, false
 	}
 	var marker string
 	var filter claudeChatListFilter
 	if json.Unmarshal(key[2], &marker) != nil || marker != claudeInfinite || json.Unmarshal(key[3], &filter) != nil {
-		return nil
+		return nil, false
 	}
 	if filter.Starred != nil || filter.Archived == nil || *filter.Archived {
-		return nil
+		return nil, false
 	}
 	var data claudeChatListData
 	if json.Unmarshal(query.State.Data, &data) != nil {
-		return nil
+		return nil, false
 	}
-	var chats []claudeChat
 	for _, page := range data.Pages {
 		chats = append(chats, page.Data...)
 	}
-	return chats
+	return chats, true
 }
 
 func (s *Scanner) claudeChatRow(chat claudeChat) (Conversation, bool) {
@@ -286,13 +347,15 @@ func answering(status json.RawMessage) bool {
 
 func (s *Scanner) claudeCoworkRow(task claudeCowork) (Conversation, bool) {
 	updated := timeFromMillis(int64(task.LastActivityAt))
-	if task.IsArchived || !claudeCoworkIDPattern.MatchString(task.SessionID) || updated == "" {
+	if !claudeCoworkIDPattern.MatchString(task.SessionID) || updated == "" {
 		return Conversation{}, false
 	}
+	// The app keeps no time for when a task was archived.
 	c := Conversation{
 		Tool: ToolClaude, App: AppCowork, ID: task.SessionID, Folder: task.Cwd,
 		StartedAt: timeFromMillis(int64(task.CreatedAt)), UpdatedAt: updated,
-		Open: Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://claude.ai/cowork/" + task.SessionID},
+		Open:        Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://claude.ai/cowork/" + task.SessionID},
+		appArchived: task.IsArchived,
 	}
 	if task.IsRunning {
 		c.Live, c.Activity = true, ActivityWorking

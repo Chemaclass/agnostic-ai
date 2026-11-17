@@ -258,7 +258,7 @@ Each conversation is in the first group whose rule holds.
 | Needs you | Something was written after you last saw it. Or it is open, its tool says it waits for you, and you have not looked at it since it asked. |
 | Working | Open, and its tool says the agent is busy. |
 | Active | Open, or written in the last 24 hours. |
-| Archived | You archived it and nothing was written since, or it is closed and was quiet for more than 24 hours. A new message moves it back to Needs you. A chat that starts working moves to Working, and that archive does not come back when the work ends. |
+| Archived | You archived it and nothing was written since, you archived it in its own app (Codex, Cursor, Claude chats or Claude Cowork) and nothing was written since, or it is closed and was quiet for more than 24 hours. A new message moves it back to Needs you. A chat that starts working moves to Working, and that archive does not come back when the work ends. |
 
 What each tool reports:
 

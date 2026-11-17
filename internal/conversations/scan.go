@@ -109,6 +109,12 @@ type Scanner struct {
 	// sharedClouds maps the mark key of each shared row of the last read
 	// to the cloud id it took in, so a mark on it reaches both.
 	sharedClouds map[string]string
+	// appArchives holds, by mark key, the conversations their own app
+	// keeps archived; see stillAppArchived.
+	appArchives map[string]appArchive
+	// claudeChatsSeen holds, by id, the Claude app chats an earlier read
+	// found in the app's cached list; see claudeChatsGone.
+	claudeChatsSeen map[string]Conversation
 
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
@@ -293,6 +299,7 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	}
 	attachRuns(results)
 	s.placeLive(results)
+	s.followAppArchives(results)
 	return results, strings.Join(notes, " ")
 }
 

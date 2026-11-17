@@ -217,6 +217,15 @@ type Conversation struct {
 	pending *texts
 	// bridge is the Remote Control id a live Claude Code session wrote.
 	bridge string
+	// appArchived: the conversation's own app keeps it archived, as the
+	// app's flag says on this read.
+	appArchived bool
+	// appArchivedAt is when the app archived it, for an app that keeps
+	// that time; zero otherwise.
+	appArchivedAt time.Time
+	// underAppArchive: archived in its app and, since then, nothing was
+	// written and its tool never said it was working. See appArchives.
+	underAppArchive bool
 	// pendingReply is a reply whose credential check waits for a page,
 	// for a store that lists thousands of rows with their replies.
 	pendingReply *texts
