@@ -184,7 +184,7 @@ func codexRoute(c *Conversation, thread codexThread, editor editorApp) {
 		c.Open = Route{Kind: RouteLink, Label: "Open in " + editor.label, Link: editor.id + "://openai.chatgpt/local/" + c.ID}
 	default:
 		c.App = AppCLI
-		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(c.Folder, "codex resume "+c.ID)}
+		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resumeIn(c.Folder, "codex resume "+c.ID)}
 	}
 }
 

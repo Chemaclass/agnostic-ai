@@ -140,3 +140,16 @@ func TestScan_AStaleCloudStatusStopsWorkingWithoutBeingArchived(t *testing.T) {
 		t.Errorf("a cloud session that says it works but wrote nothing for days is active, not working or archived: %s", asJSON(t, c))
 	}
 }
+
+func TestScan_AWorkingHelperStaysListedWhenItsParentIsArchived(t *testing.T) {
+	stores, marksPath := codexRunStores(t)
+	writeClaudeProcess(t, stores, 5151, idCache, "idle")
+	view := codexRunScanner(t, stores, marksPath, runningSeen()).Scan(context.Background(), ScanOptions{})
+	parent := byID(t, view, idSafari)
+	if parent.State != StateDormant || !parent.liveRead {
+		t.Fatalf("the parent session no process holds is archived: %s", asJSON(t, parent))
+	}
+	if helpers := parent.Helpers; len(helpers) != 1 || helpers[0].ID != runSeen || helpers[0].State != helperWorking {
+		t.Errorf("its running helper stays listed under it: %s", asJSON(t, helpers))
+	}
+}

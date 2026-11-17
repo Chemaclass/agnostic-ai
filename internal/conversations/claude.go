@@ -355,7 +355,7 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 		c.process = &process
 		c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: resume}
 	default:
-		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume}
+		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume}
 	}
 }
 

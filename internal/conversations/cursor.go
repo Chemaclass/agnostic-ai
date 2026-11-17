@@ -421,7 +421,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume},
+			Open:  Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume},
 			store: store,
 		}
 		s.fill(&c, texts{title: title, firstPrompt: transcript.firstPrompt, lastPrompt: transcript.lastPrompt})

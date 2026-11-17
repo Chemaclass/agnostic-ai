@@ -368,7 +368,7 @@ func TestScan_ListsCodexThreadsFromTheNewestIndex(t *testing.T) {
   },
   {
     "kind": "terminal",
-    "label": "Open in Terminal",
+    "label": "Resume in Terminal",
     "command": "cd '/tmp/it'\\''s' && codex resume `+terminal+`"
   }
 ]` {
