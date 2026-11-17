@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -115,6 +116,11 @@ type Scanner struct {
 	// claudeChatsSeen holds, by id, the Claude app chats an earlier read
 	// found in the app's cached list; see claudeChatsGone.
 	claudeChatsSeen map[string]Conversation
+
+	// lastReadMu guards lastRead apart from mu: an open reads it without
+	// waiting for a scan to end.
+	lastReadMu sync.Mutex
+	lastRead   keptRead
 
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
@@ -228,14 +234,66 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return s.find(ctx, tool, id, opts, false)
 }
 
-// find is Find that, with opening, also gives the rows only an open
-// names: the cloud row a shared row took in, which opens its page, and
-// the threads of the helpers a row in scope lists. The mark and rename
-// requests, which use Find, never reach those.
 func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, opening bool) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	results, _ := s.readAll(ctx, opts)
+	return rowIn(results, tool, id, opening)
+}
+
+// busyReuseSpan is how old the last read may be for an open to use it
+// while another read runs. A read begins when a file changed or a new
+// freshSpan began, so the one before it is at most a span old, and the
+// running one may itself take most of a span when a store or a cloud is
+// slow to answer.
+const busyReuseSpan = 2 * freshSpan
+
+// findToOpen finds the conversation an open names. With no read
+// running it reads afresh, as Find does. While one runs it takes the
+// row from the read before it, which is the list the person clicked in,
+// so the open neither waits for that read nor reads everything again.
+// Open checks again that a live session still runs before it switches
+// to it. A row that would resume a session waits for the running read
+// instead, and takes its row from that one: the session may have
+// started again since, and a resume would start a second copy of it.
+func (s *Scanner) findToOpen(ctx context.Context, tool Tool, id string, opts ScanOptions) (Conversation, bool) {
+	if !s.mu.TryLock() {
+		if results, ok := s.readSince(opts, busyReuseSpan); ok {
+			if c, found := rowIn(results, tool, id, true); found && !s.wouldResume(c) {
+				return c, true
+			}
+		}
+		started := s.Now()
+		s.mu.Lock()
+		// A read that ended while this waited is fresh: use its rows.
+		if results, ok := s.readSince(opts, s.Now().Sub(started)); ok {
+			s.mu.Unlock()
+			return rowIn(results, tool, id, true)
+		}
+	}
+	defer s.mu.Unlock()
+	results, _ := s.readAll(ctx, opts)
+	return rowIn(results, tool, id, true)
+}
+
+// wouldResume reports whether opening c would resume its session in a
+// new tab: its route says so, or the process that ran it has ended.
+func (s *Scanner) wouldResume(c Conversation) bool {
+	switch c.Open.Kind {
+	case RouteTerminal:
+		return true
+	case RouteFocus:
+		return c.process == nil || !s.Processes.Alive(c.process.PID, c.process.ProcStart)
+	default:
+		return false
+	}
+}
+
+// rowIn finds one conversation in a read. With opening it also gives
+// the rows only an open names: the cloud row a shared row took in,
+// which opens its page, and the threads of the helpers a row in scope
+// lists. The mark and rename requests never reach those.
+func rowIn(results []sourceResult, tool Tool, id string, opening bool) (Conversation, bool) {
 	for _, result := range results {
 		for _, c := range result.conversations {
 			if c.Tool == tool && c.ID == id {
@@ -257,6 +315,44 @@ func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptio
 		}
 	}
 	return Conversation{}, false
+}
+
+// keptRead is the scanner's latest read of every store.
+type keptRead struct {
+	at time.Time
+	// shape is the part of the options the rows depend on.
+	shape   string
+	results []sourceResult
+}
+
+// shapeOf is the part of the options a reader's rows depend on.
+func shapeOf(opts ScanOptions) string {
+	return opts.Editor + "\x00" + strings.Join(opts.Within, "\x00")
+}
+
+// keepRead remembers a finished read for readSince.
+func (s *Scanner) keepRead(opts ScanOptions, results []sourceResult) {
+	kept := make([]sourceResult, len(results))
+	for i, result := range results {
+		kept[i] = copyOf(result)
+		// A later scan places the kept Codex helpers again, in place.
+		kept[i].unlisted = slices.Clone(result.unlisted)
+	}
+	s.lastReadMu.Lock()
+	defer s.lastReadMu.Unlock()
+	s.lastRead = keptRead{at: s.Now(), shape: shapeOf(opts), results: kept}
+}
+
+// readSince returns the rows of the latest read when it used the same
+// options and ended no longer than span ago.
+func (s *Scanner) readSince(opts ScanOptions, span time.Duration) ([]sourceResult, bool) {
+	s.lastReadMu.Lock()
+	defer s.lastReadMu.Unlock()
+	last := s.lastRead
+	if last.results == nil || last.shape != shapeOf(opts) || s.Now().Sub(last.at) > span {
+		return nil, false
+	}
+	return last.results, true
 }
 
 // readAll reads every store. A tool's cloud conversations count among
@@ -300,6 +396,10 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	attachRuns(results)
 	s.placeLive(results)
 	s.followAppArchives(results)
+	// A canceled read stopped early, so its rows have gaps.
+	if ctx.Err() == nil {
+		s.keepRead(opts, results)
+	}
 	return results, strings.Join(notes, " ")
 }
 

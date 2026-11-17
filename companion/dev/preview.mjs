@@ -245,6 +245,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       })
     }
     if (response.destroyed) return
+    if (fixture.openPending) return sendJSON(response, 202, { pending: true, message: 'Still opening. This takes longer than usual.' })
     if (fixture.openProblem) return sendJSON(response, 200, { opened: false, message: fixture.openProblem, command: fixture.openCommand })
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'

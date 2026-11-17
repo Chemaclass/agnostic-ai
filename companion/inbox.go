@@ -225,19 +225,39 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, inboxReply{View: latest, Note: in.versionNote()})
 }
 
+// stillOpening is the answer to an open the server did not answer in
+// time. The open may still happen, so it is no failure: the page keeps
+// the list hidden and says nothing.
+type stillOpening struct {
+	Pending bool   `json:"pending"`
+	Message string `json:"message"`
+}
+
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
 // is the one that opens, marks, renames and deletes. A call that worked asks for a new
 // list.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		wait := in.server.callWait
+		if path == serverOpenPath {
+			wait = in.server.openWait
+		}
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: "the request is larger than the companion sends"})
 			return
 		}
-		answer, err := in.server.call(r.Context(), http.MethodPost, path, body, "")
-		if err != nil {
+		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
+		switch {
+		case err != nil && timedOut(err) && path == serverOpenPath:
+			in.refreshSoon()
+			writeJSON(w, http.StatusAccepted, stillOpening{Pending: true, Message: "Still opening. This takes longer than usual."})
+			return
+		case err != nil && timedOut(err):
+			writeJSON(w, http.StatusGatewayTimeout, apiError{Error: err.Error()})
+			return
+		case err != nil:
 			writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 			return
 		}

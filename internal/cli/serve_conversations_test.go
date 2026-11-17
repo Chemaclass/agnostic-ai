@@ -192,6 +192,29 @@ func TestConversationsHandler_ListsTheProjectAndItsWorktrees(t *testing.T) {
 	}
 }
 
+// patientLauncher runs a terminal command only while its caller still waits, as a real launcher does.
+type patientLauncher struct{ *recordingLauncher }
+
+func (l patientLauncher) RunInNewTerminal(ctx context.Context, command string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return l.recordingLauncher.RunInNewTerminal(ctx, command)
+}
+
+func TestConversationsHandler_FinishesAnOpenItsCallerStoppedWaitingFor(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	h.launcher = patientLauncher{launcher}
+	gaveUp, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`, func(r *http.Request) { *r = *r.WithContext(gaveUp) })
+
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"opened":true`) || len(launcher.calls) != 1 {
+		t.Errorf("open = %d %s, launcher calls %q; want it opened although the caller left", rec.Code, rec.Body, launcher.calls)
+	}
+}
+
 func TestConversationsHandler_ListsEveryConversationOnAGlobalServer(t *testing.T) {
 	h, _, _ := conversationsFixture(t, true)
 

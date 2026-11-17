@@ -213,8 +213,10 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The route comes from the server's own scan; the request only names
-	// which conversation.
-	reply, found := h.scanner.Reopen(r.Context(), req.Tool, req.ID, h.scanOptions(req.Editor), h.launcher)
+	// which conversation. A caller that stops waiting does not stop the
+	// open: a terminal script cut short may leave a tab half opened, and
+	// the caller cannot tell whether it opened.
+	reply, found := h.scanner.Reopen(context.WithoutCancel(r.Context()), req.Tool, req.ID, h.scanOptions(req.Editor), h.launcher)
 	if !found {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return

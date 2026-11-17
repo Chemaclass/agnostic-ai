@@ -36,7 +36,7 @@ type keptSource struct {
 // more than checking whether the files changed.
 func (s *Scanner) kept(ctx context.Context, tool Tool, opts ScanOptions, files []string, read func() sourceResult) sourceResult {
 	stamp := fileStamp(files...)
-	shape := opts.Editor + "\x00" + strings.Join(opts.Within, "\x00")
+	shape := shapeOf(opts)
 	now := s.Now()
 	if last, ok := s.keptSources[tool]; ok && last.stamp == stamp && last.shape == shape && spanOf(now) == spanOf(last.at) {
 		return copyOf(last.result)
