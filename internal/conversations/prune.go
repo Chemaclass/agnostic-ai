@@ -2,15 +2,19 @@ package conversations
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-// markSource names the store a complete read listed a marked
+// markSource names the kind of store a complete read listed a marked
 // conversation in.
 type markSource string
 
@@ -26,25 +30,59 @@ const (
 // cannot, so absence from them proves no deletion.
 var provable = map[markSource]bool{sourceClaudeCode: true, sourceCodex: true, sourceCursorAgent: true}
 
-// marksKept is how long a mark outlives its conversation, counted from
-// the first complete read of its source that missed it, or from a mark
-// made since.
-const marksKept = 30 * 24 * time.Hour
+const (
+	// marksKept is how long complete reads must miss a conversation
+	// before its mark goes.
+	marksKept = 30 * 24 * time.Hour
+	// missGap is the longest pause between two complete misses that still
+	// counts as watching; after a longer one, the marksKept span begins
+	// again, so a machine that was off for a month prunes nothing on its
+	// first read back.
+	missGap = 7 * 24 * time.Hour
+	// missRefresh is how often a missing mark's last miss is saved.
+	missRefresh = 24 * time.Hour
+)
 
-// inventory is every conversation id one source holds, from a read with
-// no error, limit, filter or cancel.
+// inventory is every conversation one store holds, from a read with no
+// error, limit, filter or cancel. Several servers may share the marks
+// file while each reads its own store, so a mark ages only on reads of
+// the store that listed it.
 type inventory struct {
 	source markSource
 	tool   Tool
-	ids    map[string]bool
+	// root is the store's folder, and store a short name for it.
+	root  string
+	store string
+	// files maps each conversation id to its own data: its transcript,
+	// rollout or chat folder, relative to root when inside it.
+	files map[string]string
 }
 
-// provenBy is the inventory of a complete read, or none when ids is nil.
-func provenBy(source markSource, tool Tool, ids map[string]bool) []inventory {
-	if ids == nil {
+// provenBy is the inventory of a complete read, or none when files is
+// nil. A read that lists nothing proves nothing either: an empty folder
+// can be a store that moved or a disk that is not mounted.
+func provenBy(source markSource, tool Tool, root string, files map[string]string) []inventory {
+	if len(files) == 0 {
 		return nil
 	}
-	return []inventory{{source: source, tool: tool, ids: ids}}
+	return []inventory{{source: source, tool: tool, root: root, store: storeKey(root), files: files}}
+}
+
+// storeKey names a store's folder in the marks file without its path.
+func storeKey(root string) string {
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	sum := sha256.Sum256([]byte(filepath.Clean(root)))
+	return hex.EncodeToString(sum[:6])
+}
+
+// inStore is path relative to root when it lies inside it.
+func inStore(root, path string) string {
+	if rel, err := filepath.Rel(root, path); err == nil && filepath.IsLocal(rel) {
+		return rel
+	}
+	return path
 }
 
 // listTree is filepath.Glob(root/*/.../pattern) with levels folders of
@@ -52,6 +90,7 @@ func provenBy(source markSource, tool Tool, ids map[string]bool) []inventory {
 // cannot open without an error.
 func listTree(root string, levels int, pattern string) (files []string, complete bool) {
 	complete = true
+	match := nameMatcher(pattern)
 	dirs := []string{root}
 	for level := 0; level <= levels; level++ {
 		var next []string
@@ -62,13 +101,13 @@ func listTree(root string, levels int, pattern string) (files []string, complete
 				continue
 			}
 			for _, entry := range entries {
-				path := filepath.Join(dir, entry.Name())
 				if level == levels {
-					if matched, _ := filepath.Match(pattern, entry.Name()); matched {
-						files = append(files, path)
+					if match(entry.Name()) {
+						files = append(files, filepath.Join(dir, entry.Name()))
 					}
 					continue
 				}
+				path := filepath.Join(dir, entry.Name())
 				isDir := entry.IsDir()
 				if entry.Type()&os.ModeSymlink != 0 {
 					info, err := os.Stat(path)
@@ -88,22 +127,32 @@ func listTree(root string, levels int, pattern string) (files []string, complete
 	return files, complete
 }
 
-// pruneMarks records, for each mark, the provable source a complete read
-// listed it in, starts its clock on the first complete read of that
-// source that misses it, and drops it once marksKept has passed. A
-// source this read did not list completely changes nothing, and a mark
-// no complete read ever listed is kept. It reports whether file changed.
-// The caller holds the marks lock.
-func (s *Scanner) pruneMarks(file *marksFile, results []sourceResult, now time.Time) (changed bool) {
-	var complete map[markSource]inventory
-	for _, result := range results {
-		for _, inv := range result.inventories {
-			if complete == nil {
-				complete = map[markSource]inventory{}
-			}
-			complete[inv.source] = inv
-		}
+// nameMatcher is filepath.Match for one name, with a plain comparison
+// for a literal name or a "*" and suffix: Match costs most of a listing
+// of thousands of names (see BenchmarkListTranscripts).
+func nameMatcher(pattern string) func(name string) bool {
+	const meta = `*?[\\`
+	if suffix, ok := strings.CutPrefix(pattern, "*"); ok && !strings.ContainsAny(suffix, meta) {
+		return func(name string) bool { return strings.HasSuffix(name, suffix) }
 	}
+	if !strings.ContainsAny(pattern, meta) {
+		return func(name string) bool { return name == pattern }
+	}
+	return func(name string) bool {
+		matched, _ := filepath.Match(pattern, name)
+		return matched
+	}
+}
+
+// pruneMarks records, for each mark, the store a complete read listed it
+// in and where its data sits, and ages it on complete reads of that
+// store that miss it. It drops a mark that such reads missed for
+// marksKept, without a pause longer than missGap, once a check shows its
+// own data is gone. A read of another store, or one that is not
+// complete, changes nothing, and a mark no complete read ever listed is
+// kept. It reports whether file changed. The caller holds the marks lock.
+func (s *Scanner) pruneMarks(file *marksFile, results []sourceResult, now time.Time) (changed bool) {
+	complete := completeStores(results)
 	if complete == nil {
 		return false
 	}
@@ -115,7 +164,7 @@ func (s *Scanner) pruneMarks(file *marksFile, results []sourceResult, now time.T
 			delete(file.Marks, key)
 			delete(s.appArchives, key)
 			changed = true
-		case next.Source != entry.Source || next.MissingSince != entry.MissingSince:
+		case next != entry:
 			file.Marks[key] = next
 			changed = true
 		}
@@ -123,59 +172,85 @@ func (s *Scanner) pruneMarks(file *marksFile, results []sourceResult, now time.T
 	return changed
 }
 
-// attributeMark records the source the last complete read listed key
-// in, so the scan after a new mark need not write the file for that.
+// completeStores indexes the complete inventories of results by store.
+func completeStores(results []sourceResult) map[string]inventory {
+	var complete map[string]inventory
+	for _, result := range results {
+		for _, inv := range result.inventories {
+			if complete == nil {
+				complete = map[string]inventory{}
+			}
+			complete[inv.store] = inv
+		}
+	}
+	return complete
+}
+
+// attributeMark records the store the last complete read listed key in,
+// so the scan after a new mark need not write the file for that.
 func (s *Scanner) attributeMark(key string, entry *markEntry) {
-	if entry.Source != "" {
+	if entry.Store != "" {
 		return
 	}
 	s.lastReadMu.Lock()
 	results := s.lastRead.results
 	s.lastReadMu.Unlock()
 	tool, id, _ := strings.Cut(key, ":")
-	for _, result := range results {
-		for _, inv := range result.inventories {
-			if inv.tool == Tool(tool) && inv.ids[id] {
-				entry.Source = inv.source
-				return
-			}
+	attribute(entry, Tool(tool), id, completeStores(results))
+}
+
+// attribute records the store among complete that lists id, if any.
+func attribute(entry *markEntry, tool Tool, id string, complete map[string]inventory) {
+	for _, inv := range complete {
+		if file, listed := inv.files[id]; listed && inv.tool == tool {
+			entry.Source, entry.Store, entry.File = inv.source, inv.store, file
+			return
 		}
 	}
 }
 
-func agedMark(entry markEntry, tool Tool, id string, complete map[markSource]inventory, now time.Time) (markEntry, bool) {
-	if entry.Source == "" {
-		for source, inv := range complete {
-			if inv.tool == tool && inv.ids[id] {
-				entry.Source = source
-				break
-			}
-		}
+func agedMark(entry markEntry, tool Tool, id string, complete map[string]inventory, now time.Time) (markEntry, bool) {
+	if entry.Store == "" {
+		attribute(&entry, tool, id, complete)
 	}
-	inv, read := complete[entry.Source]
+	inv, read := complete[entry.Store]
+	if !read || inv.tool != tool || inv.source != entry.Source {
+		return entry, true
+	}
+	if file, listed := inv.files[id]; listed {
+		entry.MissingSince, entry.LastMissAt = "", ""
+		if file != "" {
+			entry.File = file
+		}
+		return entry, true
+	}
+	started, last := parseStamp(entry.MissingSince), parseStamp(entry.LastMissAt)
 	switch {
-	case !read || inv.tool != tool:
-		return entry, true
-	case inv.ids[id]:
-		entry.MissingSince = ""
-		return entry, true
-	case entry.MissingSince == "":
-		entry.MissingSince = stamp(now)
-		return entry, true
+	case started.IsZero() || last.IsZero() || now.Sub(last) > missGap:
+		entry.MissingSince, entry.LastMissAt = stamp(now), stamp(now)
+	case now.Sub(started) >= marksKept:
+		if dataGone(inv.root, entry.File) {
+			return entry, false
+		}
+		entry.MissingSince, entry.LastMissAt = "", ""
+	case now.Sub(last) >= missRefresh:
+		entry.LastMissAt = stamp(now)
 	}
-	return entry, now.Sub(lastMarked(entry)) < marksKept
+	return entry, true
 }
 
-// lastMarked is the later of when the conversation went missing and the
-// person's latest mark on it.
-func lastMarked(entry markEntry) time.Time {
-	latest := parseStamp(entry.MissingSince)
-	for _, at := range []string{entry.SeenAt, entry.CompletedAt, entry.HiddenAt} {
-		if marked := parseStamp(at); marked.After(latest) {
-			latest = marked
-		}
+// dataGone reports whether a conversation's own data is gone from its
+// store: one stat, made only when its mark would go. An unknown path or
+// a failed stat proves nothing.
+func dataGone(root, file string) bool {
+	if file == "" {
+		return false
 	}
-	return latest
+	if !filepath.IsAbs(file) {
+		file = filepath.Join(root, file)
+	}
+	_, err := os.Lstat(file)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // The marks file keeps the fields it does not know, so a version that
@@ -190,7 +265,7 @@ var (
 	// and no release reads, so a write drops it.
 	markEntryKeys = map[string]bool{
 		"seenAt": true, "completedAt": true, "hiddenAt": true, "closedWrittenAt": true,
-		"title": true, "source": true, "missingSince": true, "startedBy": true,
+		"title": true, "source": true, "store": true, "file": true, "missingSince": true, "lastMissAt": true, "startedBy": true,
 	}
 	marksFileKeys = map[string]bool{"schemaVersion": true, "since": true, "marks": true}
 )

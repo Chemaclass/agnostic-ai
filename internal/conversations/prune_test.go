@@ -25,7 +25,11 @@ func inventoryOf(results []sourceResult, source markSource) (map[string]bool, bo
 	for _, result := range results {
 		for _, inv := range result.inventories {
 			if inv.source == source {
-				return inv.ids, true
+				ids := map[string]bool{}
+				for id := range inv.files {
+					ids[id] = true
+				}
+				return ids, true
 			}
 		}
 	}
@@ -212,45 +216,84 @@ func (p *pruning) scan(t *testing.T, ctx context.Context) {
 	}
 }
 
+// daily moves the clock a day at a time and scans after each move.
+func (p *pruning) daily(t *testing.T, days int) {
+	t.Helper()
+	for range days {
+		p.now = p.now.Add(24 * time.Hour)
+		p.scan(t, context.Background())
+	}
+}
+
+func (p *pruning) entry(t *testing.T, tool Tool, id string) (markEntry, bool) {
+	t.Helper()
+	entry, ok := storedMarks(t, p.scanner.MarksPath).Marks[markKey(tool, id)]
+	return entry, ok
+}
+
 func (p *pruning) marked(t *testing.T, id string) bool {
 	t.Helper()
-	_, ok := storedMarks(t, p.scanner.MarksPath).Marks[markKey(ToolClaude, id)]
+	_, ok := p.entry(t, ToolClaude, id)
 	return ok
+}
+
+func markAll(t *testing.T, scanner *Scanner, tool Tool, ids ...string) {
+	t.Helper()
+	for _, id := range ids {
+		if err := scanner.Mark(tool, id, MarkSeen); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 // markBothAndRemove marks both sessions, lists them in a complete read,
 // then removes the gone one's transcript.
 func (p *pruning) markBothAndRemove(t *testing.T) {
 	t.Helper()
-	for _, id := range []string{keptID, goneID} {
-		if err := p.scanner.Mark(ToolClaude, id, MarkSeen); err != nil {
-			t.Fatal(err)
-		}
-	}
+	markAll(t, p.scanner, ToolClaude, keptID, goneID)
 	p.scan(t, context.Background())
 	if err := os.Remove(p.transcript(goneID)); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestScan_PrunesAMarkAfterThirtyDaysOfCompleteReadsWithoutItsConversation(t *testing.T) {
+// fileWrites counts how often path was replaced; call it after each scan.
+func fileWrites(t *testing.T, path string) func() int {
+	t.Helper()
+	last, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writes := 0
+	return func() int {
+		now, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !os.SameFile(last, now) {
+			writes++
+		}
+		last = now
+		return writes
+	}
+}
+
+func TestScan_PrunesAMarkAfterThirtyDaysOfDailyCompleteReadsWithoutItsConversation(t *testing.T) {
 	p := newPruning(t)
 	p.markBothAndRemove(t)
 
 	p.now = p.now.Add(time.Hour)
 	p.scan(t, context.Background())
-	if entry := storedMarks(t, p.scanner.MarksPath).Marks[markKey(ToolClaude, goneID)]; entry.MissingSince != stamp(p.now) || entry.Source != sourceClaudeCode {
+	entry, _ := p.entry(t, ToolClaude, goneID)
+	if entry.MissingSince != stamp(p.now) || entry.Source != sourceClaudeCode || entry.Store != storeKey(filepath.Join(p.stores.ClaudeDir, "projects")) || entry.File != filepath.Join("-tmp-app", goneID+".jsonl") {
 		t.Fatalf("first complete miss: %+v", entry)
 	}
 
-	p.now = p.now.Add(29 * 24 * time.Hour)
-	p.scan(t, context.Background())
+	p.daily(t, 29)
 	if !p.marked(t, goneID) {
 		t.Fatal("pruned after 29 days")
 	}
-
-	p.now = p.now.Add(24 * time.Hour)
-	p.scan(t, context.Background())
+	p.daily(t, 1)
 	if p.marked(t, goneID) {
 		t.Error("kept after 30 days of complete reads without it")
 	}
@@ -259,19 +302,80 @@ func TestScan_PrunesAMarkAfterThirtyDaysOfCompleteReadsWithoutItsConversation(t 
 	}
 }
 
+func TestScan_SavesAMissingMarkAtMostOnceADay(t *testing.T) {
+	p := newPruning(t)
+	p.markBothAndRemove(t)
+	writes := fileWrites(t, p.scanner.MarksPath)
+
+	n := 0
+	for range 10 {
+		p.now = p.now.Add(time.Hour)
+		p.scan(t, context.Background())
+		n = writes()
+	}
+	if n != 1 {
+		t.Fatalf("ten scans within a day wrote the marks %d times, want once for the first miss", n)
+	}
+	p.now = p.now.Add(15 * time.Hour)
+	p.scan(t, context.Background())
+	writes()
+	p.scan(t, context.Background())
+	if n := writes(); n != 2 {
+		t.Errorf("the next day wrote the marks %d times in all, want 2", n)
+	}
+}
+
+func TestScan_AMachineOffForAMonthPrunesNothingOnItsFirstReadBack(t *testing.T) {
+	p := newPruning(t)
+	p.markBothAndRemove(t)
+	p.now = p.now.Add(time.Hour)
+	p.scan(t, context.Background())
+
+	p.now = p.now.Add(31 * 24 * time.Hour)
+	p.scan(t, context.Background())
+	if !p.marked(t, goneID) {
+		t.Fatal("one read after a month away pruned the mark")
+	}
+	entry, _ := p.entry(t, ToolClaude, goneID)
+	if entry.MissingSince != stamp(p.now) {
+		t.Errorf("the 30 days did not start again: %+v", entry)
+	}
+	p.daily(t, 29)
+	if !p.marked(t, goneID) {
+		t.Error("pruned 29 days after the pause")
+	}
+}
+
+func TestScan_AnUnreadableMissingTimeStartsTheThirtyDays(t *testing.T) {
+	p := newPruning(t)
+	p.markBothAndRemove(t)
+	for _, broken := range []string{"", "yesterday"} {
+		if err := p.scanner.changeMarks([]string{markKey(ToolClaude, goneID)}, func(entry *markEntry, _ string) {
+			entry.MissingSince, entry.LastMissAt = broken, stamp(p.now)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		p.now = p.now.Add(time.Hour)
+		p.scan(t, context.Background())
+		entry, ok := p.entry(t, ToolClaude, goneID)
+		if !ok || entry.MissingSince != stamp(p.now) {
+			t.Errorf("missingSince %q: %+v, kept %v", broken, entry, ok)
+		}
+	}
+}
+
 func TestScan_AFailedOrPartialReadNeitherRemovesNorAgesAMark(t *testing.T) {
 	p := newPruning(t)
 	p.markBothAndRemove(t)
 
-	// A canceled read, then a read that could not open a folder, for 40 days.
+	// Canceled reads, then reads that could not open a folder, for 40 days.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	p.now = p.now.Add(20 * 24 * time.Hour)
-	p.scan(t, ctx)
-	if !runtimeCanLockFolders() {
-		p.now = p.now.Add(20 * 24 * time.Hour)
+	for range 20 {
+		p.now = p.now.Add(24 * time.Hour)
 		p.scan(t, ctx)
-	} else {
+	}
+	if runtimeCanLockFolders() {
 		unreadable := filepath.Join(p.stores.ClaudeDir, "projects", "-tmp-locked")
 		if err := os.MkdirAll(unreadable, 0o755); err != nil {
 			t.Fatal(err)
@@ -279,20 +383,18 @@ func TestScan_AFailedOrPartialReadNeitherRemovesNorAgesAMark(t *testing.T) {
 		if err := os.Chmod(unreadable, 0); err != nil {
 			t.Fatal(err)
 		}
-		p.now = p.now.Add(20 * 24 * time.Hour)
-		p.scan(t, context.Background())
+		p.daily(t, 20)
 		if err := os.Chmod(unreadable, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if entry := storedMarks(t, p.scanner.MarksPath).Marks[markKey(ToolClaude, goneID)]; entry.MissingSince != "" {
+	if entry, _ := p.entry(t, ToolClaude, goneID); entry.MissingSince != "" {
 		t.Fatalf("an incomplete read started the clock: %+v", entry)
 	}
 
 	// The first complete read starts it; 29 days later the mark still stands.
 	p.scan(t, context.Background())
-	p.now = p.now.Add(29 * 24 * time.Hour)
-	p.scan(t, context.Background())
+	p.daily(t, 29)
 	if !p.marked(t, goneID) {
 		t.Error("incomplete reads aged the mark")
 	}
@@ -306,20 +408,17 @@ func TestScan_AConversationThatReappearsResetsTheClock(t *testing.T) {
 	p.now = p.now.Add(time.Hour)
 	p.scan(t, context.Background())
 
-	p.now = p.now.Add(20 * 24 * time.Hour)
+	p.daily(t, 20)
 	writeMarkedSession(t, p.stores, goneID, "2026-11-07T11:00:00.000Z")
 	p.scan(t, context.Background())
-	if entry := storedMarks(t, p.scanner.MarksPath).Marks[markKey(ToolClaude, goneID)]; entry.MissingSince != "" {
+	if entry, _ := p.entry(t, ToolClaude, goneID); entry.MissingSince != "" || entry.LastMissAt != "" {
 		t.Fatalf("a listed conversation still ages: %+v", entry)
 	}
 
 	if err := os.Remove(p.transcript(goneID)); err != nil {
 		t.Fatal(err)
 	}
-	p.now = p.now.Add(time.Hour)
-	p.scan(t, context.Background())
-	p.now = p.now.Add(29 * 24 * time.Hour)
-	p.scan(t, context.Background())
+	p.daily(t, 29)
 	if !p.marked(t, goneID) {
 		t.Error("the clock went on from before the conversation came back")
 	}
@@ -331,25 +430,71 @@ func TestScan_KeepsMarksWhoseSourceCannotBeTold(t *testing.T) {
 	// a list showed once: neither was ever in a complete inventory.
 	const cloudID = "session_01ABCDEFGHJKMNPQRSTVWXYZ0"
 	p.scanner.Cloud = listedCloud{{Tool: ToolClaude, App: AppCloud, ID: cloudID, Title: "Cloud", UpdatedAt: "2026-11-07T11:00:00Z"}}
-	for _, id := range []string{goneID, cloudID} {
-		if err := p.scanner.Mark(ToolClaude, id, MarkSeen); err != nil {
-			t.Fatal(err)
-		}
-	}
+	markAll(t, p.scanner, ToolClaude, goneID, cloudID)
 	if err := os.Remove(p.transcript(goneID)); err != nil {
 		t.Fatal(err)
 	}
 	p.scan(t, context.Background())
 	p.scanner.Cloud = listedCloud{}
-	for range 3 {
-		p.now = p.now.Add(31 * 24 * time.Hour)
-		p.scan(t, context.Background())
-	}
+	p.daily(t, 40)
 	if !p.marked(t, goneID) {
 		t.Error("pruned a mark whose source is unknown")
 	}
 	if !p.marked(t, cloudID) {
 		t.Error("pruned a cloud mark: a bounded list proves no deletion")
+	}
+}
+
+func TestScan_TwoServersReadingTwoClaudeStoresAgeNoMarkOfTheOther(t *testing.T) {
+	p := newPruning(t)
+	// The companion reads ~/.claude; a terminal's serve reads another
+	// CLAUDE_CONFIG_DIR. Both share one marks file.
+	other, otherStores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
+	other.MarksPath = p.scanner.MarksPath
+	other.Now = func() time.Time { return p.now }
+	const otherID = "33333333-3333-4333-8333-333333333333"
+	writeMarkedSession(t, otherStores, otherID, "2026-11-07T11:00:00.000Z")
+	markAll(t, p.scanner, ToolClaude, keptID)
+	p.scan(t, context.Background())
+	markAll(t, other, ToolClaude, otherID)
+	other.Scan(context.Background(), ScanOptions{})
+	p.scan(t, context.Background())
+
+	writes := fileWrites(t, p.scanner.MarksPath)
+	for range 40 {
+		p.now = p.now.Add(24 * time.Hour)
+		p.scan(t, context.Background())
+		writes()
+		other.Scan(context.Background(), ScanOptions{})
+	}
+	if n := writes(); n != 0 {
+		t.Errorf("two servers rewrote the marks %d times", n)
+	}
+	for _, id := range []string{keptID, otherID} {
+		if entry, ok := p.entry(t, ToolClaude, id); !ok || entry.MissingSince != "" {
+			t.Errorf("%s aged by the other store's reads: %+v, kept %v", id, entry, ok)
+		}
+	}
+}
+
+func TestScan_AnEmptyStoreProvesNothing(t *testing.T) {
+	p := newPruning(t)
+	p.markBothAndRemove(t)
+	// The store is recreated empty, as after a move or with a disk not mounted.
+	if err := os.RemoveAll(filepath.Join(p.stores.ClaudeDir, "projects")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(p.stores.ClaudeDir, "projects", "-tmp-app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, complete := inventoryOf(readEvery(t, p.scanner, context.Background(), ScanOptions{}), sourceClaudeCode); complete {
+		t.Fatal("an empty store proved a full inventory")
+	}
+	p.daily(t, 40)
+	for _, id := range []string{keptID, goneID} {
+		if entry, ok := p.entry(t, ToolClaude, id); !ok || entry.MissingSince != "" {
+			t.Errorf("%s aged by an empty store: %+v, kept %v", id, entry, ok)
+		}
 	}
 }
 
@@ -372,10 +517,7 @@ func TestScan_PruningKeepsFieldsItDoesNotKnow(t *testing.T) {
 	}
 	write(t, p.scanner.MarksPath, string(raw))
 
-	p.now = p.now.Add(time.Hour)
-	p.scan(t, context.Background())
-	p.now = p.now.Add(30 * 24 * time.Hour)
-	p.scan(t, context.Background())
+	p.daily(t, 31)
 	if p.marked(t, goneID) {
 		t.Fatal("not pruned")
 	}
@@ -393,7 +535,8 @@ func TestScan_AMarkMadeWhilePruningIsKept(t *testing.T) {
 	p.markBothAndRemove(t)
 	p.now = p.now.Add(time.Hour)
 	p.scan(t, context.Background())
-	p.now = p.now.Add(30 * 24 * time.Hour)
+	p.daily(t, 29)
+	p.now = p.now.Add(24 * time.Hour)
 
 	// Another server shares the file and marks while this one prunes.
 	other, _ := testScanner(t, noSQLite, fakeProcesses{})
@@ -428,20 +571,145 @@ func TestScan_AMarkMadeWhilePruningIsKept(t *testing.T) {
 	}
 }
 
-func TestScan_AFreshMarkOnAMissingConversationHoldsThePrune(t *testing.T) {
-	p := newPruning(t)
-	p.markBothAndRemove(t)
-	p.now = p.now.Add(time.Hour)
-	p.scan(t, context.Background())
-
-	p.now = p.now.Add(10 * 24 * time.Hour)
-	if err := p.scanner.Mark(ToolClaude, goneID, MarkCompleted); err != nil {
+// codexStateStore writes a real Codex thread index with one user thread
+// per id, each with its rollout under sessions/.
+func codexStateStore(t *testing.T, stores Stores, ids ...string) {
+	t.Helper()
+	needSQLite(t)
+	path := filepath.Join(stores.CodexDir, "state_5.sqlite")
+	_ = os.Remove(path)
+	script := `CREATE TABLE threads (id TEXT PRIMARY KEY, cwd TEXT, created_at_ms INTEGER, updated_at_ms INTEGER, originator TEXT, source TEXT,
+  git_branch TEXT, name TEXT, title TEXT, first_user_message TEXT, rollout_path TEXT, archived INTEGER, archived_at INTEGER, thread_source TEXT);`
+	for _, id := range ids {
+		script += fmt.Sprintf(`INSERT INTO threads VALUES ('%s', '/tmp/app', 1794045600000, 1794049200000, 'codex-tui', 'cli', '', 'Plan', '', 'Plan it', '%s', 0, 0, 'user');`, id, codexRollout(stores, id))
+	}
+	if err := os.MkdirAll(stores.CodexDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	p.now = p.now.Add(21 * 24 * time.Hour)
+	sqliteExec(t, path, script)
+}
+
+func codexRollout(stores Stores, id string) string {
+	return filepath.Join(stores.CodexDir, "sessions", "2026", "11", "07", "rollout-"+id+".jsonl")
+}
+
+func TestScan_PrunesAndKeepsCodexMarksFromARealIndex(t *testing.T) {
+	needSQLite(t)
+	p := newPruning(t)
+	p.scanner.SQLite = RunSQLite
+	const unknownPath = "44444444-4444-4444-8444-444444444444"
+	for _, id := range []string{keptID, goneID} {
+		write(t, codexRollout(p.stores, id), "{}\n")
+	}
+	codexStateStore(t, p.stores, keptID, goneID)
+	sqliteExec(t, filepath.Join(p.stores.CodexDir, "state_5.sqlite"), `INSERT INTO threads VALUES ('`+unknownPath+`', '/tmp/app', 1794045600000, 1794049200000, 'codex-tui', 'cli', '', 'Plan', '', 'Plan it', '', 0, 0, 'user');`)
+	markAll(t, p.scanner, ToolCodex, keptID, goneID, unknownPath)
 	p.scan(t, context.Background())
-	if !p.marked(t, goneID) {
-		t.Error("pruned a mark made after its conversation went missing")
+
+	// The index loses both threads, but only one rollout is gone. The
+	// third thread's index row named no rollout.
+	codexStateStore(t, p.stores, keptID)
+	if err := os.Remove(codexRollout(p.stores, goneID)); err != nil {
+		t.Fatal(err)
+	}
+	p.now = p.now.Add(time.Hour)
+	p.scan(t, context.Background())
+	p.daily(t, 29)
+	if _, ok := p.entry(t, ToolCodex, goneID); !ok {
+		t.Fatal("pruned after 29 days")
+	}
+	p.daily(t, 1)
+	if _, ok := p.entry(t, ToolCodex, goneID); ok {
+		t.Error("a thread gone from the index and its rollout kept its mark")
+	}
+	if _, ok := p.entry(t, ToolCodex, keptID); !ok {
+		t.Error("a listed thread lost its mark")
+	}
+	if _, ok := p.entry(t, ToolCodex, unknownPath); !ok {
+		t.Error("a thread whose rollout was never known lost its mark")
+	}
+}
+
+func TestScan_KeepsACodexMarkWhoseRolloutIsStillThere(t *testing.T) {
+	needSQLite(t)
+	p := newPruning(t)
+	p.scanner.SQLite = RunSQLite
+	for _, id := range []string{keptID, goneID} {
+		write(t, codexRollout(p.stores, id), "{}\n")
+	}
+	codexStateStore(t, p.stores, keptID, goneID)
+	markAll(t, p.scanner, ToolCodex, goneID)
+	p.scan(t, context.Background())
+
+	// A new index generation that Codex has only partly filled.
+	codexStateStore(t, p.stores, keptID)
+	p.daily(t, 31)
+	entry, ok := p.entry(t, ToolCodex, goneID)
+	if !ok {
+		t.Fatal("pruned a thread whose rollout is still on disk")
+	}
+	if entry.MissingSince != "" && parseStamp(entry.MissingSince).Before(p.now.Add(-24*time.Hour)) {
+		t.Errorf("the 30 days did not start again after the check: %+v", entry)
+	}
+}
+
+func TestReadAll_CodexWithAnEmptyIndexProvesNothing(t *testing.T) {
+	needSQLite(t)
+	scanner, stores := testScanner(t, RunSQLite, fakeProcesses{})
+	codexStateStore(t, stores)
+	if _, complete := inventoryOf(readEvery(t, scanner, context.Background(), ScanOptions{}), sourceCodex); complete {
+		t.Error("an index with no thread proved a full inventory")
+	}
+}
+
+func markedAgentChat(t *testing.T, stores Stores, id string) string {
+	t.Helper()
+	folder := filepath.Join(stores.CursorDir, "chats", md5Hex("/tmp/app"), id)
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := hex.EncodeToString([]byte(`{"agentId":"` + id + `","name":"Fix it","createdAt":1777203106986}`))
+	sqliteExec(t, filepath.Join(folder, "store.db"), `CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT); INSERT INTO meta VALUES ('0', '`+meta+`');`)
+	return folder
+}
+
+func TestScan_PrunesAndKeepsCursorAgentMarksFromRealStores(t *testing.T) {
+	needSQLite(t)
+	p := newPruning(t)
+	p.scanner.SQLite = RunSQLite
+	markedAgentChat(t, p.stores, keptID)
+	gone := markedAgentChat(t, p.stores, goneID)
+	markAll(t, p.scanner, ToolCursor, keptID, goneID)
+	p.scan(t, context.Background())
+	if entry, _ := p.entry(t, ToolCursor, goneID); entry.Source != sourceCursorAgent || entry.File != filepath.Join(md5Hex("/tmp/app"), goneID) {
+		t.Fatalf("not attributed to its chat folder: %+v", entry)
+	}
+
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+	p.now = p.now.Add(time.Hour)
+	p.scan(t, context.Background())
+	p.daily(t, 29)
+	if _, ok := p.entry(t, ToolCursor, goneID); !ok {
+		t.Fatal("pruned after 29 days")
+	}
+	p.daily(t, 1)
+	if _, ok := p.entry(t, ToolCursor, goneID); ok {
+		t.Error("a deleted cursor-agent chat kept its mark")
+	}
+	if _, ok := p.entry(t, ToolCursor, keptID); !ok {
+		t.Error("a listed chat lost its mark")
+	}
+}
+
+func TestReadAll_AnEmptyCursorAgentChatsFolderProvesNothing(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	if err := os.MkdirAll(filepath.Join(stores.CursorDir, "chats"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, ids := scanner.cursorAgentChats(context.Background(), nil, nil); provenBy(sourceCursorAgent, ToolCursor, "", ids) != nil {
+		t.Error("an empty chats folder proved a full inventory")
 	}
 }
 
@@ -478,6 +746,24 @@ func TestMarksFile_KnownKeysAreTheFieldsItEncodes(t *testing.T) {
 			if name, _, _ := strings.Cut(field.Tag.Get("json"), ","); name != "" && !known[name] {
 				t.Errorf("%s field %q is missing from its known keys, so a read would keep a second copy", typ, name)
 			}
+		}
+	}
+}
+
+func TestListTree_FindsWhatGlobFinds(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"a/x.jsonl", "a/y.json", "a/abc", "a/store.db", "b/c/store.db", "b/d/x.jsonl", ".h/z.jsonl"} {
+		write(t, filepath.Join(root, name), "")
+	}
+	for _, tc := range []struct {
+		levels  int
+		pattern string
+	}{{1, "*.jsonl"}, {1, "store.db"}, {1, "a?c"}, {2, "store.db"}, {2, "*.jsonl"}} {
+		glob := filepath.Join(root, strings.Repeat("*"+string(filepath.Separator), tc.levels)+tc.pattern)
+		want, _ := filepath.Glob(glob)
+		got, complete := listTree(root, tc.levels, tc.pattern)
+		if !complete || strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%s: listTree %v (complete %v), Glob %v", glob, got, complete, want)
 		}
 	}
 }

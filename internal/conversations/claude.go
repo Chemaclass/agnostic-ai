@@ -273,7 +273,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	}
 	seen := map[string]bool{}
 	seenMetas := map[string]bool{}
-	ids := make(map[string]bool, len(files))
+	ids := make(map[string]string, len(files))
 	var conversations []Conversation
 	var workerFiles []string
 	for _, file := range files {
@@ -285,7 +285,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			continue
 		}
 		seen[file] = true
-		ids[id] = true
+		ids[id] = strings.TrimPrefix(file, projects+string(filepath.Separator))
 		meta, ok := s.claudeMeta(file)
 		if !ok || meta.sidechain || strings.HasPrefix(meta.entrypoint, "sdk") || (meta.title == "" && meta.firstPrompt == "" && meta.lastPrompt == "") {
 			continue
@@ -342,7 +342,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	result := found(ToolClaude, within(conversations, opts.Within))
 	result.source.Note = liveNote
 	if listedAll && ctx.Err() == nil {
-		result.inventories = provenBy(sourceClaudeCode, ToolClaude, ids)
+		result.inventories = provenBy(sourceClaudeCode, ToolClaude, projects, ids)
 	}
 	return result
 }

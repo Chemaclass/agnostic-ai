@@ -145,12 +145,12 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 	agentChats, agentIDs := s.cursorAgentChats(ctx, folders, opts.Within)
 	if note != "" && len(agentChats) == 0 {
 		result := missing(ToolCursor, note)
-		result.inventories = provenBy(sourceCursorAgent, ToolCursor, agentIDs)
+		result.inventories = provenBy(sourceCursorAgent, ToolCursor, filepath.Join(s.Stores.CursorDir, "chats"), agentIDs)
 		return result
 	}
 	result := found(ToolCursor, append(within(editorChats, opts.Within), within(agentChats, opts.Within)...))
 	result.source.Note = note
-	result.inventories = provenBy(sourceCursorAgent, ToolCursor, agentIDs)
+	result.inventories = provenBy(sourceCursorAgent, ToolCursor, filepath.Join(s.Stores.CursorDir, "chats"), agentIDs)
 	return result
 }
 
@@ -380,12 +380,13 @@ const cursorAgentDefaultName = "New Agent"
 // cursorAgentChats lists cursor-agent CLI chats. They live under
 // chats/<md5 of the folder>/<chat id>, so the folder is found by
 // hashing the folders Cursor's editor chats and the project use. ids
-// holds every chat id the chats folder holds, or is nil when a folder
-// or a chat's store could not be read.
-func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool, roots []string) (chats []Conversation, ids map[string]bool) {
-	stores, listedAll := listTree(filepath.Join(s.Stores.CursorDir, "chats"), 2, "store.db")
+// maps every chat id the chats folder holds to its chat's folder, or is
+// nil when a folder or a chat's store could not be read.
+func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool, roots []string) (chats []Conversation, ids map[string]string) {
+	root := filepath.Join(s.Stores.CursorDir, "chats")
+	stores, listedAll := listTree(root, 2, "store.db")
 	if listedAll {
-		ids = make(map[string]bool, len(stores))
+		ids = make(map[string]string, len(stores))
 	}
 	if len(stores) == 0 {
 		s.setCursorLiveTranscripts(nil)
@@ -411,9 +412,10 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		if ids != nil {
 			// A chat's folder is named after its id; a store whose
 			// metadata could not be read leaves the inventory unproven.
-			ids[filepath.Base(filepath.Dir(store))] = true
+			folder := strings.TrimPrefix(filepath.Dir(store), root+string(filepath.Separator))
+			ids[filepath.Base(folder)] = folder
 			if ok {
-				ids[meta.AgentID] = true
+				ids[meta.AgentID] = folder
 			}
 			if _, read := s.cursorAgents[store]; !read {
 				ids = nil

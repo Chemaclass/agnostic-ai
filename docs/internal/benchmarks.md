@@ -246,10 +246,26 @@ Each `lsof` run costs about 120 ms whatever it is asked, because it reads every 
 
 `BenchmarkPruneMarks` is the pass over the same 2,000 marks once a store was read in full, when nothing changes.
 
-Measured 2026-11-17 on an Apple M4 Pro, Go 1.27.4, `-count 3`, in milliseconds per read:
+Measured 2026-11-17 on an Apple M4 Pro, Go 1.27.4, `-count 6 -cpu 4`, on a busy machine, in milliseconds per read:
 
 | status-quo | proposed | baseline | prune pass |
 |---:|---:|---:|---:|
-| 0.91 | 1.14 | 0.16 | 0.08 |
+| 1.19 | 1.53 | 0.24 | 0.12 |
 
-The strict pass adds about 0.2 ms a scan at 2,000 marks, against about 120 ms for one `lsof` run in the same scan. A first try that decoded every entry twice took 3.5 ms.
+The strict pass adds about 0.3 ms a scan at 2,000 marks, against about 120 ms for one `lsof` run in the same scan. A first try that decoded every entry twice took 3.5 ms.
+
+## Listing Claude Code transcripts
+
+`BenchmarkListTranscripts` in the same file lists 5,000 transcripts in 100 project folders, each session with its own folder beside it, as every Claude Code scan does:
+
+- `status-quo`: `filepath.Glob(projects/*/*.jsonl)`, which skips a folder it cannot open without saying so.
+- `shipped`: `listTree`, which also says whether every folder was read, so a scan can prove it listed the whole store. It compares a name with a plain suffix or equality check and joins a path only for a match.
+- `baseline`: a bare `os.ReadDir` walk with a suffix check and no error checks.
+
+Measured the same day, `-count 6 -cpu 4`, in milliseconds per scan:
+
+| status-quo | shipped | baseline |
+|---:|---:|---:|
+| 10.1 | 6.8 | 6.9 |
+
+A first `listTree` that ran `filepath.Match` on every name and joined every path took 11.6 ms. `cursor-agent` chat stores use the same walk.

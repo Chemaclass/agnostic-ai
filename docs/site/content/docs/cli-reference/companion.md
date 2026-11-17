@@ -133,7 +133,7 @@ The Claude app keeps no archive flag on this computer, only its list of chats th
 - A read of the app's storage that fails says so in the Claude Code tool's note, and nothing is read as archived from it.
 - A restarted server remembers nothing, so a chat archived while no server ran is not listed.
 
-The ChatGPT reader has no archive flag, so a chat archived in ChatGPT stays a normal row. A chat deleted in its app leaves the list once its store no longer holds it. Its marks leave `conversation-marks.json` 30 days later, only for Claude Code, Codex and `cursor-agent`, whose stores the server reads in full. See [Marks](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
+The ChatGPT reader has no archive flag, so a chat archived in ChatGPT stays a normal row. A chat deleted in its app leaves the list once its store no longer holds it. Its marks leave `conversation-marks.json` once full reads have missed it for 30 days, only for Claude Code, Codex and `cursor-agent`, whose stores the server reads in full. See [Marks](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
 
 ## Delete an archived chat
 

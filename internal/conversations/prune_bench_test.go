@@ -3,6 +3,9 @@ package conversations
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -13,7 +16,8 @@ func marksFixture(b *testing.B, n int) []byte {
 	file := marksFile{SchemaVersion: marksSchemaVersion, Since: "2026-01-01T00:00:00Z", Marks: map[string]markEntry{}}
 	for i := range n {
 		file.Marks[markKey(ToolClaude, fmt.Sprintf("%08d-1111-4111-8111-111111111111", i))] = markEntry{
-			SeenAt: "2026-11-07T12:00:00Z", CompletedAt: "2026-11-07T12:00:00Z", Title: "Fix the parser", Source: sourceClaudeCode,
+			SeenAt: "2026-11-07T12:00:00Z", CompletedAt: "2026-11-07T12:00:00Z", Title: "Fix the parser", Source: sourceClaudeCode, Store: storeKey("/home/me/.claude/projects"),
+			File: filepath.Join("-tmp-app", fmt.Sprintf("%08d-1111-4111-8111-111111111111", i)+".jsonl"),
 		}
 	}
 	raw, err := json.Marshal(file)
@@ -35,7 +39,10 @@ func BenchmarkDecodeMarks(b *testing.B) {
 		ClosedWrittenAt string     `json:"closedWrittenAt,omitempty"`
 		Title           string     `json:"title,omitempty"`
 		Source          markSource `json:"source,omitempty"`
+		Store           string     `json:"store,omitempty"`
+		File            string     `json:"file,omitempty"`
 		MissingSince    string     `json:"missingSince,omitempty"`
+		LastMissAt      string     `json:"lastMissAt,omitempty"`
 	}
 	b.Run("status-quo", func(b *testing.B) {
 		for b.Loop() {
@@ -73,11 +80,12 @@ func BenchmarkPruneMarks(b *testing.B) {
 	if err := decodeMarks(marksFixture(b, 2000), &file); err != nil {
 		b.Fatal(err)
 	}
-	ids := map[string]bool{}
+	ids := map[string]string{}
 	for key := range file.Marks {
-		ids[key[len("claude:"):]] = true
+		id := key[len("claude:"):]
+		ids[id] = filepath.Join("-tmp-app", id+".jsonl")
 	}
-	results := []sourceResult{{inventories: provenBy(sourceClaudeCode, ToolClaude, ids)}}
+	results := []sourceResult{{inventories: provenBy(sourceClaudeCode, ToolClaude, "/home/me/.claude/projects", ids)}}
 	scanner := &Scanner{}
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	for b.Loop() {
@@ -85,4 +93,57 @@ func BenchmarkPruneMarks(b *testing.B) {
 			b.Fatal("a pass with every conversation listed changed the file")
 		}
 	}
+}
+
+// BenchmarkListTranscripts lists about 5,000 Claude Code transcripts in
+// 100 project folders, each session with its own folder beside it, as
+// every Claude Code scan does. status-quo is the glob the scan used,
+// shipped is listTree, which also says whether every folder was read,
+// and baseline is a bare os.ReadDir walk with no checks.
+func BenchmarkListTranscripts(b *testing.B) {
+	projects := filepath.Join(b.TempDir(), "projects")
+	for p := range 100 {
+		dir := filepath.Join(projects, fmt.Sprintf("-Users-me-code-project-%03d", p))
+		for s := range 50 {
+			id := fmt.Sprintf("%08d-1111-4111-8111-%012d", p, s)
+			if err := os.MkdirAll(filepath.Join(dir, id, "subagents"), 0o755); err != nil {
+				b.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, id+".jsonl"), nil, 0o644); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+	const want = 5000
+	b.Run("status-quo", func(b *testing.B) {
+		for b.Loop() {
+			if files, _ := filepath.Glob(filepath.Join(projects, "*", "*.jsonl")); len(files) != want {
+				b.Fatal(len(files))
+			}
+		}
+	})
+	b.Run("shipped", func(b *testing.B) {
+		for b.Loop() {
+			if files, complete := listTree(projects, 1, "*.jsonl"); len(files) != want || !complete {
+				b.Fatal(len(files))
+			}
+		}
+	})
+	b.Run("baseline", func(b *testing.B) {
+		for b.Loop() {
+			var files []string
+			folders, _ := os.ReadDir(projects)
+			for _, folder := range folders {
+				entries, _ := os.ReadDir(filepath.Join(projects, folder.Name()))
+				for _, entry := range entries {
+					if strings.HasSuffix(entry.Name(), ".jsonl") {
+						files = append(files, filepath.Join(projects, folder.Name(), entry.Name()))
+					}
+				}
+			}
+			if len(files) != want {
+				b.Fatal(len(files))
+			}
+		}
+	})
 }

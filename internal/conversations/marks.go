@@ -100,11 +100,15 @@ type markEntry struct {
 	// Title is the name the person chose, shown over the tool's own. A
 	// new message keeps it.
 	Title string `json:"title,omitempty"`
-	// Source and MissingSince date a conversation that left its store;
-	// see pruneMarks. An older version drops both on write, which only
-	// starts the clock again.
+	// Source, Store and File say which store a complete read listed the
+	// conversation in and where its own data sits there; MissingSince and
+	// LastMissAt date the complete reads of that store that missed it.
+	// See pruneMarks.
 	Source       markSource `json:"source,omitempty"`
+	Store        string     `json:"store,omitempty"`
+	File         string     `json:"file,omitempty"`
 	MissingSince string     `json:"missingSince,omitempty"`
+	LastMissAt   string     `json:"lastMissAt,omitempty"`
 
 	extra unknownJSON
 }
