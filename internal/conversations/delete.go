@@ -336,9 +336,12 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 		started[process.PID] = process.Started
 	}
 	live := false
-	entries, err := s.claudeLiveEntries()
+	entries, unreadable, err := s.claudeLiveEntries()
 	var missingDir *fs.PathError
 	oldVersion := errors.As(err, &missingDir) && missingDir.Path == filepath.Join(s.Stores.ClaudeDir, "sessions") && errors.Is(err, os.ErrNotExist)
+	if err == nil {
+		err = unreadableHeld(unreadable, func(pid int) bool { _, runs := started[pid]; return runs })
+	}
 	if err != nil && !oldVersion {
 		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
 	}

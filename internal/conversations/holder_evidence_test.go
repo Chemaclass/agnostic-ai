@@ -2,7 +2,6 @@ package conversations
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -75,53 +74,84 @@ func TestScan_AFailedCodexLockStatCannotProveClosure(t *testing.T) {
 	}
 }
 
-func TestScan_IncompleteClaudeSessionFilesCannotProveClosure(t *testing.T) {
+func TestScan_AnUnreadableClaudeSessionFileOfARunningProcessCannotProveClosure(t *testing.T) {
 	for _, kind := range []string{"malformed", "invalid", "unreadable", "unlistable"} {
-		t.Run(kind, func(t *testing.T) {
-			scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{4242: true}})
-			writeMarkedSession(t, stores, idSafari, "2026-11-07T11:00:00Z")
-			writeMarkedSession(t, stores, idCache, "2026-11-07T11:00:00Z")
-			sessions := filepath.Join(stores.ClaudeDir, "sessions")
-			if kind == "unlistable" {
-				write(t, sessions, "not a directory")
-			} else {
-				writeClaudeProcess(t, stores, 4242, idCache, "idle")
-				file := filepath.Join(sessions, "5151.json")
-				if kind == "malformed" {
-					write(t, file, "{")
-				} else if kind == "invalid" {
-					write(t, file, "{}")
-				} else if err := os.Mkdir(file, 0o700); err != nil {
-					t.Fatal(err)
+		for _, runs := range []bool{true, false} {
+			t.Run(kind+" "+strconv.FormatBool(runs), func(t *testing.T) {
+				alive := map[int]bool{4242: true, 5151: runs}
+				scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: alive})
+				writeMarkedSession(t, stores, idSafari, "2026-11-07T11:00:00Z")
+				writeMarkedSession(t, stores, idCache, "2026-11-07T11:00:00Z")
+				sessions := filepath.Join(stores.ClaudeDir, "sessions")
+				if kind == "unlistable" {
+					write(t, sessions, "not a directory")
+				} else {
+					writeClaudeProcess(t, stores, 4242, idCache, "idle")
+					file := filepath.Join(sessions, "5151.json")
+					if kind == "malformed" {
+						write(t, file, "{")
+					} else if kind == "invalid" {
+						write(t, file, "{}")
+					} else if err := os.Mkdir(file, 0o700); err != nil {
+						t.Fatal(err)
+					}
 				}
-			}
-			view := scanner.Scan(context.Background(), ScanOptions{})
-			if c := byID(t, view, idSafari); c.liveRead || c.State != StateActive {
-				t.Errorf("incomplete session evidence keeps the existing fallback: %+v", c)
-			}
-			if kind != "unlistable" && !byID(t, view, idCache).Live {
-				t.Error("a valid live entry survives an incomplete read")
-			}
-		})
+				view := scanner.Scan(context.Background(), ScanOptions{})
+				blocked := runs || kind == "unlistable"
+				c := byID(t, view, idSafari)
+				if blocked && (c.liveRead || c.State != StateActive) {
+					t.Errorf("unreadable evidence of a running process keeps the existing fallback: %+v", c)
+				}
+				if !blocked && (!c.liveRead || c.State != StateDormant) {
+					t.Errorf("a file a crash left behind, whose process is gone, does not block closure: %+v", c)
+				}
+				if kind != "unlistable" && !byID(t, view, idCache).Live {
+					t.Error("a valid live entry survives an incomplete read")
+				}
+				note := claudeNote(view)
+				if kind != "unlistable" && runs != strings.Contains(note, "5151.json") {
+					t.Errorf("the Claude Code note names the blocking file only while its process runs: %q", note)
+				}
+			})
+		}
 	}
 }
 
-func TestStillClosed_RefusesIncompleteClaudeSessionEvidence(t *testing.T) {
-	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
-	writeMarkedSession(t, stores, idSafari, "2026-11-07T11:00:00Z")
-	file := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
-	measured, err := os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
+func claudeNote(view View) string {
+	for _, source := range view.Tools {
+		if source.Tool == ToolClaude {
+			return source.Note
+		}
 	}
-	bad := filepath.Join(stores.ClaudeDir, "sessions", "5151.json")
-	if err := os.MkdirAll(bad, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	err = scanner.stillClosed(Conversation{ID: idSafari, file: file}, measured, "changed")
-	var refused *DeleteError
-	if !errors.As(err, &refused) || refused.Kind != DeleteFailed || refused.Cause == nil || !strings.Contains(refused.Cause.Error(), bad) {
-		t.Errorf("unreadable holder evidence refuses deletion and retains its path: %v", err)
+	return ""
+}
+
+func TestStillClosed_RefusesOnlyAnUnreadableClaudeSessionFileWhoseProcessRuns(t *testing.T) {
+	for _, runs := range []bool{true, false} {
+		t.Run(strconv.FormatBool(runs), func(t *testing.T) {
+			var table []ProcessInfo
+			if runs {
+				table = []ProcessInfo{{PID: 5151, Started: "Sat Nov  7 09:00:00 2026"}}
+			}
+			scanner, stores := testScanner(t, noSQLite, fakeProcesses{table: table})
+			writeMarkedSession(t, stores, idSafari, "2026-11-07T11:00:00Z")
+			file := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+			measured, err := os.Stat(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bad := filepath.Join(stores.ClaudeDir, "sessions", "5151.json")
+			if err := os.MkdirAll(bad, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			refused := scanner.stillClosed(Conversation{ID: idSafari, file: file}, measured, "changed")
+			switch {
+			case runs && (refused == nil || refused.Kind != DeleteFailed || refused.Cause == nil || !strings.Contains(refused.Cause.Error(), bad)):
+				t.Errorf("unreadable holder evidence of a running process refuses deletion and names its path: %v", refused)
+			case !runs && refused != nil:
+				t.Errorf("a file whose process is gone does not refuse deletion: %v", refused)
+			}
+		})
 	}
 }
 

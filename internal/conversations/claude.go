@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -262,7 +263,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	if err != nil {
 		return missing(ToolClaude, "Could not list "+projects)
 	}
-	live, liveRead := s.claudeLiveSessions()
+	live, liveRead, liveNote := s.claudeLiveSessions()
 	jobs := s.claudeActiveJobs()
 	editor := extensionEditor(s.Stores.Home, "anthropic.claude-code", opts.Editor)
 	if s.claude == nil {
@@ -331,7 +332,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			delete(s.claudeWorkers, file)
 		}
 	}
-	return found(ToolClaude, within(conversations, opts.Within))
+	result := found(ToolClaude, within(conversations, opts.Within))
+	result.source.Note = liveNote
+	return result
 }
 
 // claudeRoute picks where a session reopens: its background job, the
@@ -547,16 +550,27 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // process holds to that process. Each sessions/<pid>.json belongs to
 // one process; a crash leaves it behind, so the pid must still be the
 // process that wrote it. The sibling *.key files hold credentials and
-// are never read. read is false when the session files or process table could not be read.
-func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool) {
-	entries, entriesErr := s.claudeLiveEntries()
+// are never read. read is false when the sessions folder or the process
+// table could not be read, or a session file could not be read while the
+// process its name gives still runs; note then says which.
+func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool, note string) {
+	entries, unreadable, entriesErr := s.claudeLiveEntries()
 	var processes []ProcessRef
 	for _, entry := range entries {
 		processes = append(processes, ProcessRef{PID: entry.PID, ProcStart: entry.ProcStart})
 	}
+	for pid := range unreadable {
+		processes = append(processes, ProcessRef{PID: pid})
+	}
 	// One question for every session: asking about each in turn starts
 	// a ps per open session on every scan.
 	alive, err := s.Processes.AliveAmong(processes)
+	if err == nil {
+		if blocking := unreadableHeld(unreadable, func(pid int) bool { return alive[pid] }); blocking != nil {
+			entriesErr = errors.Join(entriesErr, blocking)
+			note = "A Claude Code session file could not be read while its process runs, so no session is shown as closed: " + blocking.Error()
+		}
+	}
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {
@@ -567,41 +581,56 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor}
 		}
 	}
-	return live, err == nil && entriesErr == nil
+	return live, err == nil && entriesErr == nil, note
+}
+
+// unreadableHeld is the error for the unreadable session files whose
+// process, named by the file, still runs: one of them may hold any
+// session. A file whose process is gone, as a crash leaves it, holds none.
+func unreadableHeld(unreadable map[int]error, running func(pid int) bool) error {
+	var held error
+	for pid, err := range unreadable {
+		if running(pid) {
+			held = errors.Join(held, err)
+		}
+	}
+	return held
 }
 
 // claudeLiveEntries reads sessions/<pid>.json, which a Claude Code
 // process writes while it runs and may leave behind when it dies.
-func (s *Scanner) claudeLiveEntries() ([]claudeLive, error) {
+// unreadable maps the pid in the name of each file that could not be
+// read or parsed to why; err says the folder could not be listed.
+func (s *Scanner) claudeLiveEntries() (entries []claudeLive, unreadable map[int]error, err error) {
 	dir := filepath.Join(s.Stores.ClaudeDir, "sessions")
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", dir, err)
+		return nil, nil, fmt.Errorf("%s: %w", dir, err)
 	}
-	var entries []claudeLive
-	var readErr error
+	unreadable = map[int]error{}
 	for _, file := range files {
 		if !liveSessionFile.MatchString(file.Name()) {
 			continue
 		}
 		path := filepath.Join(dir, file.Name())
+		pid, _ := strconv.Atoi(strings.TrimSuffix(file.Name(), ".json"))
 		data, err := os.ReadFile(path)
 		if err != nil {
-			readErr = errors.Join(readErr, fmt.Errorf("%s: %w", path, err))
+			unreadable[pid] = fmt.Errorf("%s: %w", path, err)
 			continue
 		}
 		var entry claudeLive
 		if err := json.Unmarshal(data, &entry); err != nil {
-			readErr = errors.Join(readErr, fmt.Errorf("parse %s: %w", path, err))
+			unreadable[pid] = fmt.Errorf("parse %s: %w", path, err)
 			continue
 		}
 		if entry.SessionID == "" || entry.PID <= 0 {
-			readErr = errors.Join(readErr, fmt.Errorf("parse %s: missing process or session id", path))
+			unreadable[pid] = fmt.Errorf("parse %s: missing process or session id", path)
 			continue
 		}
 		entries = append(entries, entry)
 	}
-	return entries, readErr
+	return entries, unreadable, nil
 }
 
 // claudeActiveJobs maps session ids to the background job that holds
