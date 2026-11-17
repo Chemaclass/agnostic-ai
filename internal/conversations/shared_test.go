@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -241,12 +242,14 @@ func sharedScanner(t *testing.T) (*Scanner, Stores, *time.Time) {
 }
 
 func TestMark_OnASharedRowAlsoMarksItsCloudRow(t *testing.T) {
-	for name, end := range map[string]func(t *testing.T, scanner *Scanner, stores Stores){
-		"the session ends": func(t *testing.T, scanner *Scanner, _ Stores) {
-			scanner.Processes = fakeProcesses{}
+	for name, end := range map[string]func(t *testing.T, scanner *Scanner, stores Stores) *Scanner{
+		// The server that saw them shared keeps them one row; a new one lists both.
+		"the session ends and the server restarts": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			return restartedScanner(scanner, stores)
 		},
-		"Remote Control is turned off": func(t *testing.T, _ *Scanner, stores Stores) {
+		"Remote Control is turned off": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
 			writeBridgedSession(t, stores, 71, idSafari, "idle", "")
+			return scanner
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -260,9 +263,7 @@ func TestMark_OnASharedRowAlsoMarksItsCloudRow(t *testing.T) {
 			if view := scanner.Scan(context.Background(), ScanOptions{}); view.NeedsYou != 0 {
 				t.Fatalf("after the mark: needs you %d", view.NeedsYou)
 			}
-			end(t, scanner, stores)
-
-			view := scanner.Scan(context.Background(), ScanOptions{})
+			view := end(t, scanner, stores).Scan(context.Background(), ScanOptions{})
 
 			if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || cloud.SeenAt != "2026-11-07T12:00:00Z" {
 				t.Errorf("cloud row = %s", asJSON(t, cloud))
@@ -275,7 +276,7 @@ func TestMark_OnASharedRowAlsoMarksItsCloudRow(t *testing.T) {
 }
 
 func TestMark_TakingACompletionBackOnASharedRowTakesItBackOnItsCloudRow(t *testing.T) {
-	scanner, _, at := sharedScanner(t)
+	scanner, stores, at := sharedScanner(t)
 	*at = time.Date(2026, 11, 7, 11, 15, 0, 0, time.UTC)
 	if err := scanner.Mark(ToolClaude, idSafari, MarkCompleted); err != nil {
 		t.Fatal(err)
@@ -283,11 +284,10 @@ func TestMark_TakingACompletionBackOnASharedRowTakesItBackOnItsCloudRow(t *testi
 	if err := scanner.Mark(ToolClaude, idSafari, MarkOpen); err != nil {
 		t.Fatal(err)
 	}
-	scanner.Processes = fakeProcesses{}
 
-	view := scanner.Scan(context.Background(), ScanOptions{})
+	view := restartedScanner(scanner, stores).Scan(context.Background(), ScanOptions{})
 
-	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateUnread || cloud.CompletedAt != "" {
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.CompletedAt != "" {
 		t.Errorf("cloud row = %s", asJSON(t, cloud))
 	}
 }
@@ -299,9 +299,7 @@ func TestReopen_ASharedRowMarksItsCloudRowSeen(t *testing.T) {
 	if reply, found := scanner.Reopen(context.Background(), ToolClaude, idSafari, ScanOptions{}, &fakeLauncher{}); !found || !reply.Opened {
 		t.Fatalf("found %v, reply %+v", found, reply)
 	}
-	scanner.Processes = fakeProcesses{}
-
-	if cloud := byID(t, scanner.Scan(context.Background(), ScanOptions{}), "cse_01AbCd"); cloud.State != StateActive || cloud.SeenAt != "2026-11-07T12:00:00Z" {
+	if cloud := byID(t, restartedScanner(scanner, stores).Scan(context.Background(), ScanOptions{}), "cse_01AbCd"); cloud.State != StateActive || cloud.SeenAt != "2026-11-07T12:00:00Z" {
 		t.Errorf("cloud row = %s", asJSON(t, cloud))
 	}
 }
@@ -310,5 +308,340 @@ func TestFind_DoesNotListTheCloudIDOfASharedRow(t *testing.T) {
 	scanner, _, _ := sharedScanner(t)
 	if _, ok := scanner.Find(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}); ok {
 		t.Error("a mark or a rename could name a row nobody sees")
+	}
+}
+
+// restartedScanner is a new server on the same stores, marks and cloud
+// once the session ended: it never saw the session shared.
+func restartedScanner(scanner *Scanner, stores Stores) *Scanner {
+	return &Scanner{Stores: stores, SQLite: noSQLite, Processes: fakeProcesses{}, Now: scanner.Now, MarksPath: scanner.MarksPath,
+		Cloud: oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:30:00Z"))}
+}
+
+// closedTwinScanner is sharedScanner once the local session ended with
+// a reply the person has not read.
+func closedTwinScanner(t *testing.T) (*Scanner, Stores, *time.Time) {
+	t.Helper()
+	scanner, stores, at := sharedScanner(t)
+	scanner.Processes = fakeProcesses{}
+	return scanner, stores, at
+}
+
+func TestScan_AClosedSharedSessionStaysOneRowWithItsTwin(t *testing.T) {
+	scanner, _, _ := closedTwinScanner(t)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if ids := idsOf(view); !slices.Equal(ids, []string{idSafari}) {
+		t.Fatalf("rows = %v, want the local row only", ids)
+	}
+	row := byID(t, view, idSafari)
+	if row.State != StateDormant || !row.Unread || row.Cloud == nil || row.Cloud.ID != "cse_01AbCd" {
+		t.Errorf("row = %s", asJSON(t, row))
+	}
+	if view.NeedsYou != 0 {
+		t.Errorf("needs you = %d, want the twin to add nothing", view.NeedsYou)
+	}
+}
+
+func TestReopen_TheTwinOfAClosedSessionClearsTheLocalRowAndItsDeleteRefusal(t *testing.T) {
+	scanner, _, _ := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if reply, found := scanner.Reopen(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}, &fakeLauncher{}); !found || !reply.Opened {
+		t.Fatalf("found %v, reply %+v", found, reply)
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if row := byID(t, view, idSafari); row.Unread || row.SeenAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("local row = %s", asJSON(t, row))
+	}
+	// The fixture's files carry today's times, so the delete stops later, at the write check.
+	if _, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); deleteRefusal(t, err).Kind == DeleteUnread {
+		t.Errorf("delete still refused as unread: %v", err)
+	}
+}
+
+func TestMark_TheLocalRowOfAClosedSessionAlsoMarksItsTwin(t *testing.T) {
+	scanner, stores, _ := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	view := restartedScanner(scanner, stores).Scan(context.Background(), ScanOptions{})
+
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || cloud.SeenAt != "2026-11-07T12:00:00Z" {
+		t.Errorf("cloud row = %s", asJSON(t, cloud))
+	}
+	if view.NeedsYou != 0 {
+		t.Errorf("needs you = %d", view.NeedsYou)
+	}
+}
+
+func TestScan_AReplyOnTheTwinAfterTheSessionClosedCountsAsACloudChat(t *testing.T) {
+	scanner, _, at := closedTwinScanner(t)
+	*at = time.Date(2026, 11, 7, 13, 0, 0, 0, time.UTC)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T12:30:00Z"))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateUnread {
+		t.Errorf("cloud row = %s", asJSON(t, cloud))
+	}
+	if row := byID(t, view, idSafari); row.Cloud != nil || row.State != StateDormant {
+		t.Errorf("local row = %s", asJSON(t, row))
+	}
+	if view.NeedsYou != 1 {
+		t.Errorf("needs you = %d, want the new cloud reply", view.NeedsYou)
+	}
+}
+
+// The cloud list is asked once a minute, so the cloud's copy of the last
+// reply can come after the last read that saw the session run.
+func TestScan_TheTwinsCopyOfTheLastReplyKeepsItFolded(t *testing.T) {
+	scanner, _, at := closedTwinScanner(t)
+	*at = at.Add(time.Minute)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:30Z"))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if !slices.Equal(idsOf(view), []string{idSafari}) || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
+	}
+}
+
+// A cloud write past the window after the local session's last write is
+// new work from the cloud side.
+func TestScan_APhoneReplyAfterTheWindowCounts(t *testing.T) {
+	scanner, stores, at := closedTwinScanner(t)
+	writeMarkedSession(t, stores, idSafari, "2026-11-07T11:50:00Z")
+	*at = time.Date(2026, 11, 7, 11, 50, 10, 0, time.UTC)
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:53:00Z"))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateUnread || view.NeedsYou != 1 {
+		t.Errorf("needs you %d, cloud row %s", view.NeedsYou, asJSON(t, cloud))
+	}
+}
+
+// A reply inside the window stays folded, and the closed row shows it
+// unread, so it is never counted nowhere: not while folded, and not on
+// the twin once it shows apart.
+func TestScan_APhoneReplyInsideTheWindowIsUnreadOnExactlyOneRow(t *testing.T) {
+	phone := cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:00Z")
+	unreadRows := func(view View) []string {
+		var ids []string
+		for _, c := range view.Conversations {
+			if c.Unread || needsPerson(c.State) {
+				ids = append(ids, c.ID)
+			}
+		}
+		return ids
+	}
+	for name, after := range map[string]func(t *testing.T, scanner *Scanner, stores Stores) *Scanner{
+		"while folded": func(*testing.T, *Scanner, Stores) *Scanner { return nil },
+		"after a restart": func(_ *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			return &Scanner{Stores: stores, SQLite: noSQLite, Processes: fakeProcesses{}, Now: scanner.Now, MarksPath: scanner.MarksPath, Cloud: oneCloudList(phone)}
+		},
+		"after a resume without Remote Control": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			scanner.Processes = fakeProcesses{alive: map[int]bool{71: true}}
+			writeBridgedSession(t, stores, 71, idSafari, "idle", "")
+			return scanner
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, at := closedTwinScanner(t)
+			*at = time.Date(2026, 11, 7, 11, 30, 30, 0, time.UTC)
+			if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+				t.Fatal(err)
+			}
+			*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
+			scanner.Cloud = oneCloudList(phone)
+			view := scanner.Scan(context.Background(), ScanOptions{})
+			if row := byID(t, view, idSafari); !slices.Equal(idsOf(view), []string{idSafari}) || !row.Unread || row.UpdatedAt != "2026-11-07T11:31:00Z" {
+				t.Fatalf("folded: rows %s", asJSON(t, view.Conversations))
+			}
+			next := after(t, scanner, stores)
+			if next == nil {
+				return
+			}
+			*at = at.Add(time.Minute)
+
+			view = next.Scan(context.Background(), ScanOptions{})
+
+			if got := unreadRows(view); !slices.Equal(got, []string{"cse_01AbCd"}) {
+				t.Errorf("unread rows = %v, want the twin only: %s", got, asJSON(t, view.Conversations))
+			}
+		})
+	}
+}
+
+// The list is asked only when someone looks: the last read that saw the
+// session run can be long before its last reply and its close.
+func TestScan_ATwinStaysFoldedAfterAGapBetweenTheLastLiveReadAndTheClose(t *testing.T) {
+	scanner, stores, at := closedTwinScanner(t)
+	writeMarkedSession(t, stores, idSafari, "2026-11-07T13:00:00Z")
+	*at = time.Date(2026, 11, 7, 13, 5, 0, 0, time.UTC)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T13:00:20Z"))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if !slices.Equal(idsOf(view), []string{idSafari}) || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
+	}
+}
+
+func TestScan_ARestartedServerListsTheTwinApartWithoutCountingTheOldReply(t *testing.T) {
+	scanner, stores, _ := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+
+	view := restartedScanner(scanner, stores).Scan(context.Background(), ScanOptions{})
+
+	if ids := idsOf(view); len(ids) != 2 {
+		t.Errorf("rows = %v, want the local row and its twin apart", ids)
+	}
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || cloud.Unread || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, cloud row %s", view.NeedsYou, asJSON(t, cloud))
+	}
+	if row := byID(t, view, idSafari); !row.Unread {
+		t.Errorf("local row = %s", asJSON(t, row))
+	}
+}
+
+func TestScan_ASessionResumedWithoutItsLinkDoesNotCountTheOldReplyOnItsTwin(t *testing.T) {
+	for name, bridge := range map[string]string{"Remote Control off": "", "a new bridge id": "session_09Zz"} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, _ := closedTwinScanner(t)
+			scanner.Scan(context.Background(), ScanOptions{})
+			scanner.Processes = fakeProcesses{alive: map[int]bool{71: true}}
+			writeBridgedSession(t, stores, 71, idSafari, "idle", bridge)
+
+			view := scanner.Scan(context.Background(), ScanOptions{})
+
+			if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || view.NeedsYou != 0 {
+				t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
+			}
+		})
+	}
+}
+
+func TestReopen_TheTwinOfAClosedSessionClearsTheLocalRowAfterARestart(t *testing.T) {
+	scanner, stores, _ := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if reply, found := scanner.Reopen(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}, &fakeLauncher{}); !found || !reply.Opened {
+		t.Fatalf("found %v, reply %+v", found, reply)
+	}
+	restarted := restartedScanner(scanner, stores)
+
+	if row := byID(t, restarted.Scan(context.Background(), ScanOptions{}), idSafari); row.Unread {
+		t.Errorf("local row = %s", asJSON(t, row))
+	}
+	if _, err := restarted.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); deleteRefusal(t, err).Kind == DeleteUnread {
+		t.Errorf("delete refused as unread: %v", err)
+	}
+}
+
+// claude.ai still keeps the cloud session, so it stays listed.
+func TestDelete_AFoldedClosedSessionLeavesItsTwinListedWithoutTheOldReply(t *testing.T) {
+	scanner, stores, at := closedTwinScanner(t)
+	*at = time.Now().UTC().Truncate(time.Second)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	*at = at.Add(time.Second)
+	scanner.Scan(context.Background(), ScanOptions{})
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+	if err != nil || !reply.Deleted {
+		t.Fatalf("delete = %s, %v", asJSON(t, reply), err)
+	}
+	if _, err := os.Stat(filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")); !os.IsNotExist(err) {
+		t.Errorf("transcript stays: %v", err)
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if !slices.Equal(idsOf(view), []string{"cse_01AbCd"}) || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
+	}
+}
+
+func TestScan_AFailedReadKeepsTheTwinLink(t *testing.T) {
+	scanner, _, at := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+	twinRow := func() ([]Conversation, error) {
+		return []Conversation{cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:30:00Z")}, nil
+	}
+	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
+		func() ([]Conversation, error) {
+			return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: context.DeadlineExceeded}
+		},
+		twinRow,
+	}}
+	*at = at.Add(cloudRideSpan + time.Minute)
+	if view := scanner.Scan(context.Background(), ScanOptions{}); !slices.Equal(idsOf(view), []string{idSafari}) {
+		t.Fatalf("while the cloud fails: rows %v", idsOf(view))
+	}
+	scanner.Processes = fakeProcesses{readFails: true}
+	*at = at.Add(time.Minute)
+	if view := scanner.Scan(context.Background(), ScanOptions{}); !slices.Equal(idsOf(view), []string{idSafari}) || byID(t, view, idSafari).Cloud == nil {
+		t.Fatalf("while the process read fails: rows %s", asJSON(t, view.Conversations))
+	}
+	scanner.Processes = fakeProcesses{}
+	*at = at.Add(time.Minute)
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if !slices.Equal(idsOf(view), []string{idSafari}) || byID(t, view, idSafari).Cloud == nil {
+		t.Errorf("after the reads work again: rows %s", asJSON(t, view.Conversations))
+	}
+}
+
+func TestScan_DropsATwinLinkOnceEitherRowIsGone(t *testing.T) {
+	for name, gone := range map[string]func(t *testing.T, scanner *Scanner, stores Stores){
+		"the local session is gone": func(t *testing.T, _ *Scanner, stores Stores) {
+			if err := os.Remove(filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"the cloud session is gone": func(_ *testing.T, scanner *Scanner, _ Stores) {
+			scanner.Cloud = oneCloudList()
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, at := closedTwinScanner(t)
+			scanner.Scan(context.Background(), ScanOptions{})
+			gone(t, scanner, stores)
+			*at = at.Add(time.Minute)
+
+			scanner.Scan(context.Background(), ScanOptions{})
+
+			if len(scanner.twins) != 0 {
+				t.Errorf("twins = %+v", scanner.twins)
+			}
+		})
+	}
+}
+
+func TestRememberTwin_KeepsAtMostMaxTwinsAndDropsTheOldest(t *testing.T) {
+	scanner := &Scanner{}
+	start := time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC)
+	for i := range maxTwins + 5 {
+		scanner.rememberTwin("claude:"+strconv.Itoa(i), "cse_"+strconv.Itoa(i), start.Add(time.Duration(i)*time.Second))
+	}
+	if len(scanner.twins) != maxTwins {
+		t.Errorf("twins = %d, want %d", len(scanner.twins), maxTwins)
+	}
+	if _, kept := scanner.twins["claude:0"]; kept {
+		t.Error("the oldest link stays")
+	}
+	if _, kept := scanner.twins["claude:"+strconv.Itoa(maxTwins+4)]; !kept {
+		t.Error("the newest link is gone")
 	}
 }

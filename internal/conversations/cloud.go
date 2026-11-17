@@ -183,6 +183,13 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 	return rows, ""
 }
 
+// cloudWhole reports whether the last ask of tool's cloud answered
+// with its whole list.
+func (s *Scanner) cloudWhole(tool Tool, cloud CloudSessions) bool {
+	last := s.keptClouds[tool]
+	return cloud != nil && last != nil && last.err == nil
+}
+
 // cloudLiveSpan is how long a cloud's word that a conversation works or
 // waits is believed after its last write. A cloud agent writes as it
 // works, and no process on this machine can be checked for it, so one
