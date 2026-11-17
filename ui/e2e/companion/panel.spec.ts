@@ -874,6 +874,14 @@ test('Enter on a subagent control opens nothing but what it names, even with its
 
 const pickBanner = (page: Page) => page.getByRole('region', { name: 'Send the copied text' })
 
+test('a copied web page names its format in the banner', async ({ page }) => {
+  await openPanel(page, 'markdown-clipboard')
+  await page.keyboard.press('Meta+Shift+KeyV')
+
+  await expect(pickBanner(page)).toContainText('Send Markdown, 12 words to…')
+  await expect(pickBanner(page)).toContainText('Release notes')
+})
+
 test('Cmd+Shift+V picks a conversation for the copied text, and Enter sends it there', async ({ page }) => {
   await openPanel(page)
   await page.keyboard.press('Meta+Shift+KeyV')

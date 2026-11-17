@@ -25,6 +25,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Sending copied text
 
 - Send copied text into a chat from the companion. Open the list and press Cmd+Shift+V, or click the new clipboard button beside the search, then pick a chat. The text lands in a live Terminal or Ghostty chat's input, and nothing is submitted: you press Enter there. For any other chat, the companion switches to it and says to paste with Cmd+V. A chat that ended is never resumed and typed into. Neither is a Cursor chat, a working Codex chat, nor a chat waiting for your answer. Pasting into Terminal needs macOS Accessibility access once. The server gains `POST /api/conversations/send`. (#3517)
+- Text copied from a web page goes as Markdown when it holds links, tables, code blocks, headings or lists, and the banner says "Send Markdown, 412 words to…". Scripts and styles are left out. After a paste into Terminal, the clipboard holds the Markdown. `POST /api/conversations/send` takes the copied HTML in an optional `html` field. macOS only. (#3517)
 
 #### Opening and resuming chats
 

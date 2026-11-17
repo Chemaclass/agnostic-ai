@@ -39,9 +39,79 @@ func TestClipboard_DescribesTheCopiedTextWithoutAllOfIt(t *testing.T) {
 
 func TestClipboard_SaysNothingForEmptyText(t *testing.T) {
 	for _, text := range []string{"", " \n\t "} {
-		if reply := describeClipboard(text); reply != (clipboardReply{}) {
+		if reply := describeClipboard(text, "<h1>Title</h1>"); reply != (clipboardReply{}) {
 			t.Errorf("describeClipboard(%q) = %+v, want nothing", text, reply)
 		}
+	}
+}
+
+func TestClipboard_LabelsHTMLThatBecomesMarkdown(t *testing.T) {
+	for html, want := range map[string]string{
+		"":                                    formatText,
+		"<p>Just <b>bold</b> words.</p>":      formatText,
+		`<p>An <a name="top">anchor</a>.</p>`: formatText,
+		`<script>x = "<ul>"</script><p>Plain.</p>`:                 formatText,
+		`<style>table { margin: 0 }</style><p>x</p>`:               formatText,
+		`<p>See <a href="https://example.com">it</a>.</p>`:         formatMarkdown,
+		"<TABLE><tr><td>1</td></tr></TABLE>":                       formatMarkdown,
+		"<pre><code>go test</code></pre>":                          formatMarkdown,
+		"<h2 id=\"x\">Title</h2>":                                  formatMarkdown,
+		"<ol><li>one</li></ol>":                                    formatMarkdown,
+		`<p><a data-href="x">y</a></p>`:                            formatText,
+		"<!-- <table> --><p>plain</p>":                             formatText,
+		`<a class="x" href=" /docs">docs</a>`:                      formatMarkdown,
+		"<h1>" + strings.Repeat("a", maxServerBodyBytes) + "</h1>": formatText,
+	} {
+		if actual := describeClipboard("some text", html).Format; actual != want {
+			t.Errorf("format of %q = %q, want %q", html, actual, want)
+		}
+	}
+}
+
+func TestSend_ForwardsTheCopiedHTMLBesideTheText(t *testing.T) {
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverSendPath: {status: http.StatusOK, body: `{"sent":true,"message":"Typed the Markdown into the Ghostty tab that runs it. Press Enter there to send it."}`}}}
+	in, _ := connected(t, fake)
+	copied(in, "Notes")
+	in.readClipboardHTML = func() string { return "<h1>Notes</h1>" }
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("Notes", "<h1>Notes</h1>")+`"}`)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+	if sent := fake.posts[serverSendPath]; len(sent) != 1 || sent[0] != `application/json {"tool":"claude","id":"a","text":"Notes","html":"<h1>Notes</h1>"}` {
+		t.Errorf("the server received %q", sent)
+	}
+}
+
+func TestSend_LeavesOutHTMLTooLargeForTheServer(t *testing.T) {
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverSendPath: {status: http.StatusOK, body: `{"sent":true,"message":"ok"}`}}}
+	in, _ := connected(t, fake)
+	copied(in, "Notes")
+	huge := "<h1>" + strings.Repeat("a", maxServerBodyBytes) + "</h1>"
+	in.readClipboardHTML = func() string { return huge }
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("Notes", huge)+`"}`)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+	if sent := fake.posts[serverSendPath]; len(sent) != 1 || sent[0] != `application/json {"tool":"claude","id":"a","text":"Notes"}` {
+		t.Errorf("the server received %.200q", sent)
+	}
+}
+
+func TestSend_RefusesHTMLFromAnotherCopy(t *testing.T) {
+	fake := &fakeAgnosticAI{}
+	in, _ := connected(t, fake)
+	copied(in, "Notes")
+	shown := describeClipboard("Notes", "<h1>Notes</h1>").Hash
+	in.readClipboardHTML = func() string { return "<ul><li>something else</li></ul>" }
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+shown+`"}`)
+
+	if rec.Code != http.StatusConflict || len(fake.posts[serverSendPath]) != 0 {
+		t.Errorf("send = %d %s, server asked %q", rec.Code, rec.Body, fake.posts[serverSendPath])
 	}
 }
 

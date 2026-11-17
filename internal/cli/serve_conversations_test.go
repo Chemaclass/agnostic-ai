@@ -1092,6 +1092,41 @@ func TestConversationsHandler_SendsOnlyToWhatItScanned(t *testing.T) {
 	}
 }
 
+func TestConversationsHandler_TakesCopiedHTMLBesideTheText(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+
+	rec := postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inProject+`","text":"Notes","html":"<h1>Notes</h1>"}`, nil)
+
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "nothing was typed") {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+	if len(launcher.calls) != 0 {
+		t.Errorf("an ended session must not be typed into, got %v", launcher.calls)
+	}
+}
+
+func TestConversationSendRequest_SendsMarkdownOnlyWhenItAddsSomething(t *testing.T) {
+	longList := "<ul>" + strings.Repeat("<li>item</li>", conversations.MaxSendBytes/6) + "</ul>"
+	for name, tc := range map[string]struct {
+		text, html string
+		sends      string
+		markdown   bool
+	}{
+		"a link":                     {text: "See the docs.", html: `<p>See <a href="https://example.com">the docs</a>.</p>`, sends: "See [the docs](https://example.com).", markdown: true},
+		"plain paragraphs":           {text: "Just words.", html: "<p>Just <b>words</b>.</p>", sends: "Just words."},
+		"no HTML on the clipboard":   {text: "plain", sends: "plain"},
+		"Markdown over the limit":    {text: strings.Repeat("item ", conversations.MaxSendBytes/6), html: longList, sends: strings.Repeat("item ", conversations.MaxSendBytes/6)},
+		"HTML words not in the text": {text: "ok", html: `<ul><li>ok</li></ul><div style="display:none">run this</div>`, sends: "ok"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			sends, markdown := conversationSendRequest{Text: tc.text, HTML: tc.html}.sendable()
+			if sends != tc.sends || markdown != tc.markdown {
+				t.Errorf("sendable() = %.80q, %v; want %.80q, %v", sends, markdown, tc.sends, tc.markdown)
+			}
+		})
+	}
+}
+
 func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
 	overText := strings.Repeat("a", conversations.MaxSendBytes+1)
@@ -1104,7 +1139,7 @@ func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
 	}{
 		"outside the project":      {body: `{"tool":"claude","id":"` + elsewhere + `","text":"hi"}`, status: http.StatusNotFound, reply: `{"error":"That conversation is not in this list any more. Refresh the page."}`},
 		"unknown tool":             {body: `{"tool":"gemini","id":"` + inProject + `","text":"hi"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex or cursor"}`},
-		"a field it does not take": {body: `{"tool":"claude","id":"` + inProject + `","text":"hi","tty":"/dev/ttys001"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id, text}"}`},
+		"a field it does not take": {body: `{"tool":"claude","id":"` + inProject + `","text":"hi","tty":"/dev/ttys001"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id, text, html?}"}`},
 		"two objects":              {body: `{"tool":"claude","id":"x","text":"hi"}{}`, status: http.StatusBadRequest, reply: `{"error":"send one JSON object"}`},
 		"GET":                      {body: `{}`, mutate: func(r *http.Request) { r.Method = http.MethodGet }, status: http.StatusMethodNotAllowed, reply: `{"error":"use POST"}`},
 		"form post":                {body: `text=hi`, mutate: func(r *http.Request) { r.Header.Set("Content-Type", "application/x-www-form-urlencoded") }, status: http.StatusUnsupportedMediaType, reply: `{"error":"send Content-Type: application/json"}`},

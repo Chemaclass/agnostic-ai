@@ -131,7 +131,7 @@ function nested(now) {
  * markProblem, renameProblem, deleteProblem, openProblem (a conversation that did not open) with its openCommand,
  * slowQueries (queries that contain the word wait that many milliseconds),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
- * and clipboard (the copied text; three lines when unset).
+ * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown).
  */
 export const FIXTURES = {
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
@@ -206,6 +206,12 @@ export const FIXTURES = {
     conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
   },
   'empty-clipboard': { label: 'Nothing copied, so pick mode does not open', conversations: mixed, clipboard: '' },
+  'markdown-clipboard': {
+    label: 'A copied web page that goes as Markdown',
+    conversations: mixed,
+    clipboard: 'Release notes\nFixed two bugs in the parser.\nSee the migration guide.',
+    clipboardMarkdown: true,
+  },
   'long-clipboard': {
     label: 'A long copied page to send',
     conversations: mixed,

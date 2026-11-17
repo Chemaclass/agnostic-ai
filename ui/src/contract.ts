@@ -1007,14 +1007,15 @@ export interface ConversationDeleteRefusal {
   remaining?: string[]
 }
 
-/** Types `text` into a conversation's input without submitting it. `text` is at most 256 KB. */
+/** Types `text` into a conversation's input without submitting it. `text` is at most 256 KB. `html`, the copied HTML, goes as Markdown instead when it holds links, tables, code blocks, headings or lists. */
 export interface ConversationSendRequest {
   tool: ConversationTool
   id: string
   text: string
+  html?: string
 }
 
-/** sent is true only when the text was typed into a live Terminal or Ghostty session; otherwise message says why, or to paste with Cmd+V. */
+/** sent is true only when the text was typed into a live Terminal or Ghostty session; otherwise message says why, or to paste with Cmd+V. For Terminal, the clipboard holds what was pasted afterwards. */
 export interface ConversationSendReply {
   sent: boolean
   message: string

@@ -640,6 +640,7 @@ func main() {
 		text, _ := s.app.Clipboard.Text()
 		return text
 	}
+	in.readClipboardHTML = clipboardHTML
 	s.app = application.New(application.Options{
 		Name:        "agnostic-ai companion",
 		Description: "The AI conversations that need you, floating over every app.",

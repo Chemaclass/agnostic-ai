@@ -35,6 +35,9 @@ type inbox struct {
 	changed func()
 	// readClipboard returns the copied text; empty when none is.
 	readClipboard func() string
+	// readClipboardHTML returns the copied HTML, as a browser puts it
+	// beside the text; empty when none is or the system cannot say.
+	readClipboardHTML func() string
 
 	// reading lets one read at a time run, from naming the held tag to
 	// telling changed, so an older answer never replaces a newer one.
