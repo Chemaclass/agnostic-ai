@@ -535,6 +535,23 @@ function draw({ force } = { force: false }) {
   }
   if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
   list.scrollTop = scroll
+  holdWorkPhase(list)
+}
+
+/**
+ * The phase delay counts from the frame the orbit starts, not from when its mark was made,
+ * so a slow draw would set every orbit back. Starting each orbit at the moment its mark was
+ * made keeps the phase on the page clock however long the draw takes.
+ */
+function holdWorkPhase(root) {
+  for (const mark of root.querySelectorAll('.state')) {
+    const phase = mark.style.getPropertyValue('--work-phase')
+    if (phase === '') continue
+    const made = -parseFloat(phase)
+    for (const animation of mark.getAnimations({ subtree: true })) {
+      if (animation.animationName === 'work-orbit') animation.startTime = made
+    }
+  }
 }
 
 function setActive(key) {

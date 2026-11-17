@@ -3,27 +3,65 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
-const advisory = "https://github.com/advisories/GHSA-g3hv-75wg-m249"
-const expires = "2026-11-14T00:00:00Z"
-const parentPath = "node_modules/vscode-languageclient"
-const leafPath = `${parentPath}/node_modules/minimatch`
-const integrity = "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw=="
-const only = (values, expected) => Array.isArray(values) && values.length === 1 && values[0] === expected
+const exception = {
+  advisory: "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+  expires: "2026-12-17T00:00:00Z",
+  leaf: {
+    name: "picomatch",
+    version: "4.0.7",
+    resolved: "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
+    integrity: "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+    range: "<=4.0.7",
+  },
+  locks: {
+    "ui/package-lock.json": {
+      "@vitejs/plugin-react": [true, ">=6.0.0-beta.0", ["vite"], []],
+      fdir: [false, ">=5.2.1", ["picomatch"], ["tinyglobby"]],
+      picomatch: [false, "*", [], ["fdir", "tinyglobby", "vite", "vitest"]],
+      tinyglobby: [false, "*", ["fdir", "picomatch"], ["vite", "vitest"]],
+      vite: [true, ">=6.3.0-beta.0", ["picomatch", "tinyglobby"], ["@vitejs/plugin-react", "vitest"]],
+      vitest: [true, ">=3.1.2", ["picomatch", "tinyglobby", "vite"], []],
+    },
+    "editors/vscode/package-lock.json": {
+      "@vscode/vsce": [true, ">=3.9.3-0", ["tinyglobby"], []],
+      fdir: [false, ">=5.2.1", ["picomatch"], ["tinyglobby"]],
+      picomatch: [false, "*", [], ["fdir", "tinyglobby"]],
+      tinyglobby: [false, "*", ["fdir", "picomatch"], ["@vscode/vsce"]],
+    },
+    "tests/vendor/opencode/package-lock.json": {
+      "@npmcli/run-script": [false, ">=10.0.3", ["node-gyp"], []],
+      fdir: [false, ">=5.2.1", ["picomatch"], ["tinyglobby"]],
+      "node-gyp": [false, ">=11.2.0", ["tinyglobby"], ["@npmcli/run-script"]],
+      picomatch: [false, "*", [], ["fdir", "tinyglobby"]],
+      tinyglobby: [false, "*", ["fdir", "picomatch"], ["node-gyp"]],
+    },
+  },
+}
+const sameList = (values, expected) => Array.isArray(values) && values.length === expected.length && values.every((value, index) => value === expected[index])
 
-function knownLegacyFinding(report, lock, lockPath, now) {
-  if (lockPath !== "editors/vscode/package-lock.json" || !Number.isFinite(now) || now >= Date.parse(expires)) return false
-  const leaf = report.vulnerabilities.minimatch
-  const parent = report.vulnerabilities["vscode-languageclient"]
-  const native = lock.packages?.[leafPath]
-  const client = lock.packages?.[parentPath]
-  if (native?.version !== "5.1.9" || native.integrity !== integrity || native.resolved !== "https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz") return false
-  if (client?.version !== "9.0.1" || client.dependencies?.minimatch !== "^5.1.0") return false
-  if (leaf?.name !== "minimatch" || leaf.severity !== "moderate" || leaf.isDirect !== false || leaf.range !== "<11.0.1") return false
-  if (!only(leaf.nodes, leafPath) || !only(leaf.effects, "vscode-languageclient") || !Array.isArray(leaf.via) || leaf.via.length !== 1) return false
-  const cause = leaf.via[0]
-  if (cause?.name !== "minimatch" || cause.dependency !== "minimatch" || cause.url !== advisory || cause.range !== "<11.0.1" || cause.severity !== "moderate") return false
-  return parent?.name === "vscode-languageclient" && parent.severity === "moderate" && parent.isDirect === true &&
-    only(parent.nodes, parentPath) && only(parent.via, "minimatch") && Array.isArray(parent.effects) && parent.effects.length === 0
+function matchesAdvisoryCause(via) {
+  const { name, range } = exception.leaf
+  if (!Array.isArray(via) || via.length !== 1) return false
+  const cause = via[0]
+  return cause?.name === name && cause.dependency === name && cause.url === exception.advisory && cause.severity === "high" && cause.range === range
+}
+
+function exceptedFindings(findings, lock, lockPath, now) {
+  const expected = exception.locks[lockPath]
+  if (!expected || !Number.isFinite(now) || now >= Date.parse(exception.expires)) return []
+  const { name, version, resolved, integrity } = exception.leaf
+  const leaf = lock.packages?.[`node_modules/${name}`]
+  if (leaf?.version !== version || leaf.resolved !== resolved || leaf.integrity !== integrity) return []
+  const names = Object.keys(expected)
+  const matches = names.every((key) => {
+    const [isDirect, range, via, effects] = expected[key]
+    const finding = findings[key]
+    const path = `node_modules/${key}`
+    return finding?.name === key && finding.severity === "high" && finding.isDirect === isDirect && finding.range === range &&
+      sameList(finding.nodes, [path]) && lock.packages?.[path]?.dev === true && sameList(finding.effects, effects) &&
+      (key === name ? matchesAdvisoryCause(finding.via) : sameList(finding.via, via))
+  })
+  return matches ? names : []
 }
 
 export function evaluateAudit(result, lockPath, lock, now = Date.now()) {
@@ -37,13 +75,8 @@ export function evaluateAudit(result, lockPath, lock, now = Date.now()) {
   }
   if ((result.status === 0) !== (Object.keys(findings).length === 0)) throw new Error("npm audit exit status disagrees with its findings")
   const remaining = { ...findings }
-  const ignored = []
-  if (knownLegacyFinding(report, lock, lockPath, now)) {
-    for (const name of ["minimatch", "vscode-languageclient"]) {
-      delete remaining[name]
-      ignored.push(name)
-    }
-  }
+  const ignored = exceptedFindings(findings, lock, lockPath, now)
+  for (const name of ignored) delete remaining[name]
   return { remaining, ignored }
 }
 
@@ -63,12 +96,12 @@ function runAudits() {
       })
       if (result.stderr) process.stderr.write(result.stderr)
       const verdict = evaluateAudit(result, lockPath, lock)
-      if (verdict.ignored.length > 0) console.log(`Scoped exception: minimatch 5.1.9 under vscode-languageclient 9.0.1, ${advisory}, expires ${expires}`)
+      if (verdict.ignored.length > 0) console.log(`Scoped exception: ${exception.leaf.name} ${exception.leaf.version} in development tools (${verdict.ignored.join(", ")}), ${exception.advisory}, expires ${exception.expires}`)
       if (Object.keys(verdict.remaining).length > 0) {
         failed = true
         console.error(JSON.stringify(verdict.remaining, null, 2))
       } else {
-        console.log(`No unexcepted vulnerabilities (${verdict.ignored.length} exact legacy notices excepted)`)
+        console.log(`No unexcepted vulnerabilities (${verdict.ignored.length} exact development notices excepted)`)
       }
     } catch (error) {
       failed = true

@@ -33,24 +33,28 @@ Overrides replace vulnerable upstream selections:
 - VS Code packaging: `@vscode/vsce` uses `minimatch` 11.0.3 for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Remove the override when its parent selects a patched version. Verify the matching API tests, extension tests, and VSIX packaging.
 - OpenCode compatibility tests: the vendor fixture overrides `glob` to 14.0.3 and `minimatch` to 11.0.3 for [glob cancellation](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and [pattern amplification](https://github.com/advisories/GHSA-g3hv-75wg-m249). This covers both the util and Google authentication/rimraf branches and keeps clean installs compatible with npm 10 and 11. Remove the overrides when every affected descendant selects patched versions. Run `make opencode-hooks-test`, which checks the public scan/matching APIs and rimraf's resolved glob API.
 
-### Temporary language-client audit exception
+### Temporary picomatch audit exception
 
-The audit wrapper permits [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) only for `minimatch` 5.1.9 at `node_modules/vscode-languageclient/node_modules/minimatch` under client 9.0.1 in `editors/vscode/package-lock.json`. It permits the client notice only when that leaf is its sole cause. The rule expires on **2026-11-14 at 00:00 UTC**. Other advisories, versions, affected paths, causes, lockfiles, and process or report errors fail the check.
+The audit wrapper permits [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (high: a crafted glob pattern can make picomatch run for a very long time) only for `picomatch` 4.0.7 at `node_modules/picomatch`, marked as a development dependency, in three lockfiles:
 
-The exception pins the official registry tarball and its lockfile integrity:
+| Lockfile | Excepted findings |
+|---|---|
+| `ui/package-lock.json` | picomatch, fdir, tinyglobby, vite, vitest, @vitejs/plugin-react |
+| `editors/vscode/package-lock.json` | picomatch, fdir, tinyglobby, @vscode/vsce |
+| `tests/vendor/opencode/package-lock.json` | picomatch, fdir, tinyglobby, node-gyp, @npmcli/run-script |
+
+The rule expires on **2026-12-17 at 00:00 UTC**. It pins the registry tarball and its lockfile integrity:
 
 ```text
-https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz
-sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw==
+https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz
+sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==
 ```
 
-The downloaded `minimatch.js` matches the installed file, SHA-256 `1339bca8b70e33847860daa8fc3ccfa62487e143670da01a3b718d40d5fd424f`. Its `make()` at lines 192-235 expands braces, maps fixed path segments, and filters parse failures. It has no optimization-level preprocessing or growing-array transformation from this advisory.
+Each lockfile's findings must match the reviewed report exactly: advisory URL, severity, ranges, paths, causes, and downstream packages. Every excepted package must be a development dependency. Another advisory, picomatch version, tarball, path, new dependent, missing dependent, or lockfile rejects the whole exception. Unrelated findings still fail beside it.
 
-The [maintainer's regression](https://github.com/isaacs/minimatch/commit/77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8) uses `Array(30).fill('**/../a/b').join('/')` with optimization level 2 and `braceExpandMax: 64`. In subprocesses bounded to two seconds and 96 MiB, 5.1.9 kept one pattern entry and completed; 10.2.6 exhausted memory; 11.0.3 stopped at 64 entries. The older release does not implement that optimization and retains its own matching semantics. This evidence excludes the reported amplification mechanism in these exact bytes, not every possible matching defect.
+The advisory covers every picomatch release up to 4.0.7, and no fixed release exists ([micromatch/picomatch#247](https://github.com/micromatch/picomatch/issues/247)). An override cannot help without a fixed version. npm's suggested fix moves vite, vitest and vsce back a major version, which is rejected. The risk is acceptable because only development tools use picomatch, never the shipped binary or packages, and the patterns they match come from our own config files, never from outside input.
 
-The client needs `Minimatch.makeRe()` for diagnostic, notebook, and file-operation filters. Patched minimatch 11 removes both instance and top-level `makeRe`. Published clients 9.0.1, 10.1.2, 11.0.0, and current next still need it. Retaining the original client dependency preserves its API and VS Code 1.85 support.
-
-Remove the exception when the advisory range is corrected or the client selects a compatible patched dependency. Extending it requires a fresh source review and bounded reproducer. Clean reports need no exception after expiry. Tests reject a new advisory, version, hash, registry source, branch, extra affected path, additional cause, and expired rule.
+When picomatch ships a fixed release, update the three lockfiles, run `node scripts/npm-audit.mjs` without findings, and remove the exception and its tests. Extending the end date requires a fresh check that no fixed release exists.
 
 ## Update the release npm toolchain
 
