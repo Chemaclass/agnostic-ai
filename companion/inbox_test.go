@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -343,6 +345,25 @@ func TestInbox_ACallTheServerDoesNotAnswerSaysSoInPlainWords(t *testing.T) {
 
 	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusGatewayTimeout || body != `{"error":"agnostic-ai took too long to answer. Try again."}` {
 		t.Errorf("a mark the server did not answer in time = %d %s", rec.Code, body)
+	}
+}
+
+func TestInbox_LogsAServerThatIsGoneWithoutItsAddressOrTheWordsSearched(t *testing.T) {
+	gone := httptest.NewServer(http.NotFoundHandler())
+	gone.Close()
+	server := newServer()
+	server.base = gone.URL
+	in := newInbox(server, "", func() {})
+	var logged bytes.Buffer
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	in.read(context.Background())
+	getInbox(t, in, "?q=secret+plans")
+
+	host := strings.TrimPrefix(gone.URL, "http://")
+	if text := logged.String(); !strings.Contains(text, "ask agnostic-ai "+serverListPath+": ") || strings.Contains(text, host) || strings.Contains(text, "127.0.0.1") || strings.Contains(text, "secret") {
+		t.Errorf("log = %q; want the path and the cause, without the address or the words searched", text)
 	}
 }
 

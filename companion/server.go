@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -266,12 +267,16 @@ func (s *server) callWithin(ctx context.Context, wait time.Duration, method, pat
 func unanswered(caller, limited context.Context, path string, cause error) error {
 	late := caller.Err() == nil && errors.Is(limited.Err(), context.DeadlineExceeded)
 	if caller.Err() == nil {
-		// A failed request names its whole address, and a search's holds
-		// the words typed: the log gets the path alone.
+		// A failed request and its dial name the address, and a search's
+		// holds the words typed: the log gets the path alone.
 		said := cause
 		var request *url.Error
 		if errors.As(cause, &request) {
 			said = request.Err
+		}
+		var dial *net.OpError
+		if errors.As(said, &dial) {
+			said = dial.Err
 		}
 		endpoint, _, _ := strings.Cut(path, "?")
 		log.Printf("ask agnostic-ai %s: %v", endpoint, said)
