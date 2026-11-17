@@ -291,6 +291,11 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 				file.Marks[key] = entry
 				changed = true
 			}
+			if s.MarksPath != "" && knownClosed(c) && unseen(c, entry, since) && written.After(parseStamp(entry.ClosedWrittenAt)) {
+				entry.ClosedWrittenAt = written.UTC().Format(time.RFC3339Nano)
+				file.Marks[key] = entry
+				changed = true
+			}
 			c.renamed = entry.Title
 			c.showChosenName()
 			c.State = stateOf(c, entry, since, now)
