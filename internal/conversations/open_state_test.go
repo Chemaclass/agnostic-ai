@@ -281,3 +281,17 @@ func TestScan_ADesktopSessionResumedInATerminalFollowsTheDesktopRuleOnceClosed(t
 		t.Errorf("once the terminal closes it follows the desktop rule: %s", asJSON(t, c))
 	}
 }
+
+func TestScan_ATerminalSessionContinuedInTheEditorStaysAnEditorSession(t *testing.T) {
+	const id = "12121212-1212-4212-8212-121212121212"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.Now = func() time.Time { return time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC) }
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-07T10:00:00.000Z", "message": obj{"role": "user", "content": "Plan the release"}},
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "claude-vscode", "timestamp": "2026-11-07T11:00:00.000Z", "message": obj{"role": "user", "content": "Go on from the editor"}},
+	))
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{Editor: "vscode"}), id)
+	if c.App != AppIDE || c.Open.Kind != RouteLink || c.Open.Label == "Resume in Terminal" {
+		t.Errorf("a session last used in the editor opens there, not in a second terminal copy: %s", asJSON(t, c))
+	}
+}

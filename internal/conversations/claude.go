@@ -44,8 +44,10 @@ type claudeMeta struct {
 	title, firstPrompt, lastPrompt string
 	reply, question                string
 	cwd, branch, entrypoint        string
-	// firstEntrypoint is where the session began: a closed session opens
-	// there and follows that app's rule, wherever it was used last.
+	// firstEntrypoint is where the session began: a closed session last
+	// resumed in a terminal opens there and follows that app's rule. Only
+	// a terminal writes sessions/<pid>.json, so an editor or desktop tail
+	// cannot be proven closed and keeps its own app.
 	firstEntrypoint  string
 	started, updated string
 	sidechain        bool
@@ -309,9 +311,12 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			c.Helpers = s.claudeHelpers(file, work, seenMetas)
 		}
 		c.bridge = session.bridge
-		entrypoint := meta.firstEntrypoint
-		if isLive {
+		entrypoint := meta.entrypoint
+		switch {
+		case isLive:
 			entrypoint = firstNonEmpty(session.entrypoint, meta.entrypoint)
+		case entrypoint == "cli":
+			entrypoint = meta.firstEntrypoint
 		}
 		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
 		// Only a terminal session is known to write sessions/<pid>.json while it runs.
