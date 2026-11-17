@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -56,6 +58,29 @@ type inbox struct {
 	refresh chan struct{}
 	// stopPoll ends the running poll loop; nil while none runs.
 	stopPoll context.CancelFunc
+	// opens counts the opens the pages asked for, so a late answer knows
+	// whether a newer open came after it.
+	opens uint64
+	// lateFailure is why an open the page stopped waiting for did not
+	// open, until the person dismisses it or a newer open begins; nil
+	// when none.
+	lateFailure *lateFailure
+}
+
+// lateFailure is a kept failure: id is the number of its open, and tool
+// and chat name the conversation, whose title the list gives when read.
+// sentTitle is the title the page sent, for a chat the list does not hold.
+type lateFailure struct {
+	id         uint64
+	tool, chat string
+	sentTitle  string
+	failure    openFailure
+}
+
+// openFailure is a failed open as the panel shows it.
+type openFailure struct {
+	Message string `json:"message"`
+	Command string `json:"command,omitempty"`
 }
 
 func newInbox(server *server, builtFor string, changed func()) *inbox {
@@ -239,38 +264,232 @@ type stillOpening struct {
 // list.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wait := in.server.callWait
-		if path == serverOpenPath {
-			wait = in.server.openWait
-		}
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: "the request is larger than the companion sends"})
 			return
 		}
-		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
-		switch {
-		case err != nil && timedOut(err) && path == serverOpenPath:
-			in.refreshSoon()
-			writeJSON(w, http.StatusAccepted, stillOpening{Pending: true, Message: "Still opening. This takes longer than usual."})
-			return
-		case err != nil && timedOut(err):
-			writeJSON(w, http.StatusGatewayTimeout, apiError{Error: err.Error()})
-			return
-		case err != nil:
-			writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
+		if path == serverOpenPath {
+			in.passOpen(w, r, body)
 			return
 		}
-		if answer.status < 300 {
-			in.refreshSoon()
-		}
-		if len(answer.body) == 0 {
-			w.WriteHeader(answer.status)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(answer.status)
-		_, _ = w.Write(answer.body)
+		answer, err := in.server.callWithin(r.Context(), in.server.callWait, http.MethodPost, path, body, "")
+		in.answer(w, answer, err)
 	}
+}
+
+// answer writes the server's answer to a passed call, or why none came.
+// A call that worked asks for a new list.
+func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
+	switch {
+	case err != nil && timedOut(err):
+		writeJSON(w, http.StatusGatewayTimeout, apiError{Error: err.Error()})
+		return
+	case err != nil:
+		writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
+		return
+	}
+	if answer.status < 300 {
+		in.refreshSoon()
+	}
+	if len(answer.body) == 0 {
+		w.WriteHeader(answer.status)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(answer.status)
+	_, _ = w.Write(answer.body)
+}
+
+// passOpen hands an open to the server. After openWait the page gets a
+// pending reply, and the call goes on up to openLateWait: a failure
+// that arrives then is kept for the panel, unless a newer open began.
+func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
+	body, title := withoutTitle(body)
+	var named struct {
+		Tool string `json:"tool"`
+		ID   string `json:"id"`
+	}
+	_ = json.Unmarshal(body, &named)
+	in.mu.Lock()
+	in.opens++
+	this := in.opens
+	in.lateFailure = nil
+	in.mu.Unlock()
+	type outcome struct {
+		answer reply
+		err    error
+	}
+	settled := make(chan outcome, 1)
+	go func() {
+		answer, err := in.server.callWithin(context.WithoutCancel(r.Context()), in.server.openLateWait, http.MethodPost, serverOpenPath, body, "")
+		settled <- outcome{answer, err}
+	}()
+	waited := time.NewTimer(in.server.openWait)
+	defer waited.Stop()
+	select {
+	case got := <-settled:
+		in.answer(w, got.answer, got.err)
+		return
+	case <-waited.C:
+		in.refreshSoon()
+		writeJSON(w, http.StatusAccepted, stillOpening{Pending: true, Message: "Still opening. This takes longer than usual."})
+	case <-r.Context().Done():
+	}
+	go func() {
+		got := <-settled
+		in.settleLate(lateFailure{id: this, tool: named.Tool, chat: named.ID, sentTitle: title}, lateOutcomeOf(got.answer, got.err))
+	}()
+}
+
+// noLateAnswer is what the panel reads about an open that got no answer
+// after its pending reply: a running server stops writing after 90
+// seconds, which says nothing about whether the chat opened.
+const noLateAnswer = "agnostic-ai did not answer in time. The chat may still have opened."
+
+// lateOutcome is how an open ended after its pending reply: failure is
+// what the panel shows, nil when there is nothing to show; said is the
+// outcome the log gets, without the reason.
+type lateOutcome struct {
+	failure *openFailure
+	said    string
+}
+
+func lateOutcomeOf(answer reply, err error) lateOutcome {
+	switch {
+	case errors.Is(err, errResting):
+		return lateOutcome{said: "the companion quit first"}
+	case err != nil:
+		return lateOutcome{failure: &openFailure{Message: noLateAnswer}, said: "no answer"}
+	case answer.status >= 300:
+		return lateOutcome{failure: &openFailure{Message: errorOf(answer)}, said: "not opened"}
+	}
+	var told struct {
+		Opened  *bool  `json:"opened"`
+		Message string `json:"message"`
+		Command string `json:"command"`
+	}
+	if answer.status != http.StatusOK || json.Unmarshal(answer.body, &told) != nil || told.Opened == nil {
+		return lateOutcome{said: "no word on whether it opened"}
+	}
+	if *told.Opened {
+		return lateOutcome{said: "opened"}
+	}
+	return lateOutcome{failure: &openFailure{Message: told.Message, Command: told.Command}, said: "not opened"}
+}
+
+// settleLate keeps the failure of the open late names for the panel,
+// and asks for a new list either way.
+func (in *inbox) settleLate(late lateFailure, outcome lateOutcome) {
+	defer in.refreshSoon()
+	log.Print("an open the page stopped waiting for: " + outcome.said)
+	if outcome.failure == nil {
+		return
+	}
+	in.mu.Lock()
+	newest := late.id == in.opens
+	if newest {
+		late.failure = *outcome.failure
+		in.lateFailure = &late
+	}
+	in.mu.Unlock()
+	if newest {
+		in.changed()
+	}
+}
+
+// lateOpenReply is a kept failure as the panel reads it. Title is the
+// chat's name in the list held now; empty when the list does not hold it.
+type lateOpenReply struct {
+	ID      uint64 `json:"id"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message"`
+	Command string `json:"command,omitempty"`
+}
+
+// lateOpen answers GET /api/open/late with the kept failure of an open
+// the page stopped waiting for; 204 when there is none. Reading it keeps
+// it: the panel shows it again until the person dismisses it.
+func (in *inbox) lateOpen(w http.ResponseWriter, _ *http.Request) {
+	in.mu.Lock()
+	late, latest := in.lateFailure, in.latest
+	in.mu.Unlock()
+	if late == nil {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	title := titleIn(latest, late.tool, late.chat)
+	if title == "" {
+		title = late.sentTitle
+	}
+	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: title, Message: late.failure.Message, Command: late.failure.Command})
+}
+
+// titleIn is the title list gives the chat; empty when it does not list it.
+func titleIn(list json.RawMessage, tool, chat string) string {
+	var view struct {
+		Conversations []struct {
+			Tool  string `json:"tool"`
+			ID    string `json:"id"`
+			Title string `json:"title"`
+		} `json:"conversations"`
+	}
+	if json.Unmarshal(list, &view) != nil {
+		return ""
+	}
+	for _, row := range view.Conversations {
+		if row.Tool == tool && row.ID == chat {
+			return row.Title
+		}
+	}
+	return ""
+}
+
+// dismissLateOpen answers POST /api/open/late/dismiss {id}: the person
+// dismissed that failure, so it is no longer kept. Another id changes
+// nothing, since a newer failure may have replaced it.
+func (in *inbox) dismissLateOpen(w http.ResponseWriter, r *http.Request) {
+	var dismissed struct {
+		ID uint64 `json:"id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRequestBytes)).Decode(&dismissed); err != nil {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "send {id}"})
+		return
+	}
+	in.mu.Lock()
+	if in.lateFailure != nil && in.lateFailure.id == dismissed.ID {
+		in.lateFailure = nil
+	}
+	in.mu.Unlock()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// maxSentTitle bounds the title a page sends with an open: a list row shows one line.
+const maxSentTitle = 200
+
+// withoutTitle takes the title a page sent out of an open, since the
+// server refuses any field but tool, id and editor. A body that is no
+// JSON object goes on as it came, for the server to refuse.
+func withoutTitle(body []byte) ([]byte, string) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return body, ""
+	}
+	sent, ok := fields["title"]
+	if !ok {
+		return body, ""
+	}
+	delete(fields, "title")
+	rest, err := json.Marshal(fields)
+	if err != nil {
+		return body, ""
+	}
+	var title string
+	_ = json.Unmarshal(sent, &title)
+	if runes := []rune(title); len(runes) > maxSentTitle {
+		title = string(runes[:maxSentTitle])
+	}
+	return rest, title
 }

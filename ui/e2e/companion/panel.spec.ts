@@ -31,7 +31,7 @@ test('search, select and open names the chosen conversation', async ({ page }) =
   await expect(selected(page)).toContainText('Fix the login redirect')
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await page.keyboard.press('Enter')
-  expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1' })
+  expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1', title: 'Fix the login redirect' })
 })
 
 test('a row shows the agent\'s latest reply under its title, and a row without one shows none', async ({ page }) => {
@@ -128,7 +128,7 @@ test('a click on the name still opens the chat', async ({ page }) => {
   await openPanel(page)
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await row(page, 'Plan the sync dry run').locator('.title').click()
-  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2' })
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', title: 'Plan the sync dry run' })
   await expect(page.getByLabel('New name')).toHaveCount(0)
 })
 
@@ -261,6 +261,151 @@ test('an open the server is slow to answer hides the list and shows no failure',
   expect(calls).toContain('/api/panel/hide')
   expect(calls).not.toContain('/api/panel/show')
   await expect(notice(page)).toBeHidden()
+})
+
+const LATE_RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2"
+
+/** Opens "Tidy the old branches", which the companion answers as still opening. */
+async function openSlowly(page: Page) {
+  await openArchived(page, 'late-open-failure')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Tidy the old branches').click()
+  expect((await answer).status()).toBe(202)
+}
+
+/** Ends the open answered as still opening, with the fixture's late failure. */
+async function settleLateOpen(page: Page) {
+  expect(await (await page.request.post('/dev/settle-late-opens')).json()).toEqual({ settled: 1 })
+}
+
+/** Shows the list again, as a click on the circle does, and waits for the panel to ask for a late failure. */
+async function showAgain(page: Page) {
+  const asked = page.waitForResponse((response) => response.url().endsWith('/api/open/late'))
+  expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
+  await asked
+}
+
+async function expectLateFailure(page: Page) {
+  await expect(notice(page)).toContainText('Tidy the old branches: macOS blocked opening Terminal.')
+  await expect(notice(page)).toContainText(LATE_RESUME)
+  await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toBeVisible()
+  await expectErrorNotice(page, 'Why it did not open')
+}
+
+test('a late open failure that lands while the list shows appears at once', async ({ page }) => {
+  await openSlowly(page)
+  await showAgain(page)
+  await expect(notice(page)).toBeHidden()
+
+  await settleLateOpen(page)
+  await expectLateFailure(page)
+  expect(await calledPaths(page)).toContain('/api/panel/show')
+})
+
+test('a late open failure shows after the page reloaded during the wait', async ({ page }) => {
+  await openSlowly(page)
+  await page.reload()
+  await expect(page.locator('#list > .row, #list > .empty').first()).toBeVisible()
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  await expectLateFailure(page)
+})
+
+test('a late open failure shows with a search typed', async ({ page }) => {
+  await openSlowly(page)
+  await page.getByLabel('Search every conversation').fill('branches')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  await expectLateFailure(page)
+})
+
+test('a late open failure survives the list opening through the send shortcut', async ({ page }) => {
+  await openSlowly(page)
+  await settleLateOpen(page)
+  await expectLateFailure(page)
+
+  await pressSendShortcut(page)
+  await expect(pickBanner(page)).toBeVisible()
+  await expectLateFailure(page)
+})
+
+test('a send made while an open was still opening does not drop its late failure', async ({ page }) => {
+  await openSlowly(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+  const sent = page.waitForResponse((response) => response.url().endsWith('/api/send'))
+  await page.keyboard.press('Enter')
+  expect((await sent).ok()).toBe(true)
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  await expectLateFailure(page)
+})
+
+test('a notice shown and dismissed while an open was still opening does not drop its late failure', async ({ page }) => {
+  await openArchived(page, 'held-late-open-failure')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Tidy the old branches').click()
+  await expect.poll(async () => (await calledPaths(page)).includes('/api/open')).toBe(true)
+  await row(page, 'Bump the Go version').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+  expect(await (await page.request.post('/dev/release-opens')).json()).toEqual({ released: 1 })
+  expect((await answer).status()).toBe(202)
+  await noticeCard(page).getByRole('button', { name: 'Dismiss' }).click()
+  await expect(noticeCard(page)).toBeHidden()
+
+  await settleLateOpen(page)
+  await expectLateFailure(page)
+})
+
+test('a dismissed late open failure stays gone', async ({ page }) => {
+  await openSlowly(page)
+  await settleLateOpen(page)
+  await expectLateFailure(page)
+
+  const dismissed = page.waitForResponse((response) => response.url().endsWith('/api/open/late/dismiss'))
+  await notice(page).getByRole('button', { name: 'Dismiss' }).click()
+  expect((await dismissed).status()).toBe(204)
+  await showAgain(page)
+  await page.waitForTimeout(300)
+  await expect(noticeCard(page)).toBeHidden()
+  expect((await page.request.get('/api/open/late')).status()).toBe(204)
+})
+
+test('a newer open drops a late open failure', async ({ page }) => {
+  await openSlowly(page)
+  await settleLateOpen(page)
+  await expectLateFailure(page)
+
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Sketch the pricing page').click()
+  expect((await answer).status()).toBe(202)
+  await expect(noticeCard(page)).toBeHidden()
+  expect((await page.request.get('/api/open/late')).status()).toBe(204)
+  await showAgain(page)
+  await page.waitForTimeout(300)
+  await expect(noticeCard(page)).toBeHidden()
+})
+
+test('a newer notice wins while it shows, and the late open failure follows once it is dismissed', async ({ page }) => {
+  await openSlowly(page)
+  await row(page, 'Bump the Go version').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  // Nothing on screen marks a failure the panel held back, so give it time to wrongly show one.
+  await page.waitForTimeout(300)
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+  await expect(noticeCard(page)).not.toContainText('macOS blocked opening Terminal.')
+
+  await noticeCard(page).getByRole('button', { name: 'Dismiss' }).click()
+  await expectLateFailure(page)
 })
 
 test('the next open replaces the notice', async ({ page }) => {
@@ -587,7 +732,7 @@ test('a new list while navigating keeps the highlighted row', async ({ page }) =
 
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await page.keyboard.press('Enter')
-  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'work-1' })
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'work-1', title: 'Refactor the search index' })
 })
 
 test('a slower older search never replaces the newer one', async ({ page }) => {
@@ -867,12 +1012,12 @@ test('a local chat also open on claude.ai is one row that opens here, and its se
   const web = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await shared.hover()
   await shared.getByRole('button', { name: 'Open on claude.ai' }).click()
-  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
+  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1', title: 'Review the payment retries' })
 
   await page.goto('/panel.html')
   const local = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await row(page, 'Review the payment retries').click({ position: { x: 40, y: 10 } })
-  expect((await local).postDataJSON()).toEqual({ tool: 'claude', id: 'rc-1' })
+  expect((await local).postDataJSON()).toEqual({ tool: 'claude', id: 'rc-1', title: 'Review the payment retries' })
 })
 
 test('the row menu of a shared chat opens its claude.ai page', async ({ page }) => {
@@ -880,7 +1025,7 @@ test('the row menu of a shared chat opens its claude.ai page', async ({ page }) 
   await row(page, 'Review the payment retries').click({ button: 'right' })
   const web = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await page.getByRole('menuitem', { name: 'Open on claude.ai' }).click()
-  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
+  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1', title: 'Review the payment retries' })
 })
 
 test('a chat folds its working subagents out under it, newest first, five at most, and each opens where it lives', async ({ page }) => {
@@ -909,12 +1054,12 @@ test('a chat folds its working subagents out under it, newest first, five at mos
 
   const codex = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await helpers.filter({ hasText: 'Review #3511' }).click()
-  expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511' })
+  expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511', title: 'Review #3511: local app chats' })
   await page.goto('/panel.html')
   await parent.getByRole('button', { name: '▸ 7 subagents' }).click()
   const claude = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await helpers.filter({ hasText: 'Find rename call sites' }).click()
-  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1' })
+  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats' })
 })
 
 test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {
@@ -1000,7 +1145,7 @@ test('Enter on a subagent control opens nothing but what it names, even with its
   await codex
   // Both opens of one key press would leave together; the reload comes after them.
   await page.goto('/panel.html')
-  expect(opens).toEqual([{ tool: 'codex', id: 'run-3511' }])
+  expect(opens).toEqual([{ tool: 'codex', id: 'run-3511', title: 'Review #3511: local app chats' }])
 })
 
 const pickBanner = (page: Page) => page.getByRole('region', { name: 'Send the copied text' })

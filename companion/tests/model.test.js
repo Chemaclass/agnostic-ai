@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -579,7 +579,8 @@ test('offers Open on claude.ai only on a shared row, and names its cloud session
   assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'web'])
   assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'web'])
   assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename'])
-  assert.deepEqual(cloudPageOf(shared('a', 'active')), { tool: 'claude', id: 'cse_a1' })
+  const sharedRow = shared('a', 'active')
+  assert.deepEqual(cloudPageOf(sharedRow), { tool: 'claude', id: 'cse_a1', title: sharedRow.title })
   assert.equal(cloudPageOf(row('a', 'active')), undefined)
 })
 
@@ -630,7 +631,8 @@ test('a subagent names its tool, its type when it has a telling one, and its age
 
 test('a Codex subagent opens its own thread; a Claude Code subagent opens the chat it runs in', () => {
   const parent = row('parent', 'working')
-  assert.deepEqual(helperOpenOf(parent, helper('run-1', 'working', 1, { tool: 'codex' })), { tool: 'codex', id: 'run-1' })
+  const run = helper('run-1', 'working', 1, { tool: 'codex' })
+  assert.deepEqual(helperOpenOf(parent, run), { tool: 'codex', id: 'run-1', title: helperTitleOf(run) })
   assert.equal(helperOpenOf(parent, helper('agent-1', 'working', 1)), parent)
 })
 
@@ -656,4 +658,20 @@ test('Mark all as read in Archived reaches only unread rows on screen, none whil
   const archived = { id: 'archived', rows: [row('a', 'dormant', { unread: true }), row('b', 'dormant'), row('c', 'completed', { unread: true })] }
   assert.deepEqual(unreadShownOf(archived, false).map((r) => r.id), ['a', 'c'])
   assert.deepEqual(unreadShownOf(archived, true), [])
+})
+
+test('a late open failure the person dismissed while it was read does not show again', () => {
+  const failure = { id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.' }
+  assert.equal(lateOpenFailureOf(failure, 3), undefined)
+  assert.equal(lateOpenFailureOf(failure, 2).id, 3)
+})
+
+test('a late open failure names its chat when the list holds it', () => {
+  assert.deepEqual(lateOpenFailureOf({ id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.', command: 'claude --resume done-2' }), {
+    message: 'Tidy the old branches: macOS blocked opening Terminal.',
+    late: true,
+    id: 3,
+    command: 'claude --resume done-2',
+  })
+  assert.deepEqual(lateOpenFailureOf({ id: 4, message: 'agnostic-ai did not answer.' }), { message: 'agnostic-ai did not answer.', late: true, id: 4 })
 })

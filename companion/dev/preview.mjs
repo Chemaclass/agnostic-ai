@@ -171,6 +171,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
 
   // Opens a fixture holds, answered when a test releases them.
   let heldOpens = []
+  // Like the shell: the failure of an open answered as pending, kept once it settles until it is dismissed.
+  // A newer open drops it. A fixture chosen meanwhile keeps it, as the shell knows nothing of fixtures.
+  let lateOpen = { waiting: undefined, settled: undefined }
+  let opensMade = 0
 
   function find(body) {
     return state.conversations.find((row) => row.tool === body.tool && row.id === body.id)
@@ -246,7 +250,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       })
     }
     if (response.destroyed) return
-    if (fixture.openPending) return sendJSON(response, 202, { pending: true, message: 'Still opening. This takes longer than usual.' })
+    lateOpen = { waiting: undefined, settled: undefined }
+    opensMade += 1
+    if (fixture.openPending) {
+      if (fixture.lateOpenProblem) lateOpen.waiting = { id: opensMade, tool: body.tool, chat: body.id, sentTitle: body.title, message: fixture.lateOpenProblem, command: fixture.openCommand }
+      return sendJSON(response, 202, { pending: true, message: 'Still opening. This takes longer than usual.' })
+    }
     if (fixture.openProblem) return sendJSON(response, 200, { opened: false, message: fixture.openProblem, command: fixture.openCommand })
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
@@ -307,6 +316,19 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   const routes = {
     'GET /api/inbox': inbox,
     'POST /api/open': open,
+    'GET /api/open/late': (request, response) => {
+      logCall('/api/open/late')
+      const failure = lateOpen.settled
+      if (!failure) return noContent(response)
+      const title = state.conversations.find((row) => row.tool === failure.tool && row.id === failure.chat)?.title || failure.sentTitle
+      sendJSON(response, 200, { id: failure.id, ...(title ? { title } : {}), message: failure.message, command: failure.command })
+    },
+    'POST /api/open/late/dismiss': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/open/late/dismiss', body)
+      if (lateOpen.settled?.id === body.id) lateOpen.settled = undefined
+      noContent(response)
+    },
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
@@ -359,6 +381,13 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       sendJSON(response, 200, { chosen: state.name, fixtures: Object.entries(FIXTURES).map(([name, { label }]) => ({ name, label })) }),
     'GET /dev/calls': (request, response) => sendJSON(response, 200, calls),
     'POST /dev/fixture': chooseFixture,
+    // The open answered as pending ends now, and fails with the fixture's late reason.
+    'POST /dev/settle-late-opens': (request, response) => {
+      const settled = lateOpen.waiting ? 1 : 0
+      lateOpen = { waiting: undefined, settled: lateOpen.waiting }
+      sendJSON(response, 200, { settled })
+      if (settled) emit('inbox')
+    },
     'POST /dev/release-opens': (request, response) => {
       const released = heldOpens
       heldOpens = []

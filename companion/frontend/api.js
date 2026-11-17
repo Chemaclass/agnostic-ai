@@ -39,9 +39,17 @@ export function readInbox(query, before, signal) {
   return call('/api/inbox?' + asked, { signal })
 }
 
+/** Opens a row. Its title goes along, so a failure that comes after the companion stopped waiting can name it. */
 export function openConversation(conversation) {
-  return post('/api/open', { tool: conversation.tool, id: conversation.id })
+  return post('/api/open', { tool: conversation.tool, id: conversation.id, ...(conversation.title ? { title: conversation.title } : {}) })
 }
+
+/**
+ * Why an open the companion stopped waiting for did not open, as `{id, title?, message, command?}`; undefined
+ * when there is none. The companion keeps it until `dismissLateOpenFailure(id)` or a newer open.
+ */
+export const readLateOpenFailure = () => call('/api/open/late')
+export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
 
 /** mark is `seen`, `completed` or `hidden`. */
 export function markConversation(conversation, mark) {
