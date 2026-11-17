@@ -93,6 +93,26 @@ func TestScan_UnarchivingInTheAppAndArchivingAgainFollowsTheApp(t *testing.T) {
 	}
 }
 
+func TestScan_AnUnarchiveSeenOnlyByALookupStillStartsANewArchive(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	start := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	writeCoworkTask(t, stores, "2026-11-07T11:59:00Z", false, true)
+	scanAt(t, scanner, start)
+	writeCoworkTask(t, stores, "2026-11-07T12:01:00Z", false, true)
+	scanAt(t, scanner, start.Add(2*time.Minute))
+
+	// Only the lookup behind an open, mark or rename reads the unarchive.
+	writeCoworkTask(t, stores, "2026-11-07T12:01:00Z", false, false)
+	scanner.Now = func() time.Time { return start.Add(4 * time.Minute) }
+	if _, found := scanner.Find(context.Background(), ToolClaude, archivedTaskID, ScanOptions{}); !found {
+		t.Fatal("the task is not found")
+	}
+	writeCoworkTask(t, stores, "2026-11-07T12:01:00Z", false, true)
+	if c := byID(t, scanAt(t, scanner, start.Add(6*time.Minute)), archivedTaskID); c.State != StateDormant {
+		t.Fatalf("archived again after an unarchive only a lookup saw: %s, want dormant", c.State)
+	}
+}
+
 func TestScan_ACodexThreadComparesWritesWithItsOwnArchiveTime(t *testing.T) {
 	quiet, written := "55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666"
 	archivedAt := time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC)

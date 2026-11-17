@@ -161,7 +161,7 @@ The `activity` of a loaded local Codex thread is `working` during an unfinished 
 
 Chats archived in their app:
 
-A chat you archived in its own app is listed as `dormant`, the state the companion and the web interface show under Archived. The server reads the app's own archive flag on each read and writes nothing to `conversation-marks.json`, so un-archiving it in the app brings it back.
+A chat you archived in its own app is listed as `dormant`, which the companion shows under Archived. The web interface lists it by date, like any closed chat. The server reads the app's own archive flag on each read and writes nothing to `conversation-marks.json`, so un-archiving it in the app brings it back.
 
 | Chat | Archived in its app |
 |------|---------------------|

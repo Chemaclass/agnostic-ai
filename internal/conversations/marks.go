@@ -230,7 +230,6 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 				file.Marks[key] = entry
 				changed = true
 			}
-			c.underAppArchive = s.stillAppArchived(key, c, written, working)
 			if entry.HiddenAt != "" || (c.untyped && entry.Title == "") {
 				continue
 			}
@@ -268,6 +267,19 @@ type appArchive struct {
 	// lifted: a write after since, or work, took it out of Archived.
 	// It stays out while the app keeps it archived.
 	lifted bool
+}
+
+// followAppArchives sets underAppArchive on every row of results. Every
+// read goes through it, the scan and the lookups behind open, mark,
+// rename and delete alike, so the scanner sees each change of an app's
+// flag, however short.
+func (s *Scanner) followAppArchives(results []sourceResult) {
+	for r := range results {
+		for i := range results[r].conversations {
+			c := &results[r].conversations[i]
+			c.underAppArchive = s.stillAppArchived(markKey(c.Tool, c.ID), *c, lastWritten(*c), workingNow(*c))
+		}
+	}
 }
 
 // stillAppArchived reports whether a conversation shows under Archived

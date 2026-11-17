@@ -296,6 +296,7 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	}
 	attachRuns(results)
 	s.placeLive(results)
+	s.followAppArchives(results)
 	return results, strings.Join(notes, " ")
 }
 
