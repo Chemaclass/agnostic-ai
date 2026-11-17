@@ -20,7 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Renaming a conversation now renames it in its own tool first, so Claude Code, Codex, Cursor, ChatGPT and Claude Code cloud sessions show the new name in their own lists. When the tool does not take the name, the companion says why, such as "Codex is not installed", and keeps the old name. Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
 - Working agents show a quiet five-dot rainbow gyroscope, with a miniature fractal per native Claude Code or Codex sub-agent and reduced-motion support. Waiting parents keep a plain orange dot while their working satellites animate independently in blue.
 - Dragging the companion keeps its open conversation list beside it, preserving the search.
-- A Codex thread, Cursor chat or Claude Cowork task you archive in its own app now shows under Archived instead of leaving the list. Un-archive it in the app, or write in it, and it comes back.
+- A Codex thread, Cursor chat or Claude Cowork task you archive in its own app now shows under Archived instead of leaving the list. Un-archive it in the app, or write in it, and it comes back. (#3524)
 - A chat with working subagents shows "▸ 3 subagents" in the companion. Click it to see them under the chat, newest first, each with its tool, type and age. A subagent that finished leaves the list and the count. Codex runs a Claude Code session started with `codex exec` are listed too while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. The conversations API gains an optional `helpers` field for this.
 
 #### Sending copied text
