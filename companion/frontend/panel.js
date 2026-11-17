@@ -607,7 +607,9 @@ async function refresh() {
 
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
-// back to say why only when the conversation did not open.
+// back to say why only when the conversation did not open. An open the
+// companion gave up waiting for (`pending`) may still happen, so it is
+// no failure and the panel stays hidden.
 let latestOpen = 0
 
 async function openRow(conversation) {
@@ -616,7 +618,8 @@ async function openRow(conversation) {
   await hidePanel().catch(() => {})
   let failure
   try {
-    failure = openFailureOf(await openConversation(conversation))
+    const reply = await openConversation(conversation)
+    failure = reply.pending ? undefined : openFailureOf(reply)
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }

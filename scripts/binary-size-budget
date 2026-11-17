@@ -972,4 +972,5 @@
 # The app-archived-chats branch measured 27021472 bytes locally (make size-check): chats archived in Codex, Cursor or Claude Cowork are listed as archived; the budget is that plus 8192, rounded up to a multiple of 4096.
 # The permission pill measured 27033760 bytes locally (make size-check): rows say what a waiting chat asks to have approved (internal/conversations/waiting.go); the budget is that plus 8192, rounded up to a multiple of 4096.
 # The permission pill stacked on #3524 measured 27050144 bytes locally (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
-27062272
+# #3530 measured 27062432 bytes in CI (make size-check): an open no longer waits for a running scan or reads the list twice, and relay errors are said in plain words; the budget is that plus 8192, rounded up to a multiple of 4096.
+27074560

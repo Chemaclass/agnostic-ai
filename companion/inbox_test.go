@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 // fakeAgnosticAI stands in for the agnostic-ai server.
@@ -23,6 +26,8 @@ type fakeAgnosticAI struct {
 	posts map[string][]string
 	// answers replies to a post at a path with its status and body; a path without one answers 204.
 	answers map[string]fakeAnswer
+	// hold keeps every post unanswered until it closes or the caller gives up; nil holds none.
+	hold chan struct{}
 }
 
 type fakeAnswer struct {
@@ -37,6 +42,13 @@ func (f *fakeAgnosticAI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.posts = map[string][]string{}
 		}
 		f.posts[r.URL.Path] = append(f.posts[r.URL.Path], r.Header.Get("Content-Type")+" "+string(body))
+		if f.hold != nil {
+			select {
+			case <-f.hold:
+			case <-r.Context().Done():
+				return
+			}
+		}
 		if answer, ok := f.answers[r.URL.Path]; ok && !strings.Contains(string(body), "gone") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(answer.status)
@@ -307,5 +319,70 @@ func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 				t.Errorf("asked for a new list: %t", asked)
 			}
 		})
+	}
+}
+
+func TestInbox_AnOpenTheServerIsSlowToAnswerIsStillOpeningNotAFailure(t *testing.T) {
+	fake := &fakeAgnosticAI{hold: make(chan struct{})}
+	in, _ := connected(t, fake)
+	in.server.openWait = 30 * time.Millisecond
+	rec := httptest.NewRecorder()
+
+	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"a"}`)))
+
+	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusAccepted || body != `{"pending":true,"message":"Still opening. This takes longer than usual."}` {
+		t.Errorf("a slow open = %d %s; want 202 and no failure, since the conversation may still open", rec.Code, body)
+	}
+}
+
+func TestInbox_ACallTheServerDoesNotAnswerSaysSoInPlainWords(t *testing.T) {
+	fake := &fakeAgnosticAI{hold: make(chan struct{})}
+	in, _ := connected(t, fake)
+	in.server.callWait = 30 * time.Millisecond
+	rec := httptest.NewRecorder()
+
+	in.pass(serverMarkPath)(rec, httptest.NewRequest(http.MethodPost, "/api/mark", strings.NewReader(`{"tool":"claude","id":"a","as":"seen"}`)))
+
+	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusGatewayTimeout || body != `{"error":"agnostic-ai took too long to answer. Try again."}` {
+		t.Errorf("a mark the server did not answer in time = %d %s", rec.Code, body)
+	}
+}
+
+func TestInbox_LogsAServerThatIsGoneWithoutItsAddressOrTheWordsSearched(t *testing.T) {
+	gone := httptest.NewServer(http.NotFoundHandler())
+	gone.Close()
+	server := newServer()
+	server.base = gone.URL
+	in := newInbox(server, "", func() {})
+	var logged bytes.Buffer
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	in.read(context.Background())
+	getInbox(t, in, "?q=secret+plans")
+
+	host := strings.TrimPrefix(gone.URL, "http://")
+	if text := logged.String(); !strings.Contains(text, "ask agnostic-ai "+serverListPath+": ") || strings.Contains(text, host) || strings.Contains(text, "127.0.0.1") || strings.Contains(text, "secret") {
+		t.Errorf("log = %q; want the path and the cause, without the address or the words searched", text)
+	}
+}
+
+func TestInbox_AServerThatIsGoneSaysSoInPlainWords(t *testing.T) {
+	gone := httptest.NewServer(http.NotFoundHandler())
+	gone.Close()
+	server := newServer()
+	server.base = gone.URL
+	in := newInbox(server, "", func() {})
+
+	in.read(context.Background())
+	rec := httptest.NewRecorder()
+	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"a"}`)))
+
+	const plain = `{"error":"The companion could not reach agnostic-ai. Try again."}`
+	if status, body := getInbox(t, in, ""); status != http.StatusBadGateway || body != plain {
+		t.Errorf("the list = %d %s; want plain words and no Go error or address", status, body)
+	}
+	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadGateway || body != plain {
+		t.Errorf("an open = %d %s; a real failure still answers as one", rec.Code, body)
 	}
 }

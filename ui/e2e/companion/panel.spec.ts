@@ -249,6 +249,20 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
   expect(opens).toEqual([])
 })
 
+test('an open the server is slow to answer hides the list and shows no failure', async ({ page }) => {
+  await openPanel(page, 'slow-open')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Plan the sync dry run').click()
+  expect((await answer).status()).toBe(202)
+  // Nothing on screen marks an answer the panel ignored, so give it time to wrongly come back.
+  await page.waitForTimeout(300)
+
+  const calls = await calledPaths(page)
+  expect(calls).toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/panel/show')
+  await expect(notice(page)).toBeHidden()
+})
+
 test('the next open replaces the notice', async ({ page }) => {
   await openFailing(page, 'resume-failure')
   await expect(notice(page)).toContainText(RESUME)

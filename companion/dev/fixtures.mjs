@@ -164,6 +164,7 @@ function approvals(now) {
  * sendProblem (the send call fails), unsent (nothing was typed and the conversation was not switched to),
  * slowQueries (queries that contain the word wait that many milliseconds),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
+ * openPending (the server did not answer an open in time, so nobody knows yet whether it opened),
  * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown).
  */
 export const FIXTURES = {
@@ -308,6 +309,11 @@ export const FIXTURES = {
     label: 'Slow search for "release"',
     conversations: mixed,
     slowQueries: { release: 1500 },
+  },
+  'slow-open': {
+    label: 'Open the server is slow to answer',
+    conversations: mixed,
+    openPending: true,
   },
   'held-open-failure': {
     label: 'Open failure for "Plan the sync dry run", held until /dev/release-opens',
