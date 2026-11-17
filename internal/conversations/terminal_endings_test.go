@@ -167,3 +167,49 @@ func TestScan_AnUnreadablePsCannotProveATerminalSessionEnded(t *testing.T) {
 		t.Errorf("without ps the session keeps the fallback and stays unread: %s", asJSON(t, c))
 	}
 }
+
+// These assume Claude Code points sessions/<pid>.json at the new session
+// id when /clear, an in-process /resume or a fork switches sessions. That
+// was not checked against Claude Code itself; see decision 018.
+func TestScan_ASessionSwitchArchivesTheOldIDAndKeepsTheNewOneOpen(t *testing.T) {
+	const next = "22222222-2222-4222-8222-222222222222"
+	for _, name := range []string{"/clear", "/resume in the same process", "fork"} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, _, _, _ := endingScanner(t)
+			at := scanner.Now()
+			scanner.Now = func() time.Time { at = at.Add(freshSpan); return at }
+			listed := func() View { return scanner.Scan(context.Background(), ScanOptions{}) }
+			project := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app")
+			prompt := func(at, text string) obj {
+				return obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": at, "message": obj{"role": "user", "content": text}}
+			}
+			bookkeeping := obj{"type": "system", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-07T11:30:00.000Z", "subtype": "local_command"}
+			if name == "fork" {
+				write(t, filepath.Join(project, next+".jsonl"), lines(prompt("2026-11-07T11:00:00.000Z", "Fix the parser")))
+			} else {
+				write(t, filepath.Join(project, next+".jsonl"), lines(bookkeeping))
+			}
+			write(t, filepath.Join(stores.ClaudeDir, "sessions", "4242.json"), fmt.Sprintf(`{"pid":4242,"sessionId":%q,"procStart":%q,"status":"idle"}`, next, startedAt))
+
+			view := listed()
+			if c := byID(t, view, idSafari); c.Live || c.State != StateDormant {
+				t.Errorf("the old id is archived: %s", asJSON(t, c))
+			}
+			if name == "fork" {
+				if c := byID(t, view, next); !c.Live {
+					t.Errorf("the fork is open: %s", asJSON(t, c))
+				}
+				return
+			}
+			for _, c := range view.Conversations {
+				if c.ID == next {
+					t.Errorf("the new id stays hidden until it holds a prompt: %s", asJSON(t, c))
+				}
+			}
+			write(t, filepath.Join(project, next+".jsonl"), lines(bookkeeping, prompt("2026-11-07T11:31:00.000Z", "Start over")))
+			if c := byID(t, listed(), next); !c.Live || c.State == StateDormant {
+				t.Errorf("the new id is open once it holds a prompt: %s", asJSON(t, c))
+			}
+		})
+	}
+}
