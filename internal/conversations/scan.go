@@ -124,6 +124,14 @@ type Scanner struct {
 	// readsBegun counts the reads that began, under lastReadMu.
 	readsBegun uint64
 
+	// openingMu guards opening, apart from mu and the marks lock: an open
+	// takes it only to join or leave the list.
+	openingMu sync.Mutex
+	// opening holds, by mark key, the open in progress for each chat, so
+	// a second open of the same chat waits for it instead of resuming the
+	// chat a second time.
+	opening map[string]*sharedOpen
+
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
 	rolloutsMu sync.Mutex
@@ -280,13 +288,18 @@ func (s *Scanner) findToOpen(ctx context.Context, tool Tool, id string, opts Sca
 }
 
 // wouldResume reports whether opening c would resume its session in a
-// new tab: its route says so, or the process that ran it has ended.
+// new tab: its route says so, or the process that ran it has ended. A
+// closed Claude Code session that began in the desktop app or an editor
+// opens through a link, which resumes it there; a fresh read routes it
+// to the terminal that may run it again since.
 func (s *Scanner) wouldResume(c Conversation) bool {
 	switch c.Open.Kind {
 	case RouteTerminal:
 		return true
 	case RouteFocus:
 		return c.process == nil || !s.Processes.Alive(c.process.PID, c.process.ProcStart)
+	case RouteLink:
+		return c.Tool == ToolClaude && (c.App == AppDesktop || c.App == AppIDE) && !c.Live
 	default:
 		return false
 	}
