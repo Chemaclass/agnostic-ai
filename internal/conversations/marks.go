@@ -166,13 +166,14 @@ func parseStamp(value string) time.Time {
 // is dormant, the state of a closed one, while that archive holds.
 // A terminal session no process holds, by a full process read, is
 // archived even with a reply not seen: Unread keeps that reply in view.
-// Once resumed, a write it read while closed needs nobody.
+// Once a process holds it again, a write read while it was closed needs
+// nobody. Any other row, a failed read included, goes by the seen mark.
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
 	seenAt := seenSince(entry, since)
 	attendedAt := seenAt
-	if closedWrittenAt := parseStamp(entry.ClosedWrittenAt); closedWrittenAt.After(attendedAt) {
+	if closedWrittenAt := parseStamp(entry.ClosedWrittenAt); c.Live && closedWrittenAt.After(attendedAt) {
 		attendedAt = closedWrittenAt
 	}
 	switch {
@@ -210,6 +211,13 @@ func seenSince(entry markEntry, since time.Time) time.Time {
 func unseen(c Conversation, entry markEntry, since time.Time) bool {
 	seenAt := seenSince(entry, since)
 	return !seenAt.IsZero() && lastWritten(c).After(seenAt)
+}
+
+// unreadMarker: an unseen write on a row that does not count toward
+// NeedsYou. It holds on an archived row, and on a session resumed by hand
+// whose reply came while it was closed, until the person reads it.
+func unreadMarker(state State, unseen bool) bool {
+	return unseen && (state == StateDormant || state == StateActive)
 }
 
 // knownClosed: a full process read found no process that holds this
@@ -288,7 +296,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			c.renamed = entry.Title
 			c.showChosenName()
 			c.State = stateOf(c, entry, since, now)
-			c.Unread = c.State == StateDormant && unseen(c, entry, since)
+			c.Unread = unreadMarker(c.State, unseen(c, entry, since))
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
 			if c.State == StateCompleted || c.State == StateDormant {

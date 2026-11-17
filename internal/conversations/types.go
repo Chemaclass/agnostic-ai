@@ -168,9 +168,10 @@ type Conversation struct {
 	QuietSince string `json:"quietSince,omitempty"`
 	// State places the conversation for the person; see stateOf.
 	State State `json:"state"`
-	// Unread: a dormant conversation whose latest write the person has
-	// not seen, such as a terminal session that closed after its reply.
-	// It counts not toward NeedsYou, and it cannot be deleted until read.
+	// Unread: a dormant or active conversation whose latest write the
+	// person has not seen: a terminal session that closed after its reply,
+	// and stays so once resumed by hand, until the person reads it. It
+	// counts not toward NeedsYou, and it cannot be deleted until read.
 	Unread bool `json:"unread,omitempty"`
 	// SeenAt and CompletedAt are the person's marks, when set.
 	SeenAt      string `json:"seenAt,omitempty"`
