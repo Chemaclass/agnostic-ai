@@ -76,7 +76,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group. A child that waits for you stays under Needs you, even when its parent is active or archived.
 - Under Needs you, a row says why only when the agent waits: "Waiting for you", or "No activity for 7m" for local Codex. A new reply needs no words, and a row under Working does not repeat "Working".
 - **Delete permanently…** removes a chat under Archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
-- A Codex thread, Cursor editor chat or Claude Cowork task you archived in its own app shows under Archived. See [Chats archived in their app](#chats-archived-in-their-app).
+- A Codex thread, Cursor editor chat, Claude chat or Claude Cowork task you archived in its own app shows under Archived. See [Chats archived in their app](#chats-archived-in-their-app).
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - The list's ⋯ menu and the circle's right-click menu hold the same settings, in the same order. A change in one shows in the other:
   - **Animate companion** turns its movement on and off. Working rows show a five-bulb gyroscope at constant brightness, with bulbs at different orbital radii and depths. Each working native Claude Code or Codex sub-agent adds one blue miniature of the same five-dot fractal. A number and agent icon show the count, with a tooltip and accessible label; unavailable counts add none. Working is named once in the blue section header. Working sub-agents keep an idle parent in Working, with its own still dot. A parent asking you a question stays in Needs you with a plain orange dot and no orbiting bulbs of its own; its working satellites keep their blue cores and animation. Cloud and other tools' sub-agents are not tracked. A chat with working subagents shows "▸ 3 subagents" in its meta line in place of the count. The list starts folded. Click it to fold them out under the chat, newest first, five at most, then a "+N more" button. Only working subagents are listed and counted: one that finished leaves the list, and the toggle goes away once none works. Each shows the working gyroscope, its title, its tool, its type when it has one, and its age. Its Codex runs started with `codex exec` count among them while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. A Claude Code subagent opens its chat. Which chats are unfolded is kept until the companion quits. Turning animation off or enabling the system's Reduce Motion keeps the indicator still with its section heading and worker count visible. The circle shows a still ring and its count keeps updating. The choice is kept across restarts.
@@ -99,7 +99,7 @@ A chat you archived in its own app shows under Archived. The [conversations API]
 | Codex thread | Listed as archived. Codex keeps the time it archived the thread. |
 | Cursor editor chat | Listed as archived. Cursor keeps no time for the archive. |
 | Claude Cowork task | Listed as archived. The app keeps no time for the archive. |
-| Claude chat | Not listed. The Claude app keeps only the chats that are not archived on this computer. |
+| Claude chat | Listed as archived when it leaves the app's list. See below. |
 | ChatGPT chat | Not known. The ChatGPT app's chat list keeps no archive flag. |
 | `cursor-agent` chat | Not known. `cursor-agent` keeps no archive flag. |
 
@@ -108,6 +108,15 @@ A chat you archived in its own app shows under Archived. The [conversations API]
 - The server keeps that first write, and whether a write or work ended the archive, in memory only. A restarted server starts again from what the app says.
 - A chat that waits for you or works still shows under Needs you or Working, as with your own archive.
 - A tool's `count` includes its archived chats.
+
+The Claude app keeps no archive flag on this computer, only its list of chats that are not archived, and only the pages of it you scrolled to. So the server remembers the Claude chats it saw in that list, in memory:
+
+- A chat that leaves the list shows under Archived, as it was last seen, when it is not older than the oldest chat still in the list. That shows it did not just fall off the pages the app keeps.
+- A chat that leaves the list and is older than every chat still in it may only sit on a page the app no longer keeps. It leaves the agnostic-ai list, and the server forgets it.
+- A chat you deleted in the app cannot be told apart from one you archived. It shows under Archived until it is older than the oldest chat in the list.
+- A chat back in the list, after you un-archive it, is a normal row again.
+- A read of the app's storage that fails says so in the Claude Code tool's note, and nothing is read as archived from it.
+- A restarted server remembers nothing, so a chat archived while no server ran is not listed.
 
 ## Delete an archived chat
 

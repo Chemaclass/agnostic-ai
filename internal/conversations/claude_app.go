@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/chromeidb"
 )
@@ -122,7 +123,58 @@ func (s *Scanner) claudeAppRows(opts ScanOptions) ([]Conversation, string) {
 	if s.claudeApp.stamp != stamp {
 		s.claudeApp = cached[claudeAppRead]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
 	}
-	return within(slices.Clone(s.claudeApp.value.rows), opts.Within), s.claudeApp.value.note
+	rows := slices.Clone(s.claudeApp.value.rows)
+	if s.claudeApp.value.note == "" {
+		rows = append(rows, s.claudeChatsGone(rows)...)
+	}
+	return within(rows, opts.Within), s.claudeApp.value.note
+}
+
+// claudeChatsGone remembers the chats of the app's cached list and
+// returns, as archived, the remembered ones that left it. The list holds
+// only chats that are not archived, newest first, and the app caches
+// only the pages the person scrolled to. So a chat that left it is
+// archived, or deleted, which cannot be told apart, only when it is not
+// older than the oldest chat still cached; an older one may just sit on
+// a page the app did not load, and is forgotten. The memory is the
+// scanner's alone: the marks file never holds it, and a new server
+// knows none. Call it only with a read that succeeded.
+func (s *Scanner) claudeChatsGone(rows []Conversation) []Conversation {
+	cached := map[string]bool{}
+	var oldest time.Time
+	for _, c := range rows {
+		if c.App != AppChat {
+			continue
+		}
+		cached[c.ID] = true
+		updated := parseStamp(c.UpdatedAt)
+		if oldest.IsZero() || updated.Before(oldest) {
+			oldest = updated
+		}
+	}
+	var gone []Conversation
+	for id, c := range s.claudeChatsSeen {
+		if cached[id] {
+			continue
+		}
+		if len(cached) == 0 || parseStamp(c.UpdatedAt).Before(oldest) {
+			delete(s.claudeChatsSeen, id)
+			continue
+		}
+		c.appArchived = true
+		gone = append(gone, c)
+	}
+	if s.claudeChatsSeen == nil {
+		s.claudeChatsSeen = map[string]Conversation{}
+	}
+	for _, c := range rows {
+		if c.App == AppChat {
+			// A chat that left the list no longer answers.
+			c.Live, c.Activity = false, ""
+			s.claudeChatsSeen[c.ID] = c
+		}
+	}
+	return gone
 }
 
 // claudeAppDB is the LevelDB folder of the app's web storage.
@@ -233,7 +285,8 @@ func queryName(query claudeAppQuery) string {
 // claudeChatsOf returns the chats of the sidebar's list: the paged one
 // that holds every chat not archived, starred or not. The app keeps no
 // list of archived chats on this machine (none was cached on
-// 2026-11-17), so a chat archived in the app leaves this list.
+// 2026-11-17), so a chat archived in the app leaves this list; see
+// claudeChatsGone.
 func claudeChatsOf(query claudeAppQuery) []claudeChat {
 	key := query.QueryKey
 	if len(key) != 4 {

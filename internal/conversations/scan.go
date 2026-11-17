@@ -112,6 +112,9 @@ type Scanner struct {
 	// appArchives holds, by mark key, the conversations their own app
 	// keeps archived; see stillAppArchived.
 	appArchives map[string]appArchive
+	// claudeChatsSeen holds, by id, the Claude app chats an earlier read
+	// found in the app's cached list; see claudeChatsGone.
+	claudeChatsSeen map[string]Conversation
 
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
