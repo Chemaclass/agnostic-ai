@@ -47,22 +47,25 @@ test('both motion controls leave a still, readable working state', async ({ page
 })
 
 test('redrawing a working row keeps its orbital phase', async ({ page }) => {
-  const drift = async () => page.locator('.work-cage').evaluate((element) => {
+  // The page clock time at which the orbit was at zero. It does not move while the orbit runs,
+  // so how busy the machine is between two reads cannot change it.
+  const origin = async () => page.locator('.work-cage').evaluate((element) => {
     const animation = element.getAnimations()[0]
     const delay = animation.effect?.getTiming().delay
     if (delay === undefined) throw new Error('the work cage animation has no timing delay to compare')
-    return Number(animation.currentTime) - delay - performance.now()
+    return Number(animation.startTime) + delay
   })
   // Wait until the animation has a start time before comparing its timeline.
   await expect.poll(() => page.locator('.work-cage').evaluate((element) => Number(element.getAnimations()[0].currentTime))).toBeGreaterThan(100)
-  const before = await drift()
+  const before = await origin()
   const oldCage = await page.locator('.work-cage').elementHandle()
   // A new arrival replaces every row, so the working row's mark is drawn again.
   await page.request.post('/dev/arrive')
   await expect.poll(() => oldCage?.evaluate((element) => element.isConnected)).toBe(false)
   await expect(page.locator('.work-cage')).toHaveCount(1)
   await expect.poll(() => page.locator('.work-cage').evaluate((element) => Number(element.getAnimations()[0].currentTime))).toBeGreaterThan(100)
-  expect(Math.abs(await drift() - before)).toBeLessThan(100)
+  // A restart would move the origin by the whole time between the two draws, at least 100 ms.
+  expect(Math.abs(await origin() - before)).toBeLessThan(1)
 })
 
 test('adds one miniature fractal per native working sub-agent, with five plain base dots in each system', async ({ page }) => {
