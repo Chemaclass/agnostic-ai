@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -633,15 +633,40 @@ async function refresh() {
   keepDeleteConfirmCurrent()
 }
 
+/**
+ * An open the companion stopped waiting for may fail later. The companion keeps that failure until the person
+ * dismisses it or opens a chat, and the panel shows it each time the list shows or changes, the way a failed
+ * open's shows. A notice on screen wins while it shows, and an open on its way wins over an older failure.
+ */
+async function showLateOpenFailure() {
+  if (opensOnTheirWay > 0) return
+  let failure
+  try {
+    failure = await readLateOpenFailure()
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    return
+  }
+  const shown = failure && lateOpenFailureOf(failure, lastDismissedLate)
+  if (!shown || state.openFailure || opensOnTheirWay > 0) return
+  showOpenFailure(shown, NOTICES.notOpened)
+}
+
+/** The late failure dismissed last; a read already past the companion when it was dismissed may return it. */
+let lastDismissedLate
+
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
 // back to say why only when the conversation did not open. An open the
 // companion gave up waiting for (`pending`) may still happen, so it is
 // no failure and the panel stays hidden.
 let latestOpen = 0
+/** Opens sent and not yet answered: the companion drops an older late failure as each one arrives. */
+let opensOnTheirWay = 0
 
 async function openRow(conversation) {
   const thisOpen = ++latestOpen
+  opensOnTheirWay += 1
   showOpenFailure(undefined)
   await hidePanel().catch(() => {})
   let failure
@@ -651,6 +676,8 @@ async function openRow(conversation) {
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }
+  } finally {
+    opensOnTheirWay -= 1
   }
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (!failure || thisOpen !== latestOpen) return
@@ -743,7 +770,7 @@ async function enterPick() {
     say(NOTHING_TO_SEND, 'error')
     return false
   }
-  showOpenFailure(undefined)
+  if (!state.openFailure?.late) showOpenFailure(undefined)
   showPick(clip)
   state.activeKey = shownView() ? firstPickKey() : undefined
   drawPlaces()
@@ -868,7 +895,7 @@ async function sendRow(conversation) {
       showOpenFailure({ message: 'The copied text changed. Check the new text, then send again.' }, NOTICES.textChanged)
       return
     }
-    showOpenFailure(undefined)
+    if (!state.openFailure?.late) showOpenFailure(undefined)
     await flyChip(conversation)
     // Escape or the banner's close button while the chip flew takes the send back.
     if (state.pick !== shown) return
@@ -922,8 +949,15 @@ noticeCopy.addEventListener('click', async () => {
 })
 
 document.getElementById('notice-dismiss').addEventListener('click', () => {
+  const dismissed = state.openFailure
   showOpenFailure(undefined)
   queryInput.focus()
+  // A late failure stays with the companion until dismissed; any other notice may have covered one.
+  if (dismissed?.late) {
+    lastDismissedLate = dismissed.id
+    dismissLateOpenFailure(dismissed.id).catch(sayFailure)
+  }
+  else showLateOpenFailure()
 })
 
 async function markRow(conversation, mark) {
@@ -1488,7 +1522,7 @@ function opened(from) {
   queryInput.focus()
   queryInput.select()
   draw({ force: true })
-  return refresh()
+  return refresh().then(showLateOpenFailure)
 }
 
 card.addEventListener('animationend', (event) => {
@@ -1500,7 +1534,7 @@ document.addEventListener('motion', () => {
 })
 
 drawPlaces()
-Events.On('inbox', refresh)
+Events.On('inbox', () => refresh().then(showLateOpenFailure))
 Events.On('panel-shown', (event) => opened(event.data))
 Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 // Quit in the right-click menu: the list opens on the question.

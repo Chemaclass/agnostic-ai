@@ -34,6 +34,11 @@ const callTimeout = 30 * time.Second
 // editor window and run a terminal script, each for up to 15 seconds.
 const openTimeout = 60 * time.Second
 
+// openLateTimeout is how long an open keeps being waited for after the
+// page got its pending reply. It outlasts the 90 seconds agnostic-ai
+// serve gives an open to answer, so a late answer is still read.
+const openLateTimeout = 95 * time.Second
+
 // maxReplyBytes bounds a reply from the server: a list of conversations.
 const maxReplyBytes = 32 << 20
 
@@ -48,6 +53,8 @@ type server struct {
 	client *http.Client
 	// callWait and openWait bound a call and an open; tests shorten them.
 	callWait, openWait time.Duration
+	// openLateWait bounds an open the page stopped waiting for.
+	openLateWait time.Duration
 
 	mu sync.Mutex
 	// resting is set once the companion quits: no call starts a server
@@ -68,7 +75,7 @@ var errResting = errors.New("the companion is quitting and asks agnostic-ai noth
 
 func newServer() *server {
 	// Each call sets its own time limit; see callWithin.
-	return &server{client: &http.Client{}, callWait: callTimeout, openWait: openTimeout}
+	return &server{client: &http.Client{}, callWait: callTimeout, openWait: openTimeout, openLateWait: openLateTimeout}
 }
 
 // address returns the running server's address, starting one first when none runs.

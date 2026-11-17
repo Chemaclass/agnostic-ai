@@ -206,7 +206,8 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))
+	deadline := time.Now().Add(h.openReplyWait)
+	_ = http.NewResponseController(w).SetWriteDeadline(deadline)
 	var req conversationOpenRequest
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
 	dec.DisallowUnknownFields()
@@ -227,11 +228,27 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	// open: a terminal script cut short may leave a tab half opened, and
 	// the caller cannot tell whether it opened.
 	reply, found := h.scanner.Reopen(context.WithoutCancel(r.Context()), req.Tool, req.ID, h.scanOptions(req.Editor), h.launcher)
+	if r.Context().Err() != nil || !time.Now().Before(deadline) {
+		h.logLateOpen(req.Tool, reply, found)
+	}
 	if !found {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return
 	}
 	writeEditJSON(w, http.StatusOK, reply)
+}
+
+// logLateOpen says how an open ended whose reply no longer reaches its
+// caller. The reason stays out: it may quote a system error.
+func (h *conversationsHandler) logLateOpen(tool conversations.Tool, reply conversations.OpenReply, found bool) {
+	outcome := "opened"
+	switch {
+	case !found:
+		outcome = "not in the list any more"
+	case !reply.Opened:
+		outcome = "not opened"
+	}
+	_, _ = fmt.Fprintf(h.logOut, "an open of a %s conversation answered after its caller left: %s\n", tool, outcome)
 }
 
 // send types text into a conversation's input without submitting it.

@@ -47,7 +47,7 @@ Conversation fields:
 - `folder` is where the conversation started and where it resumes.
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
-- `waiting` is `{for, tool?, detail?}`: an approval or an answer. See [waiting](@/docs/cli-reference/companion.md#waiting).
+- `waiting` is `{for, tool?, detail?}`: an approval or an answer. See [waiting](@/docs/cli-reference/companion-list.md#waiting).
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
 - `workingSubagents` is an optional native task count for local Claude Code and Codex. Zero means none; omission means unavailable. Claude uses task dispatch, launch, completion, stop and resume events from the current live process; Codex uses native parent relationships, live writer locks and unfinished turn events, including nested workers. It does not count linked child conversations or cloud workers. An unfinished native task may be waiting on a tool. Native logs that cannot be read leave the count unavailable. Worker event writes invalidate the cached list; process exits can take up to a minute to show. Positive counts keep an otherwise idle parent in `working`, while a parent's unread question still takes priority.
 - `helpers` lists the agents this conversation started that are no rows of their own and still work, each `{tool, id, title, kind?, state, updatedAt}`. They are its native Claude Code or Codex subagents, and the `codex exec` runs a local Claude Code session started. A helper that finished is not listed. `state` is always `working`. `kind` is the agent type the tool gives, such as `Explore`. `title` is empty when the tool gave none or it may hold a credential. Omitted when none works, or when the states cannot be read.
@@ -76,7 +76,7 @@ Each row has a `state`, the first of these that holds:
 
 1. `blocked`: open, and its tool says it waits for you.
 2. `working`: open, and its tool says the agent is busy.
-3. `dormant`: [archived in its app](@/docs/cli-reference/companion.md#chats-archived-in-their-app).
+3. `dormant`: [archived in its app](@/docs/cli-reference/companion-list.md#chats-archived-in-their-app).
 4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
 5. `dormant`: a terminal session no process holds, even with a reply you have not read. `unread` is then `true` on the row.
 6. `unread`: written after you last saw it.
@@ -136,6 +136,9 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - macOS asks once for Automation access to each app the server controls: Terminal and Ghostty. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
 - The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
+- A second open of the same conversation while one runs starts nothing: it waits for the first and returns the same reply. Opens of different conversations run side by side.
+- While a list read runs, an open takes its row from the read before it, so it does not wait. A row that would resume a session waits for a fresh read instead: an ended terminal session, and any Claude Code session of the desktop app or an editor, which may run in a terminal since. Such an open can take as long as that read.
+- An open may take up to 90 seconds to answer. When its caller left before that, the server logs whether it opened on its standard error, without the reason.
 
 ## `POST /api/conversations/send`
 

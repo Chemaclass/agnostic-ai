@@ -974,4 +974,5 @@
 # The permission pill stacked on #3524 measured 27050144 bytes locally (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3530 measured 27062432 bytes in CI (make size-check): an open no longer waits for a running scan or reads the list twice, and relay errors are said in plain words; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3527 measured 27087008 bytes locally (make size-check): a closed terminal session is archived with its unread reply kept, and Codex and cursor-agent holders are read once per folder; the budget is that plus 8192, rounded up to a multiple of 4096.
-27099136
+# #3537 measured 27103392 bytes locally (make size-check): a second open of one chat joins the first, and the server logs how a slow open ended; the budget is that plus 8192, rounded up to a multiple of 4096.
+27115520

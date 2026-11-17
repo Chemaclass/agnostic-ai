@@ -333,6 +333,14 @@ func TestInbox_AnOpenTheServerIsSlowToAnswerIsStillOpeningNotAFailure(t *testing
 	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusAccepted || body != `{"pending":true,"message":"Still opening. This takes longer than usual."}` {
 		t.Errorf("a slow open = %d %s; want 202 and no failure, since the conversation may still open", rec.Code, body)
 	}
+	// The open goes on after the reply: wait for it to end, so it writes to no later test's log.
+	<-in.refresh
+	close(fake.hold)
+	select {
+	case <-in.refresh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the open never ended")
+	}
 }
 
 func TestInbox_ACallTheServerDoesNotAnswerSaysSoInPlainWords(t *testing.T) {

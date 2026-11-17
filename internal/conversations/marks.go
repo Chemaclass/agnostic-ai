@@ -523,8 +523,42 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 // it up again. found is false when the scan no longer
 // lists it. The open has already happened when the mark is saved, so a
 // mark that cannot be saved is said beside the reply, not instead of it.
-// Neither the lookup nor the mark waits for a running scan to end.
-func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
+// Neither the lookup nor the mark waits for a running scan to end. A
+// second open of the same chat while one runs starts nothing: it waits
+// for the first and gets its reply.
+func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
+	key := markKey(tool, id)
+	s.openingMu.Lock()
+	if running, ok := s.opening[key]; ok {
+		s.openingMu.Unlock()
+		<-running.done
+		return running.reply, running.found
+	}
+	if s.opening == nil {
+		s.opening = map[string]*sharedOpen{}
+	}
+	this := &sharedOpen{done: make(chan struct{}), reply: OpenReply{Message: "The conversation could not be opened. Try again."}, found: true}
+	s.opening[key] = this
+	s.openingMu.Unlock()
+	defer func() {
+		s.openingMu.Lock()
+		delete(s.opening, key)
+		s.openingMu.Unlock()
+		close(this.done)
+	}()
+	this.reply, this.found = s.reopen(ctx, tool, id, opts, launcher)
+	return this.reply, this.found
+}
+
+// sharedOpen is one open in progress; done closes once reply and found
+// hold its answer.
+type sharedOpen struct {
+	done  chan struct{}
+	reply OpenReply
+	found bool
+}
+
+func (s *Scanner) reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
 	conversation, found := s.findToOpen(ctx, tool, id, opts)
 	if !found {
 		return OpenReply{}, false

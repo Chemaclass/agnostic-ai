@@ -40,8 +40,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Opening and resuming chats
 
 - Clicking a Claude Code session started with `claude --bg` switches to a Terminal or Ghostty tab that already runs `claude attach` on it, or opens a new tab that runs `claude attach` in its folder, in the app it last ran in. When that fails, the `claude attach` command is offered to copy. It used to say the session ran in an app it could not switch to.
-- Clicking a running chat while the list is being read no longer waits for that read, nor reads the list again. A chat that ended waits for that read and then reads the list once more, so a session that started again in the meantime is not resumed a second time. (#3530)
+- Clicking a running chat while the list is being read no longer waits for that read, nor reads the list again. A Claude Code session of the desktop app or an editor still waits, since it may run in a terminal since. A chat that ended waits for that read and then reads the list once more, so a session that started again in the meantime is not resumed a second time. (#3530)
 - A chat that takes long to open no longer brings the companion list back with an error although the terminal opened. The companion waits up to 60 seconds for an open, and after that keeps the list hidden. A real failure, such as a missing Automation permission, still shows its reason. (#3530)
+- A chat that fails to open after the companion stopped waiting now shows why, with its name and its command to copy, as soon as the list shows, even with a search typed, after a reload, or when the list opens to send copied text. It stays until you dismiss it or open a chat; another message on screen comes first. An open that gets no answer at all says the chat may still have opened. Opening the same chat twice while it opens, or opening a Claude Code session from the desktop app or an editor while the list refreshes, no longer starts a second copy. (#3537)
 - When the companion cannot reach `agnostic-ai`, or gets no answer in time, it says so in plain words instead of showing a Go error with a local address. (#3530)
 
 #### Web client
