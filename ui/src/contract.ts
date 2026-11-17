@@ -881,7 +881,7 @@ export interface ConversationWaiting {
   detail?: string
 }
 
-/** Where a conversation stands for the person, checked in this order: `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `working` (open, and its tool says the agent is busy), `dormant` when its own app archived it, `completed` (marked completed, and since then nothing written and never reported working), `dormant` when a full process read finds no process that holds a terminal session, even with a reply not read (see `unread`), `unread` (written after the person last saw it), `active` (open; a desktop, chat, Cowork or cloud conversation of any age; or written in the last 24 hours when the server cannot tell whether it is closed, as for an editor panel or a background job), and `dormant` otherwise. A reply a terminal session wrote while it was closed does not make it `unread` or `blocked` once resumed by hand; a later write does. */
+/** Where a conversation stands for the person, checked in this order: `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `working` (open, and its tool says the agent is busy), `dormant` when its own app archived it, `completed` (marked completed, and since then nothing written and never reported working), `dormant` when a full process read finds no process that holds a terminal session, even with a reply not read (see `unread`), `unread` (written after the person last saw it), `active` (open; a desktop, chat, Cowork or cloud conversation of any age; or written in the last 24 hours when the server cannot tell whether it is closed, as for an editor panel or a background job), and `dormant` otherwise. A reply a terminal session wrote while it was closed does not make it `unread` or `blocked` once resumed by hand; it keeps `unread: true` instead. A later write does. */
 export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
 
 export interface ConversationSource {
@@ -951,7 +951,7 @@ export interface Conversation {
   helpers?: ConversationHelper[]
   /** Absent from a server older than the marks. */
   state?: ConversationState
-  /** Set only on a `dormant` row whose latest write the person has not seen, such as a terminal session that closed after its reply. It does not count toward `needsYou`, and the row cannot be deleted until it is read. */
+  /** Set only on a `dormant` or `active` row whose latest write the person has not seen: a terminal session that closed after its reply, or was resumed by hand after that, until the person opens or marks it. It does not count toward `needsYou`, the first page always holds it, and it cannot be deleted until it is read. */
   unread?: boolean
   /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */
   seenAt?: string
