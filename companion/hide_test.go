@@ -31,6 +31,8 @@ type fakeWindow struct {
 	reportedMoves int
 	// side is the window's width and height; zero is the regular bubble.
 	side int
+	// events are the names of the events the shell sent the window's page.
+	events []string
 }
 
 func newFakeWindow() *fakeWindow {
@@ -104,7 +106,12 @@ func (w *fakeWindow) SetPosition(x, y int) {
 	w.reportedMoves++
 	w.x, w.y = x, y
 }
-func (w *fakeWindow) EmitEvent(string, ...any) bool { return true }
+func (w *fakeWindow) EmitEvent(name string, _ ...any) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.events = append(w.events, name)
+	return true
+}
 func (w *fakeWindow) GetScreen() (*application.Screen, error) {
 	return &application.Screen{WorkArea: application.Rect{Width: 1440, Height: 900}}, nil
 }
@@ -455,6 +462,35 @@ func TestShortcut_BringsAHiddenCompanionBackWithItsList(t *testing.T) {
 
 	if s.presenceNow() != shown || !s.bubble.IsVisible() || !s.panel.IsVisible() {
 		t.Errorf("after the shortcut: presence %q, circle %v, list %v; want shown with the list", s.presenceNow(), s.bubble.IsVisible(), s.panel.IsVisible())
+	}
+}
+
+func TestSendShortcut_BringsAHiddenCompanionBackWithTheListToSend(t *testing.T) {
+	s, _ := placedShell(t)
+	s.setPresence(hidden)
+
+	_, send := s.shortcutSlots()
+	send.pressed()
+
+	panel := s.panel.(*fakeWindow)
+	if s.presenceNow() != shown || !s.bubble.IsVisible() || !panel.IsVisible() || !panel.IsFocused() {
+		t.Errorf("presence %q, circle %v, list %v, focused %v", s.presenceNow(), s.bubble.IsVisible(), panel.IsVisible(), panel.IsFocused())
+	}
+	if strings.Join(panel.events, ",") != eventSendShown {
+		t.Errorf("events = %v; want only %s", panel.events, eventSendShown)
+	}
+}
+
+func TestSendShortcut_KeepsAnOpenListOpenAndTellsItToSend(t *testing.T) {
+	s, _ := placedShell(t)
+	s.togglePanel()
+	panel := s.panel.(*fakeWindow)
+
+	_, send := s.shortcutSlots()
+	send.pressed()
+
+	if !panel.IsVisible() || strings.Join(panel.events, ",") != eventPanelShown+","+eventSendShown {
+		t.Errorf("list %v, events %v; want it open and told to send", panel.IsVisible(), panel.events)
 	}
 }
 

@@ -59,8 +59,8 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 7 {
-		t.Fatalf("menu.json has %d items; want 7", len(items))
+	if len(items) != 8 {
+		t.Fatalf("menu.json has %d items; want 8", len(items))
 	}
 	actions := shellWith(t, &fakeShortcuts{}).menuActions()
 	for _, item := range items {
@@ -131,7 +131,8 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 		}
 	}
 	want := []string{settingsHeader, "[x] Animate companion", "[x] Dim when idle", "[x] Small companion", "[x] Start at login",
-		shortcutLabel("Ctrl+Alt+Space", runtime.GOOS == "darwin"), "---", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
+		shortcutLabel("Open from anywhere", "Ctrl+Alt+Space", runtime.GOOS == "darwin"),
+		shortcutLabel("Send copied text", "Ctrl+Alt+V", runtime.GOOS == "darwin"), "---", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
 	}
@@ -142,17 +143,18 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 
 func TestShortcutLabel_ShowsTheKeysAsEachSystemWritesThem(t *testing.T) {
 	cases := []struct {
-		shortcut string
-		mac      bool
-		want     string
+		base, shortcut string
+		mac            bool
+		want           string
 	}{
-		{"Ctrl+Alt+Space", true, "Open from anywhere: ⌃⌥Space…"},
-		{"Cmd+Shift+K", true, "Open from anywhere: ⌘⇧K…"},
-		{"Ctrl+Alt+Space", false, "Open from anywhere: Ctrl+Alt+Space…"},
-		{"Super+Shift+K", false, "Open from anywhere: Super+Shift+K…"},
+		{"Open from anywhere", "Ctrl+Alt+Space", true, "Open from anywhere: ⌃⌥Space…"},
+		{"Open from anywhere", "Cmd+Shift+K", true, "Open from anywhere: ⌘⇧K…"},
+		{"Open from anywhere", "Ctrl+Alt+Space", false, "Open from anywhere: Ctrl+Alt+Space…"},
+		{"Open from anywhere", "Super+Shift+K", false, "Open from anywhere: Super+Shift+K…"},
+		{"Send copied text", "Ctrl+Alt+V", true, "Send copied text: ⌃⌥V…"},
 	}
 	for _, tc := range cases {
-		if got := shortcutLabel(tc.shortcut, tc.mac); got != tc.want {
+		if got := shortcutLabel(tc.base, tc.shortcut, tc.mac); got != tc.want {
 			t.Errorf("shortcutLabel(%q, mac %v) = %q; want %q", tc.shortcut, tc.mac, got, tc.want)
 		}
 	}
@@ -264,11 +266,52 @@ func TestShortcutRoute_RelabelsTheNativeItem(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("= %d %s", rec.Code, rec.Body)
 	}
-	if got, want := s.native["shortcut"].Label(), shortcutLabel("Cmd+Shift+K", runtime.GOOS == "darwin"); got != want {
+	if got, want := s.native["shortcut"].Label(), shortcutLabel("Open from anywhere", "Cmd+Shift+K", runtime.GOOS == "darwin"); got != want {
 		t.Errorf("label = %q; want %q", got, want)
 	}
 	if len(*prefs) == 0 || (*prefs)[len(*prefs)-1].Shortcut != "Cmd+Shift+K" {
 		t.Errorf("the list was told %+v", *prefs)
+	}
+}
+
+func TestSendShortcutRoute_SavesRelabelsAndTellsTheList(t *testing.T) {
+	s, _, prefs, _ := menuShell(t)
+	routes := s.routes(&inbox{}, fstest.MapFS{})
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/preferences/send-shortcut", strings.NewReader(`{"shortcut":"Cmd+Shift+B"}`)))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("= %d %s", rec.Code, rec.Body)
+	}
+	if got, want := s.native["sendShortcut"].Label(), shortcutLabel("Send copied text", "Cmd+Shift+B", runtime.GOOS == "darwin"); got != want {
+		t.Errorf("label = %q; want %q", got, want)
+	}
+	if len(*prefs) == 0 || (*prefs)[len(*prefs)-1].SendShortcut != "Cmd+Shift+B" || (*prefs)[len(*prefs)-1].Shortcut != defaultShortcut {
+		t.Errorf("the list was told %+v", *prefs)
+	}
+}
+
+func TestSendShortcutRoute_RefusesTheOpenKeys(t *testing.T) {
+	s, _, _, _ := menuShell(t)
+	routes := s.routes(&inbox{}, fstest.MapFS{})
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/preferences/send-shortcut", strings.NewReader(`{"shortcut":"Ctrl+Alt+Space"}`)))
+
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "already opens the list") {
+		t.Errorf("= %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestNativeSendShortcut_OpensTheListOnItsSettings(t *testing.T) {
+	s, _ := placedShell(t)
+
+	s.menuActions()["sendShortcut"](false)
+
+	panel := s.panel.(*fakeWindow)
+	if !panel.IsVisible() || strings.Join(panel.events, ",") != eventSettingsShown {
+		t.Errorf("list shown %v, events %v", panel.IsVisible(), panel.events)
 	}
 }
 
@@ -323,7 +366,7 @@ func TestHideItem_NamesTheCommandWhenTheShortcutIsRefusedAtStart(t *testing.T) {
 	s, _, _, _ := menuShell(t)
 	s.shortcuts = &fakeShortcuts{refused: map[string]bool{defaultShortcut: true}}
 
-	s.registerShortcut()
+	s.registerShortcuts()
 
 	if got := s.native["hide"].Label(); !strings.Contains(got, "agnostic-ai companion brings it back") {
 		t.Errorf("label = %q; want the command as the way back", got)

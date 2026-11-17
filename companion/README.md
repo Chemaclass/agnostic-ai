@@ -132,6 +132,12 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
     your answer, where a typed letter could answer it.
   - Pasting into Terminal needs macOS Accessibility access once.
   - **Esc** leaves pick mode. A second **Esc** closes the list.
+  - From any app, press **Ctrl+Alt+V** (⌃⌥V on a Mac) until you change it.
+    The list opens in pick mode on every chat, with the search cleared. When
+    exactly one chat can take typed text, the text goes straight there: the
+    banner names the chat, the text flies into its row, and the list hides.
+    With none or several, pick one as above. Cmd+Shift+V and the clipboard
+    button never send by themselves.
 - The **home button** beside the search opens the full agnostic-ai web
   interface, the dashboard.
 - **Esc**, or a click anywhere else, closes the list. While a menu or a
@@ -199,6 +205,8 @@ change made in one shows in the other.
   app, so pick one nothing else uses. Keys another app already holds are
   refused and the old shortcut stays. macOS, Windows and X11 ask for no
   permission; a Wayland desktop asks you once to approve it.
+- **Send copied text** shows the send shortcut and changes the same way. The
+  two shortcuts cannot share keys: keys the other one uses are refused.
 - **Hide Agnostic AI companion** takes the circle and the list off the
   screen. The program keeps running and reading, so the shortcut still
   works. The entry names the way back: the shortcut's keys, or
@@ -316,7 +324,7 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 - `conversation-marks.json`: what you saw, what you archived and the names
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
-- `companion.json`: where you left the circle, your shortcut, whether it
+- `companion.json`: where you left the circle, your shortcuts, whether it
   animates, whether it dims when idle, and whether it is small.
 
 ## When it reads
@@ -341,7 +349,7 @@ What you see is never older than this:
 - `main.go`: the two windows (the circle and the list) and how they open and close.
 - `server.go`: starts and stops the companion's `agnostic-ai serve`, and calls it.
 - `inbox.go`: asks the server every 5 seconds whether the list changed, keeps the latest one, and hands the pages' opens and marks to the server.
-- `preferences.go`: the shortcut and the start-at-login setting.
+- `preferences.go`: the two shortcuts and the start-at-login setting.
 - `appearance.go`: the animation and dim settings, and the companion's state.
 - `presence.go`: the three states, and what counts as a new conversation waiting.
 - `menu.go`: the circle's right-click menu, built from `frontend/menu.json`.

@@ -147,6 +147,33 @@ async function sendAndWatch(page: import('@playwright/test').Page) {
   return { chip, slid }
 }
 
+/** Presses the send shortcut on one typable row and says whether the banner named the row and a chip flew. */
+async function sendStraightAndWatch(page: import('@playwright/test').Page) {
+  await page.request.post('/dev/fixture', { data: { name: 'one-terminal' } })
+  await page.goto('/panel.html')
+  await expect(page.locator('#list > .row').first()).toBeVisible()
+  await page.evaluate(() => {
+    const seen = { chip: false, named: false }
+    ;(window as unknown as { seen: typeof seen }).seen = seen
+    new MutationObserver(() => {
+      if (document.querySelector('.pick-chip')) seen.chip = true
+      if (document.getElementById('pick-title')?.textContent === 'Sending to Plan the sync dry run') seen.named = true
+    }).observe(document.getElementById('card')!, { childList: true, subtree: true, characterData: true })
+  })
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await page.request.post('/dev/send-shortcut')
+  expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+  await expect(page.getByRole('region', { name: 'Send the copied text' })).toBeHidden()
+  return page.evaluate(() => (window as unknown as { seen: { chip: boolean; named: boolean } }).seen)
+}
+
+test('a straight send names the row and flies the chip into it, and with reduced motion it sends at once', async ({ page }) => {
+  expect(await sendStraightAndWatch(page)).toEqual({ chip: true, named: true })
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  expect((await sendStraightAndWatch(page)).chip).toBe(false)
+})
+
 test('sending flies a chip into the picked row, and with animation off nothing moves', async ({ page }) => {
   expect(await sendAndWatch(page)).toEqual({ chip: true, slid: true })
   await expect(page.locator('.pick-chip')).toHaveCount(0)

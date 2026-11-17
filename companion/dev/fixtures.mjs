@@ -205,6 +205,11 @@ export const FIXTURES = {
     label: 'One chat runs in a Ghostty tab, so pick mode starts on it',
     conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
   },
+  'two-terminals': {
+    label: 'Two chats run in Ghostty tabs, so the send shortcut asks which',
+    conversations: (now) =>
+      mixed(now).map((row) => (row.id === 'active-2' || row.id === 'work-1' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
+  },
   'empty-clipboard': { label: 'Nothing copied, so pick mode does not open', conversations: mixed, clipboard: '' },
   'long-clipboard': {
     label: 'A long copied page to send',

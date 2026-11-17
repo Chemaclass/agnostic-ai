@@ -4,10 +4,10 @@ import { readFile } from 'node:fs/promises'
 import { escapeTarget, hideLabelOf, menuRowsOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
-const preferences = { shortcut: 'Ctrl+Alt+Space', startAtLogin: true }
+const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
 const appearance = { animate: false, dimWhenIdle: true, smallCompanion: false, presence: 'shown' }
 
-test('the menu shows the seven items in the list order, with the values in effect', () => {
+test('the menu shows the eight items in the list order, with the values in effect', () => {
   const rows = menuRowsOf(items, { preferences, appearance })
   assert.deepEqual(
     rows.map(({ id, kind, value }) => [id, kind, value]),
@@ -17,6 +17,7 @@ test('the menu shows the seven items in the list order, with the values in effec
       ['smallCompanion', 'switch', false],
       ['startAtLogin', 'switch', true],
       ['shortcut', 'shortcut', 'Ctrl+Alt+Space'],
+      ['sendShortcut', 'shortcut', 'Ctrl+Alt+V'],
       ['hide', 'action', undefined],
       ['quit', 'action', undefined],
     ],
