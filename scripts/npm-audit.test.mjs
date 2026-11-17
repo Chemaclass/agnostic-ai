@@ -2,81 +2,125 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { evaluateAudit } from "./npm-audit.mjs"
 
-const leafPath = "node_modules/vscode-languageclient/node_modules/minimatch"
-const parentPath = "node_modules/vscode-languageclient"
-const beforeExpiry = Date.parse("2026-10-31T00:00:00Z")
+const advisory = "https://github.com/advisories/GHSA-fc5q-39xc-vjpf"
+const beforeExpiry = Date.parse("2026-11-17T00:00:00Z")
+const picomatch = {
+  version: "4.0.7",
+  resolved: "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
+  integrity: "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+  dev: true,
+}
 
-function fixture() {
+const finding = (name, isDirect, range, via, effects) => ({ name, severity: "high", isDirect, via, effects, range, nodes: [`node_modules/${name}`], fixAvailable: true })
+const leaf = (effects) => finding("picomatch", false, "*", [{
+  source: 1247710, name: "picomatch", dependency: "picomatch", title: "picomatch vulnerable to ReDoS through single-branch repeated extglobs",
+  url: advisory, severity: "high", cwe: ["CWE-1333"], range: "<=4.0.7",
+}], effects)
+const fdir = () => finding("fdir", false, ">=5.2.1", ["picomatch"], ["tinyglobby"])
+
+const reports = {
+  "ui/package-lock.json": () => [
+    finding("@vitejs/plugin-react", true, ">=6.0.0-beta.0", ["vite"], []),
+    fdir(),
+    leaf(["fdir", "tinyglobby", "vite", "vitest"]),
+    finding("tinyglobby", false, "*", ["fdir", "picomatch"], ["vite", "vitest"]),
+    finding("vite", true, ">=6.3.0-beta.0", ["picomatch", "tinyglobby"], ["@vitejs/plugin-react", "vitest"]),
+    finding("vitest", true, ">=3.1.2", ["picomatch", "tinyglobby", "vite"], []),
+  ],
+  "editors/vscode/package-lock.json": () => [
+    finding("@vscode/vsce", true, ">=3.9.3-0", ["tinyglobby"], []),
+    fdir(),
+    leaf(["fdir", "tinyglobby"]),
+    finding("tinyglobby", false, "*", ["fdir", "picomatch"], ["@vscode/vsce"]),
+  ],
+  "tests/vendor/opencode/package-lock.json": () => [
+    finding("@npmcli/run-script", false, ">=10.0.3", ["node-gyp"], []),
+    fdir(),
+    finding("node-gyp", false, ">=11.2.0", ["tinyglobby"], ["@npmcli/run-script"]),
+    leaf(["fdir", "tinyglobby"]),
+    finding("tinyglobby", false, "*", ["fdir", "picomatch"], ["node-gyp"]),
+  ],
+}
+
+function fixture(lockPath = "ui/package-lock.json") {
+  const findings = reports[lockPath]()
+  const lock = { packages: Object.fromEntries(findings.map(({ name }) => [`node_modules/${name}`, { version: "1.0.0", dev: true }])) }
+  lock.packages["node_modules/picomatch"] = { ...picomatch }
   return {
-    report: {
-      auditReportVersion: 2,
-      vulnerabilities: {
-        minimatch: { name: "minimatch", severity: "moderate", isDirect: false, range: "<11.0.1", nodes: [leafPath], effects: ["vscode-languageclient"], via: [
-          { name: "minimatch", dependency: "minimatch", url: "https://github.com/advisories/GHSA-g3hv-75wg-m249", range: "<11.0.1", severity: "moderate" },
-        ] },
-        "vscode-languageclient": { name: "vscode-languageclient", severity: "moderate", isDirect: true, nodes: [parentPath], effects: [], via: ["minimatch"] },
-      },
-      metadata: { vulnerabilities: { total: 2 } },
-    },
-    lock: { packages: {
-      [leafPath]: { version: "5.1.9", resolved: "https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz", integrity: "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw==" },
-      [parentPath]: { version: "9.0.1", dependencies: { minimatch: "^5.1.0" } },
-    } },
+    lockPath,
+    lock,
+    report: { auditReportVersion: 2, vulnerabilities: Object.fromEntries(findings.map((value) => [value.name, value])), metadata: { vulnerabilities: { total: findings.length } } },
   }
 }
 
 const result = (report, status = Object.keys(report.vulnerabilities).length ? 1 : 0) => ({ status, stdout: JSON.stringify(report) })
+const evaluate = ({ report, lockPath, lock }, now = beforeExpiry) => evaluateAudit(result(report), lockPath, lock, now)
 
-test("only the exact reviewed legacy leaf and its sole parent cause are excepted", () => {
-  const { report, lock } = fixture()
-  const verdict = evaluateAudit(result(report), "editors/vscode/package-lock.json", lock, beforeExpiry)
-  assert.deepEqual(verdict.remaining, {})
-  assert.deepEqual(verdict.ignored, ["minimatch", "vscode-languageclient"])
+for (const lockPath of Object.keys(reports)) {
+  test(`excepts the exact picomatch 4.0.7 development findings in ${lockPath}`, () => {
+    const value = fixture(lockPath)
+    const verdict = evaluate(value)
+    assert.deepEqual(verdict.remaining, {})
+    assert.deepEqual(verdict.ignored, Object.keys(value.report.vulnerabilities))
+  })
+}
+
+test("the exception expires on December 17", () => {
+  const value = fixture()
+  const verdict = evaluate(value, Date.parse("2026-12-17T00:00:00Z"))
+  assert.equal(Object.keys(verdict.remaining).length, 6)
+  assert.deepEqual(verdict.ignored, [])
 })
 
 for (const [name, change] of [
-  ["another leaf version", ({ lock }) => { lock.packages[leafPath].version = "10.2.6" }],
-  ["different tarball bytes", ({ lock }) => { lock.packages[leafPath].integrity = "sha512-different" }],
-  ["different registry source", ({ lock }) => { lock.packages[leafPath].resolved = "https://example.com/minimatch.tgz" }],
-  ["another client version", ({ lock }) => { lock.packages[parentPath].version = "10.1.2" }],
-  ["another dependency range", ({ lock }) => { lock.packages[parentPath].dependencies.minimatch = "^10" }],
-  ["another advisory", ({ report }) => { report.vulnerabilities.minimatch.via[0].url = "https://github.com/advisories/GHSA-other" }],
-  ["additional advisory", ({ report }) => { report.vulnerabilities.minimatch.via.push({ url: "https://github.com/advisories/GHSA-other" }) }],
-  ["another affected range", ({ report }) => { report.vulnerabilities.minimatch.via[0].range = "<12" }],
-  ["higher severity", ({ report }) => { report.vulnerabilities.minimatch.via[0].severity = "high" }],
-  ["additional affected path", ({ report }) => { report.vulnerabilities.minimatch.nodes.push("node_modules/other/node_modules/minimatch") }],
-  ["another parent cause", ({ report }) => { report.vulnerabilities["vscode-languageclient"].via.push("other") }],
-  ["another parent path", ({ report }) => { report.vulnerabilities["vscode-languageclient"].nodes = ["node_modules/other/node_modules/vscode-languageclient"] }],
-  ["another downstream package", ({ report }) => { report.vulnerabilities.minimatch.effects.push("other") }],
+  ["another picomatch version", ({ lock }) => { lock.packages["node_modules/picomatch"].version = "4.0.6" }],
+  ["a changed integrity", ({ lock }) => { lock.packages["node_modules/picomatch"].integrity = "sha512-different" }],
+  ["another registry source", ({ lock }) => { lock.packages["node_modules/picomatch"].resolved = "https://example.com/picomatch.tgz" }],
+  ["a picomatch node outside development", ({ lock }) => { delete lock.packages["node_modules/picomatch"].dev }],
+  ["a dependent outside development", ({ lock }) => { lock.packages["node_modules/vite"].dev = false }],
+  ["a different advisory URL", ({ report }) => { report.vulnerabilities.picomatch.via[0].url = "https://github.com/advisories/GHSA-other" }],
+  ["an additional advisory", ({ report }) => { report.vulnerabilities.picomatch.via.push({ url: "https://github.com/advisories/GHSA-other" }) }],
+  ["another affected range", ({ report }) => { report.vulnerabilities.picomatch.via[0].range = "<5" }],
+  ["higher severity", ({ report }) => { report.vulnerabilities.picomatch.via[0].severity = "critical" }],
+  ["an additional picomatch path", ({ report }) => { report.vulnerabilities.picomatch.nodes.push("node_modules/other/node_modules/picomatch") }],
+  ["a new dependent", ({ report }) => { report.vulnerabilities.picomatch.effects.push("other") }],
+  ["another dependent cause", ({ report }) => { report.vulnerabilities.vite.via.push("other") }],
+  ["another dependent range", ({ report }) => { report.vulnerabilities.vitest.range = "*" }],
 ]) {
   test(`rejects ${name}`, () => {
     const value = fixture()
     change(value)
-    const verdict = evaluateAudit(result(value.report), "editors/vscode/package-lock.json", value.lock, beforeExpiry)
-    assert.equal(Object.keys(verdict.remaining).length, 2)
+    const verdict = evaluate(value)
+    assert.equal(Object.keys(verdict.remaining).length, 6)
     assert.deepEqual(verdict.ignored, [])
   })
 }
 
-test("the same advisory and versions in another lockfile still fail", () => {
-  const { report, lock } = fixture()
-  assert.equal(Object.keys(evaluateAudit(result(report), "tests/vendor/opencode/package-lock.json", lock, beforeExpiry).remaining).length, 2)
+test("an extra finding keeps failing beside the excepted ones", () => {
+  const value = fixture()
+  value.report.vulnerabilities.other = { name: "other", via: [{ url: "https://github.com/advisories/GHSA-other" }] }
+  value.report.metadata.vulnerabilities.total++
+  assert.deepEqual(Object.keys(evaluate(value).remaining), ["other"])
 })
 
-test("unrelated findings remain failures beside the excepted leaf", () => {
-  const { report, lock } = fixture()
-  report.vulnerabilities.other = { name: "other", via: [{ url: "https://github.com/advisories/GHSA-other" }] }
-  report.metadata.vulnerabilities.total++
-  assert.deepEqual(Object.keys(evaluateAudit(result(report), "editors/vscode/package-lock.json", lock, beforeExpiry).remaining), ["other"])
+test("a missing dependent rejects the exception", () => {
+  const value = fixture()
+  delete value.report.vulnerabilities.vitest
+  value.report.metadata.vulnerabilities.total--
+  assert.equal(Object.keys(evaluate(value).remaining).length, 5)
 })
 
-test("the exception expires and a clean report needs no exception", () => {
-  const { report, lock } = fixture()
-  const expiry = Date.parse("2026-11-14T00:00:00Z")
-  assert.equal(Object.keys(evaluateAudit(result(report), "editors/vscode/package-lock.json", lock, expiry).remaining).length, 2)
-  report.vulnerabilities = {}
-  report.metadata.vulnerabilities.total = 0
-  assert.deepEqual(evaluateAudit(result(report), "editors/vscode/package-lock.json", lock, expiry), { remaining: {}, ignored: [] })
+test("the same findings in another lockfile still fail", () => {
+  const value = fixture()
+  value.lockPath = "site/package-lock.json"
+  assert.equal(Object.keys(evaluate(value).remaining).length, 6)
+})
+
+test("a clean report needs no exception", () => {
+  const value = fixture()
+  value.report.vulnerabilities = {}
+  value.report.metadata.vulnerabilities.total = 0
+  assert.deepEqual(evaluate(value, Date.parse("2027-01-01T00:00:00Z")), { remaining: {}, ignored: [] })
 })
 
 for (const [name, processResult] of [
@@ -88,24 +132,24 @@ for (const [name, processResult] of [
   ["incomplete findings", { status: 1, stdout: '{"auditReportVersion":2,"vulnerabilities":{},"metadata":{"vulnerabilities":{"total":2}}}' }],
 ]) {
   test(`fails closed on ${name}`, () => {
-    assert.throws(() => evaluateAudit(processResult, "editors/vscode/package-lock.json", fixture().lock, beforeExpiry))
+    assert.throws(() => evaluateAudit(processResult, "ui/package-lock.json", fixture().lock, beforeExpiry))
   })
 }
 
 test("an inconsistent successful exit cannot hide findings", () => {
   const { report, lock } = fixture()
-  assert.throws(() => evaluateAudit(result(report, 0), "editors/vscode/package-lock.json", lock, beforeExpiry))
+  assert.throws(() => evaluateAudit(result(report, 0), "ui/package-lock.json", lock, beforeExpiry))
 })
 
 test("a failing process with no findings is still an error", () => {
   const { report, lock } = fixture()
   report.vulnerabilities = {}
   report.metadata.vulnerabilities.total = 0
-  assert.throws(() => evaluateAudit(result(report, 1), "editors/vscode/package-lock.json", lock, beforeExpiry))
+  assert.throws(() => evaluateAudit(result(report, 1), "ui/package-lock.json", lock, beforeExpiry))
 })
 
 test("a new audit report format requires review", () => {
   const { report, lock } = fixture()
   report.auditReportVersion = 3
-  assert.throws(() => evaluateAudit(result(report), "editors/vscode/package-lock.json", lock, beforeExpiry))
+  assert.throws(() => evaluateAudit(result(report), "ui/package-lock.json", lock, beforeExpiry))
 })
