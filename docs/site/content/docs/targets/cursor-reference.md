@@ -92,7 +92,7 @@ Sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` fi
 - A remote (`url`) server accepts a static-OAuth `auth`, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for providers without OAuth Dynamic Client Registration.
 - A stdio server carries an explicit `"type": "stdio"`, which Cursor requires.
 - A `roots` list passes through, though Cursor documents no per-server `roots` key.
-- `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+- `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target).
 
 <details>
 <summary>Hook args with apostrophes or spaces</summary>

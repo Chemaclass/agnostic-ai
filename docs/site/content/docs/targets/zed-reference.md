@@ -55,7 +55,7 @@ Zed has no per-agent support. Sync reports this unless `outputs.zed.rules-file` 
 
 Servers go under `context_servers`, not `mcpServers`. Stdio uses flat `command`/`args`/`env`. Remote (HTTP or SSE) uses `url`/`headers`. Your other keys (theme, `buffer_font_size`) stay.
 
-- `disabled: true` becomes `enabled: false`. Enabled servers get no key, because Zed defaults to true. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+- `disabled: true` becomes `enabled: false`. Enabled servers get no key, because Zed defaults to true. See [`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target).
 - Set these through `x-zed`; no other tool has them:
   - `timeout`: both transports, seconds per tool call, default 60.
   - `oauth`: HTTP.

@@ -28,7 +28,7 @@ See [Rule activation](#rule-activation) and [target behavior](@/docs/target-beha
 
 - Required: `name`, `description`. Optional: `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, `hooks`, `maxTurns`, `background`.
 - An [agent-only MCP server](@/docs/spec-format/mcps.md#agent-only) goes in full under `mcpServers`, not into `.qoder/settings.json`.
-- `effort` takes one value or a per-tool map; an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
+- `effort` takes one value or a per-tool map; an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents-reference.md#agent-policy-support-by-target).
 - `color` is one of `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` ([CLI field reference](https://docs.qoder.com/cli/subagent)).
 - `tools` is a comma-separated string (`tools: Read, Grep, Bash`); `import qoder` splits it back. Names are Claude-style (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), so the portable list is copied unchanged.
 - `skills` and `mcpServers` come from `x-qoder`. `memory` is copied unchanged ([Subagent memory](#subagent-memory)).
@@ -53,7 +53,7 @@ See [Rule activation](#rule-activation) and [target behavior](@/docs/target-beha
 
 - stdio: `command`, `args`, `env`, `cwd`, no `type`. Remote: `type`, `url`, `headers`.
 - Other keys (`mcp.enableAllProjectMcpServers`, permissions, custom models) are kept.
-- Optional fields ([MCP reference](https://docs.qoder.com/cli/mcp-reference)), written as declared: `timeout` (ms), `description`, `trust` (skip confirmation), `includeTools`, `excludeTools`, `alwaysAllow`, `disabled` (keep config, server off), `oauth`. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+- Optional fields ([MCP reference](https://docs.qoder.com/cli/mcp-reference)), written as declared: `timeout` (ms), `description`, `trust` (skip confirmation), `includeTools`, `excludeTools`, `alwaysAllow`, `disabled` (keep config, server off), `oauth`. See [`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target).
 - `type: ws` gets only a sync note: Qoder's ws transport takes a TCP host and port that a spec cannot express.
 - The file may be JSONC ([settings](https://docs.qoder.com/cli/settings)). Sync keeps keys, drops comments and trailing commas, and warns.
 

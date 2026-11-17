@@ -28,7 +28,7 @@ Files go to `.kilo/agents/<name>.md`.
 
 - The filename sets the agent name, so `name:` is never written.
 - Frontmatter: `description` (falls back to the spec name), plus `color`, `mode`, `model` when set.
-- `color` is not checked. Kilo takes hex (`#FF5733`) or a theme token (`primary`, `accent`, `error`), so `color: blue` may not show ([custom subagents](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/custom-subagents.md), [support by target](@/docs/spec-format/agents.md#color-support-by-target)).
+- `color` is not checked. Kilo takes hex (`#FF5733`) or a theme token (`primary`, `accent`, `error`), so `color: blue` may not show ([custom subagents](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/custom-subagents.md), [support by target](@/docs/spec-format/agents-reference.md#color-support-by-target)).
 - `mode` takes OpenCode's `primary`, `subagent`, or `all`.
 - `effort` is not mapped. Set `x-kilo: {variant: high}` for a variant your model supports ([config schema](https://app.kilo.ai/config.json)); names depend on the model.
 - Portable `maxTurns` is written as `steps` ([agent options](https://kilo.ai/docs/customize/custom-subagents)). `x-kilo.steps` wins.

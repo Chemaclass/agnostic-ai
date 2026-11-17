@@ -57,7 +57,7 @@ The IDE plugin docs mention neither subagents nor slash commands.
 
 - The per-server `timeout` is kept in milliseconds for local and remote servers. `x-junie.timeout` overrides it.
 - Junie defaults to 60000 ms and accepts 1000 through 3600000 ms ([request timeout](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html#request-timeout)). It ignores a value outside that range and uses 60 seconds. `lint` warns (LINT059) and sync prints a note for a value above 3600000.
-- `disabled` and `description` are dropped with a sync note. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+- `disabled` and `description` are dropped with a sync note. See [`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target).
 - Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**.
 
 ### Settings

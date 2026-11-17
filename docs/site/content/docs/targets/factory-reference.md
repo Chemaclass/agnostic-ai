@@ -17,7 +17,7 @@ Start with the [Factory setup](@/docs/targets/factory.md). For home configuratio
 `<name>.md` has `name`, `description`, and optional `model` and `tools`. `x-factory` keys pass through.
 
 - Empty body: skipped with a sync note (Droid CLI needs a system prompt).
-- A portable `mcpServers` list is written as is. `mcpServers: []` excludes every MCP server, even global ones ([`mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target)).
+- A portable `mcpServers` list is written as is. `mcpServers: []` excludes every MCP server, even global ones ([`mcpServers`](@/docs/spec-format/agents-reference.md#mcpservers-support-by-target)).
 - A read-only droid with no `mcpServers` list gets `mcpServers: []`. A list you set is kept.
 - `effort` becomes `reasoningEffort`: `low`, `medium`, `high` only. `xhigh`, `max`, and integer budgets drop with a sync note. Ignored under `model: inherit` ([`effort`](@/docs/spec-format/agents.md#per-target-model-and-effort)).
 - `readonly: true` writes `tools: read-only`, replacing a portable `tools` list. Sync notes `x-factory.tools` for a custom list.
@@ -38,7 +38,7 @@ The generic `tools` list maps to Droid CLI IDs: `Read`, `LS`, `Grep`, `Glob`, `C
 
 - Other names already match.
 - `tools: all` is never written. An omitted key allows every tool.
-- `x-factory.tools` writes Factory's own names and wins. Only it can set a category (`read-only`, `edit`, `execute`, `web`, `mcp`) or an MCP tool ID ([`tools`](@/docs/spec-format/agents.md#tools-support-by-target)).
+- `x-factory.tools` writes Factory's own names and wins. Only it can set a category (`read-only`, `edit`, `execute`, `web`, `mcp`) or an MCP tool ID ([`tools`](@/docs/spec-format/agents-reference.md#tools-support-by-target)).
 
 ## Skills
 
@@ -72,7 +72,7 @@ Written once to the tree that codex, amp, zed, and crush share.
 `.factory/mcp.json` under `mcpServers`, the Claude Code and Cursor shape. Stdio: `command`, `args`, `env`, no `type`. Remote: `type`, `url`, `headers`.
 
 - `sync` rewrites the file whole. Factory's [MCP docs](https://docs.factory.com/harness/mcp) say to edit it to remove servers, but sync undoes that. Remove the spec.
-- `disabled: true` becomes the per-server boolean ([`disabled`](@/docs/spec-format/mcps.md#disabled-support-by-target)).
+- `disabled: true` becomes the per-server boolean ([`disabled`](@/docs/spec-format/mcps-reference.md#disabled-support-by-target)).
 - Both transports keep `disabledTools`, `timeout`, and `connectTimeout` (milliseconds), zeros included.
 - Remote HTTP and SSE also take `oauth: false` or an OAuth object: `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, `callbackPort`.
 - `x-factory.enabledTools` loads only the named tools. An empty list adds no restriction.
