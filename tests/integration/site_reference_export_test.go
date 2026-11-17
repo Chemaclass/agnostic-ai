@@ -26,7 +26,7 @@ func TestSiteDocs_ExportsDisclosureBodiesWithoutTemplateMarkers(t *testing.T) {
 			t.Errorf("full export lost disclosure content %q", text)
 		}
 	}
-	for _, marker := range []string{"{% <details", "{% </details> %}", "\n<details>\n", "\n</details>\n", "<summary>", "<span id=", ".legacy-anchor"} {
+	for _, marker := range []string{"{% <details", "{% </details> %}", "\n<details>\n", "\n</details>\n", "<summary>", "<span id=", ".legacy-anchor", "{{ <"} {
 		if strings.Contains(full, marker) {
 			t.Errorf("full export leaks %q", marker)
 		}

@@ -24,7 +24,7 @@ render_doc() {
       print "Install options and commands: https://agnostic-ai.org/docs/installation/"
       next
     }
-    !in_frontmatter && $0 ~ /^\{\{ <[a-z_]+ \/> \}\}$/ { next }
+    !in_frontmatter && $0 ~ /^\{\{ <[a-z_.]+ \/> \}\}$/ { next }
     !in_frontmatter && $0 ~ /^\{% <details summary=".*"> %\}$/ {
       summary = $0
       sub(/^\{% <details summary="/, "", summary)

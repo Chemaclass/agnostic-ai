@@ -204,7 +204,7 @@ A Codex subagent opens its own thread, or switches to the terminal that runs it.
 - The list starts folded. Which chats are unfolded is kept until the companion quits.
 - Only working subagents are listed and counted. A finished one leaves, and the toggle goes away once none works.
 - `codex exec` runs count among them while they run.
-- With animation off, or the system's Reduce Motion on, the indicator stays still with its heading and worker count visible. See [Animate companion](@/docs/cli-reference/companion.md#the-circle-and-its-menus).
+- With animation off, or the system's Reduce Motion on, the indicator stays still with its heading and worker count visible. See [Animate companion](@/docs/cli-reference/companion.md#menus).
 {% </details> %}
 
 ## Archived chats {#archived-chats}

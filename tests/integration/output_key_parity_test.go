@@ -191,8 +191,9 @@ func documentedOutputKeys(t *testing.T) map[string][]string {
 	}
 	rx := regexp.MustCompile("`outputs\\.([a-z]+)\\.([a-z-]+)`")
 	out := map[string][]string{}
+	seenKeys := map[string]map[string]bool{}
 	for _, f := range files {
-		target := strings.TrimSuffix(filepath.Base(f), ".md")
+		target := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(f), ".md"), "-reference")
 		if target == "_index" {
 			continue
 		}
@@ -200,7 +201,10 @@ func documentedOutputKeys(t *testing.T) map[string][]string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		seen := map[string]bool{}
+		if seenKeys[target] == nil {
+			seenKeys[target] = map[string]bool{}
+		}
+		seen := seenKeys[target]
 		for _, m := range rx.FindAllStringSubmatch(string(body), -1) {
 			if m[1] != target || seen[m[2]] {
 				continue
