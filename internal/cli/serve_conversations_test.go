@@ -89,6 +89,11 @@ func (l *recordingLauncher) TitleTab(_ context.Context, app, tty, title string) 
 	return true, nil
 }
 
+func (l *recordingLauncher) TypeInTab(_ context.Context, app, tty, text string) (bool, error) {
+	l.calls = append(l.calls, "type "+app+" "+tty+" "+text)
+	return true, nil
+}
+
 func realDir(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.EvalSymlinks(t.TempDir())
@@ -1072,4 +1077,73 @@ func TestConversationsHandler_OnlyOpenNamesTheCloudIDOfASharedRow(t *testing.T) 
 	if rec.Code != http.StatusOK || strings.Join(launcher.calls, ";") != "link "+link {
 		t.Errorf("open = %d %s after %v", rec.Code, rec.Body, launcher.calls)
 	}
+}
+
+func TestConversationsHandler_SendsOnlyToWhatItScanned(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+
+	rec := postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inProject+`","text":"one\ntwo"}`, nil)
+
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"sent":false,"message":"It is not running, so nothing was typed. Open it to resume it, then paste with Cmd+V."}` {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+	if len(launcher.calls) != 0 {
+		t.Errorf("an ended session must not be resumed or typed into, got %v", launcher.calls)
+	}
+}
+
+func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	overText := strings.Repeat("a", conversations.MaxSendBytes+1)
+	overBody := strings.Repeat("a", maxConversationSendBytes)
+	for name, tc := range map[string]struct {
+		body   string
+		mutate func(*http.Request)
+		status int
+		reply  string
+	}{
+		"outside the project":      {body: `{"tool":"claude","id":"` + elsewhere + `","text":"hi"}`, status: http.StatusNotFound, reply: `{"error":"That conversation is not in this list any more. Refresh the page."}`},
+		"unknown tool":             {body: `{"tool":"gemini","id":"` + inProject + `","text":"hi"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex or cursor"}`},
+		"a field it does not take": {body: `{"tool":"claude","id":"` + inProject + `","text":"hi","tty":"/dev/ttys001"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id, text}"}`},
+		"two objects":              {body: `{"tool":"claude","id":"x","text":"hi"}{}`, status: http.StatusBadRequest, reply: `{"error":"send one JSON object"}`},
+		"GET":                      {body: `{}`, mutate: func(r *http.Request) { r.Method = http.MethodGet }, status: http.StatusMethodNotAllowed, reply: `{"error":"use POST"}`},
+		"form post":                {body: `text=hi`, mutate: func(r *http.Request) { r.Header.Set("Content-Type", "application/x-www-form-urlencoded") }, status: http.StatusUnsupportedMediaType, reply: `{"error":"send Content-Type: application/json"}`},
+		"another origin":           {body: `{"tool":"claude","id":"` + inProject + `","text":"hi"}`, mutate: func(r *http.Request) { r.Header.Set("Origin", "https://attacker.example") }, status: http.StatusForbidden, reply: `{"error":"edits are accepted from the server origin only"}`},
+		"text over the limit":      {body: `{"tool":"claude","id":"` + inProject + `","text":"` + overText + `"}`, status: http.StatusRequestEntityTooLarge, reply: `{"error":"The text is 257 KB, over the 256 KB a send takes, so nothing was typed."}`},
+		"body over the limit":      {body: `{"tool":"claude","id":"` + inProject + `","text":"` + overBody + `"}`, status: http.StatusRequestEntityTooLarge, reply: `{"error":"The text is over the 256 KB a send takes, so nothing was typed."}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := postEdit(t, h, conversationSendPath, tc.body, tc.mutate)
+			if rec.Code != tc.status || strings.TrimSpace(rec.Body.String()) != tc.reply {
+				t.Errorf("= %d %s", rec.Code, rec.Body)
+			}
+		})
+	}
+	if len(launcher.calls) != 0 {
+		t.Errorf("nothing may be typed or opened, got %v", launcher.calls)
+	}
+}
+
+func TestServeMux_ASendSkipsTheAPIQueue(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	srv := httptest.NewServer(serializeAPI(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/slow" {
+			close(started)
+			<-release
+		}
+	})))
+	defer srv.Close()
+	defer close(release)
+	go func() {
+		if resp, err := http.Get(srv.URL + "/api/slow"); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	<-started
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Post(srv.URL+conversationSendPath, "application/json", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("a send waited behind a slow view: %v", err)
+	}
+	_ = resp.Body.Close()
 }

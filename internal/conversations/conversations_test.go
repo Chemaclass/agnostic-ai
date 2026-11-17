@@ -506,6 +506,11 @@ func (f *fakeLauncher) TitleTab(_ context.Context, app, tty, title string) (bool
 	return f.focusOK, f.err
 }
 
+func (f *fakeLauncher) TypeInTab(_ context.Context, app, tty, text string) (bool, error) {
+	f.calls = append(f.calls, "type "+app+" "+tty+" "+text)
+	return f.focusOK, f.err
+}
+
 func (f *fakeLauncher) RunInNewTab(_ context.Context, app, command string) error {
 	f.calls = append(f.calls, "new tab "+app+" "+command)
 	if f.newTabErr != nil {

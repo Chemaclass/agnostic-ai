@@ -115,6 +115,23 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   and search in agnostic-ai and comes back with a new message or when it
   starts working. The tool that owns the chat keeps
   it either way.
+- **Send copied text** to a chat: copy text anywhere, open the list, and
+  press **Cmd+Shift+V** (Ctrl+Shift+V off a Mac) or click the clipboard
+  button beside the search. A banner shows "Send 412 words to…" with the
+  start of the text. Pick a chat with **↑ ↓** and **Enter**, or a click. The
+  text lands in that chat's input and is not sent: you press Enter there.
+  - The list shows only this machine's chats, without Archived. A search can
+    still show an archived chat, dimmed, and it cannot be picked.
+  - The first chat the text can be typed into is selected. Nothing is sent
+    until you press Enter or click.
+  - A live chat in a Terminal or Ghostty tab gets the text typed in, and the
+    list hides. For any other chat, the companion switches to it and says to
+    paste with Cmd+V: the clipboard still holds the text.
+  - A chat that ended is never resumed and typed into. A Cursor chat or a
+    working Codex chat is not typed into either. Nor is a chat waiting for
+    your answer, where a typed letter could answer it.
+  - Pasting into Terminal needs macOS Accessibility access once.
+  - **Esc** leaves pick mode. A second **Esc** closes the list.
 - The **home button** beside the search opens the full agnostic-ai web
   interface, the dashboard.
 - **Esc**, or a click anywhere else, closes the list. While a menu or a

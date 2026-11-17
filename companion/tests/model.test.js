@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, PLACES, ago, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startsRename, startedFromOf, stillWaits, summaryOf, titleOf, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startsRename, startedFromOf, stillWaits, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -345,6 +345,63 @@ test('closes the nearest thing on Escape: the row menu, a rename, the settings, 
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: true, settingsOpen: true }), 'rename')
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: true }), 'settings')
   assert.equal(escapeTarget({ rowMenuOpen: false, renaming: false, settingsOpen: false }), 'panel')
+})
+
+test('Escape leaves pick mode before it closes the panel, and after the settings', () => {
+  assert.equal(escapeTarget({ picking: true }), 'pick')
+  assert.equal(escapeTarget({ picking: true, settingsOpen: true }), 'settings')
+  assert.equal(escapeTarget({ picking: false }), 'panel')
+})
+
+test('pick mode hides Archived until a search is typed, and archived rows never take the text', () => {
+  const groups = grouped([row('a', 'blocked'), row('b', 'working'), row('c', 'active'), row('d', 'completed'), row('e', 'dormant')])
+  assert.deepEqual(pickGroupsOf(groups, '').map((group) => group.id), ['needs-you', 'working', 'active'])
+  assert.deepEqual(pickGroupsOf(groups, 'parser').map((group) => group.id), ['needs-you', 'working', 'active', 'archived'])
+  assert.deepEqual(['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => takesText(row('x', state))), [true, true, true, true, false, false])
+})
+
+test('only live rows in a Terminal or Ghostty tab, outside Archived, can be typed into', () => {
+  const tab = (app) => ({ live: true, open: { kind: 'focus', label: 'Switch to ' + app } })
+  const rows = [
+    row('ghostty', 'unread', tab('Ghostty')),
+    row('terminal', 'working', tab('Terminal')),
+    row('iterm', 'active', tab('iTerm')),
+    row('ended', 'active', { open: { kind: 'terminal', label: 'Open in Ghostty' } }),
+    row('not-live', 'active', { ...tab('Ghostty'), live: false }),
+    row('editor', 'active', { live: true, open: { kind: 'link', label: 'Open in Cursor' } }),
+    row('archived', 'completed', tab('Ghostty')),
+    row('asks', 'blocked', tab('Ghostty')),
+    row('asks-seen', 'working', { ...tab('Ghostty'), activity: 'waiting' }),
+    row('codex-works', 'working', { ...tab('Ghostty'), tool: 'codex' }),
+    row('codex-idle', 'active', { ...tab('Ghostty'), tool: 'codex' }),
+    row('cursor-idle', 'active', { ...tab('Ghostty'), tool: 'cursor' }),
+  ]
+  assert.deepEqual(typableRows(rows).map((r) => r.id), ['ghostty', 'terminal', 'codex-idle'])
+  assert.deepEqual(typableRows([rows[1], rows[2]]).map((r) => r.id), ['terminal'])
+  assert.deepEqual(typableRows([]), [])
+})
+
+test('pick mode opens only on copied text, and names it by its words', () => {
+  const clip = { preview: 'Fix the flaky login test. Then run it', words: 8, chars: 37, hash: 'abc' }
+  assert.equal(pickableClip(clip), clip)
+  assert.equal(pickableClip({ preview: '', words: 0, chars: 0, hash: '' }), undefined)
+  assert.equal(pickableClip(undefined), undefined)
+  assert.equal(pickTitleOf(clip), 'Send 8 words to…')
+  assert.equal(pickTitleOf({ ...clip, words: 1 }), 'Send 1 word to…')
+  assert.equal(chipTextOf(clip), 'Fix the flaky login…')
+  assert.equal(chipTextOf({ ...clip, preview: 'Two words' }), 'Two words')
+  assert.equal(NOTHING_TO_SEND, 'Nothing to send: copy some text first.')
+})
+
+test('Cmd+Shift+V on a Mac, Ctrl+Shift+V elsewhere, toggles pick mode', () => {
+  const press = (extra) => ({ code: 'KeyV', shiftKey: true, ...extra })
+  assert.equal(togglesPick(press({ metaKey: true }), true), true)
+  assert.equal(togglesPick(press({ ctrlKey: true }), false), true)
+  assert.equal(togglesPick(press({ ctrlKey: true }), true), false)
+  assert.equal(togglesPick(press({ metaKey: true, shiftKey: false }), true), false)
+  assert.equal(togglesPick(press({ metaKey: true, altKey: true }), true), false)
+  assert.equal(togglesPick(press({ metaKey: true, repeat: true }), true), false)
+  assert.equal(togglesPick({ code: 'KeyC', metaKey: true, shiftKey: true }, true), false)
 })
 
 test('a failed open keeps its reason, and the resume command only when the server sent one', () => {

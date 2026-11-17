@@ -18,10 +18,20 @@
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
         </button>
       </label>
+      <button class="dashboard" id="send-clipboard" type="button" aria-label="Send the copied text" aria-pressed="false" title="Send the copied text to a conversation">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.5 3H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1.5M6 2h4v2H6zM8 6.5v5M5.8 9.3L8 11.5l2.2-2.2"/></svg>
+      </button>
       <button class="dashboard" id="dashboard" type="button" aria-label="Open the dashboard" title="Open the full agnostic-ai web interface">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 7.4L8 2.8l5.5 4.6V13H9.6V9.6H6.4V13H2.5z"/></svg>
       </button>
     </header>
+    <section class="pick" id="pick" aria-label="Send the copied text" hidden>
+      <p class="pick-title" id="pick-title" role="status"></p>
+      <button class="icon-button pick-close" id="pick-close" type="button" aria-label="Stop sending" title="Stop sending (Esc)">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+      </button>
+      <p class="pick-preview" id="pick-preview"></p>
+    </section>
     <p class="note" id="note" role="status" hidden></p>
     <section class="notice" id="notice" aria-label="Why it did not open" hidden>
       <p class="notice-message" id="notice-message" role="status"></p>

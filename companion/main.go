@@ -537,6 +537,8 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/mark", in.pass(serverMarkPath))
 	mux.HandleFunc("POST /api/rename", in.pass(serverRenamePath))
 	mux.HandleFunc("POST /api/delete", in.pass(serverDeletePath))
+	mux.HandleFunc("GET /api/clipboard", in.clipboard)
+	mux.HandleFunc("POST /api/send", in.send)
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)
@@ -634,6 +636,10 @@ func main() {
 		s.app.Event.Emit(eventAppearance, looks)
 	}
 	in := s.inbox
+	in.readClipboard = func() string {
+		text, _ := s.app.Clipboard.Text()
+		return text
+	}
 	s.app = application.New(application.Options{
 		Name:        "agnostic-ai companion",
 		Description: "The AI conversations that need you, floating over every app.",

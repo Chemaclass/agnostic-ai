@@ -967,4 +967,5 @@
 # The helper-agents branch measured 26472608 bytes locally (make size-check): a chat's subagents and its Codex exec runs listed under it; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3518 measured 26509472 bytes locally (make size-check) after merging #3513 with main's rename support; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3520 measured 26521760 bytes locally (make size-check) after merging #3518: the companion install downloads and verifies the released macOS archive; the budget is that plus 8192, rounded up to a multiple of 4096.
-26533888
+# #3517 measured 26534048 bytes locally (make size-check): the companion sends copied text into a chat's input; the budget is that plus 8192, rounded up to a multiple of 4096.
+26546176
