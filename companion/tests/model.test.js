@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -569,4 +569,22 @@ test('a Codex subagent opens its own thread; a Claude Code subagent opens the ch
   const parent = row('parent', 'working')
   assert.deepEqual(helperOpenOf(parent, helper('run-1', 'working', 1, { tool: 'codex' })), { tool: 'codex', id: 'run-1' })
   assert.equal(helperOpenOf(parent, helper('agent-1', 'working', 1)), parent)
+})
+
+test('a row with an unread marker may still be marked read while the list holds it unchanged', () => {
+  const shown = row('a', 'dormant', { unread: true, updatedAt: '2026-11-09T12:00:00Z' })
+  assert.equal(stillWaits({ conversations: [shown] }, shown), true)
+  assert.equal(stillWaits({ conversations: [row('a', 'active', { unread: true, updatedAt: '2026-11-09T12:00:00Z' })] }, shown), true)
+  assert.equal(stillWaits({ conversations: [row('a', 'dormant', { updatedAt: '2026-11-09T12:00:00Z' })] }, shown), false)
+})
+
+test('a group header names the unread chats it holds, for a folded Archived', () => {
+  assert.equal(unreadLabelOf([row('a', 'dormant', { unread: true }), row('b', 'dormant'), row('c', 'completed', { unread: true })]), '2 unread')
+  assert.equal(unreadLabelOf([row('a', 'dormant')]), undefined)
+})
+
+test('a resumed chat with an unread marker offers Mark as read, and its tooltip says so', () => {
+  const open = { kind: 'focus', label: 'Switch to Ghostty' }
+  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename'])
+  assert.equal(rowTooltipOf(row('a', 'active', { unread: true, open }), Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\nClosed with a reply you have not read')
 })

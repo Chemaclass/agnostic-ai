@@ -198,6 +198,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== row)
     else if (body.as === 'completed') row.state = 'completed'
     else if (body.as === 'seen' && NEEDS_PERSON[row.state]) row.state = 'active'
+    else if (body.as === 'seen' && row.unread) delete row.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
     noContent(response)
     listChanged()

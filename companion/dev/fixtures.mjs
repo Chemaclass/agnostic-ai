@@ -299,6 +299,14 @@ export const FIXTURES = {
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2",
     heldOpens: ['active-2'],
   },
+  'closed-unread': {
+    label: 'A terminal chat that closed with an unread reply, under a folded Archived',
+    conversations: (now) => [
+      conversation(now, 'claude', 'active-6', 'Write the migration guide', 'active', { minutesAgo: 30 }),
+      { ...conversation(now, 'claude', 'closed-1', 'Port the billing job', 'dormant', { minutesAgo: 9 * 24 * 60, reply: 'The job now runs on the new queue.' }), unread: true, open: { kind: 'terminal', label: 'Resume in Terminal', command: "cd '/Users/you/Code/agnostic-ai' && claude --resume closed-1" } },
+      conversation(now, 'claude', 'old-4', 'Sketch the pricing page', 'dormant', { folder: '/Users/you/Code/site', minutesAgo: 12 * 24 * 60 }),
+    ],
+  },
 }
 
 /** A conversation that arrives while the list shows, for refresh tests. */

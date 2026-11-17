@@ -257,8 +257,9 @@ describe('conversation words', () => {
     expect(stateBadge('unread')).toEqual({ label: 'New reply', tone: 'approval', description: 'Something was written since you last opened it' })
     expect(stateBadge('completed')).toEqual({ label: 'Archived', tone: 'neutral', description: 'You archived it; it comes back with a new message or when it starts working' })
     for (const state of ['blocked', 'working', 'active', 'dormant', undefined] as const) expect(stateBadge(state)).toBeUndefined()
-    expect(stateBadge('dormant', true)).toEqual({ label: 'Closed, unread', tone: 'approval', description: 'It closed with a reply you have not read. Resume it or mark it as read.' })
-    for (const state of ['blocked', 'working', 'active', undefined] as const) expect(stateBadge(state, true)).toBeUndefined()
+    expect(stateBadge('dormant', true)).toEqual({ label: 'Closed, unread', tone: 'approval', description: 'It closed with a reply you have not read. Opening it here clears this.' })
+    expect(stateBadge('active', true)).toEqual({ label: 'Unread', tone: 'approval', description: 'It was resumed with a reply from before that you have not read. Opening it here clears this.' })
+    for (const state of ['blocked', 'working', undefined] as const) expect(stateBadge(state, true)).toBeUndefined()
   })
 
   it('shows a typed shell command as "! command" and hides a last prompt that repeats the title', () => {

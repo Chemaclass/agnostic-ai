@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -424,6 +424,8 @@ function groupHead(group) {
   title.classList.toggle('is-working', group.id === 'working')
   title.setAttribute('aria-expanded', String(!folded))
   title.append(icon('chevron', '0 0 8 8'), group.title, element('span', 'count', String(group.rows.length)))
+  const unread = unreadLabelOf(group.rows)
+  if (unread) title.append(element('span', 'unread-count', unread))
   title.firstChild.classList.add('chevron')
   title.addEventListener('click', () => {
     state.folded.set(group.id, !folded)
@@ -436,6 +438,13 @@ function groupHead(group) {
     all.type = 'button'
     all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
     all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
+    head.append(all)
+  }
+  if (unread && group.id === 'archived') {
+    const all = element('button', 'group-action', 'Mark all as read')
+    all.type = 'button'
+    all.title = 'Clear the unread marker of every chat shown here without opening it'
+    all.addEventListener('click', () => markAll(group.rows.filter((conversation) => conversation.unread), 'seen', (conversation) => stillWaits(state.view, conversation)))
     head.append(all)
   }
   if (group.id === 'active') {
