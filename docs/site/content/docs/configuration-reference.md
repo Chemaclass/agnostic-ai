@@ -302,7 +302,7 @@ These targets write it: `aider`, `amp`, `antigravity`, `augment`, `claude`, `cod
 
 ### Per-target paragraphs
 
-`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/_index.md#per-target-body-fences), with the same rules for shared entry-point files.
+`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/shared-features.md#per-target-body-fences), with the same rules for shared entry-point files.
 
 - `validate` flags a fence naming an unknown target or one that reads no entry-point file.
 - For how `import` treats a fenced source, see [import](@/docs/cli-reference/import.md#files-and-source-order).

@@ -1224,7 +1224,7 @@ func TestSiteDocs_TocEscapesHeadingTitles(t *testing.T) {
 		}
 	}
 
-	specFormat := tocBlock.FindString(readBuiltFile(t, filepath.Join(outputDir, "docs", "spec-format", "index.html")))
+	specFormat := tocBlock.FindString(readBuiltFile(t, filepath.Join(outputDir, "docs", "spec-format", "shared-features", "index.html")))
 	if !strings.Contains(specFormat, "x-&lt;target&gt;") {
 		t.Errorf("spec-format TOC does not show the escaped `x-<target>` heading:\n%s", specFormat)
 	}

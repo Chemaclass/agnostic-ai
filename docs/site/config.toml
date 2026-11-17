@@ -15,6 +15,7 @@ minify_html = false
 # `{{ ... }}` placeholders have to opt out or Tera reads them as expressions.
 skip_content_templating = [
   "docs/spec-format/_index.md",
+  "docs/spec-format/shared-features.md",
   "docs/spec-format/skills.md",
   "docs/targets/claude.md",
   "docs/targets/kiro.md",

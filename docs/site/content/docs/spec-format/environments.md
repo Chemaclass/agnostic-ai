@@ -47,9 +47,14 @@ terminals:
 - `install` and `terminals`: a sandbox's install step and its long-running processes.
 - `dev-commands`: dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words). `cwd` (relative to the project root), `port`, `auto-port`, `env`, `url`, and `icon` (the Codex button icon, `run` by default) are optional. An entry with a `url` and no `command` tells Claude Code to open a server you already run instead of starting one; Codex has no such action, so sync skips the entry there with a note.
 
+<details>
+<summary>Shell, merging and lint rules</summary>
+
 - A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
 - Specs merge by top-level key, and the last value wins. A field that no enabled tool uses gets a no-effect note.
 - `lint` reports a dev command with no `name`, with neither `command` nor `url`, a repeated name, an unknown key, or a value of the wrong type (LINT016). It also reports a `url` entry with no `command` that reaches Codex, and names the target. Give Codex its own list without that entry under `x-codex.dev-commands`.
+
+</details>
 
 ## Support by target
 
@@ -76,7 +81,8 @@ Claude Code has no setup step for a worktree it creates ([worktrees](https://cod
 
 Each hook sets `shell: bash`, so on Windows the script needs Git Bash, or setup does not run. A checkout without the script, such as a worktree created before the first sync, skips the hook. Claude Code runs matching hooks in parallel, so delete a hand-written `SessionStart` hook that installs the same dependencies.
 
-How the script runs:
+<details>
+<summary>How the setup script runs</summary>
 
 - It takes the worktree from the `cwd` in the hook's event data, because `$CLAUDE_PROJECT_DIR` stays at the directory the session started in.
 - It runs `setup` from the worktree root through `sh`, only in a linked Git worktree, never in the main checkout.
@@ -84,6 +90,8 @@ How the script runs:
 - Claude Code stops a command hook after 600 seconds by default, so a longer setup fails and runs again next time.
 - Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context.
 - The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads the hooks in `.claude/settings.json`, such as Cursor, then does not run setup a second time.
+
+</details>
 
 ### Refresh an existing worktree
 

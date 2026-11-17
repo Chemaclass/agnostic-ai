@@ -10,16 +10,11 @@ group = "Reference"
 
 # Agents
 
-`agents/` defines subagents that handle tasks for the main agent. Each has its own instructions, tools, and model. For example, a reviewer can have read-only access, while a test writer uses a cheaper model.
+`agents/` defines subagents for the main agent, each with its own instructions, tools, and model. A reviewer can be read-only, and a test writer can use a cheaper model.
 
-Give the agent one responsibility. Name the files or decisions it owns, the result it should return, and how to check that result.
+Give the agent one responsibility: the files or decisions it owns, the result it returns, and how to check that result. Use `description` to say when to delegate to it ("use proactively" makes Claude Code delegate more often). The body loads only when the agent runs; descriptions load every session.
 
-Use `description` to say when to delegate to it ("use proactively" makes Claude Code delegate more often). Keep detailed instructions in the body, which loads only when the agent runs. Descriptions load in every session.
-
-## When not to write one
-
-- Keep work in the main conversation when it needs frequent back-and-forth, or when planning, implementation, and testing share one context. An agent starts fresh and returns a summary.
-- Keep a quick change, or a task where speed matters, in the main conversation. An agent may need time to gather context first.
+Keep work in the main conversation when it needs frequent back-and-forth, when planning, implementation, and testing share one context, or when speed matters. An agent starts fresh, may spend time gathering context, and returns a summary.
 
 ## Write one
 
@@ -65,19 +60,6 @@ Run `agnostic-ai explain agents/code-reviewer.md` to inspect the translations, t
 
 Any other frontmatter field is written as given.
 
-### `readonly` by target {#readonly-by-target}
-
-| Target | Effect |
-|--------|--------|
-| Cursor | Restricted |
-| Claude Code | `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed) |
-| Codex | `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), and a sync note |
-| Qwen Code | `disallowedTools: [write_file, edit, notebook_edit]` (shell stays allowed) |
-| Factory | `tools: read-only` with `mcpServers: []` unless servers are listed. Wins over a portable `tools` list |
-| Other targets | Sync note |
-
-An explicit `x-claude.disallowedTools`, `x-qwen.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.
-
 ## Capabilities {#capabilities}
 
 `can` lists what an agent may do, in names that belong to no one tool:
@@ -98,6 +80,9 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 | `mcp:<server>` | Use every tool of one MCP server | `mcp__<server>` |
 | `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
 
+<details>
+<summary>Capability edge cases and Claude Code limits</summary>
+
 - Each capability becomes the tool's own name. `delete` raises a sync note on tools with no delete tool. The names match the hook [`match:` tool kinds](@/docs/spec-format/hook-reference.md#portable-events).
 - Claude Code names work as aliases, and a list can mix both: `can: [read, Grep]`. `Agent(<type>)` and `x-claude.tools` are written as given.
 - Claude Code reads an agent's `tools` by name only, so sync drops a path or pattern there and prints a note such as `claude: .agnostic-ai/agents/code-reviewer.md: shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern`. `on-unsupported: error` fails on it. To limit commands there, add a `PreToolUse` hook to the agent's `hooks`, or deny commands in a [settings spec's permissions](@/docs/spec-format/settings.md#permission-rules), which apply to every agent. A skill's `allowed-tools` keeps the pattern.
@@ -105,6 +90,8 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 - For Claude Code, a server name that contains `__` or ends in `_`, such as `reports__v2`, becomes `mcp__<server>__*`, the only whole-server form Claude Code matches for it.
 - `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`.
 - A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
+
+</details>
 
 `agnostic-ai migrate --only capabilities` rewrites `tools` as `can`; names with no capability of their own stay as aliases. `import` writes capabilities when each tool name matches one. `lint --suggest-capabilities` suggests neutral names for aliases (LINT037), off by default.
 
@@ -152,6 +139,9 @@ Claude gets `opus` and `xhigh`. Qoder gets `gpt-6.1-sol` and `8000`. Cursor gets
 | [Augment](@/docs/targets/augment.md) | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` | `thinking` (Auggie 1.x); other values raise a sync note, and `x-augment.thinking` wins |
 | Every other target | none | Sync note |
 
+<details>
+<summary>Claude model names on other targets</summary>
+
 **Claude model names on other targets.** A shared `model` (a single value or `default`) set to a Claude model name is left out, with a sync note, on a tool that cannot load it, so that tool uses its own default. The note suggests `model: {claude: <name>}`, or names the tier to fix when the name sits in a tier's `default`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` is written as given. `import claude` writes these names as `model: {claude: <name>}`, and `import codex` adds a Codex agent model as `model.codex`.
 
 | Target | Claude names that raise the note |
@@ -160,6 +150,8 @@ Claude gets `opus` and `xhigh`. Qoder gets `gpt-6.1-sol` and `8000`. Cursor gets
 | [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | The aliases |
 
 Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The value `default` resets Claude's model instead of naming one, so it raises no note.
+
+</details>
 
 ## Model tiers {#model-tiers}
 
@@ -173,10 +165,15 @@ A [tier](@/docs/configuration-reference.md#models) names a model role once in `a
 
 To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`.
 
+<details>
+<summary>Tier precedence details</summary>
+
 - The tier's `effort` applies only when the spec sets no `effort`, and is skipped for a target whose model the spec sets itself.
 - A value under `model.<target>` or `x-<target>.model` is never a tier name. `model.<target>` can be a [vendor alias](@/docs/configuration-reference.md#models) such as `codex: sol`.
 - `explain agents/<name>.md` lists the model and effort each configured tool gets. [`models`](@/docs/configuration-reference.md#models) lists the tier `lint` checks (LINT025, LINT026).
 - `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool.
+
+</details>
 
 ## Agents as skills {#agents-as-skills}
 
@@ -188,12 +185,17 @@ outputs:
     agents: skill
 ```
 
+<details>
+<summary>Agents as skills: output and limits</summary>
+
 - The skill is `<skills-dir>/<agent>/SKILL.md`, with the agent's `name` and `description`. Its body starts with a note: the model plays the role in the main session and says so. Nothing enforces that separation.
 - Fields a skill cannot carry, such as `tools` and `model`, are dropped with a note.
-- An [agent reference](@/docs/spec-format/_index.md#agent-and-skill-references) in skills, agents, and commands becomes that tool's skill phrase. A rule in a shared entry-point file such as `AGENTS.md` keeps the neutral phrase.
+- An [agent reference](@/docs/spec-format/shared-features.md#agent-and-skill-references) in skills, agents, and commands becomes that tool's skill phrase. A rule in a shared entry-point file such as `AGENTS.md` keeps the neutral phrase.
 - An agent and a skill with the same name would share a folder, so `validate` fails on them.
 - These four tools write `.agents/skills/`, which Codex, Copilot, Gemini, Cline, Cursor, OpenCode, Junie, and Qwen read too, and several other tools with subagents write there. When one of those is enabled, sync keeps the agents out of that directory and names the tool. Set `outputs.<target>.skills-dir` to a separate directory to use this option beside them.
 - The key cannot be combined with `rules-file` or, on Warp, `workflows-dir`. Other targets reject the key.
+
+</details>
 
 ## `can` and `tools` support by target {#tools-support-by-target}
 
@@ -272,3 +274,16 @@ On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disable
 | [Kilo Code](@/docs/targets/kilo.md) | Hex or a theme token, so `color: blue` may not show as expected |
 | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) | One of eight names: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` |
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note, since it shares `.agents/agents/` with [Goose](@/docs/targets/goose.md), which has no `color`. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
+
+## `readonly` by target {#readonly-by-target}
+
+| Target | Effect |
+|--------|--------|
+| Cursor | Restricted |
+| Claude Code | `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed) |
+| Codex | `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), and a sync note |
+| Qwen Code | `disallowedTools: [write_file, edit, notebook_edit]` (shell stays allowed) |
+| Factory | `tools: read-only` with `mcpServers: []` unless servers are listed. Wins over a portable `tools` list |
+| Other targets | Sync note |
+
+An explicit `x-claude.disallowedTools`, `x-qwen.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.

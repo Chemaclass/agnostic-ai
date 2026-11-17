@@ -8,7 +8,7 @@ group = "Reference"
 scripts = ["assets/scripts/hook-flow.js"]
 
 [extra.moved]
-per-target-body-fences = "@/docs/spec-format/_index.md#per-target-body-fences"
+per-target-body-fences = "@/docs/spec-format/shared-features.md#per-target-body-fences"
 portable-events = "@/docs/spec-format/hook-reference.md#portable-events"
 decision-on-stdout = "@/docs/spec-format/hook-reference.md#decision-on-stdout"
 claude-settings-copies = "@/docs/spec-format/hook-reference.md#claude-settings-copies"

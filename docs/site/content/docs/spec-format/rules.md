@@ -55,9 +55,14 @@ Claude Code gets a rule that applies only there. Codex gets `services/payments/A
 
 When several rules share a file, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section, and sync moves the body's headings down together so its top heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`.
 
+<details>
+<summary>Heading shift limits and source comments</summary>
+
 - The `outputs.claude.rules-file` layout writes `## <name>` sections, so there the top body heading is at least `###`.
 - Headings already deep enough keep their levels. No heading goes past `######`, so when a body's deepest heading is more than two levels below its top one (three in the Claude layout), the deepest levels merge at `######`, and import cannot separate them again.
 - The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`, and import moves the headings back.
+
+</details>
 
 <details>
 <summary>Edge cases for heading shifts</summary>

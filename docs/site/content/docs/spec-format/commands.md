@@ -48,7 +48,12 @@ Each target page lists the exact directory. Gemini writes each command as a `.to
 
 ## Tools without commands {#tools-without-commands}
 
-Tools with skills but no commands can receive commands as skills. The tool must support preventing the model from starting them: [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no such switch, so they skip commands. The skill:
+Tools with skills but no commands can receive commands as skills. The tool must support preventing the model from starting them: [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no such switch, so they skip commands.
+
+<details>
+<summary>What the generated skill contains, and name clashes</summary>
+
+The generated skill:
 
 - is written at the top level of the skills folder, whatever folder the command sits in under `commands/`;
 - sets `disable-model-invocation: true`, which Codex reads as `allow_implicit_invocation: false` in `agents/openai.yaml`, Copilot and Zed keep in `SKILL.md`, Windsurf writes as `triggers: [user]`, and Crush writes with `user-invocable: true`;
@@ -56,6 +61,8 @@ Tools with skills but no commands can receive commands as skills. The tool must 
 - opens with one line asking the model to run it only when called, and to treat the text typed after its name as its arguments, since these tools do not fill in `$ARGUMENTS` in a skill. Sync notes each `$ARGUMENTS` or `$1` line, and `on-unsupported: error` does not fail on them.
 
 A skill spec with the same name (ignoring case), or a hand-written skill folder of that name the tool reads, wins, and sync notes the skipped command. A tool that reads the same skills folder, such as Gemini CLI reading the copy Codex writes to `.agents/skills`, also sees the skill, even with `target-exclude`; sync notes that it lists the command twice, or that its model can start it.
+
+</details>
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 

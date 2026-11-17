@@ -84,12 +84,17 @@ mcpServers: [github]
 
 Sync leaves the server out of every project and user MCP file and writes its full definition into each agent file that names it, on Claude Code, Qoder, Kiro, and OpenHands. Every other tool gets no copy, with a note ([`mcpServers` support by target](@/docs/spec-format/agents.md#mcpservers-support-by-target)).
 
+<details>
+<summary>Agent-only edge cases</summary>
+
 - An agent file is committed, so a server written there is checked more strictly: a credential in `url`, `args`, an `x-<target>` block's `env` or `headers`, or a `${NAME:-default}` default is an error (LINT035), even from a [pack](@/docs/packs.md), instead of the [LINT049 warning](#plain-settings).
 - Sync and `validate` refuse an `agent-only` value other than `true` or `false`, such as `yes`.
 - A server no agent names reaches no tool. Sync prints a note.
 - A `disabled: true` server is left out of the agent file.
 - `sync --global` writes no agent-only server.
 - Import does not create agent-only servers yet. `import claude` keeps an inline server in the agent's `mcpServers` list, and sync writes it back as it was.
+
+</details>
 
 ## Secrets and plain settings {#plain-settings}
 
@@ -105,9 +110,14 @@ Sync writes `NODE_ENV: production` to every tool. An editor with the YAML langua
 
 Any other `env` or `headers` value, including text around a reference such as `postgres://u:pw@${HOST}/db`, is LINT035: `sync` refuses it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, field, and key, never the value. Empty values, numbers, and booleans are not checked.
 
+<details>
+<summary>Credentials in url, args and defaults, and the migrate command</summary>
+
 A credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, or in a `${NAME:-default}` default gets a LINT049 warning, and `sync` still runs. The check reads the value's shape, since those places take no `!literal` mark.
 
 [`agnostic-ai migrate --only secrets`](@/docs/cli-reference/upgrades.md#migrate) rewrites existing specs. A value that looks like a [credential](@/docs/spec-format/mcp-import.md#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, and the command lists each variable to set, never the value. Every other value gets `!literal`. It leaves two cases to you: a key with a [credential name](@/docs/spec-format/mcp-import.md#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
+
+</details>
 
 ## Environment references
 
@@ -140,9 +150,14 @@ Sync writes each tool's own form, and never writes a reference as plain text. Wh
 | [Codex](@/docs/targets/codex.md) | `env`: `KEY: ${KEY}` adds `KEY` to `env_vars`. `headers`: `Authorization: Bearer ${NAME}` sets `bearer_token_env_var`, and another header of exactly `${NAME}` joins `env_http_headers`. Any other reference: key left out | Server left out |
 | [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Key left out | Server left out |
 
+<details>
+<summary>Per-tool notes on references</summary>
+
 Kiro expands only variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset. Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env`, and its CLI also reads environment variables ([secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables)). Keep `.env` files out of Git.
 
 [`agnostic-ai doctor`](@/docs/cli-reference/doctor.md#doctor) lists each referenced variable unset in your shell, including in `x-<target>` blocks and disabled servers. A tool started from a desktop launcher may see a different environment.
+
+</details>
 
 ### References in `url` and `args`
 
@@ -162,7 +177,12 @@ args: ["-y", "mcp-remote", "https://mcp.example.com", "--header", "x-chroma-toke
 
 Sync writes `${X_CHROMA_TOKEN}` to every built-in tool, with no note; an external adapter gets the spec as written. Quote it inside a `[...]` list, as you would `${NAME}`.
 
+<details>
+<summary>How tools expand literal text</summary>
+
 A tool whose column in the [table above](#environment-references) shows `${NAME}` for that field expands the text itself, from its own environment rather than the server's `env` block, before the server sees it. None of them can write a literal `${`, so sync still writes the server. A value expanded in `args` shows in the process list. When the variable is unset and has no default, Claude Code keeps the `${NAME}` text and warns in `claude mcp list`.
+
+</details>
 
 ### What import writes
 
@@ -187,9 +207,14 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
 | [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in an agent's `mcp_servers` |
 
+<details>
+<summary>Codex environment ID and target overrides</summary>
+
 Codex `environment_id` is the ID of a configured executor and defaults to `local`. The older `experimental_environment` still loads: sync writes `local` as `environment_id = "local"` and leaves `remote` out, since Codex no longer reads that key. `lint` and project `sync` say so. [`agnostic-ai migrate --only mcps`](@/docs/cli-reference/upgrades.md#migrate) rewrites `local`.
 
 The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which wins, and other tools leave them out. On Amp, set `x-amp.includeTools`. `x-factory`, `x-kilo`, and `x-continue` override the matching top-level options for that target. Each target page gives the details: [Factory tool lists](@/docs/targets/factory-reference.md#mcp), [Crush channels](@/docs/targets/crush-reference.md#mcp), and [Claude Code flags](@/docs/targets/claude-reference.md#mcp-mappings).
+
+</details>
 
 ## `disabled` support by target
 

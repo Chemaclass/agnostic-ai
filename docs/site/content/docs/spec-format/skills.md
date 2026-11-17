@@ -46,7 +46,12 @@ Run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Then
 
 A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` puts the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
+<details>
+<summary>Sync notes for fields a tool leaves out</summary>
+
 Sync, including global sync, prints a note for each skill field a tool leaves out, such as `argument-hint`, `model`, or `effort`; a field kept in the tool's frontmatter, a command copy of the skill, or a policy file gets none. `agnostic-ai compare claude codex` shows which fields each tool keeps, translates, or drops. Shared global directories leave out per-target overrides.
+
+</details>
 
 ## Allowed tools {#allowed-tools}
 
@@ -66,7 +71,7 @@ Only `SKILL.md` and flat `skills/*.md` files are read as skills. Every other fil
 
 Most tools get `<dir>/<name>/SKILL.md` with the bundled files. Several share `.agents/skills/`, so identical files are written once. Tools without skill support get the skill as a `skill-<name>.md` rule. Bundled files cannot follow, so they raise a sync note. Set `outputs.<target>.emit-skills-as-commands: true` to also write a slash command. Each target page gives the exact directory.
 
-A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which becomes each tool's own skills directory.
+A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/shared-features.md#path-variables-name), which becomes each tool's own skills directory.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 
@@ -82,7 +87,12 @@ Other targets do not expand this syntax in project skills. Sync copies the body 
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
+<details>
+<summary>Note options, lint code and global sync</summary>
+
 `on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root. There, Kilo's [inline shell placeholders](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) in trusted user skill directories pass; argument placeholders and Claude dynamic code blocks still raise notes.
+
+</details>
 
 Put the Claude line in a fence and give other tools their own text:
 
@@ -95,7 +105,12 @@ Run `git log main..HEAD --oneline` first. `$ARGUMENTS` below means the text pass
 ::end
 ```
 
+<details>
+<summary>Fenced examples, escaping and import</summary>
+
 A `$1` or `` !`command` `` inside a fenced code block counts as an example and is not reported. `$ARGUMENTS` is still reported there. Escape a literal dollar as `\$1`, as Claude Code expects. `import claude` keeps the body as written, so Claude Code keeps its dynamic context.
+
+</details>
 
 [Commands](@/docs/spec-format/commands.md#claude-code-body-syntax) use the same syntax, and a few tools support part of it there.
 
@@ -114,6 +129,11 @@ Without the field, every tool lets the model use the skill on its own. Each targ
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
 | Cline, Amp, Warp, Antigravity, Continue, Gemini CLI, Goose, OpenHands | Dropped with a note: no documented field keeps a skill user-only |
 
+<details>
+<summary>Shared skills folders and Factory</summary>
+
 Copilot, Zed, Windsurf, Crush, and Qwen Code write it only while no other target writes the same skills folder, since every writer of a shared `SKILL.md` must agree on its bytes. Otherwise the field is dropped with a note; point the tool's `skills-dir` at a folder of its own to keep it.
 
 Factory skills go in the shared `.agents/skills/` folder, where the key would reach tools that ignore it and let their models use a manual-only skill. So while another target writes that folder, `x-factory.disable-model-invocation` also needs `outputs.factory.skills-dir: .factory/skills`; otherwise sync stops with `AAI-102`.
+
+</details>
