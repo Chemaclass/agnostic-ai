@@ -825,3 +825,50 @@ func TestPanelLostFocus_DoesNotReopenAClosedPanel(t *testing.T) {
 		t.Error("pressing the bubble reopened the panel through its focus handler")
 	}
 }
+
+// macOS hides a window a moment after it is asked to, and hands the keys
+// to the bubble meanwhile: the panel still reads as visible then.
+func TestPanelLostFocus_DoesNotBringBackAPanelThePageHid(t *testing.T) {
+	for name, hide := range map[string]func(*shell){
+		"the page hid it to open a chat": func(s *shell) { s.hidePanel() },
+		"the bubble was clicked again":   func(s *shell) { s.togglePanel() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, _ := placedShell(t)
+			s.togglePanel()
+			bubble, panel := s.bubble.(*fakeWindow), s.panel.(*fakeWindow)
+			hide(s)
+			panel.mu.Lock()
+			panel.visible, panel.focused = true, false
+			panel.mu.Unlock()
+			bubble.focused = true
+
+			s.panelLostFocus()
+
+			if panel.IsFocused() {
+				t.Error("a panel that was asked to hide took the keys back, which shows it again")
+			}
+			if panel.IsVisible() {
+				t.Error("a panel that was asked to hide stayed on screen")
+			}
+			if !s.hiddenByFocusAt.IsZero() {
+				t.Error("a hide the person asked for was recorded as a focus dismissal")
+			}
+		})
+	}
+}
+
+func TestPanelLostFocus_KeepsAPanelShownAgainAfterAHide(t *testing.T) {
+	s, _ := placedShell(t)
+	s.togglePanel()
+	s.hidePanel()
+	s.showPanelWhileShown()
+	bubble, panel := s.bubble.(*fakeWindow), s.panel.(*fakeWindow)
+	bubble.focused, panel.focused = true, false
+
+	s.panelLostFocus()
+
+	if !panel.IsVisible() || !panel.IsFocused() {
+		t.Error("focusing the bubble dismissed a panel that was shown again")
+	}
+}
