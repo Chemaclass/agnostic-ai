@@ -73,7 +73,7 @@ Codex and Gemini section.
 | `::end` | Closes the last open fence. A missing `::end` runs to the end of the body. |
 
 - `import` keeps fences intact. `import codex` adds them when Claude and Codex have the same agent or skill with different bodies.
-- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A shared file is never split: a block reaches it when any tool that reads it is listed, so `::target codex` text reaches every `AGENTS.md` reader. See [Entry-point files](@/docs/configuration.md#entry-point-files).
+- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A shared file is never split: a block reaches it when any tool that reads it is listed, so `::target codex` text reaches every `AGENTS.md` reader. See [Entry-point files](@/docs/configuration-reference.md#entry-point-files).
 
 ## Path variables: `{{$NAME}}`
 

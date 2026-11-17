@@ -83,7 +83,7 @@ global-mcp-servers = "@/docs/configuration-reference.md#global-mcp-servers"
 
 ## entry-point-files {#entry-point-files .legacy-anchor}
 
-`agnostic-ai.yaml` sits at the project root, and every section is optional. The old name `agnostic.config.yaml` still loads with a warning; `agnostic-ai migrate` renames it. The `sync` and `gitignore` keys have [their own page](@/docs/sync-settings.md). The less common keys are in the [reference](@/docs/configuration-reference.md).
+`agnostic-ai.yaml` sits at the project root. Every section is optional. This page covers the keys most people change; the rest are in the [reference](@/docs/configuration-reference.md), and `sync` and `gitignore` are on [their own page](@/docs/sync-settings.md).
 
 ## Minimal project config
 
@@ -94,19 +94,23 @@ gitignore:
   enabled: true
 ```
 
-`agnostic-ai init` creates this file for the tools you pick. A **target** is a tool that receives generated files. **Sources** are the specs you edit; **outputs** are the files tools read.
+`agnostic-ai init` writes this file for the tools you pick. A **target** is a tool that receives generated files. **Sources** are the specs you edit. **Outputs** are the files tools read.
 
-After a change, run `agnostic-ai sync --dry-run`, then `agnostic-ai sync` and `agnostic-ai sync --check`. In scripts and coding agents, name the tools instead of relying on the prompt.
+After a change:
 
-[Top-level fields](#top-level-fields) lists every key. For which value wins, see [precedence](#precedence) and [layered specs](@/docs/configuration-reference.md#layered-specs). For directory-specific instructions, give a rule a `scope` ([scoped context](@/docs/scoped-context.md)).
+1. `agnostic-ai sync --dry-run` shows the planned output.
+2. `agnostic-ai sync` writes it.
+3. `agnostic-ai sync --check` confirms nothing drifted.
+
+In scripts and coding agents, name the tools instead of relying on the prompt.
+
+- The old file name `agnostic.config.yaml` still loads with a warning. `agnostic-ai migrate` renames it.
+- Which value wins: [precedence](#precedence) and [layered specs](@/docs/configuration-reference.md#layered-specs).
+- Directory-specific instructions: give a rule a `scope` ([scoped context](@/docs/scoped-context.md)).
 
 ## Local overrides
 
 `agnostic-ai.local.yaml` holds changes for one machine. `init` adds it to `.gitignore`. Personal specs go in [`.agnostic-ai/local/`](@/docs/local-overrides.md).
-
-- A single value or list replaces the shared value. A group of settings merges key by key.
-- An empty key leaves a shared group unchanged (lint warns, also when only commented-out children remain). Write `{}` to clear the group; model tiers reject `{}`.
-- Over a list or single value, an empty key replaces the shared value. An empty `targets:` also replaces the default targets when no shared list exists. An empty `requires:` turns the version check off.
 
 ```yaml
 # agnostic-ai.local.yaml (never committed)
@@ -116,9 +120,20 @@ outputs:
     dir: .claude-local   # overrides base; rules-file from base survives
 ```
 
+| Local value | Result |
+|---|---|
+| A single value or a list | Replaces the shared value. |
+| A group of settings | Merges key by key. |
+| `{}` | Clears the shared group. Model tiers reject `{}`. |
+| An empty key over a group | Leaves the group unchanged, and lint warns. This includes a key with only commented-out children. |
+| An empty key over a list or single value | Replaces the shared value. |
+
+- An empty `targets:` also replaces the default targets when no shared list exists.
+- An empty `requires:` turns the version check off.
+
 ## Editor validation
 
-`init` adds this comment so editors check the file against your release's schema.
+`init` adds this comment so editors check the file against your release's schema:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/v0.92.0/docs/schemas/config.schema.json
@@ -149,14 +164,16 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 
 ## Built-ins
 
-`builtins` turns on specs bundled with the binary. None are on unless listed; `init` writes `builtins: [handoff]` for a new project, or `[handoff, memory]` with `--memory`.
+`builtins` turns on specs bundled with the binary. None are on unless listed.
 
 ```yaml
 requires: ">=0.92.0"
 builtins: [handoff]
 ```
 
-| Name | Adds | Setup and supported tools |
+`init` writes `builtins: [handoff]`, or `[handoff, memory]` with `--memory`.
+
+| Name | Adds | Setup |
 |---|---|---|
 | `handoff` | A skill to leave and resume a task | [Session handoffs](@/docs/handoff.md) |
 | `handoff-hook` | Automatic Git snapshots and startup notices | [Automatic snapshots](@/docs/handoff.md#add-automatic-git-snapshots) |
@@ -166,22 +183,25 @@ builtins: [handoff]
 | `side-conversation` | A skill to start a second task in a new terminal tab, linked to this session | [Side conversations](@/docs/side-conversation.md) |
 | `wrap-up` | A skill to end a session with a summary to share | [Session wrap-ups](@/docs/wrap-up.md) |
 
+Set `requires` to the release you use. An upgrade that changes built-in text makes `sync --check` fail until you sync.
+
 <details>
-<summary>Built-in precedence, removal and upgrades</summary>
+<summary>Details: precedence, removal, local lists</summary>
 
-Before you enable RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman).
-
-Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in in the project. A global skill still wins on some tools; see [shared names](@/docs/global-configuration-reference.md#global-shared-names).
-
-The same list works in the [global home config](@/docs/configuration-reference.md#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` there turns them all off. When you remove a name, the next sync removes the files and tool settings it manages, and keeps unrelated settings and project overrides. A local `builtins` list never changes the committed ignore files; see [block contents](@/docs/sync-settings.md#block-contents).
-
-When you enable built-ins, set `requires` to the release you use. An upgrade that changes built-in text makes `sync --check` fail until you sync.
+- Before you enable RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman).
+- An unknown name fails as AAI-004 and lists the valid names.
+- A project, pack, or personal spec with the same kind and name wins over the built-in in the project.
+- A global skill still wins on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).
+- The same list works in the [global home config](@/docs/configuration-reference.md#global-configuration).
+- A `builtins` list in a local config replaces the shared list. `builtins: []` there turns every built-in off.
+- Removing a name makes the next sync delete the files and tool settings it managed. Unrelated settings and project overrides stay.
+- A local `builtins` list never changes the committed ignore files ([block contents](@/docs/sync-settings.md#block-contents)).
 
 </details>
 
 ## `requires`
 
-Pick one form:
+`requires` names the releases your specs work with. Pick one form:
 
 ```yaml
 requires: ">=0.92.0"          # minimum: 0.92.0 or any newer release
@@ -189,37 +209,43 @@ requires: "0.92.0"            # exact: only 0.92.0; "=0.92.0" means the same
 requires: ">=0.92.0 <0.93.0"  # range: 0.92.0 and its patch releases
 ```
 
+| Form | Use it when |
+|---|---|
+| Minimum | Default. `init` writes the release that created the project. Newer releases keep working. |
+| Exact | You commit generated files and run `sync --check` in CI, since a newer release can write different output. When npm installs the tool, pin the same release in `package.json`. |
+| Range | You accept patch releases but not the next minor one. |
+
+An installed release outside the range stops every command that reads your specs, before any write, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires).
+
 <details>
-<summary>What each form means, upgrades and errors</summary>
+<summary>Details: syntax, upgrades, local override</summary>
 
-- **Minimum**: the default that `init` writes, naming the release that created the project. Newer releases keep working.
-- **Exact**: choose it when you commit generated files and run `sync --check` in CI, since a newer release can write different output. `init --gitignore=off` writes a minimum and prints this advice. When npm installs the tool, pin the same release in `package.json`.
-- **Range**: accept patch releases but not the next minor one.
-
-[`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) raises the value to the installed release, keeping a minimum as a minimum and an exact pin as an exact pin. A range becomes a minimum, and the command prints the value it replaced.
-
-An installed release outside the allowed range stops every command that reads your specs before any write, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). Follow that page for fixes. `sync --watch` stops when a pulled config puts the binary outside `requires`.
-
-A value is one or more terms separated by spaces, and the binary must match every term. A term is `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`; anything else fails as AAI-004, naming the file. That includes `^`, `~`, commas, and `||`. Before 1.0, `^0.92.0` would allow only 0.92 patch releases, so write `>=0.92.0` to accept newer releases. A build from source (`go run`, or a commit after a tag) is not a release, so it warns once instead.
-
-`agnostic-ai.local.yaml` can replace the value. An empty `requires:` there turns the check off. The [global home config](@/docs/configuration-reference.md#global-configuration) accepts the key too.
+- A value is one or more space-separated terms. The binary must match every term.
+- A term is `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`.
+- Anything else fails as AAI-004 and names the file. That includes `^`, `~`, commas, and `||`.
+- Before 1.0, `^0.92.0` would allow only 0.92 patch releases. Write `>=0.92.0` to accept newer ones.
+- A build from source (`go run`, or a commit after a tag) is not a release. It warns once instead.
+- `init --gitignore=off` writes a minimum and prints the advice to pin an exact release.
+- [`upgrade --requires`](@/docs/cli-reference/upgrades.md#upgrade-options) raises the value to the installed release. A minimum stays a minimum and an exact pin stays exact. A range becomes a minimum, and the command prints the value it replaced.
+- `sync --watch` stops when a pulled config puts the binary outside `requires`.
+- `agnostic-ai.local.yaml` can replace the value. An empty `requires:` there turns the check off.
+- The [global home config](@/docs/configuration-reference.md#global-configuration) accepts the key too.
 
 </details>
 
 ## `targets`
 
-Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, `ellipsis`, `grok`, `codebuddy`, and `kimi`. `-t/--target` replaces the list for one run.
+`targets` lists the tools to write files for. By default that is every tool except `amp`, `warp`, `jules`, `goose`, `augment`, `ellipsis`, `grok`, `codebuddy`, and `kimi`. `-t/--target` replaces the list for one run.
+
+`init` and the first `sync` can write the list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker). The web interface has a switch per tool under **Settings**, **Coding tools** ([serve](@/docs/cli-reference/serve.md#serve)).
 
 <details>
-<summary>Typos, empty lists, picker and web interface</summary>
+<summary>Details: typos and empty lists</summary>
 
-A likely typo of a built-in target, such as `cursr`, fails before any write. Any other unknown name is skipped with a warning, since it may be an external adapter missing from this machine's PATH.
-
-An empty list keeps generated files: `sync` warns, `sync --check` fails while they remain, and [`--allow-empty-targets`](@/docs/cli-reference/sync.md) removes them.
-
-`init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
-
-The web interface lists every tool with a switch under **Settings**, **Coding tools**; see [serve](@/docs/cli-reference/serve.md#serve).
+- A likely typo of a built-in target, such as `cursr`, fails before any write.
+- Any other unknown name is skipped with a warning. It may be an external adapter missing from this machine's PATH.
+- An empty list keeps generated files. `sync` warns, and `sync --check` fails while they remain.
+- [`--allow-empty-targets`](@/docs/cli-reference/sync.md) removes them.
 
 </details>
 
@@ -234,14 +260,13 @@ verify:
     - --strict
 ```
 
-See the [`verify` command](@/docs/cli-reference/check.md#verify) for the drift check, input, exit codes, and result recording, which uses flags only.
+The [`verify` command](@/docs/cli-reference/check.md#verify) covers the drift check, input, exit codes, and result recording (flags only).
 
 ## Which value wins {#precedence}
 
-Last wins:
+The last item wins:
 
 1. Built-in defaults
 2. `agnostic-ai.yaml`
 3. `agnostic-ai.local.yaml`
-4. CLI flags (such as `agnostic-ai sync -t claude`)
-
+4. CLI flags, such as `agnostic-ai sync -t claude`

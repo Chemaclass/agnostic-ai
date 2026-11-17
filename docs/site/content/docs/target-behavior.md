@@ -7,8 +7,8 @@ weight = 125
 group = "Reference"
 
 [extra.moved]
-notes = "@/docs/global-configuration.md#native-discovery-and-shared-paths"
-targets-left-out = "@/docs/global-configuration.md#targets-left-out"
+notes = "@/docs/global-configuration-reference.md#native-discovery-and-shared-paths"
+targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 +++
 
 # Cross-target behavior
@@ -29,7 +29,7 @@ A rule's `scope` limits it to a directory through native file conditions or nest
 
 ## Entry-point files
 
-Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction file and overwrites edits to the copies. See [entry-point files](@/docs/configuration.md#entry-point-files).
+Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction file and overwrites edits to the copies. See [entry-point files](@/docs/configuration-reference.md#entry-point-files).
 
 | Instruction file | Targets |
 |---|---|
@@ -89,7 +89,7 @@ In mergeable files such as `.claude/settings.json`, `.gemini/settings.json`, `.c
 
 ### Other entry-point options
 
-A partial sync still refreshes shared instruction files for all configured readers. For the [legacy merged rules file](@/docs/configuration.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
+A partial sync still refreshes shared instruction files for all configured readers. For the [legacy merged rules file](@/docs/configuration-reference.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
 
 ## Spec kind behavior
 

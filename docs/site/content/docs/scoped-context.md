@@ -14,7 +14,7 @@ A scoped rule holds one directory's instructions, such as a service's convention
 
 ## Start with one directory
 
-Run commands from the project root. For a new scratch project:
+Run commands from the project root. For a scratch project:
 
 ```bash
 echo "claude,codex" | agnostic-ai init
@@ -73,13 +73,28 @@ For Claude Code, Codex, or Cursor, the report lists each instruction's source sp
 
 Globs are filename patterns such as `src/api/**`. With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md` instead of adding to the root instructions. Other tools that read `AGENTS.md` share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
 
-Every pattern must cover a whole directory tree; sync never widens a file filter to a whole directory. Patterns such as `src/api/**/*.ts` or `Dockerfile`, or a mix of root files and directory patterns, keep the whole rule inline in the root file, with a note naming the always-loaded rule. The rule also stays inline, with a note, for output overrides, unmanaged destinations, and tools that read the root file without verified nested-file support, whether configured or chosen with `--target`. `on-unsupported: error` refuses this fallback. An inlined rule with `globs` begins with an `Applies to:` line, such as ``Applies to: `resources/js/**` ``, so it does not read as a rule for the whole repository.
+Every pattern must cover a whole directory tree. Sync never widens a file filter to a whole directory.
+
+The whole rule stays inline in the root file, with a note naming the always-loaded rule, when:
+
+- A pattern is a file filter such as `src/api/**/*.ts`, or a file such as `Dockerfile`.
+- The patterns mix root files and directory patterns.
+- The rule has output overrides or unmanaged destinations.
+- A tool reads the root file without verified nested-file support, whether configured or chosen with `--target`.
+
+`on-unsupported: error` refuses this fallback. An inlined rule with `globs` begins with an `Applies to:` line, such as ``Applies to: `resources/js/**` ``, so it does not read as a rule for the whole repository.
 
 Starting Codex at the root does not load nested files for later edits.
 
 ## Qwen Code rules with globs alone
 
-An unscoped rule with `globs` or `paths` writes `.qwen/rules/<name>.md` with the same patterns as a `paths:` list. Qwen Code leaves it out of the prompt until a tool reads or edits a matching file, and loads project rules only in a trusted folder. `alwaysApply: true` keeps the rule in `QWEN.md`. A legacy `outputs.qwen.rules-file` or a moved `outputs.qwen.file` keeps every rule in that file. See [Qwen Code rules](https://qwenlm.github.io/qwen-code-docs/en/users/features/rules/).
+An unscoped rule with `globs` or `paths` writes `.qwen/rules/<name>.md` with the same patterns as a `paths:` list.
+
+- Qwen Code leaves it out of the prompt until a tool reads or edits a matching file.
+- It loads project rules only in a trusted folder.
+- `alwaysApply: true` keeps the rule in `QWEN.md`.
+- A legacy `outputs.qwen.rules-file` or a moved `outputs.qwen.file` keeps every rule in that file.
+- See [Qwen Code rules](https://qwenlm.github.io/qwen-code-docs/en/users/features/rules/).
 
 </details>
 

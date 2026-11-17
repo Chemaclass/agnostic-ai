@@ -63,7 +63,7 @@ Entries live under `mcpServers` in `.pi/mcp.json` ([Pi MCP](https://github.com/e
 
 ## Config keys
 
-For the shared root instruction file, see [entry-point files](@/docs/configuration.md#entry-point-files).
+For the shared root instruction file, see [entry-point files](@/docs/configuration-reference.md#entry-point-files).
 
 | Key | Default |
 |---|---|

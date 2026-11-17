@@ -14,13 +14,21 @@ Setup and the list of files `sync --global` writes are in [Global configuration]
 
 ## Shared names {#global-shared-names}
 
-A project skill or agent can share its `name` with one in the home. Sync writes both, and each tool decides which one it loads. `sync` and `doctor` print one warning per shared name, with each target where one copy hides the other, which copy wins, and the fix:
+A project skill or agent can share its `name` with one in the home. Sync writes both, and each tool decides which one it loads.
+
+`sync` and `doctor` print one warning per shared name. It names each target where one copy hides the other, which copy wins, and the fix:
 
 ```text
 ! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on claude
 ```
 
-Claude Code, Cline, and Amp document no project setting that picks the project copy over a home skill and keeps the other home skills; Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the global agents folders. So sync keeps both copies, explains the limit, and leaves your home files alone. Doctor reports it even when sync warnings are off. A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here; when both copies match, it says to delete one before they drift apart.
+Why sync keeps both copies:
+
+- Claude Code, Cline, and Amp document no project setting that picks the project copy over a home skill and keeps the other home skills.
+- Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the global agents folders.
+- So sync explains the limit and leaves your home files alone. Doctor reports it even when sync warnings are off.
+- A winning global copy changes what you run, not what others run from the repository.
+- When only project copies win, the warning says the global one is unused here. When both copies match, it says to delete one before they drift apart.
 
 The check covers these targets:
 
@@ -47,9 +55,11 @@ Sync and doctor do not check other tools, though some document what happens:
 
 </details>
 
-To layer on purpose, give the project spec its own name, such as a `gh-issue-project` skill beside a global `gh-issue`. Both then load everywhere, under different names.
+To resolve a clash:
 
-To keep one name in both places, list it in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names). To stop the warning for every shared name, set [`sync.global-name-clash: ignore`](@/docs/sync-settings.md#syncglobal-name-clash).
+- **Layer on purpose**: give the project spec its own name, such as a `gh-issue-project` skill beside a global `gh-issue`. Both then load everywhere.
+- **Keep one name in both places**: list it in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names).
+- **Silence every shared name**: set [`sync.global-name-clash: ignore`](@/docs/sync-settings.md#syncglobal-name-clash).
 
 ## Default model and effort {#global-default-model-and-effort}
 
@@ -77,16 +87,34 @@ effort:
 | gemini | `~/.gemini/settings.json` | `model.name` |
 | augment | `~/.augment/settings.json` | `defaultModel`, `defaultThinkingLevel` (Auggie 1.x) |
 
-Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini and Kimi Code. Augment also takes `x-augment` keys, such as `shell`. Except for Kiro CLI's literal dotted keys, a dotted key is a nested JSON object: for `model.name`, sync sets `name` inside `model` and leaves the other keys alone.
+- Targets not in the table raise a coverage note for `model` and `effort`. So does `effort` on Gemini and Kimi Code.
+- Augment also takes `x-augment` keys, such as `shell`.
+- A dotted key is a nested JSON object, except for Kiro CLI's literal dotted keys. For `model.name`, sync sets `name` inside `model` and leaves the other keys alone.
 
 <details>
-<summary>Accepted effort values and the Claude Code effortLevel limit</summary>
+<summary>Details: accepted effort values</summary>
 
-Accepted `effort` values: Claude takes `low`, `medium`, `high`, `xhigh`; Copilot takes `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` (each model accepts a subset); Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`; Augment takes `off`, `minimal`, `low`, `medium`, `high`, `xhigh`; Codex takes any string; for CodeBuddy Code see [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits). `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+| Target | Accepted `effort` values |
+|---|---|
+| Claude | `low`, `medium`, `high`, `xhigh` |
+| Copilot | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` (each model accepts a subset) |
+| Qoder | `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max` |
+| Augment | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` |
+| Codex | Any string |
+| CodeBuddy Code | See [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits) |
 
-Claude Code reads `effortLevel` in `~/.claude/settings.json` on Opus 5, Fable 5.1, and earlier models only. Opus 5.5 and later models ignore it and need a level saved per model with `/effort`. `sync --global` writes the key and prints a note. In project settings, `effortLevel` applies to every model.
+`lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+
+Claude Code and `effortLevel`:
+
+- `~/.claude/settings.json` `effortLevel` is read on Opus 5, Fable 5.1, and earlier models only.
+- Opus 5.5 and later models ignore it. They need a level saved per model with `/effort`.
+- `sync --global` writes the key and prints a note.
+- In project settings, `effortLevel` applies to every model.
 
 </details>
+
+### Permissions
 
 Set Claude Code's starting permission mode in a home settings spec:
 
@@ -96,46 +124,62 @@ permissions:
   default-mode: acceptEdits
 ```
 
-`sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`. It accepts `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, and `bypassPermissions`. A later settings spec wins. Removing the field removes the managed mode, unless you changed it by hand. Claude's `auto` and `bypassPermissions` need user, managed, or session settings; see [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
+- `sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`.
+- Accepted values: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`.
+- A later settings spec wins.
+- Removing the field removes the managed mode, unless you changed it by hand.
+- Claude's `auto` and `bypassPermissions` need user, managed, or session settings ([Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode)).
 
-Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule:
+Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule.
+
+- Claude Code saves standing approvals to the project's `.claude/settings.local.json`, which global import does not read ([Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files)).
+- CodeBuddy Code also merges user permission lists and starting modes ([native limits](@/docs/targets/codebuddy.md#fields-and-limits)).
+- A `permissions` field on any other target raises a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead.
 
 <details>
-<summary>How permission rules merge</summary>
+<summary>Details: how permission rules merge</summary>
 
 - Sync appends each missing rule after the rules already there, and adopts a rule already there.
-- Sync records added and adopted rules in `state/global.json`. Dropping a rule from the specs removes it, including a rule you wrote before adoption. Other rules keep their order.
-- `--check` fails while a spec rule is missing or a dropped one remains. `--plan` and `--dry-run` list each rule added or removed.
-- Run `import --global claude` to copy user-level rules into `settings/permissions-claude.yaml`, so they reach your other machines.
+- Sync records added and adopted rules in `state/global.json`.
+- Dropping a rule from the specs removes it, including a rule you wrote before adoption. Other rules keep their order.
+- `--check` fails while a spec rule is missing or a dropped one remains.
+- `--plan` and `--dry-run` list each rule added or removed.
+- `import --global claude` copies user-level rules into `settings/permissions-claude.yaml`, so they reach your other machines.
 
 </details>
 
-Claude Code saves standing permission approvals to the project's `.claude/settings.local.json`, which global import does not read. See [Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files).
+### Other settings
 
-CodeBuddy Code also merges user permission lists and starting modes; see its [native limits](@/docs/targets/codebuddy.md#fields-and-limits). Any `permissions` field on another target raises a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead.
+- `session-retention-days` sets how many days transcripts are kept, for Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI ([session retention](@/docs/spec-format/settings.md#session-retention)).
+- `voice` configures voice dictation for tools with a native setting ([voice dictation](@/docs/spec-format/settings.md#voice-dictation)).
 
-`session-retention-days` in a home settings spec sets how many days your transcripts are kept, for Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI. See [session retention](@/docs/spec-format/settings.md#session-retention).
-
-`voice` in a home settings spec configures voice dictation for tools with a native setting. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
+### Which value wins
 
 Each item wins over the one before it:
 
 1. `settings/*.yaml` in the home.
 2. `local/settings/*.yaml`. A same-named file merges into the shared one field by field. A new file comes after the shared ones, so its `model` and `effort` win.
-3. The project tier: a project's settings file, such as `.codex/config.toml` or `.claude/settings.json`, wins according to the tool's own settings order.
+3. The project tier: a project's settings file, such as `.codex/config.toml` or `.claude/settings.json`, wins by the tool's own settings order.
 4. An agent's own `model` and `effort`, for that agent.
 5. The tool's flag for one run, such as `codex -m` or `claude --model`.
 
-Sync edits only the keys it writes. Removing the spec removes only those keys and the objects sync created to hold them, so an object you wrote, even an empty one such as `"env": {}`, stays. Sync deletes a file it created once the file is empty.
+`agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets.
 
 <details>
-<summary>How sync edits settings keys</summary>
+<summary>Details: how sync edits settings keys</summary>
 
-- A key that already holds the value sync would write is adopted. A key with another value stops the run and names the file, key, and both values; this is normal for Codex, whose `/model` picker saves to `config.toml`. `--backup` overwrites the key and keeps `<path>.bak`.
-- `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
-- An `x-<target>` block sets that target's own keys in the same file. Nested objects merge leaf by leaf. An `x-claude` key wins over the portable field it shares a key with. A later spec wins key by key, and `null` drops an earlier key.
-- Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`. Tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` keys other than `allow`, `ask`, and `deny` raise a coverage note. Project sync does not route `x-codex` into `.codex/config.toml`.
-- `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets.
+- Sync edits only the keys it writes.
+- Removing the spec removes only those keys and the objects sync created to hold them. An object you wrote stays, even an empty one such as `"env": {}`.
+- Sync deletes a file it created once the file is empty.
+- A key that already holds the value sync would write is adopted.
+- A key with another value stops the run and names the file, key, and both values. This is normal for Codex, whose `/model` picker saves to `config.toml`. `--backup` overwrites the key and keeps `<path>.bak`.
+- `--dry-run` lists each key a write sets or removes. `--check` fails on a changed key.
+- An `x-<target>` block sets that target's own keys in the same file. Nested objects merge leaf by leaf.
+- An `x-claude` key wins over the portable field it shares a key with.
+- A later spec wins key by key. `null` drops an earlier key.
+- Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`.
+- Tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` keys other than `allow`, `ask`, and `deny` raise a coverage note.
+- Project sync does not route `x-codex` into `.codex/config.toml`.
 
 </details>
 
@@ -158,53 +202,92 @@ MCP specs in the home's `mcps/` install servers in each supported tool's user MC
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 
-The **Tools** page in `serve --global` lists servers that have no home spec and were not written by sync. Each includes the `import --global <target>` command to create its spec. See [serve](@/docs/cli-reference/serve.md#serve).
+The **Tools** page in `serve --global` lists servers that have no home spec and were not written by sync. Each row has the `import --global <target>` command that creates its spec ([serve](@/docs/cli-reference/serve.md#serve)).
 
-OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**, and removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json`. See [OpenHands MCP](@/docs/targets/openhands.md#mcp).
-
-Each server follows the per-key rules above:
+OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**. It also removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json` ([OpenHands MCP](@/docs/targets/openhands.md#mcp)).
 
 <details>
-<summary>How sync edits MCP servers</summary>
+<summary>Details: how sync edits MCP servers</summary>
 
-- A hand-written server that means the same as the spec is adopted. A different one with the same name stops the run, and `--backup` overwrites it.
+- A hand-written server that means the same as the spec is adopted.
+- A different server with the same name stops the run. `--backup` overwrites it.
 - A server sync wrote is removed when its spec goes. Servers you add under other names stay.
-- In `~/.claude.json`, sync edits only its own `mcpServers` entries and creates a missing file at `0600`. If the file changed after sync read it, sync stops without writing; run it again.
-- A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, and Warp user files, where a listed server is live in every project. Antigravity keeps disabled servers with `disabled: true` in its user file.
+- In `~/.claude.json`, sync edits only its own `mcpServers` entries and creates a missing file at `0600`.
+- If `~/.claude.json` changed after sync read it, sync stops without writing. Run it again.
+- A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, and Warp user files, where a listed server is live in every project.
+- Antigravity keeps disabled servers in its user file with `disabled: true`.
 - When `CLAUDE_CONFIG_DIR` or another root variable moves a file, the next sync removes its entries from the old one.
 
 </details>
 
 ## Native discovery and shared paths
 
-<details>
-<summary>Discovery, roots, shared paths and per-tool notes</summary>
+### Discovery limits
 
-- **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae needs **Settings > Beta > Subagents > Enable Subagents Directory**.
-- **Configuration roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, `JUNIE_HOME`, and `KIMI_CODE_HOME` replace the matching `~/.<tool>/` folder, and `GEMINI_CLI_HOME` is the parent of `.gemini/`. Everything under that folder moves together; paths outside it, such as `~/.agents/skills/`, stay put. Use absolute paths.
-- **Shared paths** are written once: `~/.agents/skills/` (codex, windsurf, amp, zed, warp, goose, openhands), `~/.agents/agents/` (goose, openhands), `~/.agents/AGENTS.md` (cline, warp), `~/.gemini/GEMINI.md` (gemini, antigravity). If two tools would write different content to one path, the run stops before writing and names the path.
-- **Copilot agent effort**: Copilot agent profiles have no effort key. A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`; other values raise a coverage note. Sync stops when the file has comments, since a rewrite drops them (rerun with `--backup` to rewrite it and keep `settings.json.bak`), or when a hand-set `effortLevel` has a different value.
-- **Cursor** does not load the home-level `AGENTS.md`. Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows) that passes the instructions to Cursor. It needs neither agnostic-ai, Python, nor jq, adds context without enforcing policy, and keeps existing `sessionStart` entries.
-- **OpenCode** keeps `disable-model-invocation` in project and global skills. V2 honors it; V1 does not. See [OpenCode skills](@/docs/targets/opencode.md) for native metadata precedence.
-- **OpenCode V1** reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist, so syncing both tools stops Claude-only text from reaching it. [V2 discovers only `AGENTS.md`](https://opencode.ai/v2/docs/migrate-v1#instruction-files). Move any guidance from the Claude fallback into OpenCode's `AGENTS.md`.
-- **Devin CLI and VS Code Copilot** read `~/.claude/` by default, so syncing claude plus windsurf or copilot delivers the same instructions through two paths.
+- Copilot's path is for its CLI.
+- OpenHands discovery applies to local conversations.
+- Devin custom profiles are experimental.
+- Trae needs **Settings > Beta > Subagents > Enable Subagents Directory**.
 
-</details>
+### Configuration roots
 
-### Targets left out
+- `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, `JUNIE_HOME`, and `KIMI_CODE_HOME` replace the matching `~/.<tool>/` folder.
+- `GEMINI_CLI_HOME` is the parent of `.gemini/`.
+- Everything under that folder moves together. Paths outside it, such as `~/.agents/skills/`, stay put.
+- Use absolute paths.
 
-<details>
-<summary>Tools with no user-level instructions</summary>
+### Shared paths
+
+Shared paths are written once:
+
+| Path | Tools |
+|---|---|
+| `~/.agents/skills/` | codex, windsurf, amp, zed, warp, goose, openhands |
+| `~/.agents/agents/` | goose, openhands |
+| `~/.agents/AGENTS.md` | cline, warp |
+| `~/.gemini/GEMINI.md` | gemini, antigravity |
+
+If two tools would write different content to one path, the run stops before writing and names the path.
+
+### Per-tool notes
+
+**Copilot agent effort**
+
+- Copilot agent profiles have no effort key.
+- A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`. Other values raise a coverage note.
+- Sync stops when the file has comments, since a rewrite drops them. Rerun with `--backup` to rewrite it and keep `settings.json.bak`.
+- Sync also stops when a hand-set `effortLevel` has a different value.
+
+**Cursor**
+
+- Cursor does not load the home-level `AGENTS.md`.
+- Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` that pass the instructions to Cursor. The script is POSIX shell on macOS and Linux, PowerShell on Windows.
+- It needs neither agnostic-ai, Python, nor jq, and it adds context without enforcing policy.
+- Existing `sessionStart` entries stay.
+
+**OpenCode**
+
+- `disable-model-invocation` stays in project and global skills. V2 honors it; V1 does not ([OpenCode skills](@/docs/targets/opencode.md) covers native metadata precedence).
+- V1 reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist. Syncing both tools stops Claude-only text from reaching it.
+- [V2 discovers only `AGENTS.md`](https://opencode.ai/v2/docs/migrate-v1#instruction-files). Move any guidance from the Claude fallback into OpenCode's `AGENTS.md`.
+
+**Devin CLI and VS Code Copilot**
+
+- Both read `~/.claude/` by default. Syncing claude plus windsurf or copilot delivers the same instructions through two paths.
+
+## Targets left out
+
+No user-level instructions file:
 
 - Aider reaches a home instructions file only through a `read:` entry in `~/.aider.conf.yml`.
 - Continue's one documented home setting is the `rules:` list in the `config.yaml` it rewrites itself.
 - Jules documents nothing at user level.
 - Ellipsis reads only files in the repository.
 
-</details>
-
-Hooks reach these tools at user level: Claude Code, CodeBuddy Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, Cline SDK/CLI, Grok Build, Kimi Code CLI, Qwen Code, Mistral Vibe, and Goose. The other tools have no user-level hook output:
+Hooks reach these tools at user level: Claude Code, CodeBuddy Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, Cline SDK/CLI, Grok Build, Kimi Code CLI, Qwen Code, Mistral Vibe, and Goose. The others have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, and Crush use hook formats that global sync does not write.
 - Junie's hooks are Early Access.
-- Amp, OpenCode, and Kilo take hooks only as TypeScript plugins. Sync writes them for OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) at project level only. OpenCode defaults to V1; a hook selects [V2](@/docs/targets/opencode-reference.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux. On Windows, V2 refuses matching callbacks, so keep the default V1 hooks.
+- Amp, OpenCode, and Kilo take hooks only as TypeScript plugins. Sync writes them at project level only, for OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`).
+- OpenCode defaults to V1. A hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux.
+- On Windows, V2 refuses matching callbacks, so keep the default V1 hooks.

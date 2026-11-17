@@ -9,11 +9,11 @@ group = "Workflows"
 
 # Shared memory
 
-Shared memory lets one coding tool save a project fact that every other tool reads next session. Facts are Markdown files, so your team reviews shared facts in Git.
+Save a project fact once and every coding tool reads it next session. Facts are Markdown files, so your team reviews them in Git.
 
 ## Turn it on
 
-Add `memory` to `agnostic-ai.yaml` and sync once:
+Add `memory` to `agnostic-ai.yaml`, then sync once:
 
 ```yaml
 requires: ">=0.92.0"
@@ -26,7 +26,8 @@ agnostic-ai sync
 
 Saving a fact needs no further sync.
 
-To enable it for all projects, use [global configuration](@/docs/global-configuration.md) instead. Pick one, or facts can load twice. Claude Code needs a project sync either way.
+- To enable it for all projects, use [global configuration](@/docs/global-configuration.md) instead. Pick one, or facts can load twice.
+- Claude Code needs a project sync either way.
 
 ## Two memories
 
@@ -37,7 +38,7 @@ To enable it for all projects, use [global configuration](@/docs/global-configur
 | Holds | Team facts: conventions, decisions, known problems | Your preferences and corrections |
 | Tools save | After you confirm | Without asking |
 
-Each folder has one file per fact and a `MEMORY.md` list. Tools read the list when a session starts and open a fact when they need it.
+Each folder holds one file per fact and a `MEMORY.md` list. Tools read the list at session start and open a fact when needed.
 
 ```
 .agnostic-ai/memory/
@@ -47,17 +48,23 @@ Each folder has one file per fact and a `MEMORY.md` list. Tools read the list wh
 
 ## Save and recall a fact
 
-Ask your coding tool: “Remember that this project's integration tests need the local database running.” It proposes the team fact for your approval; a personal preference, such as shorter answers, it saves without asking. Start another tool and ask what it knows about integration tests.
+1. Tell your tool: “Remember that this project's integration tests need the local database running.”
+2. It proposes the team fact. You approve it. (A personal preference, such as shorter answers, saves without asking.)
+3. Start another tool and ask what it knows about integration tests.
 
-Keep your tool's own memory on; shared memory adds to it. Your request wins over saved facts. [Gemini CLI](@/docs/targets/gemini.md#shared-memory) keeps its own memory beside these facts.
-
-Ask for the `shared-memory` skill to recall a topic or clean up stale facts. Cleanup needs your confirmation.
+- Keep your tool's own memory on. Shared memory adds to it ([Gemini CLI](@/docs/targets/gemini.md#shared-memory) keeps both).
+- Your request wins over saved facts.
+- Ask for the `shared-memory` skill to recall a topic or clean up stale facts. Cleanup needs your confirmation.
 
 ## Check and repair
 
-`agnostic-ai lint` and `doctor` flag oversized lists (over 100 lines each or 6,000 bytes combined), broken links, unlisted facts, possible secrets, and hidden characters. They skip personal memory when its folder is missing, as in CI.
+`agnostic-ai lint` and `doctor` flag:
 
-`agnostic-ai memory lint` runs only these checks, and `agnostic-ai memory index` rebuilds each `MEMORY.md` after a merge conflict. See [memory commands](@/docs/cli-reference/memory.md#memory) for every subcommand.
+- lists over 100 lines each or 6,000 bytes combined
+- broken links and unlisted facts
+- possible secrets and hidden characters
+
+They skip personal memory when its folder is missing, as in CI. `agnostic-ai memory lint` runs only these checks. `agnostic-ai memory index` rebuilds each `MEMORY.md` after a merge conflict ([memory commands](@/docs/cli-reference/memory.md#memory)).
 
 <details>
 <summary>Write or review a memory fact by hand</summary>
@@ -104,7 +111,11 @@ The `shared-memory-policy` rule asks tools to save only facts the code, history,
 | Antigravity | An always-on rule includes project memory and, in checkout mode, personal memory |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
-Kiro shows a marker for an included list that has no file yet, and the marker goes away once a tool saves a fact there. If you added the include to a steering file by hand, remove it. With `memory.personal: repo`, Kiro and Antigravity include only the project list and find personal memory with `agnostic-ai memory path`. With `sync --global`, both get only the rule, because a home file cannot name a project's lists. See [Kiro](@/docs/targets/kiro-reference.md#native-mappings) and [Antigravity shared memory](@/docs/targets/antigravity.md#shared-memory), which covers its rule size limits.
+- Kiro shows a marker for an included list that has no file yet. The marker goes away once a tool saves a fact there.
+- If you added the include to a steering file by hand, remove it.
+- With `memory.personal: repo`, Kiro and Antigravity include only the project list. They find personal memory with `agnostic-ai memory path`.
+- With `sync --global`, both get only the rule, because a home file cannot name a project's lists.
+- See [Kiro](@/docs/targets/kiro.md#native-mappings) and [Antigravity shared memory](@/docs/targets/antigravity.md#shared-memory) (rule size limits).
 
 Aider gets only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
 
@@ -112,13 +123,15 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Auggie CLI on Unix, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
-- Looking upward from the folder the tool starts in, it runs the first `node_modules/.bin/agnostic-ai` it finds up to the project's config, and otherwise the `agnostic-ai` on your PATH. [`agnostic-ai project`](@/docs/cli-reference/project.md) then finds the project and runs its pinned version. Trae runs the PATH one only. Keep the one it picks up to date with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade); an older one prints an upgrade message, and with none found nothing loads.
+- Looking upward from the folder the tool starts in, the hook runs the first `node_modules/.bin/agnostic-ai` it finds up to the project's config. Otherwise it runs the `agnostic-ai` on your PATH. Trae runs the PATH one only.
+- [`agnostic-ai project`](@/docs/cli-reference/project.md) then finds the project and runs its pinned version.
+- Keep the one it picks up to date with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade). An older one prints an upgrade message. With none found, nothing loads.
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. The Claude Code subagent hook needs it too.
 - Hooks you wrote yourself stay.
 - It keeps the first 6,000 bytes, after dropping hidden characters. Facts past the cut never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, hidden characters included, so `memory lint` also warns there once they pass 6,000 bytes. Remove the hidden characters it reports.
 
-Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. Global sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline-reference.md#vs-code-memory-startup).
+Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. Global sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline.md#vs-code-memory-startup).
 
 Devin CLI uses the `memory-windsurf-session-start` hook with an explicit POSIX `sh` launcher and a 10-second timeout. It starts from `DEVIN_PROJECT_DIR` even when its process runs elsewhere. Native Windows hook execution is undocumented.
 
@@ -128,7 +141,11 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks or user-level hooks
 
 Claude Code also saves facts by itself. Sync points that memory at your personal memory folder (`autoMemoryDirectory` in `.claude/settings.local.json`), so its saves land where every other tool reads them. Sync keeps a value you set yourself, and Git never commits the file. Claude Code uses the setting once you trust the folder.
 
-Claude Code then loads your personal list as its own memory: the first 200 lines or 25KB, with hidden characters cleaned out. `CLAUDE.md` imports only the project list. Claude Code's own memory never reaches a subagent, so a `SubagentStart` hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) to add the personal list. In a linked worktree that uses the main checkout's personal folder, the hook reads that same folder.
+Claude Code then loads your personal list as its own memory: the first 200 lines or 25KB, with hidden characters cleaned out.
+
+- `CLAUDE.md` imports only the project list.
+- Claude Code's own memory never reaches a subagent. So a `SubagentStart` hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) to add the personal list.
+- In a linked worktree that uses the main checkout's personal folder, the hook reads that same folder.
 
 `CLAUDE.md` imports both lists, and the hook adds nothing, in these cases:
 
@@ -196,9 +213,20 @@ project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
 
-The first sync after a mode change copies facts into the new store when it holds no Markdown file, and prints the count. The old store stays unchanged. With facts already in the new store, `agnostic-ai lint` names the ones left behind; `agnostic-ai memory import --from checkout` copies them over (`--from repo` when you switch back). Dry runs, checks, and previews never copy facts. Later syncs keep imported facts you deleted out of the store; an explicit `memory import` can bring them back.
+When you change the mode:
 
-That folder is outside the project, so some tools need its full path in their config. Sync writes the path only to files Git ignores, which needs the [`.gitignore` block](@/docs/sync-settings.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/sync-settings.md#gitignore). A file kept in Git through `gitignore.commit` or `gitignore.allow` never gets the path, so that tool works as without the block; `sync --gitignore off` does the same for one run.
+- The first sync copies facts into the new store if it holds no Markdown file, and prints the count. The old store stays unchanged.
+- If the new store already has facts, `agnostic-ai lint` names the ones left behind. `agnostic-ai memory import --from checkout` copies them over (`--from repo` when you switch back).
+- Dry runs, checks, and previews never copy facts.
+- Later syncs keep imported facts you deleted out of the store. An explicit `memory import` can bring them back.
+
+Some tools need the store's full path in their config, because it is outside the project.
+
+- Sync writes the path only to files Git ignores. That needs the [`.gitignore` block](@/docs/sync-settings.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets).
+- The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on. So the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them.
+- If one of those files is already in Git, run `agnostic-ai sync --untrack`.
+- To commit one instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/sync-settings.md#gitignore).
+- A file kept in Git through `gitignore.commit` or `gitignore.allow` never gets the path, so that tool works as without the block. `sync --gitignore off` does the same for one run.
 
 What each tool does with personal memory in this mode (project memory loads the same way in both columns):
 
@@ -212,7 +240,13 @@ What each tool does with personal memory in this mode (project memory loads the 
 | Windsurf | Finds it with `agnostic-ai memory path` | Same; Devin CLI saves without asking |
 | Kilo Code, Kiro, every other tool | Finds it with `agnostic-ai memory path` | Same |
 
-- **Saving outside the project.** Codex, Gemini CLI, Qoder, OpenCode, the Cursor CLI, and Devin CLI write only inside the project without asking, so sync gives them the folder: Codex `writable_roots` (read in `workspace-write` mode, in a trusted project), Gemini CLI `context.includeDirectories`, Qoder `permissions.additionalDirectories`, OpenCode `permission.external_directory` in `opencode.json`, and a `Write(<folder>/**)` rule in `.cursor/cli.json` and in `permissions.allow` of `.devin/config.json`. Every tool but Codex keeps your own entries. If your Codex overlay sets `[sandbox_workspace_write]`, sync leaves it alone; add the folder there yourself.
+- **Saving outside the project.** Codex, Gemini CLI, Qoder, OpenCode, the Cursor CLI, and Devin CLI write only inside the project without asking. So sync gives them the folder:
+  - Codex: `writable_roots` (read in `workspace-write` mode, in a trusted project).
+  - Gemini CLI: `context.includeDirectories`.
+  - Qoder: `permissions.additionalDirectories`.
+  - OpenCode: `permission.external_directory` in `opencode.json`.
+  - Cursor CLI and Devin CLI: a `Write(<folder>/**)` rule in `.cursor/cli.json` and in `permissions.allow` of `.devin/config.json`.
+  - Every tool but Codex keeps your own entries. If your Codex overlay sets `[sandbox_workspace_write]`, sync leaves it alone; add the folder there yourself.
 - **Kilo Code** ignores project config entries outside the project. To load personal memory every session, add its `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc`.
 - **Tools with only the rule** need `agnostic-ai` on PATH, and may ask before they read or write outside the project.
 - **Cloud agents** start from a fresh clone, so they never see personal memory.

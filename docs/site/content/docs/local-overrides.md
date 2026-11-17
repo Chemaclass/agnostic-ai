@@ -9,19 +9,24 @@ group = "Workflows"
 
 # Local overrides
 
-Put personal specs and instructions in `.agnostic-ai/local/` to extend or override the team's setup. Git ignores the folder. For example, create `.agnostic-ai/local/AGNOSTIC_AI.md`:
+Put personal specs and instructions in `.agnostic-ai/local/`. They extend or override the team's setup, and Git ignores the folder. Example `.agnostic-ai/local/AGNOSTIC_AI.md`:
 
 ```markdown
 Answer in Spanish.
 ```
 
-Run `agnostic-ai sync`. The text extends the shared instructions. If your project commits generated instruction files, your personal text lands in them too, so review before committing.
+Run `agnostic-ai sync`. The text extends the shared instructions.
+
+Generated instruction files are ignored by default. If your project commits them, your personal text lands in them too, so review before committing.
 
 For personal configuration values, use `agnostic-ai.local.yaml` (see [configuration](@/docs/configuration.md#local-overrides)). In `agnostic-ai ui`, **Local** on **Settings** saves built-ins and settings fields as local overrides; see [saving for yourself](@/docs/cli-reference/serve.md#edit-scope).
 
 ## Add a spec
 
-A local spec with a new name adds a spec on your machine. One with the same kind and name as a shared spec [changes only the fields you write](#override-fields). Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
+- A new name adds a spec on your machine.
+- The same kind and name as a shared spec [changes only the fields you write](#override-fields).
+
+Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
 
 <details>
 <summary>Choose project-local or machine-wide personal sources</summary>
