@@ -103,11 +103,14 @@ lint:
 	fi
 	golangci-lint run
 
+# Git lists the files so gofmt skips ignored folders such as saved audit evidence.
+GO_FILES = git ls-files -z -co --exclude-standard -- '*.go' | xargs -0 sh -c 'for f; do [ -f "$$f" ] && printf "%s\0" "$$f"; done' sh | xargs -0
+
 fmt:
-	gofmt -w .
+	$(GO_FILES) gofmt -w
 
 fmt-check:
-	@out=$$(gofmt -s -l .); if [ -n "$$out" ]; then \
+	@out=$$($(GO_FILES) gofmt -s -l); if [ -n "$$out" ]; then \
 		echo "gofmt issues. run 'make fmt'."; \
 		echo "$$out"; \
 		exit 1; \
