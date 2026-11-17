@@ -159,10 +159,14 @@ export function typableRows(conversations) {
   })
 }
 
-/** The row the send shortcut sends to without asking: the only one the text can be typed into, else undefined. */
-export function straightSendOf(conversations) {
+/**
+ * The row the send shortcut sends to without asking: the only one the text can be typed into, else undefined.
+ * With `shown`, the keys of the rows on screen, a row hidden in a folded group is not sent to.
+ */
+export function straightSendOf(conversations, shown) {
   const rows = typableRows(conversations)
-  return rows.length === 1 ? rows[0] : undefined
+  if (rows.length !== 1) return undefined
+  return shown === undefined || shown.includes(keyOf(rows[0])) ? rows[0] : undefined
 }
 
 /** The pick banner's title during a straight send: "Sending to Plan the sync dry run". */
@@ -170,9 +174,18 @@ export function sendingTitleOf(conversation) {
   return `Sending to ${titleOf(conversation)}`
 }
 
-/** The groups pick mode shows: every one but Archived, whose chats cannot take the text. */
-export function pickGroupsOf(groups) {
-  return groups.filter((group) => group.id !== 'archived')
+/** The view pick mode shows: only the rows that can take the text, so no Archived, counted again for the foot. */
+export function pickViewOf(view) {
+  const conversations = view.conversations.filter(takesText)
+  const offered = { ...view, conversations, needsYou: conversations.filter((conversation) => NEEDS_PERSON[conversation.state]).length }
+  if (view.matches !== undefined) offered.matches = conversations.length
+  return offered
+}
+
+/** The row pick mode selects among `keys`: the selected one while offered, else the first in `typable`, else the first. */
+export function pickKeyOf(keys, typable, active) {
+  if (keys.includes(active)) return active
+  return keys.find((key) => typable.includes(key)) ?? keys[0]
 }
 
 /** Cmd+Shift+V, or Ctrl+Shift+V off a Mac: enters or leaves pick mode while the list is open. */
