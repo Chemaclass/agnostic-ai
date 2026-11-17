@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -467,6 +467,40 @@ test('a failed open keeps its reason, and the resume command only when the serve
     message: 'macOS blocked opening Terminal.',
     command: "cd '/tmp/app' && claude --resume x",
   })
+})
+
+test('a notice is an error when what was asked did not happen, and info when it happened with a detail left to say', () => {
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(NOTICES).map(([name, notice]) => [name, notice.tone])),
+    {
+      notOpened: 'error',
+      textChanged: 'error',
+      notTyped: 'error',
+      pasteByHand: 'info',
+      cannotDelete: 'error',
+      notDeleted: 'error',
+      notTidied: 'info',
+    },
+  )
+  for (const notice of Object.values(NOTICES)) assert.notEqual(notice.label, '')
+  assert.equal(new Set(Object.values(NOTICES).map((notice) => notice.label)).size, Object.keys(NOTICES).length)
+})
+
+test('an error is read out at once as an alert, and anything else waits its turn as a status', () => {
+  assert.equal(roleOfTone('error'), 'alert')
+  assert.equal(roleOfTone('info'), 'status')
+  assert.equal(roleOfTone(undefined), 'status')
+})
+
+test('a send that typed nothing is info only when the server switched to the conversation for a paste by hand', () => {
+  // The sentence pasteByHand in internal/conversations/send.go ends with when the switch worked.
+  assert.equal(SWITCHED_TO_PASTE, 'Switched to it. Paste with Cmd+V.')
+  assert.equal(unsentNoticeOf('Switched to it. Paste with Cmd+V.'), NOTICES.pasteByHand)
+  assert.equal(unsentNoticeOf('It waits for your answer, and typed text could answer its question, so nothing was typed. Switched to it. Paste with Cmd+V.'), NOTICES.pasteByHand)
+  assert.equal(unsentNoticeOf('Codex runs in an app that cannot be brought forward. The text is on the clipboard: paste it with Cmd+V.'), NOTICES.notTyped)
+  assert.equal(unsentNoticeOf('It is not running, so nothing was typed. Open it to resume it, then paste with Cmd+V.'), NOTICES.notTyped)
+  assert.equal(unsentNoticeOf('agnostic-ai serve did not answer.'), NOTICES.notTyped)
+  assert.equal(unsentNoticeOf(undefined), NOTICES.notTyped)
 })
 
 test('shows the agent\'s latest reply the server sent, and nothing for a row without one', () => {

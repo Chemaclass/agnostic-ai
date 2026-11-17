@@ -186,6 +186,36 @@ export function openFailureOf(reply) {
   return reply.command ? { message: reply.message, command: reply.command } : { message: reply.message }
 }
 
+/**
+ * What the notice card can be about. `label` names it for a screen reader. `tone` is `error` when something
+ * the person asked for did not happen, and `info` when it happened and a detail is left to say.
+ */
+export const NOTICES = {
+  notOpened: { label: 'Why it did not open', tone: 'error' },
+  textChanged: { label: 'Why nothing was sent', tone: 'error' },
+  notTyped: { label: 'Why nothing was typed', tone: 'error' },
+  pasteByHand: { label: 'What to do with the copied text', tone: 'info' },
+  cannotDelete: { label: 'Why it cannot be deleted', tone: 'error' },
+  notDeleted: { label: 'Why it was not deleted', tone: 'error' },
+  notTidied: { label: 'What was not tidied', tone: 'info' },
+}
+
+/** How a screen reader takes a message of this tone: an error at once, anything else when it is free. */
+export function roleOfTone(tone) {
+  return tone === 'error' ? 'alert' : 'status'
+}
+
+/** How the server ends its answer when it brought the conversation forward for a paste by hand; see pasteByHand in send.go. */
+export const SWITCHED_TO_PASTE = 'Switched to it. Paste with Cmd+V.'
+
+/**
+ * The notice for a send that typed nothing, from what the server said. Switched to the conversation, the person
+ * only has to paste. Any other answer is an error, and so is one this sentence no longer matches.
+ */
+export function unsentNoticeOf(message) {
+  return typeof message === 'string' && message.endsWith(SWITCHED_TO_PASTE) ? NOTICES.pasteByHand : NOTICES.notTyped
+}
+
 /** The view with the row at `key` showing `title`, so a rename shows before the next list arrives. */
 export function withTitle(view, key, title) {
   const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, title } : conversation))

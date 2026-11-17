@@ -159,7 +159,9 @@ function approvals(now) {
 /**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
- * markProblem, renameProblem, deleteProblem, openProblem (a conversation that did not open) with its openCommand,
+ * markProblem, renameProblem, deleteProblem, deleteNote (deleted, with something left to tidy),
+ * openProblem (a conversation that did not open) with its openCommand,
+ * sendProblem (the send call fails), unsent (nothing was typed and the conversation was not switched to),
  * slowQueries (queries that contain the word wait that many milliseconds),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
  * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown).
@@ -265,6 +267,21 @@ export const FIXTURES = {
     conversations: archived,
     deleteProblem:
       'Deleted 1 of 4 locations, then stopped: permission denied. Still on disk: /Users/you/.claude/file-history/done-2, /Users/you/.claude/projects/-Users-you-Code-agnostic-ai/done-2.jsonl. Its marks were kept.',
+  },
+  'delete-note': {
+    label: 'Deleted, with something left to tidy',
+    conversations: archived,
+    deleteNote: 'Its marks could not be removed: the marks file is read-only.',
+  },
+  'send-failure': {
+    label: 'Send failure',
+    conversations: mixed,
+    sendProblem: 'agnostic-ai serve did not answer in time.',
+  },
+  'switch-failure': {
+    label: 'Send that neither typed nor switched',
+    conversations: mixed,
+    unsent: 'Cursor runs in an app that cannot be brought forward. The text is on the clipboard: paste it with Cmd+V.',
   },
   'open-failure': {
     label: 'Open failure',
