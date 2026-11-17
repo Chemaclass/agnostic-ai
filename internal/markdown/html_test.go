@@ -19,7 +19,7 @@ func shownText(t *testing.T, source string) string {
 	var text strings.Builder
 	var walk func(*html.Node)
 	walk = func(n *html.Node) {
-		if n.Type == html.ElementNode && hidden(n) {
+		if unseen(n) {
 			return
 		}
 		if n.Type == html.TextNode {
@@ -101,10 +101,33 @@ func TestFromHTMLSendsOnlyWordsThePlainTextShows(t *testing.T) {
 			text: "notes release",
 			want: "## Release Notes",
 		},
-		"link titles and image descriptions left out": {
-			html: `<p><a href="/a" title="secret words">Docs</a> <img src="x.png" alt="hidden caption"></p>`,
+		"link titles and images left out": {
+			html: `<p><a href="/a" title="secret words">Docs</a> <img src="unseen words here" alt="hidden caption"></p>`,
 			text: "Docs",
-			want: "[Docs](/a) ![](x.png)",
+			want: "[Docs](/a)",
+		},
+		"template content": {
+			html: "<ul><li>ok</li></ul><template>secret template words</template>",
+			text: "ok",
+			want: "- ok",
+		},
+		"hidden digits": {
+			html: `<ul><li>Pay <span style="display:none">9</span>500 EUR</li></ul>`,
+			text: "Pay 500 EUR",
+		},
+		"hidden symbols": {
+			html: `<ul><li>ok <span hidden>①②③</span></li></ul>`,
+			text: "ok",
+		},
+		"a code class that is not a language": {
+			html: `<pre><code class="unseenword language-go">ls</code></pre>`,
+			text: "ls",
+			want: "```go\nls\n```",
+		},
+		"a word split across inline elements": {
+			html: `<p>See <a href="/x">Go</a>lang docs, H<sub>2</sub>O and long<wbr>word.</p>`,
+			text: "See Golang docs, H2O and longword.",
+			want: "See [Go](/x)lang docs, H2O and longword.",
 		},
 	} {
 		if got := FromHTML(tc.html, tc.text); got != tc.want {

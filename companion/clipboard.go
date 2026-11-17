@@ -60,7 +60,7 @@ func copiedHash(text, html string) string {
 	if html == "" {
 		return clipboardHash(text)
 	}
-	return clipboardHash(text + "\x00" + html)
+	return clipboardHash(fmt.Sprintf("%d\x00%s%s", len(text), text, html))
 }
 
 // notPage is what a copied page holds that is never shown.
