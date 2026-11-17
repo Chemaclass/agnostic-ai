@@ -964,4 +964,6 @@
 # #3513 measured 26390688 bytes locally (make size-check) after merging the rename and size fixes from #3511 and #3512; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3513 measured 26419360 bytes locally (make size-check) after the review fixes on #3511, #3512 and #3513; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3513 measured 26456224 bytes locally (make size-check) after merging #3512 rename support from main; the budget is that plus 8192, rounded up to a multiple of 4096.
-26468352
+# The helper-agents branch measured 26472608 bytes locally (make size-check): a chat's subagents and its Codex exec runs listed under it; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3518 measured 26509472 bytes locally (make size-check) after merging #3513 with main's rename support; the budget is that plus 8192, rounded up to a multiple of 4096.
+26521600

@@ -403,7 +403,7 @@ func isClaudePTYHostArgs(args string) bool {
 // Claude Code background session. A Codex thread the app-server daemon
 // holds shows in a terminal client, which is looked for.
 func (s *Scanner) placeLive(results []sourceResult) {
-	var live []*Conversation
+	var live, liveHelpers []*Conversation
 	var threads []threadStart
 	for r := range results {
 		for i := range results[r].conversations {
@@ -415,9 +415,15 @@ func (s *Scanner) placeLive(results []sourceResult) {
 				threads = append(threads, threadStart{created: c.StartedAt, folder: c.Folder})
 			}
 		}
+		for i := range results[r].unlisted {
+			c := &results[r].unlisted[i]
+			if c.Open.Kind == RouteFocus && c.process != nil {
+				liveHelpers = append(liveHelpers, c)
+			}
+		}
 	}
 	tabs := s.rememberedTabs()
-	if len(live) > 0 {
+	if len(live) > 0 || len(liveHelpers) > 0 {
 		if table, err := s.Processes.Table(); err == nil {
 			seen := map[string]terminalHost{}
 			clients := newCodexClients(table, threads, s.Processes)
@@ -425,6 +431,12 @@ func (s *Scanner) placeLive(results []sourceResult) {
 				if place(c, clients, table, s.Processes.Args) {
 					seen[markKey(c.Tool, c.ID)] = c.placed.host
 				}
+			}
+			// A helper's thread shows only in the terminal of the process
+			// that holds it. The Codex clients are not asked: a run that a
+			// Claude Code command started has no client of its own.
+			for _, c := range liveHelpers {
+				placeAt(c, *c.process, table, s.Processes.Args)
 			}
 			if changed := tabs.rememberAll(seen, s.Now()); changed {
 				tabs = s.saveTabs(seen)
@@ -473,8 +485,14 @@ func place(c *Conversation, clients *codexClients, table []ProcessInfo, args fun
 			return false
 		}
 		process = liveProcess{PID: pid}
-		host, _ = hostOf(table, pid)
 	}
+	return placeAt(c, process, table, args)
+}
+
+// placeAt sets where c shows: the terminal of process, when it has one.
+// ok is true when that is a tab of an app in tabApps.
+func placeAt(c *Conversation, process liveProcess, table []ProcessInfo, args func(pids []int) map[int]string) (ok bool) {
+	host, _ := hostOf(table, process.PID)
 	if host.TTY == "" {
 		return false
 	}

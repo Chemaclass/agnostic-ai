@@ -131,7 +131,7 @@ func TestCodexWorkingSubagents_CountsLiveDescendantsAndObservesCompletion(t *tes
 	rows := []Conversation{{ID: parent}}
 	check := func(want int) {
 		t.Helper()
-		watched := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+		watched, _ := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 		if rows[0].WorkingSubagents == nil || *rows[0].WorkingSubagents != want || len(watched) != 2 {
 			t.Fatalf("working = %v, watched = %v, want %d and two rollouts", rows[0].WorkingSubagents, watched, want)
 		}
@@ -142,7 +142,7 @@ func TestCodexWorkingSubagents_CountsLiveDescendantsAndObservesCompletion(t *tes
 	appendWorkerEvent(t, first, obj{"type": "event_msg", "payload": obj{"type": "turn_aborted"}})
 	check(0)
 	scanner.Processes = fakeProcesses{}
-	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if *rows[0].WorkingSubagents != 0 {
 		t.Fatal("dead process retained working children")
 	}
@@ -150,7 +150,7 @@ func TestCodexWorkingSubagents_CountsLiveDescendantsAndObservesCompletion(t *tes
 	scanner.SQLite = func(context.Context, string, string) ([]json.RawMessage, error) {
 		return nil, errors.New("unavailable")
 	}
-	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if rows[0].WorkingSubagents != nil {
 		t.Fatal("an unavailable index became a known count")
 	}
@@ -181,13 +181,13 @@ func TestCodexWorkingSubagents_AWorkerWithoutALockFileDoesNotHideTheCount(t *tes
 	writeWorkerLocks(t, stores.CodexDir, live)
 	scanner.Processes = fakeProcesses{held: map[string]int{live + ".lock": 10}, missingFails: true}
 	rows := []Conversation{{ID: parent}}
-	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if rows[0].WorkingSubagents == nil || *rows[0].WorkingSubagents != 1 {
 		t.Fatalf("working = %v, want 1 despite a worker whose lock file is gone", rows[0].WorkingSubagents)
 	}
 	rows[0].WorkingSubagents = nil
 	scanner.Processes = fakeProcesses{readFails: true}
-	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if rows[0].WorkingSubagents != nil {
 		t.Fatal("a failed process read became a known count")
 	}
@@ -212,9 +212,9 @@ func TestCodexWorkingSubagents_WatchesRolloutsInAStableOrder(t *testing.T) {
 	}
 	scanner.Processes = fakeProcesses{held: held}
 	rows := []Conversation{{ID: parent}}
-	first := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+	first, _ := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	for range 30 {
-		again := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows)
+		again, _ := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 		if !slices.Equal(first, again) {
 			t.Fatalf("watched rollouts changed order between unchanged scans:\n%v\n%v", first, again)
 		}

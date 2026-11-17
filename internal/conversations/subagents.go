@@ -272,15 +272,46 @@ type claudeWorkerCache struct {
 	logs      map[string]*nativeLog[claudeWorkerEvents]
 }
 
+// claudeWork is what a live session's task events say about its native
+// subagents: which agents work, and which Agent or Task calls wait for
+// their result, each a subagent that works.
+type claudeWork struct {
+	agents  map[string]bool
+	pending map[string]bool
+}
+
+// count is how many subagents work.
+func (work *claudeWork) count() int {
+	count := len(work.pending)
+	for _, working := range work.agents {
+		if working {
+			count++
+		}
+	}
+	return count
+}
+
 func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) (*int, []string) {
-	dir := strings.TrimSuffix(file, ".jsonl") + string(filepath.Separator) + "subagents"
+	work, watch := s.claudeWorkOf(file, session)
+	if work == nil {
+		return nil, watch
+	}
+	count := work.count()
+	return &count, watch
+}
+
+// claudeWorkOf reads a live session's task events, and those of its
+// subagents, written since its process started. Nil when they cannot be
+// read or the process start is unknown.
+func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, []string) {
+	dir := claudeSubagentsDir(file)
 	files := []string{file}
 	entries, err := os.ReadDir(dir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, []string{dir}
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "agent-") && strings.HasSuffix(entry.Name(), ".jsonl") {
+		if _, ok := claudeAgentID(entry); ok {
 			files = append(files, filepath.Join(dir, entry.Name()))
 		}
 	}
@@ -299,7 +330,7 @@ func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) (*int
 		s.claudeWorkers[file] = kept
 	}
 	tasks := map[string]nativeTaskEvent{}
-	pending := 0
+	work := &claudeWork{agents: map[string]bool{}, pending: map[string]bool{}}
 	for _, path := range files {
 		if path != file {
 			info, err := os.Stat(path)
@@ -317,7 +348,9 @@ func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) (*int
 		if err != nil {
 			return nil, watch
 		}
-		pending += len(log.value.pending)
+		for call := range log.value.pending {
+			work.pending[call] = true
+		}
 		for id, event := range log.value.tasks {
 			previous, found := tasks[id]
 			if !found || event.at.After(previous.at) || (event.at.Equal(previous.at) && !event.working) {
@@ -325,22 +358,119 @@ func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) (*int
 			}
 		}
 	}
-	count := pending
-	for _, event := range tasks {
-		if event.working {
-			count++
-		}
+	for id, event := range tasks {
+		work.agents[id] = event.working
 	}
-	return &count, watch
+	return work, watch
+}
+
+// claudeSubagentsDir is the folder that holds a session's subagent
+// transcripts, agent-<id>.jsonl, each beside its agent-<id>.meta.json.
+func claudeSubagentsDir(file string) string {
+	return strings.TrimSuffix(file, ".jsonl") + string(filepath.Separator) + "subagents"
+}
+
+// claudeAgentID is the agent id of a subagent transcript in that folder.
+func claudeAgentID(entry os.DirEntry) (string, bool) {
+	name := entry.Name()
+	if entry.IsDir() || !strings.HasPrefix(name, "agent-") || !strings.HasSuffix(name, ".jsonl") {
+		return "", false
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(name, "agent-"), ".jsonl"), true
+}
+
+// claudeAgentMeta is what Claude Code writes beside a subagent's
+// transcript when it spawns one: the call's description and agent type,
+// and the id of the Agent or Task call that spawned it.
+type claudeAgentMeta struct {
+	AgentType   string `json:"agentType"`
+	Description string `json:"description"`
+	ToolUseID   string `json:"toolUseId"`
+}
+
+// claudeAgentMetaOf reads a subagent's meta file, kept until it changes.
+// A subagent without one, as older Claude Code versions write, or with
+// one that cannot be read, has no description or type.
+func (s *Scanner) claudeAgentMetaOf(path string) claudeAgentMeta {
+	stamp := fileStamp(path)
+	if kept, ok := s.claudeAgentMetas[path]; ok && kept.stamp == stamp {
+		return kept.value
+	}
+	var meta claudeAgentMeta
+	raw, err := os.ReadFile(path)
+	if err == nil && json.Unmarshal(raw, &meta) != nil {
+		meta = claudeAgentMeta{}
+	}
+	if s.claudeAgentMetas == nil {
+		s.claudeAgentMetas = map[string]cached[claudeAgentMeta]{}
+	}
+	s.claudeAgentMetas[path] = cached[claudeAgentMeta]{stamp: stamp, value: meta}
+	return meta
+}
+
+// claudeHelpers lists a live session's native subagents that work, from
+// its subagents folder: those work names working, and those whose
+// spawning call work names as waiting for its result. A finished one is
+// not listed. Nil work is unknown, and lists none.
+func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]bool) []helper {
+	if work == nil || work.count() == 0 {
+		return nil
+	}
+	dir := claudeSubagentsDir(file)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var helpers []helper
+	for _, entry := range entries {
+		id, ok := claudeAgentID(entry)
+		if !ok {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue // Removed since the folder was read.
+		}
+		metaPath := filepath.Join(dir, "agent-"+id+".meta.json")
+		seen[metaPath] = true
+		meta := s.claudeAgentMetaOf(metaPath)
+		working := work.agents[id] || (meta.ToolUseID != "" && work.pending[meta.ToolUseID])
+		if !working {
+			continue
+		}
+		helpers = append(helpers, helper{
+			Tool: ToolClaude, ID: id, Kind: meta.AgentType, State: helperWorking,
+			Title:     s.helperTitle(meta.Description, ""),
+			UpdatedAt: stamp(info.ModTime()),
+		})
+	}
+	return sortedHelpers(helpers)
 }
 
 type codexWorker struct {
-	ID      string `json:"id"`
-	Source  string `json:"source"`
-	Rollout string `json:"rollout_path"`
+	ID               string `json:"id"`
+	Source           string `json:"source"`
+	Rollout          string `json:"rollout_path"`
+	Cwd              string `json:"cwd"`
+	Originator       string `json:"originator"`
+	Name             string `json:"name"`
+	Title            string `json:"title"`
+	FirstUserMessage string `json:"first_user_message"`
+	UpdatedAtMs      int64  `json:"updated_at_ms"`
 }
 
-const codexWorkersQuery = `SELECT id, source, rollout_path FROM threads WHERE thread_source = 'subagent' AND archived = 0`
+const codexWorkersQuery = `SELECT id, source, rollout_path, coalesce(cwd, '') AS cwd, coalesce(originator, '') AS originator,
+  coalesce(name, '') AS name, coalesce(title, '') AS title, coalesce(first_user_message, '') AS first_user_message,
+  coalesce(updated_at_ms, 0) AS updated_at_ms
+FROM threads WHERE thread_source = 'subagent' AND archived = 0`
+
+// codexSpawn is how a Codex native subagent was spawned, from its
+// thread's source. Older Codex versions name no nickname or role.
+type codexSpawn struct {
+	ParentID string `json:"parent_thread_id"`
+	Nickname string `json:"agent_nickname"`
+	Role     string `json:"agent_role"`
+}
 
 type codexWorkerTurn struct {
 	running bool
@@ -365,27 +495,33 @@ func codexWorkerEvent(turn *codexWorkerTurn, line []byte) error {
 	return nil
 }
 
-func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, conversations []Conversation) []string {
+// codexWorkingSubagents sets, on each Codex row, how many native
+// subagents under it work, and lists its direct subagents that work as
+// helpers. A subagent works while a process holds its thread and its
+// rollout says a turn runs. It returns the rollouts it read, and the
+// rows that open each working subagent the way a Codex thread opens:
+// one in a terminal switches to the process that holds it.
+func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, conversations []Conversation, editor editorApp) ([]string, []Conversation) {
 	workers, err := queryRows[codexWorker](ctx, s.SQLite, statePath, codexWorkersQuery)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	parents := map[string]string{}
+	spawns := map[string]codexSpawn{}
 	byID := map[string]codexWorker{}
 	locks := map[string]string{}
 	var paths []string
 	for _, worker := range workers {
 		var source struct {
 			Subagent struct {
-				Spawn struct {
-					ParentID string `json:"parent_thread_id"`
-				} `json:"thread_spawn"`
+				Spawn codexSpawn `json:"thread_spawn"`
 			} `json:"subagent"`
 		}
 		if json.Unmarshal([]byte(worker.Source), &source) != nil || !sessionIDPattern.MatchString(worker.ID) || !sessionIDPattern.MatchString(source.Subagent.Spawn.ParentID) {
-			return nil // An unrecognized relationship must not become a zero count.
+			return nil, nil // An unrecognized relationship must not become a zero count.
 		}
 		parents[worker.ID] = source.Subagent.Spawn.ParentID
+		spawns[worker.ID] = source.Subagent.Spawn
 		byID[worker.ID] = worker
 		// A worker whose lock file is gone has no process holding it, and
 		// lsof fails the whole call on a missing file, so it is not asked.
@@ -398,15 +534,17 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 	}
 	counts := map[string]int{}
 	unknown := map[string]bool{}
+	// working maps each subagent that works to the pid that holds it.
+	working := map[string]int{}
 	var watched []string
 	if s.codexWorkers == nil {
 		s.codexWorkers = map[string]*nativeLog[codexWorkerTurn]{}
 	}
 	held, err := s.Processes.Holders(paths)
 	if err != nil {
-		return nil // Running workers that cannot be listed must not become a zero count.
+		return nil, nil // Running workers that cannot be listed must not become a zero count.
 	}
-	for lock := range held {
+	for lock, pid := range held {
 		id := locks[lock]
 		worker := byID[id]
 		path, valid := s.codexRollout(worker.Rollout)
@@ -418,6 +556,9 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 			s.codexWorkers[id] = log
 		}
 		known := valid && readErr == nil && log.value.known
+		if known && log.value.running {
+			working[id] = pid
+		}
 		seen := map[string]bool{id: true}
 		for parent := parents[id]; parent != "" && !seen[parent]; parent = parents[parent] {
 			seen[parent] = true
@@ -428,14 +569,44 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 			}
 		}
 	}
+	helpers := map[string][]helper{}
+	var rows []Conversation
+	for _, worker := range workers {
+		pid, isWorking := working[worker.ID]
+		if !isWorking {
+			continue // A finished subagent is not listed.
+		}
+		spawn := spawns[worker.ID]
+		helpers[spawn.ParentID] = append(helpers[spawn.ParentID], helper{
+			Tool: ToolCodex, ID: worker.ID, Kind: spawn.Role, State: helperWorking,
+			Title:     s.helperTitle(codexWorkerTitle(worker, spawn), worker.FirstUserMessage),
+			UpdatedAt: timeFromMillis(worker.UpdatedAtMs),
+		})
+		row := Conversation{Tool: ToolCodex, ID: worker.ID, Folder: worker.Cwd, UpdatedAt: timeFromMillis(worker.UpdatedAtMs)}
+		codexRoute(&row, codexThread{ID: worker.ID, Cwd: worker.Cwd, Originator: worker.Originator, Source: worker.Source}, editor)
+		focusLive(&row, pid)
+		rows = append(rows, row)
+	}
 	for i := range conversations {
-		if !unknown[conversations[i].ID] {
-			count := counts[conversations[i].ID]
+		id := conversations[i].ID
+		if !unknown[id] {
+			count := counts[id]
 			conversations[i].WorkingSubagents = &count
+			conversations[i].Helpers = sortedHelpers(helpers[id])
 		}
 	}
 	// The watched rollouts join the scan's stamp, which hashes them in
 	// order, so they are sorted to keep an unchanged set's stamp stable.
 	slices.Sort(watched)
-	return watched
+	return watched, rows
+}
+
+// codexWorkerTitle is a subagent's own name or title. With neither, nor
+// a first prompt to take one from, it is the nickname Codex gave it.
+func codexWorkerTitle(worker codexWorker, spawn codexSpawn) string {
+	title := firstNonEmpty(worker.Name, worker.Title)
+	if title == "" && worker.FirstUserMessage == "" {
+		return spawn.Nickname
+	}
+	return title
 }
