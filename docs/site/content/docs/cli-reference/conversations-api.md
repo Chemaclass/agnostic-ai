@@ -25,12 +25,12 @@ The first call lists chats and their `state`. The second reopens one. The third 
 
 ## `GET /api/views/conversations`
 
-Query:
-
-- `?editor=<id>`: the editor chosen in Settings, so editor links use its scheme.
-- `&before=<time>`: the next page, which holds older conversations.
-- `&q=<words>`: a search.
-- `&tool=claude`, `codex` or `cursor`: list one tool.
+| Query | Meaning |
+|-------|---------|
+| `editor=<id>` | The editor chosen in Settings, so editor links use its scheme. |
+| `before=<time>` | The next page, which holds older conversations. |
+| `q=<words>` | A search. |
+| `tool=claude`, `codex` or `cursor` | List one tool. |
 
 A search keeps the conversations of every age where each word appears in the title, folder, branch, latest prompt, latest reply, tool or app, as the row shows them. Case is ignored.
 
@@ -163,8 +163,6 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
 - Not supported yet: iTerm2, tmux, WezTerm, kitty and Warp. For their sessions the app comes forward, or `message` names the terminal device.
 - The route comes from the server's own scan, never from the request.
-- A conversation outside the list returns 404.
-- Any other field is a 400.
 - macOS asks once for Automation access to each app the server controls: Terminal and Ghostty. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
 - The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
@@ -172,6 +170,12 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - While a list read runs, an open takes its row from the read before it, so it does not wait. A row that would resume a session waits for a fresh read instead: an ended terminal session, and any Claude Code session of the desktop app or an editor, which may run in a terminal since. Such an open can take as long as that read.
 - An open may take up to 90 seconds to answer. When its caller left before that, the server logs whether it opened on its standard error, without the reason.
 {% </details> %}
+
+| Status | Meaning |
+|--------|---------|
+| 200 | `{opened, message, command?}`. `opened` says whether the chat came to the front. |
+| 404 | A conversation outside the list. |
+| 400 | Any other field. |
 
 ## `POST /api/conversations/send`
 
@@ -191,29 +195,29 @@ Types `text` into a conversation's input, never pressing Enter, and returns `{se
 - macOS asks once for Automation access to each app. Terminal also needs Accessibility access.
 {% </details> %}
 
-Replies:
-
-- 200 `{sent, message}`, for a send that typed and for one that did not.
-- 400 for an unknown tool or any other field.
-- 404 for a conversation outside the list.
-- 413 when `text` is over 256 KB.
+| Status | Meaning |
+|--------|---------|
+| 200 `{sent, message}` | A send that typed, and one that did not. |
+| 400 | An unknown tool or any other field. |
+| 404 | A conversation outside the list. |
+| 413 | `text` is over 256 KB. |
 
 ## `POST /api/conversations/mark`
 
 Body: `{tool, id, as}` with `Content-Type: application/json`, from the server's own origin.
 
-`as` is one of:
+| `as` | Meaning |
+|------|---------|
+| `seen` | Read up to now. |
+| `completed` | Done until something new is written or it starts working. Also marks it seen. |
+| `open` | Takes a completion back. |
+| `hidden` | Left out of every list, search and count until something new is written or it starts working. The tool's own store keeps it. Also marks it seen. |
 
-- `seen`: read up to now.
-- `completed`: done until something new is written or it starts working. This also marks it seen.
-- `open`: takes a completion back.
-- `hidden`: left out of every list, search and count until something new is written or it starts working. The tool's own store keeps it. This also marks it seen.
-
-Replies:
-
-- Returns 204.
-- A conversation outside the list returns 404.
-- Another `as`, or any other field, is a 400.
+| Status | Meaning |
+|--------|---------|
+| 204 | Marked. |
+| 404 | A conversation outside the list. |
+| 400 | Another `as`, or any other field. |
 
 ## `POST /api/conversations/rename`
 
@@ -227,18 +231,19 @@ Body: `{tool, id, title}` with `Content-Type: application/json`, from the server
 - On macOS, a running session's Terminal or Ghostty tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes.
 {% </details> %}
 
-Replies:
+| Status | Meaning |
+|--------|---------|
+| 204 | The tool and the marks file both have the name. |
+| 404 | A conversation outside the list. |
+| 400 | An empty name, a name longer than 120 characters, a name that may hold a credential, or any other field. |
+| 409 | Another rename of the same conversation runs, on this server or another one that shares the marks file. Nothing changes. |
+| 501 | This kind of conversation cannot be renamed yet. |
+| 503 | The program the tool needs is not installed, such as `codex` or `sqlite3`. |
+| 403 | The tool's sign-in is missing or expired. |
+| 409 | A running program holds the conversation and would write the old name back. |
+| 502 | The tool refused the name, did not answer in time, or keeps the conversation in a way this version does not know. |
 
-- Returns 204 once the tool and the marks file both have the name.
-- A conversation outside the list returns 404.
-- An empty name, a name longer than 120 characters, a name that may hold a credential, or any other field is a 400.
-- While another rename of the same conversation runs, on this server or another one that shares the marks file, a second one returns 409 and changes nothing.
-- When the tool does not take the name, the reply is `{"error": "..."}` with a sentence for the person that names the tool and what to do. What the tool said goes to the server's standard error only.
-  - 501: this kind of conversation cannot be renamed yet.
-  - 503: the program the tool needs is not installed, such as `codex` or `sqlite3`.
-  - 403: the tool's sign-in is missing or expired.
-  - 409: a running program holds the conversation and would write the old name back.
-  - 502: the tool refused the name, did not answer in time, or keeps the conversation in a way this version does not know.
+When the tool does not take the name, the reply is `{"error": "..."}` with a sentence for the person that names the tool and what to do. What the tool said goes to the server's standard error only.
 
 ## `POST /api/conversations/delete`
 
@@ -278,13 +283,13 @@ Accepted limits:
 
 {% </details> %}
 
-Replies:
-
-- 200 `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file.
-- 400 for an unknown tool or any other field.
-- 404 for a conversation outside the list, or one you hid.
-- 409 `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it), `unread` (its latest reply was not read) or `changed` (a file was written at or after the moment it was archived).
-- 422 `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link.
-- 500 `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept.
+| Status | Meaning |
+|--------|---------|
+| 200 | `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file. |
+| 400 | for an unknown tool or any other field. |
+| 404 | for a conversation outside the list, or one you hid. |
+| 409 | `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it), `unread` (its latest reply was not read) or `changed` (a file was written at or after the moment it was archived). |
+| 422 | `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link. |
+| 500 | `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept. |
 
 `error` is always a complete sentence.

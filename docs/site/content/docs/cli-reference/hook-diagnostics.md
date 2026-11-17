@@ -263,67 +263,99 @@ A tool that lacks the input a flag needs is not run, and the other tools still r
 
 ### Claude Code sample events
 
+{% <details summary="Events for Claude Code"> %}
 `--edit` calls `Write`, `Edit`, or `MultiEdit`, with an absolute `tool_input.file_path`. `SubagentStart` needs no input and starts `general-purpose`, `Explore`, or `Plan`.
+{% </details> %}
 
 ### Codex sample events
 
+{% <details summary="Events for Codex"> %}
 `--edit` calls `apply_patch` with an `*** Add File:` or `*** Update File:` patch in `tool_input.command`, and `Edit` and `Write` match it.
+{% </details> %}
 
 ### Gemini sample events
 
+{% <details summary="Events for Gemini"> %}
 `--edit` calls `write_file` or `replace`, with an absolute `tool_input.file_path`; `--bash` calls `run_shell_command`. A `SessionStart` source must match exactly.
+{% </details> %}
 
 ### Trae sample events
 
+{% <details summary="Events for Trae"> %}
 `--bash` calls `RunCommand`. Trae lists no edit tool input, so Trae is not run on `--edit`.
+{% </details> %}
 
 ### OpenHands sample events
 
+{% <details summary="Events for OpenHands"> %}
 `--bash` calls `terminal`. The file editor's input is undocumented, so OpenHands is not run on `--edit`. A `*` or empty matcher matches all; one with a regex character, or written `/re/`, must match the whole tool name; any other is an exact name.
+{% </details> %}
 
 ### Goose sample events
 
+{% <details summary="Events for Goose"> %}
 `--bash` calls `shell`; `--edit` calls `write` or `edit`. `BeforeShellExecution` and `AfterShellExecution` take `--bash`, and `AfterFileEdit` and `BeforeReadFile` take `--edit`. The matcher applies to `matcher_context`; one that does not compile, such as `*`, skips the rule.
+{% </details> %}
 
 ### Cursor sample events
 
+{% <details summary="Events for Cursor"> %}
 `--bash` builds `beforeShellExecution` and `afterShellExecution`, and `preToolUse` and `postToolUse` on the `Shell` tool. `--edit` builds `afterFileEdit` only, so on `preToolUse` and `postToolUse` Cursor is not run. `--prompt` builds `beforeSubmitPrompt`.
+{% </details> %}
 
 ### Crush sample events
 
+{% <details summary="Events for Crush"> %}
 `hook run` builds only `PreToolUse` and reports other Crush events as not run, so `--prompt` does not apply. `--bash` calls `bash`; `--edit` calls `edit` or `write`. The matcher applies to the lowercase tool name; one that does not compile makes Crush skip the hook, and `hook run` reports it.
+{% </details> %}
 
 ### Factory sample events
 
+{% <details summary="Events for Factory"> %}
 `--bash` calls `Execute`. `--edit` calls `Create`; when the matcher picks `Edit` or `ApplyPatch`, Factory is not run. `--prompt` builds `UserPromptSubmit`. Empty or `*` matches everything, letters and `\|` list exact names, and anything else is a case-sensitive regular expression.
+{% </details> %}
 
 ### Antigravity sample events
 
+{% <details summary="Events for Antigravity"> %}
 `--bash` calls `run_command`; `--edit` calls `write_to_file`, `replace_file_content`, or `multi_replace_file_content`. Antigravity has no prompt event; `PreInvocation`, `PostInvocation`, and `Stop` take `--payload`. The matcher must match the whole tool name; empty or `*` matches everything.
+{% </details> %}
 
 ### Copilot sample events
 
+{% <details summary="Events for Copilot"> %}
 `--bash` builds `preToolUse` and `postToolUse` on `bash`, and `PreToolUse` on `Bash`. `--prompt` builds `userPromptSubmitted` or `UserPromptSubmit`. `--edit` is refused, and so is `--bash` on `PostToolUse`. A camelCase matcher is anchored as `^(?:PATTERN)$`. Copilot runs JavaScript regexes, so a matcher with inline flags, lookaround, backreferences, `(?P<name>)`, POSIX classes, or Go-only escapes such as `\A` is not run.
+{% </details> %}
 
 ### Qoder sample events
 
+{% <details summary="Events for Qoder"> %}
 `--bash` calls `Bash`. `--edit` calls `Write`; when the matcher picks `Edit`, Qoder is not run. Empty or `*` matches everything, letters and `\|` list exact names, and anything else is a regular expression.
+{% </details> %}
 
 ### Cline sample events
 
+{% <details summary="Events for Cline"> %}
 `--bash` calls `run_commands`; `--edit` calls `editor` (a model whose id holds `gpt` or `codex` calls `apply_patch` instead, which a note says). `--prompt` builds `UserPromptSubmit`, with a note that the CLI may not send that event. Cline has no matcher, so every hook fires; a portable `match` kind runs the script's tool name check, which allows a call to another tool. `PreCompact` is not run.
+{% </details> %}
 
 ### Kiro sample events
 
+{% <details summary="Events for Kiro"> %}
 `--prompt` supplies `UserPromptSubmit`; `Stop` needs no input. Tool events require `--payload`; `--bash` and `--edit` are refused. CLI V3 ignores prompt and Stop matchers. See [Kiro matchers](@/docs/cli-reference/hook-diagnostics.md#kiro-hook-run-matchers).
+{% </details> %}
 
 ### Windsurf sample events
 
+{% <details summary="Events for Windsurf"> %}
 `--bash` builds `PreToolUse`, `PostToolUse`, and `PermissionRequest` on `exec`. `--prompt` builds `UserPromptSubmit`; `Stop` and `PostCompaction` need no input. `--edit` is refused. `SessionStart`, `SessionEnd`, `PreCompact`, and `PostCompact` take `--payload`. The matcher applies to `tool_name`, so a Claude-style `Bash` matcher does not fire. `PreCompact` and `PostCompact` accept `manual` or `auto`; a matcher on another event is not run.
+{% </details> %}
 
 ### Augment sample events
 
+{% <details summary="Events for Augment"> %}
 `hook run` sends the tool names Auggie 1.x sends: `--bash` calls `bash`; `--edit` calls `edit`, or `write` when the matcher names only that. Matchers follow Auggie 1.x: case-insensitive, and the 0.x names `launch-process`, `str-replace-editor`, and `save-file` still match `bash`, `edit`, and `write`. For an Auggie 0.x payload, pass `--payload <file>`; its matcher is still read the 1.x way. `--prompt` builds `PromptSubmit`, with the text in `user_prompt`. `Stop`, `SessionEnd`, and `Notification` need no input: `Stop` sends `agent_stop_cause: "end_turn"`, and `Notification` sends `notification_type: "info"` with an empty `notification_message`. Every event carries `hook_event_name`, `hook_type`, `cwd`, `conversation_id`, and `workspace_roots`.
+{% </details> %}
 
 ## Matcher and plugin limits
 
