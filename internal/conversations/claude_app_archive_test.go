@@ -121,6 +121,71 @@ func TestScan_AFailedReadOfTheClaudeAppInfersNoArchive(t *testing.T) {
 	}
 }
 
+func TestScan_AClaudeAppReadWithoutTheSidebarInfersNoArchive(t *testing.T) {
+	for name, without := range map[string]func(t *testing.T, stores Stores){
+		"a sidebar list that does not decode": func(t *testing.T, stores Stores) {
+			writeClaudeApp(t, stores, obj{
+				"queryKey": []any{"chat_conversation_list", obj{"orgUuid": "o"}, "infinite", obj{"limit": 30, "starred": nil, "archived": false}},
+				"state":    obj{"data": "not pages"},
+			})
+		},
+		"no storage folder": func(*testing.T, Stores) {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+			start := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+			writeClaudeChats(t, stores,
+				chat(appChatID, "Newest", "2026-11-07T11:00:00.000Z", nil),
+				chat(appChat2ID, "Middle", "2026-11-07T10:00:00.000Z", nil),
+			)
+			scanAt(t, scanner, start)
+
+			replaceClaudeApp(t, stores)
+			without(t, stores)
+			if rows := appRows(scanAt(t, scanner, start.Add(2*time.Minute))); len(rows) != 0 {
+				t.Fatalf("a read without the sidebar listed %s", asJSON(t, rows))
+			}
+
+			replaceClaudeApp(t, stores)
+			writeClaudeChats(t, stores,
+				chat(appChatID, "Newest", "2026-11-07T11:00:00.000Z", nil),
+				chat(appChat3ID, "Oldest", "2026-11-07T09:00:00.000Z", nil),
+			)
+			if c := byID(t, scanAt(t, scanner, start.Add(4*time.Minute)), appChat2ID); c.State != StateDormant {
+				t.Fatalf("the read without the sidebar lost what was seen: %s, want dormant", c.State)
+			}
+		})
+	}
+}
+
+func TestScan_AForgottenClaudeChatLeavesNoArchiveBehind(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	start := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	writeClaudeChats(t, stores,
+		chat(appChatID, "Newest", "2026-11-07T11:00:00.000Z", nil),
+		chat(appChat2ID, "Middle", "2026-11-07T10:00:00.000Z", nil),
+		chat(appChat3ID, "Oldest", "2026-11-07T09:00:00.000Z", nil),
+	)
+	scanAt(t, scanner, start)
+	replaceClaudeApp(t, stores)
+	writeClaudeChats(t, stores,
+		chat(appChatID, "Newest", "2026-11-07T11:00:00.000Z", nil),
+		chat(appChat3ID, "Oldest", "2026-11-07T09:00:00.000Z", nil),
+	)
+	scanAt(t, scanner, start.Add(2*time.Minute))
+	if _, kept := scanner.appArchives[markKey(ToolClaude, appChat2ID)]; !kept {
+		t.Fatal("the archived chat has no archive")
+	}
+
+	// The list now starts after Middle, so it is forgotten, archive and all.
+	replaceClaudeApp(t, stores)
+	writeClaudeChats(t, stores, chat(appChatID, "Newest", "2026-11-07T11:00:00.000Z", nil))
+	scanAt(t, scanner, start.Add(4*time.Minute))
+	if _, kept := scanner.appArchives[markKey(ToolClaude, appChat2ID)]; kept {
+		t.Fatal("a forgotten chat left its archive behind")
+	}
+}
+
 func TestScan_ClaudeCodeSessionsAreNotArchivedByAbsence(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	start := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)

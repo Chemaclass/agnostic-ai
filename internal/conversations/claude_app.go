@@ -108,6 +108,9 @@ const (
 type claudeAppRead struct {
 	rows []Conversation
 	note string
+	// sidebarRead: the read found the sidebar's chat list and decoded it.
+	// Only such a read tells which chats left the list.
+	sidebarRead bool
 }
 
 // claudeAppRows returns the chats and Cowork tasks the Claude app has
@@ -124,7 +127,7 @@ func (s *Scanner) claudeAppRows(opts ScanOptions) ([]Conversation, string) {
 		s.claudeApp = cached[claudeAppRead]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
 	}
 	rows := slices.Clone(s.claudeApp.value.rows)
-	if s.claudeApp.value.note == "" {
+	if s.claudeApp.value.sidebarRead {
 		rows = append(rows, s.claudeChatsGone(rows)...)
 	}
 	return within(rows, opts.Within), s.claudeApp.value.note
@@ -138,7 +141,7 @@ func (s *Scanner) claudeAppRows(opts ScanOptions) ([]Conversation, string) {
 // older than the oldest chat still cached; an older one may just sit on
 // a page the app did not load, and is forgotten. The memory is the
 // scanner's alone: the marks file never holds it, and a new server
-// knows none. Call it only with a read that succeeded.
+// knows none. Call it only with a read that decoded the sidebar's list.
 func (s *Scanner) claudeChatsGone(rows []Conversation) []Conversation {
 	cached := map[string]bool{}
 	var oldest time.Time
@@ -159,6 +162,7 @@ func (s *Scanner) claudeChatsGone(rows []Conversation) []Conversation {
 		}
 		if len(cached) == 0 || parseStamp(c.UpdatedAt).Before(oldest) {
 			delete(s.claudeChatsSeen, id)
+			delete(s.appArchives, markKey(c.Tool, id))
 			continue
 		}
 		c.appArchived = true
@@ -222,6 +226,7 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 		return claudeAppRead{note: claudeAppNoteUnreadable}
 	}
 	var rows []Conversation
+	sidebarRead := false
 	seen := map[string]bool{}
 	keep := func(c Conversation) {
 		if seen[c.ID] {
@@ -233,7 +238,9 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 	for _, query := range cache.ClientState.Queries {
 		switch queryName(query) {
 		case claudeChatListQuery:
-			for _, chat := range claudeChatsOf(query) {
+			chats, sidebar := claudeChatsOf(query)
+			sidebarRead = sidebarRead || sidebar
+			for _, chat := range chats {
 				if c, ok := s.claudeChatRow(chat); ok {
 					keep(c)
 				}
@@ -258,7 +265,7 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 			}
 		}
 	}
-	return claudeAppRead{rows: rows}
+	return claudeAppRead{rows: rows, sidebarRead: sidebarRead}
 }
 
 // claudeAppReason is why the reader failed with err, or no reason for
@@ -286,29 +293,28 @@ func queryName(query claudeAppQuery) string {
 // that holds every chat not archived, starred or not. The app keeps no
 // list of archived chats on this machine (none was cached on
 // 2026-11-17), so a chat archived in the app leaves this list; see
-// claudeChatsGone.
-func claudeChatsOf(query claudeAppQuery) []claudeChat {
+// claudeChatsGone. sidebar says whether query is that list, decoded.
+func claudeChatsOf(query claudeAppQuery) (chats []claudeChat, sidebar bool) {
 	key := query.QueryKey
 	if len(key) != 4 {
-		return nil
+		return nil, false
 	}
 	var marker string
 	var filter claudeChatListFilter
 	if json.Unmarshal(key[2], &marker) != nil || marker != claudeInfinite || json.Unmarshal(key[3], &filter) != nil {
-		return nil
+		return nil, false
 	}
 	if filter.Starred != nil || filter.Archived == nil || *filter.Archived {
-		return nil
+		return nil, false
 	}
 	var data claudeChatListData
 	if json.Unmarshal(query.State.Data, &data) != nil {
-		return nil
+		return nil, false
 	}
-	var chats []claudeChat
 	for _, page := range data.Pages {
 		chats = append(chats, page.Data...)
 	}
-	return chats
+	return chats, true
 }
 
 func (s *Scanner) claudeChatRow(chat claudeChat) (Conversation, bool) {
