@@ -43,8 +43,11 @@ agnostic-ai use codex                  # switching to Codex this month
 agnostic-ai use claude codex cursor    # a team on several tools
 ```
 
-- With no `agnostic-ai.yaml`, it creates one enabling the detected tools plus the named ones, imports their instructions, skills, agents, hooks, and MCP servers into `.agnostic-ai/`, and asks about the `.gitignore` block, as `init` does.
-- In an existing project, it first imports each named tool's own config, such as a hand-written `AGENTS.md`, then adds the tool to `targets`.
+| Project state | What `use` does |
+|---------------|-----------------|
+| No `agnostic-ai.yaml` | Creates one enabling the detected tools plus the named ones. Imports their instructions, skills, agents, hooks, and MCP servers into `.agnostic-ai/`. Asks about the `.gitignore` block, as `init` does. |
+| Existing project | Imports each named tool's own config, such as a hand-written `AGENTS.md`, then adds the tool to `targets`. |
+
 - If an import would replace a spec with content that tool never read, `use` writes no spec, lists each one, and names the `agnostic-ai import <tool> --overwrite` command.
 - If an import fails, `use` leaves that tool out of `targets` and names the retry command.
 

@@ -43,13 +43,29 @@ List saved [task handoffs](@/docs/handoff.md) across the repository's worktrees:
 agnostic-ai handoff list
 ```
 
-Each branch gets one row: live worktree (or `removed`), saved HEAD and date, working changes (`clean`, `dirty`, or `unknown`), task status, PR (`-` when missing), and handoff file. The newest manual note wins over automatic snapshots. It reads only note headers, from the stores the [handoff skill](@/docs/handoff.md#limits-and-overrides) uses.
+Each branch gets one row:
+
+- live worktree, or `removed`
+- saved HEAD and date
+- working changes: `clean`, `dirty`, or `unknown`
+- task status
+- PR (`-` when missing)
+- handoff file
+
+The newest manual note wins over automatic snapshots. It reads only note headers, from the stores the [handoff skill](@/docs/handoff.md#limits-and-overrides) uses.
 
 It suggests removal only when local Git ancestry proves the branch merged and no working changes are pending, so squash merges need your review. It never fetches or deletes files.
 
 ## revert
 
-Undo a `sync --backup`: for each generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` with its permissions, never wider than the file's, and remove it. It also restores a nested `CLAUDE.md` that sync deleted. An unfiltered `revert` restores intact recorded backups of removed outputs, including those from dropped targets. Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched. A shared `AGENTS.md` is handled once. `revert` takes the project lock, so it stops while another command writes; `--dry-run` does not.
+Undo a `sync --backup`. For each generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), it restores `<path>.bak` and removes the backup.
+
+- Restored files keep their permissions, never wider than the file's.
+- A nested `CLAUDE.md` that sync deleted comes back too.
+- An unfiltered `revert` also restores intact recorded backups of removed outputs, including those from dropped targets.
+- Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched.
+- A shared `AGENTS.md` is handled once.
+- `revert` takes the project lock, so it stops while another command writes. `--dry-run` does not.
 
 | Flag | Description |
 |------|-------------|

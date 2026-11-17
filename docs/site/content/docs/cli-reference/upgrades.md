@@ -31,7 +31,7 @@ Stop `agnostic-ai sync --watch` before upgrading. Install the new release first,
 
 ### Automatic upgrade offers
 
-In a terminal, a stable release build checks for updates at most once a day, with a five-second network limit, and offers:
+In a terminal, a stable release build checks for updates at most once a day (five-second network limit) and offers:
 
 ```text
 Update available: <installed> -> <latest>
@@ -39,10 +39,12 @@ Release guidance: https://github.com/Chemaclass/agnostic-ai/releases/tag/v<lates
 Update now? [Y/n]
 ```
 
-Enter or `y` accepts. `n` runs your original command and silences the offer for the day. In a project, accepting:
+Enter or `y` accepts. `n` runs your original command and silences the offer for the day.
+
+In a project, accepting does four things:
 
 1. Installs the new release and checks the new executable's version.
-2. The new release raises `requires` to its own version, keeping its form, and updates the editor schema link, as [`--requires`](#upgrade-options) does.
+2. Raises `requires` to the new version, keeping its form, and updates the editor schema link, as [`--requires`](#upgrade-options) does.
 3. Previews and applies the [migrations](#migrate) to old spec files.
 4. Runs `sync`, then `sync --check`.
 
