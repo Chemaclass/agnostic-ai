@@ -215,3 +215,19 @@ func TestScan_ASessionSwitchArchivesTheOldIDAndKeepsTheNewOneOpen(t *testing.T) 
 		})
 	}
 }
+
+func TestReopen_ResumingAClosedUnreadSessionMarksItRead(t *testing.T) {
+	scanner, _, table, sync, scan := endingScanner(t)
+	delete(table, 4242)
+	sync()
+	if c := scan(); c.State != StateDormant || !c.Unread {
+		t.Fatalf("the ended session is archived unread: %s", asJSON(t, c))
+	}
+	launcher := &fakeLauncher{}
+	if reply, found := scanner.Reopen(context.Background(), ToolClaude, idSafari, ScanOptions{}, launcher); !found || !reply.Opened {
+		t.Fatalf("the closed session resumes: %+v, found %t", reply, found)
+	}
+	if c := scan(); c.State != StateDormant || c.Unread {
+		t.Errorf("resuming it from the list reads it: %s", asJSON(t, c))
+	}
+}
