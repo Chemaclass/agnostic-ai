@@ -101,3 +101,42 @@ func TestScan_AFailedProcessReadKeepsAnUnreadSessionUnread(t *testing.T) {
 		t.Fatalf("a failed read records no closed reply: %+v", entry)
 	}
 }
+
+func TestStateOf_AppConversationsStayOpenWhateverTheirAge(t *testing.T) {
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	since := now.Add(-90 * 24 * time.Hour)
+	old := now.Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	seen := markEntry{SeenAt: now.Add(-time.Hour).Format(time.RFC3339)}
+	for app, want := range map[App]State{
+		AppDesktop: StateActive, AppChat: StateActive, AppCowork: StateActive, AppCloud: StateActive,
+		AppIDE: StateDormant, AppBackground: StateDormant, AppCLI: StateDormant,
+	} {
+		if got := stateOf(Conversation{App: app, UpdatedAt: old}, seen, since, now); got != want {
+			t.Errorf("a %s conversation quiet for a month: state = %s, want %s", app, got, want)
+		}
+	}
+	archived := Conversation{App: AppDesktop, UpdatedAt: old, underAppArchive: true}
+	if got := stateOf(archived, seen, since, now); got != StateDormant {
+		t.Errorf("an app archive still archives: state = %s", got)
+	}
+	completed := markEntry{SeenAt: seen.SeenAt, CompletedAt: seen.SeenAt}
+	if got := stateOf(Conversation{App: AppChat, UpdatedAt: old}, completed, since, now); got != StateCompleted {
+		t.Errorf("an archive made here still archives: state = %s", got)
+	}
+}
+
+func TestScan_AStaleCloudStatusStopsWorkingWithoutBeingArchived(t *testing.T) {
+	const id = "cse_0123456789abcdef"
+	scanner, _ := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	scanner.Cloud = listedCloud{{
+		Tool: ToolClaude, App: AppCloud, ID: id, Title: "Port the billing job", UpdatedAt: "2026-11-01T09:00:00Z",
+		Live: true, Activity: ActivityWorking, Open: Route{Kind: RouteLink, Label: "Open on claude.ai", Link: "https://claude.ai/code/" + id},
+	}}
+	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id)
+	if c.Live || c.Activity != "" || c.State != StateActive {
+		t.Errorf("a cloud session that says it works but wrote nothing for days is active, not working or archived: %s", asJSON(t, c))
+	}
+}

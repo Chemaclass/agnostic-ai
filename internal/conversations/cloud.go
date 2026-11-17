@@ -187,5 +187,6 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 // waits is believed after its last write. A cloud agent writes as it
 // works, and no process on this machine can be checked for it, so one
 // that wrote nothing for a day is taken as stopped whatever its status
-// says: a failed session can keep a working status for weeks.
-const cloudLiveSpan = activeSpan
+// says: a failed session can keep a working status for weeks. It is
+// then active or unread, by the person's marks, and never archived by age.
+const cloudLiveSpan = 24 * time.Hour

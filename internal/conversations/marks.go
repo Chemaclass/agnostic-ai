@@ -28,19 +28,26 @@ const (
 	// StateUnread: something was written after the person last saw it,
 	// in a conversation not known closed.
 	StateUnread State = "unread"
-	// StateActive: open now, or written within activeSpan when the scan
-	// cannot tell whether it is closed.
+	// StateActive: open now; a desktop, chat, Cowork or cloud
+	// conversation nobody archived, whatever its age; or written within
+	// activeSpan when the scan cannot tell whether it is closed.
 	StateActive State = "active"
 	// StateDormant: a terminal session no process holds, as a full process
-	// read showed; archived in its own app; or quiet for longer than
-	// activeSpan when the scan cannot tell whether it is closed.
+	// read showed; archived in its own app; or an editor panel, background
+	// job or unchecked terminal session quiet for longer than activeSpan.
 	// Conversation.Unread says when its latest reply was not seen.
 	StateDormant State = "dormant"
 )
 
-// activeSpan is how long a conversation the scan cannot see close stays
-// active after its last write.
+// activeSpan is how long an editor panel, a background job, or a
+// terminal session whose process read failed stays active after its
+// last write. No reliable signal says when those close.
 const activeSpan = 24 * time.Hour
+
+// openUntilArchived are the apps whose conversations stay open until
+// the person archives them, here or in the app. Quitting the app closes
+// none of them, so their age says nothing.
+var openUntilArchived = map[App]bool{AppDesktop: true, AppChat: true, AppCowork: true, AppCloud: true}
 
 // Mark is what the person says about a conversation.
 type Mark string
@@ -181,7 +188,7 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 		return StateDormant
 	case !attendedAt.IsZero() && written.After(attendedAt):
 		return StateUnread
-	case c.Live || (!c.liveRead && now.Sub(written) < activeSpan):
+	case c.Live || (!c.liveRead && (openUntilArchived[c.App] || now.Sub(written) < activeSpan)):
 		return StateActive
 	default:
 		return StateDormant
