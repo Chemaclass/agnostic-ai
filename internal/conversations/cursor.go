@@ -468,9 +468,18 @@ func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
 		chatOf[c.store] = i
 	}
 	// One read of the chats folder, however many chats it keeps. See BenchmarkHolders.
-	held, err := s.Processes.HoldersUnder(filepath.Join(s.Stores.CursorDir, "chats"))
+	chatsDir := filepath.Join(s.Stores.CursorDir, "chats")
+	held, err := s.Processes.HoldersUnder(chatsDir)
+	var unseen map[string]bool
+	if err == nil {
+		stores := make([]string, 0, len(chatOf))
+		for store := range chatOf {
+			stores = append(stores, store)
+		}
+		unseen = outOfSight(chatsDir, stores, held)
+	}
 	for i := range chats {
-		chats[i].liveRead = err == nil
+		chats[i].liveRead = err == nil && !unseen[chats[i].store]
 	}
 	for store, pid := range held {
 		i, ok := chatOf[store]

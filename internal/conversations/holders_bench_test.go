@@ -19,7 +19,8 @@ const benchRecentLocks = 20
 //   - cutoff: the locks written in the last week, named to lsof. It
 //     misses the old held lock, which is why it was dropped.
 //   - per-file: every lock named to lsof, 128 at a time.
-//   - under-folder: one lsof run over the folder.
+//   - under-folder: one lsof run over the folder, then the check that
+//     lsof could see every lock: one lstat per lock, one open per folder.
 //
 // Run it with: go test -run '^$' -bench Holders -benchtime 5x ./internal/conversations
 func BenchmarkHolders(b *testing.B) {
@@ -54,7 +55,13 @@ func BenchmarkHolders(b *testing.B) {
 		}{
 			{"cutoff", func() (map[string]int, error) { return SystemProcesses{}.Holders(recent) }, false},
 			{"per-file", func() (map[string]int, error) { return SystemProcesses{}.Holders(all) }, true},
-			{"under-folder", func() (map[string]int, error) { return SystemProcesses{}.HoldersUnder(dir) }, true},
+			{"under-folder", func() (map[string]int, error) {
+				held, err := SystemProcesses{}.HoldersUnder(dir)
+				if unseen := outOfSight(dir, all, held); len(unseen) > 0 {
+					b.Fatalf("every lock is in sight: %v", unseen)
+				}
+				return held, err
+			}, true},
 		}
 		for _, subject := range subjects {
 			b.Run(fmt.Sprintf("%s/%d-old", subject.name, old), func(b *testing.B) {

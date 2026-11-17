@@ -227,8 +227,15 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 	// A Codex that keeps no lock folder leaves no mark of a loaded thread.
 	if err == nil {
 		// Only a terminal thread is known to hold its lock while it runs.
-		for i := range conversations {
-			conversations[i].liveRead = conversations[i].App == AppCLI
+		var locks []string
+		for lock, i := range lockOf {
+			if conversations[i].App == AppCLI {
+				locks = append(locks, lock)
+			}
+		}
+		unseen := outOfSight(locksDir, locks, held)
+		for lock, i := range lockOf {
+			conversations[i].liveRead = conversations[i].App == AppCLI && !unseen[lock]
 		}
 	}
 	for lock, pid := range held {

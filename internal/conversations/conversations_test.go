@@ -80,16 +80,15 @@ func (f fakeProcesses) HoldersUnder(dir string) (map[string]int, error) {
 	if f.readFails {
 		return map[string]int{}, errProcessRead
 	}
+	// As lsof +D does, it skips a folder it cannot read and does not
+	// follow links, and says nothing about either.
 	var paths []string
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err == nil && !entry.IsDir() {
+	_ = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() && entry.Type()&fs.ModeSymlink == 0 {
 			paths = append(paths, path)
 		}
-		return err
+		return nil
 	})
-	if err != nil {
-		return map[string]int{}, err
-	}
 	return f.Holders(paths)
 }
 

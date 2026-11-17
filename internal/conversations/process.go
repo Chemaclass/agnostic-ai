@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -460,4 +461,57 @@ func claudeParentIn(entries []string) (string, bool) {
 func (SystemProcesses) ClaudeJobs(ctx context.Context) ([]ClaudeJob, error) {
 	locate := func() (string, error) { return findClaude(claudeFolders()) }
 	return listClaudeJobs(ctx, locate, runClaudeCommand)
+}
+
+// outOfSight names the paths, of those held does not list, that one
+// lsof +D run over dir cannot have seen. lsof skips a folder it cannot
+// read and does not follow a link, and says nothing about either, so
+// such a path proves nothing about closure. A missing path is in sight:
+// nothing holds it. It costs one lstat per path and one open per folder.
+func outOfSight(dir string, paths []string, held map[string]int) map[string]bool {
+	unseen := map[string]bool{}
+	listable := map[string]bool{}
+	readable := func(folder string) bool {
+		ok, known := listable[folder]
+		if !known {
+			ok = folder == dir || !isLink(folder)
+			if ok {
+				f, err := os.Open(folder)
+				ok = err == nil
+				if ok {
+					f.Close()
+				}
+			}
+			listable[folder] = ok
+		}
+		return ok
+	}
+	for _, path := range paths {
+		if _, isHeld := held[path]; isHeld {
+			continue
+		}
+		info, err := os.Lstat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil || info.Mode()&fs.ModeSymlink != 0 {
+			unseen[path] = true
+			continue
+		}
+		for folder := filepath.Dir(path); ; folder = filepath.Dir(folder) {
+			if !readable(folder) {
+				unseen[path] = true
+				break
+			}
+			if folder == dir || folder == filepath.Dir(folder) {
+				break
+			}
+		}
+	}
+	return unseen
+}
+
+func isLink(path string) bool {
+	info, err := os.Lstat(path)
+	return err != nil || info.Mode()&fs.ModeSymlink != 0
 }

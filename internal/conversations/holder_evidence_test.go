@@ -205,3 +205,93 @@ func TestSystemProcesses_HoldersBoundsRequestsAndKeepsPartialEvidence(t *testing
 		t.Errorf("a later failed request leaves absence unknown and keeps positive evidence: got %d holders, error %v", len(held), err)
 	}
 }
+
+func TestOutOfSight_NamesTheFilesOneLsofRunOverAFolderCannotSee(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("lsof is not read on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every folder")
+	}
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof is not installed")
+	}
+	root := t.TempDir()
+	chats := filepath.Join(root, "chats")
+	open := filepath.Join(chats, "a", "1", "store.db")
+	closed := filepath.Join(chats, "a", "2", "store.db")
+	missing := filepath.Join(chats, "a", "3", "store.db")
+	unreadable := filepath.Join(chats, "b", "4", "store.db")
+	linked := filepath.Join(chats, "c", "5", "store.db")
+	outside := filepath.Join(root, "elsewhere", "5")
+	for _, file := range []string{open, closed, unreadable, filepath.Join(outside, "store.db")} {
+		write(t, file, "")
+	}
+	if err := os.MkdirAll(filepath.Dir(filepath.Dir(linked)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Dir(linked)); err != nil {
+		t.Skip("cannot create a symlink:", err)
+	}
+	for _, file := range []string{open, unreadable, linked} {
+		held, err := os.Open(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { held.Close() })
+	}
+	locked := filepath.Join(chats, "b")
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+
+	held, err := (SystemProcesses{}).HoldersUnder(chats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if held[open] != os.Getpid() || held[unreadable] != 0 || held[linked] != 0 {
+		t.Fatalf("lsof sees the readable store and skips the other two: %v", held)
+	}
+	unseen := outOfSight(chats, []string{open, closed, missing, unreadable, linked}, held)
+	if len(unseen) != 2 || !unseen[unreadable] || !unseen[linked] {
+		t.Errorf("a store under an unreadable folder or behind a link leaving the folder proves nothing: %v", unseen)
+	}
+}
+
+func TestScan_ACodexLockFolderLsofCannotListCannotProveClosure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("lsof is not read on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every folder")
+	}
+	scanner := codexUnreadScanner(t, `[{"id":"`+idSafari+`","cwd":"/tmp/app","updated_at_ms":1762510000000,"originator":"codex-tui","first_user_message":"Keep this open"}]`, "", "")
+	locks := filepath.Join(scanner.Stores.CodexDir, "thread-writer-locks")
+	write(t, filepath.Join(locks, idSafari+".lock"), "")
+	if err := os.Chmod(locks, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locks, 0o755) })
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.liveRead {
+		t.Errorf("a lock lsof cannot reach does not show its thread closed: %+v", c)
+	}
+}
+
+func TestScan_ACursorAgentChatBehindALinkLeavingTheChatsFolderCannotProveClosure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("lsof is not read on Windows")
+	}
+	scanner, store := cursorAgentScanner(t, terminalProcesses(4242, map[string]int{}, nil))
+	outside := filepath.Join(t.TempDir(), cursorChat)
+	write(t, filepath.Join(outside, "store.db"), "")
+	if err := os.MkdirAll(filepath.Dir(filepath.Dir(store(cursorChat))), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Dir(store(cursorChat))); err != nil {
+		t.Skip("cannot create a symlink:", err)
+	}
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), cursorChat); c.liveRead {
+		t.Errorf("a chat lsof does not follow into does not show closed: %+v", c)
+	}
+}

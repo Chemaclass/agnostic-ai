@@ -224,14 +224,14 @@ The profile command returns nonzero for expected failure cases. Keep its actual 
 
 - `cutoff`: the locks written in the last week, named to `lsof`. It misses the old held lock, so an old open thread showed as closed.
 - `per-file`: every lock named to `lsof`, 128 at a time.
-- `under-folder`: one `lsof +D` run over the folder. This is what the scan uses since [#3527](https://github.com/Chemaclass/agnostic-ai/issues/3527).
+- `under-folder`: one `lsof +D` run over the folder, then a check that `lsof` could reach each lock: one `lstat` per lock and one open per folder. This is what the scan uses since [#3527](https://github.com/Chemaclass/agnostic-ai/issues/3527).
 
 Measured 2026-11-17 on an Apple silicon Mac, `-benchtime 5x`, in milliseconds per scan:
 
 | Old locks | cutoff | per-file | under-folder |
 |---:|---:|---:|---:|
-| 100 | 122 | 137 | 118 |
-| 1,000 | 124 | 1,115 | 126 |
-| 5,000 | 122 | 5,682 | 180 |
+| 100 | 119 | 133 | 114 |
+| 1,000 | 115 | 1,074 | 123 |
+| 5,000 | 115 | 5,352 | 172 |
 
-Each `lsof` run costs about 120 ms whatever it is asked, because it reads every process. Naming files only adds runs. One folder read stays near the cost of the old cutoff and still finds a held lock of any age.
+Each `lsof` run costs about 120 ms whatever it is asked, because it reads every process. Naming files only adds runs. One folder read stays near the cost of the old cutoff and still finds a held lock of any age. The reach check alone costs about 6 ms for 5,020 locks.
