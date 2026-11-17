@@ -112,7 +112,7 @@ Shows how much text each coding tool reads. Choose a tool to see its [context re
 | **Read for the named file** | File-scoped sources. **Check against a file** updates it as you type. |
 | **Read on demand** | Sources loaded only when needed. |
 
-The page compares startup words with [`lint.instructions-words`](@/docs/configuration.md#lint). **Read again** reads your setup files again and shows the change under **Before**. The tool and file stay in the page address.
+The page compares startup words with [`lint.instructions-words`](@/docs/configuration-reference.md#lint). **Read again** reads your setup files again and shows the change under **Before**. The tool and file stay in the page address.
 
 {% <details summary="Details: sources, duplicates, prompts"> %}
 - **How this is counted** explains when text loads and links to the tool's model and effort in Settings.
