@@ -168,6 +168,11 @@ type Conversation struct {
 	QuietSince string `json:"quietSince,omitempty"`
 	// State places the conversation for the person; see stateOf.
 	State State `json:"state"`
+	// Unread: a dormant or active conversation whose latest write the
+	// person has not seen: a terminal session that closed after its reply,
+	// and stays so once resumed by hand, until the person reads it. It
+	// counts not toward NeedsYou, and it cannot be deleted until read.
+	Unread bool `json:"unread,omitempty"`
 	// SeenAt and CompletedAt are the person's marks, when set.
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
@@ -253,8 +258,10 @@ type liveProcess struct {
 
 // OpenReply is the answer to an open request. Opened is false when the
 // server could not open it here; Message says why and Command, when
-// set, resumes the session by hand. A Claude Code, Codex or cursor-agent
-// session that still runs in a terminal gets none: running it would start a second copy.
+// set, resumes the session by hand. A session that still runs in a
+// terminal no tab can show gets one with a note to end that process
+// first, since a second copy would compete with it. One whose tab was
+// found, and a Codex thread its background service keeps, get none.
 // A Claude Code background session gets claude attach, which starts no copy.
 type OpenReply struct {
 	Opened  bool   `json:"opened"`

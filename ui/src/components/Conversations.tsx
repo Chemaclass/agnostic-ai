@@ -448,7 +448,7 @@ function LiveBadge({ conversation, now }: { conversation: Conversation; now: Dat
 }
 
 function StateBadge({ conversation }: { conversation: Conversation }) {
-  const badge = stateBadge(conversation.state)
+  const badge = stateBadge(conversation.state, conversation.unread)
   if (!badge) return null
   return (
     <Badge tone={badge.tone} className="conversation-state" title={badge.description}>

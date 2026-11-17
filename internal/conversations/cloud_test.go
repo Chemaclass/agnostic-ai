@@ -455,8 +455,8 @@ func TestScan_BelievesACloudStatusForADayAfterItsLastWrite(t *testing.T) {
 	if fresh := byID(t, view, "cse_fresh"); fresh.State != StateBlocked {
 		t.Errorf("a session that asked half an hour ago: state %s", fresh.State)
 	}
-	if stale := byID(t, view, "cse_stale"); stale.Live || stale.State != StateDormant || stale.Waiting != nil {
-		t.Errorf("a session that asked four weeks ago: live %t, state %s, waiting %s; want it archived, waiting for nothing", stale.Live, stale.State, asJSON(t, stale.Waiting))
+	if stale := byID(t, view, "cse_stale"); stale.Live || stale.State != StateActive || stale.Waiting != nil {
+		t.Errorf("a session that asked four weeks ago: live %t, state %s, waiting %s; want it active, not archived by age, waiting for nothing", stale.Live, stale.State, asJSON(t, stale.Waiting))
 	}
 	if fresh := byID(t, view, "cse_fresh"); fresh.Waiting == nil {
 		t.Error("a session that asked half an hour ago lost what it waits for")

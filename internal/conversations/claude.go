@@ -5,11 +5,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -41,8 +44,13 @@ type claudeMeta struct {
 	title, firstPrompt, lastPrompt string
 	reply, question                string
 	cwd, branch, entrypoint        string
-	started, updated               string
-	sidechain                      bool
+	// firstEntrypoint is where the session began: a closed session last
+	// resumed in a terminal opens there and follows that app's rule. Only
+	// a terminal writes sessions/<pid>.json, so an editor or desktop tail
+	// cannot be proven closed and keeps its own app.
+	firstEntrypoint  string
+	started, updated string
+	sidechain        bool
 	// pending is the tool call at the end of the transcript that has no
 	// result yet, for a session that waits for an approval.
 	pending *toolCall
@@ -260,7 +268,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	if err != nil {
 		return missing(ToolClaude, "Could not list "+projects)
 	}
-	live, liveRead := s.claudeLiveSessions()
+	live, liveRead, liveNote := s.claudeLiveSessions()
 	jobs := s.claudeActiveJobs()
 	editor := extensionEditor(s.Stores.Home, "anthropic.claude-code", opts.Editor)
 	if s.claude == nil {
@@ -304,8 +312,11 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		}
 		c.bridge = session.bridge
 		entrypoint := meta.entrypoint
-		if isLive && session.entrypoint != "" {
-			entrypoint = session.entrypoint
+		switch {
+		case isLive:
+			entrypoint = firstNonEmpty(session.entrypoint, meta.entrypoint)
+		case entrypoint == "cli":
+			entrypoint = meta.firstEntrypoint
 		}
 		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
 		// Only a terminal session is known to write sessions/<pid>.json while it runs.
@@ -329,7 +340,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			delete(s.claudeWorkers, file)
 		}
 	}
-	return found(ToolClaude, within(conversations, opts.Within))
+	result := found(ToolClaude, within(conversations, opts.Within))
+	result.source.Note = liveNote
+	return result
 }
 
 // claudeRoute picks where a session reopens: its background job, the
@@ -353,7 +366,7 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 		c.process = &process
 		c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: resume}
 	default:
-		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume}
+		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume}
 	}
 }
 
@@ -382,6 +395,9 @@ func (s *Scanner) claudeMeta(file string) (claudeMeta, bool) {
 	}
 	if meta.cwd == "" || meta.entrypoint == "" {
 		streamClaudeMetadata(file, &meta)
+	}
+	if meta.firstEntrypoint == "" {
+		meta.firstEntrypoint = meta.entrypoint
 	}
 	if meta.updated == "" {
 		meta.updated = info.ModTime().UTC().Format(time.RFC3339)
@@ -508,6 +524,7 @@ func parseClaudeSession(head, tail []byte) (meta claudeMeta, replyKnown bool) {
 	meta.title = firstNonEmpty(tailCustom, headCustom, tailAI, headAI)
 	meta.cwd = firstNonEmpty(meta.cwd, tailCwd)
 	meta.branch = firstNonEmpty(tailBranch, meta.branch)
+	meta.firstEntrypoint = meta.entrypoint
 	meta.entrypoint = firstNonEmpty(tailEntry, meta.entrypoint)
 	meta.updated = firstNonEmpty(lastMessage, lastAny)
 	meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)
@@ -545,20 +562,26 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // process holds to that process. Each sessions/<pid>.json belongs to
 // one process; a crash leaves it behind, so the pid must still be the
 // process that wrote it. The sibling *.key files hold credentials and
-// are never read. read is false when the process table could not be read.
-func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool) {
-	entries := s.claudeLiveEntries()
+// are never read. read is false when the sessions folder or the process
+// table could not be read, or a session file could not be read while the
+// process its name gives still runs; note then says which.
+func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool, note string) {
+	entries, unreadable, entriesErr := s.claudeLiveEntries()
 	var processes []ProcessRef
 	for _, entry := range entries {
 		processes = append(processes, ProcessRef{PID: entry.PID, ProcStart: entry.ProcStart})
 	}
+	for pid := range unreadable {
+		processes = append(processes, ProcessRef{PID: pid})
+	}
 	// One question for every session: asking about each in turn starts
 	// a ps per open session on every scan.
 	alive, err := s.Processes.AliveAmong(processes)
-	// A Claude Code too old to write sessions/ leaves no mark of an open
-	// session, so its absence says nothing about which ones are closed.
-	if _, statErr := os.Stat(filepath.Join(s.Stores.ClaudeDir, "sessions")); statErr != nil {
-		err = statErr
+	if err == nil {
+		if blocking := unreadableHeld(unreadable, func(pid int) bool { return alive[pid] }); blocking != nil {
+			entriesErr = errors.Join(entriesErr, blocking)
+			note = "A Claude Code session file could not be read while its process runs, so no session is shown as closed: " + blocking.Error()
+		}
 	}
 	live := map[string]liveSession{}
 	for _, entry := range entries {
@@ -570,29 +593,56 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor}
 		}
 	}
-	return live, err == nil
+	return live, err == nil && entriesErr == nil, note
+}
+
+// unreadableHeld is the error for the unreadable session files whose
+// process, named by the file, still runs: one of them may hold any
+// session. A file whose process is gone, as a crash leaves it, holds none.
+func unreadableHeld(unreadable map[int]error, running func(pid int) bool) error {
+	var held error
+	for pid, err := range unreadable {
+		if running(pid) {
+			held = errors.Join(held, err)
+		}
+	}
+	return held
 }
 
 // claudeLiveEntries reads sessions/<pid>.json, which a Claude Code
 // process writes while it runs and may leave behind when it dies.
-func (s *Scanner) claudeLiveEntries() []claudeLive {
-	files, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "sessions", "*.json"))
-	var entries []claudeLive
+// unreadable maps the pid in the name of each file that could not be
+// read or parsed to why; err says the folder could not be listed.
+func (s *Scanner) claudeLiveEntries() (entries []claudeLive, unreadable map[int]error, err error) {
+	dir := filepath.Join(s.Stores.ClaudeDir, "sessions")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", dir, err)
+	}
+	unreadable = map[int]error{}
 	for _, file := range files {
-		if !liveSessionFile.MatchString(filepath.Base(file)) {
+		if !liveSessionFile.MatchString(file.Name()) {
 			continue
 		}
-		data, err := os.ReadFile(file)
+		path := filepath.Join(dir, file.Name())
+		pid, _ := strconv.Atoi(strings.TrimSuffix(file.Name(), ".json"))
+		data, err := os.ReadFile(path)
 		if err != nil {
+			unreadable[pid] = fmt.Errorf("%s: %w", path, err)
 			continue
 		}
 		var entry claudeLive
-		if json.Unmarshal(data, &entry) != nil || entry.SessionID == "" {
+		if err := json.Unmarshal(data, &entry); err != nil {
+			unreadable[pid] = fmt.Errorf("parse %s: %w", path, err)
+			continue
+		}
+		if entry.SessionID == "" || entry.PID <= 0 {
+			unreadable[pid] = fmt.Errorf("parse %s: missing process or session id", path)
 			continue
 		}
 		entries = append(entries, entry)
 	}
-	return entries
+	return entries, unreadable, nil
 }
 
 // claudeActiveJobs maps session ids to the background job that holds

@@ -19,23 +19,35 @@ const (
 	// StateBlocked: a live conversation whose tool says it waits for the
 	// person, and that the person has not looked at since its last write.
 	StateBlocked State = "blocked"
-	// StateWorking: a live conversation whose tool says the agent is busy.
+	// StateWorking: a live conversation whose tool says the agent is busy,
+	// or one with working subagents that is not known closed.
 	StateWorking State = "working"
 	// StateCompleted: the person marked it completed, and since then
 	// nothing was written and its tool never said it was working.
 	StateCompleted State = "completed"
-	// StateUnread: something was written after the person last saw it.
+	// StateUnread: something was written after the person last saw it,
+	// in a conversation not known closed.
 	StateUnread State = "unread"
-	// StateActive: open now, or written within activeSpan when the scan
-	// cannot tell whether it is closed.
+	// StateActive: open now; a desktop, chat, Cowork or cloud
+	// conversation nobody archived, whatever its age; or written within
+	// activeSpan when the scan cannot tell whether it is closed.
 	StateActive State = "active"
-	// StateDormant: known to be closed, or quiet for longer than activeSpan.
+	// StateDormant: a terminal session no process holds, as a full process
+	// read showed; archived in its own app; or an editor panel, background
+	// job or unchecked terminal session quiet for longer than activeSpan.
+	// Conversation.Unread says when its latest reply was not seen.
 	StateDormant State = "dormant"
 )
 
-// activeSpan is how long a conversation the scan cannot see close stays
-// active after its last write.
+// activeSpan is how long an editor panel, a background job, or a
+// terminal session whose process read failed stays active after its
+// last write. No reliable signal says when those close.
 const activeSpan = 24 * time.Hour
+
+// openUntilArchived are the apps whose conversations stay open until
+// the person archives them, here or in the app. Quitting the app closes
+// none of them, so their age says nothing.
+var openUntilArchived = map[App]bool{AppDesktop: true, AppChat: true, AppCowork: true, AppCloud: true}
 
 // Mark is what the person says about a conversation.
 type Mark string
@@ -80,6 +92,10 @@ type markEntry struct {
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
 	HiddenAt    string `json:"hiddenAt,omitempty"`
+	// ClosedWrittenAt is the last write a scan read while the session was
+	// known closed and not seen. A manual resume does not make that write
+	// new again; a later one is.
+	ClosedWrittenAt string `json:"closedWrittenAt,omitempty"`
 	// Title is the name the person chose, shown over the tool's own. A
 	// new message keeps it.
 	Title string `json:"title,omitempty"`
@@ -148,16 +164,20 @@ func parseStamp(value string) time.Time {
 // conversation takes it out of the count, and the next write, which
 // every new prompt is, puts it back. A conversation its own app archived
 // is dormant, the state of a closed one, while that archive holds.
+// A terminal session no process holds, by a full process read, is
+// archived even with a reply not seen: Unread keeps that reply in view.
+// Once a process holds it again, a write read while it was closed needs
+// nobody. Any other row, a failed read included, goes by the seen mark.
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
-	// Seen is the later of the conversation's own mark and the file's baseline.
-	seenAt := parseStamp(entry.SeenAt)
-	if since.After(seenAt) {
-		seenAt = since
+	seenAt := seenSince(entry, since)
+	attendedAt := seenAt
+	if closedWrittenAt := parseStamp(entry.ClosedWrittenAt); c.Live && closedWrittenAt.After(attendedAt) {
+		attendedAt = closedWrittenAt
 	}
 	switch {
-	case c.Live && c.Activity == ActivityWaiting && (seenAt.IsZero() || written.After(seenAt)):
+	case c.Live && c.Activity == ActivityWaiting && (attendedAt.IsZero() || written.After(attendedAt)):
 		return StateBlocked
 	case workingNow(c):
 		return StateWorking
@@ -165,17 +185,49 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 		return StateDormant
 	case !completedAt.IsZero() && !written.After(completedAt):
 		return StateCompleted
-	case !seenAt.IsZero() && written.After(seenAt):
+	case knownClosed(c):
+		return StateDormant
+	case !attendedAt.IsZero() && written.After(attendedAt):
 		return StateUnread
-	case c.Live || (!c.liveRead && now.Sub(written) < activeSpan):
+	case c.Live || (!c.liveRead && (openUntilArchived[c.App] || now.Sub(written) < activeSpan)):
 		return StateActive
 	default:
 		return StateDormant
 	}
 }
 
+// seenSince is the later of a conversation's own seen mark and the
+// file's baseline.
+func seenSince(entry markEntry, since time.Time) time.Time {
+	seenAt := parseStamp(entry.SeenAt)
+	if since.After(seenAt) {
+		return since
+	}
+	return seenAt
+}
+
+// unseen reports whether something was written after the person last
+// saw the conversation, whatever its state.
+func unseen(c Conversation, entry markEntry, since time.Time) bool {
+	seenAt := seenSince(entry, since)
+	return !seenAt.IsZero() && lastWritten(c).After(seenAt)
+}
+
+// unreadMarker: an unseen write on a row that does not count toward
+// NeedsYou. It holds on an archived row, and on a session resumed by hand
+// whose reply came while it was closed, until the person reads it.
+func unreadMarker(state State, unseen bool) bool {
+	return unseen && (state == StateDormant || state == StateActive)
+}
+
+// knownClosed: a full process read found no process that holds this
+// terminal session. A failed or partial read proves nothing.
+func knownClosed(c Conversation) bool {
+	return c.liveRead && !c.Live
+}
+
 func workingNow(c Conversation) bool {
-	return (c.Live && c.Activity == ActivityWorking) || (c.WorkingSubagents != nil && *c.WorkingSubagents > 0)
+	return (c.Live && c.Activity == ActivityWorking) || (!knownClosed(c) && c.WorkingSubagents != nil && *c.WorkingSubagents > 0)
 }
 
 // needsPerson reports whether a state counts toward View.NeedsYou.
@@ -236,9 +288,15 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			if c.Cloud != nil {
 				entry.SeenAt = laterStamp(entry.SeenAt, file.Marks[markKey(c.Tool, c.Cloud.ID)].SeenAt)
 			}
+			if s.MarksPath != "" && knownClosed(c) && unseen(c, entry, since) && written.After(parseStamp(entry.ClosedWrittenAt)) {
+				entry.ClosedWrittenAt = written.UTC().Format(time.RFC3339Nano)
+				file.Marks[key] = entry
+				changed = true
+			}
 			c.renamed = entry.Title
 			c.showChosenName()
 			c.State = stateOf(c, entry, since, now)
+			c.Unread = unreadMarker(c.State, unseen(c, entry, since))
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
 			if c.State == StateCompleted || c.State == StateDormant {

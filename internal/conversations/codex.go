@@ -184,7 +184,7 @@ func codexRoute(c *Conversation, thread codexThread, editor editorApp) {
 		c.Open = Route{Kind: RouteLink, Label: "Open in " + editor.label, Link: editor.id + "://openai.chatgpt/local/" + c.ID}
 	default:
 		c.App = AppCLI
-		c.Open = Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resumeIn(c.Folder, "codex resume "+c.ID)}
+		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resumeIn(c.Folder, "codex resume "+c.ID)}
 	}
 }
 
@@ -194,8 +194,7 @@ func codexExec(thread codexThread) bool {
 	return thread.Originator == "codex_exec" || thread.Source == "exec"
 }
 
-// liveWindow bounds which chats are checked for a live process: one
-// untouched for a week is not in use.
+// liveWindow bounds the stores searched when identifying the current terminal session.
 const liveWindow = 7 * 24 * time.Hour
 
 // markLiveCodexThreads marks the threads a running Codex process has
@@ -208,37 +207,35 @@ const liveWindow = 7 * 24 * time.Hour
 // the pid that holds each, or the error when the holders could not be read.
 func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string, execThreads []codexThread) (map[string]int, error) {
 	var liveRollouts []string
-	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
+	locksDir := filepath.Join(s.Stores.CodexDir, "thread-writer-locks")
 	lockOf := map[string]int{}
-	var locks []string
 	for i, c := range conversations {
-		if c.UpdatedAt < cutoff {
-			continue
-		}
-		lock := filepath.Join(s.Stores.CodexDir, "thread-writer-locks", c.ID+".lock")
-		if _, err := os.Stat(lock); err == nil {
-			lockOf[lock] = i
-			locks = append(locks, lock)
-		}
+		lockOf[filepath.Join(locksDir, c.ID+".lock")] = i
 	}
 	runOf := map[string]codexThread{}
 	for _, thread := range execThreads {
-		if timeFromMillis(thread.UpdatedAtMs) < cutoff {
-			continue
-		}
-		lock := filepath.Join(s.Stores.CodexDir, "thread-writer-locks", thread.ID+".lock")
-		if _, err := os.Stat(lock); err == nil {
-			runOf[lock] = thread
-			locks = append(locks, lock)
-		}
+		runOf[filepath.Join(locksDir, thread.ID+".lock")] = thread
 	}
 	runPIDs := map[string]int{}
-	held, err := s.Processes.Holders(locks)
+	// One read of the folder, however many threads it keeps: a held lock
+	// of any age keeps its thread live. See BenchmarkHolders.
+	held := map[string]int{}
+	_, err := os.Stat(locksDir)
+	if err == nil {
+		held, err = s.Processes.HoldersUnder(locksDir)
+	}
 	// A Codex that keeps no lock folder leaves no mark of a loaded thread.
-	if _, statErr := os.Stat(filepath.Join(s.Stores.CodexDir, "thread-writer-locks")); err == nil && statErr == nil {
+	if err == nil {
 		// Only a terminal thread is known to hold its lock while it runs.
-		for i := range conversations {
-			conversations[i].liveRead = conversations[i].App == AppCLI
+		var locks []string
+		for lock, i := range lockOf {
+			if conversations[i].App == AppCLI {
+				locks = append(locks, lock)
+			}
+		}
+		unseen := outOfSight(locksDir, locks, held)
+		for lock, i := range lockOf {
+			conversations[i].liveRead = conversations[i].App == AppCLI && !unseen[lock]
 		}
 	}
 	for lock, pid := range held {

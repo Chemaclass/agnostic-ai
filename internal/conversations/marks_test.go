@@ -37,7 +37,7 @@ func TestStateOf_PlacesAConversationByToolReportThenMarksThenAge(t *testing.T) {
 		{"seen, closed and written within a day", Conversation{UpdatedAt: at(23 * time.Hour)}, markEntry{SeenAt: at(time.Hour)}, StateActive},
 		{"seen, closed and quiet for a day", Conversation{UpdatedAt: at(24 * time.Hour)}, markEntry{SeenAt: at(time.Hour)}, StateDormant},
 		{"seen and known closed goes quiet at once", Conversation{UpdatedAt: at(time.Minute), liveRead: true}, markEntry{SeenAt: at(time.Second)}, StateDormant},
-		{"known closed with a reply not seen stays unread", Conversation{UpdatedAt: at(time.Minute), liveRead: true}, markEntry{SeenAt: at(time.Hour)}, StateUnread},
+		{"known closed with a reply not seen is archived", Conversation{UpdatedAt: at(time.Minute), liveRead: true}, markEntry{SeenAt: at(time.Hour)}, StateDormant},
 		{"known open and idle stays active", Conversation{UpdatedAt: at(time.Minute), Live: true, Activity: ActivityIdle, liveRead: true}, markEntry{SeenAt: at(time.Second)}, StateActive},
 	}
 	for _, tc := range cases {

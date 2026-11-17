@@ -372,7 +372,7 @@ func TestScan_OnlyTerminalAppsAreRememberedAndRenamed(t *testing.T) {
 	scanner.Processes = fakeProcesses{}
 	ended, _ := scanner.Find(context.Background(), ToolClaude, idSafari, ScanOptions{})
 
-	if live.Open.Label != "Open in Terminal" || ended.Open.Label != "Open in Terminal" || ended.lastTab != nil {
+	if live.Open.Label != "Open in Terminal" || ended.Open.Label != "Resume in Terminal" || ended.lastTab != nil {
 		t.Errorf("a session in Cursor's terminal: live %q, ended %q, last tab %+v", live.Open.Label, ended.Open.Label, ended.lastTab)
 	}
 }
@@ -449,7 +449,7 @@ func TestScan_RemembersTheTabAnEndedSessionRanIn(t *testing.T) {
 	if strings.Join(launcher.calls, "; ") != want || reply != (OpenReply{Opened: true, Message: "Resumed in a new Ghostty tab."}) {
 		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
 	}
-	if ended.Open.Label != "Open in Ghostty" {
+	if ended.Open.Label != "Resume in Ghostty" {
 		t.Errorf("label = %q", ended.Open.Label)
 	}
 }
@@ -494,7 +494,7 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		},
 		"tab not found": {
 			conversation: at(ghostty),
-			reply:        OpenReply{Message: "It runs in Ghostty on ttys004 (process 42), but no tab shows that terminal. Switch to it there."},
+			reply:        OpenReply{Message: "It runs in Ghostty on ttys004 (process 42), but no tab shows that terminal. Switch to it there. To resume it elsewhere, end that process first, then run this command.", Command: "claude --resume x"},
 			calls:        "focus Ghostty /dev/ttys004",
 		},
 		"Automation refused": {
@@ -521,11 +521,11 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		},
 		"unknown app": {
 			conversation: at(terminalHost{TTY: "/dev/ttys022"}),
-			reply:        OpenReply{Message: "It runs on ttys022 (process 42) in an app this version cannot switch to. Switch to it there."},
+			reply:        OpenReply{Message: "It runs on ttys022 (process 42) in an app this version cannot switch to. Switch to it there. To resume it elsewhere, end that process first, then run this command.", Command: "claude --resume x"},
 		},
 		"no terminal found": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}},
-			reply:        OpenReply{Message: "It is open (process 42), but the terminal that runs it could not be found. Switch to it there."},
+			reply:        OpenReply{Message: "It is open (process 42), but the terminal that runs it could not be found, as in a detached tmux session or after its tab closed. Switch to it there. To resume it elsewhere, end that process first, then run this command.", Command: "claude --resume x"},
 		},
 		"ended since the scan, Automation refused": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 43}},

@@ -881,7 +881,7 @@ export interface ConversationWaiting {
   detail?: string
 }
 
-/** Where a conversation stands for the person. The first that holds wins: `working` (open, and its tool says the agent is busy), `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `completed` (marked completed, and since then nothing written and never reported working), `unread` (written after the person last saw it), `active` (open, or written in the last 24 hours when the server cannot tell whether it is closed), `dormant` (known to be closed, or quiet for longer than 24 hours). */
+/** Where a conversation stands for the person, checked in this order: `blocked` (open, its tool says it waits for the person, and the person has not looked at it since its last write), `working` (open, and its tool says the agent is busy), `dormant` when its own app archived it, `completed` (marked completed, and since then nothing written and never reported working), `dormant` when a full process read finds no process that holds a terminal session, even with a reply not read (see `unread`), `unread` (written after the person last saw it), `active` (open; a desktop, chat, Cowork or cloud conversation of any age; or written in the last 24 hours when the server cannot tell whether it is closed, as for an editor panel or a background job), and `dormant` otherwise. A reply a terminal session wrote while it was closed does not make it `unread` or `blocked` once resumed by hand; it keeps `unread: true` instead. A later write does. */
 export type ConversationState = 'blocked' | 'working' | 'completed' | 'unread' | 'active' | 'dormant'
 
 export interface ConversationSource {
@@ -951,6 +951,8 @@ export interface Conversation {
   helpers?: ConversationHelper[]
   /** Absent from a server older than the marks. */
   state?: ConversationState
+  /** Set only on a `dormant` or `active` row whose latest write the person has not seen: a terminal session that closed after its reply, or was resumed by hand after that, until the person opens or marks it. It does not count toward `needsYou`, the first page always holds it, and it cannot be deleted until it is read. */
+  unread?: boolean
   /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */
   seenAt?: string
   /** When the person marked it completed. The server clears it once something is written after it or its tool reports it working. */
@@ -1013,10 +1015,10 @@ export interface ConversationDeleteReply {
   note?: string
 }
 
-/** A refused delete: 409 for `not-archived`, `running` or `changed`, 422 for `unsupported`, 500 for `failed` with the paths already removed and those still on disk. error is a complete sentence. */
+/** A refused delete: 409 for `not-archived`, `running`, `unread` or `changed`, 422 for `unsupported`, 500 for `failed` with the paths already removed and those still on disk. error is a complete sentence. */
 export interface ConversationDeleteRefusal {
   error: string
-  reason: 'not-archived' | 'running' | 'changed' | 'unsupported' | 'failed'
+  reason: 'not-archived' | 'running' | 'unread' | 'changed' | 'unsupported' | 'failed'
   removed?: string[]
   remaining?: string[]
 }

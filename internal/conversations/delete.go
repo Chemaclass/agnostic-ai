@@ -30,6 +30,8 @@ const (
 	DeleteNotArchived DeleteRefusal = "not-archived"
 	// DeleteRunning: a process or a background job still holds it.
 	DeleteRunning DeleteRefusal = "running"
+	// DeleteUnread: it is under Archived, but its latest write was never seen.
+	DeleteUnread DeleteRefusal = "unread"
 	// DeleteChanged: one of its files was written at or after the moment it was archived.
 	DeleteChanged DeleteRefusal = "changed"
 	// DeleteUnsupported: its store cannot be deleted from here.
@@ -103,6 +105,10 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	archived, changed, ok := archivedAsOf(stateOf(c, entry, parseStamp(file.Since), now), entry, c.readAt)
 	if !ok {
 		return DeleteReply{}, refuse(DeleteNotArchived, "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.")
+	}
+	// A session that closed after its last reply is archived with that reply unread.
+	if unseen(c, entry, parseStamp(file.Since)) {
+		return DeleteReply{}, refuse(DeleteUnread, "This conversation has a reply you have not read. Open it or mark it as read, then delete it.")
 	}
 	if reason := s.deleteUnsupported(c); reason != "" {
 		return DeleteReply{}, refuse(DeleteUnsupported, reason)
@@ -330,7 +336,16 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 		started[process.PID] = process.Started
 	}
 	live := false
-	for _, entry := range s.claudeLiveEntries() {
+	entries, unreadable, err := s.claudeLiveEntries()
+	var missingDir *fs.PathError
+	oldVersion := errors.As(err, &missingDir) && missingDir.Path == filepath.Join(s.Stores.ClaudeDir, "sessions") && errors.Is(err, os.ErrNotExist)
+	if err == nil {
+		err = unreadableHeld(unreadable, func(pid int) bool { _, runs := started[pid]; return runs })
+	}
+	if err != nil && !oldVersion {
+		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
+	}
+	for _, entry := range entries {
 		start, runs := started[entry.PID]
 		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || start == strings.TrimSpace(entry.ProcStart)) {
 			live = true

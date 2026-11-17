@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +34,10 @@ type Processes interface {
 	// Holders maps each of paths a running process has open to that
 	// process's pid. The error says the open files could not be read.
 	Holders(paths []string) (map[string]int, error)
+	// HoldersUnder maps each file under dir, at any depth, that a running
+	// process has open to that process's pid, named under dir as given.
+	// The error says the open files could not be read.
+	HoldersUnder(dir string) (map[string]int, error)
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
 	// ClaudeJobs lists the Claude Code background sessions that run.
@@ -224,6 +229,26 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 	if len(paths) == 0 {
 		return map[string]int{}, nil
 	}
+	held := map[string]int{}
+	var readErr error
+	for len(paths) > 0 {
+		count, bytes := 0, 0
+		// Keep lsof arguments below OS limits even with many old sessions.
+		for count < len(paths) && count < 128 && (count == 0 || bytes+len(paths[count])+1 <= 32<<10) {
+			bytes += len(paths[count]) + 1
+			count++
+		}
+		open, err := readHolders(paths[:count])
+		for path, pid := range open {
+			held[path] = pid
+		}
+		readErr = errors.Join(readErr, err)
+		paths = paths[count:]
+	}
+	return held, readErr
+}
+
+func readHolders(paths []string) (map[string]int, error) {
 	// lsof names each open file by its resolved path, so a path under a
 	// symlinked folder, such as a linked ~/.codex, is looked up by its target.
 	asked := make(map[string]string, len(paths))
@@ -241,9 +266,37 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 	// -w keeps warnings, such as a file system lsof cannot stat, off stderr.
 	out, err := exec.CommandContext(ctx, "lsof", append([]string{"-w", "-F", "pcn", "--"}, paths...)...).Output()
 	if !answered(err) {
-		return map[string]int{}, fmt.Errorf("lsof: %w", err)
+		return parseHolders(string(out), asked), fmt.Errorf("lsof: %w", err)
 	}
 	return parseHolders(string(out), asked), nil
+}
+
+// HoldersUnder asks lsof once for the open files under dir, so its cost
+// follows the running processes, not how many files the folder keeps.
+func (SystemProcesses) HoldersUnder(dir string) (map[string]int, error) {
+	if err := canRead("lsof"); err != nil {
+		return map[string]int{}, err
+	}
+	// lsof names each open file by its resolved path, so a linked
+	// ~/.codex is searched at its target and named back under dir.
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return map[string]int{}, err
+	}
+	named := func(open string) (string, bool) {
+		rel, err := filepath.Rel(resolved, open)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "", false
+		}
+		return filepath.Join(dir, rel), true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "lsof", "-w", "-F", "pcn", "+D", resolved).Output()
+	if !answered(err) {
+		return parseHoldersNamed(string(out), named), fmt.Errorf("lsof: %w", err)
+	}
+	return parseHoldersNamed(string(out), named), nil
 }
 
 // parseHolders reads `lsof -F pcn` output: a "p<pid>" line and a
@@ -253,6 +306,15 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 // process that runs the chat. When several processes hold a file, an
 // agent's own runtime wins over a tool that only has it open.
 func parseHolders(out string, asked map[string]string) map[string]int {
+	return parseHoldersNamed(out, func(open string) (string, bool) {
+		path, ok := asked[open]
+		return path, ok
+	})
+}
+
+// parseHoldersNamed is parseHolders with name giving the path each open
+// file is reported as, or false for a file nobody asked about.
+func parseHoldersNamed(out string, name func(open string) (string, bool)) map[string]int {
 	held := map[string]int{}
 	byAgent := map[string]bool{}
 	pid, command := 0, ""
@@ -260,10 +322,10 @@ func parseHolders(out string, asked map[string]string) map[string]int {
 		if field, ok := strings.CutPrefix(line, "p"); ok {
 			pid, _ = strconv.Atoi(field)
 			command = ""
-		} else if name, ok := strings.CutPrefix(line, "c"); ok {
-			command = name
+		} else if field, ok := strings.CutPrefix(line, "c"); ok {
+			command = field
 		} else if open, ok := strings.CutPrefix(line, "n"); ok {
-			path, ok := asked[open]
+			path, ok := name(open)
 			if !ok || pid <= 0 || command == "sqlite3" || (byAgent[path] && !agentCommands[command]) {
 				continue
 			}
@@ -399,4 +461,57 @@ func claudeParentIn(entries []string) (string, bool) {
 func (SystemProcesses) ClaudeJobs(ctx context.Context) ([]ClaudeJob, error) {
 	locate := func() (string, error) { return findClaude(claudeFolders()) }
 	return listClaudeJobs(ctx, locate, runClaudeCommand)
+}
+
+// outOfSight names the paths, of those held does not list, that one
+// lsof +D run over dir cannot have seen. lsof skips a folder it cannot
+// read and does not follow a link, and says nothing about either, so
+// such a path proves nothing about closure. A missing path is in sight:
+// nothing holds it. It costs one lstat per path and one open per folder.
+func outOfSight(dir string, paths []string, held map[string]int) map[string]bool {
+	unseen := map[string]bool{}
+	listable := map[string]bool{}
+	readable := func(folder string) bool {
+		ok, known := listable[folder]
+		if !known {
+			ok = folder == dir || !isLink(folder)
+			if ok {
+				f, err := os.Open(folder)
+				ok = err == nil
+				if ok {
+					_ = f.Close()
+				}
+			}
+			listable[folder] = ok
+		}
+		return ok
+	}
+	for _, path := range paths {
+		if _, isHeld := held[path]; isHeld {
+			continue
+		}
+		info, err := os.Lstat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil || info.Mode()&fs.ModeSymlink != 0 {
+			unseen[path] = true
+			continue
+		}
+		for folder := filepath.Dir(path); ; folder = filepath.Dir(folder) {
+			if !readable(folder) {
+				unseen[path] = true
+				break
+			}
+			if folder == dir || folder == filepath.Dir(folder) {
+				break
+			}
+		}
+	}
+	return unseen
+}
+
+func isLink(path string) bool {
+	info, err := os.Lstat(path)
+	return err != nil || info.Mode()&fs.ModeSymlink != 0
 }

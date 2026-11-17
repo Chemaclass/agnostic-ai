@@ -421,7 +421,7 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		c := Conversation{
 			Tool: ToolCursor, App: AppCLI, ID: meta.AgentID, Folder: folder,
 			StartedAt: timeFromMillis(meta.CreatedAt), UpdatedAt: updated,
-			Open:  Route{Kind: RouteTerminal, Label: "Open in Terminal", Command: resume},
+			Open:  Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume},
 			store: store,
 		}
 		s.fill(&c, texts{title: title, firstPrompt: transcript.firstPrompt, lastPrompt: transcript.lastPrompt})
@@ -460,18 +460,26 @@ func (s *Scanner) setCursorLiveTranscripts(transcripts []string) {
 // it open. A running chat switches to its terminal, since a second
 // resume would compete with it.
 func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
-	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
-	chatOf := map[string]int{}
-	var recent []string
-	for i, c := range chats {
-		if c.UpdatedAt >= cutoff {
-			chatOf[c.store] = i
-			recent = append(recent, c.store)
-		}
+	if len(chats) == 0 {
+		return
 	}
-	held, err := s.Processes.Holders(recent)
+	chatOf := map[string]int{}
+	for i, c := range chats {
+		chatOf[c.store] = i
+	}
+	// One read of the chats folder, however many chats it keeps. See BenchmarkHolders.
+	chatsDir := filepath.Join(s.Stores.CursorDir, "chats")
+	held, err := s.Processes.HoldersUnder(chatsDir)
+	var unseen map[string]bool
+	if err == nil {
+		stores := make([]string, 0, len(chatOf))
+		for store := range chatOf {
+			stores = append(stores, store)
+		}
+		unseen = outOfSight(chatsDir, stores, held)
+	}
 	for i := range chats {
-		chats[i].liveRead = err == nil
+		chats[i].liveRead = err == nil && !unseen[chats[i].store]
 	}
 	for store, pid := range held {
 		i, ok := chatOf[store]

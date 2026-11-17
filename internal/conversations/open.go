@@ -369,9 +369,6 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	if c.process == nil || !processes.Alive(c.process.PID, c.process.ProcStart) {
 		return resumeTerminal(ctx, c, launcher)
 	}
-	switchThere := func(message string) OpenReply {
-		return OpenReply{Message: message}
-	}
 	placed := c.placed
 	// A thread the Codex daemon holds is live even with no client in
 	// front of it, so the reply never offers to resume it again.
@@ -386,17 +383,28 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 		}
 	}
 	if placed == nil {
-		return switchThere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found. Switch to it there.", c.process.PID))
+		return resumeElsewhere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found, as in a detached tmux session or after its tab closed. Switch to it there.", c.process.PID), c.Open.Command)
 	}
 	if placed.claudeBackground {
 		return openClaudeBackground(ctx, c, processes, launcher)
 	}
-	return switchToHost(ctx, c.Folder, *placed, launcher)
+	return switchToHost(ctx, c.Folder, *placed, launcher, c.Open.Command)
+}
+
+// resumeElsewhere is the reply for a session a process holds where no
+// tab can be shown. It offers the resume command, which never runs
+// here: a second copy would compete with the first.
+func resumeElsewhere(message, resume string) OpenReply {
+	if resume == "" {
+		return OpenReply{Message: message}
+	}
+	return OpenReply{Message: message + " To resume it elsewhere, end that process first, then run this command.", Command: resume}
 }
 
 // switchToHost brings forward the terminal placed shows: the exact tab
 // in a tab app, else the app, or the editor window open on folder.
-func switchToHost(ctx context.Context, folder string, placed placement, launcher Launcher) OpenReply {
+// resume, when set, is offered when no tab shows the terminal.
+func switchToHost(ctx context.Context, folder string, placed placement, launcher Launcher, resume string) OpenReply {
 	switchThere := func(message string) OpenReply {
 		return OpenReply{Message: message}
 	}
@@ -409,7 +417,7 @@ func switchToHost(ctx context.Context, folder string, placed placement, launcher
 		case errors.Is(err, context.DeadlineExceeded):
 			return switchThere(waitingForPrompt(app))
 		case err != nil || !ok:
-			return switchThere(fmt.Sprintf("It runs in %s on %s (process %d), but no tab shows that terminal. Switch to it there.", app, tty, pid))
+			return resumeElsewhere(fmt.Sprintf("It runs in %s on %s (process %d), but no tab shows that terminal. Switch to it there.", app, tty, pid), resume)
 		default:
 			return OpenReply{Opened: true, Message: fmt.Sprintf("Switched to the %s tab that runs it.", app)}
 		}
@@ -421,7 +429,7 @@ func switchToHost(ctx context.Context, folder string, placed placement, launcher
 		return switchThere(fmt.Sprintf("Brought its %s window to the front, but the terminal inside it cannot be selected from outside. It runs on %s (process %d).", app, tty, pid))
 	}
 	if app == "" {
-		return switchThere(fmt.Sprintf("It runs on %s (process %d) in an app this version cannot switch to. Switch to it there.", tty, pid))
+		return resumeElsewhere(fmt.Sprintf("It runs on %s (process %d) in an app this version cannot switch to. Switch to it there.", tty, pid), resume)
 	}
 	if err := launcher.ActivateApp(ctx, app); err != nil {
 		return switchThere(fmt.Sprintf("It runs in %s on %s (process %d). Switch to it there.", app, tty, pid))

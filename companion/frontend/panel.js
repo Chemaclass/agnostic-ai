@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -198,6 +198,7 @@ function stateMark(conversation) {
   // parent's own working activity keeps its mark moving.
   else if (childrenWork && conversation.activity !== 'working') parentState = 'active'
   const mark = element('span', 'state is-' + parentState)
+  mark.classList.toggle('has-unread', conversation.unread === true)
   mark.setAttribute('aria-hidden', 'true')
   if (parentState === 'working' || conversation.workingSubagents > 0) {
     // Keep the mechanism's phase when a new reply or selection redraws the list.
@@ -426,6 +427,8 @@ function groupHead(group) {
   title.classList.toggle('is-working', group.id === 'working')
   title.setAttribute('aria-expanded', String(!folded))
   title.append(icon('chevron', '0 0 8 8'), group.title, element('span', 'count', String(group.rows.length)))
+  const unread = unreadLabelOf(group.rows)
+  if (unread) title.append(element('span', 'unread-count', unread))
   title.firstChild.classList.add('chevron')
   title.addEventListener('click', () => {
     state.folded.set(group.id, !folded)
@@ -438,6 +441,14 @@ function groupHead(group) {
     all.type = 'button'
     all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
     all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
+    head.append(all)
+  }
+  const unreadShown = group.id === 'archived' ? unreadShownOf(group, folded) : []
+  if (unreadShown.length > 0) {
+    const all = element('button', 'group-action', 'Mark all as read')
+    all.type = 'button'
+    all.title = 'Clear the unread marker of every chat shown here without opening it'
+    all.addEventListener('click', () => markAll(unreadShown, 'seen', (conversation) => stillWaits(state.view, conversation)))
     head.append(all)
   }
   if (group.id === 'active') {

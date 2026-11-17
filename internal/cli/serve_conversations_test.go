@@ -33,6 +33,7 @@ func (stillProcesses) Table() ([]conversations.ProcessInfo, error) { return nil,
 func (stillProcesses) Args([]int) map[int]string                   { return nil }
 func (stillProcesses) Cwds([]int) map[int]string                   { return nil }
 func (stillProcesses) Holders([]string) (map[string]int, error)    { return nil, nil }
+func (stillProcesses) HoldersUnder(string) (map[string]int, error) { return nil, nil }
 func (stillProcesses) AppRunning(string) bool                      { return false }
 func (stillProcesses) ClaudeParents([]int) (map[int]string, error) { return nil, nil }
 func (stillProcesses) ClaudeJobs(context.Context) ([]conversations.ClaudeJob, error) {
@@ -888,6 +889,18 @@ func (h holdingProcesses) Holders(paths []string) (map[string]int, error) {
 		}
 	}
 	return holders, nil
+}
+
+func (h holdingProcesses) HoldersUnder(dir string) (map[string]int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, entry := range entries {
+		paths = append(paths, filepath.Join(dir, entry.Name()))
+	}
+	return h.Holders(paths)
 }
 
 func TestConversationsHandler_EveryServerSaysWhenACodexWaitIsReadFromSilence(t *testing.T) {

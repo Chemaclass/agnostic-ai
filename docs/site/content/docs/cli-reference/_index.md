@@ -40,7 +40,7 @@ agnostic-ai doctor
 | Diagnose problems, then check a specific area | [doctor](@/docs/cli-reference/doctor.md#doctor), [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
 | Find which specs each tool reads | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
 | Inspect tool permissions and settings | [ui / view](@/docs/cli-reference/serve.md#view), [serve](@/docs/cli-reference/serve.md#serve) |
-| Call the local JSON API | [local API](@/docs/cli-reference/serve-api.md) |
+| Call the local JSON API | [local API](@/docs/cli-reference/serve-api.md), [conversations API](@/docs/cli-reference/conversations-api.md) |
 | See the conversations that need you | [companion](@/docs/cli-reference/companion.md#companion) |
 | Start a linked conversation in a new tab | [conversations start](@/docs/cli-reference/conversations.md#conversations-start) |
 | List each MCP server's tools for the overview | [mcp tools](@/docs/cli-reference/inspect.md#mcp-tools) |

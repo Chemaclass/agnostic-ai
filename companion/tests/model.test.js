@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -119,6 +119,18 @@ test('offers Delete only on a chat under Archived that no process holds', () => 
   assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'delete'])
   assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename'])
   assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename'])
+})
+
+test('an archived chat that closed with an unread reply offers Mark as read, and Delete only once read', () => {
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true, cloud: { id: 'cse_1' } })), ['read', 'rename', 'web'])
+  assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), 'hide')
+})
+
+test('the tooltip of an archived chat says its reply was not read', () => {
+  const open = { kind: 'terminal', label: 'Resume in Terminal' }
+  assert.equal(rowTooltipOf(row('a', 'dormant', { open, folder: '/tmp/shop', unread: true }), Date.parse('2026-11-09T12:00:00Z')), 'Resume in Terminal\n/tmp/shop\nClosed with a reply you have not read')
+  assert.equal(rowTooltipOf(row('a', 'dormant', { open, folder: '/tmp/shop' }), Date.parse('2026-11-09T12:00:00Z')), 'Resume in Terminal\n/tmp/shop')
 })
 
 test('the delete confirmation names the chat and the data it removes, or says why it cannot be deleted', () => {
@@ -620,4 +632,28 @@ test('a Codex subagent opens its own thread; a Claude Code subagent opens the ch
   const parent = row('parent', 'working')
   assert.deepEqual(helperOpenOf(parent, helper('run-1', 'working', 1, { tool: 'codex' })), { tool: 'codex', id: 'run-1' })
   assert.equal(helperOpenOf(parent, helper('agent-1', 'working', 1)), parent)
+})
+
+test('a row with an unread marker may still be marked read while the list holds it unchanged', () => {
+  const shown = row('a', 'dormant', { unread: true, updatedAt: '2026-11-09T12:00:00Z' })
+  assert.equal(stillWaits({ conversations: [shown] }, shown), true)
+  assert.equal(stillWaits({ conversations: [row('a', 'active', { unread: true, updatedAt: '2026-11-09T12:00:00Z' })] }, shown), true)
+  assert.equal(stillWaits({ conversations: [row('a', 'dormant', { updatedAt: '2026-11-09T12:00:00Z' })] }, shown), false)
+})
+
+test('a group header names the unread chats it holds, for a folded Archived', () => {
+  assert.equal(unreadLabelOf([row('a', 'dormant', { unread: true }), row('b', 'dormant'), row('c', 'completed', { unread: true })]), '2 unread')
+  assert.equal(unreadLabelOf([row('a', 'dormant')]), undefined)
+})
+
+test('a resumed chat with an unread marker offers Mark as read, and its tooltip says so', () => {
+  const open = { kind: 'focus', label: 'Switch to Ghostty' }
+  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename'])
+  assert.equal(rowTooltipOf(row('a', 'active', { unread: true, open }), Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\nResumed with a reply from before that you have not read')
+})
+
+test('Mark all as read in Archived reaches only unread rows on screen, none while the group is folded', () => {
+  const archived = { id: 'archived', rows: [row('a', 'dormant', { unread: true }), row('b', 'dormant'), row('c', 'completed', { unread: true })] }
+  assert.deepEqual(unreadShownOf(archived, false).map((r) => r.id), ['a', 'c'])
+  assert.deepEqual(unreadShownOf(archived, true), [])
 })

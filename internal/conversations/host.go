@@ -460,7 +460,7 @@ func (s *Scanner) placeLive(results []sourceResult) {
 			// A background session's click may switch to a tab of
 			// another app that already shows it, so its label stays.
 			if endedInTerminal {
-				c.Open.Label = "Open in " + host.App
+				c.Open.Label = "Resume in " + host.App
 			}
 		}
 	}

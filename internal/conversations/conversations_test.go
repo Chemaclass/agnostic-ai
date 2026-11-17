@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,6 +73,23 @@ func (f fakeProcesses) Holders(paths []string) (map[string]int, error) {
 		}
 	}
 	return held, nil
+}
+
+// HoldersUnder answers Holders for every file under dir on disk.
+func (f fakeProcesses) HoldersUnder(dir string) (map[string]int, error) {
+	if f.readFails {
+		return map[string]int{}, errProcessRead
+	}
+	// As lsof +D does, it skips a folder it cannot read and does not
+	// follow links, and says nothing about either.
+	var paths []string
+	_ = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() && entry.Type()&fs.ModeSymlink == 0 {
+			paths = append(paths, path)
+		}
+		return nil
+	})
+	return f.Holders(paths)
 }
 
 func (f fakeProcesses) AppRunning(name string) bool { return f.running[name] }
@@ -368,7 +386,7 @@ func TestScan_ListsCodexThreadsFromTheNewestIndex(t *testing.T) {
   },
   {
     "kind": "terminal",
-    "label": "Open in Terminal",
+    "label": "Resume in Terminal",
     "command": "cd '/tmp/it'\\''s' && codex resume `+terminal+`"
   }
 ]` {

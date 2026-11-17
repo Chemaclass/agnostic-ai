@@ -217,3 +217,21 @@ go tool pprof -top /absolute/path/agnostic-ai /absolute/path/staged-comment.prof
 ```
 
 The profile command returns nonzero for expected failure cases. Keep its actual exit status and use profiles outside the fixture; profiling overhead does not belong in latency samples. Compare the unchanged and comment controls before attributing cost to historical rendering. If CPU samples leave most elapsed time unexplained, capture bounded Git subprocess and filesystem stage timings before choosing an optimization. The safe boundaries are `enterAgainstTree`, `sameInputs`, `renderRef`, `checkoutPaths`, recollection and cleanup in `internal/cli/sync_against.go`. Full local and operating-system checks remain required for a later implementation touching these paths.
+
+## Which process holds a thread
+
+`BenchmarkHolders` in `internal/conversations/holders_bench_test.go` measures how a scan asks which Codex thread locks and `cursor-agent` chat stores a running process holds. It needs `lsof`, writes a folder of old locks plus 20 recent ones, and holds one old lock open itself:
+
+- `cutoff`: the locks written in the last week, named to `lsof`. It misses the old held lock, so an old open thread showed as closed.
+- `per-file`: every lock named to `lsof`, 128 at a time.
+- `under-folder`: one `lsof +D` run over the folder, then a check that `lsof` could reach each lock: one `lstat` per lock and one open per folder. This is what the scan uses since [#3527](https://github.com/Chemaclass/agnostic-ai/issues/3527).
+
+Measured 2026-11-17 on an Apple silicon Mac, `-benchtime 5x`, in milliseconds per scan:
+
+| Old locks | cutoff | per-file | under-folder |
+|---:|---:|---:|---:|
+| 100 | 119 | 133 | 114 |
+| 1,000 | 115 | 1,074 | 123 |
+| 5,000 | 115 | 5,352 | 172 |
+
+Each `lsof` run costs about 120 ms whatever it is asked, because it reads every process. Naming files only adds runs. One folder read stays near the cost of the old cutoff and still finds a held lock of any age. The reach check alone costs about 6 ms for 5,020 locks.

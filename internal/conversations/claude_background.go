@@ -34,7 +34,7 @@ func openClaudeBackground(ctx context.Context, c Conversation, processes Process
 		return OpenReply{Message: fmt.Sprintf("It runs as a Claude Code background session, and the terminals that show it could not be looked for (%v). Run this command in a terminal.", err), Command: command}
 	}
 	if viewer, ok := attachedViewer(table, processes, job); ok {
-		reply := switchToHost(ctx, viewerFolder(viewer, processes), viewer, launcher)
+		reply := switchToHost(ctx, viewerFolder(viewer, processes), viewer, launcher, "")
 		// claude attach starts no second copy, so a switch that did not
 		// show the session still offers it.
 		if !reply.Opened {

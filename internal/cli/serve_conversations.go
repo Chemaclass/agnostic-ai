@@ -83,6 +83,7 @@ var deleteRefusalStatus = map[conversations.DeleteRefusal]int{
 	conversations.DeleteNotArchived: http.StatusConflict,
 	conversations.DeleteRunning:     http.StatusConflict,
 	conversations.DeleteChanged:     http.StatusConflict,
+	conversations.DeleteUnread:      http.StatusConflict,
 	conversations.DeleteUnsupported: http.StatusUnprocessableEntity,
 	conversations.DeleteFailed:      http.StatusInternalServerError,
 }
