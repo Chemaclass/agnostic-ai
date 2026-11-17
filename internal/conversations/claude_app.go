@@ -231,7 +231,9 @@ func queryName(query claudeAppQuery) string {
 }
 
 // claudeChatsOf returns the chats of the sidebar's list: the paged one
-// that holds every chat not archived, starred or not.
+// that holds every chat not archived, starred or not. The app keeps no
+// list of archived chats on this machine (none was cached on
+// 2026-11-17), so a chat archived in the app leaves this list.
 func claudeChatsOf(query claudeAppQuery) []claudeChat {
 	key := query.QueryKey
 	if len(key) != 4 {
@@ -286,13 +288,15 @@ func answering(status json.RawMessage) bool {
 
 func (s *Scanner) claudeCoworkRow(task claudeCowork) (Conversation, bool) {
 	updated := timeFromMillis(int64(task.LastActivityAt))
-	if task.IsArchived || !claudeCoworkIDPattern.MatchString(task.SessionID) || updated == "" {
+	if !claudeCoworkIDPattern.MatchString(task.SessionID) || updated == "" {
 		return Conversation{}, false
 	}
+	// The app keeps no time for when a task was archived.
 	c := Conversation{
 		Tool: ToolClaude, App: AppCowork, ID: task.SessionID, Folder: task.Cwd,
 		StartedAt: timeFromMillis(int64(task.CreatedAt)), UpdatedAt: updated,
-		Open: Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://claude.ai/cowork/" + task.SessionID},
+		Open:        Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://claude.ai/cowork/" + task.SessionID},
+		appArchived: task.IsArchived,
 	}
 	if task.IsRunning {
 		c.Live, c.Activity = true, ActivityWorking

@@ -41,14 +41,18 @@ type codexThread struct {
 	FirstUserMessage string `json:"first_user_message"`
 	// RolloutPath is the file Codex appends the thread's events to.
 	RolloutPath string `json:"rollout_path"`
+	// Archived is 1 for a thread archived in Codex, and ArchivedAt is
+	// when, in seconds since 1970, or 0 when Codex kept no time.
+	Archived   int   `json:"archived"`
+	ArchivedAt int64 `json:"archived_at"`
 }
 
 const codexThreadsQuery = `SELECT id, cwd, created_at_ms, updated_at_ms, coalesce(originator, '') AS originator,
   coalesce(source, '') AS source, coalesce(git_branch, '') AS git_branch, coalesce(name, '') AS name,
   coalesce(title, '') AS title, coalesce(first_user_message, '') AS first_user_message,
-  coalesce(rollout_path, '') AS rollout_path
+  coalesce(rollout_path, '') AS rollout_path, archived, coalesce(archived_at, 0) AS archived_at
 FROM threads
-WHERE thread_source = 'user' AND archived = 0
+WHERE thread_source = 'user'
 ORDER BY updated_at_ms DESC`
 
 type codexLastPrompt struct {
@@ -116,6 +120,10 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		c := Conversation{
 			Tool: ToolCodex, ID: thread.ID, Folder: thread.Cwd, Branch: thread.GitBranch,
 			StartedAt: timeFromMillis(thread.CreatedAtMs), UpdatedAt: timeFromMillis(thread.UpdatedAtMs),
+			appArchived: thread.Archived == 1,
+		}
+		if thread.ArchivedAt > 0 {
+			c.appArchivedAt = time.Unix(thread.ArchivedAt, 0)
 		}
 		textsOf[thread.ID] = texts{title: firstNonEmpty(thread.Name, thread.Title), firstPrompt: thread.FirstUserMessage, lastPrompt: lastPrompts[thread.ID]}
 		codexRoute(&c, thread, editor)

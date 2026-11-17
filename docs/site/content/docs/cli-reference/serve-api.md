@@ -149,14 +149,34 @@ Each row has a `state`, the first of these that holds:
 
 1. `blocked`: open, and its tool says it waits for you.
 2. `working`: open, and its tool says the agent is busy.
-3. `completed`: you marked it completed. It holds until something is written or its tool says the agent is working.
-4. `unread`: written after you last saw it.
-5. `active`: open, or written in the last 24 hours when the server cannot tell whether it is closed.
-6. `dormant`: closed, or quiet for longer than 24 hours.
+3. `dormant`, when its own app archived it. See "Chats archived in their app" below.
+4. `completed`: you marked it completed. It holds until something is written or its tool says the agent is working.
+5. `unread`: written after you last saw it.
+6. `active`: open, or written in the last 24 hours when the server cannot tell whether it is closed.
+7. `dormant`: closed, or quiet for longer than 24 hours.
 
 The server knows a chat is closed for local Claude Code and Codex sessions started in a terminal, and for `cursor-agent` chats, on macOS and Linux: no process holds them. Such a chat is `dormant` as soon as you have seen its last write. Cursor editor chats, editor and desktop app sessions, cloud sessions, and every chat on Windows keep the 24 hours. So do Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps` or `lsof` failed.
 
 The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold. Such a row carries `quietSince`, and the web interface and the companion show "No activity for 7m" instead of "Waiting for you".
+
+Chats archived in their app:
+
+A chat you archived in its own app is listed as `dormant`, the state the companion and the web interface show under Archived. The server reads the app's own archive flag on each read and writes nothing to `conversation-marks.json`, so un-archiving it in the app brings it back.
+
+| Chat | Archived in its app |
+|------|---------------------|
+| Codex thread | Listed as archived. Codex keeps the time it archived the thread. |
+| Cursor editor chat | Listed as archived. Cursor keeps no time for the archive. |
+| Claude Cowork task | Listed as archived. The app keeps no time for the archive. |
+| Claude chat | Not listed. The Claude app keeps only the chats that are not archived on this computer. |
+| ChatGPT chat | Not known. The ChatGPT app's chat list keeps no archive flag. |
+| `cursor-agent` chat | Not known. `cursor-agent` keeps no archive flag. |
+
+- The archive holds until something is written in the chat after it, or its tool says the agent is working, as an archive mark of your own does. The chat then shows by its usual state, even while its app still says archived. Un-archiving and archiving it again in the app starts a new archive.
+- A write counts when it comes after the app's archive time, compared in whole seconds. When the app keeps no time, it counts when it comes after the last write the server saw when it first read the chat as archived.
+- The server keeps that first write, and whether a write or work ended the archive, in memory only. A restarted server starts again from what the app says.
+- `blocked` and `working` come first, as they do for your own archive.
+- A tool's `count` includes its archived chats.
 
 Marks:
 

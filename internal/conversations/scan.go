@@ -109,6 +109,9 @@ type Scanner struct {
 	// sharedClouds maps the mark key of each shared row of the last read
 	// to the cloud id it took in, so a mark on it reaches both.
 	sharedClouds map[string]string
+	// appArchives holds, by mark key, the conversations their own app
+	// keeps archived; see stillAppArchived.
+	appArchives map[string]appArchive
 
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
