@@ -1,6 +1,7 @@
 package conversations
 
 import (
+	"encoding/json"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -83,6 +84,18 @@ type toolInput struct {
 	URL          string `json:"url"`
 }
 
+// callInput reads the fields callDetails needs from the input of a
+// tool it lists. Another tool's input is never read: an MCP tool may
+// send a "command" that is no string. An input of another shape than
+// the tool's own gives no detail.
+func callInput(tool string, raw json.RawMessage) toolInput {
+	var input toolInput
+	if _, listed := callDetails[tool]; !listed || json.Unmarshal(raw, &input) != nil {
+		return toolInput{}
+	}
+	return input
+}
+
 // detailSource picks the input field a detail is read from.
 type detailSource func(toolInput) string
 
@@ -113,7 +126,9 @@ const mcpDetailRunes = 40
 
 // leadingCd is a first step that only changes folder, as in
 // "cd /Users/me/app && make test": the row shows the step after it.
-var leadingCd = regexp.MustCompile(`^cd\s+("[^"]*"|'[^']*'|\S+)\s*(&&|;)\s*`)
+// The folder stops at a shell separator, so "cd /tmp;./deploy" keeps
+// "./deploy".
+var leadingCd = regexp.MustCompile(`^cd\s+("[^"]*"|'[^']*'|[^\s;&|]+)\s*(&&|;)\s*`)
 
 // commandStart is the first words of a command that fit in about
 // commandRunes, with "…" when words were cut, after a leading cd step.

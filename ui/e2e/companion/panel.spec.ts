@@ -855,6 +855,11 @@ test('a pending approval takes the reply line\'s place, and the reply moves to t
   await expect(mcp.locator('.approval')).toHaveText('Approve Notion fetch')
   await expect(mcp.locator('.approval-code')).toHaveCount(0)
   await expect(mcp).not.toContainText('bfe9f18c')
+  // A long detail stays inside the row, cut with an ellipsis, and reads whole on hover.
+  await expect(mcp.locator('.approval')).toHaveAttribute('title', 'Approve Notion fetch')
+  await mcp.locator('.approval-label').evaluate((element) => { element.textContent = 'Approve Google Calendar list events in every calendar' })
+  const fits = await mcp.locator('.approval').evaluate((pill) => pill.getBoundingClientRect().right <= pill.closest('.text')!.getBoundingClientRect().right + 0.5)
+  expect(fits).toBe(true)
 })
 
 test('a permission whose call is unknown shows a lock, and a question keeps its reply line', async ({ page }) => {

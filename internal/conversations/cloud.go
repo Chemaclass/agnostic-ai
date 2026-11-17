@@ -174,7 +174,7 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 	rows := make([]Conversation, 0, len(shown))
 	for _, c := range shown {
 		if c.Live && now.Sub(lastWritten(c)) >= cloudLiveSpan {
-			c.Live, c.Activity = false, ""
+			c.Live, c.Activity, c.Waiting = false, "", nil
 		}
 		s.fill(&c, texts{title: c.Title})
 		c.readAt = shownAt

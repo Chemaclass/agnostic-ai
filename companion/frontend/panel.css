@@ -728,13 +728,18 @@ body {
   height: 11px;
 }
 
-.approval-label {
-  flex: none;
+.approval-label,
+.approval-code {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .approval-code {
-  min-width: 0;
-  overflow: hidden;
+  /* The detail gives way before "Approve edit" beside it. */
+  flex-shrink: 100;
   text-overflow: ellipsis;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;

@@ -294,6 +294,8 @@ function rowOf(conversation, order, folderNames, under) {
 function approvalLine(approval) {
   const line = element('div', 'reply is-approval')
   const pill = element('span', 'approval is-' + approval.icon)
+  // A long detail is cut on screen; the whole pill reads on hover.
+  pill.title = approval.text
   pill.append(icon(approval.icon, '0 0 16 16'), element('span', 'approval-label', approval.label))
   // The space is for screen readers and copied text; the pill's gap spaces the words on screen.
   if (approval.code) pill.append(' ', element('code', 'approval-code', approval.code))

@@ -437,7 +437,7 @@ func TestScan_BelievesACloudStatusForADayAfterItsLastWrite(t *testing.T) {
 	scanner.Now = func() time.Time { return at }
 	waiting := func(id, updated string) Conversation {
 		c := cloudRow(id, "Add a test", updated)
-		c.Live, c.Activity = true, ActivityWaiting
+		c.Live, c.Activity, c.Waiting = true, ActivityWaiting, &waitingOn{For: waitPermission}
 		return c
 	}
 	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
@@ -455,8 +455,11 @@ func TestScan_BelievesACloudStatusForADayAfterItsLastWrite(t *testing.T) {
 	if fresh := byID(t, view, "cse_fresh"); fresh.State != StateBlocked {
 		t.Errorf("a session that asked half an hour ago: state %s", fresh.State)
 	}
-	if stale := byID(t, view, "cse_stale"); stale.Live || stale.State != StateDormant {
-		t.Errorf("a session that asked four weeks ago: live %t, state %s; want it archived", stale.Live, stale.State)
+	if stale := byID(t, view, "cse_stale"); stale.Live || stale.State != StateDormant || stale.Waiting != nil {
+		t.Errorf("a session that asked four weeks ago: live %t, state %s, waiting %s; want it archived, waiting for nothing", stale.Live, stale.State, asJSON(t, stale.Waiting))
+	}
+	if fresh := byID(t, view, "cse_fresh"); fresh.Waiting == nil {
+		t.Error("a session that asked half an hour ago lost what it waits for")
 	}
 
 	// Opening it is looking at it: it leaves the count until it writes again.

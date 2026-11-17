@@ -115,12 +115,26 @@ type claudeBlock struct {
 	// ID names a tool call; ToolUseID names the call a result answers.
 	ID        string `json:"id"`
 	ToolUseID string `json:"tool_use_id"`
-	Input     struct {
-		Questions []struct {
-			Question string `json:"question"`
-		} `json:"questions"`
-		toolInput
-	} `json:"input"`
+	// Input is a tool call's input, read only for the tools whose shape
+	// is known: any tool, such as an MCP server's, may send any shape.
+	Input json.RawMessage `json:"input"`
+}
+
+// askedQuestions is the input of an AskUserQuestion call.
+type askedQuestions struct {
+	Questions []struct {
+		Question string `json:"question"`
+	} `json:"questions"`
+}
+
+// firstQuestion is the first question an AskUserQuestion call asks, or
+// "" when its input holds none.
+func (block claudeBlock) firstQuestion() string {
+	var input askedQuestions
+	if json.Unmarshal(block.Input, &input) != nil || len(input.Questions) == 0 {
+		return ""
+	}
+	return input.Questions[0].Question
 }
 
 // visit reads one line. Only the agent's own text counts: tool calls,
@@ -142,13 +156,13 @@ func (r *claudeReplies) visit(line claudeLine) {
 		var parts []string
 		for _, block := range blocks {
 			if block.Type == "tool_use" && block.ID != "" {
-				r.pending = append(r.pending, toolCall{id: block.ID, name: block.Name, input: block.Input.toolInput})
+				r.pending = append(r.pending, toolCall{id: block.ID, name: block.Name, input: callInput(block.Name, block.Input)})
 			}
 			switch {
 			case block.Type == "text" && strings.TrimSpace(block.Text) != "":
 				parts = append(parts, block.Text)
-			case block.Type == "tool_use" && block.Name == "AskUserQuestion" && len(block.Input.Questions) > 0:
-				r.asked = block.Input.Questions[0].Question
+			case block.Type == "tool_use" && block.Name == "AskUserQuestion" && block.firstQuestion() != "":
+				r.asked = block.firstQuestion()
 			}
 		}
 		if len(parts) > 0 {
@@ -156,6 +170,12 @@ func (r *claudeReplies) visit(line claudeLine) {
 		}
 	case "user":
 		r.answered(line.Message.Content)
+		if line.fromPerson() && len(r.pending) > 0 {
+			// A new prompt starts a new turn: no call of an older one waits.
+			if text, typed := claudeContentText(line.Message.Content); typed && typedText(text) != "" {
+				r.pending = nil
+			}
+		}
 		if !line.fromPerson() || (r.asked == "" && r.known && r.message == "") {
 			return
 		}
@@ -167,8 +187,6 @@ func (r *claudeReplies) visit(line claudeLine) {
 		}
 		if typedText(text) != "" {
 			r.message, r.asked, r.known = "", "", true
-			// A new prompt starts a new turn: no call of an older one waits.
-			r.pending = nil
 		}
 	}
 }

@@ -21,6 +21,8 @@ func TestApprovalOf_NamesWhatEachToolCallActsOn(t *testing.T) {
 			waitingOn{For: waitPermission, Tool: "Bash", Detail: "make lint && make test"}},
 		{"a leading cd step is left out", toolCall{name: "Bash", input: toolInput{Command: "cd /Users/you/Code/kombo-webhooks-v2/apps/engine && mise x -- pnpm typecheck"}},
 			waitingOn{For: waitPermission, Tool: "Bash", Detail: "mise x -- pnpm typecheck"}},
+		{"a cd step joined with a semicolon keeps every later step", toolCall{name: "Bash", input: toolInput{Command: "cd /tmp;./deploy-prod;echo done"}},
+			waitingOn{For: waitPermission, Tool: "Bash", Detail: "./deploy-prod;echo done"}},
 		{"a command that is only a cd keeps it", toolCall{name: "Bash", input: toolInput{Command: "cd /tmp"}},
 			waitingOn{For: waitPermission, Tool: "Bash", Detail: "cd /tmp"}},
 		{"a short first word before a long one is cut inside the long one", toolCall{name: "Bash", input: toolInput{Command: "cat /Users/you/Code/an-organisation/a-repo/README.md"}},
@@ -86,8 +88,10 @@ func TestScan_SaysWhatALiveClaudeSessionWaitsFor(t *testing.T) {
 		idAnswered   = "a4444444-4444-4444-8444-444444444444"
 		idTwoCalls   = "a5555555-5555-4555-8555-555555555555"
 		idSeenBefore = "a6666666-6666-4666-8666-666666666666"
+		idCallsOnly  = "a7777777-7777-4777-8777-777777777777"
+		idMCPShape   = "a8888888-8888-4888-8888-888888888888"
 	)
-	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 6: true}})
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true}})
 	project := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app")
 	prompt := obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-07T08:00:00.000Z", "message": obj{"role": "user", "content": "Ship it"}}
 	said := func(text string, calls ...obj) obj {
@@ -107,7 +111,14 @@ func TestScan_SaysWhatALiveClaudeSessionWaitsFor(t *testing.T) {
 	write(t, filepath.Join(project, idAnswered+".jsonl"), lines(prompt, said("Checking.", bash("call-1", "git status")), result("call-1"), said("Clean.")))
 	write(t, filepath.Join(project, idTwoCalls+".jsonl"), lines(prompt, said("Two steps.", bash("call-1", "make test"), bash("call-2", "git push")), result("call-1")))
 	write(t, filepath.Join(project, idSeenBefore+".jsonl"), lines(prompt, said("Old step.", bash("call-1", "rm -rf build")), prompt, said("New turn.")))
+	callsOnly := obj{"type": "assistant", "timestamp": "2026-11-07T08:01:00.000Z", "message": obj{"role": "assistant", "content": []obj{bash("call-1", "rm -rf build")}}}
+	write(t, filepath.Join(project, idCallsOnly+".jsonl"), lines(prompt, callsOnly, prompt))
+	// An MCP tool may send a "command" that is no string: the message and its call still count.
+	mcp := obj{"type": "tool_use", "id": "call-1", "name": "mcp__claude_ai_Notion__notion-fetch", "input": obj{"command": []string{"fetch", "page"}, "url": obj{"id": 1}}}
+	write(t, filepath.Join(project, idMCPShape+".jsonl"), lines(prompt, said("Fetching the page.", mcp)))
 	sessions := filepath.Join(stores.ClaudeDir, "sessions")
+	write(t, filepath.Join(sessions, "7.json"), `{"pid":7,"sessionId":"`+idCallsOnly+`","status":"waiting","waitingFor":"permission prompt"}`)
+	write(t, filepath.Join(sessions, "8.json"), `{"pid":8,"sessionId":"`+idMCPShape+`","status":"waiting","waitingFor":"permission prompt"}`)
 	write(t, filepath.Join(sessions, "1.json"), `{"pid":1,"sessionId":"`+idPermission+`","status":"waiting","waitingFor":"permission prompt"}`)
 	write(t, filepath.Join(sessions, "2.json"), `{"pid":2,"sessionId":"`+idQuestion+`","status":"waiting","waitingFor":"input needed"}`)
 	write(t, filepath.Join(sessions, "3.json"), `{"pid":3,"sessionId":"`+idDialog+`","status":"waiting","waitingFor":"dialog open"}`)
@@ -142,6 +153,18 @@ func TestScan_SaysWhatALiveClaudeSessionWaitsFor(t *testing.T) {
 		idSeenBefore: `{
   "for": "permission"
 }`,
+		// Also when the agent said nothing but the call before that prompt.
+		idCallsOnly: `{
+  "for": "permission"
+}`,
+		idMCPShape: `{
+  "for": "permission",
+  "tool": "mcp__claude_ai_Notion__notion-fetch",
+  "detail": "Notion fetch"
+}`,
+	}
+	if reply := byID(t, view, idMCPShape).Reply; reply != "Fetching the page." {
+		t.Errorf("the reply beside an MCP call of any shape = %q", reply)
 	}
 	for id, wantJSON := range want {
 		if got := asJSON(t, byID(t, view, id).Waiting); got != wantJSON {
