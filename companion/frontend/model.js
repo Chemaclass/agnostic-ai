@@ -361,8 +361,13 @@ export function rowTooltipOf(conversation, now) {
   if (quiet) lines.push(quiet)
   const reply = replyOf(conversation)
   if (reply && approvalOf(conversation)) lines.push(reply)
-  if (conversation.unread) lines.push(CLOSED_UNREAD)
+  if (conversation.unread) lines.push(conversation.state === 'active' ? RESUMED_UNREAD : CLOSED_UNREAD)
   return lines.join('\n')
+}
+
+/** The rows with an unread marker a group shows: none while it is folded, so marking them all read never reaches a reply nobody saw. */
+export function unreadShownOf(group, folded) {
+  return folded ? [] : group.rows.filter((conversation) => conversation.unread === true)
 }
 
 /** What a group header adds for its rows with an unread marker, such as "2 unread", so a folded Archived still shows them; undefined when none. */
@@ -373,6 +378,8 @@ export function unreadLabelOf(rows) {
 
 /** What an archived chat's marker says: it closed after a reply the person has not read. It does not count as needing them. */
 export const CLOSED_UNREAD = 'Closed with a reply you have not read'
+/** What a resumed chat's marker says: it is open again, with a reply from before the person has not read. */
+export const RESUMED_UNREAD = 'Resumed with a reply from before that you have not read'
 
 /**
  * The one action a row offers: hide a chat that is archived, archive one that

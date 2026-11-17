@@ -1149,11 +1149,12 @@ test('the send shortcut with nothing copied says so and opens no pick mode', asy
   expect(await calledPaths(page)).not.toContain('/api/send')
 })
 
-test('a folded Archived names its chat that closed unread, and Mark all as read clears the marker', async ({ page }) => {
+test('a folded Archived names its chat that closed unread, and Mark all as read, shown once unfolded, clears the marker', async ({ page }) => {
   await openPanel(page, 'closed-unread')
   const archived = groupTitle(page, 'Archived')
   await expect(archived).toHaveAttribute('aria-expanded', 'false')
   await expect(archived).toContainText('1 unread')
+  await expect(page.locator('.group-head').filter({ hasText: 'Archived' }).getByRole('button', { name: 'Mark all as read' })).toHaveCount(0)
   await archived.click()
   const closed = row(page, 'Port the billing job')
   await expect(closed).toHaveAttribute('title', /Closed with a reply you have not read/)
