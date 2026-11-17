@@ -26,7 +26,7 @@ test.describe('landing', () => {
     const panel = page.locator('section.context-usage')
     const budget = panel.locator('.context-budget')
     await expect(budget).toContainText('184 of 2,000 words at startup')
-    await expect(budget.getByRole('link', { name: 'Change budget' })).toHaveAttribute('href', 'https://agnostic-ai.org/docs/configuration/#lint')
+    await expect(budget.getByRole('link', { name: 'Change budget' })).toHaveAttribute('href', 'https://agnostic-ai.org/docs/configuration-reference/#lint')
     await expect(page.getByRole('region', { name: 'Next' })).toHaveCount(0)
     await expect(panel.locator('.context-summary')).not.toContainText(/token|faster|cheaper|context window|lint/i)
     const method = panel.locator('.context-usage-method')

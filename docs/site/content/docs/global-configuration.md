@@ -97,7 +97,7 @@ Global specs never merge with project specs. When both exist, each tool decides 
 - Hooks, skills, and settings honor `target`, `targets`, and `targets-exclude`.
 - A settings spec routed away from a tool sets none of its values there and does not override an earlier spec.
 - Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged, so set those per target ([portable hooks](@/docs/spec-format/hook-reference.md#portable-events)).
-- Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter ([skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target), including OpenCode V2).
+- Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter ([skill invocation support](@/docs/spec-format/skills-reference.md#disable-model-invocation-support-by-target), including OpenCode V2).
 - Kilo inline shell placeholders pass the syntax check at documented trusted user destinations ([Kilo shell commands](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) covers approval, scope, and the kill switch).
 - Copilot: `import --global copilot` adopts matching handlers from neighboring user JSON files ([Copilot hooks](@/docs/targets/copilot-reference.md)).
 - Cline: the VS Code extension does not read the hooks sync writes ([Cline global hooks](@/docs/targets/cline.md#global-hooks)).

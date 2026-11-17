@@ -24,7 +24,7 @@ export const DOC_TOPICS: Record<string, DocTopic> = {
   permissions: { path: '/docs/spec-format/settings/#permission-rules', label: 'permission rules' },
   config: { path: '/docs/configuration/', label: 'configuration files' },
   usage: { path: '/docs/cli-reference/inspect/#rank-context-contributions', label: 'context size' },
-  budget: { path: '/docs/configuration/#lint', label: 'context budgets' },
+  budget: { path: '/docs/configuration-reference/#lint', label: 'context budgets' },
   support: { path: '/docs/target-behavior/', label: 'coding tool support' },
   findings: { path: '/docs/cli-reference/check/', label: 'configuration checks' },
   editor: { path: '/docs/cli-reference/serve/#serve', label: 'opening files in an editor' },

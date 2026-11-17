@@ -119,7 +119,7 @@
     "src/model/conversations.ts": "b3689617cefba1a48bcc1722a12c5297641e75209ab4a7e893f134d0dde25217",
     "src/model/counts.ts": "3137b095f150c43814ccabc931124cfbff4d22da0c0368d94b5b7c14b5ccac4b",
     "src/model/documentation.test.ts": "48f4a8c5c5836e0f1647346d607815aa46ecebd3e8a83dd3809c4ba9286e49c3",
-    "src/model/documentation.ts": "13960f65726656481c759d3f6596795348ed1fa9703ebdedb957beb0b48a9de7",
+    "src/model/documentation.ts": "861bff0b4a5045eed61c00ecc85ca4a1be9635e75034afb7d395eb6056518f90",
     "src/model/edit-audience.test.ts": "3ea16392c6e873c401bcc0b037e6483f9667bd8b076a56d043273e66a8b8fc8d",
     "src/model/edit-audience.ts": "e3348211d9cf2a9c0619399f49af9a9277081c93e13203613022bdce5a0dbdd9",
     "src/model/editor.test.ts": "24fe26509988b880bea6889047af39f62f4eae0e018a5ab47c5f6a4b4fe7b2c1",
@@ -196,11 +196,11 @@
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
     "assets/index-B1ZoesXR.css": "72f2623c151d496f8a7da48564a363257c7480dc2f78fe82102996359b0d22d5",
-    "assets/index-xaaGA9Ms.js": "b5883706386b1dc87225d665f9d566728d457e84c9c517eb8fc815b813b8035c",
+    "assets/index-DVRZb2Cf.js": "381d5b97bcd834c81fe86ffbc1249e8182c8e44dd61f651eb3eabe654cdf15f8",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Dctt5Oa6.js": "a36fc295ab1fbd2d0811dc368cde86160140109144d01352755073570a3de032",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "2f492a710f5e6f3dc5272c6562208579210ed3ac5fe825ead8bb3c04116b936c",
+    "index.html": "9bb15ece719c20b896bf04e3e6029a95b3d3b6392d4219132d2300916f1615bb",
     "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }
