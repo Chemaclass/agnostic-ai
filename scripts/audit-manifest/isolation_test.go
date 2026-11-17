@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,6 +26,9 @@ func TestIsolatedAuditSurvivesSourceCheckoutChanges(t *testing.T) {
 	covered(t, isolated, run, false)
 	call(t, isolated, "finalize", run)
 	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit", filepath.Base(run), "audit.json")); err != nil {
+		t.Error(err)
+	}
+	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit/go.mod")); err != nil {
 		t.Error(err)
 	}
 	lock, err := os.ReadFile(a.lock)
@@ -132,4 +136,69 @@ func TestIsolatedAuditResumesWithinSameWorktree(t *testing.T) {
 	fetched(t, isolated, next, "changed")
 	call(t, isolated, "resume", next, prior)
 	call(t, isolated, "finalize", next)
+}
+
+func TestStartKeepsSavedGoEvidenceOutOfTheCheckoutModule(t *testing.T) {
+	a, _ := fixture(t)
+	for name, body := range map[string]string{"go.mod": "module example.test/checkout\n\ngo 1.21\n", "main.go": "package main\n\nfunc main() {}\n"} {
+		if err := os.WriteFile(filepath.Join(a.root, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run := call(t, a, "start", "--builtins-since", "HEAD")
+	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit/go.mod")); err != nil {
+		t.Fatal(err)
+	}
+	evidence := filepath.Join(run, "crush-evidence")
+	if err := os.MkdirAll(evidence, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, pkg := range map[string]string{"a.go": "agent", "b.go": "config"} {
+		if err := os.WriteFile(filepath.Join(evidence, name), []byte("package "+pkg+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command("go", "list", "./...")
+	cmd.Dir = a.root
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOWORK=off", "GOTOOLCHAIN=local", "GOMODCACHE="+t.TempDir(), "GOCACHE="+t.TempDir())
+	out, err := cmd.CombinedOutput()
+	if err != nil || strings.TrimSpace(string(out)) != "example.test/checkout" {
+		t.Fatalf("go list ./...: %v\n%s", err, out)
+	}
+}
+
+func TestStartKeepsAnExistingEvidenceGoMod(t *testing.T) {
+	a, _ := fixture(t)
+	path := filepath.Join(a.root, "local/target-audit/go.mod")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want := "module mine\n\ngo 1.27\n"
+	if err := os.WriteFile(path, []byte(want), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	call(t, a, "start", "--builtins-since", "HEAD")
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Errorf("go.mod = %q, want %q", got, want)
+	}
+}
+
+func TestStartWritesTheEvidenceGoModForAnExplicitRunInsideIt(t *testing.T) {
+	a, _ := fixture(t)
+	call(t, a, "start", "--builtins-since", "HEAD", "--out", filepath.Join(a.root, "local/target-audit/named-run"))
+	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit/go.mod")); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestStartLeavesTheEvidenceFolderAloneForARunOutsideIt(t *testing.T) {
+	a, _ := fixture(t)
+	call(t, a, "start", "--builtins-since", "HEAD", "--out", filepath.Join(t.TempDir(), "run"))
+	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit")); !os.IsNotExist(err) {
+		t.Errorf("evidence folder created: %v", err)
+	}
 }

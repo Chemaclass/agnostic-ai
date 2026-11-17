@@ -39,7 +39,7 @@ scripts/docfetch.sh --out "$run" claude zed
 "$audit_tools/audit-manifest" capture "$run"
 ```
 
-Omit the target arguments from both commands to audit every registered target. `start` prints a unique run directory under ignored `local/target-audit/`. `--out <directory>` selects another fresh directory, either outside the checkout or ignored by Git. An existing directory is rejected. A new invocation always starts a new run and fetches every requested source fresh.
+Omit the target arguments from both commands to audit every registered target. `start` prints a unique run directory under ignored `local/target-audit/`. `start` also writes a `go.mod` there, so Go commands in the checkout skip saved `.go` evidence. `--out <directory>` selects another fresh directory, either outside the checkout or ignored by Git. An existing directory is rejected. A new invocation always starts a new run and fetches every requested source fresh.
 
 The manifest fixes the requested targets and target-kind-URL source set before any fetch returns. It records all registered source owners, the source-list digest, audited commit and repository file digest (including working changes and built-in assets), the resolved built-in baseline, saved built-in inventory and exact source-lock baseline. `requested-targets.txt` also lets `target-facts --changed` preserve requested targets when a fetch row is missing.
 
