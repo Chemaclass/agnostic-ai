@@ -158,7 +158,7 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	switch {
 	case c.Live && c.Activity == ActivityWaiting && (seenAt.IsZero() || written.After(seenAt)):
 		return StateBlocked
-	case c.Live && c.Activity == ActivityWorking:
+	case workingNow(c):
 		return StateWorking
 	case !completedAt.IsZero() && !written.After(completedAt):
 		return StateCompleted
@@ -169,6 +169,10 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	default:
 		return StateDormant
 	}
+}
+
+func workingNow(c Conversation) bool {
+	return (c.Live && c.Activity == ActivityWorking) || (c.WorkingSubagents != nil && *c.WorkingSubagents > 0)
 }
 
 // needsPerson reports whether a state counts toward View.NeedsYou.
@@ -212,7 +216,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			key := markKey(c.Tool, c.ID)
 			entry := file.Marks[key]
 			written := lastWritten(c)
-			working := c.Live && c.Activity == ActivityWorking
+			working := workingNow(c)
 			if lifted(entry.CompletedAt, written, working, c.readAt) {
 				entry.CompletedAt = ""
 				file.Marks[key] = entry

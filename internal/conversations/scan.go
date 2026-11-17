@@ -93,6 +93,8 @@ type Scanner struct {
 
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
+	claudeWorkers     map[string]*claudeWorkerCache
+	codexWorkers      map[string]*nativeLog[codexWorkerTurn]
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[texts]
 	// cursorSlugs caches the folders each cursor-agent project slug
@@ -113,6 +115,9 @@ type Scanner struct {
 	// codexLiveRollouts are the rollouts of the Codex threads a process
 	// had loaded at the last read.
 	codexLiveRollouts []string
+	// Native Claude worker logs and their folders, including folders that do
+	// not exist yet, so a worker launch or completion invalidates the stamp.
+	claudeWorkerFiles []string
 	// cursorLiveTranscripts are the transcripts of the cursor-agent chats
 	// a process held at the last read.
 	cursorLiveTranscripts []string

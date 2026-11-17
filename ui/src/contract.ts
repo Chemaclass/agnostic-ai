@@ -918,6 +918,8 @@ export interface Conversation {
   activity?: ConversationActivity
   /** Set with a `waiting` activity that the server read from silence, not from the tool: when the tool last wrote. Local Codex never says it waits, so a turn that wrote nothing for five minutes is taken to wait. Absent for a wait the tool reported. */
   quietSince?: string
+  /** Native working subagents; omitted when activity cannot be established. */
+  workingSubagents?: number
   /** Absent from a server older than the marks. */
   state?: ConversationState
   /** When the person last saw it: opening it through the server, or a `seen` or `completed` mark. */

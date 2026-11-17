@@ -53,7 +53,7 @@ const GROUP_OF_STATE = {
   dormant: 'archived',
 }
 
-/** Why a row is where it is, said before the tool's name, only where its group header does not say it already. */
+/** Waiting needs a row-level reason; Working is named by its section. */
 const REASON_OF_STATE = {
   blocked: 'Waiting for you',
 }

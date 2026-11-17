@@ -960,4 +960,8 @@
 # #3512 measured 26357920 bytes locally (make size-check) once the review fixes check each tool's answer, lock a rename and stop the Codex app-server's programs; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 with desktop cache safeguards measured 26382496 bytes (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3512 with merged background-session support measured 26402976 bytes (make size-check); the budget is that plus 8192, rounded up to a multiple of 4096.
-26415104
+# The local desktop-chat stack, rename in each tool and native worker tracking (companion orbits) measured 26374304 bytes (make size-check, 2026-11-16); the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3513 measured 26390688 bytes locally (make size-check) after merging the rename and size fixes from #3511 and #3512; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3513 measured 26419360 bytes locally (make size-check) after the review fixes on #3511, #3512 and #3513; the budget is that plus 8192, rounded up to a multiple of 4096.
+# #3513 measured 26456224 bytes locally (make size-check) after merging #3512 rename support from main; the budget is that plus 8192, rounded up to a multiple of 4096.
+26468352

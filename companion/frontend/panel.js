@@ -101,6 +101,7 @@ const ICONS = {
   complete: 'M3 8.5l3 3 7-7.5',
   rename: 'M10.5 2.5l3 3-8 8h-3v-3zM8.5 4.5l3 3',
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
+  agents: 'M8 2.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4M4 13v-1a4 4 0 0 1 8 0v1M3 4a1.5 1.5 0 1 0 0 3M13 4a1.5 1.5 0 1 1 0 3M1 12v-1a3 3 0 0 1 2-2.8M15 12v-1a3 3 0 0 0-2-2.8',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
 
@@ -149,8 +150,48 @@ function actionButton(iconName, label, press) {
 /** The state's mark. Archived rows share one, however they got there. */
 const MARK_OF = { completed: 'archived', dormant: 'archived' }
 
+function workSystem() {
+  const system = element('span', 'work-system')
+  const cage = element('span', 'work-cage')
+  for (let orbit = 0; orbit < 5; orbit++) {
+    const track = element('span', 'work-orbit')
+    track.append(element('span', 'work-traveller'))
+    cage.append(track)
+  }
+  system.append(cage)
+  return system
+}
+
 function stateMark(conversation) {
-  return element('span', 'state is-' + (MARK_OF[conversation.state] ?? conversation.state))
+  // The row can be under Working because its children are busy. The parent's
+  // own dot still describes the parent, independently of those satellites.
+  let parentState = MARK_OF[conversation.state] ?? conversation.state
+  const childrenWork = conversation.state === 'working' && conversation.workingSubagents > 0
+  if (conversation.state === 'working' && conversation.activity === 'waiting') parentState = 'blocked'
+  // Codex leaves the activity out once the parent's turn ends, so only the
+  // parent's own working activity keeps its mark moving.
+  else if (childrenWork && conversation.activity !== 'working') parentState = 'active'
+  const mark = element('span', 'state is-' + parentState)
+  mark.setAttribute('aria-hidden', 'true')
+  if (parentState === 'working' || conversation.workingSubagents > 0) {
+    // Keep the mechanism's phase when a new reply or selection redraws the list.
+    mark.style.setProperty('--work-phase', `-${performance.now()}ms`)
+  }
+  if (parentState === 'working') {
+    mark.append(workSystem())
+  }
+  if (conversation.workingSubagents > 0) {
+    const workers = element('span', 'work-workers')
+    for (let worker = 0; worker < conversation.workingSubagents; worker++) {
+      const dot = element('span', 'work-worker')
+      dot.style.setProperty('--worker-angle', `${worker * 360 / conversation.workingSubagents}deg`)
+      dot.style.setProperty('--worker-radius', `${19 + (worker % 3) * 3}px`)
+      dot.append(workSystem())
+      workers.append(dot)
+    }
+    mark.append(workers)
+  }
+  return mark
 }
 
 function rowOf(conversation, order, folderNames, under) {
@@ -162,6 +203,7 @@ function rowOf(conversation, order, folderNames, under) {
   row.classList.toggle('is-quiet', quiet)
   row.classList.toggle('is-active', key === state.activeKey)
   row.classList.toggle('is-nested', under !== undefined)
+  row.classList.toggle('has-workers', conversation.workingSubagents > 0)
   row.dataset.key = key
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
@@ -189,6 +231,16 @@ function rowOf(conversation, order, folderNames, under) {
     const reason = reasonOf(conversation, now)
     if (reason) {
       meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
+    }
+    if (conversation.workingSubagents > 0) {
+      const count = conversation.workingSubagents
+      const workers = element('span', 'worker-count', String(count))
+      const description = `${count} working sub-agent${count === 1 ? '' : 's'}`
+      workers.title = description
+      workers.setAttribute('role', 'img')
+      workers.setAttribute('aria-label', description)
+      workers.append(icon('agents', '0 0 16 16'))
+      meta.append(workers, ' · ')
     }
     meta.append(detailsOf(conversation, now, folderNames))
     if (conversation.cloud) meta.title = SHARED_TITLE
@@ -257,6 +309,7 @@ function groupHead(group) {
   const title = element('button', 'group-title')
   title.type = 'button'
   title.classList.toggle('is-urgent', group.id === 'needs-you')
+  title.classList.toggle('is-working', group.id === 'working')
   title.setAttribute('aria-expanded', String(!folded))
   title.append(icon('chevron', '0 0 8 8'), group.title, element('span', 'count', String(group.rows.length)))
   title.firstChild.classList.add('chevron')
