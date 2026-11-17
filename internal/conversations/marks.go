@@ -2,7 +2,6 @@ package conversations
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -77,8 +76,10 @@ const marksSchemaVersion = "conversation-marks/v1"
 const maxMarksBytes = 8 << 20
 
 // marksFile is the person's marks on this machine. It holds tool
-// names, ids, times and the names the person gave conversations, never
-// the conversations' own text.
+// names, ids, times, the names the person gave conversations and the
+// paths of their stores and files, never the conversations' own text. A
+// Claude Code project folder's name spells the folder the session ran
+// in, and a Codex rollout outside CODEX_HOME is kept as a full path.
 type marksFile struct {
 	SchemaVersion string `json:"schemaVersion"`
 	// Since is the baseline: everything written up to it counts as seen.
@@ -86,6 +87,10 @@ type marksFile struct {
 	// started marking are not all unread.
 	Since string               `json:"since"`
 	Marks map[string]markEntry `json:"marks"`
+	// Stores maps each store a mark names to its folder; see pruneMarks.
+	Stores map[string]string `json:"stores,omitempty"`
+
+	extra unknownJSON
 }
 
 type markEntry struct {
@@ -103,6 +108,17 @@ type markEntry struct {
 	// Title is the name the person chose, shown over the tool's own. A
 	// new message keeps it.
 	Title string `json:"title,omitempty"`
+	// Source, Store and File say which store a complete read listed the
+	// conversation in and where its own data sits there; MissingSince and
+	// LastMissAt date the complete reads of that store that missed it.
+	// See pruneMarks.
+	Source       markSource `json:"source,omitempty"`
+	Store        string     `json:"store,omitempty"`
+	File         string     `json:"file,omitempty"`
+	MissingSince string     `json:"missingSince,omitempty"`
+	LastMissAt   string     `json:"lastMissAt,omitempty"`
+
+	extra unknownJSON
 }
 
 func markKey(tool Tool, id string) string { return string(tool) + ":" + id }
@@ -130,7 +146,7 @@ func readMarks(path string, now time.Time) (file marksFile, created bool, err er
 	if len(raw) > maxMarksBytes {
 		return marksFile{}, false, fmt.Errorf("conversation marks %s is larger than %d bytes", path, maxMarksBytes)
 	}
-	if err := json.Unmarshal(raw, &file); err != nil {
+	if err := decodeMarks(raw, &file); err != nil {
 		return marksFile{}, false, fmt.Errorf("conversation marks %s: %w", path, err)
 	}
 	if file.Marks == nil {
@@ -270,6 +286,9 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		} else {
 			err = lockErr
 		}
+	}
+	if err == nil && s.MarksPath != "" && s.pruneMarks(&file, results, now) {
+		changed = true
 	}
 	since := parseStamp(file.Since)
 	for r := range results {
@@ -503,6 +522,7 @@ func (s *Scanner) changeMarks(keys []string, change func(entry *markEntry, now s
 	for _, key := range keys {
 		entry := file.Marks[key]
 		change(&entry, stamp(now))
+		s.attributeMark(&file, key, &entry)
 		file.Marks[key] = entry
 	}
 	return writeMarks(s.MarksPath, file)

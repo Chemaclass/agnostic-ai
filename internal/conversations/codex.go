@@ -109,9 +109,14 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	rollouts := map[string]string{}
 	textsOf := map[string]texts{}
 	var execThreads []codexThread
+	held := make(map[string]string, len(threads))
 	for _, thread := range threads {
 		if !sessionIDPattern.MatchString(thread.ID) {
 			continue
+		}
+		held[thread.ID] = ""
+		if thread.RolloutPath != "" {
+			held[thread.ID] = inStore(s.Stores.CodexDir, thread.RolloutPath)
 		}
 		if codexExec(thread) {
 			execThreads = append(execThreads, thread)
@@ -168,6 +173,9 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 		notes = append(notes, "Codex runs started from Claude Code could not be linked to their session: "+string(unread.reason))
 	}
 	result.source.Note = strings.Join(notes, ". ")
+	if ctx.Err() == nil {
+		result.inventories = provenBy(sourceCodex, ToolCodex, s.Stores.CodexDir, held)
+	}
 	return result
 }
 
