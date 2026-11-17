@@ -1409,7 +1409,7 @@ test('the header has no clipboard button', async ({ page }) => {
   await expect(page.locator('.head').getByRole('button', { name: /copied text/i })).toHaveCount(0)
 })
 
-test('in pick mode Enter waits for a search to answer, then goes to the first row it offers', async ({ page }) => {
+test('in pick mode Enter does nothing while a search is on its way, and its answer selects a row it offers', async ({ page }) => {
   await openPanel(page)
   await page.route('**/api/inbox?q=*', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 800))
