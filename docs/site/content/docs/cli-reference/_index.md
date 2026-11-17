@@ -18,13 +18,13 @@ nav_after = "configuration"
 agnostic-ai [command] [flags]
 ```
 
-Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents support for subdirectories or `--global`. Use `agnostic-ai <command> --help` for the options available in your installed release.
+Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents subdirectories or `--global`. `agnostic-ai <command> --help` lists the options of your installed release.
 
 To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) and follow its next step, or see [troubleshooting](@/docs/troubleshooting.md) by symptom.
 
 ## Find a command
 
-Root help groups commands by task: setup, generation, checks, inspection, and maintenance. For a new project, start here:
+For a new project, start here:
 
 ```bash
 echo "claude,codex" | agnostic-ai init
@@ -57,7 +57,12 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 `sync` (including `--watch`, until it exits), `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID; retry after it finishes. `sync --check`, `sync --plan`, dry runs, `status`, `list`, and global commands take no lock. The lock works between processes on one machine, not across a network file system.
 
+<details>
+<summary>Lock file details</summary>
+
 The lock file, `.agnostic-ai/.command-lock`, stays on disk. Do not delete it. The managed `.gitignore` block ignores it, and writing commands refresh those runtime entries even when generated outputs are committed. The operating system releases the lock when the process exits or is killed.
+
+</details>
 
 ## Global flags
 

@@ -33,7 +33,7 @@ migrate = "@/docs/cli-reference/upgrades.md#migrate"
 ## Migrate {#migrate .legacy-anchor}
 
 
-This page covers handoffs, generated-file recovery, packs, hook helpers, git hooks, completion, and the language server. Other maintenance commands have their own pages: [project CLI and readiness](@/docs/cli-reference/project.md), [upgrade and migrate](@/docs/cli-reference/upgrades.md), and [memory](@/docs/cli-reference/memory.md).
+Handoffs, generated-file recovery, packs, hook helpers, git hooks, completion, and the language server. See also [project CLI and readiness](@/docs/cli-reference/project.md), [upgrade and migrate](@/docs/cli-reference/upgrades.md), and [memory](@/docs/cli-reference/memory.md).
 
 ## handoff list
 
@@ -45,11 +45,11 @@ agnostic-ai handoff list
 
 Each branch gets one row: live worktree (or `removed`), saved HEAD and date, working changes (`clean`, `dirty`, or `unknown`), task status, PR (`-` when missing), and handoff file. The newest manual note wins over automatic snapshots. It reads only note headers, from the stores the [handoff skill](@/docs/handoff.md#limits-and-overrides) uses.
 
-It suggests removal only when local Git ancestry proves the branch merged into the main checkout's branch and no working changes are pending, so squash merges need your review. It never fetches or deletes files.
+It suggests removal only when local Git ancestry proves the branch merged and no working changes are pending, so squash merges need your review. It never fetches or deletes files.
 
 ## revert
 
-Undo a `sync --backup`: for every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` with its permissions, never wider than the file's, and remove it. It also restores a nested `CLAUDE.md` that sync deleted. An unfiltered `revert` restores intact recorded backups of removed outputs, including those from dropped targets. Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched. A file that is both a generated file and an instruction file, such as a shared `AGENTS.md`, is handled once. `revert` takes the project lock, so it stops while another command writes; `--dry-run` does not.
+Undo a `sync --backup`: for each generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), restore `<path>.bak` with its permissions, never wider than the file's, and remove it. It also restores a nested `CLAUDE.md` that sync deleted. An unfiltered `revert` restores intact recorded backups of removed outputs, including those from dropped targets. Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched. A shared `AGENTS.md` is handled once. `revert` takes the project lock, so it stops while another command writes; `--dry-run` does not.
 
 | Flag | Description |
 |------|-------------|
@@ -89,7 +89,12 @@ files=$(agnostic-ai hook paths) || exit 1
 printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
 
-Capture the output before the loop, as shown above. Piping it directly into the loop hides failures and lets the hook exit 0.
+<details>
+<summary>Why capture the output first</summary>
+
+Capture the output first, as above: piping it straight into the loop hides failures and lets the hook exit 0.
+
+</details>
 
 | Flag | Description |
 |------|-------------|
@@ -110,6 +115,9 @@ agnostic-ai hook worktree-remove --repo "/path/to/repository" --allowed-root "/p
 | `--repo <path>` | Required. A surviving checkout of the repository, outside the disposable worktrees. |
 | `--allowed-root <path>` | Required. Only descendants of this directory may be removed. |
 
+<details>
+<summary>What worktree-remove refuses, and its results</summary>
+
 After checking Git's worktree registration and repository metadata, it runs `git worktree remove` without force, keeping the branch. It refuses the main checkout, the allowed root itself, other repositories, unregistered directories, traversal, symlinks below the allowed root, locked worktrees, and worktrees with changed, untracked, or ignored files (ignored dependencies included; remove them first). It also refuses indexes with `assume-unchanged` or `skip-worktree` entries, sparse checkouts included, because those can hide changed contents.
 
 | Result | Output | Exit |
@@ -119,6 +127,8 @@ After checking Git's worktree registration and repository metadata, it runs `git
 | Unsafe input, event data over 1 MiB, or a failed Git operation | error | 1 |
 
 Claude Code runs this event instead of its own cleanup, while the directory still exists. A non-zero exit keeps the directory, with no Git fallback.
+
+</details>
 
 ## hook guard
 
@@ -145,6 +155,9 @@ Print the `MEMORY.md` fact lists, personal first, for a `session-start` hook to 
 agnostic-ai hook memory --target codex
 ```
 
+<details>
+<summary>Output format per tool, size limit, and project lookup</summary>
+
 | Tool | Output |
 |------|--------|
 | Codex, Factory | Plain text |
@@ -155,6 +168,8 @@ agnostic-ai hook memory --target codex
 
 - Output stays under 6,000 bytes, cut at a line end with a note naming the full index. Hidden characters are dropped first (see [session start](@/docs/memory.md#load-at-session-start)), except a zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word.
 - With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project as the `shared-memory` skill does.
+
+</details>
 
 | Flag | Description |
 |------|-------------|
@@ -170,9 +185,14 @@ agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/link
 
 `--repo` is a checkout of the owning repository and `--worktree` the linked checkout. The helper checks that the worktree is registered to that repository and refuses the main checkout. Run `agnostic-ai sync` in that worktree first when setup changes: it resets the completion marker only when the generated setup script matches current source, including output-path overrides such as `outputs.claude.dir`. See [refresh an existing worktree](@/docs/spec-format/environments.md#refresh-an-existing-worktree) for how markers work.
 
+<details>
+<summary>Limits of worktree-refresh</summary>
+
 - Setup runs from the worktree with a 600-second limit; output and failures pass through. Cancellation stops the setup processes it owns; a successful setup can leave background services running. Other worktrees keep their markers.
 - On Windows it needs Git Bash, from `CLAUDE_CODE_GIT_BASH_PATH` or the Git for Windows install, never a `bash` launcher from PATH.
 - It installs dependencies only if your setup command does. It does not check application health or change other tools' setup, and normal Claude setup hooks still run once per worktree.
+
+</details>
 
 ## hook run
 
@@ -207,11 +227,16 @@ agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-che
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
+<details>
+<summary>Existing hooks and install-hook options</summary>
+
 An existing hook keeps its content, and the checks go at its end. A hook that would stop before them (its first line does not select `sh` or `bash`, or it has an `exec` or an unindented `exit`) is left alone, and the command prints the lines to add by hand.
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
 - `--global` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree). Not with `--shared` or `--post-checkout`; it stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
 - `--post-checkout` installs `post-checkout` and `post-merge`, which run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single file) or a merge, pull included. See [regenerate on checkout](@/docs/git-hooks.md#regenerate-on-checkout).
+
+</details>
 
 ## completion
 

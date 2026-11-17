@@ -27,11 +27,16 @@ agnostic-ai memory import --from claude   # copy facts from another memory store
 - `memory path` prints one `scope  folder` line per memory folder, project first, as absolute paths, even for a folder not created yet. It works from any folder in the project and from a linked worktree; with `memory.personal: repo`, every worktree gets the same personal folder. Tools without a session-start hook run it, as the [`shared-memory-policy` rule](@/docs/memory.md#how-each-tool-loads-it) asks.
 - `memory import` copies fact files into personal memory, which every tool reads, and adds their index lines. `--from claude` reads Claude Code's store from before sync pointed it at personal memory; `--from checkout` and `--from repo` read the other personal folder after a `memory.personal` switch; `--path` reads any folder with a `MEMORY.md` and one file per fact.
 
+<details>
+<summary>How memory import copies, skips, and records facts</summary>
+
   The source stays unchanged, and so does an existing destination file. Source index lines that link no fact become a fact of their own (`claude-index-notes.md` for `--from claude`). Symlinks and files with a line that looks like a secret are skipped and named. An identical fact without an index line gets its line back, so a rerun finishes an interrupted import.
 
   Import refuses a personal folder holding tracked files, and first adds the checkout folder to Git's exclude list if Git would track it. It records handled facts in `.imported` there, so LINT043 stops counting facts you later delete or merge.
 
   To leave a fact behind, decline it. `--skip <file>` declines one fact and `--skip-rest` declines every fact not imported yet. Without `--only`, they copy nothing. Import records each decline in `.declined` in personal memory, with a checksum of the fact. LINT043 stops counting a declined fact, and a plain import or sync leaves it out. If the fact changes in the source, it counts again. A file import cannot read is declined by name only, so a change does not bring it back. To import a declined fact, name it with `--only`.
+
+</details>
 
 | Flag | Description |
 |------|-------------|

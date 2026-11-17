@@ -32,7 +32,7 @@ import-reconcile = "@/docs/cli-reference/import.md#import-reconcile"
 
 ## Import reconcile {#import-reconcile .legacy-anchor}
 
-`use <tool>` adds a tool and generates its files in one step; `init` and [`import`](@/docs/cli-reference/import.md#import) let you review existing instructions first. `new` creates a spec, and `list` shows what loads. Run these commands from the project root. In scripts or agent instructions, name the tools to skip interactive selection.
+`use <tool>` adds a tool and generates its files in one step; `init` and [`import`](@/docs/cli-reference/import.md#import) let you review existing instructions first. `new` creates a spec, and `list` shows what loads. Run them from the project root, and name the tools in scripts to skip interactive selection.
 
 ## use
 
@@ -58,7 +58,7 @@ It then syncs and shows what each added tool now reads:
   edit .agnostic-ai/ and run agnostic-ai sync to change what every tool reads
 ```
 
-A tool already in `targets` changes nothing. A run that stopped partway finishes on the next try. A mistyped name suggests the closest one. To remove a tool, edit `targets` by hand.
+A tool already in `targets` changes nothing, and an interrupted run finishes on the next try. A mistyped name suggests the closest one. To remove a tool, edit `targets` by hand.
 
 <details>
 <summary>When use refuses or stops</summary>
@@ -90,6 +90,9 @@ agnostic-ai sync
 | `--from <cli>` | Then import existing config from this [import source](@/docs/cli-reference/import.md#import), or `all`. |
 | `--dry-run` | List the files it, and with `--from` the import, would write. |
 
+<details>
+<summary>How init picks targets and offers an import</summary>
+
 Without `--all`, `init` takes targets from a terminal prompt or a comma-separated list on stdin. Unknown names error and write nothing. The prompt preselects the first nonempty set below. Press Enter to accept it:
 
 1. Tools the project uses, by a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker, since most tools read it.
@@ -101,6 +104,8 @@ With no terminal and nothing piped (CI), or an empty piped line, `init` enables 
 In a terminal, when the project has config an importer reads, or a root `AGENTS.md`, plain `init` offers to import it, as `--from all` does. Without a terminal, the summary lists the `agnostic-ai import <tool>` commands instead. `--all` and `--dry-run` skip the question.
 
 The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) ticks only the tools it detects.
+
+</details>
 
 ## list
 

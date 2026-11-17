@@ -17,8 +17,8 @@ func TestSiteDocs_ExportsDisclosureBodiesWithoutTemplateMarkers(t *testing.T) {
 	}
 	full := readBuiltFile(t, filepath.Join(outputDir, "llms-full.txt"))
 	for _, text := range []string{
-		"When `<path>.bak` already exists",
-		"An earlier backup is never replaced.",
+		"If `<path>.bak` exists, sync keeps the new edit in place",
+		"It never replaces an earlier backup.",
 		"LINT011 for the Codex AGENTS.md chain",
 		"Codex also reads each scoped `AGENTS.md`",
 	} {

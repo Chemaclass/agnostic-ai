@@ -19,7 +19,7 @@ agnostic-ai upgrade --check              # show install details without updating
 agnostic-ai upgrade --version v0.92.0    # install a specific release
 ```
 
-`upgrade` updates the installed tool. If the latest release is already installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`. That command updates the project requirement and schema URL, then runs sync.
+`upgrade` updates the installed tool. If the latest release is installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`, which updates the project requirement and schema URL, then runs sync.
 
 Stop `agnostic-ai sync --watch` before upgrading. Install the new release first, since it contains the migrations. Then, in each project:
 
@@ -46,12 +46,17 @@ Enter or `y` accepts. `n` runs your original command and silences the offer for 
 3. Previews and applies the [migrations](#migrate) to old spec files.
 4. Runs `sync`, then `sync --check`.
 
-Outside a project, it updates only the tool. Then rerun your command; the release page lists manual steps.
+Outside a project, it updates only the tool. Rerun your command afterward; the release page lists manual steps.
+
+<details>
+<summary>Offer limits and opt-out</summary>
 
 - A failed install or version check starts no project change. A later failed step stops, keeps what finished, and prints how to continue.
 - If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the global specs folder, the offer is skipped and names it. Links within the project are fine.
 - Project-local npm or pnpm installs, and npx, get a command to run yourself. Automatic npm updates apply only to confirmed global installs (a two-second check).
 - `AGNOSTIC_AI_NO_UPDATE_CHECK=1` turns the checks off. They are silent offline and skip CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds.
+
+</details>
 
 ### Upgrade options
 
@@ -63,6 +68,9 @@ Outside a project, it updates only the tool. Then rerun your command; the releas
 | `--run` | Accepted for compatibility; upgrading is already the default. |
 
 After updating through a package manager, run its installed CLI from the project root, as in `pnpm exec agnostic-ai upgrade --requires`.
+
+<details>
+<summary>How --requires rewrites the requires value</summary>
 
 `--requires` changes the base config and any existing local `requires`, keeping comments and other settings. With 0.92.0 installed:
 
@@ -80,6 +88,8 @@ A missing key is added only to the base config. When a range becomes a minimum, 
 
 The config needs one root setting per line and a single-line `requires`. Before upgrading, expand a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines.
 
+</details>
+
 | Binary location | Upgrade |
 |-----------------|---------|
 | `*/Cellar/*`, `*/Caskroom/*`, `/opt/homebrew/*`, `/home/linuxbrew/.linuxbrew/*` | `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai` |
@@ -90,13 +100,18 @@ The config needs one root setting per line and a single-line `requires`. Before 
 | Standalone binary on macOS or Linux | `upgrade` downloads the release, checks its checksum and its [build provenance](@/docs/verify-a-release.md#build-provenance), and replaces the binary. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md). Windows cannot replace a running program. |
 
+<details>
+<summary>PATH copies and companion upgrades</summary>
+
 The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.
 
 An installed companion is rebuilt through the updated CLI and restarted if it was running. If that update fails, the CLI stays upgraded and the error gives a retry command. See [companion upgrades](@/docs/cli-reference/companion.md#upgrade-the-companion).
 
+</details>
+
 ## migrate
 
-Update spec files that use old field names or formats. Old forms keep working, and sync writes the same files afterward, except that a literal MCP credential becomes a `${NAME}` reference. `doctor` and `upgrade --requires` name the migrations that apply.
+Update spec files that use old field names or formats. Old forms keep working and sync writes the same files afterward, except that a literal MCP credential becomes a `${NAME}` reference. `doctor` and `upgrade --requires` name the migrations that apply.
 
 ```bash
 agnostic-ai migrate --list      # which migrations apply here
@@ -112,11 +127,16 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
 | `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
 
+<details>
+<summary>Migration rules and limits</summary>
+
 - A migration rewrites only what keeps its meaning; anything else stays, with the reason. `secrets-mcp-literals` names each variable to set, never the value.
 - A symlinked spec keeps its link, and its target gets the rewrite. A pack, or a spec linked into one, is never rewritten; the output names the pack.
 - Migrations stay within the project (or, with `--global`, the global specs folder) and its local folder, even a linked one.
 - A migration that cannot plan, such as on a spec that does not parse, prints `cannot plan` with the reason; the others run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs you, such as a spec setting both old and new forms. `--dry-run` and `--list` show every skip.
+
+</details>
 
 | Migration | Rewrites |
 |-----------|----------|

@@ -22,11 +22,16 @@ agnostic-ai project --bootstrap         # repair dependencies once, then sync
 agnostic-ai project -- hook memory --target codex
 ```
 
+<details>
+<summary>Version checks, mismatches, and limits</summary>
+
 - It finds the nearest project config at or above the working directory; a built-in hook can use the host's project-directory variable instead.
 - A mismatch names the installed and required versions and the `agnostic-ai project --bootstrap` recovery. Conflicting exact declarations stop before any install. npm ranges, tags, aliases, prereleases, and file dependencies are not read as requirements; state those in `requires`.
 - With `--against index` or `HEAD`, version requirements come from the staged files or commit. The binary comes from the working checkout.
 - Version and command checks share ten seconds. A failed check shows up to 64 KiB of the command's error output, marking cut-off text, timeouts, and cancellation. Warnings from a successful command do not fail it.
 - A binary without `project` gets an instruction to upgrade the owning package through its package manager.
+
+</details>
 
 | Flag | Description |
 |------|-------------|
@@ -34,7 +39,12 @@ agnostic-ai project -- hook memory --target codex
 | `--against index\|HEAD` | With `--check`, use the existing check for staged or committed output. |
 | `--bootstrap` | If the binary is missing or mismatched, install once from the npm, pnpm, or bun lockfile, then sync preserving manual edits. |
 
+<details>
+<summary>How bootstrap works</summary>
+
 Bootstrap picks the package manager from `packageManager` or `devEngines.packageManager` in `package.json`, or an unambiguous root lockfile, and runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile`. It needs a declared agnostic-ai dependency and a committed lockfile (`bun.lock` or `bun.lockb` for bun) that installs an allowed version; it never changes `requires` or the manifest. Other package managers get an error naming their install command. Package scripts run as usual. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` stops a nested helper call from installing again; postinstall can still regenerate output. With the right binary in place, it installs nothing. A CLI that supports `project` must already be installed, globally or locally; hook managers can then call it without changing their own config.
+
+</details>
 
 ### Project readiness
 

@@ -61,6 +61,9 @@ The first time, macOS may ask whether the terminal that runs the command may con
 
 ### When it refuses
 
+<details>
+<summary>All the cases where it refuses</summary>
+
 It exits with code 1 and starts nothing when:
 
 - It cannot tell which session it runs in: no Claude Code, Codex or `cursor-agent` session is among its parent processes, the nearest tool among them cannot be resolved, or the Codex or `cursor-agent` process holds several threads or chats and does not say which.
@@ -70,11 +73,11 @@ It exits with code 1 and starts nothing when:
 - The folder or the path of `agnostic-ai` holds a control character (C0, DEL or C1) or text that is not UTF-8, which a terminal would act on as it is typed.
 - No tab can be opened. The message then gives the line that starts it by hand.
 
+</details>
+
 ### Limits
 
 - A Claude Code process is recognised by its session file, or by the name `claude`. An install that runs as `node` and has no session file is not recognised. Started inside a Codex session, the command then names the Codex thread as the parent, not that Claude Code session.
-- Codex as a parent needs `CODEX_THREAD_ID`, or a Codex process that holds one thread.
-- `cursor-agent` as a parent needs `CURSOR_CONVERSATION_ID`, or a `cursor-agent` process that has one chat open.
 
 ### The link line
 
@@ -86,6 +89,9 @@ Continues claude:2f0c1e9a-5b7d-4c3e-9a1f-6d8e2b4c7a90
 Write the release notes for the parser change.
 ```
 
+<details>
+<summary>How the link line is read and shown</summary>
+
 - The line is `Continues <tool>:<id>`, where `<tool>` is `claude`, `codex` or `cursor`, and `<id>` has that tool's id form. It must be the whole first line of what was typed, with one space after `Continues` and nothing after the id. Text a tool adds around the prompt, such as a reminder block before it, does not count. Anything else is plain text: spaces before the line, two spaces, a tab, or words after the id.
 - The Conversations list reads it as the [`parent`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) of the row, and cuts it from the title, the opening and the latest prompt.
 - The Conversations page and the companion draw the new conversation under its parent while both sit in the same group, such as Open now, or Needs you in the companion. Otherwise it is a normal row in its own group: the parent sits in another group, is on a week not loaded yet, is filtered out by the search, tool or place, or is hidden or deleted. A conversation started from a child sits under the same parent, one level deep.
@@ -93,6 +99,13 @@ Write the release notes for the parser change.
 - The tool's own history still shows the line.
 - Hiding, archiving, renaming or deleting the parent never changes the new conversation.
 
+</details>
+
 ### What runs where
 
+<details>
+<summary>How the brief reaches the new tab</summary>
+
 The brief never becomes part of a shell or AppleScript string. The command saves it to a one-time file in agnostic-ai's own settings folder (`conversation-briefs/`, readable by you only, under a random name). The new tab runs a fixed line, `cd '<folder>' && '<agnostic-ai>' conversations run <id>`. That reads the brief, finds the tool, removes the file, and starts the tool with the brief as its one argument. Running the line a second time starts nothing. When the tool is missing from that tab's `PATH`, the brief is kept, so the line works once the tool is there. A brief no tab ran is removed after a day.
+
+</details>
