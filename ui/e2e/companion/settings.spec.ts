@@ -361,6 +361,17 @@ test('Open from anywhere in the right-click menu opens the menu on the shortcut,
   await expect(shortcut).not.toHaveClass(/is-recording/)
 })
 
+test('Send copied text in the right-click menu opens the menu on the send shortcut', async ({ page }) => {
+  await openPanel(page)
+
+  await page.request.post('/dev/open-send-settings')
+
+  await expect(settingsMenu(page)).toBeVisible()
+  const send = settingsMenu(page).getByRole('button', { name: 'Send copied text' })
+  await expect(send).toBeFocused()
+  await expect(send).not.toHaveClass(/is-recording/)
+})
+
 test('the send shortcut changes on its own, and the open shortcut\'s keys are refused', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)

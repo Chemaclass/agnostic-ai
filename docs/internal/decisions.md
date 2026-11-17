@@ -180,7 +180,7 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Context:** The companion sends copied text into a chat's input without submitting it ([#3517](https://github.com/Chemaclass/agnostic-ai/issues/3517)). Each terminal app offers a different way in.
 
-**Decision:** Ghostty gets the text through `input text ... to t`. Terminal gets it on the clipboard and a Cmd+V from System Events, sent only once its tab is selected in the front window. The server types only into a live session that holds its terminal in front, checked right before typing, and removes control characters and bracketed paste markers first.
+**Decision:** Ghostty gets the text through `input text ... to t`. Terminal gets a Cmd+V from System Events, sent only once its tab is selected in the front window. Plain text is pasted only when the clipboard already holds it exactly, so the person's clipboard never changes; only Markdown is put there first. The server types only into a live session that holds its terminal in front, checked right before typing, and removes control characters and bracketed paste markers first.
 
 **Why:** Ghostty's `input text` is a paste: measured on Ghostty 1.4.0, a program that asks for bracketed paste gets every line inside one paste, and the server adds no markers of its own, which would wrap the text twice. Terminal has no such command: `do script` always presses Enter, which would submit the text. A Cmd+V goes to whatever app is in front, so the script checks the front window first and refuses when Terminal did not come forward.
 

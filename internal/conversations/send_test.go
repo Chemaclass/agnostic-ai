@@ -27,7 +27,11 @@ func TestCleanSendText_KeepsLinesAndTabsOnly(t *testing.T) {
 func TestSend_TypesOnlyIntoALiveSessionInATabApp(t *testing.T) {
 	ghostty := terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}
 	at := func(tool Tool, host terminalHost) Conversation {
-		return Conversation{Tool: tool, Folder: "/tmp/app", Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: host}}
+		c := Conversation{Tool: tool, Folder: "/tmp/app", Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: host}}
+		if tool == ToolClaude {
+			c.Activity = ActivityIdle
+		}
+		return c
 	}
 	holding := func(stat, tty string) fakeProcesses {
 		return fakeProcesses{alive: map[int]bool{42: true}, table: []ProcessInfo{{PID: 42, PPID: 41, Stat: stat, TTY: tty}}}
@@ -222,19 +226,49 @@ func TestSend_TypesOnlyIntoALiveSessionInATabApp(t *testing.T) {
 			reply:     SendReply{Message: "It waits for your answer, and typed text could answer its question, so nothing was typed. Switched to it. Paste with Cmd+V."},
 			calls:     "focus Ghostty /dev/ttys004",
 		},
-		"Codex thread shown by a client": {
+		"Codex thread shown by a client, which may show another thread now": {
 			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 50}, host: ghostty}},
 			text:         "hello",
 			processes:    fakeProcesses{alive: map[int]bool{42: true, 50: true}, table: []ProcessInfo{{PID: 42, Stat: "Ss"}, {PID: 50, Stat: "S+", TTY: "/dev/ttys004"}}},
 			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Message: "It shows in a Codex terminal that may show another thread now, so nothing was typed. Switched to it. Paste with Cmd+V."},
+			calls:        "focus Ghostty /dev/ttys004",
+		},
+		"Claude Code in a state it does not name": {
+			conversation: func() Conversation {
+				c := at(ToolClaude, ghostty)
+				c.Activity = ""
+				return c
+			}(),
+			text:      "hello",
+			processes: inFront,
+			launcher:  fakeLauncher{focusOK: true},
+			reply:     SendReply{Message: "It does not say whether it is ready for text, so nothing was typed. Switched to it. Paste with Cmd+V."},
+			calls:     "focus Ghostty /dev/ttys004",
+		},
+		"Codex between turns": {
+			conversation: at(ToolCodex, ghostty),
+			text:         "hello",
+			processes:    inFront,
+			launcher:     fakeLauncher{focusOK: true},
 			reply:        SendReply{Sent: true, Message: "Typed into the Ghostty tab that runs it. Press Enter there to send it."},
 			calls:        "type Ghostty /dev/ttys004 hello",
 		},
-		"Codex client gone, daemon still holds the thread": {
-			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 50}, host: ghostty}},
+		"Terminal would paste characters the text drops": {
+			conversation: at(ToolClaude, terminalHost{App: "Terminal", TTY: "/dev/ttys018"}),
+			text:         "hello\n",
+			processes:    holding("S+", "/dev/ttys018"),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Message: "The copied text ends in white space or holds characters a send drops, and Terminal would paste them, so nothing was pasted. Switched to it. Paste with Cmd+V."},
+			calls:        "focus Terminal /dev/ttys018",
+		},
+		"clipboard changed before Terminal pasted": {
+			conversation: at(ToolClaude, terminalHost{App: "Terminal", TTY: "/dev/ttys018"}),
 			text:         "hello",
-			processes:    fakeProcesses{alive: map[int]bool{42: true}, table: []ProcessInfo{{PID: 42, Stat: "Ss"}}},
-			reply:        SendReply{Message: "Its terminal on ttys004 does not show it right now, so nothing was typed. Switch to it, then paste with Cmd+V."},
+			processes:    holding("S+", "/dev/ttys018"),
+			launcher:     fakeLauncher{err: errClipboardChanged},
+			reply:        SendReply{Message: "The copied text changed, so nothing was pasted. Check the new text, then send again."},
+			calls:        "type Terminal /dev/ttys018 hello",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -275,11 +309,11 @@ func TestSend_NeverTypesWhereNoTabCanBeNamed(t *testing.T) {
 func TestTypeInTabArgs_PassTheTextAsAnArgument(t *testing.T) {
 	text := "one\ntwo\"; do shell script \"echo hacked"
 	for _, app := range []string{"Ghostty", "Terminal"} {
-		args := typeInTabArgs(app, "/dev/ttys004", text)
-		if args[len(args)-2] != "/dev/ttys004" || args[len(args)-1] != text {
-			t.Errorf("%s: tty and text must be the last arguments, actual %q", app, args[len(args)-2:])
+		args := typeInTabArgs(app, "/dev/ttys004", text, false)
+		if args[len(args)-3] != "/dev/ttys004" || args[len(args)-2] != text {
+			t.Errorf("%s: tty and text must be the arguments, actual %q", app, args[len(args)-3:])
 		}
-		script := strings.Join(args[:len(args)-2], "\n")
+		script := strings.Join(args[:len(args)-3], "\n")
 		if strings.Contains(script, "hacked") {
 			t.Errorf("%s: the text leaked into the script", app)
 		}
@@ -291,7 +325,7 @@ func TestTypeInTabArgs_PassTheTextAsAnArgument(t *testing.T) {
 
 func TestSendMarkdown_SaysTheMarkdownWentInAndWhereTheClipboardHoldsIt(t *testing.T) {
 	at := func(app, tty string) Conversation {
-		return Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: app, TTY: tty}}}
+		return Conversation{Tool: ToolClaude, Activity: ActivityIdle, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: app, TTY: tty}}}
 	}
 	holding := func(tty string) fakeProcesses {
 		return fakeProcesses{alive: map[int]bool{42: true}, table: []ProcessInfo{{PID: 42, Stat: "S+", TTY: tty}}}
@@ -315,14 +349,41 @@ func TestSendMarkdown_SaysTheMarkdownWentInAndWhereTheClipboardHoldsIt(t *testin
 			processes:    holding("/dev/ttys018"),
 			launcher:     fakeLauncher{focusOK: true},
 			reply:        SendReply{Sent: true, Message: "Pasted the Markdown into the Terminal tab that runs it. The clipboard now holds the Markdown. Press Enter there to send it."},
-			calls:        "type Terminal /dev/ttys018 # Notes\n\n- one",
+			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
 		},
-		"Terminal tab behind": {
+		"Terminal tab behind leaves the clipboard": {
 			conversation: at("Terminal", "/dev/ttys018"),
 			processes:    holding("/dev/ttys018"),
 			launcher:     fakeLauncher{err: errNotInFront},
-			reply:        SendReply{Message: "The Terminal tab that runs it did not come to the front, so nothing was pasted. The Markdown is on the clipboard: paste it with Cmd+V."},
-			calls:        "type Terminal /dev/ttys018 # Notes\n\n- one",
+			reply:        SendReply{Message: "The Terminal tab that runs it did not come to the front, so nothing was pasted. The text is on the clipboard: paste it with Cmd+V."},
+			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
+		},
+		"Terminal tab missing leaves the clipboard": {
+			conversation: at("Terminal", "/dev/ttys018"),
+			processes:    holding("/dev/ttys018"),
+			reply:        SendReply{Message: "It runs in Terminal on ttys018, but no tab shows that terminal, so nothing was typed. The text is on the clipboard: paste it with Cmd+V."},
+			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
+		},
+		"Accessibility refused after the clipboard was set": {
+			conversation: at("Terminal", "/dev/ttys018"),
+			processes:    holding("/dev/ttys018"),
+			launcher:     fakeLauncher{err: errAccessibilityDenied},
+			reply:        SendReply{Message: "macOS blocked pasting into Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again. The clipboard now holds the Markdown: paste it with Cmd+V."},
+			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
+		},
+		"Automation refused, maybe after the clipboard was set": {
+			conversation: at("Terminal", "/dev/ttys018"),
+			processes:    holding("/dev/ttys018"),
+			launcher:     fakeLauncher{err: errAutomationDenied},
+			reply:        SendReply{Message: "macOS blocked typing into Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, then send again. The clipboard may now hold the Markdown."},
+			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
+		},
+		"prompt unanswered, maybe after the clipboard was set": {
+			conversation: at("Terminal", "/dev/ttys018"),
+			processes:    holding("/dev/ttys018"),
+			launcher:     fakeLauncher{err: context.DeadlineExceeded},
+			reply:        SendReply{Message: "macOS is waiting for you to allow control of Terminal. Answer its prompt, then send again. The clipboard may now hold the Markdown."},
+			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
 		},
 		"ended session": {
 			conversation: at("Ghostty", "/dev/ttys004"),
@@ -343,8 +404,28 @@ func TestSendMarkdown_SaysTheMarkdownWentInAndWhereTheClipboardHoldsIt(t *testin
 	}
 }
 
-func TestTypeInTabLines_TerminalPutsTheTextOnTheClipboardFirst(t *testing.T) {
-	if first := typeInTabLines["Terminal"][0]; first != "set the clipboard to (item 2 of argv)" {
-		t.Errorf("Terminal's script starts with %q, want it to set the clipboard before pasting", first)
+func TestTypeInTabLines_TerminalSetsTheClipboardOnlyForMarkdownOnceTheTabIsInFront(t *testing.T) {
+	lines := strings.Join(typeInTabLines["Terminal"], "\n")
+	behind := strings.LastIndex(lines, `return "behind"`)
+	set := strings.Index(lines, "set the clipboard to (item 2 of argv)")
+	check := strings.Index(lines, `return "changed"`)
+	paste := strings.Index(lines, "keystroke")
+	if set < behind || check < behind || paste < set || paste < check {
+		t.Fatalf("Terminal's script must set or check the clipboard only after the tab is in front, then paste:\n%s", lines)
+	}
+	if !strings.Contains(lines[behind:set], `if (item 3 of argv) is "set" then`) {
+		t.Errorf("Terminal's script must set the clipboard only when asked:\n%s", lines)
+	}
+	if activate := strings.Index(lines, "activate"); !strings.Contains(lines[activate:strings.Index(lines, "if frontmost")], "delay 0.3") {
+		t.Errorf("Terminal's script must wait for the send keys to be let go before it pastes:\n%s", lines)
+	}
+}
+
+func TestTypeInTabArgs_SayWhetherToSetTheClipboard(t *testing.T) {
+	if args := typeInTabArgs("Terminal", "/dev/ttys018", "hi", true); args[len(args)-1] != "set" {
+		t.Errorf("args end %q, want set", args[len(args)-1])
+	}
+	if args := typeInTabArgs("Terminal", "/dev/ttys018", "hi", false); args[len(args)-1] != "check" {
+		t.Errorf("args end %q, want check", args[len(args)-1])
 	}
 }
