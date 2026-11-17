@@ -43,7 +43,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 - A link is valid when it resolves from the document's directory or from the project root.
 - It skips code, URLs, absolute paths, and `#fragment`-only links.
 - In a `file#fragment` link, it checks only the file.
-- [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve.
+- [`doctor.check-references.ignore`](@/docs/configuration-reference.md#doctorcheck-referencesignore) exempts destinations that can never resolve.
 - Any broken link fails doctor.
 
 Findings group by source spec and link:
@@ -72,7 +72,7 @@ After the file report, doctor prints:
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor. A warning does not. | No |
-| **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -vv` lists them. | No |
+| **Coverage notes** | With [`coverage.accept`](@/docs/configuration-reference.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -vv` lists them. | No |
 | **Packaging ignores** | Generated paths that an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover, with the ignore file. | No, reported only |
 | **Tracked despite ignored** | A generated path that git tracks and ignores, with the `git rm --cached` fix. | No |
 | **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails. Disabled does not. | Never grants trust |
@@ -82,7 +82,7 @@ After the file report, doctor prints:
 | **Script divergence** | Scripts under `.agnostic-ai/scripts/<tool>/` with the same name but different bodies across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, no automatic fix |
 | **Unmanaged config** | Markdown and TOML config files with no generated-file marker, grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
-| **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`, and which wins per tool. A name in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration.md#global-shared-names). | Never |
+| **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`, and which wins per tool. A name in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration-reference.md#global-shared-names). | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. | Never |
 | **Claude skill overrides** | With `claude` selected: synced skills that `skillOverrides` in a Claude settings file turns off, hides from Claude, or lists without a description. See [below](#claude-skill-overrides). | Never |
 

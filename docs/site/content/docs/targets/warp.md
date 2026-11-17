@@ -87,7 +87,7 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 
 `agnostic-ai sync --global --only warp` adds your home MCP specs to `~/.warp/.mcp.json`, using the same fields as project output. The Warp app starts these global servers automatically. The Warp Agent CLI does not read this file; see [Warp app and Agent CLI](#app-and-cli). Sync leaves out a spec with `disabled: true` and explains why.
 
-`agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration.md#global-mcp-servers).
+`agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
 
 ### Voice dictation
 

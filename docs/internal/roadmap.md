@@ -14,7 +14,7 @@ Project layers, from lowest to highest priority:
 
 Tool configuration generated from global specs (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`) is a separate source for `sync --global` and does not participate in project layering.
 
-When two entries share `(Kind, Name)`, the higher-priority layer wins. `spec.LoadLayered` combines the layers. See [configuration.md](../site/content/docs/configuration.md#layered-specs).
+When two entries share `(Kind, Name)`, the higher-priority layer wins. `spec.LoadLayered` combines the layers. See [configuration.md](../site/content/docs/configuration-reference.md#layered-specs).
 
 ## Shipped
 

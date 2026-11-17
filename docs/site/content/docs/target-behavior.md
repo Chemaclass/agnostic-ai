@@ -7,8 +7,8 @@ weight = 125
 group = "Reference"
 
 [extra.moved]
-notes = "@/docs/global-configuration.md#native-discovery-and-shared-paths"
-targets-left-out = "@/docs/global-configuration.md#targets-left-out"
+notes = "@/docs/global-configuration-reference.md#native-discovery-and-shared-paths"
+targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 +++
 
 # Cross-target behavior
@@ -29,7 +29,7 @@ A rule's `scope` limits it to a directory, through native file conditions or nes
 
 ## Entry-point files
 
-Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction file. The next sync overwrites edits to those copies. See [entry-point files](@/docs/configuration.md#entry-point-files) for what to write in the source.
+Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction file. The next sync overwrites edits to those copies. See [entry-point files](@/docs/configuration-reference.md#entry-point-files) for what to write in the source.
 
 | Instruction file | Targets |
 |---|---|
@@ -70,7 +70,7 @@ When a target leaves the setup, cleanup removes only its recorded values. Sync d
 
 ### Other entry-point options
 
-A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync. For the [legacy merged rules file](@/docs/configuration.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
+A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync. For the [legacy merged rules file](@/docs/configuration-reference.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
 
 ## Spec kind behavior
 
@@ -84,7 +84,7 @@ The [tool support table](@/docs/targets/_index.md#capability-matrix) lists gener
 | Source only | Keep the portable source; no default native artifact is written. A pointer does not activate the feature. |
 | No output | Remove that target from the spec or use a supported native route. Sync warns by default. |
 
-Each [spec reference](@/docs/spec-format/_index.md) has the details. [`on-unsupported`](@/docs/configuration.md#on-unsupported) sets what sync does with an unsupported kind. Coverage notes name the fields a tool converts or leaves out.
+Each [spec reference](@/docs/spec-format/_index.md) has the details. [`on-unsupported`](@/docs/configuration-reference.md#on-unsupported) sets what sync does with an unsupported kind. Coverage notes name the fields a tool converts or leaves out.
 
 ### Shared skills and agent discovery
 

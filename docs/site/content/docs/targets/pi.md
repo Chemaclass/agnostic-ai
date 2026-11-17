@@ -91,7 +91,7 @@ After sync, `.pi/mcp.json` contains the server with `enabled: false`. Replace th
 
 ## Config keys
 
-For the shared root instruction file, see [entry-point files](@/docs/configuration.md#entry-point-files).
+For the shared root instruction file, see [entry-point files](@/docs/configuration-reference.md#entry-point-files).
 
 | Key | Default |
 |---|---|

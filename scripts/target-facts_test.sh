@@ -523,7 +523,7 @@ function test_builtin_regression_target_docs_limit_deep_to_requested_target() {
 function test_builtin_regression_split_references_keep_their_review_scope() {
   builtin_regression_fixture
   local path out
-  for path in global-configuration.md spec-format/hook-reference.md spec-format/hook-recipes.md cli-reference/hook-diagnostics.md; do
+  for path in global-configuration.md global-configuration-reference.md spec-format/hook-reference.md spec-format/hook-recipes.md cli-reference/hook-diagnostics.md; do
     mkdir -p "$(dirname "$ROOT/docs/site/content/docs/$path")"
     printf 'reference docs\n' >"$ROOT/docs/site/content/docs/$path"
     out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")

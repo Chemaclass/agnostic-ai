@@ -77,7 +77,7 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 | The link leaves the skill folder, such as `../shared/setup.md`, and no file sits at that path from the project root | Move the file into the skill folder and update the link. Sync copies only the skill's own folder |
 | The tool flattens skills to one file and drops bundled files | Link to a URL, put the content in the skill, or accept the gap for that tool |
 | You deleted a generated file by hand | Run `agnostic-ai sync` to restore it |
-| A placeholder link in an example, such as `[Logs](url)`, can never resolve | List its destination under [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) |
+| A placeholder link in an example, such as `[Logs](url)`, can never resolve | List its destination under [`doctor.check-references.ignore`](@/docs/configuration-reference.md#doctorcheck-referencesignore) |
 
 </details>
 

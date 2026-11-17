@@ -153,7 +153,7 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 
 `agnostic-ai sync --global --only antigravity` adds your home MCP specs to `~/.gemini/config/mcp_config.json`, using the same fields as project output. A disabled server keeps `disabled: true`.
 
-`agnostic-ai import --global antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP ownership and name conflicts](@/docs/global-configuration.md#global-mcp-servers).
+`agnostic-ai import --global antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
 
 ## Import
 

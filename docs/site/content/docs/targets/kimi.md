@@ -54,7 +54,7 @@ agnostic-ai sync --check
 
 `KIMI_CODE_HOME` relocates all user paths together. Sync never changes the older `~/.kimi` data directory or runs Kimi's migration.
 
-Kimi-specific instructions and ordinary `AGENTS.md` instructions are additive. Kimi loads instructions from the Git root through the working directory. The uppercase plain filename wins over `agents.md` in one directory. Kimi-only projects use the branded path. When a configured peer already emits the plain `AGENTS.md`, Kimi shares that file and its scoped instruction files so common text is delivered once. Target-specific rules must be compatible with every reader of a shared file. See [shared entry points](@/docs/configuration.md#entry-point-files) for instruction content and path overrides.
+Kimi-specific instructions and ordinary `AGENTS.md` instructions are additive. Kimi loads instructions from the Git root through the working directory. The uppercase plain filename wins over `agents.md` in one directory. Kimi-only projects use the branded path. When a configured peer already emits the plain `AGENTS.md`, Kimi shares that file and its scoped instruction files so common text is delivered once. Target-specific rules must be compatible with every reader of a shared file. See [shared entry points](@/docs/configuration-reference.md#entry-point-files) for instruction content and path overrides.
 
 Agents and skills are discovered from the nearest Git root, including linked Git worktrees. Kimi's branded MCP file is relative to the session working directory. When launching from a subdirectory, explicitly choose a repository-root MCP mirror if required.
 

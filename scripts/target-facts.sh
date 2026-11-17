@@ -253,6 +253,7 @@ docs/site/content/docs/wrap-up.md
 docs/site/content/docs/side-conversation.md
 docs/site/content/docs/configuration.md
 docs/site/content/docs/global-configuration.md
+docs/site/content/docs/global-configuration-reference.md
 docs/site/content/docs/spec-format/hooks.md
 docs/site/content/docs/spec-format/hook-reference.md
 docs/site/content/docs/spec-format/hook-recipes.md
@@ -758,6 +759,9 @@ dump_target() {
   echo
   echo "--- docs/site/content/docs/global-configuration.md lines ---"
   doc_rows "$t" "$ROOT/docs/site/content/docs/global-configuration.md"
+  echo
+  echo "--- docs/site/content/docs/global-configuration-reference.md lines ---"
+  doc_rows "$t" "$ROOT/docs/site/content/docs/global-configuration-reference.md"
   echo
   echo "--- docs/site/content/docs/targets/$t.md and native reference ---"
   doc_section "$t"

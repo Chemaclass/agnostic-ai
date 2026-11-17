@@ -10,7 +10,7 @@ group = "Workflows"
 
 # Directory-specific instructions
 
-Use a scoped rule for one directory's instructions, such as a service's conventions. Sync writes the rule to each supported tool's files and keeps it out of the root instructions loaded every session.
+A scoped rule holds one directory's instructions, such as a service's conventions. Sync writes it to each supported tool's files and keeps it out of the root instructions loaded every session.
 
 ## Start with one directory
 
@@ -21,7 +21,7 @@ echo "claude,codex" | agnostic-ai init
 agnostic-ai new rule payments-context --scope services/payments
 ```
 
-In an existing project, skip `init` and check [tool compatibility](#shared-files-and-safe-updates). If `new rule --help` does not list `--scope`, [upgrade agnostic-ai](@/docs/installation.md#upgrade).
+In an existing project, skip `init` and check [tool compatibility](#shared-files-and-safe-updates). If `new rule --help` lacks `--scope`, [upgrade agnostic-ai](@/docs/installation.md#upgrade).
 
 Edit `.agnostic-ai/rules/payments-context.md`:
 
@@ -44,7 +44,7 @@ agnostic-ai graph --spec payments-context
 
 Claude gets a rule for that directory. Codex gets `services/payments/AGENTS.md`; start Codex inside `services/payments` so it loads the nested file. See [native support](#native-support) for other tools.
 
-To change the rule, edit the source and sync again. Preview with `agnostic-ai render .agnostic-ai/rules/payments-context.md`, or trace a generated file with `agnostic-ai why services/payments/AGENTS.md`.
+To change the rule, edit the source and sync again. Preview it with `agnostic-ai render .agnostic-ai/rules/payments-context.md`; trace a generated file with `agnostic-ai why services/payments/AGENTS.md`.
 
 ## Check what applies to a file
 
@@ -52,7 +52,7 @@ To change the rule, edit the source and sync again. Preview with `agnostic-ai re
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-For Claude Code, Codex, or Cursor, the report lists each instruction's source spec, output path, condition, and status. It describes planned output; it cannot show what the model loaded. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file) for the status values.
+For Claude Code, Codex, or Cursor, the report lists each instruction's source spec, output path, condition, and status. It shows planned output, not what the model loaded. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. Status values: [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
 
 <details>
 <summary>Set directory scope and understand Codex directory patterns</summary>
@@ -160,7 +160,7 @@ Runtime limits:
 
 ## Shared files and safe updates
 
-Tools that read the same generated file must agree on its text and loading conditions. Sync refuses incompatible combinations; neither a partial sync (`--only`) nor `prefer-spec` bypasses the check. Use compatible tools or separate worktrees.
+Tools that read one generated file must agree on its text and loading conditions. Sync refuses incompatible combinations, even with `--only` or `prefer-spec`. Use compatible tools or separate worktrees.
 
 <details>
 <summary>Resolve shared files, output overrides, and old scoped outputs</summary>

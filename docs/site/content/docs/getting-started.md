@@ -192,7 +192,7 @@ Choose the spec for your next task:
 - Run a command at a tool event: add a [hook](@/docs/spec-format/hooks.md).
 - Keep a standing convention apart from the project note: add a [rule](@/docs/spec-format/rules.md).
 - Give one folder different instructions: use [directory-specific instructions](@/docs/scoped-context.md).
-- Keep personal specs for every project in `~/.agnostic-ai/`: see [global configuration](@/docs/configuration.md#global-configuration), written with `agnostic-ai sync --global`.
+- Keep personal specs for every project in `~/.agnostic-ai/`: see [global configuration](@/docs/configuration-reference.md#global-configuration), written with `agnostic-ai sync --global`.
 - Using Composer? [Set up its Claude Code and Codex providers](@/docs/composer.md) from the same sources.
 
 [Why agnostic-ai?](@/docs/why-agnostic-ai.md#what-to-add-and-when) lists every kind of spec you can add.

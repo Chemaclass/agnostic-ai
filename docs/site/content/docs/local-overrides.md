@@ -15,13 +15,13 @@ Put personal specs and instructions in `.agnostic-ai/local/` to extend or overri
 Answer in Spanish.
 ```
 
-Then run `agnostic-ai sync`. The text extends the shared project instructions. Generated instruction files are ignored by default; if your project commits them, your personal text appears there too, so review before committing.
+Run `agnostic-ai sync`. The text extends the shared instructions. If your project commits generated instruction files, your personal text lands in them too, so review before committing.
 
 For personal configuration values, use `agnostic-ai.local.yaml` (see [configuration](@/docs/configuration.md#local-overrides)). In `agnostic-ai ui`, **Local** on **Settings** saves built-ins and settings fields as local overrides; see [saving for yourself](@/docs/cli-reference/serve.md#edit-scope).
 
 ## Add a spec
 
-A local spec with a new name adds a spec for your machine. A local spec with the same kind and name as a shared one [changes only the fields you write](#override-fields). Run `agnostic-ai sync`, then `agnostic-ai list` to check which source won.
+A local spec with a new name adds a spec on your machine. One with the same kind and name as a shared spec [changes only the fields you write](#override-fields). Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
 
 <details>
 <summary>Choose project-local or machine-wide personal sources</summary>
@@ -167,8 +167,8 @@ Answer in Spanish. Run `make test` before every commit.
 <!-- agnostic-ai:local:end -->
 ```
 
-- A legacy [`outputs.<target>.rules-file`](@/docs/configuration.md#entry-point-files) that names the entry point gets the block too, after the rule bodies.
-- `::target` fences and `@path` imports work as in the [shared file](@/docs/configuration.md#per-target-paragraphs).
+- A legacy [`outputs.<target>.rules-file`](@/docs/configuration-reference.md#entry-point-files) that names the entry point gets the block too, after the rule bodies.
+- `::target` fences and `@path` imports work as in the [shared file](@/docs/configuration-reference.md#per-target-paragraphs).
 
 In the global folder, `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after the shared instructions and rules.
 
@@ -184,7 +184,7 @@ Settings, reviews, and environments share one native file per target. If your lo
 
 ## Stay out of Git
 
-`init` and `sync` add `/.agnostic-ai/local/` to the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Add nothing by hand. See [gitignore](@/docs/sync-settings.md#gitignore).
+`init` and `sync` add `/.agnostic-ai/local/` and `/agnostic-ai.local.yaml` to the managed `.gitignore` block; add nothing by hand ([gitignore](@/docs/sync-settings.md#gitignore)).
 
 If `~/.agnostic-ai/` is a Git repository, add this line to its `.gitignore`:
 
@@ -207,4 +207,4 @@ rule    scratch-notes    project-user
 
 ## Watch
 
-`sync --watch` re-syncs when you edit a local spec or `.agnostic-ai/local/AGNOSTIC_AI.md`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
+`sync --watch` re-syncs when you edit a local spec or `local/AGNOSTIC_AI.md` ([`sync --watch`](@/docs/cli-reference/sync.md#sync)).

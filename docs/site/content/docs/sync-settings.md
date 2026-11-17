@@ -46,8 +46,13 @@ sync:
 
 When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) gets a section listing where that tool's generated files live, following `outputs.<target>.*` overrides.
 
+<details>
+<summary>Target overview details</summary>
+
 - A shared entry point such as `AGENTS.md` lists each reader in its own section.
 - Sync rewrites the section between `<!-- agnostic-ai:target-overview:start -->` and `<!-- agnostic-ai:target-overview:end -->`. `import` removes it. Aider and external adapters get no section.
+
+</details>
 
 ### `sync.resolve-imports` {#syncresolve-imports}
 
@@ -66,20 +71,30 @@ sync:
 
 ### `sync.dropped-summary` {#syncdropped-summary}
 
-When `true`, sync ends with a per-target list of kinds that were dropped (the tool has no support) or downgraded (written only behind an opt-in key, or only in the source directory). It groups capability warnings and [coverage notes](@/docs/configuration.md#coverage-notes) by tool.
+When `true`, sync ends with a per-target list of kinds that were dropped (the tool has no support) or downgraded (written only behind an opt-in key, or only in the source directory). It groups capability warnings and [coverage notes](@/docs/configuration-reference.md#coverage-notes) by tool.
 
 ### `sync.shared-skills` {#syncshared-skills}
 
 When `true`, tools that share the Agent Skills layout (`<dir>/<name>/SKILL.md` plus assets: Claude, Cursor, Codex, Amp) keep one real copy of each skill and link the others to it with relative symlinks.
 
+<details>
+<summary>Shared skill link rules</summary>
+
 - Only folders with identical content link. Skills with per-tool overrides such as `x-cursor` keep real copies.
 - Turning the option off restores real copies on the next sync.
 - Without symlink support (Windows without the privilege), sync warns once and keeps real copies.
+
+</details>
+
+<details>
+<summary>Commit shared skill links</summary>
 
 If you commit shared skill links, Git must check them out as links. Git's `core.symlinks` setting is separate from the system's permission to create links. With `core.symlinks=false`, `sync --check --against index` and `--against HEAD` name each link Git exported as a plain file. To fix it:
 
 - Where the system can create links, run `git config --local core.symlinks true` and rerun the check.
 - To keep `core.symlinks=false`, set `sync.shared-skills: false`, run `agnostic-ai sync`, and stage the config and the restored skill copies. Commit that before you check `--against HEAD`.
+
+</details>
 
 ### `sync.unmanaged` {#syncunmanaged}
 
@@ -93,12 +108,17 @@ sync:
     - .claude/skills/legacy/          # trailing slash: everything under the directory
 ```
 
+<details>
+<summary>How unmanaged paths behave</summary>
+
 - Entries are project-relative with forward slashes. Filename patterns use Go `path.Match`; `**` acts like `*` and stays inside one folder name, so `**/x` misses the root and deeper folders and `dir/**` matches only files directly inside `dir/` (write `dir/`). Lint, doctor, and sync warn about it (LINT057). A malformed glob or an empty entry fails config load.
 - `sync` prints `~ skip (unmanaged) <path>`. `sync --check`, `status`, and `doctor` never count it as drift. `revert` and `doctor --fix` never touch it.
 - Removing the entry deletes nothing. The next sync rewrites the file.
 - `sync.shared-skills` never links such a skill folder.
 - `agnostic-ai.local.yaml` replaces the entire list.
 - Hook script bodies copied from `.agnostic-ai/scripts/` are not covered.
+
+</details>
 
 ### `sync.output-manifest` {#syncoutput-manifest}
 
@@ -109,13 +129,18 @@ sync:
   output-manifest: true
 ```
 
+<details>
+<summary>Leftovers, edited files and --against</summary>
+
 - With no `.sync-state`, `doctor` and `sync --check` count a tracked file the generated-path list includes but no spec produces as a leftover. `doctor --fix` removes it.
 - A file edited since sync wrote it no longer matches its checksum, so it is left for you.
 - `sync --check --against` reads the generated-path list from the state it checks. It catches a deleted spec's outputs even in a shallow clone, unless that list was regenerated in the same commit.
 
+</details>
+
 ### `sync.allow-global-names` {#syncallow-global-names}
 
-Skill and agent names this project shares with the [global home](@/docs/global-configuration.md#global-shared-names) on purpose. `sync` prints no warning for a listed name. Other shared names still warn.
+Skill and agent names this project shares with the [global home](@/docs/global-configuration-reference.md#global-shared-names) on purpose. `sync` prints no warning for a listed name. Other shared names still warn.
 
 ```yaml
 # agnostic-ai.local.yaml
@@ -123,13 +148,18 @@ sync:
   allow-global-names: [gh-issue, gh-issues]
 ```
 
+<details>
+<summary>Where to put the list and how names match</summary>
+
 - Put the list in `agnostic-ai.local.yaml`, since the home exists only on your machine. A local list replaces the entire shared list.
 - Names match the way Claude Code folds skill names: case, spacing, and invisible characters do not count.
 - `doctor` still lists each allowed name under **Global names**, marked as allowed.
 
+</details>
+
 ### `sync.global-name-clash` {#syncglobal-name-clash}
 
-What `sync` does with every name this project shares with the [global home](@/docs/global-configuration.md#global-shared-names): `warn` prints the warning, `ignore` prints nothing.
+What `sync` does with every name this project shares with the [global home](@/docs/global-configuration-reference.md#global-shared-names): `warn` prints the warning, `ignore` prints nothing.
 
 ```yaml
 # agnostic-ai.local.yaml
@@ -137,9 +167,14 @@ sync:
   global-name-clash: ignore
 ```
 
+<details>
+<summary>When to use it</summary>
+
 - Use it when a project shadows global skills or agents as a rule. To accept a few names, use [`sync.allow-global-names`](#syncallow-global-names).
 - `doctor` still lists each shared name under **Global names**, marked as ignored.
 - Any other value fails config load.
+
+</details>
 
 ## `gitignore`
 
@@ -162,11 +197,16 @@ gitignore:
   commit: [instructions, hooks]
 ```
 
+<details>
+<summary>Commit kinds in detail</summary>
+
 - Kinds: `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`. An unknown kind fails config loading.
 - `instructions` covers entry-point files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) and rule outputs, root and scoped. Every other kind is named after its spec source.
 - A file written by several kinds, such as `.claude/settings.json`, is committed when any of them is listed.
 - `ellipsis:reviews`, `ellipsis:environments`, and `ellipsis:mcps` also count the settings spec that holds `x-ellipsis`, because `.ellipsis/code-review.yaml` and `.ellipsis/environments/<name>.yaml` need both ([Ellipsis](@/docs/targets/ellipsis.md#keep-the-files-in-git)).
-- A file that only the config or an [overlay](@/docs/configuration.md#watched-inputs) produces belongs to no kind and stays ignored.
+- A file that only the config or an [overlay](@/docs/configuration-reference.md#watched-inputs) produces belongs to no kind and stays ignored.
+
+</details>
 
 Prefix a kind with a target to commit it for that target only:
 
@@ -186,12 +226,20 @@ A new Claude Code worktree has no gitignored files. Claude Code copies the ones 
 
 With `claude` in `targets`, sync also keeps the block in `.worktreeinclude`, minus `.sync-state`, `.command-lock`, Claude worktree directories, and the task lock. Your local files and packs come along, so the worktree renders what the main checkout does.
 
+<details>
+<summary>Worktree include options</summary>
+
 - Set `gitignore.ignore-worktree-include: true` to keep the managed file out of Git by listing it in the managed ignore block. It requires `worktree-include: true` and `claude` in `targets`. If the file is already tracked, run `agnostic-ai sync --untrack` to remove it from the index and keep the file.
 - Set `gitignore.worktree-include: false` to manage the file yourself. Sync then removes only its own block.
+
+</details>
 
 A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checkout and merge hooks](@/docs/git-hooks.md#regenerate-on-checkout).
 
 ### Block contents
+
+<details>
+<summary>What the managed block lists</summary>
 
 - Entries are root-anchored (`/AGENTS.md`), so nested same-named files are not ignored.
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` stay visible. A per-kind dir such as `outputs.<target>.rules-dir` collapses at the dir itself.
@@ -200,3 +248,5 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 - A leftover file from a deleted spec stays ignored until you remove it.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings.
 - Built-ins come from `agnostic-ai.yaml` alone, so a `builtins` list in `agnostic-ai.local.yaml` leaves the block and `.worktreeinclude` unchanged. Outputs only the local list adds go in an `agnostic-ai (personal)` block in `.git/info/exclude`, and sync removes those lines when the local list stops adding them. Outputs the local list turns off stay in the block. A linked worktree shares `.git/info/exclude` with every checkout, so there sync leaves those outputs untracked and names them in a warning.
+
+</details>

@@ -137,7 +137,7 @@ In the browser:
 - With `--global`, the `AGNOSTIC_AI.md` row in **Context** has **Copy refine prompt**. The prompt asks a coding agent to review the file against current guidance for instruction files, propose a full rewrite with a change table, recommend which rules belong in an existing or new skill or agent, and leave the file unchanged until you approve.
 - **Context size** opens first in **Context** for a project served by a running server. Static snapshots, user configuration, and projects with no coding tool open the first tab with content instead.
 
-Choose a coding tool to see its [context report](@/docs/cli-reference/inspect.md#rank-context-contributions): startup, file-scoped, and on-demand sizes in words and bytes. **Check against a file** updates the file scope as you type. The page compares startup words with [`lint.instructions-words`](@/docs/configuration.md#lint).
+Choose a coding tool to see its [context report](@/docs/cli-reference/inspect.md#rank-context-contributions): startup, file-scoped, and on-demand sizes in words and bytes. **Check against a file** updates the file scope as you type. The page compares startup words with [`lint.instructions-words`](@/docs/configuration-reference.md#lint).
 
 **How this is counted** explains when text loads and links to the tool's model and effort in Settings. Sources are ranked by words, with each source's share of its group. Duplicate startup passages follow. The tool and file stay in the page address.
 

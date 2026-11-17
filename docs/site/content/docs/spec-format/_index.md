@@ -53,9 +53,9 @@ Choose a [folder](#folders), then write when the spec applies, what to do, and w
 | [`ignore/`](@/docs/spec-format/ignore.md) | Context and indexing exclusions for supported tools | irrelevant files crowd search or context |
 | [`overlays/`](@/docs/spec-format/overlays.md) | Native settings and helper files that `import` captured | a tool setting has no portable spec |
 
-Beside them, `AGNOSTIC_AI.md` holds the text every [entry-point file](@/docs/configuration.md#entry-point-files) carries, and `local/` holds [personal specs](@/docs/local-overrides.md) that stay out of Git.
+Beside them, `AGNOSTIC_AI.md` holds the text every [entry-point file](@/docs/configuration-reference.md#entry-point-files) carries, and `local/` holds [personal specs](@/docs/local-overrides.md) that stay out of Git.
 
-- Paths are relative to `.agnostic-ai/`, so `rules/*.md` means `.agnostic-ai/rules/*.md`. [`sources`](@/docs/configuration.md#sources) overrides the directories.
+- Paths are relative to `.agnostic-ai/`, so `rules/*.md` means `.agnostic-ai/rules/*.md`. [`sources`](@/docs/configuration-reference.md#sources) overrides the directories.
 - Subfolders load too: every `.md` under `agents/`, `rules/`, `commands/`, `reviews/`, and `ignore/`, and every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`. Under `skills/`, Markdown beside a `SKILL.md` is bundled reference material, not another skill.
 - `agnostic-ai new <kind> <name>` creates a starter spec for [each supported kind](@/docs/cli-reference/start.md#new). [Getting started](@/docs/getting-started.md) walks through a first rule.
 - The [tool support table](@/docs/targets/_index.md#capability-matrix) shows which tools get each kind; each tool's page shows how it writes it.
@@ -125,7 +125,7 @@ Codex and Gemini section.
 | `::end` | Closes the last open fence. A missing `::end` runs to the end of the body. |
 
 - `import` keeps fences intact. `import codex` adds them when Claude and Codex have the same agent or skill with different bodies.
-- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A shared file is never split: a block reaches it when any tool that reads it is listed, so `::target codex` text reaches every `AGENTS.md` reader. See [Entry-point files](@/docs/configuration.md#entry-point-files).
+- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A shared file is never split: a block reaches it when any tool that reads it is listed, so `::target codex` text reaches every `AGENTS.md` reader. See [Entry-point files](@/docs/configuration-reference.md#entry-point-files).
 
 ## Path variables: `{{$NAME}}`
 

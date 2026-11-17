@@ -60,7 +60,7 @@ Agents get YAML frontmatter and a prompt body. Portable tool names map to Qwen n
 
 Skills keep their bundled files. Qwen Code also reads `.agents/skills/`, and its own `.qwen/skills/` wins a same-name clash. `disable-model-invocation`, `user-invocable`, and `paths` (always as a list) are written to `SKILL.md` as Qwen reads them, unless another target writes the same skills folder; `allowed-tools` is not, since Qwen's own `allowedTools` grants permissions. Set `x-qwen.model` on a skill to select its native model; the shared skill `model` field is not promoted.
 
-Commands use Markdown with optional `description` frontmatter. Qwen interprets `{% raw %}{{args}}{% endraw %}`, `!{shell}`, and `@{path}` in command bodies; sync keeps that text as written. Nested command paths become colon-separated command names, and sync writes a command named `git:commit` back as `.qwen/commands/git/commit.md`, on Windows too. On Windows, a target that writes such a name as one file refuses it; see [path semantics](@/docs/configuration.md#path-semantics).
+Commands use Markdown with optional `description` frontmatter. Qwen interprets `{% raw %}{{args}}{% endraw %}`, `!{shell}`, and `@{path}` in command bodies; sync keeps that text as written. Nested command paths become colon-separated command names, and sync writes a command named `git:commit` back as `.qwen/commands/git/commit.md`, on Windows too. On Windows, a target that writes such a name as one file refuses it; see [path semantics](@/docs/configuration-reference.md#path-semantics).
 
 MCP servers share `settings.json` under `mcpServers`. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `httpUrl`, and SSE uses `url`. MCP timeouts are milliseconds. Servers marked `disabled: true` are omitted from this output because Qwen ignores that per-server field. A same-name server in existing or inherited configuration can still load; use native `mcp.excluded` to block it. Environment placeholders stay literal until Qwen resolves them. See the [native MCP reference](https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/).
 
@@ -123,7 +123,7 @@ Portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write 
 | `outputs.qwen.hooks-file` | `.qwen/settings.json` |
 | `outputs.qwen.ignore-file` | `.qwenignore` |
 
-Root instructions use the shared [entry-point configuration](@/docs/configuration.md#outputs). Changing a path does not change where Qwen looks for it. Keep overrides aligned with your native configuration.
+Root instructions use the shared [entry-point configuration](@/docs/configuration-reference.md#outputs). Changing a path does not change where Qwen looks for it. Keep overrides aligned with your native configuration.
 
 ## Import
 

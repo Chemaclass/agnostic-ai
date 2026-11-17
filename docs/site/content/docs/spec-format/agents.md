@@ -163,7 +163,7 @@ Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonne
 
 ## Model tiers {#model-tiers}
 
-A [tier](@/docs/configuration.md#models) names a model role once in `agnostic-ai.yaml`, such as `strong: {claude: opus, codex: sol, effort: high}`. Write `model: strong` in an agent, and each target the tier names gets its model; the others keep their default. A tier's [`description`](@/docs/configuration.md#models) tells the main agent when to pick it. For `model`, the first match wins:
+A [tier](@/docs/configuration-reference.md#models) names a model role once in `agnostic-ai.yaml`, such as `strong: {claude: opus, codex: sol, effort: high}`. Write `model: strong` in an agent, and each target the tier names gets its model; the others keep their default. A tier's [`description`](@/docs/configuration-reference.md#models) tells the main agent when to pick it. For `model`, the first match wins:
 
 1. `x-<target>.model`
 2. `model.<target>` in the spec
@@ -174,8 +174,8 @@ A [tier](@/docs/configuration.md#models) names a model role once in `agnostic-ai
 To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`.
 
 - The tier's `effort` applies only when the spec sets no `effort`, and is skipped for a target whose model the spec sets itself.
-- A value under `model.<target>` or `x-<target>.model` is never a tier name. `model.<target>` can be a [vendor alias](@/docs/configuration.md#models) such as `codex: sol`.
-- `explain agents/<name>.md` lists the model and effort each configured tool gets. [`models`](@/docs/configuration.md#models) lists the tier `lint` checks (LINT025, LINT026).
+- A value under `model.<target>` or `x-<target>.model` is never a tier name. `model.<target>` can be a [vendor alias](@/docs/configuration-reference.md#models) such as `codex: sol`.
+- `explain agents/<name>.md` lists the model and effort each configured tool gets. [`models`](@/docs/configuration-reference.md#models) lists the tier `lint` checks (LINT025, LINT026).
 - `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool.
 
 ## Agents as skills {#agents-as-skills}

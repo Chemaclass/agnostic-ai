@@ -26,7 +26,7 @@ agnostic-ai sync
 
 Saving a fact needs no further sync.
 
-To enable it across projects, use [global configuration](@/docs/global-configuration.md). Pick project or global setup, not both, or the same facts can load twice. Claude Code needs a project sync either way.
+To enable it for all projects, use [global configuration](@/docs/global-configuration.md) instead. Pick one, or facts can load twice. Claude Code needs a project sync either way.
 
 ## Two memories
 
@@ -47,15 +47,15 @@ Each folder has one file per fact and a `MEMORY.md` list. Tools read the list wh
 
 ## Save and recall a fact
 
-Ask your coding tool: “Remember that this project's integration tests need the local database running.” It proposes the team fact for your approval. A personal preference, such as shorter answers, it can save without asking. Then start another tool in the project and ask what it knows about integration tests.
+Ask your coding tool: “Remember that this project's integration tests need the local database running.” It proposes the team fact for your approval; a personal preference, such as shorter answers, it saves without asking. Start another tool and ask what it knows about integration tests.
 
-Keep your coding tool's own memory on. Shared memory also makes saved facts available to other tools. Your request wins over saved facts. See [Gemini CLI](@/docs/targets/gemini.md#shared-memory) for how it keeps its own memory alongside these facts.
+Keep your tool's own memory on; shared memory adds to it. Your request wins over saved facts. [Gemini CLI](@/docs/targets/gemini.md#shared-memory) keeps its own memory beside these facts.
 
 Ask for the `shared-memory` skill to recall a topic or clean up stale facts. Cleanup needs your confirmation.
 
 ## Check and repair
 
-`agnostic-ai lint` and `doctor` check for oversized lists (over 100 lines each or 6,000 bytes combined), broken links, unlisted facts, possible secrets, and hidden characters. Personal memory is skipped when its folder is missing, including in CI.
+`agnostic-ai lint` and `doctor` flag oversized lists (over 100 lines each or 6,000 bytes combined), broken links, unlisted facts, possible secrets, and hidden characters. They skip personal memory when its folder is missing, as in CI.
 
 `agnostic-ai memory lint` runs only these checks, and `agnostic-ai memory index` rebuilds each `MEMORY.md` after a merge conflict. See [memory commands](@/docs/cli-reference/memory.md#memory) for every subcommand.
 
