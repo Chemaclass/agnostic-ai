@@ -93,11 +93,6 @@ const (
 // arrives after; without the guard it would open again.
 const reopenGuard = 250 * time.Millisecond
 
-// returnSettle is how long after a hidden companion comes back the
-// circle's moves leave its list open: the window system may still be
-// placing it.
-const returnSettle = 500 * time.Millisecond
-
 // savePause is how long the bubble must rest before its place is saved.
 const savePause = 500 * time.Millisecond
 
@@ -109,7 +104,8 @@ type shell struct {
 	inbox  *inbox
 	server *server
 
-	settingsPath string
+	settingsPath  string
+	bubblePressed func() bool
 
 	// screens lists the displays.
 	screens func() []*application.Screen
@@ -152,10 +148,17 @@ type shell struct {
 	save            *time.Timer
 	// presence is how the companion sits on the screen; the zero value is shown.
 	presence presence
-	// shownAgainAt is when a hidden companion last came back.
-	shownAgainAt time.Time
-	// resizedAt is when the circle size last changed.
-	resizedAt time.Time
+	// resized is where the last size change put the circle and the
+	// halves its list keeps; nil once the circle moved anywhere else.
+	resized *resizedPlace
+}
+
+// resizedPlace is a circle a size change placed, with the halves it sat
+// in before the change. The move events the window system reports for
+// the resize keep the list on that side.
+type resizedPlace struct {
+	bubble rect
+	sits   halves
 }
 
 // presenceNow is the companion's presence, shown before any change.
@@ -201,9 +204,6 @@ func (s *shell) changePresenceLocked(from, to presence) bool {
 		return false
 	}
 	s.presence = to
-	if was == hidden {
-		s.shownAgainAt = time.Now()
-	}
 	looks := s.settings.appearance()
 	looks.Presence = to
 	s.mu.Unlock()
@@ -451,32 +451,44 @@ func (s *shell) fitBubble() {
 	}
 	work := s.workArea()
 	x, y := resizedBubble(before, work, side)
-	s.mu.Lock()
-	s.resizedAt = time.Now()
-	s.mu.Unlock()
 	s.bubble.SetSize(side, side)
 	s.bubble.SetPosition(x, y)
 	// The window system may report no move for a resize, so the place is saved here.
 	if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: x, Y: y} }); err != nil {
 		log.Print(err)
 	}
+	// The halves come from before the resize: near the middle, the new
+	// size alone would move the list to the other side.
+	placed := resizedPlace{bubble: rect{X: x, Y: y, Width: side, Height: side}, sits: halvesOf(before, work)}
+	s.mu.Lock()
+	s.resized = &placed
+	s.mu.Unlock()
 	if s.panel.IsVisible() {
-		// The halves come from before the resize: near the middle, the new
-		// size alone would move the list to the other side.
-		panelX, panelY, _ := placePanelOn(halvesOf(before, work), rect{X: x, Y: y, Width: side, Height: side}, work, panelWidth, panelHeight)
+		panelX, panelY, _ := placePanelOn(placed.sits, placed.bubble, work, panelWidth, panelHeight)
 		s.panel.SetPosition(panelX, panelY)
 	}
 }
 
-// bubbleMoved closes the panel, which no longer sits beside the bubble,
-// and saves the bubble's new place once it rests.
-func (s *shell) bubbleMoved() {
+// panelHalves is the halves an open list keeps beside the circle: the
+// ones a size change kept while the circle stays where it put it,
+// otherwise the ones the circle sits in now.
+func (s *shell) panelHalves(bubble, work rect) halves {
 	s.mu.Lock()
-	settled := time.Since(s.shownAgainAt) >= returnSettle && time.Since(s.resizedAt) >= returnSettle
-	s.mu.Unlock()
-	// A circle shown again or resized can report moves after the list opened beside it.
-	if settled && s.panel.IsVisible() {
-		s.panel.Hide()
+	defer s.mu.Unlock()
+	if s.resized != nil && s.resized.bubble == bubble {
+		return s.resized.sits
+	}
+	s.resized = nil
+	return halvesOf(bubble, work)
+}
+
+// bubbleMoved keeps an open panel beside the bubble without reopening it or
+// moving keyboard focus, and saves the bubble's new place once it rests.
+func (s *shell) bubbleMoved() {
+	if s.panel.IsVisible() {
+		bubble, work := windowRect(s.bubble), s.workArea()
+		x, y, _ := placePanelOn(s.panelHalves(bubble, work), bubble, work, panelWidth, panelHeight)
+		s.panel.SetPosition(x, y)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -500,7 +512,18 @@ func (s *shell) changeSettings(change func(saved *settings)) error {
 	return writeSettings(s.settingsPath, s.settings)
 }
 
+// Clicking the bubble to drag it must not dismiss its open panel.
 func (s *shell) panelLostFocus() {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	if !s.panel.IsVisible() || s.panel.IsFocused() {
+		return
+	}
+	if s.bubble.IsFocused() || (s.bubblePressed != nil && s.bubblePressed()) {
+		s.panel.Focus()
+		return
+	}
+	s.panel.Hide()
 	s.mu.Lock()
 	s.hiddenByFocusAt = time.Now()
 	s.mu.Unlock()
@@ -662,17 +685,19 @@ func main() {
 		URL: "/",
 	}))
 	s.panel = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
-		Name:            "panel",
-		Title:           "agnostic-ai conversations",
-		Width:           panelWidth,
-		Height:          panelHeight,
-		URL:             "/panel.html",
-		Hidden:          true,
-		HideOnFocusLost: true,
+		Name:   "panel",
+		Title:  "agnostic-ai conversations",
+		Width:  panelWidth,
+		Height: panelHeight,
+		URL:    "/panel.html",
+		Hidden: true,
 		// The page handles Escape: it first closes its menu or a rename.
 	}))
 
+	s.bubblePressed = func() bool { return mousePressedOver(s.bubble.NativeWindow()) }
+
 	s.bubble.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) { s.bubbleMoved() })
+	s.bubble.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 	s.panel.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) { s.panelLostFocus() })
 
 	s.app.Event.RegisterApplicationEventHook(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {

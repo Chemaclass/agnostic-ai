@@ -56,7 +56,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 
 ## Use it
 
-- **Drag** the circle anywhere. It remembers where you left it, and comes back
+- **Drag** the circle anywhere. An open list follows it and keeps your search.
+  It remembers where you left it, and comes back
   to the lower right when that place is on a monitor you unplugged.
 - **Click** the circle to open or close the list. So does the shortcut,
   **Ctrl+Alt+Space** (⌃⌥Space on a Mac) until you change it.
@@ -123,6 +124,20 @@ The number on the circle counts the conversations that need you. An ice blue arc
 turns around the circle while an agent is working. With animation off, a still
 ice blue ring shows instead.
 
+Rows under the blue **Working** section show a small gyroscope. Five bulbs
+travel at different radii and depths around a shaded core. The assembly
+turns slowly at constant brightness, with space around it. Each working
+native Claude Code or Codex sub-agent adds one blue miniature of the same
+five-dot fractal. A number beside an agent icon shows the count; its tooltip
+and accessible label say how many sub-agents are working.
+An idle parent stays under Working while its sub-agents work, with its own
+plain, still dot. A parent that needs your answer stays under Needs you with
+the ordinary orange dot and no orbiting bulbs of its own. Working satellites
+keep their blue cores and animation independently of the parent. An unavailable
+count adds no markers. Cloud and other tools' native sub-agents are not tracked.
+With animation off or your system's Reduce Motion enabled, the whole indicator
+stays still and its section heading and worker count remain visible.
+
 Starting the companion a second time brings back the one that already runs and
 opens its list, even when it is hidden.
 
@@ -141,7 +156,7 @@ foot of the list, and a right-click on the circle (Ctrl+click on a Mac). A
 change made in one shows in the other.
 
 - **Animate companion** turns movement on and off: the turning arc, the
-  breathing dot in the list, the badge's pop and the list's opening. When it is
+  gyroscope in the list, the badge's pop and the list's opening. When it is
   off, a still ring shows that an agent is working, and the number keeps
   updating. Hover and press feedback stay. Your system's reduce motion setting
   still applies when it is on.

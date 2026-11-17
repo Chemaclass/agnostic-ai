@@ -93,6 +93,9 @@ type Scanner struct {
 
 	mu                sync.Mutex
 	claude            map[string]claudeCacheEntry
+	claudeWorkers     map[string]*claudeWorkerCache
+	claudeAgentMetas  map[string]cached[claudeAgentMeta]
+	codexWorkers      map[string]*nativeLog[codexWorkerTurn]
 	cursorAgents      map[string]cached[cursorAgentMeta]
 	cursorTranscripts map[string]cached[texts]
 	// cursorSlugs caches the folders each cursor-agent project slug
@@ -113,6 +116,9 @@ type Scanner struct {
 	// codexLiveRollouts are the rollouts of the Codex threads a process
 	// had loaded at the last read.
 	codexLiveRollouts []string
+	// Native Claude worker logs and their folders, including folders that do
+	// not exist yet, so a worker launch or completion invalidates the stamp.
+	claudeWorkerFiles []string
 	// cursorLiveTranscripts are the transcripts of the cursor-agent chats
 	// a process held at the last read.
 	cursorLiveTranscripts []string
@@ -216,9 +222,11 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return s.find(ctx, tool, id, opts, false)
 }
 
-// find is Find that, with sharedPage, also gives the cloud row a shared
-// row took in: only opening its page names that row.
-func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, sharedPage bool) (Conversation, bool) {
+// find is Find that, with opening, also gives the rows only an open
+// names: the cloud row a shared row took in, which opens its page, and
+// the threads of the helpers a row in scope lists. The mark and rename
+// requests, which use Find, never reach those.
+func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, opening bool) (Conversation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	results, _ := s.readAll(ctx, opts)
@@ -227,8 +235,18 @@ func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptio
 			if c.Tool == tool && c.ID == id {
 				return c, true
 			}
-			if sharedPage && c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
+			if opening && c.Cloud != nil && c.Tool == tool && c.Cloud.ID == id {
 				return *c.Cloud.row, true
+			}
+		}
+	}
+	if !opening || !listsHelper(results, tool, id) {
+		return Conversation{}, false
+	}
+	for _, result := range results {
+		for _, c := range result.unlisted {
+			if c.Tool == tool && c.ID == id {
+				return c, true
 			}
 		}
 	}
@@ -273,6 +291,7 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	if s.hasChatGPTApp() {
 		results = append(results, s.kept(ctx, ToolChatGPT, opts, s.chatGPTFiles(), func() sourceResult { return s.scanChatGPT(ctx, opts) }))
 	}
+	attachRuns(results)
 	s.placeLive(results)
 	return results, strings.Join(notes, " ")
 }
@@ -349,6 +368,11 @@ func lastWritten(c Conversation) time.Time {
 type sourceResult struct {
 	source        Source
 	conversations []Conversation
+	// runs are the running Codex exec runs, listed under the session that started them.
+	runs []codexExecRun
+	// unlisted are threads that are no row but open from a row's helpers:
+	// running Codex exec runs and working Codex native subagents.
+	unlisted []Conversation
 }
 
 func missing(tool Tool, note string) sourceResult {

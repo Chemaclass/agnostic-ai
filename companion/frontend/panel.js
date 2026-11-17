@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveSmallCompanion, saveStartAtLogin, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, titleOf, viewIn, withTitle } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, PLACES, SHARED_TITLE, afterPage, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, titleOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -64,6 +64,12 @@ const state = {
   renaming: undefined,
   /** Keys of the rows showing the green tick of a chat just marked complete. */
   completing: new Set(),
+  /**
+   * Keys of the chats whose subagents are unfolded, and of those showing every one past "+N more".
+   * The companion keeps no per-chat state on disk, so both last until it quits.
+   */
+  helpersOpen: new Set(),
+  helpersAll: new Set(),
 }
 
 /** The list as the place switch narrows it; undefined before the first one arrived. */
@@ -101,6 +107,7 @@ const ICONS = {
   complete: 'M3 8.5l3 3 7-7.5',
   rename: 'M10.5 2.5l3 3-8 8h-3v-3zM8.5 4.5l3 3',
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
+  agents: 'M8 2.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4M4 13v-1a4 4 0 0 1 8 0v1M3 4a1.5 1.5 0 1 0 0 3M13 4a1.5 1.5 0 1 1 0 3M1 12v-1a3 3 0 0 1 2-2.8M15 12v-1a3 3 0 0 0-2-2.8',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
 }
 
@@ -149,8 +156,48 @@ function actionButton(iconName, label, press) {
 /** The state's mark. Archived rows share one, however they got there. */
 const MARK_OF = { completed: 'archived', dormant: 'archived' }
 
+function workSystem() {
+  const system = element('span', 'work-system')
+  const cage = element('span', 'work-cage')
+  for (let orbit = 0; orbit < 5; orbit++) {
+    const track = element('span', 'work-orbit')
+    track.append(element('span', 'work-traveller'))
+    cage.append(track)
+  }
+  system.append(cage)
+  return system
+}
+
 function stateMark(conversation) {
-  return element('span', 'state is-' + (MARK_OF[conversation.state] ?? conversation.state))
+  // The row can be under Working because its children are busy. The parent's
+  // own dot still describes the parent, independently of those satellites.
+  let parentState = MARK_OF[conversation.state] ?? conversation.state
+  const childrenWork = conversation.state === 'working' && conversation.workingSubagents > 0
+  if (conversation.state === 'working' && conversation.activity === 'waiting') parentState = 'blocked'
+  // Codex leaves the activity out once the parent's turn ends, so only the
+  // parent's own working activity keeps its mark moving.
+  else if (childrenWork && conversation.activity !== 'working') parentState = 'active'
+  const mark = element('span', 'state is-' + parentState)
+  mark.setAttribute('aria-hidden', 'true')
+  if (parentState === 'working' || conversation.workingSubagents > 0) {
+    // Keep the mechanism's phase when a new reply or selection redraws the list.
+    mark.style.setProperty('--work-phase', `-${performance.now()}ms`)
+  }
+  if (parentState === 'working') {
+    mark.append(workSystem())
+  }
+  if (conversation.workingSubagents > 0) {
+    const workers = element('span', 'work-workers')
+    for (let worker = 0; worker < conversation.workingSubagents; worker++) {
+      const dot = element('span', 'work-worker')
+      dot.style.setProperty('--worker-angle', `${worker * 360 / conversation.workingSubagents}deg`)
+      dot.style.setProperty('--worker-radius', `${19 + (worker % 3) * 3}px`)
+      dot.append(workSystem())
+      workers.append(dot)
+    }
+    mark.append(workers)
+  }
+  return mark
 }
 
 function rowOf(conversation, order, folderNames, under) {
@@ -162,6 +209,7 @@ function rowOf(conversation, order, folderNames, under) {
   row.classList.toggle('is-quiet', quiet)
   row.classList.toggle('is-active', key === state.activeKey)
   row.classList.toggle('is-nested', under !== undefined)
+  row.classList.toggle('has-workers', conversation.workingSubagents > 0)
   row.dataset.key = key
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
@@ -190,6 +238,18 @@ function rowOf(conversation, order, folderNames, under) {
     if (reason) {
       meta.append(element('span', 'why is-' + conversation.state, reason), ' · ')
     }
+    if (workingHelpersOf(conversation).length > 0) {
+      meta.append(helpersToggle(conversation, key), ' · ')
+    } else if (conversation.workingSubagents > 0) {
+      const count = conversation.workingSubagents
+      const workers = element('span', 'worker-count', String(count))
+      const description = `${count} working sub-agent${count === 1 ? '' : 's'}`
+      workers.title = description
+      workers.setAttribute('role', 'img')
+      workers.setAttribute('aria-label', description)
+      workers.append(icon('agents', '0 0 16 16'))
+      meta.append(workers, ' · ')
+    }
     meta.append(detailsOf(conversation, now, folderNames))
     if (conversation.cloud) meta.title = SHARED_TITLE
   }
@@ -217,6 +277,63 @@ function rowOf(conversation, order, folderNames, under) {
     openRowMenu(conversation, event)
   })
   return row
+}
+
+/** The meta line's "▸ 3 subagents": it folds the chat's subagents out under it, and back. */
+function helpersToggle(conversation, key) {
+  const open = state.helpersOpen.has(key)
+  const toggle = element('button', 'helpers-toggle', helpersToggleOf(conversation, open))
+  toggle.type = 'button'
+  toggle.setAttribute('aria-expanded', String(open))
+  toggle.setAttribute('aria-controls', helpersId(key))
+  toggle.addEventListener('click', (event) => {
+    // The toggle sits inside the row, which opens on a click.
+    event.stopPropagation()
+    if (open) state.helpersOpen.delete(key)
+    else state.helpersOpen.add(key)
+    draw({ force: true })
+  })
+  return toggle
+}
+
+function helpersId(key) {
+  return 'helpers-' + key.replace(/[^A-Za-z0-9_-]/g, '-')
+}
+
+/** A subagent's mark: the working gyroscope, since only working subagents are listed. */
+function helperMark() {
+  const mark = element('span', 'state is-working')
+  mark.setAttribute('aria-hidden', 'true')
+  mark.style.setProperty('--work-phase', `-${performance.now()}ms`)
+  mark.append(workSystem())
+  return mark
+}
+
+/** A chat's subagents, folded out under it on a tree line: a smaller copy of a row each, then "+N more". */
+function helperList(conversation, key, now) {
+  const box = element('div', 'helpers')
+  box.id = helpersId(key)
+  const { rows, more } = helperRowsOf(conversation, state.helpersAll.has(key))
+  for (const helper of rows) {
+    const row = element('button', 'helper-row')
+    row.type = 'button'
+    const text = element('span', 'text')
+    text.append(element('span', 'title', helperTitleOf(helper)), element('span', 'meta', helperDetailsOf(helper, now)))
+    row.title = helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in'
+    row.append(helperMark(), text)
+    row.addEventListener('click', () => openRow(helperOpenOf(conversation, helper)))
+    box.append(row)
+  }
+  if (more > 0) {
+    const button = element('button', 'helpers-more', `+${more} more`)
+    button.type = 'button'
+    button.addEventListener('click', () => {
+      state.helpersAll.add(key)
+      draw({ force: true })
+    })
+    box.append(button)
+  }
+  return box
 }
 
 function renameField(conversation, renaming) {
@@ -257,6 +374,7 @@ function groupHead(group) {
   const title = element('button', 'group-title')
   title.type = 'button'
   title.classList.toggle('is-urgent', group.id === 'needs-you')
+  title.classList.toggle('is-working', group.id === 'working')
   title.setAttribute('aria-expanded', String(!folded))
   title.append(icon('chevron', '0 0 8 8'), group.title, element('span', 'count', String(group.rows.length)))
   title.firstChild.classList.add('chevron')
@@ -350,6 +468,9 @@ function draw({ force } = { force: false }) {
     for (const conversation of group.rows) {
       list.append(rowOf(conversation, order, folderNames, group.under.get(keyOf(conversation))))
       order += 1
+      if (workingHelpersOf(conversation).length > 0 && state.helpersOpen.has(keyOf(conversation))) {
+        list.append(helperList(conversation, keyOf(conversation), now))
+      }
     }
   }
   if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
@@ -1004,8 +1125,8 @@ document.addEventListener('keydown', (event) => {
     moveActive(step)
     return
   }
-  // A focused notice, group header, row button or settings menu button takes Enter as its own click.
-  if (event.target.closest('#notice button, .group-head button, .action, #menu')) return
+  // A focused notice, group header, row button, subagent control or settings menu button takes Enter as its own click.
+  if (event.target.closest('#notice button, .group-head button, .action, .helpers-toggle, .helper-row, .helpers-more, #menu')) return
   if (event.key === 'Enter') {
     const conversation = activeConversation()
     if (conversation) openRow(conversation)

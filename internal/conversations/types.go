@@ -32,7 +32,8 @@ const (
 
 // App is where a conversation runs inside its tool. Runs a program
 // started, such as SDK sessions and Codex exec runs, are not listed:
-// resuming one replays a finished job.
+// resuming one replays a finished job. A Codex exec run a Claude Code
+// session started shows among that session's helpers instead while it runs.
 type App string
 
 const (
@@ -150,6 +151,14 @@ type Conversation struct {
 	Withheld []string `json:"withheld,omitempty"`
 	Live     bool     `json:"live,omitempty"`
 	Activity Activity `json:"activity,omitempty"`
+	// WorkingSubagents counts native tasks with a live owner and an unfinished
+	// lifecycle. Nil means unavailable; zero means no working subagents.
+	WorkingSubagents *int `json:"workingSubagents,omitempty"`
+	// Helpers are the agents this conversation started that are no rows
+	// of their own and still work: its native subagents, and the Codex runs
+	// a Claude Code session started with `codex exec`. Nil when none works
+	// or their states are unknown; see helpers.go.
+	Helpers []helper `json:"helpers,omitempty"`
 	// QuietSince is set when the wait was read from silence, not reported
 	// by the tool: the time of the last write, since when nothing came.
 	QuietSince string `json:"quietSince,omitempty"`
