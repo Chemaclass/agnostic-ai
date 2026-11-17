@@ -697,8 +697,11 @@ html.search-open {
   to { transform: translateX(calc(100vw + 12rem)); }
 }
 
-/* The click-to-load video poster that video.js swaps for the player. The docs
-   index and the landing hero share it; each page sets the frame's own width. */
+/* The click-to-load video poster that video.js swaps for the player. */
+.docs-video {
+  margin-block: 1.75rem;
+}
+
 .demo-frame {
   position: relative;
   aspect-ratio: 16 / 9;

@@ -9,7 +9,6 @@
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/landing.css', trailing_slash=false) }}">{% endblock styles %}
 {% block structured_data %}
 {% set landing = load_data(path="data/landing.toml") %}
-{% set video = landing.hero.video %}
 {% set targets = load_data(path="data/targets.toml") %}
 <script type="application/ld+json">
 {
@@ -46,17 +45,6 @@
         "Round-trip safe import then sync",
         "sync --check CI drift detection"
       ]
-    },
-    {
-      "@type": "VideoObject",
-      "@id": "{{ config.base_url }}/#video",
-      "name": {{ video.video_title | json_encode | safe }},
-      "description": {{ video.body | json_encode | safe }},
-      "thumbnailUrl": "{{ get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false) }}",
-      "uploadDate": "{{ video.upload_date }}",
-      "duration": "{{ video.duration }}",
-      "contentUrl": "https://www.youtube.com/watch?v={{ video.video_id }}",
-      "embedUrl": "https://www.youtube-nocookie.com/embed/{{ video.video_id }}"
     }
   ]
 }
@@ -66,7 +54,6 @@
 {% block content %}
 {% set targets = load_data(path="data/targets.toml") %}
 {% set landing = load_data(path="data/landing.toml") %}{% set explorer_files = load_data(path="data/explorer.toml") %}
-{% set agent_setup = get_page(path="docs/agent-setup.md") %}
 {% set_global default_installer = false %}{% for installer in landing.workflow.installers %}{% if default_installer is bool and installer.id == "script" %}{% set_global default_installer = installer %}{% endif %}{% endfor %}
 {% set updates_section = get_section(path="updates/_index.md") %}
 {% set latest_update = updates_section.pages | first %}
@@ -75,189 +62,112 @@
     <div class="wrap hero-grid">
       <div class="hero-copy">
         <h1>{{ landing.hero.title }}<br><span>{{ landing.hero.accent_title }}</span></h1>
-        <div class="lead">{{ landing.hero.body | markdown | safe }}</div>
-        <p class="hero-tools"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">{{ landing.hero.tools_label | replace(from="{n}", to=targets.supported ~ "") }}</a></p>
+        <p class="lead">{{ landing.hero.body }}</p>
         <div class="hero-install" id="install" data-hero-installer>
-          <p><span data-hero-installer-label>Install agnostic-ai</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.workflow.install_label }}</a></p>
-          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
-          {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
+          <div class="command hero-command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
+          <p class="hero-install-note"><span data-hero-installer-label>{{ landing.hero.install_label }}</span> <a href="{{ get_url(path='@/docs/installation.md') }}" data-hero-installer-others>{{ landing.hero.install_others }}</a></p>
+          {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.detected_label }}" data-installer-others="{{ installer.others_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
         </div>
-        <div class="button-row">
-          <a class="button button-secondary" href="{{ agent_setup.permalink | safe }}">{{ landing.hero.agent_label }}</a>
-          <a class="button button-secondary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.playground_label }}</a>
+        <div class="hero-actions">
+          <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.hero.primary_label }}</a>
+          <a class="hero-link" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.playground_label }} <span aria-hidden="true">&rarr;</span></a>
         </div>
       </div>
       {% set fanout = landing.hero.fanout %}
       <figure class="fanout" id="first-sync" aria-label="{{ fanout.label }}">
-        <input class="fanout-mode" type="radio" name="fanout-mode" id="fanout-with" checked>
-        <input class="fanout-mode" type="radio" name="fanout-mode" id="fanout-without">
-        <div class="fanout-tabs"><label for="fanout-with">{{ fanout.with_label }}</label><label for="fanout-without">{{ fanout.without_label }}</label></div>
-        <div class="spec-card fanout-source">
-          <div class="file-name">{{ fanout.source }}</div>
-          <pre><code>{{ fanout.line }}</code></pre>
+        <div class="fanout-source">
+          <p class="fanout-label">{{ fanout.source_label }}</p>
+          <code class="fanout-path">{{ fanout.source }}</code>
+          <code class="fanout-line">{{ fanout.line }}</code>
         </div>
-        <p class="fanout-sync"><span class="fanout-step"><code>agnostic-ai sync</code><span class="fanout-hand">{{ fanout.hand_label }}</span></span></p>
+        <p class="fanout-sync"><span aria-hidden="true">&darr;</span><code>agnostic-ai sync</code></p>
         <ul class="fanout-outputs">
           {% for output in fanout.outputs %}
-          <li style="--i: {{ loop.index0 }}"{% if output.drift != output.line %} class="is-drifted"{% endif %}><span class="fanout-head"><code class="fanout-path">{{ output.path }}</code><span class="fanout-tools">{{ output.tools }}</span></span><svg class="fanout-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><code class="fanout-line">{{ output.line }}</code><code class="fanout-drift">{{ output.drift }}</code></li>
+          <li><span class="fanout-head"><span class="fanout-tool">{{ output.tools }}</span><code class="fanout-path">{{ output.path }}</code></span><code class="fanout-line">{{ output.line }}</code></li>
           {% endfor %}
-          <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ targets.supported - fanout.targets | length }} {{ fanout.more_label }}</a></li>
+          <li class="fanout-more"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ targets.supported - fanout.targets | length }} {{ fanout.more_label }} <span aria-hidden="true">&rarr;</span></a></li>
         </ul>
-        <div class="fanout-summary">
-          <ul class="fanout-good">{% for line in fanout.with_summary %}<li>{{ line | markdown(inline=true) | safe }}</li>{% endfor %}</ul>
-          {% set file_count = fanout.outputs | length %}<ul class="fanout-bad">{% for line in fanout.without_summary %}<li>{{ line | replace(from="{n}", to=file_count ~ "") }}</li>{% endfor %}</ul>
-        </div>
       </figure>
     </div>
   </section>
 
-  <section class="section-band section-head-split" id="mission">
+  <section class="steps" id="quickstart">
     <div class="wrap">
-      <h2 class="section-title">{{ landing.mission.title }} <span>{{ landing.mission.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.mission.body | markdown | safe }}</div>
-      <div class="feature-list reveal-group">
-        {% for principle in landing.mission.principles %}
-        <article><h3>{{ principle.title }}</h3><div>{{ principle.body | markdown | safe }}</div></article>
-        {% endfor %}
+      <div class="steps-head">
+        <h2 class="section-title">{{ landing.workflow.title }}<br><span>{{ landing.workflow.muted_title }}</span></h2>
+        <a class="steps-guide" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.workflow.guide_label }} <span aria-hidden="true">&rarr;</span></a>
       </div>
-      <div class="mission-media">
-        {% set video = landing.hero.video %}
-        <div class="hero-video">
-          {{ <video.poster video_id={video.video_id} video_title={video.video_title} play_label={video.play_label} poster={get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false)} loading="lazy" /> }}
-        </div>
-        <div class="mission-question">
-          <h3>{{ landing.mission.symlinks.question }}</h3>
-          <p>{{ landing.mission.symlinks.answer }}</p>
-          <a href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">{{ landing.mission.symlinks.link_label }} <span aria-hidden="true">&rarr;</span></a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section-head-split" id="quickstart">
-    <div class="wrap">
-      <h2 class="section-title">{{ landing.workflow.title }} <span>{{ landing.workflow.muted_title }}</span></h2>
-      <div class="workflow-steps reveal-group">
+      <ol class="steps-list">
         {% for step in landing.workflow.steps %}
-        <article>
+        <li>
+          <span class="steps-number" aria-hidden="true">0{{ loop.index }}</span>
           <h3>{{ step.title }}</h3>
-          {% if step.command %}<div class="command workflow-command"><span aria-hidden="true">$</span><code>{{ step.command }}</code><button type="button" data-copy aria-label="Copy {{ step.title | lower }} command">Copy</button></div>{% else %}<div class="command workflow-command workflow-file"><svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M4 1.75h5.5L13 5.25v9H4z"/><path d="M9.5 1.75v3.5H13"/></svg><code>{{ step.file }}</code></div>{% endif %}
-          <div>{{ step.body | markdown | safe }}</div>
-        </article>
+          {% if step.command %}<div class="command step-command"><span aria-hidden="true">$</span><code>{{ step.command }}</code><button type="button" data-copy aria-label="Copy {{ step.command }}">Copy</button></div>{% else %}<div class="command step-command"><code>{{ step.file }}</code></div>{% endif %}
+          <p>{{ step.body | replace(from="{n}", to=targets.supported ~ "") }}</p>
+        </li>
         {% endfor %}
-      </div>
-
-      <div class="quickstart-links">
-        <a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.workflow.install_label }} <span aria-hidden="true">&rarr;</span></a>
-        <a href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.workflow.guide_label }} <span aria-hidden="true">&rarr;</span></a>
-        <a href="{{ get_url(path='@/docs/migration.md') }}">{{ landing.workflow.migration_label }} <span aria-hidden="true">&rarr;</span></a>
-      </div>
+      </ol>
+      <ul class="steps-promises">
+        {% for promise in landing.workflow.promises %}<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>{{ promise }}</li>{% endfor %}
+      </ul>
     </div>
   </section>
 
-  <section class="section-band section-head-split" id="source-explorer">
+  <section class="explorer" id="source-explorer">
     <span id="explorer" aria-hidden="true"></span>
-    <div class="wrap">
-      <h2 class="section-title">{{ landing.explorer.title }} <span>{{ landing.explorer.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.explorer.body | markdown | safe }}</div>
-      {# Both tab lists ship inert with their selected pane server rendered, so
-         without landing.js the section still reads as one source file and one
-         generated file, not as buttons that do nothing. Every file body comes
-         from explorer.toml, which a test regenerates from a real sync. #}
-      {% set_global explorer_selected = 0 %}{% for entry in landing.explorer.entries %}{% if entry.selected %}{% set_global explorer_selected = loop.index0 %}{% endif %}{% endfor %}
-      <div class="source-tree reveal-group" data-source-tree>
-        <div class="source-tree-nav">
-          <p class="source-tree-root"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2h8.8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>{{ landing.explorer.root }}</p>
-          {# Project root files sit after the folder, as in a listing. The data
-             lists them last, so tabs and panels keep the same order. #}
-          <div class="source-tree-tabs" role="tablist" aria-orientation="vertical" aria-label="{{ landing.explorer.tree_label }}" data-source-tablist inert>
-            <div class="source-tree-list">
-            {% for entry in landing.explorer.entries %}{% if not entry.project_root %}
-            <button type="button" class="source-tree-entry" role="tab" id="source-tab-{{ entry.id }}" aria-controls="source-panel-{{ entry.id }}" aria-selected="{% if loop.index0 == explorer_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == explorer_selected %}0{% else %}-1{% endif %}" data-source-tab><span class="source-tree-name">{{ entry.name }}</span><span class="source-tree-hint">{{ entry.hint }}</span></button>
-            {% endif %}{% endfor %}
-            </div>
-            {% for entry in landing.explorer.entries %}{% if entry.project_root %}
-            <button type="button" class="source-tree-entry source-tree-file" role="tab" id="source-tab-{{ entry.id }}" aria-controls="source-panel-{{ entry.id }}" aria-selected="{% if loop.index0 == explorer_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == explorer_selected %}0{% else %}-1{% endif %}" data-source-tab><span class="source-tree-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h7.5l4.5 4.5v12a1.5 1.5 0 0 1-1.5 1.5h-10.5a1.5 1.5 0 0 1-1.5-1.5v-15a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M13.5 3v5h5"/></svg>{{ entry.name }}</span><span class="source-tree-hint">{{ entry.hint }}</span></button>
-            {% endif %}{% endfor %}
-          </div>
-          <p class="source-tree-more">{{ landing.explorer.more | markdown(inline=true) | safe }}</p>
-        </div>
-        <div class="source-tree-panels">
-          {% for entry in landing.explorer.entries %}{% if entry.files %}{% set sources = entry.files %}{% else %}{% set sources = [entry.file] %}{% endif %}
-          <div class="source-tree-panel" role="tabpanel" id="source-panel-{{ entry.id }}" aria-labelledby="source-tab-{{ entry.id }}" tabindex="0" data-source-panel{% if loop.index0 != explorer_selected %} hidden{% endif %}>
-            <p class="source-tree-summary">{{ entry.summary | markdown(inline=true) | safe }}</p>
-            <div class="explorer-flow">
-            <div class="spec-card">
-              {% for source in sources %}{% if entry.project_root %}{% set source_path = source %}{% else %}{% set source_path = landing.explorer.root ~ source %}{% endif %}
-              <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ source_path }}</div>
-              <pre><code>{% for file in explorer_files.files %}{% if file.path == source_path %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>
-              {% endfor %}
-            </div>
-            <p class="explorer-arrow"><svg viewBox="0 0 20 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10 2v42M3 37l7 7 7-7"/></svg>{{ landing.explorer.outputs_label }}</p>
-            {% set_global output_selected = 0 %}{% for output in entry.outputs %}{% if output.selected %}{% set_global output_selected = loop.index0 %}{% endif %}{% endfor %}
-            <div class="explorer-outputs" data-output-switch>
-              <div class="explorer-output-tabs" role="tablist" aria-label="Files sync writes from {{ entry.name }}" data-output-tablist inert>
-                {% for output in entry.outputs %}<button type="button" class="explorer-output-tab" role="tab" id="output-tab-{{ entry.id }}-{{ loop.index }}" aria-controls="output-panel-{{ entry.id }}-{{ loop.index }}" aria-selected="{% if loop.index0 == output_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == output_selected %}0{% else %}-1{% endif %}" data-output-tab>{{ output.tool }}</button>{% endfor %}
-              </div>
-              <div class="explorer-output-panels">
-                {% for output in entry.outputs %}
-                <div class="explorer-output-panel" role="tabpanel" id="output-panel-{{ entry.id }}-{{ loop.index }}" aria-labelledby="output-tab-{{ entry.id }}-{{ loop.index }}" tabindex="0" data-output-panel{% if loop.index0 != output_selected %} hidden{% endif %}>
-                  {% if output.note %}<p class="explorer-output-note">{{ output.note | markdown(inline=true) | safe }}</p>{% else %}{% set output_part = output.part | default(value="") %}
-                  <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ output.path }}{% if output_part %} (excerpt){% endif %}</div>
-                  <pre><code>{% for file in explorer_files.files %}{% if file.path == output.path and file.part | default(value="") == output_part %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>{% endif %}
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-            </div>
-            {% if entry.reach %}<p class="explorer-reach">{{ entry.reach | markdown(inline=true) | safe }}</p>{% endif %}
-            <a class="source-tree-docs" href="{{ get_url(path=entry.href) }}{% if entry.anchor %}#{{ entry.anchor }}{% endif %}">Docs: {{ entry.docs_label }}</a>
-          </div>
+    {# Both tab lists ship inert with their selected pane server rendered, so
+       without landing.js the section still reads as one source file and one
+       generated file. Every file body comes from explorer.toml, which a test
+       regenerates from a real sync. #}
+    {% set_global explorer_selected = 0 %}{% for entry in landing.explorer.entries %}{% if entry.selected %}{% set_global explorer_selected = loop.index0 %}{% endif %}{% endfor %}
+    <div class="wrap explorer-grid" data-source-tree>
+      <div class="explorer-intro">
+        <h2 class="section-title">{{ landing.explorer.title }}</h2>
+        <p class="explorer-lead">{{ landing.explorer.body }}</p>
+        <div class="source-tree-tabs" role="tablist" aria-orientation="vertical" aria-label="{{ landing.explorer.tree_label }}" data-source-tablist inert>
+          {% for entry in landing.explorer.entries %}
+          <button type="button" class="source-tree-entry" role="tab" id="source-tab-{{ entry.id }}" aria-controls="source-panel-{{ entry.id }}" aria-selected="{% if loop.index0 == explorer_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == explorer_selected %}0{% else %}-1{% endif %}" data-source-tab><span class="source-tree-name">{{ entry.name }}</span><span class="source-tree-hint">{{ entry.hint }}</span></button>
           {% endfor %}
         </div>
+        <a class="explorer-more" href="{{ get_url(path='@/docs/spec-format/_index.md') }}">{{ landing.explorer.more_label }} <span aria-hidden="true">&rarr;</span></a>
+      </div>
+      <div class="source-tree-panels">
+        {% for entry in landing.explorer.entries %}{% set source_path = landing.explorer.root ~ entry.file %}
+        <div class="source-tree-panel" role="tabpanel" id="source-panel-{{ entry.id }}" aria-labelledby="source-tab-{{ entry.id }}" tabindex="0" data-source-panel{% if loop.index0 != explorer_selected %} hidden{% endif %}>
+          <div class="explorer-card">
+            <p class="file-name">{{ source_path }}</p>
+            <pre><code>{% for file in explorer_files.files %}{% if file.path == source_path %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>
+          </div>
+          {% set_global output_selected = 0 %}{% for output in entry.outputs %}{% if output.selected %}{% set_global output_selected = loop.index0 %}{% endif %}{% endfor %}
+          <div class="explorer-card" data-output-switch>
+            <div class="explorer-output-tabs" role="tablist" aria-label="Files sync writes from {{ entry.name }}" data-output-tablist inert>
+              {% for output in entry.outputs %}<button type="button" class="explorer-output-tab" role="tab" id="output-tab-{{ entry.id }}-{{ loop.index }}" aria-controls="output-panel-{{ entry.id }}-{{ loop.index }}" aria-selected="{% if loop.index0 == output_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == output_selected %}0{% else %}-1{% endif %}" data-output-tab>{{ output.tool }}</button>{% endfor %}
+            </div>
+            {% for output in entry.outputs %}{% set output_part = output.part | default(value="") %}
+            <div class="explorer-output-panel" role="tabpanel" id="output-panel-{{ entry.id }}-{{ loop.index }}" aria-labelledby="output-tab-{{ entry.id }}-{{ loop.index }}" tabindex="0" data-output-panel{% if loop.index0 != output_selected %} hidden{% endif %}>
+              <p class="file-name">{{ output.path }}{% if output_part %} (excerpt){% endif %}</p>
+              <pre><code>{% for file in explorer_files.files %}{% if file.path == output.path and file.part | default(value="") == output_part %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>
+            </div>
+            {% endfor %}
+          </div>
+          {% if entry.reach %}<p class="explorer-reach"><span aria-hidden="true">!</span><span>{{ entry.reach | markdown(inline=true) | safe }}</span></p>{% endif %}
+        </div>
+        {% endfor %}
       </div>
     </div>
   </section>
 
-  {% if latest_update %}
-  <section class="update-brief" id="updates">
-    <div class="wrap">
-      <div class="update-brief-grid reveal-group">
-        <div>
-          <h2 class="section-title">{{ landing.updates.title }} <span>{{ landing.updates.muted_title }}</span></h2>
-          <div class="section-lead">{{ landing.updates.body | markdown | safe }}</div>
-          <div class="update-brief-links">
-            <a class="button button-primary" href="{{ latest_update.permalink }}">{{ landing.updates.primary_label }}</a>
-            <a href="{{ updates_section.permalink }}">{{ landing.updates.archive_label }}</a>
-            <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">{{ landing.updates.rss_label }}</a>
-          </div>
-        </div>
-        <div class="latest-updates">
-          <p class="latest-update-meta"><span>{{ landing.updates.latest_label }}</span></p>
-          {% for update in updates_section.pages %}{% if loop.index0 < 3 %}
-          <article class="latest-update">
-            <time datetime="{{ update.date | date(format='%Y-%m-%d') }}">{{ update.date | date(format='%d %B %Y') }}</time>
-            <h3><a href="{{ update.permalink }}">{{ update.title }}</a></h3>
-          </article>
-          {% endif %}{% endfor %}
-        </div>
-      </div>
+  {% if latest_update %}{% set title_parts = latest_update.title | split(pat=": ") %}
+  <section class="update-strip" id="updates">
+    <div class="wrap update-strip-row">
+      <a class="update-strip-latest" href="{{ latest_update.permalink }}"><span class="update-strip-pill">{{ landing.updates.new_label }}</span><strong>{% if latest_update.extra.version %}{{ latest_update.extra.version }}{% else %}{{ latest_update.date | date(format='%d %B %Y') }}{% endif %}</strong><span class="update-strip-title">{% if title_parts | length > 1 %}{{ title_parts[1:] | join(sep=": ") }}{% else %}{{ latest_update.title }}{% endif %}</span></a>
+      <nav class="update-strip-links" aria-label="Learn more">
+        {% for link in landing.updates.links %}<a href="{{ get_url(path=link.href) }}{% if link.anchor %}#{{ link.anchor }}{% endif %}">{{ link.label }}</a>{% endfor %}
+      </nav>
     </div>
   </section>
   {% endif %}
-
-  <section class="closing">
-    <div class="wrap closing-inner">
-      <h2>{{ landing.closing.title }}<br>{{ landing.closing.second_line }}</h2>
-      <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy sync command">Copy</button></div>
-      <div class="button-row">
-        <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.closing.primary_label }}</a>
-        <a class="button button-secondary" href="{{ agent_setup.permalink | safe }}">{{ landing.closing.secondary_label }}</a>
-      </div>
-    </div>
-  </section>
 </main>
 {% endblock content %}
 
-{% block scripts %}<script src="{{ get_url(path='assets/scripts/landing.js', trailing_slash=false) }}" defer></script>
-<script src="{{ get_url(path='assets/scripts/video.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}
+{% block scripts %}<script src="{{ get_url(path='assets/scripts/landing.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}

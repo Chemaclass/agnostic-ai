@@ -6,3 +6,6 @@
           <span class="demo-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
         </a>
       </div>{% endcomponent video.poster %}
+
+{# The explainer video, rendered into markdown content: no blank lines in the output. #}
+{% component video.explainer() %}{% set video = load_data(path="data/video.toml") %}<div class="docs-video">{{ <video.poster video_id={video.video_id} video_title={video.video_title} play_label={video.play_label} poster={get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false)} loading="lazy" /> }}</div>{% endcomponent video.explainer %}

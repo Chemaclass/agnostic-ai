@@ -23,7 +23,6 @@ type heroFanout struct {
 		Path  string `toml:"path"`
 		Tools string `toml:"tools"`
 		Line  string `toml:"line"`
-		Drift string `toml:"drift"`
 	} `toml:"outputs"`
 }
 
@@ -96,20 +95,12 @@ func TestSiteDocs_LandingHeroMatchesSync(t *testing.T) {
 	assertShownLine(fanout.Source, fanout.Line)
 
 	shown := map[string]bool{}
-	drifted := false
 	for _, output := range fanout.Outputs {
-		if !isOneLine(output.Drift) {
-			t.Errorf("hero card %s needs one drift line for the Without view, got %q", output.Path, output.Drift)
-		}
 		assertShownLine(output.Path, output.Line)
 		shown[output.Line] = true
-		drifted = drifted || output.Drift != output.Line
 	}
 	if len(shown) < 2 {
 		t.Error("every hero card shows the same line, so the hero reads as a copy")
-	}
-	if !drifted {
-		t.Error("the Without view shows no drift on any hero card")
 	}
 }
 

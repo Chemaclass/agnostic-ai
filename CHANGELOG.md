@@ -52,6 +52,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
 
+### Site
+
+- The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).
+
 ## v0.95.0 - 2026-11-15
 
 ### Highlights

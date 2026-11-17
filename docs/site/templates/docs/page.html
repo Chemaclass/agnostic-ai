@@ -8,6 +8,22 @@
 {% block twitter_title %}{{ page.title }} | agnostic-ai docs{% endblock twitter_title %}
 {% block twitter_description %}{{ page.description }}{% endblock twitter_description %}
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/docs.css', trailing_slash=false) }}">{% endblock styles %}
+{% block structured_data %}{% if page.extra.video %}{% set video = load_data(path="data/video.toml") %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "@id": "{{ page.permalink | safe }}#video",
+  "name": {{ video.video_title | json_encode | safe }},
+  "description": {{ video.body | json_encode | safe }},
+  "thumbnailUrl": "{{ get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false) }}",
+  "uploadDate": "{{ video.upload_date }}",
+  "duration": "{{ video.duration }}",
+  "contentUrl": "https://www.youtube.com/watch?v={{ video.video_id }}",
+  "embedUrl": "https://www.youtube-nocookie.com/embed/{{ video.video_id }}"
+}
+</script>
+{% endif %}{% endblock structured_data %}
 {% block skip_target %}#doc-body{% endblock skip_target %}
 {% block skip_label %}Skip to guide{% endblock skip_label %}
 

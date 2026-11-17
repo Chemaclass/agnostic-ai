@@ -50,43 +50,22 @@
     }
 
     var label = root.querySelector("[data-hero-installer-label]");
+    var others = root.querySelector("[data-hero-installer-others]");
     var command = root.querySelector(".command");
     var prompt = command && command.querySelector("span[aria-hidden]");
     var code = command && command.querySelector("code");
     var copy = command && command.querySelector("[data-copy]");
-    if (!label || !prompt || !code || !copy) {
+    if (!label || !others || !prompt || !code || !copy) {
       return false;
     }
 
     label.textContent = option.dataset.installerLabel;
+    others.textContent = option.dataset.installerOthers;
     prompt.textContent = option.dataset.installerPrompt;
     code.textContent = option.dataset.installerCommand;
     copy.setAttribute("aria-label", "Copy " + option.dataset.installerName + " install command");
     root.dataset.detectedOs = os;
     return true;
-  }
-
-  function initReveal(document, browser) {
-    var reduceMotion = typeof browser.matchMedia === "function" && browser.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var revealGroups = document.querySelectorAll(".reveal-group");
-    if (reduceMotion || !("IntersectionObserver" in browser)) {
-      return;
-    }
-    var observer = new browser.IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) {
-          return;
-        }
-        entry.target.classList.remove("is-reveal-pending");
-        entry.target.classList.add("is-revealed");
-        observer.unobserve(entry.target);
-      });
-    }, { threshold: 0.08 });
-
-    Array.prototype.forEach.call(revealGroups, function (group) {
-      group.classList.add("is-reveal-pending");
-      observer.observe(group);
-    });
   }
 
   // Arrow keys wrap, Home and End jump to the ends. Returns the index the
@@ -244,9 +223,6 @@
     guard(browser, function () {
       return initInstallPicker(document, browser);
     });
-    guard(browser, function () {
-      return initReveal(document, browser);
-    });
   }
 
   return {
@@ -255,7 +231,6 @@
     initHeroInstaller: initHeroInstaller,
     initInstallPicker: initInstallPicker,
     initOutputSwitch: initOutputSwitch,
-    initReveal: initReveal,
     initSourceTree: initSourceTree,
     nextTabIndex: nextTabIndex
   };

@@ -9,11 +9,15 @@ nav_title = "Why agnostic-ai?"
 group = "Start"
 next = "@/docs/installation.md"
 next_label = "Install agnostic-ai"
+video = true
+scripts = ["assets/scripts/video.js"]
 +++
 
 # Why agnostic-ai? {#why-agnostic-ai}
 
 Each coding tool has its own instruction and settings files. agnostic-ai generates them from one set of sources, so you update shared instructions once.
+
+{{ <video.explainer /> }}
 
 ## A small useful setup
 

@@ -6,10 +6,6 @@
   body = "policy:\n    allow_implicit_invocation: false\n"
 
 [[files]]
-  path = ".agents/skills/review/SKILL.md"
-  body = "---\nname: review\ndescription: Review a change against main.\n---\n\nThis skill is a command. Run it only when the user calls it by name, and treat the text they type after the name as its arguments.\n\nReview the current branch against main and report bugs with file and line references.\n"
-
-[[files]]
   path = ".agnostic-ai/AGNOSTIC_AI.md"
   body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
 
@@ -18,44 +14,12 @@
   body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ncan: [read, edit]\nmodel: fast\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
 
 [[files]]
-  path = ".agnostic-ai/commands/review.md"
-  body = "---\nname: review\ndescription: Review a change against main.\n---\n\nReview the current branch against main and report bugs with file and line references.\n"
-
-[[files]]
   path = ".agnostic-ai/hooks/format.yaml"
   body = "name: format\non: after-edit\ncommand: .agnostic-ai/scripts/format.sh\n"
 
 [[files]]
-  path = ".agnostic-ai/local/rules/my-style.md"
-  body = "---\nname: my-style\nalwaysApply: true\n---\n\nAnswer in short sentences.\n"
-
-[[files]]
-  path = ".agnostic-ai/mcps/github.yaml"
-  body = "name: github\ntype: http\nurl: https://api.githubcopilot.com/mcp/\nheaders:\n  Authorization: Bearer ${GITHUB_TOKEN}\n"
-
-[[files]]
-  path = ".agnostic-ai/overlays/claude.settings.json"
-  body = "{\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"~/.claude/statusline.sh\"\n  }\n}\n"
-
-[[files]]
-  path = ".agnostic-ai/overlays/codex.config.toml"
-  body = "[tui]\nnotification_condition = \"always\"\n"
-
-[[files]]
   path = ".agnostic-ai/rules/testing.md"
   body = "---\nname: testing\nglobs: [\"**/*.test.ts\"]\n---\n\nOne behavior per test. Mock HTTP with `msw`.\n"
-
-[[files]]
-  path = ".agnostic-ai/scripts/format.sh"
-  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
-
-[[files]]
-  path = ".agnostic-ai/settings/model.yaml"
-  body = "model:\n  claude: opus\n  codex: sol\n  gemini: gemini-3.1-pro-preview\neffort:\n  claude: xhigh\n  codex: high\n"
-
-[[files]]
-  path = ".agnostic-ai/settings/permissions.yaml"
-  body = "permissions:\n  allow: [shell(pnpm test:*)]\n  ask: [shell(git push:*)]\n  deny: [read(.env)]\n"
 
 [[files]]
   path = ".agnostic-ai/skills/release/SKILL.md"
@@ -64,23 +28,6 @@
 [[files]]
   path = ".claude/agents/test-writer.md"
   body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\ntools:\n  - Read\n  - Edit\nmodel: haiku\neffort: low\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
-
-[[files]]
-  path = ".claude/agents/test-writer.md"
-  part = "frontmatter:model,effort"
-  body = "model: haiku\neffort: low\n"
-
-[[files]]
-  path = ".claude/commands/review.md"
-  body = "---\nname: review\ndescription: Review a change against main.\n---\n\nReview the current branch against main and report bugs with file and line references.\n"
-
-[[files]]
-  path = ".claude/hooks/format.sh"
-  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
-
-[[files]]
-  path = ".claude/rules/my-style.md"
-  body = "---\nname: my-style\n---\n\nAnswer in short sentences.\n"
 
 [[files]]
   path = ".claude/rules/testing.md"
@@ -92,16 +39,6 @@
   body = "{\n  \"env\": {\n    \"AGNOSTIC_AI_TARGET\": \"claude\"\n  },\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".claude/hooks/format.sh\",\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"Edit|MultiEdit|Write|NotebookEdit\"\n      }\n    ]\n  }\n}\n"
 
 [[files]]
-  path = ".claude/settings.json"
-  part = "json:permissions,model,effortLevel"
-  body = "{\n  \"effortLevel\": \"xhigh\",\n  \"model\": \"opus\",\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(pnpm test:*)\"\n    ],\n    \"ask\": [\n      \"Bash(git push:*)\"\n    ],\n    \"deny\": [\n      \"Read(.env)\"\n    ]\n  }\n}\n"
-
-[[files]]
-  path = ".claude/settings.json"
-  part = "json:statusLine"
-  body = "{\n  \"statusLine\": {\n    \"command\": \"~/.claude/statusline.sh\",\n    \"type\": \"command\"\n  }\n}\n"
-
-[[files]]
   path = ".claude/skills/release/SKILL.md"
   body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\ndisable-model-invocation: true\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
@@ -110,49 +47,12 @@
   body = "name = \"test-writer\"\ndescription = \"Writes a failing test that reproduces a bug. Use before fixing it.\"\nmodel = \"gpt-6-luna\"\nmodel_reasoning_effort = \"low\"\ndeveloper_instructions = \"\"\"\nReproduce the bug in a failing test. Do not touch production code.\n\"\"\"\n"
 
 [[files]]
-  path = ".codex/agents/test-writer.toml"
-  part = "toml:model,model_reasoning_effort"
-  body = "model = \"gpt-6-luna\"\nmodel_reasoning_effort = \"low\"\n"
-
-[[files]]
-  path = ".codex/config.toml"
-  part = "toml:mcp_servers"
-  body = "[mcp_servers]\n  [mcp_servers.github]\n    bearer_token_env_var = \"GITHUB_TOKEN\"\n    url = \"https://api.githubcopilot.com/mcp/\"\n"
-
-[[files]]
-  path = ".codex/config.toml"
-  part = "toml:model,model_reasoning_effort"
-  body = "model = \"gpt-6.1-sol\"\nmodel_reasoning_effort = \"high\"\n"
-
-[[files]]
-  path = ".codex/config.toml"
-  part = "toml:tui"
-  body = "[tui]\n  notification_condition = \"always\"\n"
-
-[[files]]
   path = ".codex/hooks.json"
   body = "{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"export AGNOSTIC_AI_TARGET=codex; .codex/hooks/format.sh\",\n            \"commandWindows\": \".codex/hooks/format.sh\"\n          }\n        ]\n      }\n    ]\n  }\n}\n"
 
 [[files]]
-  path = ".codex/hooks/format.sh"
-  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
-
-[[files]]
   path = ".gemini/agents/test-writer.md"
   body = "---\nname: test-writer\ndescription: Writes a failing test that reproduces a bug. Use before fixing it.\nmodel: gemini-3.5-flash\ntools:\n  - read_file\n  - replace\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
-
-[[files]]
-  path = ".gemini/agents/test-writer.md"
-  part = "frontmatter:model"
-  body = "model: gemini-3.5-flash\n"
-
-[[files]]
-  path = ".gemini/commands/review.toml"
-  body = "description = \"Review a change against main.\"\nprompt = \"\"\"\nReview the current branch against main and report bugs with file and line references.\n\"\"\"\n"
-
-[[files]]
-  path = ".gemini/hooks/format.sh"
-  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
 
 [[files]]
   path = ".gemini/settings.json"
@@ -160,32 +60,13 @@
   body = "{\n  \"hooks\": {\n    \"AfterTool\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".gemini/hooks/format.sh\",\n            \"env\": {\n              \"AGNOSTIC_AI_TARGET\": \"gemini\"\n            },\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"^(write_file|replace)$\"\n      }\n    ]\n  }\n}\n"
 
 [[files]]
-  path = ".gemini/settings.json"
-  part = "json:mcpServers"
-  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
-
-[[files]]
-  path = ".gemini/settings.json"
-  part = "json:model"
-  body = "{\n  \"model\": {\n    \"name\": \"gemini-3.1-pro-preview\"\n  }\n}\n"
-
-[[files]]
   path = ".gemini/skills/release/SKILL.md"
   body = "---\nname: release\ndescription: Cut a release and verify it. Use only when asked to release.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
-
-[[files]]
-  path = ".mcp.json"
-  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"type\": \"http\",\n      \"url\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
 
 [[files]]
   path = "AGENTS.md"
   part = "instructions"
   body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
-
-[[files]]
-  path = "AGENTS.md"
-  part = "rule:my-style"
-  body = "### my-style\n\nAnswer in short sentences.\n"
 
 [[files]]
   path = "AGENTS.md"
@@ -204,14 +85,5 @@
 
 [[files]]
   path = "GEMINI.md"
-  part = "rule:my-style"
-  body = "### my-style\n\nAnswer in short sentences.\n"
-
-[[files]]
-  path = "GEMINI.md"
   part = "rule:testing"
   body = "### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n"
-
-[[files]]
-  path = "agnostic-ai.yaml"
-  body = "version: 1\ntargets:\n  - claude\n  - codex\n  - gemini\nmodels:\n  fast:\n    claude: haiku\n    codex: luna\n    gemini: gemini-3.5-flash\n    effort: low\n"

@@ -73,8 +73,11 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 	if !strings.Contains(hero, `data-hero-installer`) {
 		t.Error("homepage hero must offer the install command")
 	}
-	if !strings.Contains(hero, `class="button button-secondary" href="https://agnostic-ai.org/docs/agent-setup/"`) {
-		t.Error("homepage hero must link to the agent setup page")
+	if count := strings.Count(hero, `class="button `); count != 1 || !strings.Contains(hero, `class="button button-primary" href="https://agnostic-ai.org/docs/getting-started/"`) {
+		t.Errorf("homepage hero must offer one button, Get started, found %d buttons", count)
+	}
+	if !strings.Contains(hero, `href="https://agnostic-ai.org/playground/"`) {
+		t.Error("homepage hero must link to the playground")
 	}
 	for _, text := range []string{"<details", "How each tool loads it", "Save and recall a fact", `parent.open = true`, `addEventListener("hashchange"`} {
 		if !strings.Contains(memory, text) {
@@ -98,22 +101,19 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 func assertFirstSyncProof(t *testing.T, proof string) {
 	t.Helper()
 	fanout := loadHeroFanout(t)
-	source := regexp.MustCompile(`(?s)<div class="file-name">([^<]+)</div>\s*<pre><code>(.*?)</code></pre>`).FindStringSubmatch(proof)
+	source := regexp.MustCompile(`(?s)<div class="fanout-source">.*?<code class="fanout-path">([^<]+)</code>\s*<code class="fanout-line">([^<]*)</code>`).FindStringSubmatch(proof)
 	if source == nil || html.UnescapeString(source[1]) != fanout.Source || html.UnescapeString(source[2]) != fanout.Line {
 		t.Errorf("homepage does not show %s with the line %q", fanout.Source, fanout.Line)
 	}
-	rows := regexp.MustCompile(`<li style="--i: \d+"( class="is-drifted")?><span class="fanout-head"><code class="fanout-path">([^<]+)</code>.*?<code class="fanout-line">([^<]*)</code><code class="fanout-drift">([^<]*)</code></li>`).FindAllStringSubmatch(proof, -1)
+	rows := regexp.MustCompile(`<li><span class="fanout-head"><span class="fanout-tool">([^<]+)</span><code class="fanout-path">([^<]+)</code></span><code class="fanout-line">([^<]*)</code></li>`).FindAllStringSubmatch(proof, -1)
 	if len(rows) != len(fanout.Outputs) {
 		t.Fatalf("homepage shows %d generated files, landing.toml lists %d", len(rows), len(fanout.Outputs))
 	}
 	for index, row := range rows {
 		want := fanout.Outputs[index]
-		path, line, drift := html.UnescapeString(row[2]), html.UnescapeString(row[3]), html.UnescapeString(row[4])
-		if path != want.Path || line != want.Line || drift != want.Drift {
-			t.Errorf("homepage card %d shows %s %q / %q, landing.toml has %s %q / %q", index, path, line, drift, want.Path, want.Line, want.Drift)
-		}
-		if drifted := row[1] != ""; drifted != (want.Drift != want.Line) {
-			t.Errorf("homepage card %s marks drift %v, want %v", want.Path, drifted, want.Drift != want.Line)
+		tool, path, line := html.UnescapeString(row[1]), html.UnescapeString(row[2]), html.UnescapeString(row[3])
+		if tool != want.Tools || path != want.Path || line != want.Line {
+			t.Errorf("homepage card %d shows %s %s %q, landing.toml has %s %s %q", index, tool, path, line, want.Tools, want.Path, want.Line)
 		}
 	}
 }

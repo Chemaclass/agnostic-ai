@@ -42,15 +42,12 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 	var landing struct {
 		Explorer struct {
 			Entries []struct {
-				ID          string   `toml:"id"`
-				File        string   `toml:"file"`
-				Files       []string `toml:"files"`
-				ProjectRoot bool     `toml:"project_root"`
-				Outputs     []struct {
+				ID      string `toml:"id"`
+				File    string `toml:"file"`
+				Outputs []struct {
 					Tool string `toml:"tool"`
 					Path string `toml:"path"`
 					Part string `toml:"part"`
-					Note string `toml:"note"`
 				} `toml:"outputs"`
 			} `toml:"entries"`
 		} `toml:"explorer"`
@@ -98,40 +95,20 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 		}
 		files[landingExplorerKey{path: rel, part: part}] = body
 	}
-	seenProjectRoot := false
 	for _, entry := range landing.Explorer.Entries {
-		sources := entry.Files
-		if entry.File != "" {
-			sources = append([]string{entry.File}, sources...)
-		}
-		if len(sources) == 0 {
+		if entry.File == "" {
 			t.Errorf("explorer entry %q names no source file", entry.ID)
-		}
-		// The template lists project root files after the .agnostic-ai/
-		// entries, and the panels pair with tabs by position.
-		if seenProjectRoot && !entry.ProjectRoot {
-			t.Errorf("explorer entry %q follows a project root entry; list project root entries last", entry.ID)
-		}
-		seenProjectRoot = seenProjectRoot || entry.ProjectRoot
-		for _, source := range sources {
-			if !entry.ProjectRoot {
-				source = ".agnostic-ai/" + source
-			}
-			readSource(entry.ID, source)
+		} else {
+			readSource(entry.ID, ".agnostic-ai/"+entry.File)
 		}
 		tools := make([]string, 0, len(entry.Outputs))
 		for _, output := range entry.Outputs {
 			tools = append(tools, output.Tool)
-			switch {
-			case (output.Path == "") == (output.Note == ""):
-				t.Errorf("explorer entry %q tab %q needs either a path sync writes or a note, not both or neither", entry.ID, output.Tool)
-			case output.Note != "":
-				if output.Part != "" {
-					t.Errorf("explorer entry %q tab %q has a note, so it shows no part of a file", entry.ID, output.Tool)
-				}
-			default:
-				read(entry.ID, output.Path, output.Part)
+			if output.Path == "" {
+				t.Errorf("explorer entry %q tab %q needs a path sync writes", entry.ID, output.Tool)
+				continue
 			}
+			read(entry.ID, output.Path, output.Part)
 		}
 		if strings.Join(tools, ", ") != strings.Join(landingExplorerTools, ", ") {
 			t.Errorf("explorer entry %q shows tabs %v, want %v", entry.ID, tools, landingExplorerTools)

@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectOS, init, initInstallPicker, initOutputSwitch, initReveal, initSourceTree, nextTabIndex } = require("./landing.js");
+const { detectOS, init, initHeroInstaller, initInstallPicker, initOutputSwitch, initSourceTree, nextTabIndex } = require("./landing.js");
 
 test("detects supported desktop operating systems", function () {
   assert.equal(detectOS("macOS", "", 0), "macos");
@@ -287,62 +287,66 @@ test("an installer picker the script cannot wire keeps every panel visible", fun
   assert.equal(initInstallPicker(scope([]), browserOn("macOS")), false);
 });
 
-function makeRevealHarness(reduceMotion) {
-  const observers = [];
-  function FakeObserver(callback) {
-    this.callback = callback;
-    this.observed = [];
-    this.unobserved = [];
-    observers.push(this);
-  }
-  FakeObserver.prototype.observe = function (node) { this.observed.push(node); };
-  FakeObserver.prototype.unobserve = function (node) { this.unobserved.push(node); };
-  return {
-    observers: observers,
-    browser: {
-      IntersectionObserver: FakeObserver,
-      matchMedia: function (query) {
-        return { matches: reduceMotion && query === "(prefers-reduced-motion: reduce)" };
-      }
+// The hero install block as the template renders it: the script installer,
+// its note, and one hidden option per OS that has a recommended installer.
+function makeHeroInstaller() {
+  const prompt = { textContent: "$" };
+  const code = { textContent: "curl script" };
+  const copy = makeElement({ "aria-label": "Copy Script install command" });
+  const command = {
+    querySelector: function (selector) {
+      return { "span[aria-hidden]": prompt, code: code, "[data-copy]": copy }[selector] || null;
     }
   };
+  const label = { textContent: "For macOS and Linux." };
+  const others = { textContent: "Windows, Homebrew or npm" };
+  const option = {
+    dataset: {
+      installerLabel: "Detected macOS.",
+      installerOthers: "Linux, Windows or npm",
+      installerPrompt: "$",
+      installerCommand: "brew install agnostic-ai",
+      installerName: "Homebrew"
+    }
+  };
+  const root = {
+    dataset: {},
+    querySelector: function (selector) {
+      return {
+        '[data-installer-os="macos"]': option,
+        "[data-hero-installer-label]": label,
+        "[data-hero-installer-others]": others,
+        ".command": command
+      }[selector] || null;
+    }
+  };
+  const document = {
+    querySelector: function (selector) {
+      return selector === "[data-hero-installer]" ? root : null;
+    }
+  };
+  return { document: document, root: root, code: code, copy: copy, label: label, others: others };
 }
 
-test("the scroll reveal moves a group from pending to revealed exactly once", function () {
-  const group = makeElement({}, ["reveal-group"]);
-  const harness = makeRevealHarness(false);
+test("the hero shows the installer for the reader's OS and names the others", function () {
+  const hero = makeHeroInstaller();
 
-  initReveal(scope([group]), harness.browser);
-  assert.equal(group.classList.contains("is-reveal-pending"), true);
-  assert.deepEqual(harness.observers[0].observed, [group]);
+  assert.equal(initHeroInstaller(hero.document, browserOn("macOS")), true);
 
-  harness.observers[0].callback([{ isIntersecting: false, target: group }]);
-  assert.equal(group.classList.contains("is-revealed"), false);
-
-  harness.observers[0].callback([{ isIntersecting: true, target: group }]);
-  assert.equal(group.classList.contains("is-reveal-pending"), false);
-  assert.equal(group.classList.contains("is-revealed"), true);
-  assert.deepEqual(harness.observers[0].unobserved, [group]);
+  assert.equal(hero.code.textContent, "brew install agnostic-ai");
+  assert.equal(hero.label.textContent, "Detected macOS.");
+  assert.equal(hero.others.textContent, "Linux, Windows or npm");
+  assert.equal(hero.copy.getAttribute("aria-label"), "Copy Homebrew install command");
+  assert.equal(hero.root.dataset.detectedOs, "macos");
 });
 
-// The class the reveal adds is what hides a group, so a visitor asking for
-// reduced motion must never receive it: no observer, and every group left at
-// the rest state the animation would have finished on.
-test("asking for reduced motion leaves every group at its finished rest state", function () {
-  const group = makeElement({}, ["reveal-group"]);
-  const harness = makeRevealHarness(true);
+test("the hero keeps the default installer for an OS without a recommendation", function () {
+  const hero = makeHeroInstaller();
 
-  initReveal(scope([group]), harness.browser);
+  assert.equal(initHeroInstaller(hero.document, browserOn("FreeBSD amd64")), false);
 
-  assert.equal(harness.observers.length, 0);
-  assert.equal(group.classList.contains("is-reveal-pending"), false);
-  assert.equal(group.classList.contains("is-revealed"), false);
-});
-
-test("a browser without IntersectionObserver never hides a group", function () {
-  const group = makeElement({}, ["reveal-group"]);
-
-  initReveal(scope([group]), { matchMedia: function () { return { matches: false }; } });
-
-  assert.equal(group.classList.contains("is-reveal-pending"), false);
+  assert.equal(hero.code.textContent, "curl script");
+  assert.equal(hero.label.textContent, "For macOS and Linux.");
+  assert.equal(hero.others.textContent, "Windows, Homebrew or npm");
+  assert.equal(hero.root.dataset.detectedOs, "other");
 });

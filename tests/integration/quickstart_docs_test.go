@@ -103,7 +103,7 @@ func assertRenderedQuickstart(t *testing.T, home string) {
 	if section == nil {
 		t.Fatal("landing page has no quickstart section")
 	}
-	for _, command := range []string{"agnostic-ai init", ".agnostic-ai/AGNOSTIC_AI.md", "agnostic-ai sync --plan", "agnostic-ai sync"} {
+	for _, command := range []string{"agnostic-ai init", ".agnostic-ai/AGNOSTIC_AI.md", "agnostic-ai sync"} {
 		if !strings.Contains(html.UnescapeString(section[1]), command) {
 			t.Errorf("rendered landing workflow is missing %q", command)
 		}

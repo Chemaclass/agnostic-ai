@@ -602,26 +602,26 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	for _, required := range []string{
 		`href="https://agnostic-ai.org/docs/agent-setup/">Set up with an agent</a>`,
-		`href="https://agnostic-ai.org/playground/">Try it in the browser</a>`,
-		fmt.Sprintf("Works with %d coding tools", len(adapters.Names())),
-		"Install agnostic-ai",
+		`href="https://agnostic-ai.org/playground/">Try it in the browser`,
+		`href="https://agnostic-ai.org/docs/getting-started/">Get started</a>`,
+		fmt.Sprintf("any of %d tools", len(adapters.Names())),
+		fmt.Sprintf("+ %d more tools", len(adapters.Names())-3),
+		`href="https://agnostic-ai.org/docs/installation/" data-hero-installer-others>Windows, Homebrew or npm</a>`,
 		`data-installer-os="macos"`,
 		`data-installer-os="windows"`,
 		`data-installer-os="linux"`,
 		"brew install --cask Chemaclass/tap/agnostic-ai",
 		"agnostic-ai init",
-		"agnostic-ai sync --plan",
-		"Keep the setup current.",
-		"Read the latest briefing",
+		`class="update-strip-pill"`,
 		`href="https://agnostic-ai.org/docs/targets/"`,
 		`"installUrl": "https://agnostic-ai.org/#install"`,
+		`id="install"`,
 		fmt.Sprintf("One spec emitted to %d AI coding targets", len(adapters.Names())),
 		fmt.Sprintf("%d targets enabled by default", len(config.DefaultTargets())),
-		"/docs/agent-setup/",
-		"agnostic-ai agent setup",
 		"/agent-setup.txt",
-		"Why not just symlink one file?",
-		`href="https://agnostic-ai.org/docs/why-agnostic-ai/"`,
+		"Why not a symlink?",
+		`href="https://agnostic-ai.org/docs/why-agnostic-ai/#why-the-usual-fixes-fall-short"`,
+		`href="https://agnostic-ai.org/docs/migration/">Bring an existing setup</a>`,
 	} {
 		if !strings.Contains(normalizedHome, required) {
 			t.Errorf("home page is missing %q", required)
@@ -649,8 +649,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Errorf("the explorer shows %d generated files at rest across %d entries, want one per entry", shown, entries)
 	}
 
-	// The explainer video loads through a click-to-load poster, so nothing
-	// loads from YouTube before a click.
+	// The explainer video lives on the Why page and loads through a
+	// click-to-load poster, so nothing loads from YouTube before a click.
+	why := strings.ReplaceAll(readBuiltFile(t, filepath.Join(outputDir, "docs", "why-agnostic-ai", "index.html")), "&#x2F;", "/")
 	for _, required := range []string{
 		`data-video-id="oHeKVk6bidA"`,
 		`href="https://www.youtube.com/watch?v=oHeKVk6bidA"`,
@@ -658,22 +659,28 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"assets/scripts/video.js",
 		`"@type": "VideoObject"`,
 	} {
-		if !strings.Contains(normalizedHome, required) {
-			t.Errorf("home page is missing the hero video %q", required)
+		if !strings.Contains(why, required) {
+			t.Errorf("Why page is missing the explainer video %q", required)
 		}
 	}
-	if strings.Contains(home, "<iframe") {
-		t.Error("home page loads the video player before the visitor asks for it")
+	if strings.Contains(why, "<iframe") {
+		t.Error("Why page loads the video player before the visitor asks for it")
+	}
+	if strings.Contains(home, "VideoObject") || strings.Contains(home, "data-video-id") {
+		t.Error("home page still carries the video, which moved to the Why page")
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", "hero-video-poster.webp")); err != nil {
 		t.Errorf("video poster is not published: %v", err)
 	}
-	missionIndex := strings.Index(home, `id="mission"`)
-	explorerIndex := strings.Index(home, `id="source-explorer"`)
+	proofIndex := strings.Index(home, `id="first-sync"`)
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
+	explorerIndex := strings.Index(home, `id="source-explorer"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
-	if missionIndex < 0 || explorerIndex < 0 || quickstartIndex < 0 || updatesIndex < 0 || missionIndex >= quickstartIndex || quickstartIndex >= explorerIndex || explorerIndex >= updatesIndex {
-		t.Errorf("home sections are not ordered mission, quickstart, explorer, updates: %d, %d, %d, %d", missionIndex, quickstartIndex, explorerIndex, updatesIndex)
+	if proofIndex < 0 || quickstartIndex < 0 || explorerIndex < 0 || updatesIndex < 0 || proofIndex >= quickstartIndex || quickstartIndex >= explorerIndex || explorerIndex >= updatesIndex {
+		t.Errorf("home blocks are not ordered hero, steps, explorer, updates: %d, %d, %d, %d", proofIndex, quickstartIndex, explorerIndex, updatesIndex)
+	}
+	if count := strings.Count(home, "<section"); count != 4 {
+		t.Errorf("home page has %d sections, want the 4 blocks: hero, steps, explorer, updates", count)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
@@ -822,7 +829,11 @@ func TestSiteDocs_LandingCopyAvoidsDashesAndExclamations(t *testing.T) {
 	if _, err := toml.Decode(frontmatter(t, "../../docs/site/content/docs/_index.md"), &docsSection); err != nil {
 		t.Fatalf("parse documentation section frontmatter: %v", err)
 	}
-	for _, source := range []map[string]any{landing, docsSection} {
+	var video map[string]any
+	if _, err := toml.DecodeFile("../../docs/site/data/video.toml", &video); err != nil {
+		t.Fatalf("parse video data: %v", err)
+	}
+	for _, source := range []map[string]any{landing, docsSection, video} {
 		for _, violation := range landingCopyViolations(landingProse(source, "")) {
 			t.Error(violation)
 		}

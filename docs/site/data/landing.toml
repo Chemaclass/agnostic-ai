@@ -1,100 +1,63 @@
 [hero]
 title = "One source."
 accent_title = "Every AI coding tool."
-body = "Write your project instructions and agents once, in your repository. `agnostic-ai sync` writes the file each tool reads, in its own format."
-tools_label = "Works with {n} coding tools"
-agent_label = "Set up with an agent"
+body = "Write your instructions, agents and hooks once, in your repository. One sync writes the file each tool reads, in its own format."
+install_label = "For macOS and Linux."
+install_others = "Windows, Homebrew or npm"
+primary_label = "Get started"
 playground_label = "Try it in the browser"
 
 [hero.fanout]
 label = "One agent spec, synced into the agent file each coding tool reads"
+source_label = "You write"
 source = ".agnostic-ai/agents/reviewer.md"
 line = "model: fast"
 targets = ["claude", "codex", "gemini"]
 more_label = "more tools"
-with_label = "With agnostic-ai"
-without_label = "Without"
-hand_label = "Edit each file by hand"
-with_summary = ["1 spec", "[`fast` is a tier in agnostic-ai.yaml](@/docs/configuration.md#models)"]
-without_summary = ["{n} files by hand", "Models go stale"]
 
 [[hero.fanout.outputs]]
 path = ".claude/agents/reviewer.md"
 tools = "Claude Code"
 line = "model: haiku"
-drift = "model: haiku"
 [[hero.fanout.outputs]]
 path = ".codex/agents/reviewer.toml"
 tools = "Codex"
 line = 'model = "gpt-6-luna"'
-drift = 'model = "gpt-6.1-terra"'
 [[hero.fanout.outputs]]
 path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"
 line = "model: gemini-3.5-flash"
-drift = "No agent yet."
-
-[hero.video]
-video_id = "oHeKVk6bidA"
-video_title = "One setup for every AI coding tool: Claude Code, Codex, Cursor and more"
-play_label = "Play the video: one setup for every AI coding tool, 1 minute"
-body = "One minute on why every AI coding tool wants its own setup, and how agnostic-ai writes them all from one source."
-upload_date = "2026-09-27"
-duration = "PT1M"
-
-[mission]
-title = "Your setup outlives"
-muted_title = "the tool you picked."
-body = "Every AI coding tool ships its own config file. Adopt three and your instructions live in three places, drifting apart. agnostic-ai keeps **one source in your repository** and writes the rest."
-
-[[mission.principles]]
-title = "You own the source"
-body = "Markdown and YAML in your repo. No account, no service."
-[[mission.principles]]
-title = "Generated files are outputs"
-body = "Same input, same bytes. Catch drift in CI with `sync --check`."
-[[mission.principles]]
-title = "Keep native tool files"
-body = "Each tool reads its own files. Sync flags what a tool cannot use."
-[[mission.principles]]
-title = "Stop syncing at any time"
-body = "The generated files keep working."
-
-[mission.symlinks]
-question = "Why not just symlink one file?"
-answer = "Each tool reads a different format at a different path. A symlink shares bytes. It cannot translate them."
-link_label = "See how the formats diverge"
 
 [workflow]
-title = "Start with one note."
-muted_title = "Then change it once."
-install_label = "All install options"
-guide_label = "Follow the setup guide"
-migration_label = "Bring an existing setup"
+title = "Three steps."
+muted_title = "Then you edit one file."
+guide_label = "Read the setup guide"
+promises = [
+  "Plain files in your repo, no account",
+  "Same input, same bytes: check drift in CI",
+  "Stop any time, the files keep working",
+]
 
 [[workflow.steps]]
-title = "Choose your tools"
+title = "Pick your tools"
 command = "agnostic-ai init"
-body = "Run this in your project. Pick Claude Code and Codex, or the tools you use. Accept the import offer to keep existing instructions."
+body = "Choose Claude Code, Codex, Cursor or any of {n} tools. Existing instructions are imported."
 [[workflow.steps]]
-title = "Write one project note"
+title = "Write it once"
 file = ".agnostic-ai/AGNOSTIC_AI.md"
-body = "Add a short instruction, such as the test command for your project. This is the source you maintain."
+body = "Add a project note, such as your test command. This is the only file you maintain."
 [[workflow.steps]]
-title = "Generate and read the files"
+title = "Sync"
 command = "agnostic-ai sync"
-body = "Preview with `agnostic-ai sync --plan`, then sync. With Claude Code and Codex, your note is in `AGENTS.md`, and `CLAUDE.md` points at it."
-[[workflow.steps]]
-title = "Make your next edit"
-command = "agnostic-ai sync"
-body = "Change the note and sync again. Every tool you picked reads the new text."
+body = "Every tool you picked reads it. Edit the note, sync again, and they all follow."
 
 [[workflow.installers]]
 id = "brew"
 tab = "macOS"
 label = "Homebrew"
 recommend_for = "macos"
-recommend_label = "Recommended for macOS"
+detected_label = "Detected macOS."
+others_label = "Linux, Windows or npm"
 prompt = "$"
 command = "brew install --cask Chemaclass/tap/agnostic-ai"
 note = "Homebrew, on macOS or Linux."
@@ -103,7 +66,8 @@ id = "script"
 tab = "Linux"
 label = "Script"
 recommend_for = "linux"
-recommend_label = "Recommended for Linux"
+detected_label = "Detected Linux."
+others_label = "macOS, Windows or npm"
 prompt = "$"
 command = "curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash"
 note = "Also on macOS. Checks the release checksum, then installs to `/usr/local/bin` when writable, otherwise `~/.local/bin`."
@@ -112,7 +76,8 @@ id = "windows"
 tab = "Windows"
 label = "Windows"
 recommend_for = "windows"
-recommend_label = "Recommended for Windows"
+detected_label = "Detected Windows."
+others_label = "macOS, Linux or npm"
 prompt = ">"
 command = "irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex"
 note = "PowerShell on Windows 10 or 11. Installs to `%LOCALAPPDATA%\\Programs\\agnostic-ai` and adds it to `PATH`. Open a new terminal afterwards."
@@ -125,204 +90,73 @@ command = "npm install -g agnostic-ai"
 note = "Node 18 or newer, on any OS."
 
 [explorer]
-title = "Share more when you need it."
-muted_title = "Explore the source files."
-body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your tools and model tiers. Pick an entry to see its source and what `sync` writes for each tool."
+title = "See what sync writes."
+body = "Click a source file, then a tool. The same spec, in each tool's own format and path."
 tree_label = "Source files"
 root = ".agnostic-ai/"
-outputs_label = "sync"
-more = "`.agnostic-ai/` also holds `reviews/`, `environments/`, and `ignore/`. See [every spec kind](@/docs/spec-format/_index.md)."
+more_label = "Every spec kind"
 
 [[explorer.entries]]
 id = "instructions"
 name = "AGNOSTIC_AI.md"
-hint = "project guidance"
+hint = "instructions"
 file = "AGNOSTIC_AI.md"
-summary = "Project instructions, written into each tool's root file. Select `rules/` to see where rules land."
 outputs = [
   { tool = "Claude Code", path = "CLAUDE.md", part = "instructions" },
   { tool = "Codex", path = "AGENTS.md", part = "instructions" },
   { tool = "Gemini CLI", path = "GEMINI.md", part = "instructions" },
 ]
-href = "@/docs/configuration.md"
-anchor = "entry-point-files"
-docs_label = "Entry-point files"
-
-[[explorer.entries]]
-id = "agents"
-name = "agents/"
-hint = "delegate work"
-file = "agents/test-writer.md"
-selected = true
-summary = "Subagents with a role, what they may do, and a model. `model: fast` names a tier from `agnostic-ai.yaml`, and sync writes each tool's model and effort."
-outputs = [
-  { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
-  { tool = "Codex", path = ".codex/agents/test-writer.toml", selected = true },
-  { tool = "Gemini CLI", path = ".gemini/agents/test-writer.md" },
-]
-href = "@/docs/spec-format/agents.md"
-docs_label = "Agents"
-
-[[explorer.entries]]
-id = "commands"
-name = "commands/"
-hint = "slash prompts"
-file = "commands/review.md"
-summary = "Saved prompts you run by name, such as `/review`. Codex receives a skill you invoke yourself."
-outputs = [
-  { tool = "Claude Code", path = ".claude/commands/review.md" },
-  { tool = "Codex", path = ".agents/skills/review/SKILL.md" },
-  { tool = "Gemini CLI", path = ".gemini/commands/review.toml" },
-]
-href = "@/docs/spec-format/commands.md"
-anchor = "write-one"
-docs_label = "Commands"
-
-[[explorer.entries]]
-id = "hooks"
-name = "hooks/"
-hint = "tool events"
-file = "hooks/format.yaml"
-summary = "Commands that run on tool events. Write `on: after-edit` once, and sync writes the event and edit tool names each tool uses."
-outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json", part = "json:hooks,env" },
-  { tool = "Codex", path = ".codex/hooks.json" },
-  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:hooks" },
-]
-href = "@/docs/spec-format/hooks.md"
-docs_label = "Hooks"
-
-[[explorer.entries]]
-id = "local"
-name = "local/"
-hint = "personal"
-file = "local/rules/my-style.md"
-summary = "Your own specs on this machine, ignored by Git. Sync layers them over the shared specs."
-outputs = [
-  { tool = "Claude Code", path = ".claude/rules/my-style.md" },
-  { tool = "Codex", path = "AGENTS.md", part = "rule:my-style" },
-  { tool = "Gemini CLI", path = "GEMINI.md", part = "rule:my-style" },
-]
-href = "@/docs/local-overrides.md"
-docs_label = "Local overrides"
-
-[[explorer.entries]]
-id = "mcps"
-name = "mcps/"
-hint = "MCP servers"
-file = "mcps/github.yaml"
-summary = "MCP server connections, one YAML file per server. Secrets stay in environment variables."
-outputs = [
-  { tool = "Claude Code", path = ".mcp.json" },
-  { tool = "Codex", path = ".codex/config.toml", part = "toml:mcp_servers" },
-  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:mcpServers" },
-]
-href = "@/docs/spec-format/mcps.md"
-docs_label = "MCP servers"
-
-[[explorer.entries]]
-id = "overlays"
-name = "overlays/"
-hint = "native keys"
-files = ["overlays/claude.settings.json", "overlays/codex.config.toml"]
-summary = "Native keys no spec covers, one file per tool: the Claude Code status line, Codex notification settings. Sync merges each into that tool's own file."
-outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json", part = "json:statusLine" },
-  { tool = "Codex", path = ".codex/config.toml", part = "toml:tui" },
-  { tool = "Gemini CLI", note = "Gemini CLI has no overlay file. Put its native keys under `x-gemini` in a `settings/` spec, and sync merges them into `.gemini/settings.json`." },
-]
-href = "@/docs/spec-format/overlays.md"
-docs_label = "Overlays"
 
 [[explorer.entries]]
 id = "rules"
 name = "rules/"
-hint = "coding conventions"
+hint = "conventions"
 file = "rules/testing.md"
-summary = "Conventions, always on or tied to file patterns and folders."
 outputs = [
   { tool = "Claude Code", path = ".claude/rules/testing.md" },
   { tool = "Codex", path = "AGENTS.md", part = "rule:testing" },
   { tool = "Gemini CLI", path = "GEMINI.md", part = "rule:testing" },
 ]
-href = "@/docs/spec-format/rules.md"
-docs_label = "Rules"
 
 [[explorer.entries]]
-id = "scripts"
-name = "scripts/"
-hint = "hook scripts"
-file = "scripts/format.sh"
-summary = "Hook scripts. Sync copies each one into each tool's hooks folder and points the hook there."
+id = "agents"
+name = "agents/"
+hint = "subagents"
+file = "agents/test-writer.md"
+selected = true
 outputs = [
-  { tool = "Claude Code", path = ".claude/hooks/format.sh" },
-  { tool = "Codex", path = ".codex/hooks/format.sh" },
-  { tool = "Gemini CLI", path = ".gemini/hooks/format.sh" },
+  { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
+  { tool = "Codex", path = ".codex/agents/test-writer.toml", selected = true },
+  { tool = "Gemini CLI", path = ".gemini/agents/test-writer.md" },
 ]
-href = "@/docs/spec-format/hook-recipes.md"
-anchor = "shared-hook-scripts"
-docs_label = "Shared hook scripts"
-
-[[explorer.entries]]
-id = "settings"
-name = "settings/"
-hint = "permissions"
-files = ["settings/model.yaml", "settings/permissions.yaml"]
-summary = "The default model and effort per tool, and permissions."
-outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json", part = "json:permissions,model,effortLevel" },
-  { tool = "Codex", path = ".codex/config.toml", part = "toml:model,model_reasoning_effort" },
-  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:model" },
-]
-reach = "Codex and Gemini CLI have no portable permission list, so sync prints a note instead of guessing. Sync writes no effort for Gemini CLI; set its thinking level under `x-gemini`."
-href = "@/docs/spec-format/settings.md"
-docs_label = "Settings"
 
 [[explorer.entries]]
 id = "skills"
 name = "skills/"
-hint = "repeat a workflow"
+hint = "workflows"
 file = "skills/release/SKILL.md"
-summary = "Reusable workflows. Files beside `SKILL.md`, such as `check.sh`, copy with it. `disable-model-invocation: true` runs it only when you ask; Codex reads that from `agents/openai.yaml`."
 outputs = [
   { tool = "Claude Code", path = ".claude/skills/release/SKILL.md" },
   { tool = "Codex", path = ".agents/skills/release/agents/openai.yaml" },
   { tool = "Gemini CLI", path = ".gemini/skills/release/SKILL.md" },
 ]
 reach = "Gemini CLI has no setting that keeps a skill for when you ask, so sync drops `disable-model-invocation` there and prints a note."
-href = "@/docs/spec-format/skills.md"
-anchor = "disable-model-invocation-support-by-target"
-docs_label = "Skills"
 
 [[explorer.entries]]
-id = "config"
-name = "agnostic-ai.yaml"
-hint = "tools, tiers"
-file = "agnostic-ai.yaml"
-project_root = true
-summary = "Project settings, beside `.agnostic-ai/`. `targets` picks the tools sync writes for. A tier names a model role once: an agent with `model: fast` gets the model the tier names for each tool, and a Codex alias becomes the pinned id."
+id = "hooks"
+name = "hooks/"
+hint = "tool events"
+file = "hooks/format.yaml"
 outputs = [
-  { tool = "Claude Code", path = ".claude/agents/test-writer.md", part = "frontmatter:model,effort" },
-  { tool = "Codex", path = ".codex/agents/test-writer.toml", part = "toml:model,model_reasoning_effort" },
-  { tool = "Gemini CLI", path = ".gemini/agents/test-writer.md", part = "frontmatter:model" },
+  { tool = "Claude Code", path = ".claude/settings.json", part = "json:hooks,env" },
+  { tool = "Codex", path = ".codex/hooks.json" },
+  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:hooks" },
 ]
-reach = "Gemini CLI agents have no effort setting, so sync leaves out the tier's effort there and prints a note."
-href = "@/docs/configuration.md"
-anchor = "models"
-docs_label = "Model tiers"
 
 [updates]
-title = "Keep the setup current."
-muted_title = "Know what changed."
-body = "What shipped in agnostic-ai, and what changed upstream in the tools it targets."
-latest_label = "Latest briefings"
-primary_label = "Read the latest briefing"
-archive_label = "Browse all updates"
-rss_label = "Subscribe by RSS"
-
-[closing]
-title = "Keep your instructions together."
-second_line = "Make the next edit once."
-command = "agnostic-ai sync"
-primary_label = "Read getting started"
-secondary_label = "Set up with an agent"
+new_label = "New"
+links = [
+  { label = "Why not a symlink?", href = "@/docs/why-agnostic-ai.md", anchor = "why-the-usual-fixes-fall-short" },
+  { label = "Set up with an agent", href = "@/docs/agent-setup.md" },
+  { label = "Bring an existing setup", href = "@/docs/migration.md" },
+]
