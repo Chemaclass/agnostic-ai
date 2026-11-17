@@ -871,3 +871,140 @@ test('Enter on a subagent control opens nothing but what it names, even with its
   await page.goto('/panel.html')
   expect(opens).toEqual([{ tool: 'codex', id: 'run-3511' }])
 })
+
+const pickBanner = (page: Page) => page.getByRole('region', { name: 'Send the copied text' })
+
+test('Cmd+Shift+V picks a conversation for the copied text, and Enter sends it there', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+
+  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+  await expect(pickBanner(page)).toContainText('Fix the flaky login test.')
+  await expect(page.getByRole('button', { name: 'Send the copied text' })).toHaveAttribute('aria-pressed', 'true')
+  // Only this machine's conversations, and no Archived: those cannot take the text.
+  await expect(page.getByRole('button', { name: 'Local' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(groupTitle(page, 'Archived')).toHaveCount(0)
+  await expect(row(page, 'Write the onboarding guide')).toHaveCount(0)
+  await expect(selected(page)).toContainText('Approve the database migration')
+
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toContainText('Draft the release notes')
+  const copied = await (await page.request.get('/api/clipboard')).json()
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await page.keyboard.press('Enter')
+  expect((await sent).postDataJSON()).toEqual({ tool: 'codex', id: 'reply-1', hash: copied.hash })
+
+  await expect(pickBanner(page)).toBeHidden()
+  const calls = await calledPaths(page)
+  expect(calls).toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/open')
+  expect(calls).not.toContain('/api/panel/show')
+})
+
+test('pick mode starts on the one row the text can be typed into, and still waits for Enter', async ({ page }) => {
+  await openPanel(page, 'one-terminal')
+  await page.keyboard.press('Meta+Shift+KeyV')
+
+  await expect(selected(page)).toContainText('Plan the sync dry run')
+  expect(await calledPaths(page)).not.toContain('/api/send')
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await page.keyboard.press('Enter')
+  expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('a double click sends once, and Escape while the chip flies takes the send back', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await row(page, 'Draft the release notes').dblclick()
+  await expect(pickBanner(page)).toBeHidden()
+  await expect.poll(async () => (await calledPaths(page)).filter((path) => path === '/api/send').length).toBe(1)
+  await page.waitForTimeout(600)
+  const calls = await calledPaths(page)
+  expect(calls.filter((path) => path === '/api/send')).toHaveLength(1)
+  expect(calls).not.toContain('/api/open')
+
+  // With animation off nothing flies, so the send leaves at once and Escape comes too late.
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await openPanel(page)
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'on')
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+  // Escape lands the moment the chip leaves the banner.
+  await page.evaluate(() => {
+    const card = document.getElementById('card')!
+    const watch = new MutationObserver(() => {
+      if (!card.querySelector('.pick-chip')) return
+      watch.disconnect()
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    watch.observe(card, { childList: true })
+  })
+  await page.keyboard.press('Enter')
+  await expect(pickBanner(page)).toBeHidden()
+  await page.waitForTimeout(600)
+  expect(await calledPaths(page)).not.toContain('/api/send')
+})
+
+test('a send that only switched to the conversation comes back to say to paste', async ({ page }) => {
+  await openPanel(page)
+  await page.getByRole('button', { name: 'Send the copied text' }).click()
+  await expect(pickBanner(page)).toBeVisible()
+
+  await row(page, 'Fix the login redirect').click()
+
+  await expect(page.locator('#notice')).toContainText('Switched to it. Paste with Cmd+V.')
+  await expect(pickBanner(page)).toBeHidden()
+  expect(await calledPaths(page)).toContain('/api/panel/show')
+})
+
+test('nothing copied keeps pick mode closed and says why', async ({ page }) => {
+  await openPanel(page, 'empty-clipboard')
+  await page.keyboard.press('Meta+Shift+KeyV')
+
+  await expect(page.locator('#toast')).toHaveText('Nothing to send: copy some text first.')
+  await expect(pickBanner(page)).toBeHidden()
+})
+
+test('Escape leaves pick mode first, and a second Escape closes the list', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(pickBanner(page)).toBeHidden()
+  await expect(groupTitle(page, 'Archived')).toHaveCount(1)
+  expect(await calledPaths(page)).not.toContain('/api/panel/hide')
+
+  await page.keyboard.press('Escape')
+  await expect.poll(() => calledPaths(page)).toContain('/api/panel/hide')
+})
+
+test('a clipboard that changed since the banner showed it sends nothing and refreshes the banner', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+
+  expect((await page.request.post('/dev/clipboard', { data: { text: 'Two words' } })).ok()).toBe(true)
+  await page.keyboard.press('Enter')
+
+  await expect(page.locator('#notice')).toContainText('The copied text changed. Check the new text, then send again.')
+  await expect(pickBanner(page)).toContainText('Send 2 words to…')
+  expect(await calledPaths(page)).not.toContain('/api/send')
+})
+
+test('a search in pick mode shows a matching archived chat dimmed, and it cannot be picked', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await page.getByLabel('Search every conversation').fill('go version')
+
+  const archived = row(page, 'Bump the Go version')
+  await expect(archived).toHaveAttribute('aria-disabled', 'true')
+  await expect(archived).toHaveCSS('opacity', '0.4')
+  await archived.click({ force: true })
+  await page.keyboard.press('Enter')
+
+  await expect(pickBanner(page)).toBeVisible()
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/send')
+  expect(calls).not.toContain('/api/open')
+})

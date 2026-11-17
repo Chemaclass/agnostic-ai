@@ -130,7 +130,8 @@ function nested(now) {
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
  * markProblem, renameProblem, deleteProblem, openProblem (a conversation that did not open) with its openCommand,
  * slowQueries (queries that contain the word wait that many milliseconds),
- * and heldOpens (opens of these conversation ids wait until POST /dev/release-opens).
+ * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
+ * and clipboard (the copied text; three lines when unset).
  */
 export const FIXTURES = {
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
@@ -200,6 +201,16 @@ export const FIXTURES = {
     markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
   },
   archived: { label: 'Archived chats to delete', conversations: archived },
+  'one-terminal': {
+    label: 'One chat runs in a Ghostty tab, so pick mode starts on it',
+    conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
+  },
+  'empty-clipboard': { label: 'Nothing copied, so pick mode does not open', conversations: mixed, clipboard: '' },
+  'long-clipboard': {
+    label: 'A long copied page to send',
+    conversations: mixed,
+    clipboard: Array.from({ length: 40 }, (_, at) => `Line ${at + 1} of the copied page, with enough words to wrap the banner.`).join('\n'),
+  },
   'delete-failure': {
     label: 'Delete failure',
     conversations: archived,

@@ -5,6 +5,7 @@
 //
 //   node companion/dev/preview.mjs [--port 4320] [--fixture mixed] [--now 2026-11-07T15:30:00Z]
 
+import { createHash } from 'node:crypto'
 import { watch } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -41,7 +42,33 @@ function fixtureState(name, now) {
     appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
     /** What waited in the last list, as the shell remembers it. */
     waitingSeen: waitingIn(conversations),
+    /** What the preview's clipboard holds, as the shell would read it. */
+    clipboard: fixture.clipboard ?? COPIED,
   }
+}
+
+/** Three copied lines, what most fixtures hold on the clipboard. */
+const COPIED = 'Fix the flaky login test.\nThen run the whole suite.\nReport what still fails.'
+
+const TOOL_LABELS = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor', chatgpt: 'ChatGPT' }
+
+/** Like the shell: the copied text without all of it. */
+function clipboardOf(text) {
+  if (text.trim() === '') return { preview: '', words: 0, chars: 0, hash: '' }
+  const chars = [...text]
+  return { preview: chars.slice(0, 200).join(''), words: text.split(/\s+/).filter(Boolean).length, chars: chars.length, hash: createHash('sha256').update(text).digest('hex') }
+}
+
+/** Like the server: typed into a live terminal session, else switched to with a paste to make. */
+function sendReplyOf(row) {
+  if (row.app === 'cloud' || row.tool === 'cursor') return { sent: false, message: 'Switched to it. Paste with Cmd+V.' }
+  if (row.state === 'blocked') {
+    return { sent: false, message: 'It waits for your answer, and typed text could answer its question, so nothing was typed. Switched to it. Paste with Cmd+V.' }
+  }
+  if (row.state === 'working' && row.tool !== 'claude') {
+    return { sent: false, message: `${TOOL_LABELS[row.tool]} is working and may drop typed text, so nothing was typed. Switched to it. Paste with Cmd+V.` }
+  }
+  return { sent: true, message: 'Typed into the Ghostty tab that runs it. Press Enter there to send it.' }
 }
 
 function waitingIn(conversations) {
@@ -218,6 +245,17 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     listChanged()
   }
 
+  async function send(request, response) {
+    const body = await bodyOf(request)
+    logCall('/api/send', body)
+    const copied = clipboardOf(state.clipboard)
+    if (copied.words === 0) return sendJSON(response, 409, { error: 'Nothing to send: copy some text first.' })
+    if (body.hash !== copied.hash) return sendJSON(response, 409, { error: 'The copied text changed. Check the new text, then send again.' })
+    const row = find(body)
+    if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this list any more. Refresh the page.' })
+    sendJSON(response, 200, sendReplyOf(row))
+  }
+
   function events(request, response) {
     response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' })
     response.write(': connected\n\n')
@@ -252,6 +290,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
+    'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard)),
+    'POST /api/send': send,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
     // Like the shell: a hidden or faded companion does not show the list for the page.
@@ -336,6 +376,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       row.state = 'unread'
       noContent(response)
       listChanged()
+    },
+    // Something else copied while the list shows.
+    'POST /dev/clipboard': async (request, response) => {
+      state.clipboard = String((await bodyOf(request)).text ?? '')
+      noContent(response)
     },
     'POST /dev/arrive': (request, response) => {
       state.conversations = [arrival(timeOf()), ...state.conversations.filter((row) => row.id !== 'arrived-1')]

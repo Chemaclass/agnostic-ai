@@ -24,6 +24,7 @@ const (
 	conversationMarkPath   = "/api/conversations/mark"
 	conversationRenamePath = "/api/conversations/rename"
 	conversationDeletePath = "/api/conversations/delete"
+	conversationSendPath   = "/api/conversations/send"
 )
 
 // maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
@@ -33,6 +34,16 @@ type conversationOpenRequest struct {
 	Tool   conversations.Tool `json:"tool"`
 	ID     string             `json:"id"`
 	Editor string             `json:"editor"`
+}
+
+// maxConversationSendBytes is the API body limit bufferAPIBody sets: JSON
+// escaping can grow the text past MaxSendBytes, which is checked decoded.
+const maxConversationSendBytes = 1 << 20
+
+type conversationSendRequest struct {
+	Tool conversations.Tool `json:"tool"`
+	ID   string             `json:"id"`
+	Text string             `json:"text"`
 }
 
 type conversationMarkRequest struct {
@@ -117,6 +128,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.rename(w, r)
 	case conversationDeletePath:
 		h.delete(w, r)
+	case conversationSendPath:
+		h.send(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -205,6 +218,49 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEditJSON(w, http.StatusOK, reply)
+}
+
+// send types text into a conversation's input without submitting it.
+func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
+	if status, message := editRequestGuard(r); status != 0 {
+		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	tooLarge := func(size string) {
+		writeEditJSON(w, http.StatusRequestEntityTooLarge, editError{Error: fmt.Sprintf("The text is %s the %d KB a send takes, so nothing was typed.", size, conversations.MaxSendBytes>>10)})
+	}
+	var req conversationSendRequest
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationSendBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		var overLimit *http.MaxBytesError
+		if errors.As(err, &overLimit) {
+			tooLarge("over")
+			return
+		}
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, text}"})
+		return
+	}
+	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
+		return
+	}
+	if !knownConversationTool(req.Tool) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+		return
+	}
+	if len(req.Text) > conversations.MaxSendBytes {
+		tooLarge(fmt.Sprintf("%d KB, over", (len(req.Text)+1023)>>10))
+		return
+	}
+	// The conversation comes from the server's own scan; the request only
+	// names which one.
+	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
+	if !ok {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		return
+	}
+	writeEditJSON(w, http.StatusOK, conversations.Send(r.Context(), conversation, req.Text, h.scanner.Processes, h.launcher))
 }
 
 // mark records that the person saw a conversation, completed it, took

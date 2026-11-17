@@ -173,3 +173,15 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 **Why:** The ids are the only link the two lists share; a title, folder or time can match two different sessions. The session file is already read for the live check and the cloud list is already in memory, so the match costs one map lookup per row. A seen mark on the duplicate meant the person saw the conversation, so ignoring it would show it unread again. A hide or completion on the duplicate was often made to get rid of the second row, so it must not hide the local one.
 
 **Accepted limits:** The relation between the two ids is undocumented and was measured on one account on 2026-11-12. If it changes, both rows show again, as before this change. Codex and Cursor cloud sessions are not matched.
+
+## 017: Ghostty types sent text, Terminal pastes it
+
+**Date:** 2026-11-17
+
+**Context:** The companion sends copied text into a chat's input without submitting it ([#3517](https://github.com/Chemaclass/agnostic-ai/issues/3517)). Each terminal app offers a different way in.
+
+**Decision:** Ghostty gets the text through `input text ... to t`. Terminal gets it on the clipboard and a Cmd+V from System Events, sent only once its tab is selected in the front window. The server types only into a live session that holds its terminal in front, checked right before typing, and removes control characters and bracketed paste markers first.
+
+**Why:** Ghostty's `input text` is a paste: measured on Ghostty 1.4.0, a program that asks for bracketed paste gets every line inside one paste, and the server adds no markers of its own, which would wrap the text twice. Terminal has no such command: `do script` always presses Enter, which would submit the text. A Cmd+V goes to whatever app is in front, so the script checks the front window first and refuses when Terminal did not come forward.
+
+**Accepted limits:** Pasting into Terminal needs macOS Accessibility access. A program that does not ask for bracketed paste reads each newline as Enter in both apps; Claude Code and Codex ask for it. cursor-agent is never typed into: it was not checked, and it does not say when it waits for an answer. macOS may refuse to bring Terminal forward, and the send then says to paste by hand.

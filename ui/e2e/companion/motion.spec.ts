@@ -125,3 +125,34 @@ test('waiting and idle parents keep ordinary still dots while workers retain the
   await expect.poll(() => core.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0)
   await expect(waiting.locator('.work-worker')).toHaveCount(2)
 })
+
+/** Sends the copied text to the first row and says whether a chip flew and whether the banner slid in. */
+async function sendAndWatch(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const seen = { chip: false }
+    ;(window as unknown as { seen: typeof seen }).seen = seen
+    new MutationObserver(() => {
+      if (document.querySelector('.pick-chip')) seen.chip = true
+    }).observe(document.getElementById('card')!, { childList: true })
+  })
+  await page.keyboard.press('Meta+Shift+KeyV')
+  const banner = page.getByRole('region', { name: 'Send the copied text' })
+  await expect(banner).toBeVisible()
+  const slid = await banner.evaluate((element) => element.classList.contains('is-entering'))
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await page.keyboard.press('Enter')
+  await sent
+  await expect(banner).toBeHidden()
+  const chip = await page.evaluate(() => (window as unknown as { seen: { chip: boolean } }).seen.chip)
+  return { chip, slid }
+}
+
+test('sending flies a chip into the picked row, and with animation off nothing moves', async ({ page }) => {
+  expect(await sendAndWatch(page)).toEqual({ chip: true, slid: true })
+  await expect(page.locator('.pick-chip')).toHaveCount(0)
+
+  await page.goto('/panel.html')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(page.locator('.state.is-working')).toBeVisible()
+  expect(await sendAndWatch(page)).toEqual({ chip: false, slid: false })
+})

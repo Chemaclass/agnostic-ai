@@ -36,6 +36,10 @@ type Launcher interface {
 	// TitleTab names the tab of app that shows tty; ok is false when no
 	// tab shows that tty.
 	TitleTab(ctx context.Context, app, tty, title string) (ok bool, err error)
+	// TypeInTab types text into the tab of app that shows tty, without
+	// pressing Enter, and brings it to the front; ok is false when no
+	// tab shows that tty.
+	TypeInTab(ctx context.Context, app, tty, text string) (ok bool, err error)
 }
 
 // errNotHere means this OS has no supported way to run the route.
@@ -471,6 +475,10 @@ func run(ctx context.Context, name string, args ...string) (string, error) {
 		if strings.Contains(stderr.String(), "-1743") {
 			return "", errAutomationDenied
 		}
+		// System Events reports keys it may not press as error 1002.
+		if strings.Contains(stderr.String(), "(1002)") {
+			return "", errAccessibilityDenied
+		}
 		// An unanswered Automation prompt holds osascript until the timeout.
 		if ctx.Err() != nil {
 			return "", fmt.Errorf("%s: %w", name, ctx.Err())
@@ -617,6 +625,54 @@ var newTabLines = map[string][]string{
 	},
 }
 
+// typeInTabLines type item 2 of argv into the terminal whose tty is
+// item 1 of argv. Ghostty takes it as a paste, so a program that asks
+// for bracketed paste gets every line in one paste. Terminal has no such
+// command (do script presses Enter), so it pastes the clipboard with
+// Cmd+V, only once the tab is selected in the front window.
+var typeInTabLines = map[string][]string{
+	"Terminal": {
+		"set the clipboard to (item 2 of argv)",
+		`tell application "Terminal"`,
+		"repeat with w in windows",
+		"repeat with t in tabs of w",
+		"if tty of t is (item 1 of argv) then",
+		"set selected of t to true",
+		"set index of w to 1",
+		"activate",
+		"repeat 20 times",
+		"if frontmost then exit repeat",
+		"delay 0.05",
+		"end repeat",
+		`if not frontmost then return "behind"`,
+		`if tty of selected tab of front window is not (item 1 of argv) then return "behind"`,
+		`tell application "System Events" to keystroke "v" using command down`,
+		`return "ok"`,
+		"end if",
+		"end repeat",
+		"end repeat",
+		"end tell",
+		`return "missing"`,
+	},
+	"Ghostty": {
+		`tell application "Ghostty"`,
+		"repeat with t in terminals",
+		"if tty of t is (item 1 of argv) then",
+		"input text (item 2 of argv) to t",
+		"focus t",
+		"activate",
+		`return "ok"`,
+		"end if",
+		"end repeat",
+		"end tell",
+		`return "missing"`,
+	},
+}
+
+func typeInTabArgs(app, tty, text string) []string {
+	return append(script(typeInTabLines[app]...), tty, text)
+}
+
 func runInNewTabArgs(app, command string) []string {
 	return append(script(newTabLines[app]...), command)
 }
@@ -650,6 +706,21 @@ func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, 
 		return false, err
 	}
 	return out == "ok", nil
+}
+
+func (macLauncher) TypeInTab(ctx context.Context, app, tty, text string) (bool, error) {
+	if _, ok := typeInTabLines[app]; !ok {
+		return false, errNotHere
+	}
+	out, err := run(ctx, "osascript", typeInTabArgs(app, tty, text)...)
+	switch {
+	case err != nil:
+		return false, err
+	case out == "behind":
+		return false, errNotInFront
+	default:
+		return out == "ok", nil
+	}
 }
 
 func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
@@ -686,6 +757,10 @@ func (linuxLauncher) TitleTab(context.Context, string, string, string) (bool, er
 	return false, errNotHere
 }
 
+func (linuxLauncher) TypeInTab(context.Context, string, string, string) (bool, error) {
+	return false, errNotHere
+}
+
 type unsupportedLauncher struct{}
 
 func (unsupportedLauncher) OpenLink(context.Context, string) error { return errNotHere }
@@ -703,5 +778,9 @@ func (unsupportedLauncher) FocusTab(context.Context, string, string) (bool, erro
 func (unsupportedLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
 
 func (unsupportedLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
+	return false, errNotHere
+}
+
+func (unsupportedLauncher) TypeInTab(context.Context, string, string, string) (bool, error) {
 	return false, errNotHere
 }

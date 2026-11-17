@@ -57,6 +57,17 @@ export function deleteConversation(conversation) {
   return post('/api/delete', { tool: conversation.tool, id: conversation.id })
 }
 
+/** What was copied, without all of it: {preview, words, chars, hash}; words is 0 when no text was copied. */
+export const readClipboard = () => call('/api/clipboard')
+
+/**
+ * Types the copied text into a conversation's input, without sending it: {sent, message}. The shell reads
+ * the clipboard itself and refuses when it no longer matches `hash`, the one the page showed.
+ */
+export function sendClipboard(conversation, hash) {
+  return post('/api/send', { tool: conversation.tool, id: conversation.id, hash })
+}
+
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')

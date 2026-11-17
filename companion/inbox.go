@@ -33,6 +33,8 @@ type inbox struct {
 	builtFor string
 	// changed tells the pages that the latest list is new.
 	changed func()
+	// readClipboard returns the copied text; empty when none is.
+	readClipboard func() string
 
 	// reading lets one read at a time run, from naming the held tag to
 	// telling changed, so an older answer never replaces a newer one.

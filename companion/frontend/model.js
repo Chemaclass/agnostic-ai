@@ -102,14 +102,71 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-/** What Escape closes: the quit question, then a delete confirmation, then the row menu, then a rename, then the settings menu, then the panel. */
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen }) {
+/** What Escape closes: the quit question, then a delete confirmation, then the row menu, then a rename, then the settings menu, then pick mode, then the panel. */
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen, picking }) {
   if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (rowMenuOpen) return 'row-menu'
   if (renaming) return 'rename'
   if (settingsOpen) return 'settings'
+  if (picking) return 'pick'
   return 'panel'
+}
+
+/** What pick mode says when the clipboard holds no text. */
+export const NOTHING_TO_SEND = 'Nothing to send: copy some text first.'
+
+/** The clipboard as pick mode uses it, or undefined when it holds no text to send, such as only an image or a file. */
+export function pickableClip(clip) {
+  return clip && clip.words > 0 && typeof clip.hash === 'string' && clip.hash !== '' ? clip : undefined
+}
+
+/** The pick banner's title: "Send 412 words to…". */
+export function pickTitleOf(clip) {
+  return `Send ${clip.words} ${clip.words === 1 ? 'word' : 'words'} to…`
+}
+
+/** The first words of the copied text, for the chip that flies into the picked row. */
+export function chipTextOf(clip, words = 4) {
+  const all = clip.preview.split(/\s+/).filter((word) => word !== '')
+  return all.slice(0, words).join(' ') + (all.length > words ? '…' : '')
+}
+
+/** Whether a row can take the copied text. An archived chat cannot; the server decides the rest when it sends. */
+export function takesText(conversation) {
+  return GROUP_OF_STATE[conversation.state] !== 'archived'
+}
+
+/** The apps whose tabs the server can type into, as a live row's route names them: "Switch to Ghostty". */
+const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty'])
+/** The tools the server types into: they say when they wait for an answer. */
+const TYPED_TOOLS = new Set(['claude', 'codex'])
+
+/**
+ * The rows the copied text can be typed into, in list order: live, in a Terminal or Ghostty tab, under
+ * Needs you, Working or Active. Like the server, it leaves out a chat that waits for an answer, where typed text
+ * could answer it, a Cursor chat, which does not say when it waits, and a working chat whose tool may drop typed text:
+ * only Claude Code keeps it.
+ * Other rows can still be picked; the server then switches to them to paste by hand.
+ */
+export function typableRows(conversations) {
+  return conversations.filter((conversation) => {
+    if (conversation.live !== true || conversation.open?.kind !== 'focus' || !TYPABLE_ROUTES.has(conversation.open.label) || !takesText(conversation)) return false
+    if (!TYPED_TOOLS.has(conversation.tool) || conversation.state === 'blocked' || conversation.activity === 'waiting') return false
+    const working = conversation.state === 'working' || conversation.activity === 'working'
+    return !working || conversation.tool === 'claude'
+  })
+}
+
+/** The groups pick mode shows: Archived only while a search is typed, and its rows then cannot be picked. */
+export function pickGroupsOf(groups, query) {
+  return query === '' ? groups.filter((group) => group.id !== 'archived') : groups
+}
+
+/** Cmd+Shift+V, or Ctrl+Shift+V off a Mac: enters or leaves pick mode while the list is open. */
+export function togglesPick(press, isMac) {
+  const command = isMac ? press.metaKey === true && !press.ctrlKey : press.ctrlKey === true && !press.metaKey
+  return command && press.shiftKey === true && !press.altKey && press.code === 'KeyV' && !press.repeat
 }
 
 /** F2 on the selected row starts a rename, as in a file manager. */

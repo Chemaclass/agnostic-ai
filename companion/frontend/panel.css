@@ -1200,3 +1200,114 @@ button:focus-visible {
 .helpers-more:hover {
   color: var(--paper-dim);
 }
+
+/* Pick mode: the copied text waits in a banner under the search for the row it goes to. */
+
+#send-clipboard[aria-pressed='true'] {
+  background: var(--action-soft);
+  color: var(--action);
+  box-shadow: inset 0 0 0 1px rgba(240, 163, 94, 0.4);
+}
+
+.pick {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  margin: 0 12px 8px;
+  padding: 8px 6px 8px 10px;
+  border-radius: 8px;
+  background: var(--action-soft);
+  box-shadow: inset 0 0 0 1px rgba(240, 163, 94, 0.32);
+  font-size: 12px;
+  line-height: 1.4;
+  transform-origin: top center;
+}
+
+.pick[hidden] {
+  display: none;
+}
+
+.pick.is-entering {
+  animation: pick-in 160ms var(--ease-out);
+}
+
+@keyframes pick-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.pick p {
+  margin: 0;
+}
+
+.pick-title {
+  color: var(--action);
+  font-weight: 620;
+}
+
+.pick-close {
+  align-self: start;
+  width: 22px;
+  height: 22px;
+}
+
+.pick-preview {
+  grid-column: 1 / -1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--paper-dim);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.card.is-picking .row .actions {
+  display: none;
+}
+
+.card.is-picking .row.is-unpickable {
+  opacity: 0.4;
+}
+
+.card.is-picking .row.is-unpickable:hover {
+  background: none;
+}
+
+.place:disabled {
+  opacity: 0.6;
+}
+
+.place:disabled:hover {
+  color: var(--paper-faint);
+}
+
+.pick-chip {
+  position: absolute;
+  z-index: 5;
+  max-width: 200px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--action);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 620;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.row.is-receiving .state {
+  animation: receive 200ms var(--ease-out);
+}
+
+@keyframes receive {
+  50% {
+    scale: 1.8;
+    box-shadow: 0 0 0 4px var(--action-soft);
+  }
+}

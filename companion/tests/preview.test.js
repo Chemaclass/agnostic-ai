@@ -52,6 +52,29 @@ test('a mark changes only the fixture in this process', async (t) => {
   assert.equal(untouched.body.view.conversations.find((row) => row.id === 'active-1').state, 'active')
 })
 
+test('sends the copied text only while it is the text the page showed', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const copied = await (await fetch(preview.url + '/api/clipboard')).json()
+  assert.equal(copied.words, 14)
+  assert.match(copied.hash, /^[0-9a-f]{64}$/)
+
+  const sent = await postJSON(preview.url + '/api/send', { tool: 'codex', id: 'reply-1', hash: copied.hash })
+  assert.deepEqual(await sent.json(), { sent: true, message: 'Typed into the Ghostty tab that runs it. Press Enter there to send it.' })
+  const switched = await postJSON(preview.url + '/api/send', { tool: 'cursor', id: 'active-1', hash: copied.hash })
+  assert.deepEqual(await switched.json(), { sent: false, message: 'Switched to it. Paste with Cmd+V.' })
+
+  await postJSON(preview.url + '/dev/clipboard', { text: 'something else' })
+  const changed = await postJSON(preview.url + '/api/send', { tool: 'claude', id: 'waits-1', hash: copied.hash })
+  assert.equal(changed.status, 409)
+})
+
+test('a fixture with nothing copied describes an empty clipboard', async (t) => {
+  const preview = await startPreview({ port: 0, fixture: 'empty-clipboard' })
+  t.after(preview.close)
+  assert.deepEqual(await (await fetch(preview.url + '/api/clipboard')).json(), { preview: '', words: 0, chars: 0, hash: '' })
+})
+
 test('a fixture can refuse renames and marks', async (t) => {
   const preview = await startPreview({ port: 0, fixture: 'rename-failure' })
   t.after(preview.close)
