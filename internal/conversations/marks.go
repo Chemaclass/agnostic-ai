@@ -435,6 +435,17 @@ func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	keys := []string{markKey(tool, id)}
+	if cloud := s.sharedClouds[keys[0]]; withCloud && cloud != "" {
+		keys = append(keys, markKey(tool, cloud))
+	}
+	return s.changeMarks(keys, change)
+}
+
+// changeMarks applies change to the marks at keys and saves them. It
+// takes no scanner lock, so it never waits for a scan: the file's own
+// lock keeps its read and write whole.
+func (s *Scanner) changeMarks(keys []string, change func(entry *markEntry, now string)) error {
 	// Another server may change the same file: the lock spans the read
 	// and the write, so neither discards the other's mark.
 	release, err := lockMarks(s.MarksPath)
@@ -446,10 +457,6 @@ func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry,
 	file, _, err := readMarks(s.MarksPath, now)
 	if err != nil {
 		return err
-	}
-	keys := []string{markKey(tool, id)}
-	if cloud := s.sharedClouds[keys[0]]; withCloud && cloud != "" {
-		keys = append(keys, markKey(tool, cloud))
 	}
 	for _, key := range keys {
 		entry := file.Marks[key]
@@ -474,8 +481,9 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 // it up again. found is false when the scan no longer
 // lists it. The open has already happened when the mark is saved, so a
 // mark that cannot be saved is said beside the reply, not instead of it.
+// Neither the lookup nor the mark waits for a running scan to end.
 func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
-	conversation, found := s.find(ctx, tool, id, opts, true)
+	conversation, found := s.findToOpen(ctx, tool, id, opts)
 	if !found {
 		return OpenReply{}, false
 	}
@@ -483,8 +491,14 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if !reply.Opened || s.MarksPath == "" {
 		return reply, true
 	}
+	// A shared row's cloud id gets the same marks, so its cloud row says
+	// the same once the local session ends.
+	keys := []string{markKey(tool, id)}
+	if conversation.Cloud != nil && conversation.ID == id {
+		keys = append(keys, markKey(tool, conversation.Cloud.ID))
+	}
 	reopened := func(entry *markEntry, now string) { entry.SeenAt, entry.CompletedAt = now, "" }
-	if err := s.changeMark(tool, id, reopened, true); err != nil {
+	if err := s.changeMarks(keys, reopened); err != nil {
 		reply.Message += " It could not be marked as seen: " + err.Error()
 	}
 	return reply, true

@@ -186,6 +186,36 @@ export function openFailureOf(reply) {
   return reply.command ? { message: reply.message, command: reply.command } : { message: reply.message }
 }
 
+/**
+ * What the notice card can be about. `label` names it for a screen reader. `tone` is `error` when something
+ * the person asked for did not happen, and `info` when it happened and a detail is left to say.
+ */
+export const NOTICES = {
+  notOpened: { label: 'Why it did not open', tone: 'error' },
+  textChanged: { label: 'Why nothing was sent', tone: 'error' },
+  notTyped: { label: 'Why nothing was typed', tone: 'error' },
+  pasteByHand: { label: 'What to do with the copied text', tone: 'info' },
+  cannotDelete: { label: 'Why it cannot be deleted', tone: 'error' },
+  notDeleted: { label: 'Why it was not deleted', tone: 'error' },
+  notTidied: { label: 'What was not tidied', tone: 'info' },
+}
+
+/** How a screen reader takes a message of this tone: an error at once, anything else when it is free. */
+export function roleOfTone(tone) {
+  return tone === 'error' ? 'alert' : 'status'
+}
+
+/** How the server ends its answer when it brought the conversation forward for a paste by hand; see pasteByHand in send.go. */
+export const SWITCHED_TO_PASTE = 'Switched to it. Paste with Cmd+V.'
+
+/**
+ * The notice for a send that typed nothing, from what the server said. Switched to the conversation, the person
+ * only has to paste. Any other answer is an error, and so is one this sentence no longer matches.
+ */
+export function unsentNoticeOf(message) {
+  return typeof message === 'string' && message.endsWith(SWITCHED_TO_PASTE) ? NOTICES.pasteByHand : NOTICES.notTyped
+}
+
 /** The view with the row at `key` showing `title`, so a rename shows before the next list arrives. */
 export function withTitle(view, key, title) {
   const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, title } : conversation))
@@ -197,10 +227,44 @@ export function withTitle(view, key, title) {
  * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
  */
 export function grouped(conversations) {
-  return GROUPS.map((group) => ({
-    ...group,
-    ...nested(conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)),
-  })).filter((group) => group.rows.length > 0)
+  return GROUPS.map((group) => {
+    const rows = conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)
+    const drawn = nested(rows)
+    return { ...group, ...(group.id === 'needs-you' ? mostUrgentFirst(drawn) : drawn) }
+  }).filter((group) => group.rows.length > 0)
+}
+
+/** Under Needs you: a permission to give first, then another wait such as a question, then an unread reply. */
+function urgencyOf(conversation) {
+  if (conversation.state !== 'blocked') return 2
+  return conversation.waiting?.for === 'permission' ? 0 : 1
+}
+
+/** Each family, a row with the rows drawn under it, ranked by its most urgent row, in list order within a rank. */
+function mostUrgentFirst({ rows, under }) {
+  const families = []
+  for (const conversation of rows) {
+    if (!under.has(keyOf(conversation))) families.push({ rows: [], urgency: Infinity })
+    const family = families[families.length - 1]
+    family.rows.push(conversation)
+    family.urgency = Math.min(family.urgency, urgencyOf(conversation))
+  }
+  families.sort((a, b) => a.urgency - b.urgency)
+  return { rows: families.flatMap((family) => family.rows), under }
+}
+
+/** What the circle counts: the rows that wait for the person to act, and the rest of the server's count, the unread replies. */
+export function waitingOf(view) {
+  const blocked = view.conversations.filter((conversation) => conversation.state === 'blocked').length
+  return { blocked, unread: view.needsYou - blocked }
+}
+
+/** What the circle tells a screen reader, such as "Conversations: 2 waiting for you, 4 unread". */
+export function circleLabelOf({ blocked, unread }) {
+  const counts = []
+  if (blocked > 0) counts.push(`${blocked} waiting for you`)
+  if (unread > 0) counts.push(`${unread} unread`)
+  return 'Conversations: ' + (counts.length === 0 ? 'none needs you' : counts.join(', '))
 }
 
 // A walk that meets a loop gives no top, so every row on it stays a normal row.

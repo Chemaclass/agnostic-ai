@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -155,8 +156,9 @@ func conversationsFixture(t *testing.T, global bool) (*conversationsHandler, *re
 		launcher:  launcher,
 		worktrees: func(string) []string { return []string{project, worktree} },
 		// No test writes into a real tool.
-		renameInTool: func(context.Context, conversations.Conversation, string) error { return nil },
-		logOut:       io.Discard,
+		renameInTool:  func(context.Context, conversations.Conversation, string) error { return nil },
+		logOut:        io.Discard,
+		openReplyWait: conversationOpenReplyTimeout,
 	}
 	return h, launcher, project
 }
@@ -190,6 +192,84 @@ func TestConversationsHandler_ListsTheProjectAndItsWorktrees(t *testing.T) {
 
 	if view.SchemaVersion != conversations.SchemaVersion || ids(view) != inProject+","+inWorktree {
 		t.Errorf("project view = %s %s", view.SchemaVersion, ids(view))
+	}
+}
+
+// patientLauncher runs a terminal command only while its caller still waits, as a real launcher does.
+type patientLauncher struct{ *recordingLauncher }
+
+func (l patientLauncher) RunInNewTerminal(ctx context.Context, command string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return l.recordingLauncher.RunInNewTerminal(ctx, command)
+}
+
+func TestConversationsHandler_FinishesAnOpenItsCallerStoppedWaitingFor(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	h.launcher = patientLauncher{launcher}
+	gaveUp, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`, func(r *http.Request) { *r = *r.WithContext(gaveUp) })
+
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"opened":true`) || len(launcher.calls) != 1 {
+		t.Errorf("open = %d %s, launcher calls %q; want it opened although the caller left", rec.Code, rec.Body, launcher.calls)
+	}
+}
+
+// slowLauncher takes delay to open a terminal, as a terminal script waiting for a window does.
+type slowLauncher struct {
+	*recordingLauncher
+	delay time.Duration
+}
+
+func (l slowLauncher) RunInNewTerminal(ctx context.Context, command string) error {
+	time.Sleep(l.delay)
+	return l.recordingLauncher.RunInNewTerminal(ctx, command)
+}
+
+func TestConversationsHandler_AnswersAnOpenSlowerThanTheServerWriteTimeout(t *testing.T) {
+	const unit = 10 * time.Millisecond
+	h, launcher, _ := conversationsFixture(t, false)
+	h.launcher = slowLauncher{launcher, 45 * unit}
+	h.openReplyWait = 90 * unit
+	srv := newServeServer(h)
+	srv.ReadTimeout, srv.WriteTimeout = 10*unit, 30*unit
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Close() })
+	client := &http.Client{Timeout: h.openReplyWait - unit}
+
+	resp, err := client.Post("http://"+ln.Addr().String()+conversationOpenPath, "application/json", strings.NewReader(`{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`))
+	if err != nil {
+		t.Fatalf("open got no answer: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"opened":true`) {
+		t.Errorf("open = %d %s; want it answered", resp.StatusCode, body)
+	}
+}
+
+func TestConversationOpenReplyTimeout_OutlastsTheCompanionOpenWait(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join("..", "..", "companion", "server.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	match := regexp.MustCompile(`const openTimeout = (\d+) \* time\.Second`).FindSubmatch(source)
+	if match == nil {
+		t.Fatal("companion/server.go no longer declares openTimeout in seconds; tie conversationOpenReplyTimeout to it again")
+	}
+	seconds, _ := strconv.Atoi(string(match[1]))
+	companionWait := time.Duration(seconds) * time.Second
+
+	if conversationOpenReplyTimeout <= companionWait {
+		t.Errorf("an open answers within %s, but the companion waits %s", conversationOpenReplyTimeout, companionWait)
 	}
 }
 

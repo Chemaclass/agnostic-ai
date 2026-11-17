@@ -27,6 +27,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Desktop app sessions, Claude chats, Cowork tasks, ChatGPT chats and cloud sessions stay under Active until you archive them, however old they are. One you began in the desktop app and resumed in a terminal goes back to that rule once the terminal closes. Editor panels and background jobs still go under Archived a day after their last write. (#3527)
 - A closed terminal session says **Resume in Terminal**, or the app it last ran in. A session that still runs where no tab shows it, such as a detached `tmux` session, offers its resume command with a note to end that process first. (#3527)
 - When a chat waits for you to approve a tool call, the companion row shows what it asks in place of the reply, such as "Approve `git push origin…`", "Approve edit `dashboard.tsx`" or "Approve Notion fetch", and "Needs permission" when the tool does not say which call. The meta line now shows only the tool, place, folder and age, and "▸ 3 subagents" moves to its own line. The conversations API gains `waiting` (#3526).
+- When something you asked for fails in the companion, such as an open, a send, a mark, a rename or a delete, its message now has a red border and a warning icon, and a screen reader reads it out at once. A message about something that worked, such as "Switched to it. Paste with Cmd+V.", keeps the neutral look. (#3531)
+- The companion circle shows when a chat is stuck waiting for you: its count turns solid orange with a lock and an orange halo, while unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". Under Needs you, chats waiting for a permission come first, then those waiting for an answer, then unread replies; a chat started from another one stays under it. (#3533)
 
 #### Sending copied text
 
@@ -37,6 +39,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Opening and resuming chats
 
 - Clicking a Claude Code session started with `claude --bg` switches to a Terminal or Ghostty tab that already runs `claude attach` on it, or opens a new tab that runs `claude attach` in its folder, in the app it last ran in. When that fails, the `claude attach` command is offered to copy. It used to say the session ran in an app it could not switch to.
+- Clicking a running chat while the list is being read no longer waits for that read, nor reads the list again. A chat that ended waits for that read and then reads the list once more, so a session that started again in the meantime is not resumed a second time. (#3530)
+- A chat that takes long to open no longer brings the companion list back with an error although the terminal opened. The companion waits up to 60 seconds for an open, and after that keeps the list hidden. A real failure, such as a missing Automation permission, still shows its reason. (#3530)
+- When the companion cannot reach `agnostic-ai`, or gets no answer in time, it says so in plain words instead of showing a Go error with a local address. (#3530)
+
+#### Web client
+
+- **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
 
 ## v0.95.0 - 2026-11-15
 

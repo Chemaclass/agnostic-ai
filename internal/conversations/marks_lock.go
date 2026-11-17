@@ -32,10 +32,9 @@ func lockMarks(path string) (release func(), err error) {
 	}
 	deadline := time.Now().Add(marksLockWait)
 	for {
-		err := tryLockFile(lock)
+		release, err := tryLockFile(lock)
 		if err == nil {
-			// Closing the file gives the lock up.
-			return func() { _ = lock.Close() }, nil
+			return release, nil
 		}
 		if !lockHeldElsewhere(err) || time.Now().After(deadline) {
 			_ = lock.Close()
@@ -70,7 +69,7 @@ func (s *Scanner) LockRename(tool Tool, id string) (release func(), err error) {
 	if err != nil {
 		return nil, fmt.Errorf("lock the rename: %w", err)
 	}
-	err = tryLockFile(lock)
+	release, err = tryLockFile(lock)
 	if err != nil {
 		_ = lock.Close()
 		if lockHeldElsewhere(err) {
@@ -78,6 +77,5 @@ func (s *Scanner) LockRename(tool Tool, id string) (release func(), err error) {
 		}
 		return nil, fmt.Errorf("lock the rename: %w", err)
 	}
-	// Closing the file gives the lock up.
-	return func() { _ = lock.Close() }, nil
+	return release, nil
 }

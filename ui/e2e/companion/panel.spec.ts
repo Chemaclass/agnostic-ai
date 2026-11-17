@@ -18,6 +18,8 @@ async function openPanel(page: Page, fixture = 'mixed') {
 
 const row = (page: Page, title: string) => page.getByRole('option').filter({ hasText: title })
 const selected = (page: Page) => page.locator('.row[aria-selected="true"]')
+/** The --alert token, as a computed style spells it. */
+const ALERT_RED = /rgb\(255, 98, 80\)/
 
 test('search, select and open names the chosen conversation', async ({ page }) => {
   await openPanel(page)
@@ -168,7 +170,10 @@ test('a refused mark complete gives the tick back, keeps the row and says why', 
   await target.hover()
   await completeButton(target).click()
 
-  await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
+  await expect(page.locator('#toast')).toHaveAttribute('data-tone', 'error')
+  await expect(page.locator('#toast')).toHaveCSS('box-shadow', ALERT_RED)
+  await expect(page.locator('#toast .tone-icon')).toBeVisible()
   await expect(target).toBeVisible()
   await expect(target.locator('.action.is-done')).toHaveCount(0)
 })
@@ -193,6 +198,26 @@ test('mark all complete archives every active chat and shows no tick', async ({ 
 const RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2"
 const notice = (page: Page) => page.getByRole('region', { name: 'Why it did not open' })
 
+const noticeCard = (page: Page) => page.locator('#notice')
+
+/** An error notice has a red border and a warning icon, and is read out as an alert that starts with what it is about. */
+async function expectErrorNotice(page: Page, label: string) {
+  await expect(noticeCard(page)).toHaveAttribute('data-tone', 'error')
+  await expect(noticeCard(page)).toHaveCSS('box-shadow', ALERT_RED)
+  await expect(noticeCard(page).locator('.tone-icon')).toBeVisible()
+  await expect(noticeCard(page).getByRole('alert')).toContainText(label)
+  await expect(noticeCard(page).getByRole('status')).toHaveCount(0)
+}
+
+/** An info notice keeps the neutral card: no red, no icon, and it waits its turn to be read. */
+async function expectInfoNotice(page: Page, label: string) {
+  await expect(noticeCard(page)).toHaveAttribute('data-tone', 'info')
+  await expect(noticeCard(page)).not.toHaveCSS('box-shadow', ALERT_RED)
+  await expect(noticeCard(page).locator('.tone-icon')).toBeHidden()
+  await expect(noticeCard(page).getByRole('status')).toContainText(label)
+  await expect(noticeCard(page).getByRole('alert')).toHaveCount(0)
+}
+
 async function openFailing(page: Page, fixture: string) {
   await openPanel(page, fixture)
   await row(page, 'Plan the sync dry run').click()
@@ -203,6 +228,7 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
   await openFailing(page, 'open-failure')
   await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward. Open it from the Codex app.')
   await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)
+  await expectErrorNotice(page, 'Why it did not open')
   await expect(selected(page)).toContainText('Plan the sync dry run')
   // The toast this replaces was gone after 3.2 seconds.
   await page.waitForTimeout(3_500)
@@ -221,6 +247,20 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
   await expect(notice(page)).toBeHidden()
   await expect(page.getByLabel('Search every conversation')).toBeFocused()
   expect(opens).toEqual([])
+})
+
+test('an open the server is slow to answer hides the list and shows no failure', async ({ page }) => {
+  await openPanel(page, 'slow-open')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Plan the sync dry run').click()
+  expect((await answer).status()).toBe(202)
+  // Nothing on screen marks an answer the panel ignored, so give it time to wrongly come back.
+  await page.waitForTimeout(300)
+
+  const calls = await calledPaths(page)
+  expect(calls).toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/panel/show')
+  await expect(notice(page)).toBeHidden()
 })
 
 test('the next open replaces the notice', async ({ page }) => {
@@ -367,7 +407,7 @@ test('a failed mark as read keeps the row in Needs you and says why', async ({ p
   await row(page, 'Draft the release notes').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Mark as read' }).click()
 
-  await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
   await expect(needsYou(page).filter({ hasText: 'Draft the release notes' })).toBeVisible()
 })
 
@@ -388,7 +428,7 @@ test('mark all as read marks every Needs you row from the keyboard, and the circ
   await openPanel(page, 'needs-you')
   const bubble = await context.newPage()
   await bubble.goto('/index.html')
-  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 4 need you')
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 waiting for you, 3 unread')
   const marks = markBodies(page)
   const opens: string[] = []
   page.on('request', (request) => {
@@ -411,7 +451,7 @@ test('mark all as read marks every Needs you row from the keyboard, and the circ
   expect((await page.request.post('/dev/write', { data: { tool: 'codex', id: 'reply-2' } })).ok()).toBe(true)
   await expect(needsYou(page)).toHaveCount(1)
   await expect(needsYou(page)).toContainText('Split the parser module')
-  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 need you')
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 unread')
 })
 
 test('mark all as read on Local leaves the cloud chat in Needs you', async ({ page }) => {
@@ -517,7 +557,7 @@ test('a failed mark all as read stops at the first refused mark, keeps the rows 
   const marks = markBodies(page)
   await markAllRead(page).click()
 
-  await expect(page.getByRole('status').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'agnostic-ai could not save the mark' })).toBeVisible()
   await expect(needsYou(page)).toHaveCount(4)
   expect(marks).toEqual([seen('claude', 'wait-2')])
 })
@@ -590,11 +630,33 @@ test('a folder name no other row shares stays short', async ({ page }) => {
   await expect(row(page, 'Fix the login redirect')).toContainText('Cursor · shop · 3h')
 })
 
-test('the circle counts the conversations that need you', async ({ page }) => {
+test('the circle counts the conversations that need you, and names the waiting and unread ones apart', async ({ page }) => {
   await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
   await page.goto('/')
   await expect(page.locator('#badge')).toHaveText('2')
-  await expect(page.getByRole('button', { name: 'Conversations: 2 need you' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Conversations: 1 waiting for you, 1 unread' })).toBeVisible()
+})
+
+test('a chat waiting for the person gives the circle a solid badge with a lock; unread replies alone do not', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
+  await page.goto('/')
+  const badge = page.locator('#badge')
+  await expect(badge).toHaveClass(/\bis-blocked\b/)
+  await expect(badge.locator('.lock')).toBeVisible()
+  await expect(badge).toHaveCSS('background-image', 'none')
+  await expect(badge).toHaveCSS('background-color', 'rgb(240, 163, 94)')
+
+  await page.request.post('/dev/fixture', { data: { name: 'duplicate-projects' } })
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Conversations: 1 unread' })).toBeVisible()
+  await expect(badge).not.toHaveClass(/\bis-blocked\b/)
+  await expect(badge.locator('.lock')).toBeHidden()
+  await expect(badge).toHaveText('1')
+})
+
+test('under Needs you, permission waits come before a question', async ({ page }) => {
+  await openPanel(page, 'approvals')
+  await expect(page.locator('.row.needs-you .title')).toHaveText(['Refactor PRs', 'Webhooks v2 dashboard', 'Rider lifecycle gaps in Notion', 'Release notes draft', 'SFTP write: discussion'])
 })
 
 const deleteItem = (page: Page) => page.getByRole('menuitem', { name: 'Delete permanently…' })
@@ -679,6 +741,22 @@ test('a chat that went quiet on its own can be deleted through the same confirma
   expect(sent).toEqual([{ tool: 'claude', id: 'old-2' }])
 })
 
+test('a delete that left something to tidy says so in a neutral notice, and a later failure turns it red', async ({ page }) => {
+  await openArchived(page, 'delete-note')
+  await row(page, 'Sketch the pricing page').click({ button: 'right' })
+  await deleteItem(page).click()
+  await deleteDialog(page).getByRole('button', { name: 'Delete permanently' }).click()
+
+  await expect(noticeCard(page)).toContainText('Deleted. Freed 12 MB. Its marks could not be removed: the marks file is read-only.')
+  await expectInfoNotice(page, 'What was not tidied')
+  await expect(row(page, 'Sketch the pricing page')).toHaveCount(0)
+
+  await row(page, 'Bump the Go version').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+  await expect(noticeCard(page)).not.toContainText('What was not tidied')
+})
+
 test('a refused delete keeps the row and its reason stays on screen', async ({ page }) => {
   await openArchived(page, 'delete-failure')
   await row(page, 'Tidy the old branches').click({ button: 'right' })
@@ -687,6 +765,7 @@ test('a refused delete keeps the row and its reason stays on screen', async ({ p
 
   const reason = page.getByRole('region', { name: 'Why it was not deleted' })
   await expect(reason).toContainText('Deleted 1 of 4 locations, then stopped: permission denied. Still on disk:')
+  await expectErrorNotice(page, 'Why it was not deleted')
   // The toast was gone after 3.2 seconds; the reason is not.
   await page.waitForTimeout(3_500)
   await expect(reason).toBeVisible()
@@ -701,6 +780,7 @@ test('a chat the server cannot delete says why and sends nothing', async ({ page
 
   await expect(deleteDialog(page)).toBeHidden()
   await expect(page.getByRole('region', { name: 'Why it cannot be deleted' })).toContainText('Deleting Codex threads from here is not supported: Codex deletes a thread even while it is open.')
+  await expectErrorNotice(page, 'Why it cannot be deleted')
   await expect(row(page, 'Bump the Go version')).toBeVisible()
   expect(sent).toEqual([])
 })
@@ -1013,15 +1093,34 @@ test('a send that only switched to the conversation comes back to say to paste',
   await row(page, 'Fix the login redirect').click()
 
   await expect(page.locator('#notice')).toContainText('Switched to it. Paste with Cmd+V.')
+  await expectInfoNotice(page, 'What to do with the copied text')
   await expect(pickBanner(page)).toBeHidden()
   expect(await calledPaths(page)).toContain('/api/panel/show')
 })
+
+for (const [fixture, message] of [
+  ['send-failure', 'agnostic-ai serve did not answer in time.'],
+  ['switch-failure', 'Cursor runs in an app that cannot be brought forward. The text is on the clipboard: paste it with Cmd+V.'],
+]) {
+  test(`a send that neither typed nor switched (${fixture}) comes back as an error`, async ({ page }) => {
+    await openPanel(page, fixture)
+    await page.getByRole('button', { name: 'Send the copied text' }).click()
+    await expect(pickBanner(page)).toBeVisible()
+
+    await row(page, 'Fix the login redirect').click()
+
+    await expect(noticeCard(page)).toContainText(message)
+    await expectErrorNotice(page, 'Why nothing was typed')
+  })
+}
 
 test('nothing copied keeps pick mode closed and says why', async ({ page }) => {
   await openPanel(page, 'empty-clipboard')
   await page.keyboard.press('Meta+Shift+KeyV')
 
   await expect(page.locator('#toast')).toHaveText('Nothing to send: copy some text first.')
+  await expect(page.locator('#toast')).toHaveAttribute('role', 'alert')
+  await expect(page.locator('#toast .tone-icon')).toBeVisible()
   await expect(pickBanner(page)).toBeHidden()
 })
 
@@ -1048,6 +1147,7 @@ test('a clipboard that changed since the banner showed it sends nothing and refr
   await page.keyboard.press('Enter')
 
   await expect(page.locator('#notice')).toContainText('The copied text changed. Check the new text, then send again.')
+  await expectErrorNotice(page, 'Why nothing was sent')
   await expect(pickBanner(page)).toContainText('Send 2 words to…')
   expect(await calledPaths(page)).not.toContain('/api/send')
 })

@@ -66,6 +66,11 @@ test.describe('overview', () => {
     await expect(page.locator('.stage[open]')).toHaveCount(7)
     const avatar = page.locator('.stage').nth(1).locator('.tool-avatar').first()
     await expect(avatar).toHaveAttribute('title', /^Claude Code - /)
+    await page.getByRole('button', { name: 'Collapse all', exact: true }).click()
+    await expect(page.locator('details.stage')).toHaveCount(1)
+    await expect(page.locator('.stage[open]')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Show all 7 stages', exact: true })).toHaveAttribute('aria-expanded', 'false')
+    await more.click()
     await page.getByRole('button', { name: 'Show only stages with hooks', exact: true }).click()
     await expect(page.locator('details.stage')).toHaveCount(1)
 

@@ -74,7 +74,7 @@
     "src/components/HookDetails.tsx": "9f1adf8c1432140246df336d8f7c2e780eedfaa8cdb8975c969dc0735fde6bb2",
     "src/components/Items.tsx": "6007e04c38acc5920db9b5bc9396aaf4ed89dd8c57d8645f449719022ce56719",
     "src/components/JsonInspector.tsx": "277bedb812035f843607ba534430b0a94777c976f3389c7409fcf1e97d57c812",
-    "src/components/Lifecycle.tsx": "0ba2d571c50658b5ebb88c818aab79672c0c52fd3034a5697866e8d9bae41928",
+    "src/components/Lifecycle.tsx": "48149eb18ea08ebf2e4b2dd107bf8031aa303798b0f758241a6663b09314f51d",
     "src/components/MCPSpecAction.tsx": "81aa15edb2652d37a4cf477ba186a99695a2e1113d509b338e4d7c3b88cb5d9c",
     "src/components/NativeServers.tsx": "f232db9e284c292fd9da7905bf7a3dd4aa06ffcab1815cca940b61dad2b11b96",
     "src/components/PermissionEditor.tsx": "003a23d23cbd6aa9ce89492cfc0496922624560e1028c01ac25b34f008af3fa8",
@@ -196,11 +196,11 @@
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
     "assets/index-B1ZoesXR.css": "72f2623c151d496f8a7da48564a363257c7480dc2f78fe82102996359b0d22d5",
-    "assets/index-UUsRpIO1.js": "2f0ce3c688847babce27dc5ecd419449d67f01ebaaea9e17577954f2948edce6",
+    "assets/index-xaaGA9Ms.js": "b5883706386b1dc87225d665f9d566728d457e84c9c517eb8fc815b813b8035c",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Dctt5Oa6.js": "a36fc295ab1fbd2d0811dc368cde86160140109144d01352755073570a3de032",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "f847e6eeab70f95a5d3b6e56d76720816add283b7f4958ee70a4a61dcbe553f0",
+    "index.html": "2f492a710f5e6f3dc5272c6562208579210ed3ac5fe825ead8bb3c04116b936c",
     "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }

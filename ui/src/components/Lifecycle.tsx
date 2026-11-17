@@ -108,7 +108,7 @@ export function Lifecycle({ stages, hooks, count, filtering, matchingHooks }: { 
         <SectionHeading id="lifecycle-hooks" entry={kindEntryId('hook')}>Hooks <span className="muted kind-count">{count}</span></SectionHeading>
         <div className="lifecycle-actions">
           <button type="button" className="button button-quiet stage-toggle" onClick={() => setExpanded(true)}>Expand all</button>
-          <button type="button" className="button button-quiet stage-toggle" onClick={() => setExpanded(false)}>Collapse all</button>
+          <button type="button" className="button button-quiet stage-toggle" onClick={() => { setExpanded(false); setAllStages(false) }}>Collapse all</button>
         </div>
       </div>
       {addHook}

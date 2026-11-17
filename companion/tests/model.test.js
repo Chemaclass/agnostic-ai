@@ -1,17 +1,44 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
 test('groups rows by state, in list order, and leaves empty groups out', () => {
   const groups = grouped([row('a', 'dormant'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'completed')])
   assert.deepEqual(groups.map((group) => [group.id, group.rows.map((r) => r.id)]), [
-    ['needs-you', ['b', 'd']],
+    ['needs-you', ['d', 'b']],
     ['working', ['c']],
     ['archived', ['a', 'e']],
   ])
   assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true])
+})
+
+test('under Needs you a permission to give comes first, then another wait, then an unread reply, each kept in list order', () => {
+  const asks = (id, kind) => row(id, 'blocked', kind ? { waiting: { for: kind } } : {})
+  const rows = [row('reply-1', 'unread'), asks('question-1', 'answer'), asks('permission-1', 'permission'), asks('unknown-1'), row('reply-2', 'unread'), asks('permission-2', 'permission')]
+  assert.deepEqual(grouped(rows)[0].rows.map((r) => r.id), ['permission-1', 'permission-2', 'question-1', 'unknown-1', 'reply-1', 'reply-2'])
+})
+
+test('under Needs you a family ranks by its most urgent row, and a child stays right after its parent', () => {
+  const groups = grouped([row('parent', 'unread'), child('kid', 'blocked', 'parent', { waiting: { for: 'permission' } }), row('other', 'blocked')])
+  assert.deepEqual(drawn(groups), [['needs-you', [['parent', null], ['kid', 'parent'], ['other', null]]]])
+  const asking = grouped([row('asks', 'blocked', { waiting: { for: 'answer' } }), child('reply', 'unread', 'asks'), row('approve', 'blocked', { waiting: { for: 'permission' } }), row('read', 'unread')])
+  assert.deepEqual(drawn(asking), [['needs-you', [['approve', null], ['asks', null], ['reply', 'asks'], ['read', null]]]])
+})
+
+test('the circle tells the chats that wait for the person apart from the unread ones', () => {
+  const view = { needsYou: 4, conversations: [row('a', 'blocked'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'unread')] }
+  assert.deepEqual(waitingOf(view), { blocked: 2, unread: 2 })
+  assert.deepEqual(waitingOf({ needsYou: 0, conversations: [] }), { blocked: 0, unread: 0 })
+})
+
+test('the circle\'s label names each count, and leaves out a count of zero', () => {
+  assert.equal(circleLabelOf({ blocked: 2, unread: 4 }), 'Conversations: 2 waiting for you, 4 unread')
+  assert.equal(circleLabelOf({ blocked: 1, unread: 1 }), 'Conversations: 1 waiting for you, 1 unread')
+  assert.equal(circleLabelOf({ blocked: 1, unread: 0 }), 'Conversations: 1 waiting for you')
+  assert.equal(circleLabelOf({ blocked: 0, unread: 3 }), 'Conversations: 3 unread')
+  assert.equal(circleLabelOf({ blocked: 0, unread: 0 }), 'Conversations: none needs you')
 })
 
 const child = (id, state, parent, extra = {}) => row(id, state, { parent: { tool: 'claude', id: parent }, ...extra })
@@ -479,6 +506,42 @@ test('a failed open keeps its reason, and the resume command only when the serve
     message: 'macOS blocked opening Terminal.',
     command: "cd '/tmp/app' && claude --resume x",
   })
+})
+
+test('a notice is an error when what was asked did not happen, and info when it happened with a detail left to say', () => {
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(NOTICES).map(([name, notice]) => [name, notice.tone])),
+    {
+      notOpened: 'error',
+      textChanged: 'error',
+      notTyped: 'error',
+      pasteByHand: 'info',
+      cannotDelete: 'error',
+      notDeleted: 'error',
+      notTidied: 'info',
+    },
+  )
+  for (const notice of Object.values(NOTICES)) assert.notEqual(notice.label, '')
+  assert.equal(new Set(Object.values(NOTICES).map((notice) => notice.label)).size, Object.keys(NOTICES).length)
+})
+
+test('an error is read out at once as an alert, and anything else waits its turn as a status', () => {
+  assert.equal(roleOfTone('error'), 'alert')
+  assert.equal(roleOfTone('info'), 'status')
+  assert.equal(roleOfTone(undefined), 'status')
+})
+
+test('a send that typed nothing is info only when the server switched to the conversation for a paste by hand', () => {
+  // The sentence pasteByHand in internal/conversations/send.go ends with when the switch worked.
+  assert.equal(SWITCHED_TO_PASTE, 'Switched to it. Paste with Cmd+V.')
+  assert.equal(unsentNoticeOf('Switched to it. Paste with Cmd+V.'), NOTICES.pasteByHand)
+  assert.equal(unsentNoticeOf('It waits for your answer, and typed text could answer its question, so nothing was typed. Switched to it. Paste with Cmd+V.'), NOTICES.pasteByHand)
+  assert.equal(unsentNoticeOf('Codex runs in an app that cannot be brought forward. The text is on the clipboard: paste it with Cmd+V.'), NOTICES.notTyped)
+  assert.equal(unsentNoticeOf('It is not running, so nothing was typed. Open it to resume it, then paste with Cmd+V.'), NOTICES.notTyped)
+  assert.equal(unsentNoticeOf('agnostic-ai serve did not answer.'), NOTICES.notTyped)
+  // The server counts a window it brought forward without reaching the chat as not opened, as a click on the row does.
+  assert.equal(unsentNoticeOf('Brought its Cursor window to the front, but the terminal inside it cannot be selected from outside. The text is on the clipboard: paste it with Cmd+V.'), NOTICES.notTyped)
+  assert.equal(unsentNoticeOf(undefined), NOTICES.notTyped)
 })
 
 test('shows the agent\'s latest reply the server sent, and nothing for a row without one', () => {

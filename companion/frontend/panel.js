@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -8,6 +8,8 @@ const clearButton = document.getElementById('clear')
 const note = document.getElementById('note')
 const notice = document.getElementById('notice')
 const noticeMessage = document.getElementById('notice-message')
+const noticeAbout = document.getElementById('notice-about')
+const noticeText = document.getElementById('notice-text')
 const noticeCommand = document.getElementById('notice-command')
 const noticeResult = document.getElementById('notice-result')
 const noticeCopy = document.getElementById('notice-copy')
@@ -15,6 +17,7 @@ const places = document.getElementById('places')
 const list = document.getElementById('list')
 const summary = document.getElementById('summary')
 const toast = document.getElementById('toast')
+const toastText = document.getElementById('toast-text')
 
 /** How long typing must pause before a search is sent. */
 const SEARCH_PAUSE_MS = 300
@@ -556,8 +559,11 @@ function activeConversation() {
 }
 
 let toastTimer
-function say(message) {
-  toast.textContent = message
+/** A short answer over the foot for a moment; `tone` is `error` when what was asked did not happen. */
+function say(message, tone = 'info') {
+  toast.dataset.tone = tone
+  toast.setAttribute('role', roleOfTone(tone))
+  toastText.textContent = message
   toast.hidden = false
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toast.hidden = true }, TOAST_MS)
@@ -566,7 +572,7 @@ function say(message) {
 /** Shows what a failed call said; anything else is a bug and is thrown on. */
 function sayFailure(error) {
   if (!(error instanceof CallError)) throw error
-  say(error.message)
+  say(error.message, 'error')
 }
 
 /** How many weeks with matches one search reads. */
@@ -612,7 +618,9 @@ async function refresh() {
 
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
-// back to say why only when the conversation did not open.
+// back to say why only when the conversation did not open. An open the
+// companion gave up waiting for (`pending`) may still happen, so it is
+// no failure and the panel stays hidden.
 let latestOpen = 0
 
 async function openRow(conversation) {
@@ -621,14 +629,15 @@ async function openRow(conversation) {
   await hidePanel().catch(() => {})
   let failure
   try {
-    failure = openFailureOf(await openConversation(conversation))
+    const reply = await openConversation(conversation)
+    failure = reply.pending ? undefined : openFailureOf(reply)
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }
   }
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (!failure || thisOpen !== latestOpen) return
-  showOpenFailure(failure)
+  showOpenFailure(failure, NOTICES.notOpened)
   state.returning = true
   await showPanel().catch((error) => {
     state.returning = false
@@ -636,12 +645,21 @@ async function openRow(conversation) {
   })
 }
 
-/** The notice says why something the person asked for did not happen; `label` names what. */
-function showOpenFailure(failure, label = 'Why it did not open') {
+/**
+ * The notice stays until dismissed. `about`, one of NOTICES, names what it is about and sets its tone:
+ * an error has a red border and a warning icon, and is read out at once. No failure hides the notice.
+ */
+function showOpenFailure(failure, about) {
   state.openFailure = failure
-  notice.setAttribute('aria-label', label)
   notice.hidden = failure === undefined
-  noticeMessage.textContent = failure?.message ?? ''
+  if (about) {
+    notice.setAttribute('aria-label', about.label)
+    notice.dataset.tone = about.tone
+    // The role is set before the text, so a screen reader takes the new text with the new urgency.
+    noticeMessage.setAttribute('role', roleOfTone(about.tone))
+    noticeAbout.textContent = about.label + ': '
+  }
+  noticeText.textContent = failure?.message ?? ''
   noticeCommand.textContent = failure?.command ?? ''
   noticeCommand.hidden = noticeCopy.hidden = !failure?.command
   noticeResult.hidden = true
@@ -705,7 +723,7 @@ async function enterPick() {
     return false
   }
   if (!clip) {
-    say(NOTHING_TO_SEND)
+    say(NOTHING_TO_SEND, 'error')
     return false
   }
   showOpenFailure(undefined)
@@ -824,13 +842,13 @@ async function sendRow(conversation) {
     if (state.pick !== shown) return
     if (!current) {
       leavePick()
-      say(NOTHING_TO_SEND)
+      say(NOTHING_TO_SEND, 'error')
       return
     }
     if (current.hash !== shown.hash) {
       showPick(current)
       draw({ force: true })
-      showOpenFailure({ message: 'The copied text changed. Check the new text, then send again.' }, 'Why nothing was sent')
+      showOpenFailure({ message: 'The copied text changed. Check the new text, then send again.' }, NOTICES.textChanged)
       return
     }
     showOpenFailure(undefined)
@@ -848,7 +866,7 @@ async function sendRow(conversation) {
       reply = { sent: false, message: error.message }
     }
     if (reply.sent || thisSend !== latestOpen) return
-    showOpenFailure({ message: reply.message }, 'What to do with the copied text')
+    showOpenFailure({ message: reply.message }, unsentNoticeOf(reply.message))
     state.returning = true
     await showPanel().catch((error) => {
       state.returning = false
@@ -996,7 +1014,7 @@ function focusRename() {
 function dropRename(message) {
   state.renaming = undefined
   draw({ force: true })
-  say(message)
+  say(message, 'error')
 }
 
 function cancelRename() {
@@ -1119,7 +1137,7 @@ menuItems.delete.addEventListener('click', () => {
   const confirm = deleteConfirmOf(conversation, Date.now(), folderNamesOf(shownView().conversations.map((row) => row.folder)))
   if (confirm.unsupported) {
     // Nothing is sent: the server already said this chat cannot be deleted from here.
-    showOpenFailure({ message: confirm.unsupported }, 'Why it cannot be deleted')
+    showOpenFailure({ message: confirm.unsupported }, NOTICES.cannotDelete)
     queryInput.focus()
     return
   }
@@ -1159,13 +1177,13 @@ deleteGo.addEventListener('click', async () => {
     if (!(error instanceof CallError)) throw error
     closeDeleteConfirm()
     // A refusal can list what is still on disk: it stays until dismissed, unlike the toast.
-    showOpenFailure({ message: error.message }, 'Why it was not deleted')
+    showOpenFailure({ message: error.message }, NOTICES.notDeleted)
     await refresh()
     return
   }
   closeDeleteConfirm()
   const { message, note: problem } = deletedOf(reply)
-  if (problem) showOpenFailure({ message: message + ' ' + problem }, 'What was not tidied')
+  if (problem) showOpenFailure({ message: message + ' ' + problem }, NOTICES.notTidied)
   else say(message)
   await refresh()
 })
