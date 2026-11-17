@@ -24,9 +24,13 @@ var (
 
 // workflowJob is the slice of a workflow job these tests read.
 type workflowJob struct {
-	Permissions map[string]string `yaml:"permissions"`
-	Env         map[string]string `yaml:"env"`
-	Strategy    struct {
+	RunsOn         string            `yaml:"runs-on"`
+	TimeoutMinutes int               `yaml:"timeout-minutes"`
+	Needs          any               `yaml:"needs"`
+	If             string            `yaml:"if"`
+	Permissions    map[string]string `yaml:"permissions"`
+	Env            map[string]string `yaml:"env"`
+	Strategy       struct {
 		Matrix struct {
 			OS []string `yaml:"os"`
 		} `yaml:"matrix"`
@@ -670,4 +674,115 @@ func TestInstallWorkflow_PublishedJobInstallsFromTheRegistry(t *testing.T) {
 	if !strings.Contains(release.Run, "for attempt in") || !strings.Contains(release.Run, "sleep") {
 		t.Errorf("the published job does not wait for the registry, so a run right after a release fails on propagation delay:\n%s", all)
 	}
+}
+
+// companionArchive is the macOS companion archive `agnostic-ai companion
+// install` downloads for Apple silicon; the Intel one differs in the
+// architecture only.
+const companionArchive = "agnostic-ai-companion_darwin_arm64.tar.gz"
+
+// TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights guards
+// the job that builds the companion archives: it runs the dependencies of
+// a C build, so it gets no token beyond read access and no secret.
+func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing.T) {
+	jobs := workflowJobs(t, releaseWorkflowPath)
+	job, ok := jobs["companion"]
+	if !ok {
+		t.Fatal("release.yml has no companion job")
+	}
+	if !strings.HasPrefix(job.RunsOn, "macos-") {
+		t.Errorf("the companion job runs on %q; the companion needs a Mac to build", job.RunsOn)
+	}
+	if len(job.Permissions) != 1 || job.Permissions["contents"] != "read" {
+		t.Errorf("the companion job holds %v, want only contents: read", job.Permissions)
+	}
+	data := readRepoFile(t, ".github/workflows/release.yml")
+	start := strings.Index(data, "\n  companion:\n")
+	end := strings.Index(data, "\n  goreleaser:\n")
+	if start < 0 || end < start {
+		t.Fatal("release.yml lists the companion job after goreleaser")
+	}
+	if strings.Contains(data[start:end], "secrets.") {
+		t.Error("the companion job reads a secret")
+	}
+	if build := workflowRun(t, releaseWorkflowPath, "companion", "Build the companion archives"); !strings.Contains(build, "scripts/companion-release.sh") {
+		t.Errorf("the companion job does not build with scripts/companion-release.sh:\n%s", build)
+	}
+
+	goreleaser := jobs["goreleaser"]
+	if !needsJob(goreleaser.Needs, "companion") {
+		t.Errorf("goreleaser needs %v, want it to wait for companion", goreleaser.Needs)
+	}
+	if !strings.Contains(goreleaser.If, "!cancelled()") || strings.Contains(goreleaser.If, "needs.companion") { //nolint:misspell // GitHub Actions names the function cancelled()
+		t.Errorf("goreleaser runs if %q; a failed companion build must not hold back the release", goreleaser.If)
+	}
+	if job.TimeoutMinutes == 0 {
+		t.Error("the companion job has no timeout; goreleaser waits for it")
+	}
+	// A job with no `if` is skipped when any job before it failed, so each
+	// one after goreleaser must say it runs past a failed companion build.
+	for name, later := range jobs {
+		if needsJob(later.Needs, "goreleaser") && !strings.Contains(later.If, "cancelled()") && !strings.Contains(later.If, "always()") { //nolint:misspell // GitHub Actions names the function cancelled()
+			t.Errorf("the %s job runs if %q, so a failed companion build skips it", name, later.If)
+		}
+	}
+	download, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Download the companion archives")
+	if download.If != "needs.companion.result == 'success'" {
+		t.Errorf("the archives are downloaded if %q", download.If)
+	}
+	run, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
+	if run.Env["COMPANION_DIST"] != download.With["path"] {
+		t.Errorf("GoReleaser reads the archives from %q, the download writes them to %v", run.Env["COMPANION_DIST"], download.With["path"])
+	}
+}
+
+// TestGoreleaser_PublishesAndChecksumsTheCompanionArchives keeps the
+// companion archives on the release and in checksums.txt, which the CLI
+// verifies them against and the provenance step signs.
+func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
+	var doc struct {
+		Checksum struct {
+			ExtraFiles []struct {
+				Glob string `yaml:"glob"`
+			} `yaml:"extra_files"`
+		} `yaml:"checksum"`
+		Release struct {
+			ExtraFiles []struct {
+				Glob string `yaml:"glob"`
+			} `yaml:"extra_files"`
+		} `yaml:"release"`
+	}
+	if err := yaml.Unmarshal([]byte(readRepoFile(t, ".goreleaser.yml")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Checksum.ExtraFiles) != 1 || len(doc.Release.ExtraFiles) != 1 {
+		t.Fatalf("want one companion glob in checksum and in release, got %+v %+v", doc.Checksum.ExtraFiles, doc.Release.ExtraFiles)
+	}
+	glob := doc.Checksum.ExtraFiles[0].Glob
+	if doc.Release.ExtraFiles[0].Glob != glob {
+		t.Errorf("release attaches %q but checksums.txt lists %q", doc.Release.ExtraFiles[0].Glob, glob)
+	}
+	if matched, err := filepath.Match(filepath.Base(glob), companionArchive); err != nil || !matched {
+		t.Errorf("the glob %q does not match %s", glob, companionArchive)
+	}
+	if !strings.Contains(glob, `envOrDefault "COMPANION_DIST"`) {
+		t.Errorf("the glob %q does not read the folder the workflow downloads to", glob)
+	}
+	script := readRepoFile(t, "scripts/companion-release.sh")
+	for _, want := range []string{"name=agnostic-ai-companion", `"$outdir/${name}_darwin_${arch}.tar.gz"`, "for arch in arm64 amd64"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("scripts/companion-release.sh no longer has %q; the archives must keep the names the CLI downloads", want)
+		}
+	}
+}
+
+// needsJob reports whether a job's `needs`, one name or a list, names job.
+func needsJob(needs any, job string) bool {
+	switch needs := needs.(type) {
+	case string:
+		return needs == job
+	case []any:
+		return slices.Contains(needs, any(job))
+	}
+	return false
 }

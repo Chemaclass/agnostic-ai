@@ -20,11 +20,15 @@ agnostic-ai companion stop
 agnostic-ai companion uninstall
 ```
 
-The companion is a separate program that is built on your machine. Run `companion install` first. `agnostic-ai upgrade` then rebuilds an installed companion when its version differs. It builds the companion from the same commit as the `agnostic-ai` you run and prints each step. It needs:
+The companion is a separate program. Run `companion install` first. `agnostic-ai upgrade` then replaces an installed companion when its version differs.
+
+On macOS, `companion install` downloads the companion that the release built for your Mac (Apple silicon or Intel). It checks the download against the release's `checksums.txt` and, when the GitHub CLI (`gh`) is installed and logged in, against the release's build provenance, the same way `agnostic-ai upgrade` checks the CLI. It needs no compiler. A download that does not verify stops the install and leaves the installed companion as it was. A release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source` build it on your machine instead.
+
+Everywhere else, and in those cases, it builds the companion from the same commit as the `agnostic-ai` you run and prints each step. A build needs:
 
 | System | Status | Needs |
 |--------|--------|-------|
-| macOS | **Supported.** Built and run on macOS 27 (arm64). | Go and the Xcode Command Line Tools. |
+| macOS | **Supported.** Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later. | Nothing to download it. To build it: Go and the Xcode Command Line Tools. |
 | Windows | **Not supported.** It compiles, but nobody has run it on a Windows machine. | Go. |
 | Linux | **Not supported.** Nobody has built or run it on a Linux machine. Wayland compositors decide what stays on top, so the circle may not float there. | Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. |
 
@@ -106,7 +110,7 @@ Two limits are accepted. A session that starts in the moment between the last ch
 
 ## Upgrade the companion
 
-`agnostic-ai upgrade` uses the updated CLI to rebuild an installed companion. It prints progress and restarts the companion only if it was running. Settings and Start at login stay as they were. It does not build a companion if none is installed. `upgrade --check` and `upgrade --requires` do not rebuild it.
+`agnostic-ai upgrade` uses the updated CLI to replace an installed companion, downloaded or built as `companion install` does. It prints progress and restarts the companion only if it was running. Settings and Start at login stay as they were. It does not install a companion if none is installed. `upgrade --check` and `upgrade --requires` do not replace it.
 
 A companion update failure leaves the CLI upgraded and the old companion usable. The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 

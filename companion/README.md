@@ -13,16 +13,18 @@ and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 ## Get it
 
 ```sh
-agnostic-ai companion install     # build it on this machine
+agnostic-ai companion install     # put it on this machine
 agnostic-ai companion             # start it
 agnostic-ai companion stop        # end it
 agnostic-ai companion uninstall   # remove it from this machine
 ```
 
-`install` builds the companion from the same commit as your `agnostic-ai`,
-with Go, and prints each step as it goes. Releases ship no built companion, so nothing
-has to be signed or published for each system. It names what your machine
-lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
+On macOS, `install` downloads the companion the release built, checks it
+against the release's checksums and build provenance, and needs no compiler.
+A release without one, an `agnostic-ai` built from any commit but a release
+tag, `--source`, and other systems build it from the same commit as your `agnostic-ai`, with Go, and
+print each step as it goes. A build names what your machine lacks before it
+starts. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
 lists what each system needs. On macOS it installs the companion as an app,
 `agnostic-ai companion.app`, with the agnostic-ai icon, signed on your machine.
 Only macOS is supported; Windows
@@ -46,7 +48,7 @@ with `make companion-run`.
 
 ## Upgrade
 
-`agnostic-ai upgrade` also rebuilds an installed companion from the updated CLI's commit. It prints each build step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
+`agnostic-ai upgrade` also replaces an installed companion through the updated CLI, downloaded or built as `install` does. It prints each step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
 
 If the companion update fails, the CLI stays upgraded and the old companion stays usable. The command explains the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 

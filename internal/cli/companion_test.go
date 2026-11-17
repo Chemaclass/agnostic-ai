@@ -185,7 +185,7 @@ func TestRunCompanion_SaysHowToInstallAMissingCompanion(t *testing.T) {
 
 	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, t.TempDir(), "darwin", "1.2.3")
 
-	if err == nil || err.Error() != "the companion is not installed yet. Build it for this machine with: agnostic-ai companion install" {
+	if err == nil || err.Error() != "the companion is not installed yet. Install it with: agnostic-ai companion install" {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -219,7 +219,7 @@ func TestRunCompanion_StartsItAndSaysWhenItWasBuiltForAnotherRelease(t *testing.
 		t.Fatalf("err %v, started %q, told where agnostic-ai is: %t", err, started, pointsBack)
 	}
 	want := "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.\n" +
-		"! It was built for agnostic-ai \"1.2.3\" and this is 1.3.0. Build it again with: agnostic-ai companion install\n"
+		"! It was built for agnostic-ai \"1.2.3\" and this is 1.3.0. Install it again with: agnostic-ai companion install\n"
 	if out.String() != want {
 		t.Errorf("output:\n%s", out.String())
 	}
@@ -519,7 +519,7 @@ func TestRunCompanion_AfterUninstallSaysHowToInstall(t *testing.T) {
 
 	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, dir, "linux", "1.2.3")
 
-	if err == nil || err.Error() != "the companion is not installed yet. Build it for this machine with: agnostic-ai companion install" {
+	if err == nil || err.Error() != "the companion is not installed yet. Install it with: agnostic-ai companion install" {
 		t.Errorf("err = %v", err)
 	}
 }
