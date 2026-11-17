@@ -208,31 +208,22 @@ const liveWindow = 7 * 24 * time.Hour
 func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string, execThreads []codexThread) (map[string]int, error) {
 	var liveRollouts []string
 	locksDir := filepath.Join(s.Stores.CodexDir, "thread-writer-locks")
-	_, locksErr := os.ReadDir(locksDir)
 	lockOf := map[string]int{}
-	var locks []string
 	for i, c := range conversations {
-		lock := filepath.Join(locksDir, c.ID+".lock")
-		if _, err := os.Stat(lock); err == nil {
-			lockOf[lock] = i
-			locks = append(locks, lock)
-		} else if !errors.Is(err, os.ErrNotExist) {
-			locksErr = errors.Join(locksErr, fmt.Errorf("%s: %w", lock, err))
-		}
+		lockOf[filepath.Join(locksDir, c.ID+".lock")] = i
 	}
 	runOf := map[string]codexThread{}
 	for _, thread := range execThreads {
-		lock := filepath.Join(locksDir, thread.ID+".lock")
-		if _, err := os.Stat(lock); err == nil {
-			runOf[lock] = thread
-			locks = append(locks, lock)
-		} else if !errors.Is(err, os.ErrNotExist) {
-			locksErr = errors.Join(locksErr, fmt.Errorf("%s: %w", lock, err))
-		}
+		runOf[filepath.Join(locksDir, thread.ID+".lock")] = thread
 	}
 	runPIDs := map[string]int{}
-	held, err := s.Processes.Holders(locks)
-	err = errors.Join(err, locksErr)
+	// One read of the folder, however many threads it keeps: a held lock
+	// of any age keeps its thread live. See BenchmarkHolders.
+	held := map[string]int{}
+	_, err := os.Stat(locksDir)
+	if err == nil {
+		held, err = s.Processes.HoldersUnder(locksDir)
+	}
 	// A Codex that keeps no lock folder leaves no mark of a loaded thread.
 	if err == nil {
 		// Only a terminal thread is known to hold its lock while it runs.

@@ -460,13 +460,15 @@ func (s *Scanner) setCursorLiveTranscripts(transcripts []string) {
 // it open. A running chat switches to its terminal, since a second
 // resume would compete with it.
 func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
+	if len(chats) == 0 {
+		return
+	}
 	chatOf := map[string]int{}
-	var stores []string
 	for i, c := range chats {
 		chatOf[c.store] = i
-		stores = append(stores, c.store)
 	}
-	held, err := s.Processes.Holders(stores)
+	// One read of the chats folder, however many chats it keeps. See BenchmarkHolders.
+	held, err := s.Processes.HoldersUnder(filepath.Join(s.Stores.CursorDir, "chats"))
 	for i := range chats {
 		chats[i].liveRead = err == nil
 	}

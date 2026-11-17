@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,6 +73,24 @@ func (f fakeProcesses) Holders(paths []string) (map[string]int, error) {
 		}
 	}
 	return held, nil
+}
+
+// HoldersUnder answers Holders for every file under dir on disk.
+func (f fakeProcesses) HoldersUnder(dir string) (map[string]int, error) {
+	if f.readFails {
+		return map[string]int{}, errProcessRead
+	}
+	var paths []string
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			paths = append(paths, path)
+		}
+		return err
+	})
+	if err != nil {
+		return map[string]int{}, err
+	}
+	return f.Holders(paths)
 }
 
 func (f fakeProcesses) AppRunning(name string) bool { return f.running[name] }

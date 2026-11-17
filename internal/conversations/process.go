@@ -33,6 +33,10 @@ type Processes interface {
 	// Holders maps each of paths a running process has open to that
 	// process's pid. The error says the open files could not be read.
 	Holders(paths []string) (map[string]int, error)
+	// HoldersUnder maps each file under dir, at any depth, that a running
+	// process has open to that process's pid, named under dir as given.
+	// The error says the open files could not be read.
+	HoldersUnder(dir string) (map[string]int, error)
 	// AppRunning reports whether the app, such as "Cursor", runs.
 	AppRunning(name string) bool
 	// ClaudeJobs lists the Claude Code background sessions that run.
@@ -266,6 +270,34 @@ func readHolders(paths []string) (map[string]int, error) {
 	return parseHolders(string(out), asked), nil
 }
 
+// HoldersUnder asks lsof once for the open files under dir, so its cost
+// follows the running processes, not how many files the folder keeps.
+func (SystemProcesses) HoldersUnder(dir string) (map[string]int, error) {
+	if err := canRead("lsof"); err != nil {
+		return map[string]int{}, err
+	}
+	// lsof names each open file by its resolved path, so a linked
+	// ~/.codex is searched at its target and named back under dir.
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return map[string]int{}, err
+	}
+	named := func(open string) (string, bool) {
+		rel, err := filepath.Rel(resolved, open)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "", false
+		}
+		return filepath.Join(dir, rel), true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "lsof", "-w", "-F", "pcn", "+D", resolved).Output()
+	if !answered(err) {
+		return parseHoldersNamed(string(out), named), fmt.Errorf("lsof: %w", err)
+	}
+	return parseHoldersNamed(string(out), named), nil
+}
+
 // parseHolders reads `lsof -F pcn` output: a "p<pid>" line and a
 // "c<command>" line for each process, then one "n<path>" line for each
 // file it has open. A sqlite3 reader, such as the scan's own query on a
@@ -273,6 +305,15 @@ func readHolders(paths []string) (map[string]int, error) {
 // process that runs the chat. When several processes hold a file, an
 // agent's own runtime wins over a tool that only has it open.
 func parseHolders(out string, asked map[string]string) map[string]int {
+	return parseHoldersNamed(out, func(open string) (string, bool) {
+		path, ok := asked[open]
+		return path, ok
+	})
+}
+
+// parseHoldersNamed is parseHolders with name giving the path each open
+// file is reported as, or false for a file nobody asked about.
+func parseHoldersNamed(out string, name func(open string) (string, bool)) map[string]int {
 	held := map[string]int{}
 	byAgent := map[string]bool{}
 	pid, command := 0, ""
@@ -280,10 +321,10 @@ func parseHolders(out string, asked map[string]string) map[string]int {
 		if field, ok := strings.CutPrefix(line, "p"); ok {
 			pid, _ = strconv.Atoi(field)
 			command = ""
-		} else if name, ok := strings.CutPrefix(line, "c"); ok {
-			command = name
+		} else if field, ok := strings.CutPrefix(line, "c"); ok {
+			command = field
 		} else if open, ok := strings.CutPrefix(line, "n"); ok {
-			path, ok := asked[open]
+			path, ok := name(open)
 			if !ok || pid <= 0 || command == "sqlite3" || (byAgent[path] && !agentCommands[command]) {
 				continue
 			}

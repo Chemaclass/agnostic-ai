@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -59,18 +60,42 @@ func TestScan_AnOldHeldCodexRunStaysListedUnderItsParent(t *testing.T) {
 	}
 }
 
-func TestScan_AFailedCodexLockStatCannotProveClosure(t *testing.T) {
-	scanner := codexUnreadScanner(t, `[{"id":"`+idSafari+`","cwd":"/tmp/app","updated_at_ms":1794049200000,"first_user_message":"Keep this open"}]`, "", "")
-	lock := filepath.Join(scanner.Stores.CodexDir, "thread-writer-locks", idSafari+".lock")
-	if err := os.MkdirAll(filepath.Dir(lock), 0o700); err != nil {
-		t.Fatal(err)
+func TestSystemProcesses_HoldersUnderFindsAnOpenFileThroughALinkedFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("lsof is not read on Windows")
 	}
-	if err := os.Symlink(filepath.Base(lock), lock); err != nil {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof is not installed")
+	}
+	root := t.TempDir()
+	target := filepath.Join(root, "codex", "thread-writer-locks")
+	write(t, filepath.Join(target, "old.lock"), "")
+	write(t, filepath.Join(target, "closed.lock"), "")
+	link := filepath.Join(root, "linked-locks")
+	if err := os.Symlink(target, link); err != nil {
 		t.Skip("cannot create a symlink:", err)
 	}
-	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari)
-	if c.liveRead {
-		t.Error("a lock whose stat fails is unknown, not known closed")
+	open, err := os.Open(filepath.Join(target, "old.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer open.Close()
+	held, err := (SystemProcesses{}).HoldersUnder(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if held[filepath.Join(link, "old.lock")] != os.Getpid() {
+		t.Errorf("the held lock is named under the folder asked about: %v", held)
+	}
+	if _, ok := held[filepath.Join(link, "closed.lock")]; ok {
+		t.Errorf("a lock nobody holds is not listed: %v", held)
+	}
+}
+
+func TestScan_AMissingCodexLockFolderCannotProveClosure(t *testing.T) {
+	scanner := codexUnreadScanner(t, `[{"id":"`+idSafari+`","cwd":"/tmp/app","updated_at_ms":1794049200000,"first_user_message":"Keep this open"}]`, "", "")
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.liveRead {
+		t.Error("a Codex that keeps no lock folder cannot show a thread closed")
 	}
 }
 
