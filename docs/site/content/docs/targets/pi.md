@@ -27,17 +27,12 @@ import = "@/docs/targets/pi-reference.md"
 
 ## Import {#import .legacy-anchor}
 
-agnostic-ai writes Pi's native project files and imports existing ones. This target follows [Pi v1.4.0](https://github.com/earendil-works/pi/releases/tag/v1.4.0), published as `@earendil-works/pi-coding-agent`.
+agnostic-ai writes Pi's native project files and imports existing ones. It follows [Pi v1.4.0](https://github.com/earendil-works/pi/releases/tag/v1.4.0) (`@earendil-works/pi-coding-agent`).
 
 ## First rule
 
-Select the target in `agnostic-ai.yaml`:
-
-```yaml
-targets: [pi]
-```
-
-Save `.agnostic-ai/rules/commit-prefix.md`:
+1. Add `pi` to `targets` in `agnostic-ai.yaml`.
+2. Save `.agnostic-ai/rules/commit-prefix.md`:
 
 ```markdown
 ---
@@ -47,14 +42,10 @@ name: commit-prefix
 Start commit subjects with fix:, feat:, docs:, or chore:.
 ```
 
-Run:
+3. Run `agnostic-ai sync -t pi`, then `agnostic-ai sync --check -t pi`.
+4. Find the rule in `AGENTS.md`. Start Pi from the project root and ask for a commit subject.
 
-```bash
-agnostic-ai sync -t pi
-agnostic-ai sync --check -t pi
-```
-
-Inspect `AGENTS.md` for the rule, then start Pi from the project root and ask for a commit subject to check that it loaded. For an existing setup, [import it](@/docs/targets/pi-reference.md#import) before syncing.
+Have an existing setup? [Import it](@/docs/targets/pi-reference.md#import) before syncing.
 
 ## Output
 
@@ -67,19 +58,25 @@ Inspect `AGENTS.md` for the rule, then start Pi from the project root and ask fo
 | MCP servers | `.pi/mcp.json` |
 | Model and thinking settings | `.pi/settings.json` |
 
-For output overrides, field mappings, global sync, and import coverage, see the [native reference](@/docs/targets/pi-reference.md).
+Overrides, field mappings, global sync, and import: [native reference](@/docs/targets/pi-reference.md).
 
 ## Loading and limits
 
-- Project settings, MCP, skills, and prompt templates need Pi's project trust approval. Instruction files load without that approval. Trust remains Pi's decision; sync does not write trust approvals or `defaultProjectTrust`.
-- Pi has no native agent definitions, lifecycle hooks, or per-tool permission rules. Agent, hook, ignore, review, and environment specs have no native output; portable permission settings are unsupported. Skill `allowed-tools` is metadata, not an enforced permission limit.
-- MCP supports stdio and HTTP; SSE is unsupported. Invalid global MCP specifications stop sync before native files change.
+- Project settings, MCP, skills, and prompt templates need Pi's project trust approval. Instruction files do not.
+- Pi has no agents, hooks, or per-tool permission rules, so those specs have no output.
+- MCP supports stdio and HTTP, not SSE.
+
+{% <details summary="More limits"> %}
+- Trust stays Pi's decision. Sync writes no trust approvals and no `defaultProjectTrust`.
+- Agent, hook, ignore, review, and environment specs have no native output. Portable permission settings are unsupported.
+- Skill `allowed-tools` is metadata, not an enforced permission limit.
+- Invalid global MCP specifications stop sync before native files change.
 - The default prompt directory loads direct Markdown children. Nested command names are unsupported.
-- Commands sync only at project scope. Global command sync is outside this target's support.
+- Commands sync only at project scope. Global command sync is unsupported.
+{% </details> %}
 
-## Add a disabled MCP server
-
-Save `.agnostic-ai/mcps/docs-search.yaml` to define an HTTP server without enabling it:
+{% <details summary="Recipe: add a disabled MCP server"> %}
+Save `.agnostic-ai/mcps/docs-search.yaml`:
 
 ```yaml
 name: docs-search
@@ -88,7 +85,8 @@ url: https://mcp.example.com/mcp
 disabled: true
 ```
 
-After sync, `.pi/mcp.json` contains the server with `enabled: false`. Replace the example URL with your server's endpoint before enabling it.
+After sync, `.pi/mcp.json` has the server with `enabled: false`. Replace the example URL with your endpoint before enabling it.
+{% </details> %}
 
 ## Protected paths
 

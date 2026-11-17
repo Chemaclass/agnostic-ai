@@ -33,13 +33,13 @@ set-up-this-tool = "@/docs/targets/factory.md#first-rule"
 
 ## Import {#import .legacy-anchor}
 
-Factory [Droid](https://docs.factory.com/harness/subagents) reads the root `AGENTS.md` and custom droids in `.factory/droids/`. Factory has no per-rule directory, so rule bodies go into the `## Rules` block of `AGENTS.md`.
+Factory [Droid](https://docs.factory.com/harness/subagents) reads the root `AGENTS.md` and custom droids in `.factory/droids/`. It has no per-rule directory, so rules go into the `## Rules` block of `AGENTS.md`.
 
 ## First rule
 
-Select `factory` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes a section in the `## Rules` block of `AGENTS.md`.
-
-Custom droids come from agent specs. A read-only droid also needs its MCP access restricted; sync supplies an empty server list unless you set one. Already have Factory files? Check [what `import factory` reads](@/docs/targets/factory-reference.md#import) first.
+1. Select `factory` in `agnostic-ai.yaml`.
+2. Follow [First rule](@/docs/getting-started.md#first-rule). The commit-prefix rule becomes a section in the `## Rules` block.
+3. Already have Factory files? Check [what `import factory` reads](@/docs/targets/factory-reference.md#import) first.
 
 ## Output
 
@@ -51,26 +51,29 @@ Custom droids come from agent specs. A read-only droid also needs its MCP access
 | Commands | `.factory/commands/<name>.md` |
 | Hooks | `.factory/hooks.json`, when hook entries exist |
 | MCP servers | `.factory/mcp.json`, when MCP entries exist |
-| Settings | `.factory/settings.json`, when a settings entry carries a model, a shell-command rule, or an `x-factory` key |
+| Settings | `.factory/settings.json`, when a settings entry has a model, a shell-command rule, or an `x-factory` key |
 
-For output overrides, field mappings, and import coverage, see the [native reference](@/docs/targets/factory-reference.md).
+Overrides, field mappings, and import are in the [native reference](@/docs/targets/factory-reference.md).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Launch `droid` from the project and ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Look for the commit-prefix rule in `AGENTS.md`.
+3. Run `droid` in the project and ask for a commit subject for a small fix. It should use `fix:`.
 
 ## Loading and limits
 
-- An agent with an empty body is skipped with a sync note, because Droid CLI requires a system prompt.
-- One unknown tool ID makes Factory reject the droid. Sync translates the generic `tools` list to Droid CLI's IDs and drops names it cannot map. See [tools](@/docs/targets/factory-reference.md#tools).
-- `readonly: true` writes `tools: read-only`, which replaces a portable `tools` list instead of narrowing it. Set `x-factory.tools` for a custom list.
-- `sync` rewrites `.factory/mcp.json` whole, so remove an MCP server by deleting its spec, not by editing the file.
+- An agent with an empty body is skipped with a sync note. Droid CLI needs a system prompt.
+- One unknown tool ID makes Factory reject the droid. Sync maps tool names and drops the ones it cannot map ([tools](@/docs/targets/factory-reference.md#tools)).
+- `readonly: true` writes `tools: read-only` and replaces a portable `tools` list. Use `x-factory.tools` for a custom list.
+- A read-only droid gets an empty MCP server list unless you set one.
+- `sync` rewrites `.factory/mcp.json` whole. Remove a server by deleting its spec.
 
 {% <details summary="More limits"> %}
-- Factory also reads [`.agent/skills/**/SKILL.md`](https://docs.factory.com/harness/skills), which this adapter does not write. Scoped skills go to `<scope>/.factory/skills/<name>/SKILL.md`.
-- Factory ignores `reasoningEffort` under `model: inherit`, and accepts only `low`, `medium`, and `high` on a droid. Other values drop with a sync note.
-- Factory's denylist only prompts, so portable `deny` maps to the blocklist. Rules scoping a path, URL, or MCP tool have no shell form and raise a sync note. See [settings](@/docs/targets/factory-reference.md#settings).
-- With `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store to `.factory/settings.local.json` so Factory's sandbox lets handoff saves reach it. See [handoff from a linked worktree](@/docs/targets/factory-reference.md#handoff-from-a-linked-worktree).
+- Factory also reads `.agent/skills/**/SKILL.md`; this adapter does not write it ([skills](@/docs/targets/factory-reference.md#skills)).
+- `reasoningEffort` takes `low`, `medium`, `high`, and is ignored under `model: inherit` ([agents](@/docs/targets/factory-reference.md#agents)).
+- Portable `deny` maps to Factory's blocklist, because its denylist only prompts. Path, URL, and MCP-tool rules raise a sync note ([settings](@/docs/targets/factory-reference.md#settings)).
+- With `handoff` or `handoff-hook` on, sync lets Factory's sandbox write to the main checkout's handoff store ([handoff](@/docs/targets/factory-reference.md#handoff-from-a-linked-worktree)).
 {% </details> %}
 
 ## Protected paths

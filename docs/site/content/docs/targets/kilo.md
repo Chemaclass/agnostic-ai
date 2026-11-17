@@ -37,9 +37,10 @@ Kilo [Code](https://kilo.ai/docs) gets `AGENTS.md`, agents, commands, plugin hoo
 
 ## First rule
 
-Select `kilo` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes a section in `AGENTS.md`.
+1. Select `kilo` in `agnostic-ai.yaml`.
+2. Follow [First rule](@/docs/getting-started.md#first-rule). The commit-prefix rule becomes a section in `AGENTS.md`.
 
-Import covers only selected settings, ignore patterns, and generated rule sections. It does not preserve a complete hand-written Kilo setup. Before syncing, review [import coverage](@/docs/targets/kilo-reference.md#import) and back up files it cannot import.
+Import covers only selected settings, ignore patterns, and generated rule sections. Before syncing over a hand-written Kilo setup, read [import coverage](@/docs/targets/kilo-reference.md#import) and back up what it cannot import.
 
 ## Output
 
@@ -52,27 +53,29 @@ Import covers only selected settings, ignore patterns, and generated rule sectio
 | Commands | `.kilo/commands/<name>.md` |
 | Hooks | `.kilo/plugin/<name>.ts`, auto-registered at startup |
 | Instructions, MCP, permissions | `kilo.jsonc` (merged with existing user config) |
-| Ignore entries | `.kilocodeignore`, a compatibility input for Kilo's permission migrator |
+| Ignore entries | `.kilocodeignore`, an input for Kilo's permission migrator |
 
-For output overrides, field mappings, and import coverage, see the [native reference](@/docs/targets/kilo-reference.md).
+Overrides, field mappings, and import are in the [native reference](@/docs/targets/kilo-reference.md).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Kilo and ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Look for the commit-prefix rule in `AGENTS.md`.
+3. Open the project in Kilo and ask for a commit subject for a small fix. It should use `fix:`.
 
 ## Loading and limits
 
-- Kilo [always loads](https://kilo.ai/docs/customize/agents-md) the root `AGENTS.md`. Unscoped rules live there; scoped rules use nested `AGENTS.md`. See [rules](@/docs/targets/kilo-reference.md#rules).
-- Kilo has no `tools:` key, so a `tools` list becomes a `permission` map. See [agents](@/docs/targets/kilo-reference.md#agents).
-- Kilo only loads plugins from `plugin/` or `plugins/`, so moving `outputs.kilo.hooks-dir` stops the hooks loading.
-- This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the root `kilo.jsonc`, so its `mcp` or `instructions` replace the generated ones.
+- Kilo [always loads](https://kilo.ai/docs/customize/agents-md) the root `AGENTS.md`. Scoped rules use nested `AGENTS.md` ([rules](@/docs/targets/kilo-reference.md#rules)).
+- Kilo has no `tools:` key. A `tools` list becomes a `permission` map ([agents](@/docs/targets/kilo-reference.md#agents)).
+- Kilo loads plugins only from `plugin/` or `plugins/`. Moving `outputs.kilo.hooks-dir` stops hooks loading.
+- This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the root `kilo.jsonc` and replaces its `mcp` or `instructions`.
 
 {% <details summary="More limits"> %}
-- `color` is not checked. Kilo accepts hex or a theme token, so `color: blue` may not show as you expect. See [`color` support by target](@/docs/spec-format/agents.md#color-support-by-target).
-- Kilo reserves the command name `goal`. It ignores a command file by that name, warns, and offers it as `/goal:command`.
-- `WebFetch(domain:...)` rules drop with a sync note, because Kilo matches URLs.
-- With `memory.personal: repo`, the personal store lies outside the project root, and Kilo ignores project-declared files there. Sync writes only the shared index and prints a note. See [config keys](@/docs/targets/kilo-reference.md#config-keys) and [repo mode](@/docs/memory.md#one-store-per-repository).
-- Kilo still loads the legacy `.kilocode/rules/`, which this adapter never writes.
+- `color` is not checked. Kilo takes hex or a theme token, so `color: blue` may not show as expected ([`color` support](@/docs/spec-format/agents.md#color-support-by-target)).
+- Kilo reserves the command name `goal`. It ignores a file by that name, warns, and offers it as `/goal:command`.
+- `WebFetch(domain:...)` rules drop with a sync note. Kilo matches URLs.
+- With `memory.personal: repo`, the personal store is outside the project root and Kilo ignores project-declared files there. Sync writes only the shared index and prints a note ([config keys](@/docs/targets/kilo-reference.md#config-keys), [repo mode](@/docs/memory.md#one-store-per-repository)).
+- Kilo still loads the legacy `.kilocode/rules/`. This adapter never writes it.
 {% </details> %}
 
 ## Protected paths

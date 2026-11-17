@@ -28,13 +28,13 @@ Continue is [no longer actively maintained](https://github.com/continuedev/conti
 
 ## First rule
 
-Follow the [official setup guide](https://marketplace.visualstudio.com/items?itemName=Continue.continue), then open your project in the tool.
+1. Install Continue with the [official guide](https://marketplace.visualstudio.com/items?itemName=Continue.continue) and open your project.
+2. Select `continue` in `agnostic-ai.yaml`.
+3. Follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. It lands in `.continue/rules/conventional-commits.md`.
 
-Select `continue` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `.continue/rules/conventional-commits.md`.
+Already have Continue files? See [what `import continue` reads](@/docs/targets/continue-reference.md#import) first.
 
-Agents become rule content by default. Optional assistant files are standalone configs, not automatically discovered subagents.
-
-For existing files, check [what `import continue` reads](@/docs/targets/continue-reference.md#import) before syncing.
+Agents become rule content by default. Assistant files are optional standalone configs, not discovered subagents.
 
 ## Output
 
@@ -56,26 +56,28 @@ For existing files, check [what `import continue` reads](@/docs/targets/continue
 
 {% </details> %}
 
-Field mappings are in the [Continue native reference](@/docs/targets/continue-reference.md#native-mappings).
+Field mappings: [Continue native reference](@/docs/targets/continue-reference.md#native-mappings).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `.continue/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Continue. Find the rule in the rules picker, then ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Check `.continue/rules/conventional-commits.md` for the commit-prefix rule.
+3. In Continue, find the rule in the rules picker and ask for a commit subject for a small fix. It should use `fix:`.
 
 ## Loading and limits
 
-- Continue offers every skill to the model, so none can be kept user-only. `disable-model-invocation` is dropped with a note, and commands are skipped.
-- With the `claude` target also selected, each skill shows up twice, because Continue reads `.continue/skills/` and `.claude/skills/` and does not merge names across them.
-- A scoped rule matches its scope directory plus its `globs` or `paths`, and gets no `alwaysApply`. See [file-pattern limits for directory rules](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
-- MCP files must be Continue blocks, and no file is written, with a sync note, for `type: ws` or for an entry missing `command` (stdio) or `url` (remote).
+- Continue offers every skill to the model, so none can be kept user-only. `disable-model-invocation` is dropped with a note and commands are skipped.
+- With the `claude` target also selected, each skill shows up twice. Continue reads `.continue/skills/` and `.claude/skills/` and does not merge names.
+- MCP files must be Continue blocks. Details and exceptions: [reference](@/docs/targets/continue-reference.md#native-mappings).
 
 {% <details summary="More limits"> %}
-
-- A rule with no directory scope keeps `globs`, `alwaysApply`, and `description`. A comma-separated `globs` string becomes an array, because Continue reads a string as one pattern. `x-continue.regex` works only without `scope`.
-- Remote MCP servers drop `env` (stdio only) with a sync note.
+- A scoped rule matches its scope directory plus its `globs` or `paths`, and gets no `alwaysApply`. See [file-pattern limits for directory rules](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
+- A rule with no directory scope keeps `globs`, `alwaysApply`, and `description`.
+- A comma-separated `globs` string becomes an array, because Continue reads a string as one pattern.
+- `x-continue.regex` works only without `scope`.
+- Remote MCP servers drop `env` (stdio only) with a note.
 - Assistant files are standalone `config.yaml` files with no models or rules, so your defaults apply. Continue's docs do not describe a workspace folder for them, so local profile loading rests on the source only. The rule form (`.continue/rules/agent-<name>.md`) is written either way.
-- Sync removes the `.continue/rules/skill-<name>.md` files it wrote in older versions. Import still reads a `skill-<name>.md` rule as a skill.
-
+- Sync removes `.continue/rules/skill-<name>.md` files that older versions wrote. Import still reads such a rule as a skill.
 {% </details> %}
 
 ## Protected paths

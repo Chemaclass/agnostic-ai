@@ -19,13 +19,14 @@ set-up-this-tool = "@/docs/targets/jules.md#first-rule"
 
 Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared instructions that point to source specs and the embedded `## Rules` block there.
 
-Jules has been read-only since November 12, 2026 and closes on December 31, 2026. New tasks cannot start. Follow the [official export instructions](https://jules.google/docs/changelog/#jules-turndown) to save your Jules configuration and history.
+Jules has been read-only since November 12, 2026 and closes on December 31, 2026. New tasks cannot start. Save your configuration and history with the [official export instructions](https://jules.google/docs/changelog/#jules-turndown).
 
 ## First rule
 
-Select `jules` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes a section in `AGENTS.md`.
+1. Select `jules` in `agnostic-ai.yaml`.
+2. Follow [First rule](@/docs/getting-started.md#first-rule). The commit-prefix rule becomes a section in `AGENTS.md`.
 
-Jules is sync-only: there is no importer or output for agents, skills, hooks, or MCP servers. They are skipped with a warning.
+Jules is sync-only. It has no importer, and no output for agents, skills, hooks, or MCP servers. Those are skipped with a warning.
 
 ## Output
 
@@ -33,11 +34,13 @@ Jules is sync-only: there is no importer or output for agents, skills, hooks, or
 |---|---|
 | Shared instructions and rules | `AGENTS.md` (shared path) |
 
-Jules has no project-level settings, so agnostic-ai writes no other file for it. Jules must be enabled explicitly (see [Selecting targets](@/docs/configuration.md#targets)). It has no config keys.
+Jules has no project-level settings, so nothing else is written. It has no config keys. Enable it explicitly ([Selecting targets](@/docs/configuration.md#targets)).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Jules reads `AGENTS.md` from the branch it works on, so commit the generated file there.
+1. Run `agnostic-ai sync --check`.
+2. Look for the commit-prefix rule in `AGENTS.md`.
+3. Commit the file to the branch Jules works on. It reads `AGENTS.md` from there.
 
 ## Protected paths
 

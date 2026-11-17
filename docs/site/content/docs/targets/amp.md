@@ -45,40 +45,46 @@ import = "@/docs/targets/amp-reference.md"
 
 ## Import {#import .legacy-anchor}
 
-Amp gets `AGENTS.md`, skills, MCP servers, `x-amp` settings, and orb setup from environment specs. It has no file-based agents or commands. Set `outputs.amp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
+Amp gets `AGENTS.md`, skills, MCP servers, `x-amp` settings, and orb setup from environment specs. It has no file-based agents or commands.
 
 ## First rule
 
-Follow the [official setup guide](https://ampcode.com/docs), open your project in the tool, select `amp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). By default, sync writes the shared commit-prefix rule to `AGENTS.md`.
+1. Open your project in Amp ([setup guide](https://ampcode.com/docs)).
+2. Add `amp` to `targets` in `agnostic-ai.yaml`.
+3. Follow [First rule](@/docs/getting-started.md#first-rule).
 
-For existing files, check [what `import amp` reads](@/docs/targets/amp-reference.md#import) before syncing.
+Sync writes the commit-prefix rule to `AGENTS.md`. Have existing files? Read [what `import amp` reads](@/docs/targets/amp-reference.md#import) first.
 
 ## Output
 
 | Source | Default output |
 |---|---|
-| Shared instructions and rules | `AGENTS.md` (entry-point pointer body, written by sync, shared by every tool that reads `AGENTS.md`) |
-| Skills and bundled files | `.agents/skills/<name>/SKILL.md` (Amp's native skills path) |
-| Environment `install` | `.agents/setup`, an executable dependency setup |
-| Environment `terminals` | `.amp/services.yaml`, supervised services |
-| MCP servers and `x-amp` settings | `.amp/settings.json`, when entries or keys exist (merged with existing user config) |
+| Shared instructions and rules | `AGENTS.md` (pointer body, shared with every tool that reads it) |
+| Skills and bundled files | `.agents/skills/<name>/SKILL.md` |
+| Environment `install` | `.agents/setup` (executable) |
+| Environment `terminals` | `.amp/services.yaml` (supervised services) |
+| MCP servers and `x-amp` settings | `.amp/settings.json`, when entries or keys exist (merged) |
 
-For output overrides and field mappings, see the [native reference](@/docs/targets/amp-reference.md).
+Field mappings and output overrides: [native reference](@/docs/targets/amp-reference.md).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Amp and ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Find the commit-prefix rule in `AGENTS.md`.
+3. In Amp, ask for a commit subject for a small fix. It should start with `fix:`.
 
 ## Loading and limits
 
-- Amp does not read portable settings. Each sync reports unsupported `permissions.allow`, `permissions.deny`, `permissions.ask`, and `model` fields, so a portable deny list is not enforced. Only `x-amp` keys, in Amp's spelling, are written to `.amp/settings.json`. See [settings](@/docs/targets/amp-reference.md#settings).
-- Commands are skipped with a warning, and agents are dropped unless `outputs.amp.agents: skill` is set. See [agents](@/docs/targets/amp-reference.md#agents) and [commands](@/docs/targets/amp-reference.md#commands).
-- Amp has no user-only skill, so `disable-model-invocation` is dropped with a note. See [skills](@/docs/targets/amp-reference.md#skills).
-- The nearest `.amp/` wins with no merging: a subdirectory with its own `.amp/` hides the root file for that subtree.
+- Amp reads no portable settings, so a portable deny list is not enforced ([settings](@/docs/targets/amp-reference.md#settings)).
+- Commands are skipped with a warning ([commands](@/docs/targets/amp-reference.md#commands)).
+- Agents are dropped unless `outputs.amp.agents: skill` writes them as on-demand skills ([agents](@/docs/targets/amp-reference.md#agents), [agents as skills](@/docs/spec-format/agents.md#agents-as-skills)).
+- `disable-model-invocation` is dropped with a note ([skills](@/docs/targets/amp-reference.md#skills)).
 
 {% <details summary="More limits"> %}
-- Workspace MCP servers need approval: the CLI asks when it first finds one, and orbs ask separately. See [MCP](@/docs/targets/amp-reference.md#mcp).
-- Amp stops `.agents/setup` after 20 minutes, and runs it again when it refreshes a snapshot, so write it to be safe to repeat. See [environments](@/docs/targets/amp-reference.md#environments).
+- Each sync reports unsupported `permissions.allow`, `permissions.deny`, `permissions.ask`, and `model`. Only `x-amp` keys reach `.amp/settings.json`.
+- The nearest `.amp/` wins with no merging ([settings](@/docs/targets/amp-reference.md#settings)).
+- Workspace MCP servers need approval. The CLI asks when it first finds one, and orbs ask separately ([MCP](@/docs/targets/amp-reference.md#mcp)).
+- Amp stops `.agents/setup` after 20 minutes and runs it again when it refreshes a snapshot, so make it safe to repeat ([environments](@/docs/targets/amp-reference.md#environments)).
 - A generated `AGENT.md` (singular) at the configured root is renamed to `AGENT.md.bak` on the first sync after upgrading. A hand-written one, with no `Generated by agnostic-ai` marker, is left alone. Amp uses `AGENTS.md` (plural).
 {% </details> %}
 

@@ -40,11 +40,12 @@ import = "@/docs/targets/augment-reference.md"
 
 ## First rule
 
-Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
+1. Select `augment` in `agnostic-ai.yaml`.
+2. Follow [First rule](@/docs/getting-started.md#first-rule). By default, sync writes the commit-prefix rule to `AGENTS.md`.
 
-MCP and permission settings apply to Auggie CLI. The IDE reads the project rules and skills, and runs project hooks from `.augment/settings.json` once you trust the workspace ([Augment changelog](https://www.augmentcode.com/changelog)).
+MCP and permission settings apply to Auggie CLI. The IDE reads project rules and skills, and runs project hooks from `.augment/settings.json` once you trust the workspace ([Augment changelog](https://www.augmentcode.com/changelog)).
 
-For an existing setup, [import](@/docs/targets/augment-reference.md#import) reads agents, ignore patterns, selected permission rules, and the default model and effort only. Review the remaining native files before syncing.
+Already have Augment files? [Import](@/docs/targets/augment-reference.md#import) reads only agents, ignore patterns, selected permission rules, and the default model and effort. Review the other native files before syncing.
 
 ## Output
 
@@ -59,21 +60,23 @@ For an existing setup, [import](@/docs/targets/augment-reference.md#import) read
 | Ignore patterns | `.augmentignore` (workspace indexing exclusions) |
 | Legacy joined rules | `.augment-guidelines`, only when `rules-file` is set |
 
-For output overrides, field mappings, and import coverage, see the [native reference](@/docs/targets/augment-reference.md).
+Overrides, field mappings, and import are in the [native reference](@/docs/targets/augment-reference.md).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Augment and ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Look for the commit-prefix rule in `AGENTS.md`.
+3. Open the project in Augment and ask for a commit subject for a small fix. It should use `fix:`.
 
 ## Loading and limits
 
-- Augment also loads `.augment/rules/`. An always-applied rule already in the `AGENTS.md` block gets no file there; see [target behavior](@/docs/target-behavior.md#entry-point-files).
-- Hooks use Auggie's seven events. A hook on another event, such as `UserPromptSubmit`, is skipped with a sync note and `validate` rejects it; see [hooks](@/docs/targets/augment-reference.md#hooks).
-- Permissions write as rule objects under `toolPermissions`, deny first, then ask, then allow. Path- or URL-scoped rules such as `Read(src/**)` are not written; see [permissions](@/docs/targets/augment-reference.md#permissions).
+- Augment also loads `.augment/rules/`. An always-applied rule already in the `AGENTS.md` block gets no file there ([target behavior](@/docs/target-behavior.md#entry-point-files)).
+- Hooks use Auggie's seven events. A hook on another event, such as `UserPromptSubmit`, is skipped with a sync note and `validate` rejects it ([hooks](@/docs/targets/augment-reference.md#hooks)).
+- Permissions are rule objects under `toolPermissions`: deny, then ask, then allow. Path or URL rules such as `Read(src/**)` are not written ([permissions](@/docs/targets/augment-reference.md#permissions)).
 
 {% <details summary="More limits"> %}
-- Auggie 1.x runs `SessionStart` hooks in the background and does not add their output to context, so there the memory rule tells the agent to read the indexes; see [shared memory](@/docs/targets/augment-reference.md#shared-memory).
-- Disabled MCP servers and `type: ws` servers are not written; each raises a sync note. See [MCP](@/docs/targets/augment-reference.md#mcp).
+- Auggie 1.x runs `SessionStart` hooks in the background and drops their output, so the memory rule tells the agent to read the indexes ([shared memory](@/docs/targets/augment-reference.md#shared-memory)).
+- Disabled MCP servers and `type: ws` servers are not written. Each raises a sync note ([MCP](@/docs/targets/augment-reference.md#mcp)).
 - Agent `tools` and `disabled_tools` take Augment's own tool names, so the generic `tools` field raises a sync note. Set `x-augment: {tools: [...]}` or `x-augment: {disabled_tools: [...]}`.
 - Moving the entry point off root `AGENTS.md`, or listing it in `sync.unmanaged`, makes every rule keep a `.augment/rules/` file. Check [the effect on other targets](@/docs/target-behavior.md#inlined-rules) first.
 {% </details> %}

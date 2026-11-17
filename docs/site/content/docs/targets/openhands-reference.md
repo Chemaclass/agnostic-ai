@@ -17,59 +17,67 @@ Start with the [OpenHands setup](@/docs/targets/openhands.md).
 
 ### Skills
 
-Written identically to the other `.agents/skills/` tools, so the shared folder is written once.
-
-The [OpenHands skills docs](https://docs.openhands.dev/overview/skills) document no field that keeps a skill user-only. The SDK reads `disable-model-invocation`, but such a skill then runs only when a `triggers` keyword appears anywhere in a message, not by name. Sync does not write it: `disable-model-invocation` is dropped with a note, and commands are skipped.
+- Written identically to the other `.agents/skills/` tools, so the shared folder is written once.
+- The [OpenHands skills docs](https://docs.openhands.dev/overview/skills) document no field that keeps a skill user-only.
+- The SDK reads `disable-model-invocation`, but such a skill then runs only when a `triggers` keyword appears in a message, not by name.
+- Sync does not write it: `disable-model-invocation` is dropped with a note, and commands are skipped.
 
 ### Agents
 
 OpenHands loads `.agents/agents/<name>.md` in local conversations. The files share Goose's format: `name`, `description`, an optional free-form `model`, and the prompt body.
 
-- Each server an agent names in `mcpServers` is written in full under `mcp_servers`, the only form OpenHands takes. Goose has no such key, so while Goose writes the same folder sync writes no servers and prints a note; set `outputs.openhands.agents-dir` to `.openhands/agents`. `x-openhands.mcp_servers` replaces the list.
-- A generic `tools` list is dropped with a sync note, because OpenHands uses its own tool names (`file_editor`, `terminal`). Set `x-openhands.tools` with those names instead. For an OpenHands profile that differs from Goose's, point `outputs.openhands.agents-dir` at `.openhands/agents`.
+- Each server in an agent's `mcpServers` is written in full under `mcp_servers`, the only form OpenHands takes. `x-openhands.mcp_servers` replaces the list.
+- Goose has no such key. While Goose writes the same folder, sync writes no servers and prints a note. Set `outputs.openhands.agents-dir` to `.openhands/agents`.
+- A generic `tools` list is dropped with a sync note, because OpenHands uses its own tool names (`file_editor`, `terminal`). Set `x-openhands.tools` with those names.
+- For an OpenHands profile that differs from Goose's, point `outputs.openhands.agents-dir` at `.openhands/agents`.
 - A portable `color` is dropped with a sync note, because [Goose's agent frontmatter](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md) has no color. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) to write it.
 
 ### Rules
 
-An always-on rule goes into the `## Rules` block of `AGENTS.md`. So does a rule with a catch-all `globs` or `paths`. A rule is always-on when it has no `globs` or `paths` and no scope from its folder or frontmatter.
+An always-on rule goes into the `## Rules` block of `AGENTS.md`, and so does a rule with a catch-all `globs` or `paths`. A rule is always-on when it has no `globs`, no `paths`, and no scope from its folder or frontmatter.
 
 ### Path-triggered rules
 
-A scoped rule becomes `.agents/skills/<name>/SKILL.md` with a `paths:` list (its scope directory plus file patterns). OpenHands [loads it only when a matching file is touched](https://docs.openhands.dev/overview/skills/path). It uses the folder form (a flat `.md` also works), so these rules share `outputs.openhands.skills-dir` with skills.
+A scoped rule becomes `.agents/skills/<name>/SKILL.md` with a `paths:` list (its scope directory plus file patterns). OpenHands [loads it only when a matching file is touched](https://docs.openhands.dev/overview/skills/path). It uses the folder form (a flat `.md` also works), and shares `outputs.openhands.skills-dir` with skills.
 
 ### Hooks
 
-OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per repository in Agent Canvas, OpenHands Cloud, and OpenHands Enterprise](https://docs.openhands.dev/openhands/usage/customization/hooks). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using OpenHands's event data, shell, and timeout.
+OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per repository in Agent Canvas, OpenHands Cloud, and OpenHands Enterprise](https://docs.openhands.dev/openhands/usage/customization/hooks).
 
-Hooks load only from the working folder, so a root `.openhands/hooks.json` does not apply when OpenHands works in a subfolder.
-
+- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests hooks before a session, with OpenHands's event data, shell, and timeout.
+- Hooks load only from the working folder, so a root `.openhands/hooks.json` does not apply when OpenHands works in a subfolder.
 - Six events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`.
 - Sync writes the Claude form (PascalCase keys inside a `{"hooks": {...}}` wrapper). OpenHands also accepts its own unwrapped snake_case form.
-- Each entry has `command`, `type` (always `command`), and optional `timeout` (seconds, default 60) and `async`. `matcher` applies only to the two ToolUse events.
+- Each entry has `command`, `type` (always `command`), and optional `timeout` (seconds, default 60) and `async`.
+- `matcher` applies only to the two ToolUse events.
 - A Claude matcher such as `Bash` matches nothing, because OpenHands calls that tool `terminal`. Sync adds a note and does not rename it. OpenHands documents only `terminal`, `*`, and regex.
 
 ### MCP
 
-No file. OpenHands keeps MCP servers in its [settings store](https://docs.openhands.dev/openhands/usage/settings/mcp-settings): add them in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. It reads no project file, and ignores the `[mcp]` section of a project `config.toml` (legacy V0).
+No file. OpenHands keeps MCP servers in its [settings store](https://docs.openhands.dev/openhands/usage/settings/mcp-settings). Add them in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. It reads no project file and ignores the `[mcp]` section of a project `config.toml` (legacy V0).
 
 - A project or home MCP spec gets one sync note that points at **Customize > MCP Servers**.
-- An agent's `mcpServers` still reach its `mcp_servers`, as [Agents](#agents) describes. There a remote `api_key` becomes an `Authorization: Bearer <key>` header, as [OpenHands sends](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) it. An `Authorization` entry in `headers` wins.
-- `timeout` gets a sync note: sync does not map it into an agent's `mcp_servers`. Agent Canvas separately offers an optional SHTTP timeout in seconds in its [server editor](https://docs.openhands.dev/openhands/usage/settings/mcp-settings#server-fields).
+- An agent's `mcpServers` still reach its `mcp_servers` ([Agents](#agents)). A remote `api_key` becomes an `Authorization: Bearer <key>` header, [as OpenHands sends it](https://docs.openhands.dev/openhands/usage/settings/mcp-settings). An `Authorization` entry in `headers` wins.
+- `timeout` gets a sync note: it is not mapped into an agent's `mcp_servers`. Agent Canvas offers an optional SHTTP timeout in seconds in its [server editor](https://docs.openhands.dev/openhands/usage/settings/mcp-settings#server-fields).
 
 ### Environments
 
 `install` writes `.openhands/setup.sh`, the [repository setup script](https://docs.openhands.dev/openhands/usage/customization/repository) OpenHands runs each time it opens the repo.
 
-- The file has a `#!/bin/bash` line, the generated-file header, then `install` as written. OpenHands runs `chmod +x` itself, so sync does not set the executable bit.
+- The file has a `#!/bin/bash` line, the generated-file header, then `install` as written.
+- OpenHands runs `chmod +x` itself, so sync does not set the executable bit.
 - `terminals` (Cursor's long-running dev processes) gets a sync note, because the script runs once when the repo starts.
 - With several environment specs, the last `install` wins, as for Cursor.
 
 <details>
 <summary>Legacy config.toml and mcp.json</summary>
 
-The next sync removes a `config.toml` that an earlier release wrote. `import openhands` still reads the `[mcp]` table of a legacy `config.toml` into specs.
-
-Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --global` no longer writes it. The next `sync --global` removes the servers sync recorded as its own there. That includes a hand-written server an earlier sync adopted because it matched a spec exactly. Sync also removes the file when it created it and nothing else is left. Other servers stay. Run `sync --global --backup` to keep a copy of the file first. `import --global openhands` still reads the file into specs.
+- The next sync removes a `config.toml` that an earlier release wrote.
+- `import openhands` still reads the `[mcp]` table of a legacy `config.toml` into specs.
+- Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --global` no longer writes it.
+- The next `sync --global` removes the servers sync recorded as its own there, including a hand-written server an earlier sync adopted because it matched a spec exactly. Other servers stay.
+- Sync also removes the file when it created it and nothing else is left. Run `sync --global --backup` to keep a copy first.
+- `import --global openhands` still reads the file into specs.
 
 </details>
 
@@ -103,11 +111,10 @@ Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --globa
 | `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-`.agents/skills/` wins a name clash with the legacy folders, as in OpenHands. Hooks import from both layouts. Snake_case `pre_tool_use` comes back as `PreToolUse`.
-
-Fresh hook imports keep native command order with position prefixes in their spec names. Keep those prefixes when renaming imported hooks.
-
-Import stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential, such as `API_KEY: sk-...`, because specs are committed. Replace the value with a `${VAR}` or `$VAR` reference, which OpenHands resolves from the environment at load time. Import keeps references as written.
+- `.agents/skills/` wins a name clash with the legacy folders, as in OpenHands.
+- Hooks import from both layouts. Snake_case `pre_tool_use` comes back as `PreToolUse`.
+- Fresh hook imports keep native command order with position prefixes in their spec names. Keep those prefixes when renaming imported hooks.
+- Import stops on an agent whose `mcp_servers` or `mcp_config` holds a literal credential, such as `API_KEY: sk-...`, because specs are committed. Replace it with a `${VAR}` or `$VAR` reference, which OpenHands resolves at load time. References are kept as written.
 
 Import loses these details (none change what OpenHands loads):
 

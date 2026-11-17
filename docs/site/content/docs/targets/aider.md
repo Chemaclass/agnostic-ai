@@ -19,9 +19,13 @@ set-up-this-tool = "@/docs/targets/aider.md#first-rule"
 
 ## First rule
 
-Follow the [official setup guide](https://aider.chat/docs/install.html), select `aider` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes a section in `CONVENTIONS.md`. Aider does not load this file automatically unless you enable the [project config](#output).
+1. Follow the [official setup guide](https://aider.chat/docs/install.html).
+2. Select `aider` in `agnostic-ai.yaml`.
+3. Follow [First rule](@/docs/getting-started.md#first-rule). The commit-prefix rule becomes a section in `CONVENTIONS.md`.
 
-Already have Aider files? Review [migration](@/docs/migration.md) and the [`import aider` command](@/docs/cli-reference/import.md#import) before syncing.
+Aider does not load that file on its own. Load it with `aider --read CONVENTIONS.md`, or turn on the [project config](#output).
+
+Already have Aider files? Read [migration](@/docs/migration.md) and the [`import aider` command](@/docs/cli-reference/import.md#import) before syncing.
 
 ## Output
 
@@ -31,17 +35,24 @@ Already have Aider files? Review [migration](@/docs/migration.md) and the [`impo
 | Project config | `.aider.conf.yml`, only when `conf-file` is set |
 | Ignore entries | `.aiderignore`, only when the project has ignore entries |
 
-- **Rules**: `CONVENTIONS.md` holds the instructions that point to source specs plus a marked `## Rules` block with the project-wide rule bodies. `import aider` strips that block. Load it with `aider --read CONVENTIONS.md`.
-- **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml` to add a `read:` entry to Aider's [project config](https://aider.chat/docs/config/aider_conf.html), so you do not need `--read` on each launch. `model` and `weak-model` go into the same file when set. Your other keys stay, and the `read:` list has no duplicates. Each sync rewrites the file with sorted keys and drops its comments.
-- **Ignore**: ignore entries go to `.aiderignore` in the project root. That is Aider's default path ([Aider config docs](https://aider.chat/docs/config/aider_conf.html)), so it needs no setup. If you point `outputs.aider.ignore-file` elsewhere, Aider reads it only when the config file's `aiderignore:` key names that path.
+- **Rules**: `CONVENTIONS.md` has the instructions that point to source specs, then a marked `## Rules` block with the project-wide rule bodies. `import aider` strips that block.
+- **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml`. Sync adds a `read:` entry to Aider's [project config](https://aider.chat/docs/config/aider_conf.html), so you skip `--read`.
+- **Ignore**: entries go to `.aiderignore`, Aider's default path. It needs no setup.
 
-{% <details summary="What sync removes from .aider.conf.yml"> %}
-When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, `weak-model`, and the `read:` entry it added. It preserves your key order and remaining comments, and removes the header. When `rules-file` changes, sync removes the `read:` entry it added for the old path.
+{% <details summary="Config file and ignore details"> %}
+- `model` and `weak-model` go into `.aider.conf.yml` when set.
+- Your other keys stay. The `read:` list has no duplicates.
+- Each sync rewrites the file with sorted keys and drops its comments.
+- If you point `outputs.aider.ignore-file` elsewhere, Aider reads it only when the config's `aiderignore:` key names that path ([Aider config docs](https://aider.chat/docs/config/aider_conf.html)).
+- When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, `weak-model`, and the `read:` entry it added. It keeps your key order and remaining comments, and removes the header.
+- When `rules-file` changes, sync removes the `read:` entry it added for the old path.
 {% </details> %}
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `CONVENTIONS.md` for the commit-prefix rule. Start Aider with `aider --read CONVENTIONS.md`. Ask it to write a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Look for the commit-prefix rule in `CONVENTIONS.md`.
+3. Run `aider --read CONVENTIONS.md` and ask for a commit subject for a small fix. It should use `fix:`.
 
 ## Config keys
 

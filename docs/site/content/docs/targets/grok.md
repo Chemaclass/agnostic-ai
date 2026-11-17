@@ -21,35 +21,35 @@ global-configuration = "@/docs/targets/grok-reference.md"
 
 ## Global configuration {#global-configuration .legacy-anchor}
 
-Select Grok explicitly and keep its project instructions visible to Git. Grok skips ignored rule files, so it is excluded from the default targets.
+Write Grok Build rules, agents, skills, commands, hooks, and MCP servers from your specs. Grok skips Git-ignored rule files, so `grok` is not a default target: select it and keep its instructions visible to Git.
 
 ## First rule
 
-Install and open the CLI using the [official setup guide](https://docs.x.ai/build/overview). Grant project trust through Grok; sync does not grant trust or run Grok.
+1. Install the CLI with the [official setup guide](https://docs.x.ai/build/overview) and grant project trust in Grok. Sync does not do either.
+2. Create `agnostic-ai.yaml`:
 
-Create `agnostic-ai.yaml`:
+   ```yaml
+   version: 1
+   targets: [grok]
+   gitignore:
+     enabled: true
+     commit: [grok:instructions]
+   ```
 
-```yaml
-version: 1
-targets: [grok]
-gitignore:
-  enabled: true
-  commit: [grok:instructions]
-```
+   `agnostic-ai init` writes the `commit` line for you. Without it, `lint` reports [LINT053](@/docs/cli-reference/lint-codes.md) and sync stops for every tool.
+3. Create `.agnostic-ai/rules/style.md`:
 
-`agnostic-ai init` writes the `commit` line when it selects Grok with the managed `.gitignore` on. Without it, `lint` reports [LINT053](@/docs/cli-reference/lint-codes.md) and sync stops for every tool.
+   ```markdown
+   ---
+   name: style
+   ---
 
-Create `.agnostic-ai/rules/style.md`:
+   Use Conventional Commits for commit subjects.
+   ```
 
-```markdown
----
-name: style
----
+4. Run `agnostic-ai sync`, then `agnostic-ai sync --check`.
 
-Use Conventional Commits for commit subjects.
-```
-
-Run `agnostic-ai sync`, then `agnostic-ai sync --check`. Already have native files? Run [`agnostic-ai import grok`](@/docs/targets/grok-reference.md#import) first.
+Already have native files? Run [`agnostic-ai import grok`](@/docs/targets/grok-reference.md#import) first.
 
 ## Output
 
@@ -64,38 +64,43 @@ Run `agnostic-ai sync`, then `agnostic-ai sync --check`. Already have native fil
 | Shared hook scripts | `.grok/hook-scripts/` |
 | MCP and permission lists | `.grok/config.toml` |
 
-Scoped skills, agents, and commands use the corresponding directory below their source scope. Output overrides use `outputs.grok.dir`, `rules-dir`, `agents-dir`, `skills-dir`, `commands-dir`, `hooks-dir`, `mcp-file`, and `conf-file`. `conf-file` separates permission settings from the MCP destination. A custom destination must still be a location Grok reads. Rule visibility checks include custom paths. Field mappings, import, and global configuration are in the [Grok native reference](@/docs/targets/grok-reference.md).
+Scoped skills, agents, and commands go in the same directory under their source scope. Field mappings, import, and global configuration: [Grok native reference](@/docs/targets/grok-reference.md).
+
+{% <details summary="Output overrides"> %}
+- Keys under `outputs.grok`: `dir`, `rules-dir`, `agents-dir`, `skills-dir`, `commands-dir`, `hooks-dir`, `mcp-file`, `conf-file`.
+- `conf-file` moves permission settings away from the MCP destination.
+- A custom destination must still be a place Grok reads.
+- Rule visibility checks cover custom paths.
+{% </details> %}
 
 ## Verify
 
-Read `.grok/rules/style.md` and run `git check-ignore --no-index .grok/rules/style.md`: it should report no matching ignored path. Then open a Grok session and check that it follows the rule.
+1. Run `git check-ignore --no-index .grok/rules/style.md`. It should report no ignored path.
+2. Open a Grok session and check that it follows the rule.
 
 {% <details summary="If the rule file is ignored"> %}
-
-A root or global ignore pattern can still hide the file. Sync rejects that case before emitting Grok output; remove the matching pattern yourself. Explicitly disabling agnostic-ai's ignore management is also supported when your own ignore policy keeps the rules visible. The check uses Grok's root `.gitignore` and global ignore file, not nested ignore files or `.git/info/exclude`. It conservatively requires parent directories to be re-included before a file below an ignored directory.
-
+- A root or global ignore pattern can still hide the file. Sync rejects that case before it writes Grok output. Remove the pattern yourself.
+- You can also turn off agnostic-ai's ignore management when your own policy keeps the rules visible.
+- The check reads Grok's root `.gitignore` and global ignore file. It skips nested ignore files and `.git/info/exclude`.
+- A file under an ignored directory counts as hidden unless every parent directory is re-included.
 {% </details> %}
 
 ## Loading and limits
 
-- Rules apply when Grok discovers their directory while walking from its working directory to the repository root. File glob conditions have no native rule equivalent; use a whole directory scope.
-- Project hooks run only after Grok's hook trust approval. Hook errors fail open; native explicit denies block according to the event.
-- Portable `on`/`match` hooks are not translated in this adapter. Use Grok-native events and its documented reply protocol.
-- Empty tool restrictions on agents are rejected, because native empty tools inherit all tools.
+- Grok loads a rule when it finds the rule's directory on the way from its working directory to the repository root.
+- A file glob has no native rule form. Scope a rule to a whole directory.
+- Project hooks run only after Grok's hook trust approval.
 
 {% <details summary="More limits"> %}
-
-- On Windows, shared script paths that need shell-specific quoting, such as paths with spaces, require an explicit native wrapper command. Sync refuses an automatic rewrite it cannot preserve. Existing native invocation commands keep their quoting.
-- Project model, effort, permission default mode, and session retention are unsupported. Ignore, review, and environment specs have no native output.
-- Global commands and permission lists are not emitted, and global effort is unsupported.
-- Grok also reads compatibility files from other enabled tools, so those can contribute additional instructions, hooks, or servers.
-
+- Grok also reads compatibility files from other enabled tools. They can add instructions, hooks, or servers.
+- Ignore, review, and environment specs have no native output.
+- Hooks, agent tools, Windows script paths, and unsupported settings: see the [reference](@/docs/targets/grok-reference.md#hooks).
 {% </details> %}
 
 {% <details summary="Native evidence and runtime limits"> %}
-
-Paths and fields were checked against the [official project rules](https://docs.x.ai/build/features/project-rules), [MCP](https://docs.x.ai/build/features/mcp-servers), [hooks](https://docs.x.ai/build/features/hooks), [subagents](https://docs.x.ai/build/features/subagents), [skills](https://docs.x.ai/build/features/skills-plugins-marketplaces), and [settings](https://docs.x.ai/build/settings) documentation, plus public source snapshot [2bdd1d6a](https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8). The source snapshot is an independent format reference, not proof of exact binary source parity. Validation uses native-format fixtures and isolated filesystem tests; it does not install, authenticate, approve trust, or run a model session. Grok also reads compatibility files from other enabled tools, so those can contribute additional instructions, hooks, or servers.
-
+- Checked against the official docs for [project rules](https://docs.x.ai/build/features/project-rules), [MCP](https://docs.x.ai/build/features/mcp-servers), [hooks](https://docs.x.ai/build/features/hooks), [subagents](https://docs.x.ai/build/features/subagents), [skills](https://docs.x.ai/build/features/skills-plugins-marketplaces), and [settings](https://docs.x.ai/build/settings).
+- Also checked against the public source snapshot [2bdd1d6a](https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8). It is a format reference, not proof of exact binary parity.
+- Tests use native-format fixtures and isolated filesystems. They do not install Grok, sign in, approve trust, or run a model.
 {% </details> %}
 
 ## Protected paths

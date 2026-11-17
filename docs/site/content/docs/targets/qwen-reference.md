@@ -14,27 +14,84 @@ Start with the [Qwen Code setup](@/docs/targets/qwen.md).
 
 ## Native mappings
 
-Project-wide rules go into `QWEN.md`, and `scope` rules go into `<scope>/QWEN.md`. A rule with `globs` or `paths` and no `scope` goes to `.qwen/rules/<name>.md` with a `paths:` list. Qwen leaves that rule out of the prompt until a tool reads or edits a matching file. `alwaysApply: true` keeps a rule in `QWEN.md`. See [scoped context](@/docs/scoped-context.md#qwen-code-rules-with-globs-alone) for the limits.
+### Rules
 
-Agents get YAML frontmatter and a prompt body. Portable tool names map to Qwen names; use `x-qwen.tools` for an explicit native list. An agent with `readonly: true` gets `disallowedTools: [write_file, edit, notebook_edit]`, so it cannot write files; shell stays allowed, and an explicit `x-qwen.disallowedTools` wins. Import reads that exact list back as `readonly: true` and keeps any other blocklist under `x-qwen`. Native agent fields such as `approvalMode` and record-valued `mcpServers` belong under `x-qwen`.
+- Project-wide rules go into `QWEN.md`. `scope` rules go into `<scope>/QWEN.md`.
+- A rule with `globs` or `paths` and no `scope` goes to `.qwen/rules/<name>.md` with a `paths:` list. Qwen leaves it out of the prompt until a tool reads or edits a matching file.
+- `alwaysApply: true` keeps a rule in `QWEN.md`.
+- See [scoped context](@/docs/scoped-context.md#qwen-code-rules-with-globs-alone) for the limits.
 
-Skills keep their bundled files. Qwen Code also reads `.agents/skills/`, and its own `.qwen/skills/` wins a same-name clash. `disable-model-invocation`, `user-invocable`, and `paths` (always as a list) are written to `SKILL.md` as Qwen reads them, unless another target writes the same skills folder; `allowed-tools` is not, since Qwen's own `allowedTools` grants permissions. Set `x-qwen.model` on a skill to select its native model; the shared skill `model` field is not promoted.
+### Agents
 
-Commands use Markdown with optional `description` frontmatter. Qwen interprets `{% raw %}{{args}}{% endraw %}`, `!{shell}`, and `@{path}` in command bodies; sync keeps that text as written. Nested command paths become colon-separated command names, and sync writes a command named `git:commit` back as `.qwen/commands/git/commit.md`, on Windows too. On Windows, a target that writes such a name as one file refuses it; see [path semantics](@/docs/configuration.md#path-semantics).
+- Agents get YAML frontmatter and a prompt body.
+- Portable tool names map to Qwen names. Use `x-qwen.tools` for an explicit native list.
+- `readonly: true` gives `disallowedTools: [write_file, edit, notebook_edit]`. The agent cannot write files, but shell stays allowed. An explicit `x-qwen.disallowedTools` wins.
+- Import reads that exact list back as `readonly: true` and keeps any other blocklist under `x-qwen`.
+- Native fields such as `approvalMode` and record-valued `mcpServers` belong under `x-qwen`.
 
-MCP servers share `settings.json` under `mcpServers`. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `httpUrl`, and SSE uses `url`. MCP timeouts are milliseconds. Servers marked `disabled: true` are omitted from this output because Qwen ignores that per-server field. A same-name server in existing or inherited configuration can still load; use native `mcp.excluded` to block it. Environment placeholders stay literal until Qwen resolves them. See the [native MCP reference](https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/).
+### Skills
 
-Hooks share `settings.json` under `hooks`. Portable `on`, `match`, and `decision: stdout` map to Qwen events, tool names, and blocking decisions. Command hook timeouts are seconds in the spec. Qwen reads a command hook timeout of 1000 or more as milliseconds, so sync writes a spec timeout of 1000 seconds or more times 1000 (`1200` becomes `1200000`), capped at 2147483647 milliseconds (about 24.8 days), the longest delay Qwen can time, and leaves lower values as they are. `x-qwen.timeout` and raw native handler groups are written as given, in Qwen's own units. Sync quotes portable arguments into the shell command because Qwen has no separate `args` field. Portable hooks that exit 2 block pre-tool, prompt-submit, and stop events; after-tool and after-edit stop further execution. Session-start and session-end keep their native lifecycle behavior.
+- Bundled files are kept.
+- Qwen Code also reads `.agents/skills/`. Its own `.qwen/skills/` wins a same-name clash.
+- `disable-model-invocation`, `user-invocable`, and `paths` (always a list) are written to `SKILL.md` as Qwen reads them, unless another target writes the same skills folder.
+- `allowed-tools` is not written, since Qwen's own `allowedTools` grants permissions.
+- Set `x-qwen.model` on a skill to select its native model. The shared skill `model` field is not promoted.
 
-Native `FileChanged` hooks (Qwen Code 0.27.0) watch the literal filenames in `matcher`, separated by `|`, in the working folder. They run only in local, non-managed sessions. A pattern only filters paths that are already watched; add more through `watchPaths`. A `SessionStart` or `FileChanged` hook that runs synchronously and succeeds can return `hookSpecificOutput.watchPaths`, with its own event name in `hookEventName`. A list of absolute paths replaces the earlier list, and an empty list clears it. Filenames named in `matcher` stay watched either way. Project import preserves native command, HTTP, and prompt handlers and their metadata.
+### Commands
 
-Settings map portable `model` to `model.name` and permission lists to `permissions.allow`, `permissions.ask`, and `permissions.deny`. Keys under `x-qwen` keep their native spelling. Native `x-qwen.mcpServers` records override portable servers with the same name. Native and portable hook entries are combined. Sync preserves unrelated settings, including the active `disableAllHooks` setting. Legacy `hooks.enabled`, `hooks.disabled`, and `hooks.notifications` metadata is preserved but does not disable hooks in this release. See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/).
+- Markdown with optional `description` frontmatter.
+- Qwen interprets `{% raw %}{{args}}{% endraw %}`, `!{shell}`, and `@{path}` in bodies. Sync keeps that text as written.
+- Nested command paths become colon-separated names. A command named `git:commit` is written as `.qwen/commands/git/commit.md`, on Windows too.
+- On Windows, a target that writes such a name as one file refuses it. See [path semantics](@/docs/configuration.md#path-semantics).
+
+### MCP
+
+Servers share `settings.json` under `mcpServers`. See the [native MCP reference](https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/).
+
+- Stdio: `command`, `args`, `env`, optional `cwd`. HTTP: `httpUrl`. SSE: `url`.
+- MCP timeouts are milliseconds.
+- `disabled: true` servers are omitted, because Qwen ignores that per-server field.
+- A same-name server in existing or inherited configuration can still load. Use native `mcp.excluded` to block it.
+- Environment placeholders stay literal until Qwen resolves them.
+
+### Hooks
+
+Hooks share `settings.json` under `hooks`.
+
+- Portable `on`, `match`, and `decision: stdout` map to Qwen events, tool names, and blocking decisions.
+- Spec timeouts are seconds. Qwen reads a command hook timeout of 1000 or more as milliseconds. So sync multiplies a spec timeout of 1000 seconds or more by 1000 (`1200` becomes `1200000`), capped at 2147483647 ms (about 24.8 days, the longest delay Qwen can time). Lower values stay as they are.
+- `x-qwen.timeout` and raw native handler groups are written as given, in Qwen's units.
+- Sync quotes portable arguments into the shell command, because Qwen has no `args` field.
+- Portable hooks that exit 2 block pre-tool, prompt-submit, and stop events. After-tool and after-edit stop further execution. Session-start and session-end keep their native behavior.
+
+Native `FileChanged` hooks (Qwen Code 0.27.0):
+
+- They watch the literal filenames in `matcher`, separated by `|`, in the working folder.
+- They run only in local, non-managed sessions.
+- A pattern only filters paths that are already watched. Add more through `watchPaths`.
+- A `SessionStart` or `FileChanged` hook that runs synchronously and succeeds can return `hookSpecificOutput.watchPaths`, with its own event name in `hookEventName`.
+- A list of absolute paths replaces the earlier list. An empty list clears it.
+- Filenames named in `matcher` stay watched either way.
+- Project import keeps native command, HTTP, and prompt handlers and their metadata.
+
+### Settings
+
+See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/).
+
+- Portable `model` becomes `model.name`. Permission lists become `permissions.allow`, `permissions.ask`, `permissions.deny`.
+- `x-qwen` keys keep their native spelling.
+- Native `x-qwen.mcpServers` records override portable servers with the same name.
+- Native and portable hook entries are combined.
+- Sync keeps unrelated settings, including the active `disableAllHooks`.
+- Legacy `hooks.enabled`, `hooks.disabled`, and `hooks.notifications` metadata is kept but does not disable hooks in this release.
 
 ## Global configuration
 
-Portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`; choose a native `voiceModel` before using dictation.
-
-`agnostic-ai sync --global -t qwen` writes instructions, agents, skills, MCP, hooks, and settings under `~/.qwen/`. Set `QWEN_HOME` to replace that whole directory. `QWEN_RUNTIME_DIR` moves runtime state, not configuration. `agnostic-ai import --global qwen` reads the user model, permission lists, and MCP servers. See [global configuration](@/docs/global-configuration.md).
+- Portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`. Choose a native `voiceModel` before using dictation.
+- `agnostic-ai sync --global -t qwen` writes instructions, agents, skills, MCP, hooks, and settings under `~/.qwen/`.
+- `QWEN_HOME` replaces that whole directory. `QWEN_RUNTIME_DIR` moves runtime state, not configuration.
+- `agnostic-ai import --global qwen` reads the user model, permission lists, and MCP servers.
+- See [global configuration](@/docs/global-configuration.md).
 
 ## Config keys
 
@@ -50,7 +107,7 @@ Portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write 
 | `outputs.qwen.hooks-file` | `.qwen/settings.json` |
 | `outputs.qwen.ignore-file` | `.qwenignore` |
 
-Root instructions use the shared [entry-point configuration](@/docs/configuration-reference.md#outputs). Changing a path does not change where Qwen looks for it. Keep overrides aligned with your native configuration.
+Root instructions use the shared [entry-point configuration](@/docs/configuration-reference.md#outputs). Changing a path does not change where Qwen looks. Keep overrides aligned with your native configuration.
 
 ## Import
 
@@ -61,10 +118,21 @@ agnostic-ai sync -t qwen
 agnostic-ai sync --check -t qwen
 ```
 
-Import reads root and scoped instructions, rule files directly under `.qwen/rules/`, agents, skill folders and resources from `.qwen/skills/` and `.agents/skills/` (the `.qwen/skills/` folder wins a same-name clash), Markdown and legacy TOML commands, `.qwenignore`, and settings, hooks, and MCP servers in `.qwen/settings.json`.
+Import reads:
 
-A rule file's `paths:` becomes portable `globs`. Import names each rule file without `paths:`: sync moves that rule into `QWEN.md`, so delete the original file. It also names and skips rule files in subfolders, and stops when a rule file shares its name with a rule in `QWEN.md`.
+- Root and scoped instructions.
+- Rule files directly under `.qwen/rules/`.
+- Agents.
+- Skill folders and resources from `.qwen/skills/` and `.agents/skills/` (`.qwen/skills/` wins a same-name clash).
+- Markdown and legacy TOML commands. Imported legacy commands emit as Markdown.
+- `.qwenignore`.
+- Settings, hooks, and MCP servers in `.qwen/settings.json`.
 
-Native fields stay under `x-qwen`; HTTP `httpUrl` becomes portable `type: http`, while SSE `url` becomes `type: sse`. Imported legacy commands emit as Markdown.
+Details:
 
-Import rejects credentials in retained agent and skill headers, hooks, and settings. Settings can refer to environment variables with `$NAME` or `${NAME}`. Qwen does not expand those references in an agent's or skill's credential fields, so import rejects them there.
+- A rule file's `paths:` becomes portable `globs`.
+- A rule file without `paths:` is named by import. Sync moves that rule into `QWEN.md`, so delete the original file.
+- Rule files in subfolders are named and skipped. Import stops when a rule file shares its name with a rule in `QWEN.md`.
+- Native fields stay under `x-qwen`. HTTP `httpUrl` becomes `type: http`. SSE `url` becomes `type: sse`.
+- Import rejects credentials in retained agent and skill headers, hooks, and settings.
+- Settings can refer to environment variables with `$NAME` or `${NAME}`. Qwen does not expand those in an agent's or skill's credential fields, so import rejects them there.

@@ -45,41 +45,48 @@ import = "@/docs/targets/openhands-reference.md"
 
 ## Import {#import .legacy-anchor}
 
-[OpenHands](https://docs.openhands.dev/overview/skills) gets `AGENTS.md`, agents and skills under `.agents/`, hooks, and a setup script. Add MCP servers in OpenHands itself.
+[OpenHands](https://docs.openhands.dev/overview/skills) gets `AGENTS.md`, agents and skills under `.agents/`, hooks, and a setup script. MCP servers are added in OpenHands itself.
 
 ## First rule
 
-Select `openhands` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
+1. Add `openhands` to `targets` in `agnostic-ai.yaml`.
+2. Follow [First rule](@/docs/getting-started.md#first-rule).
+3. Sync writes the commit-prefix rule to `AGENTS.md`.
 
-MCP servers have no output. Add them in Agent Canvas, as [MCP](@/docs/targets/openhands-reference.md#mcp) describes. For existing files, check [what `import openhands` reads](@/docs/targets/openhands-reference.md#import) before syncing.
+Have existing files? Read [what `import openhands` reads](@/docs/targets/openhands-reference.md#import) first.
 
 ## Output
 
 | Source | Default output |
 |---|---|
-| Shared instructions and always-on rules | `AGENTS.md` (pointer body plus inlined always-on rules; shared path) |
+| Shared instructions and always-on rules | `AGENTS.md` (pointer body plus inlined always-on rules) |
 | Agents | `.agents/agents/<name>.md` (shared with Goose) |
 | Skills and path-triggered rules | `.agents/skills/<name>/SKILL.md` (shared tree) |
 | Hooks | `.openhands/hooks.json`, when hook entries exist |
 | Environment `install` | `.openhands/setup.sh`, when an environment spec sets it |
+| MCP servers | No file. Add them in Agent Canvas under **Customize > MCP Servers** ([MCP](@/docs/targets/openhands-reference.md#mcp)) |
 
-For output overrides, field mappings, and import coverage, see the [native reference](@/docs/targets/openhands-reference.md).
+Overrides, field mappings, and import: [native reference](@/docs/targets/openhands-reference.md).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in OpenHands and ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Find the commit-prefix rule in `AGENTS.md`.
+3. In OpenHands, ask for a commit subject for a small fix. It should start with `fix:`.
 
 ## Loading and limits
 
-- MCP servers are not written to any file. Add them in Agent Canvas under **Customize > MCP Servers**; a project or home MCP spec gets one sync note pointing there. An agent's `mcpServers` still reach its `mcp_servers`.
-- Hooks load only from the working folder, so a root `.openhands/hooks.json` does not apply when OpenHands works in a subfolder. A Claude matcher such as `Bash` matches nothing, because OpenHands calls that tool `terminal`.
-- Agents share Goose's folder and format. A generic `tools` list and a portable `color` are dropped with a sync note; set `x-openhands.tools` or `x-openhands.color`. See [agents](@/docs/targets/openhands-reference.md#agents).
-- OpenHands has no way to keep a skill user-only, so `disable-model-invocation` is dropped with a note, and commands are skipped.
+- Hooks load only from the working folder, so a root `.openhands/hooks.json` does not apply in a subfolder ([hooks](@/docs/targets/openhands-reference.md#hooks)).
+- A generic `tools` list and a portable `color` are dropped with a sync note. Use `x-openhands.tools` and `x-openhands.color` ([agents](@/docs/targets/openhands-reference.md#agents)).
+- `disable-model-invocation` is dropped with a note, and commands are skipped ([skills](@/docs/targets/openhands-reference.md#skills)).
 
 {% <details summary="More limits"> %}
-- A scoped rule becomes a path-triggered skill that OpenHands loads only when a matching file is touched; see [path-triggered rules](@/docs/targets/openhands-reference.md#path-triggered-rules).
-- `terminals` gets a sync note, because the setup script runs once when the repo starts. With several environment specs, the last `install` wins. See [environments](@/docs/targets/openhands-reference.md#environments).
-- `outputs.openhands.mcp-file` no longer has an effect, and the next sync removes a `config.toml` an earlier release wrote. See [legacy files](@/docs/targets/openhands-reference.md#mcp).
+- A project or home MCP spec gets one sync note pointing to Agent Canvas. An agent's `mcpServers` still reach its `mcp_servers`.
+- A Claude matcher such as `Bash` matches nothing, because OpenHands calls that tool `terminal`.
+- Agents share Goose's folder and format.
+- A scoped rule becomes a skill that OpenHands loads only when a matching file is touched ([path-triggered rules](@/docs/targets/openhands-reference.md#path-triggered-rules)).
+- `terminals` gets a sync note, because the setup script runs once when the repo starts. With several environment specs, the last `install` wins ([environments](@/docs/targets/openhands-reference.md#environments)).
+- `outputs.openhands.mcp-file` no longer has an effect. The next sync removes a `config.toml` an earlier release wrote ([legacy files](@/docs/targets/openhands-reference.md#mcp)).
 {% </details> %}
 
 ## Protected paths

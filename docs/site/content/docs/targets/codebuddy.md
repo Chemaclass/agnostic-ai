@@ -19,13 +19,11 @@ config-keys = "@/docs/targets/codebuddy-reference.md#config-keys"
 
 ## Fields and limits {#fields-and-limits .legacy-anchor}
 
-Use `codebuddy` for Tencent's CodeBuddy Code CLI. This adapter follows the [official CLI documentation](https://www.codebuddy.ai/docs/cli/installation) and npm package `@tencent-ai/codebuddy-code` 2.179.3.
+Use `codebuddy` for Tencent's CodeBuddy Code CLI. It follows the [official CLI documentation](https://www.codebuddy.ai/docs/cli/installation) and npm package `@tencent-ai/codebuddy-code` 2.179.3.
 
-Select it with `targets: [codebuddy]`. It is excluded from the defaults because native agent names reject digits, and scoped or portable empty agent tool lists cannot be represented.
+It is not in the default targets. Select it with `targets: [codebuddy]`, because native agent names reject digits and scoped or empty agent tool lists cannot be represented.
 
 ## First rule
-
-Create one rule, generate its native files, and check them:
 
 ```bash
 mkdir -p .agnostic-ai/rules
@@ -43,11 +41,11 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Open `CODEBUDDY.md` and find the rule text. CodeBuddy loads that file as project instructions. Keep editing the source rule, then sync again. To start from existing files, see [import an existing setup](@/docs/targets/codebuddy-reference.md#import-an-existing-setup).
+`CODEBUDDY.md` now holds the rule. Edit the source rule and sync again. Starting from existing files? See [import an existing setup](@/docs/targets/codebuddy-reference.md#import-an-existing-setup).
 
 ## Output
 
-| Source | Project output | User output with `sync --global --only codebuddy` |
+| Source | Project output | User output (`sync --global --only codebuddy`) |
 |---|---|---|
 | Instructions and always-on rules | `CODEBUDDY.md` (or imported `.codebuddy/CODEBUDDY.md`) | `~/.codebuddy/CODEBUDDY.md` |
 | Directory-scoped rules | `<scope>/CODEBUDDY.md` | Not supported |
@@ -56,23 +54,31 @@ Open `CODEBUDDY.md` and find the rule text. CodeBuddy loads that file as project
 | Skills and bundled files | `.codebuddy/skills/<name>/SKILL.md` | `~/.codebuddy/skills/<name>/SKILL.md` |
 | Commands | `.codebuddy/commands/<name>.md` | Project-only in agnostic-ai |
 | Settings and hooks | `.codebuddy/settings.json` | `~/.codebuddy/settings.json` |
-| MCP servers | Root `.mcp.json`, opt-in | `~/.codebuddy/.mcp.json` |
+| MCP servers | Root `.mcp.json`, [opt-in](@/docs/targets/codebuddy-reference.md#enable-project-mcp-output) | `~/.codebuddy/.mcp.json` |
 
-Output keys are in the [native reference](@/docs/targets/codebuddy-reference.md#config-keys).
+Output keys: [config keys](@/docs/targets/codebuddy-reference.md#config-keys).
 
 ## Verify
 
-Run `agnostic-ai sync --check`, then open `CODEBUDDY.md` and find the rule text. Start CodeBuddy from the project root and ask for a commit subject for a small fix; it should follow the rule.
+1. Run `agnostic-ai sync --check`.
+2. Open `CODEBUDDY.md` and find the rule text.
+3. Start CodeBuddy from the project root and ask for a commit subject for a small fix. It should follow the rule.
 
 ## Loading and limits
 
-- CodeBuddy loads ancestor instructions and discovers descendant `CODEBUDDY.md` files when it works there. Its modular rules directory is loaded from the current working directory only. Conditional rules carry `alwaysApply: false` and `paths`; paths alone do not make a rule conditional. Use portable `scope` for a whole directory. A scoped rule with narrower file filters is reported as unsupported.
-- Agent names use lowercase letters and hyphens. A portable empty `tools` or `can` list fails sync; set `x-codebuddy.tools: []` for an agent without tools. Sync rejects scoped shell and file tool patterns, so keep those policies in permission rules.
-- Sync never makes trust or approval decisions. CodeBuddy asks the user before the first connection to a project MCP server, and frontmatter hooks need the user's `allowUntrustedFrontmatterHooks` choice.
-- Ignore files, review configuration, environments, plugins, credentials, sessions, and automatic memories have no output in this adapter.
+- Agent names use lowercase letters and hyphens.
+- An empty `tools` or `can` list fails sync. Set `x-codebuddy.tools: []` for an agent with no tools.
+- Sync never approves anything. CodeBuddy asks before it first connects to a project MCP server.
+- No output for ignore files, review configuration, environments, plugins, credentials, sessions, or automatic memories.
 
-{% <details summary="More limits"> %}
-Agent fields, tool mappings, skill and command fields, MCP permission rules, settings keys, and hook rules are in [fields and limits](@/docs/targets/codebuddy-reference.md#fields-and-limits).
+{% <details summary="More limits: instruction loading, scoped patterns, hook trust"> %}
+- CodeBuddy loads ancestor instructions and finds descendant `CODEBUDDY.md` files when it works there.
+- Its rules directory loads from the current working directory only.
+- Conditional rules need `alwaysApply: false` and `paths`. Paths alone do not make a rule conditional.
+- Use portable `scope` for a whole directory. A scoped rule with narrower file filters is reported as unsupported.
+- Sync rejects scoped shell and file tool patterns. Keep those policies in permission rules.
+- Frontmatter hooks need the user's `allowUntrustedFrontmatterHooks` choice.
+- Agent fields, tool mappings, skill and command fields, MCP permission rules, settings keys, and hook rules: [fields and limits](@/docs/targets/codebuddy-reference.md#fields-and-limits).
 {% </details> %}
 
 ## Protected paths
@@ -89,4 +95,4 @@ outputs:
     root-mcp-file: .mcp.json
 ```
 
-Sync then writes an explicit `type` for each server and never approves project servers. See [project MCP output](@/docs/targets/codebuddy-reference.md#enable-project-mcp-output) for field and user-scope details.
+Sync writes an explicit `type` for each server and never approves project servers. Field and user-scope details: [project MCP output](@/docs/targets/codebuddy-reference.md#enable-project-mcp-output).

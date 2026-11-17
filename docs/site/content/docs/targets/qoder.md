@@ -54,43 +54,51 @@ import = "@/docs/targets/qoder-reference.md"
 
 ## Import {#import .legacy-anchor}
 
-agnostic-ai writes Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) rules, agents, skills, and commands under `.qoder/`, and merges MCP, hooks, and settings into `.qoder/settings.json`.
+agnostic-ai writes Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) rules, agents, skills, and commands under `.qoder/`. It merges MCP, hooks, and settings into `.qoder/settings.json`.
 
 ## First rule
 
-Follow the [official setup guide](https://qoder.com), open your project in the tool, select `qoder` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). By default, sync writes the shared commit-prefix rule to `.qoder/rules/conventional-commits.md`, or to shared `AGENTS.md` when another selected target already puts the rule there.
+1. Open your project in Qoder ([setup guide](https://qoder.com)).
+2. Add `qoder` to `targets` in `agnostic-ai.yaml`.
+3. Follow [First rule](@/docs/getting-started.md#first-rule).
+4. Keep `AGENTS.md` in the CLI context file list, so Qoder can read the shared copy.
 
-Keep `AGENTS.md` in the CLI context file list so Qoder can read the shared copy. For existing files, check [what `import qoder` reads](@/docs/targets/qoder-reference.md#import) before syncing.
+Sync writes the commit-prefix rule to `.qoder/rules/conventional-commits.md`. If another selected target already puts it in `AGENTS.md`, it goes there instead. Have existing files? Read [what `import qoder` reads](@/docs/targets/qoder-reference.md#import) first.
 
 ## Output
 
 | Source | Default output |
 |---|---|
-| Shared instructions | `AGENTS.md` (entry-point pointer body, plus the rules block when another tool adds it) |
-| Rules | `.qoder/rules/<name>.md`, for each rule `AGENTS.md` does not carry or that is not always-on |
+| Shared instructions | `AGENTS.md` (pointer body, plus the rules block when another tool adds it) |
+| Rules | `.qoder/rules/<name>.md` (skipped when `AGENTS.md` carries an always-on rule) |
 | Agents | `.qoder/agents/<name>.md` |
 | Skills and bundled files | `.qoder/skills/<name>/SKILL.md` |
 | Commands | `.qoder/commands/<name>.md` |
 | MCP servers, hooks, settings | `.qoder/settings.json` (merged; other keys are kept) |
 
-For output overrides and field mappings, see the [native reference](@/docs/targets/qoder-reference.md).
+Field mappings and output overrides: [native reference](@/docs/targets/qoder-reference.md).
 
 ## Verify
 
-Run `agnostic-ai sync --check` and find the commit-prefix rule in `.qoder/rules/conventional-commits.md` or the shared `AGENTS.md`. Open the project in Qoder. Confirm the rule is active, then ask for a commit subject for a small fix; it should use `fix:`.
+1. Run `agnostic-ai sync --check`.
+2. Open the project in Qoder and confirm the commit-prefix rule is active.
+3. Ask for a commit subject for a small fix. It should start with `fix:`.
 
 ## Loading and limits
 
-- Qoder reads `.qoder/rules/` and the root `AGENTS.md`. In the IDE, per-rule files win conflicts, so sync writes rules there. The CLI loads both and documents no order. See [rules](@/docs/targets/qoder-reference.md#rules).
-- Rule activation modes (always, manual, model-selected, file matching) follow the rule's frontmatter; see [rule activation](@/docs/targets/qoder-reference.md#rule-activation).
-- Hooks and MCP servers merge into `.qoder/settings.json`; Qoder takes 27 hook events, and `once` has no effect. See [hooks](@/docs/targets/qoder-reference.md#hooks).
-- With `handoff` or `handoff-hook`, linked worktrees get shared handoff write access through `permissions.additionalDirectories` in the ignored `.qoder/settings.json`. See [shared handoff access](@/docs/handoff.md#write-from-a-linked-worktree) for preserved configuration and fallback behavior.
+- Rules: the IDE lets per-rule files win, so sync writes them there ([rules](@/docs/targets/qoder-reference.md#rules)).
+- Activation modes follow rule frontmatter ([rule activation](@/docs/targets/qoder-reference.md#rule-activation)).
+- Hooks and MCP merge into `.qoder/settings.json` ([hooks](@/docs/targets/qoder-reference.md#hooks)).
 
 {% <details summary="More limits"> %}
-- A `type: ws` MCP server gets only a sync note, and JSONC comments in `.qoder/settings.json` are dropped with a warning; see [MCP](@/docs/targets/qoder-reference.md#mcp).
-- The `memory` agent field only works when `autoMemoryEnabled` is on in Qoder settings (default `false`). See [subagent memory](@/docs/targets/qoder-reference.md#subagent-memory).
-- Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. Check [the effect on other targets sharing that file](@/docs/target-behavior.md#inlined-rules).
-- A leftover root `.mcp.json` from older versions still loads and wins over `.qoder/settings.json` for a server with the same name. Delete it by hand in a Qoder-only project; see [hooks and leftover files](@/docs/targets/qoder-reference.md#hooks).
+- The CLI loads `.qoder/rules/` and `AGENTS.md` and documents no order between them.
+- Qoder takes 27 hook events. `once` has no effect.
+- With `handoff` or `handoff-hook`, linked worktrees get shared handoff write access through `permissions.additionalDirectories` in the ignored `.qoder/settings.json`. See [shared handoff access](@/docs/handoff.md#write-from-a-linked-worktree).
+- A `type: ws` MCP server gets only a sync note ([MCP](@/docs/targets/qoder-reference.md#mcp)).
+- JSONC comments in `.qoder/settings.json` are dropped with a warning.
+- The `memory` agent field needs `autoMemoryEnabled` on in Qoder settings (default `false`) ([subagent memory](@/docs/targets/qoder-reference.md#subagent-memory)).
+- `sync.unmanaged: [AGENTS.md]` makes every rule keep its file ([effect on other targets](@/docs/target-behavior.md#inlined-rules)).
+- A leftover root `.mcp.json` from older versions still loads and wins for a server with the same name. Delete it by hand in a Qoder-only project ([details](@/docs/targets/qoder-reference.md#hooks)).
 {% </details> %}
 
 ## Protected paths

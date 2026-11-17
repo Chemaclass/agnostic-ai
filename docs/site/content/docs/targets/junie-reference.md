@@ -14,25 +14,25 @@ Start with the [Junie setup](@/docs/targets/junie.md).
 
 ## Native mappings
 
-
-Junie uses the first guidelines source it finds, with no merging ([IDE plugin](https://junie.jetbrains.com/docs/junie-ide-plugin.html), [guidelines](https://junie.jetbrains.com/docs/guidelines-and-memory.html)):
+Junie uses the first guidelines source it finds and does not merge ([IDE plugin](https://junie.jetbrains.com/docs/junie-ide-plugin.html), [guidelines](https://junie.jetbrains.com/docs/guidelines-and-memory.html)):
 
 1. `.junie/AGENTS.md` (preferred).
 2. The root `AGENTS.md` plus `.junie/playbook.md` and every `.junie/rules/*.md`, when `.junie/` has nothing.
-3. The legacy `.junie/guidelines.md` / `.junie/guidelines/`.
+3. The legacy `.junie/guidelines.md` or `.junie/guidelines/`.
 
-`sync` always writes `.junie/AGENTS.md`, so Junie [uses it exclusively](https://junie.jetbrains.com/docs/environment-variables.html) and step 2 never applies.
+Sync always writes `.junie/AGENTS.md`, so Junie [uses it exclusively](https://junie.jetbrains.com/docs/environment-variables.html) and step 2 never applies.
 
 ### Rules
 
-A `## Rules` block right after the instructions that point to source specs, marked so sync can find it. Each rule is a `### <name>` section (source comment, optional description, full body), the same shape every tool that includes rules in instruction files uses.
+A `## Rules` block follows the instructions that point to source specs, marked so sync can find it. Each rule is a `### <name>` section: source comment, optional description, full body. Every tool that puts rules in instruction files uses this shape.
 
 ### Agents
 
-([docs](https://junie.jetbrains.com/docs/junie-cli-subagents.html)): Junie reads `.junie/agents/` (the vendor's preferred location and the default here) or `.agents/`. Junie CLI offers to import `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/` into it. Set `outputs.junie.agents-dir: .agents` for the shared alternative, like Codex's `outputs.codex.agents-dir: .agents/agents`.
+[Docs](https://junie.jetbrains.com/docs/junie-cli-subagents.html). Junie reads `.junie/agents/` (the vendor's preferred location and the default here) or `.agents/`. Junie CLI offers to import `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/`. Set `outputs.junie.agents-dir: .agents` for the shared alternative, like Codex's `outputs.codex.agents-dir: .agents/agents`.
 
-- Names, and filenames when `name` is missing, must match `[a-z][a-z0-9_-]*` (underscores allowed, unlike the OpenCode and Zed skill rule). An invalid name such as `Deploy_Bot` fails sync, and the error shows the required format. Sync does not rename it.
-- Frontmatter is copied as written. The documented fields (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) use the same spelling as specs, and `tools` and `disallowedTools` stay YAML lists.
+- Names (and filenames when `name` is missing) must match `[a-z][a-z0-9_-]*`. Underscores are allowed, unlike the OpenCode and Zed skill rule.
+- An invalid name such as `Deploy_Bot` fails sync with the required format. Sync does not rename it.
+- Frontmatter is copied as written. Documented fields: `name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`. They use the spec spelling, and `tools` and `disallowedTools` stay YAML lists.
 - Tool group labels match the Claude names for each documented group, including `WebFetch`, plus `AskUserQuestion`. There is no `Task`, `TodoWrite`, or `NotebookEdit`.
 - `reasoningLevel` also accepts the alias `effort`, which wins when both are set. Both are copied as written.
 - Agent bodies are not copied into `.junie/AGENTS.md`, as with Augment and Kilo Code.
@@ -40,7 +40,7 @@ A `## Rules` block right after the instructions that point to source specs, mark
 
 ### Commands
 
-([project commands folder](https://junie.jetbrains.com/docs/custom-slash-commands.html)): Junie documents `description` and `allowPromptArgument` (free-form text through a `$prompt` placeholder). Other keys are copied as written. Junie fills `$argumentName` placeholders in the body when you run the command.
+[Project commands folder](https://junie.jetbrains.com/docs/custom-slash-commands.html). Junie documents `description` and `allowPromptArgument` (free-form text through a `$prompt` placeholder). Other keys are copied as written. Junie fills `$argumentName` placeholders in the body when you run the command.
 
 ### CLI only
 
@@ -48,21 +48,30 @@ The IDE plugin docs mention neither subagents nor slash commands.
 
 ### Skills
 
-Bundled files are copied as they are, and a flat file never loads as a skill. Junie CLI also loads `.agents/skills/` in a trusted project ([agent-skills](https://junie.jetbrains.com/docs/agent-skills.html)), so another tool that writes it gives Junie a harmless second copy.
+- Bundled files are copied as they are. A flat file never loads as a skill.
+- Junie CLI also loads `.agents/skills/` in a trusted project ([agent-skills](https://junie.jetbrains.com/docs/agent-skills.html)). Another tool that writes it gives Junie a harmless second copy.
 
 ### MCP
 
-`.junie/mcp/mcp.json` in the standard `mcpServers` schema (`command`/`args`/`env` local, `url`/`headers` remote). The per-server `timeout` is also preserved in milliseconds for local and remote servers. `x-junie.timeout` overrides the portable value. Junie defaults to 60000 ms and documents a range of 1000 through 3600000 ms ([request timeout](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html#request-timeout)). It ignores a value outside that range and uses 60 seconds, so `lint` warns (LINT059) and sync prints a note for a value above 3600000. `disabled` and `description` are dropped with a sync note. Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+`.junie/mcp/mcp.json` uses the standard `mcpServers` schema: `command`/`args`/`env` for local servers, `url`/`headers` for remote.
+
+- The per-server `timeout` is kept in milliseconds for local and remote servers. `x-junie.timeout` overrides it.
+- Junie defaults to 60000 ms and accepts 1000 through 3600000 ms ([request timeout](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html#request-timeout)). It ignores a value outside that range and uses 60 seconds. `lint` warns (LINT059) and sync prints a note for a value above 3600000.
+- `disabled` and `description` are dropped with a sync note. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+- Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**.
 
 ### Settings
 
-A settings spec's default `model` and `effort` merge into `.junie/config.json`, keeping other keys. Junie loads this file only in a trusted project. `effort` passes through as written, and `x-junie.effort` overrides it ([effort by target](@/docs/spec-format/settings.md#effort-by-target)). `x-junie` adds project-config keys that have no portable field.
+- A settings spec's default `model` and `effort` merge into `.junie/config.json`. Other keys are kept.
+- Junie loads this file only in a trusted project.
+- `effort` passes through as written. `x-junie.effort` overrides it ([effort by target](@/docs/spec-format/settings.md#effort-by-target)).
+- `x-junie` adds project-config keys that have no portable field.
 
 ### Ignore
 
 `.aiignore` in the project root, in `.gitignore` syntax ([IDE plugin](https://junie.jetbrains.com/docs/junie-ide-plugin.html)). Specs are joined. Override the path with `outputs.junie.ignore-file`.
 
-- Junie asks before it views or edits a listed file instead of blocking it, and it protects contents, not names.
+- Junie asks before it views or edits a listed file. It does not block, and it protects contents, not names.
 - Brave Mode, or an allowlisted command that names the path, skips the prompt.
 - Only the IDE plugin docs mention `.aiignore`. No CLI page does.
 
@@ -71,7 +80,7 @@ With `sync.target-overview` off and another tool that reads `AGENTS.md` enabled,
 <details>
 <summary>IDE plugin Custom path</summary>
 
-The IDE plugin reads an optional **Custom path** (Settings | Tools | Junie | Project Settings) before `.junie/AGENTS.md`. The CLI documents `--guidelines-filename` and `JUNIE_GUIDELINES_FILENAME` for a custom guidelines file in `.junie/` at the project root ([environment variables](https://junie.jetbrains.com/docs/environment-variables.html)).
+The IDE plugin reads an optional **Custom path** (Settings | Tools | Junie | Project Settings) before `.junie/AGENTS.md`. The CLI has `--guidelines-filename` and `JUNIE_GUIDELINES_FILENAME` for a custom guidelines file in `.junie/` at the project root ([environment variables](https://junie.jetbrains.com/docs/environment-variables.html)).
 
 </details>
 
@@ -102,7 +111,7 @@ Older versions wrote rules and agents to `.junie/rules/`, which `.junie/AGENTS.m
 - The Rules block in `.junie/AGENTS.md`.
 - Agents from `.junie/agents/<name>.md` (or `.agents/<name>.md`).
 - Commands from `.junie/commands/<name>.md`.
-- Skills, with bundled files, from `.junie/skills/<name>/SKILL.md`, then `.agents/skills/` for names not already found.
+- Skills and bundled files from `.junie/skills/<name>/SKILL.md`, then `.agents/skills/` for names not already found.
 - The default `model` and `effort` in `.junie/config.json`, restored to `settings/junie.yaml`.
 - MCP servers from `.junie/mcp/mcp.json`, including request timeouts.
 
