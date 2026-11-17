@@ -713,7 +713,7 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 	if !needsJob(goreleaser.Needs, "companion") {
 		t.Errorf("goreleaser needs %v, want it to wait for companion", goreleaser.Needs)
 	}
-	if !strings.Contains(goreleaser.If, "!cancelled()") || strings.Contains(goreleaser.If, "needs.companion") {
+	if !strings.Contains(goreleaser.If, "!cancelled()") || strings.Contains(goreleaser.If, "needs.companion") { //nolint:misspell // GitHub Actions names the function cancelled()
 		t.Errorf("goreleaser runs if %q; a failed companion build must not hold back the release", goreleaser.If)
 	}
 	if job.TimeoutMinutes == 0 {
@@ -722,7 +722,7 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 	// A job with no `if` is skipped when any job before it failed, so each
 	// one after goreleaser must say it runs past a failed companion build.
 	for name, later := range jobs {
-		if needsJob(later.Needs, "goreleaser") && !strings.Contains(later.If, "cancelled()") && !strings.Contains(later.If, "always()") {
+		if needsJob(later.Needs, "goreleaser") && !strings.Contains(later.If, "cancelled()") && !strings.Contains(later.If, "always()") { //nolint:misspell // GitHub Actions names the function cancelled()
 			t.Errorf("the %s job runs if %q, so a failed companion build skips it", name, later.If)
 		}
 	}
