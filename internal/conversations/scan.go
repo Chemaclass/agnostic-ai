@@ -110,6 +110,9 @@ type Scanner struct {
 	// sharedClouds maps the mark key of each shared row of the last read
 	// to the cloud id it took in, so a mark on it reaches both.
 	sharedClouds map[string]string
+	// twins holds, by mark key, the cloud twin each local session took
+	// in while it ran; see followTwins.
+	twins map[string]twin
 	// appArchives holds, by mark key, the conversations their own app
 	// keeps archived; see stillAppArchived.
 	appArchives map[string]appArchive
@@ -407,6 +410,8 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
 	claude.conversations = shareCloud(append(claude.conversations, claudeCloud...))
+	whole := ctx.Err() == nil && len(opts.Within) == 0 && claude.source.Found && s.cloudWhole(ToolClaude, s.Cloud)
+	claude.conversations = s.followTwins(claude.conversations, whole)
 	s.sharedClouds = nil
 	for _, c := range claude.conversations {
 		if c.Cloud != nil {

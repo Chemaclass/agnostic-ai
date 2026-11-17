@@ -94,7 +94,7 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 		return DeleteReply{}, &DeleteError{Kind: DeleteFailed, Message: "Nothing was deleted: " + err.Error(), Cause: err}
 	}
 	key := markKey(tool, id)
-	entry := file.Marks[key]
+	entry := withTwinSeen(file, c, file.Marks[key])
 	if entry.HiddenAt != "" {
 		return DeleteReply{}, refuse(DeleteNotListed, notListedMessage)
 	}
