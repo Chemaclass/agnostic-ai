@@ -198,12 +198,12 @@ Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the 
 
 Types `text` into a conversation's input and returns `{sent, message}`. It never presses Enter: you review the text and send it yourself.
 
-- `sent` is true only when the text was typed. On macOS that is a live session in a Terminal or Ghostty tab.
+- `sent` is true only when the text was typed into a live Terminal or Ghostty tab.
 - The conversation comes from the server's own scan, never from the request.
-- Right before it types, the server checks that the session still runs and holds its terminal in front. A session that ended is refused, never resumed and typed into. So is one suspended to its shell.
-- `html` is the copied HTML, when the clipboard held some. The server turns it into Markdown and sends that instead of `text` when it holds links, tables, code blocks, headings or lists. Scripts, styles, images and link titles are dropped. When the HTML holds none of these, shows a word `text` does not hold (such as text hidden on the page), the conversion fails, or the Markdown is over 256 KB, `text` goes as it is. `message` says when the Markdown went in.
+- Right before typing, the server checks that the session still runs and holds its terminal in front. An ended or suspended session is refused, never resumed and typed into.
+- `html`, the copied HTML, goes as Markdown instead when it holds links, tables, code blocks, headings or lists, and every word it shows is in `text`.
 - The text keeps its newlines and tabs. Other control characters, escape sequences and bracketed paste markers are removed, and trailing newlines are trimmed.
-- Ghostty takes the text as one paste, so several lines never submit one by one. Terminal pastes it from the clipboard with Cmd+V, after the server puts the cleaned text there, so afterwards the clipboard holds that text or Markdown.
+- Ghostty takes the text as one paste, so several lines never submit one by one. Terminal pastes it from the clipboard with Cmd+V, after the server puts the cleaned text there.
 - Never typed into: a Cursor session, which does not say when it waits; a working Codex session, which may drop the text; a session waiting for your answer, which a typed letter could answer. A working Claude Code session keeps the text in its input.
 - Anywhere else the server switches to the conversation as `POST /api/conversations/open` does, and `message` says to paste with Cmd+V: editor terminals, Claude Code background sessions, Codex threads with no known terminal, the Claude app, cloud sessions and editor chats.
 - macOS asks once for Automation access to each app. Pasting into Terminal also needs Accessibility access, in System Settings › Privacy & Security › Accessibility.
