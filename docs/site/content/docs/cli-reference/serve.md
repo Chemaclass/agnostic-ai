@@ -105,7 +105,7 @@ In the browser:
   - **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
   - The first time, macOS asks to let agnostic-ai control each terminal app.
   - Codex and Cursor chats need the `sqlite3` command.
-  - See [`/api/views/conversations`](@/docs/cli-reference/serve-api.md).
+  - See [`/api/views/conversations`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
 - On wide screens, the rail labels the page **Project** or **Global** and shows its path under the name. On phones, the top bar shows the name and **Menu** shows the path.
 - The foot of the rail (in **Menu** on phones) names the agnostic-ai version that serves the page. When the config sets [`requires`](@/docs/configuration.md#requires), the line under it names that range. When the running release is outside that range, the line uses the warning color and the rail shows **Update needed** beside the version.
 - **Overview JSON** at the foot of the rail (in **Menu** on phones) opens the overview document behind the page, with its endpoint, schema version, revision, and the command that prints it (`agnostic-ai view --json`). `Esc` closes it.
