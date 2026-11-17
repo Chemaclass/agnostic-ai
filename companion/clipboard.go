@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -25,6 +26,13 @@ const maxServerBodyBytes = 1 << 20
 // previewRunes is how much of the copied text the pick banner shows.
 const previewRunes = 200
 
+// Formats a send goes as: copied HTML becomes Markdown when the server
+// finds links, tables, code blocks, headings or lists in it.
+const (
+	formatText     = "text"
+	formatMarkdown = "markdown"
+)
+
 // clipboardReply describes the copied text without carrying all of it.
 // hash names the exact text, so a send can tell it did not change.
 type clipboardReply struct {
@@ -32,6 +40,7 @@ type clipboardReply struct {
 	Words   int    `json:"words"`
 	Chars   int    `json:"chars"`
 	Hash    string `json:"hash"`
+	Format  string `json:"format,omitempty"`
 }
 
 type sendRequest struct {
@@ -45,7 +54,35 @@ func clipboardHash(text string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func describeClipboard(text string) clipboardReply {
+// copiedHash names the text and the HTML copied with it, so a send can
+// tell that neither changed and that both came from one copy.
+func copiedHash(text, html string) string {
+	if html == "" {
+		return clipboardHash(text)
+	}
+	return clipboardHash(fmt.Sprintf("%d\x00%s%s", len(text), text, html))
+}
+
+// notPage is what a copied page holds that is never shown.
+var notPage = regexp.MustCompile(`(?is)<!--.*?-->|<(?:script|style|template|noscript)\b.*?</(?:script|style|template|noscript)\s*>`)
+
+// structured matches what Markdown keeps and plain text loses. It only
+// labels the banner: the server parses the HTML and decides.
+var structured = regexp.MustCompile(`(?i)<(?:table|pre|ul|ol|h[1-6])[\s>/]|<a\s(?:[^>]*\s)?href\s*=\s*["']?\s*[^\s"'>]`)
+
+// formatOf labels the banner: Markdown only when the HTML has something
+// to keep and fits beside the text in the server's request.
+func formatOf(text, html string) string {
+	if !structured.MatchString(notPage.ReplaceAllString(html, "")) {
+		return formatText
+	}
+	if body, err := encodeSend(sendRequest{}, text, html); err != nil || len(body)+maxRequestBytes > maxServerBodyBytes {
+		return formatText
+	}
+	return formatMarkdown
+}
+
+func describeClipboard(text, html string) clipboardReply {
 	if strings.TrimSpace(text) == "" {
 		return clipboardReply{}
 	}
@@ -53,12 +90,19 @@ func describeClipboard(text string) clipboardReply {
 	if utf8.RuneCountInString(preview) > previewRunes {
 		preview = string([]rune(preview)[:previewRunes])
 	}
-	return clipboardReply{Preview: preview, Words: len(strings.Fields(text)), Chars: utf8.RuneCountInString(text), Hash: clipboardHash(text)}
+	return clipboardReply{Preview: preview, Words: len(strings.Fields(text)), Chars: utf8.RuneCountInString(text), Hash: copiedHash(text, html), Format: formatOf(text, html)}
+}
+
+func (in *inbox) copiedHTML() string {
+	if in.readClipboardHTML == nil {
+		return ""
+	}
+	return in.readClipboardHTML()
 }
 
 // clipboard answers GET /api/clipboard with what the person copied.
 func (in *inbox) clipboard(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, describeClipboard(in.readClipboard()))
+	writeJSON(w, http.StatusOK, describeClipboard(in.readClipboard(), in.copiedHTML()))
 }
 
 // send answers POST /api/send. The page names a conversation and the
@@ -73,12 +117,12 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "send {tool, id, hash}"})
 		return
 	}
-	text := in.readClipboard()
+	text, html := in.readClipboard(), in.copiedHTML()
 	if strings.TrimSpace(text) == "" {
 		writeJSON(w, http.StatusConflict, apiError{Error: "Nothing to send: copy some text first."})
 		return
 	}
-	if clipboardHash(text) != req.Hash {
+	if copiedHash(text, html) != req.Hash {
 		writeJSON(w, http.StatusConflict, apiError{Error: "The copied text changed. Check the new text, then send again."})
 		return
 	}
@@ -86,22 +130,16 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, apiError{Error: fmt.Sprintf("The text is %d KB, over the %d KB a send takes, so nothing was typed.", (len(text)+1023)>>10, maxSendBytes>>10)})
 		return
 	}
-	var body bytes.Buffer
-	encoder := json.NewEncoder(&body)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(struct {
-		Tool string `json:"tool"`
-		ID   string `json:"id"`
-		Text string `json:"text"`
-	}{req.Tool, req.ID, text}); err != nil {
+	body, err := serverSendBody(req, text, html)
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
 		return
 	}
-	if body.Len() > maxServerBodyBytes {
+	if len(body) > maxServerBodyBytes {
 		writeJSON(w, http.StatusRequestEntityTooLarge, apiError{Error: "The text holds too many special characters to send, so nothing was typed. Copy less of it."})
 		return
 	}
-	answer, err := in.server.call(r.Context(), http.MethodPost, serverSendPath, bytes.TrimSuffix(body.Bytes(), []byte("\n")), "")
+	answer, err := in.server.call(r.Context(), http.MethodPost, serverSendPath, body, "")
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 		return
@@ -118,4 +156,29 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(answer.status)
 	_, _ = io.Copy(w, bytes.NewReader(answer.body))
+}
+
+// serverSendBody is the server's send request. HTML that would push it
+// past the server's limit is left out, so the plain text still goes.
+func serverSendBody(req sendRequest, text, html string) ([]byte, error) {
+	body, err := encodeSend(req, text, html)
+	if err != nil || html == "" || len(body) <= maxServerBodyBytes {
+		return body, err
+	}
+	return encodeSend(req, text, "")
+}
+
+func encodeSend(req sendRequest, text, html string) ([]byte, error) {
+	var body bytes.Buffer
+	encoder := json.NewEncoder(&body)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(struct {
+		Tool string `json:"tool"`
+		ID   string `json:"id"`
+		Text string `json:"text"`
+		HTML string `json:"html,omitempty"`
+	}{req.Tool, req.ID, text, html}); err != nil {
+		return nil, fmt.Errorf("encode the send: %w", err)
+	}
+	return bytes.TrimSuffix(body.Bytes(), []byte("\n")), nil
 }

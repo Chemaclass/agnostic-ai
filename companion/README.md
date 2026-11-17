@@ -120,6 +120,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   button beside the search. A banner shows "Send 412 words to…" with the
   start of the text. Pick a chat with **↑ ↓** and **Enter**, or a click. The
   text lands in that chat's input and is not sent: you press Enter there.
+  - Text copied from a web page goes as Markdown when it holds links,
+    tables, code blocks, headings or lists, and the banner says "Send
+    Markdown, 412 words to…". Other copied text goes as plain text. On
+    macOS only.
   - The list shows only this machine's chats, without Archived. A search can
     still show an archived chat, dimmed, and it cannot be picked.
   - The first chat the text can be typed into is selected. Nothing is sent

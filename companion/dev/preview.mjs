@@ -44,6 +44,8 @@ function fixtureState(name, now) {
     waitingSeen: waitingIn(conversations),
     /** What the preview's clipboard holds, as the shell would read it. */
     clipboard: fixture.clipboard ?? COPIED,
+    /** Whether the copied text came as HTML the server turns into Markdown. */
+    copiedMarkdown: Boolean(fixture.clipboardMarkdown),
   }
 }
 
@@ -52,15 +54,21 @@ const COPIED = 'Fix the flaky login test.\nThen run the whole suite.\nReport wha
 
 const TOOL_LABELS = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor', chatgpt: 'ChatGPT' }
 
-/** Like the shell: the copied text without all of it. */
-function clipboardOf(text) {
+/** Like the shell: the copied text without all of it, and the format it goes as. */
+function clipboardOf(text, markdown = false) {
   if (text.trim() === '') return { preview: '', words: 0, chars: 0, hash: '' }
   const chars = [...text]
-  return { preview: chars.slice(0, 200).join(''), words: text.split(/\s+/).filter(Boolean).length, chars: chars.length, hash: createHash('sha256').update(text).digest('hex') }
+  return {
+    preview: chars.slice(0, 200).join(''),
+    words: text.split(/\s+/).filter(Boolean).length,
+    chars: chars.length,
+    hash: createHash('sha256').update(text).digest('hex'),
+    format: markdown ? 'markdown' : 'text',
+  }
 }
 
 /** Like the server: typed into a live terminal session, else switched to with a paste to make. */
-function sendReplyOf(row) {
+function sendReplyOf(row, markdown = false) {
   if (row.app === 'cloud' || row.tool === 'cursor') return { sent: false, message: 'Switched to it. Paste with Cmd+V.' }
   if (row.state === 'blocked') {
     return { sent: false, message: 'It waits for your answer, and typed text could answer its question, so nothing was typed. Switched to it. Paste with Cmd+V.' }
@@ -68,7 +76,7 @@ function sendReplyOf(row) {
   if (row.state === 'working' && row.tool !== 'claude') {
     return { sent: false, message: `${TOOL_LABELS[row.tool]} is working and may drop typed text, so nothing was typed. Switched to it. Paste with Cmd+V.` }
   }
-  return { sent: true, message: 'Typed into the Ghostty tab that runs it. Press Enter there to send it.' }
+  return { sent: true, message: `Typed${markdown ? ' the Markdown' : ''} into the Ghostty tab that runs it. Press Enter there to send it.` }
 }
 
 function waitingIn(conversations) {
@@ -248,12 +256,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   async function send(request, response) {
     const body = await bodyOf(request)
     logCall('/api/send', body)
-    const copied = clipboardOf(state.clipboard)
+    const copied = clipboardOf(state.clipboard, state.copiedMarkdown)
     if (copied.words === 0) return sendJSON(response, 409, { error: 'Nothing to send: copy some text first.' })
     if (body.hash !== copied.hash) return sendJSON(response, 409, { error: 'The copied text changed. Check the new text, then send again.' })
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this list any more. Refresh the page.' })
-    sendJSON(response, 200, sendReplyOf(row))
+    sendJSON(response, 200, sendReplyOf(row, copied.format === 'markdown'))
   }
 
   /** Like the shell: one press cannot do both, so the other shortcut's keys are refused. */
@@ -299,7 +307,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
-    'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard)),
+    'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard, state.copiedMarkdown)),
     'POST /api/send': send,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
@@ -392,7 +400,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     },
     // Something else copied while the list shows.
     'POST /dev/clipboard': async (request, response) => {
-      state.clipboard = String((await bodyOf(request)).text ?? '')
+      const copied = await bodyOf(request)
+      state.clipboard = String(copied.text ?? '')
+      state.copiedMarkdown = Boolean(copied.markdown)
       noContent(response)
     },
     'POST /dev/arrive': (request, response) => {

@@ -121,9 +121,10 @@ export function pickableClip(clip) {
   return clip && clip.words > 0 && typeof clip.hash === 'string' && clip.hash !== '' ? clip : undefined
 }
 
-/** The pick banner's title: "Send 412 words to…". */
+/** The pick banner's title: "Send 412 words to…", or "Send Markdown, 412 words to…" when copied HTML goes as Markdown. */
 export function pickTitleOf(clip) {
-  return `Send ${clip.words} ${clip.words === 1 ? 'word' : 'words'} to…`
+  const words = `${clip.words} ${clip.words === 1 ? 'word' : 'words'}`
+  return `Send ${clip.format === 'markdown' ? `Markdown, ${words}` : words} to…`
 }
 
 /** The first words of the copied text, for the chip that flies into the picked row. */
@@ -164,9 +165,9 @@ export function straightSendOf(conversations) {
   return rows.length === 1 ? rows[0] : undefined
 }
 
-/** The pick banner's title during a straight send: "Sending to Plan the sync dry run". */
-export function sendingTitleOf(conversation) {
-  return `Sending to ${titleOf(conversation)}`
+/** The pick banner's title during a straight send: "Sending to Plan the sync dry run", or "Sending Markdown to …" for a copied web page. */
+export function sendingTitleOf(conversation, clip) {
+  return `Sending ${clip?.format === 'markdown' ? 'Markdown ' : ''}to ${titleOf(conversation)}`
 }
 
 /** The groups pick mode shows: Archived only while a search is typed, and its rows then cannot be picked. */

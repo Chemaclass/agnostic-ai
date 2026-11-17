@@ -392,6 +392,8 @@ test('the send shortcut sends straight only when exactly one row can be typed in
   assert.equal(straightSendOf([]), undefined)
   assert.equal(sendingTitleOf(one), 'Sending to one')
   assert.equal(sendingTitleOf({ ...one, title: '' }), 'Sending to Untitled conversation')
+  assert.equal(sendingTitleOf(one, { format: 'text' }), 'Sending to one')
+  assert.equal(sendingTitleOf(one, { format: 'markdown' }), 'Sending Markdown to one')
 })
 
 test('pick mode opens only on copied text, and names it by its words', () => {
@@ -401,6 +403,8 @@ test('pick mode opens only on copied text, and names it by its words', () => {
   assert.equal(pickableClip(undefined), undefined)
   assert.equal(pickTitleOf(clip), 'Send 8 words to…')
   assert.equal(pickTitleOf({ ...clip, words: 1 }), 'Send 1 word to…')
+  assert.equal(pickTitleOf({ ...clip, format: 'text' }), 'Send 8 words to…')
+  assert.equal(pickTitleOf({ ...clip, format: 'markdown', words: 412 }), 'Send Markdown, 412 words to…')
   assert.equal(chipTextOf(clip), 'Fix the flaky login…')
   assert.equal(chipTextOf({ ...clip, preview: 'Two words' }), 'Two words')
   assert.equal(NOTHING_TO_SEND, 'Nothing to send: copy some text first.')

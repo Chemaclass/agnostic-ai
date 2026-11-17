@@ -66,6 +66,17 @@ func CleanSendText(text string) string {
 // tab. Anywhere else it switches to the conversation and leaves the
 // paste to the person, since the clipboard still holds the text.
 func Send(ctx context.Context, c Conversation, text string, processes Processes, launcher Launcher) SendReply {
+	return send(ctx, c, text, false, processes, launcher)
+}
+
+// SendMarkdown sends Markdown made from copied HTML, as Send does, and
+// says so. Terminal pastes from the clipboard, so there the clipboard
+// holds the Markdown afterwards.
+func SendMarkdown(ctx context.Context, c Conversation, markdown string, processes Processes, launcher Launcher) SendReply {
+	return send(ctx, c, markdown, true, processes, launcher)
+}
+
+func send(ctx context.Context, c Conversation, text string, markdown bool, processes Processes, launcher Launcher) SendReply {
 	if len(text) > MaxSendBytes {
 		return SendReply{Message: fmt.Sprintf("The text is %s, over the %s a send takes, so nothing was typed.", sizeOf(len(text)), sizeOf(MaxSendBytes))}
 	}
@@ -109,6 +120,9 @@ func Send(ctx context.Context, c Conversation, text string, processes Processes,
 	}
 	ok, err := launcher.TypeInTab(ctx, app, tty, text)
 	byHand := " The text is on the clipboard: paste it with Cmd+V."
+	if markdown && app == "Terminal" {
+		byHand = " The Markdown is on the clipboard: paste it with Cmd+V."
+	}
 	switch {
 	case errors.Is(err, errAutomationDenied):
 		return SendReply{Message: allowControl("typing into", app, "then send again")}
@@ -127,7 +141,14 @@ func Send(ctx context.Context, c Conversation, text string, processes Processes,
 	if app == "Terminal" {
 		verb = "Pasted"
 	}
-	return SendReply{Sent: true, Message: fmt.Sprintf("%s into the %s tab that runs it. Press Enter there to send it.", verb, app)}
+	what, clipboard := "", ""
+	if markdown {
+		what = " the Markdown"
+		if app == "Terminal" {
+			clipboard = " The clipboard now holds the Markdown."
+		}
+	}
+	return SendReply{Sent: true, Message: fmt.Sprintf("%s%s into the %s tab that runs it.%s Press Enter there to send it.", verb, what, app, clipboard)}
 }
 
 // waiting is a session that asks the person something, such as a

@@ -874,6 +874,14 @@ test('Enter on a subagent control opens nothing but what it names, even with its
 
 const pickBanner = (page: Page) => page.getByRole('region', { name: 'Send the copied text' })
 
+test('a copied web page names its format in the banner', async ({ page }) => {
+  await openPanel(page, 'markdown-clipboard')
+  await page.keyboard.press('Meta+Shift+KeyV')
+
+  await expect(pickBanner(page)).toContainText('Send Markdown, 12 words to…')
+  await expect(pickBanner(page)).toContainText('Release notes')
+})
+
 test('Cmd+Shift+V picks a conversation for the copied text, and Enter sends it there', async ({ page }) => {
   await openPanel(page)
   await page.keyboard.press('Meta+Shift+KeyV')
@@ -1027,6 +1035,28 @@ test('the send shortcut sends straight to the one row the text can be typed into
   expect(calls).toContain('/api/panel/hide')
   expect(calls).not.toContain('/api/open')
   expect(calls).not.toContain('/api/panel/show')
+})
+
+test('the send shortcut sends a copied web page straight to the one row as Markdown', async ({ page }) => {
+  await openPanel(page, 'one-terminal-markdown')
+  await page.evaluate(() => {
+    const seen = { named: false }
+    ;(window as unknown as { seen: typeof seen }).seen = seen
+    new MutationObserver(() => {
+      if (document.getElementById('pick-title')?.textContent === 'Sending Markdown to Plan the sync dry run') seen.named = true
+    }).observe(document.getElementById('card')!, { childList: true, subtree: true, characterData: true })
+  })
+  const copied = await (await page.request.get('/api/clipboard')).json()
+  expect(copied.format).toBe('markdown')
+  const sent = page.waitForResponse((response) => response.url().endsWith('/api/send'))
+
+  await pressSendShortcut(page)
+
+  const answer = await sent
+  expect(answer.request().postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', hash: copied.hash })
+  expect((await answer.json()).message).toBe('Typed the Markdown into the Ghostty tab that runs it. Press Enter there to send it.')
+  await expect(pickBanner(page)).toBeHidden()
+  expect(await page.evaluate(() => (window as unknown as { seen: { named: boolean } }).seen.named)).toBe(true)
 })
 
 test('the send shortcut with no row to type into opens pick mode and sends nothing', async ({ page }) => {

@@ -707,7 +707,7 @@ async function sendFromAnywhere(from) {
   const target = onlyRow()
   if (!target) return
   state.activeKey = keyOf(target)
-  pickTitle.textContent = sendingTitleOf(target)
+  pickTitle.textContent = sendingTitleOf(target, shown)
   draw({ force: true })
   if (moves()) await new Promise((resolve) => setTimeout(resolve, STRAIGHT_HOLD_MS))
   const still = onlyRow()

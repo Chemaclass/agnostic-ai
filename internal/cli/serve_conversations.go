@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 )
 
 const (
@@ -44,6 +45,7 @@ type conversationSendRequest struct {
 	Tool conversations.Tool `json:"tool"`
 	ID   string             `json:"id"`
 	Text string             `json:"text"`
+	HTML string             `json:"html"`
 }
 
 type conversationMarkRequest struct {
@@ -238,7 +240,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 			tooLarge("over")
 			return
 		}
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, text}"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, text, html?}"})
 		return
 	}
 	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
@@ -260,7 +262,22 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
 		return
 	}
-	writeEditJSON(w, http.StatusOK, conversations.Send(r.Context(), conversation, req.Text, h.scanner.Processes, h.launcher))
+	text, asMarkdown := req.sendable()
+	send := conversations.Send
+	if asMarkdown {
+		send = conversations.SendMarkdown
+	}
+	writeEditJSON(w, http.StatusOK, send(r.Context(), conversation, text, h.scanner.Processes, h.launcher))
+}
+
+// sendable is what a send types: the copied HTML as Markdown when that
+// adds something to the plain text, else the text. Markdown too long to
+// send falls back to the text.
+func (req conversationSendRequest) sendable() (string, bool) {
+	if converted := markdown.FromHTML(req.HTML, req.Text); converted != "" && len(converted) <= conversations.MaxSendBytes {
+		return converted, true
+	}
+	return req.Text, false
 }
 
 // mark records that the person saw a conversation, completed it, took

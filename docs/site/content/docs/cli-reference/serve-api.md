@@ -194,13 +194,14 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 
 ## `POST /api/conversations/send`
 
-Body: `{tool, id, text}` with `Content-Type: application/json`, from the server's own origin.
+Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the server's own origin.
 
 Types `text` into a conversation's input and returns `{sent, message}`. It never presses Enter: you review the text and send it yourself.
 
-- `sent` is true only when the text was typed. On macOS that is a live session in a Terminal or Ghostty tab.
+- `sent` is true only when the text was typed into a live Terminal or Ghostty tab.
 - The conversation comes from the server's own scan, never from the request.
-- Right before it types, the server checks that the session still runs and holds its terminal in front. A session that ended is refused, never resumed and typed into. So is one suspended to its shell.
+- Right before typing, the server checks that the session still runs and holds its terminal in front. An ended or suspended session is refused, never resumed and typed into.
+- `html`, the copied HTML, goes as Markdown instead when it holds links, tables, code blocks, headings or lists, and every word it shows is in `text`.
 - The text keeps its newlines and tabs. Other control characters, escape sequences and bracketed paste markers are removed, and trailing newlines are trimmed.
 - Ghostty takes the text as one paste, so several lines never submit one by one. Terminal pastes it from the clipboard with Cmd+V, after the server puts the cleaned text there.
 - Never typed into: a Cursor session, which does not say when it waits; a working Codex session, which may drop the text; a session waiting for your answer, which a typed letter could answer. A working Claude Code session keeps the text in its input.

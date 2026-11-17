@@ -288,3 +288,63 @@ func TestTypeInTabArgs_PassTheTextAsAnArgument(t *testing.T) {
 		}
 	}
 }
+
+func TestSendMarkdown_SaysTheMarkdownWentInAndWhereTheClipboardHoldsIt(t *testing.T) {
+	at := func(app, tty string) Conversation {
+		return Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: app, TTY: tty}}}
+	}
+	holding := func(tty string) fakeProcesses {
+		return fakeProcesses{alive: map[int]bool{42: true}, table: []ProcessInfo{{PID: 42, Stat: "S+", TTY: tty}}}
+	}
+	for name, tc := range map[string]struct {
+		conversation Conversation
+		processes    fakeProcesses
+		launcher     fakeLauncher
+		reply        SendReply
+		calls        string
+	}{
+		"Ghostty types it": {
+			conversation: at("Ghostty", "/dev/ttys004"),
+			processes:    holding("/dev/ttys004"),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Sent: true, Message: "Typed the Markdown into the Ghostty tab that runs it. Press Enter there to send it."},
+			calls:        "type Ghostty /dev/ttys004 # Notes\n\n- one",
+		},
+		"Terminal pastes it from the clipboard": {
+			conversation: at("Terminal", "/dev/ttys018"),
+			processes:    holding("/dev/ttys018"),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Sent: true, Message: "Pasted the Markdown into the Terminal tab that runs it. The clipboard now holds the Markdown. Press Enter there to send it."},
+			calls:        "type Terminal /dev/ttys018 # Notes\n\n- one",
+		},
+		"Terminal tab behind": {
+			conversation: at("Terminal", "/dev/ttys018"),
+			processes:    holding("/dev/ttys018"),
+			launcher:     fakeLauncher{err: errNotInFront},
+			reply:        SendReply{Message: "The Terminal tab that runs it did not come to the front, so nothing was pasted. The Markdown is on the clipboard: paste it with Cmd+V."},
+			calls:        "type Terminal /dev/ttys018 # Notes\n\n- one",
+		},
+		"ended session": {
+			conversation: at("Ghostty", "/dev/ttys004"),
+			processes:    fakeProcesses{},
+			reply:        SendReply{Message: "It ended since the list was read, so nothing was typed. Open it to resume it, then paste with Cmd+V."},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			launcher := tc.launcher
+			reply := SendMarkdown(context.Background(), tc.conversation, "# Notes\x1b[201~\n\n- one\x07\n\n", tc.processes, &launcher)
+			if reply != tc.reply {
+				t.Errorf("reply = %+v, want %+v", reply, tc.reply)
+			}
+			if actual := strings.Join(launcher.calls, "; "); actual != tc.calls {
+				t.Errorf("calls = %q, want %q", actual, tc.calls)
+			}
+		})
+	}
+}
+
+func TestTypeInTabLines_TerminalPutsTheTextOnTheClipboardFirst(t *testing.T) {
+	if first := typeInTabLines["Terminal"][0]; first != "set the clipboard to (item 2 of argv)" {
+		t.Errorf("Terminal's script starts with %q, want it to set the clipboard before pasting", first)
+	}
+}
