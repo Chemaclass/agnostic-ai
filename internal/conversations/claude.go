@@ -44,8 +44,11 @@ type claudeMeta struct {
 	title, firstPrompt, lastPrompt string
 	reply, question                string
 	cwd, branch, entrypoint        string
-	started, updated               string
-	sidechain                      bool
+	// firstEntrypoint is where the session began: a closed session opens
+	// there and follows that app's rule, wherever it was used last.
+	firstEntrypoint  string
+	started, updated string
+	sidechain        bool
 	// pending is the tool call at the end of the transcript that has no
 	// result yet, for a session that waits for an approval.
 	pending *toolCall
@@ -306,9 +309,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			c.Helpers = s.claudeHelpers(file, work, seenMetas)
 		}
 		c.bridge = session.bridge
-		entrypoint := meta.entrypoint
-		if isLive && session.entrypoint != "" {
-			entrypoint = session.entrypoint
+		entrypoint := meta.firstEntrypoint
+		if isLive {
+			entrypoint = firstNonEmpty(session.entrypoint, meta.entrypoint)
 		}
 		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
 		// Only a terminal session is known to write sessions/<pid>.json while it runs.
@@ -387,6 +390,9 @@ func (s *Scanner) claudeMeta(file string) (claudeMeta, bool) {
 	}
 	if meta.cwd == "" || meta.entrypoint == "" {
 		streamClaudeMetadata(file, &meta)
+	}
+	if meta.firstEntrypoint == "" {
+		meta.firstEntrypoint = meta.entrypoint
 	}
 	if meta.updated == "" {
 		meta.updated = info.ModTime().UTC().Format(time.RFC3339)
@@ -513,6 +519,7 @@ func parseClaudeSession(head, tail []byte) (meta claudeMeta, replyKnown bool) {
 	meta.title = firstNonEmpty(tailCustom, headCustom, tailAI, headAI)
 	meta.cwd = firstNonEmpty(meta.cwd, tailCwd)
 	meta.branch = firstNonEmpty(tailBranch, meta.branch)
+	meta.firstEntrypoint = meta.entrypoint
 	meta.entrypoint = firstNonEmpty(tailEntry, meta.entrypoint)
 	meta.updated = firstNonEmpty(lastMessage, lastAny)
 	meta.reply, meta.question = agentSaid(replies.message, replies.message, replies.asked)

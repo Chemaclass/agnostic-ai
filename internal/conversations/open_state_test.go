@@ -260,3 +260,24 @@ func TestScan_TheFirstPageHoldsAnOldClosedUnreadSession(t *testing.T) {
 		}
 	}
 }
+
+func TestScan_ADesktopSessionResumedInATerminalFollowsTheDesktopRuleOnceClosed(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	processes := fakeProcesses{alive: map[int]bool{4242: true}}
+	scanner, stores := testScanner(t, noSQLite, processes)
+	now := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "claude-desktop", "timestamp": "2026-11-07T10:00:00.000Z", "message": obj{"role": "user", "content": "Plan the release"}},
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-07T11:00:00.000Z", "message": obj{"role": "user", "content": "Go on from the terminal"}},
+	))
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "4242.json"), `{"pid":4242,"sessionId":"`+id+`","status":"idle","entrypoint":"cli"}`)
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.App != AppCLI || !c.Live {
+		t.Fatalf("while the terminal holds it, it is a terminal session: %s", asJSON(t, c))
+	}
+	now = now.Add(freshSpan)
+	processes.alive[4242] = false
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.App != AppDesktop || c.State != StateActive || c.Open.Kind != RouteLink {
+		t.Errorf("once the terminal closes it follows the desktop rule: %s", asJSON(t, c))
+	}
+}
