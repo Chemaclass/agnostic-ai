@@ -287,7 +287,7 @@ func TestMark_TakingACompletionBackOnASharedRowTakesItBackOnItsCloudRow(t *testi
 
 	view := restartedScanner(scanner, stores).Scan(context.Background(), ScanOptions{})
 
-	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateUnread || cloud.CompletedAt != "" {
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.CompletedAt != "" {
 		t.Errorf("cloud row = %s", asJSON(t, cloud))
 	}
 }
@@ -396,15 +396,12 @@ func TestScan_AReplyOnTheTwinAfterTheSessionClosedCountsAsACloudChat(t *testing.
 	}
 }
 
-// The cloud list is asked once a minute, so the last reply can reach it
-// after the last read that saw the session run.
+// The cloud list is asked once a minute, so the cloud's copy of the last
+// reply can come after the last read that saw the session run.
 func TestScan_TheTwinsCopyOfTheLastReplyKeepsItFolded(t *testing.T) {
-	scanner, stores, at := closedTwinScanner(t)
-	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:00:40Z"))
-	scanner.Scan(context.Background(), ScanOptions{})
+	scanner, _, at := closedTwinScanner(t)
 	*at = at.Add(time.Minute)
-	writeMarkedSession(t, stores, idSafari, "2026-11-07T11:45:00Z")
-	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:45:30Z"))
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:30Z"))
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
 
@@ -413,12 +410,118 @@ func TestScan_TheTwinsCopyOfTheLastReplyKeepsItFolded(t *testing.T) {
 	}
 }
 
-func TestScan_ARestartedServerListsTheClosedSessionAndItsTwinApart(t *testing.T) {
+// The window is on the cloud's clock: a later local write does not
+// stretch it, so a reply from the phone after the person read the local
+// row is never folded away unseen.
+func TestScan_APhoneReplyAfterTheWindowCountsEvenAfterALaterLocalWrite(t *testing.T) {
+	scanner, stores, at := closedTwinScanner(t)
+	writeMarkedSession(t, stores, idSafari, "2026-11-07T11:50:00Z")
+	*at = time.Date(2026, 11, 7, 11, 50, 10, 0, time.UTC)
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:50:30Z"))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateUnread || view.NeedsYou != 1 {
+		t.Errorf("needs you %d, cloud row %s", view.NeedsYou, asJSON(t, cloud))
+	}
+}
+
+// A reply inside the window stays folded, and the closed row shows it
+// unread, so it is never counted nowhere.
+func TestScan_APhoneReplyInsideTheWindowMarksTheClosedRowUnread(t *testing.T) {
+	scanner, _, at := closedTwinScanner(t)
+	*at = time.Date(2026, 11, 7, 11, 30, 30, 0, time.UTC)
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:00Z"))
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	row := byID(t, view, idSafari)
+	if !slices.Equal(idsOf(view), []string{idSafari}) || !row.Unread || row.UpdatedAt != "2026-11-07T11:31:00Z" {
+		t.Errorf("rows %s", asJSON(t, view.Conversations))
+	}
+}
+
+func TestScan_ARestartedServerListsTheTwinApartWithoutCountingTheOldReply(t *testing.T) {
 	scanner, stores, _ := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+
 	view := restartedScanner(scanner, stores).Scan(context.Background(), ScanOptions{})
 
 	if ids := idsOf(view); len(ids) != 2 {
 		t.Errorf("rows = %v, want the local row and its twin apart", ids)
+	}
+	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || cloud.Unread || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, cloud row %s", view.NeedsYou, asJSON(t, cloud))
+	}
+	if row := byID(t, view, idSafari); !row.Unread {
+		t.Errorf("local row = %s", asJSON(t, row))
+	}
+}
+
+func TestScan_ASessionResumedWithoutItsLinkDoesNotCountTheOldReplyOnItsTwin(t *testing.T) {
+	for name, bridge := range map[string]string{"Remote Control off": "", "a new bridge id": "session_09Zz"} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, _ := closedTwinScanner(t)
+			scanner.Scan(context.Background(), ScanOptions{})
+			scanner.Processes = fakeProcesses{alive: map[int]bool{71: true}}
+			writeBridgedSession(t, stores, 71, idSafari, "idle", bridge)
+
+			view := scanner.Scan(context.Background(), ScanOptions{})
+
+			if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || view.NeedsYou != 0 {
+				t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
+			}
+		})
+	}
+}
+
+func TestReopen_TheTwinOfAClosedSessionClearsTheLocalRowAfterARestart(t *testing.T) {
+	scanner, stores, _ := closedTwinScanner(t)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if reply, found := scanner.Reopen(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}, &fakeLauncher{}); !found || !reply.Opened {
+		t.Fatalf("found %v, reply %+v", found, reply)
+	}
+	restarted := restartedScanner(scanner, stores)
+
+	if row := byID(t, restarted.Scan(context.Background(), ScanOptions{}), idSafari); row.Unread {
+		t.Errorf("local row = %s", asJSON(t, row))
+	}
+	if _, err := restarted.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); deleteRefusal(t, err).Kind == DeleteUnread {
+		t.Errorf("delete refused as unread: %v", err)
+	}
+}
+
+// claude.ai still keeps the cloud session, so it stays listed.
+func TestDelete_AFoldedClosedSessionLeavesItsTwinListedWithoutTheOldReply(t *testing.T) {
+	scanner, stores, at := closedTwinScanner(t)
+	*at = time.Now().UTC().Truncate(time.Second)
+	scanner.Scan(context.Background(), ScanOptions{})
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	*at = at.Add(time.Second)
+	scanner.Scan(context.Background(), ScanOptions{})
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+	if err != nil || !reply.Deleted {
+		t.Fatalf("delete = %s, %v", asJSON(t, reply), err)
+	}
+	if _, err := os.Stat(filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")); !os.IsNotExist(err) {
+		t.Errorf("transcript stays: %v", err)
+	}
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+
+	if !slices.Equal(idsOf(view), []string{"cse_01AbCd"}) || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
 	}
 }
 

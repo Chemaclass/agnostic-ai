@@ -222,6 +222,8 @@ type Conversation struct {
 	pending *texts
 	// bridge is the Remote Control id a live Claude Code session wrote.
 	bridge string
+	// heldBy is the id of the local row that took this cloud row in.
+	heldBy string
 	// appArchived: the conversation's own app keeps it archived, as the
 	// app's flag says on this read.
 	appArchived bool

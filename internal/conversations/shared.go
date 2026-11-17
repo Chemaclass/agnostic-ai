@@ -62,6 +62,7 @@ func takeIn(rows []Conversation, claims map[string]int) []Conversation {
 			continue
 		}
 		cloud := c
+		cloud.heldBy = rows[at].ID
 		rows[at].Cloud = &CloudRef{ID: c.ID, Link: c.Open.Link, row: &cloud}
 		if taken == nil {
 			taken = map[int]bool{}
@@ -84,11 +85,13 @@ func takeIn(rows []Conversation, claims map[string]int) []Conversation {
 // twins that the scanner remembers.
 const maxTwins = 1024
 
-// twinEchoSpan is how long after the local session's last write its
-// cloud twin may still write that same reply. The cloud list is asked
-// once a minute, so the scanner can miss the last reply the cloud
-// mirrored before the session closed; a later write is new work.
-const twinEchoSpan = time.Minute
+// twinEchoSpan is how long, on the cloud's clock, after the last cloud
+// write the scanner saw while the session ran, the twin may still write
+// that session's last reply: the cloud list is asked at most once per
+// freshSpan, so the read before the session closed can miss it. The
+// folded row shows a write in that span as its own, unread until seen;
+// a later write is new work on the twin's own row.
+const twinEchoSpan = 2 * freshSpan
 
 // twin is the cloud row a local session took in while it ran.
 type twin struct {
@@ -100,10 +103,11 @@ type twin struct {
 // followTwins keeps a local session and its cloud twin as one row once
 // the session ends. It remembers the cloud row each live shared row
 // took in, and folds that row into the local row again while the
-// session no longer runs, as long as the cloud row holds no write after
-// the ones the scanner saw: a later write came from the cloud side and
-// shows on its own row. The link lives in memory only, so a new server
-// lists both rows again. A live session that says it has no Remote
+// session no longer runs, as long as the cloud row holds no write past
+// twinEchoSpan after the ones the scanner saw: a later write came from
+// the cloud side and shows on its own row. The folded row takes the
+// twin's last write when it is later than its own. The link lives in
+// memory only, so a new server lists both rows again. A live session that says it has no Remote
 // Control id ends the link. Only a complete read, whole is true, drops
 // a link whose local or cloud row is gone.
 func (s *Scanner) followTwins(rows []Conversation, whole bool) []Conversation {
@@ -152,11 +156,7 @@ func (s *Scanner) followTwins(rows []Conversation, whole bool) []Conversation {
 		if !listed || at < 0 {
 			continue
 		}
-		seen := link.written
-		if echo := lastWritten(c).Add(twinEchoSpan); echo.After(seen) {
-			seen = echo
-		}
-		if lastWritten(rows[at]).After(seen) {
+		if lastWritten(rows[at]).After(link.written.Add(twinEchoSpan)) {
 			continue
 		}
 		if claims == nil {
@@ -168,7 +168,14 @@ func (s *Scanner) followTwins(rows []Conversation, whole bool) []Conversation {
 		}
 		claims[link.cloud] = i
 	}
-	return takeIn(rows, claims)
+	rows = takeIn(rows, claims)
+	for i := range rows {
+		c := &rows[i]
+		if !c.Live && c.Cloud != nil && lastWritten(*c.Cloud.row).After(lastWritten(*c)) {
+			c.UpdatedAt = c.Cloud.row.UpdatedAt
+		}
+	}
+	return rows
 }
 
 // rememberTwin links a local row's mark key to the cloud row it took

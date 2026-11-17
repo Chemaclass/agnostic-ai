@@ -96,6 +96,10 @@ type markEntry struct {
 	// known closed and not seen. A manual resume does not make that write
 	// new again; a later one is.
 	ClosedWrittenAt string `json:"closedWrittenAt,omitempty"`
+	// TwinShownAt, on a cloud session, is its last write that a local
+	// session it was shared with showed. The cloud row on its own is
+	// unread only for a later write.
+	TwinShownAt string `json:"twinShownAt,omitempty"`
 	// Title is the name the person chose, shown over the tool's own. A
 	// new message keeps it.
 	Title string `json:"title,omitempty"`
@@ -196,10 +200,14 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	}
 }
 
-// seenSince is the later of a conversation's own seen mark and the
-// file's baseline.
+// seenSince is the latest of a conversation's own seen mark, the
+// file's baseline and, for a cloud session, the last write its local
+// twin showed.
 func seenSince(entry markEntry, since time.Time) time.Time {
 	seenAt := parseStamp(entry.SeenAt)
+	if shown := parseStamp(entry.TwinShownAt); shown.After(seenAt) {
+		seenAt = shown
+	}
 	if since.After(seenAt) {
 		return since
 	}
@@ -286,9 +294,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 				continue
 			}
 			entry = withTwinSeen(file, c, entry)
-			if s.MarksPath != "" && knownClosed(c) && unseen(c, entry, since) && written.After(parseStamp(entry.ClosedWrittenAt)) {
-				entry.ClosedWrittenAt = written.UTC().Format(time.RFC3339Nano)
-				file.Marks[key] = entry
+			if s.MarksPath != "" && showTwin(file, c) {
 				changed = true
 			}
 			if s.MarksPath != "" && knownClosed(c) && unseen(c, entry, since) && written.After(parseStamp(entry.ClosedWrittenAt)) {
@@ -387,6 +393,24 @@ func withTwinSeen(file marksFile, c Conversation, entry markEntry) markEntry {
 		entry.SeenAt = laterStamp(entry.SeenAt, file.Marks[markKey(c.Tool, c.Cloud.ID)].SeenAt)
 	}
 	return entry
+}
+
+// showTwin saves, on a shared row's cloud id, the cloud write the row
+// shows, so the cloud row does not count it again once it shows on its
+// own. It reports whether the file changed.
+func showTwin(file marksFile, c Conversation) bool {
+	if c.Cloud == nil {
+		return false
+	}
+	key := markKey(c.Tool, c.Cloud.ID)
+	twin := file.Marks[key]
+	shown := lastWritten(*c.Cloud.row)
+	if !shown.After(parseStamp(twin.TwinShownAt)) {
+		return false
+	}
+	twin.TwinShownAt = shown.UTC().Format(time.RFC3339Nano)
+	file.Marks[key] = twin
+	return true
 }
 
 // laterStamp is the later of two marks; an empty one is never later.
@@ -503,11 +527,15 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if !reply.Opened || s.MarksPath == "" {
 		return reply, true
 	}
-	// A shared row's cloud id gets the same marks, so its cloud row says
-	// the same once the local session ends.
+	// A shared row's cloud id gets the same marks, and so does the local
+	// row that holds a cloud row opened on its own, so each says the same
+	// once the other shows apart.
 	keys := []string{markKey(tool, id)}
 	if conversation.Cloud != nil && conversation.ID == id {
 		keys = append(keys, markKey(tool, conversation.Cloud.ID))
+	}
+	if conversation.heldBy != "" {
+		keys = append(keys, markKey(tool, conversation.heldBy))
 	}
 	reopened := func(entry *markEntry, now string) { entry.SeenAt, entry.CompletedAt = now, "" }
 	if err := s.changeMarks(keys, reopened); err != nil {
