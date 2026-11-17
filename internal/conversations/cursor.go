@@ -33,15 +33,18 @@ type cursorHeader struct {
 	Name        string `json:"name"`
 	Folder      string `json:"folder"`
 	Branch      string `json:"branch"`
+	// Archived is 1 for a chat archived in Cursor, which keeps no time
+	// for when.
+	Archived int `json:"archived"`
 }
 
-// Chats with a name have messages; subagent and archived chats are left out.
+// Chats with a name have messages; subagent chats are left out.
 const cursorHeadersQuery = `SELECT composerId AS id, coalesce(workspaceId, '') AS workspace_id, createdAt AS created_at, recency,
   json_extract(value, '$.name') AS name,
   coalesce(json_extract(value, '$.workspaceIdentifier.uri.fsPath'), '') AS folder,
-  coalesce(json_extract(value, '$.createdOnBranch'), '') AS branch
+  coalesce(json_extract(value, '$.createdOnBranch'), '') AS branch, isArchived AS archived
 FROM composerHeaders
-WHERE isSubagent = 0 AND isArchived = 0 AND json_extract(value, '$.name') IS NOT NULL
+WHERE isSubagent = 0 AND isArchived IN (0, 1) AND json_extract(value, '$.name') IS NOT NULL
 ORDER BY recency DESC`
 
 type cursorPrompts struct {
@@ -131,8 +134,9 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 		editorChats = append(editorChats, Conversation{
 			Tool: ToolCursor, App: AppIDE, ID: header.ID, Folder: header.Folder, Branch: header.Branch,
 			StartedAt: timeFromMillis(header.CreatedAt), UpdatedAt: timeFromMillis(header.Recency), Live: open[header.ID], recency: header.Recency,
-			Open:    Route{Kind: RouteLink, Label: "Open in Cursor", Link: "cursor://anysphere.cursor-deeplink/agent?id=" + header.ID},
-			pending: &texts{title: header.Name},
+			Open:        Route{Kind: RouteLink, Label: "Open in Cursor", Link: "cursor://anysphere.cursor-deeplink/agent?id=" + header.ID},
+			pending:     &texts{title: header.Name},
+			appArchived: header.Archived == 1,
 		})
 	}
 	if note == "" {

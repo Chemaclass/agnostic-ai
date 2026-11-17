@@ -85,7 +85,7 @@ func TestScan_ListsTheClaudeAppsChatsAndCoworkTasks(t *testing.T) {
 		}
 	}
 	rows := appRows(view)
-	if len(rows) != 4 {
+	if len(rows) != 5 {
 		t.Fatalf("rows = %s", asJSON(t, rows))
 	}
 	got := rows[appChatID]
@@ -101,6 +101,9 @@ func TestScan_ListsTheClaudeAppsChatsAndCoworkTasks(t *testing.T) {
 	task := rows[appTaskID]
 	if task.App != AppCowork || task.Title != "Rome documentaries" || task.UpdatedAt != "2026-11-07T09:00:00Z" || task.Open.Link != "claude://claude.ai/cowork/"+appTaskID {
 		t.Fatalf("task = %s", asJSON(t, task))
+	}
+	if archived := rows["local_11111111-1111-4111-8111-111111111111"]; archived.State != StateDormant || task.State != StateActive {
+		t.Fatalf("a task archived in the app is %s and one not archived is %s, want dormant and active", archived.State, task.State)
 	}
 	if remote := rows[appCloudID]; !remote.Live || remote.Activity != ActivityWorking || remote.Open.Link != "claude://claude.ai/cowork/"+appCloudID {
 		t.Fatalf("remote task = %s", asJSON(t, remote))
