@@ -69,11 +69,11 @@ test('sends the copied text only while it is the text the page showed', async (t
   assert.equal(changed.status, 409)
 })
 
-test('a copied web page is labeled and sent as Markdown', async (t) => {
+test('a copied web page goes as Markdown, which only the send reply names', async (t) => {
   const preview = await startPreview({ port: 0, fixture: 'markdown-clipboard' })
   t.after(preview.close)
   const copied = await (await fetch(preview.url + '/api/clipboard')).json()
-  assert.equal(copied.format, 'markdown')
+  assert.equal(copied.format, undefined)
 
   const sent = await postJSON(preview.url + '/api/send', { tool: 'codex', id: 'reply-1', hash: copied.hash })
   assert.deepEqual(await sent.json(), { sent: true, message: 'Typed the Markdown into the Ghostty tab that runs it. Press Enter there to send it.' })

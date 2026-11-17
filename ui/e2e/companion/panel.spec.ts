@@ -920,11 +920,12 @@ test('Enter on a subagent control opens nothing but what it names, even with its
 
 const pickBanner = (page: Page) => page.getByRole('region', { name: 'Send the copied text' })
 
-test('a copied web page names its format in the banner', async ({ page }) => {
+test('a copied web page does not promise Markdown in the banner, since the server decides', async ({ page }) => {
   await openPanel(page, 'markdown-clipboard')
   await page.keyboard.press('Meta+Shift+KeyV')
 
-  await expect(pickBanner(page)).toContainText('Send Markdown, 12 words to…')
+  await expect(pickBanner(page)).toContainText('Send 12 words to…')
+  await expect(pickBanner(page)).not.toContainText('Markdown')
   await expect(pickBanner(page)).toContainText('Release notes')
 })
 
@@ -1089,11 +1090,11 @@ test('the send shortcut sends a copied web page straight to the one row as Markd
     const seen = { named: false }
     ;(window as unknown as { seen: typeof seen }).seen = seen
     new MutationObserver(() => {
-      if (document.getElementById('pick-title')?.textContent === 'Sending Markdown to Plan the sync dry run') seen.named = true
+      if (document.getElementById('pick-title')?.textContent === 'Sending to Plan the sync dry run') seen.named = true
     }).observe(document.getElementById('card')!, { childList: true, subtree: true, characterData: true })
   })
   const copied = await (await page.request.get('/api/clipboard')).json()
-  expect(copied.format).toBe('markdown')
+  expect(copied.format).toBeUndefined()
   const sent = page.waitForResponse((response) => response.url().endsWith('/api/send'))
 
   await pressSendShortcut(page)

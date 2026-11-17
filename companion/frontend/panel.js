@@ -731,7 +731,7 @@ async function sendFromAnywhere(from) {
   const target = onlyRow()
   if (!target) return
   state.activeKey = keyOf(target)
-  pickTitle.textContent = sendingTitleOf(target, shown)
+  pickTitle.textContent = sendingTitleOf(target)
   draw({ force: true })
   if (moves()) await new Promise((resolve) => setTimeout(resolve, STRAIGHT_HOLD_MS))
   const still = onlyRow()
@@ -1464,5 +1464,10 @@ Events.On('quit-asked', (event) => {
 Events.On('settings-shown', (event) => {
   opened(event.data)
   openMenu('shortcut')
+})
+// Send copied text in the right-click menu: the same, on the send shortcut.
+Events.On('send-settings-shown', (event) => {
+  opened(event.data)
+  openMenu('sendShortcut')
 })
 refresh()

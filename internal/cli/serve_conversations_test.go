@@ -89,7 +89,7 @@ func (l *recordingLauncher) TitleTab(_ context.Context, app, tty, title string) 
 	return true, nil
 }
 
-func (l *recordingLauncher) TypeInTab(_ context.Context, app, tty, text string) (bool, error) {
+func (l *recordingLauncher) TypeInTab(_ context.Context, app, tty, text string, _ bool) (bool, error) {
 	l.calls = append(l.calls, "type "+app+" "+tty+" "+text)
 	return true, nil
 }

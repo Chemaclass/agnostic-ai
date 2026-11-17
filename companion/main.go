@@ -83,6 +83,8 @@ const (
 	eventPreferences = "preferences"
 	// eventSettingsShown says the panel opened on its settings; its data is the corner nearest the bubble.
 	eventSettingsShown = "settings-shown"
+	// eventSendSettingsShown says the panel opened on the send shortcut's setting; its data is the corner nearest the bubble.
+	eventSendSettingsShown = "send-settings-shown"
 	// eventQuitAsked says the panel opened on the question whether to quit; its data is the corner nearest the bubble.
 	eventQuitAsked = "quit-asked"
 	// eventSendShown says the send shortcut opened the panel; its data is the corner nearest the bubble.

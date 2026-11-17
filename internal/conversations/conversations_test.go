@@ -506,8 +506,12 @@ func (f *fakeLauncher) TitleTab(_ context.Context, app, tty, title string) (bool
 	return f.focusOK, f.err
 }
 
-func (f *fakeLauncher) TypeInTab(_ context.Context, app, tty, text string) (bool, error) {
-	f.calls = append(f.calls, "type "+app+" "+tty+" "+text)
+func (f *fakeLauncher) TypeInTab(_ context.Context, app, tty, text string, setClipboard bool) (bool, error) {
+	call := "type "
+	if setClipboard {
+		call = "type and set the clipboard "
+	}
+	f.calls = append(f.calls, call+app+" "+tty+" "+text)
 	return f.focusOK, f.err
 }
 

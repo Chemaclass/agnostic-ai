@@ -38,8 +38,10 @@ type Launcher interface {
 	TitleTab(ctx context.Context, app, tty, title string) (ok bool, err error)
 	// TypeInTab types text into the tab of app that shows tty, without
 	// pressing Enter, and brings it to the front; ok is false when no
-	// tab shows that tty.
-	TypeInTab(ctx context.Context, app, tty, text string) (ok bool, err error)
+	// tab shows that tty. An app that pastes from the clipboard puts
+	// text there first only when setClipboard is true; otherwise it
+	// pastes only when the clipboard holds exactly text.
+	TypeInTab(ctx context.Context, app, tty, text string, setClipboard bool) (ok bool, err error)
 }
 
 // errNotHere means this OS has no supported way to run the route.
@@ -629,10 +631,12 @@ var newTabLines = map[string][]string{
 // item 1 of argv. Ghostty takes it as a paste, so a program that asks
 // for bracketed paste gets every line in one paste. Terminal has no such
 // command (do script presses Enter), so it pastes the clipboard with
-// Cmd+V, only once the tab is selected in the front window.
+// Cmd+V, only once the tab is selected in the front window. Item 3 is
+// "set" to put the text on the clipboard first, else the clipboard must
+// already hold it. The delay lets go of the keys that asked for the send,
+// which would otherwise turn Cmd+V into another shortcut.
 var typeInTabLines = map[string][]string{
 	"Terminal": {
-		"set the clipboard to (item 2 of argv)",
 		`tell application "Terminal"`,
 		"repeat with w in windows",
 		"repeat with t in tabs of w",
@@ -640,12 +644,25 @@ var typeInTabLines = map[string][]string{
 		"set selected of t to true",
 		"set index of w to 1",
 		"activate",
+		"delay 0.3",
 		"repeat 20 times",
 		"if frontmost then exit repeat",
 		"delay 0.05",
 		"end repeat",
 		`if not frontmost then return "behind"`,
 		`if tty of selected tab of front window is not (item 1 of argv) then return "behind"`,
+		`if (item 3 of argv) is "set" then`,
+		"tell current application to set the clipboard to (item 2 of argv)",
+		"else",
+		"try",
+		"tell current application to set copied to (the clipboard as text)",
+		"on error",
+		`return "changed"`,
+		"end try",
+		"considering case",
+		`if copied is not (item 2 of argv) then return "changed"`,
+		"end considering",
+		"end if",
 		`tell application "System Events" to keystroke "v" using command down`,
 		`return "ok"`,
 		"end if",
@@ -669,8 +686,12 @@ var typeInTabLines = map[string][]string{
 	},
 }
 
-func typeInTabArgs(app, tty, text string) []string {
-	return append(script(typeInTabLines[app]...), tty, text)
+func typeInTabArgs(app, tty, text string, setClipboard bool) []string {
+	clipboard := "check"
+	if setClipboard {
+		clipboard = "set"
+	}
+	return append(script(typeInTabLines[app]...), tty, text, clipboard)
 }
 
 func runInNewTabArgs(app, command string) []string {
@@ -708,16 +729,18 @@ func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, 
 	return out == "ok", nil
 }
 
-func (macLauncher) TypeInTab(ctx context.Context, app, tty, text string) (bool, error) {
+func (macLauncher) TypeInTab(ctx context.Context, app, tty, text string, setClipboard bool) (bool, error) {
 	if _, ok := typeInTabLines[app]; !ok {
 		return false, errNotHere
 	}
-	out, err := run(ctx, "osascript", typeInTabArgs(app, tty, text)...)
+	out, err := run(ctx, "osascript", typeInTabArgs(app, tty, text, setClipboard)...)
 	switch {
 	case err != nil:
 		return false, err
 	case out == "behind":
 		return false, errNotInFront
+	case out == "changed":
+		return false, errClipboardChanged
 	default:
 		return out == "ok", nil
 	}
@@ -757,7 +780,7 @@ func (linuxLauncher) TitleTab(context.Context, string, string, string) (bool, er
 	return false, errNotHere
 }
 
-func (linuxLauncher) TypeInTab(context.Context, string, string, string) (bool, error) {
+func (linuxLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
 	return false, errNotHere
 }
 
@@ -781,6 +804,6 @@ func (unsupportedLauncher) TitleTab(context.Context, string, string, string) (bo
 	return false, errNotHere
 }
 
-func (unsupportedLauncher) TypeInTab(context.Context, string, string, string) (bool, error) {
+func (unsupportedLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
 	return false, errNotHere
 }

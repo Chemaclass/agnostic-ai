@@ -32,7 +32,7 @@ func TestClipboard_DescribesTheCopiedTextWithoutAllOfIt(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &reply); err != nil {
 		t.Fatal(err)
 	}
-	if rec.Code != http.StatusOK || reply.Preview != long[:len(strings.Repeat("é", 150))+1+49] || reply.Words != 2 || reply.Chars != 301 || reply.Hash != clipboardHash(long) {
+	if rec.Code != http.StatusOK || reply.Preview != long[:len(strings.Repeat("é", 150))+1+49] || reply.Words != 2 || reply.Chars != 301 || reply.Hash != copiedHash(long, "") {
 		t.Errorf("clipboard = %d %+v", rec.Code, reply)
 	}
 }
@@ -45,26 +45,22 @@ func TestClipboard_SaysNothingForEmptyText(t *testing.T) {
 	}
 }
 
-func TestClipboard_LabelsHTMLThatBecomesMarkdown(t *testing.T) {
-	for html, want := range map[string]string{
-		"":                                    formatText,
-		"<p>Just <b>bold</b> words.</p>":      formatText,
-		`<p>An <a name="top">anchor</a>.</p>`: formatText,
-		`<script>x = "<ul>"</script><p>Plain.</p>`:                 formatText,
-		`<style>table { margin: 0 }</style><p>x</p>`:               formatText,
-		`<p>See <a href="https://example.com">it</a>.</p>`:         formatMarkdown,
-		"<TABLE><tr><td>1</td></tr></TABLE>":                       formatMarkdown,
-		"<pre><code>go test</code></pre>":                          formatMarkdown,
-		"<h2 id=\"x\">Title</h2>":                                  formatMarkdown,
-		"<ol><li>one</li></ol>":                                    formatMarkdown,
-		`<p><a data-href="x">y</a></p>`:                            formatText,
-		"<!-- <table> --><p>plain</p>":                             formatText,
-		`<a class="x" href=" /docs">docs</a>`:                      formatMarkdown,
-		"<h1>" + strings.Repeat("a", maxServerBodyBytes) + "</h1>": formatText,
-	} {
-		if actual := describeClipboard("some text", html).Format; actual != want {
-			t.Errorf("format of %q = %q, want %q", html, actual, want)
-		}
+func TestClipboard_NamesNoFormatTheServerHasNotChosen(t *testing.T) {
+	body, err := json.Marshal(describeClipboard("see docs", `<ul><li>see <a href="https://a.example">docs</a></li></ul>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "format") {
+		t.Errorf("clipboard = %s, want no format: only the server knows whether Markdown goes", body)
+	}
+}
+
+func TestCopiedHash_TellsTextFromHTML(t *testing.T) {
+	if copiedHash("5\x00helloWORLD", "") == copiedHash("hello", "WORLD") {
+		t.Error("text alone hashed like other text with HTML")
+	}
+	if copiedHash("ab", "") == copiedHash("a", "b") {
+		t.Error("the HTML's start was read as the text's end")
 	}
 }
 
@@ -121,7 +117,7 @@ func TestSend_ForwardsTheClipboardTheBannerShowed(t *testing.T) {
 	text := "one\ntwo <b>&</b>\nthree"
 	copied(in, text)
 
-	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+clipboardHash(text)+`"}`)
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash(text, "")+`"}`)
 
 	if rec.Code != http.StatusOK || rec.Body.String() != `{"sent":true,"message":"Typed into the Ghostty tab that runs it. Press Enter there to send it."}` {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
@@ -145,17 +141,17 @@ func TestSend_RefusesWithoutAskingTheServer(t *testing.T) {
 		status          int
 		reply           string
 	}{
-		"clipboard changed": {clipboard: "something copied later", body: `{"tool":"claude","id":"a","hash":"` + clipboardHash(shown) + `"}`, status: http.StatusConflict, reply: `{"error":"The copied text changed. Check the new text, then send again."}`},
-		"clipboard emptied": {clipboard: "", body: `{"tool":"claude","id":"a","hash":"` + clipboardHash(shown) + `"}`, status: http.StatusConflict, reply: `{"error":"Nothing to send: copy some text first."}`},
+		"clipboard changed": {clipboard: "something copied later", body: `{"tool":"claude","id":"a","hash":"` + copiedHash(shown, "") + `"}`, status: http.StatusConflict, reply: `{"error":"The copied text changed. Check the new text, then send again."}`},
+		"clipboard emptied": {clipboard: "", body: `{"tool":"claude","id":"a","hash":"` + copiedHash(shown, "") + `"}`, status: http.StatusConflict, reply: `{"error":"Nothing to send: copy some text first."}`},
 		"text over the limit": {
 			clipboard: strings.Repeat("a", maxSendBytes+1),
-			body:      `{"tool":"claude","id":"a","hash":"` + clipboardHash(strings.Repeat("a", maxSendBytes+1)) + `"}`,
+			body:      `{"tool":"claude","id":"a","hash":"` + copiedHash(strings.Repeat("a", maxSendBytes+1), "") + `"}`,
 			status:    http.StatusRequestEntityTooLarge,
 			reply:     `{"error":"The text is 257 KB, over the 256 KB a send takes, so nothing was typed."}`,
 		},
 		"text that escapes past the server's limit": {
 			clipboard: strings.Repeat("\x01", 200<<10),
-			body:      `{"tool":"claude","id":"a","hash":"` + clipboardHash(strings.Repeat("\x01", 200<<10)) + `"}`,
+			body:      `{"tool":"claude","id":"a","hash":"` + copiedHash(strings.Repeat("\x01", 200<<10), "") + `"}`,
 			status:    http.StatusRequestEntityTooLarge,
 			reply:     `{"error":"The text holds too many special characters to send, so nothing was typed. Copy less of it."}`,
 		},
@@ -181,7 +177,7 @@ func TestSend_PassesTheServersRefusalBack(t *testing.T) {
 	in, _ := connected(t, fake)
 	copied(in, "gone")
 
-	rec := sendFrom(t, in, `{"tool":"claude","id":"gone","hash":"`+clipboardHash("gone")+`"}`)
+	rec := sendFrom(t, in, `{"tool":"claude","id":"gone","hash":"`+copiedHash("gone", "")+`"}`)
 
 	if rec.Code != http.StatusNotFound || rec.Body.String() != `{"error":"That conversation is not in this list any more. Refresh the page."}` {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
@@ -193,7 +189,7 @@ func TestSend_SaysToUpgradeAServerWithoutTheEndpoint(t *testing.T) {
 	in, _ := connected(t, fake)
 	copied(in, "hello")
 
-	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+clipboardHash("hello")+`"}`)
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
 
 	if rec.Code != http.StatusNotImplemented || strings.TrimSpace(rec.Body.String()) != `{"error":"The installed agnostic-ai cannot send text yet. Run: agnostic-ai companion install, or upgrade agnostic-ai."}` {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
