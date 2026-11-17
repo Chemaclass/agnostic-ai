@@ -39,6 +39,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - A chat that takes long to open no longer brings the companion list back with an error although the terminal opened. The companion waits up to 60 seconds for an open, and after that keeps the list hidden. A real failure, such as a missing Automation permission, still shows its reason. (#3530)
 - When the companion cannot reach `agnostic-ai`, or gets no answer in time, it says so in plain words instead of showing a Go error with a local address. (#3530)
 
+#### Web client
+
+- **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
+
 ## v0.95.0 - 2026-11-15
 
 ### Highlights
