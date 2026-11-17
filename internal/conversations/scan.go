@@ -513,6 +513,8 @@ type sourceResult struct {
 	// unlisted are threads that are no row but open from a row's helpers:
 	// running Codex exec runs and working Codex native subagents.
 	unlisted []Conversation
+	// inventories are the sources this read listed completely.
+	inventories []inventory
 }
 
 func missing(tool Tool, note string) sourceResult {

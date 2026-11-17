@@ -2,7 +2,6 @@ package conversations
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -86,6 +85,8 @@ type marksFile struct {
 	// started marking are not all unread.
 	Since string               `json:"since"`
 	Marks map[string]markEntry `json:"marks"`
+
+	extra unknownJSON
 }
 
 type markEntry struct {
@@ -99,6 +100,13 @@ type markEntry struct {
 	// Title is the name the person chose, shown over the tool's own. A
 	// new message keeps it.
 	Title string `json:"title,omitempty"`
+	// Source and MissingSince date a conversation that left its store;
+	// see pruneMarks. An older version drops both on write, which only
+	// starts the clock again.
+	Source       markSource `json:"source,omitempty"`
+	MissingSince string     `json:"missingSince,omitempty"`
+
+	extra unknownJSON
 }
 
 func markKey(tool Tool, id string) string { return string(tool) + ":" + id }
@@ -126,7 +134,7 @@ func readMarks(path string, now time.Time) (file marksFile, created bool, err er
 	if len(raw) > maxMarksBytes {
 		return marksFile{}, false, fmt.Errorf("conversation marks %s is larger than %d bytes", path, maxMarksBytes)
 	}
-	if err := json.Unmarshal(raw, &file); err != nil {
+	if err := decodeMarks(raw, &file); err != nil {
 		return marksFile{}, false, fmt.Errorf("conversation marks %s: %w", path, err)
 	}
 	if file.Marks == nil {
@@ -262,6 +270,9 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 		} else {
 			err = lockErr
 		}
+	}
+	if err == nil && s.MarksPath != "" && s.pruneMarks(&file, results, now) {
+		changed = true
 	}
 	since := parseStamp(file.Since)
 	for r := range results {
@@ -461,6 +472,7 @@ func (s *Scanner) changeMarks(keys []string, change func(entry *markEntry, now s
 	for _, key := range keys {
 		entry := file.Marks[key]
 		change(&entry, stamp(now))
+		s.attributeMark(key, &entry)
 		file.Marks[key] = entry
 	}
 	return writeMarks(s.MarksPath, file)

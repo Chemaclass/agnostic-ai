@@ -264,10 +264,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		return missing(ToolClaude, "No Claude Code sessions in "+projects)
 	}
 	// Subagent transcripts live one level deeper, under <session>/subagents.
-	files, err := filepath.Glob(filepath.Join(projects, "*", "*.jsonl"))
-	if err != nil {
-		return missing(ToolClaude, "Could not list "+projects)
-	}
+	files, listedAll := listTree(projects, 1, "*.jsonl")
 	live, liveRead, liveNote := s.claudeLiveSessions()
 	jobs := s.claudeActiveJobs()
 	editor := extensionEditor(s.Stores.Home, "anthropic.claude-code", opts.Editor)
@@ -276,6 +273,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	}
 	seen := map[string]bool{}
 	seenMetas := map[string]bool{}
+	ids := make(map[string]bool, len(files))
 	var conversations []Conversation
 	var workerFiles []string
 	for _, file := range files {
@@ -287,6 +285,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			continue
 		}
 		seen[file] = true
+		ids[id] = true
 		meta, ok := s.claudeMeta(file)
 		if !ok || meta.sidechain || strings.HasPrefix(meta.entrypoint, "sdk") || (meta.title == "" && meta.firstPrompt == "" && meta.lastPrompt == "") {
 			continue
@@ -342,6 +341,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	}
 	result := found(ToolClaude, within(conversations, opts.Within))
 	result.source.Note = liveNote
+	if listedAll && ctx.Err() == nil {
+		result.inventories = provenBy(sourceClaudeCode, ToolClaude, ids)
+	}
 	return result
 }
 

@@ -142,12 +142,15 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 	if note == "" {
 		forget(s.cursorPrompts, listed)
 	}
-	agentChats := s.cursorAgentChats(ctx, folders, opts.Within)
+	agentChats, agentIDs := s.cursorAgentChats(ctx, folders, opts.Within)
 	if note != "" && len(agentChats) == 0 {
-		return missing(ToolCursor, note)
+		result := missing(ToolCursor, note)
+		result.inventories = provenBy(sourceCursorAgent, ToolCursor, agentIDs)
+		return result
 	}
 	result := found(ToolCursor, append(within(editorChats, opts.Within), within(agentChats, opts.Within)...))
 	result.source.Note = note
+	result.inventories = provenBy(sourceCursorAgent, ToolCursor, agentIDs)
 	return result
 }
 
@@ -376,12 +379,17 @@ const cursorAgentDefaultName = "New Agent"
 
 // cursorAgentChats lists cursor-agent CLI chats. They live under
 // chats/<md5 of the folder>/<chat id>, so the folder is found by
-// hashing the folders Cursor's editor chats and the project use.
-func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool, roots []string) []Conversation {
-	stores, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "chats", "*", "*", "store.db"))
+// hashing the folders Cursor's editor chats and the project use. ids
+// holds every chat id the chats folder holds, or is nil when a folder
+// or a chat's store could not be read.
+func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool, roots []string) (chats []Conversation, ids map[string]bool) {
+	stores, listedAll := listTree(filepath.Join(s.Stores.CursorDir, "chats"), 2, "store.db")
+	if listedAll {
+		ids = make(map[string]bool, len(stores))
+	}
 	if len(stores) == 0 {
 		s.setCursorLiveTranscripts(nil)
-		return nil
+		return nil, ids
 	}
 	byHash := map[string]string{}
 	for folder := range folders {
@@ -397,10 +405,20 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 	}
 	seen := map[string]bool{}
 	transcripts := map[string]string{}
-	var chats []Conversation
 	for _, store := range stores {
 		seen[store] = true
 		meta, ok := s.cursorAgentMeta(ctx, store)
+		if ids != nil {
+			// A chat's folder is named after its id; a store whose
+			// metadata could not be read leaves the inventory unproven.
+			ids[filepath.Base(filepath.Dir(store))] = true
+			if ok {
+				ids[meta.AgentID] = true
+			}
+			if _, read := s.cursorAgents[store]; !read {
+				ids = nil
+			}
+		}
 		if !ok {
 			continue
 		}
@@ -445,7 +463,10 @@ func (s *Scanner) cursorAgentChats(ctx context.Context, folders map[string]bool,
 		}
 	}
 	s.setCursorLiveTranscripts(live)
-	return chats
+	if ctx.Err() != nil {
+		ids = nil
+	}
+	return chats, ids
 }
 
 func (s *Scanner) setCursorLiveTranscripts(transcripts []string) {
@@ -504,6 +525,7 @@ func (s *Scanner) cursorAgentMeta(ctx context.Context, store string) (cursorAgen
 	}
 	rows, err := queryRows[cursorAgentMetaRow](ctx, s.SQLite, store, `SELECT value FROM meta WHERE key = '0'`)
 	if err != nil {
+		delete(s.cursorAgents, store)
 		return cursorAgentMeta{}, false
 	}
 	meta := decodeCursorAgentMeta(rows)

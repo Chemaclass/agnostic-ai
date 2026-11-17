@@ -112,6 +112,10 @@ Marks:
 - An older `serve` that still runs after an upgrade drops the chosen names when it rewrites the file. Restart it, and the companion, after you upgrade.
 - A read clears a completion or a hiding once a later message overtook it or the conversation started working. The entry keeps its seen time and chosen name. After a new message the conversation is unread. After work that wrote nothing it is active again when the work ends.
 - `marksNote` says why the file could not be read or written. Rows then carry no marks.
+- A chat its store no longer holds leaves the list on the next read. A Claude chat is the exception: it shows under Archived for a while, as the [companion page](@/docs/cli-reference/companion.md#chats-archived-in-their-app) says.
+- Its marks are removed 30 days later, but only for a store the server reads in full: Claude Code transcripts, Codex threads and `cursor-agent` chats. The 30 days start at the first full read of that store without the chat. A read that fails, is canceled, or cannot open a folder or a chat's store changes nothing. A chat that comes back, or a mark you make on it, starts the 30 days again.
+- Marks of Claude chats, Cowork tasks, ChatGPT chats, Cursor editor chats and cloud sessions stay. The Claude app keeps only the pages of its list you scrolled to, a cloud list is cut at a limit, and the ChatGPT list and Cursor's editor index are not known to hold every chat. Marks saved before this release stay too, until a full read lists their chat.
+- The file keeps fields this server does not know, so a newer server's fields survive its writes. An older server drops the store and missing time it does not know, which only starts the 30 days again.
 
 Cloud sessions and refresh:
 

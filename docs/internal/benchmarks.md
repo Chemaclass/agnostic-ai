@@ -235,3 +235,21 @@ Measured 2026-11-17 on an Apple silicon Mac, `-benchtime 5x`, in milliseconds pe
 | 5,000 | 115 | 5,352 | 172 |
 
 Each `lsof` run costs about 120 ms whatever it is asked, because it reads every process. Naming files only adds runs. One folder read stays near the cost of the old cutoff and still finds a held lock of any age. The reach check alone costs about 6 ms for 5,020 locks.
+
+## Reading and pruning the marks
+
+`BenchmarkDecodeMarks` in `internal/conversations/prune_bench_test.go` reads a marks file of 2,000 entries, as every scan does:
+
+- `status-quo`: a plain decode that drops the fields it does not know.
+- `proposed`: one strict decode that fails on an unknown field, and only then a second pass that keeps them. This is what the scan uses since [#3540](https://github.com/Chemaclass/agnostic-ai/issues/3540).
+- `baseline`: a check that the bytes are JSON, with no decode.
+
+`BenchmarkPruneMarks` is the pass over the same 2,000 marks once a store was read in full, when nothing changes.
+
+Measured 2026-11-17 on an Apple M4 Pro, Go 1.27.4, `-count 3`, in milliseconds per read:
+
+| status-quo | proposed | baseline | prune pass |
+|---:|---:|---:|---:|
+| 0.91 | 1.14 | 0.16 | 0.08 |
+
+The strict pass adds about 0.2 ms a scan at 2,000 marks, against about 120 ms for one `lsof` run in the same scan. A first try that decoded every entry twice took 3.5 ms.
