@@ -263,6 +263,47 @@ test('an open the server is slow to answer hides the list and shows no failure',
   await expect(notice(page)).toBeHidden()
 })
 
+const LATE_RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2"
+
+/** Opens "Tidy the old branches", which the companion answers as still opening. */
+async function openSlowly(page: Page) {
+  await openArchived(page, 'late-open-failure')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Tidy the old branches').click()
+  expect((await answer).status()).toBe(202)
+}
+
+test('an open that fails after it was still opening shows its reason the next time the list shows', async ({ page }) => {
+  await openSlowly(page)
+  await expect(notice(page)).toBeHidden()
+
+  const taken = page.waitForResponse((response) => response.url().endsWith('/api/open/late') && response.status() === 200)
+  expect(await (await page.request.post('/dev/settle-late-opens')).json()).toEqual({ settled: 1 })
+  await taken
+  expect(await calledPaths(page)).not.toContain('/api/panel/show')
+
+  expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
+  await expect(notice(page)).toContainText('macOS blocked opening Terminal.')
+  await expect(notice(page)).toContainText(LATE_RESUME)
+  await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toBeVisible()
+  await expectErrorNotice(page, 'Why it did not open')
+})
+
+test('a late open failure leaves a newer notice alone', async ({ page }) => {
+  await openSlowly(page)
+  await row(page, 'Bump the Go version').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+
+  const taken = page.waitForResponse((response) => response.url().endsWith('/api/open/late') && response.status() === 200)
+  expect(await (await page.request.post('/dev/settle-late-opens')).json()).toEqual({ settled: 1 })
+  await taken
+  // Nothing on screen marks a failure the panel ignored, so give it time to wrongly show one.
+  await page.waitForTimeout(300)
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+  await expect(noticeCard(page)).not.toContainText('macOS blocked opening Terminal.')
+})
+
 test('the next open replaces the notice', async ({ page }) => {
   await openFailing(page, 'resume-failure')
   await expect(notice(page)).toContainText(RESUME)

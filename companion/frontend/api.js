@@ -43,6 +43,12 @@ export function openConversation(conversation) {
   return post('/api/open', { tool: conversation.tool, id: conversation.id })
 }
 
+/**
+ * Why an open the companion stopped waiting for did not open, as `{message, command?}`, once; undefined when
+ * there is none.
+ */
+export const takeLateOpenFailure = () => post('/api/open/late')
+
 /** mark is `seen`, `completed` or `hidden`. */
 export function markConversation(conversation, mark) {
   return post('/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })

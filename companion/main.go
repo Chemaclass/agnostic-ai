@@ -549,6 +549,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/inbox", in.list)
 	mux.HandleFunc("POST /api/open", in.pass(serverOpenPath))
+	mux.HandleFunc("POST /api/open/late", in.takeLateOpen)
 	mux.HandleFunc("POST /api/mark", in.pass(serverMarkPath))
 	mux.HandleFunc("POST /api/rename", in.pass(serverRenamePath))
 	mux.HandleFunc("POST /api/delete", in.pass(serverDeletePath))

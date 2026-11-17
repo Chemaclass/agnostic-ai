@@ -325,7 +325,7 @@ func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 func TestInbox_AnOpenTheServerIsSlowToAnswerIsStillOpeningNotAFailure(t *testing.T) {
 	fake := &fakeAgnosticAI{hold: make(chan struct{})}
 	in, _ := connected(t, fake)
-	in.server.openWait = 30 * time.Millisecond
+	in.server.openWait, in.server.openLateWait = 30*time.Millisecond, 300*time.Millisecond
 	rec := httptest.NewRecorder()
 
 	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"a"}`)))

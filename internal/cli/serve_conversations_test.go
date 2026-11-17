@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -253,6 +254,62 @@ func TestConversationsHandler_AnswersAnOpenSlowerThanTheServerWriteTimeout(t *te
 
 	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"opened":true`) {
 		t.Errorf("open = %d %s; want it answered", resp.StatusCode, body)
+	}
+}
+
+func TestConversationsHandler_LogsAnOpenThatAnswersAfterItsCallerLeft(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	var logged lockedBuffer
+	h.logOut = &logged
+	h.launcher = slowLauncher{launcher, 600 * time.Millisecond}
+	srv := httptest.NewServer(newServeServer(h).Handler)
+	t.Cleanup(srv.Close)
+	client := &http.Client{Timeout: 100 * time.Millisecond}
+
+	if resp, err := client.Post(srv.URL+conversationOpenPath, "application/json", strings.NewReader(`{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`)); err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("the open answered before the client gave up; this test needs a caller that left")
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for !strings.Contains(logged.String(), "an open of a claude conversation answered after its caller left: opened") {
+		if time.Now().After(deadline) {
+			t.Fatalf("log = %q; want the late outcome", logged.String())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// lockedBuffer is a log that a request's goroutine writes while the test reads it.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func TestCompanionOpenLateWait_OutlastsTheOpenReplyTimeout(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join("..", "..", "companion", "server.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	match := regexp.MustCompile(`const openLateTimeout = (\d+) \* time\.Second`).FindSubmatch(source)
+	if match == nil {
+		t.Fatal("companion/server.go no longer declares openLateTimeout in seconds; tie it to conversationOpenReplyTimeout again")
+	}
+	seconds, _ := strconv.Atoi(string(match[1]))
+
+	if late := time.Duration(seconds) * time.Second; late <= conversationOpenReplyTimeout {
+		t.Errorf("the companion waits %s for a late open, but an open may answer up to %s", late, conversationOpenReplyTimeout)
 	}
 }
 

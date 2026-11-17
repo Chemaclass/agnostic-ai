@@ -136,6 +136,8 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - macOS asks once for Automation access to each app the server controls: Terminal and Ghostty. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
 - The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
+- A second open of the same conversation while one runs starts nothing: it waits for the first and returns the same reply. Opens of different conversations run side by side.
+- An open may take up to 90 seconds to answer. When its caller left before that, the server logs whether it opened on its standard error, without the reason.
 
 ## `POST /api/conversations/send`
 

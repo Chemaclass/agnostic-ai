@@ -165,6 +165,7 @@ function approvals(now) {
  * slowQueries (queries that contain the word wait that many milliseconds),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
  * openPending (the server did not answer an open in time, so nobody knows yet whether it opened),
+ * lateOpenProblem (such an open fails later, with openCommand, once POST /dev/settle-late-opens),
  * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown).
  */
 export const FIXTURES = {
@@ -314,6 +315,13 @@ export const FIXTURES = {
     label: 'Open the server is slow to answer',
     conversations: mixed,
     openPending: true,
+  },
+  'late-open-failure': {
+    label: 'Open that fails after the server was slow to answer, once /dev/settle-late-opens',
+    conversations: archived,
+    openPending: true,
+    lateOpenProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2",
   },
   'held-open-failure': {
     label: 'Open failure for "Plan the sync dry run", held until /dev/release-opens',

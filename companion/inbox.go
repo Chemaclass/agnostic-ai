@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -56,6 +57,18 @@ type inbox struct {
 	refresh chan struct{}
 	// stopPoll ends the running poll loop; nil while none runs.
 	stopPoll context.CancelFunc
+	// opens counts the opens the pages asked for, so a late answer knows
+	// whether a newer open came after it.
+	opens uint64
+	// lateFailure is why an open the page stopped waiting for did not
+	// open, until the panel takes it or a newer open begins; nil when none.
+	lateFailure *openFailure
+}
+
+// openFailure is a failed open as the panel shows it.
+type openFailure struct {
+	Message string `json:"message"`
+	Command string `json:"command,omitempty"`
 }
 
 func newInbox(server *server, builtFor string, changed func()) *inbox {
@@ -239,38 +252,129 @@ type stillOpening struct {
 // list.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wait := in.server.callWait
-		if path == serverOpenPath {
-			wait = in.server.openWait
-		}
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: "the request is larger than the companion sends"})
 			return
 		}
-		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
-		switch {
-		case err != nil && timedOut(err) && path == serverOpenPath:
-			in.refreshSoon()
-			writeJSON(w, http.StatusAccepted, stillOpening{Pending: true, Message: "Still opening. This takes longer than usual."})
-			return
-		case err != nil && timedOut(err):
-			writeJSON(w, http.StatusGatewayTimeout, apiError{Error: err.Error()})
-			return
-		case err != nil:
-			writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
+		if path == serverOpenPath {
+			in.passOpen(w, r, body)
 			return
 		}
-		if answer.status < 300 {
-			in.refreshSoon()
-		}
-		if len(answer.body) == 0 {
-			w.WriteHeader(answer.status)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(answer.status)
-		_, _ = w.Write(answer.body)
+		answer, err := in.server.callWithin(r.Context(), in.server.callWait, http.MethodPost, path, body, "")
+		in.answer(w, answer, err)
 	}
+}
+
+// answer writes the server's answer to a passed call, or why none came.
+// A call that worked asks for a new list.
+func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
+	switch {
+	case err != nil && timedOut(err):
+		writeJSON(w, http.StatusGatewayTimeout, apiError{Error: err.Error()})
+		return
+	case err != nil:
+		writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
+		return
+	}
+	if answer.status < 300 {
+		in.refreshSoon()
+	}
+	if len(answer.body) == 0 {
+		w.WriteHeader(answer.status)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(answer.status)
+	_, _ = w.Write(answer.body)
+}
+
+// passOpen hands an open to the server. After openWait the page gets a
+// pending reply, and the call goes on up to openLateWait: a failure
+// that arrives then is kept for the panel, unless a newer open began.
+func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
+	in.mu.Lock()
+	in.opens++
+	this := in.opens
+	in.lateFailure = nil
+	in.mu.Unlock()
+	type outcome struct {
+		answer reply
+		err    error
+	}
+	settled := make(chan outcome, 1)
+	go func() {
+		answer, err := in.server.callWithin(context.WithoutCancel(r.Context()), in.server.openLateWait, http.MethodPost, serverOpenPath, body, "")
+		settled <- outcome{answer, err}
+	}()
+	waited := time.NewTimer(in.server.openWait)
+	defer waited.Stop()
+	select {
+	case got := <-settled:
+		in.answer(w, got.answer, got.err)
+		return
+	case <-waited.C:
+		in.refreshSoon()
+		writeJSON(w, http.StatusAccepted, stillOpening{Pending: true, Message: "Still opening. This takes longer than usual."})
+	case <-r.Context().Done():
+	}
+	go func() {
+		got := <-settled
+		in.settleLate(this, lateFailureOf(got.answer, got.err))
+	}()
+}
+
+// lateFailureOf is why an open did not open; nil when it did.
+func lateFailureOf(answer reply, err error) *openFailure {
+	if err != nil {
+		return &openFailure{Message: err.Error()}
+	}
+	if answer.status >= 300 {
+		return &openFailure{Message: errorOf(answer)}
+	}
+	var said struct {
+		Opened  bool   `json:"opened"`
+		Message string `json:"message"`
+		Command string `json:"command"`
+	}
+	if answer.status != http.StatusOK || json.Unmarshal(answer.body, &said) != nil || said.Opened {
+		return nil
+	}
+	return &openFailure{Message: said.Message, Command: said.Command}
+}
+
+// settleLate keeps the failure of open number this for the panel, and
+// asks for a new list either way.
+func (in *inbox) settleLate(this uint64, failure *openFailure) {
+	defer in.refreshSoon()
+	if failure == nil {
+		log.Print("an open answered after the page stopped waiting: opened")
+		return
+	}
+	log.Print("an open answered after the page stopped waiting: not opened")
+	in.mu.Lock()
+	newest := this == in.opens
+	if newest {
+		in.lateFailure = failure
+	}
+	in.mu.Unlock()
+	if newest {
+		in.changed()
+	}
+}
+
+// takeLateOpen answers POST /api/open/late with the failure of an open
+// the page stopped waiting for, once; 204 when there is none.
+func (in *inbox) takeLateOpen(w http.ResponseWriter, _ *http.Request) {
+	in.mu.Lock()
+	failure := in.lateFailure
+	in.lateFailure = nil
+	in.mu.Unlock()
+	if failure == nil {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, http.StatusOK, failure)
 }

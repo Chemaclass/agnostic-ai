@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, takeLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
@@ -631,6 +631,26 @@ async function refresh() {
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
+  if (asked === '') await showLateOpenFailure()
+}
+
+/**
+ * An open the companion stopped waiting for may fail later. Its reason shows the way a failed open's does,
+ * unless a newer open or notice came after it.
+ */
+async function showLateOpenFailure() {
+  let failure
+  try {
+    failure = await takeLateOpenFailure()
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    return
+  }
+  if (!failure) return
+  const waited = waitedOpen
+  waitedOpen = undefined
+  if (waited?.open !== latestOpen || waited.notices !== noticesShown) return
+  showOpenFailure(failure, NOTICES.notOpened)
 }
 
 // The panel never activates its app, so while it shows it keeps the keys
@@ -639,6 +659,8 @@ async function refresh() {
 // companion gave up waiting for (`pending`) may still happen, so it is
 // no failure and the panel stays hidden.
 let latestOpen = 0
+/** The open last answered as pending, and how many notices had shown then; undefined when none waits. */
+let waitedOpen
 
 async function openRow(conversation) {
   const thisOpen = ++latestOpen
@@ -648,6 +670,7 @@ async function openRow(conversation) {
   try {
     const reply = await openConversation(conversation)
     failure = reply.pending ? undefined : openFailureOf(reply)
+    if (reply.pending && thisOpen === latestOpen) waitedOpen = { open: thisOpen, notices: noticesShown }
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }
@@ -662,11 +685,15 @@ async function openRow(conversation) {
   })
 }
 
+/** How many notices showed, so a late failure can tell whether a newer one came after its open. */
+let noticesShown = 0
+
 /**
  * The notice stays until dismissed. `about`, one of NOTICES, names what it is about and sets its tone:
  * an error has a red border and a warning icon, and is read out at once. No failure hides the notice.
  */
 function showOpenFailure(failure, about) {
+  if (failure) noticesShown += 1
   state.openFailure = failure
   notice.hidden = failure === undefined
   if (about) {
