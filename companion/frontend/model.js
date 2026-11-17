@@ -111,14 +111,20 @@ export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, 
 /** What pick mode says when the clipboard holds no text. */
 export const NOTHING_TO_SEND = 'Nothing to send: copy some text first.'
 
+/** What pick mode says when the clipboard could not be read. */
+export function unreadableClipOf(error) {
+  return `Could not read the copied text. ${error.message}`
+}
+
 /** The clipboard as pick mode uses it, or undefined when it holds no text to send, such as only an image or a file. */
 export function pickableClip(clip) {
   return clip && clip.words > 0 && typeof clip.hash === 'string' && clip.hash !== '' ? clip : undefined
 }
 
-/** The pick banner's title: "Send 412 words to…". Only the server knows whether copied HTML goes as Markdown, and its reply says so. */
+/** The pick banner's title: what a click or Enter does. Only the server knows whether copied HTML goes as Markdown, and its reply says so. */
 export function pickTitleOf(clip) {
-  return `Send ${clip.words} ${clip.words === 1 ? 'word' : 'words'} to…`
+  const words = clip.words === 1 ? 'this word' : `these ${clip.words} words`
+  return `Click a chat or press Enter to paste ${words} there`
 }
 
 /** The first words of the copied text, for the chip that flies into the picked row. */
@@ -164,9 +170,9 @@ export function sendingTitleOf(conversation) {
   return `Sending to ${titleOf(conversation)}`
 }
 
-/** The groups pick mode shows: Archived only while a search is typed, and its rows then cannot be picked. */
-export function pickGroupsOf(groups, query) {
-  return query === '' ? groups.filter((group) => group.id !== 'archived') : groups
+/** The groups pick mode shows: every one but Archived, whose chats cannot take the text. */
+export function pickGroupsOf(groups) {
+  return groups.filter((group) => group.id !== 'archived')
 }
 
 /** Cmd+Shift+V, or Ctrl+Shift+V off a Mac: enters or leaves pick mode while the list is open. */

@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -87,10 +87,10 @@ function shownView() {
   return state.view === undefined ? undefined : viewIn(state.view, shownPlace())
 }
 
-/** The groups the list shows: in pick mode, Archived only while a search is typed. */
+/** The groups the list shows: in pick mode, no Archived. */
 function shownGroups(view) {
   const groups = grouped(view.conversations)
-  return state.pick ? pickGroupsOf(groups, state.query) : groups
+  return state.pick ? pickGroupsOf(groups) : groups
 }
 
 function choosePlace(place) {
@@ -153,11 +153,11 @@ function isFolded(group) {
   return state.query === '' && state.folded.get(group.id)
 }
 
-/** The rows the arrow keys move through: in pick mode, only those that can take the text. */
+/** The rows the arrow keys move through. */
 function visibleKeys() {
   return shownGroups(shownView())
     .filter((group) => !isFolded(group))
-    .flatMap((group) => group.rows.filter((conversation) => !state.pick || takesText(conversation)).map(keyOf))
+    .flatMap((group) => group.rows.map(keyOf))
 }
 
 function actionButton(iconName, label, press) {
@@ -231,9 +231,6 @@ function rowOf(conversation, order, folderNames, under) {
   row.classList.toggle('is-active', key === state.activeKey)
   row.classList.toggle('is-nested', under !== undefined)
   row.classList.toggle('has-workers', conversation.workingSubagents > 0)
-  const unpickable = state.pick !== undefined && !takesText(conversation)
-  row.classList.toggle('is-unpickable', unpickable)
-  if (unpickable) row.setAttribute('aria-disabled', 'true')
   row.dataset.key = key
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
@@ -282,9 +279,7 @@ function rowOf(conversation, order, folderNames, under) {
 
   row.append(stateMark(conversation), text, actions)
   row.addEventListener('click', () => chooseRow(conversation))
-  row.addEventListener('mousemove', () => {
-    if (!unpickable) setActive(key)
-  })
+  row.addEventListener('mousemove', () => setActive(key))
   row.addEventListener('contextmenu', (event) => {
     // Right-clicking only offers the menu: the chat stays closed and unread.
     event.preventDefault()
@@ -714,7 +709,6 @@ function showOpenFailure(failure, about) {
 const pickBanner = document.getElementById('pick')
 const pickTitle = document.getElementById('pick-title')
 const pickPreview = document.getElementById('pick-preview')
-const pickButton = document.getElementById('send-clipboard')
 /** How long the chip takes to fly from the banner into the picked row. */
 const CHIP_MS = 220
 /** How long the picked row's state mark pulses before the banner closes. */
@@ -741,7 +735,6 @@ function showPick(clip) {
   pickTitle.textContent = pickTitleOf(clip)
   pickPreview.textContent = clip.preview
   pickBanner.hidden = false
-  pickButton.setAttribute('aria-pressed', 'true')
   card.classList.add('is-picking')
   if (entering && moves()) {
     pickBanner.classList.remove('is-entering')
@@ -763,7 +756,8 @@ async function enterPick() {
   try {
     clip = pickableClip(await readClipboard())
   } catch (error) {
-    sayFailure(error)
+    if (!(error instanceof CallError)) throw error
+    say(unreadableClipOf(error), 'error')
     return false
   }
   if (!clip) {
@@ -819,7 +813,6 @@ function leavePick() {
   state.pick = undefined
   pickBanner.hidden = true
   pickBanner.classList.remove('is-entering')
-  pickButton.setAttribute('aria-pressed', 'false')
   card.classList.remove('is-picking')
   drawPlaces()
   draw({ force: true })
@@ -921,7 +914,6 @@ async function sendRow(conversation) {
   }
 }
 
-pickButton.addEventListener('click', togglePick)
 document.getElementById('pick-close').addEventListener('click', () => {
   leavePick()
   queryInput.focus()
@@ -1487,7 +1479,7 @@ document.addEventListener('keydown', (event) => {
     return
   }
   // A focused notice, group header, row button, subagent control or settings menu button takes Enter as its own click.
-  if (event.target.closest('#notice button, #pick button, #send-clipboard, .group-head button, .action, .helpers-toggle, .helper-row, .helpers-more, #menu')) return
+  if (event.target.closest('#notice button, #pick button, .group-head button, .action, .helpers-toggle, .helper-row, .helpers-more, #menu')) return
   if (event.key === 'Enter') {
     const conversation = activeConversation()
     if (conversation) chooseRow(conversation)

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -433,10 +433,9 @@ test('Escape leaves pick mode before it closes the panel, and after the settings
   assert.equal(escapeTarget({ picking: false }), 'panel')
 })
 
-test('pick mode hides Archived until a search is typed, and archived rows never take the text', () => {
+test('pick mode never offers Archived, and archived rows never take the text', () => {
   const groups = grouped([row('a', 'blocked'), row('b', 'working'), row('c', 'active'), row('d', 'completed'), row('e', 'dormant')])
-  assert.deepEqual(pickGroupsOf(groups, '').map((group) => group.id), ['needs-you', 'working', 'active'])
-  assert.deepEqual(pickGroupsOf(groups, 'parser').map((group) => group.id), ['needs-you', 'working', 'active', 'archived'])
+  assert.deepEqual(pickGroupsOf(groups).map((group) => group.id), ['needs-you', 'working', 'active'])
   assert.deepEqual(['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => takesText(row('x', state))), [true, true, true, true, false, false])
 })
 
@@ -480,9 +479,10 @@ test('pick mode opens only on copied text, and names it by its words', () => {
   assert.equal(pickableClip(clip), clip)
   assert.equal(pickableClip({ preview: '', words: 0, chars: 0, hash: '' }), undefined)
   assert.equal(pickableClip(undefined), undefined)
-  assert.equal(pickTitleOf(clip), 'Send 8 words to…')
-  assert.equal(pickTitleOf({ ...clip, words: 1 }), 'Send 1 word to…')
-  assert.equal(pickTitleOf({ ...clip, format: 'markdown', words: 412 }), 'Send 412 words to…')
+  assert.equal(pickTitleOf(clip), 'Click a chat or press Enter to paste these 8 words there')
+  assert.equal(pickTitleOf({ ...clip, words: 1 }), 'Click a chat or press Enter to paste this word there')
+  assert.equal(pickTitleOf({ ...clip, format: 'markdown', words: 412 }), 'Click a chat or press Enter to paste these 412 words there')
+  assert.equal(unreadableClipOf(new Error('The companion could not reach its own shell.')), 'Could not read the copied text. The companion could not reach its own shell.')
   assert.equal(chipTextOf(clip), 'Fix the flaky login…')
   assert.equal(chipTextOf({ ...clip, preview: 'Two words' }), 'Two words')
   assert.equal(NOTHING_TO_SEND, 'Nothing to send: copy some text first.')

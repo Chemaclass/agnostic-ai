@@ -115,16 +115,18 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   and search in agnostic-ai and comes back with a new message or when it
   starts working. The tool that owns the chat keeps
   it either way.
-- **Send copied text** to a chat: copy text anywhere, open the list, and
-  press **Cmd+Shift+V** (Ctrl+Shift+V off a Mac) or click the clipboard
-  button beside the search. A banner shows "Send 412 words to…" with the
-  start of the text. Pick a chat with **↑ ↓** and **Enter**, or a click. The
-  text lands in that chat's input and is not sent: you press Enter there.
+- **Send copied text** to a chat: copy text anywhere and press the send
+  shortcut, **Ctrl+Alt+V** until you change it in the list's ⋯ menu. With
+  the list open, **Cmd+Shift+V** (Ctrl+Shift+V off a Mac) does the same. A
+  banner shows "Click a chat or press Enter to paste these 412 words there"
+  with the start of the text. Pick a chat with **↑ ↓** and **Enter**, or a
+  click. The text lands in that chat's input and is not sent: you press
+  Enter there.
   - Text copied from a web page goes as Markdown when it holds links,
     tables, code blocks, headings or lists, and the reply after the send
     says so. Other copied text goes as plain text. On macOS only.
-  - The list shows only this machine's chats, without Archived. A search can
-    still show an archived chat, dimmed, and it cannot be picked.
+  - The list shows only this machine's chats, without Archived, also during
+    a search.
   - The first chat the text can be typed into is selected. Nothing is sent
     until you press Enter or click.
   - A live chat in a Terminal or Ghostty tab gets the text typed in, and the
