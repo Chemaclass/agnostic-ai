@@ -241,7 +241,7 @@ func TestConversationsHandler_AnswersAnOpenSlowerThanTheServerWriteTimeout(t *te
 	}
 	go func() { _ = srv.Serve(ln) }()
 	t.Cleanup(func() { _ = srv.Close() })
-	client := &http.Client{Timeout: 60 * unit}
+	client := &http.Client{Timeout: h.openReplyWait - unit}
 
 	resp, err := client.Post("http://"+ln.Addr().String()+conversationOpenPath, "application/json", strings.NewReader(`{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`))
 	if err != nil {
