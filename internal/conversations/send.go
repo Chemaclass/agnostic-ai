@@ -27,6 +27,14 @@ var errAccessibilityDenied = errors.New("macOS blocked pressing keys")
 // the front, so a paste would land somewhere else.
 var errNotInFront = errors.New("the tab did not come to the front")
 
+// errClipboardChanged means the clipboard Terminal would paste no longer
+// holds the text the send checked.
+var errClipboardChanged = errors.New("the clipboard changed")
+
+// idleActivity is how each tool typed into reports a session ready for
+// text: Codex reports nothing between turns.
+var idleActivity = map[Tool]Activity{ToolClaude: ActivityIdle, ToolCodex: ""}
+
 // queuesTypedInput are the tools known to keep text typed into their
 // input while the agent works. Others may drop it or read it as an answer.
 var queuesTypedInput = map[Tool]bool{ToolClaude: true}
@@ -71,7 +79,8 @@ func Send(ctx context.Context, c Conversation, text string, processes Processes,
 
 // SendMarkdown sends Markdown made from copied HTML, as Send does, and
 // says so. Terminal pastes from the clipboard, so there the clipboard
-// holds the Markdown afterwards.
+// holds the Markdown once the tab is found. A plain send never changes
+// the clipboard.
 func SendMarkdown(ctx context.Context, c Conversation, markdown string, processes Processes, launcher Launcher) SendReply {
 	return send(ctx, c, markdown, true, processes, launcher)
 }
@@ -80,6 +89,7 @@ func send(ctx context.Context, c Conversation, text string, markdown bool, proce
 	if len(text) > MaxSendBytes {
 		return SendReply{Message: fmt.Sprintf("The text is %s, over the %s a send takes, so nothing was typed.", sizeOf(len(text)), sizeOf(MaxSendBytes))}
 	}
+	copied := text
 	text = CleanSendText(text)
 	if strings.TrimSpace(text) == "" {
 		return SendReply{Message: "Nothing to send: copy some text first."}
@@ -104,6 +114,10 @@ func send(ctx context.Context, c Conversation, text string, markdown bool, proce
 	if placed == nil || placed.claudeBackground || len(placed.ttys) > 0 || !tabApps[placed.host.App] || placed.host.TTY == "" {
 		return pasteByHand(ctx, c, processes, launcher, "")
 	}
+	// The client was matched by its command line or first thread, and may have switched thread since.
+	if placed.process.PID != c.process.PID {
+		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("It shows in a %s terminal that may show another thread now, so nothing was typed.", toolLabels[c.Tool]))
+	}
 	if !typedInto[c.Tool] {
 		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("%s does not say when it waits for an answer, so nothing was typed.", toolLabels[c.Tool]))
 	}
@@ -113,27 +127,38 @@ func send(ctx context.Context, c Conversation, text string, markdown bool, proce
 	if working(c) && !queuesTypedInput[c.Tool] {
 		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("%s is working and may drop typed text, so nothing was typed.", toolLabels[c.Tool]))
 	}
+	if !working(c) && c.Activity != idleActivity[c.Tool] {
+		return pasteByHand(ctx, c, processes, launcher, "It does not say whether it is ready for text, so nothing was typed.")
+	}
 	app, tty := placed.host.App, placed.host.TTY
-	// A Codex thread the daemon holds shows in a client: that client owns the tab.
 	if !holdsTerminal(processes, placed.process, tty) {
 		return SendReply{Message: fmt.Sprintf("Its terminal on %s does not show it right now, so nothing was typed. Switch to it, then paste with Cmd+V.", shortTTY(tty))}
 	}
-	ok, err := launcher.TypeInTab(ctx, app, tty, text)
+	setsClipboard := markdown && app == "Terminal"
+	if app == "Terminal" && !markdown && copied != text {
+		return pasteByHand(ctx, c, processes, launcher, "The copied text ends in white space or holds characters a send drops, and Terminal would paste them, so nothing was pasted.")
+	}
+	ok, err := launcher.TypeInTab(ctx, app, tty, text, setsClipboard)
 	byHand := " The text is on the clipboard: paste it with Cmd+V."
-	if markdown && app == "Terminal" {
-		byHand = " The Markdown is on the clipboard: paste it with Cmd+V."
+	pasteSet, maybeSet, unknownSet := byHand, "", byHand
+	if setsClipboard {
+		pasteSet = " The clipboard now holds the Markdown: paste it with Cmd+V."
+		maybeSet = " The clipboard may now hold the Markdown."
+		unknownSet = " The clipboard may now hold the Markdown: paste it with Cmd+V."
 	}
 	switch {
 	case errors.Is(err, errAutomationDenied):
-		return SendReply{Message: allowControl("typing into", app, "then send again")}
+		return SendReply{Message: allowControl("typing into", app, "then send again") + maybeSet}
 	case errors.Is(err, errAccessibilityDenied):
-		return SendReply{Message: fmt.Sprintf("macOS blocked pasting into %s. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again.", app) + byHand}
+		return SendReply{Message: fmt.Sprintf("macOS blocked pasting into %s. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again.", app) + pasteSet}
 	case errors.Is(err, context.DeadlineExceeded):
-		return SendReply{Message: fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then send again.", app)}
+		return SendReply{Message: fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then send again.", app) + maybeSet}
+	case errors.Is(err, errClipboardChanged):
+		return SendReply{Message: "The copied text changed, so nothing was pasted. Check the new text, then send again."}
 	case errors.Is(err, errNotInFront):
 		return SendReply{Message: fmt.Sprintf("The %s tab that runs it did not come to the front, so nothing was pasted.", app) + byHand}
 	case err != nil:
-		return SendReply{Message: fmt.Sprintf("Could not type into %s: %v.", app, err) + byHand}
+		return SendReply{Message: fmt.Sprintf("Could not type into %s: %v.", app, err) + unknownSet}
 	case !ok:
 		return SendReply{Message: fmt.Sprintf("It runs in %s on %s, but no tab shows that terminal, so nothing was typed.", app, shortTTY(tty)) + byHand}
 	}

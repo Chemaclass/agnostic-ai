@@ -121,9 +121,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   start of the text. Pick a chat with **↑ ↓** and **Enter**, or a click. The
   text lands in that chat's input and is not sent: you press Enter there.
   - Text copied from a web page goes as Markdown when it holds links,
-    tables, code blocks, headings or lists, and the banner says "Send
-    Markdown, 412 words to…". Other copied text goes as plain text. On
-    macOS only.
+    tables, code blocks, headings or lists, and the reply after the send
+    says so. Other copied text goes as plain text. On macOS only.
   - The list shows only this machine's chats, without Archived. A search can
     still show an archived chat, dimmed, and it cannot be picked.
   - The first chat the text can be typed into is selected. Nothing is sent
@@ -133,8 +132,11 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
     paste with Cmd+V: the clipboard still holds the text.
   - A chat that ended is never resumed and typed into. A Cursor chat or a
     working Codex chat is not typed into either. Nor is a chat waiting for
-    your answer, where a typed letter could answer it.
-  - Pasting into Terminal needs macOS Accessibility access once.
+    your answer, where a typed letter could answer it, or one whose state
+    is not known.
+  - Pasting into Terminal needs macOS Accessibility access once. Plain text
+    leaves the clipboard as you copied it, so text ending in a line break is
+    not pasted there: paste it with Cmd+V.
   - **Esc** leaves pick mode. A second **Esc** closes the list.
   - From any app, press **Ctrl+Alt+V** (⌃⌥V on a Mac) until you change it.
     The list opens in pick mode on every chat, with the search cleared. When

@@ -304,13 +304,13 @@ func TestSendShortcutRoute_RefusesTheOpenKeys(t *testing.T) {
 	}
 }
 
-func TestNativeSendShortcut_OpensTheListOnItsSettings(t *testing.T) {
+func TestNativeSendShortcut_OpensTheListOnItsOwnSetting(t *testing.T) {
 	s, _ := placedShell(t)
 
 	s.menuActions()["sendShortcut"](false)
 
 	panel := s.panel.(*fakeWindow)
-	if !panel.IsVisible() || strings.Join(panel.events, ",") != eventSettingsShown {
+	if !panel.IsVisible() || strings.Join(panel.events, ",") != eventSendSettingsShown {
 		t.Errorf("list shown %v, events %v", panel.IsVisible(), panel.events)
 	}
 }

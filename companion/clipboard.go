@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -26,13 +25,6 @@ const maxServerBodyBytes = 1 << 20
 // previewRunes is how much of the copied text the pick banner shows.
 const previewRunes = 200
 
-// Formats a send goes as: copied HTML becomes Markdown when the server
-// finds links, tables, code blocks, headings or lists in it.
-const (
-	formatText     = "text"
-	formatMarkdown = "markdown"
-)
-
 // clipboardReply describes the copied text without carrying all of it.
 // hash names the exact text, so a send can tell it did not change.
 type clipboardReply struct {
@@ -40,7 +32,6 @@ type clipboardReply struct {
 	Words   int    `json:"words"`
 	Chars   int    `json:"chars"`
 	Hash    string `json:"hash"`
-	Format  string `json:"format,omitempty"`
 }
 
 type sendRequest struct {
@@ -49,37 +40,11 @@ type sendRequest struct {
 	Hash string `json:"hash"`
 }
 
-func clipboardHash(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])
-}
-
 // copiedHash names the text and the HTML copied with it, so a send can
 // tell that neither changed and that both came from one copy.
 func copiedHash(text, html string) string {
-	if html == "" {
-		return clipboardHash(text)
-	}
-	return clipboardHash(fmt.Sprintf("%d\x00%s%s", len(text), text, html))
-}
-
-// notPage is what a copied page holds that is never shown.
-var notPage = regexp.MustCompile(`(?is)<!--.*?-->|<(?:script|style|template|noscript)\b.*?</(?:script|style|template|noscript)\s*>`)
-
-// structured matches what Markdown keeps and plain text loses. It only
-// labels the banner: the server parses the HTML and decides.
-var structured = regexp.MustCompile(`(?i)<(?:table|pre|ul|ol|h[1-6])[\s>/]|<a\s(?:[^>]*\s)?href\s*=\s*["']?\s*[^\s"'>]`)
-
-// formatOf labels the banner: Markdown only when the HTML has something
-// to keep and fits beside the text in the server's request.
-func formatOf(text, html string) string {
-	if !structured.MatchString(notPage.ReplaceAllString(html, "")) {
-		return formatText
-	}
-	if body, err := encodeSend(sendRequest{}, text, html); err != nil || len(body)+maxRequestBytes > maxServerBodyBytes {
-		return formatText
-	}
-	return formatMarkdown
+	sum := sha256.Sum256(fmt.Appendf(nil, "%d\x00%s%d\x00%s", len(text), text, len(html), html))
+	return hex.EncodeToString(sum[:])
 }
 
 func describeClipboard(text, html string) clipboardReply {
@@ -90,7 +55,7 @@ func describeClipboard(text, html string) clipboardReply {
 	if utf8.RuneCountInString(preview) > previewRunes {
 		preview = string([]rune(preview)[:previewRunes])
 	}
-	return clipboardReply{Preview: preview, Words: len(strings.Fields(text)), Chars: utf8.RuneCountInString(text), Hash: copiedHash(text, html), Format: formatOf(text, html)}
+	return clipboardReply{Preview: preview, Words: len(strings.Fields(text)), Chars: utf8.RuneCountInString(text), Hash: copiedHash(text, html)}
 }
 
 func (in *inbox) copiedHTML() string {

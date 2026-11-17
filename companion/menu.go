@@ -65,7 +65,7 @@ func (s *shell) menuActions() map[string]func(on bool) {
 			}
 		},
 		"shortcut":     func(bool) { s.openSettings() },
-		"sendShortcut": func(bool) { s.openSettings() },
+		"sendShortcut": func(bool) { s.comeBackOpenedOn(eventSendSettingsShown) },
 		"hide":         func(bool) { s.hide() },
 		"quit":         func(bool) { s.askQuit() },
 	}
