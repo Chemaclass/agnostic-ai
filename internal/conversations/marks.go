@@ -76,8 +76,10 @@ const marksSchemaVersion = "conversation-marks/v1"
 const maxMarksBytes = 8 << 20
 
 // marksFile is the person's marks on this machine. It holds tool
-// names, ids, times and the names the person gave conversations, never
-// the conversations' own text.
+// names, ids, times, the names the person gave conversations and the
+// paths of their stores and files, never the conversations' own text. A
+// Claude Code project folder's name spells the folder the session ran
+// in, and a Codex rollout outside CODEX_HOME is kept as a full path.
 type marksFile struct {
 	SchemaVersion string `json:"schemaVersion"`
 	// Since is the baseline: everything written up to it counts as seen.
@@ -85,6 +87,8 @@ type marksFile struct {
 	// started marking are not all unread.
 	Since string               `json:"since"`
 	Marks map[string]markEntry `json:"marks"`
+	// Stores maps each store a mark names to its folder; see pruneMarks.
+	Stores map[string]string `json:"stores,omitempty"`
 
 	extra unknownJSON
 }
@@ -476,7 +480,7 @@ func (s *Scanner) changeMarks(keys []string, change func(entry *markEntry, now s
 	for _, key := range keys {
 		entry := file.Marks[key]
 		change(&entry, stamp(now))
-		s.attributeMark(key, &entry)
+		s.attributeMark(&file, key, &entry)
 		file.Marks[key] = entry
 	}
 	return writeMarks(s.MarksPath, file)

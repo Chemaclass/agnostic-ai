@@ -250,9 +250,9 @@ Measured 2026-11-17 on an Apple M4 Pro, Go 1.27.4, `-count 6 -cpu 4`, on a busy 
 
 | status-quo | proposed | baseline | prune pass |
 |---:|---:|---:|---:|
-| 1.19 | 1.53 | 0.24 | 0.12 |
+| 1.23 | 1.56 | 0.24 | 0.23 |
 
-The strict pass adds about 0.3 ms a scan at 2,000 marks, against about 120 ms for one `lsof` run in the same scan. A first try that decoded every entry twice took 3.5 ms.
+The prune pass reads the marks twice: once to find the stores whose missing marks are due a save, so they are saved in one write, and once to age them. The strict pass adds about 0.3 ms a scan at 2,000 marks, against about 120 ms for one `lsof` run in the same scan. A first try that decoded every entry twice took 3.5 ms.
 
 ## Listing Claude Code transcripts
 
@@ -266,6 +266,6 @@ Measured the same day, `-count 6 -cpu 4`, in milliseconds per scan:
 
 | status-quo | shipped | baseline |
 |---:|---:|---:|
-| 10.1 | 6.8 | 6.9 |
+| 11.5 | 7.7 | 7.4 |
 
 A first `listTree` that ran `filepath.Match` on every name and joined every path took 11.6 ms. `cursor-agent` chat stores use the same walk.

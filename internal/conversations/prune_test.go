@@ -767,3 +767,132 @@ func TestListTree_FindsWhatGlobFinds(t *testing.T) {
 		}
 	}
 }
+
+func TestScan_AMarkFollowsItsStoreToANewFolder(t *testing.T) {
+	p := newPruning(t)
+	markAll(t, p.scanner, ToolClaude, keptID, goneID)
+	p.scan(t, context.Background())
+
+	// The home folder was renamed: the same chats, under another path.
+	moved := filepath.Join(t.TempDir(), "renamed-home", ".claude")
+	if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(p.stores.ClaudeDir, moved); err != nil {
+		t.Fatal(err)
+	}
+	p.stores.ClaudeDir, p.scanner.Stores.ClaudeDir = moved, moved
+	p.now = p.now.Add(time.Hour)
+	p.scan(t, context.Background())
+	if entry, _ := p.entry(t, ToolClaude, keptID); entry.Store != storeKey(filepath.Join(moved, "projects")) {
+		t.Fatalf("the mark kept the old store: %+v", entry)
+	}
+
+	if err := os.Remove(p.transcript(goneID)); err != nil {
+		t.Fatal(err)
+	}
+	p.daily(t, 31)
+	if p.marked(t, goneID) {
+		t.Error("a chat deleted after its store moved kept its mark")
+	}
+	if !p.marked(t, keptID) {
+		t.Error("a listed chat lost its mark")
+	}
+}
+
+func TestScan_TwoServersWithACopiedStoreKeepTheFirstStore(t *testing.T) {
+	p := newPruning(t)
+	markAll(t, p.scanner, ToolClaude, keptID)
+	p.scan(t, context.Background())
+	first, _ := p.entry(t, ToolClaude, keptID)
+
+	// Another server reads a copy of the same folder, which holds the same ids.
+	other, otherStores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
+	other.MarksPath = p.scanner.MarksPath
+	other.Now = func() time.Time { return p.now }
+	writeMarkedSession(t, otherStores, keptID, "2026-11-07T11:00:00.000Z")
+	writes := fileWrites(t, p.scanner.MarksPath)
+	n := 0
+	for range 10 {
+		p.now = p.now.Add(24 * time.Hour)
+		p.scan(t, context.Background())
+		writes()
+		other.Scan(context.Background(), ScanOptions{})
+		n = writes()
+	}
+	if n != 0 {
+		t.Errorf("two servers on copies of one store rewrote the marks %d times", n)
+	}
+	if entry, _ := p.entry(t, ToolClaude, keptID); entry.Store != first.Store {
+		t.Errorf("the mark moved to the copy: %+v, first %+v", entry, first)
+	}
+}
+
+func TestStoreKey_NamesAFolderTheSameThroughALink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("links need privileges on Windows")
+	}
+	dir := t.TempDir()
+	real := filepath.Join(dir, "real")
+	if err := os.Mkdir(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	if storeKey(link) != storeKey(real) {
+		t.Error("a link to the store names another store")
+	}
+	if storeKey(filepath.Join(dir, "missing")) == storeKey(real) {
+		t.Error("a missing folder named an existing one")
+	}
+}
+
+func TestScan_ASixDayPauseAfterAnUnsavedMissKeepsTheThirtyDays(t *testing.T) {
+	p := newPruning(t)
+	p.markBothAndRemove(t)
+	p.now = p.now.Add(time.Hour)
+	p.scan(t, context.Background())
+	started, _ := p.entry(t, ToolClaude, goneID)
+
+	// A miss the next day is not saved; the next read comes six and a half days after it.
+	p.now = p.now.Add(23 * time.Hour)
+	p.scan(t, context.Background())
+	p.now = p.now.Add(6*24*time.Hour + 12*time.Hour)
+	p.scan(t, context.Background())
+	if entry, _ := p.entry(t, ToolClaude, goneID); entry.MissingSince != started.MissingSince {
+		t.Errorf("a pause under 7 days started the 30 days again: %+v, started %s", entry, started.MissingSince)
+	}
+}
+
+func TestScan_SavesTheMissingMarksOfAStoreTogether(t *testing.T) {
+	p := newPruning(t)
+	ids := []string{}
+	for i := range 5 {
+		id := fmt.Sprintf("5555555%d-5555-4555-8555-555555555555", i)
+		writeMarkedSession(t, p.stores, id, "2026-11-07T11:00:00.000Z")
+		ids = append(ids, id)
+	}
+	markAll(t, p.scanner, ToolClaude, append(ids, keptID)...)
+	p.scan(t, context.Background())
+	// Each chat goes missing at another time of day.
+	for _, id := range ids {
+		p.now = p.now.Add(4 * time.Hour)
+		if err := os.Remove(p.transcript(id)); err != nil {
+			t.Fatal(err)
+		}
+		p.scan(t, context.Background())
+	}
+
+	writes := fileWrites(t, p.scanner.MarksPath)
+	n := 0
+	for range 4 * 8 {
+		p.now = p.now.Add(3 * time.Hour)
+		p.scan(t, context.Background())
+		n = writes()
+	}
+	if n != 4 {
+		t.Errorf("four days of scans wrote the marks %d times, want one a day", n)
+	}
+}

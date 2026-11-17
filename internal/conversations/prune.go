@@ -39,7 +39,9 @@ const (
 	// again, so a machine that was off for a month prunes nothing on its
 	// first read back.
 	missGap = 7 * 24 * time.Hour
-	// missRefresh is how often a missing mark's last miss is saved.
+	// missRefresh is how often the missing marks' last miss is saved. A
+	// saved miss can be this much older than the real one, so a pause is
+	// measured against missGap plus this.
 	missRefresh = 24 * time.Hour
 )
 
@@ -65,15 +67,25 @@ func provenBy(source markSource, tool Tool, root string, files map[string]string
 	if len(files) == 0 {
 		return nil
 	}
+	root = resolvedFolder(root)
 	return []inventory{{source: source, tool: tool, root: root, store: storeKey(root), files: files}}
+}
+
+// resolvedFolder is root as an absolute path with its links followed,
+// or as an absolute path when they cannot be.
+func resolvedFolder(root string) string {
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
+	return filepath.Clean(root)
 }
 
 // storeKey names a store's folder in the marks file without its path.
 func storeKey(root string) string {
-	if abs, err := filepath.Abs(root); err == nil {
-		root = abs
-	}
-	sum := sha256.Sum256([]byte(filepath.Clean(root)))
+	sum := sha256.Sum256([]byte(resolvedFolder(root)))
 	return hex.EncodeToString(sum[:6])
 }
 
@@ -156,9 +168,11 @@ func (s *Scanner) pruneMarks(file *marksFile, results []sourceResult, now time.T
 	if complete == nil {
 		return false
 	}
+	p := prunePass{complete: complete, roots: file.Stores, gone: map[string]bool{}, now: now}
+	p.due = p.dueStores(file.Marks)
 	for key, entry := range file.Marks {
 		tool, id, _ := strings.Cut(key, ":")
-		next, keep := agedMark(entry, Tool(tool), id, complete, now)
+		next, keep := p.aged(entry, Tool(tool), id)
 		switch {
 		case !keep:
 			delete(file.Marks, key)
@@ -168,8 +182,97 @@ func (s *Scanner) pruneMarks(file *marksFile, results []sourceResult, now time.T
 			file.Marks[key] = next
 			changed = true
 		}
+		if keep && recordRoot(file, next.Store, complete) {
+			changed = true
+		}
 	}
 	return changed
+}
+
+// prunePass is one pass of pruneMarks.
+type prunePass struct {
+	complete map[string]inventory
+	// roots are the folders of the stores marks name, as the file keeps them.
+	roots map[string]string
+	// gone holds, by store, whether its folder is gone, read once a pass.
+	gone map[string]bool
+	// due are the stores whose missing marks this pass saves together.
+	due map[string]bool
+	now time.Time
+}
+
+// recordRoot keeps the folder of a complete store a mark names, so a
+// later pass can tell when that folder is gone.
+func recordRoot(file *marksFile, store string, complete map[string]inventory) bool {
+	inv, read := complete[store]
+	if !read || file.Stores[store] == inv.root {
+		return false
+	}
+	if file.Stores == nil {
+		file.Stores = map[string]string{}
+	}
+	file.Stores[store] = inv.root
+	return true
+}
+
+// missing classifies a mark that a complete read of its store missed:
+// restart when its clock must begin now, else whether a save is due.
+func (p *prunePass) missing(entry markEntry) (restart, due bool) {
+	started, last := parseStamp(entry.MissingSince), parseStamp(entry.LastMissAt)
+	if started.IsZero() || last.IsZero() || p.now.Sub(last) > missGap+missRefresh {
+		return true, true
+	}
+	return false, p.now.Sub(last) >= missRefresh
+}
+
+// dueStores are the stores with a missing mark that this pass writes
+// anyway. Each of their missing marks is saved in that same write, so
+// marks that went missing at different times of day cost one write a
+// day, not one each.
+func (p *prunePass) dueStores(marks map[string]markEntry) map[string]bool {
+	due := map[string]bool{}
+	for key, entry := range marks {
+		inv, read := p.complete[entry.Store]
+		if !read || due[entry.Store] || inv.source != entry.Source {
+			continue
+		}
+		tool, id, _ := strings.Cut(key, ":")
+		if _, listed := inv.files[id]; listed || inv.tool != Tool(tool) {
+			continue
+		}
+		if _, saveDue := p.missing(entry); saveDue {
+			due[entry.Store] = true
+		}
+	}
+	return due
+}
+
+// moved reports whether a mark's store is not read here, a complete read
+// here lists its conversation, and the folder of its store is gone: the
+// store moved, as after a home folder was renamed. Two stores that both
+// exist and hold the same chat, such as a copied folder, keep the first.
+func (p *prunePass) moved(entry markEntry, tool Tool, id string) bool {
+	if _, read := p.complete[entry.Store]; read {
+		return false
+	}
+	listed := false
+	for _, inv := range p.complete {
+		if _, ok := inv.files[id]; ok && inv.tool == tool {
+			listed = true
+			break
+		}
+	}
+	root, known := p.roots[entry.Store]
+	if !listed || !known {
+		return false
+	}
+	gone, checked := p.gone[entry.Store]
+	if !checked {
+		_, err := os.Lstat(root)
+		gone = errors.Is(err, fs.ErrNotExist)
+		p.gone[entry.Store] = gone
+	}
+	return gone
 }
 
 // completeStores indexes the complete inventories of results by store.
@@ -188,7 +291,7 @@ func completeStores(results []sourceResult) map[string]inventory {
 
 // attributeMark records the store the last complete read listed key in,
 // so the scan after a new mark need not write the file for that.
-func (s *Scanner) attributeMark(key string, entry *markEntry) {
+func (s *Scanner) attributeMark(file *marksFile, key string, entry *markEntry) {
 	if entry.Store != "" {
 		return
 	}
@@ -196,7 +299,9 @@ func (s *Scanner) attributeMark(key string, entry *markEntry) {
 	results := s.lastRead.results
 	s.lastReadMu.Unlock()
 	tool, id, _ := strings.Cut(key, ":")
-	attribute(entry, Tool(tool), id, completeStores(results))
+	complete := completeStores(results)
+	attribute(entry, Tool(tool), id, complete)
+	recordRoot(file, entry.Store, complete)
 }
 
 // attribute records the store among complete that lists id, if any.
@@ -204,16 +309,17 @@ func attribute(entry *markEntry, tool Tool, id string, complete map[string]inven
 	for _, inv := range complete {
 		if file, listed := inv.files[id]; listed && inv.tool == tool {
 			entry.Source, entry.Store, entry.File = inv.source, inv.store, file
+			entry.MissingSince, entry.LastMissAt = "", ""
 			return
 		}
 	}
 }
 
-func agedMark(entry markEntry, tool Tool, id string, complete map[string]inventory, now time.Time) (markEntry, bool) {
-	if entry.Store == "" {
-		attribute(&entry, tool, id, complete)
+func (p *prunePass) aged(entry markEntry, tool Tool, id string) (markEntry, bool) {
+	if entry.Store == "" || p.moved(entry, tool, id) {
+		attribute(&entry, tool, id, p.complete)
 	}
-	inv, read := complete[entry.Store]
+	inv, read := p.complete[entry.Store]
 	if !read || inv.tool != tool || inv.source != entry.Source {
 		return entry, true
 	}
@@ -224,17 +330,17 @@ func agedMark(entry markEntry, tool Tool, id string, complete map[string]invento
 		}
 		return entry, true
 	}
-	started, last := parseStamp(entry.MissingSince), parseStamp(entry.LastMissAt)
+	restart, _ := p.missing(entry)
 	switch {
-	case started.IsZero() || last.IsZero() || now.Sub(last) > missGap:
-		entry.MissingSince, entry.LastMissAt = stamp(now), stamp(now)
-	case now.Sub(started) >= marksKept:
+	case restart:
+		entry.MissingSince, entry.LastMissAt = stamp(p.now), stamp(p.now)
+	case p.now.Sub(parseStamp(entry.MissingSince)) >= marksKept:
 		if dataGone(inv.root, entry.File) {
 			return entry, false
 		}
 		entry.MissingSince, entry.LastMissAt = "", ""
-	case now.Sub(last) >= missRefresh:
-		entry.LastMissAt = stamp(now)
+	case p.due[entry.Store]:
+		entry.LastMissAt = stamp(p.now)
 	}
 	return entry, true
 }
@@ -267,7 +373,7 @@ var (
 		"seenAt": true, "completedAt": true, "hiddenAt": true, "closedWrittenAt": true,
 		"title": true, "source": true, "store": true, "file": true, "missingSince": true, "lastMissAt": true, "startedBy": true,
 	}
-	marksFileKeys = map[string]bool{"schemaVersion": true, "since": true, "marks": true}
+	marksFileKeys = map[string]bool{"schemaVersion": true, "since": true, "marks": true, "stores": true}
 )
 
 func (e markEntry) MarshalJSON() ([]byte, error) {

@@ -88,6 +88,8 @@ func BenchmarkPruneMarks(b *testing.B) {
 	results := []sourceResult{{inventories: provenBy(sourceClaudeCode, ToolClaude, "/home/me/.claude/projects", ids)}}
 	scanner := &Scanner{}
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	// The first pass records the store's folder, as a server's first scan does.
+	scanner.pruneMarks(&file, results, now)
 	for b.Loop() {
 		if scanner.pruneMarks(&file, results, now) {
 			b.Fatal("a pass with every conversation listed changed the file")
