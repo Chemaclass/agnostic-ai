@@ -54,8 +54,8 @@ const COPIED = 'Fix the flaky login test.\nThen run the whole suite.\nReport wha
 
 const TOOL_LABELS = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor', chatgpt: 'ChatGPT' }
 
-/** Like the shell: the copied text without all of it, and the format it goes as. */
-function clipboardOf(text, markdown = false) {
+/** Like the shell: the copied text without all of it. */
+function clipboardOf(text) {
   if (text.trim() === '') return { preview: '', words: 0, chars: 0, hash: '' }
   const chars = [...text]
   return {
@@ -63,7 +63,6 @@ function clipboardOf(text, markdown = false) {
     words: text.split(/\s+/).filter(Boolean).length,
     chars: chars.length,
     hash: createHash('sha256').update(text).digest('hex'),
-    format: markdown ? 'markdown' : 'text',
   }
 }
 
@@ -256,12 +255,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   async function send(request, response) {
     const body = await bodyOf(request)
     logCall('/api/send', body)
-    const copied = clipboardOf(state.clipboard, state.copiedMarkdown)
+    const copied = clipboardOf(state.clipboard)
     if (copied.words === 0) return sendJSON(response, 409, { error: 'Nothing to send: copy some text first.' })
     if (body.hash !== copied.hash) return sendJSON(response, 409, { error: 'The copied text changed. Check the new text, then send again.' })
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this list any more. Refresh the page.' })
-    sendJSON(response, 200, sendReplyOf(row, copied.format === 'markdown'))
+    sendJSON(response, 200, sendReplyOf(row, state.copiedMarkdown))
   }
 
   /** Like the shell: one press cannot do both, so the other shortcut's keys are refused. */
@@ -307,7 +306,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
-    'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard, state.copiedMarkdown)),
+    'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard)),
     'POST /api/send': send,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },
     'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
@@ -379,6 +378,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /dev/open-settings': (request, response) => {
       noContent(response)
       emit('settings-shown', 'bottom-right')
+    },
+    // Stands in for Send copied text in the circle's right-click menu.
+    'POST /dev/open-send-settings': (request, response) => {
+      noContent(response)
+      emit('send-settings-shown', 'bottom-right')
     },
     // Stands in for the circle's right-click menu, which the preview has not.
     'POST /dev/appearance': async (request, response) => {

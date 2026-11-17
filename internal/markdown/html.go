@@ -1,9 +1,9 @@
 package markdown
 
 import (
-	"regexp"
+	"net/url"
+	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
 	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/base"
@@ -17,10 +17,10 @@ import (
 // FromHTML turns copied HTML into Markdown. text is the plain text
 // copied with it, the one the person saw. It returns "" when the HTML
 // holds no link, table, code block, heading or list, since text says the
-// same; when its words are not all in text, such as content hidden with
-// CSS; and when the conversion fails or comes out empty. Images, link
-// titles and code classes other than a language are left out, since the
-// person never saw them.
+// same; when its words are not all in text in the same order, such as
+// content hidden with CSS; and when the conversion fails or comes out
+// empty. Every attribute but a short http, https or mailto link target is
+// left out, since the person never saw them.
 func FromHTML(source, text string) string {
 	doc, err := html.Parse(strings.NewReader(source))
 	if err != nil {
@@ -61,30 +61,19 @@ func unseen(n *html.Node) bool {
 	return false
 }
 
-// codeLanguage is the only class Markdown keeps, as a fence's language.
-var codeLanguage = regexp.MustCompile(`^(?:language|lang)-[a-z0-9+#-]{1,20}$`)
+// maxLinkBytes bounds a link target, the one thing typed that the
+// copied text does not show.
+const maxLinkBytes = 200
 
-// dropUnseen removes what a page holds but does not show as text, so the
+// dropUnseen removes what a page holds but does not show as text, and every
+// attribute but a link target the person could follow, so the
 // word check and the conversion read the same tree.
 func dropUnseen(n *html.Node) {
 	kept := n.Attr[:0]
 	for _, attr := range n.Attr {
-		switch attr.Key {
-		case "alt", "title":
-			continue
-		case "class":
-			var classes []string
-			for _, class := range strings.Fields(attr.Val) {
-				if codeLanguage.MatchString(class) {
-					classes = append(classes, class)
-				}
-			}
-			if len(classes) == 0 {
-				continue
-			}
-			attr.Val = strings.Join(classes, " ")
+		if n.DataAtom == atom.A && attr.Key == "href" && attr.Namespace == "" && shownLink(attr.Val) {
+			kept = append(kept, attr)
 		}
-		kept = append(kept, attr)
 	}
 	n.Attr = kept
 	for child := n.FirstChild; child != nil; {
@@ -96,6 +85,39 @@ func dropUnseen(n *html.Node) {
 		}
 		child = next
 	}
+	if n.DataAtom == atom.A && (len(kept) == 0 || !showsText(n)) {
+		n.DataAtom, n.Data, n.Attr = atom.Span, "span", nil
+	}
+}
+
+func showsText(n *html.Node) bool {
+	if n.Type == html.TextNode {
+		return strings.TrimSpace(n.Data) != ""
+	}
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		if showsText(child) {
+			return true
+		}
+	}
+	return false
+}
+
+func shownLink(href string) bool {
+	href = strings.TrimSpace(href)
+	if len(href) > maxLinkBytes || strings.IndexFunc(href, func(r rune) bool { return r <= ' ' || r == 0x7f }) >= 0 {
+		return false
+	}
+	link, err := url.Parse(href)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(link.Scheme) {
+	case "http", "https":
+		return link.Host != ""
+	case "mailto":
+		return link.Opaque != ""
+	}
+	return false
 }
 
 // hasStructure reports whether Markdown would keep something plain text
@@ -121,14 +143,11 @@ func hasStructure(n *html.Node) bool {
 	return false
 }
 
-// wordsWithin reports whether every word the HTML shows appears in text
-// at least as often. Inline elements join their words, as a browser's
-// plain text does.
+// wordsWithin reports whether the words the HTML shows appear in text in
+// the same order. Inline elements join their words, as a browser's plain
+// text does.
 func wordsWithin(doc *html.Node, text string) bool {
-	left := map[string]int{}
-	for _, word := range wordsOf(text) {
-		left[word]++
-	}
+	left := wordsOf(text)
 	var shown strings.Builder
 	var walk func(*html.Node)
 	walk = func(n *html.Node) {
@@ -148,10 +167,11 @@ func wordsWithin(doc *html.Node, text string) bool {
 	}
 	walk(doc)
 	for _, word := range wordsOf(shown.String()) {
-		if left[word] == 0 {
+		at := slices.Index(left, word)
+		if at < 0 {
 			return false
 		}
-		left[word]--
+		left = left[at+1:]
 	}
 	return true
 }
@@ -165,10 +185,8 @@ var inline = map[atom.Atom]bool{
 	atom.Tt: true, atom.U: true, atom.Var: true, atom.Wbr: true,
 }
 
-// wordsOf splits text at white space and punctuation, so digits and
-// symbols count as words too.
+// wordsOf splits text at white space only, so a hidden digit, symbol or
+// punctuation mark changes a word and fails the check.
 func wordsOf(text string) []string {
-	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return unicode.IsSpace(r) || unicode.IsPunct(r)
-	})
+	return strings.Fields(strings.ToLower(text))
 }
