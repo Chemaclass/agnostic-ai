@@ -158,6 +158,17 @@ export function typableRows(conversations) {
   })
 }
 
+/** The row the send shortcut sends to without asking: the only one the text can be typed into, else undefined. */
+export function straightSendOf(conversations) {
+  const rows = typableRows(conversations)
+  return rows.length === 1 ? rows[0] : undefined
+}
+
+/** The pick banner's title during a straight send: "Sending to Plan the sync dry run". */
+export function sendingTitleOf(conversation) {
+  return `Sending to ${titleOf(conversation)}`
+}
+
 /** The groups pick mode shows: Archived only while a search is typed, and its rows then cannot be picked. */
 export function pickGroupsOf(groups, query) {
   return query === '' ? groups.filter((group) => group.id !== 'archived') : groups
@@ -632,7 +643,7 @@ export function hideLabelOf(label, preferences) {
 /**
  * The settings menu's rows, from menu.json and the shell's two replies:
  * {id, label, kind, hint?, value}. A switch's value is its
- * entry in the appearance or the preferences; the shortcut's is its keys.
+ * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
  * Hide's label names the way back.
  */
 export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
@@ -644,7 +655,10 @@ export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
       if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
       value = values[item.id]
     }
-    if (item.kind === 'shortcut') value = preferences.shortcut
+    if (item.kind === 'shortcut') {
+      if (typeof preferences[item.id] !== 'string') throw new Error(`no keys for ${item.id}`)
+      value = preferences[item.id]
+    }
     if (item.id === 'hide') return { ...item, label: hideLabelOf(item.label, preferences), value }
     return { ...item, value }
   })

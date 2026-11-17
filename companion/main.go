@@ -85,6 +85,8 @@ const (
 	eventSettingsShown = "settings-shown"
 	// eventQuitAsked says the panel opened on the question whether to quit; its data is the corner nearest the bubble.
 	eventQuitAsked = "quit-asked"
+	// eventSendShown says the send shortcut opened the panel; its data is the corner nearest the bubble.
+	eventSendShown = "send-shown"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -111,6 +113,9 @@ type shell struct {
 	screens func() []*application.Screen
 	// shortcuts takes and gives back the keys that open the list from anywhere.
 	shortcuts shortcuts
+	// changingShortcut runs one shortcut change at a time, so two changes
+	// cannot both pass the check that the shortcuts differ. Take it before mu.
+	changingShortcut sync.Mutex
 	// login is the system's start at login setting.
 	login           autostart
 	tell            func(appearance)
@@ -131,9 +136,9 @@ type shell struct {
 	// nativeMu keeps two refreshes from interleaving.
 	native   map[string]*application.MenuItem
 	nativeMu sync.Mutex
-	// hideBase is the Hide item's label in menu.json, before the way back.
-	// nativeMu guards it too.
-	hideBase string
+	// labels are the menu.json labels by id, before refreshNative adds
+	// keys or the way back. nativeMu guards it too.
+	labels map[string]string
 
 	// mu guards the fields below. A change to the settings holds it
 	// through the write to disk, so two changes never write at once and
@@ -143,6 +148,8 @@ type shell struct {
 	settings settings
 	// shortcutProblem says why the shortcut is not active; empty when it is.
 	shortcutProblem string
+	// sendShortcutProblem says the same for the send shortcut.
+	sendShortcutProblem string
 	// hiddenByFocusAt is when the panel last hid because it lost focus.
 	hiddenByFocusAt time.Time
 	save            *time.Timer
@@ -317,6 +324,12 @@ func (s *shell) comeBackOpenedOn(event string) {
 	defer s.placing.Unlock()
 	s.changePresenceLocked("", shown)
 	s.showPanelOn(event)
+}
+
+// showPanelToSend answers the send shortcut: the list opens to send the
+// copied text, and stays open when it already was.
+func (s *shell) showPanelToSend() {
+	s.comeBackOpenedOn(eventSendShown)
 }
 
 // appReopened answers macOS reopening the running app, from Finder or
@@ -555,7 +568,8 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/preferences", s.getPreferences)
-	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut)
+	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut(s.changeOpenShortcut))
+	mux.HandleFunc("POST /api/preferences/send-shortcut", s.setShortcut(s.changeSendShortcut))
 	mux.HandleFunc("POST /api/preferences/start-at-login", s.setStartAtLogin)
 	mux.HandleFunc("GET /api/appearance", s.getAppearance)
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
@@ -714,7 +728,7 @@ func main() {
 		watchPointer(s.bubble.NativeWindow(), func(over bool) {
 			s.app.Event.Emit(eventPointer, over)
 		})
-		s.registerShortcut()
+		s.registerShortcuts()
 		in.start()
 	})
 

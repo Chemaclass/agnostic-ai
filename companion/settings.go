@@ -14,6 +14,10 @@ import (
 // away from every other app.
 const defaultShortcut = "Ctrl+Alt+Space"
 
+// defaultSendShortcut opens the list to send the copied text, beside
+// the system's own paste keys.
+const defaultSendShortcut = "Ctrl+Alt+V"
+
 // settings is what the companion remembers between runs.
 type settings struct {
 	// Bubble is where the person left the bubble; nil before they moved it.
@@ -21,6 +25,9 @@ type settings struct {
 	// Shortcut is the keys that open the list from anywhere, as Wails
 	// writes them, such as "Ctrl+Alt+Space". Empty means defaultShortcut.
 	Shortcut string `json:"shortcut,omitempty"`
+	// SendShortcut is the keys that open the list to send the copied
+	// text. Empty means defaultSendShortcut.
+	SendShortcut string `json:"sendShortcut,omitempty"`
 	// Animate is whether the circle and the list move; nil means they do.
 	Animate *bool `json:"animate,omitempty"`
 	// DimWhenIdle fades the circle while nothing needs the person.
@@ -35,6 +42,14 @@ func (s settings) shortcut() string {
 		return defaultShortcut
 	}
 	return s.Shortcut
+}
+
+// sendShortcut is the saved send shortcut, or the default before one was saved.
+func (s settings) sendShortcut() string {
+	if s.SendShortcut == "" {
+		return defaultSendShortcut
+	}
+	return s.SendShortcut
 }
 
 // bubbleSide is the bubble window's width and height for the saved circle size.
