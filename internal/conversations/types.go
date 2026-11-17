@@ -250,6 +250,9 @@ type CloudRef struct {
 	Link string `json:"link"`
 	// row is the cloud row the local one took in, which opens on claude.ai.
 	row *Conversation
+	// liveWritten, on a closed local row, is the cloud row's last write
+	// read while the session ran; zero on a live one.
+	liveWritten time.Time
 }
 
 // liveProcess is a running process that has a conversation open.

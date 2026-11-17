@@ -294,7 +294,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 				continue
 			}
 			entry = withTwinSeen(file, c, entry)
-			if s.MarksPath != "" && showTwin(file, c) {
+			if s.MarksPath != "" && showTwin(file, c, entry, since) {
 				changed = true
 			}
 			if s.MarksPath != "" && knownClosed(c) && unseen(c, entry, since) && written.After(parseStamp(entry.ClosedWrittenAt)) {
@@ -397,14 +397,20 @@ func withTwinSeen(file marksFile, c Conversation, entry markEntry) markEntry {
 
 // showTwin saves, on a shared row's cloud id, the cloud write the row
 // shows, so the cloud row does not count it again once it shows on its
-// own. It reports whether the file changed.
-func showTwin(file marksFile, c Conversation) bool {
+// own. A closed row saves a write past the one read while the session
+// ran only once the person saw it: it may be a reply from the cloud
+// side, which the local row no longer shows once the two show apart.
+// It reports whether the file changed.
+func showTwin(file marksFile, c Conversation, entry markEntry, since time.Time) bool {
 	if c.Cloud == nil {
 		return false
 	}
 	key := markKey(c.Tool, c.Cloud.ID)
 	twin := file.Marks[key]
 	shown := lastWritten(*c.Cloud.row)
+	if !c.Live && shown.After(c.Cloud.liveWritten) && shown.After(seenSince(entry, since)) {
+		shown = c.Cloud.liveWritten
+	}
 	if !shown.After(parseStamp(twin.TwinShownAt)) {
 		return false
 	}

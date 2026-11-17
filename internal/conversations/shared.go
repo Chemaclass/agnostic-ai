@@ -85,12 +85,13 @@ func takeIn(rows []Conversation, claims map[string]int) []Conversation {
 // twins that the scanner remembers.
 const maxTwins = 1024
 
-// twinEchoSpan is how long, on the cloud's clock, after the last cloud
-// write the scanner saw while the session ran, the twin may still write
-// that session's last reply: the cloud list is asked at most once per
-// freshSpan, so the read before the session closed can miss it. The
-// folded row shows a write in that span as its own, unread until seen;
-// a later write is new work on the twin's own row.
+// twinEchoSpan is how long after the later of the last cloud write the
+// scanner saw while the session ran and the local session's last write
+// the twin may still write that session's last reply: the list is asked
+// only when someone looks, so the last read that saw the session run can
+// miss it. It compares a cloud time with a local file time. The folded
+// row shows a write in that span as its own, unread until seen; a later
+// write is new work on the twin's own row.
 const twinEchoSpan = 2 * freshSpan
 
 // twin is the cloud row a local session took in while it ran.
@@ -156,7 +157,11 @@ func (s *Scanner) followTwins(rows []Conversation, whole bool) []Conversation {
 		if !listed || at < 0 {
 			continue
 		}
-		if lastWritten(rows[at]).After(link.written.Add(twinEchoSpan)) {
+		echoFrom := link.written
+		if local := lastWritten(c); local.After(echoFrom) {
+			echoFrom = local
+		}
+		if lastWritten(rows[at]).After(echoFrom.Add(twinEchoSpan)) {
 			continue
 		}
 		if claims == nil {
@@ -171,7 +176,11 @@ func (s *Scanner) followTwins(rows []Conversation, whole bool) []Conversation {
 	rows = takeIn(rows, claims)
 	for i := range rows {
 		c := &rows[i]
-		if !c.Live && c.Cloud != nil && lastWritten(*c.Cloud.row).After(lastWritten(*c)) {
+		if c.Live || c.Cloud == nil {
+			continue
+		}
+		c.Cloud.liveWritten = s.twins[markKey(c.Tool, c.ID)].written
+		if lastWritten(*c.Cloud.row).After(lastWritten(*c)) {
 			c.UpdatedAt = c.Cloud.row.UpdatedAt
 		}
 	}

@@ -410,10 +410,9 @@ func TestScan_TheTwinsCopyOfTheLastReplyKeepsItFolded(t *testing.T) {
 	}
 }
 
-// The window is on the cloud's clock: a later local write does not
-// stretch it, so a reply from the phone after the person read the local
-// row is never folded away unseen.
-func TestScan_APhoneReplyAfterTheWindowCountsEvenAfterALaterLocalWrite(t *testing.T) {
+// A cloud write past the window after the local session's last write is
+// new work from the cloud side.
+func TestScan_APhoneReplyAfterTheWindowCounts(t *testing.T) {
 	scanner, stores, at := closedTwinScanner(t)
 	writeMarkedSession(t, stores, idSafari, "2026-11-07T11:50:00Z")
 	*at = time.Date(2026, 11, 7, 11, 50, 10, 0, time.UTC)
@@ -421,7 +420,7 @@ func TestScan_APhoneReplyAfterTheWindowCountsEvenAfterALaterLocalWrite(t *testin
 		t.Fatal(err)
 	}
 	*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
-	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:50:30Z"))
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:53:00Z"))
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
 
@@ -431,21 +430,69 @@ func TestScan_APhoneReplyAfterTheWindowCountsEvenAfterALaterLocalWrite(t *testin
 }
 
 // A reply inside the window stays folded, and the closed row shows it
-// unread, so it is never counted nowhere.
-func TestScan_APhoneReplyInsideTheWindowMarksTheClosedRowUnread(t *testing.T) {
-	scanner, _, at := closedTwinScanner(t)
-	*at = time.Date(2026, 11, 7, 11, 30, 30, 0, time.UTC)
-	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
-		t.Fatal(err)
+// unread, so it is never counted nowhere: not while folded, and not on
+// the twin once it shows apart.
+func TestScan_APhoneReplyInsideTheWindowIsUnreadOnExactlyOneRow(t *testing.T) {
+	phone := cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:00Z")
+	unreadRows := func(view View) []string {
+		var ids []string
+		for _, c := range view.Conversations {
+			if c.Unread || needsPerson(c.State) {
+				ids = append(ids, c.ID)
+			}
+		}
+		return ids
 	}
-	*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
-	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:00Z"))
+	for name, after := range map[string]func(t *testing.T, scanner *Scanner, stores Stores) *Scanner{
+		"while folded": func(*testing.T, *Scanner, Stores) *Scanner { return nil },
+		"after a restart": func(_ *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			return &Scanner{Stores: stores, SQLite: noSQLite, Processes: fakeProcesses{}, Now: scanner.Now, MarksPath: scanner.MarksPath, Cloud: oneCloudList(phone)}
+		},
+		"after a resume without Remote Control": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			scanner.Processes = fakeProcesses{alive: map[int]bool{71: true}}
+			writeBridgedSession(t, stores, 71, idSafari, "idle", "")
+			return scanner
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, stores, at := closedTwinScanner(t)
+			*at = time.Date(2026, 11, 7, 11, 30, 30, 0, time.UTC)
+			if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+				t.Fatal(err)
+			}
+			*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
+			scanner.Cloud = oneCloudList(phone)
+			view := scanner.Scan(context.Background(), ScanOptions{})
+			if row := byID(t, view, idSafari); !slices.Equal(idsOf(view), []string{idSafari}) || !row.Unread || row.UpdatedAt != "2026-11-07T11:31:00Z" {
+				t.Fatalf("folded: rows %s", asJSON(t, view.Conversations))
+			}
+			next := after(t, scanner, stores)
+			if next == nil {
+				return
+			}
+			*at = at.Add(time.Minute)
+
+			view = next.Scan(context.Background(), ScanOptions{})
+
+			if got := unreadRows(view); !slices.Equal(got, []string{"cse_01AbCd"}) {
+				t.Errorf("unread rows = %v, want the twin only: %s", got, asJSON(t, view.Conversations))
+			}
+		})
+	}
+}
+
+// The list is asked only when someone looks: the last read that saw the
+// session run can be long before its last reply and its close.
+func TestScan_ATwinStaysFoldedAfterAGapBetweenTheLastLiveReadAndTheClose(t *testing.T) {
+	scanner, stores, at := closedTwinScanner(t)
+	writeMarkedSession(t, stores, idSafari, "2026-11-07T13:00:00Z")
+	*at = time.Date(2026, 11, 7, 13, 5, 0, 0, time.UTC)
+	scanner.Cloud = oneCloudList(cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T13:00:20Z"))
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
 
-	row := byID(t, view, idSafari)
-	if !slices.Equal(idsOf(view), []string{idSafari}) || !row.Unread || row.UpdatedAt != "2026-11-07T11:31:00Z" {
-		t.Errorf("rows %s", asJSON(t, view.Conversations))
+	if !slices.Equal(idsOf(view), []string{idSafari}) || view.NeedsYou != 0 {
+		t.Errorf("needs you %d, rows %s", view.NeedsYou, asJSON(t, view.Conversations))
 	}
 }
 
