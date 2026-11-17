@@ -1,17 +1,44 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
 test('groups rows by state, in list order, and leaves empty groups out', () => {
   const groups = grouped([row('a', 'dormant'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'completed')])
   assert.deepEqual(groups.map((group) => [group.id, group.rows.map((r) => r.id)]), [
-    ['needs-you', ['b', 'd']],
+    ['needs-you', ['d', 'b']],
     ['working', ['c']],
     ['archived', ['a', 'e']],
   ])
   assert.deepEqual(groups.map((group) => group.startsFolded), [false, false, true])
+})
+
+test('under Needs you a permission to give comes first, then another wait, then an unread reply, each kept in list order', () => {
+  const asks = (id, kind) => row(id, 'blocked', kind ? { waiting: { for: kind } } : {})
+  const rows = [row('reply-1', 'unread'), asks('question-1', 'answer'), asks('permission-1', 'permission'), asks('unknown-1'), row('reply-2', 'unread'), asks('permission-2', 'permission')]
+  assert.deepEqual(grouped(rows)[0].rows.map((r) => r.id), ['permission-1', 'permission-2', 'question-1', 'unknown-1', 'reply-1', 'reply-2'])
+})
+
+test('under Needs you a family ranks by its most urgent row, and a child stays right after its parent', () => {
+  const groups = grouped([row('parent', 'unread'), child('kid', 'blocked', 'parent', { waiting: { for: 'permission' } }), row('other', 'blocked')])
+  assert.deepEqual(drawn(groups), [['needs-you', [['parent', null], ['kid', 'parent'], ['other', null]]]])
+  const asking = grouped([row('asks', 'blocked', { waiting: { for: 'answer' } }), child('reply', 'unread', 'asks'), row('approve', 'blocked', { waiting: { for: 'permission' } }), row('read', 'unread')])
+  assert.deepEqual(drawn(asking), [['needs-you', [['approve', null], ['asks', null], ['reply', 'asks'], ['read', null]]]])
+})
+
+test('the circle tells the chats that wait for the person apart from the unread ones', () => {
+  const view = { needsYou: 4, conversations: [row('a', 'blocked'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'unread')] }
+  assert.deepEqual(waitingOf(view), { blocked: 2, unread: 2 })
+  assert.deepEqual(waitingOf({ needsYou: 0, conversations: [] }), { blocked: 0, unread: 0 })
+})
+
+test('the circle\'s label names each count, and leaves out a count of zero', () => {
+  assert.equal(circleLabelOf({ blocked: 2, unread: 4 }), 'Conversations: 2 waiting for you, 4 unread')
+  assert.equal(circleLabelOf({ blocked: 1, unread: 1 }), 'Conversations: 1 waiting for you, 1 unread')
+  assert.equal(circleLabelOf({ blocked: 1, unread: 0 }), 'Conversations: 1 waiting for you')
+  assert.equal(circleLabelOf({ blocked: 0, unread: 3 }), 'Conversations: 3 unread')
+  assert.equal(circleLabelOf({ blocked: 0, unread: 0 }), 'Conversations: none needs you')
 })
 
 const child = (id, state, parent, extra = {}) => row(id, state, { parent: { tool: 'claude', id: parent }, ...extra })
