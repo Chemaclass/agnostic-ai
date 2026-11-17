@@ -323,6 +323,14 @@ export const FIXTURES = {
     lateOpenProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2",
   },
+  'held-late-open-failure': {
+    label: 'Open of "Tidy the old branches" held until /dev/release-opens, then still opening, then failing',
+    conversations: archived,
+    openPending: true,
+    heldOpens: ['done-2'],
+    lateOpenProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2",
+  },
   'held-open-failure': {
     label: 'Open failure for "Plan the sync dry run", held until /dev/release-opens',
     conversations: mixed,

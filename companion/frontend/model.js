@@ -187,12 +187,13 @@ export function openFailureOf(reply) {
 }
 
 /**
- * The notice for an open that failed after the companion stopped waiting for it. Read later, it names its chat.
- * `late` keeps it on screen when the list opens to send copied text, since nobody saw it yet.
+ * The notice for an open that failed after the companion stopped waiting for it. Read later, it names its chat
+ * when the list holds it. `late` keeps it on screen when the list opens to send copied text, and `id` dismisses it.
  */
-export function lateOpenFailureOf(conversation, failure) {
-  const message = titleOf(conversation) + ': ' + failure.message
-  return failure.command ? { message, command: failure.command, late: true } : { message, late: true }
+export function lateOpenFailureOf(failure) {
+  const message = failure.title ? failure.title + ': ' + failure.message : failure.message
+  const shown = { message, late: true, id: failure.id }
+  return failure.command ? { ...shown, command: failure.command } : shown
 }
 
 /**

@@ -1,5 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, takeLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
@@ -634,23 +634,21 @@ async function refresh() {
 }
 
 /**
- * An open the companion stopped waiting for may fail later. The panel takes that failure only as it shows,
- * so none is taken unseen, and shows it the way a failed open's shows, named after its chat. A newer open, or
- * a notice still on screen that came after it, wins.
+ * An open the companion stopped waiting for may fail later. The companion keeps that failure until the person
+ * dismisses it or opens a chat, and the panel shows it each time the list shows or changes, the way a failed
+ * open's shows. A notice on screen wins while it shows, and an open on its way wins over an older failure.
  */
 async function showLateOpenFailure() {
+  if (opensOnTheirWay > 0) return
   let failure
   try {
-    failure = await takeLateOpenFailure()
+    failure = await readLateOpenFailure()
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     return
   }
-  if (!failure) return
-  const waited = waitedOpen
-  waitedOpen = undefined
-  if (waited?.open !== opensMade || state.openFailure !== waited.notice) return
-  showOpenFailure(lateOpenFailureOf(waited.conversation, failure), NOTICES.notOpened)
+  if (!failure || state.openFailure || opensOnTheirWay > 0) return
+  showOpenFailure(lateOpenFailureOf(failure), NOTICES.notOpened)
 }
 
 // The panel never activates its app, so while it shows it keeps the keys
@@ -659,24 +657,23 @@ async function showLateOpenFailure() {
 // companion gave up waiting for (`pending`) may still happen, so it is
 // no failure and the panel stays hidden.
 let latestOpen = 0
-/** How many rows the panel opened; a send is no open. */
-let opensMade = 0
-/** The open last answered as pending, with its conversation and the notice on screen then; undefined when none waits. */
-let waitedOpen
+/** Opens sent and not yet answered: the companion drops an older late failure as each one arrives. */
+let opensOnTheirWay = 0
 
 async function openRow(conversation) {
   const thisOpen = ++latestOpen
-  const thisRow = ++opensMade
+  opensOnTheirWay += 1
   showOpenFailure(undefined)
   await hidePanel().catch(() => {})
   let failure
   try {
     const reply = await openConversation(conversation)
     failure = reply.pending ? undefined : openFailureOf(reply)
-    if (reply.pending && thisRow === opensMade) waitedOpen = { open: thisRow, conversation, notice: state.openFailure }
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }
+  } finally {
+    opensOnTheirWay -= 1
   }
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (!failure || thisOpen !== latestOpen) return
@@ -948,8 +945,12 @@ noticeCopy.addEventListener('click', async () => {
 })
 
 document.getElementById('notice-dismiss').addEventListener('click', () => {
+  const dismissed = state.openFailure
   showOpenFailure(undefined)
   queryInput.focus()
+  // A late failure stays with the companion until dismissed; any other notice may have covered one.
+  if (dismissed?.late) dismissLateOpenFailure(dismissed.id).catch(sayFailure)
+  else showLateOpenFailure()
 })
 
 async function markRow(conversation, mark) {
@@ -1526,7 +1527,7 @@ document.addEventListener('motion', () => {
 })
 
 drawPlaces()
-Events.On('inbox', refresh)
+Events.On('inbox', () => refresh().then(showLateOpenFailure))
 Events.On('panel-shown', (event) => opened(event.data))
 Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 // Quit in the right-click menu: the list opens on the question.

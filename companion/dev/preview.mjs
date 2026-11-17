@@ -171,9 +171,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
 
   // Opens a fixture holds, answered when a test releases them.
   let heldOpens = []
-  // Like the shell: the failure of an open answered as pending, kept once it settles until the panel takes it.
+  // Like the shell: the failure of an open answered as pending, kept once it settles until it is dismissed.
   // A newer open drops it. A fixture chosen meanwhile keeps it, as the shell knows nothing of fixtures.
   let lateOpen = { waiting: undefined, settled: undefined }
+  let opensMade = 0
 
   function find(body) {
     return state.conversations.find((row) => row.tool === body.tool && row.id === body.id)
@@ -250,8 +251,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     }
     if (response.destroyed) return
     lateOpen = { waiting: undefined, settled: undefined }
+    opensMade += 1
     if (fixture.openPending) {
-      if (fixture.lateOpenProblem) lateOpen.waiting = { message: fixture.lateOpenProblem, command: fixture.openCommand }
+      if (fixture.lateOpenProblem) lateOpen.waiting = { id: opensMade, tool: body.tool, chat: body.id, message: fixture.lateOpenProblem, command: fixture.openCommand }
       return sendJSON(response, 202, { pending: true, message: 'Still opening. This takes longer than usual.' })
     }
     if (fixture.openProblem) return sendJSON(response, 200, { opened: false, message: fixture.openProblem, command: fixture.openCommand })
@@ -314,11 +316,18 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   const routes = {
     'GET /api/inbox': inbox,
     'POST /api/open': open,
-    'POST /api/open/late': (request, response) => {
+    'GET /api/open/late': (request, response) => {
       logCall('/api/open/late')
       const failure = lateOpen.settled
-      lateOpen.settled = undefined
-      return failure ? sendJSON(response, 200, failure) : noContent(response)
+      if (!failure) return noContent(response)
+      const title = state.conversations.find((row) => row.tool === failure.tool && row.id === failure.chat)?.title
+      sendJSON(response, 200, { id: failure.id, ...(title ? { title } : {}), message: failure.message, command: failure.command })
+    },
+    'POST /api/open/late/dismiss': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/open/late/dismiss', body)
+      if (lateOpen.settled?.id === body.id) lateOpen.settled = undefined
+      noContent(response)
     },
     'POST /api/mark': mark,
     'POST /api/rename': rename,

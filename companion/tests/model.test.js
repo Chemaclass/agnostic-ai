@@ -658,11 +658,12 @@ test('Mark all as read in Archived reaches only unread rows on screen, none whil
   assert.deepEqual(unreadShownOf(archived, true), [])
 })
 
-test('a late open failure names its chat and stays through a send', () => {
-  assert.deepEqual(lateOpenFailureOf({ title: 'Tidy the old branches' }, { message: 'macOS blocked opening Terminal.', command: 'claude --resume done-2' }), {
+test('a late open failure names its chat when the list holds it', () => {
+  assert.deepEqual(lateOpenFailureOf({ id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.', command: 'claude --resume done-2' }), {
     message: 'Tidy the old branches: macOS blocked opening Terminal.',
-    command: 'claude --resume done-2',
     late: true,
+    id: 3,
+    command: 'claude --resume done-2',
   })
-  assert.deepEqual(lateOpenFailureOf({ title: '' }, { message: 'agnostic-ai did not answer.' }), { message: 'Untitled conversation: agnostic-ai did not answer.', late: true })
+  assert.deepEqual(lateOpenFailureOf({ id: 4, message: 'agnostic-ai did not answer.' }), { message: 'agnostic-ai did not answer.', late: true, id: 4 })
 })

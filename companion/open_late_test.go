@@ -106,11 +106,18 @@ func openPending(t *testing.T, in *inbox, id string) {
 	}
 }
 
-func takeLate(t *testing.T, in *inbox) (int, string) {
+func readLate(t *testing.T, in *inbox) (int, string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	in.takeLateOpen(rec, httptest.NewRequest(http.MethodPost, "/api/open/late", nil))
+	in.lateOpen(rec, httptest.NewRequest(http.MethodGet, "/api/open/late", nil))
 	return rec.Code, strings.TrimSpace(rec.Body.String())
+}
+
+func dismissLate(t *testing.T, in *inbox, id string) int {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	in.dismissLateOpen(rec, httptest.NewRequest(http.MethodPost, "/api/open/late/dismiss", strings.NewReader(`{"id":`+id+`}`)))
+	return rec.Code
 }
 
 func waitSignal(t *testing.T, signal <-chan struct{}, what string) {
@@ -124,26 +131,68 @@ func waitSignal(t *testing.T, signal <-chan struct{}, what string) {
 
 const blocked = `{"opened":false,"message":"macOS blocked opening Terminal.","command":"claude --resume a"}`
 
-func TestInbox_KeepsAFailureThatArrivesAfterThePendingReplyAndServesItOnce(t *testing.T) {
+// heldList is the list the companion holds, with the chat "a" under title.
+func heldList(in *inbox, title string) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+	in.latest = json.RawMessage(`{"conversations":[{"tool":"claude","id":"a","title":"` + title + `"},{"tool":"codex","id":"a","title":"Another tool"}]}`)
+}
+
+func TestInbox_KeepsALateFailureWithItsChatUntilItIsDismissed(t *testing.T) {
 	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked}}
 	in, changed := lateInbox(t, fake)
 	logged := lockedLog(t)
+	heldList(in, "Tidy the old branches")
 
 	openPending(t, in, "a")
-	if status, _ := takeLate(t, in); status != http.StatusNoContent {
+	if status, _ := readLate(t, in); status != http.StatusNoContent {
 		t.Fatalf("a failure was served before the open answered: %d", status)
 	}
 	close(fake.release)
 	waitSignal(t, changed, "the page's call to read again")
 
-	if status, body := takeLate(t, in); status != http.StatusOK || body != `{"message":"macOS blocked opening Terminal.","command":"claude --resume a"}` {
-		t.Errorf("the late failure = %d %s", status, body)
+	const kept = `{"id":1,"title":"Tidy the old branches","message":"macOS blocked opening Terminal.","command":"claude --resume a"}`
+	for range 2 {
+		if status, body := readLate(t, in); status != http.StatusOK || body != kept {
+			t.Errorf("the late failure = %d %s; want %s on every read", status, body, kept)
+		}
 	}
-	if status, body := takeLate(t, in); status != http.StatusNoContent {
-		t.Errorf("the late failure was served twice: %d %s", status, body)
+	if status := dismissLate(t, in, "2"); status != http.StatusNoContent {
+		t.Errorf("dismissing another failure = %d", status)
+	}
+	if status, body := readLate(t, in); body != kept {
+		t.Errorf("dismissing another failure removed this one: %d %s", status, body)
+	}
+	if status := dismissLate(t, in, "1"); status != http.StatusNoContent {
+		t.Errorf("the dismiss = %d", status)
+	}
+	if status, body := readLate(t, in); status != http.StatusNoContent {
+		t.Errorf("a dismissed failure is still served: %d %s", status, body)
 	}
 	if text := logged.String(); !strings.Contains(text, "an open the page stopped waiting for: not opened") {
 		t.Errorf("log = %q; want the late outcome", text)
+	}
+}
+
+func TestInbox_ALateFailureNamesTheChatAsTheListNamesItNow(t *testing.T) {
+	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked}}
+	in, changed := lateInbox(t, fake)
+	lockedLog(t)
+	heldList(in, "Tidy the old branches")
+
+	openPending(t, in, "a")
+	close(fake.release)
+	waitSignal(t, changed, "the page's call to read again")
+	heldList(in, "Tidy the branches")
+
+	if _, body := readLate(t, in); !strings.Contains(body, `"title":"Tidy the branches"`) {
+		t.Errorf("the late failure of a renamed chat = %s", body)
+	}
+	in.mu.Lock()
+	in.latest = json.RawMessage(`{"conversations":[]}`)
+	in.mu.Unlock()
+	if status, body := readLate(t, in); status != http.StatusOK || strings.Contains(body, "title") {
+		t.Errorf("a chat the list no longer holds = %d %s; want the failure without a title", status, body)
 	}
 }
 
@@ -156,7 +205,7 @@ func TestInbox_AnOpenThatSucceedsLateShowsNothing(t *testing.T) {
 	close(fake.release)
 	waitSignal(t, in.refresh, "a list read after the open")
 
-	if status, body := takeLate(t, in); status != http.StatusNoContent {
+	if status, body := readLate(t, in); status != http.StatusNoContent {
 		t.Errorf("a late success = %d %s; want nothing to show", status, body)
 	}
 }
@@ -173,7 +222,7 @@ func TestInbox_ANewerOpenWinsOverAnOlderLateFailure(t *testing.T) {
 	waitSignal(t, in.refresh, "a list read after the opens")
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
-		if status, body := takeLate(t, in); status != http.StatusNoContent {
+		if status, body := readLate(t, in); status != http.StatusNoContent {
 			t.Fatalf("the older open's failure showed after a newer open: %d %s", status, body)
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -181,7 +230,7 @@ func TestInbox_ANewerOpenWinsOverAnOlderLateFailure(t *testing.T) {
 }
 
 // noAnswer is what the page reads when an open it stopped waiting for got no answer at all.
-const noAnswer = `{"message":"agnostic-ai did not answer in time. The chat may still have opened."}`
+const noAnswer = `{"id":1,"message":"agnostic-ai did not answer in time. The chat may still have opened."}`
 
 func TestInbox_AnOpenThatGetsNoAnswerAfterThePendingReplySaysItMayStillHaveOpened(t *testing.T) {
 	for name, tc := range map[string]struct {
@@ -209,7 +258,7 @@ func TestInbox_AnOpenThatGetsNoAnswerAfterThePendingReplySaysItMayStillHaveOpene
 			}
 			waitSignal(t, changed, "the page's call to read again")
 
-			if status, body := takeLate(t, in); status != http.StatusOK || body != noAnswer {
+			if status, body := readLate(t, in); status != http.StatusOK || body != noAnswer {
 				t.Errorf("an open with no answer = %d %s; want %s", status, body, noAnswer)
 			}
 			host := strings.TrimPrefix(in.server.base, "http://")
@@ -238,7 +287,7 @@ func TestInbox_ALateAnswerThatDoesNotSayItOpenedIsNotLoggedAsOpened(t *testing.T
 			if text := logged.String(); strings.Contains(text, ": opened") || !strings.Contains(text, "an open the page stopped waiting for: no word on whether it opened") {
 				t.Errorf("log = %q", text)
 			}
-			if status, body := takeLate(t, in); status != http.StatusNoContent {
+			if status, body := readLate(t, in); status != http.StatusNoContent {
 				t.Errorf("an answer that says nothing = %d %s; want nothing to show", status, body)
 			}
 		})
@@ -259,7 +308,7 @@ func TestInbox_OpeningTheSameChatAgainWithSuccessDropsItsLateFailure(t *testing.
 		t.Fatalf("the second open = %d %s", rec.Code, rec.Body)
 	}
 
-	if status, body := takeLate(t, in); status != http.StatusNoContent {
+	if status, body := readLate(t, in); status != http.StatusNoContent {
 		t.Errorf("the failure stayed after the chat opened: %d %s", status, body)
 	}
 }

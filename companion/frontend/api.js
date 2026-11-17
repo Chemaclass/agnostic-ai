@@ -44,10 +44,11 @@ export function openConversation(conversation) {
 }
 
 /**
- * Why an open the companion stopped waiting for did not open, as `{message, command?}`, once; undefined when
- * there is none.
+ * Why an open the companion stopped waiting for did not open, as `{id, title?, message, command?}`; undefined
+ * when there is none. The companion keeps it until `dismissLateOpenFailure(id)` or a newer open.
  */
-export const takeLateOpenFailure = () => post('/api/open/late')
+export const readLateOpenFailure = () => call('/api/open/late')
+export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
 
 /** mark is `seen`, `completed` or `hidden`. */
 export function markConversation(conversation, mark) {
