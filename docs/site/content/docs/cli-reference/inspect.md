@@ -283,7 +283,7 @@ MCP rules:
 Permission rules:
 
 - Rows use the source index, such as `permissions.deny[0]`, name the rule, and show native override values and partial mappings.
-- A source or native rule holding a credential shows its tool name around `<redacted>`, as `sync --global` prints, such as `shell(<redacted>)`. In an `x-<target>` override, only the command pattern or string that holds it is replaced.
+- A source or native rule holding a credential shows its tool name around `<redacted>`, as `sync --global` prints, such as `shell(<redacted>)` or `prefix_rule(<redacted>)`. In an `x-<target>` override, only the command pattern or string that holds it is replaced.
 - Credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries but compared as written. Filename patterns and ordinary permission actions stay visible.
 - Codex shell permissions need `outputs.codex.exec-policies-from-permissions: true`.
 - Default-mode applies only to global sync, so project comparison reports it unsupported.

@@ -68,7 +68,7 @@ When a value import does not rewrite still holds a literal credential, import le
 - a line `Name: value` or a JSON pair `"name": "value"` with a credential key and a literal value, such as `X-Api-Key: ...` or `{"apiKey": "..."}`;
 - a `--header` or `-H` argument such as `Authorization: ...`, `Cookie: ...`, or `X-Api-Key: ...` with a literal value;
 - a `user:password@host` without a scheme, as in `root:pw@db:3306`;
-- a `NAME=value` or `--name value` with a credential name inside a longer value, as in `sh -c "API_TOKEN=... exec srv"`;
+- a `NAME=value` or `--name value` with a credential name inside a longer value, as in `sh -c "API_TOKEN=... exec srv"` or `sh -c "npx srv --token ..."`;
 - an all-digit password before `#`, or before `/` with no host, as in `redis://:1234#5@host`.
 
 Import never rewrites `command`, `cwd`, Continue `requestOptions` keys other than `headers`, or an `x-<target>` block. A credential in any of them, or a key there with a credential name and a literal value, leaves the server out.
