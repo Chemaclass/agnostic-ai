@@ -500,6 +500,8 @@ test('a send that typed nothing is info only when the server switched to the con
   assert.equal(unsentNoticeOf('Codex runs in an app that cannot be brought forward. The text is on the clipboard: paste it with Cmd+V.'), NOTICES.notTyped)
   assert.equal(unsentNoticeOf('It is not running, so nothing was typed. Open it to resume it, then paste with Cmd+V.'), NOTICES.notTyped)
   assert.equal(unsentNoticeOf('agnostic-ai serve did not answer.'), NOTICES.notTyped)
+  // The server counts a window it brought forward without reaching the chat as not opened, as a click on the row does.
+  assert.equal(unsentNoticeOf('Brought its Cursor window to the front, but the terminal inside it cannot be selected from outside. The text is on the clipboard: paste it with Cmd+V.'), NOTICES.notTyped)
   assert.equal(unsentNoticeOf(undefined), NOTICES.notTyped)
 })
 
