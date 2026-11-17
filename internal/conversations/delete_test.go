@@ -1059,3 +1059,46 @@ func TestArchivedAsOf_RefusesADormantRowWithNoReadTime(t *testing.T) {
 		t.Errorf("a dormant row with no read time is archived as of %s", at)
 	}
 }
+
+func TestDelete_RefusesAClosedSessionUntilItsReplyIsRead(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{}})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	files := sessionFiles(t, stores, idSafari)
+	writeMarkedSession(t, stores, idSafari, quietAt.Format(time.RFC3339))
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	data, err := os.ReadFile(transcript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files[transcript] = string(data)
+	for path := range files {
+		if strings.Contains(path, "tasks") {
+			delete(files, path)
+		}
+	}
+	writeClaudeProcess(t, stores, 4242, idCache, "idle")
+	dateBefore(t, stores.ClaudeDir, quietAt)
+	now := quietAt.Add(-time.Hour)
+	scanner.Now = func() time.Time { return now }
+	scanner.Scan(context.Background(), ScanOptions{})
+	now = archivedAt
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.State != StateDormant || !c.Unread {
+		t.Fatalf("the fixture session is %s, unread %v; want dormant and unread", c.State, c.Unread)
+	}
+
+	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
+
+	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteUnread || reply.Deleted {
+		t.Errorf("= %s %+v", asJSON(t, reply), refusal)
+	}
+	assertFiles(t, files, true)
+
+	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
+		t.Fatal(err)
+	}
+	now = archivedAt.Add(time.Minute)
+	if reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); err != nil || !reply.Deleted {
+		t.Fatalf("once read it can be deleted: %s %v", asJSON(t, reply), err)
+	}
+	assertFiles(t, files, false)
+}
