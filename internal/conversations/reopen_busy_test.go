@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -105,6 +106,55 @@ func TestReopen_WaitsForTheRunningScanBeforeItResumesAnEndedSession(t *testing.T
 
 	if reply := <-opened; !reply.Opened {
 		t.Errorf("after the scan ended the open = %+v", reply)
+	}
+}
+
+func TestReopen_ReadsAgainWhenTheScanItWaitedForLookedAtProcessesBeforeTheClick(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	alive := map[int]bool{4242: false}
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: alive})
+	var clock atomic.Int64
+	clock.Store(time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC).Unix())
+	scanner.Now = func() time.Time { return time.Unix(clock.Load(), 0).UTC() }
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	writeLiveSessionFile(t, stores, "4242", "", id)
+	asked, release := make(chan struct{}), make(chan struct{})
+	scanner.Cloud = &countingCloud{answers: []func() ([]Conversation, error){
+		func() ([]Conversation, error) { return nil, nil },
+		func() ([]Conversation, error) {
+			close(asked)
+			<-release
+			return nil, nil
+		},
+		func() ([]Conversation, error) { return nil, nil },
+	}}
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.Open.Kind != RouteTerminal {
+		t.Fatalf("the ended session's route = %q; this test needs a row that resumes it", c.Open.Kind)
+	}
+	clock.Add(61)
+	scanned := make(chan struct{})
+	go func() {
+		defer close(scanned)
+		scanner.Scan(context.Background(), ScanOptions{})
+	}()
+	<-asked
+	// The running scan has looked at the processes; the session starts again after that.
+	alive[4242] = true
+	launcher := &fakeLauncher{focusOK: true}
+	opened := make(chan OpenReply, 1)
+	go func() {
+		reply, _ := scanner.Reopen(context.Background(), ToolClaude, id, ScanOptions{}, launcher)
+		opened <- reply
+	}()
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	<-scanned
+	reply := <-opened
+
+	for _, call := range launcher.calls {
+		if strings.HasPrefix(call, "terminal ") {
+			t.Fatalf("the open resumed a session that runs again: %q, reply %+v", call, reply)
+		}
 	}
 }
 

@@ -121,6 +121,8 @@ type Scanner struct {
 	// waiting for a scan to end.
 	lastReadMu sync.Mutex
 	lastRead   keptRead
+	// readsBegun counts the reads that began, under lastReadMu.
+	readsBegun uint64
 
 	// rolloutsMu guards codexLiveRollouts and cursorLiveTranscripts apart
 	// from mu: Stamp reads them without waiting for a scan to end.
@@ -254,8 +256,10 @@ const busyReuseSpan = 2 * freshSpan
 // so the open neither waits for that read nor reads everything again.
 // Open checks again that a live session still runs before it switches
 // to it. A row that would resume a session waits for the running read
-// instead, and takes its row from that one: the session may have
-// started again since, and a resume would start a second copy of it.
+// instead: the session may have started again since, and a resume would
+// start a second copy of it. That read may have looked at the running
+// processes before the open arrived, so the open takes its rows only
+// from a read that began after it arrived, and otherwise reads afresh.
 func (s *Scanner) findToOpen(ctx context.Context, tool Tool, id string, opts ScanOptions) (Conversation, bool) {
 	if !s.mu.TryLock() {
 		if results, ok := s.readSince(opts, busyReuseSpan); ok {
@@ -263,10 +267,9 @@ func (s *Scanner) findToOpen(ctx context.Context, tool Tool, id string, opts Sca
 				return c, true
 			}
 		}
-		started := s.Now()
+		arrived := s.beganReads()
 		s.mu.Lock()
-		// A read that ended while this waited is fresh: use its rows.
-		if results, ok := s.readSince(opts, s.Now().Sub(started)); ok {
+		if results, ok := s.readBegunAfter(opts, arrived); ok {
 			s.mu.Unlock()
 			return rowIn(results, tool, id, true)
 		}
@@ -320,6 +323,8 @@ func rowIn(results []sourceResult, tool Tool, id string, opening bool) (Conversa
 // keptRead is the scanner's latest read of every store.
 type keptRead struct {
 	at time.Time
+	// number is the read's place in readsBegun.
+	number uint64
 	// shape is the part of the options the rows depend on.
 	shape   string
 	results []sourceResult
@@ -330,8 +335,23 @@ func shapeOf(opts ScanOptions) string {
 	return opts.Editor + "\x00" + strings.Join(opts.Within, "\x00")
 }
 
+// beginRead counts a read that begins and returns its number.
+func (s *Scanner) beginRead() uint64 {
+	s.lastReadMu.Lock()
+	defer s.lastReadMu.Unlock()
+	s.readsBegun++
+	return s.readsBegun
+}
+
+// beganReads is how many reads have begun.
+func (s *Scanner) beganReads() uint64 {
+	s.lastReadMu.Lock()
+	defer s.lastReadMu.Unlock()
+	return s.readsBegun
+}
+
 // keepRead remembers a finished read for readSince.
-func (s *Scanner) keepRead(opts ScanOptions, results []sourceResult) {
+func (s *Scanner) keepRead(number uint64, opts ScanOptions, results []sourceResult) {
 	kept := make([]sourceResult, len(results))
 	for i, result := range results {
 		kept[i] = copyOf(result)
@@ -340,7 +360,19 @@ func (s *Scanner) keepRead(opts ScanOptions, results []sourceResult) {
 	}
 	s.lastReadMu.Lock()
 	defer s.lastReadMu.Unlock()
-	s.lastRead = keptRead{at: s.Now(), shape: shapeOf(opts), results: kept}
+	s.lastRead = keptRead{at: s.Now(), number: number, shape: shapeOf(opts), results: kept}
+}
+
+// readBegunAfter returns the rows of the latest read when it used the
+// same options and began after the given count of reads had begun.
+func (s *Scanner) readBegunAfter(opts ScanOptions, reads uint64) ([]sourceResult, bool) {
+	s.lastReadMu.Lock()
+	defer s.lastReadMu.Unlock()
+	last := s.lastRead
+	if last.results == nil || last.shape != shapeOf(opts) || last.number <= reads {
+		return nil, false
+	}
+	return last.results, true
 }
 
 // readSince returns the rows of the latest read when it used the same
@@ -358,6 +390,7 @@ func (s *Scanner) readSince(opts ScanOptions, span time.Duration) ([]sourceResul
 // readAll reads every store. A tool's cloud conversations count among
 // its own; cloudNote says why they are missing, when they are.
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
+	number := s.beginRead()
 	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
 	claude.conversations = shareCloud(append(claude.conversations, claudeCloud...))
@@ -398,7 +431,7 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 	s.followAppArchives(results)
 	// A canceled read stopped early, so its rows have gaps.
 	if ctx.Err() == nil {
-		s.keepRead(opts, results)
+		s.keepRead(number, opts, results)
 	}
 	return results, strings.Join(notes, " ")
 }
