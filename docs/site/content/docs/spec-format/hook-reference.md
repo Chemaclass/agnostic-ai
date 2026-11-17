@@ -93,7 +93,7 @@ Copilot sets no variable, so a hook synced to `claude` and `copilot` [runs twice
 
 ## Native events
 
-[Vibe native hooks](@/docs/targets/vibe.md#connections-settings-and-hooks) use snake_case events, including `pre_agent`, `notification`, `session_start`, and `session_end`. Portable lifecycle events are not translated for Vibe.
+[Vibe native hooks](@/docs/targets/vibe-reference.md#connections-settings-and-hooks) use snake_case events, including `pre_agent`, `notification`, `session_start`, and `session_end`. Portable lifecycle events are not translated for Vibe.
 
 `event` and `matcher` take a tool's own names. This hook formats the Go files the agent edits, on Claude Code and Codex alike:
 
@@ -137,7 +137,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
 - `continueOnBlock`: Claude Code, CodeBuddy. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `loop_limit`: Cursor, Trae.
-- `failClosed`: Claude Code (command and HTTP handlers), Cursor, Factory (as `onFailure: "block"`). `true` blocks when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output. See [Claude Code hook mappings](@/docs/targets/claude-reference.md#hook-mappings) and [Factory hooks](@/docs/targets/factory.md#hooks) for the events each ignores.
+- `failClosed`: Claude Code (command and HTTP handlers), Cursor, Factory (as `onFailure: "block"`). `true` blocks when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output. See [Claude Code hook mappings](@/docs/targets/claude-reference.md#hook-mappings) and [Factory hooks](@/docs/targets/factory-reference.md#hooks) for the events each ignores.
 - `x-goose.on_failure` (Goose), `x-factory.commandRegex` (Factory, a regex filter on the group), `x-factory.preserveRiskLevel` and `x-factory.onFailure` (Factory, per entry), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. A hook with none of these, and no `command` under an `x-<target>` block, runs nothing, so `validate` and `lint` (LINT052) report it. Limit a non-command hook to the tools that support it with `target` or `targets`.
@@ -228,7 +228,7 @@ Their docs do not show an edit's event data, so the command fails:
 
 - Windsurf, Trae, Copilot, Goose, Antigravity, OpenHands, Cline.
 - Kiro: a `PostFileSave` command can use its `filePath` template variable.
-- Crush: tool events set `CRUSH_TOOL_INPUT_FILE_PATH`. See [native lifecycle events and matcher limits](@/docs/targets/crush.md#hooks).
+- Crush: tool events set `CRUSH_TOOL_INPUT_FILE_PATH`. See [native lifecycle events and matcher limits](@/docs/targets/crush-reference.md#hooks).
 - OpenCode V1 and Kilo: plugins get tool arguments as JavaScript objects, not as event data on stdin. OpenCode V2 sends native event JSON, which this command does not read.
 - Zed: no hook fires on an edit.
 

@@ -9,15 +9,31 @@ target_id = "warp"
 
 [extra.moved]
 set-up-this-tool = "@/docs/targets/warp.md#first-rule"
+native-mappings = "@/docs/targets/warp-reference.md"
+config-keys = "@/docs/targets/warp.md#output"
+global-configuration = "@/docs/targets/warp-reference.md"
+voice-dictation = "@/docs/targets/warp-reference.md"
+app-and-cli = "@/docs/targets/warp-reference.md"
+import = "@/docs/targets/warp-reference.md"
 +++
 
 # Warp (`warp`)
 
 ## Set up this tool {#set-up-this-tool .legacy-anchor}
 
-Warp reads `AGENTS.md`, `.agents/skills/`, and `.warp/.mcp.json`, plus optional workflows.
+## Native mappings {#native-mappings .legacy-anchor}
 
-Set `outputs.warp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
+## Config keys {#config-keys .legacy-anchor}
+
+## Global configuration {#global-configuration .legacy-anchor}
+
+## Voice dictation {#voice-dictation .legacy-anchor}
+
+## Warp app and Agent CLI {#app-and-cli .legacy-anchor}
+
+## Import {#import .legacy-anchor}
+
+Warp reads `AGENTS.md`, `.agents/skills/`, and `.warp/.mcp.json`, plus optional workflows.
 
 ## First rule
 
@@ -25,55 +41,20 @@ Follow the [official setup guide](https://www.warp.dev), then open your project 
 
 Select `warp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. By default, sync writes it to `AGENTS.md`.
 
-Optional workflow output runs agent bodies as shell commands. Use skills for written procedures.
+Optional workflow output runs agent bodies as shell commands. Use skills for written procedures. Set `outputs.warp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
-For existing files, check [what `import warp` reads](#import) before syncing.
-
-## Verify
-
-Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Warp and ask for a commit subject for a small fix; it should use `fix:`.
-
-Next, [add a skill](@/docs/spec-format/skills.md).
+For existing files, check [what `import warp` reads](@/docs/targets/warp-reference.md#import) before syncing.
 
 ## Output
 
-```
-AGENTS.md                              # canonical entry-point pointer body (written by sync, shared across the AGENTS.md consumers)
-.agents/skills/<name>/SKILL.md         # one folder per skill (shared tree)
-.warp/workflows/<name>.yaml            # one per agent, only when workflows-dir is set
-.warp/.mcp.json                        # when MCP entries exist
-```
+| Source | Default output |
+|---|---|
+| Instructions and rules | `AGENTS.md` (canonical entry-point pointer body, written by sync, shared across the `AGENTS.md` consumers) |
+| Skills | `.agents/skills/<name>/SKILL.md`, one folder per skill (shared tree) |
+| Workflows | `.warp/workflows/<name>.yaml`, one per agent, only when `workflows-dir` is set |
+| MCP servers | `.warp/.mcp.json`, when MCP entries exist |
 
-## Native mappings
-
-<details>
-<summary>Field mappings, discovery, and compatibility</summary>
-
-- **Rules**: root rules are included in `AGENTS.md`. Scoped rules go to `<scope>/AGENTS.md` ([tools that share it](@/docs/scoped-context.md)).
-- **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, the path Warp recommends. A skill in a scope folder moves under that scope, and import keeps it there. Identical root copies are written once.
-  - Warp documents no field that keeps a skill user-only: agents invoke any skill when relevant, and `/{skill-name}` runs it by hand. So `disable-model-invocation` is dropped with a note, and commands are skipped.
-  - Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. agnostic-ai writes only `.agents/skills/`. Warp also picks up OpenCode's default `.opencode/skills/`, with no extra file.
-  - `WARP_SKILL_DIRS` adds directories outside the repo for Cloud agents to index skills from. It does not change which project folders Warp scans.
-- **Workflows**: with `outputs.warp.workflows-dir` set, each agent becomes a [Warp Workflow](https://docs.warp.dev/terminal/entry/yaml-workflows) at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). Warp now recommends Warp Drive workflows stored in the cloud, but <code>{&#123;path_to_git_repo}}/.warp/workflows/</code> still loads.
-  - `command:` is the agent body as written, so write it as a shell snippet Warp can run.
-  - Set `shells`, `arguments`, `source_url`, `author`, and `author_url` under `x-warp`. `import warp` reads them back.
-- **MCP**: `mcpServers` has only the keys in [Warp's MCP docs](https://docs.warp.dev/agents/capabilities/mcp):
-  - Stdio: `command`/`args`/`env`, plus `working_directory` (Warp's `cwd`). `args` is required, so a server with no arguments gets `"args": []`.
-  - Remote (HTTP/SSE/WS): `url`/`headers`, with no `type`, because Warp has no transport field.
-  - `description`, `disabled`, and `roots` are not written. `disabled` raises a sync note (Warp never starts project servers on its own). Set `description` and `roots` through `x-warp`.
-  - Warp also loads Claude Code's `.mcp.json`, Codex's `.codex/config.toml`, and `.agents/.mcp.json`, each after explicit approval ([provider table](https://docs.warp.dev/agents/capabilities/mcp)). With `claude` or `codex` synced too, one server can appear in up to three files, and Warp documents no handling of same-name servers. Approve only one copy.
-  - `import warp` renames `working_directory` back to `cwd`. An entry missing `command` (stdio) or `url` (remote) is skipped, as in trae, antigravity, and windsurf.
-
-<details>
-<summary>Upgrading from WARP.md</summary>
-
-Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a directory holding both ([Warp rules docs](https://docs.warp.dev/agents/capabilities/rules)). The first sync after upgrading renames a `WARP.md` that agnostic-ai wrote at the configured root to `WARP.md.bak`. Sync leaves a `WARP.md` you wrote (no `Generated by agnostic-ai` marker) alone. It warns that Warp misses the synced rules until you rename or remove that file.
-
-</details>
-
-</details>
-
-## Config keys
+{% <details summary="Output settings"> %}
 
 | Key | Default | Notes |
 | --- | --- | --- |
@@ -83,43 +64,32 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 | `outputs.warp.mcp-file` | `.warp/.mcp.json` | |
 | `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips instructions that point to source specs |
 
-## Global configuration
+{% </details> %}
 
-`agnostic-ai sync --global --only warp` adds your home MCP specs to `~/.warp/.mcp.json`, using the same fields as project output. The Warp app starts these global servers automatically. The Warp Agent CLI does not read this file; see [Warp app and Agent CLI](#app-and-cli). Sync leaves out a spec with `disabled: true` and explains why.
+Field mappings, global configuration, and import are in the [Warp native reference](@/docs/targets/warp-reference.md).
 
-`agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
+## Verify
 
-### Voice dictation
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Warp and ask for a commit subject for a small fix; it should use `fix:`.
 
-Add [portable voice settings](@/docs/spec-format/settings.md#voice-dictation) to your home specs, then run `agnostic-ai sync --global --only warp`. Sync writes enabled and language choices into Warp's [settings file](https://docs.warp.dev/terminal/settings/):
+## Loading and limits
 
-- macOS: `~/.warp/settings.toml`.
-- Linux: `$XDG_CONFIG_HOME/warp-terminal/settings.toml`, or `~/.config/warp-terminal/settings.toml` when unset.
-- Windows: `%LOCALAPPDATA%\warp\Warp\config\settings.toml`.
+- Global MCP servers written by `sync --global` reach the Warp app only. The Warp Agent CLI keeps its own file; see [Warp app and Agent CLI](@/docs/targets/warp-reference.md#app-and-cli).
+- Warp documents no field that keeps a skill user-only, so `disable-model-invocation` is dropped with a note and commands are skipped.
+- Warp also loads MCP servers from Claude Code's `.mcp.json` and Codex's `.codex/config.toml`, each after explicit approval. With `claude` or `codex` synced too, approve only one copy of a server.
+- Warp still supports `WARP.md`, which wins in a directory holding both. See the upgrade note under More limits.
 
-Warp takes a lowercase two-letter language code such as `es`, or `""` for auto-detect. Sync skips broader values such as `en-US` and `auto` with a note. Warp has no capture-mode setting, so `voice.mode` also prints a note. The activation shortcut and other preferences stay in Warp.
+{% <details summary="More limits"> %}
 
-Sync preserves comments and unrelated keys in `[agents.voice]`, and removing portable voice restores the original values. Existing inline or dotted definitions of this table are left unchanged with an error asking for an explicit `[agents.voice]` table. `explain --global settings/voice.yaml` shows the file and keys for your platform.
+- Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. agnostic-ai writes only `.agents/skills/`. `WARP_SKILL_DIRS` adds directories outside the repo for Cloud agents to index skills from; it does not change which project folders Warp scans.
+- `description`, `disabled`, and `roots` are not written to MCP output. `disabled` raises a sync note (Warp never starts project servers on its own). Set `description` and `roots` through `x-warp`.
+- Warp's MCP file has no transport field, so remote servers carry no `type`, and a stdio server with no arguments gets `"args": []`.
+- Upgrading from `WARP.md`: Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a directory holding both ([Warp rules docs](https://docs.warp.dev/agents/capabilities/rules)). The first sync after upgrading renames a `WARP.md` that agnostic-ai wrote at the configured root to `WARP.md.bak`. Sync leaves a `WARP.md` you wrote (no `Generated by agnostic-ai` marker) alone. It warns that Warp misses the synced rules until you rename or remove that file.
 
-## Warp app and Agent CLI {#app-and-cli}
-
-The Warp app and the Warp Agent CLI keep separate MCP settings ([CLI configuration](https://docs.warp.dev/agents/cli/configuration)):
-
-| Reader | Global MCP file | Project MCP file |
-| --- | --- | --- |
-| Warp app | `~/.warp/.mcp.json` | `.warp/.mcp.json` |
-| Warp Agent CLI | its own file (see below) | `.warp/.mcp.json`, listed as off in `/mcp` until you enable each server |
-
-- **Global servers written by sync reach the app only.** `sync --global` does not write the CLI file, so the CLI gets your rules and skills but none of your global MCP servers. To copy your app setup to the CLI once, run `/tui-migrate-setup` in the CLI. Later changes to `~/.warp/.mcp.json` do not follow.
-- **CLI file paths.** Warp documents only the macOS path, `~/.warp_cli/.mcp.json`. For other systems the path comes from Warp's source, not its docs: `cli/.mcp.json` inside the Warp config directory. It is unconfirmed in a running CLI; the `/mcp` header shows the file the CLI reads.
-- **Project servers.** Warp's CLI page says project MCP files are not detected, but the shipped CLI lists servers from `.warp/.mcp.json` in `/mcp`. They stay off until you enable each one.
-
-## Import
-
-`agnostic-ai import warp` reads `AGENTS.md`, workflows from `.warp/workflows/`, and MCP servers from `.warp/.mcp.json`.
-
-Skills import, with all bundled files, from `<root>/skills/` for each root Warp scans: `.agents`, `.warp`, `.claude`, `.codex`, `.cursor`, `.gemini`, `.copilot`, `.factory`, `.github`, and `.opencode`. Within a scope, an earlier root wins a duplicate name. Scoped paths stay together.
+{% </details> %}
 
 ## Protected paths
 
 Not enforced. This target takes no settings specs. Sync reports a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+
+Next, [add a skill](@/docs/spec-format/skills.md) or see the [Warp native reference](@/docs/targets/warp-reference.md).

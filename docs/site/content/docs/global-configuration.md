@@ -49,7 +49,7 @@ targets: [claude, codex, cursor]
 <summary>Limits, output rules and what sync owns</summary>
 
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists for targets other than Claude Code and CodeBuddy Code, inheritance, and merging with project specs are unsupported.
-- Kilo inline shell placeholders pass the syntax check at documented trusted user destinations. See [Kilo shell commands](@/docs/targets/kilo.md#shell-commands-in-global-skills) for approval, scope, and the kill switch.
+- Kilo inline shell placeholders pass the syntax check at documented trusted user destinations. See [Kilo shell commands](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) for approval, scope, and the kill switch.
 - Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks, skills, and settings honor `target`, `targets`, and `targets-exclude`. A settings spec routed away from a tool sets none of its values there and does not override an earlier spec. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hook-reference.md#portable-events).
 - Some user hook routes have their own limits. Copilot: `import --global copilot` adopts matching handlers from neighboring user JSON files; see [Copilot hooks](@/docs/targets/copilot-reference.md#hooks). Cline: the VS Code extension does not read the hooks sync writes; see [Cline global hooks](@/docs/targets/cline.md#global-hooks). Kiro CLI V3: one `~/.kiro/hooks/<name>.json` per spec, in the project hook format, with shared scripts in `~/.kiro/scripts/`; unrelated hook files stay, and a conflicting file stops sync.
@@ -145,5 +145,5 @@ A dash means global sync writes nothing for that kind.
 - **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
 - Existing instruction files keep their personal text and file permissions. Sync stops if a file changes while it is preparing the update.
 
-Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Zed on macOS. Zed on Linux and FreeBSD prefers `FLATPAK_XDG_CONFIG_HOME`; see [its native instruction roots](@/docs/targets/zed.md#global-instructions). Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
+Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Zed on macOS. Zed on Linux and FreeBSD prefers `FLATPAK_XDG_CONFIG_HOME`; see [its native instruction roots](@/docs/targets/zed-reference.md#global-instructions). Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
 

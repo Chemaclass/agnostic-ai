@@ -153,6 +153,7 @@ name = "Warp"
 href = "@/docs/targets/warp.md"
 statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "no", "no"]
 opt_in = { agent = "outputs.warp.agents" }
+opt_in_anchor = "output"
 
 [[targets]]
 id = "opencode"

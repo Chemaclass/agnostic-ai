@@ -1,0 +1,58 @@
++++
+title = "Goose native reference"
+description = "Native field mappings and import coverage for goose."
+weight = 241
+
+[extra]
+nav_title = "Goose reference"
+group = "Reference"
++++
+
+# Goose native reference
+
+Start with the [Goose setup](@/docs/targets/goose.md). Output keys are listed under [output settings](@/docs/targets/goose.md#output).
+
+## Native mappings
+
+- **Rules**: are included in the `## Rules` block of `AGENTS.md`. `outputs.goose.rules-file: .goosehints` also writes all rules into one `.goosehints`, which Goose reads only with the `Developer` extension enabled ([using goosehints](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md)).
+- **Scoped rules**: Goose reads context files (`CONTEXT_FILE_NAMES`, default `AGENTS.md` and `.goosehints`) in the subdirectories it works in. Scoped rules go to a nested `AGENTS.md`, or with `rules-file` set, to `backend/.goosehints` for a `backend/` scope. Rules with the same scope share one file.
+- **Agents**: each file has `name`, `description`, an optional free-form `model`, and the prompt body. OpenHands reads the same path and fields, so the file is written once. A generic `tools` list is dropped with a sync note, because Goose does not document it. `x-goose` fields work. If they make the file differ from what another tool gets, set a different `outputs.goose.agents-dir`.
+- **Skills**: `.agents/skills/` is Goose's [recommended path](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md), read ahead of `.goose/skills/` and `.claude/skills/`. The other `.agents/skills/` tools, including Crush, get the same files, so the shared folder is written once. Shared rendering drops Crush invocation fields; separate its `skills-dir` to retain them.
+  - Goose documents no field that keeps a skill user-only: it lists every skill for the model, and `/<skill-name>` loads one by hand ([using skills](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md)). So `disable-model-invocation` is dropped with a note, and commands are skipped.
+- **Hooks**: an [Open Plugins](https://goose-docs.ai/docs/guides/context-engineering/hooks/) package (`.agents/plugins/agnostic-ai/plugin.json` plus `hooks/hooks.json`). All 12 documented events are supported. `matcher` is a regular expression. `timeout` is in seconds (default 30). `x-goose.on_failure` takes `allow` or `block` for `PreToolUse` failures. [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests these hooks before a session, using Goose's event data, shell, and timeout. `sync --global` writes a separate package to `~/.agents/plugins/agnostic-ai-global/`, which Goose loads for every project. The name differs from the project plugin because Goose keeps only the first plugin of a name, and a project `disabledPlugins` entry would turn off both. Global sync ignores `outputs.goose.hooks-file` and an absolute `GOOSE_PATH_ROOT`, for hooks and agents alike, and writes under `~`.
+- **Plugin skills**: set `outputs.goose.skills-dir: .agents/plugins/<name>/skills` to bundle skills as a plugin ([plugins](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/plugins.md)), with or without hooks. Skills and hooks share one manifest. Goose prefixes names with the plugin name, so `review` in `agnostic-ai` loads as `agnostic-ai:review`. A skills directory inside a plugin folder but outside its `skills/` folder is not a Goose component and gets no manifest.
+- **Reviews**: `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from every directory with changed files and every parent directory, so root and scoped guidance combine ([v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md)). Specs with the same scope are joined into one file, without frontmatter, because Goose reads plain text. Agent-style check files are not written.
+- **MCP**: skipped with a warning.
+
+Sync keeps an existing `plugin.json` it did not write and prints a note. Manifests recorded by an earlier sync remain managed.
+
+## Import
+
+`agnostic-ai import goose` reads the Goose files back into specs. Rules come from the inline block in `AGENTS.md`:
+
+| Source | Becomes |
+|--------|---------|
+| `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.goosehints` | the same, read only when `AGENTS.md` carried no rules |
+| `.agents/agents/<name>.md` | `<agents>/<name>.md`, unchanged except for the generated-file header |
+| `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
+| `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every enabled plugin in the project |
+| `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group and distinct `timeout` and `on_failure` pair, `on_failure` under `x-goose` |
+| `.agents/REVIEW.md` | `<reviews>/review.md` |
+| `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
+
+`.goosehints` is a fallback. With `rules-file` set, both files hold the same rules.
+
+Import reads every enabled plugin, including hand-installed ones. A plugin listed in `disabledPlugins` in the user, project, or local Goose settings is skipped, as Goose does not load it. A plugin named in `enabledPlugins` in a closer file stays enabled. The `plugins` switch in Goose's `config.yaml` is not read, so a plugin turned off there still imports.
+
+`agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/REVIEW.md`, or a plugin with `hooks/hooks.json` under `.agents/plugins/`. Antigravity plugins share `.agents/plugins/`, and OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`, so those alone do not count. For a Goose project with only rules or plugin skills, run `agnostic-ai import goose` directly.
+
+Import loses the following, but the next sync still writes the same Goose files:
+
+- Only the rules block in the root file is read back, as with `import claude` and nested `CLAUDE.md` files.
+- Review specs with the same scope come back as one spec.
+- Scoped `<scope>/.agents/REVIEW.md` files are not read back.
+- A plugin's `scripts/` folder is not copied. Import warns when a written hook command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}`, outside the plugin sync writes to. The command cannot run from the emitted plugin until you copy the scripts there.
+- A hook group splits into one spec per distinct `timeout` and `on_failure` pair, so each command keeps its own values. The emitted file merges them back into one group.
+
+See [scoped context](@/docs/scoped-context.md).

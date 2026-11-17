@@ -1,0 +1,94 @@
++++
+title = "Augment native reference"
+description = "Native field mappings, output keys, and import coverage for augment."
+weight = 251
+
+[extra]
+nav_title = "Augment reference"
+group = "Reference"
++++
+
+# Augment native reference
+
+Start with the [Augment setup](@/docs/targets/augment.md).
+
+## Native mappings
+
+
+- **Rules**: rule bodies go into the shared `## Rules` block of `AGENTS.md`. Augment also loads `.augment/rules/`.
+  - An always-applied rule that is already in the block gets no `.augment/rules/` file. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+  - A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). Rules have no `name` key.
+- **Legacy guidelines**: `outputs.augment.rules-file: .augment-guidelines` also writes all rules as one document. It is opt-in, because Augment cuts it first when context runs short.
+- **Agents** ([subagents docs](https://docs.augmentcode.com/cli/subagents)): `.augment/agents/<name>.md` with `name` (required), `description` (falls back to the spec name), and, when set, `color` (written as is; Augment expects an ANSI color name) and `model`.
+  - `effort` becomes `thinking` when it is `off`, `minimal`, `low`, `medium`, `high`, or `xhigh`. Any other value raises a sync note. `x-augment: {thinking: ...}` wins over `effort`. Auggie 1.x lists `thinking` in its [agent fields](https://docs.augmentcode.com/cli/subagents.md); the 0.x agent docs do not, so 0.x may ignore it.
+  - Augment's `tools` and `disabled_tools` take its own tool names, not Claude-style ones. The `tools` allowlist takes `view`, `codebase-retrieval`, `str-replace-editor`, ... on Auggie 0.x and only `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`, `web-fetch` on 1.x; `disabled_tools` takes any tool name. The generic `tools` field uses neither, so it raises a sync note. Set `x-augment: {tools: [...]}` or `x-augment: {disabled_tools: [...]}` instead.
+- **Skills**: Augment also scans `.claude/skills/` and `.augment/skills/`.
+- **Commands**: `.augment/commands/<scope>/<name>.md`, with a directory scope from the source folder as a nested folder name. `description`, `argument-hint`, and `model` stay in frontmatter.
+- **Ignore**: ignore specs write `.augmentignore`. `import augment` restores a hand-written one, keeping pattern order and negation.
+
+<details>
+<summary>Entry point off AGENTS.md</summary>
+
+Moving the entry point off root `AGENTS.md` with a `file` override, or listing it in `sync.unmanaged`, makes every rule keep a `.augment/rules/` file. The default `always_apply` is left out. Before making the shared file unmanaged, check [its effect on other targets](@/docs/target-behavior.md#inlined-rules).
+
+</details>
+
+### MCP
+
+Servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `command`, `args`, and `env` with no `type`. Remote uses `type: http` or `type: sse` plus `url` and `headers`. This is the Auggie CLI project file Augment recommends for team-shared servers ([config docs](https://docs.augmentcode.com/cli/config)), not the IDE Settings Panel.
+
+- Sync changes only its own keys. `shell`, `startupScript`, `theme`, plugin keys, and tool permissions stay.
+- If the file is JSONC, sync keeps its keys but drops comments and trailing commas, with a one-line warning.
+- Augment documents no per-server `disabled` key, so `disabled: true` is dropped with a sync note. Use `auggie mcp remove`.
+- Transports are `stdio`, `sse`, and `http` only ([integrations docs](https://docs.augmentcode.com/cli/integrations)). A `type: ws` spec writes no server and raises a sync note.
+
+### Hooks
+
+Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). `PromptSubmit` and `Notification` come from the Auggie 1.x reference; the 0.x reference documents neither as an event to register (only a `Notification` event name appears there; [0.x docs](https://docs.augmentcode.com/cli/v0/hooks.md)). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using Auggie's event data, shell, and timeout.
+
+- A hook on another event, such as Claude Code's `UserPromptSubmit`, is skipped with a sync note, and `validate` rejects it. Auggie's `PromptSubmit` passes the prompt as `user_prompt` and cannot block, so a shared prompt hook is not renamed. When the hook fits that, set `x-augment: {event: PromptSubmit}`.
+- `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
+- `args` is written as its own array, and Auggie runs the command with those arguments and no shell. Auggie 1.x first replaces `${VAR}` and `${VAR:-default}` in the command and each argument, so `sync` writes them as you wrote them. A command without `args` runs as written: Auggie 1.x hands it to a shell, and 0.x splits it into words or runs it with `bash -c` when it has shell syntax.
+- `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification`, which take none; `sync` prints a note when it leaves one out.
+- Matchers use Augment's tool names. Auggie 1.x names its tools `bash`, `read`, `edit`, `write`, `grep`, `find`, `web-fetch`, ... and matches them case-insensitively; it still matches the 0.x names `launch-process`, `view`, `str-replace-editor`, and `save-file` for now, and its `/hooks` command flags them ([hooks docs](https://docs.augmentcode.com/cli/hooks.md)). Auggie 0.x knows only the 0.x names and matches case-sensitively. A Claude-style matcher (`Bash`, `Write`, ...) raises a sync note: in 1.x only `Bash`, `Read`, `Edit`, `Write`, and `Grep` reach a tool, and in 0.x none does.
+- Only `PreToolUse` stops a tool: exit 2 or `permissionDecision: "deny"`. A `PostToolUse` `decision: "block"` sends its reason to the agent; the tool has already run. `Stop` blocks in Auggie 0.x only; Auggie 1.x runs `Stop`, `SessionStart`, `SessionEnd`, `PromptSubmit`, and `Notification` hooks in the background, where a block reply does nothing. `hook run` reports block on `PostToolUse` and `Stop`, with a note on `Stop`, and reads a block reply on the other four as allow, with a note.
+
+### Shared memory
+
+With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on its [supported platforms](https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli#system-requirements): macOS, Linux, and Windows WSL. The script finds the project from its working directory and returns both memory indexes through `hookSpecificOutput.additionalContext`. The same script is installed for `sync --global`. Auggie 0.x injects that output. Auggie 1.x, stable from 1.2.0, runs `SessionStart` hooks in the background and does not add their output to the agent's context ([1.x hooks docs](https://docs.augmentcode.com/cli/hooks.md)), so there the memory rule tells the agent to read the indexes.
+
+The IDE keeps the memory rule. See [shared memory](@/docs/memory.md#load-at-session-start) for the context limit and how to keep the tool's own memory.
+
+### Permissions
+
+Settings spec permissions merge into the same file under `toolPermissions`, which Auggie CLI and Cosmos cloud agents follow. Augment recommends committing `.augment/settings.json` so the policy applies to every cloud agent in the repo ([permissions docs](https://docs.augmentcode.com/cli/permissions)).
+
+- Rules are an ordered array and the first match wins, so deny rules come first, then ask rules, then allow rules.
+- The `ask` list becomes `{ "type": "ask-user" }`. Auggie asks before the call; with no interactive UI, such as a headless run, it denies the call. Auggie 0.x reads the same type.
+- Each `permission` is an **object** such as `{ "type": "deny" }`. Augment ignores a bare-string permission.
+- Bare tool names map onto Augment's six tools (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, ...).
+- `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`. An exact `Bash(command)` is anchored at both ends. `mcp__<server>__<tool>` becomes `{tool-name}_{server-name}`.
+
+`model` becomes `defaultModel` and `effort` becomes `defaultThinkingLevel` (`off`, `minimal`, `low`, `medium`, `high`, or `xhigh`; another value raises a sync note). Auggie 1.x reads both keys ([settings docs](https://docs.augmentcode.com/cli/settings.md)); Auggie 0.x ignores them and reads only `model`, which you can set with `x-augment: {model: ...}`. Auggie 1.x also reads `model` when `defaultModel` is absent.
+
+Path- or URL-scoped rules such as `Read(src/**)` are not written and raise a sync note: only `terminal` takes a matcher, and a bare `read` would cover every file.
+
+`x-augment.toolPermissions` writes Augment's rule objects as is, ahead of the translated ones. Other `x-augment` keys, such as `shell` or `startupScript`, merge in as written.
+
+
+
+## Config keys
+
+| Key | Default | Notes |
+|-----|---------|-------|
+| `outputs.augment.rules-dir` | `.augment/rules` | |
+| `outputs.augment.agents-dir` | `.augment/agents` | |
+| `outputs.augment.skills-dir` | `.agents/skills` | |
+| `outputs.augment.commands-dir` | `.augment/commands` | |
+| `outputs.augment.ignore-file` | `.augmentignore` | |
+| `outputs.augment.rules-file` | unset | opt-in, writes the legacy `.augment-guidelines` document |
+| `outputs.augment.mcp-file` | `.augment/settings.json` | also the hooks and permissions file, because all three merge into one document |
+
+## Import
+
+`import augment` reads `.augmentignore` and the `toolPermissions` policy in `.augment/settings.json` for Augment's six tools. An `ask-user` rule goes to the `ask` list. It skips `shellInputRegex` entries (no portable form) and bare-string `permission` entries (invalid in Augment). `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model. `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target). `import augment` also reads `.augment/agents/*.md`: `thinking` becomes `effort` when it is one of the six levels, and keys with no portable field (`tools`, `max_turns`, and similar) go under `x-augment`. Nothing else is imported.

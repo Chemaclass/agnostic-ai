@@ -147,7 +147,7 @@ MCP specs in the home's `mcps/` install servers in each supported tool's user MC
 |---|---|---|
 | claude | `~/.claude.json` (`$CLAUDE_CONFIG_DIR/.claude.json` when set) | top-level `mcpServers.<name>` |
 | codex | `~/.codex/config.toml` | `[mcp_servers.<name>]` table |
-| codebuddy | `~/.codebuddy/.mcp.json` | `mcpServers.<name>`; [legacy precedence and native limits](@/docs/targets/codebuddy.md#enable-project-mcp-output) |
+| codebuddy | `~/.codebuddy/.mcp.json` | `mcpServers.<name>`; [legacy precedence and native limits](@/docs/targets/codebuddy-reference.md#enable-project-mcp-output) |
 | vibe | `~/.vibe/config.toml` | `[[mcp_servers]]`, keyed by `name` |
 | kimi | `~/.kimi-code/mcp.json` | `mcpServers.<name>`, retaining disabled servers |
 | cursor | `~/.cursor/mcp.json` | `mcpServers.<name>` |

@@ -201,6 +201,11 @@ func TestSiteDocs_OptInCellsOpenTheSectionNamingTheKey(t *testing.T) {
 			page := filepath.Join(siteDocsContentDir, strings.TrimPrefix(target.Href, "@/docs/"))
 			section, ok := markdownSection(readBuiltFile(t, page), anchor)
 			if !ok {
+				if reference, err := os.ReadFile(strings.TrimSuffix(page, ".md") + "-reference.md"); err == nil {
+					section, ok = markdownSection(string(reference), anchor)
+				}
+			}
+			if !ok {
 				t.Errorf("%s has no section with anchor #%s for its %s opt-in cell", page, anchor, feature)
 				continue
 			}
@@ -1288,6 +1293,9 @@ func TestSiteDocs_TargetsStateWhatLoadsAtSessionStart(t *testing.T) {
 			t.Fatal(err)
 		}
 		section, ok := markdownSection(string(page), "loaded-at-session-start")
+		if !ok {
+			section, ok = markdownSection(string(page), "loading-and-limits")
+		}
 		if !ok {
 			t.Errorf("%s.md has no \"Loaded at session start\" section", target)
 			continue

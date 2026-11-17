@@ -98,7 +98,7 @@ voice:
 | Grok Build | `~/.grok/config.toml` | `ui.voice_capture_mode` (`tap` becomes `toggle`), `ui.voice_stt_language` |
 | Mistral Vibe | `~/.vibe/config.toml` | `voice_mode_enabled` |
 | Kiro CLI | `~/.kiro/settings/cli.json` | Literal root key `voice.language` |
-| Warp | [Platform settings file](@/docs/targets/warp.md#voice-dictation) | `agents.voice.voice_input_enabled`, `agents.voice.voice_input_language` |
+| Warp | [Platform settings file](@/docs/targets/warp-reference.md#voice-dictation) | `agents.voice.voice_input_enabled`, `agents.voice.voice_input_language` |
 
 - Claude Code takes its dictation language from its response language, so sync does not write `voice.language` there and prints a note. Set `x-claude.language` to change both.
 - Qwen keeps dictation off until a voice model is chosen. Run `/model --voice` or set `x-qwen.voiceModel`; sync prints a note when no model is configured.

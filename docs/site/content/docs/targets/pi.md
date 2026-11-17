@@ -6,9 +6,26 @@ weight = 34
 [extra]
 group = "Reference"
 target_id = "pi"
+
+[extra.moved]
+native-mappings = "@/docs/targets/pi-reference.md"
+global-configuration = "@/docs/targets/pi-reference.md"
+config-keys = "@/docs/targets/pi-reference.md"
+limits-and-trust = "@/docs/targets/pi.md#loading-and-limits"
+import = "@/docs/targets/pi-reference.md"
 +++
 
 # Pi (`pi`)
+
+## Limits and trust {#limits-and-trust .legacy-anchor}
+
+## Native mappings {#native-mappings .legacy-anchor}
+
+## Global configuration {#global-configuration .legacy-anchor}
+
+## Config keys {#config-keys .legacy-anchor}
+
+## Import {#import .legacy-anchor}
 
 agnostic-ai writes Pi's native project files and imports existing ones. This target follows [Pi v1.4.0](https://github.com/earendil-works/pi/releases/tag/v1.4.0), published as `@earendil-works/pi-coding-agent`.
 
@@ -37,34 +54,30 @@ agnostic-ai sync -t pi
 agnostic-ai sync --check -t pi
 ```
 
-Inspect `AGENTS.md` for the rule, then start Pi from the project root and ask for a commit subject to check that it loaded. For an existing setup, [import it](#import) before syncing.
+Inspect `AGENTS.md` for the rule, then start Pi from the project root and ask for a commit subject to check that it loaded. For an existing setup, [import it](@/docs/targets/pi-reference.md#import) before syncing.
 
 ## Output
 
-```text
-AGENTS.md                      # root instructions and rules
-<scope>/AGENTS.md              # directory-scoped rules
-.pi/skills/<name>/SKILL.md     # skills, with bundled files
-.pi/prompts/<name>.md          # slash commands as prompt templates
-.pi/mcp.json                   # MCP servers
-.pi/settings.json              # model and thinking settings
-```
+| Source | Default output |
+|---|---|
+| Root instructions and rules | `AGENTS.md` |
+| Directory-scoped rules | `<scope>/AGENTS.md` |
+| Skills and bundled files | `.pi/skills/<name>/SKILL.md` |
+| Commands (as prompt templates) | `.pi/prompts/<name>.md` |
+| MCP servers | `.pi/mcp.json` |
+| Model and thinking settings | `.pi/settings.json` |
 
-## Native mappings
+For output overrides, field mappings, global sync, and import coverage, see the [native reference](@/docs/targets/pi-reference.md).
 
-Pi reads instruction files along the path from the filesystem root to its current directory. A scoped rule at `services/api/AGENTS.md` reaches a session started there. Reading a file in `services/api/` from a root session does not load that descendant instruction file. Within one directory, Pi selects the first readable file from `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, and `CLAUDE.MD`. See [Pi configuration](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/configuration.md).
+## Loading and limits
 
-Skills keep their `SKILL.md` metadata and bundled files in `.pi/skills/`. Pi also discovers shared `.agents/skills/` directories. It keeps the first skill for a duplicate name, so a user-level skill can win over the project copy.
+- Project settings, MCP, skills, and prompt templates need Pi's project trust approval. Instruction files load without that approval. Trust remains Pi's decision; sync does not write trust approvals or `defaultProjectTrust`.
+- Pi has no native agent definitions, lifecycle hooks, or per-tool permission rules. Agent, hook, ignore, review, and environment specs have no native output; portable permission settings are unsupported. Skill `allowed-tools` is metadata, not an enforced permission limit.
+- MCP supports stdio and HTTP; SSE is unsupported. Invalid global MCP specifications stop sync before native files change.
+- The default prompt directory loads direct Markdown children. Nested command names are unsupported.
+- Commands sync only at project scope. Global command sync is outside this target's support.
 
-Commands become prompt templates in `.pi/prompts/`, with `description` and `argument-hint` frontmatter. Pi expands `$ARGUMENTS`, `$@`, and positional arguments in their bodies. Sync keeps that text as written. See [prompt templates](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/prompt-templates.md).
-
-MCP entries live under `mcpServers` in `.pi/mcp.json`. Sync accepts a leading UTF-8 byte order mark (BOM) in native MCP files and keeps it when updating the file. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `url` and optional `headers`. Portable `disabled: true` becomes native `enabled: false`.
-
-Pi reads `timeout` in seconds and the spec holds milliseconds, so sync divides by 1000 exactly (1500 becomes 1.5) and import multiplies by 1000. A value under 1000 gets a note, since it most likely holds seconds. `x-pi.timeout` is already seconds, must be positive, and wins.
-
-Environment placeholders stay literal. Target-native extras belong under `x-pi`. The order of `toolExposure` patterns follows source order; exact tool names take priority over patterns. See [Pi MCP](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md).
-
-Settings map portable `model` to `defaultModel` and `effort` to `defaultThinkingLevel`. Pi accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. Choose a provider separately with native `x-pi.defaultProvider`; sync does not split model IDs. Unrelated settings stay in place.
+## Add a disabled MCP server
 
 Save `.agnostic-ai/mcps/docs-search.yaml` to define an HTTP server without enabling it:
 
@@ -77,43 +90,8 @@ disabled: true
 
 After sync, `.pi/mcp.json` contains the server with `enabled: false`. Replace the example URL with your server's endpoint before enabling it.
 
-## Limits and trust
-
-- Project settings, MCP, skills, and prompt templates need Pi's project trust approval. Instruction files load without that approval. Trust remains Pi's decision; sync does not write trust approvals or `defaultProjectTrust`.
-- Pi has no native agent definitions, lifecycle hooks, or per-tool permission rules. Agent, hook, ignore, review, and environment specs have no native output; portable permission settings are unsupported. Skill `allowed-tools` is metadata, not an enforced permission limit.
-- MCP supports stdio and HTTP; SSE is unsupported. Invalid global MCP specifications stop sync before native files change.
-- The default prompt directory loads direct Markdown children. Nested command names are unsupported.
-- Commands sync only at project scope. Global command sync is outside this target's support.
-
-## Global configuration
-
-`agnostic-ai sync --global -t pi` writes instructions, skills, MCP, and settings under `~/.pi/agent/`. `PI_CODING_AGENT_DIR` replaces that whole agent directory. Global HTTP MCP entries also keep `x-pi.auth: {provider: radius}`. Pi limits provider auth to global `mcp.json` and extensions ([release reference](https://github.com/earendil-works/pi/releases/tag/v0.99.2)); project output omits it. Existing `x-pi.oauth` stays separate. Global import scopes `auth` under `x-pi`, so equal native entries can be adopted without rewriting user content. See [global configuration](@/docs/global-configuration.md).
-
-## Config keys
-
-For the shared root instruction file, see [entry-point files](@/docs/configuration-reference.md#entry-point-files).
-
-| Key | Default |
-|---|---|
-| `outputs.pi.rules-file` | unset, uses instruction files |
-| `outputs.pi.skills-dir` | `.pi/skills` |
-| `outputs.pi.commands-dir` | `.pi/prompts` |
-| `outputs.pi.mcp-file` | `.pi/mcp.json` |
-| `outputs.pi.conf-file` | `.pi/settings.json` |
-
-Changing a path does not change where Pi looks for it. Keep overrides aligned with your native configuration.
-
-## Import
-
-```bash
-agnostic-ai import pi
-agnostic-ai lint
-agnostic-ai sync -t pi
-agnostic-ai sync --check -t pi
-```
-
-Import reads root and scoped instructions, skill folders and resources, direct prompt templates, `.pi/mcp.json`, and `.pi/settings.json`. Native MCP `enabled` is inverted back to portable `disabled`. Project control-only overrides import with `targets: [pi]`. Model and thinking level become portable settings; `defaultProvider` stays under `x-pi`. Use `agnostic-ai import --global pi` for supported user-level files.
-
 ## Protected paths
 
 Not enforced. A settings spec with a `protected` block produces a coverage note. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+
+Next, [add a skill](@/docs/spec-format/skills.md) or see [global configuration](@/docs/targets/pi-reference.md#global-configuration).

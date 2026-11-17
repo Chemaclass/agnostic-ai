@@ -1,0 +1,97 @@
++++
+title = "Amp native reference"
+description = "Native field mappings, output keys, and import coverage for amp."
+weight = 101
+
+[extra]
+nav_title = "Amp reference"
+group = "Reference"
++++
+
+# Amp native reference
+
+Start with the [Amp setup](@/docs/targets/amp.md).
+
+## Native mappings
+
+
+### Rules
+
+Root rules go into `AGENTS.md`. Scoped rules use `<scope>/AGENTS.md`. See [directory-specific instructions](@/docs/scoped-context.md) for how other tools read them.
+
+### Skills
+
+Skills use [Amp's native layout](https://ampcode.com/docs/customize/skills), with `name` and `description` in frontmatter. Bundled files are copied unchanged. Amp [replaced custom slash commands with skills](https://ampcode.com/news/slashing-custom-commands), so skills are no longer written as `.agents/commands/skill-<name>.md`.
+
+- Amp has no user-only skill: it [removed user-invokable skills](https://ampcode.com/news/neo) on 2026-05-06, and the model decides when to load every skill. So `disable-model-invocation` is dropped with a note, and commands are skipped.
+- Any `x-amp` key passes through. `x-amp.mcpServers` ties MCP servers to one skill and hides their tools until it loads. Amp recommends this over user settings for most cases ([Amp skills docs](https://ampcode.com/docs/customize/skills)). A sibling `mcp.json` also works, and frontmatter wins.
+- Amp also loads `.claude/skills/`, `~/.claude/skills/`, and `~/.claude/plugins/cache/`. The first skill with a given `name` wins, and `.agents/skills/` comes before `.claude/skills/` ([skill order](https://ampcode.com/docs/customize/skills)). A skill synced to both `claude` and `amp` loads once. A skill for `claude` only still loads.
+- A skill with the same name in `~/.config/agents/skills/`, `~/.agents/skills/`, or `~/.config/amp/skills/` hides the project skill. `~/.claude/skills/` does not.
+- `amp.skills.disableClaudeCodeSkills` skips the Claude Code directories. `amp.skills.disableGlobalAgentsSkills` skips `~/.config/agents/skills/` and `~/.agents/skills/` ([settings schema](https://ampcode.com/cli-settings.schema.json)). Set both with `x-amp` on a settings spec. Neither has a portable field. `amp.skills.path` adds directories, separated by colons or semicolons.
+
+### Agents
+
+No native agent output. The default writes no agent file; `outputs.amp.agents: skill` converts the prompt to a skill. Amp [removed custom commands](https://ampcode.com/news/slashing-custom-commands), so sync no longer writes `.agents/commands/<name>.md` and removes old ones.
+
+- With `outputs.amp.rules-file` set, agent bodies reach Amp in the combined document. Otherwise Amp only gets the entry-point pointer to the source specs, and `sync` says so.
+- By default, agents do not go to `.agents/skills/<name>/SKILL.md`. Other tools share that tree, so an agent would duplicate the spec and overwrite a skill with the same name.
+- Amp's native agent API (`amp.createAgent(...)` / `amp.registerAgentMode(...)` in [plugins](https://ampcode.com/docs/customize/plugins)) works only in code.
+
+### Commands
+
+Not supported. Commands register in plugin code via `amp.registerCommand(...)` ([Amp docs index](https://ampcode.com/llms.txt)). A command spec for amp is skipped with a warning (`on-unsupported: warn` by default). `.agents/checks/` is gone from Amp's docs, so there is no review output either.
+
+### MCP
+
+Under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `command`, `args`, and `env`. HTTP and SSE write `url` and `headers`. Other fields go through `x-amp`.
+
+- `x-amp.includeTools` limits the tools a server exposes (tool names or glob patterns, [Amp skills docs](https://ampcode.com/docs/customize/skills)). Amp recommends fewer tools for better model performance. It stays under `x-amp` because Amp's MCP page does not mention it.
+- Sync changes only `amp.mcpServers`. Other keys (theme, editor settings) stay.
+- Workspace MCP servers need approval: the CLI asks when it first finds one, and [orbs](https://ampcode.com/docs/customize/mcp#mcp-in-orbs) ask separately. An orb approval can cover later orbs, yours or (from a workspace admin) every member's, until a synced change to that server's entry makes orbs ask again.
+
+### Settings
+
+**Amp does not read portable settings.** Each sync reports unsupported `permissions.allow`, `permissions.deny`, `permissions.ask`, and `model` fields. Your portable deny list is not enforced. Only `x-amp` keys, in Amp's spelling, are written.
+
+- They go to `.amp/settings.json`, Amp's [workspace settings file](https://ampcode.com/docs/cli/settings). Amp finds it by searching up from the working directory to the repository root. Workspace settings override user settings, except `amp.keymap`: keymap entries in user settings override workspace ones. MCP servers and settings are merged in one write, and every other key stays.
+- **`allow` and `ask` cannot be written.** Amp's [settings schema](https://ampcode.com/cli-settings.schema.json) has no tool allow-list. `amp.tools.disable` only disables, and `amp.mcpPermissions` matches MCP servers, not tools. Amp [does not ask for approval by default](https://ampcode.com/docs/tools) and points to a [permissions plugin](https://ampcode.com/docs/customize/plugins#example-plugin-permissions). `model` has no key either, because Amp picks models through its [model selector](https://ampcode.com/docs/model-selector).
+- **Portable `deny` is not enforced.** `amp.tools.disable` takes native tool names, `builtin:toolname`, and `*` patterns. Run `amp tools list`, then copy the names you want to disable into `x-amp.amp.tools.disable`. Use names from your installed version; a name Amp does not recognize leaves the tool available.
+
+- A settings spec cannot set `amp.mcpServers`, because that would replace every server from MCP specs.
+- **The nearest file wins, with no merging.** A subdirectory with its own `.amp/` hides the root file for that subtree, for settings and `amp.mcpServers`. Delete the nested `.amp/` or copy the generated keys into it.
+
+### Environments
+
+`install` writes an executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing), which Amp runs while preparing a project orb or snapshot. Amp runs it again when it refreshes a snapshot, so write it to be safe to repeat. A shared project snapshot keeps only the `PATH` directories that setup adds through `~/.bashrc` and the other bash profile files; put aliases, shell functions or `eval "$(mise activate bash)"` in a hand-written `.agents/resume`. Amp stops setup after 20 minutes, including the time the project's pre-setup script (set in project settings) takes. Named `terminals` write [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals): services Amp keeps running, apart from the setup script.
+
+- Each service needs `command`. Its name uses only lowercase letters, numbers, and hyphens, starts with a letter or number, and has at most 32 characters.
+- `x-amp.terminals` can set `cwd`, `port`, `env`, `health`, `portal`, `portals`, `review`, and `platforms`.
+- `platforms` is an optional list of `linux` or `darwin`. Amp skips a service that leaves out the OS it runs on. An empty list is invalid.
+- Sync does not write `.agents/resume`. Amp runs that file after activation and on every wake with thread credentials, outside dependency setup and services.
+- Environment specs merge by top-level field, and the last one wins.
+
+<details>
+<summary>Old AGENT.md files</summary>
+
+Amp uses `AGENTS.md` (plural). On the first sync after upgrading, a generated `AGENT.md` at the configured root is renamed to `AGENT.md.bak`. A hand-written `AGENT.md` (no `Generated by agnostic-ai` marker) is left alone.
+
+</details>
+
+
+
+## Config keys
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `outputs.amp.skills-dir` | `.agents/skills` | |
+| `outputs.amp.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
+| `outputs.amp.mcp-file` | `.amp/settings.json` | also carries settings; one file, one override |
+| `outputs.amp.setup-file` | `.agents/setup` | |
+| `outputs.amp.environment-file` | `.amp/services.yaml` | |
+| `outputs.amp.rules-file` | unset | writes legacy joined rules and skips instructions that point to source specs |
+
+`outputs.amp.commands-dir` no longer has an effect.
+
+## Import
+
+`agnostic-ai import amp` reads `AGENTS.md`, skills from `.agents/skills/`, and MCP servers from `.amp/settings.json`. Skill folders are restored in full, with bundled files and executable modes. Settings keys are not imported, because none has a portable field. An old `.agents/commands/` tree still imports, one agent per file.

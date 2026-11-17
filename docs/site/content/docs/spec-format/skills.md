@@ -82,7 +82,7 @@ Other targets do not expand this syntax in project skills. Sync copies the body 
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root. There, Kilo's [inline shell placeholders](@/docs/targets/kilo.md#shell-commands-in-global-skills) in trusted user skill directories pass; argument placeholders and Claude dynamic code blocks still raise notes.
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root. There, Kilo's [inline shell placeholders](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) in trusted user skill directories pass; argument placeholders and Claude dynamic code blocks still raise notes.
 
 Put the Claude line in a fence and give other tools their own text:
 

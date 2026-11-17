@@ -65,7 +65,7 @@ Tools with no rule directory get project-wide rules in a marked `## Rules` block
 
 - Cline, Kiro, Qoder, Kilo, Augment, Cursor, and Windsurf skip a native rule file when its body already appears in the root `AGENTS.md` they read. File-conditioned rules and tool-specific bodies keep their own files.
 - Keep `AGENTS.md` enabled in Cline's Rules panel and Qoder's context file list, or they miss the shared rules.
-- Trae reads `AGENTS.md` only after a settings switch is on, so it keeps every rule file by default. With the switch on, set `outputs.trae.rules-mode: entry-point` to skip them. See [Trae](@/docs/targets/trae.md#loaded-at-session-start).
+- Trae reads `AGENTS.md` only after a settings switch is on, so it keeps every rule file by default. With the switch on, set `outputs.trae.rules-mode: entry-point` to skip them. See [Trae](@/docs/targets/trae.md#loading-and-limits).
 - A tool whose entry point moves off root `AGENTS.md` keeps its own rule files.
 - `AGENTS.md` in `sync.unmanaged` stops writes for every target that shares the file.
 - The next full sync removes obsolete generated rule files, even edited ones that keep the generated header. Until then `sync --check`, `doctor`, and `status` report `ledger` drift; `doctor --fix` removes it.

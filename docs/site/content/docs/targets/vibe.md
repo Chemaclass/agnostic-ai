@@ -6,15 +6,36 @@ weight = 270
 [extra]
 group = "Reference"
 target_id = "vibe"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/vibe.md#first-rule"
+native-paths = "@/docs/targets/vibe.md#output"
+agents-and-skills = "@/docs/targets/vibe-reference.md"
+connections-settings-and-hooks = "@/docs/targets/vibe-reference.md"
+import-and-ownership = "@/docs/targets/vibe-reference.md"
 +++
 
 # Mistral Vibe (`vibe`)
 
-Sync writes the files [Mistral Vibe Code CLI v3.1.0](https://github.com/mistralai/mistral-vibe/releases/tag/v3.1.0) reads. Start Vibe from the project root and choose whether to trust it in Vibe. The normal CLI loads project configuration only for trusted roots. In host sandbox or agent-socket mode, Vibe reads project instructions and skills but ignores project `.vibe` configuration, agents, and hooks.
+## Set up this tool {#set-up-this-tool .legacy-anchor}
 
-## Set up this tool
+## Native paths {#native-paths .legacy-anchor}
 
-Add `vibe` to your `targets` list. This example creates a model setting and a native hook that denies a tool call through Vibe's JSON response:
+## Agents and skills {#agents-and-skills .legacy-anchor}
+
+## Connections, settings, and hooks {#connections-settings-and-hooks .legacy-anchor}
+
+## Import and ownership {#import-and-ownership .legacy-anchor}
+
+Sync writes the files [Mistral Vibe Code CLI v3.1.0](https://github.com/mistralai/mistral-vibe/releases/tag/v3.1.0) reads. Start Vibe from the project root and choose whether to trust it in Vibe.
+
+## First rule
+
+Add `vibe` to your `targets` list, then follow [First rule](@/docs/getting-started.md#first-rule). The shared commit-prefix rule becomes root `AGENTS.md`.
+
+{% <details summary="Quick start with a model setting and a hook"> %}
+
+This example creates a model setting and a native hook that denies a tool call through Vibe's JSON response:
 
 ```sh
 mkdir -p .agnostic-ai/settings .agnostic-ai/hooks
@@ -41,9 +62,13 @@ agnostic-ai sync --check
 
 The model must already exist in Vibe's model catalog or user configuration. Unknown model names fall back to Vibe's default. Sync does not create a model definition or change the primary agent.
 
-## Native paths
+{% </details> %}
 
-| Spec | Project output | User output with `sync --global --only vibe` |
+Already have native files? Run `agnostic-ai import vibe` first; see [import and ownership](@/docs/targets/vibe-reference.md#import-and-ownership).
+
+## Output
+
+| Source | Project output | User output with `sync --global --only vibe` |
 |---|---|---|
 | Rules | `AGENTS.md`, with scoped instructions in deeper `AGENTS.md` files | `~/.vibe/AGENTS.md` |
 | Agents | `.vibe/agents/<name>.toml` | `~/.vibe/agents/<name>.toml` |
@@ -54,40 +79,32 @@ The model must already exist in Vibe's model catalog or user configuration. Unkn
 
 `VIBE_HOME` moves every user path in this table. Project output overrides use `file`, `rules-file`, `agents-dir`, `skills-dir`, `conf-file`, `mcp-file`, and `hooks-file` under `outputs.vibe`. `conf-file` moves the shared model and MCP file unless `mcp-file` names a separate file. An override changes the generated path; configure Vibe to read a path outside its discovery locations.
 
-Command specs become skills you run by name. This target writes no native Vibe command files.
+Command specs become skills you run by name. This target writes no native Vibe command files. Field mappings for agents, skills, MCP, and hooks are in the [Vibe native reference](@/docs/targets/vibe-reference.md).
 
-## Agents and skills
+## Verify
 
-Agents emit as `agent_type = "subagent"`, with inline `instructions`, a description, and an optional `active_model`; a subagent runs on that model only from v3.0.3. A native `x-vibe.agent_type: agent` preserves a primary profile for explicit selection with `vibe --agent <name>`. Vibe 3.0.3 reserves the agent name `main`, in any case, for hook matching and does not load a file with that name, so sync stops and asks you to rename the agent. Import notes such a file.
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Start Vibe from the project root, trust the project, and ask for a commit subject for a small fix; it should use `fix:`.
 
-Portable agent tools map `Bash`, `Read`, `Write`, `Edit`, and `Grep` to `bash`, `read_file`, `write_file`, `edit`, and `grep`. Unresolved tools are omitted with a coverage note while supported tools keep the agent restricted. Sync fails if none of the requested tools can be mapped. Use `x-vibe.enabled_tools`, `x-vibe.disabled_tools`, and native `x-vibe.tools` permission tables for Vibe-specific policies. Empty `enabled_tools` would allow every tool, so sync rejects it. Portable `readonly` and permission patterns have no direct mapping. Vibe's `safety` field controls presentation, not access.
+## Loading and limits
 
-Skills keep `user-invocable` and `disable-model-invocation`, plus bundled files. Names use lowercase letters, digits, and single hyphens, at most 64 characters. Descriptions have at most 1024 characters. Vibe reads `allowed-tools` as descriptive metadata and does not enforce it.
+- The normal CLI loads project configuration only for trusted roots.
+- In host sandbox or agent-socket mode, Vibe reads project instructions and skills but ignores project `.vibe` configuration, agents, and hooks.
+- The model in a model setting must already exist in Vibe's catalog or user configuration; unknown names fall back to Vibe's default.
+- Hooks answer with Vibe JSON, not Claude-style exit 2. Portable lifecycle events are not translated.
 
-## Connections, settings, and hooks
+{% <details summary="More limits"> %}
 
-MCP names keep their original spelling. Vibe compares case-sensitive identities formed by replacing each character outside ASCII letters, digits, `_`, and `-` with `_`, stripping edge underscores and hyphens, then taking 256 characters. Empty or colliding identities stop sync and import.
+- Vibe 3.0.3 reserves the agent name `main`, in any case, for hook matching and does not load a file with that name, so sync stops and asks you to rename the agent. Import notes such a file.
+- A subagent runs on its own `active_model` only from v3.0.3.
+- SSE and WebSocket MCP servers are omitted with a note. Arbitrary environment references in URLs, arguments, headers, and stdio environment values have no verified expansion and raise coverage notes.
+- Portable `readonly` and permission patterns have no direct mapping, and portable reasoning effort and permission settings raise coverage notes.
+- On Windows, hook arguments PowerShell cannot preserve cause an error; write the complete native command in that case.
+- Hook events from Vibe 3.1.1 and later are `pre_tool`, `post_tool`, `pre_agent`, `post_agent`, `notification`, `session_start`, and `session_end`.
 
-MCP servers support stdio and streamable HTTP. HTTP headers use native static authentication under `[mcp_servers.auth]`. Preserve OAuth or environment-backed authentication with `x-vibe.auth`; for example, `type: static` and `api_key_env: DOCS_TOKEN`. Vibe reads that variable name at runtime. Arbitrary environment references in URLs, arguments, headers, and stdio environment values have no verified expansion and raise coverage notes. SSE and WebSocket servers are omitted with a note.
-
-`model` maps to `active_model`. Other native project settings pass through `x-vibe`. Portable reasoning effort and permission settings raise coverage notes; Vibe's reasoning setting belongs to each model.
-
-At user scope, portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `voice_mode_enabled`; Vibe's experimental dictation has no mode or language key.
-
-Hooks accept native `event: pre_tool`, `post_tool`, `pre_agent`, `post_agent`, `notification`, `session_start`, or `session_end` (Vibe 3.1.1 and later). `matcher` maps to native `match`; `timeout` is in seconds. `x-vibe.strict: true` is allowed only on `pre_tool`, `post_tool`, and `pre_agent`, matching the [released hook schema](https://github.com/mistralai/mistral-vibe/blob/97e31350d2adc15c8a33a091566e897cbe9f41bc/vibe/core/hooks/models.py). On `post_agent`, `match` runs the hook only after the named agent ends its turn, and `match: main` selects the main agent (Vibe 3.0.3 and later). The other four events reject `strict: true`. Native `match` values pass through unchanged. A shell guard should match both `bash` and `process_start`.
-
-Hooks receive JSON on standard input and respond with Vibe JSON. Exit zero with `{"decision":"deny","reason":"..."}` denies according to the event: `pre_tool` blocks a call, `post_tool` rewrites its output, and `post_agent` requests a retry. A nonzero exit is a hook failure. Claude-style exit 2 and portable lifecycle events are not translated. Commands receive `AGNOSTIC_AI_TARGET=vibe`; arguments fold into the command because Vibe has no separate argument field. On Windows, arguments PowerShell cannot preserve cause an error; write the complete native command in that case.
+{% </details> %}
 
 ## Protected paths
 
 Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
 
-## Import and ownership
-
-Run `agnostic-ai import vibe` before syncing handwritten project files. It imports instructions, agent TOML, skill folders, MCP entries, model and native settings, and hook TOML. Native fields stay under `x-vibe`. Skill import moves native `allowed-tools` there too, retaining scalar or list form and names such as `read_file` and `ask_user_question`. These names remain descriptive Vibe metadata. Import refuses literal credentials in native settings, profiles, and connection fields; keep credentials in user configuration or use a native environment-variable setting. An agent that references a system prompt without inline instructions stops import; copy that prompt into `instructions` first.
-
-Global sync adopts equal handwritten entries without rewriting them. Omitted `sampling_enabled` compares as `false`, Vibe's native default; a handwritten `true` conflicts unless the spec sets `x-vibe.sampling_enabled: true`.
-
-If an earlier sync adopted `sampling_enabled: true` from a spec that omitted sampling, sync stops before changing the file. Set `x-vibe.sampling_enabled: true` to keep it or `false` to disable it.
-
-Sync changes and removes only its recorded MCP and hook entries. Other entries, comments, and file permissions stay. A hand-edited owned entry stops sync. An equivalent inline array can be adopted, but changes require native `[[mcp_servers]]` or `[[hooks]]` tables. `import --global vibe` keeps unmanaged connections and hooks and excludes entries still equal to managed state. See [global configuration](@/docs/global-configuration.md) for source layout and commands.
+Next, see the [Vibe native reference](@/docs/targets/vibe-reference.md) for agents, skills, MCP, hooks, and import.

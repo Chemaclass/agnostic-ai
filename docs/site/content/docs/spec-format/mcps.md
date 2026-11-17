@@ -57,7 +57,7 @@ A server needs `command` (stdio) or `url` (remote). Only [`agnostic-ai lint`](@/
 | `url` | http/sse/ws only | none | Endpoint URL. It can hold a [reference](#references-in-url-and-args). |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
 | `cwd` | no | empty | Working directory for a stdio server, where the tool supports it. |
-| `timeout` | no | empty | Milliseconds on most tools, including [Junie](@/docs/targets/junie.md#mcp). [Kiro](@/docs/targets/kiro.md) agent files leave it out with a note; set `x-kiro.timeout` or `x-kiro.requestTimeout` there. [Crush](@/docs/targets/crush.md#mcp) and [Pi](@/docs/targets/pi.md#native-mappings) read seconds, so sync divides by 1000; Crush rounds up to whole seconds. |
+| `timeout` | no | empty | Milliseconds on most tools, including [Junie](@/docs/targets/junie-reference.md#mcp). [Kiro](@/docs/targets/kiro.md) agent files leave it out with a note; set `x-kiro.timeout` or `x-kiro.requestTimeout` there. [Crush](@/docs/targets/crush-reference.md#mcp) and [Pi](@/docs/targets/pi.md#native-mappings) read seconds, so sync divides by 1000; Crush rounds up to whole seconds. |
 | `oauth` | no | empty | OAuth settings. The format differs by tool. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for tools with MCP roots; `uri` is required. Lint, `validate`, and sync refuse any other item, such as a plain string (LINT060). Dropped for Codex. |
@@ -189,7 +189,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 
 Codex `environment_id` is the ID of a configured executor and defaults to `local`. The older `experimental_environment` still loads: sync writes `local` as `environment_id = "local"` and leaves `remote` out, since Codex no longer reads that key. `lint` and project `sync` say so. [`agnostic-ai migrate --only mcps`](@/docs/cli-reference/upgrades.md#migrate) rewrites `local`.
 
-The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which wins, and other tools leave them out. On Amp, set `x-amp.includeTools`. `x-factory`, `x-kilo`, and `x-continue` override the matching top-level options for that target. Each target page gives the details: [Factory tool lists](@/docs/targets/factory.md#mcp), [Crush channels](@/docs/targets/crush.md#mcp), and [Claude Code flags](@/docs/targets/claude-reference.md#mcp-mappings).
+The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which wins, and other tools leave them out. On Amp, set `x-amp.includeTools`. `x-factory`, `x-kilo`, and `x-continue` override the matching top-level options for that target. Each target page gives the details: [Factory tool lists](@/docs/targets/factory-reference.md#mcp), [Crush channels](@/docs/targets/crush-reference.md#mcp), and [Claude Code flags](@/docs/targets/claude-reference.md#mcp-mappings).
 
 ## `disabled` support by target
 
