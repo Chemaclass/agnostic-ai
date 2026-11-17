@@ -194,8 +194,7 @@ func codexExec(thread codexThread) bool {
 	return thread.Originator == "codex_exec" || thread.Source == "exec"
 }
 
-// liveWindow bounds which chats are checked for a live process: one
-// untouched for a week is not in use.
+// liveWindow bounds the stores searched when identifying the current terminal session.
 const liveWindow = 7 * 24 * time.Hour
 
 // markLiveCodexThreads marks the threads a running Codex process has
@@ -208,34 +207,34 @@ const liveWindow = 7 * 24 * time.Hour
 // the pid that holds each, or the error when the holders could not be read.
 func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts map[string]string, execThreads []codexThread) (map[string]int, error) {
 	var liveRollouts []string
-	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
+	locksDir := filepath.Join(s.Stores.CodexDir, "thread-writer-locks")
+	_, locksErr := os.ReadDir(locksDir)
 	lockOf := map[string]int{}
 	var locks []string
 	for i, c := range conversations {
-		if c.UpdatedAt < cutoff {
-			continue
-		}
-		lock := filepath.Join(s.Stores.CodexDir, "thread-writer-locks", c.ID+".lock")
+		lock := filepath.Join(locksDir, c.ID+".lock")
 		if _, err := os.Stat(lock); err == nil {
 			lockOf[lock] = i
 			locks = append(locks, lock)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			locksErr = errors.Join(locksErr, fmt.Errorf("%s: %w", lock, err))
 		}
 	}
 	runOf := map[string]codexThread{}
 	for _, thread := range execThreads {
-		if timeFromMillis(thread.UpdatedAtMs) < cutoff {
-			continue
-		}
-		lock := filepath.Join(s.Stores.CodexDir, "thread-writer-locks", thread.ID+".lock")
+		lock := filepath.Join(locksDir, thread.ID+".lock")
 		if _, err := os.Stat(lock); err == nil {
 			runOf[lock] = thread
 			locks = append(locks, lock)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			locksErr = errors.Join(locksErr, fmt.Errorf("%s: %w", lock, err))
 		}
 	}
 	runPIDs := map[string]int{}
 	held, err := s.Processes.Holders(locks)
+	err = errors.Join(err, locksErr)
 	// A Codex that keeps no lock folder leaves no mark of a loaded thread.
-	if _, statErr := os.Stat(filepath.Join(s.Stores.CodexDir, "thread-writer-locks")); err == nil && statErr == nil {
+	if err == nil {
 		// Only a terminal thread is known to hold its lock while it runs.
 		for i := range conversations {
 			conversations[i].liveRead = conversations[i].App == AppCLI

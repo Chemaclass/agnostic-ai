@@ -460,16 +460,13 @@ func (s *Scanner) setCursorLiveTranscripts(transcripts []string) {
 // it open. A running chat switches to its terminal, since a second
 // resume would compete with it.
 func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
-	cutoff := s.Now().Add(-liveWindow).UTC().Format(time.RFC3339)
 	chatOf := map[string]int{}
-	var recent []string
+	var stores []string
 	for i, c := range chats {
-		if c.UpdatedAt >= cutoff {
-			chatOf[c.store] = i
-			recent = append(recent, c.store)
-		}
+		chatOf[c.store] = i
+		stores = append(stores, c.store)
 	}
-	held, err := s.Processes.Holders(recent)
+	held, err := s.Processes.Holders(stores)
 	for i := range chats {
 		chats[i].liveRead = err == nil
 	}

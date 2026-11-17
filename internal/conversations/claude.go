@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -545,9 +547,9 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // process holds to that process. Each sessions/<pid>.json belongs to
 // one process; a crash leaves it behind, so the pid must still be the
 // process that wrote it. The sibling *.key files hold credentials and
-// are never read. read is false when the process table could not be read.
+// are never read. read is false when the session files or process table could not be read.
 func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool) {
-	entries := s.claudeLiveEntries()
+	entries, entriesErr := s.claudeLiveEntries()
 	var processes []ProcessRef
 	for _, entry := range entries {
 		processes = append(processes, ProcessRef{PID: entry.PID, ProcStart: entry.ProcStart})
@@ -555,11 +557,6 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 	// One question for every session: asking about each in turn starts
 	// a ps per open session on every scan.
 	alive, err := s.Processes.AliveAmong(processes)
-	// A Claude Code too old to write sessions/ leaves no mark of an open
-	// session, so its absence says nothing about which ones are closed.
-	if _, statErr := os.Stat(filepath.Join(s.Stores.ClaudeDir, "sessions")); statErr != nil {
-		err = statErr
-	}
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {
@@ -570,29 +567,41 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor}
 		}
 	}
-	return live, err == nil
+	return live, err == nil && entriesErr == nil
 }
 
 // claudeLiveEntries reads sessions/<pid>.json, which a Claude Code
 // process writes while it runs and may leave behind when it dies.
-func (s *Scanner) claudeLiveEntries() []claudeLive {
-	files, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "sessions", "*.json"))
+func (s *Scanner) claudeLiveEntries() ([]claudeLive, error) {
+	dir := filepath.Join(s.Stores.ClaudeDir, "sessions")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", dir, err)
+	}
 	var entries []claudeLive
+	var readErr error
 	for _, file := range files {
-		if !liveSessionFile.MatchString(filepath.Base(file)) {
+		if !liveSessionFile.MatchString(file.Name()) {
 			continue
 		}
-		data, err := os.ReadFile(file)
+		path := filepath.Join(dir, file.Name())
+		data, err := os.ReadFile(path)
 		if err != nil {
+			readErr = errors.Join(readErr, fmt.Errorf("%s: %w", path, err))
 			continue
 		}
 		var entry claudeLive
-		if json.Unmarshal(data, &entry) != nil || entry.SessionID == "" {
+		if err := json.Unmarshal(data, &entry); err != nil {
+			readErr = errors.Join(readErr, fmt.Errorf("parse %s: %w", path, err))
+			continue
+		}
+		if entry.SessionID == "" || entry.PID <= 0 {
+			readErr = errors.Join(readErr, fmt.Errorf("parse %s: missing process or session id", path))
 			continue
 		}
 		entries = append(entries, entry)
 	}
-	return entries
+	return entries, readErr
 }
 
 // claudeActiveJobs maps session ids to the background job that holds

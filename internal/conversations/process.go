@@ -224,6 +224,26 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 	if len(paths) == 0 {
 		return map[string]int{}, nil
 	}
+	held := map[string]int{}
+	var readErr error
+	for len(paths) > 0 {
+		count, bytes := 0, 0
+		// Keep lsof arguments below OS limits even with many old sessions.
+		for count < len(paths) && count < 128 && (count == 0 || bytes+len(paths[count])+1 <= 32<<10) {
+			bytes += len(paths[count]) + 1
+			count++
+		}
+		open, err := readHolders(paths[:count])
+		for path, pid := range open {
+			held[path] = pid
+		}
+		readErr = errors.Join(readErr, err)
+		paths = paths[count:]
+	}
+	return held, readErr
+}
+
+func readHolders(paths []string) (map[string]int, error) {
 	// lsof names each open file by its resolved path, so a path under a
 	// symlinked folder, such as a linked ~/.codex, is looked up by its target.
 	asked := make(map[string]string, len(paths))
@@ -241,7 +261,7 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 	// -w keeps warnings, such as a file system lsof cannot stat, off stderr.
 	out, err := exec.CommandContext(ctx, "lsof", append([]string{"-w", "-F", "pcn", "--"}, paths...)...).Output()
 	if !answered(err) {
-		return map[string]int{}, fmt.Errorf("lsof: %w", err)
+		return parseHolders(string(out), asked), fmt.Errorf("lsof: %w", err)
 	}
 	return parseHolders(string(out), asked), nil
 }
