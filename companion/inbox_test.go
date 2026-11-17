@@ -325,13 +325,21 @@ func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 func TestInbox_AnOpenTheServerIsSlowToAnswerIsStillOpeningNotAFailure(t *testing.T) {
 	fake := &fakeAgnosticAI{hold: make(chan struct{})}
 	in, _ := connected(t, fake)
-	in.server.openWait, in.server.openLateWait = 30*time.Millisecond, 300*time.Millisecond
+	in.server.openWait = 30 * time.Millisecond
 	rec := httptest.NewRecorder()
 
 	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"a"}`)))
 
 	if body := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusAccepted || body != `{"pending":true,"message":"Still opening. This takes longer than usual."}` {
 		t.Errorf("a slow open = %d %s; want 202 and no failure, since the conversation may still open", rec.Code, body)
+	}
+	// The open goes on after the reply: wait for it to end, so it writes to no later test's log.
+	<-in.refresh
+	close(fake.hold)
+	select {
+	case <-in.refresh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the open never ended")
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -321,42 +322,58 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	}
 	go func() {
 		got := <-settled
-		in.settleLate(this, lateFailureOf(got.answer, got.err))
+		in.settleLate(this, lateOutcomeOf(got.answer, got.err))
 	}()
 }
 
-// lateFailureOf is why an open did not open; nil when it did.
-func lateFailureOf(answer reply, err error) *openFailure {
-	if err != nil {
-		return &openFailure{Message: err.Error()}
+// noLateAnswer is what the panel reads about an open that got no answer
+// after its pending reply: a running server stops writing after 90
+// seconds, which says nothing about whether the chat opened.
+const noLateAnswer = "agnostic-ai did not answer in time. The chat may still have opened."
+
+// lateOutcome is how an open ended after its pending reply: failure is
+// what the panel shows, nil when there is nothing to show; said is the
+// outcome the log gets, without the reason.
+type lateOutcome struct {
+	failure *openFailure
+	said    string
+}
+
+func lateOutcomeOf(answer reply, err error) lateOutcome {
+	switch {
+	case errors.Is(err, errResting):
+		return lateOutcome{said: "the companion quit first"}
+	case err != nil:
+		return lateOutcome{failure: &openFailure{Message: noLateAnswer}, said: "no answer"}
+	case answer.status >= 300:
+		return lateOutcome{failure: &openFailure{Message: errorOf(answer)}, said: "not opened"}
 	}
-	if answer.status >= 300 {
-		return &openFailure{Message: errorOf(answer)}
-	}
-	var said struct {
-		Opened  bool   `json:"opened"`
+	var told struct {
+		Opened  *bool  `json:"opened"`
 		Message string `json:"message"`
 		Command string `json:"command"`
 	}
-	if answer.status != http.StatusOK || json.Unmarshal(answer.body, &said) != nil || said.Opened {
-		return nil
+	if answer.status != http.StatusOK || json.Unmarshal(answer.body, &told) != nil || told.Opened == nil {
+		return lateOutcome{said: "no word on whether it opened"}
 	}
-	return &openFailure{Message: said.Message, Command: said.Command}
+	if *told.Opened {
+		return lateOutcome{said: "opened"}
+	}
+	return lateOutcome{failure: &openFailure{Message: told.Message, Command: told.Command}, said: "not opened"}
 }
 
 // settleLate keeps the failure of open number this for the panel, and
 // asks for a new list either way.
-func (in *inbox) settleLate(this uint64, failure *openFailure) {
+func (in *inbox) settleLate(this uint64, outcome lateOutcome) {
 	defer in.refreshSoon()
-	if failure == nil {
-		log.Print("an open answered after the page stopped waiting: opened")
+	log.Print("an open the page stopped waiting for: " + outcome.said)
+	if outcome.failure == nil {
 		return
 	}
-	log.Print("an open answered after the page stopped waiting: not opened")
 	in.mu.Lock()
 	newest := this == in.opens
 	if newest {
-		in.lateFailure = failure
+		in.lateFailure = outcome.failure
 	}
 	in.mu.Unlock()
 	if newest {

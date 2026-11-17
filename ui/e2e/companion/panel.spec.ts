@@ -273,20 +273,83 @@ async function openSlowly(page: Page) {
   expect((await answer).status()).toBe(202)
 }
 
-test('an open that fails after it was still opening shows its reason the next time the list shows', async ({ page }) => {
-  await openSlowly(page)
-  await expect(notice(page)).toBeHidden()
-
-  const taken = page.waitForResponse((response) => response.url().endsWith('/api/open/late') && response.status() === 200)
+/** Ends the open answered as still opening, with the fixture's late failure. */
+async function settleLateOpen(page: Page) {
   expect(await (await page.request.post('/dev/settle-late-opens')).json()).toEqual({ settled: 1 })
-  await taken
-  expect(await calledPaths(page)).not.toContain('/api/panel/show')
+}
 
+/** Shows the list again, as a click on the circle does, and waits for the panel to ask for a late failure. */
+async function showAgain(page: Page) {
+  const asked = page.waitForResponse((response) => response.url().endsWith('/api/open/late'))
   expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
-  await expect(notice(page)).toContainText('macOS blocked opening Terminal.')
+  await asked
+}
+
+async function expectLateFailure(page: Page) {
+  await expect(notice(page)).toContainText('Tidy the old branches: macOS blocked opening Terminal.')
   await expect(notice(page)).toContainText(LATE_RESUME)
   await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toBeVisible()
   await expectErrorNotice(page, 'Why it did not open')
+}
+
+test('an open that fails after it was still opening shows its chat and reason the next time the list shows', async ({ page }) => {
+  await openSlowly(page)
+  const lateCalls = async () => (await calledPaths(page)).filter((path) => path === '/api/open/late').length
+  const takenBefore = await lateCalls()
+  await settleLateOpen(page)
+  // Nothing on screen marks a failure taken while the list is hidden, so give it time to be wrongly taken.
+  await page.waitForTimeout(300)
+  expect(await lateCalls()).toBe(takenBefore)
+  expect(await calledPaths(page)).not.toContain('/api/panel/show')
+
+  await showAgain(page)
+  await expectLateFailure(page)
+})
+
+test('a late open failure shows with a search typed', async ({ page }) => {
+  await openSlowly(page)
+  await page.getByLabel('Search every conversation').fill('branches')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  await expectLateFailure(page)
+})
+
+test('a late open failure survives the list opening through the send shortcut', async ({ page }) => {
+  await openSlowly(page)
+  await settleLateOpen(page)
+  await page.waitForTimeout(300)
+
+  await pressSendShortcut(page)
+  await expect(pickBanner(page)).toBeVisible()
+  await expectLateFailure(page)
+})
+
+test('a send made while an open was still opening does not drop its late failure', async ({ page }) => {
+  await openSlowly(page)
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+  const sent = page.waitForResponse((response) => response.url().endsWith('/api/send'))
+  await page.keyboard.press('Enter')
+  expect((await sent).ok()).toBe(true)
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  await expectLateFailure(page)
+})
+
+test('a dismissed notice does not drop a late open failure', async ({ page }) => {
+  await openSlowly(page)
+  await row(page, 'Bump the Go version').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expectErrorNotice(page, 'Why it cannot be deleted')
+  await noticeCard(page).getByRole('button', { name: 'Dismiss' }).click()
+  await expect(noticeCard(page)).toBeHidden()
+  await settleLateOpen(page)
+
+  await showAgain(page)
+  await expectLateFailure(page)
 })
 
 test('a late open failure leaves a newer notice alone', async ({ page }) => {
@@ -294,10 +357,9 @@ test('a late open failure leaves a newer notice alone', async ({ page }) => {
   await row(page, 'Bump the Go version').click({ button: 'right' })
   await deleteItem(page).click()
   await expectErrorNotice(page, 'Why it cannot be deleted')
+  await settleLateOpen(page)
 
-  const taken = page.waitForResponse((response) => response.url().endsWith('/api/open/late') && response.status() === 200)
-  expect(await (await page.request.post('/dev/settle-late-opens')).json()).toEqual({ settled: 1 })
-  await taken
+  await showAgain(page)
   // Nothing on screen marks a failure the panel ignored, so give it time to wrongly show one.
   await page.waitForTimeout(300)
   await expectErrorNotice(page, 'Why it cannot be deleted')

@@ -187,6 +187,15 @@ export function openFailureOf(reply) {
 }
 
 /**
+ * The notice for an open that failed after the companion stopped waiting for it. Read later, it names its chat.
+ * `late` keeps it on screen when the list opens to send copied text, since nobody saw it yet.
+ */
+export function lateOpenFailureOf(conversation, failure) {
+  const message = titleOf(conversation) + ': ' + failure.message
+  return failure.command ? { message, command: failure.command, late: true } : { message, late: true }
+}
+
+/**
  * What the notice card can be about. `label` names it for a screen reader. `tone` is `error` when something
  * the person asked for did not happen, and `info` when it happened and a detail is left to say.
  */

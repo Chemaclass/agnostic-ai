@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, takeLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -631,12 +631,12 @@ async function refresh() {
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
-  if (asked === '') await showLateOpenFailure()
 }
 
 /**
- * An open the companion stopped waiting for may fail later. Its reason shows the way a failed open's does,
- * unless a newer open or notice came after it.
+ * An open the companion stopped waiting for may fail later. The panel takes that failure only as it shows,
+ * so none is taken unseen, and shows it the way a failed open's shows, named after its chat. A newer open, or
+ * a notice still on screen that came after it, wins.
  */
 async function showLateOpenFailure() {
   let failure
@@ -649,8 +649,8 @@ async function showLateOpenFailure() {
   if (!failure) return
   const waited = waitedOpen
   waitedOpen = undefined
-  if (waited?.open !== latestOpen || waited.notices !== noticesShown) return
-  showOpenFailure(failure, NOTICES.notOpened)
+  if (waited?.open !== opensMade || state.openFailure !== waited.notice) return
+  showOpenFailure(lateOpenFailureOf(waited.conversation, failure), NOTICES.notOpened)
 }
 
 // The panel never activates its app, so while it shows it keeps the keys
@@ -659,18 +659,21 @@ async function showLateOpenFailure() {
 // companion gave up waiting for (`pending`) may still happen, so it is
 // no failure and the panel stays hidden.
 let latestOpen = 0
-/** The open last answered as pending, and how many notices had shown then; undefined when none waits. */
+/** How many rows the panel opened; a send is no open. */
+let opensMade = 0
+/** The open last answered as pending, with its conversation and the notice on screen then; undefined when none waits. */
 let waitedOpen
 
 async function openRow(conversation) {
   const thisOpen = ++latestOpen
+  const thisRow = ++opensMade
   showOpenFailure(undefined)
   await hidePanel().catch(() => {})
   let failure
   try {
     const reply = await openConversation(conversation)
     failure = reply.pending ? undefined : openFailureOf(reply)
-    if (reply.pending && thisOpen === latestOpen) waitedOpen = { open: thisOpen, notices: noticesShown }
+    if (reply.pending && thisRow === opensMade) waitedOpen = { open: thisRow, conversation, notice: state.openFailure }
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }
@@ -685,15 +688,11 @@ async function openRow(conversation) {
   })
 }
 
-/** How many notices showed, so a late failure can tell whether a newer one came after its open. */
-let noticesShown = 0
-
 /**
  * The notice stays until dismissed. `about`, one of NOTICES, names what it is about and sets its tone:
  * an error has a red border and a warning icon, and is read out at once. No failure hides the notice.
  */
 function showOpenFailure(failure, about) {
-  if (failure) noticesShown += 1
   state.openFailure = failure
   notice.hidden = failure === undefined
   if (about) {
@@ -770,7 +769,7 @@ async function enterPick() {
     say(NOTHING_TO_SEND, 'error')
     return false
   }
-  showOpenFailure(undefined)
+  if (!state.openFailure?.late) showOpenFailure(undefined)
   showPick(clip)
   state.activeKey = shownView() ? firstPickKey() : undefined
   drawPlaces()
@@ -895,7 +894,7 @@ async function sendRow(conversation) {
       showOpenFailure({ message: 'The copied text changed. Check the new text, then send again.' }, NOTICES.textChanged)
       return
     }
-    showOpenFailure(undefined)
+    if (!state.openFailure?.late) showOpenFailure(undefined)
     await flyChip(conversation)
     // Escape or the banner's close button while the chip flew takes the send back.
     if (state.pick !== shown) return
@@ -1515,7 +1514,7 @@ function opened(from) {
   queryInput.focus()
   queryInput.select()
   draw({ force: true })
-  return refresh()
+  return refresh().then(showLateOpenFailure)
 }
 
 card.addEventListener('animationend', (event) => {

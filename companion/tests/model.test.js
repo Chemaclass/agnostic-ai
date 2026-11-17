@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -656,4 +656,13 @@ test('Mark all as read in Archived reaches only unread rows on screen, none whil
   const archived = { id: 'archived', rows: [row('a', 'dormant', { unread: true }), row('b', 'dormant'), row('c', 'completed', { unread: true })] }
   assert.deepEqual(unreadShownOf(archived, false).map((r) => r.id), ['a', 'c'])
   assert.deepEqual(unreadShownOf(archived, true), [])
+})
+
+test('a late open failure names its chat and stays through a send', () => {
+  assert.deepEqual(lateOpenFailureOf({ title: 'Tidy the old branches' }, { message: 'macOS blocked opening Terminal.', command: 'claude --resume done-2' }), {
+    message: 'Tidy the old branches: macOS blocked opening Terminal.',
+    command: 'claude --resume done-2',
+    late: true,
+  })
+  assert.deepEqual(lateOpenFailureOf({ title: '' }, { message: 'agnostic-ai did not answer.' }), { message: 'Untitled conversation: agnostic-ai did not answer.', late: true })
 })

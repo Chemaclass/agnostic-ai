@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -27,14 +28,62 @@ func (h *heldOpens) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.asked = append(h.asked, req.ID)
 	h.mu.Unlock()
+	if strings.HasPrefix(req.ID, "quick") {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(h.replies[req.ID]))
+		return
+	}
 	select {
 	case <-h.release:
 	case <-r.Context().Done():
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(h.replies[req.ID]))
+	reply, ok := h.replies[req.ID]
+	switch {
+	case reply == dropped:
+		// The server's write deadline passed: the connection closes with no answer.
+		connection, _, err := http.NewResponseController(w).Hijack()
+		if err == nil {
+			_ = connection.Close()
+		}
+	case !ok:
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(reply))
+	}
 }
+
+// dropped is a reply the fake never writes: it closes the connection instead.
+const dropped = "dropped"
+
+// lockedLog takes the companion's log while the test runs, for a goroutine that may still write to it.
+func lockedLog(t *testing.T) *lockedBuffer {
+	t.Helper()
+	logged := &lockedBuffer{}
+	log.SetOutput(logged)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	return logged
+}
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+var _ io.Writer = (*lockedBuffer)(nil)
 
 // lateInbox is an inbox whose opens go to fake and stop being waited for after a moment.
 func lateInbox(t *testing.T, fake http.Handler) (*inbox, chan struct{}) {
@@ -78,9 +127,7 @@ const blocked = `{"opened":false,"message":"macOS blocked opening Terminal.","co
 func TestInbox_KeepsAFailureThatArrivesAfterThePendingReplyAndServesItOnce(t *testing.T) {
 	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked}}
 	in, changed := lateInbox(t, fake)
-	var logged bytes.Buffer
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logged := lockedLog(t)
 
 	openPending(t, in, "a")
 	if status, _ := takeLate(t, in); status != http.StatusNoContent {
@@ -95,7 +142,7 @@ func TestInbox_KeepsAFailureThatArrivesAfterThePendingReplyAndServesItOnce(t *te
 	if status, body := takeLate(t, in); status != http.StatusNoContent {
 		t.Errorf("the late failure was served twice: %d %s", status, body)
 	}
-	if text := logged.String(); !strings.Contains(text, "an open answered after the page stopped waiting: not opened") {
+	if text := logged.String(); !strings.Contains(text, "an open the page stopped waiting for: not opened") {
 		t.Errorf("log = %q; want the late outcome", text)
 	}
 }
@@ -133,23 +180,86 @@ func TestInbox_ANewerOpenWinsOverAnOlderLateFailure(t *testing.T) {
 	}
 }
 
-func TestInbox_AServerThatNeverAnswersAnOpenSaysSoOnceTheReplyDeadlinePasses(t *testing.T) {
-	fake := &heldOpens{release: make(chan struct{})}
-	t.Cleanup(func() { close(fake.release) })
+// noAnswer is what the page reads when an open it stopped waiting for got no answer at all.
+const noAnswer = `{"message":"agnostic-ai did not answer in time. The chat may still have opened."}`
+
+func TestInbox_AnOpenThatGetsNoAnswerAfterThePendingReplySaysItMayStillHaveOpened(t *testing.T) {
+	for name, tc := range map[string]struct {
+		reply    string
+		lateWait time.Duration
+	}{
+		"the server drops the connection": {reply: dropped, lateWait: 10 * time.Second},
+		"the server never answers":        {lateWait: 400 * time.Millisecond},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{}}
+			if tc.reply != "" {
+				fake.replies["a"] = tc.reply
+			}
+			in, changed := lateInbox(t, fake)
+			in.server.openLateWait = tc.lateWait
+			logged := lockedLog(t)
+
+			openPending(t, in, "a")
+			if tc.reply != "" {
+				time.Sleep(300 * time.Millisecond)
+				close(fake.release)
+			} else {
+				t.Cleanup(func() { close(fake.release) })
+			}
+			waitSignal(t, changed, "the page's call to read again")
+
+			if status, body := takeLate(t, in); status != http.StatusOK || body != noAnswer {
+				t.Errorf("an open with no answer = %d %s; want %s", status, body, noAnswer)
+			}
+			host := strings.TrimPrefix(in.server.base, "http://")
+			if text := logged.String(); strings.Contains(text, host) || strings.Contains(text, "127.0.0.1") || !strings.Contains(text, "an open the page stopped waiting for: no answer") {
+				t.Errorf("log = %q; want the outcome without the address", text)
+			}
+		})
+	}
+}
+
+func TestInbox_ALateAnswerThatDoesNotSayItOpenedIsNotLoggedAsOpened(t *testing.T) {
+	for name, reply := range map[string]string{"no content": "", "a body that is no reply": "not json"} {
+		t.Run(name, func(t *testing.T) {
+			fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{}}
+			if reply != "" {
+				fake.replies["a"] = reply
+			}
+			in, _ := lateInbox(t, fake)
+			logged := lockedLog(t)
+
+			openPending(t, in, "a")
+			<-in.refresh
+			close(fake.release)
+			waitSignal(t, in.refresh, "a list read after the open")
+
+			if text := logged.String(); strings.Contains(text, ": opened") || !strings.Contains(text, "an open the page stopped waiting for: no word on whether it opened") {
+				t.Errorf("log = %q", text)
+			}
+			if status, body := takeLate(t, in); status != http.StatusNoContent {
+				t.Errorf("an answer that says nothing = %d %s; want nothing to show", status, body)
+			}
+		})
+	}
+}
+
+func TestInbox_OpeningTheSameChatAgainWithSuccessDropsItsLateFailure(t *testing.T) {
+	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked, "quick-a": `{"opened":true,"message":"Opened."}`}}
 	in, changed := lateInbox(t, fake)
-	in.server.openLateWait = 400 * time.Millisecond
-	var logged bytes.Buffer
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	lockedLog(t)
 
 	openPending(t, in, "a")
+	close(fake.release)
 	waitSignal(t, changed, "the page's call to read again")
-
-	if status, body := takeLate(t, in); status != http.StatusOK || body != `{"message":"agnostic-ai took too long to answer. Try again."}` {
-		t.Errorf("an open never answered = %d %s", status, body)
+	rec := httptest.NewRecorder()
+	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"quick-a"}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the second open = %d %s", rec.Code, rec.Body)
 	}
-	host := strings.TrimPrefix(in.server.base, "http://")
-	if text := logged.String(); strings.Contains(text, host) || strings.Contains(text, "127.0.0.1") {
-		t.Errorf("log = %q; it names the address", text)
+
+	if status, body := takeLate(t, in); status != http.StatusNoContent {
+		t.Errorf("the failure stayed after the chat opened: %d %s", status, body)
 	}
 }
