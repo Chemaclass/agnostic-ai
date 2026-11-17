@@ -47,7 +47,7 @@ func BenchmarkHolders(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		b.Cleanup(func() { held.Close() })
+		b.Cleanup(func() { _ = held.Close() })
 		subjects := []struct {
 			name     string
 			read     func() (map[string]int, error)

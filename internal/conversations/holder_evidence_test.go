@@ -79,7 +79,7 @@ func TestSystemProcesses_HoldersUnderFindsAnOpenFileThroughALinkedFolder(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer open.Close()
+	defer func() { _ = open.Close() }()
 	held, err := (SystemProcesses{}).HoldersUnder(link)
 	if err != nil {
 		t.Fatal(err)
@@ -238,7 +238,7 @@ func TestOutOfSight_NamesTheFilesOneLsofRunOverAFolderCannotSee(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() { held.Close() })
+		t.Cleanup(func() { _ = held.Close() })
 	}
 	locked := filepath.Join(chats, "b")
 	if err := os.Chmod(locked, 0); err != nil {

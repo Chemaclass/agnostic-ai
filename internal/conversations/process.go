@@ -479,7 +479,7 @@ func outOfSight(dir string, paths []string, held map[string]int) map[string]bool
 				f, err := os.Open(folder)
 				ok = err == nil
 				if ok {
-					f.Close()
+					_ = f.Close()
 				}
 			}
 			listable[folder] = ok
