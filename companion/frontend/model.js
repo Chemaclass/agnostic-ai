@@ -187,10 +187,12 @@ export function openFailureOf(reply) {
 }
 
 /**
- * The notice for an open that failed after the companion stopped waiting for it. Read later, it names its chat
- * when the list holds it. `late` keeps it on screen when the list opens to send copied text, and `id` dismisses it.
+ * The notice for an open that failed after the companion stopped waiting for it, named after its chat when the
+ * companion knows it; undefined for the failure `dismissed` names, which a read already on its way may still return.
+ * `late` keeps it on screen when the list opens to send copied text, and `id` dismisses it.
  */
-export function lateOpenFailureOf(failure) {
+export function lateOpenFailureOf(failure, dismissed) {
+  if (failure.id === dismissed) return undefined
   const message = failure.title ? failure.title + ': ' + failure.message : failure.message
   const shown = { message, late: true, id: failure.id }
   return failure.command ? { ...shown, command: failure.command } : shown
@@ -477,7 +479,7 @@ export function rowMenuOf(conversation) {
 
 /** What the open request names to show a shared row's claude.ai page; undefined on a row that is not shared. */
 export function cloudPageOf(conversation) {
-  return conversation.cloud ? { tool: conversation.tool, id: conversation.cloud.id } : undefined
+  return conversation.cloud ? { tool: conversation.tool, id: conversation.cloud.id, title: conversation.title } : undefined
 }
 
 /** What a shared row's marker and second action say. */
@@ -608,7 +610,7 @@ export function helperDetailsOf(helper, now) {
  * A Claude Code subagent runs inside its chat and has no place of its own, so its chat opens.
  */
 export function helperOpenOf(parent, helper) {
-  return helper.tool === 'codex' ? { tool: 'codex', id: helper.id } : parent
+  return helper.tool === 'codex' ? { tool: 'codex', id: helper.id, title: helperTitleOf(helper) } : parent
 }
 
 /** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */

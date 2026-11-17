@@ -31,7 +31,7 @@ test('search, select and open names the chosen conversation', async ({ page }) =
   await expect(selected(page)).toContainText('Fix the login redirect')
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await page.keyboard.press('Enter')
-  expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1' })
+  expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1', title: 'Fix the login redirect' })
 })
 
 test('a row shows the agent\'s latest reply under its title, and a row without one shows none', async ({ page }) => {
@@ -128,7 +128,7 @@ test('a click on the name still opens the chat', async ({ page }) => {
   await openPanel(page)
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await row(page, 'Plan the sync dry run').locator('.title').click()
-  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2' })
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', title: 'Plan the sync dry run' })
   await expect(page.getByLabel('New name')).toHaveCount(0)
 })
 
@@ -732,7 +732,7 @@ test('a new list while navigating keeps the highlighted row', async ({ page }) =
 
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await page.keyboard.press('Enter')
-  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'work-1' })
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'work-1', title: 'Refactor the search index' })
 })
 
 test('a slower older search never replaces the newer one', async ({ page }) => {
@@ -1012,12 +1012,12 @@ test('a local chat also open on claude.ai is one row that opens here, and its se
   const web = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await shared.hover()
   await shared.getByRole('button', { name: 'Open on claude.ai' }).click()
-  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
+  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1', title: 'Review the payment retries' })
 
   await page.goto('/panel.html')
   const local = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await row(page, 'Review the payment retries').click({ position: { x: 40, y: 10 } })
-  expect((await local).postDataJSON()).toEqual({ tool: 'claude', id: 'rc-1' })
+  expect((await local).postDataJSON()).toEqual({ tool: 'claude', id: 'rc-1', title: 'Review the payment retries' })
 })
 
 test('the row menu of a shared chat opens its claude.ai page', async ({ page }) => {
@@ -1025,7 +1025,7 @@ test('the row menu of a shared chat opens its claude.ai page', async ({ page }) 
   await row(page, 'Review the payment retries').click({ button: 'right' })
   const web = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await page.getByRole('menuitem', { name: 'Open on claude.ai' }).click()
-  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
+  expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1', title: 'Review the payment retries' })
 })
 
 test('a chat folds its working subagents out under it, newest first, five at most, and each opens where it lives', async ({ page }) => {
@@ -1054,12 +1054,12 @@ test('a chat folds its working subagents out under it, newest first, five at mos
 
   const codex = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await helpers.filter({ hasText: 'Review #3511' }).click()
-  expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511' })
+  expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511', title: 'Review #3511: local app chats' })
   await page.goto('/panel.html')
   await parent.getByRole('button', { name: '▸ 7 subagents' }).click()
   const claude = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await helpers.filter({ hasText: 'Find rename call sites' }).click()
-  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1' })
+  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats' })
 })
 
 test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {
@@ -1145,7 +1145,7 @@ test('Enter on a subagent control opens nothing but what it names, even with its
   await codex
   // Both opens of one key press would leave together; the reload comes after them.
   await page.goto('/panel.html')
-  expect(opens).toEqual([{ tool: 'codex', id: 'run-3511' }])
+  expect(opens).toEqual([{ tool: 'codex', id: 'run-3511', title: 'Review #3511: local app chats' }])
 })
 
 const pickBanner = (page: Page) => page.getByRole('region', { name: 'Send the copied text' })

@@ -20,13 +20,16 @@ type heldOpens struct {
 	replies map[string]string
 	mu      sync.Mutex
 	asked   []string
+	bodies  []string
 }
 
 func (h *heldOpens) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	raw, _ := io.ReadAll(r.Body)
 	var req struct{ ID string }
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	_ = json.Unmarshal(raw, &req)
 	h.mu.Lock()
 	h.asked = append(h.asked, req.ID)
+	h.bodies = append(h.bodies, string(raw))
 	h.mu.Unlock()
 	if strings.HasPrefix(req.ID, "quick") {
 		w.Header().Set("Content-Type", "application/json")
@@ -84,6 +87,60 @@ func (b *lockedBuffer) String() string {
 }
 
 var _ io.Writer = (*lockedBuffer)(nil)
+
+func openPendingNamed(t *testing.T, in *inbox, id, title string) {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"tool": "claude", "id": id, "title": title})
+	rec := httptest.NewRecorder()
+	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", bytes.NewReader(body)))
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("the open of %s = %d %s; this test needs one still opening", id, rec.Code, rec.Body)
+	}
+}
+
+func TestInbox_ALateFailureOfAChatTheListDoesNotHoldKeepsTheTitleThePageSent(t *testing.T) {
+	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked}}
+	in, changed := lateInbox(t, fake)
+	lockedLog(t)
+	in.mu.Lock()
+	in.latest = json.RawMessage(`{"conversations":[]}`)
+	in.mu.Unlock()
+
+	openPendingNamed(t, in, "a", "Bump the Go version")
+	close(fake.release)
+	waitSignal(t, changed, "the page's call to read again")
+
+	if _, body := readLate(t, in); !strings.Contains(body, `"title":"Bump the Go version"`) {
+		t.Errorf("the late failure of a searched chat = %s; want the title the page sent", body)
+	}
+	fake.mu.Lock()
+	sent := fake.bodies[0]
+	fake.mu.Unlock()
+	if strings.Contains(sent, "title") || !strings.Contains(sent, `"id":"a"`) {
+		t.Errorf("the server got %s; it takes {tool, id, editor} and refuses any other field", sent)
+	}
+	heldList(in, "Bump the Go version to 1.26")
+	if _, body := readLate(t, in); !strings.Contains(body, `"title":"Bump the Go version to 1.26"`) {
+		t.Errorf("the late failure = %s; the list's name now wins over the one sent", body)
+	}
+}
+
+func TestInbox_KeepsAtMostALineOfTheTitleThePageSent(t *testing.T) {
+	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked}}
+	in, changed := lateInbox(t, fake)
+	lockedLog(t)
+
+	openPendingNamed(t, in, "a", strings.Repeat("é", 500))
+	close(fake.release)
+	waitSignal(t, changed, "the page's call to read again")
+
+	_, body := readLate(t, in)
+	var got struct{ Title string }
+	_ = json.Unmarshal([]byte(body), &got)
+	if n := len([]rune(got.Title)); n != maxSentTitle {
+		t.Errorf("the kept title has %d characters; want %d", n, maxSentTitle)
+	}
+}
 
 // lateInbox is an inbox whose opens go to fake and stop being waited for after a moment.
 func lateInbox(t *testing.T, fake http.Handler) (*inbox, chan struct{}) {

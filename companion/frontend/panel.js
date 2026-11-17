@@ -647,9 +647,13 @@ async function showLateOpenFailure() {
     if (!(error instanceof CallError)) throw error
     return
   }
-  if (!failure || state.openFailure || opensOnTheirWay > 0) return
-  showOpenFailure(lateOpenFailureOf(failure), NOTICES.notOpened)
+  const shown = failure && lateOpenFailureOf(failure, lastDismissedLate)
+  if (!shown || state.openFailure || opensOnTheirWay > 0) return
+  showOpenFailure(shown, NOTICES.notOpened)
 }
+
+/** The late failure dismissed last; a read already past the companion when it was dismissed may return it. */
+let lastDismissedLate
 
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
@@ -949,7 +953,10 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
   showOpenFailure(undefined)
   queryInput.focus()
   // A late failure stays with the companion until dismissed; any other notice may have covered one.
-  if (dismissed?.late) dismissLateOpenFailure(dismissed.id).catch(sayFailure)
+  if (dismissed?.late) {
+    lastDismissedLate = dismissed.id
+    dismissLateOpenFailure(dismissed.id).catch(sayFailure)
+  }
   else showLateOpenFailure()
 })
 

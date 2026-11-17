@@ -253,7 +253,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     lateOpen = { waiting: undefined, settled: undefined }
     opensMade += 1
     if (fixture.openPending) {
-      if (fixture.lateOpenProblem) lateOpen.waiting = { id: opensMade, tool: body.tool, chat: body.id, message: fixture.lateOpenProblem, command: fixture.openCommand }
+      if (fixture.lateOpenProblem) lateOpen.waiting = { id: opensMade, tool: body.tool, chat: body.id, sentTitle: body.title, message: fixture.lateOpenProblem, command: fixture.openCommand }
       return sendJSON(response, 202, { pending: true, message: 'Still opening. This takes longer than usual.' })
     }
     if (fixture.openProblem) return sendJSON(response, 200, { opened: false, message: fixture.openProblem, command: fixture.openCommand })
@@ -320,7 +320,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       logCall('/api/open/late')
       const failure = lateOpen.settled
       if (!failure) return noContent(response)
-      const title = state.conversations.find((row) => row.tool === failure.tool && row.id === failure.chat)?.title
+      const title = state.conversations.find((row) => row.tool === failure.tool && row.id === failure.chat)?.title || failure.sentTitle
       sendJSON(response, 200, { id: failure.id, ...(title ? { title } : {}), message: failure.message, command: failure.command })
     },
     'POST /api/open/late/dismiss': async (request, response) => {

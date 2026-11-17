@@ -69,9 +69,11 @@ type inbox struct {
 
 // lateFailure is a kept failure: id is the number of its open, and tool
 // and chat name the conversation, whose title the list gives when read.
+// sentTitle is the title the page sent, for a chat the list does not hold.
 type lateFailure struct {
 	id         uint64
 	tool, chat string
+	sentTitle  string
 	failure    openFailure
 }
 
@@ -304,6 +306,7 @@ func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 // pending reply, and the call goes on up to openLateWait: a failure
 // that arrives then is kept for the panel, unless a newer open began.
 func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
+	body, title := withoutTitle(body)
 	var named struct {
 		Tool string `json:"tool"`
 		ID   string `json:"id"`
@@ -336,7 +339,7 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	}
 	go func() {
 		got := <-settled
-		in.settleLate(lateFailure{id: this, tool: named.Tool, chat: named.ID}, lateOutcomeOf(got.answer, got.err))
+		in.settleLate(lateFailure{id: this, tool: named.Tool, chat: named.ID, sentTitle: title}, lateOutcomeOf(got.answer, got.err))
 	}()
 }
 
@@ -417,7 +420,11 @@ func (in *inbox) lateOpen(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: titleIn(latest, late.tool, late.chat), Message: late.failure.Message, Command: late.failure.Command})
+	title := titleIn(latest, late.tool, late.chat)
+	if title == "" {
+		title = late.sentTitle
+	}
+	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: title, Message: late.failure.Message, Command: late.failure.Command})
 }
 
 // titleIn is the title list gives the chat; empty when it does not list it.
@@ -457,4 +464,32 @@ func (in *inbox) dismissLateOpen(w http.ResponseWriter, r *http.Request) {
 	}
 	in.mu.Unlock()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// maxSentTitle bounds the title a page sends with an open: a list row shows one line.
+const maxSentTitle = 200
+
+// withoutTitle takes the title a page sent out of an open, since the
+// server refuses any field but tool, id and editor. A body that is no
+// JSON object goes on as it came, for the server to refuse.
+func withoutTitle(body []byte) ([]byte, string) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return body, ""
+	}
+	sent, ok := fields["title"]
+	if !ok {
+		return body, ""
+	}
+	delete(fields, "title")
+	rest, err := json.Marshal(fields)
+	if err != nil {
+		return body, ""
+	}
+	var title string
+	_ = json.Unmarshal(sent, &title)
+	if runes := []rune(title); len(runes) > maxSentTitle {
+		title = string(runes[:maxSentTitle])
+	}
+	return rest, title
 }

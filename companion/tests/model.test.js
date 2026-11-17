@@ -579,7 +579,8 @@ test('offers Open on claude.ai only on a shared row, and names its cloud session
   assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'web'])
   assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'web'])
   assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename'])
-  assert.deepEqual(cloudPageOf(shared('a', 'active')), { tool: 'claude', id: 'cse_a1' })
+  const sharedRow = shared('a', 'active')
+  assert.deepEqual(cloudPageOf(sharedRow), { tool: 'claude', id: 'cse_a1', title: sharedRow.title })
   assert.equal(cloudPageOf(row('a', 'active')), undefined)
 })
 
@@ -630,7 +631,8 @@ test('a subagent names its tool, its type when it has a telling one, and its age
 
 test('a Codex subagent opens its own thread; a Claude Code subagent opens the chat it runs in', () => {
   const parent = row('parent', 'working')
-  assert.deepEqual(helperOpenOf(parent, helper('run-1', 'working', 1, { tool: 'codex' })), { tool: 'codex', id: 'run-1' })
+  const run = helper('run-1', 'working', 1, { tool: 'codex' })
+  assert.deepEqual(helperOpenOf(parent, run), { tool: 'codex', id: 'run-1', title: helperTitleOf(run) })
   assert.equal(helperOpenOf(parent, helper('agent-1', 'working', 1)), parent)
 })
 
@@ -656,6 +658,12 @@ test('Mark all as read in Archived reaches only unread rows on screen, none whil
   const archived = { id: 'archived', rows: [row('a', 'dormant', { unread: true }), row('b', 'dormant'), row('c', 'completed', { unread: true })] }
   assert.deepEqual(unreadShownOf(archived, false).map((r) => r.id), ['a', 'c'])
   assert.deepEqual(unreadShownOf(archived, true), [])
+})
+
+test('a late open failure the person dismissed while it was read does not show again', () => {
+  const failure = { id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.' }
+  assert.equal(lateOpenFailureOf(failure, 3), undefined)
+  assert.equal(lateOpenFailureOf(failure, 2).id, 3)
 })
 
 test('a late open failure names its chat when the list holds it', () => {
