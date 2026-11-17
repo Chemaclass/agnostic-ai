@@ -872,3 +872,22 @@ func TestPanelLostFocus_KeepsAPanelShownAgainAfterAHide(t *testing.T) {
 		t.Error("focusing the bubble dismissed a panel that was shown again")
 	}
 }
+
+func TestTogglePanel_OpensAListThatIsStillHiding(t *testing.T) {
+	s, _ := placedShell(t)
+	s.togglePanel()
+	s.hidePanel()
+	panel := s.panel.(*fakeWindow)
+	panel.mu.Lock()
+	panel.visible = true
+	shows := panel.shows
+	panel.mu.Unlock()
+
+	s.togglePanel()
+
+	panel.mu.Lock()
+	defer panel.mu.Unlock()
+	if panel.shows != shows+1 {
+		t.Error("a click on the bubble while the list was still hiding did not open it")
+	}
+}

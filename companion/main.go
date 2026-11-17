@@ -355,7 +355,10 @@ func (s *shell) togglePanel() {
 		s.showPanelOn(eventPanelShown)
 		return
 	}
-	if s.panel.IsVisible() {
+	s.mu.Lock()
+	asked := s.panelAsked
+	s.mu.Unlock()
+	if asked && s.panel.IsVisible() {
 		s.hidePanelLocked()
 		return
 	}
