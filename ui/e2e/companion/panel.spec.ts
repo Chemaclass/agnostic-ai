@@ -802,3 +802,72 @@ test('the row menu of a shared chat opens its claude.ai page', async ({ page }) 
   await page.getByRole('menuitem', { name: 'Open on claude.ai' }).click()
   expect((await web).postDataJSON()).toEqual({ tool: 'claude', id: 'cse_rc1' })
 })
+
+test('a chat folds its working subagents out under it, newest first, five at most, and each opens where it lives', async ({ page }) => {
+  await openPanel(page, 'helpers')
+  const parent = row(page, 'Rename chats')
+  const toggle = parent.getByRole('button', { name: '▸ 7 subagents' })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  // The toggle takes the place of the count; the parent's mini orbits stay.
+  await expect(parent.locator('.worker-count')).toHaveCount(0)
+  await expect(parent.locator('.work-worker')).toHaveCount(4)
+  await expect(page.locator('.helper-row')).toHaveCount(0)
+
+  await toggle.click()
+  await expect(parent.getByRole('button', { name: '▾ 7 subagents' })).toHaveAttribute('aria-expanded', 'true')
+  const helpers = page.locator('.helper-row')
+  await expect(helpers).toHaveCount(5)
+  await expect(helpers.locator('.title')).toHaveText(['Find rename call sites', 'Size budget check', 'Review #3511: local app chats', 'Review #3512: rename in each app', 'Helper rows design'])
+  await expect(helpers.locator('.meta')).toHaveText(['Claude Code · Explore · 1m', 'Claude Code · 1m', 'Codex · 2m', 'Codex · 4m', 'Claude Code · Plan · 6m'])
+  await expect(helpers.locator('.state.is-working > .work-system')).toHaveCount(5)
+  // Subagents never become rows of their own.
+  await expect(page.getByRole('option')).toHaveCount(2)
+
+  await page.getByRole('button', { name: '+2 more' }).click()
+  await expect(helpers).toHaveCount(7)
+  await expect(helpers.last().locator('.title')).toHaveText('Untitled subagent')
+
+  const codex = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await helpers.filter({ hasText: 'Review #3511' }).click()
+  expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511' })
+  await page.goto('/panel.html')
+  await parent.getByRole('button', { name: '▸ 7 subagents' }).click()
+  const claude = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await helpers.filter({ hasText: 'Find rename call sites' }).click()
+  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1' })
+})
+
+test('a chat whose subagents all finished shows no subagent toggle', async ({ page }) => {
+  await openPanel(page, 'helpers')
+  const done = row(page, 'Plan the migration')
+  await expect(done).toBeVisible()
+  await expect(done.locator('.helpers-toggle')).toHaveCount(0)
+  await expect(done.locator('.worker-count')).toHaveCount(0)
+})
+
+test('Enter on a subagent control opens nothing but what it names, even with its chat selected', async ({ page }) => {
+  await openPanel(page, 'helpers')
+  const opens: unknown[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/open')) opens.push(request.postDataJSON())
+  })
+  const parent = row(page, 'Rename chats')
+  await parent.hover()
+  await expect(selected(page)).toContainText('Rename chats')
+
+  await parent.getByRole('button', { name: '▸ 7 subagents' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(parent.getByRole('button', { name: '▾ 7 subagents' })).toHaveAttribute('aria-expanded', 'true')
+  await page.getByRole('button', { name: '+2 more' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.helper-row')).toHaveCount(7)
+  await expect(selected(page)).toContainText('Rename chats')
+
+  const codex = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await page.locator('.helper-row').filter({ hasText: 'Review #3511' }).focus()
+  await page.keyboard.press('Enter')
+  await codex
+  // Both opens of one key press would leave together; the reload comes after them.
+  await page.goto('/panel.html')
+  expect(opens).toEqual([{ tool: 'codex', id: 'run-3511' }])
+})

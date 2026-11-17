@@ -148,9 +148,10 @@ func (r *claudeReplies) visit(line claudeLine) {
 
 // claudeLive is a running Claude Code process, from sessions/<pid>.json.
 type claudeLive struct {
-	PID       int    `json:"pid"`
-	SessionID string `json:"sessionId"`
-	ProcStart string `json:"procStart"`
+	PID       int             `json:"pid"`
+	SessionID string          `json:"sessionId"`
+	ProcStart string          `json:"procStart"`
+	StartedAt json.RawMessage `json:"startedAt"`
 	// Status is busy, shell (running a command), waiting (for the
 	// person) or idle.
 	Status string `json:"status"`
@@ -171,6 +172,7 @@ var claudeActivity = map[string]Activity{
 
 // liveSession is a running process that holds a session, and what it does.
 type liveSession struct {
+	startedAt  int64
 	process    liveProcess
 	activity   Activity
 	entrypoint string
@@ -200,7 +202,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		s.claude = map[string]claudeCacheEntry{}
 	}
 	seen := map[string]bool{}
+	seenMetas := map[string]bool{}
 	var conversations []Conversation
+	var workerFiles []string
 	for _, file := range files {
 		if ctx.Err() != nil {
 			break
@@ -219,6 +223,17 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
+		// A subagent runs inside its session's process, so only a live
+		// session lists working ones. Work that cannot be read lists none.
+		if isLive {
+			work, watched := s.claudeWorkOf(file, session)
+			workerFiles = append(workerFiles, watched...)
+			if work != nil {
+				count := work.count()
+				c.WorkingSubagents = &count
+			}
+			c.Helpers = s.claudeHelpers(file, work, seenMetas)
+		}
 		c.bridge = session.bridge
 		entrypoint := meta.entrypoint
 		if isLive && session.entrypoint != "" {
@@ -232,6 +247,18 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	for file := range s.claude {
 		if ctx.Err() == nil && !seen[file] {
 			delete(s.claude, file)
+		}
+	}
+	if ctx.Err() == nil {
+		forget(s.claudeAgentMetas, seenMetas)
+	}
+	s.rolloutsMu.Lock()
+	s.claudeWorkerFiles = workerFiles
+	s.rolloutsMu.Unlock()
+	for file := range s.claudeWorkers {
+		id := strings.TrimSuffix(filepath.Base(file), ".jsonl")
+		if _, running := live[id]; !running {
+			delete(s.claudeWorkers, file)
 		}
 	}
 	return found(ToolClaude, within(conversations, opts.Within))
@@ -466,7 +493,11 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 	live := map[string]liveSession{}
 	for _, entry := range entries {
 		if alive[entry.PID] {
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID}
+			var startedAt int64
+			if json.Unmarshal(entry.StartedAt, &startedAt) != nil {
+				startedAt = 0 // An unsupported start format leaves only the worker count unknown.
+			}
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt}
 		}
 	}
 	return live, err == nil

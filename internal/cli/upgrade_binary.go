@@ -81,7 +81,7 @@ func installVerifiedRelease(out io.Writer, path, version, baseURL string, client
 		return fmt.Errorf("%s: stage update: %w", path, err)
 	}
 	defer func() { _ = os.Remove(staged.Name()) }()
-	if err := extractReleaseBinary(staged, archive); err != nil {
+	if err := extractReleaseFile(staged, archive, binaryName); err != nil {
 		_ = staged.Close()
 		return fmt.Errorf("%s: %w", asset, err)
 	}
@@ -116,6 +116,9 @@ func downloadReleaseAsset(client *http.Client, assetURL string, limit int64) ([]
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, releaseAssetMissing{fmt.Sprintf("download: %s", resp.Status)}
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("download: %s", resp.Status)
 	}
@@ -143,10 +146,17 @@ func releaseChecksum(data []byte, asset string) ([sha256.Size]byte, error) {
 		copy(sum[:], decoded)
 		return sum, nil
 	}
-	return [sha256.Size]byte{}, fmt.Errorf("checksums.txt: %s is missing", asset)
+	return [sha256.Size]byte{}, releaseAssetMissing{fmt.Sprintf("checksums.txt: %s is missing", asset)}
 }
 
-func extractReleaseBinary(dst io.Writer, archive []byte) error {
+// releaseAssetMissing is a release that does not publish the asset asked
+// for, as opposed to one that could not be reached or did not verify.
+type releaseAssetMissing struct{ message string }
+
+func (e releaseAssetMissing) Error() string { return e.message }
+
+// extractReleaseFile copies the file called name out of a release archive.
+func extractReleaseFile(dst io.Writer, archive []byte, name string) error {
 	gz, err := gzip.NewReader(bytes.NewReader(archive))
 	if err != nil {
 		return fmt.Errorf("open archive: %w", err)
@@ -156,23 +166,23 @@ func extractReleaseBinary(dst io.Writer, archive []byte) error {
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
-			return fmt.Errorf("archive has no %s binary", binaryName)
+			return fmt.Errorf("archive has no %s binary", name)
 		}
 		if err != nil {
 			return fmt.Errorf("read archive: %w", err)
 		}
-		if header.Name != binaryName && header.Name != "./"+binaryName {
+		if header.Name != name && header.Name != "./"+name {
 			continue
 		}
 		// Both '0' and NUL mark regular files in tar archives.
 		if header.Typeflag != tar.TypeReg && header.Typeflag != 0 {
-			return fmt.Errorf("archive %s is not a regular file", binaryName)
+			return fmt.Errorf("archive %s is not a regular file", name)
 		}
 		if header.Size <= 0 || header.Size > maxReleaseBinary {
-			return fmt.Errorf("archive %s has invalid size", binaryName)
+			return fmt.Errorf("archive %s has invalid size", name)
 		}
 		if _, err := io.CopyN(dst, tr, header.Size); err != nil {
-			return fmt.Errorf("extract %s: %w", binaryName, err)
+			return fmt.Errorf("extract %s: %w", name, err)
 		}
 		return nil
 	}

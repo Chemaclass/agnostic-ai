@@ -4,12 +4,15 @@ package main
 
 /*
 void companionWatchPointer(void *window);
+int companionMousePressedOver(void *window);
 */
 import "C"
 
 import (
 	"sync"
 	"unsafe"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 var pointer struct {
@@ -36,4 +39,10 @@ func companionPointerChanged(over C.int) {
 	if changed != nil {
 		changed(over != 0)
 	}
+}
+
+func mousePressedOver(window unsafe.Pointer) bool {
+	return application.InvokeSyncWithResult(func() bool {
+		return C.companionMousePressedOver(window) != 0
+	})
 }

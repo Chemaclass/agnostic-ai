@@ -8,12 +8,19 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+#### Companion
+
+- On macOS, `agnostic-ai companion install` downloads the companion the release built, for Apple silicon and Intel, instead of building it. It needs no Go and no Xcode Command Line Tools, and checks the download against the release's checksums and build provenance. A download that does not verify stops the install. A release without a built companion, an `agnostic-ai` built from any commit but a release tag, and `--source` still build it on your machine.
+
 #### Chat list
 
 - Your Claude chats and Cowork tasks show beside your coding sessions, read from what the Claude desktop app keeps on this computer, with no network call. A chat the assistant answered counts under Needs you until you see it, and opens in the Claude app.
 - Your ChatGPT chats show too, as the new `chatgpt` tool, read from the ChatGPT desktop app on this computer with no network call. A new reply shows within seconds. They open on chatgpt.com and count under Needs you once answered, like Claude chats. A chat started on the web or your phone shows once the app has synced it.
 - The conversations API gains the `chat` and `cowork` app values; the companion reads them as "Claude · Chat" and "Claude · Cowork", and puts chats under Cloud.
 - Renaming a conversation now renames it in its own tool first, so Claude Code, Codex, Cursor, ChatGPT and Claude Code cloud sessions show the new name in their own lists. When the tool does not take the name, the companion says why, such as "Codex is not installed", and keeps the old name. Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
+- Working agents show a quiet five-dot rainbow gyroscope, with a miniature fractal per native Claude Code or Codex sub-agent and reduced-motion support. Waiting parents keep a plain orange dot while their working satellites animate independently in blue.
+- Dragging the companion keeps its open conversation list beside it, preserving the search.
+- A chat with working subagents shows "▸ 3 subagents" in the companion. Click it to see them under the chat, newest first, each with its tool, type and age. A subagent that finished leaves the list and the count. Codex runs a Claude Code session started with `codex exec` are listed too while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. The conversations API gains an optional `helpers` field for this.
 
 #### Opening and resuming chats
 

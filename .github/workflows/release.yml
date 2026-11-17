@@ -35,9 +35,47 @@ jobs:
           npm --prefix ui ci --ignore-scripts
           npm --prefix ui run bundle:check
 
+  # The macOS companion needs C, so it builds on a Mac, apart from the
+  # publish tokens like ui-bundle. GoReleaser attaches the archives and
+  # lists them in checksums.txt, which the provenance step signs.
+  companion:
+    name: macOS companion
+    runs-on: macos-latest
+    # GoReleaser waits for this job, so a hung build must not hold the release.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: companion/go.mod
+          # Same rule as the GoReleaser job: release builds use no cache.
+          cache: false
+
+      - name: Build the companion archives
+        run: scripts/companion-release.sh "${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/companion-dist"
+
+      - name: Hand the archives to GoReleaser
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: companion-dist
+          path: ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
   goreleaser:
     name: GoReleaser
-    needs: ui-bundle
+    # A failed companion build does not hold back the release: the archives
+    # are left out and `agnostic-ai companion install` builds on the Mac
+    # instead, as it did before they existed.
+    needs: [ui-bundle, companion]
+    if: ${{ !cancelled() && needs.ui-bundle.result == 'success' }}
     runs-on: ubuntu-latest
     # id-token and attestations let the job sign build provenance for each
     # release file through Sigstore, with no key of ours to leak or rotate.
@@ -95,6 +133,18 @@ jobs:
           repositories: homebrew-tap
           permission-contents: write
 
+      # Outside the checkout: GoReleaser refuses a tree with untracked files.
+      - name: Download the companion archives
+        if: needs.companion.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: companion-dist
+          path: ${{ runner.temp }}/companion-dist
+
+      - name: Report a release without the companion archives
+        if: needs.companion.result != 'success'
+        run: echo "::warning::the macOS companion did not build, so this release ships without it and companion install builds it on the Mac"
+
       - name: Install Syft for the SBOMs
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
 
@@ -104,6 +154,7 @@ jobs:
           version: v2.20.1
           args: release --clean --release-notes=NOTES.md
         env:
+          COMPANION_DIST: ${{ runner.temp }}/companion-dist
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # An installation token that expires in an hour when the App is
           # set up, the stored PAT while it is not, and empty when neither
@@ -143,6 +194,8 @@ jobs:
     # Its own job for the same reason as ui-bundle: Node never runs where
     # the publish tokens or the OIDC request token are.
     needs: goreleaser
+    # A failed companion job upstream would otherwise skip this check.
+    if: ${{ !cancelled() && needs.goreleaser.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

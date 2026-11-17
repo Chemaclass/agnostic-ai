@@ -13,16 +13,18 @@ and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 ## Get it
 
 ```sh
-agnostic-ai companion install     # build it on this machine
+agnostic-ai companion install     # put it on this machine
 agnostic-ai companion             # start it
 agnostic-ai companion stop        # end it
 agnostic-ai companion uninstall   # remove it from this machine
 ```
 
-`install` builds the companion from the same commit as your `agnostic-ai`,
-with Go, and prints each step as it goes. Releases ship no built companion, so nothing
-has to be signed or published for each system. It names what your machine
-lacks before it builds anything. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
+On macOS, `install` downloads the companion the release built, checks it
+against the release's checksums and build provenance, and needs no compiler.
+A release without one, an `agnostic-ai` built from any commit but a release
+tag, `--source`, and other systems build it from the same commit as your `agnostic-ai`, with Go, and
+print each step as it goes. A build names what your machine lacks before it
+starts. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
 lists what each system needs. On macOS it installs the companion as an app,
 `agnostic-ai companion.app`, with the agnostic-ai icon, signed on your machine.
 Only macOS is supported; Windows
@@ -46,7 +48,7 @@ with `make companion-run`.
 
 ## Upgrade
 
-`agnostic-ai upgrade` also rebuilds an installed companion from the updated CLI's commit. It prints each build step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
+`agnostic-ai upgrade` also replaces an installed companion through the updated CLI, downloaded or built as `install` does. It prints each step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
 
 If the companion update fails, the CLI stays upgraded and the old companion stays usable. The command explains the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 
@@ -54,7 +56,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 
 ## Use it
 
-- **Drag** the circle anywhere. It remembers where you left it, and comes back
+- **Drag** the circle anywhere. An open list follows it and keeps your search.
+  It remembers where you left it, and comes back
   to the lower right when that place is on a monitor you unplugged.
 - **Click** the circle to open or close the list. So does the shortcut,
   **Ctrl+Alt+Space** (⌃⌥Space on a Mac) until you change it.
@@ -121,6 +124,20 @@ The number on the circle counts the conversations that need you. An ice blue arc
 turns around the circle while an agent is working. With animation off, a still
 ice blue ring shows instead.
 
+Rows under the blue **Working** section show a small gyroscope. Five bulbs
+travel at different radii and depths around a shaded core. The assembly
+turns slowly at constant brightness, with space around it. Each working
+native Claude Code or Codex sub-agent adds one blue miniature of the same
+five-dot fractal. A number beside an agent icon shows the count; its tooltip
+and accessible label say how many sub-agents are working.
+An idle parent stays under Working while its sub-agents work, with its own
+plain, still dot. A parent that needs your answer stays under Needs you with
+the ordinary orange dot and no orbiting bulbs of its own. Working satellites
+keep their blue cores and animation independently of the parent. An unavailable
+count adds no markers. Cloud and other tools' native sub-agents are not tracked.
+With animation off or your system's Reduce Motion enabled, the whole indicator
+stays still and its section heading and worker count remain visible.
+
 Starting the companion a second time brings back the one that already runs and
 opens its list, even when it is hidden.
 
@@ -139,7 +156,7 @@ foot of the list, and a right-click on the circle (Ctrl+click on a Mac). A
 change made in one shows in the other.
 
 - **Animate companion** turns movement on and off: the turning arc, the
-  breathing dot in the list, the badge's pop and the list's opening. When it is
+  gyroscope in the list, the badge's pop and the list's opening. When it is
   off, a still ring shows that an agent is working, and the number keeps
   updating. Hover and press feedback stay. Your system's reduce motion setting
   still applies when it is on.

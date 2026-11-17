@@ -108,13 +108,13 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 - The page returns `from` and `to`, and `next`, the `before` value of the following page, absent when no older conversation remains.
 - A `before` that is not an RFC 3339 time is a 400.
 - A project server lists the conversations started in the project or one of its Git worktrees. A global server lists them all.
-- Runs a program started (Claude Code SDK sessions, `codex exec`) are left out.
+- Runs a program started (Claude Code SDK sessions, `codex exec`) are left out. A `codex exec` run that a local Claude Code session started shows in that session's `helpers` instead while it runs.
 - A Claude Code session or Codex thread that was opened and never typed in is left out: it has no title and no prompt to show. A Codex thread stays when the agent replied, or when you named it with `POST /api/conversations/rename`. A left-out one is not counted in `needsYou` or a tool's `count`.
 
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, deleteUnsupported?, parent?, cloud?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, quietSince?, workingSubagents?, helpers?, deleteUnsupported?, parent?, cloud?, open}`.
 
 Conversation fields:
 
@@ -123,6 +123,13 @@ Conversation fields:
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
+- `workingSubagents` is an optional native task count for local Claude Code and Codex. Zero means none; omission means unavailable. Claude uses task dispatch, launch, completion, stop and resume events from the current live process; Codex uses native parent relationships, live writer locks and unfinished turn events, including nested workers. It does not count linked child conversations or cloud workers. An unfinished native task may be waiting on a tool. Native logs that cannot be read leave the count unavailable. Worker event writes invalidate the cached list; process exits can take up to a minute to show. Positive counts keep an otherwise idle parent in `working`, while a parent's unread question still takes priority.
+- `helpers` lists the agents this conversation started that are no rows of their own and still work, each `{tool, id, title, kind?, state, updatedAt}`. They are its native Claude Code or Codex subagents, and the `codex exec` runs a local Claude Code session started. A helper that finished is not listed. `state` is always `working`. `kind` is the agent type the tool gives, such as `Explore`. `title` is empty when the tool gave none or it may hold a credential. Omitted when none works, or when the states cannot be read.
+  - A Claude Code subagent comes from the session's `subagents` folder and the meta file Claude Code writes beside each one. It is listed while the live process's task events say it works. A session no process runs lists none. It has no route of its own: open its conversation.
+  - A Codex subagent is a direct child of a Codex thread. It is listed while a process holds its thread and its rollout says a turn runs. Open it with `POST /api/conversations/open` and its own `tool` and `id`. One in a terminal switches to the process that runs it, never a second `codex resume`.
+  - A `codex exec` run is linked to its Claude Code session only from the running `codex` process: the process holds the run's writer lock, and its environment holds `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CHILD_SESSION=1`, which Claude Code's Bash tool sets. The server reads the environment the kernel keeps for the process (`kern.procargs2` on macOS, `/proc/<pid>/environ` on Linux), keeps only those two variables, and links nothing when either is missing or set twice. Every scan reads the link again; nothing is saved, so a run that ended is listed nowhere. Titles, folders and times are never used to guess. When process environments cannot be read, the Codex tool's `note` says so.
+  - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
+  - `workingSubagents` stays as it was and does not count `codex exec` runs.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.

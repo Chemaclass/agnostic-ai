@@ -22,6 +22,11 @@ extern void companionPointerChanged(int over);
 }
 @end
 
+int companionMousePressedOver(void *window) {
+	return window != NULL && ([NSEvent pressedMouseButtons] & 1) != 0 &&
+		NSPointInRect([NSEvent mouseLocation], [(NSWindow *)window frame]);
+}
+
 void companionWatchPointer(void *window) {
 	dispatch_async(dispatch_get_main_queue(), ^{
 		static CompanionPointerWatch *watch;

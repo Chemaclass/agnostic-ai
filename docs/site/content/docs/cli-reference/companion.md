@@ -20,11 +20,15 @@ agnostic-ai companion stop
 agnostic-ai companion uninstall
 ```
 
-The companion is a separate program that is built on your machine. Run `companion install` first. `agnostic-ai upgrade` then rebuilds an installed companion when its version differs. It builds the companion from the same commit as the `agnostic-ai` you run and prints each step. It needs:
+The companion is a separate program. Run `companion install` first. `agnostic-ai upgrade` then replaces an installed companion when its version differs.
+
+On macOS, `companion install` downloads the companion that the release built for your Mac (Apple silicon or Intel). It checks the download against the release's `checksums.txt` and, when the GitHub CLI (`gh`) is installed and logged in, against the release's build provenance, the same way `agnostic-ai upgrade` checks the CLI. It needs no compiler. A download that does not verify stops the install and leaves the installed companion as it was. A release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source` build it on your machine instead.
+
+Everywhere else, and in those cases, it builds the companion from the same commit as the `agnostic-ai` you run and prints each step. A build needs:
 
 | System | Status | Needs |
 |--------|--------|-------|
-| macOS | **Supported.** Built and run on macOS 27 (arm64). | Go and the Xcode Command Line Tools. |
+| macOS | **Supported.** Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later. | Nothing to download it. To build it: Go and the Xcode Command Line Tools. |
 | Windows | **Not supported.** It compiles, but nobody has run it on a Windows machine. | Go. |
 | Linux | **Not supported.** Nobody has built or run it on a Linux machine. Wayland compositors decide what stays on top, so the circle may not float there. | Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. |
 
@@ -72,7 +76,7 @@ Want it on your system? Help is welcome: [Windows (#3221)](https://github.com/Ch
 - **Delete permanently…** removes a chat under Archived from this computer, after a confirmation. See [Delete an archived chat](#delete-an-archived-chat).
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute. The archive is cleared in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - The list's ⋯ menu and the circle's right-click menu hold the same settings, in the same order. A change in one shows in the other:
-  - **Animate companion** turns its movement on and off. When it is off, a still ring shows a working agent and the count keeps updating. The choice is kept across restarts.
+  - **Animate companion** turns its movement on and off. Working rows show a five-bulb gyroscope at constant brightness, with bulbs at different orbital radii and depths. Each working native Claude Code or Codex sub-agent adds one blue miniature of the same five-dot fractal. A number and agent icon show the count, with a tooltip and accessible label; unavailable counts add none. Working is named once in the blue section header. Working sub-agents keep an idle parent in Working, with its own still dot. A parent asking you a question stays in Needs you with a plain orange dot and no orbiting bulbs of its own; its working satellites keep their blue cores and animation. Cloud and other tools' sub-agents are not tracked. A chat with working subagents shows "▸ 3 subagents" in its meta line in place of the count. The list starts folded. Click it to fold them out under the chat, newest first, five at most, then a "+N more" button. Only working subagents are listed and counted: one that finished leaves the list, and the toggle goes away once none works. Each shows the working gyroscope, its title, its tool, its type when it has one, and its age. Its Codex runs started with `codex exec` count among them while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. A Claude Code subagent opens its chat. Which chats are unfolded is kept until the companion quits. Turning animation off or enabling the system's Reduce Motion keeps the indicator still with its section heading and worker count visible. The circle shows a still ring and its count keeps updating. The choice is kept across restarts.
   - **Dim when idle** fades the circle while nothing needs you. Pointing at it, or any conversation that needs you, brings back full color. The choice is kept across restarts.
   - **Small companion** shows a 40px circle instead of the 60px one. Its mark, working ring and count shrink with it, and so does its window, so clicks just outside the small circle reach the app behind it. It keeps the screen edges it sits nearest. The choice is kept across restarts.
   - **Start at login** starts the companion when you log in.
@@ -106,7 +110,7 @@ Two limits are accepted. A session that starts in the moment between the last ch
 
 ## Upgrade the companion
 
-`agnostic-ai upgrade` uses the updated CLI to rebuild an installed companion. It prints progress and restarts the companion only if it was running. Settings and Start at login stay as they were. It does not build a companion if none is installed. `upgrade --check` and `upgrade --requires` do not rebuild it.
+`agnostic-ai upgrade` uses the updated CLI to replace an installed companion, downloaded or built as `companion install` does. It prints progress and restarts the companion only if it was running. Settings and Start at login stay as they were. It does not install a companion if none is installed. `upgrade --check` and `upgrade --requires` do not replace it.
 
 A companion update failure leaves the CLI upgraded and the old companion usable. The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 

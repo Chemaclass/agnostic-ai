@@ -37,6 +37,10 @@ type Processes interface {
 	AppRunning(name string) bool
 	// ClaudeJobs lists the Claude Code background sessions that run.
 	ClaudeJobs(ctx context.Context) ([]ClaudeJob, error)
+	// ClaudeParents maps each of pids that a Claude Code session started,
+	// as a command of its Bash tool, to that session's id. The error is an
+	// *environmentError: the environments could not be read.
+	ClaudeParents(pids []int) (map[int]string, error)
 }
 
 // ProcessRef names a process by its pid and, when known, by when it
@@ -290,6 +294,106 @@ func (SystemProcesses) AppRunning(name string) bool {
 		}
 	}
 	return false
+}
+
+// Claude Code puts these in the environment of every command its Bash
+// tool runs, and a program such as codex inherits them. Only these two
+// are read; every other variable, credentials among them, is dropped
+// as the line is read and never kept or logged.
+const (
+	claudeSessionVar = "CLAUDE_CODE_SESSION_ID"
+	claudeChildVar   = "CLAUDE_CODE_CHILD_SESSION"
+)
+
+// environmentReason is why process environments could not be read.
+type environmentReason string
+
+const (
+	// environmentUnsupported: this system has no way to read them here.
+	environmentUnsupported environmentReason = "this system cannot read another process's environment"
+	// environmentUnreadable: the reader failed, such as ps exiting with an error.
+	environmentUnreadable environmentReason = "the environment of running processes could not be read"
+)
+
+// environmentError is the one error ClaudeParents returns. cause holds
+// the reader's own error for logs; it never holds an environment value.
+type environmentError struct {
+	reason environmentReason
+	cause  error
+}
+
+func (e *environmentError) Error() string {
+	if e.cause == nil {
+		return string(e.reason)
+	}
+	return string(e.reason) + ": " + e.cause.Error()
+}
+
+func (e *environmentError) Unwrap() error { return e.cause }
+
+// environmentRead reads the Claude Code entries of the environments of
+// pids, one list of NAME=value entries per process that runs. Each
+// system that can read another process's environment sets
+// environmentReader in its own file; on any other it is nil.
+//
+// A reader keeps only the entries claudeEntries keeps, and only entries
+// whose boundaries it read from the environment itself: never words
+// split out of a command line, whose arguments or values could hold
+// such a name.
+type environmentRead func(pids []int) (map[int][]string, error)
+
+func (SystemProcesses) ClaudeParents(pids []int) (map[int]string, error) {
+	parents := map[int]string{}
+	if environmentReader == nil {
+		return parents, &environmentError{reason: environmentUnsupported}
+	}
+	if len(pids) == 0 {
+		return parents, nil
+	}
+	environments, err := environmentReader(pids)
+	if err != nil {
+		return parents, &environmentError{reason: environmentUnreadable, cause: err}
+	}
+	for pid, entries := range environments {
+		if parent, ok := claudeParentIn(entries); ok {
+			parents[pid] = parent
+		}
+	}
+	return parents, nil
+}
+
+// claudeEntries keeps the entries of an environment that name the
+// Claude Code session, and drops every other, credentials among them.
+func claudeEntries(entries []string) []string {
+	var kept []string
+	for _, entry := range entries {
+		name, _, _ := strings.Cut(entry, "=")
+		if name == claudeSessionVar || name == claudeChildVar {
+			kept = append(kept, entry)
+		}
+	}
+	return kept
+}
+
+// claudeParentIn finds the session id in a process's NAME=value entries:
+// set only when CLAUDE_CODE_CHILD_SESSION is 1 and the id is a session
+// id. A name set twice is ambiguous and links nothing.
+func claudeParentIn(entries []string) (string, bool) {
+	values := map[string][]string{}
+	for _, entry := range entries {
+		name, value, found := strings.Cut(entry, "=")
+		if found {
+			values[name] = append(values[name], value)
+		}
+	}
+	sessions, children := values[claudeSessionVar], values[claudeChildVar]
+	if len(sessions) != 1 || len(children) != 1 {
+		return "", false
+	}
+	if children[0] != "1" || !sessionIDPattern.MatchString(sessions[0]) {
+		return "", false
+	}
+	return sessions[0], true
 }
 
 func (SystemProcesses) ClaudeJobs(ctx context.Context) ([]ClaudeJob, error) {
