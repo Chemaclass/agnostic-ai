@@ -205,6 +205,17 @@ export const FIXTURES = {
     label: 'One chat runs in a Ghostty tab, so pick mode starts on it',
     conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
   },
+  'one-terminal-markdown': {
+    label: 'A copied web page and one chat in a Ghostty tab, so the send shortcut sends Markdown straight there',
+    conversations: (now) => FIXTURES['one-terminal'].conversations(now),
+    clipboard: 'Release notes\nFixed two bugs in the parser.\nSee the migration guide.',
+    clipboardMarkdown: true,
+  },
+  'two-terminals': {
+    label: 'Two chats run in Ghostty tabs, so the send shortcut asks which',
+    conversations: (now) =>
+      mixed(now).map((row) => (row.id === 'active-2' || row.id === 'work-1' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
+  },
   'empty-clipboard': { label: 'Nothing copied, so pick mode does not open', conversations: mixed, clipboard: '' },
   'markdown-clipboard': {
     label: 'A copied web page that goes as Markdown',

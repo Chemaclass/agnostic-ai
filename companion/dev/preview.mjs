@@ -38,7 +38,7 @@ function fixtureState(name, now) {
     name,
     fixture,
     conversations,
-    preferences: { shortcut: 'Ctrl+Alt+Space', startAtLogin: false },
+    preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false },
     appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
     /** What waited in the last list, as the shell remembers it. */
     waitingSeen: waitingIn(conversations),
@@ -264,6 +264,15 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     sendJSON(response, 200, sendReplyOf(row, copied.format === 'markdown'))
   }
 
+  /** Like the shell: one press cannot do both, so the other shortcut's keys are refused. */
+  async function saveShortcut(request, response, id, other, otherDoes) {
+    const keys = (await bodyOf(request)).shortcut
+    if (keys === state.preferences[other]) return sendJSON(response, 409, { error: `${keys} already ${otherDoes}; choose other keys` })
+    state.preferences[id] = keys
+    sendJSON(response, 200, state.preferences)
+    emit('preferences', state.preferences)
+  }
+
   function events(request, response) {
     response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' })
     response.write(': connected\n\n')
@@ -309,11 +318,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       if (state.appearance.presence === 'shown') emit('panel-shown', 'bottom-right')
     },
     'GET /api/preferences': (request, response) => sendJSON(response, 200, state.preferences),
-    'POST /api/preferences/shortcut': async (request, response) => {
-      state.preferences.shortcut = (await bodyOf(request)).shortcut
-      sendJSON(response, 200, state.preferences)
-      emit('preferences', state.preferences)
-    },
+    'POST /api/preferences/shortcut': (request, response) => saveShortcut(request, response, 'shortcut', 'sendShortcut', 'sends the copied text'),
+    'POST /api/preferences/send-shortcut': (request, response) => saveShortcut(request, response, 'sendShortcut', 'shortcut', 'opens the list'),
     'POST /api/preferences/start-at-login': async (request, response) => {
       state.preferences.startAtLogin = (await bodyOf(request)).enabled === true
       sendJSON(response, 200, state.preferences)
@@ -361,6 +367,13 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       noContent(response)
       comeBack()
       emit('quit-asked', 'bottom-right')
+    },
+    // Stands in for the send shortcut, pressed in another app.
+    'POST /dev/send-shortcut': (request, response) => {
+      logCall('/dev/send-shortcut')
+      noContent(response)
+      comeBack()
+      emit('send-shown', 'bottom-right')
     },
     // Stands in for Open from anywhere in the circle's right-click menu.
     'POST /dev/open-settings': (request, response) => {

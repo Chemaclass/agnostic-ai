@@ -34,6 +34,7 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('switch', { name: 'Small companion' }),
     menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
+    menu.getByRole('button', { name: 'Send copied text' }),
     menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
     menu.getByRole('button', { name: 'Quit Agnostic AI companion' }),
   ]
@@ -358,4 +359,26 @@ test('Open from anywhere in the right-click menu opens the menu on the shortcut,
   const shortcut = settingsMenu(page).getByRole('button', { name: 'Open from anywhere' })
   await expect(shortcut).toBeFocused()
   await expect(shortcut).not.toHaveClass(/is-recording/)
+})
+
+test('the send shortcut changes on its own, and the open shortcut\'s keys are refused', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const open = settingsMenu(page).getByRole('button', { name: 'Open from anywhere' })
+  const send = settingsMenu(page).getByRole('button', { name: 'Send copied text' })
+  await expect(send).toHaveText('⌃⌥V')
+
+  await send.click()
+  await expect(send).toHaveText('Press the new keys')
+  await expect(open).not.toHaveClass(/is-recording/)
+  await page.keyboard.press('Control+Alt+KeyB')
+  await expect(send).toHaveText('⌃⌥B')
+  await expect(open).toHaveText('⌃⌥Space')
+
+  await send.click()
+  await page.keyboard.press('Control+Alt+Space')
+  await expect(settingsMenu(page)).toContainText('Ctrl+Alt+Space already opens the list; choose other keys')
+  await expect(send).toHaveText('⌃⌥B')
+  const preferences = await (await page.request.get('/api/preferences')).json()
+  expect(preferences).toMatchObject({ shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+B' })
 })

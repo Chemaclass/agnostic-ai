@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startsRename, startedFromOf, stillWaits, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, PLACES, ago, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, nameOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -379,6 +379,21 @@ test('only live rows in a Terminal or Ghostty tab, outside Archived, can be type
   assert.deepEqual(typableRows(rows).map((r) => r.id), ['ghostty', 'terminal', 'codex-idle'])
   assert.deepEqual(typableRows([rows[1], rows[2]]).map((r) => r.id), ['terminal'])
   assert.deepEqual(typableRows([]), [])
+})
+
+test('the send shortcut sends straight only when exactly one row can be typed into', () => {
+  const ghostty = { live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } }
+  const one = row('one', 'active', ghostty)
+  const other = row('other', 'unread', ghostty)
+  const ended = row('ended', 'active')
+  assert.equal(straightSendOf([ended, one, row('done', 'completed', ghostty)]), one)
+  assert.equal(straightSendOf([ended]), undefined)
+  assert.equal(straightSendOf([one, other]), undefined)
+  assert.equal(straightSendOf([]), undefined)
+  assert.equal(sendingTitleOf(one), 'Sending to one')
+  assert.equal(sendingTitleOf({ ...one, title: '' }), 'Sending to Untitled conversation')
+  assert.equal(sendingTitleOf(one, { format: 'text' }), 'Sending to one')
+  assert.equal(sendingTitleOf(one, { format: 'markdown' }), 'Sending Markdown to one')
 })
 
 test('pick mode opens only on copied text, and names it by its words', () => {

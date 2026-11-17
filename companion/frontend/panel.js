@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, shortcutOf, startedFromOf, startsRename, stillWaits, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, PLACES, SHARED_TITLE, afterPage, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickGroupsOf, pickTitleOf, pickableClip, reasonOf, renameOf, replyOf, rowActionOf, rowMenuOf, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, summaryOf, takesText, titleOf, togglesPick, typableRows, viewIn, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -658,17 +658,18 @@ function firstPickKey() {
   return keys.find((key) => typable.has(key)) ?? keys[0]
 }
 
+/** Enters pick mode on the copied text, and reports whether it did. */
 async function enterPick() {
   let clip
   try {
     clip = pickableClip(await readClipboard())
   } catch (error) {
     sayFailure(error)
-    return
+    return false
   }
   if (!clip) {
     say(NOTHING_TO_SEND)
-    return
+    return false
   }
   showOpenFailure(undefined)
   showPick(clip)
@@ -676,6 +677,42 @@ async function enterPick() {
   drawPlaces()
   draw({ force: true })
   queryInput.focus()
+  return true
+}
+
+/** How long a straight send shows the row's name before the chip leaves. */
+const STRAIGHT_HOLD_MS = 400
+
+/**
+ * The send shortcut opens the list in pick mode on the whole list. When exactly one row can take the text,
+ * it goes there through the same send as a pick: the banner names the row, the chip flies, the list hides.
+ */
+async function sendFromAnywhere(from) {
+  if (sending) {
+    // A send already left the list: the shell showed it again, so it hides to keep the keys with the terminal.
+    if (!state.pick) await hidePanel().catch(() => {})
+    return
+  }
+  // The keys being recorded reached the shell as the send shortcut: they belong to the new shortcut, not a send.
+  if (settings.recording !== undefined) return
+  clearTimeout(searchTimer)
+  queryInput.value = ''
+  clearButton.hidden = true
+  state.query = ''
+  state.searching = false
+  await opened(from)
+  if (sending || !(await enterPick())) return
+  const shown = state.pick
+  const onlyRow = () => (state.query === '' ? straightSendOf(shownView()?.conversations ?? []) : undefined)
+  const target = onlyRow()
+  if (!target) return
+  state.activeKey = keyOf(target)
+  pickTitle.textContent = sendingTitleOf(target, shown)
+  draw({ force: true })
+  if (moves()) await new Promise((resolve) => setTimeout(resolve, STRAIGHT_HOLD_MS))
+  const still = onlyRow()
+  if (state.pick === shown && still && keyOf(still) === keyOf(target)) await sendRow(still)
+  if (state.pick) pickTitle.textContent = pickTitleOf(state.pick)
 }
 
 function leavePick() {
@@ -1155,8 +1192,8 @@ const settings = {
   preferences: undefined,
   /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}. */
   appearance: undefined,
-  /** True while the next key press becomes the shortcut. */
-  recording: false,
+  /** The id of the shortcut the next key press becomes; undefined otherwise. */
+  recording: undefined,
   /** Why the last change was refused; shown until the next change. */
   refusal: undefined,
 }
@@ -1175,15 +1212,21 @@ async function change(key, save) {
 
 const flip = (id) => !menuRowsOf(settings.items, settings).find((row) => row.id === id).value
 
+const SAVE_SHORTCUT = { shortcut: saveShortcut, sendShortcut: saveSendShortcut }
+
+/** A click on a shortcut starts taking its new keys, or stops when it was already. */
+function record(id) {
+  settings.recording = settings.recording === id ? undefined : id
+  drawSettings()
+}
+
 const MENU_ACTIONS = {
   animate: () => change('appearance', () => saveAnimate(flip('animate'))),
   dimWhenIdle: () => change('appearance', () => saveDimWhenIdle(flip('dimWhenIdle'))),
   smallCompanion: () => change('appearance', () => saveSmallCompanion(flip('smallCompanion'))),
   startAtLogin: () => change('preferences', () => saveStartAtLogin(flip('startAtLogin'))),
-  shortcut: () => {
-    settings.recording = !settings.recording
-    drawSettings()
-  },
+  shortcut: () => record('shortcut'),
+  sendShortcut: () => record('sendShortcut'),
   hide: () => hideCompanion().catch(sayFailure),
   quit: () => {
     closeMenu()
@@ -1230,21 +1273,22 @@ function drawSettings() {
     if (row.kind === 'action') control.textContent = row.label
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
     if (row.kind !== 'shortcut') continue
-    control.classList.toggle('is-recording', settings.recording)
-    if (settings.recording) {
+    const recording = settings.recording === row.id
+    control.classList.toggle('is-recording', recording)
+    if (recording) {
       control.replaceChildren('Press the new keys')
     } else {
       control.replaceChildren(...keycapsOf(row.value, isMac).map((keycap) => element('kbd', '', keycap)))
     }
   }
   const preferences = settings.preferences
-  const problem = settings.refusal ?? preferences.shortcutProblem ?? preferences.startAtLoginProblem
-  menuProblem.hidden = problem === undefined
-  menuProblem.textContent = problem ?? ''
+  const problems = settings.refusal !== undefined ? [settings.refusal] : [preferences.shortcutProblem, preferences.sendShortcutProblem, preferences.startAtLoginProblem].filter(Boolean)
+  menuProblem.hidden = problems.length === 0
+  menuProblem.textContent = problems.join('. ')
 }
 
 function closeMenu() {
-  settings.recording = false
+  settings.recording = undefined
   menu.hidden = true
   menuButton.setAttribute('aria-expanded', 'false')
 }
@@ -1315,18 +1359,19 @@ document.addEventListener('keydown', (event) => {
   }
   // The open row menu, the delete confirmation and the quit question take Enter and Space on their own buttons.
   if (!rowMenu.hidden || !deleteConfirm.hidden || !quitConfirm.hidden || state.renaming) return
-  if (togglesPick(event, isMac) && !settings.recording) {
+  if (togglesPick(event, isMac) && settings.recording === undefined) {
     event.preventDefault()
     togglePick()
     return
   }
-  if (settings.recording) {
+  if (settings.recording !== undefined) {
     // Every key belongs to the new shortcut until one is complete.
     event.preventDefault()
     const shortcut = shortcutOf(event, isMac)
     if (shortcut === undefined) return
-    settings.recording = false
-    change('preferences', () => saveShortcut(shortcut))
+    const save = SAVE_SHORTCUT[settings.recording]
+    settings.recording = undefined
+    change('preferences', () => save(shortcut))
     return
   }
   const step = KEY_STEPS[event.key]
@@ -1371,7 +1416,7 @@ function opened(from) {
   queryInput.focus()
   queryInput.select()
   draw({ force: true })
-  refresh()
+  return refresh()
 }
 
 card.addEventListener('animationend', (event) => {
@@ -1385,6 +1430,7 @@ document.addEventListener('motion', () => {
 drawPlaces()
 Events.On('inbox', refresh)
 Events.On('panel-shown', (event) => opened(event.data))
+Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 // Quit in the right-click menu: the list opens on the question.
 Events.On('quit-asked', (event) => {
   opened(event.data)

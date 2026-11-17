@@ -15,7 +15,10 @@ type preferences struct {
 	// ShortcutProblem says why the shortcut is not active, such as
 	// another app holding the same keys; empty when it works.
 	ShortcutProblem string `json:"shortcutProblem,omitempty"`
-	StartAtLogin    bool   `json:"startAtLogin"`
+	// SendShortcut is the keys that open the list to send the copied text.
+	SendShortcut        string `json:"sendShortcut"`
+	SendShortcutProblem string `json:"sendShortcutProblem,omitempty"`
+	StartAtLogin        bool   `json:"startAtLogin"`
 	// StartAtLoginProblem says why the login setting could not be read.
 	StartAtLoginProblem string `json:"startAtLoginProblem,omitempty"`
 }
@@ -24,7 +27,12 @@ type preferences struct {
 // the system, which owns it.
 func (s *shell) preferences() preferences {
 	s.mu.Lock()
-	prefs := preferences{Shortcut: s.settings.shortcut(), ShortcutProblem: s.shortcutProblem}
+	prefs := preferences{
+		Shortcut:            s.settings.shortcut(),
+		ShortcutProblem:     s.shortcutProblem,
+		SendShortcut:        s.settings.sendShortcut(),
+		SendShortcutProblem: s.sendShortcutProblem,
+	}
 	s.mu.Unlock()
 	enabled, err := s.login.IsEnabled()
 	if err != nil {
@@ -72,36 +80,100 @@ type shortcuts interface {
 	Unregister(keys string) error
 }
 
-// registerShortcut makes the saved shortcut open the list. A shortcut
-// the system refuses is kept in the settings and its reason shown, so
-// the person can pick another or try the same keys again later.
-func (s *shell) registerShortcut() {
-	s.mu.Lock()
-	keys := s.settings.shortcut()
-	s.mu.Unlock()
-	err := s.shortcuts.Register(keys, s.togglePanel)
-	s.mu.Lock()
-	s.shortcutProblem = ""
-	if err != nil {
-		s.shortcutProblem = fmt.Sprintf("%s is not active: %v", keys, err)
+// shortcutSlot is one global shortcut: where its keys are saved, where
+// the reason it is not active is kept, and what pressing it does.
+type shortcutSlot struct {
+	// does says what the keys do, for a refusal: "opens the list".
+	does    string
+	keys    func(settings) string
+	save    func(saved *settings, keys string)
+	problem *string
+	pressed func()
+}
+
+// shortcutSlots are the shortcut that opens the list and the one that
+// opens it to send the copied text.
+func (s *shell) shortcutSlots() (open, send shortcutSlot) {
+	open = shortcutSlot{
+		does:    "opens the list",
+		keys:    settings.shortcut,
+		save:    func(saved *settings, keys string) { saved.Shortcut = keys },
+		problem: &s.shortcutProblem,
+		pressed: s.togglePanel,
 	}
-	s.mu.Unlock()
+	send = shortcutSlot{
+		does:    "sends the copied text",
+		keys:    settings.sendShortcut,
+		save:    func(saved *settings, keys string) { saved.SendShortcut = keys },
+		problem: &s.sendShortcutProblem,
+		pressed: s.showPanelToSend,
+	}
+	return open, send
+}
+
+// registerShortcuts makes the saved shortcuts work. A shortcut the
+// system refuses is kept in the settings and its reason shown, so the
+// person can pick another or try the same keys again later. Keys saved
+// for both, such as an open shortcut set to the send default before it
+// existed, stay with the open shortcut.
+func (s *shell) registerShortcuts() {
+	open, send := s.shortcutSlots()
+	s.registerShortcut(open, nil)
+	s.registerShortcut(send, &open)
 	s.refreshNative()
 }
 
-// changeShortcut swaps the shortcut for keys. The new keys are taken
+func (s *shell) registerShortcut(slot shortcutSlot, first *shortcutSlot) {
+	s.mu.Lock()
+	keys := slot.keys(s.settings)
+	clash := first != nil && keys == first.keys(s.settings)
+	s.mu.Unlock()
+	var err error
+	if clash {
+		err = fmt.Errorf("it already %s", first.does)
+	} else {
+		err = s.shortcuts.Register(keys, slot.pressed)
+	}
+	s.mu.Lock()
+	*slot.problem = ""
+	if err != nil {
+		*slot.problem = fmt.Sprintf("%s is not active: %v", keys, err)
+	}
+	s.mu.Unlock()
+}
+
+func (s *shell) changeOpenShortcut(keys string) error {
+	open, send := s.shortcutSlots()
+	return s.changeShortcut(open, send, keys)
+}
+
+func (s *shell) changeSendShortcut(keys string) error {
+	open, send := s.shortcutSlots()
+	return s.changeShortcut(send, open, keys)
+}
+
+// changeShortcut swaps slot's keys for keys. The new keys are taken
 // first, so a refused shortcut leaves the old one working. Keys whose
 // last registration was refused are not held, so choosing them again
-// tries again: the problem clears only once the system takes them.
-func (s *shell) changeShortcut(keys string) error {
+// tries again: the problem clears only once the system takes them. The
+// other shortcut's keys are refused: one press cannot do both. Keys the
+// other shortcut lost to this one at start are tried for it again once
+// this one lets them go.
+func (s *shell) changeShortcut(slot, other shortcutSlot, keys string) error {
+	s.changingShortcut.Lock()
+	defer s.changingShortcut.Unlock()
 	s.mu.Lock()
-	old := s.settings.shortcut()
-	oldIsHeld := s.shortcutProblem == ""
+	old := slot.keys(s.settings)
+	oldIsHeld := *slot.problem == ""
+	clash := keys == other.keys(s.settings)
 	s.mu.Unlock()
+	if clash {
+		return fmt.Errorf("%s already %s; choose other keys", keys, other.does)
+	}
 	if keys == old && oldIsHeld {
 		return nil
 	}
-	if err := s.shortcuts.Register(keys, s.togglePanel); err != nil {
+	if err := s.shortcuts.Register(keys, slot.pressed); err != nil {
 		return fmt.Errorf("%s cannot be used: %w", keys, err)
 	}
 	if keys != old && oldIsHeld {
@@ -110,9 +182,18 @@ func (s *shell) changeShortcut(keys string) error {
 		}
 	}
 	s.mu.Lock()
-	s.shortcutProblem = ""
+	*slot.problem = ""
 	s.mu.Unlock()
-	return s.changeSettings(func(saved *settings) { saved.Shortcut = keys })
+	if err := s.changeSettings(func(saved *settings) { slot.save(saved, keys) }); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	freed := keys != old && *other.problem != "" && other.keys(s.settings) == old
+	s.mu.Unlock()
+	if freed {
+		s.registerShortcut(other, &slot)
+	}
+	return nil
 }
 
 func readBody[T any](w http.ResponseWriter, r *http.Request, shape string) (T, bool) {
@@ -138,24 +219,27 @@ func (s *shell) getPreferences(w http.ResponseWriter, _ *http.Request) {
 	s.refreshNative()
 }
 
-// setShortcut answers POST /api/preferences/shortcut.
-func (s *shell) setShortcut(w http.ResponseWriter, r *http.Request) {
-	body, ok := readBody[struct {
-		Shortcut string `json:"shortcut"`
-	}](w, r, "{shortcut}")
-	if !ok {
-		return
+// setShortcut answers POST /api/preferences/shortcut and
+// /api/preferences/send-shortcut, each with its own change.
+func (s *shell) setShortcut(change func(keys string) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, ok := readBody[struct {
+			Shortcut string `json:"shortcut"`
+		}](w, r, "{shortcut}")
+		if !ok {
+			return
+		}
+		if body.Shortcut == "" {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: "send {shortcut}"})
+			return
+		}
+		if err := change(body.Shortcut); err != nil {
+			writeJSON(w, http.StatusConflict, apiError{Error: err.Error()})
+			return
+		}
+		s.preferencesChanged()
+		writeJSON(w, http.StatusOK, s.preferences())
 	}
-	if body.Shortcut == "" {
-		writeJSON(w, http.StatusBadRequest, apiError{Error: "send {shortcut}"})
-		return
-	}
-	if err := s.changeShortcut(body.Shortcut); err != nil {
-		writeJSON(w, http.StatusConflict, apiError{Error: err.Error()})
-		return
-	}
-	s.preferencesChanged()
-	writeJSON(w, http.StatusOK, s.preferences())
 }
 
 // setStartAtLogin answers POST /api/preferences/start-at-login.

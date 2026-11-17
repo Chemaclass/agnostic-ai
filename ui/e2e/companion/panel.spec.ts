@@ -1016,3 +1016,83 @@ test('a search in pick mode shows a matching archived chat dimmed, and it cannot
   expect(calls).not.toContain('/api/send')
   expect(calls).not.toContain('/api/open')
 })
+
+/** Stands in for the send shortcut, pressed in another app. */
+async function pressSendShortcut(page: Page) {
+  expect((await page.request.post('/dev/send-shortcut')).ok()).toBe(true)
+}
+
+test('the send shortcut sends straight to the one row the text can be typed into, then hides the list', async ({ page }) => {
+  await openPanel(page, 'one-terminal')
+  const copied = await (await page.request.get('/api/clipboard')).json()
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+
+  await pressSendShortcut(page)
+
+  expect((await sent).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', hash: copied.hash })
+  await expect(pickBanner(page)).toBeHidden()
+  const calls = await calledPaths(page)
+  expect(calls).toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/open')
+  expect(calls).not.toContain('/api/panel/show')
+})
+
+test('the send shortcut sends a copied web page straight to the one row as Markdown', async ({ page }) => {
+  await openPanel(page, 'one-terminal-markdown')
+  await page.evaluate(() => {
+    const seen = { named: false }
+    ;(window as unknown as { seen: typeof seen }).seen = seen
+    new MutationObserver(() => {
+      if (document.getElementById('pick-title')?.textContent === 'Sending Markdown to Plan the sync dry run') seen.named = true
+    }).observe(document.getElementById('card')!, { childList: true, subtree: true, characterData: true })
+  })
+  const copied = await (await page.request.get('/api/clipboard')).json()
+  expect(copied.format).toBe('markdown')
+  const sent = page.waitForResponse((response) => response.url().endsWith('/api/send'))
+
+  await pressSendShortcut(page)
+
+  const answer = await sent
+  expect(answer.request().postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', hash: copied.hash })
+  expect((await answer.json()).message).toBe('Typed the Markdown into the Ghostty tab that runs it. Press Enter there to send it.')
+  await expect(pickBanner(page)).toBeHidden()
+  expect(await page.evaluate(() => (window as unknown as { seen: { named: boolean } }).seen.named)).toBe(true)
+})
+
+test('the send shortcut with no row to type into opens pick mode and sends nothing', async ({ page }) => {
+  await openPanel(page)
+  await page.getByLabel('Search every conversation').fill('login')
+  await expect(page.getByRole('option')).toHaveCount(1)
+
+  await pressSendShortcut(page)
+
+  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+  await expect(page.getByLabel('Search every conversation')).toHaveValue('')
+  await expect(selected(page)).toContainText('Approve the database migration')
+  await page.waitForTimeout(600)
+  expect(await calledPaths(page)).not.toContain('/api/send')
+})
+
+test('the send shortcut with several rows to type into opens pick mode on the first and waits for Enter', async ({ page }) => {
+  await openPanel(page, 'two-terminals')
+
+  await pressSendShortcut(page)
+
+  await expect(pickBanner(page)).toContainText('Send 14 words to…')
+  await expect(selected(page)).toContainText('Refactor the search index')
+  await page.waitForTimeout(600)
+  expect(await calledPaths(page)).not.toContain('/api/send')
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await row(page, 'Plan the sync dry run').click()
+  expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('the send shortcut with nothing copied says so and opens no pick mode', async ({ page }) => {
+  await openPanel(page, 'empty-clipboard')
+
+  await pressSendShortcut(page)
+
+  await expect(page.locator('#toast')).toHaveText('Nothing to send: copy some text first.')
+  await expect(pickBanner(page)).toBeHidden()
+  expect(await calledPaths(page)).not.toContain('/api/send')
+})

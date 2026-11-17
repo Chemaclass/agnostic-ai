@@ -72,9 +72,10 @@ export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')
 
-/** The settings menu's values: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
+/** The settings menu's values: {shortcut, shortcutProblem?, sendShortcut, sendShortcutProblem?, startAtLogin, startAtLoginProblem?}. */
 export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
+export const saveSendShortcut = (shortcut) => post('/api/preferences/send-shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
 
 /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}: presence is shown, hidden or faded. */

@@ -25,6 +25,7 @@
   <header>
     <h1>Companion preview</h1>
     <label>Fixture <select id="fixture"></select></label>
+    <button type="button" id="send-shortcut" title="Stands in for the send shortcut pressed in another app">Press the send shortcut</button>
     <p>The real pages with fixture data. Calls stay in this process. Native focus, window placement and the shortcut need the app: <code>make companion-run</code>.</p>
   </header>
   <div class="stage">
@@ -40,6 +41,7 @@
     select.addEventListener('change', () => {
       fetch('/dev/fixture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: select.value }) })
     })
+    document.getElementById('send-shortcut').addEventListener('click', () => fetch('/dev/send-shortcut', { method: 'POST' }))
     // Asked every second rather than streamed: each frame already holds one stream,
     // and a browser keeps only six connections open to one host.
     async function showCalls() {

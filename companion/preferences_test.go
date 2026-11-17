@@ -49,13 +49,13 @@ func shellWith(t *testing.T, keys *fakeShortcuts) *shell {
 func TestChangeShortcut_TriesTheSameKeysAgainAfterTheyWereRefused(t *testing.T) {
 	keys := &fakeShortcuts{refused: map[string]bool{defaultShortcut: true}}
 	s := shellWith(t, keys)
-	s.registerShortcut()
+	s.registerShortcuts()
 	if s.shortcutProblem != "Ctrl+Alt+Space is not active: another app holds these keys" {
 		t.Fatalf("problem after a refused start = %q", s.shortcutProblem)
 	}
 
 	// The other app still holds them: choosing them again must not report success.
-	err := s.changeShortcut(defaultShortcut)
+	err := s.changeOpenShortcut(defaultShortcut)
 	if err == nil || err.Error() != "Ctrl+Alt+Space cannot be used: another app holds these keys" {
 		t.Errorf("choosing refused keys again: %v", err)
 	}
@@ -65,13 +65,13 @@ func TestChangeShortcut_TriesTheSameKeysAgainAfterTheyWereRefused(t *testing.T) 
 
 	// The other app let go: the same keys now register and the problem clears.
 	keys.refused = nil
-	if err := s.changeShortcut(defaultShortcut); err != nil {
+	if err := s.changeOpenShortcut(defaultShortcut); err != nil {
 		t.Fatal(err)
 	}
 	if s.shortcutProblem != "" || !keys.held[defaultShortcut] {
 		t.Errorf("problem %q, held %v", s.shortcutProblem, keys.held)
 	}
-	if got := strings.Join(keys.calls, "; "); got != "register Ctrl+Alt+Space; register Ctrl+Alt+Space; register Ctrl+Alt+Space" {
+	if got := strings.Join(keys.calls, "; "); got != "register Ctrl+Alt+Space; register Ctrl+Alt+V; register Ctrl+Alt+Space; register Ctrl+Alt+Space" {
 		t.Errorf("calls = %s", got)
 	}
 }
@@ -79,16 +79,16 @@ func TestChangeShortcut_TriesTheSameKeysAgainAfterTheyWereRefused(t *testing.T) 
 func TestChangeShortcut_KeepsTheOldKeysWhenTheNewOnesAreRefused(t *testing.T) {
 	keys := &fakeShortcuts{refused: map[string]bool{"Cmd+Shift+K": true}}
 	s := shellWith(t, keys)
-	s.registerShortcut()
+	s.registerShortcuts()
 
-	if err := s.changeShortcut("Cmd+Shift+K"); err == nil {
+	if err := s.changeOpenShortcut("Cmd+Shift+K"); err == nil {
 		t.Fatal("refused keys were accepted")
 	}
 	if !keys.held[defaultShortcut] || s.settings.shortcut() != defaultShortcut {
 		t.Errorf("held %v, saved %q; want the old shortcut still working", keys.held, s.settings.shortcut())
 	}
 
-	if err := s.changeShortcut("Ctrl+Alt+J"); err != nil {
+	if err := s.changeOpenShortcut("Ctrl+Alt+J"); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := readSettings(s.settingsPath)
@@ -128,5 +128,105 @@ func TestChangeSettings_OverlappingChangesAllReachTheFile(t *testing.T) {
 	}
 	if saved.Bubble == nil || saved.Shortcut == "" || *saved.Bubble != *s.settings.Bubble || saved.Shortcut != s.settings.Shortcut {
 		t.Errorf("the file holds %+v, the companion %+v: the last change did not land last", saved, s.settings)
+	}
+}
+
+func TestRegisterShortcuts_TakesTheOpenAndTheSendKeys(t *testing.T) {
+	keys := &fakeShortcuts{}
+	s := shellWith(t, keys)
+
+	s.registerShortcuts()
+
+	if !keys.held[defaultShortcut] || !keys.held[defaultSendShortcut] {
+		t.Errorf("held %v; want both defaults", keys.held)
+	}
+	prefs := s.preferences()
+	if prefs.SendShortcut != "Ctrl+Alt+V" || prefs.SendShortcutProblem != "" || prefs.ShortcutProblem != "" {
+		t.Errorf("preferences = %+v", prefs)
+	}
+}
+
+func TestRegisterShortcuts_ARefusedSendShortcutSaysWhyAndLeavesTheOpenOne(t *testing.T) {
+	keys := &fakeShortcuts{refused: map[string]bool{defaultSendShortcut: true}}
+	s := shellWith(t, keys)
+
+	s.registerShortcuts()
+
+	prefs := s.preferences()
+	if prefs.SendShortcutProblem != "Ctrl+Alt+V is not active: another app holds these keys" {
+		t.Errorf("send problem = %q", prefs.SendShortcutProblem)
+	}
+	if prefs.ShortcutProblem != "" || !keys.held[defaultShortcut] {
+		t.Errorf("the open shortcut suffered: problem %q, held %v", prefs.ShortcutProblem, keys.held)
+	}
+}
+
+func TestRegisterShortcuts_KeysSavedForBothStayWithTheOpenShortcut(t *testing.T) {
+	keys := &fakeShortcuts{}
+	s := shellWith(t, keys)
+	s.settings.Shortcut = defaultSendShortcut
+
+	s.registerShortcuts()
+
+	if got := strings.Join(keys.calls, "; "); got != "register Ctrl+Alt+V" {
+		t.Errorf("calls = %s; want the keys taken once", got)
+	}
+	if prefs := s.preferences(); prefs.SendShortcutProblem != "Ctrl+Alt+V is not active: it already opens the list" || prefs.ShortcutProblem != "" {
+		t.Errorf("preferences = %+v", prefs)
+	}
+}
+
+func TestChangeShortcut_GivesKeysItLetsGoToTheShortcutThatLostThem(t *testing.T) {
+	keys := &fakeShortcuts{}
+	s := shellWith(t, keys)
+	s.settings.Shortcut = defaultSendShortcut
+	s.registerShortcuts()
+
+	if err := s.changeOpenShortcut("Ctrl+Alt+J"); err != nil {
+		t.Fatal(err)
+	}
+
+	if prefs := s.preferences(); prefs.SendShortcutProblem != "" || prefs.ShortcutProblem != "" {
+		t.Errorf("preferences = %+v", prefs)
+	}
+	if !keys.held["Ctrl+Alt+J"] || !keys.held[defaultSendShortcut] {
+		t.Errorf("held %v; want the new open keys and the send keys", keys.held)
+	}
+}
+
+func TestChangeShortcut_RefusesTheKeysOfTheOtherShortcut(t *testing.T) {
+	keys := &fakeShortcuts{}
+	s := shellWith(t, keys)
+	s.registerShortcuts()
+	keys.calls = nil
+
+	err := s.changeOpenShortcut(defaultSendShortcut)
+	if err == nil || err.Error() != "Ctrl+Alt+V already sends the copied text; choose other keys" {
+		t.Errorf("open set to the send keys: %v", err)
+	}
+	err = s.changeSendShortcut(defaultShortcut)
+	if err == nil || err.Error() != "Ctrl+Alt+Space already opens the list; choose other keys" {
+		t.Errorf("send set to the open keys: %v", err)
+	}
+	if len(keys.calls) != 0 || s.settings.Shortcut != "" || s.settings.SendShortcut != "" {
+		t.Errorf("calls %v, settings %+v; want nothing changed", keys.calls, s.settings)
+	}
+}
+
+func TestChangeSendShortcut_SavesTheNewKeysAndReleasesTheOld(t *testing.T) {
+	keys := &fakeShortcuts{}
+	s := shellWith(t, keys)
+	s.registerShortcuts()
+
+	if err := s.changeSendShortcut("Cmd+Shift+B"); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.SendShortcut != "Cmd+Shift+B" || saved.Shortcut != "" || keys.held[defaultSendShortcut] || !keys.held["Cmd+Shift+B"] || !keys.held[defaultShortcut] {
+		t.Errorf("saved %+v, held %v", saved, keys.held)
 	}
 }

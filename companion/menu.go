@@ -64,14 +64,15 @@ func (s *shell) menuActions() map[string]func(on bool) {
 				log.Print(err)
 			}
 		},
-		"shortcut": func(bool) { s.openSettings() },
-		"hide":     func(bool) { s.hide() },
-		"quit":     func(bool) { s.askQuit() },
+		"shortcut":     func(bool) { s.openSettings() },
+		"sendShortcut": func(bool) { s.openSettings() },
+		"hide":         func(bool) { s.hide() },
+		"quit":         func(bool) { s.askQuit() },
 	}
 }
 
 // openSettings brings a faded companion back and opens the list on its menu,
-// where the shortcut can be changed.
+// where the shortcuts can be changed.
 func (s *shell) openSettings() {
 	s.comeBackOpenedOn(eventSettingsShown)
 }
@@ -100,13 +101,14 @@ func (s *shell) bubbleMenu() error {
 }
 
 // shownIDs are the items refreshNative keeps current; the list must hold each.
-var shownIDs = []string{"animate", "dimWhenIdle", "smallCompanion", "startAtLogin", "shortcut", "hide"}
+var shownIDs = []string{"animate", "dimWhenIdle", "smallCompanion", "startAtLogin", "shortcut", "sendShortcut", "hide"}
 
 // fillBubbleMenu adds the shared list to the circle's menu, with a
 // separator before the actions, and shows the values in effect.
 func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	actions := s.menuActions()
 	native := map[string]*application.MenuItem{}
+	labels := map[string]string{}
 	addSettingsHeader(menu)
 	for i, item := range items {
 		act := actions[item.ID]
@@ -132,6 +134,7 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 		// the menu after, so a refused one shows the old value again.
 		added.OnClick(func(clicked *application.Context) { act(clicked.IsChecked()) })
 		native[item.ID] = added
+		labels[item.ID] = item.Label
 	}
 	for _, id := range shownIDs {
 		if native[id] == nil {
@@ -140,7 +143,7 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	}
 	s.nativeMu.Lock()
 	s.native = native
-	s.hideBase = native["hide"].Label()
+	s.labels = labels
 	s.nativeMu.Unlock()
 	s.refreshNative()
 	return nil
@@ -160,8 +163,10 @@ func (s *shell) refreshNative() {
 	s.native["dimWhenIdle"].SetChecked(looks.DimWhenIdle)
 	s.native["smallCompanion"].SetChecked(looks.SmallCompanion)
 	s.native["startAtLogin"].SetChecked(prefs.StartAtLogin)
-	s.native["shortcut"].SetLabel(shortcutLabel(prefs.Shortcut, runtime.GOOS == "darwin"))
-	s.native["hide"].SetLabel(hideLabel(s.hideBase, prefs))
+	isMac := runtime.GOOS == "darwin"
+	s.native["shortcut"].SetLabel(shortcutLabel(s.labels["shortcut"], prefs.Shortcut, isMac))
+	s.native["sendShortcut"].SetLabel(shortcutLabel(s.labels["sendShortcut"], prefs.SendShortcut, isMac))
+	s.native["hide"].SetLabel(hideLabel(s.labels["hide"], prefs))
 }
 
 // macKeycaps is how each part of a shortcut reads on a Mac; model.js
@@ -183,9 +188,9 @@ func keysOf(shortcut string, isMac bool) string {
 	return strings.Join(parts, "")
 }
 
-// shortcutLabel names the shortcut item with its keys.
-func shortcutLabel(shortcut string, isMac bool) string {
-	return "Open from anywhere: " + keysOf(shortcut, isMac) + "…"
+// shortcutLabel names a shortcut item with its keys.
+func shortcutLabel(base, shortcut string, isMac bool) string {
+	return base + ": " + keysOf(shortcut, isMac) + "…"
 }
 
 // hideLabel names the command that brings the companion back while the
