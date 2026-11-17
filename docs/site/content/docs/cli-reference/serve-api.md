@@ -131,6 +131,7 @@ Conversation fields:
   - A `codex exec` run is linked to its Claude Code session only from the running `codex` process: the process holds the run's writer lock, and its environment holds `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CHILD_SESSION=1`, which Claude Code's Bash tool sets. The server reads the environment the kernel keeps for the process (`kern.procargs2` on macOS, `/proc/<pid>/environ` on Linux), keeps only those two variables, and links nothing when either is missing or set twice. Every scan reads the link again; nothing is saved, so a run that ended is listed nowhere. Titles, folders and times are never used to guess. When process environments cannot be read, the Codex tool's `note` says so.
   - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
   - `workingSubagents` stays as it was and does not count `codex exec` runs.
+- `unread` is `true` only on a `dormant` row whose latest write you have not seen, such as a terminal session that closed after its reply. It does not count toward `needsYou`. The row cannot be deleted until you read it.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.
@@ -141,7 +142,7 @@ Conversation fields:
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
   - `focus` switches to the Terminal or Ghostty tab that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
-  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then names the app, such as `Open in Ghostty`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
+  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. For a terminal session `label` says it resumes, such as `Resume in Ghostty` or `Resume in Terminal`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 
 Codex and Cursor stores are read with the `sqlite3` command.
@@ -152,11 +153,22 @@ Each row has a `state`, the first of these that holds:
 2. `working`: open, and its tool says the agent is busy.
 3. `dormant`: [archived in its app](@/docs/cli-reference/companion.md#chats-archived-in-their-app).
 4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
-5. `unread`: written after you last saw it.
-6. `active`: open, or written within 24 hours when the server cannot tell whether it is closed.
-7. `dormant`: closed, or quiet for over 24 hours.
+5. `dormant`: a terminal session no process holds, even with a reply you have not read. `unread` is then `true` on the row.
+6. `unread`: written after you last saw it.
+7. `active`: open; a desktop, chat, Cowork or cloud conversation of any age; or written within 24 hours when the server cannot tell whether it is closed.
+8. `dormant`: otherwise.
 
-The server knows a chat is closed for local Claude Code and Codex sessions started in a terminal, and for `cursor-agent` chats, on macOS and Linux: no process holds them. Such a chat is `dormant` as soon as you have seen its last write. Cursor editor chats, editor and desktop app sessions, cloud sessions, and every chat on Windows keep the 24 hours. So do Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps` or `lsof` failed.
+The server knows a terminal session is closed for local Claude Code and Codex sessions started in a terminal, and for `cursor-agent` chats, on macOS and Linux: a full read of `ps` or `lsof` finds no process that holds them, whatever their age. A session file Claude Code left behind after a crash, a kill or a reboot does not count when its process is gone or its pid now belongs to another process. A session stays open while any process holds it: in a detached `tmux`, `screen` or `zellij` session, stopped with Ctrl+Z, or after its tab closed. With two holders it closes when the last one ends.
+
+A process that ends shows within a minute: the server reads processes again at most once a minute for a list that did not change.
+
+Desktop app sessions, Claude chats, Cowork tasks, ChatGPT chats and cloud sessions stay `active` until you archive them here or in their app. Quitting the app archives none of them. A cloud session whose status says it works or waits, and that wrote nothing for 24 hours, no longer counts as working or waiting; it is `active` or `unread`, never archived by its age.
+
+Editor panels and Claude Code background jobs keep the 24 hours: nothing reliable says when they close. So does every chat whose process read failed or cannot run: every chat on Windows, Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps`, `lsof` or a session file could not be read. Such a failure never shows a session closed, so an unread reply there stays `unread`.
+
+Process ids are read on this computer only. A conversation store shared with a container, WSL or another user account can name a process this computer cannot see, so that session may show closed while it runs elsewhere. The server does not detect another process namespace.
+
+After you resume a closed session by hand, the reply it had while closed does not count as new: the server keeps the time of the last write it read while the session was closed, without marking it seen. A later reply counts. The server can only keep what it read: a session closed and resumed between two reads, within the same minute, shows its old reply as new.
 
 The `activity` of a loaded local Codex thread is `working` during an unfinished turn. It is inferred to be `waiting` after five minutes without a rollout write, which makes the state `blocked` until you see it. A long-running command can also meet that threshold. Such a row carries `quietSince`, shown as "No activity for 7m".
 
@@ -263,7 +275,8 @@ Body: `{tool, id}` with `Content-Type: application/json`, from the server's own 
 
 Deletes one conversation under Archived from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
 
-- Its `state` is `completed` or `dormant`, read from a fresh scan. A `dormant` row written after you last looked at the list is `unread` instead, so it is refused.
+- Its `state` is `completed` or `dormant`, read from a fresh scan.
+- You have read its latest reply. A terminal session that closed after a reply you did not read is `dormant` with `unread`, and it is refused until you open it or mark it as read.
 - No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.
 - None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
 - Its session id names exactly one transcript.
@@ -295,7 +308,7 @@ Replies:
 - 200 `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file.
 - 400 for an unknown tool or any other field.
 - 404 for a conversation outside the list, or one you hid.
-- 409 `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it) or `changed` (a file was written at or after the moment it was archived).
+- 409 `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it), `unread` (its latest reply was not read) or `changed` (a file was written at or after the moment it was archived).
 - 422 `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link.
 - 500 `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept.
 
