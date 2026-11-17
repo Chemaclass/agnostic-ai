@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Side conversations
 
-Use the built-in `side-conversation` skill to follow a side idea in its own conversation without derailing the current task. The agent writes a short brief and starts a new conversation in a new terminal tab, in the same folder. You talk to the new conversation; the current one goes on.
+The built-in `side-conversation` skill follows a side idea in its own conversation without derailing the current task. The agent writes a brief and opens a new conversation in a new terminal tab, same folder. The current one goes on.
 
 ## Enable the skill
 
@@ -20,9 +20,9 @@ requires: ">=0.94.0"
 builtins: [side-conversation]
 ```
 
-It is off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
-
-The skill runs [`agnostic-ai conversations start`](@/docs/cli-reference/conversations.md#conversations-start), so `agnostic-ai` must be on `PATH`. It works from Claude Code, Codex and Cursor terminal agent (`cursor-agent`) sessions on macOS; the command page lists [where it runs](@/docs/cli-reference/conversations.md#where-it-runs).
+- Off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
+- It runs [`agnostic-ai conversations start`](@/docs/cli-reference/conversations.md#conversations-start), so `agnostic-ai` must be on `PATH`.
+- It works from Claude Code, Codex and Cursor terminal agent (`cursor-agent`) sessions on macOS; see [where it runs](@/docs/cli-reference/conversations.md#where-it-runs).
 
 ## Start one
 
@@ -38,11 +38,10 @@ Branch main. The change is in internal/parser/.
 The draft, and any change you were unsure about.
 ```
 
-The first line is the goal and becomes the new conversation's title. The brief stays under 40 lines and holds no secrets. To start it in another tool, name it: "spin this off in Codex".
-
-The agent says in one line what started, then goes on with its own task. It does not wait for the new conversation or read it.
-
-The new conversation shows under this one in the [Conversations](@/docs/cli-reference/serve.md) page and the [companion](@/docs/cli-reference/companion.md), while both sit in the same group. The [link line](@/docs/cli-reference/conversations.md#the-link-line) lists when it is a normal row instead.
+- The first line is the goal and the new conversation's title. The brief stays under 40 lines and holds no secrets.
+- To use another tool, name it: "spin this off in Codex".
+- The agent says in one line what started, then continues. It does not wait for or read the new conversation.
+- The new conversation shows under this one in the [Conversations](@/docs/cli-reference/serve.md) page and the [companion](@/docs/cli-reference/companion.md) while both sit in the same group. The [link line](@/docs/cli-reference/conversations.md#the-link-line) says when it is a normal row instead.
 
 ## What it never does
 
@@ -66,4 +65,4 @@ agnostic-ai explain builtin:side-conversation
 agnostic-ai why .claude/skills/side-conversation/SKILL.md
 ```
 
-To replace the built-in, create your own project skill named `side-conversation`; it wins over the built-in. A global copy can still win on some tools; see [shared names](@/docs/global-configuration-reference.md#global-shared-names).
+To replace the built-in, add a project skill named `side-conversation`; it wins. A global copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).

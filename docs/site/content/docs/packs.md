@@ -47,7 +47,12 @@ agnostic-ai packs remove superpowers
 
 `update` installs each Git pack at the lockfile's `sha`, even if its tag or branch has moved. It fails and leaves the lockfile unchanged when the remote no longer has that commit. `update --latest` fetches the newest commit of each pack's `ref`, prints the old and new commit, and records the new one. A local folder pack is copied again as it is now.
 
+<details>
+<summary>What update refuses to install</summary>
+
 The lockfile comes from the repository, so `update` checks every entry before it changes any file. It stops on a pack name that starts with a dot or is not a single folder name, and on a Git source other than `https://`, `ssh://`, `git@host:path`, or a host path such as `github.com/foo/bar`. It skips a pack from a local folder outside the project and prints the `packs add` command that refreshes it; `packs update <name>` stops with that command instead. `packs add` refuses the same names and Git sources.
+
+</details>
 
 <details>
 <summary>Share a pack, choose its source, and inspect its lockfile</summary>

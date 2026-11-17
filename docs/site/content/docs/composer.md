@@ -10,9 +10,7 @@ group = "Workflows"
 
 # Use Composer with Claude Code and Codex
 
-[Composer](https://getcomposer.dev/) runs sessions through Claude Code or Codex. Select both targets in agnostic-ai to share project instructions, rules, and skills. Composer passes the project directory to the provider, which loads its native files.
-
-This guide was checked against the [Composer CLI 0.1.12 source](https://github.com/atemaguer/composer/tree/cli-v0.1.12). Release downloads were unavailable, so packaged runtime behavior and signed-in sessions were not tested.
+[Composer](https://getcomposer.dev/) runs sessions through Claude Code or Codex. Select both targets to share instructions, rules, and skills; the provider loads its native files from the project directory.
 
 ## Prepare the project
 
@@ -33,7 +31,7 @@ agnostic-ai import claude codex --dry-run --diff
 agnostic-ai import claude codex
 ```
 
-Compare the imported `.agnostic-ai/` sources with the original files and resolve differences before syncing. Skip this step in a fresh project. See [how imports from several tools merge instructions](@/docs/migration.md#2-review).
+Compare the imported sources with the originals and resolve differences before syncing. Skip in a fresh project. See [how imports merge](@/docs/migration.md#2-review).
 
 ## Write the shared sources
 
@@ -95,9 +93,7 @@ agnostic-ai sync --check
 | Claude Code | `CLAUDE.md`, `.claude/rules/commit-subjects.md`, `.claude/skills/change-summary/SKILL.md` |
 | Codex | `AGENTS.md`, `.agents/skills/change-summary/SKILL.md` |
 
-The note appears in both `CLAUDE.md` and `AGENTS.md`. Codex gets the rule inside `AGENTS.md`.
-
-Edit `.agnostic-ai/` and sync for later changes. Home instructions and skills use [global configuration](@/docs/global-configuration.md). Additional settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
+The note is in both `CLAUDE.md` and `AGENTS.md`; Codex gets the rule inside `AGENTS.md`. Later: edit `.agnostic-ai/` and sync. Home-level files use [global configuration](@/docs/global-configuration.md). Settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
 
 ## Check each provider in Composer
 
@@ -108,8 +104,15 @@ composer run --provider claude --permission-mode default 'Use the change-summary
 composer run --provider codex --permission-mode default 'Use the change-summary skill for this supplied change: a broken documentation link was fixed. Read the project instructions first. Do not edit files.'
 ```
 
-Each answer should have a `fix:` or `docs:` subject, the skill's three steps, and inspected filenames that match the generated files above. `sync --check` proves the files match their sources; this session check proves the installed provider loads and follows them.
+Each answer should have a `fix:` or `docs:` subject, the skill's three steps, and inspected filenames that match the generated files above. `sync --check` proves the files match their sources; this check proves the provider loads and follows them. Keep `--permission-mode default` (see the details below).
 
-Composer's [run command](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/apps/cli/src/index.ts#L552) defaults to Full access in 0.1.12, and its permission mode can override provider configuration, so keep `--permission-mode default`. A noninteractive run stops when approval is required; to answer approvals, use `composer tui` and review the provider and permission mode there.
+<details>
+<summary>Composer 0.1.12 behavior and what was checked</summary>
 
-Composer's [skill catalog](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/packages/composer-runtime/src/capabilities.ts#L24) scans global provider skill folders and the Codex plugin cache, not project skill folders, and [selecting a skill in the TUI](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/apps/cli/src/tui/components/dialogs/DialogActions.tsx#L87) shows a notice instead of running it. Ask the provider to use the project skill, as above.
+- Checked against the [Composer CLI 0.1.12 source](https://github.com/atemaguer/composer/tree/cli-v0.1.12). Release downloads were unavailable, so packaged runtime behavior and signed-in sessions were not tested.
+- Composer's [run command](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/apps/cli/src/index.ts#L552) defaults to Full access in 0.1.12, and its permission mode can override provider configuration. Keep `--permission-mode default`.
+- A noninteractive run stops when approval is required. To answer approvals, use `composer tui` and review the provider and permission mode there.
+- Composer's [skill catalog](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/packages/composer-runtime/src/capabilities.ts#L24) scans global provider skill folders and the Codex plugin cache, not project skill folders.
+- [Selecting a skill in the TUI](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/apps/cli/src/tui/components/dialogs/DialogActions.tsx#L87) shows a notice instead of running it. Ask the provider to use the project skill, as above.
+
+</details>

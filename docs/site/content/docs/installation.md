@@ -13,13 +13,11 @@ next_label = "Set up your project"
 
 # Installation
 
-Install the `agnostic-ai` command on macOS, Linux, or Windows. It does not install Claude Code, Codex, or any other coding tool.
-
-npm needs Node 18 or newer. The other methods install a ready-made binary that needs neither Node nor Go. On macOS, you need 13 Ventura or later.
+Install the `agnostic-ai` command. It does not install any coding tool. npm needs Node 18 or newer; other methods ship a binary that needs neither Node nor Go. macOS needs 13 Ventura or later.
 
 {{ <install_picker /> }}
 
-The binary includes the browser interface (`agnostic-ai ui`). See [the view reference](@/docs/cli-reference/serve.md#view).
+The binary includes the browser interface, `agnostic-ai ui` ([reference](@/docs/cli-reference/serve.md#view)).
 
 ## Verify the install
 
@@ -28,9 +26,9 @@ agnostic-ai --version
 # agnostic-ai version X.Y.Z
 ```
 
-If the command is not found, open a new terminal or add the install directory to `PATH`. To prove the binary came from this repository, see [Verify a release](@/docs/verify-a-release.md).
+If the command is not found, open a new terminal or add the install directory to `PATH`. To prove where the binary came from, see [Verify a release](@/docs/verify-a-release.md).
 
-Next, [set up your project](@/docs/getting-started.md). If it already has `CLAUDE.md`, `AGENTS.md`, or other tool files, also read [Import an existing setup](@/docs/migration.md).
+Next: [set up your project](@/docs/getting-started.md), or [import](@/docs/migration.md) existing `CLAUDE.md`, `AGENTS.md`, or other tool files.
 
 <details>
 <summary>Upgrade agnostic-ai or pin a project version</summary>
@@ -95,20 +93,23 @@ Then run `pnpm exec agnostic-ai upgrade --requires` (or your manager's equivalen
 <details>
 <summary>npm reports a missing platform package</summary>
 
-npm skipped the optional dependency that holds the binary. This happens with `--omit=optional`, and with a lockfile copied from another platform. Reinstall with the optional dependencies included:
+npm skipped the optional dependency that holds the binary (`--omit=optional`, or a lockfile from another platform). Reinstall with optional dependencies:
 
 ```bash
 npm install -g agnostic-ai --force --include=optional
 ```
 
-Drop `-g` for a project install. `--include=optional` also overrides an `omit=optional` left in your npm config. The CLI's error message names the right form for your install.
+Drop `-g` for a project install. `--include=optional` overrides an `omit=optional` in your npm config. The CLI's error names the right form.
 
 </details>
 
 <details>
 <summary>How the npm package works</summary>
 
-[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It is a wrapper with six optional platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). npm obtains the wrapper and matching platform package from its registry or cache. No install script makes a separate binary download, so `--ignore-scripts` does not block installation. Offline installs need both packages in the cache or mirror.
+- [`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It wraps six optional platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization.
+- npm installs only the one for your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64).
+- No install script downloads a binary, so `--ignore-scripts` does not block installation.
+- Offline installs need both packages in the cache or mirror.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
 

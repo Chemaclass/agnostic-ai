@@ -15,7 +15,7 @@ Run `doctor` from the directory that holds `agnostic-ai.yaml` first:
 agnostic-ai doctor
 ```
 
-Follow its final **Next step**. Doctor reads files without changing them; [`doctor --fix`](@/docs/cli-reference/doctor.md#doctor) applies repairs. Rerun `doctor` afterward. Use the symptoms below if you need more detail or `doctor` cannot start.
+Follow its final **Next step**. Doctor changes nothing; [`doctor --fix`](@/docs/cli-reference/doctor.md#doctor) repairs. Rerun it afterward. If it cannot start, use the table.
 
 | Symptom | Next step |
 |---|---|
@@ -37,12 +37,15 @@ Follow its final **Next step**. Doctor reads files without changing them; [`doct
 
 ## Inspect the project
 
-After `doctor`, use the command its finding names:
-
-- [`validate`](@/docs/cli-reference/check.md#validate) checks spec formats, [`lint`](@/docs/cli-reference/check.md#lint) spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) generated files.
-- [`status`](@/docs/cli-reference/check.md#status) summarizes the project.
-- [why](@/docs/cli-reference/inspect.md#why) traces a generated file to its source, and [graph](@/docs/cli-reference/inspect.md#graph) shows which tools receive a spec.
-- [`explain`](@/docs/cli-reference/inspect.md#explain) explains a diagnostic code, such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`.
+| Command | Use it to |
+|---|---|
+| [`validate`](@/docs/cli-reference/check.md#validate) | Check spec formats |
+| [`lint`](@/docs/cli-reference/check.md#lint) | Check spec quality |
+| [`sync --check`](@/docs/cli-reference/sync.md#sync) | Check generated files |
+| [`status`](@/docs/cli-reference/check.md#status) | Summarize the project |
+| [`why`](@/docs/cli-reference/inspect.md#why) | Trace a generated file to its source |
+| [`graph`](@/docs/cli-reference/inspect.md#graph) | See which tools receive a spec |
+| [`explain`](@/docs/cli-reference/inspect.md#explain) | Explain a code, such as `explain AAI-003` or `explain LINT011` |
 
 <details>
 <summary>Fix directory-specific rule problems</summary>
@@ -67,9 +70,11 @@ After `doctor`, use the command its finding names:
 
 ## Broken skill references
 
-A skill with a broken relative link still syncs. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
+A skill with a broken relative link still syncs. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with affected targets on one line.
 
-A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. Not every tool resolves links from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project never counts.
+- A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even if the skill folder lacks the file.
+- Not every tool resolves from the project root, so prefer a path the agent can open from where it runs.
+- A link that leaves the project never counts.
 
 | Cause | Fix |
 |---|---|
@@ -83,20 +88,19 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 
 ## A synced skill is disabled via skillOverrides
 
-A message such as `Skill "deploy" is disabled via skillOverrides` means your Claude Code settings switched the skill off, usually from the `/skills` menu. Sync still writes it. Run `agnostic-ai doctor` to list every synced skill your Claude settings turn off, file by file, then re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/doctor.md#claude-skill-overrides).
+`Skill "deploy" is disabled via skillOverrides` means your Claude Code settings turned the skill off, usually in the `/skills` menu. Sync still writes it. `agnostic-ai doctor` lists every such skill. Re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/doctor.md#claude-skill-overrides).
 
 ## Hook timeouts
 
-A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool. It does not say who installed the hook or why its command was slow.
+`UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool. It does not say who installed the hook or why it was slow.
 
-In Claude Code, open `/hooks` and find the event and command named in the message. Check project settings, user settings, and enabled plugins. A command containing `${CLAUDE_PLUGIN_ROOT}` belongs to a plugin; update or diagnose that plugin, not your agnostic-ai specs. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks) explains hook locations and timeouts.
-
-For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/cli-reference/inspect.md#why) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
-
-Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup first. Raise a timeout only once you know the command needs longer, because a stuck command then takes longer to report.
+1. In Claude Code, open `/hooks` and find the event and command in the message. Check project settings, user settings, and enabled plugins. A `${CLAUDE_PLUGIN_ROOT}` command belongs to a plugin, not your specs. See the [hook reference](https://code.claude.com/docs/en/hooks).
+2. For a hook generated from `.agnostic-ai/hooks/`, find its source with [`why`](@/docs/cli-reference/inspect.md#why) and inspect or test it with [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md). Edit the source, then sync.
+3. Time an ordinary command and the hook's runtime (`node --version`). If several unrelated hooks time out together, check CPU, memory, and runtime startup first.
+4. Raise a timeout only when the command needs longer; a stuck command then takes longer to report.
 
 The [Caveman built-in](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman) supplies a skill, not the separate Caveman plugin's mode-tracking hooks.
 
 ## Report a problem
 
-Include the CLI version, OS, failing command, full error, and the smallest config or spec that shows the problem. Remove credentials from MCP configuration and logs first. Open a [bug report](https://github.com/Chemaclass/agnostic-ai/issues/new?template=bug_report.yml).
+Include the CLI version, OS, failing command, full error, and the smallest config that shows it. Remove credentials from MCP config and logs first. Open a [bug report](https://github.com/Chemaclass/agnostic-ai/issues/new?template=bug_report.yml).

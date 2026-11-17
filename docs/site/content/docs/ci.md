@@ -9,7 +9,7 @@ group = "Workflows"
 
 # CI
 
-CI (continuous integration) checks generated files on each change. Choose a recipe for committed or ignored files, [install the CLI](#install-the-cli-in-ci), and run it from the project root.
+Fail CI when generated files drift from your specs. Pick the recipe for committed or ignored outputs, [install the CLI](#install-the-cli-in-ci), and run from the project root.
 
 ## Committed outputs
 
@@ -19,37 +19,36 @@ Fail when the committed tool files no longer match the specs:
 agnostic-ai sync --check
 ```
 
-`--check` compares planned output with files on disk. It writes nothing and exits non-zero if a file is missing or differs. To fix it, run `agnostic-ai sync` locally and commit the result. Never run `sync` right before this check in CI, because it hides the problem you are testing for.
+`--check` writes nothing and exits non-zero if a file is missing or differs. Fix it by running `agnostic-ai sync` locally and committing. Never run `sync` before this check in CI; it hides the drift.
 
-On a Windows runner, Git writes CRLF line endings on checkout, and the check reports those files as `line endings only`. Add a `.gitattributes` rule such as `* text eol=lf`, or use `--against HEAD`, which reads the line endings Git stores.
+On Windows runners, CRLF checkouts show as `line endings only`. Add a `.gitattributes` rule such as `* text eol=lf`, or use `--against HEAD`.
 
 <details>
 <summary>Check committed files after another step rewrites the working tree</summary>
 
-If an earlier step already rewrote the files, as a `postinstall` sync does, check against the commit instead:
+If an earlier step (such as a `postinstall` sync) rewrote the files, check against the commit:
 
 ```bash
 agnostic-ai sync --check --against HEAD
 ```
 
-It builds the files from the committed specs and compares them with the committed files. A committed file that no spec produces anymore also fails, which catches leftovers without `doctor`. See [what `--against` compares](@/docs/cli-reference/sync.md#against-details).
-
-`actions/checkout` fetches one commit by default. Set `fetch-depth: 2` so the check has the parent commit (in a pull request's merge commit, the base branch). Without it, a note says the comparison was skipped.
+- It builds files from the committed specs and compares them with the committed files. A committed file no spec produces also fails. See [what `--against` compares](@/docs/cli-reference/sync.md#against-details).
+- `actions/checkout` fetches one commit by default. Set `fetch-depth: 2`, or a note says the comparison was skipped.
 
 </details>
 
 ## Ignored outputs
 
-A fresh checkout has no generated files. Check the specs and confirm that sync works:
+A fresh checkout has no generated files. Check the specs and confirm sync works:
 
 ```bash
 agnostic-ai validate
 agnostic-ai sync
 ```
 
-Add `agnostic-ai lint` to check spec quality. Do not add `sync --check` after `sync`: the files were just written. In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync` (see [Node monorepos](@/docs/git-hooks.md#node-monorepos)).
-
-Use [project readiness checks](@/docs/cli-reference/project.md#project-readiness) to stop a cached environment from starting with missing or stale configuration. They check every configured tool without approving local hooks.
+- Add `agnostic-ai lint` for spec quality. Skip `sync --check` here; the files were just written.
+- A Node workspace that syncs on `postinstall` already syncs in `pnpm install --frozen-lockfile` (see [Node monorepos](@/docs/git-hooks.md#node-monorepos)).
+- [Project readiness checks](@/docs/cli-reference/project.md#project-readiness) stop a cached environment from starting with missing or stale config. They check every configured tool without approving local hooks.
 
 <details>
 <summary>Install a pinned CLI in your CI job</summary>
@@ -105,16 +104,14 @@ steps:
 
 ## Diagnose drift
 
-Drift means generated files differ from what your current specs produce. Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output and the failure types.
+Run `agnostic-ai sync --check --diff` to see how files differ from your specs. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output.
 
 <details>
 <summary>Check the coding tool against tasks from your project</summary>
 
 ## Gate model and CLI changes
 
-`sync --check` proves the generated files match your specs. It does not show whether a model or CLI still gives good results for your project.
-
-To check that, configure a script that runs the AI tool against tasks from your project:
+`sync --check` does not show whether a model or CLI still works well for your project. For that, configure a script that runs the AI tool against your tasks:
 
 ```yaml
 verify:
@@ -128,6 +125,6 @@ Add the gate after installing the AI CLI it needs:
   run: agnostic-ai verify --target codex
 ```
 
-`verify` first checks that generated files are current, then sends JSON to the script on stdin. Your script runs the tasks and decides whether the results pass. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON format.
+`verify` checks the generated files are current, then sends JSON to the script on stdin. The script runs the tasks and decides pass or fail; its stdout, stderr, and exit code reach CI unchanged. See [`verify`](@/docs/cli-reference/check.md#verify) for the JSON format.
 
 </details>

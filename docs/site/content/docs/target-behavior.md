@@ -7,8 +7,8 @@ weight = 125
 group = "Reference"
 
 [extra.moved]
-notes = "@/docs/global-configuration-reference.md#native-discovery-and-shared-paths"
-targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
+notes = "@/docs/global-configuration.md#native-discovery-and-shared-paths"
+targets-left-out = "@/docs/global-configuration.md#targets-left-out"
 +++
 
 # Cross-target behavior
@@ -21,15 +21,15 @@ targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 
 ## Global output {#global-output .legacy-anchor}
 
-One spec can become different files for each tool. A rule becomes `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Tools also have different file discovery rules, permissions, and supported fields. [Compare targets](@/docs/compare.md) shows sample output; `agnostic-ai compare` checks your own specs.
+One spec becomes different files per tool: a rule is `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Discovery, permissions, and fields differ too. [Compare targets](@/docs/compare.md) shows samples; `agnostic-ai compare` checks your specs.
 
 ## Directory-specific instructions
 
-A rule's `scope` limits it to a directory, through native file conditions or nested instruction files. Tools differ in support and in when they load the rule: some at the repository root, some while editing. Check [directory-specific instructions](@/docs/scoped-context.md) before you share scoped rules.
+A rule's `scope` limits it to a directory through native file conditions or nested instruction files. Support and load timing differ by tool (repository root or while editing). See [directory-specific instructions](@/docs/scoped-context.md) before sharing scoped rules.
 
 ## Entry-point files
 
-Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction file. The next sync overwrites edits to those copies. See [entry-point files](@/docs/configuration-reference.md#entry-point-files) for what to write in the source.
+Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction file and overwrites edits to the copies. See [entry-point files](@/docs/configuration.md#entry-point-files).
 
 | Instruction file | Targets |
 |---|---|
@@ -44,37 +44,56 @@ Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction 
 | `.agents/AGENTS.md` | Antigravity |
 | `.kimi-code/AGENTS.md` | Kimi Code CLI |
 
-Tools that share a path get one write. Junie also has its preferred `.junie/AGENTS.md`. Claude can import identical shared instructions from `AGENTS.md`. Cursor and Continue get rule files, not a root instruction file. Each [target page](@/docs/targets/_index.md) explains how that tool finds its files.
+- Tools that share a path get one write.
+- Junie also has its preferred `.junie/AGENTS.md`.
+- Claude can import identical shared instructions from `AGENTS.md`.
+- Cursor and Continue get rule files, not a root instruction file.
+- Each [target page](@/docs/targets/_index.md) explains how that tool finds its files.
 
 ### Inlined rules
 
-Some tools read no separate rule directory. Sync puts their project-wide rules below the shared body in a marked `## Rules` block. Augment and Kilo use that block too, though they have rule directories. OpenHands uses it for always-on rules; path-triggered rules become skills. Qwen Code uses it for rules without file patterns; a rule with `globs` goes to `.qwen/rules/` and loads when a matching file is read or edited.
+Tools with no rule directory get project-wide rules in a marked `## Rules` block below the shared body.
 
-Cline, Kiro, Qoder, Kilo, Augment, Cursor, and Windsurf skip a native rule file when its body already appears in the root `AGENTS.md` they read. File-conditioned rules and tool-specific bodies keep their own files. Keep `AGENTS.md` enabled in Cline's Rules panel and Qoder's context file list, or those tools miss the shared rules.
+| Tool | Rules block holds |
+|---|---|
+| Augment, Kilo | Project-wide rules (they have rule directories too) |
+| OpenHands | Always-on rules; path-triggered rules become skills |
+| Qwen Code | Rules without file patterns; a rule with `globs` goes to `.qwen/rules/` and loads when a matching file is read or edited |
 
-Trae reads `AGENTS.md` only after a switch in its settings is on, so it keeps every rule file by default. Set `outputs.trae.rules-mode: entry-point` once the switch is on, and Trae skips them too. See [Trae](@/docs/targets/trae.md#loaded-at-session-start).
+<details>
+<summary>Skipped rule files, Trae, and cleanup</summary>
 
-A tool whose entry point moves off root `AGENTS.md` keeps its separate rule files. Listing `AGENTS.md` in `sync.unmanaged` stops writes for every target that shares the file, not for one tool.
+- Cline, Kiro, Qoder, Kilo, Augment, Cursor, and Windsurf skip a native rule file when its body already appears in the root `AGENTS.md` they read. File-conditioned rules and tool-specific bodies keep their own files.
+- Keep `AGENTS.md` enabled in Cline's Rules panel and Qoder's context file list, or they miss the shared rules.
+- Trae reads `AGENTS.md` only after a settings switch is on, so it keeps every rule file by default. With the switch on, set `outputs.trae.rules-mode: entry-point` to skip them. See [Trae](@/docs/targets/trae.md#loaded-at-session-start).
+- A tool whose entry point moves off root `AGENTS.md` keeps its own rule files.
+- `AGENTS.md` in `sync.unmanaged` stops writes for every target that shares the file.
+- The next full sync removes obsolete generated rule files, even edited ones that keep the generated header. Until then `sync --check`, `doctor`, and `status` report `ledger` drift; `doctor --fix` removes it.
 
-The next full sync removes obsolete generated rule files, even edited ones that still carry the generated header. Before that cleanup, `sync --check`, `doctor`, and `status` report `ledger` drift; `doctor --fix` removes it.
+</details>
 
 ### Shared settings files
 
-Warp global voice settings use the same per-key ownership in its platform settings file; see [Warp voice dictation](@/docs/targets/warp.md#voice-dictation).
-
 In mergeable files such as `.claude/settings.json`, `.gemini/settings.json`, `.cursor/cli.json`, and `opencode.json`, sync records the keys it owns and keeps the rest. A generated key you left unchanged goes away when no spec produces it. A value you edited stays as an orphan; `doctor --fix` asks before removing it.
 
-Sync tracks MCP servers in mergeable maps by name. A spec with the same name can replace your server and print a note. Name tracking does not apply to files sync rebuilds whole, such as Claude's `.mcp.json` or Cursor's `.cursor/mcp.json`. Check the target's import and overwrite behavior before the first sync.
+<details>
+<summary>MCP names, Warp, and cleanup</summary>
 
-When a target leaves the setup, cleanup removes only its recorded values. Sync deletes a shared settings file only when it created the file and nothing else remains. Invalid or edited orphan files stay for you to review.
+- Warp global voice settings use the same per-key ownership in its platform settings file ([Warp voice dictation](@/docs/targets/warp.md#voice-dictation)).
+- Sync tracks MCP servers in mergeable maps by name. A spec with the same name can replace your server and print a note.
+- Name tracking does not apply to files sync rebuilds whole, such as Claude's `.mcp.json` or Cursor's `.cursor/mcp.json`. Check the target's import and overwrite behavior before the first sync.
+- When a target leaves the setup, cleanup removes only its recorded values.
+- Sync deletes a shared settings file only if it created it and nothing else remains. Invalid or edited orphan files stay for review.
+
+</details>
 
 ### Other entry-point options
 
-A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync. For the [legacy merged rules file](@/docs/configuration-reference.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
+A partial sync still refreshes shared instruction files for all configured readers. For the [legacy merged rules file](@/docs/configuration.md#entry-point-files) and [`sync.target-overview`](@/docs/sync-settings.md#synctarget-overview), see those pages.
 
 ## Spec kind behavior
 
-The [tool support table](@/docs/targets/_index.md#capability-matrix) lists generated output. Check each target's field support, trust requirements, and permission enforcement before relying on it.
+The [tool support table](@/docs/targets/_index.md#capability-matrix) lists generated output. Check field support, trust requirements, and permission enforcement per target.
 
 | State | What to do |
 |---|---|
@@ -84,21 +103,37 @@ The [tool support table](@/docs/targets/_index.md#capability-matrix) lists gener
 | Source only | Keep the portable source; no default native artifact is written. A pointer does not activate the feature. |
 | No output | Remove that target from the spec or use a supported native route. Sync warns by default. |
 
-Each [spec reference](@/docs/spec-format/_index.md) has the details. [`on-unsupported`](@/docs/configuration-reference.md#on-unsupported) sets what sync does with an unsupported kind. Coverage notes name the fields a tool converts or leaves out.
+See each [spec reference](@/docs/spec-format/_index.md). [`on-unsupported`](@/docs/configuration-reference.md#on-unsupported) sets what sync does with an unsupported kind.
 
 ### Shared skills and agent discovery
 
-Many targets share `.agents/skills/`, and sync writes identical folders once. Crush and Goose share neutral skill frontmatter; Crush commands remain skipped at that shared path because their user-only flag cannot be kept. [`sync.shared-skills`](@/docs/sync-settings.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
+- Many targets share `.agents/skills/`; sync writes identical folders once.
+- Crush and Goose share neutral skill frontmatter. Crush commands stay skipped at that path because their user-only flag cannot be kept.
+- [`sync.shared-skills`](@/docs/sync-settings.md#syncshared-skills) can replace identical copies elsewhere with symlinks.
+- A tool can find folders written for another selected target, even if the spec excludes that tool.
 
-**Devin discovers `.agents/agents/` profiles written for Goose, OpenHands, and Antigravity.** Those profiles can lack Devin's `allowed-tools`, which defaults to all tools. A `.devin/agents/` profile with the same name can also appear. `targets:` controls which adapter writes a file, not which tools read it, so check the profiles Devin finds for duplicate names and tool limits. Sync reports which targets write shared profiles. See [Windsurf / Devin](@/docs/targets/windsurf.md).
+<details>
+<summary>Devin reads profiles written for other tools</summary>
+
+- Devin discovers `.agents/agents/` profiles written for Goose, OpenHands, and Antigravity.
+- Those can lack Devin's `allowed-tools`, which defaults to all tools. A same-name `.devin/agents/` profile can also appear.
+- `targets:` controls which adapter writes a file, not which tools read it. Check what Devin finds for duplicate names and tool limits.
+- Sync reports which targets write shared profiles. See [Windsurf / Devin](@/docs/targets/windsurf.md).
+
+</details>
 
 ### Hooks loaded through another tool
 
-Cursor, Copilot, and Trae can read `.claude/settings.json` beside their own hook files, so a hook shared with Claude can run twice. Cursor reads it by default; Trae only when you opt in. Copilot has no switch to stop these reads. The target pages give the fix: [Cursor](@/docs/targets/cursor.md#third-party-reads), [Copilot](@/docs/targets/copilot.md#hooks), [Trae](@/docs/targets/trae.md).
+Cursor, Copilot, and Trae can read `.claude/settings.json` beside their own hooks, so a shared hook can run twice. Cursor reads it by default, Trae only on opt-in, and Copilot has no switch. Fixes: [Cursor](@/docs/targets/cursor.md#third-party-reads), [Copilot](@/docs/targets/copilot.md#hooks), [Trae](@/docs/targets/trae.md).
 
-When both targets are selected, a portable hook's Claude copy exits under Cursor. Review other hooks yourself. Cursor can also ignore a Claude hook's `args` and run a bare interpreter; use a shell-form command or turn off compatibility reads.
+<details>
+<summary>Hook differences between tools</summary>
 
-Event names, tool matcher names, timeout units, and failure behavior differ by tool. Use [portable events](@/docs/spec-format/hook-reference.md#portable-events) where a tool supports them, and test the native event before you rely on a guard.
+- With both targets selected, a portable hook's Claude copy exits under Cursor. Review other hooks yourself.
+- Cursor can ignore a Claude hook's `args` and run a bare interpreter. Use a shell-form command or turn off compatibility reads.
+- Event names, matcher names, timeout units, and failure behavior differ. Use [portable events](@/docs/spec-format/hook-reference.md#portable-events) where supported, and test the native event before relying on a guard.
+
+</details>
 
 ## Related
 

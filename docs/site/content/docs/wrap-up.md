@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Session wrap-ups
 
-Use the built-in `wrap-up` skill to end a session with a short summary for people. To pass a task to the next agent instead, use a [session handoff](@/docs/handoff.md). To start a second task while this one goes on, use a [side conversation](@/docs/side-conversation.md).
+The built-in `wrap-up` skill ends a session with a short summary for people. To pass a task to the next agent, use a [handoff](@/docs/handoff.md); for a parallel task, a [side conversation](@/docs/side-conversation.md).
 
 ## Enable the skill
 
@@ -20,9 +20,8 @@ requires: ">=0.94.0"
 builtins: [wrap-up]
 ```
 
-It is off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
-
-Most tools get a skill; tools set to `emit-skills-as-commands` also get a command. Aider gets the text inline when `outputs.aider.rules-file` is set. Jules has no skill support.
+- Off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
+- Most tools get a skill; tools with `emit-skills-as-commands` also get a command. Aider gets inline text when `outputs.aider.rules-file` is set. Jules has no skill support.
 
 ## Ask for a wrap-up
 
@@ -42,7 +41,7 @@ Windows tests are still missing.
 ```
 ````
 
-An empty part says "nothing" on one line. The whole reply fits on one screen.
+An empty part says "nothing". The reply fits on one screen.
 
 ## What it reads and what it never does
 
@@ -67,4 +66,4 @@ agnostic-ai explain builtin:wrap-up
 agnostic-ai why .claude/skills/wrap-up/SKILL.md
 ```
 
-To replace the built-in, create your own project skill named `wrap-up`; it wins over the built-in. A global copy can still win on some tools; see [shared names](@/docs/global-configuration-reference.md#global-shared-names).
+To replace the built-in, add a project skill named `wrap-up`; it wins. A global copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).

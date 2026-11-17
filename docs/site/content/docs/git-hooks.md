@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Git hooks
 
-Git hooks check or regenerate files on commit and checkout. [Coding-agent hooks](@/docs/spec-format/hooks.md) run inside a coding tool. Choose a recipe based on whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs):
+Git hooks check or regenerate files on commit and checkout. ([Coding-agent hooks](@/docs/spec-format/hooks.md) are different: they run inside a coding tool.) Pick a recipe by whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs):
 
 - Committed outputs: [check the staged files](#check-staged-files) at commit time, so you never commit output you forgot to stage.
 - Ignored outputs: run `sync` once in each checkout, then [regenerate on checkout and pull](#regenerate-on-checkout) so coding agents find their files. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
@@ -21,7 +21,7 @@ agnostic-ai install-hook
 agnostic-ai install-hook --post-checkout
 ```
 
-The first command installs the commit check. The second regenerates files after checkout and pull. Install once per checkout. If your project uses a hook manager, use a recipe below instead of replacing its hooks.
+The first installs the commit check. The second regenerates files after checkout and pull. Install once per checkout. With a hook manager, use its recipe instead of replacing its hooks.
 
 <details>
 <summary>Use pre-commit, lefthook, or husky instead</summary>
@@ -103,26 +103,26 @@ The trailing `--` keeps the file paths lint-staged adds from being read as optio
 
 ## Check the staged files {#check-staged-files}
 
-A plain `sync --check` reads the working tree. If `sync` rewrote `AGENTS.md` and you did not stage it, the check passes and you commit a stale file. `--against index` compares the staged specs with the staged outputs instead:
+A plain `sync --check` reads the working tree, so it passes when `sync` rewrote `AGENTS.md` and you did not stage it. `--against index` compares the staged specs with the staged outputs instead:
 
 ```bash
 agnostic-ai sync --check --against index
 ```
 
-A staged spec change without its regenerated output fails. The error names the file and tells you to run `agnostic-ai sync` and `git add` the output (for `--against HEAD`, commit it). The hook from `agnostic-ai install-hook` runs this form; run `install-hook` again to update a hook an older version wrote.
+A staged spec change without its regenerated output fails. The error names the file and tells you to run `agnostic-ai sync` and `git add` the output (for `--against HEAD`, commit it). The hook from `install-hook` runs this form; run `install-hook` again to update a hook an older version wrote.
 
-With `gitignore.enabled: true`, the hook checks only that the staged specs render, because `--against index` compares only outputs Git tracks. A plain `sync --check` still compares every output.
+With `gitignore.enabled: true`, the hook only checks that the staged specs render, since `--against index` compares tracked outputs only. A plain `sync --check` compares all.
 
 <details>
 <summary>Limits of --against</summary>
 
-- The check copies the tracked files to a temporary folder on each commit. In a large repository, use the lint-staged recipe above so it runs only when specs are staged.
-- `--against HEAD` checks the last commit instead. See the [CI recipe](@/docs/ci.md#committed-outputs).
-- For what the check compares and skips, see [`--against` details](@/docs/cli-reference/sync.md#against-details).
+- Each commit copies the tracked files to a temporary folder. In a large repo, run it only when specs are staged (the lint-staged recipe).
+- `--against HEAD` checks the last commit; see the [CI recipe](@/docs/ci.md#committed-outputs).
+- What it compares and skips: [`--against` details](@/docs/cli-reference/sync.md#against-details).
 
 </details>
 
-If your hook manager runs a command only when matching files are staged, the glob must list every input, including a README that a review pulls in with `@path`. `agnostic-ai explain --inputs` prints them, one per line:
+A hook manager that runs only when matching files are staged needs a glob covering every input, including a README that a review pulls in with `@path`. `agnostic-ai explain --inputs` prints them:
 
 ```bash
 agnostic-ai explain --inputs
@@ -133,17 +133,17 @@ agnostic-ai explain --inputs
 # apps/web/README.md
 ```
 
-Paste the list into the glob, or drop the glob and check every commit. Rerun it after you add an `@path` line.
+Paste the list into the glob, or drop the glob. Rerun after adding an `@path` line.
 
 ## Regenerate on checkout and pull {#regenerate-on-checkout}
 
-With ignored outputs (`gitignore.enabled: true`), a fresh clone or worktree has no `CLAUDE.md`, rules, or hooks until `sync` runs. An automated session can therefore start without its config.
+With ignored outputs (`gitignore.enabled: true`), a fresh clone or worktree has no tool files until `sync` runs, so an automated session can start without its config.
 
-Use a `post-checkout` hook: `git checkout`, `git clone`, and `git worktree add` all run it. A pull that merges runs `post-merge` instead. That hook also restores generated files untracked by the incoming commit.
+`git checkout`, `git clone`, and `git worktree add` run `post-checkout`. A pull that merges runs `post-merge`, which also restores generated files untracked by the incoming commit.
 
-`agnostic-ai install-hook --post-checkout` writes both hooks. They prefer the local binary and run `agnostic-ai project` from the worktree root, which keeps manual edits and installs no dependencies. They skip a checkout without `agnostic-ai.yaml`, and print a recovery command when the binary is missing. Run the command again in a clone with older generated hooks to update them and add pull coverage.
+`agnostic-ai install-hook --post-checkout` writes both hooks. They prefer the local binary, run `agnostic-ai project` from the worktree root (keeps manual edits, installs nothing), skip a checkout without `agnostic-ai.yaml`, and print a recovery command when the binary is missing. Rerun it to update older hooks and add pull coverage.
 
-To write the hooks yourself, use [`sync --keep-edits`](@/docs/cli-reference/sync.md#sync), which writes every other output and leaves each file you edited since the last sync in place, printing `~ kept <path>`. To keep such an edit, move it into `.agnostic-ai/` and run `agnostic-ai sync`.
+To write them yourself, use [`sync --keep-edits`](@/docs/cli-reference/sync.md#sync): it writes every other output and leaves files you edited since the last sync, printing `~ kept <path>`. To keep an edit, move it into `.agnostic-ai/` and sync.
 
 lefthook (`lefthook.yml`):
 
@@ -161,7 +161,7 @@ Plain git (`.git/hooks/post-checkout`, `chmod +x`):
 agnostic-ai sync --keep-edits
 ```
 
-To run only on branch and worktree switches, check the third argument, which is `0` for a file checkout:
+To run only on branch and worktree switches, check the third argument (`0` for a file checkout):
 
 ```sh
 #!/bin/sh
@@ -169,9 +169,9 @@ To run only on branch and worktree switches, check the third argument, which is 
 agnostic-ai sync --keep-edits
 ```
 
-The same command works in `post-merge` (without the `$3` check, which it does not get) and in a `postinstall` script. A pull with rebase needs a `post-rewrite` hook (see [Node monorepos](#node-monorepos)).
+The same command works in `post-merge` (no `$3` check) and in `postinstall`. A pull with rebase needs `post-rewrite` (see [Node monorepos](#node-monorepos)).
 
-`agnostic-ai` must be on `PATH` wherever the repo is checked out; document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found`. If some contributors lack the CLI, commit the generated outputs instead, or, in a Node project, install the CLI with the dependencies (see [Node monorepos](#node-monorepos)).
+`agnostic-ai` must be on `PATH` wherever the repo is checked out; document the install in `CONTRIBUTING.md`. If some contributors lack the CLI, commit the outputs, or in a Node project install the CLI with the dependencies ([Node monorepos](#node-monorepos)).
 
 <details>
 <summary>Pin the CLI and restore files in Node workspaces and worktrees</summary>

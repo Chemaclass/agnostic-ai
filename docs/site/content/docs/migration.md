@@ -10,7 +10,7 @@ group = "Start"
 
 # Import existing tool configuration
 
-Import copies your tool setup into editable sources in `.agnostic-ai/`. [Install agnostic-ai](@/docs/installation.md), then start from the project root with a clean Git working tree so you can review and undo changes.
+Import copies your tool setup into editable sources in `.agnostic-ai/`. [Install agnostic-ai](@/docs/installation.md), then work from the project root with a clean Git tree so you can review and undo.
 
 ## Import the existing setup {#1-import}
 
@@ -20,20 +20,21 @@ For a project not yet using agnostic-ai:
 agnostic-ai init --from claude
 ```
 
-Use `--from all` to detect every tool, then select only the coding tools the project uses. In a project already using agnostic-ai, preview an import before writing:
+`--from all` detects every tool; select only the ones the project uses. In a project that already uses agnostic-ai, preview first:
 
 ```bash
 agnostic-ai import claude --dry-run --diff
 agnostic-ai import claude
 ```
 
-Import writes source specs. It leaves generated files and selected targets unchanged.
+Import writes source specs only. Generated files and selected targets stay unchanged.
 
 ## Review what was imported {#review-what-was-imported}
 
-Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, [review their import order](#2-review) before syncing. A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
-
-Before committing, check scripts called by hooks and settings, and MCP connection variables. Skill folders and some tool scripts are imported; other referenced scripts must stay in your project. [MCP import details](@/docs/spec-format/mcp-import.md) explain credential references and connection differences.
+- Compare `.agnostic-ai/AGNOSTIC_AI.md` and the imported specs with the originals. With several tools, [review the import order](#2-review) first.
+- With `--from all`, a hand-written root `AGENTS.md` contributes missing sections.
+- Check scripts called by hooks and settings, and MCP connection variables. Skill folders and some tool scripts are imported; other referenced scripts must stay in your project.
+- See [MCP import](@/docs/spec-format/mcp-import.md) for credential references and connection differences.
 
 ## Generate and check {#3-generate}
 
@@ -43,19 +44,19 @@ agnostic-ai sync --backup
 agnostic-ai sync --check
 ```
 
-The first sync adds generated headers and replaces root instruction files with the shared instructions. Read the resulting native files before starting a new coding-tool session.
+The first sync adds generated headers and replaces root instruction files with the shared instructions. Read the native files before your next session.
 
 ## Commit or ignore outputs {#4-commit-or-ignore-outputs}
 
-Choose a [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit outputs, keep the first sync in its own commit.
+Choose a [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit outputs, give the first sync its own commit.
 
-To ignore files Git already tracks, run `sync --untrack`. It runs `git rm --cached`, keeping your working copy, but other clones lose those files on the next pull. Teammates must run `agnostic-ai sync` after pulling, or install [checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) first.
+To ignore files Git already tracks, run `sync --untrack` (`git rm --cached`; your copy stays). Other clones lose those files on the next pull, so teammates run `agnostic-ai sync` after pulling, or install [checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) first.
 
-From now on, edit `.agnostic-ai/` sources and sync, as [Daily use](@/docs/getting-started.md#daily-use) shows.
+From now on, edit `.agnostic-ai/` and sync ([daily use](@/docs/getting-started.md#daily-use)).
 
 ## Review imports from several tools {#2-review}
 
-Preview several tools at once with `agnostic-ai import claude codex --dry-run --diff`. Imports can merge shared instructions and keep conflicting versions, so resolve differences against the original files before generating files.
+Preview several tools with `agnostic-ai import claude codex --dry-run --diff`. Imports can merge shared instructions and keep conflicting versions; resolve differences against the originals before you sync.
 
 <details>
 <summary>Re-import after editing a native tool file</summary>
