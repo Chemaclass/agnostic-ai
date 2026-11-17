@@ -103,18 +103,26 @@ type conversationsHandler struct {
 	renameInTool func(ctx context.Context, c conversations.Conversation, title string) error
 	// logOut takes the lines serve logs, such as a name a tool did not take.
 	logOut io.Writer
+	// openReplyWait is how long an open may take to answer; tests shorten it.
+	openReplyWait time.Duration
 }
+
+// conversationOpenReplyTimeout outlasts the companion's openTimeout in
+// companion/server.go, so an open slower than the server's write timeout
+// still answers.
+const conversationOpenReplyTimeout = 90 * time.Second
 
 func newConversationsHandler(root string, global bool) *conversationsHandler {
 	scanner := conversations.NewScanner()
 	return &conversationsHandler{
-		root:         root,
-		global:       global,
-		scanner:      scanner,
-		launcher:     conversations.SystemLauncher(),
-		worktrees:    gitWorktrees,
-		renameInTool: conversations.NewRenamer(scanner.Stores, scanner.Processes).Rename,
-		logOut:       os.Stderr,
+		root:          root,
+		global:        global,
+		scanner:       scanner,
+		launcher:      conversations.SystemLauncher(),
+		worktrees:     gitWorktrees,
+		renameInTool:  conversations.NewRenamer(scanner.Stores, scanner.Processes).Rename,
+		logOut:        os.Stderr,
+		openReplyWait: conversationOpenReplyTimeout,
 	}
 }
 
@@ -197,6 +205,7 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))
 	var req conversationOpenRequest
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
 	dec.DisallowUnknownFields()

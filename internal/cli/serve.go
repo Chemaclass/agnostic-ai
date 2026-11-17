@@ -299,7 +299,7 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	}
 	ctx, stop := signal.NotifyContext(ctx, serveSignals(signal.Ignored)...)
 	defer stop()
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	srv := newServeServer(handler)
 	srv.RegisterOnShutdown(trackFreshConns(srv).close)
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
@@ -317,6 +317,10 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 		return fmt.Errorf("stop the server: %w", err)
 	}
 	return nil
+}
+
+func newServeServer(handler http.Handler) *http.Server {
+	return &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 }
 
 // openBrowser opens url with the platform's default handler.
