@@ -414,7 +414,7 @@ test('mark all as read marks every Needs you row from the keyboard, and the circ
   await openPanel(page, 'needs-you')
   const bubble = await context.newPage()
   await bubble.goto('/index.html')
-  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 4 need you')
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 waiting for you, 3 unread')
   const marks = markBodies(page)
   const opens: string[] = []
   page.on('request', (request) => {
@@ -437,7 +437,7 @@ test('mark all as read marks every Needs you row from the keyboard, and the circ
   expect((await page.request.post('/dev/write', { data: { tool: 'codex', id: 'reply-2' } })).ok()).toBe(true)
   await expect(needsYou(page)).toHaveCount(1)
   await expect(needsYou(page)).toContainText('Split the parser module')
-  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 need you')
+  await expect(bubble.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: 1 unread')
 })
 
 test('mark all as read on Local leaves the cloud chat in Needs you', async ({ page }) => {
@@ -616,11 +616,33 @@ test('a folder name no other row shares stays short', async ({ page }) => {
   await expect(row(page, 'Fix the login redirect')).toContainText('Cursor · shop · 3h')
 })
 
-test('the circle counts the conversations that need you', async ({ page }) => {
+test('the circle counts the conversations that need you, and names the waiting and unread ones apart', async ({ page }) => {
   await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
   await page.goto('/')
   await expect(page.locator('#badge')).toHaveText('2')
-  await expect(page.getByRole('button', { name: 'Conversations: 2 need you' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Conversations: 1 waiting for you, 1 unread' })).toBeVisible()
+})
+
+test('a chat waiting for the person gives the circle a solid badge with a lock; unread replies alone do not', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
+  await page.goto('/')
+  const badge = page.locator('#badge')
+  await expect(badge).toHaveClass(/\bis-blocked\b/)
+  await expect(badge.locator('.lock')).toBeVisible()
+  await expect(badge).toHaveCSS('background-image', 'none')
+  await expect(badge).toHaveCSS('background-color', 'rgb(240, 163, 94)')
+
+  await page.request.post('/dev/fixture', { data: { name: 'duplicate-projects' } })
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Conversations: 1 unread' })).toBeVisible()
+  await expect(badge).not.toHaveClass(/\bis-blocked\b/)
+  await expect(badge.locator('.lock')).toBeHidden()
+  await expect(badge).toHaveText('1')
+})
+
+test('under Needs you, permission waits come before a question', async ({ page }) => {
+  await openPanel(page, 'approvals')
+  await expect(page.locator('.row.needs-you .title')).toHaveText(['Refactor PRs', 'Webhooks v2 dashboard', 'Rider lifecycle gaps in Notion', 'Release notes draft', 'SFTP write: discussion'])
 })
 
 const deleteItem = (page: Page) => page.getByRole('menuitem', { name: 'Delete permanently…' })

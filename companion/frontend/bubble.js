@@ -1,11 +1,12 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, readInbox, togglePanel } from '/api.js'
-import { isDrag } from '/model.js'
+import { circleLabelOf, isDrag, waitingOf } from '/model.js'
 // Waits for the person's animation choice, so a still circle never starts spinning.
 import '/motion.js'
 
 const bubble = document.getElementById('bubble')
 const badge = document.getElementById('badge')
+const badgeCount = document.getElementById('count')
 let shownCount = 0
 
 function badgeText(count) {
@@ -19,9 +20,11 @@ function show({ view, note }) {
   const troubled = Boolean(view.marksNote || note)
   bubble.classList.toggle('is-troubled', troubled)
   bubble.classList.toggle('is-idle', count === 0 && !troubled)
-  bubble.setAttribute('aria-label', count === 0 ? 'Conversations: none needs you' : `Conversations: ${count} need you`)
+  const waiting = waitingOf(view)
+  bubble.setAttribute('aria-label', circleLabelOf(waiting))
   badge.hidden = count === 0
-  badge.textContent = badgeText(count)
+  badge.classList.toggle('is-blocked', waiting.blocked > 0)
+  badgeCount.textContent = badgeText(count)
   if (count > shownCount && document.documentElement.dataset.motion !== 'off') {
     // Restart the pop, so each new arrival is noticed.
     badge.classList.remove('is-new')

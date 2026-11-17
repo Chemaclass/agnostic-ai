@@ -227,10 +227,35 @@ export function withTitle(view, key, title) {
  * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
  */
 export function grouped(conversations) {
-  return GROUPS.map((group) => ({
-    ...group,
-    ...nested(conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)),
-  })).filter((group) => group.rows.length > 0)
+  return GROUPS.map((group) => {
+    const rows = conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)
+    return { ...group, ...nested(group.id === 'needs-you' ? rows.sort(byUrgency) : rows) }
+  }).filter((group) => group.rows.length > 0)
+}
+
+/** Under Needs you: a permission to give first, then another wait such as a question, then an unread reply. */
+function urgencyOf(conversation) {
+  if (conversation.state !== 'blocked') return 2
+  return conversation.waiting?.for === 'permission' ? 0 : 1
+}
+
+const byUrgency = (a, b) => urgencyOf(a) - urgencyOf(b)
+
+/**
+ * What the circle counts: the chats that wait for the person to act, and the unread replies. `needsYou`
+ * also covers chats older than the rows the list holds, which are unread, never waiting.
+ */
+export function waitingOf(view) {
+  const blocked = view.conversations.filter((conversation) => conversation.state === 'blocked').length
+  return { blocked, unread: Math.max(0, view.needsYou - blocked) }
+}
+
+/** What the circle tells a screen reader, such as "Conversations: 2 waiting for you, 4 unread". */
+export function circleLabelOf({ blocked, unread }) {
+  const counts = []
+  if (blocked > 0) counts.push(`${blocked} waiting for you`)
+  if (unread > 0) counts.push(`${unread} unread`)
+  return 'Conversations: ' + (counts.length === 0 ? 'none needs you' : counts.join(', '))
 }
 
 // A walk that meets a loop gives no top, so every row on it stays a normal row.
