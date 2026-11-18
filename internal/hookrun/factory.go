@@ -7,29 +7,7 @@ import (
 	"time"
 )
 
-// Source: docs.factory.com/harness/hooks (rechecked
-// 2026-11-15, CLI v1.11.0). Documented there:
-//   - Project root: "Use `"$FACTORY_PROJECT_DIR"/path/to/script.sh` for
-//     project scripts". The command runs as written, with
-//     FACTORY_PROJECT_DIR in its env; see expandRootVar.
-//   - Timeout: "Per-command timeout in seconds. Defaults to `60`."
-//   - Payload: session_id, transcript_path, cwd, permission_mode, and
-//     hook_event_name on every hook; a Create call's tool_input is
-//     file_path and content; an Execute call's is command (the quickstart
-//     reads `.tool_input.command`).
-//   - Matcher: "Empty, omitted, or `*` matches everything. Exact strings
-//     match one tool or lifecycle matcher. Regex patterns are supported
-//     and are case-sensitive."
-//   - Replies: see decideFactory.
-//
-// Not documented, so hook run assumes or refuses them:
-//   - The working directory: "Hooks execute from Droid's current working
-//     directory, which can differ from your repository root". hook run
-//     assumes the project root.
-//   - The shell: a command is a "Shell command executed with JSON hook
-//     input on stdin", with no shell named and nothing on Windows.
-//   - The Edit and ApplyPatch input: "The exact shape of `tool_input`
-//     and `tool_response` depends on the tool", and only Create is shown.
+// The preview still assumes shell and project-root cwd despite Factory's documented launcher.
 const factoryDocs = "https://docs.factory.com/harness/hooks"
 
 const factoryDefaultTimeout = 60 * time.Second
