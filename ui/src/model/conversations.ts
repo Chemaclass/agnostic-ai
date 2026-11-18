@@ -319,7 +319,6 @@ const STATE_BADGES = {
   completed: { label: 'Archived', tone: 'neutral', description: 'You archived it; it comes back with a new message or when it starts working' },
 } satisfies Partial<Record<ConversationState, StateBadge>>
 
-const CLOSED_UNREAD: StateBadge = { label: 'Closed, unread', tone: 'approval', description: 'It closed with a reply you have not read. Opening it here clears this.' }
 const RESUMED_UNREAD: StateBadge = { label: 'Unread', tone: 'approval', description: 'It was resumed with a reply from before that you have not read. Opening it here clears this.' }
 
 interface StateBadge {
@@ -330,10 +329,9 @@ interface StateBadge {
   description: string
 }
 
-/** The chip for the person's own marks: a reply not yet read, a chat that closed with one or was resumed with one, or a chat marked as done. Waiting and working already have the live chip, and any other active or dormant chat needs none. */
+/** The chip for the person's own marks: a reply not yet read, a chat resumed with one, or a chat marked as done. Waiting and working already have the live chip, and any other active or dormant chat needs none. */
 export function stateBadge(state: ConversationState | undefined, unread?: boolean): StateBadge | undefined {
   if (state === 'unread' || state === 'completed') return STATE_BADGES[state]
-  if (state === 'dormant' && unread) return CLOSED_UNREAD
   if (state === 'active' && unread) return RESUMED_UNREAD
   return undefined
 }

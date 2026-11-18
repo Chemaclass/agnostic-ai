@@ -34,7 +34,7 @@ const (
 	// StateDormant: a terminal session no process holds, as a full process
 	// read showed; archived in its own app; or an editor panel, background
 	// job or unchecked terminal session quiet for longer than activeSpan.
-	// Conversation.Unread says when its latest reply was not seen.
+	// It has no read state.
 	StateDormant State = "dormant"
 )
 
@@ -185,7 +185,7 @@ func parseStamp(value string) time.Time {
 // every new prompt is, puts it back. A conversation its own app archived
 // is dormant, the state of a closed one, while that archive holds.
 // A terminal session no process holds, by a full process read, is
-// archived even with a reply not seen: Unread keeps that reply in view.
+// archived even with a reply not seen.
 // Once a process holds it again, a write read while it was closed needs
 // nobody. Any other row, a failed read included, goes by the seen mark.
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
@@ -237,11 +237,11 @@ func unseen(c Conversation, entry markEntry, since time.Time) bool {
 	return !seenAt.IsZero() && lastWritten(c).After(seenAt)
 }
 
-// unreadMarker: an unseen write on a row that does not count toward
-// NeedsYou. It holds on an archived row, and on a session resumed by hand
-// whose reply came while it was closed, until the person reads it.
+// unreadMarker: an unseen write on an active row, which does not count
+// toward NeedsYou: a session resumed by hand whose reply came while it
+// was closed, until the person reads it. An archived row has no read state.
 func unreadMarker(state State, unseen bool) bool {
-	return unseen && (state == StateDormant || state == StateActive)
+	return unseen && state == StateActive
 }
 
 // knownClosed: a full process read found no process that holds this

@@ -40,7 +40,7 @@ Each row has a `state`, the first of these that holds:
 2. `working`: open, and its tool says the agent is busy.
 3. `dormant`: [archived in its app](@/docs/cli-reference/companion-list.md#chats-archived-in-their-app).
 4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
-5. `dormant`: a terminal session no process holds, even with a reply you have not read. `unread` is then `true` on the row.
+5. `dormant`: a terminal session no process holds, even with a reply you have not read.
 6. `unread`: written after you last saw it.
 7. `active`: open; a desktop, chat, Cowork or cloud conversation of any age; or written within 24 hours when the server cannot tell whether it is closed.
 8. `dormant`: otherwise.
@@ -88,7 +88,7 @@ Conversation fields:
   - A `codex exec` run is linked to its Claude Code session only from the running `codex` process: the process holds the run's writer lock, and its environment holds `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CHILD_SESSION=1`, which Claude Code's Bash tool sets. The server reads the environment the kernel keeps for the process (`kern.procargs2` on macOS, `/proc/<pid>/environ` on Linux), keeps only those two variables, and links nothing when either is missing or set twice. Every scan reads the link again; nothing is saved, so a run that ended is listed nowhere. Titles, folders and times are never used to guess. When process environments cannot be read, the Codex tool's `note` says so.
   - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
   - `workingSubagents` stays as it was and does not count `codex exec` runs.
-- `unread` is `true` only on a `dormant` or `active` row whose latest write you have not seen: a terminal session that closed after its reply, or one resumed by hand after that. It stays until you open the chat or mark it read. It does not count toward `needsYou`, the first page always holds the row, and it cannot be deleted until you read it.
+- `unread` is `true` only on an `active` row whose latest write you have not seen: a terminal session resumed by hand after it closed with a reply. It stays until you open the chat or mark it read. It does not count toward `needsYou`. An archived row is never `unread`.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.
@@ -264,7 +264,6 @@ Body: `{tool, id}` with `Content-Type: application/json`, from the server's own 
 Deletes one conversation under Archived from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
 
 - Its `state` is `completed` or `dormant`, read from a fresh scan.
-- You have read its latest reply. A terminal session that closed after a reply you did not read is `dormant` with `unread`, and it is refused until you open it or mark it as read.
 - No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.
 - None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
 - Its session id names exactly one transcript.
@@ -298,7 +297,7 @@ Accepted limits:
 | 200 | `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file. |
 | 400 | for an unknown tool or any other field. |
 | 404 | for a conversation outside the list, or one you hid. |
-| 409 | `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it), `unread` (its latest reply was not read) or `changed` (a file was written at or after the moment it was archived). |
+| 409 | `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it) or `changed` (a file was written at or after the moment it was archived). |
 | 422 | `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions, and any session on Windows, where the server cannot tell whether a session still runs. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link. |
 | 500 | `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept. |
 

@@ -59,8 +59,8 @@ func TestScan_AClosedUnreadSessionIsArchivedAndAResumeKeepsItsOldReplyRead(t *te
 	now = now.Add(freshSpan)
 	processes.alive[4242] = false
 	view = scanner.Scan(context.Background(), ScanOptions{})
-	if c := byID(t, view, id); c.State != StateDormant || !c.Unread || view.NeedsYou != 0 {
-		t.Fatalf("a closed session with an unread reply is archived with its marker: %s, needsYou %d", asJSON(t, c), view.NeedsYou)
+	if c := byID(t, view, id); c.State != StateDormant || c.Unread || view.NeedsYou != 0 {
+		t.Fatalf("a closed session with an unread reply is archived without a marker: %s, needsYou %d", asJSON(t, c), view.NeedsYou)
 	}
 	if entry := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolClaude, id)]; entry.SeenAt != "" || entry.ClosedWrittenAt != "2026-11-07T12:30:00Z" {
 		t.Fatalf("the reply read while closed is kept, and not marked seen: %+v", entry)
@@ -166,8 +166,8 @@ func TestScan_AFailedReadAfterAClosureKeepsTheReplyUnread(t *testing.T) {
 	scanner.Scan(context.Background(), ScanOptions{})
 	now = now.Add(time.Hour)
 	writeMarkedSession(t, stores, id, "2026-11-07T12:30:00.000Z")
-	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateDormant || !c.Unread {
-		t.Fatalf("closed with an unread reply: %s", asJSON(t, c))
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateDormant || c.Unread {
+		t.Fatalf("closed with an unread reply: archived without a marker: %s", asJSON(t, c))
 	}
 
 	now = now.Add(freshSpan)
@@ -201,16 +201,22 @@ func TestScan_AResumedSessionKeepsItsUnreadMarkerUntilRead(t *testing.T) {
 
 	now = now.Add(freshSpan)
 	processes.alive[4242] = false
-	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateDormant || !c.Unread {
-		t.Fatalf("closed again with nothing new: archived and still unread: %s", asJSON(t, c))
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateDormant || c.Unread {
+		t.Fatalf("closed again with nothing new: archived without the marker: %s", asJSON(t, c))
+	}
+
+	now = now.Add(freshSpan)
+	processes.alive[4242] = true
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateActive || !c.Unread {
+		t.Fatalf("resumed again: the marker is back until read: %s", asJSON(t, c))
 	}
 
 	if err := scanner.Mark(ToolClaude, id, MarkSeen); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(freshSpan)
-	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateDormant || c.Unread {
-		t.Errorf("marked read: archived without the marker: %s", asJSON(t, c))
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), id); c.State != StateActive || c.Unread {
+		t.Errorf("marked read: active without the marker: %s", asJSON(t, c))
 	}
 }
 
@@ -235,7 +241,7 @@ func TestScan_ASeenMarkInTheSecondOfTheReplyCoversIt(t *testing.T) {
 	}
 }
 
-func TestScan_TheFirstPageHoldsAnOldClosedUnreadSession(t *testing.T) {
+func TestScan_TheFirstPageLeavesOutAnOldClosedUnreadSession(t *testing.T) {
 	const old, recent = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{}})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
@@ -247,17 +253,17 @@ func TestScan_TheFirstPageHoldsAnOldClosedUnreadSession(t *testing.T) {
 	writeClaudeProcess(t, stores, 4242, idCache, "idle")
 
 	view := scanner.Scan(context.Background(), ScanOptions{})
-	if c := byID(t, view, old); c.State != StateDormant || !c.Unread {
-		t.Errorf("the old closed session is archived with its marker on the first page: %s", asJSON(t, c))
+	for _, c := range view.Conversations {
+		if c.ID == old {
+			t.Errorf("an archived row is not pinned to the first page: %s", asJSON(t, c))
+		}
 	}
 	before, err := time.Parse(time.RFC3339, view.From)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range scanner.Scan(context.Background(), ScanOptions{Before: before}).Conversations {
-		if c.ID == old {
-			t.Error("a later page lists it again")
-		}
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{Before: before}), old); c.State != StateDormant || c.Unread {
+		t.Errorf("a later page lists it archived, without a marker: %s", asJSON(t, c))
 	}
 }
 

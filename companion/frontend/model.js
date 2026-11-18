@@ -399,7 +399,7 @@ export function startedFromOf(parent) {
 export function stillWaits(view, shown) {
   const key = keyOf(shown)
   const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
-  return current !== undefined && (Boolean(NEEDS_PERSON[current.state]) || current.unread === true) && current.updatedAt === shown.updatedAt
+  return current !== undefined && (Boolean(NEEDS_PERSON[current.state]) || unreadMarkOf(current)) && current.updatedAt === shown.updatedAt
 }
 
 /**
@@ -472,23 +472,21 @@ export function rowTooltipOf(conversation, now) {
   if (quiet) lines.push(quiet)
   const reply = replyOf(conversation)
   if (reply && approvalOf(conversation)) lines.push(reply)
-  if (conversation.unread) lines.push(conversation.state === 'active' ? RESUMED_UNREAD : CLOSED_UNREAD)
+  if (unreadMarkOf(conversation)) lines.push(RESUMED_UNREAD)
   return lines.join('\n')
 }
 
-/** The rows with an unread marker a group shows: none while it is folded, so marking them all read never reaches a reply nobody saw. */
-export function unreadShownOf(group, folded) {
-  return folded ? [] : group.rows.filter((conversation) => conversation.unread === true)
+/** Whether a row carries the unread marker. An archived chat has no read state, so it never does. */
+export function unreadMarkOf(conversation) {
+  return conversation.unread === true && GROUP_OF_STATE[conversation.state] !== 'archived'
 }
 
-/** What a group header adds for its rows with an unread marker, such as "2 unread", so a folded Archived still shows them; undefined when none. */
+/** What a group header adds for its rows with an unread marker, such as "2 unread"; undefined when none. */
 export function unreadLabelOf(rows) {
-  const count = rows.filter((conversation) => conversation.unread === true).length
+  const count = rows.filter(unreadMarkOf).length
   return count > 0 ? `${count} unread` : undefined
 }
 
-/** What an archived chat's marker says: it closed after a reply the person has not read. It does not count as needing them. */
-export const CLOSED_UNREAD = 'Closed with a reply you have not read'
 /** What a resumed chat's marker says: it is open again, with a reply from before the person has not read. */
 export const RESUMED_UNREAD = 'Resumed with a reply from before that you have not read'
 
@@ -503,11 +501,11 @@ export function rowActionOf(conversation) {
 
 /**
  * What the row menu offers: Mark as read clears a wait or a reply without opening the chat.
- * Only a chat under Archived that no process holds, and whose latest reply was read, can be deleted.
+ * Only a chat under Archived that no process holds can be deleted.
  */
 export function rowMenuOf(conversation) {
-  const offered = NEEDS_PERSON[conversation.state] || conversation.unread ? ['read', 'rename'] : ['rename']
-  if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live && !conversation.unread) offered.push('delete')
+  const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename'] : ['rename']
+  if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   return offered
 }
