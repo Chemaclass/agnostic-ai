@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -71,7 +72,7 @@ func validateSkill(s spec.Entry) error {
 	if d == "" {
 		d = s.Name
 	}
-	if !skillName.MatchString(s.Name) || len(s.Name) > 64 || len(d) == 0 || len(d) > 1024 {
+	if !skillName.MatchString(s.Name) || len(s.Name) > 64 || len(d) == 0 || utf8.RuneCountInString(d) > 1024 {
 		return fmt.Errorf("vibe: skill %s requires a lowercase dash-separated name (max 64) and description (1-1024 characters)", s.Name)
 	}
 	return nil

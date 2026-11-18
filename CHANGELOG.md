@@ -60,6 +60,22 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Removed:** Native Review output after Goose removed `goose review` in 1.60. Reuse the source text in another target or a skill.
 
+#### OpenCode
+
+- Import preserves OpenCode V2's choice when `.agents` and `.claude` define the same skill.
+
+#### Grok
+
+- MCP `headers_helper` survives import and sync through `x-grok`, including user-level configuration.
+
+#### Trae
+
+- `hook run` reports context for the events and reply formats Trae consumes.
+
+#### Mistral Vibe
+
+- Skill descriptions allow up to 1024 Unicode characters instead of limiting UTF-8 bytes.
+
 ### Site
 
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.

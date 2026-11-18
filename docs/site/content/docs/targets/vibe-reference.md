@@ -28,7 +28,8 @@ Start with the [Vibe setup](@/docs/targets/vibe.md).
 ### Skills
 
 - Skills keep `user-invocable`, `disable-model-invocation`, and bundled files.
-- Names: lowercase letters, digits, and single hyphens, up to 64 characters. Descriptions: up to 1024 characters.
+- Skill descriptions accept 1 to 1,024 Unicode characters. Accented letters and other multi-byte characters count as one character each, matching the [native metadata limit](https://github.com/mistralai/mistral-vibe/blob/v3.1.2/vibe/core/skills/models.py).
+- Names: lowercase letters, digits, and single hyphens, up to 64 characters.
 - `allowed-tools` is descriptive metadata. Vibe does not enforce it.
 
 ## Connections, settings, and hooks

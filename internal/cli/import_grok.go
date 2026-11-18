@@ -170,6 +170,10 @@ func grokMCPDocs(servers map[string]any) map[string]any {
 			continue
 		}
 		entry := maps.Clone(native)
+		if helper, ok := entry["headers_helper"]; ok {
+			entry["x-grok"] = map[string]any{"headers_helper": helper}
+			delete(entry, "headers_helper")
+		}
 		delete(entry, "description")
 		if _, explicit := entry["type"]; !explicit {
 			if url, ok := entry["url"].(string); ok && strings.HasSuffix(url, "/sse") {

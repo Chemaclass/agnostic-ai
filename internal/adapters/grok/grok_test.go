@@ -26,7 +26,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "review", Meta: map[string]any{"description": "Review work", "disable-model-invocation": true}, Body: "Read the diff."},
 		{Kind: spec.KindCommand, Name: "check", Meta: map[string]any{"description": "Check work"}, Body: "Check $ARGUMENTS."},
 		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "server", "args": []any{"--stdio"}, "cwd": "backend", "disabled": true}},
-		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "sse", "url": "https://example.com/sse", "headers": map[string]any{"Authorization": "${TOKEN}"}, "startup_timeout_sec": 30, "tool_timeout_sec": 90}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "sse", "url": "https://example.com/sse", "headers": map[string]any{"Authorization": "${TOKEN}"}, "startup_timeout_sec": 30, "tool_timeout_sec": 90, "x-grok": map[string]any{"headers_helper": "sh headers.sh"}}},
 		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "echo ok 'a b'", "timeout": 7}},
 		{Kind: spec.KindSettings, Name: "permissions", Meta: map[string]any{"permissions": map[string]any{"deny": []any{"Bash(git push *)"}}}},
 	})
@@ -185,7 +185,7 @@ func TestEmit_WritesNativeSurfaces(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string][]string{
-		".grok/rules/style.md": {"Keep functions short."}, "backend/.grok/rules/database.md": {"Use transactions."}, ".grok/agents/reviewer.md": {"tools:", "Read", "effort: high", "maxTurns: 8"}, ".grok/skills/review/SKILL.md": {"disable-model-invocation: true", "Read the diff."}, ".grok/commands/check.md": {"$ARGUMENTS"}, ".grok/hooks/guard.json": {"PreToolUse", "a b", "AGNOSTIC_AI_TARGET", "7"}, ".grok/config.toml": {"enabled = false", "headers", "startup_timeout_sec = 30", "tool_timeout_sec = 90", "Bash(git push *)"}}
+		".grok/rules/style.md": {"Keep functions short."}, "backend/.grok/rules/database.md": {"Use transactions."}, ".grok/agents/reviewer.md": {"tools:", "Read", "effort: high", "maxTurns: 8"}, ".grok/skills/review/SKILL.md": {"disable-model-invocation: true", "Read the diff."}, ".grok/commands/check.md": {"$ARGUMENTS"}, ".grok/hooks/guard.json": {"PreToolUse", "a b", "AGNOSTIC_AI_TARGET", "7"}, ".grok/config.toml": {"enabled = false", "headers", "startup_timeout_sec = 30", "tool_timeout_sec = 90", `headers_helper = "sh headers.sh"`, "Bash(git push *)"}}
 	for path, wants := range cases {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -510,5 +510,17 @@ func TestAgentMeta_PreservesExplicitNativeBridgeChoices(t *testing.T) {
 				t.Errorf("explicit native tools changed: got %v, want %v", got, tc.tools)
 			}
 		})
+	}
+}
+
+func TestEmit_RejectsNonStringHeadersHelper(t *testing.T) {
+	testutil.TempCwd(t)
+	server := spec.Entry{Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"url": "https://example.com/mcp", "x-grok": map[string]any{"headers_helper": []any{"sh", "headers.sh"}}}}
+	err := New().Emit(emit.NewSession(), spec.Bundle{MCPs: []spec.Entry{server}}, visibleConfig(), false)
+	if err == nil || !strings.Contains(err.Error(), "headers_helper must be a string") {
+		t.Errorf("invalid helper error: %v", err)
+	}
+	if _, err := os.Stat(".grok/config.toml"); !os.IsNotExist(err) {
+		t.Errorf("invalid helper wrote config: %v", err)
 	}
 }

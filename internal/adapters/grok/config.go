@@ -9,11 +9,16 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-var mcpKeys = []string{"command", "args", "env", "cwd", "url", "type", "headers", "bearer_token_env_var", "bearer_token_file", "oauth_client_id", "oauth_client_secret_env_var", "oauth_scopes", "startup_timeout_sec", "tool_timeout_sec", "tool_timeouts", "enabled", "expose_image_base64", "oauth", "setup"}
+var mcpKeys = []string{"command", "args", "env", "cwd", "url", "type", "headers", "headers_helper", "bearer_token_env_var", "bearer_token_file", "oauth_client_id", "oauth_client_secret_env_var", "oauth_scopes", "startup_timeout_sec", "tool_timeout_sec", "tool_timeouts", "enabled", "expose_image_base64", "oauth", "setup"}
 
 func mcpEntry(e spec.Entry) (map[string]any, error) {
 	meta := emit.ResolveMeta(e.Meta, target)
 	out := selected(meta, mcpKeys)
+	if helper, exists := out["headers_helper"]; exists {
+		if _, ok := helper.(string); !ok {
+			return nil, fmt.Errorf("grok MCP %s: headers_helper must be a string", e.Name)
+		}
+	}
 	if disabled, ok := meta["disabled"].(bool); ok {
 		out["enabled"] = !disabled
 	}

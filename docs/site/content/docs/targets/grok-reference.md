@@ -42,6 +42,7 @@ Start with the [Grok setup](@/docs/targets/grok.md).
 - `startup_timeout_sec` and `tool_timeout_sec` stay in seconds.
 - Environment references stay as text for Grok to expand.
 - `x-grok` carries native extras, such as authentication and timeouts.
+- `x-grok.headers_helper` keeps a string command that supplies dynamic HTTP request headers, supported since [Grok Build 1.0.88](https://x.ai/changelog/build). Import keeps the native `headers_helper` under `x-grok`; project and global sync write it back.
 - Portable `description` and `timeout` give coverage notes (no exact mapping).
 
 ### Project settings

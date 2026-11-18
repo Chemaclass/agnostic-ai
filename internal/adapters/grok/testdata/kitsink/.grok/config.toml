@@ -6,6 +6,7 @@
     cwd = "backend"
     enabled = false
   [mcp_servers.remote]
+    headers_helper = "sh headers.sh"
     startup_timeout_sec = 30
     tool_timeout_sec = 90
     type = "sse"
