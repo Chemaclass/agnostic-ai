@@ -68,7 +68,8 @@ func defaultUpgradeCompanionDeps() *upgradeCompanionDeps {
 			if err != nil || !found {
 				return "", found, err
 			}
-			return companionBuiltFor(context.Background(), path), true, nil
+			builtFor, _ := companionBuiltFor(context.Background(), path)
+			return builtFor, true, nil
 		},
 		run: runUpdatedBinary,
 	}

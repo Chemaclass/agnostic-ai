@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -107,8 +108,9 @@ type companionTools struct {
 	download func(ctx context.Context, out io.Writer, version, into string) (string, error)
 	// start runs the companion apart from this terminal.
 	start func(path string, env []string) error
-	// builtFor asks a companion which agnostic-ai release it was built for.
-	builtFor func(ctx context.Context, path string) string
+	// builtFor asks a companion which agnostic-ai release it was built
+	// for. Its error wraps errCompanionCannotRun when the program cannot run.
+	builtFor func(ctx context.Context, path string) (string, error)
 	// quit asks the running companion to end and reports whether one ran.
 	quit func(ctx context.Context, path string) (running bool, err error)
 	// loginOff removes the companion from what starts at login.
@@ -180,20 +182,36 @@ func startCompanion(path string, env []string) error {
 	return command.Process.Release()
 }
 
-func companionBuiltFor(ctx context.Context, path string) string {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+// errCompanionCannotRun is a companion program that cannot run at all,
+// as opposed to one too slow to answer.
+var errCompanionCannotRun = errors.New("the companion cannot run")
+
+func companionBuiltFor(ctx context.Context, path string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, path, "--version").Output()
-	if err != nil {
-		return ""
+	command := exec.CommandContext(ctx, path, "--version")
+	command.SysProcAttr = companionSysProcAttr()
+	out, err := command.Output()
+	var exit *exec.ExitError
+	switch {
+	case err == nil:
+		return strings.TrimSpace(string(out)), nil
+	case ctx.Err() != nil:
+		return "", fmt.Errorf("ask the companion its version: %w", ctx.Err())
+	case errors.As(err, &exit) && len(bytes.TrimSpace(out)) > 0:
+		return "", fmt.Errorf("ask the companion its version: %w", err)
+	default:
+		return "", fmt.Errorf("%w: %w", errCompanionCannotRun, err)
 	}
-	return strings.TrimSpace(string(out))
 }
 
 func quitCompanion(ctx context.Context, path string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, path, companionQuitFlag).CombinedOutput()
+	command := exec.CommandContext(ctx, path, companionQuitFlag)
+	// A session of its own, so a Ctrl-C in the terminal does not end it.
+	command.SysProcAttr = companionSysProcAttr()
+	out, err := command.CombinedOutput()
 	var exit *exec.ExitError
 	switch {
 	case err == nil:
@@ -218,7 +236,9 @@ func withWhatItSaid(err error, out []byte) error {
 func askCompanion(ctx context.Context, path, flag string) error {
 	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, path, flag).CombinedOutput()
+	command := exec.CommandContext(ctx, path, flag)
+	command.SysProcAttr = companionSysProcAttr()
+	out, err := command.CombinedOutput()
 	if err != nil {
 		return withWhatItSaid(err, out)
 	}
@@ -344,10 +364,14 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	// warnings. One that runs keeps them until it answers.
 	loginOff := false
 	if found {
+		cannotRun := func() bool {
+			_, err := tools.builtFor(ctx, installed)
+			return errors.Is(err, errCompanionCannotRun)
+		}
 		ran, err := endCompanion(ctx, tools, installed)
-		cannotRun := err != nil && !ran && tools.builtFor(ctx, installed) == ""
+		brokenProgram := err != nil && !ran && cannotRun()
 		switch {
-		case err != nil && !cannotRun:
+		case err != nil && !brokenProgram:
 			return err
 		case err != nil:
 			_, _ = fmt.Fprintf(out, "! Could not stop the companion (%v). If it still runs, end the %s process.\n", err, companionName)
@@ -358,8 +382,10 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 		switch {
 		case err == nil:
 			loginOff = true
-		case cannotRun || tools.builtFor(ctx, installed) == "":
+		case brokenProgram || cannotRun():
 			_, _ = fmt.Fprintf(out, "! Could not turn off start at login (%v). Remove %s from the items that open at login.\n", err, companionAppName)
+		case ran:
+			return fmt.Errorf("turn off start at login: %w. The companion was stopped; start it again with: agnostic-ai companion", err)
 		default:
 			return fmt.Errorf("turn off start at login: %w", err)
 		}
@@ -828,14 +854,18 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 	if err := recordCompanionCommand(dir); err != nil {
 		return err
 	}
-	builtFor := tools.builtFor(ctx, installed)
-	if builtFor == "" {
-		return fmt.Errorf("the companion at %s could not run. Install it again with: agnostic-ai companion install", installed)
+	// A first launch can be too slow to say its version; it still starts.
+	builtFor, err := tools.builtFor(ctx, installed)
+	if errors.Is(err, errCompanionCannotRun) {
+		return fmt.Errorf("the companion at %s could not run (%w). Install it again with: agnostic-ai companion install", installed, err)
 	}
 	if err := startInstalledCompanion(tools, installed); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.")
+	if err != nil {
+		return nil
+	}
 	if builtFor != version {
 		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %s and this is %s. Install it again with: agnostic-ai companion install\n", builtFor, version)
 	} else if recorded := installedRevision(dir); revision != "" && recorded != "" && recorded != revision {
