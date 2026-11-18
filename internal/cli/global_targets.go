@@ -68,7 +68,7 @@ type globalTarget struct {
 	// variable names the parent of its configuration directory.
 	rootSubdir string
 	// agentEfforts is the user settings file holding per-agent effort
-	// for a target whose agent files have no effort key.
+	// for a target whose portable effort is not mapped into agent files.
 	agentEfforts string
 	// agentsWindows is relative to APPDATA when the vendor uses it on Windows.
 	agentsWindows string
@@ -260,7 +260,7 @@ var globalTargets = map[string]globalTarget{
 		instructions: globalPathHome + ".qwen/QWEN.md", agents: globalPathHome + ".qwen/agents", skills: globalPathHome + ".qwen/skills",
 		hooks: globalPathHome + ".qwen/settings.json", hooksFormat: "claude", hookTarget: hookTargetHandlerEnv, hookFoldArgs: true, hookTimeout: qwen.HookTimeout,
 		mcp: globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
-		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, itemLists: []string{"mcp.excluded"},
+		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", effort: "model.reasoningEffort", effortLevel: qwen.Adapter{}.SettingsEffortLevels, permissionLists: true, itemLists: []string{"mcp.excluded"},
 			voice:    &globalVoiceKeys{enabled: "general.voice.enabled", mode: "general.voice.mode", language: "general.voice.language"},
 			reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
 	},

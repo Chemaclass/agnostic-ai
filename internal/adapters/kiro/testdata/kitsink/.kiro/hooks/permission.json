@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "action": {
+        "type": "command",
+        "command": "echo audit"
+      },
+      "matcher": "^read_file$",
+      "name": "permission",
+      "trigger": "PermissionRequest"
+    }
+  ]
+}

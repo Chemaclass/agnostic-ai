@@ -58,7 +58,7 @@ Field mappings and config keys: [native reference](@/docs/targets/junie-referenc
 ## Loading and limits
 
 - Junie uses the first guidelines source it finds and does not merge. Sync always writes `.junie/AGENTS.md`, so Junie [uses it exclusively](https://junie.jetbrains.com/docs/environment-variables.html). See the [lookup order](@/docs/targets/junie-reference.md#native-mappings).
-- Agent names must match `[a-z][a-z0-9_-]*`. `Deploy_Bot` fails sync, and the error shows the format.
+- Agent names must match `[a-z0-9][a-z0-9_-]*`. `Deploy_Bot` fails sync, and the error shows the format.
 - `.aiignore` makes Junie ask before it views or edits a listed file. It does not block. Brave Mode, or an allowlisted command that names the path, skips the prompt.
 - Junie loads `.junie/config.json` only in a trusted project.
 - Junie enables imported MCP servers by default. Disable one with `/mcp`, then **Disable**.

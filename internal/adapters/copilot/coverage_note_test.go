@@ -61,11 +61,8 @@ func TestEmit_MCP_DisabledHasNoFileBasedEffect(t *testing.T) {
 	}
 }
 
-// Copilot's agent profile table (docs.github.com/en/copilot/reference/
-// custom-agents-configuration) has no effort key, and per-agent
-// effortLevel exists only in the user-tier subagents.agents setting, so
-// a portable `effort` cannot reach any repository file. The drop must be
-// reported rather than silent (#1066).
+// Portable agent effort is not mapped to the CLI-only reasoningEffort
+// profile field. Project sync must report the unmapped value.
 func TestEmitAgents_EffortDropRaisesCoverageNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
@@ -82,7 +79,7 @@ func TestEmitAgents_EffortDropRaisesCoverageNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(raw), "effort") {
-		t.Errorf("copilot agent profiles have no effort key; must not emit one:\n%s", raw)
+		t.Errorf("portable effort must not be mapped to a profile key:\n%s", raw)
 	}
 
 	emit.FlushCoverageNotes()
@@ -151,5 +148,25 @@ func TestEmit_AgentHooksNoteNamesTheCopilotKey(t *testing.T) {
 	want := "`hooks` on 1 agent has no effect on copilot (sync writes no agent hooks here; set x-copilot.hooks, which Copilot CLI reads)"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("want %q, got: %s", want, buf.String())
+	}
+}
+
+func TestEmitAgents_PassesThroughCLIReasoningEffort(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	agents := []spec.Entry{{Kind: spec.KindAgent, Name: "review", Meta: map[string]any{"description": "Review", "x-copilot": map[string]any{"reasoningEffort": "high"}}, Body: "Review."}}
+	if err := New().EmitAgents(emit.NewSession(), agents, filepath.Join(dir, ".github/agents"), false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".github/agents/review.agent.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "reasoningEffort: high") {
+		t.Errorf("native CLI effort absent: %s", raw)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "`effort`") {
+		t.Errorf("unexpected effort note: %s", buf.String())
 	}
 }

@@ -192,6 +192,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Factory | `reasoningEffort` in `.factory/settings.json` | `none`, `dynamic`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each model accepts a subset |
 | Junie | `effort` in `.junie/config.json` | any string |
 | Kimi | `[thinking].effort` in the `config.toml` that `outputs.kimi.conf-file` names | any value |
+| Qwen Code | `model.reasoningEffort` in `.qwen/settings.json` (0.28.0 or later) | `low`, `medium`, `high`, `xhigh`, `max`; each provider maps the value to its active model |
 | Pi | `defaultThinkingLevel` in `.pi/settings.json` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
 
 ## Support by target

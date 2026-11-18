@@ -379,3 +379,29 @@ func snapshotKiroEmit(t *testing.T, root string) map[string]string {
 	}
 	return out
 }
+
+func TestKiroRoundTrip_PermissionRequestPreservesMatcher(t *testing.T) {
+	binary := builtBinary(t)
+	dir := t.TempDir()
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [kiro]\n"), 0o644))
+	path := filepath.Join(dir, ".kiro/hooks/permission.json")
+	must(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	const native = `{"version":"v1","hooks":[{"name":"permission","trigger":"PermissionRequest","matcher":"^read_file$","action":{"type":"command","command":"echo audit"}}]}`
+	must(t, os.WriteFile(path, []byte(native), 0o644))
+	for _, args := range [][]string{{"import", "kiro"}, {"validate"}, {"sync"}, {"sync", "--check"}, {"lint"}} {
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"trigger": "PermissionRequest"`, `"matcher": "^read_file$"`, `"type": "command"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("native permission hook lost %s: %s", want, raw)
+		}
+	}
+}

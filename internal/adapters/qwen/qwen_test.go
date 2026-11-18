@@ -29,7 +29,7 @@ func TestEmit_NativeContracts(t *testing.T) {
 		{Kind: spec.KindMCP, Name: "http", Meta: map[string]any{"type": "http", "url": "https://example.test/http"}},
 		{Kind: spec.KindMCP, Name: "sse", Meta: map[string]any{"type": "sse", "url": "https://example.test/sse"}},
 		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": "guard", "args": []any{"two words"}, "timeout": 7}},
-		{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "custom-model", "permissions": map[string]any{"deny": []any{"write"}}}},
+		{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "custom-model", "effort": "high", "permissions": map[string]any{"deny": []any{"write"}}}},
 		{Kind: spec.KindIgnore, Name: "secret", Body: ".env"},
 	})
 	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
@@ -110,7 +110,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"}},
 		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "runner", "args": []any{"--quiet"}, "env": map[string]any{"KEY": "${TOKEN}"}}},
 		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": "guard", "timeout": 7}},
-		{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "custom-model", "permissions": map[string]any{"deny": []any{"write"}}}},
+		{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "custom-model", "effort": "high", "permissions": map[string]any{"deny": []any{"write"}}}},
 		{Kind: spec.KindIgnore, Name: "secret", Body: ".env"},
 	})
 }
@@ -280,5 +280,60 @@ func TestEmit_RejectsCommandNamespaceTraversal(t *testing.T) {
 		if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err == nil {
 			t.Errorf("accepted %q", name)
 		}
+	}
+}
+
+func TestEmit_SettingsReasoningEffort(t *testing.T) {
+	for _, level := range []string{"low", "medium", "high", "xhigh", "max"} {
+		t.Run(level, func(t *testing.T) {
+			testutil.TempCwd(t)
+			var notes strings.Builder
+			previous := emit.Warner
+			emit.Warner = &notes
+			emit.ResetCoverageNotes()
+			t.Cleanup(func() { emit.Warner = previous; emit.ResetCoverageNotes() })
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": "example-model", "effort": level}}})
+			if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(".qwen/settings.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got struct {
+				Model map[string]any `json:"model"`
+			}
+			if err := json.Unmarshal(raw, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Model["reasoningEffort"] != level || got.Model["name"] != "example-model" {
+				t.Errorf("model = %#v", got.Model)
+			}
+			emit.FlushCoverageNotes()
+			if strings.Contains(notes.String(), "`effort`") {
+				t.Errorf("supported effort raised a coverage note: %s", notes.String())
+			}
+		})
+	}
+}
+
+func TestEmit_SettingsNativeReasoningEffortOverridesPortable(t *testing.T) {
+	testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"effort": "high", "x-qwen": map[string]any{"model": map[string]any{"reasoningEffort": "low"}}}}})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(".qwen/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Model map[string]any `json:"model"`
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Model["reasoningEffort"] != "low" {
+		t.Errorf("native override lost: %s", raw)
 	}
 }

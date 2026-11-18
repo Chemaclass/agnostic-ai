@@ -3,7 +3,9 @@ package integration
 import (
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -162,4 +164,35 @@ func snapshotCopilotEmit(t *testing.T, root string) map[string]string {
 		}
 	}
 	return out
+}
+
+func TestCopilotRoundTrip_PreservesNativeSkillPriority(t *testing.T) {
+	binary := builtBinary(t)
+	dir := t.TempDir()
+	files := map[string]string{
+		"agnostic-ai.yaml":                 "version: 1\ntargets: [copilot]\n",
+		".agents/skills/priority/SKILL.md": "---\nname: priority\ndescription: Shared winner\n---\nShared winner body.\n",
+		".claude/skills/priority/SKILL.md": "---\nname: priority\ndescription: Claude loser\n---\nClaude loser body.\n",
+	}
+	for path, body := range files {
+		path = filepath.Join(dir, path)
+		must(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		must(t, os.WriteFile(path, []byte(body), 0o644))
+	}
+	for _, args := range [][]string{{"import", "copilot"}, {"sync"}, {"sync", "--check"}, {"lint"}} {
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	for _, path := range []string{".agnostic-ai/skills/priority/SKILL.md", ".agents/skills/priority/SKILL.md"} {
+		raw, err := os.ReadFile(filepath.Join(dir, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), "Shared winner body.") {
+			t.Errorf("%s lost winning skill: %s", path, raw)
+		}
+	}
 }

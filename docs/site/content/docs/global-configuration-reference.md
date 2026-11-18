@@ -82,6 +82,7 @@ effort:
 | codebuddy | `~/.codebuddy/settings.json` | `model`, `reasoningEffort`, `permissions.defaultMode`, `permissions.allow`, `ask`, `deny` |
 | copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
+| qwen | `~/.qwen/settings.json` | `model.name`, `model.reasoningEffort` |
 | vibe | `~/.vibe/config.toml` | `active_model` |
 | kimi | `~/.kimi-code/config.toml` | `default_model`, `default_plan_mode`, `telemetry` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
@@ -100,6 +101,7 @@ effort:
 | Copilot | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` (each model accepts a subset) |
 | Qoder | `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max` |
 | Augment | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` |
+| Qwen | `low`, `medium`, `high`, `xhigh`, `max` (each provider maps the value to its active model) |
 | Codex | Any string |
 | CodeBuddy Code | See [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits) |
 
@@ -253,7 +255,8 @@ If two tools would write different content to one path, the run stops before wri
 
 **Copilot agent effort**
 
-- Copilot agent profiles have no effort key.
+- Copilot CLI documents a native profile `reasoningEffort` field, available through `x-copilot.reasoningEffort` ([agent fields](@/docs/targets/copilot-reference.md#agents)).
+- Portable agent effort is not mapped to that CLI field.
 - A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`. Other values raise a coverage note.
 - Sync stops when the file has comments, since a rewrite drops them. Rerun with `--backup` to rewrite it and keep `settings.json.bak`.
 - Sync also stops when a hand-set `effortLevel` has a different value.
@@ -268,8 +271,11 @@ If two tools would write different content to one path, the run stops before wri
 **OpenCode**
 
 - `disable-model-invocation` stays in project and global skills. V2 honors it; V1 does not ([OpenCode skills](@/docs/targets/opencode.md) covers native metadata precedence).
-- V1 reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist. Syncing both tools stops Claude-only text from reaching it.
-- [V2 discovers only `AGENTS.md`](https://opencode.ai/v2/docs/migrate-v1#instruction-files). Move any guidance from the Claude fallback into OpenCode's `AGENTS.md`.
+- V1 reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist.
+- The current [V2 migration guide](https://opencode.ai/v2/docs/migrate-v1#instruction-files) documents a `CLAUDE.md` fallback in each directory without `AGENTS.md`, plus `~/.claude/CLAUDE.md` when the global OpenCode `AGENTS.md` is absent.
+- V2 chooses per directory, so an `AGENTS.md` at the project root does not hide a nested `CLAUDE.md`.
+- `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` disables only the global Claude fallback. `OPENCODE_DISABLE_CLAUDE_CODE` disables all `CLAUDE.md` fallback.
+- Put OpenCode guidance in its `AGENTS.md` when syncing both tools.
 
 **Devin CLI and VS Code Copilot**
 

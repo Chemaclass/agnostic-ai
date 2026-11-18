@@ -30,7 +30,7 @@ A `## Rules` block follows the instructions that point to source specs, marked s
 
 [Docs](https://junie.jetbrains.com/docs/junie-cli-subagents.html). Junie reads `.junie/agents/` (the vendor's preferred location and the default here) or `.agents/`. Junie CLI offers to import `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/`. Set `outputs.junie.agents-dir: .agents` for the shared alternative, like Codex's `outputs.codex.agents-dir: .agents/agents`.
 
-- Names (and filenames when `name` is missing) must match `[a-z][a-z0-9_-]*`. Underscores are allowed, unlike the OpenCode and Zed skill rule.
+- Names (and filenames when `name` is missing) must match `[a-z0-9][a-z0-9_-]*`. Leading digits and underscores are allowed, unlike the OpenCode and Zed skill rule.
 - An invalid name such as `Deploy_Bot` fails sync with the required format. Sync does not rename it.
 - Frontmatter is copied as written. Documented fields: `name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`. They use the spec spelling, and `tools` and `disallowedTools` stay YAML lists.
 - Tool group labels match the Claude names for each documented group, including `WebFetch`, plus `AskUserQuestion`. There is no `Task`, `TodoWrite`, or `NotebookEdit`.

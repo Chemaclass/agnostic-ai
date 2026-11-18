@@ -372,7 +372,7 @@ var lintCodes = map[string]lintCode{
 	"LINT053": {
 		Severity: lintError,
 		Title:    "Spec or setting a selected tool refuses",
-		Cause:    "A tool in `targets` refuses a spec or setting before it writes anything, and that stops sync for every tool. CodeBuddy takes agent names of lowercase letters and hyphens only. Zed and OpenCode take skill names of 1 to 64 lowercase letters or digits with single hyphens, and Junie takes agent names that start with a lowercase letter followed by lowercase letters, digits, hyphens, or underscores; this covers commands and agents a tool writes as skills. Grok reads project rules only from committed files, so it refuses rules while `gitignore.enabled` is on and `gitignore.commit` lacks `grok:instructions`. Each tool reports its first refusal. Tools outside `targets` and `lint --global` are not checked.",
+		Cause:    "A tool in `targets` refuses a spec or setting before it writes anything, and that stops sync for every tool. CodeBuddy takes agent names of lowercase letters and hyphens only. Zed and OpenCode take skill names of 1 to 64 lowercase letters or digits with single hyphens, and Junie takes agent names that start with a lowercase letter or digit followed by lowercase letters, digits, hyphens, or underscores; this covers commands and agents a tool writes as skills. Grok reads project rules only from committed files, so it refuses rules while `gitignore.enabled` is on and `gitignore.commit` lacks `grok:instructions`. Each tool reports its first refusal. Tools outside `targets` and `lint --global` are not checked.",
 		Fix:      "Rename the spec as the message says, or add `grok:instructions` to `gitignore.commit`. Removing the tool from `targets` also clears it.",
 	},
 	"LINT054": {

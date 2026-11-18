@@ -95,6 +95,10 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body", Meta: map[string]any{"description": "handles tres"}},
 		{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md", Body: "Review ${1} through ${10}. All: ${@}. Legacy: $ARGUMENTS.", Meta: map[string]any{"description": "Review changes"}},
 		{
+			Kind: spec.KindHook, Name: "permission",
+			Meta: map[string]any{"event": "PermissionRequest", "matcher": "^read_file$", "command": "echo audit"},
+		},
+		{
 			Kind: spec.KindHook, Name: "fmt-go",
 			Meta: map[string]any{
 				"event": "PostToolUse", "matcher": "Edit", "command": "gofmt -w",

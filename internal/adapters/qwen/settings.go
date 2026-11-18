@@ -9,13 +9,25 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+// SettingsEffortLevels lists the values model.reasoningEffort accepts.
+func (Adapter) SettingsEffortLevels() []string {
+	return []string{"low", "medium", "high", "xhigh", "max"}
+}
+
 func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	path := emit.OutputConfFile(cfg, target, defaultSettingsFile)
 	mcpPath := emit.OutputMCPFile(cfg, target, path)
 	hooksPath := emit.OutputHooksFile(cfg, target, path)
 	files := map[string]map[string]any{path: {}}
-	if model := emit.SettingsModel(b.Settings, target); model != "" {
-		files[path]["model"] = map[string]any{"name": model}
+	model := map[string]any{}
+	if name := emit.SettingsModel(b.Settings, target); name != "" {
+		model["name"] = name
+	}
+	if effort := emit.SettingsEffortLevel(b.Settings, target, (Adapter{}).SettingsEffortLevels()); effort != "" {
+		model["reasoningEffort"] = effort
+	}
+	if len(model) > 0 {
+		files[path]["model"] = model
 	}
 	if permissions := emit.SettingsPermissions(b.Settings); permissions != nil {
 		files[path]["permissions"] = permissions

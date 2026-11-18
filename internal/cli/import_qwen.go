@@ -302,12 +302,20 @@ func importQwenSettings(root string, src config.Sources) (int, int, int, error) 
 	if len(native) > 0 {
 		doc := map[string]any{"x-qwen": native}
 		if model, ok := native["model"].(map[string]any); ok {
+			plan, level, err := planSettingsEffort("qwen", model["reasoningEffort"], importSourcePath(root, src.Settings), "qwen.yaml")
+			if err != nil {
+				return mcps, hooks, 0, err
+			}
+			if plan == effortPromote {
+				doc["effort"] = level
+				delete(model, "reasoningEffort")
+			}
 			if name, _ := model["name"].(string); name != "" {
 				doc["model"] = name
 				delete(model, "name")
-				if len(model) == 0 {
-					delete(native, "model")
-				}
+			}
+			if len(model) == 0 {
+				delete(native, "model")
 			}
 		}
 		data, err := yaml.Marshal(doc)

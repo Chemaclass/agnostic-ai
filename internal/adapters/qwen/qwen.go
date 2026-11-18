@@ -1,4 +1,4 @@
-// Package qwen emits native Qwen Code configuration for released CLI v0.27.0.
+// Package qwen emits native Qwen Code configuration for released CLI v0.28.0.
 //
 // Unscoped rules are inlined into QWEN.md. A rule with file globs goes to
 // `.qwen/rules/<name>.md` with `paths:` frontmatter, which Qwen keeps out of
@@ -32,6 +32,7 @@ var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings, spec.KindIgnore},
 	// EmitAgents notes permissionMode itself, on the global path too.
+	SettingsFields:    []string{"effort"},
 	AgentFields:       []string{"maxTurns", "background", "hooks", "permissionMode"},
 	SkillFields:       emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
 	AgentFieldReasons: map[string]string{"mcpServers": "Qwen requires inline server records; use x-qwen.mcpServers"},
@@ -82,7 +83,9 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 	keys := map[string]any{}
 	emit.MergeSettingsCustomKeys(keys, []spec.Entry{e}, target, "mcpServers")
 	emit.MergeSettingsCustomRecordMap(keys, []spec.Entry{e}, target, "mcpServers")
-	return emit.SettingsModel([]spec.Entry{e}, target) != "" || emit.SettingsPermissions([]spec.Entry{e}) != nil || len(keys) > 0
+	return emit.SettingsModel([]spec.Entry{e}, target) != "" ||
+		emit.SettingsEffortLevel([]spec.Entry{e}, target, (Adapter{}).SettingsEffortLevels()) != "" ||
+		emit.SettingsPermissions([]spec.Entry{e}) != nil || len(keys) > 0
 }
 
 // AgentCoverage names the agent fields this target writes.

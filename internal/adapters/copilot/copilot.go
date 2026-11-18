@@ -173,7 +173,7 @@ const (
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindSettings},
-	// effort: agent.go notes the drop with the user-tier alternative.
+	// effort: agent.go notes the unmapped field and native alternatives.
 	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
 	SkillFields:    emit.SkillFieldCoverage{Markdown: skillMarkdown},

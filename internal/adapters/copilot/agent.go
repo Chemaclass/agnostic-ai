@@ -17,11 +17,10 @@ import (
 // frontmatter carries `name`, `description` (required), and the
 // optional `tools` and `model` keys, with the prompt as the body.
 // Arbitrary `x-copilot` keys (target, user-invocable, mcp-servers, ...)
-// pass through for the rest of the documented schema. The profile table
-// has no effort key, and per-agent `effortLevel` lives only in the
-// user-tier `subagents.agents` setting. Project sync raises a coverage
-// note for a portable `effort`; a user-tier session leaves every
-// supported level to AgentEffortLevels and notes only the rest.
+// pass through, including CLI-only `reasoningEffort`. Portable agent
+// `effort` is not mapped to that field. Project sync raises a coverage
+// note; a user-tier session writes supported levels through
+// AgentEffortLevels and notes only the rest.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	droppedEffort := 0
 	for _, a := range agents {
@@ -35,7 +34,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", droppedEffort,
-		"Copilot agent profiles have no effort key; set a per-agent effortLevel of low, medium, high, or xhigh under subagents.agents in ~/.copilot/settings.json")
+		"portable agent effort is not mapped to a profile field; for Copilot CLI use x-copilot.reasoningEffort, or set a per-agent effortLevel of low, medium, high, or xhigh under subagents.agents in ~/.copilot/settings.json")
 	return nil
 }
 
