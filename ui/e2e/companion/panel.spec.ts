@@ -1722,6 +1722,52 @@ test('a click on the circle when the shell cannot be reached shows the trouble s
   expect(errors).toEqual([])
 })
 
+test('a closed list keeps its search but asks for it again only when it opens', async ({ page }) => {
+  await openPanel(page)
+  const search = page.getByLabel('Search every conversation')
+  await search.fill('login')
+  await expect(page.getByRole('option')).toHaveCount(1)
+
+  const hidden = page.waitForResponse((response) => response.url().endsWith('/api/panel/hide'))
+  await search.press('Escape')
+  await hidden
+  let searches = 0
+  page.on('request', (request) => {
+    if (request.url().includes('q=login')) searches += 1
+  })
+  for (let change = 0; change < 3; change += 1) {
+    expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  }
+  await page.waitForTimeout(500)
+  expect(searches).toBe(0)
+
+  const again = page.waitForRequest((request) => request.url().includes('q=login'))
+  expect((await page.request.post('/api/panel/toggle')).ok()).toBe(true)
+  await again
+  await expect(search).toHaveValue('login')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  expect(searches).toBe(1)
+})
+
+test('a search a new list made stale does not run again once the list closes', async ({ page }) => {
+  await openPanel(page, 'slow-search')
+  const search = page.getByLabel('Search every conversation')
+  const asked = page.waitForRequest((request) => request.url().includes('q=release'))
+  await search.fill('release')
+  await asked
+  let searches = 0
+  page.on('request', (request) => {
+    if (request.url().includes('q=release')) searches += 1
+  })
+  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  const hidden = page.waitForResponse((response) => response.url().endsWith('/api/panel/hide'))
+  await search.press('Escape')
+  await hidden
+  // The fixture answers "release" 1.5 seconds after it was asked.
+  await page.waitForTimeout(2_500)
+  expect(searches).toBe(0)
+})
+
 test('a rename during a slow search is not undone by the search that was already on its way', async ({ page }) => {
   await openPanel(page, 'slow-search')
   await page.getByLabel('Search every conversation').fill('release')

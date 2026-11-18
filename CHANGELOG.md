@@ -14,6 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
+- A closed companion list with a search left in it no longer runs that search again each time the list changes, which kept the server reading up to 8 weeks of matches again and again while agents worked. Opening the list runs the search once and keeps the words. (#3607)
 - The circle's shadow and count badge are no longer cut off at the edge of its window, at rest or under the pointer. The circle has a smaller shadow and a slightly larger window. (#3597)
 - `agnostic-ai companion uninstall` removes a companion that cannot run, such as one built for another processor, with a warning, instead of keeping it. (#3591)
 - `agnostic-ai companion` says when the companion cannot run, and names its path, instead of saying it is on screen. It also warns when an `agnostic-ai` from another commit installed it. (#3591)
