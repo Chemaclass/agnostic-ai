@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Authority notes and opt-in links point directly to the reference pages that explain their settings (#3553).
+
 - Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
 
 #### Companion
@@ -56,6 +58,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Factory
+
+- Exact-name hook aliases `Bash`, `Write`, and `WebFetch` no longer raise a false no-effect note (#3571).
+
 #### Goose
 
 - **Removed:** Native Review output after Goose removed `goose review` in 1.60. Reuse the source text in another target or a skill.
@@ -77,6 +83,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Skill descriptions allow up to 1024 Unicode characters instead of limiting UTF-8 bytes.
 
 ### Site
+
+- Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.
 - The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).

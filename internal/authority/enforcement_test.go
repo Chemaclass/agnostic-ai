@@ -250,3 +250,15 @@ func TestBuild_ScopedListedToolLeavesALeftOutOneClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestFormDocumented_CitesThePageWithPermissionMatching(t *testing.T) {
+	for _, target := range []string{"opencode", "windsurf", "kilo", "augment", "codex"} {
+		t.Run(target, func(t *testing.T) {
+			page, ok := formDocumented(target, formShellColon)
+			want := "docs/site/content/docs/targets/" + target + "-reference.md"
+			if !ok || page != want {
+				t.Errorf("formDocumented = %q, %v; want %q, true", page, ok, want)
+			}
+		})
+	}
+}
