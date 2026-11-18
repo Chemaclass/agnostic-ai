@@ -732,7 +732,7 @@ func main() {
 	takeFirstClick()
 	s := &shell{settingsPath: path, settings: saved, server: newServer()}
 	s.inbox = newInbox(s.server, version, func() {
-		s.app.Event.Emit(eventInbox)
+		s.app.Event.Emit(eventInbox, s.inbox.version())
 		s.listRead(s.inbox.held())
 	})
 	s.tell = func(looks appearance) {

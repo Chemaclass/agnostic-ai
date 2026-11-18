@@ -15,6 +15,14 @@ import (
 // pollEvery is how often the companion asks the server whether the list changed.
 const pollEvery = 5 * time.Second
 
+// listVersionHeader names, on a change's answer, the version of the list
+// read after it; absent when that read did not end in time.
+const listVersionHeader = "List-Version"
+
+// changeWait bounds how long a mark, rename or delete waits for the list
+// it changed; past it the call answers and the poll loop brings the list.
+const changeWait = 3 * time.Second
+
 // maxRequestBytes bounds a request from the companion's own pages: a tool, an id and a mark or a name.
 const maxRequestBytes = 4 << 10
 
@@ -56,6 +64,8 @@ type inbox struct {
 	problem string
 	// refresh asks the poll loop for a read now, after an open or a mark.
 	refresh chan struct{}
+	// changeWait bounds the read after a change.
+	changeWait time.Duration
 	// stopPoll ends the running poll loop; nil while none runs.
 	stopPoll context.CancelFunc
 	// opens counts the opens the pages asked for, so a late answer knows
@@ -84,7 +94,7 @@ type openFailure struct {
 }
 
 func newInbox(server *server, builtFor string, changed func()) *inbox {
-	return &inbox{server: server, builtFor: builtFor, changed: changed, refresh: make(chan struct{}, 1)}
+	return &inbox{server: server, builtFor: builtFor, changed: changed, refresh: make(chan struct{}, 1), changeWait: changeWait}
 }
 
 // start begins asking the server every pollEvery, until stop.
@@ -168,6 +178,14 @@ func errorOf(answer reply) string {
 	return refused.Error
 }
 
+// version names the latest list, so the pages can tell a list event they
+// already read past; empty when none is held.
+func (in *inbox) version() string {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+	return in.tag
+}
+
 // held is the latest list; nil when none is.
 func (in *inbox) held() json.RawMessage {
 	in.mu.Lock()
@@ -194,11 +212,13 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-// inboxReply is what the pages read: the server's list as it came, and
-// a note from the companion itself when it has one.
+// inboxReply is what the pages read: the server's list as it came, a
+// note from the companion itself when it has one, and the version of the
+// list held when it was asked, which the list event names too.
 type inboxReply struct {
-	View json.RawMessage `json:"view"`
-	Note string          `json:"note,omitempty"`
+	View    json.RawMessage `json:"view"`
+	Note    string          `json:"note,omitempty"`
+	Version string          `json:"version,omitempty"`
 }
 
 // versionNote says that the companion and the installed agnostic-ai are
@@ -217,6 +237,7 @@ func (in *inbox) versionNote() string {
 // next value of the page already read.
 func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 	if query := r.URL.Query().Get("q"); query != "" {
+		version := in.version()
 		asked := url.Values{"q": {query}}
 		if before := r.URL.Query().Get("before"); before != "" {
 			asked.Set("before", before)
@@ -230,24 +251,24 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, answer.status, apiError{Error: errorOf(answer)})
 			return
 		}
-		writeJSON(w, http.StatusOK, inboxReply{View: answer.body, Note: in.versionNote()})
+		writeJSON(w, http.StatusOK, inboxReply{View: answer.body, Note: in.versionNote(), Version: version})
 		return
 	}
 	in.mu.Lock()
-	latest, problem := in.latest, in.problem
+	latest, problem, tag := in.latest, in.problem, in.tag
 	in.mu.Unlock()
 	if latest == nil && problem == "" {
 		// Nothing read yet: read now instead of answering with nothing.
 		in.readFirst(r.Context())
 		in.mu.Lock()
-		latest, problem = in.latest, in.problem
+		latest, problem, tag = in.latest, in.problem, in.tag
 		in.mu.Unlock()
 	}
 	if latest == nil {
 		writeJSON(w, http.StatusBadGateway, apiError{Error: problem})
 		return
 	}
-	writeJSON(w, http.StatusOK, inboxReply{View: latest, Note: in.versionNote()})
+	writeJSON(w, http.StatusOK, inboxReply{View: latest, Note: in.versionNote(), Version: tag})
 }
 
 // stillOpening is the answer to an open the server did not answer in
@@ -260,8 +281,10 @@ type stillOpening struct {
 
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
-// is the one that opens, marks, renames and deletes. A call that worked asks for a new
-// list.
+// is the one that opens, marks, renames and deletes. A mark, rename or
+// delete that worked answers once the list it changed is held, naming
+// that list's version, so the page draws it right away. With read=later, such as each mark of a run
+// but the last, it leaves that list to the poll loop.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
@@ -274,12 +297,42 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 			return
 		}
 		answer, err := in.server.callWithin(r.Context(), in.server.callWait, http.MethodPost, path, body, "")
+		switch {
+		case err != nil || answer.status >= 300:
+		case r.URL.Query().Get("read") == "later":
+			in.refreshSoon()
+		case in.readAfterChange(r.Context()):
+			if version := in.version(); version != "" {
+				w.Header().Set(listVersionHeader, version)
+			}
+		}
 		in.answer(w, answer, err)
 	}
 }
 
+// readAfterChange reads the list a change made, for up to changeWait,
+// and says whether it did. A poll read already running goes first. When
+// the wait ends or the page gives up, the poll loop reads the list instead.
+func (in *inbox) readAfterChange(ctx context.Context) bool {
+	ctx, cancel := context.WithTimeout(ctx, in.changeWait)
+	defer cancel()
+	read := make(chan struct{})
+	go func() {
+		in.read(ctx)
+		close(read)
+	}()
+	select {
+	case <-read:
+	case <-ctx.Done():
+	}
+	if ctx.Err() != nil {
+		in.refreshSoon()
+		return false
+	}
+	return true
+}
+
 // answer writes the server's answer to a passed call, or why none came.
-// A call that worked asks for a new list.
 func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 	switch {
 	case err != nil && timedOut(err):
@@ -288,9 +341,6 @@ func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 	case err != nil:
 		writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 		return
-	}
-	if answer.status < 300 {
-		in.refreshSoon()
 	}
 	if len(answer.body) == 0 {
 		w.WriteHeader(answer.status)
@@ -330,6 +380,9 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	defer waited.Stop()
 	select {
 	case got := <-settled:
+		if got.err == nil && got.answer.status < 300 {
+			in.refreshSoon()
+		}
 		in.answer(w, got.answer, got.err)
 		return
 	case <-waited.C:

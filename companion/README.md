@@ -295,6 +295,7 @@ When a status counts:
   the companion or the web interface, archive it, or choose **Mark as read**
   or **Mark all as read**.
   A chat you read in its own terminal still counts as unread until then.
+  An archived chat has no read state, so it never shows as unread.
 - **A local chat** is working or waiting only while its process runs on this
   machine.
 - **A cloud chat** has no process here to check, so its status is believed for

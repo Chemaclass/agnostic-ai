@@ -30,8 +30,6 @@ const (
 	DeleteNotArchived DeleteRefusal = "not-archived"
 	// DeleteRunning: a process or a background job still holds it.
 	DeleteRunning DeleteRefusal = "running"
-	// DeleteUnread: it is under Archived, but its latest write was never seen.
-	DeleteUnread DeleteRefusal = "unread"
 	// DeleteChanged: one of its files was written at or after the moment it was archived.
 	DeleteChanged DeleteRefusal = "changed"
 	// DeleteUnsupported: its store cannot be deleted from here.
@@ -105,10 +103,6 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	archived, changed, ok := archivedAsOf(stateOf(c, entry, parseStamp(file.Since), now), entry, c.readAt)
 	if !ok {
 		return DeleteReply{}, refuse(DeleteNotArchived, "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.")
-	}
-	// A session that closed after its last reply is archived with that reply unread.
-	if unseen(c, entry, parseStamp(file.Since)) {
-		return DeleteReply{}, refuse(DeleteUnread, "This conversation has a reply you have not read. Open it or mark it as read, then delete it.")
 	}
 	if reason := s.deleteUnsupported(c); reason != "" {
 		return DeleteReply{}, refuse(DeleteUnsupported, reason)

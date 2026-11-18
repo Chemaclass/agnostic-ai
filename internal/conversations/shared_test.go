@@ -336,7 +336,7 @@ func TestScan_AClosedSharedSessionStaysOneRowWithItsTwin(t *testing.T) {
 		t.Fatalf("rows = %v, want the local row only", ids)
 	}
 	row := byID(t, view, idSafari)
-	if row.State != StateDormant || !row.Unread || row.Cloud == nil || row.Cloud.ID != "cse_01AbCd" {
+	if row.State != StateDormant || row.Unread || row.Cloud == nil || row.Cloud.ID != "cse_01AbCd" {
 		t.Errorf("row = %s", asJSON(t, row))
 	}
 	if view.NeedsYou != 0 {
@@ -344,7 +344,7 @@ func TestScan_AClosedSharedSessionStaysOneRowWithItsTwin(t *testing.T) {
 	}
 }
 
-func TestReopen_TheTwinOfAClosedSessionClearsTheLocalRowAndItsDeleteRefusal(t *testing.T) {
+func TestReopen_TheTwinOfAClosedSessionMarksTheLocalRowSeen(t *testing.T) {
 	scanner, _, _ := closedTwinScanner(t)
 	scanner.Scan(context.Background(), ScanOptions{})
 	if reply, found := scanner.Reopen(context.Background(), ToolClaude, "cse_01AbCd", ScanOptions{}, &fakeLauncher{}); !found || !reply.Opened {
@@ -355,10 +355,6 @@ func TestReopen_TheTwinOfAClosedSessionClearsTheLocalRowAndItsDeleteRefusal(t *t
 
 	if row := byID(t, view, idSafari); row.Unread || row.SeenAt != "2026-11-07T12:00:00Z" {
 		t.Errorf("local row = %s", asJSON(t, row))
-	}
-	// The fixture's files carry today's times, so the delete stops later, at the write check.
-	if _, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); deleteRefusal(t, err).Kind == DeleteUnread {
-		t.Errorf("delete still refused as unread: %v", err)
 	}
 }
 
@@ -429,10 +425,10 @@ func TestScan_APhoneReplyAfterTheWindowCounts(t *testing.T) {
 	}
 }
 
-// A reply inside the window stays folded, and the closed row shows it
-// unread, so it is never counted nowhere: not while folded, and not on
-// the twin once it shows apart.
-func TestScan_APhoneReplyInsideTheWindowIsUnreadOnExactlyOneRow(t *testing.T) {
+// A reply inside the window stays folded into the closed row, which is
+// archived and has no read state. Once the twin shows apart, only the twin
+// is unread.
+func TestScan_APhoneReplyInsideTheWindowIsUnreadOnlyOnTheTwinOnceApart(t *testing.T) {
 	phone := cloudRow("cse_01AbCd", "Fix the parser", "2026-11-07T11:31:00Z")
 	unreadRows := func(view View) []string {
 		var ids []string
@@ -463,7 +459,7 @@ func TestScan_APhoneReplyInsideTheWindowIsUnreadOnExactlyOneRow(t *testing.T) {
 			*at = time.Date(2026, 11, 7, 12, 1, 0, 0, time.UTC)
 			scanner.Cloud = oneCloudList(phone)
 			view := scanner.Scan(context.Background(), ScanOptions{})
-			if row := byID(t, view, idSafari); !slices.Equal(idsOf(view), []string{idSafari}) || !row.Unread || row.UpdatedAt != "2026-11-07T11:31:00Z" {
+			if row := byID(t, view, idSafari); !slices.Equal(idsOf(view), []string{idSafari}) || row.Unread || row.UpdatedAt != "2026-11-07T11:31:00Z" {
 				t.Fatalf("folded: rows %s", asJSON(t, view.Conversations))
 			}
 			next := after(t, scanner, stores)
@@ -508,7 +504,7 @@ func TestScan_ARestartedServerListsTheTwinApartWithoutCountingTheOldReply(t *tes
 	if cloud := byID(t, view, "cse_01AbCd"); cloud.State != StateActive || cloud.Unread || view.NeedsYou != 0 {
 		t.Errorf("needs you %d, cloud row %s", view.NeedsYou, asJSON(t, cloud))
 	}
-	if row := byID(t, view, idSafari); !row.Unread {
+	if row := byID(t, view, idSafari); row.State != StateDormant || row.Unread {
 		t.Errorf("local row = %s", asJSON(t, row))
 	}
 }
@@ -538,11 +534,8 @@ func TestReopen_TheTwinOfAClosedSessionClearsTheLocalRowAfterARestart(t *testing
 	}
 	restarted := restartedScanner(scanner, stores)
 
-	if row := byID(t, restarted.Scan(context.Background(), ScanOptions{}), idSafari); row.Unread {
+	if row := byID(t, restarted.Scan(context.Background(), ScanOptions{}), idSafari); row.Unread || row.SeenAt == "" {
 		t.Errorf("local row = %s", asJSON(t, row))
-	}
-	if _, err := restarted.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); deleteRefusal(t, err).Kind == DeleteUnread {
-		t.Errorf("delete refused as unread: %v", err)
 	}
 }
 
