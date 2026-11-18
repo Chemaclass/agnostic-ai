@@ -56,12 +56,12 @@
         // The preview stopped; the next try shows the calls again once it is back.
       }
     }
-    // The shell gives the small circle a 56-point window.
+    // The shell gives the small circle a 62-point window.
     const bubbleFrame = document.querySelector('iframe.bubble')
     async function sizeBubble() {
       try {
         const { smallCompanion } = await (await fetch('/api/appearance')).json()
-        bubbleFrame.style.width = bubbleFrame.style.height = smallCompanion ? '56px' : '84px'
+        bubbleFrame.style.width = bubbleFrame.style.height = smallCompanion ? '62px' : '92px'
       } catch {
         // The preview stopped; the next try sizes the frame once it is back.
       }

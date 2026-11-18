@@ -319,8 +319,8 @@ test('switching Small companion in the menu saves it', async ({ page }) => {
 
 test('the small window shows the circle, its mark, ring and badge at two thirds', async ({ page }) => {
   await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
-  // The shell sizes the native window: 84 points for the regular circle, 56 for the small one.
-  await page.setViewportSize({ width: 84, height: 84 })
+  // The shell sizes the native window: 92 points for the regular circle, 62 for the small one.
+  await page.setViewportSize({ width: 92, height: 92 })
   await page.goto('/')
   await expect(page.locator('#badge')).toBeVisible()
   await expect(page.locator('#bubble')).toHaveCSS('width', '60px')
@@ -328,7 +328,7 @@ test('the small window shows the circle, its mark, ring and badge at two thirds'
   await expect(page.locator('.ring')).toHaveCSS('width', '68px')
   await expect(page.locator('#badge')).toHaveCSS('height', '22px')
 
-  await page.setViewportSize({ width: 56, height: 56 })
+  await page.setViewportSize({ width: 62, height: 62 })
 
   await expect(page.locator('#bubble')).toHaveCSS('width', '40px')
   await expect(page.locator('.mark')).toHaveCSS('width', '21px')
