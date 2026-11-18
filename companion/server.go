@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -25,6 +26,19 @@ const servedLinePrefix = "Serving agnostic-ai at "
 // serverStartWait is how long a started server may take to print its address.
 const serverStartWait = 15 * time.Second
 
+// maxStartBackoff bounds the pause between starts after failed ones. A
+// failed start waits twice as long as the one before, from pollEvery.
+const maxStartBackoff = time.Minute
+
+// maxLateReads is how many list reads in a row may go unanswered in
+// time before the server is asked whether it still runs.
+const maxLateReads = 3
+
+// healthTimeout bounds that question. The health endpoint takes no
+// scan lock, so a server busy with a long scan still answers it, and
+// only a stuck one, as after a sleep, is replaced.
+const healthTimeout = 5 * time.Second
+
 // callTimeout bounds one call to the server. A first scan of a large
 // history takes seconds.
 const callTimeout = 30 * time.Second
@@ -33,6 +47,10 @@ const callTimeout = 30 * time.Second
 // the server may list Claude Code's background sessions, wait for an
 // editor window and run a terminal script, each for up to 15 seconds.
 const openTimeout = 60 * time.Second
+
+// sendTimeout bounds a send: the server may wait for a scan of the whole
+// history to find the chat, then bring it forward and type.
+const sendTimeout = 60 * time.Second
 
 // openLateTimeout is how long an open keeps being waited for after the
 // page got its pending reply. It outlasts the 90 seconds agnostic-ai
@@ -51,8 +69,13 @@ const maxProblemBytes = 2 << 10
 // quits.
 type server struct {
 	client *http.Client
-	// callWait and openWait bound a call and an open; tests shorten them.
-	callWait, openWait time.Duration
+	// callWait, openWait and sendWait bound a call, an open and a send;
+	// tests shorten them.
+	callWait, openWait, sendWait time.Duration
+	// startWait bounds how long a started server may take to print its
+	// address, and healthWait the question whether a server that missed
+	// reads still runs; tests shorten them.
+	startWait, healthWait time.Duration
 	// openLateWait bounds an open the page stopped waiting for.
 	openLateWait time.Duration
 
@@ -69,16 +92,31 @@ type server struct {
 	process *exec.Cmd
 	// input is the server's standard input. The server stops when it closes.
 	input io.Closer
+	// failedStarts counts the starts that failed in a row; no start
+	// begins before retryAt while the binary is still failedBinary, and
+	// startProblem says why the last failed.
+	failedStarts int
+	retryAt      time.Time
+	failedBinary string
+	startProblem error
+	// lateReads counts the list reads in a row the running server did
+	// not answer in time.
+	lateReads int
 }
 
 var errResting = errors.New("the companion is quitting and asks agnostic-ai nothing")
 
+var errMismatchedAgnosticAI = errors.New("The installed agnostic-ai does not match this companion. Run: agnostic-ai upgrade, then agnostic-ai companion install")
+
 func newServer() *server {
 	// Each call sets its own time limit; see callWithin.
-	return &server{client: &http.Client{}, callWait: callTimeout, openWait: openTimeout, openLateWait: openLateTimeout}
+	return &server{client: &http.Client{}, callWait: callTimeout, openWait: openTimeout, sendWait: sendTimeout, openLateWait: openLateTimeout, startWait: serverStartWait, healthWait: healthTimeout}
 }
 
-// address returns the running server's address, starting one first when none runs.
+// address returns the running server's address, starting one first when
+// none runs. After starts that failed in a row it waits longer before
+// the next, and answers why the last one failed meanwhile, unless the
+// binary changed since, such as after an upgrade.
 func (s *server) address() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -88,6 +126,55 @@ func (s *server) address() (string, error) {
 	if s.base != "" {
 		return s.base, nil
 	}
+	binary := binaryStamp()
+	if time.Now().Before(s.retryAt) && binary == s.failedBinary {
+		return "", s.startProblem
+	}
+	base, err := s.start()
+	switch {
+	case errors.Is(err, errResting):
+	case err != nil:
+		s.failedStarts++
+		s.retryAt = time.Now().Add(startBackoff(s.failedStarts))
+		s.failedBinary, s.startProblem = binary, err
+	default:
+		s.failedStarts, s.retryAt, s.startProblem = 0, time.Time{}, nil
+	}
+	return base, err
+}
+
+// binaryStamp names the agnostic-ai the companion would start, by its
+// path and its last change; empty when none is found.
+func binaryStamp() string {
+	binary, err := findBinary()
+	if err != nil {
+		return ""
+	}
+	info, err := os.Stat(binary)
+	if err != nil {
+		return binary
+	}
+	return binary + "@" + info.ModTime().String()
+}
+
+// startBackoff is the pause after failed starts in a row: none after
+// the first, then pollEvery doubled each time, up to maxStartBackoff.
+func startBackoff(failed int) time.Duration {
+	if failed < 2 {
+		return 0
+	}
+	wait := pollEvery
+	for range failed - 2 {
+		wait *= 2
+		if wait >= maxStartBackoff {
+			return maxStartBackoff
+		}
+	}
+	return wait
+}
+
+// start starts a server and waits for its address. The caller holds mu.
+func (s *server) start() (string, error) {
 	binary, err := findBinary()
 	if err != nil {
 		return "", err
@@ -141,20 +228,25 @@ func (s *server) address() (string, error) {
 			// Wait copies the last of stderr into problems, so read it only after the process ends.
 			select {
 			case <-ended:
-			case <-time.After(serverStartWait):
+			case <-time.After(s.startWait):
 			}
-			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", problems.String())
+			said := problems.String()
+			if strings.Contains(said, "unknown flag") {
+				log.Printf("agnostic-ai serve stopped before it listened: %s", said)
+				return "", errMismatchedAgnosticAI
+			}
+			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", said)
 		}
 		if s.resting.Load() {
 			// The companion quit while this server started.
 			_ = input.Close()
 			return "", errResting
 		}
-		s.base, s.process, s.input = address, process, input
-	case <-time.After(serverStartWait):
+		s.base, s.process, s.input, s.lateReads = address, process, input, 0
+	case <-time.After(s.startWait):
 		_ = input.Close()
 		_ = process.Process.Kill()
-		return "", fmt.Errorf("agnostic-ai serve did not listen within %s", serverStartWait)
+		return "", fmt.Errorf("agnostic-ai serve did not listen within %s", s.startWait)
 	}
 	s.version = s.readVersion(s.base)
 	return s.base, nil
@@ -253,19 +345,88 @@ func (s *server) callWithin(ctx context.Context, wait time.Duration, method, pat
 	if ifNoneMatch != "" {
 		request.Header.Set("If-None-Match", ifNoneMatch)
 	}
+	listRead := method == http.MethodGet && strings.HasPrefix(path, serverListPath)
 	response, err := s.client.Do(request)
 	if err != nil {
-		return reply{}, unanswered(ctx, limited, path, err)
+		return reply{}, s.unanswered(base, listRead, ctx, limited, path, err)
 	}
 	defer func() { _ = response.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(response.Body, maxReplyBytes+1))
 	if err != nil {
-		return reply{}, unanswered(ctx, limited, path, err)
+		return reply{}, s.unanswered(base, listRead, ctx, limited, path, err)
 	}
+	s.answered(base)
 	if len(raw) > maxReplyBytes {
 		return reply{}, errors.New("the answer of agnostic-ai is larger than the companion reads")
 	}
 	return reply{status: response.StatusCode, tag: response.Header.Get("ETag"), body: raw}, nil
+}
+
+// answered notes that the server at base answered a call.
+func (s *server) answered(base string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.base == base {
+		s.lateReads = 0
+	}
+}
+
+// unanswered is unanswered for a call to the server at base. After
+// maxLateReads list reads in a row got no answer in time, it asks the
+// server for its health, and stops it when that gets no answer either,
+// so the next call starts another.
+func (s *server) unanswered(base string, listRead bool, caller, limited context.Context, path string, cause error) error {
+	err := unanswered(caller, limited, path, cause)
+	if !listRead || !timedOut(err) {
+		return err
+	}
+	s.mu.Lock()
+	if s.base != base {
+		s.mu.Unlock()
+		return err
+	}
+	s.lateReads++
+	stuck := s.lateReads >= maxLateReads
+	s.mu.Unlock()
+	if !stuck {
+		return err
+	}
+	healthy := s.answersHealth(base)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.base != base {
+		return err
+	}
+	if healthy {
+		s.lateReads = 0
+		return err
+	}
+	log.Printf("agnostic-ai serve answered none of %d list reads in a row, nor its health; starting another", maxLateReads)
+	if s.input != nil {
+		_ = s.input.Close()
+	}
+	if s.process != nil && s.process.Process != nil {
+		_ = s.process.Process.Kill()
+	}
+	s.base, s.version, s.process, s.input, s.lateReads = "", "", nil, nil, 0
+	return err
+}
+
+// answersHealth reports whether the server at base answers its health
+// within healthWait.
+func (s *server) answersHealth(base string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), s.healthWait)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/health", nil)
+	if err != nil {
+		return false
+	}
+	response, err := s.client.Do(request)
+	if err != nil {
+		return false
+	}
+	_ = response.Body.Close()
+	return response.StatusCode == http.StatusOK
 }
 
 // unanswered words a call that got no whole answer for the person, and

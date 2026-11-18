@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -13,8 +14,10 @@ import (
 type fakeShortcuts struct {
 	// refused are the keys another app holds.
 	refused map[string]bool
-	held    map[string]bool
-	calls   []string
+	// stuck are the keys the system fails to give back.
+	stuck map[string]bool
+	held  map[string]bool
+	calls []string
 }
 
 func (f *fakeShortcuts) Register(keys string, _ func()) error {
@@ -31,6 +34,9 @@ func (f *fakeShortcuts) Register(keys string, _ func()) error {
 
 func (f *fakeShortcuts) Unregister(keys string) error {
 	f.calls = append(f.calls, "unregister "+keys)
+	if f.stuck[keys] {
+		return errors.New("the system kept these keys")
+	}
 	delete(f.held, keys)
 	return nil
 }
@@ -228,5 +234,50 @@ func TestChangeSendShortcut_SavesTheNewKeysAndReleasesTheOld(t *testing.T) {
 	}
 	if saved.SendShortcut != "Cmd+Shift+B" || saved.Shortcut != "" || keys.held[defaultSendShortcut] || !keys.held["Cmd+Shift+B"] || !keys.held[defaultShortcut] {
 		t.Errorf("saved %+v, held %v", saved, keys.held)
+	}
+}
+
+func TestChangeShortcut_GivesTheNewKeysBackWhenTheOldOnesStayHeld(t *testing.T) {
+	keys := &fakeShortcuts{stuck: map[string]bool{defaultShortcut: true}}
+	s := shellWith(t, keys)
+	s.registerShortcuts()
+
+	err := s.changeOpenShortcut("Cmd+Shift+K")
+
+	if err == nil || err.Error() != "release Ctrl+Alt+Space: the system kept these keys" {
+		t.Errorf("change = %v", err)
+	}
+	if keys.held["Cmd+Shift+K"] {
+		t.Error("the new keys stay taken though the change failed")
+	}
+	if s.settings.shortcut() != defaultShortcut {
+		t.Errorf("shortcut = %s; want the old one kept", s.settings.shortcut())
+	}
+	keys.stuck = nil
+	if err := s.changeOpenShortcut("Cmd+Shift+K"); err != nil {
+		t.Errorf("choosing the same keys again: %v", err)
+	}
+}
+
+func TestChangeShortcut_KeepsTheOldKeysWhenTheSettingsCannotBeSaved(t *testing.T) {
+	keys := &fakeShortcuts{}
+	s := shellWith(t, keys)
+	s.registerShortcuts()
+	blocker := filepath.Join(t.TempDir(), "a file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.settingsPath = filepath.Join(blocker, "companion.json")
+
+	err := s.changeOpenShortcut("Cmd+Shift+K")
+
+	if err == nil {
+		t.Fatal("a change whose save failed reported success")
+	}
+	if s.settings.shortcut() != defaultShortcut || s.shortcutProblem != "" {
+		t.Errorf("shortcut = %s, problem %q; want the old one, working", s.settings.shortcut(), s.shortcutProblem)
+	}
+	if keys.held["Cmd+Shift+K"] || !keys.held[defaultShortcut] {
+		t.Errorf("held = %v; want only the old keys", keys.held)
 	}
 }

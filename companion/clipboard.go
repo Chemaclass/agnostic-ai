@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -104,13 +106,22 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, apiError{Error: "The text holds too many special characters to send, so nothing was typed. Copy less of it."})
 		return
 	}
-	answer, err := in.server.call(r.Context(), http.MethodPost, serverSendPath, body, "")
+	answer, err := in.server.callWithin(r.Context(), in.server.sendWait, http.MethodPost, serverSendPath, body, "")
+	if mayHaveArrived(err) {
+		status := http.StatusBadGateway
+		message := "agnostic-ai stopped answering. The text may have been typed. Check the chat before sending again."
+		if timedOut(err) {
+			status = http.StatusGatewayTimeout
+			message = "agnostic-ai took too long to answer. The text may have been typed. Check the chat before sending again."
+		}
+		writeJSON(w, status, apiError{Error: message})
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 		return
 	}
-	// A release older than the send endpoint answers its path as an unknown one.
-	if (answer.status == http.StatusNotFound || answer.status == http.StatusMethodNotAllowed) && !strings.HasPrefix(errorOf(answer), "That conversation") {
+	if missingEndpoint(answer) {
 		writeJSON(w, http.StatusNotImplemented, apiError{Error: "The installed agnostic-ai cannot send text yet. Run: agnostic-ai companion install, or upgrade agnostic-ai."})
 		return
 	}
@@ -121,6 +132,30 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(answer.status)
 	_, _ = io.Copy(w, bytes.NewReader(answer.body))
+}
+
+// mayHaveArrived reports whether err is a call that got no answer after
+// it may have reached the server: anything but a failed connect.
+func mayHaveArrived(err error) bool {
+	var failed *callError
+	if !errors.As(err, &failed) {
+		return false
+	}
+	var dial *net.OpError
+	return !errors.As(err, &dial) || dial.Op != "dial"
+}
+
+// missingEndpoint reports whether the server answered as a release older
+// than the endpoint does: Go's own 404 page, or the conversations
+// handler's "no endpoint at" for a path it does not know.
+func missingEndpoint(answer reply) bool {
+	switch answer.status {
+	case http.StatusMethodNotAllowed:
+		return true
+	case http.StatusNotFound:
+		return strings.TrimSpace(string(answer.body)) == "404 page not found" || strings.HasPrefix(errorOf(answer), "no endpoint at ")
+	}
+	return false
 }
 
 // serverSendBody is the server's send request. HTML that would push it

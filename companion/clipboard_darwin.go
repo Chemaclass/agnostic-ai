@@ -23,15 +23,22 @@ static char *companionClipboardHTML(void) {
 */
 import "C"
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
 
 // clipboardHTML reads the HTML flavor a browser puts beside the copied
-// text. Wails reads only the text.
+// text. Wails reads only the text. Both are read on the main thread, as
+// AppKit wants.
 func clipboardHTML() string {
-	html := C.companionClipboardHTML()
-	if html == nil {
-		return ""
-	}
-	defer C.free(unsafe.Pointer(html))
-	return C.GoString(html)
+	return application.InvokeSyncWithResult(func() string {
+		html := C.companionClipboardHTML()
+		if html == nil {
+			return ""
+		}
+		defer C.free(unsafe.Pointer(html))
+		return C.GoString(html)
+	})
 }

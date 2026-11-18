@@ -93,3 +93,15 @@ func TestResizedBubble_KeepsTheEdgesNearestTheCircle(t *testing.T) {
 		}
 	}
 }
+
+func TestShowPanel_UsesTheListedScreensWhenTheBubblesScreenIsUnknown(t *testing.T) {
+	s, _ := placedShell(t)
+	s.bubble.(*fakeWindow).screenless = true
+
+	s.togglePanel()
+
+	panel := s.panel.(*fakeWindow)
+	if !panel.IsVisible() || panel.moves != 1 {
+		t.Errorf("list visible %v, placed %d times; want it shown beside the circle", panel.IsVisible(), panel.moves)
+	}
+}

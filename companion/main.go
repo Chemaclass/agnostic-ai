@@ -158,6 +158,8 @@ type shell struct {
 	// asked to hide still reads as visible for a moment.
 	panelAsked bool
 	save       *time.Timer
+	// quitting is set once the companion quits: no place save starts then.
+	quitting bool
 	// presence is how the companion sits on the screen; the zero value is shown.
 	presence presence
 	// resized is where the last size change put the circle and the
@@ -285,8 +287,15 @@ func (s *shell) restBriefly() {
 	}
 }
 
-// quit stops the server, then ends the app once, however many ask.
+// quit stops the server, then ends the app once, however many ask. A
+// place save still waiting is dropped: a closed window reports (0, 0).
 func (s *shell) quit() {
+	s.mu.Lock()
+	s.quitting = true
+	if s.save != nil {
+		s.save.Stop()
+	}
+	s.mu.Unlock()
 	s.restBriefly()
 	s.endOnce.Do(s.end)
 }
@@ -384,8 +393,12 @@ func (s *shell) showPanelWhileShown() {
 // whose data is the corner nearest the bubble. The caller holds placing,
 // so a Hide cannot land between the presence it checked and the show.
 func (s *shell) showPanelOn(event string) {
-	x, y, nearest := placePanel(windowRect(s.bubble), s.workArea(), panelWidth, panelHeight)
-	s.panel.SetPosition(x, y)
+	nearest := corner("")
+	if work, ok := s.workArea(); ok {
+		var x, y int
+		x, y, nearest = placePanel(windowRect(s.bubble), work, panelWidth, panelHeight)
+		s.panel.SetPosition(x, y)
+	}
 	s.mu.Lock()
 	s.panelAsked = true
 	s.mu.Unlock()
@@ -401,13 +414,18 @@ func windowRect(w application.Window) rect {
 }
 
 // workArea is the usable part of the screen the bubble is on, or of the
-// primary screen when the bubble's screen is unknown.
-func (s *shell) workArea() rect {
+// primary screen when the bubble's screen is unknown. It is false when
+// no screen is listed.
+func (s *shell) workArea() (rect, bool) {
 	screen, err := s.bubble.GetScreen()
-	if err != nil || screen == nil {
-		screen = s.app.Screen.GetPrimary()
+	if err == nil && screen != nil {
+		return rect{X: screen.WorkArea.X, Y: screen.WorkArea.Y, Width: screen.WorkArea.Width, Height: screen.WorkArea.Height}, true
 	}
-	return rect{X: screen.WorkArea.X, Y: screen.WorkArea.Y, Width: screen.WorkArea.Width, Height: screen.WorkArea.Height}
+	areas := s.workAreas()
+	if len(areas) == 0 {
+		return rect{}, false
+	}
+	return areas[0], true
 }
 
 // screensWait is how long the companion waits at start for Wails to list
@@ -473,7 +491,11 @@ func (s *shell) fitBubble() {
 	if before.Width == side && before.Height == side {
 		return
 	}
-	work := s.workArea()
+	work, ok := s.workArea()
+	if !ok {
+		s.bubble.SetSize(side, side)
+		return
+	}
 	x, y := resizedBubble(before, work, side)
 	s.bubble.SetSize(side, side)
 	s.bubble.SetPosition(x, y)
@@ -510,17 +532,28 @@ func (s *shell) panelHalves(bubble, work rect) halves {
 // moving keyboard focus, and saves the bubble's new place once it rests.
 func (s *shell) bubbleMoved() {
 	if s.panel.IsVisible() {
-		bubble, work := windowRect(s.bubble), s.workArea()
-		x, y, _ := placePanelOn(s.panelHalves(bubble, work), bubble, work, panelWidth, panelHeight)
-		s.panel.SetPosition(x, y)
+		if work, ok := s.workArea(); ok {
+			bubble := windowRect(s.bubble)
+			x, y, _ := placePanelOn(s.panelHalves(bubble, work), bubble, work, panelWidth, panelHeight)
+			s.panel.SetPosition(x, y)
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.save != nil {
 		s.save.Stop()
 	}
+	if s.quitting {
+		return
+	}
 	s.save = time.AfterFunc(savePause, func() {
 		x, y := s.bubble.Position()
+		s.mu.Lock()
+		quitting := s.quitting
+		s.mu.Unlock()
+		if quitting {
+			return
+		}
 		if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: x, Y: y} }); err != nil {
 			log.Print(err)
 		}
@@ -528,12 +561,18 @@ func (s *shell) bubbleMoved() {
 }
 
 // changeSettings applies change to the settings and saves them, as one
-// step: the lock is held from the change through the write.
+// step: the lock is held from the change through the write. A failed
+// write keeps the settings as they were.
 func (s *shell) changeSettings(change func(saved *settings)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	before := s.settings
 	change(&s.settings)
-	return writeSettings(s.settingsPath, s.settings)
+	err := writeSettings(s.settingsPath, s.settings)
+	if err != nil {
+		s.settings = before
+	}
+	return err
 }
 
 // Clicking the bubble to drag it must not dismiss its open panel.
@@ -666,7 +705,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	saved, err := readSettings(path)
+	// A companion asked to quit or to change the login leaves even an
+	// unreadable file where it is.
+	read := readSettings
+	if ask == "" {
+		read = loadSettings
+	}
+	saved, err := read(path)
 	// A companion asked to quit or to change the login needs no settings,
 	// and must answer even when the file cannot be read.
 	if err != nil && ask == "" {

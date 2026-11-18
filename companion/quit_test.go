@@ -194,3 +194,18 @@ func (w *askingWindow) EmitEvent(name string, _ ...any) bool {
 	*w.events = append(*w.events, name)
 	return true
 }
+
+func TestQuit_DropsAPlaceSaveStillWaiting(t *testing.T) {
+	s, _ := placedShell(t)
+	s.end = func() {}
+	s.bubbleMoved()
+
+	s.quit()
+	// A closed window reports (0, 0).
+	s.bubble.SetPosition(0, 0)
+	time.Sleep(savePause + 200*time.Millisecond)
+
+	if saved, err := readSettings(s.settingsPath); err != nil || saved.Bubble != nil {
+		t.Errorf("settings after quit = %+v, %v; want no place saved", saved.Bubble, err)
+	}
+}

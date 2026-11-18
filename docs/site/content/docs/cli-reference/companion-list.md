@@ -88,6 +88,7 @@ Only one chat can take text? It goes straight there. Change the shortcut under *
 - "Straight there" means: exactly one chat can take typed text and its row is visible (not inside a folded group). The banner names the chat, the text flies into its row, and the list hides.
 - Text copied from a web page goes as Markdown when it holds links, tables, code blocks, headings or lists, and the reply says so.
 - Nothing copied shows "Nothing to send: copy some text first." A clipboard the companion cannot read says so. Neither sends anything.
+- A send waits up to 60 seconds. With no answer by then, the list says the text may have been typed: check the chat before you send again.
 - Pasting into Terminal needs macOS Accessibility access, granted once in System Settings › Privacy & Security › Accessibility to the companion or to the terminal that runs `agnostic-ai serve`.
 - What the server refuses: [`POST /api/conversations/send`](@/docs/cli-reference/conversations-api.md#post-api-conversations-send).
 {% </details> %}
