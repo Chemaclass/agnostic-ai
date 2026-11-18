@@ -124,6 +124,29 @@ test('F2 renames the selected row and Enter saves the name', async ({ page }) =>
   expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
+test('a rename during a search asks the server for the search once', async ({ page }) => {
+  await openPanel(page)
+  await page.getByLabel('Search every conversation').fill('sync dry run')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('F2')
+  const field = page.getByLabel('New name')
+  await expect(field).toBeFocused()
+  const searches: string[] = []
+  let renamed = false
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/rename')) renamed = true
+    else if (renamed && request.url().includes('/api/inbox?q=')) searches.push(request.url())
+  })
+
+  await field.fill('Ship the dry run')
+  await field.press('Enter')
+  await expect(field).toHaveCount(0)
+  // Nothing on screen marks a second search, so give one time to start.
+  await page.waitForTimeout(500)
+  expect(searches).toHaveLength(1)
+})
+
 test('a click on the name still opens the chat', async ({ page }) => {
   await openPanel(page)
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
@@ -188,11 +211,18 @@ test('mark all complete archives every active chat and shows no tick', async ({ 
     })
     seen.observe(document.getElementById('list')!, { subtree: true, attributes: true, attributeFilter: ['class'] })
   })
+  const marks: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/mark') marks.push(new URL(request.url()).search)
+  })
   await expect(groupTitle(page, 'Active')).toBeVisible()
   await page.getByRole('button', { name: 'Mark all complete' }).click()
 
   await expect(groupTitle(page, 'Active')).toHaveCount(0)
   expect(ticks).toHaveLength(0)
+  // Only the last mark waits for the list read after it.
+  expect(marks.length).toBeGreaterThan(1)
+  expect(marks).toEqual([...marks.slice(0, -1).map(() => '?read=later'), ''])
 })
 
 const RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2"
@@ -534,7 +564,7 @@ for (const [change, as] of [
     await openPanel(page)
     const marks: unknown[] = []
     page.on('request', (request) => {
-      if (request.url().endsWith('/api/mark')) marks.push(request.postDataJSON())
+      if (new URL(request.url()).pathname === '/api/mark') marks.push(request.postDataJSON())
     })
     await row(page, 'Approve the database migration').click({ button: 'right' })
     await expect(page.getByRole('menuitem', { name: 'Mark as read' })).toBeFocused()
@@ -562,7 +592,7 @@ const markAllRead = (page: Page) => page.getByRole('button', { name: 'Mark all a
 function markBodies(page: Page) {
   const marks: unknown[] = []
   page.on('request', (request) => {
-    if (request.url().endsWith('/api/mark')) marks.push(request.postDataJSON())
+    if (new URL(request.url()).pathname === '/api/mark') marks.push(request.postDataJSON())
   })
   return marks
 }
@@ -630,7 +660,7 @@ test('mark all as read skips a row that got a new message after it was drawn', a
   await openPanel(page, 'needs-you')
   const marks = markBodies(page)
   let first = true
-  await page.route('**/api/mark', async (route) => {
+  await page.route('**/api/mark*', async (route) => {
     if (first) {
       first = false
       // Split the parser module gets a new message while the first mark is on its way.
@@ -652,7 +682,7 @@ test('mark all as read leaves a row that a new search took out of the list', asy
   let release: () => void = () => {}
   const held = new Promise<void>((done) => { release = done })
   let first = true
-  await page.route('**/api/mark', async (route) => {
+  await page.route('**/api/mark*', async (route) => {
     if (first) {
       first = false
       await held
@@ -681,7 +711,7 @@ test('a second press while mark all as read runs starts no second run', async ({
   let release: () => void = () => {}
   const held = new Promise<void>((done) => { release = done })
   let first = true
-  await page.route('**/api/mark', async (route) => {
+  await page.route('**/api/mark*', async (route) => {
     if (first) {
       first = false
       await held
@@ -1516,7 +1546,7 @@ test('mark all complete skips a row that got a reply after it was drawn', async 
   await openPanel(page)
   const marks = markBodies(page)
   let first = true
-  await page.route('**/api/mark', async (route) => {
+  await page.route('**/api/mark*', async (route) => {
     if (first) {
       first = false
       // Plan the sync dry run gets a reply while the first mark is on its way.

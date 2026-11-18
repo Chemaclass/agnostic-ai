@@ -619,18 +619,40 @@ async function readEveryPage(asked, signal) {
 }
 
 /**
- * The search on its way, as {query, given, stale}. A newer search gives it up, so the server stops working on it.
- * A new list while it reads only marks it stale: it runs once more when it settles, so a search slower than
- * the lists that keep arriving still finishes. A change the person made restarts it, since its answer was read before.
+ * The search on its way, as {query, given, stale, staleFor}. A newer search gives it up, so the server stops working
+ * on it. A new list while it reads only marks it stale: it runs once more when it settles, unless its answer already
+ * follows that list (staleFor), so a search slower than the lists that keep arriving still finishes. A change the
+ * person made restarts it, since its answer was read before.
  */
 let searchOnItsWay
 
-async function refresh({ restart = false } = {}) {
+/** Counts the list reads begun, so a change can tell whether one began after it was sent. */
+let readsBegun = 0
+/** The last list read begun, as {number, query, done}. */
+let latestRead
+/** The last list read that landed, as {query, version}: a list event of that version brings nothing new. */
+let landed
+
+/** Reads the list again. `version` names the list an event announced; one already read is not read again. */
+async function refresh({ restart = false, version } = {}) {
   const asked = state.query
+  if (!restart && version && landed?.version === version && landed.query === asked) return
   if (!restart && asked !== '' && searchOnItsWay?.query === asked) {
+    // Two different lists announced meanwhile could arrive out of order, so then the search runs again.
+    searchOnItsWay.staleFor = searchOnItsWay.stale && searchOnItsWay.staleFor !== version ? undefined : version
     searchOnItsWay.stale = true
     return
   }
+  let settle
+  latestRead = { number: ++readsBegun, query: asked, done: new Promise((resolve) => { settle = resolve }) }
+  try {
+    await readList(asked)
+  } finally {
+    settle()
+  }
+}
+
+async function readList(asked) {
   searchOnItsWay?.given.abort()
   const search = asked === '' ? undefined : { query: asked, given: new AbortController(), stale: false }
   searchOnItsWay = search
@@ -651,12 +673,13 @@ async function refresh({ restart = false } = {}) {
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
+  landed = { query: asked, version: reply?.version }
   // A search's answer may leave out the selected row; the picker then selects one it offers, so Enter sends.
   if (state.pick && state.view) state.activeKey = pickKey(state.activeKey)
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
-  if (search?.stale) await refresh()
+  if (search?.stale && !(search.staleFor && search.staleFor === reply?.version)) await refresh()
 }
 
 /**
@@ -982,19 +1005,32 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
   else showLateOpenFailure()
 })
 
-/** The companion answers a change once it holds the new list, so reading it now draws the change. A search asks again. */
-async function afterChange() {
+/**
+ * The companion answers a change once it holds the new list, and tells the pages first, so a read begun after
+ * the change was sent already brings it: wait for that one. Otherwise read now; a search asks again.
+ */
+async function afterChange(sent) {
+  if (latestRead?.number > sent && latestRead.query === state.query) {
+    for (let seen; seen !== latestRead;) {
+      seen = latestRead
+      await seen.done
+    }
+    // That read's draw waited while a tick or a rename showed.
+    draw()
+    return
+  }
   await refresh({ restart: true })
 }
 
 async function markRow(conversation, mark) {
+  const sent = readsBegun
   try {
     await markConversation(conversation, mark)
   } catch (error) {
     sayFailure(error)
     return
   }
-  await afterChange()
+  await afterChange(sent)
 }
 
 /**
@@ -1009,6 +1045,7 @@ async function completeRow(conversation, row, button) {
   row.classList.add('is-completing')
   button.classList.add('is-done')
   const tickShown = new Promise((resolve) => setTimeout(resolve, DONE_MS))
+  const sent = readsBegun
   try {
     await markConversation(conversation, 'completed')
   } catch (error) {
@@ -1024,7 +1061,7 @@ async function completeRow(conversation, row, button) {
   state.completing.delete(key)
   // The row still shows its tick, so a list that left the row as it was must draw it again.
   state.drawn = undefined
-  await afterChange()
+  await afterChange(sent)
 }
 
 // Rename
@@ -1124,6 +1161,7 @@ async function saveRename(conversation) {
     return
   }
   renaming.saving = true
+  const sent = readsBegun
   try {
     await renameConversation(conversation, title)
   } catch (error) {
@@ -1135,7 +1173,7 @@ async function saveRename(conversation) {
     return
   }
   // The field stays, still saving, until the list with the new name is read.
-  await afterChange()
+  await afterChange(sent)
   // A rename started on another row meanwhile keeps its field.
   if (state.renaming !== renaming) return
   state.renaming = undefined
@@ -1267,6 +1305,7 @@ deleteGo.addEventListener('click', async () => {
   const conversation = deleteFor
   if (!conversation) return
   deleteGo.disabled = true
+  const sent = readsBegun
   let reply
   try {
     reply = await deleteConversation(conversation)
@@ -1275,37 +1314,41 @@ deleteGo.addEventListener('click', async () => {
     closeDeleteConfirm()
     // A refusal can list what is still on disk: it stays until dismissed, unlike the toast.
     showOpenFailure({ message: error.message }, NOTICES.notDeleted)
-    await afterChange()
+    await afterChange(sent)
     return
   }
   closeDeleteConfirm()
   const { message, note: problem } = deletedOf(reply)
   if (problem) showOpenFailure({ message: message + ' ' + problem }, NOTICES.notTidied)
   else say(message)
-  await afterChange()
+  await afterChange(sent)
 })
 
 /** A Mark all run is on its way, so another press does nothing. Each mark redraws the list, so the button cannot hold this. */
 let markingAll = false
 
 /**
- * Gives each of the rows `mark`, one after the other, then reads the list once. A row `keep` turns down
- * is left as it is. The first refused mark stops the run and says why; the rows after it keep their place.
- * No row shows a tick: this is tidying up.
+ * Gives each of the rows `mark`, one after the other. A row `keep` turns down is left as it is. Only the last
+ * mark waits for the list read after it; the companion reads the list soon after each other one. The first
+ * refused mark stops the run and says why; the rows after it keep their place. No row shows a tick: this is
+ * tidying up.
  */
 async function markAll(rows, mark, keep = () => true) {
   if (markingAll) return
   markingAll = true
+  let sent = readsBegun
   try {
-    for (const conversation of rows) {
-      if (keep(conversation)) await markConversation(conversation, mark)
+    for (const [index, conversation] of rows.entries()) {
+      if (!keep(conversation)) continue
+      sent = readsBegun
+      await markConversation(conversation, mark, { later: rows.slice(index + 1).some(keep) })
     }
   } catch (error) {
     sayFailure(error)
   } finally {
     markingAll = false
   }
-  await afterChange()
+  await afterChange(sent)
 }
 
 let searchTimer
@@ -1581,7 +1624,7 @@ document.addEventListener('motion', () => {
 })
 
 drawPlaces()
-Events.On('inbox', () => refresh().then(showLateOpenFailure))
+Events.On('inbox', (event) => refresh({ version: event?.data }).then(showLateOpenFailure))
 Events.On('panel-shown', (event) => opened(event.data))
 Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 // Quit in the right-click menu: the list opens on the question.

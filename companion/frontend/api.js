@@ -52,9 +52,12 @@ export function openConversation(conversation) {
 export const readLateOpenFailure = () => call('/api/open/late')
 export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
 
-/** mark is `seen`, `completed` or `hidden`. */
-export function markConversation(conversation, mark) {
-  return post('/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })
+/**
+ * mark is `seen`, `completed` or `hidden`. The companion answers once it holds the list the mark changed;
+ * with `later`, such as each mark of a run but the last, it answers at once and reads the list soon after.
+ */
+export function markConversation(conversation, mark, { later = false } = {}) {
+  return post(later ? '/api/mark?read=later' : '/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })
 }
 
 export function renameConversation(conversation, title) {

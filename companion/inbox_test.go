@@ -106,7 +106,7 @@ func TestInbox_KeepsTheListWhileTheServerSaysItIsUnchanged(t *testing.T) {
 	if fake.reads != 1 || *changes != 1 {
 		t.Errorf("the server read %d times and the pages were told %d times; want 1 and 1", fake.reads, *changes)
 	}
-	if status, body := getInbox(t, in, ""); status != http.StatusOK || body != `{"view":{"needsYou":2}}` {
+	if status, body := getInbox(t, in, ""); status != http.StatusOK || body != `{"view":{"needsYou":2},"version":"\"v1\""}` {
 		t.Errorf("list = %d %s", status, body)
 	}
 }
@@ -131,8 +131,30 @@ func TestInbox_ShowsNoOldListAfterAReadFailed(t *testing.T) {
 
 	fake.list = nil
 	in.read(context.Background())
-	if status, body := getInbox(t, in, ""); status != http.StatusOK || body != `{"view":{"needsYou":2}}` {
+	if status, body := getInbox(t, in, ""); status != http.StatusOK || body != `{"view":{"needsYou":2},"version":"\"v1\""}` {
 		t.Errorf("list once the server answers again = %d %s", status, body)
+	}
+}
+
+func TestInbox_SaysWhichListAReadAndTheEventFollow(t *testing.T) {
+	fake := &fakeAgnosticAI{list: func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("q") == "" {
+			w.Header().Set("ETag", `"v1"`)
+			_, _ = w.Write([]byte(`{"needsYou":2}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"matches":1}`))
+	}}
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+
+	_, search := getInbox(t, in, "?q=parser")
+
+	if search != `{"view":{"matches":1},"version":"\"v1\""}` {
+		t.Errorf("search = %s; want the version of the list held when it was asked", search)
+	}
+	if version := in.version(); version != `"v1"` {
+		t.Errorf("the event's version = %q", version)
 	}
 }
 
@@ -220,6 +242,72 @@ func TestInbox_PassesAMarkToTheServerAndItsAnswerBack(t *testing.T) {
 	}
 	if *changes != 2 {
 		t.Errorf("the pages were told %d times; want 2: the first list, then the marked one", *changes)
+	}
+}
+
+func TestInbox_AKeptMarkAnswersWhenTheListReadAfterItFails(t *testing.T) {
+	fake := &fakeAgnosticAI{}
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+	fake.list = func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"the store is locked"}`))
+	}
+	rec := httptest.NewRecorder()
+
+	in.pass(serverMarkPath)(rec, httptest.NewRequest(http.MethodPost, "/api/mark", strings.NewReader(`{"tool":"claude","id":"a","as":"completed"}`)))
+
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("a kept mark whose list read failed = %d %s; want 204", rec.Code, rec.Body)
+	}
+	if status, body := getInbox(t, in, ""); status != http.StatusBadGateway || body != `{"error":"the store is locked"}` {
+		t.Errorf("list after the failed read = %d %s", status, body)
+	}
+}
+
+func TestInbox_AKeptMarkAnswersWithoutWaitingLongForTheList(t *testing.T) {
+	held := make(chan struct{})
+	t.Cleanup(func() { close(held) })
+	fake := &fakeAgnosticAI{list: func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-held:
+		case <-r.Context().Done():
+		}
+	}}
+	in, _ := connected(t, fake)
+	in.changeWait = 50 * time.Millisecond
+	rec := httptest.NewRecorder()
+	began := time.Now()
+
+	in.pass(serverMarkPath)(rec, httptest.NewRequest(http.MethodPost, "/api/mark", strings.NewReader(`{"tool":"claude","id":"a","as":"completed"}`)))
+
+	if took := time.Since(began); rec.Code != http.StatusNoContent || took > 2*time.Second {
+		t.Errorf("a kept mark whose list read hangs = %d after %s; want 204 at once", rec.Code, took)
+	}
+	select {
+	case <-in.refresh:
+	default:
+		t.Error("the mark left the list to no one: the poll loop was not asked for it")
+	}
+}
+
+func TestInbox_AMarkInARunLeavesTheListToThePollLoop(t *testing.T) {
+	fake := &fakeAgnosticAI{}
+	fake.list = listOfPosts(fake)
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+	rec := httptest.NewRecorder()
+
+	in.pass(serverMarkPath)(rec, httptest.NewRequest(http.MethodPost, "/api/mark?read=later", strings.NewReader(`{"tool":"claude","id":"a","as":"completed"}`)))
+
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("a mark in a run = %d %s", rec.Code, rec.Body)
+	}
+	heldAfter(t, in, "a mark in a run", `{"posts":0}`)
+	select {
+	case <-in.refresh:
+	default:
+		t.Error("a mark in a run asked for no new list")
 	}
 }
 

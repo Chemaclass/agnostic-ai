@@ -140,6 +140,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   const pages = resolve(frontendDir)
   const timeOf = () => now ?? Date.now()
   let state = fixtureState(fixture, timeOf())
+  /** Lists made so far, so each one has its own version even across fixtures. */
+  let versions = 0
   const listeners = new Set()
 
   function emit(name, data) {
@@ -163,7 +165,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   /** Like the shell: the pages read the new list, and a chat that starts waiting brings a hidden circle back faded. */
   function listChanged(polled = state.conversations) {
     state.polled = structuredClone(polled)
-    emit('inbox')
+    versions += 1
+    state.version = String(versions)
+    emit('inbox', state.version)
     const now = waitingIn(state.conversations)
     const gained = [...now].some((key) => !state.waitingSeen.has(key))
     state.waitingSeen = now
@@ -187,7 +191,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
     const query = url.searchParams.get('q')
     const note = state.fixture.note
-    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note })
+    const version = state.version
+    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note, version })
     const words = query.toLowerCase().split(/\s+/).filter(Boolean)
     // Like the server: a slow search answers with the rows as they were when it was asked.
     const asked = state
@@ -197,10 +202,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     // The page gave this search up; a fixture chosen meanwhile answers with its own rows.
     if (response.destroyed) return
     const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
-    sendJSON(response, 200, { view: viewOf(state, rows, query), note })
+    sendJSON(response, 200, { view: viewOf(state, rows, query), note, version })
   }
 
-  async function mark(request, response) {
+  async function mark(request, response, url) {
     const body = await bodyOf(request)
     logCall('/api/mark', body)
     if (state.fixture.markProblem) return sendJSON(response, 502, { error: state.fixture.markProblem })
@@ -214,8 +219,14 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     else if (body.as === 'seen' && marking.unread) delete marking.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
     // Like the shell: a mark answers once the new list is read, after the event for it goes out.
+    // A mark with read=later answers first and leaves the list to the next poll.
     const marked = state
     const read = structuredClone(state.conversations)
+    if (url.searchParams.get('read') === 'later') {
+      noContent(response)
+      setTimeout(() => state === marked && listChanged(read))
+      return
+    }
     if (marked.fixture.rereadMs) await new Promise((done) => setTimeout(done, marked.fixture.rereadMs))
     if (state === marked) listChanged(read)
     noContent(response)
@@ -400,7 +411,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       const settled = lateOpen.waiting ? 1 : 0
       lateOpen = { waiting: undefined, settled: lateOpen.waiting }
       sendJSON(response, 200, { settled })
-      if (settled) emit('inbox')
+      if (settled) emit('inbox', state.version)
     },
     'POST /dev/release-opens': (request, response) => {
       const released = heldOpens
