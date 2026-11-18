@@ -72,8 +72,13 @@ Codex and Gemini section.
 | `::targets <a> <b>` | Opens a fence for several targets. |
 | `::end` | Closes the last open fence. A missing `::end` runs to the end of the body. |
 
+<details>
+<summary>Details: import and shared files</summary>
+
 - `import` keeps fences intact. `import codex` adds them when Claude and Codex have the same agent or skill with different bodies.
 - Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A shared file is never split: a block reaches it when any tool that reads it is listed, so `::target codex` text reaches every `AGENTS.md` reader. See [Entry-point files](@/docs/configuration-reference.md#entry-point-files).
+
+</details>
 
 ## Path variables: `{{$NAME}}`
 
@@ -87,12 +92,19 @@ A spec body can name a tool's directory without hardcoding it. `{{$SKILLS_DIR}}`
 | `{{$RULES_DIR}}` | the tool's rules directory |
 | `{{$MCP_FILE}}` | the tool's MCP config file |
 
-- **Bodies only.** Frontmatter values do not expand.
-- **An `outputs.<target>.<field>` override wins.** With `outputs.claude.skills-dir: custom/skills`, `{{$SKILLS_DIR}}` follows it.
+Variables expand in bodies only, not frontmatter. An `outputs.<target>.<field>` override wins: with `outputs.claude.skills-dir: custom/skills`, `{{$SKILLS_DIR}}` follows it. The `$` is required, so plain `{{placeholder}}` stays untouched.
+
+<details>
+<summary>Details: unresolved variables, shared files, tool exceptions</summary>
+
 - **A variable the tool has no directory for stays as written** and raises a sync note. aider and jules resolve no variables.
 - **A shared file expands only when every reader agrees.** This covers the rules block of an entry point, the review section of `AGENTS.md`, and a nested `AGENTS.md`. Codex and Amp both use `.agents/skills`, so it expands; Codex and OpenCode differ, so it stays as written with one sync note naming the file. `GEMINI.md` has one reader and gets `.gemini/skills`.
 - **Only where the tool has its own directory.** Tools that turn agents into rules (continue, trae, windsurf) or commands (gemini) have no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
-- **The `$` is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and Handlebars or Jinja text survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
+
+- Frontmatter values do not expand.
+- Lowercase names such as `{{$skills_dir}}` do not resolve. Warp workflow arguments and Handlebars or Jinja text survive.
+
+</details>
 
 ## Agent and skill references
 
@@ -110,10 +122,17 @@ Before pushing, run {{$AGENT:reviewer}}, then {{$SKILL:commit}}.
 | copilot | the reviewer agent | the /commit skill | [custom agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli), [skills](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) |
 | every other target | the reviewer agent | the commit skill | |
 
+References work in bodies only, with the `$` and an uppercase keyword. `lint` fails with LINT033 on an unknown name. A tool with no documented form gets a neutral phrase and one sync note.
+
+<details>
+<summary>Details: shared files and LINT033</summary>
+
 - **Bodies only**, with the `$` and an uppercase keyword, like path variables. `{{AGENT:reviewer}}` stays untouched.
 - **A tool with no documented form gets a neutral phrase** and one sync note.
 - **A shared file gets the neutral phrase**: a rule or review in the rules block of `AGENTS.md` or a nested `AGENTS.md` (so a Codex rule always does), and a skill, agent, or command in a directory two enabled tools write, such as `.agents/skills` for Codex and Windsurf.
 - **`lint` fails with LINT033** on an unknown name, or on a name whose spec does not sync to every target the referring spec reaches, and lists the known names. Only project specs count, since a teammate lacks your global agents.
+
+</details>
 
 ## Target-specific extensions: `x-<target>` namespace
 
@@ -144,13 +163,21 @@ For each tool, sync removes all `x-*` keys, then moves the keys of the matching 
 
 Any other key under `x-<target>` is written as given into that tool's output, in sorted order, and never reaches another tool.
 
+<details>
+<summary>Details: custom key limits</summary>
+
 - agnostic-ai does not check them against the tool's schema. Each tool's page lists the keys it manages.
 - A tool with no output for a spec kind drops them.
 - Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
 
-On a settings spec, the block merges into the tool's settings file by the rules in [settings](@/docs/spec-format/settings.md#target-specific-keys).
+</details>
+
+On a settings spec, the block merges into the tool's settings file by the rules in [settings](@/docs/spec-format/settings-reference.md#target-specific-keys).
 
 ## Terms used in these pages {#terms}
+
+<details>
+<summary>Glossary</summary>
 
 - **Target:** an AI coding tool selected in `agnostic-ai.yaml`.
 - **Portable:** a setting written once that sync translates for several tools.
@@ -162,3 +189,5 @@ On a settings spec, the block merges into the tool's settings file by the rules 
 - **MCP:** Model Context Protocol, a way for an agent to use outside tools and data. A `stdio` server runs a local command; HTTP, SSE, and WebSocket (`ws`) servers connect over a network.
 - **Matcher:** a pattern that selects which tool calls trigger a hook. A regular expression (regex) is one pattern format.
 - **Entry point:** the first instruction file a tool loads, such as `AGENTS.md` or `CLAUDE.md`.
+
+</details>

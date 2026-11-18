@@ -85,7 +85,7 @@ For a file-specific rule, run `agnostic-ai explain --file src/main.go --target c
 - **Commands run on their own:** Claude can run a `.claude/commands/` command without you typing it. Add `disable-model-invocation: true` to the command spec's frontmatter to stop that ([docs](https://code.claude.com/docs/en/skills)).
 - **Memory:** with `builtins: [memory]`, shared memory adds to [Claude Code's own memory](@/docs/memory.md#claude-code-s-own-memory).
 - **Home files:** see [global configuration](@/docs/global-configuration.md).
-- **Voice:** a home `voice` setting writes `voice.enabled` and `voice.mode` to `~/.claude/settings.json`. `voice.language` is not written, because Claude takes its dictation language from its response language. See [voice dictation](@/docs/spec-format/settings.md#voice-dictation).
+- **Voice:** a home `voice` setting writes `voice.enabled` and `voice.mode` to `~/.claude/settings.json`. `voice.language` is not written, because Claude takes its dictation language from its response language. See [voice dictation](@/docs/spec-format/settings-reference.md#voice-dictation).
 {% </details> %}
 
 ## Protected paths

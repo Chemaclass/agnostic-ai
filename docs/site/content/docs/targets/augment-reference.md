@@ -147,6 +147,6 @@ Model and effort:
 - `shellInputRegex` entries are skipped (no portable form).
 - Bare-string `permission` entries are skipped (invalid in Augment).
 - `defaultModel` becomes `model.augment`, or `x-augment.defaultModel` when another settings spec sets a different Augment model.
-- `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings.md#effort-by-target).
+- `defaultThinkingLevel` becomes `effort`, following the [effort import rules](@/docs/spec-format/settings-reference.md#effort-by-target).
 - In agents, `thinking` becomes `effort` when it is one of the six levels.
 - Agent keys with no portable field (`tools`, `max_turns`, and similar) go under `x-augment`.

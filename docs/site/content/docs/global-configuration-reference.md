@@ -152,8 +152,8 @@ Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-c
 
 ### Other settings
 
-- `session-retention-days` sets how many days transcripts are kept, for Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI ([session retention](@/docs/spec-format/settings.md#session-retention)).
-- `voice` configures voice dictation for tools with a native setting ([voice dictation](@/docs/spec-format/settings.md#voice-dictation)).
+- `session-retention-days` sets how many days transcripts are kept, for Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI ([session retention](@/docs/spec-format/settings-reference.md#session-retention)).
+- `voice` configures voice dictation for tools with a native setting ([voice dictation](@/docs/spec-format/settings-reference.md#voice-dictation)).
 
 ### Which value wins
 

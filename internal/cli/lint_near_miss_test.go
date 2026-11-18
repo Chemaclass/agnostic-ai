@@ -145,7 +145,7 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 	var data []byte
 	for _, file := range files {
 		// Settings keys are nested policy fields, not frontmatter keys.
-		if filepath.Base(file) == "settings.md" {
+		if filepath.Base(file) == "settings.md" || filepath.Base(file) == "settings-reference.md" {
 			continue
 		}
 		page, err := os.ReadFile(file)

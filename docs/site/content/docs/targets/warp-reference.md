@@ -60,7 +60,7 @@ Start with the [Warp setup](@/docs/targets/warp.md). Output keys are listed unde
 
 ### Voice dictation
 
-Add [portable voice settings](@/docs/spec-format/settings.md#voice-dictation) to your home specs, then run `agnostic-ai sync --global --only warp`. Sync writes enabled and language into Warp's [settings file](https://docs.warp.dev/terminal/settings/):
+Add [portable voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) to your home specs, then run `agnostic-ai sync --global --only warp`. Sync writes enabled and language into Warp's [settings file](https://docs.warp.dev/terminal/settings/):
 
 | System | File |
 |---|---|

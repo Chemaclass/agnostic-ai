@@ -74,7 +74,7 @@ Overrides, field mappings, and import are in the [native reference](@/docs/targe
 - Gemini also reads `.agents/skills/`. It wins when a name is in both trees.
 - Hook `command` runs through `bash -c` (PowerShell on Windows) and has no `args` field, so sync folds `args` into `command` ([hooks](@/docs/targets/gemini-reference.md#hooks)).
 - On Windows, sync refuses an agent named with a colon ([path semantics](@/docs/configuration.md#path-semantics)).
-- At user scope, [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `experimental.voiceMode` and `experimental.voice.activationMode`. Gemini has no dictation language key.
+- At user scope, [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write `experimental.voiceMode` and `experimental.voice.activationMode`. Gemini has no dictation language key.
 {% </details> %}
 
 ## Shared memory

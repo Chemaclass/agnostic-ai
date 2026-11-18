@@ -66,7 +66,7 @@ Native [Agent Skills](https://geminicli.com/docs/cli/skills/) at `.gemini/skills
 
 Portable `model` maps to `model.name`. Other model options and settings stay. `x-gemini` keys merge in. Portable permission rules raise a sync note.
 
-At user scope, portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write the experimental `experimental.voiceMode` and `experimental.voice.activationMode` keys. Gemini has no dictation language key.
+At user scope, portable [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write the experimental `experimental.voiceMode` and `experimental.voice.activationMode` keys. Gemini has no dictation language key.
 
 ## MCP
 

@@ -51,7 +51,7 @@ Start with the [Grok setup](@/docs/targets/grok.md).
 - Existing MCP servers and unrelated keys are kept.
 - Unsupported: project model, effort, permission default mode, session retention.
 - Ignore, review, and environment specs have no native output.
-- User scope: portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `ui.voice_capture_mode` and `ui.voice_stt_language`. Grok has no dictation on/off key.
+- User scope: portable [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write `ui.voice_capture_mode` and `ui.voice_stt_language`. Grok has no dictation on/off key.
 
 ### Hooks
 

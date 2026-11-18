@@ -89,7 +89,7 @@ See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configurati
 
 ## Global configuration
 
-- Portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`. Choose a native `voiceModel` before using dictation.
+- Portable [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`. Choose a native `voiceModel` before using dictation.
 - `agnostic-ai sync --global -t qwen` writes instructions, agents, skills, MCP, hooks, and settings under `~/.qwen/`.
 - `QWEN_HOME` replaces that whole directory. `QWEN_RUNTIME_DIR` moves runtime state, not configuration.
 - `agnostic-ai import --global qwen` reads the user model, effort, permission lists, and MCP servers.

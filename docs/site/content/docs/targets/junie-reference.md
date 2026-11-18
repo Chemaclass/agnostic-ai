@@ -64,7 +64,7 @@ The IDE plugin docs mention neither subagents nor slash commands.
 
 - A settings spec's default `model` and `effort` merge into `.junie/config.json`. Other keys are kept.
 - Junie loads this file only in a trusted project.
-- `effort` passes through as written. `x-junie.effort` overrides it ([effort by target](@/docs/spec-format/settings.md#effort-by-target)).
+- `effort` passes through as written. `x-junie.effort` overrides it ([effort by target](@/docs/spec-format/settings-reference.md#effort-by-target)).
 - `x-junie` adds project-config keys that have no portable field.
 
 ### Ignore

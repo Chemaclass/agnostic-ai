@@ -46,7 +46,7 @@ Start with the [Vibe setup](@/docs/targets/vibe.md).
 
 - `model` maps to `active_model`. Other native project settings pass through `x-vibe`.
 - Portable reasoning effort and permission settings give coverage notes. Vibe's reasoning setting belongs to each model.
-- User scope: portable [voice settings](@/docs/spec-format/settings.md#voice-dictation) write `voice_mode_enabled`. Vibe's experimental dictation has no mode or language key.
+- User scope: portable [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write `voice_mode_enabled`. Vibe's experimental dictation has no mode or language key.
 
 ### Hooks
 
