@@ -65,7 +65,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: companion-dist
-          path: ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
+          path: |
+            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
+            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.dmg
           if-no-files-found: error
           retention-days: 1
 
@@ -456,10 +458,12 @@ jobs:
           assets=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           missing=0
           for arch in arm64 amd64; do
-            name="agnostic-ai-companion_darwin_${arch}.tar.gz"
-            if ! grep -qx "$name" <<<"$assets"; then
-              echo "::error::release $GITHUB_REF_NAME lacks $name"
-              missing=1
-            fi
+            for extension in tar.gz dmg; do
+              name="agnostic-ai-companion_darwin_${arch}.${extension}"
+              if ! grep -qx "$name" <<<"$assets"; then
+                echo "::error::release $GITHUB_REF_NAME lacks $name"
+                missing=1
+              fi
+            done
           done
           exit "$missing"

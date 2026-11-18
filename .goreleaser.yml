@@ -36,18 +36,19 @@ archives:
       - README*
       - CHANGELOG*
 
-# The macOS companion archives come from the release workflow's companion
-# job, built on a Mac because the companion needs C. Listing them here puts
-# them on the release and in checksums.txt, so the build provenance covers
-# them and `agnostic-ai companion install` can verify its download.
+# The companion job builds macOS archives and disk images. Listing both
+# here puts them on the release and in checksums.txt, so provenance covers
+# the downloads for companion install and app updates.
 checksum:
   name_template: checksums.txt
   extra_files:
     - glob: '{{ envOrDefault "COMPANION_DIST" "companion-dist" }}/agnostic-ai-companion_darwin_*.tar.gz'
+    - glob: '{{ envOrDefault "COMPANION_DIST" "companion-dist" }}/agnostic-ai-companion_darwin_*.dmg'
 
 release:
   extra_files:
     - glob: '{{ envOrDefault "COMPANION_DIST" "companion-dist" }}/agnostic-ai-companion_darwin_*.tar.gz'
+    - glob: '{{ envOrDefault "COMPANION_DIST" "companion-dist" }}/agnostic-ai-companion_darwin_*.dmg'
 
 # One SPDX SBOM per archive, `<archive>.sbom.json`, listed in checksums.txt
 # and so covered by the release's build provenance.

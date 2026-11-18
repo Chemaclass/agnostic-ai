@@ -977,4 +977,6 @@
 # #3537 measured 27103392 bytes locally (make size-check): a second open of one chat joins the first, and the server logs how a slow open ended; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3540 measured 27136160 bytes locally (make size-check): marks of conversations gone from their store are pruned after 30 watched days, with a checked folder walk; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3591 measured 27152544 bytes locally (make size-check): companion uninstall, install and upgrade check whether the companion runs, record the installing commit, and keep a moved-aside app; the budget is that plus 8192, rounded up to a multiple of 4096.
-27164672
+# #3516 measured 27168928 bytes: verified whole-app updates and bundled
+# command installation; allow 8192 bytes, rounded up to a 4096-byte page.
+27181056
