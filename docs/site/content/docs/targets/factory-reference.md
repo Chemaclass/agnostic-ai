@@ -65,7 +65,8 @@ Written once to the tree that codex, amp, zed, and crush share.
 - Another `onFailure` value goes in `x-factory.onFailure`.
 - `x-factory.preserveRiskLevel: true` keeps the model's `riskLevel` when a `PreToolUse` hook rewrites an `Execute` command. Sync notes it on other events.
 - `x-factory.commandRegex` sets the group-level `commandRegex`. Different regexes never share a group. `import factory` fills it.
-- `matcher` is a regex over Factory tool names, which match Claude's except `Bash`, `Write`, `WebFetch`. A matcher using those is written as is, matches nothing, and raises a sync note.
+- Exact-name tool matchers accept Claude aliases: `Bash` selects `Execute`, `Write` selects `Create`, and `WebFetch` selects `FetchUrl`. Sync keeps the matcher as written.
+- Regular expressions match Droid tool names only, and hook input reports those names. A script checking `tool_name` must handle `Execute`, `Create`, or `FetchUrl` even under a Claude alias. See [Factory matchers](https://docs.factory.com/harness/hooks#matchers).
 
 ## MCP
 

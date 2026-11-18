@@ -91,25 +91,26 @@ func TestEmit_Hooks_OmitsTimeoutWhenAbsent(t *testing.T) {
 	}
 }
 
-// TestEmit_Hooks_ClaudeStyleMatcherSurfacesCoverageNote confirms a
-// matcher copied from a Claude spec still emits verbatim but folds
-// into one coverage note, since Droid CLI's own tool vocabulary
-// spells three names (Bash, Write, WebFetch) differently (Execute,
-// Create, FetchUrl).
-func TestEmit_Hooks_ClaudeStyleMatcherSurfacesCoverageNote(t *testing.T) {
-	dir := testutil.TempCwd(t)
-	emit.ResetCapabilityWarnings()
-	t.Cleanup(emit.ResetCapabilityWarnings)
-
-	entries := []spec.Entry{
-		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{"event": "PostToolUse", "matcher": "Bash", "command": "echo ran"}},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
-		t.Fatal(err)
-	}
-	got := readFile(t, filepath.Join(dir, ".factory/hooks.json"))
-	if !strings.Contains(got, `"matcher": "Bash"`) {
-		t.Errorf("expected the matcher to still emit verbatim:\n%s", got)
+func TestEmit_Hooks_ExactAliasesKeepTheirMatcherWithoutCoverageNotes(t *testing.T) {
+	for _, matcher := range []string{"Bash", "Write", "WebFetch"} {
+		t.Run(matcher, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			notes := swapFactoryNoteWarner(t)
+			entries := []spec.Entry{
+				{Kind: spec.KindHook, Name: "check", Meta: map[string]any{"event": "PreToolUse", "matcher": matcher, "command": "echo ran"}},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, ".factory/hooks.json"))
+			if !strings.Contains(got, `"matcher": "`+matcher+`"`) {
+				t.Errorf("matcher %q was changed: %s", matcher, got)
+			}
+			emit.FlushCoverageNotes()
+			if got := notes.String(); got != "" {
+				t.Errorf("supported exact alias raised a coverage note: %s", got)
+			}
+		})
 	}
 }
 

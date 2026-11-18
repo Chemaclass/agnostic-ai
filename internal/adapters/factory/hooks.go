@@ -24,18 +24,6 @@ var hookLifecycle = []string{
 	"Stop", "SubagentStop", "PreCompact", "SessionStart", "SessionEnd",
 }
 
-// claudeToolNames flags the Claude-style matcher values Droid CLI's own
-// tool vocabulary spells differently. docs.factory.com/harness/hooks'
-// own "Common tool matchers" are Execute, Read, Edit, Create,
-// ApplyPatch, LS, Glob, Grep, Task, FetchUrl, and WebSearch, the same
-// table tools.go's factoryToolID already translates for the `tools`
-// frontmatter field. Read, Edit, Glob, Grep, WebSearch, and Task
-// already match Claude's own spelling; Bash, Write, and WebFetch do
-// not, so a matcher copied verbatim from a Claude spec parses as a
-// valid regex and then matches nothing, the same trap crush and
-// windsurf hit with their own tool vocabularies.
-var claudeToolNames = map[string]bool{"Bash": true, "Write": true, "WebFetch": true}
-
 // hookEntry mirrors one command object in a matcher group's `hooks`
 // array. docs.factory.com/harness/hooks' own field table marks `type`
 // required and states "Currently only \"command\" is supported", so
@@ -171,7 +159,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 	type matcherKey struct{ event, matcher, commandRegex string }
 	byKey := map[matcherKey][]hookEntry{}
 	var keyOrder []matcherKey
-	var claudeMatchers, ignoredFailClosed, ignoredPreserveRisk int
+	var ignoredFailClosed, ignoredPreserveRisk int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -183,9 +171,6 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			continue
 		}
 		matcher, _ := h.Meta["matcher"].(string)
-		if claudeToolNames[matcher] {
-			claudeMatchers++
-		}
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
 		native, _ := emit.CustomTargetMeta(h.Meta, target)
 		commandRegex, _ := native["commandRegex"].(string)
@@ -213,8 +198,6 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			})
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
-		"Droid CLI's own tool matchers are Execute, Create, and FetchUrl in place of Claude's Bash, Write, and WebFetch (the same three renames tools.go's factoryToolID performs for the tools frontmatter field); a Claude-style matcher parses but matches nothing")
 	emit.NoteFieldNoOp(target, spec.KindHook, "failClosed", ignoredFailClosed,
 		"Factory's onFailure block has no effect on Stop, SubagentStop, Notification, SessionStart, or SessionEnd; use PreToolUse, PostToolUse, UserPromptSubmit, or PreCompact for a failure gate")
 	emit.NoteFieldNoOp(target, spec.KindHook, "x-factory.preserveRiskLevel", ignoredPreserveRisk,
