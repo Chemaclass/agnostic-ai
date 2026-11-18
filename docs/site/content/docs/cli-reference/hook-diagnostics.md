@@ -152,7 +152,7 @@ Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `Pr
 Reads stdout, or stderr when stdout is empty. A JSON `"decision": "deny"` or `"block"`, `"continue": false`, or plain text with an exit other than 0 and 1 is `block`. No text, or exit 1, is `error`. `SessionStart`, `SessionEnd`, `Notification`, and `PreCompress` ignore decisions, so a block there reads as `error`. Only a JSON `additionalContext` reaches the model; plain stdout goes to the user.
 ### Trae replies
 
-As Claude Code.
+Decisions follow the Claude Code rules above. On a successful exit, a `context` line marks nonempty plain stdout on `SessionStart` and `UserPromptSubmit`. JSON `hookSpecificOutput.additionalContext` counts on `SessionStart`, `UserPromptSubmit`, `PreToolUse`, and `PostToolUse`. `Notification` ignores stdout, including JSON; failed or timed-out hooks add no context. See [Trae's hook reference](https://docs.trae.ai/ide/hook-configuration-reference).
 ### OpenHands replies
 
 Blocks only on `PreToolUse`, `UserPromptSubmit`, and `Stop`: on exit 2, or a JSON `"decision": "deny"` or `"continue": false` at any exit code. A `context` line marks a JSON `additionalContext` on `UserPromptSubmit`, `Stop`, and `SessionStart` only. OpenHands SDK 1.62.0 and later queue `SessionStart` context and send it once, after the system prompt.
@@ -235,7 +235,7 @@ Kiro is not run for an `agent` action, which runs no command; a hook with `confi
 
 A Cursor hook spec uses Cursor's own event names, so other tools are not run. A Copilot hook spec with a PascalCase event such as `PreToolUse` also runs on Claude Code, which counts, so `--expect` checks Claude Code and shows Copilot beside it.
 
-Cline VS Code honors a valid JSON reply even after a non-zero exit, and warns about the exit code. Whether it blocks depends on the event and reply content. See [VS Code reply rules](@/docs/targets/cline-reference.md#hooks).
+The Cline VS Code extension also honors valid reply JSON after a nonzero exit and logs a warning. A valid reply with `"cancel": true` cancels the run; a nonzero exit alone does not make a reply cancel it. See [Cline hook reply rules](@/docs/targets/cline-reference.md#hooks) and the [VS Code reply parser](https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/apps/vscode/src/core/hooks/hook-factory.ts#L471).
 {% </details> %}
 
 ## JSON output

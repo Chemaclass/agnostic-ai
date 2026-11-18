@@ -78,7 +78,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Trae
 
-- `hook run` reports context for the events and reply formats Trae consumes.
+- `hook run` reports context for Trae's supported events and reply formats; the hook guide lists the same limits (#3569).
 
 #### Mistral Vibe
 
@@ -86,9 +86,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
-- Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.
+- Target guides clarify native hooks, OAuth scope, Devin ignores, OpenCode instruction fallback, and Junie ACP support (#3575, #3576).
 - The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).
 - Docs pages are shorter to read. Each opens with the common task; edge cases sit in folded sections, and long tables move to new reference pages for configuration, global configuration and each tool. Every fact stays, and `llms-full.txt` still carries all of it.
 

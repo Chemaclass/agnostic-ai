@@ -85,10 +85,6 @@
 // reference `$argumentName` placeholders Junie substitutes at
 // invocation.
 //
-// Both subagents and slash commands are CLI-only surfaces:
-// junie-ide-plugin.html mentions neither, confirmed by full-text search
-// of that page.
-//
 // Skills emit into their own native folder tree at
 // `.junie/skills/<name>/SKILL.md` (override via outputs.junie.skills-dir),
 // unaffected by the above: Junie's Native Agent Skills feature shipped

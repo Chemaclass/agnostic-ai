@@ -105,7 +105,7 @@ The `shared-memory-policy` rule asks tools to save only facts the code, history,
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
 | Trae with project hooks enabled | A command runs when a session starts and adds both lists |
 | Cline VS Code | A project TaskStart hook returns both lists through `contextModification`; the shared rule remains the fallback |
-| Auggie CLI (macOS, Linux, Windows WSL) | 0.x documents `SessionStart` context injection; 1.x uses the shared memory rule fallback ([version limits](@/docs/targets/augment-reference.md#shared-memory)) |
+| Auggie CLI (macOS, Linux, Windows WSL) | Documented 0.x behavior: a `SessionStart` script adds both lists. In 1.x, use the memory rule fallback ([details](@/docs/targets/augment-reference.md#shared-memory)) |
 | OpenCode, Kilo Code | The config lists both files |
 | Kiro | A steering file includes project memory and, in checkout mode, personal memory |
 | Antigravity | An always-on rule includes project memory and, in checkout mode, personal memory |
@@ -123,6 +123,8 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, and Devin CLI, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
+Auggie documents startup context injection in 0.x. Its 1.x docs say `SessionStart` runs in the background without adding output to context, so use the memory rule that tells the agent to read both lists. Sync still emits the hook; see [Augment shared memory](@/docs/targets/augment-reference.md#shared-memory).
+
 - Looking upward from the folder the tool starts in, the hook runs the first `node_modules/.bin/agnostic-ai` it finds up to the project's config. Otherwise it runs the `agnostic-ai` on your PATH. Trae runs the PATH one only.
 - [`agnostic-ai project`](@/docs/cli-reference/project.md) then finds the project and runs its pinned version.
 - Keep the one it picks up to date with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade). An older one prints an upgrade message. With none found, nothing loads.
@@ -130,8 +132,6 @@ On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, and Devin CLI, sync
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. The Claude Code subagent hook needs it too.
 - Hooks you wrote yourself stay.
 - It keeps the first 6,000 bytes, after dropping hidden characters. Facts past the cut never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, hidden characters included, so `memory lint` also warns there once they pass 6,000 bytes. Remove the hidden characters it reports.
-
-Auggie CLI on Unix also gets a startup hook. Its 0.x docs describe injecting the output; 1.x docs say `SessionStart` runs in the background without adding output to context. Use the shared memory rule fallback on 1.x ([Augment version limits](@/docs/targets/augment-reference.md#shared-memory)).
 
 Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. Global sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline.md#vs-code-memory-startup).
 
