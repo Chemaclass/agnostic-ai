@@ -189,11 +189,15 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const note = state.fixture.note
     if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note })
     const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+    // Like the server: a slow search answers with the rows as they were when it was asked.
+    const asked = state
+    const read = structuredClone(state.conversations.filter((row) => matches(row, words)))
     const wait = slowness(state, query.toLowerCase())
     if (wait > 0) await new Promise((done) => setTimeout(done, wait))
     // The page gave this search up; a fixture chosen meanwhile answers with its own rows.
     if (response.destroyed) return
-    sendJSON(response, 200, { view: viewOf(state, state.conversations.filter((row) => matches(row, words)), query), note })
+    const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
+    sendJSON(response, 200, { view: viewOf(state, rows, query), note })
   }
 
   async function mark(request, response) {

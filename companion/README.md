@@ -109,7 +109,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   list holds every unread or waiting chat of any age, so with All chosen and
   no search the circle shows zero after the run.
 - On a chat under Archived, the same menu offers **Delete permanently…**. It
-  asks first, then removes the chat from this computer. Only local Claude
+  asks first, then removes the chat from this computer. Cancel, Escape or a
+  click outside the question keeps the chat. Only local Claude
   Code chats can be deleted for now; the others say why. See
   [what is removed and what stays](../docs/site/content/docs/cli-reference/companion-list.md#delete-an-archived-chat).
 - An archived chat comes back when you open it, when something new is
@@ -131,6 +132,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
     a search.
   - The first chat the text can be typed into is selected. Nothing is sent
     until you press Enter or click.
+  - A click on a subagent row sends the text to the chat it runs in.
   - A live chat in a Terminal or Ghostty tab gets the text typed in, and the
     list hides. For any other chat, the companion switches to it and says to
     paste with Cmd+V: the clipboard still holds the text.

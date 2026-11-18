@@ -1673,3 +1673,48 @@ test('a click on the circle when the shell cannot be reached shows the trouble s
   await expect(page.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: The companion could not reach its own shell.')
   expect(errors).toEqual([])
 })
+
+test('a rename during a slow search is not undone by the search that was already on its way', async ({ page }) => {
+  await openPanel(page, 'slow-search')
+  await page.getByLabel('Search every conversation').fill('release')
+  await expect(row(page, 'Draft the release notes')).toBeVisible({ timeout: 4_000 })
+  await row(page, 'Draft the release notes').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Rename…' }).click()
+  await page.getByLabel('New name').fill('Draft the release plan')
+
+  // A new list starts the search again; its answer holds the old name.
+  const again = page.waitForRequest((request) => request.url().includes('q=release'))
+  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  await again
+  await page.getByLabel('New name').press('Enter')
+  await expect(row(page, 'Draft the release plan')).toBeVisible()
+  // The fixture answers "release" 1.5 seconds after it was asked; the old name must not come back meanwhile.
+  const titles = new Set<string>()
+  for (const end = Date.now() + 3_500; Date.now() < end; await page.waitForTimeout(100)) {
+    for (const title of await page.locator('#list .row .title').allTextContents()) titles.add(title)
+  }
+  expect([...titles]).toEqual(['Draft the release plan'])
+  await expect(row(page, 'Draft the release plan')).toBeVisible()
+})
+
+test('a click on the circle that works after one that failed clears the trouble state', async ({ page }) => {
+  await openPanel(page)
+  await page.goto('/index.html')
+  await page.route('**/api/panel/toggle', (route) => route.abort())
+  await page.locator('#bubble').click()
+  await expect(page.locator('#bubble')).toHaveClass(/is-troubled/)
+
+  await page.unroute('**/api/panel/toggle')
+  await page.locator('#bubble').click()
+  await expect(page.locator('#bubble')).not.toHaveClass(/is-troubled/)
+})
+
+test('in pick mode a subagent row says it pastes into its chat', async ({ page }) => {
+  await openPanel(page, 'helpers')
+  const helper = page.locator('.helper-row').filter({ hasText: 'Review #3511' })
+  await row(page, 'Rename chats').getByRole('button', { name: '▸ 7 subagents' }).click()
+  await expect(helper).toHaveAttribute('title', 'Open this Codex thread')
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+  await expect(helper).toHaveAttribute('title', 'Paste the copied text into the chat it runs in')
+})

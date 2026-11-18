@@ -98,7 +98,8 @@ window.addEventListener('contextmenu', () => {
 
 bubble.addEventListener('click', (event) => {
   if (press.dragged || event.ctrlKey) return
-  togglePanel().catch((error) => {
+  // A working click reads the list again, since the shell sends no new one while it is unchanged.
+  togglePanel().then(refresh, (error) => {
     if (!(error instanceof CallError)) throw error
     showTrouble(error.message)
   })

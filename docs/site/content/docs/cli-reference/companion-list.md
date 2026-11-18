@@ -194,7 +194,7 @@ Working chats show an animated gyroscope. Each working Claude Code or Codex suba
 | Unfolded list | Newest first, five at most, then "+N more". |
 | Subagent row | Gyroscope, title, tool, type if any, age. |
 
-A Codex subagent opens its own thread, or switches to its terminal. A Claude Code subagent opens its chat.
+A Codex subagent opens its own thread, or switches to its terminal. A Claude Code subagent opens its chat. In the send picker, a click on a subagent row sends the text to the chat it runs in.
 
 {% <details summary="Details: counts, parents, animation"> %}
 - The five-bulb gyroscope keeps constant brightness, with bulbs at different orbital radii and depths.
@@ -327,7 +327,7 @@ Remove a chat from this computer for good.
 
 1. Right-click a chat under Archived and choose **Delete permanently…**.
 2. Read the confirmation. It names the chat and what goes.
-3. Confirm. **Cancel** or Escape keeps the chat. The list then says how much space it freed.
+3. Confirm. **Cancel**, Escape or a click outside the question keeps the chat. The list then says how much space it freed.
 
 | Chat | Can be deleted |
 |------|----------------|

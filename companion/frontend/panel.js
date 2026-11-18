@@ -366,9 +366,9 @@ function helperList(conversation, key, now) {
     row.type = 'button'
     const text = element('span', 'text')
     text.append(element('span', 'title', helperTitleOf(helper)), element('span', 'meta', helperDetailsOf(helper, now)))
-    row.title = helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in'
+    if (state.pick) row.title = 'Paste the copied text into the chat it runs in'
+    else row.title = helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in'
     row.append(helperMark(), text)
-    // In pick mode the copied text goes to the chat the subagent runs in.
     row.addEventListener('click', () => (state.pick ? chooseRow(conversation) : openRow(helperOpenOf(conversation, helper))))
     box.append(row)
   }
@@ -621,13 +621,13 @@ async function readEveryPage(asked, signal) {
 /**
  * The search on its way, as {query, given, stale}. A newer search gives it up, so the server stops working on it.
  * A new list while it reads only marks it stale: it runs once more when it settles, so a search slower than
- * the lists that keep arriving still finishes.
+ * the lists that keep arriving still finishes. A change the person made restarts it, since its answer was read before.
  */
 let searchOnItsWay
 
-async function refresh() {
+async function refresh({ restart = false } = {}) {
   const asked = state.query
-  if (asked !== '' && searchOnItsWay?.query === asked) {
+  if (!restart && asked !== '' && searchOnItsWay?.query === asked) {
     searchOnItsWay.stale = true
     return
   }
@@ -987,7 +987,7 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
  * the shell sends the new one as an inbox event, so reading it now would draw the old one.
  */
 async function afterChange() {
-  if (state.query !== '') await refresh()
+  if (state.query !== '') await refresh({ restart: true })
   else draw()
 }
 
@@ -1145,7 +1145,7 @@ async function saveRename(conversation) {
   draw({ force: true })
   // The shell still holds the list it polled before the rename and sends the new one as an inbox event.
   // A search asks the server itself.
-  if (state.query !== '') await refresh()
+  if (state.query !== '') await refresh({ restart: true })
 }
 
 renameItem.addEventListener('click', () => {
