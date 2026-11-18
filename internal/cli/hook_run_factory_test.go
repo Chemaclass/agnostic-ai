@@ -53,7 +53,7 @@ func TestHookRun_FactoryRunsOnAnAssumedShellAndCountsOnlyWhenAsked(t *testing.T)
 	for _, want := range []string{
 		"claude: block (exit 2",
 		"factory: block (exit 0", "(assumed: shell, working directory)", "event: PreToolUse (Execute)",
-		"assumed shell: sh -c (Factory does not document the shell that runs a hook command)",
+		"assumed shell: sh -c (Factory documents /bin/sh -c outside per-command sandboxing; hook run retains a limited shell simulation)",
 		"assumed working directory: project root (Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\")",
 		"docs: https://docs.factory.com/harness/hooks",
 		"1 checked, 1 assumed (not counted; --include-assumed to count)",
@@ -98,7 +98,7 @@ func TestHookRun_FactorySkipsAnInlineShellCommand(t *testing.T) {
 	factoryProject(t, "name: protect-files\nevent: PreToolUse\ncommand: 'cat | grep -q rm && exit 2'\n", factoryGuardScript)
 
 	out, _ := runHookRun(t, "protect-files", "--bash", "rm -rf /")
-	if !strings.Contains(out, "factory: not run (Factory does not document its shell; use a script path)") {
+	if !strings.Contains(out, "factory: not run (hook run cannot simulate this Factory shell command; use a script path)") {
 		t.Errorf("output = %s", out)
 	}
 }

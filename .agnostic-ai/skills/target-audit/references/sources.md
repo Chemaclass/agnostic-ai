@@ -285,7 +285,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: `plugins.md` is the plugin authority, not the hooks page. "A plugin can provide skills, hooks, or both", so `plugin.json` follows a skills-only bundle too (#862).
 - trap: custom-agent frontmatter is `name`, `description`, `model` only. Check the `AgentMetadata` struct in `crates/goose/src/agents/platform_extensions/summon.rs`, not the doc table. No `deny_unknown_fields`, so stray keys are ignored. This settled #864 against `color` in the shared `.agents/agents/` renderer.
 - quirk: the agent loader skips nested directories, so Antigravity coexists at `<name>/agent.md` (#717).
-- quirk: review checks read root `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md`, and they compose (`crates/goose/src/checks/mod.rs`, #771).
+- quirk: before 1.60, review checks read and composed root `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` (`crates/goose/src/checks/mod.rs`, #771). Released 1.60 removes the review subcommand and its consumer (#3403).
 
 ## augment
 

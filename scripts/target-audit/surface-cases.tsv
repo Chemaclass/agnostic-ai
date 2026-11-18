@@ -157,3 +157,9 @@ kilo-agent-variant	kilo	Default model variant for this agent (applies only when 
 qwen-project-worktree-session-default	qwen	a new session in a trusted Git workspace defaults to Worktree mode in the composer	yes	signal:cap-session-managed-worktrees
 devin-kiro-skills-import-toggle	windsurf	Set `read_config_from.kiro` to `false` to turn them off.	yes	signal:cap-cross-tool-config-import-toggle
 amp-project-portal-domain-default	amp	A project can also choose its own default portal domain under Portals on its Orb settings page	yes	signal:cap-orb-environment-lifecycle
+claude-gateway-billing-group	claude	Added support for naming a session's billing group with the attributionProject setting, for Claude apps gateways that set admin.billing_group_tag.	yes	signal:cap-session-billing-group-attribution
+opencode-project-background-compaction	opencode	Background compaction is now on by default. Turn it off with compaction.background: false.	yes	signal:cap-background-compaction
+grok-mcp-dynamic-headers-command	grok	a headers_helper command to provide dynamic request headers	yes	signal:cap-dynamic-mcp-request-headers
+kiro-hook-whole-input-replacement	kiro	updatedInput replaces the whole tool_input object. It is not merged, and later Pre Tool Use Hooks receive the replacement.	yes	signal:cap-kiro-hook-input-rewriting
+copilot-project-customization-evals	copilot	Create an eval for a skill, custom agent, or MCP tool in your project.	yes	signal:cap-project-customization-evaluations
+copilot-remote-review-default-effort	copilot	set it as your default review effort in personal, repository, organization, or enterprise settings.	yes	signal:cap-repository-adaptive-review-effort

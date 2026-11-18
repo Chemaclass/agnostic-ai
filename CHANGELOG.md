@@ -58,13 +58,15 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Goose
+
+- **Removed:** Native Review output after Goose removed `goose review` in 1.60. Reuse the source text in another target or a skill.
+
 #### Factory
 
 - Exact-name hook aliases `Bash`, `Write`, and `WebFetch` no longer raise a false no-effect note (#3571).
 
-#### Goose
-
-- **Removed:** Native Review output after Goose removed `goose review` in 1.60. Reuse the source text in another target or a skill.
+- `hook run` describes its Factory execution limits without claiming the native launcher is undocumented.
 
 #### OpenCode
 
@@ -89,6 +91,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.
 - The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).
 - Docs pages are shorter to read. Each opens with the common task; edge cases sit in folded sections, and long tables move to new reference pages for configuration, global configuration and each tool. Every fact stays, and `llms-full.txt` still carries all of it.
+
+- Shared memory and Cline hook guides state the documented startup fallback and nonzero-exit reply rules.
 
 ## v0.95.0 - 2026-11-15
 
