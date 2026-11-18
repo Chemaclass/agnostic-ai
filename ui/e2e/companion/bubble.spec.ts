@@ -46,7 +46,7 @@ for (const side of [92, 62]) {
     expect(await strongestEdgeAlpha(page)).toBe(0)
 
     await page.locator('#bubble').hover()
-    await expect(page.locator('#bubble')).toHaveCSS('transform', /matrix\(1\.06/)
+    await expect(page.locator('#bubble')).toHaveCSS('transform', 'matrix(1.06, 0, 0, 1.06, 0, 0)')
 
     await expectBadgeInside(page, side)
     expect(await strongestEdgeAlpha(page)).toBe(0)
