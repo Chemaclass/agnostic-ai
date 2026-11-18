@@ -11,9 +11,9 @@ group = "Reference"
 
 ## conversations start
 
-Start a second conversation from inside a running session, in a new terminal tab, in the same folder. The brief you pass becomes its first prompt. The session you run it from goes on with its own task. The [conversations API](@/docs/cli-reference/serve-api.md) then names the session it came from as the new row's `parent`.
+Start a second conversation from a running session, in a new terminal tab in the same folder. The brief you pass becomes its first prompt. The session you run it from goes on with its own task. The [`side-conversation` skill](@/docs/side-conversation.md) tells the agent when to run it.
 
-The [`side-conversation` skill](@/docs/side-conversation.md) tells the agent when to run it and how to write the brief.
+The [conversations API](@/docs/cli-reference/serve-api.md) names the session it came from as the new row's `parent`.
 
 ```bash
 agnostic-ai conversations start <<'BRIEF'
@@ -42,12 +42,18 @@ The brief must not be empty and must fit in 4096 bytes. Start it with the goal a
 
 ### Where it runs
 
+It works from Claude Code, Codex, and Cursor's terminal agent (`cursor-agent`). A Cursor editor chat is refused.
+
+{% <details summary="Which sessions can start one"> %}
+
 | Your session runs in | The new conversation opens in |
 |---|---|
 | Claude Code | Works. The command finds the session from its parent processes. |
 | Codex | Works when Codex sets `CODEX_THREAD_ID` for commands. Without it, it works only when the Codex process that runs the command holds one thread. |
 | Cursor's terminal agent (`cursor-agent`) | Works. `cursor-agent` sets `CURSOR_CONVERSATION_ID` for the commands it runs. Without it, it works only when the `cursor-agent` process that runs the command has one chat open. |
 | A Cursor editor chat | Refused: an editor chat does not run in a terminal tab. Run the command from `cursor-agent`, Claude Code or Codex. |
+
+{% </details> %}
 
 | Terminal | New conversation |
 |---|---|
@@ -77,7 +83,11 @@ It exits with code 1 and starts nothing when:
 
 ### Limits
 
+{% <details summary="Claude Code process detection"> %}
+
 - A Claude Code process is recognised by its session file, or by the name `claude`. An install that runs as `node` and has no session file is not recognised. Started inside a Codex session, the command then names the Codex thread as the parent, not that Claude Code session.
+
+{% </details> %}
 
 ### The link line
 

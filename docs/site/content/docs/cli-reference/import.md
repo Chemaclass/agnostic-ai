@@ -28,17 +28,19 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 ### Import behavior
 
-`import all` imports each tool it detects from config files and directories. A detected tool with no importer prints `skipping <tool>`. `all` cannot combine with other sources.
+`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. `import --global [targets]` reads your user config instead.
 
+{% <details summary="import all, entry files, and what global import reads"> %}
+
+- `import all` detects tools from config files and directories. A detected tool with no importer prints `skipping <tool>`. `all` cannot combine with other sources.
 - An entry file or skill folder that links outside the project is skipped with a `skipped <path>` note. When you name the tool (`import claude`), import follows an entry file link.
 - Unedited sync output is skipped, so `import all` right after `sync` changes nothing.
+- `import all` (and `init --from all`) reads a root `AGENTS.md` last. It adds each `##` section that `.agnostic-ai/AGNOSTIC_AI.md` lacks and reports `merged <n> sections from AGENTS.md`. With no tool detected:
+  - A hand-written root `AGENTS.md` becomes `.agnostic-ai/AGNOSTIC_AI.md` (`seeded from AGENTS.md`).
+  - A generated one is left alone (`no importable AI CLI configs detected`).
+- `import --global [targets]` reads your user config from the tools `sync --global` writes into `$AGNOSTIC_AI_HOME`: default model, effort, and [voice dictation](@/docs/spec-format/settings.md#voice-dictation) (`settings/imported.yaml`), Claude Code permission rules (`settings/permissions-claude.yaml`), MCP servers (`mcps/<name>.yaml`), and supported [Kiro hook files](@/docs/targets/kiro.md) (`hooks/<name>.yaml`).
 
-`import all` (and `init --from all`) reads a root `AGENTS.md` last. It adds each `##` section that `.agnostic-ai/AGNOSTIC_AI.md` lacks and reports `merged <n> sections from AGENTS.md`. With no tool detected:
-
-- A hand-written root `AGENTS.md` becomes `.agnostic-ai/AGNOSTIC_AI.md` (`seeded from AGENTS.md`).
-- A generated one is left alone (`no importable AI CLI configs detected`).
-
-`import --global [targets]` reads your user config from the tools `sync --global` writes into `$AGNOSTIC_AI_HOME`: default model, effort, and [voice dictation](@/docs/spec-format/settings.md#voice-dictation) (`settings/imported.yaml`), Claude Code permission rules (`settings/permissions-claude.yaml`), MCP servers (`mcps/<name>.yaml`), and supported [Kiro hook files](@/docs/targets/kiro.md) (`hooks/<name>.yaml`).
+{% </details> %}
 
 <details>
 <summary>Global import rules</summary>
@@ -95,14 +97,6 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads.
 
 `import cline`, `import windsurf`, `import trae`, `import qoder`, and `import continue` reclassify each file in their rules directory by name:
 
-| Target | Rules directory |
-|--------|-----------------|
-| `cline` | `.clinerules/`, with `.cline/rules/` fallback |
-| `windsurf` | `.devin/rules/`, with `.windsurf/rules/` fallback |
-| `trae` | `.trae/rules/` |
-| `qoder` | `.qoder/rules/` |
-| `continue` | `.continue/rules/` |
-
 | Source filename | Becomes |
 |-----------------|---------|
 | `agent-<name>.md` | `<agents>/<name>.md` |
@@ -111,6 +105,18 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads.
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
 Import strips the leading `# <heading>` block the adapter adds and adds a `name:` field in frontmatter.
+
+{% <details summary="Rules directory per target"> %}
+
+| Target | Rules directory |
+|--------|-----------------|
+| `cline` | `.clinerules/`, with `.cline/rules/` fallback |
+| `windsurf` | `.devin/rules/`, with `.windsurf/rules/` fallback |
+| `trae` | `.trae/rules/` |
+| `qoder` | `.qoder/rules/` |
+| `continue` | `.continue/rules/` |
+
+{% </details> %}
 
 ### import reconcile
 
@@ -124,6 +130,10 @@ agnostic-ai import reconcile \
   --map .cursor/skills=.agnostic-ai/skills
 ```
 
+Flags: `--base`, `--migrated`, `--upstream`, `--map <native>=<source>` (repeat per native directory), `--json`.
+
+{% <details summary="Reconcile flags"> %}
+
 | Flag | Commit or path |
 |------|----------------|
 | `--base` | Holds the original tool skill folder. An ancestor of `--upstream` and `HEAD`. |
@@ -131,6 +141,8 @@ agnostic-ai import reconcile \
 | `--upstream` | The branch with later edits to the tool skill folder. |
 | `--map <native>=<source>` | A native skill directory and `sources.skills`, separate and relative to the project directory, even when nested in a larger repository. Repeat per native directory. |
 | `--json` | Print the four resolved commit IDs and an `entries` array of `action`, `source`, and `destination`. |
+
+{% </details> %}
 
 <details>
 <summary>Reconcile row actions and conflicts</summary>

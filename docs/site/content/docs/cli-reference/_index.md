@@ -18,9 +18,7 @@ nav_after = "configuration"
 agnostic-ai [command] [flags]
 ```
 
-Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents subdirectories or `--global`. `agnostic-ai <command> --help` lists the options of your installed release.
-
-To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) and follow its next step, or see [troubleshooting](@/docs/troubleshooting.md) by symptom.
+Run project commands from the folder with `agnostic-ai.yaml`, unless the command documents subdirectories or `--global`. `agnostic-ai <command> --help` lists the options of your release. To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) or see [troubleshooting](@/docs/troubleshooting.md).
 
 ## Find a command
 
@@ -55,11 +53,14 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 ## Concurrent commands
 
-`sync` (including `--watch`, until it exits), `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID; retry after it finishes. `sync --check`, `sync --plan`, dry runs, `status`, `list`, and global commands take no lock. The lock works between processes on one machine, not across a network file system.
+Commands that write hold one project lock. A second writer exits with the running command's name and process ID; retry after it finishes.
 
 <details>
-<summary>Lock file details</summary>
+<summary>Which commands lock, and the lock file</summary>
 
+- `sync` (including `--watch`, until it exits), `import`, `use`, `init`, and `migrate` hold the lock while they run.
+- `sync --check`, `sync --plan`, dry runs, `status`, `list`, and global commands take no lock.
+- The lock works between processes on one machine, not across a network file system.
 The lock file, `.agnostic-ai/.command-lock`, stays on disk. Do not delete it. The managed `.gitignore` block ignores it, and writing commands refresh those runtime entries even when generated outputs are committed. The operating system releases the lock when the process exits or is killed.
 
 </details>
@@ -86,7 +87,14 @@ The lock file, `.agnostic-ai/.command-lock`, stays on disk. Do not delete it. Th
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source folder for `sync --global`, `list --global`, `lint --global`, `validate --global`, and `migrate --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration-reference.md#global-configuration). |
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source folder for the `--global` commands. See [global configuration](@/docs/configuration-reference.md#global-configuration). |
+
+<details>
+<summary>Which commands read AGNOSTIC_AI_HOME</summary>
+
+`sync --global`, `list --global`, `lint --global`, `validate --global`, and `migrate --global` read it, including its `local/` override layer. Project sync does not load it.
+
+</details>
 
 ## Which config wins {#config-precedence}
 

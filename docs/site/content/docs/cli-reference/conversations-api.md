@@ -25,6 +25,8 @@ The first call lists chats and their `state`. The second reopens one. The third 
 
 ## `GET /api/views/conversations`
 
+List conversations, newest first, one week per page.
+
 | Query | Meaning |
 |-------|---------|
 | `editor=<id>` | The editor chosen in Settings, so editor links use its scheme. |
@@ -32,13 +34,25 @@ The first call lists chats and their `state`. The second reopens one. The third 
 | `q=<words>` | A search. |
 | `tool=claude`, `codex` or `cursor` | List one tool. |
 
+Each row has a `state`, the first of these that holds:
+
+1. `blocked`: open, and its tool says it waits for you.
+2. `working`: open, and its tool says the agent is busy.
+3. `dormant`: [archived in its app](@/docs/cli-reference/companion-list.md#chats-archived-in-their-app).
+4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
+5. `dormant`: a terminal session no process holds, even with a reply you have not read. `unread` is then `true` on the row.
+6. `unread`: written after you last saw it.
+7. `active`: open; a desktop, chat, Cowork or cloud conversation of any age; or written within 24 hours when the server cannot tell whether it is closed.
+8. `dormant`: otherwise.
+
+{% <details summary="Search, paging and scope"> %}
+
 A search keeps the conversations of every age where each word appears in the title, folder, branch, latest prompt, latest reply, tool or app, as the row shows them. Case is ignored.
 
 - A withheld field does not match.
 - Its pages hold only matches, and the page adds `matches`, the count across all pages.
 - A `q` over 200 characters, or another `tool`, is a 400.
 
-{% <details summary="Paging, scope and what is left out"> %}
 The route lists Claude Code, Codex and Cursor conversations from each tool's own store. The newest come first, by the last message from the person or the agent.
 
 - Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so, without a search or tool filter, it holds every conversation `needsYou` counts. A later page leaves those out.
@@ -48,14 +62,17 @@ The route lists Claude Code, Codex and Cursor conversations from each tool's own
 - A project server lists the conversations started in the project or one of its Git worktrees. A global server lists them all.
 - Runs a program started (Claude Code SDK sessions, `codex exec`) are left out. A `codex exec` run that a local Claude Code session started shows in that session's `helpers` instead while it runs.
 - A Claude Code session or Codex thread that was opened and never typed in is left out: it has no title and no prompt to show. A Codex thread stays when the agent replied, or when you named it with `POST /api/conversations/rename`. A left-out one is not counted in `needsYou` or a tool's `count`.
+
+Codex and Cursor stores are read with the `sqlite3` command.
 {% </details> %}
+
+{% <details summary="Response fields"> %}
 
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, deleteUnsupported?, parent?, cloud?, open}`.
 
-{% <details summary="Conversation fields"> %}
 Conversation fields:
 
 - `app` is `cli`, `ide`, `desktop`, `background`, `cloud`, `chat` or `cowork`.
@@ -85,19 +102,6 @@ Conversation fields:
   - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal or Ghostty. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. For a terminal session `label` says it resumes, such as `Resume in Ghostty` or `Resume in Terminal`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 {% </details> %}
-
-Codex and Cursor stores are read with the `sqlite3` command.
-
-Each row has a `state`, the first of these that holds:
-
-1. `blocked`: open, and its tool says it waits for you.
-2. `working`: open, and its tool says the agent is busy.
-3. `dormant`: [archived in its app](@/docs/cli-reference/companion-list.md#chats-archived-in-their-app).
-4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
-5. `dormant`: a terminal session no process holds, even with a reply you have not read. `unread` is then `true` on the row.
-6. `unread`: written after you last saw it.
-7. `active`: open; a desktop, chat, Cowork or cloud conversation of any age; or written within 24 hours when the server cannot tell whether it is closed.
-8. `dormant`: otherwise.
 
 {% <details summary="How closed sessions are detected"> %}
 
@@ -158,7 +162,8 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?}`.
 
-{% <details summary="Open details: results, limits, tabs and timing"> %}
+{% <details summary="Open details, results and status codes"> %}
+
 - For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
 - Not supported yet: iTerm2, tmux, WezTerm, kitty and Warp. For their sessions the app comes forward, or `message` names the terminal device.
@@ -169,13 +174,13 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 - A second open of the same conversation while one runs starts nothing: it waits for the first and returns the same reply. Opens of different conversations run side by side.
 - While a list read runs, an open takes its row from the read before it, so it does not wait. A row that would resume a session waits for a fresh read instead: an ended terminal session, and any Claude Code session of the desktop app or an editor, which may run in a terminal since. Such an open can take as long as that read.
 - An open may take up to 90 seconds to answer. When its caller left before that, the server logs whether it opened on its standard error, without the reason.
-{% </details> %}
 
 | Status | Meaning |
 |--------|---------|
 | 200 | `{opened, message, command?}`. `opened` says whether the chat came to the front. |
 | 404 | A conversation outside the list. |
 | 400 | Any other field. |
+{% </details> %}
 
 ## `POST /api/conversations/send`
 
@@ -183,7 +188,8 @@ Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the 
 
 Types `text` into a conversation's input, never pressing Enter, and returns `{sent, message}`.
 
-{% <details summary="Send details: what is typed, and which chats get no text"> %}
+{% <details summary="Send details, which chats get no text, and status codes"> %}
+
 - `sent` is true only when the text was typed into a live Terminal or Ghostty tab.
 - The conversation comes from the server's own scan, never from the request.
 - Right before typing, the server checks that the session still runs and holds its terminal in front. An ended session is never resumed and typed into.
@@ -193,7 +199,6 @@ Types `text` into a conversation's input, never pressing Enter, and returns `{se
 - Never typed into: a Cursor session, which does not say when it waits; a working Codex session, which may drop the text; a session waiting for your answer, or in a state it does not report; a Codex thread shown by a client, which may have switched thread. Working Claude Code keeps the text.
 - Anywhere else the server switches to the conversation as `POST /api/conversations/open` does, and `message` says to paste with Cmd+V, such as for editor terminals.
 - macOS asks once for Automation access to each app. Terminal also needs Accessibility access.
-{% </details> %}
 
 | Status | Meaning |
 |--------|---------|
@@ -201,6 +206,7 @@ Types `text` into a conversation's input, never pressing Enter, and returns `{se
 | 400 | An unknown tool or any other field. |
 | 404 | A conversation outside the list. |
 | 413 | `text` is over 256 KB. |
+{% </details> %}
 
 ## `POST /api/conversations/mark`
 
@@ -213,23 +219,28 @@ Body: `{tool, id, as}` with `Content-Type: application/json`, from the server's 
 | `open` | Takes a completion back. |
 | `hidden` | Left out of every list, search and count until something new is written or it starts working. The tool's own store keeps it. Also marks it seen. |
 
+{% <details summary="Mark status codes"> %}
+
 | Status | Meaning |
 |--------|---------|
 | 204 | Marked. |
 | 404 | A conversation outside the list. |
 | 400 | Another `as`, or any other field. |
+{% </details> %}
 
 ## `POST /api/conversations/rename`
 
 Body: `{tool, id, title}` with `Content-Type: application/json`, from the server's own origin.
 
-{% <details summary="Rename details"> %}
+Renames a conversation in its own tool first, then saves the name for every server that shares the marks file.
+
+{% <details summary="Rename details and status codes"> %}
+
 - Renames the conversation in its own tool first, before it replies. See [the companion's Rename](@/docs/cli-reference/companion.md) for how each tool takes the name. Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
 - Only once the tool has the name does it save `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search. A name the tool did not take is not saved.
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
 - On macOS, a running session's Terminal or Ghostty tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes.
-{% </details> %}
 
 | Status | Meaning |
 |--------|---------|
@@ -244,6 +255,7 @@ Body: `{tool, id, title}` with `Content-Type: application/json`, from the server
 | 502 | The tool refused the name, did not answer in time, or keeps the conversation in a way this version does not know. |
 
 When the tool does not take the name, the reply is `{"error": "..."}` with a sentence for the person that names the tool and what to do. What the tool said goes to the server's standard error only.
+{% </details> %}
 
 ## `POST /api/conversations/delete`
 
@@ -257,7 +269,7 @@ Deletes one conversation under Archived from this machine for good. Only a local
 - None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
 - Its session id names exactly one transcript.
 
-{% <details summary="What delete removes, what stays, and its limits"> %}
+{% <details summary="What delete removes, what stays, status codes and limits"> %}
 
 What it removes, each only when its name is exactly the session id:
 
@@ -281,8 +293,6 @@ Accepted limits:
 - A session that starts in the moment between the last check and the removal is not seen.
 - A forked session may still point at saved tool output under its parent's `projects/<project>/<parent id>/tool-results/`. Deleting the parent removes that output.
 
-{% </details> %}
-
 | Status | Meaning |
 |--------|---------|
 | 200 | `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file. |
@@ -293,3 +303,4 @@ Accepted limits:
 | 500 | `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept. |
 
 `error` is always a complete sentence.
+{% </details> %}

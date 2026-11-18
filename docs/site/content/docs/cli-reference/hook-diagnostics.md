@@ -32,6 +32,10 @@ For each configured tool the hook reaches, it runs every command sync wrote for 
 
 `--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call (`BeforeTool` or `AfterTool` on Gemini). `--prompt <text>` builds `UserPromptSubmit` (`BeforeAgent` on Gemini). `SessionStart` takes its `source` from the matcher, or `startup` when the matcher is empty. `--payload <file>` sends a JSON file as is, for any event. A file that does not hold one JSON object fails before any hook runs.
 
+A tool whose matcher, event, or timeout does not fit reports `allow` with the reason, and is not run.
+
+{% <details summary="Matchers, unsupported events, timeouts, background hooks, and stale files"> %}
+
 ### Apply matchers {#matcher-replies}
 
 When the matcher does not match the tool or source, that tool reports `allow` and why, since it would not run the hook. A `--payload` tool call matches its `tool_name` by the tool's own rules, including Codex's `Edit` and `Write` aliases for `apply_patch`. Cursor, Goose, Copilot, and Kiro match the field their docs name for the event, such as the command, file path, or prompt text.
@@ -57,6 +61,8 @@ On macOS and Linux, a command the hook leaves running is killed once the hook ex
 ### Find stale generated hook files {#stale-tool-file-replies}
 
 Commands come from the spec, so a command that calls a hook script needs a `sync` first to copy the script. A `warning` names the synced file when it is missing, when no handler under the event runs the spec's command, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. It also compares `failClosed` on Claude Code, Cursor, and Factory, `cwd` on Copilot, and `confirm` on Kiro. An `env` warning names keys, never values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
+
+{% </details> %}
 
 <details>
 <summary>Environment variables per tool</summary>
@@ -130,9 +136,13 @@ Each command reports one decision.
 - `error`: any other non-zero exit.
 - `timeout`: the command ran past its timeout.
 
+{% <details summary="failClosed, events where exit 2 cannot block, and context lines"> %}
+
 With `failClosed: true`, Claude Code treats a hook failure as exit 2 for its event, and on `PermissionRequest` denies the request. [Claude Code hook mappings](@/docs/targets/claude-reference.md#hook-mappings) lists the events and handlers that ignore it.
 
 Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the tool adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
+
+{% </details> %}
 
 <details>
 <summary>How other tools read replies</summary>
@@ -194,6 +204,10 @@ The run exits 1, so it works as a CI check, when a counted command times out or 
 
 ### Assumed results {#assumed-results}
 
+Some tools' docs leave out part of how a command runs. `hook run` runs those commands on an assumption and ends the result line in `(assumed: shell, timeout)`. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`.
+
+{% <details summary="What is assumed, and how assumed results are counted"> %}
+
 Some tools' docs leave out part of how a command runs. `hook run` runs those commands on an assumption instead of skipping them, ends the result line in `(assumed: shell, timeout)`, and adds one line per assumption. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`. A warning flags an assumed result that disagrees with the counted ones, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
 
 | Assumption | Targets | What `hook run` assumes |
@@ -205,6 +219,8 @@ Some tools' docs leave out part of how a command runs. `hook run` runs those com
 | Working directory | Factory, Qoder, Antigravity, Windsurf | The project root, since the docs do not say. A command starting `"$FACTORY_PROJECT_DIR"/` or `"${QODER_PROJECT_DIR}"/` counts as a script path, with the variable set to the root; Windsurf sets `DEVIN_PROJECT_DIR` the same way. |
 | Working directory | Cline | The project root, where Cline uses the directory the CLI started in. |
 | `jq`, `coreutils` | Crush | Crush has built-in `jq` and, on Windows, `cat`, `ls`, `rm`, `find`, and the other core utilities, unless `CRUSH_CORE_UTILS=false`. `hook run` runs the ones on `PATH` and adds an assumption for each it reached, only for inline commands and `./` scripts without a shebang. |
+
+{% </details> %}
 
 ### Counted and assumed results
 
@@ -220,9 +236,13 @@ The Cline VS Code extension does not read stdout when the script exits non-zero,
 
 ## JSON output
 
+`--format json`, or `--json`, prints the same results as one JSON object. The exit code is the same as in text.
+
+{% <details summary="JSON fields and example"> %}
+
 `--format json`, or `--json`, prints the same results as one JSON object; `--json` fails with any other `--format`. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, its `assumptions`, whether it is `counted`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails. When a target cannot be set up, such as a matcher that is not a valid pattern, the object still prints, with the targets checked before it and `error` naming that target. The exit code is the same as in text:
 
-{% <details summary="Example JSON output"> %}
+
 
 ```json
 {

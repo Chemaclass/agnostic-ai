@@ -143,15 +143,14 @@ List the instructions planned for one project file, with their source, output pa
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--file <path>` | Project file to inspect. It does not have to exist. Cannot combine with a spec or code argument. |
-| `--target <name>` | Required with `--file`. A configured target: `cursor`, `claude`, or `codex`. |
+`--file <path>` is the project file (it does not have to exist). `--target <name>` is required: `cursor`, `claude`, or `codex`.
 
-The report describes planned sync output, not what the model loaded. It cannot see user instructions, the session launch directory, import approval, or session settings that turn off project instructions.
+The report describes planned sync output, not what the model loaded.
 
-<details>
-<summary>Read instruction statuses, native discovery rules, and JSON</summary>
+{% <details summary="Limits, flags, instruction statuses, discovery rules, and JSON"> %}
+
+- `--file` cannot combine with a spec or code argument.
+- The report cannot see user instructions, the session launch directory, import approval, or session settings that turn off project instructions.
 
 | Status | Meaning |
 |--------|---------|
@@ -175,7 +174,7 @@ The report describes planned sync output, not what the model loaded. It cannot s
  "instructions": [{"status": "match", "source": "...", "output": "...", "selector": "...", "reason": "..."}]}
 ```
 
-</details>
+{% </details> %}
 
 ### Rank context contributions
 
@@ -229,13 +228,18 @@ Skill and agent bodies and conditional rule bodies appear under `on-demand`, out
 agnostic-ai explain --inputs
 ```
 
-List the files and directories that can affect generated output, one per line relative to the repository root (`--json` for an array). Takes no spec argument or `--file`. [Git hooks](@/docs/git-hooks.md#check-staged-files) use it. The list holds:
+List the files and directories that can affect generated output, one per line relative to the repository root (`--json` for an array). [Git hooks](@/docs/git-hooks.md#check-staged-files) use it.
 
-- the config files and `.agnostic-ai/**`
-- source directories outside `.agnostic-ai/`
-- files reviews pull in with `@path` (and the entry point's, with `sync.resolve-imports: inline`)
-- `agnostic.packs.lock` and `.gitignore`
-- `builtin:<name>@<content-hash>` for each enabled built-in
+{% <details summary="What the inputs list holds"> %}
+
+- It takes no spec argument or `--file`.
+- The config files and `.agnostic-ai/**`.
+- Source directories outside `.agnostic-ai/`.
+- Files reviews pull in with `@path` (and the entry point's, with `sync.resolve-imports: inline`).
+- `agnostic.packs.lock` and `.gitignore`.
+- `builtin:<name>@<content-hash>` for each enabled built-in.
+
+{% </details> %}
 
 ## compare
 
@@ -245,11 +249,11 @@ Compare how two built-in targets handle your agent and skill fields, rule activa
 agnostic-ai compare claude cursor
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--json` | Stable JSON for scripts. |
+Each field gets one result per target, with the output paths or the reason, and a `next:` step when known. `(differs)` marks differing results. `--json` prints stable JSON for scripts.
 
-Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks differing results. A spec whose target filter skips both tools is left out, except settings. A built-in shows as `builtin:<name>`; its next step is the `builtins` setting or a project spec of the same name.
+Each result is `preserved`, `translated`, `unsupported`, `excluded`, or `unknown`.
+
+{% <details summary="What each result means, scope, and failures"> %}
 
 | Result | Meaning |
 |---|---|
@@ -259,7 +263,12 @@ Each field gets one result per target, with the output paths or the reason, and 
 | `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
 | `unknown` | The written files do not show either way. |
 
-It fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
+- A `next:` step can be a required `outputs.zed.tasks-file`.
+- A spec whose target filter skips both tools is left out, except settings.
+- A built-in shows as `builtin:<name>`; its next step is the `builtins` setting or a project spec of the same name.
+- It fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
+
+{% </details> %}
 
 <details>
 <summary>Read compared fields, permission mappings, and JSON</summary>
@@ -308,15 +317,13 @@ Print what each target would write for one spec.
 agnostic-ai render rules/no-console-log.md --target claude,codex
 ```
 
-| Flag | Description |
-|------|-------------|
-| `-t, --target <list>` | Targets to render, repeated or comma-separated. Default: all in `agnostic-ai.yaml`. |
+`-t, --target <list>` picks the targets, repeated or comma-separated. Default: all in `agnostic-ai.yaml`.
 
 Each file prints as `# target: <name>: <output path>` and its body. A target that writes nothing for that kind prints a note. [Credential values](@/docs/cli-reference/sync.md#credential-previews) are hidden.
 
 ## graph
 
-Show which targets and files each spec feeds (spec → target → file). When a spec seems missing from a tool, run `agnostic-ai graph --spec <name>`: a `-` means that tool gets no file, so check its supported kinds and the spec's target filters. Rows sort by spec name, then target. Without `targets`, graph covers every tool that can render your setup.
+Show which targets and files each spec feeds (spec → target → file). When a spec seems missing from a tool, run `agnostic-ai graph --spec <name>`: a `-` means that tool gets no file.
 
 ```text
 $ agnostic-ai graph
@@ -325,7 +332,12 @@ code-reviewer  | agent  agent  agent
 no-console-log | rule   rule   rule
 ```
 
-`mermaid` starts with `graph LR`, `dot` pipes to Graphviz (`agnostic-ai graph --format dot | dot -Tsvg > graph.svg`), and `json` gives one record per file:
+Formats: `--format text|mermaid|dot|json`. Narrow with `--target`, `--spec`, or `--kind`.
+
+{% <details summary="Graph flags, formats, and ordering"> %}
+
+- Rows sort by spec name, then target. Without `targets`, graph covers every tool that can render your setup.
+- `mermaid` starts with `graph LR`, `dot` pipes to Graphviz (`agnostic-ai graph --format dot | dot -Tsvg > graph.svg`), and `json` gives one record per file:
 
 ```json
 {"spec": "no-console-log", "kind": "rule", "target": "claude", "path": ".claude/rules/no-console-log.md"}
@@ -338,6 +350,8 @@ no-console-log | rule   rule   rule
 | `--target` | Restrict to one configured target. Any other name fails. |
 | `--spec` | Restrict to one spec name. |
 | `--kind` | Restrict to one kind: agent, skill, rule, hook, mcp, command, settings, review, environment, ignore. Any other kind fails. |
+
+{% </details> %}
 
 ## why
 
@@ -355,8 +369,6 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 Edit the path under `sources`, then run `agnostic-ai sync`.
 
-`why` also recognizes files from tools outside `targets`, skipping any that cannot generate files with your configuration. A failure from a tool in `targets` stops the command and names it once.
-
 <details>
 <summary>Fields in the why report</summary>
 
@@ -370,12 +382,19 @@ Edit the path under `sources`, then run `agnostic-ai sync`.
 
 </details>
 
-Without `.agnostic-ai/.sync-state`, run `sync` first. A spec path points you to `explain`, and `AGNOSTIC_AI.md` names the entry-point files it feeds; a path sync does not write reports "not synced or not tracked".
+Without `.agnostic-ai/.sync-state`, run `sync` first. Use `--json` (or `--format json`) for JSON.
+
+{% <details summary="Other paths, tools outside targets, and flags"> %}
+
+- `why` also recognizes files from tools outside `targets`, skipping any that cannot generate files with your configuration. A failure from a tool in `targets` stops the command and names it once.
+- A spec path points you to `explain`, and `AGNOSTIC_AI.md` names the entry-point files it feeds. A path sync does not write reports "not synced or not tracked".
 
 | Flag | Description |
 |------|-------------|
 | `--format` | `text` (default) or `json`. |
 | `--json` | Same as `--format json`. Fails with another `--format`. |
+
+{% </details> %}
 
 ## mcp tools
 
@@ -386,15 +405,12 @@ agnostic-ai mcp tools
 agnostic-ai mcp tools --global
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--dir` | Project directory to read. Default: the current directory. |
-| `--global` | Read the user configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
-| `--json` | Print the cached result as JSON. |
-| `--timeout` | Maximum probe time per server, including its header helper. Default `20s`. Process cleanup is bounded separately. |
+Flags: `--dir` (project to read), `--global` (user configuration in `$AGNOSTIC_AI_HOME`), `--json` (print the cached result), `--timeout` (per server, default `20s`).
 
-<details>
-<summary>How mcp tools probes servers and caches</summary>
+{% <details summary="Flag details and how servers are probed"> %}
+
+- `--dir` defaults to the current directory. `--global` reads the user configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`).
+- `--timeout` is the maximum probe time per server, including its header helper. Process cleanup is bounded separately.
 
 - Stdio servers start with their `command`, `args`, and `env`. A relative or omitted working directory resolves against the configuration root.
 - HTTP servers use their headers and optional `headersHelper`.
@@ -404,4 +420,4 @@ agnostic-ai mcp tools --global
 - Errors and tool descriptions are redacted before display or caching.
 - The cache lives in the user cache directory, shared across directory aliases. Changed specs mark a listing stale: rerun `mcp tools` to refresh the overview.
 
-</details>
+{% </details> %}

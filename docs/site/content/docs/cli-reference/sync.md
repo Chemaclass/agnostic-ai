@@ -27,19 +27,26 @@ agnostic-ai sync --only claude,cursor
 | `--dry-run` | Print to stdout instead of writing. Files whose spec is gone show only with `--diff`. |
 | `--plan` | Print added and changed counts per target. Writes nothing. Exits 0, or 1 on drift with `--check`. Ignores `--format`. |
 | `--check` | Exit non-zero if files on disk differ from what sync would write. Writes nothing. |
-| `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there. See [what `--against` compares](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
 | `--diff` | With `--check`, `--plan`, or `--dry-run`, print a diff per changed file. Errors alone, and with `--watch` or `--keep-edits`. |
+| `--watch` | Stay running and [re-write on changes](#watch-mode). Not with `--check`. |
+| `--json` | Print [JSON](#json-output). Not with `--watch` or `--diff`. |
+
+{% <details summary="More flags: --against, --format, --backup, --keep-edits, --untrack, --jobs and others"> %}
+
+| Flag | Description |
+|------|-------------|
+| `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there. See [what `--against` compares](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
 | `--format <human\|github>` | With `--check`: a `human` table (default) or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing output to `<path>.bak` before overwriting, with the file's permissions. Pair with `revert`. |
 | `--keep-edits` | Write every output except those edited since the last sync, printing `~ kept <path>` for each (stderr under `--quiet`). With no sync record, "edited" means a tracked output that differs from `HEAD`. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--allow-empty-targets` | With an empty `targets` list, remove every file sync generated. Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--untrack` | Run `git rm --cached` on generated paths git tracks and ignores. The working copy stays. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
-| `--watch` | Stay running and [re-write on changes](#watch-mode). Not with `--check`. |
 | `--watch-poll` | With `--watch`, poll every 200 ms. For network mounts and container volumes. |
 | `--jobs <n>` | Write targets in [parallel](#parallel-emission): `0` (default) is one per CPU, `1` is serial. |
-| `--json` | Print [JSON](#json-output). Not with `--watch` or `--diff`. |
 | `--global` | Install user-level specs from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's user config. See [global configuration](@/docs/global-configuration.md). |
+
+{% </details> %}
 
 <details>
 <summary>Flag details: --plan, --diff, --backup, --allow-empty-targets</summary>
@@ -171,10 +178,13 @@ With no `.sync-state`, as in a fresh checkout of a repo that commits generated f
 
 ### Warning guidance {#warning-guidance}
 
-Unsupported global agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent. Guidance never edits specs. Repeated project notes stay hidden until they change or you pass `-vv`.
+Each warning comes with one `fix:` line. Guidance never edits specs.
 
 <details>
-<summary>Next step by field</summary>
+<summary>Next step by field, and when notes show</summary>
+
+- Unsupported global agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent.
+- Repeated project notes stay hidden until they change or you pass `-vv`.
 
 | Field | Next step |
 |-------|-----------|
@@ -199,7 +209,7 @@ On the first `sync` (no `.agnostic-ai/.sync-state`), if the config lists every s
 
 ### Reading a failing `--check` {#reading-a-failing---check}
 
-A failing `--check` exits non-zero in every format and points at `agnostic-ai sync` and `agnostic-ai doctor`. Each changed file gets a label:
+A failing `--check` exits non-zero in every format and points at `sync` and `doctor`. Each changed file gets a label:
 
 | Label | Meaning |
 |-------|---------|
@@ -255,17 +265,25 @@ Dry-run, render, import, and migration previews hide literal credential values. 
 
 ### Parallel emission {#parallel-emission}
 
-Each target gets its own worker. `--jobs <n>` bounds how many run at once (no config-file key). Output never depends on it. Use `--jobs 1` to debug or pin ordering.
+Targets write in parallel. Use `--jobs 1` to debug or pin ordering. `--jobs <n>` bounds the workers and has no config-file key. Output never depends on it.
 
 ### Profiling a slow sync
+
+Use `sync -v` or `-vv` for timing, or write a CPU profile with `--profile`.
+
+{% <details summary="Verbosity and profile details"> %}
 
 - `sync -v` shows counts and elapsed time for targets that wrote files, and summarizes unchanged targets.
 - `sync -vv` shows every target, path, and repeated coverage note, accepted ones included. It runs sync again.
 - `--profile <file>` or `AGNOSTIC_AI_PROFILE=<file>` writes a CPU profile. Under `--jobs > 1` target times overlap.
 
+{% </details> %}
+
 ### JSON output
 
 `sync --json`, also with `--plan`, `--dry-run`, or `--check`, writes one object to stdout. The first-sync picker still saves your choice, prompting on stderr.
+
+{% <details summary="JSON fields and action values"> %}
 
 | Field | Description |
 |-------|-------------|
@@ -305,3 +323,5 @@ Each target gets its own worker. `--jobs <n>` bounds how many run at once (no co
 - `--plan --json` and `--dry-run --json` write nothing and exit 0. A leftover they would remove is `"delete"`. Kept files are `"orphan"` or `"leftover"`.
 - `--dry-run --json` also lists unchanged outputs as `"skip"`. Count `writes` by `target` for the `--plan` numbers.
 - `sync --global --json` carries `warnings` and `notes` too, or sends them to stderr when a run fails before printing JSON.
+
+{% </details> %}
