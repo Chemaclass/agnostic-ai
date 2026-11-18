@@ -163,7 +163,8 @@ function approvals(now) {
  * openProblem (a conversation that did not open) with its openCommand,
  * sendProblem (the send call fails), unsent (nothing was typed and the conversation was not switched to),
  * slowQueries (queries that contain the word wait that many milliseconds),
- * rereadMs (after a mark, the list stays the one polled before it for that many milliseconds, then the new one arrives),
+ * rereadMs (a mark answers that many milliseconds later, once the list read after it arrives),
+ * marksIgnored (a mark is kept, but the list read after it shows the chat where it was),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
  * openPending (the server did not answer an open in time, so nobody knows yet whether it opened),
  * lateOpenProblem (such an open fails later, with openCommand, once POST /dev/settle-late-opens),
@@ -317,9 +318,14 @@ export const FIXTURES = {
     slowQueries: { release: 1500 },
   },
   'slow-reread': {
-    label: 'A mark reaches the list 1.5 seconds later',
+    label: 'A mark answers 2.5 seconds later, with the list read after it',
     conversations: mixed,
-    rereadMs: 1500,
+    rereadMs: 2500,
+  },
+  'marks-ignored': {
+    label: 'The list read after a mark still shows the chat where it was',
+    conversations: mixed,
+    marksIgnored: true,
   },
   'slow-open': {
     label: 'Open the server is slow to answer',

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, withTitle, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -392,18 +392,6 @@ test('takes a typed name as one line and refuses an empty one', () => {
   assert.equal(nameOf('  Parser \n\t fix  '), 'Parser fix')
   assert.equal(nameOf(''), undefined)
   assert.equal(nameOf(' \n\t '), undefined)
-})
-
-test('shows a new name on its row at once and leaves the rest of the view as it was', () => {
-  const view = { needsYou: 1, conversations: [row('a', 'unread'), row('a', 'active', { tool: 'codex' }), row('b', 'completed')] }
-  const renamed = withTitle(view, 'claude:a', 'Parser fix')
-  assert.deepEqual(renamed.conversations.map((r) => [r.tool, r.id, r.title, r.state]), [
-    ['claude', 'a', 'Parser fix', 'unread'],
-    ['codex', 'a', 'a', 'active'],
-    ['claude', 'b', 'b', 'completed'],
-  ])
-  assert.equal(renamed.needsYou, 1)
-  assert.equal(view.conversations[0].title, 'a')
 })
 
 test('sends a typed name, refuses an empty one and keeps a name that did not change', () => {

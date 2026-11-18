@@ -140,6 +140,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   const pages = resolve(frontendDir)
   const timeOf = () => now ?? Date.now()
   let state = fixtureState(fixture, timeOf())
+  /** Lists made so far, so each one has its own version even across fixtures. */
+  let versions = 0
   const listeners = new Set()
 
   function emit(name, data) {
@@ -163,7 +165,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   /** Like the shell: the pages read the new list, and a chat that starts waiting brings a hidden circle back faded. */
   function listChanged(polled = state.conversations) {
     state.polled = structuredClone(polled)
-    emit('inbox')
+    versions += 1
+    state.version = String(versions)
+    emit('inbox', state.version)
     const now = waitingIn(state.conversations)
     const gained = [...now].some((key) => !state.waitingSeen.has(key))
     state.waitingSeen = now
@@ -187,7 +191,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
     const query = url.searchParams.get('q')
     const note = state.fixture.note
-    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note })
+    const version = state.version
+    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note, version })
     const words = query.toLowerCase().split(/\s+/).filter(Boolean)
     // Like the server: a slow search answers with the rows as they were when it was asked.
     const asked = state
@@ -197,26 +202,35 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     // The page gave this search up; a fixture chosen meanwhile answers with its own rows.
     if (response.destroyed) return
     const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
-    sendJSON(response, 200, { view: viewOf(state, rows, query), note })
+    sendJSON(response, 200, { view: viewOf(state, rows, query), note, version })
   }
 
-  async function mark(request, response) {
+  async function mark(request, response, url) {
     const body = await bodyOf(request)
     logCall('/api/mark', body)
     if (state.fixture.markProblem) return sendJSON(response, 502, { error: state.fixture.markProblem })
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
-    if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== row)
-    else if (body.as === 'completed') row.state = 'completed'
-    else if (body.as === 'seen' && NEEDS_PERSON[row.state]) row.state = 'active'
-    else if (body.as === 'seen' && row.unread) delete row.unread
+    // With marksIgnored the server keeps the mark, but the list it reads next shows the chat where it was.
+    const marking = state.fixture.marksIgnored ? structuredClone(row) : row
+    if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== marking)
+    else if (body.as === 'completed') marking.state = 'completed'
+    else if (body.as === 'seen' && NEEDS_PERSON[marking.state]) marking.state = 'active'
+    else if (body.as === 'seen' && marking.unread) delete marking.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
-    noContent(response)
-    // Like the shell: a mark asks for a new list, which the server reads before the event goes out.
+    // Like the shell: a mark answers once the new list is read, after the event for it goes out.
+    // A mark with read=later answers first and leaves the list to the next poll.
     const marked = state
     const read = structuredClone(state.conversations)
-    if (marked.fixture.rereadMs) setTimeout(() => state === marked && listChanged(read), marked.fixture.rereadMs)
-    else listChanged()
+    if (url.searchParams.get('read') === 'later') {
+      noContent(response)
+      setTimeout(() => state === marked && listChanged(read))
+      return
+    }
+    if (marked.fixture.rereadMs) await new Promise((done) => setTimeout(done, marked.fixture.rereadMs))
+    if (state === marked) listChanged(read)
+    response.setHeader('List-Version', state.version)
+    noContent(response)
   }
 
   async function rename(request, response) {
@@ -226,8 +240,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
     row.title = body.title
-    noContent(response)
     listChanged()
+    response.setHeader('List-Version', state.version)
+    noContent(response)
   }
 
   async function remove(request, response) {
@@ -241,8 +256,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     }
     if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
     state.conversations = state.conversations.filter((other) => other !== row)
-    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
     listChanged()
+    response.setHeader('List-Version', state.version)
+    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
   }
 
   async function open(request, response) {
@@ -398,7 +414,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       const settled = lateOpen.waiting ? 1 : 0
       lateOpen = { waiting: undefined, settled: lateOpen.waiting }
       sendJSON(response, 200, { settled })
-      if (settled) emit('inbox')
+      if (settled) emit('inbox', state.version)
     },
     'POST /dev/release-opens': (request, response) => {
       const released = heldOpens
