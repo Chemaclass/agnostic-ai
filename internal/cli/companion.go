@@ -117,7 +117,13 @@ type companionTools struct {
 	loginOff func(ctx context.Context, path string) error
 	// loginOn adds the companion to what starts at login.
 	loginOn func(ctx context.Context, path string) error
-	sign    func(ctx context.Context, app string) error
+	// runValueOff deletes the Windows registry value that starts the
+	// companion at login and reports whether one was there.
+	runValueOff func() (bool, error)
+	// noSessionBus reports whether this shell has no D-Bus session bus,
+	// the only way to reach a running companion on Linux.
+	noSessionBus func() bool
+	sign         func(ctx context.Context, app string) error
 	// rename moves a file or folder, as os.Rename does.
 	rename func(from, to string) error
 	// macOS is this Mac's system version, such as "14.5"; empty elsewhere
@@ -136,16 +142,46 @@ func systemCompanionTools() companionTools {
 		download: func(ctx context.Context, out io.Writer, version, into string) (string, error) {
 			return downloadCompanion(ctx, out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, machineArch(), into, ghProvenance)
 		},
-		start:    startCompanion,
-		builtFor: companionBuiltFor,
-		quit:     quitCompanion,
-		loginOff: func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
-		loginOn:  func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
-		sign:     signCompanion,
-		rename:   os.Rename,
-		macOS:    macOSVersion,
-		pause:    time.Sleep,
+		start:       startCompanion,
+		builtFor:    companionBuiltFor,
+		quit:        quitCompanion,
+		loginOff:    func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
+		loginOn:     func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
+		runValueOff: removeCompanionRunValue,
+		noSessionBus: func() bool {
+			return runtime.GOOS == "linux" && sessionBusMissing(os.Getenv, strconv.Itoa(os.Getuid()), func(path string) bool {
+				_, err := os.Stat(path)
+				return err == nil
+			})
+		},
+		sign:   signCompanion,
+		rename: os.Rename,
+		macOS:  macOSVersion,
+		pause:  time.Sleep,
 	}
+}
+
+// errNoSessionBus is a Linux shell, such as an SSH login, with no D-Bus
+// session bus, so a companion that runs in the desktop session is out of reach.
+var errNoSessionBus = errors.New("this shell has no D-Bus session bus, so it cannot reach a companion")
+
+// sessionBusMissing reports whether a program started here finds no
+// D-Bus session bus: no address in the environment and none of the
+// places the D-Bus library looks for one in the user's runtime folder.
+func sessionBusMissing(getenv func(string) string, uid string, exists func(string) bool) bool {
+	if getenv("DBUS_SESSION_BUS_ADDRESS") != "" {
+		return false
+	}
+	folders := []string{filepath.Join("/run/user", uid)}
+	if runtimeDir := getenv("XDG_RUNTIME_DIR"); runtimeDir != "" {
+		folders = append(folders, runtimeDir)
+	}
+	for _, folder := range folders {
+		if exists(filepath.Join(folder, "bus")) || exists(filepath.Join(folder, "dbus-session")) {
+			return false
+		}
+	}
+	return true
 }
 
 // runGoBuild runs `go args...` in dir and hands each line of its output to lines.
@@ -287,6 +323,11 @@ func systemCompanionLoginEntries(goos string) ([]string, error) {
 // endCompanion asks the running companion to quit and waits until it is
 // gone. It reports whether one ran.
 func endCompanion(ctx context.Context, tools companionTools, installed string) (bool, error) {
+	// Asked from there, the companion either fails or starts a bus of
+	// its own and finds no companion on it.
+	if tools.noSessionBus() {
+		return false, errNoSessionBus
+	}
 	ran := false
 	for try := 0; ; try++ {
 		running, err := tools.quit(ctx, installed)
@@ -339,6 +380,9 @@ func stopCompanionCommand(ctx context.Context, out io.Writer, tools companionToo
 		return nil
 	}
 	ran, err := endCompanion(ctx, tools, installed)
+	if errors.Is(err, errNoSessionBus) {
+		return fmt.Errorf("%w. Run this command in your desktop session, or end the %s process", err, companionName)
+	}
 	if err != nil {
 		return err
 	}
@@ -369,8 +413,14 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 			return errors.Is(err, errCompanionCannotRun)
 		}
 		ran, err := endCompanion(ctx, tools, installed)
-		brokenProgram := err != nil && !ran && cannotRun()
+		// Without a session bus no companion runs in this session, and the
+		// program cannot turn off start at login: the login entries below
+		// remove it.
+		noBus := errors.Is(err, errNoSessionBus)
+		brokenProgram := err != nil && !ran && !noBus && cannotRun()
 		switch {
+		case noBus:
+			_, _ = fmt.Fprintf(out, "! %v. If a companion runs in another session, end the %s process.\n", err, companionName)
 		case err != nil && !brokenProgram:
 			return err
 		case err != nil:
@@ -378,11 +428,18 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 		case ran:
 			_, _ = fmt.Fprintln(out, "✓ Stopped the companion")
 		}
-		err = tools.loginOff(ctx, installed)
+		if !noBus {
+			err = tools.loginOff(ctx, installed)
+		}
 		switch {
+		case noBus:
 		case err == nil:
 			loginOff = true
 		case brokenProgram || cannotRun():
+			// On Windows the registry value is deleted below instead.
+			if goos == "windows" {
+				break
+			}
 			_, _ = fmt.Fprintf(out, "! Could not turn off start at login (%v). Remove %s from the items that open at login.\n", err, companionAppName)
 		case ran:
 			return fmt.Errorf("turn off start at login: %w. The companion was stopped; start it again with: agnostic-ai companion", err)
@@ -394,14 +451,25 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	if err != nil {
 		return fmt.Errorf("turn off start at login: %w", err)
 	}
-	switch {
-	case loginOff || left:
+	if goos == "windows" {
+		removed, err := tools.runValueOff()
+		if err != nil {
+			return fmt.Errorf("turn off start at login: delete the %s: %w", companionRunValue, err)
+		}
+		left = left || removed
+	}
+	if loginOff || left {
 		_, _ = fmt.Fprintln(out, "✓ Start at login is off")
-	case goos == "windows":
-		_, _ = fmt.Fprintf(out, "! If the companion started at login, delete the %s.\n", companionRunValue)
 	}
 	folder := companionFolder(dir)
-	remove := func() error { return os.RemoveAll(folder) }
+	remove := func() error {
+		if goos == "windows" {
+			if err := os.RemoveAll(oldWebviewFolder(dir)); err != nil {
+				return err
+			}
+		}
+		return os.RemoveAll(folder)
+	}
 	if found {
 		err = whileHeld(tools, remove)
 	} else {
@@ -473,6 +541,12 @@ func companionDir() (string, error) {
 		return "", fmt.Errorf("locate the companion: %w", err)
 	}
 	return filepath.Join(dir, "agnostic-ai"), nil
+}
+
+// oldWebviewFolder is where a Windows companion that did not name its
+// web view data folder left it: beside dir, named after the program.
+func oldWebviewFolder(dir string) string {
+	return filepath.Join(filepath.Dir(dir), companionProgramName("windows"))
 }
 
 // companionFolder holds everything an install writes besides its notes.

@@ -78,6 +78,13 @@ func settingsPath() (string, error) {
 	return filepath.Join(dir, "agnostic-ai", "companion.json"), nil
 }
 
+// webviewDataPath is where the Windows web view keeps its data: inside
+// the companion folder that companion uninstall removes, given the
+// settings file beside it.
+func webviewDataPath(settingsPath string) string {
+	return filepath.Join(filepath.Dir(settingsPath), "companion", "webview")
+}
+
 // readSettings loads the file; a missing one is empty settings. A value
 // of the wrong type is skipped and the rest kept; a file that is not
 // JSON at all is an error.

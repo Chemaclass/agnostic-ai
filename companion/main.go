@@ -751,7 +751,8 @@ func main() {
 			// No Dock icon and no menu bar of its own.
 			ActivationPolicy: application.ActivationPolicyAccessory,
 		},
-		Assets: application.AssetOptions{Handler: s.routes(in, pages)},
+		Windows: application.WindowsOptions{WebviewUserDataPath: webviewDataPath(path)},
+		Assets:  application.AssetOptions{Handler: s.routes(in, pages)},
 		// One companion at a time. Starting it again brings back the one
 		// that runs and opens its list, instead of a second circle.
 		SingleInstance: &application.SingleInstanceOptions{

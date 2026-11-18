@@ -36,9 +36,13 @@ func builtTools(t *testing.T, lines ...string) companionTools {
 		quit:     func(context.Context, string) (bool, error) { return false, nil },
 		loginOff: func(context.Context, string) error { return nil },
 		loginOn:  func(context.Context, string) error { return nil },
-		sign:     func(context.Context, string) error { return nil },
-		rename:   os.Rename,
-		pause:    func(time.Duration) {},
+		runValueOff: func() (bool, error) {
+			return false, nil
+		},
+		noSessionBus: func() bool { return false },
+		sign:         func(context.Context, string) error { return nil },
+		rename:       os.Rename,
+		pause:        func(time.Duration) {},
 	}
 }
 
@@ -569,15 +573,150 @@ func TestRunCompanion_AfterUninstallSaysHowToInstall(t *testing.T) {
 	}
 }
 
-func TestUninstallCompanion_NamesTheWindowsLoginEntryItCannotRemove(t *testing.T) {
+func TestUninstallCompanion_DeletesTheWindowsLoginValueOfAGoneProgram(t *testing.T) {
+	tools := builtTools(t)
+	tools.runValueOff = func() (bool, error) { return true, nil }
 	var out bytes.Buffer
 
-	err := uninstallCompanion(context.Background(), &out, builtTools(t), t.TempDir(), "windows", nil)
+	err := uninstallCompanion(context.Background(), &out, tools, t.TempDir(), "windows", nil)
 
-	want := "! If the companion started at login, delete the agnostic-ai-companion value under HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run.\n" +
+	want := "✓ Start at login is off\n" +
 		"The companion is not installed.\n"
 	if err != nil || out.String() != want {
 		t.Errorf("err %v, output:\n%s", err, out.String())
+	}
+}
+
+func TestUninstallCompanion_DeletesTheWindowsLoginValueOfAProgramThatCannotRun(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "windows")
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) { return false, errors.New("bad exe format") }
+	tools.loginOff = func(context.Context, string) error { return errors.New("bad exe format") }
+	tools.builtFor = func(context.Context, string) (string, error) { return "", errCompanionCannotRun }
+	tools.runValueOff = func() (bool, error) { return true, nil }
+	var out bytes.Buffer
+
+	err := uninstallCompanion(context.Background(), &out, tools, dir, "windows", nil)
+
+	want := "! Could not stop the companion (ask the companion to stop: bad exe format). If it still runs, end the agnostic-ai-companion process.\n" +
+		"✓ Start at login is off\n" +
+		"✓ Removed " + companionFolder(dir) + "\n" +
+		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
+	if err != nil || out.String() != want {
+		t.Errorf("err %v, output:\n%s\nwant:\n%s", err, out.String(), want)
+	}
+}
+
+func TestUninstallCompanion_FailsWhenTheWindowsLoginValueStays(t *testing.T) {
+	tools := builtTools(t)
+	tools.runValueOff = func() (bool, error) { return false, errors.New("access is denied") }
+
+	err := uninstallCompanion(context.Background(), &bytes.Buffer{}, tools, t.TempDir(), "windows", nil)
+
+	want := `turn off start at login: delete the agnostic-ai-companion value under HKCU\Software\Microsoft\Windows\CurrentVersion\Run: access is denied`
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestUninstallCompanion_RemovesTheWebviewDataAnOlderWindowsCompanionLeft(t *testing.T) {
+	config := t.TempDir()
+	dir := filepath.Join(config, "agnostic-ai")
+	installedCompanion(t, dir, "windows")
+	old := filepath.Join(config, "agnostic-ai-companion.exe", "EBWebView")
+	if err := os.MkdirAll(old, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	err := uninstallCompanion(context.Background(), &bytes.Buffer{}, builtTools(t), dir, "windows", nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{filepath.Join(config, "agnostic-ai-companion.exe"), companionFolder(dir)} {
+		if _, err := os.Stat(gone); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s is still there (%v)", gone, err)
+		}
+	}
+}
+
+func TestUninstallCompanion_RemovesTheFilesWithoutASessionBus(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "linux")
+	entry := filepath.Join(t.TempDir(), "agnostic-ai-companion.desktop")
+	if err := os.WriteFile(entry, []byte("[Desktop Entry]"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) {
+		t.Error("a companion was asked to stop from a shell with no session bus")
+		return false, nil
+	}
+	tools.noSessionBus = func() bool { return true }
+	tools.loginOff = func(context.Context, string) error {
+		t.Error("a companion with no session bus was asked to turn off start at login")
+		return nil
+	}
+	var out bytes.Buffer
+
+	err := uninstallCompanion(context.Background(), &out, tools, dir, "linux", []string{entry})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{companionFolder(dir), entry} {
+		if _, err := os.Stat(gone); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s is still there (%v)", gone, err)
+		}
+	}
+	want := "! this shell has no D-Bus session bus, so it cannot reach a companion. If a companion runs in another session, end the agnostic-ai-companion process.\n" +
+		"✓ Start at login is off\n" +
+		"✓ Removed " + companionFolder(dir) + "\n" +
+		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
+	if out.String() != want {
+		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+func TestStopCompanion_SaysWhenThereIsNoSessionBus(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "linux")
+	tools := builtTools(t)
+	// With dbus-launch the companion starts a bus of its own and finds
+	// none running there.
+	tools.quit = func(context.Context, string) (bool, error) { return false, nil }
+	tools.noSessionBus = func() bool { return true }
+
+	err := stopCompanionCommand(context.Background(), &bytes.Buffer{}, tools, dir, "linux")
+
+	want := "this shell has no D-Bus session bus, so it cannot reach a companion. Run this command in your desktop session, or end the agnostic-ai-companion process"
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestSessionBusMissing_LooksWhereTheDBusLibraryLooks(t *testing.T) {
+	for name, tc := range map[string]struct {
+		env     map[string]string
+		present string
+		missing bool
+	}{
+		"an address in the environment": {env: map[string]string{"DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"}},
+		"the bus in the runtime folder": {present: "/run/user/1000/bus"},
+		"an address file":               {present: "/run/user/1000/dbus-session"},
+		"the bus in XDG_RUNTIME_DIR":    {env: map[string]string{"XDG_RUNTIME_DIR": "/tmp/xdg"}, present: "/tmp/xdg/bus"},
+		"none of them":                  {env: map[string]string{"XDG_RUNTIME_DIR": "/tmp/xdg"}, missing: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			exists := func(path string) bool { return path == filepath.FromSlash(tc.present) }
+
+			got := sessionBusMissing(func(key string) string { return tc.env[key] }, "1000", exists)
+
+			if got != tc.missing {
+				t.Errorf("missing = %v, want %v", got, tc.missing)
+			}
+		})
 	}
 }
 

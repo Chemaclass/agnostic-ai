@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -124,6 +125,9 @@ func TestServer_StartsAtOnceWhenTheBinaryChangedDuringAPause(t *testing.T) {
 }
 
 func TestServer_SaysAMissingBinaryUntilItIsInstalled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in command is a shell script")
+	}
 	missing := filepath.Join(t.TempDir(), "agnostic-ai")
 	t.Setenv("AGNOSTIC_AI_BIN", missing)
 	s := newServer()

@@ -34,7 +34,7 @@ Put the circle on your screen.
 
 {% <details summary="Details: download, build, signing, login item"> %}
 - Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later.
-- Windows compiles, but nobody has run it. Nobody has built or run it on Linux.
+- CI builds and tests it on Windows and Linux, but nobody has run it there.
 - Running `agnostic-ai companion` again tells you when the companion was built for another release, or installed by an `agnostic-ai` built from another commit. When the companion cannot run, it says so and names its path.
 - On a Mac older than macOS 13, install stops and says why.
 - Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` that runs through Rosetta gets the Apple silicon one. It needs no compiler.
@@ -71,8 +71,9 @@ Put the circle on your screen.
 - `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices), `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
 - When the companion cannot run at all, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
-- On macOS and Linux it also removes a login entry that a deleted program left behind.
-- On Windows it names the registry value to delete.
+- It also removes a login entry that a deleted program left behind: a file on macOS and Linux, the `agnostic-ai-companion` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on Windows.
+- On Windows the companion keeps its browser data in the `companion` folder, which `uninstall` deletes. It also deletes the `agnostic-ai-companion.exe` folder that earlier companions left in `%AppData%`.
+- On Linux the CLI reaches the companion over the D-Bus session bus. In a shell without one, such as an SSH login, `stop` says so and stops nothing, and `uninstall` warns and still deletes the files.
 {% </details> %}
 
 ## The circle and its menus {#menus}

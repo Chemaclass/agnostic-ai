@@ -9,3 +9,7 @@ import "syscall"
 func companionSysProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setsid: true}
 }
+
+// removeCompanionRunValue does nothing here: only Windows keeps start at
+// login in the registry.
+func removeCompanionRunValue() (bool, error) { return false, nil }
