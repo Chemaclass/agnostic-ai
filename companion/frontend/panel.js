@@ -658,8 +658,10 @@ async function readList(asked, search) {
   let problem
   const readSoFar = (soFar) => {
     if (asked !== state.query || searchOnItsWay !== search) return
-    // A search read again, such as after a new list, keeps its whole answer on screen until the new one is whole.
-    if (!state.searching && state.readingOlder !== asked) return
+    // A search read again keeps the rows on screen: until the new answer is whole, or while older weeks were
+    // still coming, until it holds as many.
+    const shown = state.view?.conversations.length ?? 0
+    if (!state.searching && (state.readingOlder !== asked || soFar.view.conversations.length < shown)) return
     state.readingOlder = asked
     show(soFar)
   }

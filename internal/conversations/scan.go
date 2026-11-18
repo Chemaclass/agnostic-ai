@@ -188,11 +188,12 @@ type ScanOptions struct {
 func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.shown.start()
-	defer s.shown.finish()
 	words := queryWords(opts.Query)
 	first := opts.Before.IsZero()
-	read := s.searchRead(ctx, opts, words, first)
+	read, kept := s.searchRead(ctx, opts, words, first)
+	if !kept {
+		defer s.shown.finish()
+	}
 	all := read.all
 	to := opts.Before
 	if first {
@@ -250,20 +251,29 @@ type keptSearch struct {
 // searchRead reads every store and keeps the rows opts asks for. A
 // search's later page takes the rows its first page read while Stamp
 // holds, so reading the weeks of one search one after the other reads
-// the stores once, as long as nothing changed between them.
-func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []string, first bool) keptSearch {
+// the stores once, as long as nothing changed between them. A kept read
+// leaves the shown texts cache alone: one week's texts could replace a
+// large store's. Otherwise searchRead starts that cache and the caller
+// finishes it.
+func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []string, first bool) (read keptSearch, kept bool) {
 	var key string
+	var files []string
+	var stores string
+	search := shapeOf(opts) + "\x00" + string(opts.Tool) + "\x00" + strings.Join(words, " ")
 	if len(words) > 0 {
 		// Taken before the read, like the server's list tag: a write made
 		// during the read changes it, and the next page reads again.
-		key = s.Stamp() + "\x00" + shapeOf(opts) + "\x00" + string(opts.Tool) + "\x00" + strings.Join(words, " ")
+		files = s.storeFiles()
+		stores = fileStamp(files...)
+		key = s.stampOf(files, stores) + "\x00" + search
 		if !first && s.search.key == key {
-			return s.search
+			return s.search, true
 		}
 	}
+	s.shown.start()
 	results, cloudNote := s.readAll(ctx, opts)
 	needsYou, marksErr := s.applyMarks(results)
-	read := keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
+	read = keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
 			read.all = append(read.all, result.conversations...)
@@ -274,13 +284,19 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	if len(words) > 0 {
 		read.all = s.searchAll(ctx, read.all, words)
 		read.key = key
+		// The read itself writes the marks and finds the files of workers
+		// that went live. When no store file changed meanwhile, the stamp
+		// after it names what it read, so the next page takes it.
+		if fileStamp(files...) == stores {
+			read.key = s.Stamp() + "\x00" + search
+		}
 		// A cancelled read may miss rows, so no later page takes it.
 		if ctx.Err() != nil {
 			read.key = ""
 		}
 		s.search = read
 	}
-	return read
+	return read, false
 }
 
 // Find returns one conversation of any age from a fresh read.

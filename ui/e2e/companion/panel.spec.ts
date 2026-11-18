@@ -807,6 +807,26 @@ test('a search read again after a new list keeps its whole answer on screen', as
   expect(await page.locator('#summary').textContent()).toBe('8 conversations match')
 })
 
+test('a search started again while older weeks load keeps the rows already shown', async ({ page }) => {
+  await openPanel(page, 'paged-search')
+  // A mark that names no list version reads the list again from the first page.
+  await page.route('**/api/mark', (route) => route.fulfill({ status: 204 }))
+  await page.getByLabel('Search every conversation').fill('the')
+  await expect(row(page, 'Refactor the search index')).toBeVisible()
+  await expect(page.locator('#summary')).toHaveText('Searching…')
+
+  await row(page, 'Draft the release notes').click({ button: 'right' })
+  const startedAgain = page.waitForResponse((response) => response.url().includes('q=the') && !response.url().includes('before='))
+  await page.getByRole('menuitem', { name: 'Mark as read' }).click()
+  await startedAgain
+  // Its first page is in; a draw of that page alone would have dropped the second week by now.
+  await page.waitForTimeout(300)
+  expect(await row(page, 'Refactor the search index').count()).toBe(1)
+
+  await expect(row(page, 'Write the onboarding guide')).toBeVisible()
+  await expect(page.locator('#summary')).toHaveText('8 conversations match')
+})
+
 test('a page of an older search never draws over a newer one', async ({ page }) => {
   await openPanel(page, 'paged-search')
   const search = page.getByLabel('Search every conversation')

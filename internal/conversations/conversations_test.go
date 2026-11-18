@@ -1346,6 +1346,31 @@ func TestScan_ASearchReadsTheStoresOnceForItsPages(t *testing.T) {
 	}
 }
 
+func TestScan_ASearchWhoseReadWritesTheMarksKeepsItForTheNextPage(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	session := func(id, stamp, prompt string) {
+		write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+			obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": stamp, "message": obj{"role": "user", "content": prompt}}))
+	}
+	session(idSafari, "2026-11-06T10:00:00.000Z", "Fix the Safari login")
+	session(idCache, "2026-08-01T10:00:00.000Z", "Tune the cache eviction for Safari")
+
+	// The first read creates the marks file, which changes the stamp.
+	first := scanner.Scan(context.Background(), ScanOptions{Query: "safari"})
+	if _, err := os.Stat(scanner.MarksPath); err != nil {
+		t.Fatalf("the first read must write the marks: %v", err)
+	}
+	before, err := time.Parse(time.RFC3339, first.Next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reads := scanner.beganReads()
+	if older := scanner.Scan(context.Background(), ScanOptions{Query: "safari", Before: before}); scanner.beganReads() != reads || len(older.Conversations) != 1 {
+		t.Errorf("a change the read made itself must not make the next page read again: %d reads, %s", scanner.beganReads()-reads, asJSON(t, older))
+	}
+}
+
 func TestScan_SearchesConversationsOfEveryAge(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	session := func(id, stamp, prompt string) {
