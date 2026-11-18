@@ -270,7 +270,7 @@ func fileWrites(t *testing.T, path string) func() int {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !os.SameFile(last, now) {
+		if !os.SameFile(last, now) || !last.ModTime().Equal(now.ModTime()) {
 			writes++
 		}
 		last = now

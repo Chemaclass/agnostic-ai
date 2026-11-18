@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -113,6 +114,9 @@ func TestListClaudeJobs_TurnsEachFailureIntoOneReason(t *testing.T) {
 // fakeExecutable writes an executable file named name in folder.
 func fakeExecutable(t *testing.T, folder, name string) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
 	path := filepath.Join(folder, name)
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
@@ -126,6 +130,7 @@ func fakeExecutable(t *testing.T, folder, name string) string {
 func TestFindClaude_LooksInTheInstallFoldersADesktopPathLeavesOut(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	// The PATH an app started from the desktop gets, with no claude on it.
 	t.Setenv("PATH", t.TempDir())
 	installed := fakeExecutable(t, filepath.Join(home, ".local", "bin"), "claude")
@@ -157,9 +162,11 @@ func TestFindClaude_PathComesFirstAndNoneFoundIsNotFound(t *testing.T) {
 }
 
 func TestClaudeFolders_ListsTheNativeInstallFirst(t *testing.T) {
-	t.Setenv("HOME", "/Users/me")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
-	want := []string{"/Users/me/.local/bin", "/Users/me/.claude/local", "/opt/homebrew/bin", "/usr/local/bin"}
+	want := []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, ".claude", "local"), "/opt/homebrew/bin", "/usr/local/bin"}
 	if folders := claudeFolders(); fmt.Sprint(folders) != fmt.Sprint(want) {
 		t.Errorf("folders = %v, want %v", folders, want)
 	}

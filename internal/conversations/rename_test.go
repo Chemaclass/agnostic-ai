@@ -66,6 +66,8 @@ func TestRename_ClaudeCodeTakesTheNameFromItsTranscript(t *testing.T) {
 
 func TestRename_ClaudeCodeLeavesATranscriptItCannotSafelyAppendTo(t *testing.T) {
 	dir := t.TempDir()
+	missing := filepath.Join(dir, idSafari+".jsonl")
+	_, missingErr := os.Lstat(missing)
 	unfinished := filepath.Join(dir, idCache+".jsonl")
 	write(t, unfinished, `{"type":"user"}`+"\n"+`{"type":"assi`)
 	for name, tc := range map[string]struct {
@@ -78,7 +80,7 @@ func TestRename_ClaudeCodeLeavesATranscriptItCannotSafelyAppendTo(t *testing.T) 
 		},
 		"a missing transcript": {
 			Conversation{Tool: ToolClaude, App: AppCLI, ID: idSafari, file: filepath.Join(dir, idSafari+".jsonl")},
-			"Claude Code keeps the conversation in a way this version does not know (unexpected): lstat " + filepath.Join(dir, idSafari+".jsonl") + ": no such file or directory",
+			"Claude Code keeps the conversation in a way this version does not know (unexpected): " + missingErr.Error(),
 		},
 		"a file named after another session": {
 			Conversation{Tool: ToolClaude, App: AppIDE, ID: idSafari, file: unfinished},
@@ -349,7 +351,7 @@ func TestRename_CodexSaysWhyTheAppServerDidNotTakeTheName(t *testing.T) {
 		},
 		"no codex command": {
 			&codexAppServer{command: func(context.Context) (*exec.Cmd, error) { return nil, exec.ErrNotFound }},
-			"the program that writes names into Codex is not installed (no-program): executable file not found in $PATH",
+			"the program that writes names into Codex is not installed (no-program): " + exec.ErrNotFound.Error(),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
