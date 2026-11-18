@@ -207,9 +207,25 @@ func runGoBuild(ctx context.Context, dir string, env []string, lines func(string
 	return err
 }
 
+func companionLaunchCommand(path, goos string) (command *exec.Cmd, viaOpen bool) {
+	bundle := filepath.Dir(filepath.Dir(filepath.Dir(path)))
+	if goos == "darwin" && filepath.Base(bundle) == companionAppName+".app" {
+		// Each invocation starts a process so the existing companion receives its second-start event.
+		return exec.Command("/usr/bin/open", "-g", "-n", "-a", bundle), true
+	}
+	return exec.Command(path), false
+}
+
 func startCompanion(path string, env []string) error {
-	command := exec.Command(path)
+	command, viaOpen := companionLaunchCommand(path, runtime.GOOS)
 	command.Env = env
+	if viaOpen {
+		output, err := command.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("open %s: %w", path, withWhatItSaid(err, output))
+		}
+		return nil
+	}
 	command.SysProcAttr = companionSysProcAttr()
 	if err := command.Start(); err != nil {
 		return err
