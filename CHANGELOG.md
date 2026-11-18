@@ -87,7 +87,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Shared guides distinguish Goose hook data from helper support and Auggie 0.x memory injection from the 1.x rule fallback (#3574, #3577).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
-- Target guides clarify native hook settings, OAuth scope, Devin ignores, and versioned OpenCode instruction fallback (#3575).
+- Target guides clarify native hooks, OAuth scope, Devin ignores, OpenCode instruction fallback, and Junie ACP support (#3575, #3576).
 - The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).
 - Docs pages are shorter to read. Each opens with the common task; edge cases sit in folded sections, and long tables move to new reference pages for configuration, global configuration and each tool. Every fact stays, and `llms-full.txt` still carries all of it.
 

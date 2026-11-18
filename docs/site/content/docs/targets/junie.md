@@ -32,7 +32,7 @@ JetBrains Junie reads `.junie/AGENTS.md` (instructions that point to source spec
 
 Follow the [official setup guide](https://junie.jetbrains.com/docs/), select `junie` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule). Sync writes the commit-prefix rule to `.junie/AGENTS.md`.
 
-Instructions apply to the IDE and the CLI. Subagents and slash commands are CLI only. Existing files? Check [what `import junie` reads](@/docs/targets/junie-reference.md#import) first.
+Instructions apply to the IDE and the CLI. Commands also work in supported CLI-backed ACP clients, including IDE AI Chat; see [CLI and ACP clients](@/docs/targets/junie-reference.md#cli-only) for command and custom-agent support. Existing files? Check [what `import junie` reads](@/docs/targets/junie-reference.md#import) first.
 
 ## Output
 
