@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -105,8 +107,14 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	answer, err := in.server.callWithin(r.Context(), in.server.sendWait, http.MethodPost, serverSendPath, body, "")
-	if err != nil && timedOut(err) {
-		writeJSON(w, http.StatusGatewayTimeout, apiError{Error: "agnostic-ai took too long to answer. It may have been typed. Check the chat before sending again."})
+	if mayHaveArrived(err) {
+		status := http.StatusBadGateway
+		message := "agnostic-ai stopped answering. The text may have been typed. Check the chat before sending again."
+		if timedOut(err) {
+			status = http.StatusGatewayTimeout
+			message = "agnostic-ai took too long to answer. The text may have been typed. Check the chat before sending again."
+		}
+		writeJSON(w, status, apiError{Error: message})
 		return
 	}
 	if err != nil {
@@ -124,6 +132,17 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(answer.status)
 	_, _ = io.Copy(w, bytes.NewReader(answer.body))
+}
+
+// mayHaveArrived reports whether err is a call that got no answer after
+// it may have reached the server: anything but a failed connect.
+func mayHaveArrived(err error) bool {
+	var failed *callError
+	if !errors.As(err, &failed) {
+		return false
+	}
+	var dial *net.OpError
+	return !errors.As(err, &dial) || dial.Op != "dial"
 }
 
 // missingEndpoint reports whether the server answered as a release older

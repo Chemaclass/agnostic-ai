@@ -205,7 +205,7 @@ func TestSend_SaysTheTextMayHaveBeenTypedWhenTheServerIsLate(t *testing.T) {
 
 	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
 
-	if rec.Code != http.StatusGatewayTimeout || strings.TrimSpace(rec.Body.String()) != `{"error":"agnostic-ai took too long to answer. It may have been typed. Check the chat before sending again."}` {
+	if rec.Code != http.StatusGatewayTimeout || strings.TrimSpace(rec.Body.String()) != `{"error":"agnostic-ai took too long to answer. The text may have been typed. Check the chat before sending again."}` {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
 	}
 }
@@ -230,6 +230,37 @@ func TestSend_SaysToUpgradeWhenTheConversationsHandlerKnowsNoSend(t *testing.T) 
 	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
 
 	if rec.Code != http.StatusNotImplemented {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSend_SaysTheTextMayHaveBeenTypedWhenTheServerDropsTheCall(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		conn, _, err := http.NewResponseController(w).Hijack()
+		if err == nil {
+			_ = conn.Close()
+		}
+	}))
+	t.Cleanup(srv.Close)
+	in, _ := connected(t, &fakeAgnosticAI{})
+	in.server.base = srv.URL
+	copied(in, "hello")
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
+
+	if rec.Code != http.StatusBadGateway || strings.TrimSpace(rec.Body.String()) != `{"error":"agnostic-ai stopped answering. The text may have been typed. Check the chat before sending again."}` {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSend_SaysNothingWasSentWhenTheServerCannotBeReached(t *testing.T) {
+	in, _ := connected(t, &fakeAgnosticAI{})
+	in.server.base = "http://127.0.0.1:1"
+	copied(in, "hello")
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
+
+	if rec.Code != http.StatusBadGateway || strings.TrimSpace(rec.Body.String()) != `{"error":"The companion could not reach agnostic-ai. Try again."}` {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
 	}
 }
