@@ -1535,18 +1535,34 @@ test('mark all complete skips a row that got a reply after it was drawn', async 
   ])
 })
 
-test('a row marked complete moves to Archived as the tick ends, before the new list arrives', async ({ page }) => {
+test('a row marked complete keeps its tick until the list read after the mark arrives, then moves to Archived', async ({ page }) => {
   await openPanel(page, 'slow-reread')
   const target = row(page, 'Fix the login redirect')
   await target.hover()
   await completeButton(target).click()
   await expect(target.locator('.action.is-done')).toBeVisible()
 
-  // The fixture sends the new list 1.5 seconds after the mark; the tick lasts about half a second.
-  await expect(target).toBeHidden({ timeout: 1_200 })
+  // The fixture answers the mark 2.5 seconds later; the tick alone lasts about half a second.
   await page.waitForTimeout(1_000)
-  await expect(target).toBeHidden()
+  await expect(target.locator('.action.is-done')).toBeVisible()
+  await expect(target).toBeHidden({ timeout: 3_000 })
   await groupTitle(page, 'Archived').click()
+  await expect(target).toBeVisible()
+})
+
+test('a row marked complete stays where the list read after the mark shows it', async ({ page }) => {
+  await openPanel(page, 'marks-ignored')
+  const target = row(page, 'Fix the login redirect')
+  // Drawn as the selected row, the list read after the mark matches what is on screen.
+  await target.hover()
+  await groupTitle(page, 'Archived').click()
+  await groupTitle(page, 'Archived').click()
+  await target.hover()
+  await completeButton(target).click()
+  await expect(target.locator('.action.is-done')).toBeVisible()
+
+  await expect(target.locator('.action.is-done')).toHaveCount(0)
+  // Archived starts folded, so a row moved there would be hidden.
   await expect(target).toBeVisible()
 })
 

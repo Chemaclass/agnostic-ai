@@ -247,18 +247,6 @@ export function unsentNoticeOf(message) {
   return typeof message === 'string' && message.endsWith(SWITCHED_TO_PASTE) ? NOTICES.pasteByHand : NOTICES.notTyped
 }
 
-/** The view with the row at `key` showing `title`, so a rename shows before the next list arrives. */
-export function withTitle(view, key, title) {
-  const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, title } : conversation))
-  return { ...view, conversations }
-}
-
-/** The view with the row at `key` in `state`, so a mark shows before the next list arrives. */
-export function withState(view, key, state) {
-  const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, state } : conversation))
-  return { ...view, conversations }
-}
-
 /**
  * The rows of each group that has any, in list order, except that a conversation started from another
  * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.

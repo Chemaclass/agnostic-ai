@@ -206,17 +206,19 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (state.fixture.markProblem) return sendJSON(response, 502, { error: state.fixture.markProblem })
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
-    if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== row)
-    else if (body.as === 'completed') row.state = 'completed'
-    else if (body.as === 'seen' && NEEDS_PERSON[row.state]) row.state = 'active'
-    else if (body.as === 'seen' && row.unread) delete row.unread
+    // With marksIgnored the server keeps the mark, but the list it reads next shows the chat where it was.
+    const marking = state.fixture.marksIgnored ? structuredClone(row) : row
+    if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== marking)
+    else if (body.as === 'completed') marking.state = 'completed'
+    else if (body.as === 'seen' && NEEDS_PERSON[marking.state]) marking.state = 'active'
+    else if (body.as === 'seen' && marking.unread) delete marking.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
-    noContent(response)
-    // Like the shell: a mark asks for a new list, which the server reads before the event goes out.
+    // Like the shell: a mark answers once the new list is read, after the event for it goes out.
     const marked = state
     const read = structuredClone(state.conversations)
-    if (marked.fixture.rereadMs) setTimeout(() => state === marked && listChanged(read), marked.fixture.rereadMs)
-    else listChanged()
+    if (marked.fixture.rereadMs) await new Promise((done) => setTimeout(done, marked.fixture.rereadMs))
+    if (state === marked) listChanged(read)
+    noContent(response)
   }
 
   async function rename(request, response) {
@@ -226,8 +228,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const row = find(body)
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
     row.title = body.title
-    noContent(response)
     listChanged()
+    noContent(response)
   }
 
   async function remove(request, response) {
@@ -241,8 +243,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     }
     if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
     state.conversations = state.conversations.filter((other) => other !== row)
-    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
     listChanged()
+    sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
   }
 
   async function open(request, response) {

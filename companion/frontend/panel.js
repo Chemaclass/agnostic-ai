@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, withState, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -982,13 +982,9 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
   else showLateOpenFailure()
 })
 
-/**
- * After a change, a search asks the server again. The list is the one the shell polled before the change:
- * the shell sends the new one as an inbox event, so reading it now would draw the old one.
- */
+/** The companion answers a change once it holds the new list, so reading it now draws the change. A search asks again. */
 async function afterChange() {
-  if (state.query !== '') await refresh({ restart: true })
-  else draw()
+  await refresh({ restart: true })
 }
 
 async function markRow(conversation, mark) {
@@ -1003,7 +999,7 @@ async function markRow(conversation, mark) {
 
 /**
  * Marks one row complete. Its tick turns green and stays for DONE_MS, then
- * the list moves the row to Archived. A refused mark gives the tick back.
+ * the list read after the mark moves the row to Archived. A refused mark gives the tick back.
  */
 async function completeRow(conversation, row, button) {
   const key = keyOf(conversation)
@@ -1026,10 +1022,8 @@ async function completeRow(conversation, row, button) {
   }
   await tickShown
   state.completing.delete(key)
-  // The row moves to Archived as the tick ends, even when the new list is still on its way,
-  // unless a list that came during the tick shows it changed.
-  const current = state.view?.conversations.find((row) => keyOf(row) === key)
-  if (current?.state === conversation.state && current.updatedAt === conversation.updatedAt) state.view = withState(state.view, key, 'completed')
+  // The row still shows its tick, so a list that left the row as it was must draw it again.
+  state.drawn = undefined
   await afterChange()
 }
 
@@ -1140,12 +1134,12 @@ async function saveRename(conversation) {
     if (!focusRename()) dropRename(error.message)
     return
   }
+  // The field stays, still saving, until the list with the new name is read.
+  await afterChange()
+  // A rename started on another row meanwhile keeps its field.
+  if (state.renaming !== renaming) return
   state.renaming = undefined
-  if (state.view) state.view = withTitle(state.view, renaming.key, title)
   draw({ force: true })
-  // The shell still holds the list it polled before the rename and sends the new one as an inbox event.
-  // A search asks the server itself.
-  if (state.query !== '') await refresh({ restart: true })
 }
 
 renameItem.addEventListener('click', () => {

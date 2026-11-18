@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -165,9 +166,38 @@ func TestInbox_SaysWhenItWasBuiltForAnotherRelease(t *testing.T) {
 	}
 }
 
+// listOfPosts answers a list read with the number of changes the server
+// took, so a list read after a change differs from one read before it.
+func listOfPosts(fake *fakeAgnosticAI) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		posts := 0
+		for _, sent := range fake.posts {
+			posts += len(sent)
+		}
+		tag := fmt.Sprintf(`"v%d"`, posts)
+		if r.Header.Get("If-None-Match") == tag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("ETag", tag)
+		_, _ = fmt.Fprintf(w, `{"posts":%d}`, posts)
+	}
+}
+
+// heldAfter fails unless the list the companion holds is want: the
+// pages read the held list as soon as a change answers.
+func heldAfter(t *testing.T, in *inbox, change, want string) {
+	t.Helper()
+	if held := string(in.held()); held != want {
+		t.Errorf("the list held once %s answered = %s; want %s", change, held, want)
+	}
+}
+
 func TestInbox_PassesAMarkToTheServerAndItsAnswerBack(t *testing.T) {
 	fake := &fakeAgnosticAI{}
-	in, _ := connected(t, fake)
+	fake.list = listOfPosts(fake)
+	in, changes := connected(t, fake)
+	in.read(context.Background())
 	post := func(body string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		in.pass(serverMarkPath)(rec, httptest.NewRequest(http.MethodPost, "/api/mark", strings.NewReader(body)))
@@ -175,7 +205,9 @@ func TestInbox_PassesAMarkToTheServerAndItsAnswerBack(t *testing.T) {
 	}
 
 	done := post(`{"tool":"claude","id":"a","as":"completed"}`)
+	heldAfter(t, in, "a kept mark", `{"posts":1}`)
 	gone := post(`{"tool":"claude","id":"gone","as":"completed"}`)
+	heldAfter(t, in, "a refused mark", `{"posts":1}`)
 
 	if done.Code != http.StatusNoContent || done.Body.Len() != 0 {
 		t.Errorf("a mark the server kept = %d %s", done.Code, done.Body)
@@ -186,16 +218,16 @@ func TestInbox_PassesAMarkToTheServerAndItsAnswerBack(t *testing.T) {
 	if sent := fake.posts[serverMarkPath]; len(sent) != 2 || sent[0] != `application/json {"tool":"claude","id":"a","as":"completed"}` {
 		t.Errorf("the server received %q", sent)
 	}
-	select {
-	case <-in.refresh:
-	default:
-		t.Error("a mark the server kept asked for no new list")
+	if *changes != 2 {
+		t.Errorf("the pages were told %d times; want 2: the first list, then the marked one", *changes)
 	}
 }
 
 func TestInbox_PassesARenameToTheServerAndItsAnswerBack(t *testing.T) {
 	fake := &fakeAgnosticAI{}
+	fake.list = listOfPosts(fake)
 	in, _ := connected(t, fake)
+	in.read(context.Background())
 	routes := (&shell{}).routes(in, fstest.MapFS{})
 	post := func(body string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
@@ -204,7 +236,9 @@ func TestInbox_PassesARenameToTheServerAndItsAnswerBack(t *testing.T) {
 	}
 
 	done := post(`{"tool":"claude","id":"a","title":"Parser fix"}`)
+	heldAfter(t, in, "a kept rename", `{"posts":1}`)
 	gone := post(`{"tool":"claude","id":"gone","title":"Parser fix"}`)
+	heldAfter(t, in, "a refused rename", `{"posts":1}`)
 
 	if done.Code != http.StatusNoContent || done.Body.Len() != 0 {
 		t.Errorf("a rename the server kept = %d %s", done.Code, done.Body)
@@ -214,11 +248,6 @@ func TestInbox_PassesARenameToTheServerAndItsAnswerBack(t *testing.T) {
 	}
 	if sent := fake.posts[serverRenamePath]; len(sent) != 2 || sent[0] != `application/json {"tool":"claude","id":"a","title":"Parser fix"}` {
 		t.Errorf("the server received %q", sent)
-	}
-	select {
-	case <-in.refresh:
-	default:
-		t.Error("a rename the server kept asked for no new list")
 	}
 }
 
@@ -289,15 +318,17 @@ func TestServer_SaysWhenTheCommandIsMissing(t *testing.T) {
 
 func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 	for name, tc := range map[string]struct {
-		answer  fakeAnswer
-		refresh bool
+		answer fakeAnswer
+		held   string
 	}{
-		"deleted": {fakeAnswer{http.StatusOK, `{"deleted":true,"freedBytes":12000000}`}, true},
-		"refused": {fakeAnswer{http.StatusConflict, `{"error":"This conversation is still running. Close it in Claude Code, then delete it.","reason":"running"}`}, false},
+		"deleted": {fakeAnswer{http.StatusOK, `{"deleted":true,"freedBytes":12000000}`}, `{"posts":1}`},
+		"refused": {fakeAnswer{http.StatusConflict, `{"error":"This conversation is still running. Close it in Claude Code, then delete it.","reason":"running"}`}, `{"posts":0}`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverDeletePath: tc.answer}}
+			fake.list = listOfPosts(fake)
 			in, _ := connected(t, fake)
+			in.read(context.Background())
 			routes := (&shell{}).routes(in, fstest.MapFS{})
 			rec := httptest.NewRecorder()
 
@@ -309,15 +340,7 @@ func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 			if sent := fake.posts[serverDeletePath]; len(sent) != 1 || sent[0] != `application/json {"tool":"claude","id":"a"}` {
 				t.Errorf("the server received %q", sent)
 			}
-			asked := false
-			select {
-			case <-in.refresh:
-				asked = true
-			default:
-			}
-			if asked != tc.refresh {
-				t.Errorf("asked for a new list: %t", asked)
-			}
+			heldAfter(t, in, "the delete", tc.held)
 		})
 	}
 }

@@ -260,8 +260,9 @@ type stillOpening struct {
 
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
-// is the one that opens, marks, renames and deletes. A call that worked asks for a new
-// list.
+// is the one that opens, marks, renames and deletes. A mark, rename or
+// delete that worked answers once the list it changed is held, so the
+// page draws it right away.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
@@ -274,12 +275,14 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 			return
 		}
 		answer, err := in.server.callWithin(r.Context(), in.server.callWait, http.MethodPost, path, body, "")
+		if err == nil && answer.status < 300 {
+			in.read(r.Context())
+		}
 		in.answer(w, answer, err)
 	}
 }
 
 // answer writes the server's answer to a passed call, or why none came.
-// A call that worked asks for a new list.
 func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 	switch {
 	case err != nil && timedOut(err):
@@ -288,9 +291,6 @@ func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 	case err != nil:
 		writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 		return
-	}
-	if answer.status < 300 {
-		in.refreshSoon()
 	}
 	if len(answer.body) == 0 {
 		w.WriteHeader(answer.status)
@@ -330,6 +330,9 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	defer waited.Stop()
 	select {
 	case got := <-settled:
+		if got.err == nil && got.answer.status < 300 {
+			in.refreshSoon()
+		}
 		in.answer(w, got.answer, got.err)
 		return
 	case <-waited.C:
