@@ -235,7 +235,7 @@ Kiro is not run for an `agent` action, which runs no command; a hook with `confi
 
 A Cursor hook spec uses Cursor's own event names, so other tools are not run. A Copilot hook spec with a PascalCase event such as `PreToolUse` also runs on Claude Code, which counts, so `--expect` checks Claude Code and shows Copilot beside it.
 
-The Cline VS Code extension does not read stdout when the script exits non-zero, so a reply printed before a failing exit blocks in the CLI and not in the extension.
+The Cline VS Code extension also honors valid reply JSON after a nonzero exit and logs a warning. A valid reply with `"cancel": true` cancels the run; a nonzero exit alone does not make a reply cancel it. See [Cline hook reply rules](@/docs/targets/cline-reference.md#hooks) and the [VS Code reply parser](https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/apps/vscode/src/core/hooks/hook-factory.ts#L471).
 {% </details> %}
 
 ## JSON output

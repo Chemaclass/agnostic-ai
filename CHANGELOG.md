@@ -84,7 +84,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
-- Shared guides distinguish Goose hook data from helper support and Auggie 0.x memory injection from the 1.x rule fallback (#3574, #3577).
+- Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
 - Target guides clarify native hooks, OAuth scope, Devin ignores, OpenCode instruction fallback, and Junie ACP support (#3575, #3576).
