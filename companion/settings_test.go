@@ -188,3 +188,15 @@ func TestReadSettings_LeavesAWrongTypedValueAtItsDefault(t *testing.T) {
 		})
 	}
 }
+
+// companion uninstall removes the companion folder beside the settings,
+// so the web view data must live inside it.
+func TestWebviewDataPath_IsInsideTheCompanionFolder(t *testing.T) {
+	config := filepath.Join("C:", "Users", "ada", "AppData", "Roaming")
+
+	got := webviewDataPath(filepath.Join(config, "agnostic-ai", "companion.json"))
+
+	if want := filepath.Join(config, "agnostic-ai", "companion", "webview"); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

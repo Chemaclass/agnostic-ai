@@ -415,18 +415,31 @@ jobs:
         run: go test -vet=all -timeout=10m -count=1 -race ./tests/integration/...
 
   # The release builds the macOS companion with this script. Running it here
-  # finds a compile error before a tag does.
-  macos-companion:
-    name: Build companion (macos-latest)
+  # finds a compile error before a tag does. On Linux and Windows,
+  # `companion install` builds it on the user's machine, so a build here
+  # finds the same errors.
+  companion:
+    name: Build companion (${{ matrix.os }})
     needs: editor_changes
     if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.companion == 'true') }}
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-24.04]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      # The packages `agnostic-ai companion install` asks for on Linux.
+      - name: Install GTK 4, WebKitGTK 6.0 and X11
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -436,12 +449,21 @@ jobs:
 
       - name: Vet and test
         working-directory: companion
+        shell: bash
         run: go vet . && go test -count=1 .
 
       - name: Build the release archives
+        if: runner.os == 'macOS'
         run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
 
-      # The CLI's install code has parts that build only on macOS.
+      # The tags `agnostic-ai companion install` builds with.
+      - name: Build the companion
+        if: runner.os != 'macOS'
+        working-directory: companion
+        shell: bash
+        run: go build -tags "production private_mac_apis" -trimpath -o "$RUNNER_TEMP/companion-build/" .
+
+      # The CLI's install code has parts that build only on one system.
       - name: Set up Go for the CLI
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -449,7 +471,8 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Test the CLI's companion commands
-        run: go test -count=1 ./internal/cli/ -run 'Companion|Upgrade|MacOS'
+        shell: bash
+        run: go test -count=1 ./internal/cli/ -run 'Companion|Upgrade|MacOS|SessionBus|RunValue'
 
 
   opencode-hooks:

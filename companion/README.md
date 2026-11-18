@@ -249,7 +249,9 @@ change made in one shows in the other.
   login**, and deletes the built program, `companion.json` and
   `companion-command`. Your read and archive marks stay, because
   `agnostic-ai serve` uses them too. It also removes a login entry that a
-  deleted program left behind.
+  deleted program left behind. On Linux, from a shell without a D-Bus session
+  bus, such as an SSH login, `stop` says it cannot reach the companion and
+  `uninstall` still deletes the files.
 - `agnostic-ai companion install` over a companion that runs stops it, replaces
   it, and starts the new one. On macOS it also replaces a companion that an
   earlier release installed as a bare program, with its launch agent. When
