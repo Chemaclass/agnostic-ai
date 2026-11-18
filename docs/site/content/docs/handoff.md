@@ -186,15 +186,9 @@ builtins: [handoff, handoff-hook]
 
 ### Factory notices
 
-Factory hides hook output by default. To see the startup notice, add this settings spec and sync:
+Factory shows hook rows in the session transcript by default (`hooks.showHookOutput: true`). A successful hook can still hide its output with `suppressOutput: true`. This setting controls transcript visibility, not whether the model receives context ([Factory settings](https://docs.factory.com/droid-cli/settings#hooks)).
 
-```yaml
-# .agnostic-ai/settings/handoff-notices.yaml
-name: handoff-notices
-targets: [factory]
-x-factory:
-  showHookOutput: true
-```
+If you set it to `false`, change only `hooks.showHookOutput` to `true` in your existing `.factory/settings.json`, keeping the other `hooks` entries.
 
 Factory hooks only work per project, not through `sync --global`.
 
