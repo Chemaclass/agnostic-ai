@@ -50,19 +50,15 @@ func TestUpgradeCompanion_UsesUpdatedExecutableAfterBothInstallPaths(t *testing.
 
 func TestUpgradeCompanion_SkipsUninstalledAndNonInstallingRuns(t *testing.T) {
 	for _, tc := range []struct {
-		name                         string
-		installed, check, fail, same bool
+		name                   string
+		installed, check, fail bool
 	}{
-		{name: "uninstalled"}, {name: "check", installed: true, check: true}, {name: "installation failed", installed: true, fail: true}, {name: "already current", installed: true, same: true},
+		{name: "uninstalled"}, {name: "check", installed: true, check: true}, {name: "installation failed", installed: true, fail: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			latest := "2.0.0"
-			if tc.same {
-				latest = "1.0.0"
-			}
 			deps := upgradeDeps{
 				detect: func(string) (upgradeInfo, error) {
-					return upgradeInfo{Method: installGoInstall, Version: "1.0.0", Latest: latest, Command: "update"}, nil
+					return upgradeInfo{Method: installGoInstall, Version: "1.0.0", Latest: "2.0.0", Command: "update"}, nil
 				},
 				run: func(io.Writer, string) error {
 					if tc.fail {
@@ -71,7 +67,7 @@ func TestUpgradeCompanion_SkipsUninstalledAndNonInstallingRuns(t *testing.T) {
 					return nil
 				},
 				companion: &upgradeCompanionDeps{installed: func() (bool, error) {
-					if tc.check || tc.same {
+					if tc.check {
 						t.Error("checked companion without an installation")
 					}
 					return tc.installed, nil
@@ -230,5 +226,62 @@ func TestGuidedUpgrade_ContinuesAfterCompanionUpdateFails(t *testing.T) {
 	}
 	if want := []string{"--version"}; !reflect.DeepEqual(commands, want) {
 		t.Errorf("commands = %v, want %v", commands, want)
+	}
+}
+
+func TestUpgradeCompanion_RefreshesAnOldCompanionWhenTheCLIIsCurrent(t *testing.T) {
+	for _, tc := range []struct {
+		name, builtFor string
+		want           []string
+	}{
+		{"old companion", "0.9.0", []string{"--version", "companion install"}},
+		{"current companion", "1.0.0", []string{"--version"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var commands []string
+			deps := upgradeDeps{
+				detect: func(string) (upgradeInfo, error) {
+					return upgradeInfo{Path: "/tool", Method: installHomebrew, Version: "1.0.0", Latest: "1.0.0"}, nil
+				},
+				companion: &upgradeCompanionDeps{
+					installed: func() (bool, error) { return true, nil },
+					current:   func() (string, bool, error) { return tc.builtFor, true, nil },
+					run: func(path, _ string, args []string, _ io.Writer) (string, error) {
+						commands = append(commands, strings.Join(args, " "))
+						return "agnostic-ai version 1.0.0", nil
+					},
+				},
+			}
+			if err := runUpgradeWithDeps(io.Discard, false, "", "1.0.0", deps); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(commands, tc.want) {
+				t.Errorf("commands = %v, want %v", commands, tc.want)
+			}
+		})
+	}
+}
+
+func TestUpgradeCompanion_SaysWhenThePackageManagerHasNotPublishedTheRelease(t *testing.T) {
+	deps := upgradeDeps{
+		detect: func(string) (upgradeInfo, error) {
+			return upgradeInfo{Path: "/brew/Caskroom/agnostic-ai/1.0.0/agnostic-ai", Method: installHomebrew, Version: "1.0.0", Latest: "2.0.0", Command: "update"}, nil
+		},
+		run: func(io.Writer, string) error { return nil },
+		companion: &upgradeCompanionDeps{
+			installed: func() (bool, error) { return true, nil },
+			run: func(_ string, _ string, args []string, _ io.Writer) (string, error) {
+				if args[0] != "--version" {
+					t.Error("updated the companion with the old CLI")
+				}
+				return "agnostic-ai version 1.0.0", nil
+			},
+		},
+	}
+
+	err := runUpgradeWithDeps(io.Discard, false, "", "1.0.0", deps)
+
+	if err == nil || err.Error() != "the CLI is still 1.0.0: homebrew does not serve 2.0.0 yet. Run agnostic-ai upgrade again later" {
+		t.Errorf("err = %v", err)
 	}
 }

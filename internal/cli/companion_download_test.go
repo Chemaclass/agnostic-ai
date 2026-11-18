@@ -281,3 +281,18 @@ func TestInstallCompanion_DownloadsOnlyAReleaseForMacOSFetchedFromItsCommit(t *t
 		})
 	}
 }
+
+func TestInstallCompanion_NamesHowToSkipAProvenanceCheckThatFails(t *testing.T) {
+	t.Setenv(verifyAttestationEnv, "")
+	tools := downloadedTools(t)
+	tools.download = func(io.Writer, string, string) (string, error) {
+		return "", fmt.Errorf("agnostic-ai-companion_darwin_arm64.tar.gz: %w: gh crashed", errProvenanceFailed)
+	}
+
+	err := installCompanion(context.Background(), io.Discard, false, tools, t.TempDir(), releasedMacBuild(), nil)
+
+	want := "download the companion: agnostic-ai-companion_darwin_arm64.tar.gz: build provenance did not verify: gh crashed. If gh failed rather than the archive, AGNOSTIC_AI_VERIFY_ATTESTATION=0 installs it on the checksum alone"
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v", err)
+	}
+}

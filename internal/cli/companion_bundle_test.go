@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -355,7 +356,7 @@ func TestRunCompanion_StartsABareCompanionNotYetMovedIntoTheApp(t *testing.T) {
 		return nil
 	}
 
-	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, dir, "darwin", "1.2.3")
+	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, dir, "darwin", "1.2.3", "")
 
 	if err != nil || started != bare {
 		t.Errorf("err %v, started %q, want %q", err, started, bare)
@@ -404,7 +405,7 @@ func TestReplaceCompanionApp_PutsTheInstalledAppBackWhenTheNewOneCannotMoveIn(t 
 	app := companionBundle(dir)
 	staging := t.TempDir()
 
-	err := replaceCompanionApp(filepath.Join(staging, "missing.app"), app, staging)
+	err := replaceCompanionApp(os.Rename, filepath.Join(staging, "missing.app"), app, staging)
 
 	if err == nil {
 		t.Fatal("a missing app took the installed one's place")
@@ -414,5 +415,62 @@ func TestReplaceCompanionApp_PutsTheInstalledAppBackWhenTheNewOneCannotMoveIn(t 
 	}
 	if _, err := os.Stat(filepath.Join(staging, "replaced.app")); !os.IsNotExist(err) {
 		t.Errorf("the installed app stayed aside (%v)", err)
+	}
+}
+
+func TestCompanionInfoPlist_NeedsTheMacOSTheReleaseIsBuiltFor(t *testing.T) {
+	if !strings.Contains(string(companionInfoPlist("1.2.3")), "<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>") {
+		t.Errorf("Info.plist:\n%s", companionInfoPlist("1.2.3"))
+	}
+}
+
+func TestMacOSTooOld(t *testing.T) {
+	for version, want := range map[string]bool{"12.7.4": true, "11.0": true, "13.0": false, "14.5": false, "27.1": false, "": false, "unknown": false} {
+		if got := macOSTooOld(version); got != want {
+			t.Errorf("macOSTooOld(%q) = %t, want %t", version, got, want)
+		}
+	}
+}
+
+func TestInstallCompanion_RefusesAMacOSTheCompanionDoesNotRunOn(t *testing.T) {
+	dir := t.TempDir()
+	tools := downloadedTools(t)
+	tools.download = func(io.Writer, string, string) (string, error) {
+		t.Error("downloaded a companion this Mac cannot run")
+		return "", errors.New("no download")
+	}
+	tools.macOS = func() string { return "12.7.4" }
+
+	err := installCompanion(context.Background(), io.Discard, false, tools, dir, releasedMacBuild(), nil)
+
+	if err == nil || err.Error() != "the companion needs macOS 13 or later, and this Mac runs macOS 12.7.4" {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestInstallCompanion_KeepsTheEarlierAppWhenItCannotBePutBack(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "darwin")
+	app := companionBundle(dir)
+	tools := builtTools(t)
+	tools.rename = func(from, to string) error {
+		if to == app {
+			return errors.New("disk full")
+		}
+		return os.Rename(from, to)
+	}
+
+	err := installCompanion(context.Background(), io.Discard, false, tools, dir, macBuild(), nil)
+
+	if err == nil || !strings.Contains(err.Error(), "The earlier companion is kept at ") {
+		t.Fatalf("err = %v", err)
+	}
+	var kept companionKeptAside
+	if !errors.As(err, &kept) {
+		t.Fatalf("err = %v", err)
+	}
+	aside := kept.aside
+	if raw, readErr := os.ReadFile(filepath.Join(aside, "Contents", "MacOS", companionName)); string(raw) != "the one that works" {
+		t.Errorf("the earlier companion at %s is gone (%v)", aside, readErr)
 	}
 }

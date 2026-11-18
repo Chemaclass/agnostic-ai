@@ -33,6 +33,9 @@ var firstAttestedRelease = []int{0, 75, 0}
 // flags, which older releases of gh do not have.
 var ghTooOldRE = regexp.MustCompile(`unknown (flag|shorthand flag|command)`)
 
+// errProvenanceFailed is a provenance check that ran and did not pass.
+var errProvenanceFailed = errors.New("build provenance did not verify")
+
 // provenanceUnchecked is a provenance check that could not run, as opposed
 // to one that ran and failed.
 type provenanceUnchecked struct{ reason string }
@@ -140,7 +143,7 @@ func ghProvenance(archivePath, version string) error {
 	case err == nil:
 		return nil
 	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		return fmt.Errorf("build provenance check timed out after %s", ghVerifyTimeout)
+		return fmt.Errorf("%w: gh timed out after %s", errProvenanceFailed, ghVerifyTimeout)
 	case errors.As(err, &exit) && exit.ExitCode() == ghAuthRequiredExit:
 		return provenanceUnchecked{"gh is not logged in (run gh auth login)"}
 	case ghTooOldRE.MatchString(detail):
@@ -148,5 +151,5 @@ func ghProvenance(archivePath, version string) error {
 	case detail == "":
 		detail = err.Error()
 	}
-	return fmt.Errorf("build provenance did not verify: %s", detail)
+	return fmt.Errorf("%w: %s", errProvenanceFailed, detail)
 }

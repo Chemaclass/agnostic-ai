@@ -418,7 +418,8 @@ jobs:
   # finds a compile error before a tag does.
   macos-companion:
     name: Build companion (macos-latest)
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: editor_changes
+    if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.companion == 'true') }}
     runs-on: macos-latest
     timeout-minutes: 15
     steps:
@@ -432,6 +433,10 @@ jobs:
         with:
           go-version-file: companion/go.mod
           cache-dependency-path: companion/go.sum
+
+      - name: Vet and test
+        working-directory: companion
+        run: go vet . && go test -count=1 .
 
       - name: Build the release archives
         run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
@@ -663,6 +668,7 @@ jobs:
     outputs:
       vscode: ${{ steps.filter.outputs.vscode }}
       jetbrains: ${{ steps.filter.outputs.jetbrains }}
+      companion: ${{ steps.filter.outputs.companion }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -687,14 +693,20 @@ jobs:
               head=$PUSH_AFTER
               ;;
             *)
-              printf 'vscode=true\njetbrains=true\n' >> "$GITHUB_OUTPUT"
+              printf 'vscode=true\njetbrains=true\ncompanion=true\n' >> "$GITHUB_OUTPUT"
               exit 0
               ;;
           esac
 
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null || ! git cat-file -e "$head^{commit}" 2>/dev/null; then
-            printf 'vscode=true\njetbrains=true\n' >> "$GITHUB_OUTPUT"
+            printf 'vscode=true\njetbrains=true\ncompanion=true\n' >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+
+          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh 'internal/cli/companion*' .github/workflows/ci.yml; then
+            echo "companion=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "companion=true" >> "$GITHUB_OUTPUT"
           fi
 
           for editor in vscode jetbrains; do

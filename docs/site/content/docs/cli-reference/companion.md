@@ -35,10 +35,13 @@ Put the circle on your screen.
 {% <details summary="Details: download, build, signing, login item"> %}
 - Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later.
 - Windows compiles, but nobody has run it. Nobody has built or run it on Linux.
-- Running `agnostic-ai companion` again tells you when the companion was built for another release.
-- Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). It needs no compiler.
+- Running `agnostic-ai companion` again tells you when the companion was built for another release, or installed by an `agnostic-ai` built from another commit. When the companion cannot run, it says so and names its path.
+- On a Mac older than macOS 13, install stops and says why.
+- Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` that runs through Rosetta gets the Apple silicon one. It needs no compiler.
 - Checks: the download is checked against the release's `checksums.txt`. When `gh` is installed and logged in, it is also checked against the release's build provenance, as `agnostic-ai upgrade` checks the CLI.
-- A download that does not verify stops the install and leaves the installed companion as it was.
+- A download that does not verify stops the install and leaves the installed companion as it was. When `gh` itself fails, `AGNOSTIC_AI_VERIFY_ATTESTATION=0` installs on the checksum alone.
+- Ctrl-C stops the install and removes its build folder. The next install also removes any build folder an earlier one left.
+- When neither the new app nor the old one can take its place, the old one stays in the build folder, and the error names both paths.
 - Build instead of download: a release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source`.
 - A build uses the same commit as the `agnostic-ai` you run, and prints each step.
 - Build needs on macOS: Go and the Xcode Command Line Tools.
@@ -65,7 +68,8 @@ Put the circle on your screen.
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` when nothing runs: it succeeds and says so.
 - **Quit Agnostic AI companion** in the menus does the same as `stop`.
-- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) and `companion-command` (where the CLI is).
+- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices), `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
+- When the companion cannot stop or turn off start at login, such as one built for another processor, `uninstall` warns and still deletes it. `stop` fails instead.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
 - On macOS and Linux it also removes a login entry that a deleted program left behind.
 - On Windows it names the registry value to delete.
@@ -134,7 +138,7 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --globa
 
 ## Upgrade the companion
 
-`agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. After a direct Homebrew or npm upgrade, run `agnostic-ai companion install`.
+`agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. When the CLI is already current, as after a direct Homebrew or npm upgrade, it still replaces a companion built for another release.
 
 {% <details summary="Details: failures and version mismatch"> %}
 - The companion is downloaded or built as `companion install` does, and progress is printed.
@@ -142,6 +146,7 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --globa
 - It installs none if none is installed.
 - `upgrade --check` and `upgrade --requires` do not replace it.
 - A companion update failure leaves the CLI upgraded and the old companion usable.
+- When Homebrew or npm does not serve the new release yet, the CLI stays as it was and the error says to run `agnostic-ai upgrade` again later.
 - The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 - A fresh companion/server start shows a panel notice when their versions differ, with the command to run. Starting through the CLI also prints a warning.
 - A companion and server already running before an external upgrade can keep their old versions until restarted.

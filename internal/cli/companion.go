@@ -10,11 +10,14 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/x/term"
@@ -32,6 +35,9 @@ const (
 	// installed or last started the companion. The companion reads it to
 	// find this command when it starts at login, with no terminal's PATH.
 	companionCommandFile = "companion-command"
+	// companionRevisionFile holds the commit of the agnostic-ai that
+	// installed the companion. Builds between two releases share a version.
+	companionRevisionFile = "companion-revision"
 	// companionBuildPrefix names the folders an install builds in.
 	companionBuildPrefix = ".companion-build-"
 	// companionSettingsFile is where the companion keeps its place and shortcut.
@@ -48,6 +54,12 @@ const (
 
 	// companionAnswerWait is how long one of those calls may take.
 	companionAnswerWait = 5 * time.Second
+	// companionDownloadWait bounds the whole download, so a slow link still
+	// fetches the archive.
+	companionDownloadWait = 10 * time.Minute
+	// companionMinMacOS is the oldest macOS the companion runs on: the
+	// oldest the Go toolchain in companion/go.mod supports.
+	companionMinMacOS = 13
 	// A companion asked to quit is given companionStopTries pauses of
 	// companionStopPause to end.
 	companionStopTries = 50
@@ -101,6 +113,11 @@ type companionTools struct {
 	// loginOn adds the companion to what starts at login.
 	loginOn func(ctx context.Context, path string) error
 	sign    func(ctx context.Context, app string) error
+	// rename moves a file or folder, as os.Rename does.
+	rename func(from, to string) error
+	// macOS is this Mac's system version, such as "14.5"; empty elsewhere
+	// or when unknown.
+	macOS func() string
 	// pause waits between two looks at a companion that is ending.
 	pause func(time.Duration)
 }
@@ -112,7 +129,7 @@ func systemCompanionTools() companionTools {
 		},
 		build: runGoBuild,
 		download: func(out io.Writer, version, into string) (string, error) {
-			return downloadCompanion(out, &http.Client{Timeout: time.Minute}, releasesBaseURL, version, runtime.GOARCH, into, ghProvenance)
+			return downloadCompanion(out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, machineArch(), into, ghProvenance)
 		},
 		start:    startCompanion,
 		builtFor: companionBuiltFor,
@@ -120,6 +137,8 @@ func systemCompanionTools() companionTools {
 		loginOff: func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
 		loginOn:  func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
 		sign:     signCompanion,
+		rename:   os.Rename,
+		macOS:    macOSVersion,
 		pause:    time.Sleep,
 	}
 }
@@ -317,16 +336,22 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	if err != nil {
 		return err
 	}
+	// A companion that cannot run, such as one built for another
+	// processor, must not keep its own files: each failure here is only
+	// a warning.
+	loginOff := false
 	if found {
 		ran, err := endCompanion(ctx, tools, installed)
-		if err != nil {
-			return err
-		}
-		if ran {
+		switch {
+		case err != nil:
+			_, _ = fmt.Fprintf(out, "! Could not stop the companion (%v). If it still runs, end the %s process.\n", err, companionName)
+		case ran:
 			_, _ = fmt.Fprintln(out, "✓ Stopped the companion")
 		}
 		if err := tools.loginOff(ctx, installed); err != nil {
-			return fmt.Errorf("turn off start at login: %w", err)
+			_, _ = fmt.Fprintf(out, "! Could not turn off start at login (%v). Remove %s from the items that open at login.\n", err, companionAppName)
+		} else {
+			loginOff = true
 		}
 	}
 	left, err := removeLoginEntries(loginEntries)
@@ -334,7 +359,7 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 		return fmt.Errorf("turn off start at login: %w", err)
 	}
 	switch {
-	case found || left:
+	case loginOff || left:
 		_, _ = fmt.Fprintln(out, "✓ Start at login is off")
 	case goos == "windows":
 		_, _ = fmt.Fprintf(out, "! If the companion started at login, delete the %s.\n", companionRunValue)
@@ -349,23 +374,13 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	if err != nil {
 		return fmt.Errorf("remove the companion: %w", err)
 	}
-	for _, name := range []string{companionCommandFile, companionSettingsFile} {
+	for _, name := range []string{companionCommandFile, companionRevisionFile, companionSettingsFile} {
 		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("remove the companion: %w", err)
 		}
 	}
-	// An install that was interrupted leaves its build folder.
-	entries, err := os.ReadDir(dir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := removeBuildFolders(dir); err != nil {
 		return fmt.Errorf("remove the companion: %w", err)
-	}
-	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), companionBuildPrefix) {
-			continue
-		}
-		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
-			return fmt.Errorf("remove the companion: %w", err)
-		}
 	}
 	if !found {
 		_, _ = fmt.Fprintln(out, "The companion is not installed.")
@@ -374,6 +389,31 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	_, _ = fmt.Fprintf(out, "✓ Removed %s\n", folder)
 	_, _ = fmt.Fprintln(out, "Your read and archive marks stay: agnostic-ai serve uses them too.")
 	return nil
+}
+
+// removeBuildFolders deletes the build folders an interrupted install left.
+func removeBuildFolders(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), companionBuildPrefix) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// macOSTooOld reports whether a macOS version, such as "12.7.4", is older
+// than the companion supports. A version it cannot read is not.
+func macOSTooOld(version string) bool {
+	major, _, _ := strings.Cut(version, ".")
+	n, err := strconv.Atoi(major)
+	return err == nil && n < companionMinMacOS
 }
 
 // companionDir is where the built companion and its notes live: the
@@ -530,6 +570,14 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	if _, known := companionNeeds[build.goos]; !known {
 		return fmt.Errorf("the companion does not build on %s", build.goos)
 	}
+	if build.goos == "darwin" && tools.macOS != nil {
+		if version := tools.macOS(); macOSTooOld(version) {
+			return fmt.Errorf("the companion needs macOS %d or later, and this Mac runs macOS %s", companionMinMacOS, version)
+		}
+	}
+	if err := removeBuildFolders(dir); err != nil {
+		return fmt.Errorf("install the companion: %w", err)
+	}
 	// The program is written in a folder of its own and moved into place
 	// at the end, so a failure leaves the installed one alone.
 	if err := os.MkdirAll(companionFolder(dir), 0o700); err != nil {
@@ -539,7 +587,12 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	if err != nil {
 		return fmt.Errorf("install the companion: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(staging) }()
+	keepStaging := false
+	defer func() {
+		if !keepStaging {
+			_ = os.RemoveAll(staging)
+		}
+	}()
 	build.into = filepath.Join(staging, "companion")
 	if err := os.MkdirAll(build.into, 0o700); err != nil {
 		return fmt.Errorf("install the companion: %w", err)
@@ -552,6 +605,8 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		switch {
 		case errors.Is(err, errNoPrebuiltCompanion):
 			_, _ = fmt.Fprintln(out, "! This release ships no built companion for this Mac, so it is built here.")
+		case errors.Is(err, errProvenanceFailed) && os.Getenv(verifyAttestationEnv) != "1":
+			return fmt.Errorf("download the companion: %w. If gh failed rather than the archive, %s=0 installs it on the checksum alone", err, verifyAttestationEnv)
 		case err != nil:
 			// A download that does not verify is never replaced by a build.
 			return fmt.Errorf("download the companion: %w", err)
@@ -565,14 +620,18 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		}
 	}
 	target := companionFile(dir, build.goos)
-	place := func() error { return os.Rename(built, target) }
+	place := func() error { return tools.rename(built, target) }
 	if build.goos == "darwin" {
 		app := filepath.Join(staging, companionAppName+".app")
 		if err := assembleCompanionApp(ctx, tools, built, app, build.version); err != nil {
 			return err
 		}
 		target = companionBundle(dir)
-		place = func() error { return replaceCompanionApp(app, target, staging) }
+		place = func() error { return replaceCompanionApp(tools.rename, app, target, staging) }
+	}
+	// An interrupt stops here, before anything installed changes.
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	installed, found, err := companionInstalled(dir, build.goos)
 	if err != nil {
@@ -582,7 +641,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		if err := place(); err != nil {
 			return fmt.Errorf("install the companion: %w", err)
 		}
-		if err := recordCompanionCommand(dir); err != nil {
+		if err := recordCompanionInstall(dir, build.revision); err != nil {
 			return err
 		}
 		_, _ = fmt.Fprintf(out, "✓ Installed %s\n", target)
@@ -603,6 +662,10 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		_, _ = fmt.Fprintln(out, "✓ Stopped the running companion")
 	}
 	err = whileHeld(tools, place)
+	var aside companionKeptAside
+	if errors.As(err, &aside) {
+		keepStaging = true
+	}
 	if err != nil {
 		err = fmt.Errorf("install the companion: %w", err)
 	} else {
@@ -612,7 +675,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 			err = leaveBareCompanion(ctx, out, tools, bareCompanionFile(dir), installed, loginEntries, alone)
 		}
 		if err == nil {
-			err = recordCompanionCommand(dir)
+			err = recordCompanionInstall(dir, build.revision)
 		}
 	}
 	if !ran {
@@ -695,6 +758,25 @@ func builtCompanion(build companionBuild) (string, error) {
 	return "", errors.New("the build finished without writing the companion")
 }
 
+// recordCompanionInstall records where this agnostic-ai is and the commit
+// it was built from, empty when the build does not record one.
+func recordCompanionInstall(dir, revision string) error {
+	if err := recordCompanionCommand(dir); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, companionRevisionFile)
+	if revision == "" {
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("record the agnostic-ai commit: %w", err)
+		}
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(revision+"\n"), 0o600); err != nil {
+		return fmt.Errorf("record the agnostic-ai commit: %w", err)
+	}
+	return nil
+}
+
 // recordCompanionCommand writes down where this agnostic-ai is, for the companion to find it.
 func recordCompanionCommand(dir string) error {
 	self, err := os.Executable()
@@ -710,7 +792,7 @@ func recordCompanionCommand(dir string) error {
 	return nil
 }
 
-func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir, goos, version string) error {
+func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir, goos, version, revision string) error {
 	installed, found, err := companionInstalled(dir, goos)
 	if err != nil {
 		return err
@@ -724,11 +806,34 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 	if err := startInstalledCompanion(tools, installed); err != nil {
 		return err
 	}
+	builtFor := tools.builtFor(ctx, installed)
+	if builtFor == "" {
+		return fmt.Errorf("the companion at %s could not run. Install it again with: agnostic-ai companion install", installed)
+	}
 	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.")
-	if builtFor := tools.builtFor(ctx, installed); builtFor != version {
-		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %q and this is %s. Install it again with: agnostic-ai companion install\n", builtFor, version)
+	if builtFor != version {
+		_, _ = fmt.Fprintf(out, "! It was built for agnostic-ai %s and this is %s. Install it again with: agnostic-ai companion install\n", builtFor, version)
+	} else if recorded := installedRevision(dir); revision != "" && recorded != "" && recorded != revision {
+		_, _ = fmt.Fprintf(out, "! It was installed by agnostic-ai %s from commit %s, and this one is from commit %s. Install it again with: agnostic-ai companion install\n", version, shortRevision(recorded), shortRevision(revision))
 	}
 	return nil
+}
+
+// installedRevision is the commit recorded by the agnostic-ai that
+// installed the companion; empty when none was recorded.
+func installedRevision(dir string) string {
+	raw, err := os.ReadFile(filepath.Join(dir, companionRevisionFile))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+func shortRevision(revision string) string {
+	if len(revision) > 12 {
+		return revision[:12]
+	}
+	return revision
 }
 
 func newCompanionCmd() *cobra.Command {
@@ -763,7 +868,7 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runCompanion(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS, cmd.Root().Version)
+			return runCompanion(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS, cmd.Root().Version, buildRevision())
 		},
 	}
 	var source string
@@ -803,9 +908,14 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Ctrl-C ends the install through its context, so its build
+			// folder is removed. A second one ends it at once.
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			context.AfterFunc(ctx, stop)
 			out := cmd.OutOrStdout()
 			file, isFile := out.(*os.File)
-			return installCompanion(cmd.Context(), out, isFile && term.IsTerminal(file.Fd()), tools, dir, build, loginEntries)
+			return installCompanion(ctx, out, isFile && term.IsTerminal(file.Fd()), tools, dir, build, loginEntries)
 		},
 	}
 	install.Flags().StringVar(&source, "source", "", "Build from this folder, the companion folder of an agnostic-ai checkout, instead of fetching the source.")
