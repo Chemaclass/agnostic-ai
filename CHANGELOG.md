@@ -84,6 +84,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- Shared memory guidance distinguishes Auggie 0.x startup injection from the documented 1.x rule fallback (#3577).
+
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.

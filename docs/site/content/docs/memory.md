@@ -105,7 +105,7 @@ The `shared-memory-policy` rule asks tools to save only facts the code, history,
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
 | Trae with project hooks enabled | A command runs when a session starts and adds both lists |
 | Cline VS Code | A project TaskStart hook returns both lists through `contextModification`; the shared rule remains the fallback |
-| Auggie CLI (macOS, Linux, Windows WSL) | An executable `SessionStart` script adds both lists |
+| Auggie CLI (macOS, Linux, Windows WSL) | Documented 0.x behavior: a `SessionStart` script adds both lists. In 1.x, use the memory rule fallback ([details](@/docs/targets/augment-reference.md#shared-memory)) |
 | OpenCode, Kilo Code | The config lists both files |
 | Kiro | A steering file includes project memory and, in checkout mode, personal memory |
 | Antigravity | An always-on rule includes project memory and, in checkout mode, personal memory |
@@ -122,6 +122,8 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 ### When a session starts {#load-at-session-start}
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Auggie CLI on Unix, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
+
+Auggie documents startup context injection in 0.x. Its 1.x docs say `SessionStart` runs in the background without adding output to context, so use the memory rule that tells the agent to read both lists. Sync still emits the hook; see [Augment shared memory](@/docs/targets/augment-reference.md#shared-memory).
 
 - Looking upward from the folder the tool starts in, the hook runs the first `node_modules/.bin/agnostic-ai` it finds up to the project's config. Otherwise it runs the `agnostic-ai` on your PATH. Trae runs the PATH one only.
 - [`agnostic-ai project`](@/docs/cli-reference/project.md) then finds the project and runs its pinned version.
