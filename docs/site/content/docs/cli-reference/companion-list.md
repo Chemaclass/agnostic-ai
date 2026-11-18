@@ -17,11 +17,12 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 
 | Group | What it holds |
 |-------|---------------|
-| Needs you | Chats waiting for a permission, then for an answer, then unread replies. Newest first. |
-| Working | Chats whose tool says the agent is busy. |
-| Active | Open chats, and chats from apps and clouds until you archive them. |
+| Needs you | Chats waiting for a permission, then an answer, then unread replies. Newest first. |
+| Working | The agent is busy. |
+| Active | Open chats, and app or cloud chats until you archive them. |
 | Archived | Closed chats, and chats you archived in their app. |
 
+{% <details summary="Details: keys"> %}
 | Key | What it does |
 |-----|--------------|
 | ⌃⌥V on a Mac (Ctrl+Alt+V elsewhere) | Open the send picker from any app. You can change it. |
@@ -29,6 +30,7 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 | Arrow keys, Enter | Pick a chat, then open it or send to it. |
 | Escape | Cancel the picker, or keep the old name in a rename. |
 | F2 | Rename the selected row. |
+{% </details> %}
 
 ## Open a chat {#open-a-chat}
 
@@ -36,14 +38,17 @@ Click a row to reach its chat.
 
 | Chat | What a click does |
 |------|-------------------|
-| Running in Terminal or Ghostty | Selects the tab that runs it. |
-| Ended terminal chat | Resumes it in a new tab of the app it last ran in. |
-| Claude Code `--bg` session | Selects the tab that runs `claude attach` on it, or opens one. |
-| Anything else | Opens it in its app, editor or browser. |
+| Running in Terminal or Ghostty | Selects its tab. |
+| Ended terminal chat | Resumes it in a new tab. |
+| Claude Code `--bg` session | Selects the tab that runs `claude attach`, or opens one. |
+| Anything else | Opens its app, editor or browser. |
 
-The first time, macOS asks to let the companion control each terminal app. When a chat does not open, the reason stays above the list until you dismiss it or open another chat.
+If a chat does not open, the reason stays above the list.
 
 {% <details summary="Details: tabs, background sessions, slow opens, resume command"> %}
+- The first time, macOS asks to let the companion control each terminal app.
+- The reason a chat did not open stays above the list until you dismiss it or open another chat.
+- An ended terminal chat resumes in a new tab of the app it last ran in.
 - When only the app can come forward, the list stays open and says where the chat runs.
 - `claude --bg` runs in Claude's own background service, not in a terminal app.
 - The tab is found by its short id, such as `e3469759`, or its exact full name. A tab attached with the start of an id or part of a name is not recognized, since it may be another session.
@@ -71,11 +76,10 @@ Send text you copied to any chat without switching apps.
 
 | Chat | What happens |
 |------|--------------|
-| Live chat in a Terminal or Ghostty tab | The tab comes to the front with the text in its input. You press Enter. |
-| Any other chat | It comes to the front and the list says to paste with Cmd+V. |
-| Only one chat can take text, and its row shows | The text goes straight there; no pick needed. |
+| Live Terminal or Ghostty tab | It comes forward with the text in its input. Press Enter. |
+| Any other chat | It comes forward. Paste with Cmd+V. |
 
-Change the shortcut under **Send copied text** in the list's ⋯ menu or the circle's right-click menu.
+Only one chat can take text? It goes straight there. Change the shortcut under **Send copied text** in the list's ⋯ menu or the circle's right-click menu.
 
 {% <details summary="Details: which chats, search, Markdown, permissions, errors"> %}
 - Offered chats: this machine's chats under Needs you, Working and Active. Archived chats are never offered, even in a search; a search narrows the rest.
@@ -92,12 +96,12 @@ Change the shortcut under **Send copied text** in the list's ⋯ menu or the cir
 
 Give a chat your own name. The web interface shows the same name.
 
-1. Right-click a row and choose **Rename…**. Or press F2 on the selected row, or use the pencil button on the hovered row.
-2. Type the name.
-3. Press Enter to save, or Escape to keep the old name.
+1. Right-click a row and choose **Rename…** (or press F2, or use the pencil).
+2. Type the name. Enter saves, Escape keeps the old name.
 
-The chat's own tool takes the name first. Only then is it saved, so every `serve` on the machine shows it and finds it in a search.
+The chat's own tool takes the name first. Only then is it saved, so every `serve` on the machine shows it and finds it in a search. If the tool refuses, the field stays open with the reason, such as "Codex is not installed". Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
 
+{% <details summary="Details: how each tool is renamed, where the name lives, errors"> %}
 | Chat | How it is renamed |
 |------|-------------------|
 | Claude Code | Adds the `custom-title` line Claude Code's own `/rename` writes. |
@@ -107,9 +111,7 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 | ChatGPT | Asks chatgpt.com to change the title, using the ChatGPT login the Codex command keeps. |
 | Claude app chat, Cowork task, Codex cloud thread | Cannot be renamed yet. |
 
-If the tool does not take the name, the field stays open with the reason, such as "Codex is not installed" or "Sign in to ChatGPT in the Codex app".
-
-{% <details summary="Details: where the name lives, tool limits, errors"> %}
+- Other reasons shown: "Sign in to ChatGPT in the Codex app".
 - Marks file: the name is saved in `conversation-marks.json`, only once the tool has it.
 - A new message keeps the name.
 - Right-clicking does not open the chat or mark it as read.
@@ -127,10 +129,10 @@ If the tool does not take the name, the field stays open with the reason, such a
 
 Clear a chat that needs you without opening it.
 
-- **Mark as read**: right-click a chat that needs you.
+- **Mark as read**: right-click the chat.
 - **Mark all as read**: the button beside Needs you. It marks each chat the group shows, after the search and the All, Local or Cloud choice.
 
-The chat leaves Needs you in the companion and the web interface. It moves where an opened one would: Active, or Archived when it is closed.
+The chat leaves Needs you in the companion and the web interface, and moves where an opened one would: Active, or Archived when closed.
 
 {% <details summary="Details: same mark as opening, failures, the circle count"> %}
 - The mark is the seen mark that opening a chat saves, stored through the server.
@@ -150,11 +152,15 @@ A row shows the title, the agent's latest reply in one line, and a meta line.
 
 | Part | What it shows |
 |------|---------------|
-| Meta line | The tool, where it runs when not here (Cloud, Chat, Cowork or Shared), the folder and the age. |
-| Reply line | The question the agent asks you, or the start of its last message. |
-| Approval pill | While a tool call waits for approval, an orange pill replaces the reply line. |
-| Indent | A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits under the chat it came from, in the same group. |
+| Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age. |
+| Reply line | The agent's question, or the start of its last message. |
+| Approval pill | Orange, replaces the reply line while a call waits for approval. |
 
+A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits under its parent in the same group.
+
+See [what a chat waits for](#waiting) for where each tool's wait comes from.
+
+{% <details summary="Details: pill kinds, folders, replies, pill limits, child chats"> %}
 | Pill | Waiting on |
 |------|------------|
 | Approve `git push origin…` | A command (its first words). |
@@ -164,9 +170,6 @@ A row shows the title, the agent's latest reply in one line, and a meta line.
 | Approve Notion fetch | An MCP tool. |
 | Needs permission | A call that is not known, as for a Codex cloud thread. |
 
-See [what a chat waits for](#waiting) for where each tool's wait comes from.
-
-{% <details summary="Details: folders, replies, pill limits, child chats"> %}
 - A row names the conversation's folder when it has one. A cloud session has none.
 - When two folders end in the same name, the row adds the parent folders that tell them apart, such as `shop/api` and `billing/api`.
 - The tooltip and screen-reader description give the full path.
@@ -187,11 +190,11 @@ Working chats show an animated gyroscope. Each working Claude Code or Codex suba
 
 | Part | What it shows |
 |------|---------------|
-| "▸ 3 subagents" | Its own line under the meta line, in place of the count. Click it to unfold the subagents. |
-| Unfolded list | Newest first, five at most, then a "+N more" button. |
-| Subagent row | Working gyroscope, title, tool, type when it has one, and age. |
+| "▸ 3 subagents" | A line under the meta line. Click it to unfold. |
+| Unfolded list | Newest first, five at most, then "+N more". |
+| Subagent row | Gyroscope, title, tool, type if any, age. |
 
-A Codex subagent opens its own thread, or switches to the terminal that runs it. A Claude Code subagent opens its chat.
+A Codex subagent opens its own thread, or switches to its terminal. A Claude Code subagent opens its chat.
 
 {% <details summary="Details: counts, parents, animation"> %}
 - The five-bulb gyroscope keeps constant brightness, with bulbs at different orbital radii and depths.
@@ -213,13 +216,15 @@ A chat moves to Archived when it is closed.
 
 | Chat | When it archives |
 |------|------------------|
-| Terminal chat | As soon as no process holds it, whatever its age, even with an unread reply. A process that ends shows within a minute. |
+| Terminal chat | As soon as no process holds it, even with an unread reply. |
 | Editor panel, Claude Code background job | A day after its last write. |
-| Desktop app session, Claude chat, Cowork task, ChatGPT chat, cloud session | Only when you archive it, here or in its app. Quitting the app archives none. |
+| Desktop app session, Claude chat, Cowork task, ChatGPT chat, cloud session | Only when you archive it, here or in its app. |
 
-Archiving here never changes the chat in its app. Click an archived chat to resume it. Its tooltip says **Resume in Terminal**, or the app it last ran in.
+Archiving here never changes the chat in its app. Click an archived chat to resume it.
 
 {% <details summary="Details: unread replies, resuming, working chats, silent Codex chats"> %}
+- A process that ends shows as archived within a minute. Quitting an app archives none of its chats.
+- The tooltip of an archived chat says **Resume in Terminal**, or the app it last ran in.
 - An archived terminal chat with an unread reply has its mark ringed in the Needs you orange. The tooltip says "Closed with a reply you have not read".
 - It does not count in the circle.
 - Its right-click menu offers **Mark as read**, and **Delete permanently…** only once it is read.
@@ -236,16 +241,18 @@ Archiving here never changes the chat in its app. Click an archived chat to resu
 
 ## Shared Remote Control rows {#remote-control}
 
-A local Claude Code session shared with claude.ai through Remote Control is one row, marked **Shared**. It stays one row once it closes: the archived local row. Marking it read, or opening it on claude.ai, clears both.
+A local Claude Code session shared with claude.ai through Remote Control is one row, marked **Shared**. It stays one row once it closes. Marking it read, or opening it on claude.ai, clears both.
 
 | Event | What happens |
 |-------|--------------|
-| A reply on claude.ai within two minutes of the session's last reply | The shared row rings. |
+| A claude.ai reply within two minutes of the session's last reply | The shared row rings. |
 | A later reply | The cloud row shows alone, under Needs you. |
-| You delete the local session | The cloud row stays, since claude.ai still keeps it. |
-| The server restarts, or you resume without Remote Control | The two show as two rows again. |
+
+The server restarting, or resuming without Remote Control, shows two rows again. Deleting the local session leaves the cloud row.
 
 {% <details summary="Details: unconfirmed disconnect activity, restarts"> %}
+- Once closed, the one row is the archived local row.
+- After you delete the local session, the cloud row stays because claude.ai still keeps it.
 - The link is kept in memory only.
 - After a restart, the cloud row does not count a reply the local row already showed.
 - One exception: the last reply reached claude.ai after the server last read the list while the session ran, and you did not mark it read. Then the cloud row counts that reply once, and the local row keeps its ring for it too.
@@ -254,15 +261,17 @@ A local Claude Code session shared with claude.ai through Remote Control is one 
 
 ## What a chat waits for {#waiting}
 
-A row that waits for you carries [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) when its tool says what for: `{for, tool?, detail?}`. `for` is `permission` (a tool call to approve) or `answer` (a question). It is omitted when the kind is unknown.
+A row that waits for you carries [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) when its tool says what for: `{for, tool?, detail?}`. `for` is `permission` (approve a tool call) or `answer` (a question). It is omitted when unknown.
 
 | Tool | Where the wait comes from |
 |------|---------------------------|
-| Local Claude Code | The `waitingFor` field the running process writes to `sessions/<pid>.json`. |
-| Codex cloud | `waitingOnApproval` is `permission`, `waitingOnUserInput` is `answer`. No `tool`, since the cloud names no call. |
-| Local Codex, Cursor, Claude app, Claude Code cloud | Not said, so their rows have no `waiting`. Local Codex does not record pending approvals in its rollout. |
+| Local Claude Code | `waitingFor` in `sessions/<pid>.json`. |
+| Codex cloud | `waitingOnApproval` is `permission`, `waitingOnUserInput` is `answer`. |
+| Local Codex, Cursor, Claude app, Claude Code cloud | Not said, so no `waiting`. |
 
 {% <details summary="Details: Claude Code values, tool and detail fields"> %}
+- Codex cloud rows have no `tool`, since the cloud names no call.
+- Local Codex does not record pending approvals in its rollout.
 - `permission prompt` and `sandbox request` are `permission`. `input needed` is `answer`. Other values, such as `dialog open`, give no `waiting`.
 - For a permission, `tool` and `detail` come from the oldest tool call at the end of the transcript that has no result yet.
 - `tool` is the name Claude Code writes, such as `Bash`, `Edit` or `mcp__claude_ai_Notion__notion-fetch`.
@@ -277,20 +286,22 @@ A row that waits for you carries [`waiting`](@/docs/cli-reference/conversations-
 
 ## Chats archived in their app {#chats-archived-in-their-app}
 
-A chat you archived in its own app shows under Archived. The [conversations API](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) lists it as `dormant`, and the web interface lists it by date. The server reads the app's archive flag on each read and writes nothing to `conversation-marks.json`, so un-archiving it in the app brings it back.
+A chat you archived in its own app shows under Archived, so un-archiving it in the app brings it back.
 
 | Chat | Archived in its app |
 |------|---------------------|
-| Codex thread | Listed as archived. Codex keeps the time it archived the thread. |
-| Cursor editor chat | Listed as archived. Cursor keeps no time for the archive. |
-| Claude Cowork task | Listed as archived. The app keeps no time for the archive. |
-| Claude chat | Listed as archived when it leaves the app's list. See below. |
-| ChatGPT chat | Not known. The chat list keeps no archive flag. A chat archived in ChatGPT stays a normal row. |
-| `cursor-agent` chat | Not known. `cursor-agent` keeps no archive flag. |
+| Codex thread, Cursor editor chat, Claude Cowork task | Listed as archived. |
+| Claude chat | Listed as archived when it leaves the app's list. |
+| ChatGPT chat, `cursor-agent` chat | Not known: no archive flag. A normal row. |
 
-A tool's `count` includes its archived chats. A chat that waits for you or works still shows under Needs you or Working.
+A chat that waits for you or works still shows under Needs you or Working.
 
 {% <details summary="Details: when an archive ends"> %}
+- The [conversations API](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) lists these chats as `dormant`, and the web interface lists them by date.
+- The server reads the app's archive flag on each read and writes nothing to `conversation-marks.json`.
+- Codex keeps the time it archived a thread. Cursor and Cowork keep no time for the archive.
+- ChatGPT's chat list and `cursor-agent` keep no archive flag.
+- A tool's `count` includes its archived chats.
 - The archive holds until something is written in the chat after it, or its tool says the agent is working, as an archive mark of your own does. The chat then shows by its usual state, even while its app still says archived.
 - Un-archiving and archiving again in the app starts a new archive.
 - A write counts when it comes after the app's archive time, in whole seconds.
@@ -316,22 +327,22 @@ Remove a chat from this computer for good.
 
 1. Right-click a chat under Archived and choose **Delete permanently…**.
 2. Read the confirmation. It names the chat and what goes.
-3. Confirm. **Cancel** or Escape keeps the chat, and nothing is sent.
-
-Afterwards the list says how much space it freed.
+3. Confirm. **Cancel** or Escape keeps the chat. The list then says how much space it freed.
 
 | Chat | Can be deleted |
 |------|----------------|
 | Claude Code, on this computer | Yes |
-| Codex | No. Codex deletes a thread even while it is open. Close it first, then run `codex delete <id>` in a terminal. |
-| Cursor editor chat | No. Cursor keeps every chat in one shared database. Delete it in Cursor. |
-| `cursor-agent` | Not yet. |
-| Any cloud session | No. Delete it where it runs. |
-| Any chat on Windows | No. The server cannot tell whether a session still runs. |
+| Codex | No. Close it, then run `codex delete <id>`. |
+| Cursor editor chat, cloud session | No. Delete it where it lives. |
+| `cursor-agent`, any chat on Windows | Not yet. |
 
-A chat that cannot be deleted says why when you choose the item, and sends nothing.
+A chat that cannot be deleted says why when you choose the item.
 
 {% <details summary="Details: when it is offered, refusals, limits"> %}
+- Codex deletes a thread even while it is open, so close it first.
+- Delete a Cursor editor chat in Cursor, and a cloud session where it runs. `cursor-agent` chats cannot be deleted yet.
+- Cursor keeps every chat in one shared database.
+- On Windows the server cannot tell whether a session still runs.
 - Offered on any archived chat that no process holds and whose latest reply you have read: one you marked complete, or one that is closed.
 - Closed means right away for a Claude Code, Codex or `cursor-agent` chat run in a terminal, and after a day for an editor panel or a background job.
 - A chat that went quiet by itself is checked again when you confirm. If it closed with a reply you have not read, or anything was written in it while the delete runs, it is not deleted.

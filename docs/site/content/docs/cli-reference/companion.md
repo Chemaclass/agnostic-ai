@@ -14,7 +14,7 @@ delete-an-archived-chat = "@/docs/cli-reference/companion-list.md"
 
 # Companion
 
-The companion is a small circle that floats over every app. It counts the Claude Code, Codex and Cursor conversations that wait for you. Click it for a searchable list: see [Companion list](@/docs/cli-reference/companion-list.md).
+A small circle that floats over every app and counts the Claude Code, Codex and Cursor conversations that wait for you. Click it for a searchable list: see [Companion list](@/docs/cli-reference/companion-list.md).
 
 <span id="companion" hidden></span>
 
@@ -24,15 +24,18 @@ Put the circle on your screen.
 
 1. Run `agnostic-ai companion install`. On macOS it downloads the build for your Mac. Elsewhere it builds the companion.
 2. Run `agnostic-ai companion`. It starts the companion and returns.
-3. Run it again to bring back a hidden companion and open its list. It tells you when the companion was built for another release.
+3. Run it again to bring back a hidden companion and open its list.
 
 | System | Status |
 |--------|--------|
-| macOS | Supported. Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later. |
-| Windows | Not supported. It compiles, but nobody has run it. [Help with #3221](https://github.com/Chemaclass/agnostic-ai/issues/3221). |
-| Linux | Not supported. Nobody has built or run it. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
+| macOS | Supported (macOS 13 or later). |
+| Windows | Not supported. [Help with #3221](https://github.com/Chemaclass/agnostic-ai/issues/3221). |
+| Linux | Not supported. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
 
 {% <details summary="Details: download, build, signing, login item"> %}
+- Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later.
+- Windows compiles, but nobody has run it. Nobody has built or run it on Linux.
+- Running `agnostic-ai companion` again tells you when the companion was built for another release.
 - Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). It needs no compiler.
 - Checks: the download is checked against the release's `checksums.txt`. When `gh` is installed and logged in, it is also checked against the release's build provenance, as `agnostic-ai upgrade` checks the CLI.
 - A download that does not verify stops the install and leaves the installed companion as it was.
@@ -54,10 +57,10 @@ Put the circle on your screen.
 
 | Command | What it does |
 |---------|--------------|
-| `companion install` | Installs it. `--source` builds from this folder instead of fetching the source: the `companion` folder of an agnostic-ai checkout. |
+| `companion install` | Installs it. `--source` builds from the `companion` folder of an agnostic-ai checkout. |
 | `companion` | Starts it, or brings back a hidden one and opens its list. |
-| `companion stop` | Ends the companion and the server it started. Start at login stays as you set it. |
-| `companion uninstall` | Ends the companion, turns off start at login, and deletes what install made. |
+| `companion stop` | Ends the companion and its server. Start at login stays as set. |
+| `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
 
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` when nothing runs: it succeeds and says so.
@@ -70,24 +73,25 @@ Put the circle on your screen.
 
 ## The circle and its menus {#menus}
 
-The circle's count turns solid orange, with a lock and a halo, while a chat waits for a permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread".
-
-Right-click the circle, or open the list's ⋯ menu. Both hold the same items in the same order, and a change in one shows in the other.
+Right-click the circle, or open the list's ⋯ menu. Both hold the same items, and a change in one shows in the other.
 
 | Menu item | What it does |
 |-----------|--------------|
-| **Animate companion** | Movement on or off. Off, or with Reduce Motion on, the circle shows a still ring and its count keeps updating. |
+| **Animate companion** | Movement on or off. Off, the circle shows a still ring. |
 | **Dim when idle** | Fades the circle while nothing needs you. |
 | **Small companion** | A 40px circle instead of 60px. |
-| **Start at login** | Starts the companion when you log in. |
-| **Open from anywhere** | Shows the shortcut that opens the list, and changes it. |
-| **Send copied text** | Shows the send shortcut, Ctrl+Alt+V until you change it. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
+| **Start at login** | Starts it when you log in. |
+| **Open from anywhere** | Shows and changes the shortcut that opens the list. |
+| **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
 | **Hide Agnostic AI companion** | Takes the circle and the list off the screen. It keeps running. |
-| **Quit Agnostic AI companion** | Asks first, then ends the companion and its server. |
+| **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 
-Animate companion, Dim when idle and Small companion are kept across restarts. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
-
-{% <details summary="Details: dim, small, shortcuts"> %}
+{% <details summary="Details: count, animation, dim, small, shortcuts"> %}
+- The circle's count turns solid orange, with a lock and a halo, while a chat waits for a permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread".
+- The circle and the list's ⋯ menu hold the same items in the same order.
+- Animate companion, Dim when idle and Small companion are kept across restarts.
+- With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
+- Send copied text: the shortcut is Ctrl+Alt+V until you change it.
 - Dim: pointing at the circle, or any conversation that needs you, brings back full color.
 - Small: its mark, working ring, count and window shrink with it, so clicks just outside the small circle reach the app behind it. It keeps the screen edges it sits nearest.
 - Open from anywhere: in the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
@@ -97,15 +101,16 @@ Animate companion, Dim when idle and Small companion are kept across restarts. F
 
 ## Hide and quit {#hide-and-quit}
 
-**Hide** takes the circle and the list off the screen. The shortcut, `agnostic-ai companion` or opening the app again brings them back where they were and opens the list. **Quit** stops the program.
+**Hide** takes the circle and the list off the screen. The shortcut, `agnostic-ai companion` or opening the app again brings them back and opens the list. **Quit** stops the program; run `agnostic-ai companion` to start it again.
 
 | State | What happens |
 |-------|--------------|
-| Hidden | A chat that starts waiting for you brings the circle back on its own at 25%, with its count, without opening the list. |
+| Hidden | A chat that starts waiting for you brings the circle back at 25%, without opening the list. |
 | Dimmed | A click on the circle or the shortcut brings back full color. |
-| Quit | The shortcut cannot bring it back. Run `agnostic-ai companion` to start it again. |
 
 {% <details summary="Details: hidden, dimmed and quit states"> %}
+- Once quit, the shortcut cannot bring it back.
+- Bringing it back returns the circle where it was. A hidden circle that returns shows its count.
 - While the shortcut is not active, the Hide entry names `agnostic-ai companion` as the way back.
 - A hidden companion keeps running and reading.
 - A returned circle on macOS does not take the keys.
@@ -129,17 +134,13 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --globa
 
 ## Upgrade the companion
 
-`agnostic-ai upgrade` replaces an installed companion, downloaded or built as `companion install` does.
+`agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. After a direct Homebrew or npm upgrade, run `agnostic-ai companion install`.
 
-- It prints progress.
-- It restarts the companion only if it was running.
+{% <details summary="Details: failures and version mismatch"> %}
+- The companion is downloaded or built as `companion install` does, and progress is printed.
 - Settings and Start at login stay as they were.
 - It installs none if none is installed.
 - `upgrade --check` and `upgrade --requires` do not replace it.
-
-After a direct Homebrew or npm upgrade, run `agnostic-ai companion install`.
-
-{% <details summary="Details: failures and version mismatch"> %}
 - A companion update failure leaves the CLI upgraded and the old companion usable.
 - The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 - A fresh companion/server start shows a panel notice when their versions differ, with the command to run. Starting through the CLI also prints a warning.
@@ -158,13 +159,16 @@ A project server lists none, because a cloud session names no folder. Both endpo
 
 | | Claude Code cloud | Codex cloud |
 |---|---|---|
-| Reads | `GET https://api.anthropic.com/v1/code/sessions?limit=100` | `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads |
-| Sign-in | The claude.ai login in the macOS keychain (`Claude Code-credentials`). Run `claude` to renew it. | The ChatGPT login in `auth.json` (in `$CODEX_HOME`, default `~/.codex`) |
-| Opens | `https://claude.ai/code/session_<id>` in the browser | `codex://threads/<id>?hostId=durable`, handled by the Codex app |
-| Working | Status `working`, only while the worker runs | Status `active` |
-| Waiting for you | Status `blocked` | Waits on an approval or on your input |
+| Sign-in | The claude.ai login in the macOS keychain. Run `claude` to renew it. | The ChatGPT login in `auth.json` |
+| Opens | In the browser | In the Codex app |
+| Working | Status `working` | Status `active` |
+| Waiting for you | Status `blocked` | An approval or your input |
 
-{% <details summary="Details: privacy, refresh, failures, status"> %}
+{% <details summary="Details: endpoints, privacy, refresh, failures, status"> %}
+- Claude Code reads `GET https://api.anthropic.com/v1/code/sessions?limit=100`. Codex reads `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads.
+- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
+- Claude Code sessions open `https://claude.ai/code/session_<id>` in the browser. Codex threads open `codex://threads/<id>?hostId=durable`, handled by the Codex app.
+- Claude Code `working` shows only while the worker runs. Codex waits on an approval or on your input.
 - Limit: at most 100 sessions or threads. It does not page past them yet.
 - It uses their id, title or name, status and times. It never reads their messages.
 - The sign-in is sent only to its own host. It is never kept, printed or logged, and the refresh token is never used.
@@ -207,13 +211,14 @@ A Claude Code session that runs here with Remote Control on is also listed at cl
 
 These show with no flag. The companion reads what the desktop apps keep on this computer.
 
-| Row | Reads from | Opens in | Sits under |
-|-----|------------|----------|------------|
-| "Claude · Chat" | The Claude desktop app | The Claude app | Cloud |
-| "Claude · Cowork" | The Claude desktop app | The Claude app | Local |
-| "ChatGPT · Chat" | `codex.db` under `$CODEX_HOME/sqlite` (default `~/.codex`), when the ChatGPT desktop app is installed | chatgpt.com | |
+| Row | Reads from | Opens in |
+|-----|------------|----------|
+| "Claude · Chat" (under Cloud) | The Claude desktop app | The Claude app |
+| "Claude · Cowork" (under Local) | The Claude desktop app | The Claude app |
+| "ChatGPT · Chat" | The ChatGPT desktop app's data | chatgpt.com |
 
 {% <details summary="Details: waiting, sync, stability"> %}
+- ChatGPT chats come from `codex.db` under `$CODEX_HOME/sqlite` (default `~/.codex`), when the ChatGPT desktop app is installed.
 - A Claude chat the assistant answered counts as waiting for you until you see it.
 - ChatGPT reads nothing over the network. A new reply shows within the companion's 5-second check.
 - A ChatGPT chat you started on chatgpt.com or your phone shows once the app has synced it.
