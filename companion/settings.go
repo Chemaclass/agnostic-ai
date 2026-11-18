@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // defaultShortcut opens the list from anywhere until the person picks
@@ -77,9 +78,9 @@ func settingsPath() (string, error) {
 	return filepath.Join(dir, "agnostic-ai", "companion.json"), nil
 }
 
-// readSettings loads the file; a missing one is empty settings. A file
-// that does not parse is moved aside to companion.json.bad, so the
-// companion still starts, with empty settings.
+// readSettings loads the file; a missing one is empty settings. A value
+// of the wrong type is skipped and the rest kept; a file that is not
+// JSON at all is an error.
 func readSettings(path string) (settings, error) {
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -90,15 +91,48 @@ func readSettings(path string) (settings, error) {
 	}
 	var s settings
 	if err := json.Unmarshal(raw, &s); err != nil {
-		aside := path + ".bad"
-		if moveErr := os.Rename(path, aside); moveErr != nil {
-			log.Printf("companion settings %s: %v; could not move it aside: %v", path, err, moveErr)
-		} else {
-			log.Printf("companion settings %s: %v; moved it to %s and started with the defaults", path, err, aside)
+		var wrongType *json.UnmarshalTypeError
+		if errors.As(err, &wrongType) {
+			log.Printf("companion settings %s: %v; kept the other settings", path, err)
+			return s, nil
 		}
-		return settings{}, nil
+		return settings{}, &unreadableSettings{path: path, cause: err}
 	}
 	return s, nil
+}
+
+// unreadableSettings is a settings file that is not JSON, such as one
+// cut short.
+type unreadableSettings struct {
+	path  string
+	cause error
+}
+
+func (e *unreadableSettings) Error() string {
+	return fmt.Sprintf("companion settings %s: %v", e.path, e.cause)
+}
+
+func (e *unreadableSettings) Unwrap() error { return e.cause }
+
+// loadSettings is readSettings for a companion that starts: a file that
+// is not JSON moves aside, to companion.json.bad or, when that is taken,
+// a name with the time, and the companion starts with empty settings.
+func loadSettings(path string) (settings, error) {
+	s, err := readSettings(path)
+	var unreadable *unreadableSettings
+	if !errors.As(err, &unreadable) {
+		return s, err
+	}
+	aside := path + ".bad"
+	if _, statErr := os.Lstat(aside); statErr == nil {
+		aside = path + ".bad-" + time.Now().Format("20060102T150405.000000000")
+	}
+	if moveErr := os.Rename(path, aside); moveErr != nil {
+		log.Printf("%v; could not move it aside: %v", err, moveErr)
+	} else {
+		log.Printf("%v; moved it to %s and started with the defaults", err, aside)
+	}
+	return settings{}, nil
 }
 
 // writeSettings replaces the file in one step.

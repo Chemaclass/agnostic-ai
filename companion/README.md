@@ -333,9 +333,9 @@ Both are in the `agnostic-ai` folder of your user configuration folder
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
 - `companion.json`: where you left the circle, your shortcuts, whether it
-  animates, whether it dims when idle, and whether it is small. A file the
-  companion cannot read moves to `companion.json.bad`, and the companion
-  starts with the defaults.
+  animates, whether it dims when idle, and whether it is small. A file that is
+  not JSON moves to `companion.json.bad`, and the companion starts with the
+  defaults.
 
 ## When it reads
 

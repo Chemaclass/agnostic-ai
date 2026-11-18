@@ -705,7 +705,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	saved, err := readSettings(path)
+	// A companion asked to quit or to change the login leaves even an
+	// unreadable file where it is.
+	read := readSettings
+	if ask == "" {
+		read = loadSettings
+	}
+	saved, err := read(path)
 	// A companion asked to quit or to change the login needs no settings,
 	// and must answer even when the file cannot be read.
 	if err != nil && ask == "" {
