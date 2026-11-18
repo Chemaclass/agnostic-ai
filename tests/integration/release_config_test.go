@@ -755,8 +755,8 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(readRepoFile(t, ".goreleaser.yml")), &doc); err != nil {
 		t.Fatal(err)
 	}
-	if len(doc.Checksum.ExtraFiles) != 1 || len(doc.Release.ExtraFiles) != 1 {
-		t.Fatalf("want one companion glob in checksum and in release, got %+v %+v", doc.Checksum.ExtraFiles, doc.Release.ExtraFiles)
+	if len(doc.Checksum.ExtraFiles) != 2 || len(doc.Release.ExtraFiles) != 2 {
+		t.Fatalf("want archive and disk image globs in checksum and release, got %+v %+v", doc.Checksum.ExtraFiles, doc.Release.ExtraFiles)
 	}
 	glob := doc.Checksum.ExtraFiles[0].Glob
 	if doc.Release.ExtraFiles[0].Glob != glob {
@@ -767,6 +767,25 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 	}
 	if !strings.Contains(glob, `envOrDefault "COMPANION_DIST"`) {
 		t.Errorf("the glob %q does not read the folder the workflow downloads to", glob)
+	}
+	imageGlob := doc.Checksum.ExtraFiles[1].Glob
+	if doc.Release.ExtraFiles[1].Glob != imageGlob {
+		t.Errorf("release and checksums list different disk images: %q, %q", doc.Release.ExtraFiles[1].Glob, imageGlob)
+	}
+	for _, arch := range []string{"arm64", "amd64"} {
+		image := "agnostic-ai-companion_darwin_" + arch + ".dmg"
+		if matched, err := filepath.Match(filepath.Base(imageGlob), image); err != nil || !matched {
+			t.Errorf("the glob %q does not match %s", imageGlob, image)
+		}
+	}
+	upload, _ := workflowStepAt(t, releaseWorkflowPath, "companion", "Hand the archives to GoReleaser")
+	paths, ok := upload.With["path"].(string)
+	if !ok || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.dmg") {
+		t.Errorf("the companion job does not upload disk images: %v", upload.With["path"])
+	}
+	guard := workflowRun(t, releaseWorkflowPath, "distribution", "Release ships the companion archives")
+	if !strings.Contains(guard, "dmg") {
+		t.Error("the release guard permits a stable release without disk images")
 	}
 	script := readRepoFile(t, "scripts/companion-release.sh")
 	for _, want := range []string{"name=agnostic-ai-companion", `"$outdir/${name}_darwin_${arch}.tar.gz"`, "for arch in arm64 amd64"} {

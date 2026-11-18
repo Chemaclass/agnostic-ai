@@ -20,7 +20,15 @@ A small circle that floats over every app and counts the Claude Code, Codex and 
 
 ## Install and start {#install}
 
-Put the circle on your screen.
+On macOS, download the `.dmg` for your Mac from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest): `arm64` for Apple silicon, `amd64` for Intel. Open it, drag **agnostic-ai companion** into **Applications**, eject the disk image, then open the app. It includes the matching CLI and needs no npm, Homebrew, Go or compiler.
+
+The app is signed without an Apple Developer identity and is not notarized. If macOS blocks it, open **System Settings > Privacy & Security**, choose **Open Anyway**, and confirm the next prompt.
+
+Right-click the circle for **Install command line tool**. It links the bundled CLI into `/usr/local/bin` when that folder is on `PATH` and writable, otherwise `~/.local/bin`, and names the path. Add that folder to your shell's `PATH` if needed. An existing command is left in place, including npm and Homebrew installs. Keep the app in Applications: the command links to the copy inside it.
+
+The app checks for a newer stable release on start and every 24 hours while it runs. **Check for updates** in the circle's right-click menu checks at once. Accept **Update and restart** to replace the app and its bundled CLI together. Downloads use the same checksum and build provenance checks as the CLI installer. A separate npm or Homebrew CLI keeps its own update path. Running `agnostic-ai upgrade` through the bundled CLI link directs you to the app menu. Update failures are recorded in `~/Library/Application Support/agnostic-ai/companion-update.log`.
+
+If you already have the CLI, you can also install the companion from your terminal:
 
 1. Run `agnostic-ai companion install`. On macOS it downloads the build for your Mac. Elsewhere it builds the companion.
 2. Run `agnostic-ai companion`. It starts the companion and returns.
@@ -51,7 +59,7 @@ Put the circle on your screen.
 - A build that fails leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
 - On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. The app stays out of the Dock.
-- The app is signed on your machine with `codesign`, without a developer identity.
+- The terminal installer signs the app on your machine with `codesign`, without a developer identity. The disk image carries an app signed during the release build.
 - Start at login registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
 - An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
 {% </details> %}
@@ -64,6 +72,8 @@ Put the circle on your screen.
 | `companion` | Starts it, or brings back a hidden one and opens its list. |
 | `companion stop` | Ends the companion and its server. Start at login stays as set. |
 | `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
+| `companion install-command --app /Applications/agnostic-ai\ companion.app` | Links the app's bundled CLI into a command folder on macOS. |
+| `companion update-app --app /Applications/agnostic-ai\ companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
 
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` when nothing runs: it succeeds and says so.
@@ -71,6 +81,7 @@ Put the circle on your screen.
 - `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices), `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
 - When the companion cannot run at all, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
+- `stop` and `uninstall` manage the terminal-installed companion. For the disk-image app, quit from its menu, turn off **Start at login**, remove any CLI link you installed, then move the app from Applications to Trash.
 - It also removes a login entry that a deleted program left behind: a file on macOS and Linux, the `agnostic-ai-companion` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on Windows.
 - On Windows the companion keeps its browser data in the `companion` folder, which `uninstall` deletes. It also deletes the `agnostic-ai-companion.exe` folder that earlier companions left in `%AppData%`.
 - On Linux the CLI reaches the companion over the D-Bus session bus. In a shell without one, such as an SSH login, `stop` says so and stops nothing, and `uninstall` warns and still deletes the files.
@@ -78,7 +89,7 @@ Put the circle on your screen.
 
 ## The circle and its menus {#menus}
 
-Right-click the circle, or open the list's ⋯ menu. Both hold the same items, and a change in one shows in the other.
+Right-click the circle, or open the list's ⋯ menu. A settings change in one shows in the other. The disk-image app also offers **Install command line tool** and **Check for updates** in the circle's right-click menu.
 
 | Menu item | What it does |
 |-----------|--------------|

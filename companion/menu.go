@@ -146,6 +146,7 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	s.labels = labels
 	s.nativeMu.Unlock()
 	s.refreshNative()
+	s.appCommands = s.addAppMenu(menu)
 	return nil
 }
 

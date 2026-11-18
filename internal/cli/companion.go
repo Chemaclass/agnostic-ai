@@ -1085,5 +1085,6 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 		},
 	}
 	cmd.AddCommand(install, stop, uninstall)
+	cmd.AddCommand(companionAppCommands(tools)...)
 	return cmd
 }
