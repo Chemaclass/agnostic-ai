@@ -15,7 +15,7 @@
     figure { margin: 0; }
     figcaption { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     iframe { border: 1px dashed var(--line); background: transparent; display: block; }
-    .bubble { width: 84px; height: 84px; }
+    .bubble { width: 92px; height: 92px; }
     .panel { width: 432px; height: 624px; max-width: calc(100vw - 32px); }
     ol { margin: 0; padding-left: 20px; font: 12px/1.5 ui-monospace, monospace; max-height: 560px; overflow: auto; }
     .calls { min-width: 240px; flex: 1; }
@@ -56,12 +56,12 @@
         // The preview stopped; the next try shows the calls again once it is back.
       }
     }
-    // The shell gives the small circle a 56-point window.
+    // The shell gives the small circle a 64-point window.
     const bubbleFrame = document.querySelector('iframe.bubble')
     async function sizeBubble() {
       try {
         const { smallCompanion } = await (await fetch('/api/appearance')).json()
-        bubbleFrame.style.width = bubbleFrame.style.height = smallCompanion ? '56px' : '84px'
+        bubbleFrame.style.width = bubbleFrame.style.height = smallCompanion ? '64px' : '92px'
       } catch {
         // The preview stopped; the next try sizes the frame once it is back.
       }

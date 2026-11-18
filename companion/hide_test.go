@@ -543,8 +543,8 @@ func TestBubbleMoved_KeepsAnOpenListBesideTheCircle(t *testing.T) {
 		t.Error("dragging closed or reopened the list")
 	}
 	x, y := panel.Position()
-	if x != 288 || y != 100 {
-		t.Errorf("list at (%d, %d), want (288, 100) beside the circle", x, y)
+	if x != 296 || y != 100 {
+		t.Errorf("list at (%d, %d), want (296, 100) beside the circle", x, y)
 	}
 }
 

@@ -9,9 +9,9 @@ type rect struct {
 const (
 	// bubbleSide is the bubble window for the 60-point circle: the circle
 	// and room for its shadow, progress ring and badge.
-	bubbleSide = 84
+	bubbleSide = 92
 	// smallBubbleSide is the same room for the 40-point circle, two thirds.
-	smallBubbleSide = 56
+	smallBubbleSide = 64
 )
 
 func bubbleSideFor(small bool) int {
