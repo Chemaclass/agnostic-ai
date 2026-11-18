@@ -1310,6 +1310,42 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 	}
 }
 
+func TestScan_ASearchReadsTheStoresOnceForItsPages(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	session := func(id, stamp, prompt string) {
+		write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+			obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": stamp, "message": obj{"role": "user", "content": prompt}}))
+	}
+	session(idSafari, "2026-11-06T10:00:00.000Z", "Fix the Safari login")
+	session(idCache, "2026-08-01T10:00:00.000Z", "Tune the cache eviction for Safari")
+	first := scanner.Scan(context.Background(), ScanOptions{Query: "safari"})
+	before, err := time.Parse(time.RFC3339, first.Next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	later := func(query string) View {
+		return scanner.Scan(context.Background(), ScanOptions{Query: query, Before: before})
+	}
+
+	reads := scanner.beganReads()
+	if older := later("safari"); scanner.beganReads() != reads || len(older.Conversations) != 1 || older.Conversations[0].ID != idCache {
+		t.Errorf("a later page of an unchanged search must take the rows its first page read: %d reads, %s", scanner.beganReads()-reads, asJSON(t, older))
+	}
+	if later("cache"); scanner.beganReads() != reads+1 {
+		t.Errorf("another search must read the stores: %d reads", scanner.beganReads()-reads)
+	}
+	later("safari")
+	later("safari")
+	if scanner.beganReads() != reads+2 {
+		t.Errorf("a later page must keep what it read for the next one: %d reads", scanner.beganReads()-reads)
+	}
+
+	session(idCache, "2026-08-01T10:00:00.000Z", "Tune the cache eviction for Safari and Chrome")
+	if older := later("safari"); scanner.beganReads() != reads+3 || len(older.Conversations) != 1 || older.Conversations[0].Title != "Tune the cache eviction for Safari and Chrome" {
+		t.Errorf("a later page after a change must read the stores again: %d reads, %s", scanner.beganReads()-reads, asJSON(t, older))
+	}
+}
+
 func TestScan_SearchesConversationsOfEveryAge(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	session := func(id, stamp, prompt string) {

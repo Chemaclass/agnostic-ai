@@ -99,6 +99,13 @@ func benchAgentLine(text string) map[string]any {
 // a prompt and an answer, and returns a scanner over them.
 func benchClaudeStore(b *testing.B) (*Scanner, []string) {
 	b.Helper()
+	return benchClaudeStoreApart(b, time.Hour)
+}
+
+// benchClaudeStoreApart is benchClaudeStore with the sessions started
+// apart from one another, the newest at the scanner's now.
+func benchClaudeStoreApart(b *testing.B, apart time.Duration) (*Scanner, []string) {
+	b.Helper()
 	home := b.TempDir()
 	stores := Stores{Home: home, ClaudeDir: filepath.Join(home, ".claude"), CodexDir: filepath.Join(home, ".codex"), CursorDB: filepath.Join(home, "Cursor", "state.vscdb"), CursorDir: filepath.Join(home, ".cursor")}
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
@@ -111,7 +118,7 @@ func benchClaudeStore(b *testing.B) (*Scanner, []string) {
 		id := fmt.Sprintf("%08x-1111-4111-8111-111111111111", i)
 		var lines []string
 		for _, line := range []map[string]any{
-			{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": now.Add(-time.Duration(i) * time.Hour).Format(time.RFC3339), "message": map[string]any{"role": "user", "content": t.firstPrompt}},
+			{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": now.Add(-time.Duration(i) * apart).Format(time.RFC3339), "message": map[string]any{"role": "user", "content": t.firstPrompt}},
 			benchAgentLine(fmt.Sprint(i) + benchReply),
 			{"type": "last-prompt", "lastPrompt": t.lastPrompt},
 		} {

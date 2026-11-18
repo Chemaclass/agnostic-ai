@@ -780,6 +780,47 @@ test('a slower older search never replaces the newer one', async ({ page }) => {
   await expect(row(page, 'Draft the release notes')).toHaveCount(0)
 })
 
+test('a search shows the newest matches while older weeks are still read', async ({ page }) => {
+  await openPanel(page, 'paged-search')
+  await page.getByLabel('Search every conversation').fill('the')
+
+  // Eight matches come two per page, each page 0.6 seconds after the one before.
+  await expect(row(page, 'Approve the database migration')).toBeVisible()
+  await expect(row(page, 'Write the onboarding guide')).toHaveCount(0)
+  await expect(page.locator('#summary')).toHaveText('Searching…')
+
+  await expect(row(page, 'Write the onboarding guide')).toBeVisible()
+  await expect(page.locator('#summary')).toHaveText('8 conversations match')
+})
+
+test('a search read again after a new list keeps its whole answer on screen', async ({ page }) => {
+  await openPanel(page, 'paged-search')
+  await page.getByLabel('Search every conversation').fill('the')
+  await expect(page.locator('#summary')).toHaveText('8 conversations match')
+
+  const readAgain = page.waitForResponse((response) => response.url().includes('q=the') && !response.url().includes('before='))
+  await page.request.post('/dev/arrive')
+  await readAgain
+  // The first page is in; a partial draw would have dropped the older weeks by now.
+  await page.waitForTimeout(300)
+  expect(await row(page, 'Write the onboarding guide').count()).toBe(1)
+  expect(await page.locator('#summary').textContent()).toBe('8 conversations match')
+})
+
+test('a page of an older search never draws over a newer one', async ({ page }) => {
+  await openPanel(page, 'paged-search')
+  const search = page.getByLabel('Search every conversation')
+  const olderPage = page.waitForRequest((request) => request.url().includes('q=the') && request.url().includes('before='))
+  await search.fill('the')
+  await olderPage
+  await search.fill('login')
+
+  await expect(row(page, 'Fix the login redirect')).toBeVisible()
+  await expect(page.locator('#summary')).toHaveText('1 conversation matches')
+  await page.waitForTimeout(1_500)
+  await expect(page.getByRole('option')).toHaveCount(1)
+})
+
 test('an empty inbox says so', async ({ page }) => {
   await openPanel(page, 'empty')
   await expect(page.getByText('No conversations yet')).toBeVisible()
