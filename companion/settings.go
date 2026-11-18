@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -76,7 +77,9 @@ func settingsPath() (string, error) {
 	return filepath.Join(dir, "agnostic-ai", "companion.json"), nil
 }
 
-// readSettings loads the file; a missing one is empty settings.
+// readSettings loads the file; a missing one is empty settings. A file
+// that does not parse is moved aside to companion.json.bad, so the
+// companion still starts, with empty settings.
 func readSettings(path string) (settings, error) {
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -87,7 +90,13 @@ func readSettings(path string) (settings, error) {
 	}
 	var s settings
 	if err := json.Unmarshal(raw, &s); err != nil {
-		return settings{}, fmt.Errorf("widget settings %s: %w", path, err)
+		aside := path + ".bad"
+		if moveErr := os.Rename(path, aside); moveErr != nil {
+			log.Printf("companion settings %s: %v; could not move it aside: %v", path, err, moveErr)
+		} else {
+			log.Printf("companion settings %s: %v; moved it to %s and started with the defaults", path, err, aside)
+		}
+		return settings{}, nil
 	}
 	return s, nil
 }
@@ -102,11 +111,29 @@ func writeSettings(path string, s settings) error {
 		return fmt.Errorf("write the companion settings: %w", err)
 	}
 	temp := path + ".tmp"
-	if err := os.WriteFile(temp, append(raw, '\n'), 0o600); err != nil {
+	if err := writeSynced(temp, append(raw, '\n')); err != nil {
 		return fmt.Errorf("write the companion settings: %w", err)
 	}
 	if err := os.Rename(temp, path); err != nil {
 		return fmt.Errorf("write the companion settings: %w", err)
 	}
 	return nil
+}
+
+// writeSynced writes the file and flushes it to disk, so a rename after
+// it never leaves an empty file behind a power cut.
+func writeSynced(path string, raw []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(raw); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
 }

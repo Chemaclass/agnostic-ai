@@ -217,8 +217,8 @@ change made in one shows in the other.
   two shortcuts cannot share keys: keys the other one uses are refused.
 - **Hide Agnostic AI companion** takes the circle and the list off the
   screen. The program keeps running and reading, so the shortcut still
-  works. The entry names the way back: the shortcut's keys, or
-  `agnostic-ai companion` while the shortcut is not active. Press the
+  works. While the shortcut is not active, the entry names the way back:
+  `agnostic-ai companion`. Press the
   shortcut, run `agnostic-ai companion`, or open the app again: the circle
   comes back where it was, at full color, and the list opens. When a
   conversation starts waiting for you, the circle comes back on its own,
@@ -333,7 +333,9 @@ Both are in the `agnostic-ai` folder of your user configuration folder
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
 - `companion.json`: where you left the circle, your shortcuts, whether it
-  animates, whether it dims when idle, and whether it is small.
+  animates, whether it dims when idle, and whether it is small. A file the
+  companion cannot read moves to `companion.json.bad`, and the companion
+  starts with the defaults.
 
 ## When it reads
 

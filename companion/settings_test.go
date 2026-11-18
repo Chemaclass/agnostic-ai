@@ -84,3 +84,22 @@ func TestSettings_KeepsDimOnAcrossAWrite(t *testing.T) {
 		t.Errorf("the other settings changed: %+v", read)
 	}
 }
+
+func TestSettings_MovesAFileThatDoesNotParseAsideAndStartsWithDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "companion.json")
+	if err := os.WriteFile(path, []byte(`{"shortcut":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(path)
+
+	if err != nil || saved.Shortcut != "" || saved.Bubble != nil {
+		t.Fatalf("readSettings = %+v, %v; want the defaults and no error", saved, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("the broken file is still at %s: %v", path, err)
+	}
+	if aside, err := os.ReadFile(path + ".bad"); err != nil || string(aside) != `{"shortcut":` {
+		t.Errorf("companion.json.bad = %q, %v; want the broken file kept", aside, err)
+	}
+}

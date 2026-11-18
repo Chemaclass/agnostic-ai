@@ -267,12 +267,12 @@ touch "`+stopped+`"`)
 }
 
 func TestServer_SaysWhyAgnosticAIDidNotStart(t *testing.T) {
-	fakeCommand(t, `echo "Error: unknown flag: --stop-with-stdin" >&2
+	fakeCommand(t, `echo "Error: the config folder is not readable" >&2
 exit 1`)
 
 	_, err := newServer().address()
 
-	if err == nil || err.Error() != "agnostic-ai serve stopped before it listened: Error: unknown flag: --stop-with-stdin" {
+	if err == nil || err.Error() != "agnostic-ai serve stopped before it listened: Error: the config folder is not readable" {
 		t.Errorf("err = %v", err)
 	}
 }

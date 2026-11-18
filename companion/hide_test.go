@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,6 +34,8 @@ type fakeWindow struct {
 	side int
 	// events are the names of the events the shell sent the window's page.
 	events []string
+	// screenless makes GetScreen fail, as before Wails lists the screens.
+	screenless bool
 }
 
 func newFakeWindow() *fakeWindow {
@@ -113,6 +116,9 @@ func (w *fakeWindow) EmitEvent(name string, _ ...any) bool {
 	return true
 }
 func (w *fakeWindow) GetScreen() (*application.Screen, error) {
+	if w.screenless {
+		return nil, errors.New("no screen yet")
+	}
 	return &application.Screen{WorkArea: application.Rect{Width: 1440, Height: 900}}, nil
 }
 

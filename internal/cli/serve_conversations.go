@@ -104,13 +104,14 @@ type conversationsHandler struct {
 	renameInTool func(ctx context.Context, c conversations.Conversation, title string) error
 	// logOut takes the lines serve logs, such as a name a tool did not take.
 	logOut io.Writer
-	// openReplyWait is how long an open may take to answer; tests shorten it.
+	// openReplyWait is how long an open or a send may take to answer;
+	// tests shorten it.
 	openReplyWait time.Duration
 }
 
-// conversationOpenReplyTimeout outlasts the companion's openTimeout in
-// companion/server.go, so an open slower than the server's write timeout
-// still answers.
+// conversationOpenReplyTimeout outlasts the companion's openTimeout and
+// sendTimeout in companion/server.go, so an open or a send slower than
+// the server's write timeout still answers.
 const conversationOpenReplyTimeout = 90 * time.Second
 
 func newConversationsHandler(root string, global bool) *conversationsHandler {
@@ -257,6 +258,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))
 	tooLarge := func(size string) {
 		writeEditJSON(w, http.StatusRequestEntityTooLarge, editError{Error: fmt.Sprintf("The text is %s the %d KB a send takes, so nothing was typed.", size, conversations.MaxSendBytes>>10)})
 	}

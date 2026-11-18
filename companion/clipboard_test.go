@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func copied(in *inbox, text string) {
@@ -192,6 +193,43 @@ func TestSend_SaysToUpgradeAServerWithoutTheEndpoint(t *testing.T) {
 	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
 
 	if rec.Code != http.StatusNotImplemented || strings.TrimSpace(rec.Body.String()) != `{"error":"The installed agnostic-ai cannot send text yet. Run: agnostic-ai companion install, or upgrade agnostic-ai."}` {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSend_SaysTheTextMayHaveBeenTypedWhenTheServerIsLate(t *testing.T) {
+	fake := &fakeAgnosticAI{hold: make(chan struct{})}
+	in, _ := connected(t, fake)
+	in.server.sendWait = 50 * time.Millisecond
+	copied(in, "hello")
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
+
+	if rec.Code != http.StatusGatewayTimeout || strings.TrimSpace(rec.Body.String()) != `{"error":"agnostic-ai took too long to answer. It may have been typed. Check the chat before sending again."}` {
+		t.Errorf("send = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSend_PassesAReworded404Back(t *testing.T) {
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverSendPath: {status: http.StatusNotFound, body: `{"error":"This chat left the list. Refresh the page."}`}}}
+	in, _ := connected(t, fake)
+	copied(in, "hello")
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
+
+	if rec.Code != http.StatusNotFound || rec.Body.String() != `{"error":"This chat left the list. Refresh the page."}` {
+		t.Errorf("send = %d %s; want the server's own answer, not a call to upgrade", rec.Code, rec.Body)
+	}
+}
+
+func TestSend_SaysToUpgradeWhenTheConversationsHandlerKnowsNoSend(t *testing.T) {
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverSendPath: {status: http.StatusNotFound, body: `{"error":"no endpoint at /api/conversations/send"}`}}}
+	in, _ := connected(t, fake)
+	copied(in, "hello")
+
+	rec := sendFrom(t, in, `{"tool":"claude","id":"a","hash":"`+copiedHash("hello", "")+`"}`)
+
+	if rec.Code != http.StatusNotImplemented {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
 	}
 }

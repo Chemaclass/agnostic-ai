@@ -153,7 +153,8 @@ func (s *shell) changeSendShortcut(keys string) error {
 }
 
 // changeShortcut swaps slot's keys for keys. The new keys are taken
-// first, so a refused shortcut leaves the old one working. Keys whose
+// first, so a refused shortcut leaves the old one working; a failed
+// release or save gives them back and keeps the old ones. Keys whose
 // last registration was refused are not held, so choosing them again
 // tries again: the problem clears only once the system takes them. The
 // other shortcut's keys are refused: one press cannot do both. Keys the
@@ -176,18 +177,27 @@ func (s *shell) changeShortcut(slot, other shortcutSlot, keys string) error {
 	if err := s.shortcuts.Register(keys, slot.pressed); err != nil {
 		return fmt.Errorf("%s cannot be used: %w", keys, err)
 	}
-	if keys != old && oldIsHeld {
+	if keys == old {
+		s.mu.Lock()
+		*slot.problem = ""
+		s.mu.Unlock()
+		return nil
+	}
+	if oldIsHeld {
 		if err := s.shortcuts.Unregister(old); err != nil {
+			_ = s.shortcuts.Unregister(keys)
 			return fmt.Errorf("release %s: %w", old, err)
 		}
 	}
-	s.mu.Lock()
-	*slot.problem = ""
-	s.mu.Unlock()
 	if err := s.changeSettings(func(saved *settings) { slot.save(saved, keys) }); err != nil {
+		_ = s.shortcuts.Unregister(keys)
+		if oldIsHeld {
+			s.registerShortcut(slot, nil)
+		}
 		return err
 	}
 	s.mu.Lock()
+	*slot.problem = ""
 	freed := keys != old && *other.problem != "" && other.keys(s.settings) == old
 	s.mu.Unlock()
 	if freed {

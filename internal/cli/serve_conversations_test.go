@@ -257,6 +257,44 @@ func TestConversationsHandler_AnswersAnOpenSlowerThanTheServerWriteTimeout(t *te
 	}
 }
 
+// slowProcesses takes delay to list the live sessions, as a scan of a large history does.
+type slowProcesses struct {
+	stillProcesses
+	delay time.Duration
+}
+
+func (p slowProcesses) AliveAmong(processes []conversations.ProcessRef) (map[int]bool, error) {
+	time.Sleep(p.delay)
+	return p.stillProcesses.AliveAmong(processes)
+}
+
+func TestConversationsHandler_AnswersASendSlowerThanTheServerWriteTimeout(t *testing.T) {
+	const unit = 10 * time.Millisecond
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.Processes = slowProcesses{delay: 45 * unit}
+	h.openReplyWait = 90 * unit
+	srv := newServeServer(h)
+	srv.ReadTimeout, srv.WriteTimeout = 10*unit, 30*unit
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Close() })
+	client := &http.Client{Timeout: h.openReplyWait - unit}
+
+	resp, err := client.Post("http://"+ln.Addr().String()+conversationSendPath, "application/json", strings.NewReader(`{"tool":"claude","id":"`+inProject+`","text":"hi"}`))
+	if err != nil {
+		t.Fatalf("send got no answer: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "nothing was typed") {
+		t.Errorf("send = %d %s; want it answered", resp.StatusCode, body)
+	}
+}
+
 func TestConversationsHandler_LogsAnOpenThatAnswersAfterItsCallerLeft(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
 	var logged lockedBuffer
@@ -375,20 +413,22 @@ func TestCompanionOpenLateWait_OutlastsTheOpenReplyTimeout(t *testing.T) {
 	}
 }
 
-func TestConversationOpenReplyTimeout_OutlastsTheCompanionOpenWait(t *testing.T) {
+func TestConversationOpenReplyTimeout_OutlastsTheCompanionOpenAndSendWaits(t *testing.T) {
 	source, err := os.ReadFile(filepath.Join("..", "..", "companion", "server.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	match := regexp.MustCompile(`const openTimeout = (\d+) \* time\.Second`).FindSubmatch(source)
-	if match == nil {
-		t.Fatal("companion/server.go no longer declares openTimeout in seconds; tie conversationOpenReplyTimeout to it again")
-	}
-	seconds, _ := strconv.Atoi(string(match[1]))
-	companionWait := time.Duration(seconds) * time.Second
+	for _, wait := range []string{"openTimeout", "sendTimeout"} {
+		match := regexp.MustCompile(`const ` + wait + ` = (\d+) \* time\.Second`).FindSubmatch(source)
+		if match == nil {
+			t.Fatalf("companion/server.go no longer declares %s in seconds; tie conversationOpenReplyTimeout to it again", wait)
+		}
+		seconds, _ := strconv.Atoi(string(match[1]))
+		companionWait := time.Duration(seconds) * time.Second
 
-	if conversationOpenReplyTimeout <= companionWait {
-		t.Errorf("an open answers within %s, but the companion waits %s", conversationOpenReplyTimeout, companionWait)
+		if conversationOpenReplyTimeout <= companionWait {
+			t.Errorf("an open or a send answers within %s, but the companion's %s is %s", conversationOpenReplyTimeout, wait, companionWait)
+		}
 	}
 }
 
