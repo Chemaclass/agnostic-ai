@@ -619,21 +619,17 @@ async function readEveryPage(asked, signal) {
 }
 
 /**
- * The search on its way, as {query, given, stale, staleFor}. A newer search gives it up, so the server stops working
- * on it. A new list while it reads only marks it stale: it runs once more when it settles, unless its answer already
+ * The search on its way, as {query, given, stale, staleFor, settled}. A newer search gives it up, so the server stops
+ * working on it. A new list while it reads only marks it stale: it runs once more when it settles, unless its answer already
  * follows that list (staleFor), so a search slower than the lists that keep arriving still finishes. A change the
  * person made restarts it, since its answer was read before.
  */
 let searchOnItsWay
 
-/** Counts the list reads begun, so a change can tell whether one began after it was sent. */
-let readsBegun = 0
-/** The last list read begun, as {number, query, done}. */
-let latestRead
 /** The last list read that landed, as {query, version}: a list event of that version brings nothing new. */
 let landed
 
-/** Reads the list again. `version` names the list an event announced; one already read is not read again. */
+/** Reads the list again. `version` names the list an event or a change announced; one already read is not read again. */
 async function refresh({ restart = false, version } = {}) {
   const asked = state.query
   if (!restart && version && landed?.version === version && landed.query === asked) return
@@ -643,19 +639,18 @@ async function refresh({ restart = false, version } = {}) {
     searchOnItsWay.stale = true
     return
   }
+  searchOnItsWay?.given.abort()
   let settle
-  latestRead = { number: ++readsBegun, query: asked, done: new Promise((resolve) => { settle = resolve }) }
+  const search = asked === '' ? undefined : { query: asked, given: new AbortController(), stale: false, settled: new Promise((resolve) => { settle = resolve }) }
+  searchOnItsWay = search
   try {
-    await readList(asked)
+    await readList(asked, search)
   } finally {
-    settle()
+    settle?.()
   }
 }
 
-async function readList(asked) {
-  searchOnItsWay?.given.abort()
-  const search = asked === '' ? undefined : { query: asked, given: new AbortController(), stale: false }
-  searchOnItsWay = search
+async function readList(asked, search) {
   let reply
   let problem
   try {
@@ -1006,31 +1001,27 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
 })
 
 /**
- * The companion answers a change once it holds the new list, and tells the pages first, so a read begun after
- * the change was sent already brings it: wait for that one. Otherwise read now; a search asks again.
+ * The companion answers a change once it holds the new list, naming its version: a list of that version already
+ * read, or a search on its way that will bring it, is not read again. Without a version, the list is read now.
  */
-async function afterChange(sent) {
-  if (latestRead?.number > sent && latestRead.query === state.query) {
-    for (let seen; seen !== latestRead;) {
-      seen = latestRead
-      await seen.done
-    }
-    // That read's draw waited while a tick or a rename showed.
-    draw()
-    return
-  }
-  await refresh({ restart: true })
+async function afterChange(version) {
+  const onItsWay = searchOnItsWay
+  await refresh({ restart: !version, version })
+  // The search on its way was only marked to run again if it does not bring this version.
+  if (searchOnItsWay === onItsWay) await onItsWay?.settled
+  // A read's draw waited while a tick or a rename showed.
+  draw()
 }
 
 async function markRow(conversation, mark) {
-  const sent = readsBegun
+  let version
   try {
-    await markConversation(conversation, mark)
+    ({ version } = await markConversation(conversation, mark))
   } catch (error) {
     sayFailure(error)
     return
   }
-  await afterChange(sent)
+  await afterChange(version)
 }
 
 /**
@@ -1045,9 +1036,9 @@ async function completeRow(conversation, row, button) {
   row.classList.add('is-completing')
   button.classList.add('is-done')
   const tickShown = new Promise((resolve) => setTimeout(resolve, DONE_MS))
-  const sent = readsBegun
+  let version
   try {
-    await markConversation(conversation, 'completed')
+    ({ version } = await markConversation(conversation, 'completed'))
   } catch (error) {
     state.completing.delete(key)
     row.classList.remove('is-completing')
@@ -1061,7 +1052,7 @@ async function completeRow(conversation, row, button) {
   state.completing.delete(key)
   // The row still shows its tick, so a list that left the row as it was must draw it again.
   state.drawn = undefined
-  await afterChange(sent)
+  await afterChange(version)
 }
 
 // Rename
@@ -1161,9 +1152,9 @@ async function saveRename(conversation) {
     return
   }
   renaming.saving = true
-  const sent = readsBegun
+  let version
   try {
-    await renameConversation(conversation, title)
+    ({ version } = await renameConversation(conversation, title))
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     renaming.saving = false
@@ -1173,7 +1164,7 @@ async function saveRename(conversation) {
     return
   }
   // The field stays, still saving, until the list with the new name is read.
-  await afterChange(sent)
+  await afterChange(version)
   // A rename started on another row meanwhile keeps its field.
   if (state.renaming !== renaming) return
   state.renaming = undefined
@@ -1305,23 +1296,23 @@ deleteGo.addEventListener('click', async () => {
   const conversation = deleteFor
   if (!conversation) return
   deleteGo.disabled = true
-  const sent = readsBegun
   let reply
+  let version
   try {
-    reply = await deleteConversation(conversation)
+    ({ body: reply, version } = await deleteConversation(conversation))
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     closeDeleteConfirm()
     // A refusal can list what is still on disk: it stays until dismissed, unlike the toast.
     showOpenFailure({ message: error.message }, NOTICES.notDeleted)
-    await afterChange(sent)
+    await afterChange()
     return
   }
   closeDeleteConfirm()
   const { message, note: problem } = deletedOf(reply)
   if (problem) showOpenFailure({ message: message + ' ' + problem }, NOTICES.notTidied)
   else say(message)
-  await afterChange(sent)
+  await afterChange(version)
 })
 
 /** A Mark all run is on its way, so another press does nothing. Each mark redraws the list, so the button cannot hold this. */
@@ -1336,19 +1327,20 @@ let markingAll = false
 async function markAll(rows, mark, keep = () => true) {
   if (markingAll) return
   markingAll = true
-  let sent = readsBegun
+  let version
   try {
     for (const [index, conversation] of rows.entries()) {
       if (!keep(conversation)) continue
-      sent = readsBegun
-      await markConversation(conversation, mark, { later: rows.slice(index + 1).some(keep) })
+      // Decided now: a row that stops being kept later leaves the last mark without a version, so the list
+      // is read at once and the poll's event brings the rest.
+      ({ version } = await markConversation(conversation, mark, { later: rows.slice(index + 1).some(keep) }))
     }
   } catch (error) {
     sayFailure(error)
   } finally {
     markingAll = false
   }
-  await afterChange(sent)
+  await afterChange(version)
 }
 
 let searchTimer

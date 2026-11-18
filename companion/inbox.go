@@ -15,6 +15,10 @@ import (
 // pollEvery is how often the companion asks the server whether the list changed.
 const pollEvery = 5 * time.Second
 
+// listVersionHeader names, on a change's answer, the version of the list
+// read after it; absent when that read did not end in time.
+const listVersionHeader = "List-Version"
+
 // changeWait bounds how long a mark, rename or delete waits for the list
 // it changed; past it the call answers and the poll loop brings the list.
 const changeWait = 3 * time.Second
@@ -278,8 +282,8 @@ type stillOpening struct {
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
 // is the one that opens, marks, renames and deletes. A mark, rename or
-// delete that worked answers once the list it changed is held, so the
-// page draws it right away. With read=later, such as each mark of a run
+// delete that worked answers once the list it changed is held, naming
+// that list's version, so the page draws it right away. With read=later, such as each mark of a run
 // but the last, it leaves that list to the poll loop.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -297,17 +301,19 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 		case err != nil || answer.status >= 300:
 		case r.URL.Query().Get("read") == "later":
 			in.refreshSoon()
-		default:
-			in.readAfterChange(r.Context())
+		case in.readAfterChange(r.Context()):
+			if version := in.version(); version != "" {
+				w.Header().Set(listVersionHeader, version)
+			}
 		}
 		in.answer(w, answer, err)
 	}
 }
 
-// readAfterChange reads the list a change made, for up to changeWait. A
-// poll read already running goes first. When the wait ends or the page
-// gives up, the poll loop reads the list instead.
-func (in *inbox) readAfterChange(ctx context.Context) {
+// readAfterChange reads the list a change made, for up to changeWait,
+// and says whether it did. A poll read already running goes first. When
+// the wait ends or the page gives up, the poll loop reads the list instead.
+func (in *inbox) readAfterChange(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, in.changeWait)
 	defer cancel()
 	read := make(chan struct{})
@@ -321,7 +327,9 @@ func (in *inbox) readAfterChange(ctx context.Context) {
 	}
 	if ctx.Err() != nil {
 		in.refreshSoon()
+		return false
 	}
+	return true
 }
 
 // answer writes the server's answer to a passed call, or why none came.

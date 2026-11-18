@@ -8,22 +8,35 @@ export class CallError extends Error {}
 export class GivenUp extends Error {}
 
 async function call(path, options) {
+  return (await answered(path, options)).body
+}
+
+/** A call's answer as {body, version}: version names the list the companion read after a change; undefined when it did not. */
+async function answered(path, options) {
   let response
   let body
   try {
     response = await fetch(path, options)
-    if (response.status === 204) return undefined
-    body = await response.json()
+    if (response.status !== 204) body = await response.json()
   } catch (cause) {
     if (options?.signal?.aborted) throw new GivenUp()
     throw new CallError('The companion could not reach its own shell.', { cause })
   }
   if (!response.ok) throw new CallError(body.error)
-  return body
+  return { body, version: response.headers.get('List-Version') || undefined }
+}
+
+function postOptions(body) {
+  return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }
 }
 
 function post(path, body) {
-  return call(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) })
+  return call(path, postOptions(body))
+}
+
+/** A change: the companion answers once it holds the list the change made, as {body, version}. */
+function change(path, body) {
+  return answered(path, postOptions(body))
 }
 
 /**
@@ -53,20 +66,21 @@ export const readLateOpenFailure = () => call('/api/open/late')
 export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
 
 /**
- * mark is `seen`, `completed` or `hidden`. The companion answers once it holds the list the mark changed;
- * with `later`, such as each mark of a run but the last, it answers at once and reads the list soon after.
+ * mark is `seen`, `completed` or `hidden`; answers {version}. With `later`, such as each mark of a run but the
+ * last, the companion answers at once, with no version, and reads the list soon after.
  */
 export function markConversation(conversation, mark, { later = false } = {}) {
-  return post(later ? '/api/mark?read=later' : '/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })
+  return change(later ? '/api/mark?read=later' : '/api/mark', { tool: conversation.tool, id: conversation.id, as: mark })
 }
 
+/** Answers {version}. */
 export function renameConversation(conversation, title) {
-  return post('/api/rename', { tool: conversation.tool, id: conversation.id, title })
+  return change('/api/rename', { tool: conversation.tool, id: conversation.id, title })
 }
 
-/** Deletes an archived chat from this computer for good: `{deleted, freedBytes?, note?}`. */
+/** Deletes an archived chat from this computer for good. Answers {body, version}; body is `{deleted, freedBytes?, note?}`. */
 export function deleteConversation(conversation) {
-  return post('/api/delete', { tool: conversation.tool, id: conversation.id })
+  return change('/api/delete', { tool: conversation.tool, id: conversation.id })
 }
 
 /** What was copied, without all of it: {preview, words, chars, hash}; words is 0 when no text was copied. */

@@ -229,6 +229,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     }
     if (marked.fixture.rereadMs) await new Promise((done) => setTimeout(done, marked.fixture.rereadMs))
     if (state === marked) listChanged(read)
+    response.setHeader('List-Version', state.version)
     noContent(response)
   }
 
@@ -240,6 +241,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
     row.title = body.title
     listChanged()
+    response.setHeader('List-Version', state.version)
     noContent(response)
   }
 
@@ -255,6 +257,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (row.deleteUnsupported) return sendJSON(response, 422, { error: row.deleteUnsupported, reason: 'unsupported' })
     state.conversations = state.conversations.filter((other) => other !== row)
     listChanged()
+    response.setHeader('List-Version', state.version)
     sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
   }
 

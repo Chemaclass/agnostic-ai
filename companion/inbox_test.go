@@ -231,11 +231,11 @@ func TestInbox_PassesAMarkToTheServerAndItsAnswerBack(t *testing.T) {
 	gone := post(`{"tool":"claude","id":"gone","as":"completed"}`)
 	heldAfter(t, in, "a refused mark", `{"posts":1}`)
 
-	if done.Code != http.StatusNoContent || done.Body.Len() != 0 {
-		t.Errorf("a mark the server kept = %d %s", done.Code, done.Body)
+	if done.Code != http.StatusNoContent || done.Body.Len() != 0 || done.Header().Get(listVersionHeader) != `"v1"` {
+		t.Errorf("a mark the server kept = %d %s, list version %q", done.Code, done.Body, done.Header().Get(listVersionHeader))
 	}
-	if gone.Code != http.StatusNotFound || gone.Body.String() != `{"error":"That conversation is not in this list any more. Refresh the page."}` {
-		t.Errorf("a mark the server refused = %d %s", gone.Code, gone.Body)
+	if gone.Code != http.StatusNotFound || gone.Body.String() != `{"error":"That conversation is not in this list any more. Refresh the page."}` || gone.Header().Get(listVersionHeader) != "" {
+		t.Errorf("a mark the server refused = %d %s, list version %q", gone.Code, gone.Body, gone.Header().Get(listVersionHeader))
 	}
 	if sent := fake.posts[serverMarkPath]; len(sent) != 2 || sent[0] != `application/json {"tool":"claude","id":"a","as":"completed"}` {
 		t.Errorf("the server received %q", sent)
@@ -281,8 +281,8 @@ func TestInbox_AKeptMarkAnswersWithoutWaitingLongForTheList(t *testing.T) {
 
 	in.pass(serverMarkPath)(rec, httptest.NewRequest(http.MethodPost, "/api/mark", strings.NewReader(`{"tool":"claude","id":"a","as":"completed"}`)))
 
-	if took := time.Since(began); rec.Code != http.StatusNoContent || took > 2*time.Second {
-		t.Errorf("a kept mark whose list read hangs = %d after %s; want 204 at once", rec.Code, took)
+	if took := time.Since(began); rec.Code != http.StatusNoContent || took > 2*time.Second || rec.Header().Get(listVersionHeader) != "" {
+		t.Errorf("a kept mark whose list read hangs = %d after %s, list version %q; want 204 at once and no version", rec.Code, took, rec.Header().Get(listVersionHeader))
 	}
 	select {
 	case <-in.refresh:
@@ -406,11 +406,12 @@ func TestServer_SaysWhenTheCommandIsMissing(t *testing.T) {
 
 func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 	for name, tc := range map[string]struct {
-		answer fakeAnswer
-		held   string
+		answer  fakeAnswer
+		held    string
+		version string
 	}{
-		"deleted": {fakeAnswer{http.StatusOK, `{"deleted":true,"freedBytes":12000000}`}, `{"posts":1}`},
-		"refused": {fakeAnswer{http.StatusConflict, `{"error":"This conversation is still running. Close it in Claude Code, then delete it.","reason":"running"}`}, `{"posts":0}`},
+		"deleted": {fakeAnswer{http.StatusOK, `{"deleted":true,"freedBytes":12000000}`}, `{"posts":1}`, `"v1"`},
+		"refused": {fakeAnswer{http.StatusConflict, `{"error":"This conversation is still running. Close it in Claude Code, then delete it.","reason":"running"}`}, `{"posts":0}`, ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverDeletePath: tc.answer}}
@@ -429,6 +430,9 @@ func TestInbox_PassesADeleteToTheServerAndItsAnswerBack(t *testing.T) {
 				t.Errorf("the server received %q", sent)
 			}
 			heldAfter(t, in, "the delete", tc.held)
+			if version := rec.Header().Get(listVersionHeader); version != tc.version {
+				t.Errorf("list version = %q; want %q", version, tc.version)
+			}
 		})
 	}
 }
