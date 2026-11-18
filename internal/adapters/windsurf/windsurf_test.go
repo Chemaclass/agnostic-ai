@@ -258,8 +258,8 @@ func TestEmit_RulesDirOverride_KeepsLegacyWindsurfTree(t *testing.T) {
 	}
 }
 
-// `.devinignore` is the file Devin reads for indexing and agent file
-// access. `.codeiumignore` is a legacy name, reachable through the
+// `.devinignore` controls indexing, Tab, and DeepWiki, not file tools.
+// `.codeiumignore` has the same effect and is reachable through the
 // ignore-file override (docs.devin.ai/desktop/context-awareness/devin-ignore).
 func TestEmit_IgnoreFile_WritesDevinignore(t *testing.T) {
 	dir := t.TempDir()
@@ -304,11 +304,8 @@ func TestEmit_IgnoreFileOverride(t *testing.T) {
 	}
 }
 
-// `.windsurfignore` is a legacy name Devin still enforces: "The legacy
-// `.windsurfignore` and `.codeiumignore` filenames are still read and
-// enforced alongside `.devinignore`." Older Windsurf builds honored only
-// it for agent file access, so one Ignore spec writes both (target-audit
-// 2026-09-18, #863; 2026-09-24, #1115).
+// `.windsurfignore` remains a compatibility output for older Windsurf
+// builds. Current Devin Desktop does not read this filename.
 func TestEmit_IgnoreFile_AlsoWritesWindsurfignoreForTheAgent(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -332,8 +329,8 @@ func TestEmit_IgnoreFile_AlsoWritesWindsurfignoreForTheAgent(t *testing.T) {
 	}
 }
 
-// Pointed at `.windsurfignore` itself, the one file covers both
-// surfaces and is written once.
+// Pointed at `.windsurfignore` itself, sync writes the compatibility
+// filename once.
 func TestEmit_IgnoreFileOverriddenToWindsurfignore_WritesOneFile(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

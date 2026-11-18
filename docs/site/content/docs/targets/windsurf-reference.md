@@ -62,10 +62,11 @@ An always-on rule has no frontmatter. Devin treats a file without frontmatter as
 
 ### Ignore
 
-Ignore specs are written as `.devinignore` and `.windsurfignore`, in gitignore syntax under a `#` header comment. Devin skips matched paths when indexing and cannot view, edit, or create files there ([`.devinignore` docs](https://docs.devin.ai/desktop/context-awareness/devin-ignore)).
+Ignore specs are written as `.devinignore` and `.windsurfignore`, in gitignore syntax under a `#` header comment. Devin Desktop excludes paths matched by `.devinignore` from indexing, Tab, and DeepWiki. The file does not block Devin Local's file tools ([`.devinignore` docs](https://docs.devin.ai/desktop/context-awareness/devin-ignore)).
 
-- Devin still enforces the legacy `.windsurfignore` and `.codeiumignore`. `outputs.windsurf.ignore-file: .codeiumignore` writes that name instead of `.devinignore`.
-- `.windsurfignore` is for older Windsurf builds, where only it blocked agent file access. Sync always writes it, unless `outputs.windsurf.ignore-file` names it. That key moves only the main file.
+- Current Devin Desktop also reads `.codeiumignore`, with the same effect as `.devinignore`. `outputs.windsurf.ignore-file: .codeiumignore` writes that name instead of `.devinignore`.
+- Current Devin Desktop does not read `.windsurfignore`. Sync keeps that copy for older Windsurf builds, unless `outputs.windsurf.ignore-file` names it. That key moves only the main file.
+- Devin documents a separate file-tool restriction: add paths to `.gitignore`, turn off **Gitignore access**, and start a new Devin Local session. This does not restrict shell commands or search tools. Sync leaves that access setting unchanged.
 
 ### MCP
 

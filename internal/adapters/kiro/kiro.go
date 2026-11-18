@@ -137,8 +137,9 @@
 // adapter writes both unconfirmed, the same as every other target
 // sharing this builder. A remote server additionally carries
 // `oauth` (`clientId`, `clientSecret`, `redirectUri`,
-// `clientMetadataUrl`, `oauthScopes`) and the top-level `oauthScopes`
-// fallback; an explicitly empty `oauthScopes: []` emits as written,
+// `clientMetadataUrl`, `oauthScopes`) and top-level `oauthScopes`.
+// Scope precedence depends on the client and version; set one list.
+// An explicitly empty `oauthScopes: []` emits as written,
 // since kiro.dev/docs/mcp/configuration/ makes that the documented
 // remedy for OAuth scope errors (target-audit 2026-08-27, #634).
 //
