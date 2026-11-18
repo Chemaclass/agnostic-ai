@@ -253,6 +253,12 @@ export function withTitle(view, key, title) {
   return { ...view, conversations }
 }
 
+/** The view with the row at `key` in `state`, so a mark shows before the next list arrives. */
+export function withState(view, key, state) {
+  const conversations = view.conversations.map((conversation) => (keyOf(conversation) === key ? { ...conversation, state } : conversation))
+  return { ...view, conversations }
+}
+
 /**
  * The rows of each group that has any, in list order, except that a conversation started from another
  * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
@@ -394,6 +400,16 @@ export function stillWaits(view, shown) {
   const key = keyOf(shown)
   const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
   return current !== undefined && (Boolean(NEEDS_PERSON[current.state]) || current.unread === true) && current.updatedAt === shown.updatedAt
+}
+
+/**
+ * Whether a row shown under Active may still be marked complete: the latest list holds it unchanged and still active.
+ * A row that got a reply or started working since it was drawn holds something the person has not seen, so it stays.
+ */
+export function stillActive(view, shown) {
+  const key = keyOf(shown)
+  const current = view?.conversations.find((conversation) => keyOf(conversation) === key)
+  return current !== undefined && current.state === 'active' && current.updatedAt === shown.updatedAt
 }
 
 /**

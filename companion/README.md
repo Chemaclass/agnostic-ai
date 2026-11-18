@@ -89,7 +89,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   takes one that is already archived out of the list. A working chat has no
   mark complete button, since the work would bring it back at once. The tick turns green for a
   moment when you mark a chat complete. **Mark all complete** beside Active
-  archives every active chat at once, with no tick.
+  archives every active chat at once, with no tick. A chat that got a reply
+  or started working since the list was drawn keeps its place.
 - **Right-click** a row and choose **Rename…**, click the pencil, or press
   **F2** to give the chat your own name. **Enter** saves it and **Esc** keeps
   the old one. An empty name is
@@ -101,13 +102,15 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
 - **Mark all as read** beside Needs you does the same for every chat that
-  group shows, after the search and the All, Local or Cloud choice. A chat
+  group shows, after the search and the All, Local or Cloud choice. It shows
+  only while the group is unfolded. A chat
   that got a new message since the list was drawn keeps its place. If a mark
   fails, the run stops there, those rows stay, and the list says why. The
   list holds every unread or waiting chat of any age, so with All chosen and
   no search the circle shows zero after the run.
 - On a chat under Archived, the same menu offers **Delete permanently…**. It
-  asks first, then removes the chat from this computer. Only local Claude
+  asks first, then removes the chat from this computer. Cancel, Escape or a
+  click outside the question keeps the chat. Only local Claude
   Code chats can be deleted for now; the others say why. See
   [what is removed and what stays](../docs/site/content/docs/cli-reference/companion-list.md#delete-an-archived-chat).
 - An archived chat comes back when you open it, when something new is
@@ -129,6 +132,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
     a search.
   - The first chat the text can be typed into is selected. Nothing is sent
     until you press Enter or click.
+  - A click on a subagent row sends the text to the chat it runs in.
   - A live chat in a Terminal or Ghostty tab gets the text typed in, and the
     list hides. For any other chat, the companion switches to it and says to
     paste with Cmd+V: the clipboard still holds the text.

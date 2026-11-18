@@ -40,6 +40,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - When something you asked for fails in the companion, such as an open, a send, a mark, a rename or a delete, its message now has a red border and a warning icon, and a screen reader reads it out at once. A message about something that worked, such as "Switched to it. Paste with Cmd+V.", keeps the neutral look. (#3531)
 - The companion circle shows when a chat is stuck waiting for you: its count turns solid orange with a lock and an orange halo, while unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". Under Needs you, chats waiting for a permission come first, then those waiting for an answer, then unread replies; a chat started from another one stays under it. (#3533)
 - A chat deleted in Claude Code, Codex or `cursor-agent` loses its marks once full reads of its store have missed it for 30 days, counted from the first miss, and its own file is gone. A pause of more than 8 days between reads starts the 30 days again. A failed, partial or empty read never removes a mark, and a server that reads another store leaves it alone. Claude chats, ChatGPT chats, Cursor editor chats and cloud sessions keep theirs, since the server cannot read their whole list. A chat restored after its marks went shows as unread, without its chosen name. The marks file now keeps fields it does not know. (#3540)
+- The companion list no longer marks, opens or archives a chat that is out of sight or changed since it was drawn, and a slow search finishes. (#3591)
+- The companion list names the selected chat to screen readers, its menus take arrow keys and Tab, and a failed circle click shows the trouble state. (#3591)
 
 #### Sending copied text
 
@@ -47,6 +49,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Press Ctrl+Alt+V in any app to send what you copied. The companion list opens to pick a chat. When exactly one chat can take typed text, the text goes straight there and the list hides. Change the keys in the list's ⋯ menu under **Send copied text**. (#3517)
 - The send picker never offers an archived chat, also not in a search, and its banner says what a click or Enter does, such as "Click a chat or press Enter to paste these 14 words there". Enter does nothing while a search is on its way; its answer keeps the selected chat when it still matches, else selects the first. The send shortcut sends straight only to a chat you can see, not one in a folded group. A clipboard that cannot be read says so plainly and sends nothing. (#3550)
 - Text copied from a web page goes as Markdown when it holds links, tables, code blocks, headings or lists, and the reply after the send says so. Scripts, styles and images are left out, a link keeps its target only for a short web or mail address, and a page whose HTML shows words the copied text does not, or in another order, goes as plain text. After a paste into Terminal, the clipboard holds the Markdown. `POST /api/conversations/send` takes the copied HTML in an optional `html` field. macOS only. (#3517)
+- In the send picker, a click on a subagent row sends the text to its chat instead of opening it. (#3591)
 
 #### Opening and resuming chats
 

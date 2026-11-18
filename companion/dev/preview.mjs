@@ -38,6 +38,8 @@ function fixtureState(name, now) {
     name,
     fixture,
     conversations,
+    /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */
+    polled: structuredClone(conversations),
     preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false },
     appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
     /** What waited in the last list, as the shell remembers it. */
@@ -159,7 +161,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   }
 
   /** Like the shell: the pages read the new list, and a chat that starts waiting brings a hidden circle back faded. */
-  function listChanged() {
+  function listChanged(polled = state.conversations) {
+    state.polled = structuredClone(polled)
     emit('inbox')
     const now = waitingIn(state.conversations)
     const gained = [...now].some((key) => !state.waitingSeen.has(key))
@@ -184,13 +187,17 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
     const query = url.searchParams.get('q')
     const note = state.fixture.note
-    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.conversations), note })
+    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note })
     const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+    // Like the server: a slow search answers with the rows as they were when it was asked.
+    const asked = state
+    const read = structuredClone(state.conversations.filter((row) => matches(row, words)))
     const wait = slowness(state, query.toLowerCase())
     if (wait > 0) await new Promise((done) => setTimeout(done, wait))
     // The page gave this search up; a fixture chosen meanwhile answers with its own rows.
     if (response.destroyed) return
-    sendJSON(response, 200, { view: viewOf(state, state.conversations.filter((row) => matches(row, words)), query), note })
+    const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
+    sendJSON(response, 200, { view: viewOf(state, rows, query), note })
   }
 
   async function mark(request, response) {
@@ -205,7 +212,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     else if (body.as === 'seen' && row.unread) delete row.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
     noContent(response)
-    listChanged()
+    // Like the shell: a mark asks for a new list, which the server reads before the event goes out.
+    const marked = state
+    const read = structuredClone(state.conversations)
+    if (marked.fixture.rereadMs) setTimeout(() => state === marked && listChanged(read), marked.fixture.rereadMs)
+    else listChanged()
   }
 
   async function rename(request, response) {

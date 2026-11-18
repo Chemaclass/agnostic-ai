@@ -1481,3 +1481,240 @@ test('a folded Archived names its chat that closed unread, and Mark all as read,
   await page.locator('.group-head').filter({ hasText: 'Archived' }).getByRole('button', { name: 'Mark all as read' }).click()
   await expect(groupTitle(page, 'Archived')).not.toContainText('unread')
 })
+
+test('a folded Needs you offers no Mark all as read, so no row nobody saw is marked', async ({ page }) => {
+  await openPanel(page, 'needs-you')
+  await expect(markAllRead(page)).toHaveCount(1)
+  await groupTitle(page, 'Needs you').click()
+  await expect(needsYou(page)).toHaveCount(0)
+  await expect(markAllRead(page)).toHaveCount(0)
+
+  await groupTitle(page, 'Needs you').click()
+  await expect(markAllRead(page)).toHaveCount(1)
+})
+
+test('Enter opens nothing once the selected row was marked complete and folded away', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Fix the login redirect')
+  await target.hover()
+  await expect(selected(page)).toContainText('Fix the login redirect')
+  await completeButton(target).click()
+  // The pointer leaves the list, so no other row is selected by hovering.
+  await page.mouse.move(1, 1)
+  await expect(target).toBeHidden()
+
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('F2')
+  await expect(page.getByLabel('New name')).toHaveCount(0)
+  await page.waitForTimeout(300)
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/open')
+})
+
+test('mark all complete skips a row that got a reply after it was drawn', async ({ page }) => {
+  await openPanel(page)
+  const marks = markBodies(page)
+  let first = true
+  await page.route('**/api/mark', async (route) => {
+    if (first) {
+      first = false
+      // Plan the sync dry run gets a reply while the first mark is on its way.
+      expect((await page.request.post('/dev/write', { data: { tool: 'claude', id: 'active-2' } })).ok()).toBe(true)
+      await expect(needsYou(page).filter({ hasText: 'Plan the sync dry run' })).toBeVisible()
+    }
+    await route.continue()
+  })
+  await page.getByRole('button', { name: 'Mark all complete' }).click()
+
+  await expect(groupTitle(page, 'Active')).toHaveCount(0)
+  await expect(needsYou(page).filter({ hasText: 'Plan the sync dry run' })).toBeVisible()
+  expect(marks).toEqual([
+    { tool: 'cursor', id: 'active-1', as: 'completed' },
+    { tool: 'claude', id: 'cloud-1', as: 'completed' },
+  ])
+})
+
+test('a row marked complete moves to Archived as the tick ends, before the new list arrives', async ({ page }) => {
+  await openPanel(page, 'slow-reread')
+  const target = row(page, 'Fix the login redirect')
+  await target.hover()
+  await completeButton(target).click()
+  await expect(target.locator('.action.is-done')).toBeVisible()
+
+  // The fixture sends the new list 1.5 seconds after the mark; the tick lasts about half a second.
+  await expect(target).toBeHidden({ timeout: 1_200 })
+  await page.waitForTimeout(1_000)
+  await expect(target).toBeHidden()
+  await groupTitle(page, 'Archived').click()
+  await expect(target).toBeVisible()
+})
+
+test('in pick mode a subagent row sends the copied text to its chat and opens nothing', async ({ page }) => {
+  await openPanel(page, 'helpers')
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+  await row(page, 'Rename chats').getByRole('button', { name: '▸ 7 subagents' }).click()
+
+  const copied = await (await page.request.get('/api/clipboard')).json()
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
+  await page.locator('.helper-row').filter({ hasText: 'Review #3511' }).click()
+  expect((await sent).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', hash: copied.hash })
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('Enter twice in a rename sends one rename', async ({ page }) => {
+  await openPanel(page)
+  const renames: unknown[] = []
+  let release: () => void = () => {}
+  const held = new Promise<void>((done) => { release = done })
+  await page.route('**/api/rename', async (route) => {
+    renames.push(route.request().postDataJSON())
+    await held
+    await route.continue()
+  })
+  await row(page, 'Plan the sync dry run').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Rename…' }).click()
+  const field = page.getByLabel('New name')
+  await field.fill('Ship the dry run')
+  await field.press('Enter')
+  await expect.poll(() => renames.length).toBe(1)
+  await field.press('Enter')
+  release()
+
+  await expect(row(page, 'Ship the dry run')).toBeVisible()
+  expect(renames).toEqual([{ tool: 'claude', id: 'active-2', title: 'Ship the dry run' }])
+})
+
+test('a slow search finishes while new lists keep arriving', async ({ page }) => {
+  await openPanel(page, 'slow-search')
+  let arriving = true
+  const arrivals = (async () => {
+    while (arriving) {
+      await page.request.post('/dev/arrive')
+      await new Promise((done) => setTimeout(done, 400))
+    }
+  })()
+  await page.getByLabel('Search every conversation').fill('release')
+  // The fixture answers "release" after 1.5 seconds, while a new list arrives every 0.4 seconds.
+  await expect(row(page, 'Draft the release notes')).toBeVisible({ timeout: 4_000 })
+  arriving = false
+  await arrivals
+})
+
+test('the search field names the selected row for a screen reader', async ({ page }) => {
+  await openPanel(page)
+  const search = page.getByLabel('Search every conversation')
+  await expect(search).toHaveAttribute('aria-controls', 'list')
+  await expect(search).not.toHaveAttribute('aria-activedescendant')
+  await page.keyboard.press('ArrowDown')
+  const id = await selected(page).getAttribute('id')
+  expect(id).toBeTruthy()
+  await expect(search).toHaveAttribute('aria-activedescendant', id!)
+  await page.keyboard.press('ArrowDown')
+  await expect(search).toHaveAttribute('aria-activedescendant', (await selected(page).getAttribute('id'))!)
+})
+
+test('the arrow keys move through the row menu in the order it shows', async ({ page }) => {
+  await openArchived(page, 'archived-shared')
+  await row(page, 'Ship the retry queue').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Open on claude.ai' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(deleteItem(page)).toBeFocused()
+})
+
+test('the arrow keys move through the row menu and wrap around', async ({ page }) => {
+  await openPanel(page)
+  await row(page, 'Approve the database migration').click({ button: 'right' })
+  const read = page.getByRole('menuitem', { name: 'Mark as read' })
+  const rename = page.getByRole('menuitem', { name: 'Rename…' })
+  await expect(read).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(rename).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(read).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(rename).toBeFocused()
+  await expect(selected(page)).toContainText('Approve the database migration')
+})
+
+test('the delete question keeps Tab on its buttons and closes on a click outside it', async ({ page }) => {
+  await openArchived(page)
+  const sent = deletesSent(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await deleteItem(page).click()
+  const cancel = deleteDialog(page).getByRole('button', { name: 'Cancel' })
+  const go = deleteDialog(page).getByRole('button', { name: 'Delete permanently' })
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(go).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(go).toBeFocused()
+
+  await page.getByLabel('Search every conversation').click()
+  await expect(deleteDialog(page)).toBeHidden()
+  expect(sent).toEqual([])
+})
+
+test('a click on the circle when the shell cannot be reached shows the trouble state', async ({ page }) => {
+  await openPanel(page)
+  await page.goto('/index.html')
+  await expect(page.locator('#bubble')).not.toHaveClass(/is-troubled/)
+  await page.route('**/api/panel/toggle', (route) => route.abort())
+  const errors: Error[] = []
+  page.on('pageerror', (error) => errors.push(error))
+  await page.locator('#bubble').click()
+
+  await expect(page.locator('#bubble')).toHaveClass(/is-troubled/)
+  await expect(page.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: The companion could not reach its own shell.')
+  expect(errors).toEqual([])
+})
+
+test('a rename during a slow search is not undone by the search that was already on its way', async ({ page }) => {
+  await openPanel(page, 'slow-search')
+  await page.getByLabel('Search every conversation').fill('release')
+  await expect(row(page, 'Draft the release notes')).toBeVisible({ timeout: 4_000 })
+  await row(page, 'Draft the release notes').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Rename…' }).click()
+  await page.getByLabel('New name').fill('Draft the release plan')
+
+  // A new list starts the search again; its answer holds the old name.
+  const again = page.waitForRequest((request) => request.url().includes('q=release'))
+  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  await again
+  await page.getByLabel('New name').press('Enter')
+  await expect(row(page, 'Draft the release plan')).toBeVisible()
+  // The fixture answers "release" 1.5 seconds after it was asked; the old name must not come back meanwhile.
+  const titles = new Set<string>()
+  for (const end = Date.now() + 3_500; Date.now() < end; await page.waitForTimeout(100)) {
+    for (const title of await page.locator('#list .row .title').allTextContents()) titles.add(title)
+  }
+  expect([...titles]).toEqual(['Draft the release plan'])
+  await expect(row(page, 'Draft the release plan')).toBeVisible()
+})
+
+test('a click on the circle that works after one that failed clears the trouble state', async ({ page }) => {
+  await openPanel(page)
+  await page.goto('/index.html')
+  await page.route('**/api/panel/toggle', (route) => route.abort())
+  await page.locator('#bubble').click()
+  await expect(page.locator('#bubble')).toHaveClass(/is-troubled/)
+
+  await page.unroute('**/api/panel/toggle')
+  await page.locator('#bubble').click()
+  await expect(page.locator('#bubble')).not.toHaveClass(/is-troubled/)
+})
+
+test('in pick mode a subagent row says it pastes into its chat', async ({ page }) => {
+  await openPanel(page, 'helpers')
+  const helper = page.locator('.helper-row').filter({ hasText: 'Review #3511' })
+  await row(page, 'Rename chats').getByRole('button', { name: '▸ 7 subagents' }).click()
+  await expect(helper).toHaveAttribute('title', 'Open this Codex thread')
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(pickBanner(page)).toBeVisible()
+  await expect(helper).toHaveAttribute('title', 'Paste the copied text into the chat it runs in')
+})

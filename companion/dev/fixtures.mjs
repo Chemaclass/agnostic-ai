@@ -163,6 +163,7 @@ function approvals(now) {
  * openProblem (a conversation that did not open) with its openCommand,
  * sendProblem (the send call fails), unsent (nothing was typed and the conversation was not switched to),
  * slowQueries (queries that contain the word wait that many milliseconds),
+ * rereadMs (after a mark, the list stays the one polled before it for that many milliseconds, then the new one arrives),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
  * openPending (the server did not answer an open in time, so nobody knows yet whether it opened),
  * lateOpenProblem (such an open fails later, with openCommand, once POST /dev/settle-late-opens),
@@ -237,6 +238,10 @@ export const FIXTURES = {
     markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
   },
   archived: { label: 'Archived chats to delete', conversations: archived },
+  'archived-shared': {
+    label: 'An archived chat that was also on claude.ai, so its menu offers both the page and delete',
+    conversations: (now) => [...archived(now), { ...conversation(now, 'claude', 'done-rc', 'Ship the retry queue', 'completed', { minutesAgo: 2 * 24 * 60, shared: 'cse_done' }), live: false }],
+  },
   'one-terminal': {
     label: 'One chat runs in a Ghostty tab, so pick mode starts on it',
     conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
@@ -310,6 +315,11 @@ export const FIXTURES = {
     label: 'Slow search for "release"',
     conversations: mixed,
     slowQueries: { release: 1500 },
+  },
+  'slow-reread': {
+    label: 'A mark reaches the list 1.5 seconds later',
+    conversations: mixed,
+    rereadMs: 1500,
   },
   'slow-open': {
     label: 'Open the server is slow to answer',

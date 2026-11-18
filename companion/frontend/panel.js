@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, withTitle, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, withState, withTitle, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -29,6 +29,7 @@ const STAGGERED_ROWS = 12
 const DONE_MS = 520
 
 const PLACE_KEY = 'place'
+const KEY_STEPS = { ArrowDown: 1, ArrowUp: -1 }
 
 /** The place chosen last time, or all. A web view that keeps no storage starts at all each run. */
 function storedPlace() {
@@ -228,6 +229,7 @@ function rowOf(conversation, order, folderNames, under) {
   row.classList.toggle('is-nested', under !== undefined)
   row.classList.toggle('has-workers', conversation.workingSubagents > 0)
   row.dataset.key = key
+  row.id = rowId(key)
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
@@ -341,6 +343,10 @@ function helpersId(key) {
   return 'helpers-' + key.replace(/[^A-Za-z0-9_-]/g, '-')
 }
 
+function rowId(key) {
+  return 'row-' + key.replace(/[^A-Za-z0-9_-]/g, '-')
+}
+
 /** A subagent's mark: the working gyroscope, since only working subagents are listed. */
 function helperMark() {
   const mark = element('span', 'state is-working')
@@ -360,9 +366,10 @@ function helperList(conversation, key, now) {
     row.type = 'button'
     const text = element('span', 'text')
     text.append(element('span', 'title', helperTitleOf(helper)), element('span', 'meta', helperDetailsOf(helper, now)))
-    row.title = helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in'
+    if (state.pick) row.title = 'Paste the copied text into the chat it runs in'
+    else row.title = helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in'
     row.append(helperMark(), text)
-    row.addEventListener('click', () => openRow(helperOpenOf(conversation, helper)))
+    row.addEventListener('click', () => (state.pick ? chooseRow(conversation) : openRow(helperOpenOf(conversation, helper))))
     box.append(row)
   }
   if (more > 0) {
@@ -427,7 +434,7 @@ function groupHead(group) {
   })
   const head = element('div', 'group-head')
   head.append(title)
-  if (group.id === 'needs-you') {
+  if (group.id === 'needs-you' && !folded) {
     const all = element('button', 'group-action', 'Mark all as read')
     all.type = 'button'
     all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
@@ -446,7 +453,7 @@ function groupHead(group) {
     const all = element('button', 'group-action', 'Mark all complete')
     all.type = 'button'
     all.title = 'Mark every active conversation complete, until something new is written in it or it starts working'
-    all.addEventListener('click', () => markAll(group.rows, 'completed'))
+    all.addEventListener('click', () => markAll(group.rows, 'completed', (conversation) => stillActive(state.view, conversation)))
     head.append(all)
   }
   return head
@@ -485,6 +492,7 @@ function draw({ force } = { force: false }) {
     const waiting = element('div', 'empty is-searching')
     waiting.append(element('strong', '', 'Searching…'), 'Looking through every conversation.')
     list.replaceChildren(waiting)
+    announceActive()
     return
   }
   if (!view) {
@@ -492,6 +500,7 @@ function draw({ force } = { force: false }) {
     state.drawn = undefined
     summary.textContent = ''
     list.replaceChildren()
+    announceActive()
     return
   }
   // The quiet notes go in too: a silent chat's "No activity for 7m" tooltip changes with no new row data.
@@ -509,6 +518,7 @@ function draw({ force } = { force: false }) {
   if (groups.length === 0) {
     list.append(emptyMessage())
     if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
+    announceActive()
     return
   }
   const folderNames = folderNamesOf(view.conversations.map((conversation) => conversation.folder))
@@ -527,6 +537,7 @@ function draw({ force } = { force: false }) {
   if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
   list.scrollTop = scroll
   holdWorkPhase(list)
+  announceActive()
 }
 
 /**
@@ -553,6 +564,14 @@ function setActive(key) {
     row.classList.toggle('is-active', active)
     row.setAttribute('aria-selected', String(active))
   }
+  announceActive()
+}
+
+/** The keys stay in the search field, so it names the selected row for a screen reader. */
+function announceActive() {
+  const row = state.activeKey === undefined ? null : document.getElementById(rowId(state.activeKey))
+  if (row) queryInput.setAttribute('aria-activedescendant', row.id)
+  else queryInput.removeAttribute('aria-activedescendant')
 }
 
 function moveActive(step) {
@@ -562,7 +581,9 @@ function moveActive(step) {
   list.querySelector('.row.is-active')?.scrollIntoView({ block: 'nearest' })
 }
 
+/** The selected row while it is drawn: a key never acts on a row folded away or moved out of sight. */
 function activeConversation() {
+  if (state.activeKey === undefined || !document.getElementById(rowId(state.activeKey))) return undefined
   return shownView()?.conversations.find((conversation) => keyOf(conversation) === state.activeKey)
 }
 
@@ -597,21 +618,32 @@ async function readEveryPage(asked, signal) {
   return reply
 }
 
-/** The search on its way; a newer one gives it up, so the server stops working on it. */
+/**
+ * The search on its way, as {query, given, stale}. A newer search gives it up, so the server stops working on it.
+ * A new list while it reads only marks it stale: it runs once more when it settles, so a search slower than
+ * the lists that keep arriving still finishes. A change the person made restarts it, since its answer was read before.
+ */
 let searchOnItsWay
 
-async function refresh() {
+async function refresh({ restart = false } = {}) {
   const asked = state.query
-  searchOnItsWay?.abort()
-  searchOnItsWay = asked === '' ? undefined : new AbortController()
+  if (!restart && asked !== '' && searchOnItsWay?.query === asked) {
+    searchOnItsWay.stale = true
+    return
+  }
+  searchOnItsWay?.given.abort()
+  const search = asked === '' ? undefined : { query: asked, given: new AbortController(), stale: false }
+  searchOnItsWay = search
   let reply
   let problem
   try {
-    reply = await readEveryPage(asked, searchOnItsWay?.signal)
+    reply = await readEveryPage(asked, search?.given.signal)
   } catch (error) {
     if (error instanceof GivenUp) return
     if (!(error instanceof CallError)) throw error
     problem = error.message
+  } finally {
+    if (search && searchOnItsWay === search) searchOnItsWay = undefined
   }
   // A search typed meanwhile has its own request on the way.
   if (asked !== state.query) return
@@ -624,6 +656,7 @@ async function refresh() {
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
+  if (search?.stale) await refresh()
 }
 
 /**
@@ -949,6 +982,15 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
   else showLateOpenFailure()
 })
 
+/**
+ * After a change, a search asks the server again. The list is the one the shell polled before the change:
+ * the shell sends the new one as an inbox event, so reading it now would draw the old one.
+ */
+async function afterChange() {
+  if (state.query !== '') await refresh({ restart: true })
+  else draw()
+}
+
 async function markRow(conversation, mark) {
   try {
     await markConversation(conversation, mark)
@@ -956,7 +998,7 @@ async function markRow(conversation, mark) {
     sayFailure(error)
     return
   }
-  await refresh()
+  await afterChange()
 }
 
 /**
@@ -984,7 +1026,11 @@ async function completeRow(conversation, row, button) {
   }
   await tickShown
   state.completing.delete(key)
-  await refresh()
+  // The row moves to Archived as the tick ends, even when the new list is still on its way,
+  // unless a list that came during the tick shows it changed.
+  const current = state.view?.conversations.find((row) => keyOf(row) === key)
+  if (current?.state === conversation.state && current.updatedAt === conversation.updatedAt) state.view = withState(state.view, key, 'completed')
+  await afterChange()
 }
 
 // Rename
@@ -1071,6 +1117,7 @@ function escapeRename() {
 
 async function saveRename(conversation) {
   const renaming = state.renaming
+  if (renaming.saving) return
   const { title, empty, keep } = renameOf(renaming.draft, conversation.title)
   if (keep) {
     cancelRename()
@@ -1098,7 +1145,7 @@ async function saveRename(conversation) {
   draw({ force: true })
   // The shell still holds the list it polled before the rename and sends the new one as an inbox event.
   // A search asks the server itself.
-  if (state.query !== '') await refresh()
+  if (state.query !== '') await refresh({ restart: true })
 }
 
 renameItem.addEventListener('click', () => {
@@ -1121,6 +1168,25 @@ menuItems.web.addEventListener('click', () => {
 list.addEventListener('scroll', () => {
   if (!rowMenu.hidden) closeRowMenu()
 })
+rowMenu.addEventListener('keydown', (event) => {
+  const step = KEY_STEPS[event.key]
+  if (step === undefined) return
+  event.preventDefault()
+  const items = [...rowMenu.querySelectorAll('.menu-item')].filter((item) => !item.hidden)
+  const at = items.indexOf(document.activeElement)
+  items[(at + step + items.length) % items.length].focus()
+})
+
+/** A question keeps the keys: Tab goes round its buttons. */
+function holdTab(dialog) {
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab') return
+    event.preventDefault()
+    const buttons = [...dialog.querySelectorAll('button:not(:disabled)')]
+    const at = buttons.indexOf(document.activeElement)
+    buttons[(at + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus()
+  })
+}
 
 // Quit asks first: it ends the program, and the shortcut with it.
 
@@ -1147,14 +1213,7 @@ document.getElementById('quit-go').addEventListener('click', () => quitCompanion
 document.addEventListener('mousedown', (event) => {
   if (!quitConfirm.hidden && !quitConfirm.contains(event.target)) closeQuitConfirm()
 })
-// The question keeps the keys: Tab goes round its three buttons.
-quitConfirm.addEventListener('keydown', (event) => {
-  if (event.key !== 'Tab') return
-  event.preventDefault()
-  const buttons = [...quitConfirm.querySelectorAll('button')]
-  const at = buttons.indexOf(document.activeElement)
-  buttons[(at + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus()
-})
+holdTab(quitConfirm)
 
 // Delete permanently
 
@@ -1206,6 +1265,10 @@ function keepDeleteConfirmCurrent() {
 }
 
 deleteCancel.addEventListener('click', closeDeleteConfirm)
+document.addEventListener('mousedown', (event) => {
+  if (!deleteConfirm.hidden && !deleteConfirm.contains(event.target)) closeDeleteConfirm()
+})
+holdTab(deleteConfirm)
 deleteGo.addEventListener('click', async () => {
   const conversation = deleteFor
   if (!conversation) return
@@ -1218,14 +1281,14 @@ deleteGo.addEventListener('click', async () => {
     closeDeleteConfirm()
     // A refusal can list what is still on disk: it stays until dismissed, unlike the toast.
     showOpenFailure({ message: error.message }, NOTICES.notDeleted)
-    await refresh()
+    await afterChange()
     return
   }
   closeDeleteConfirm()
   const { message, note: problem } = deletedOf(reply)
   if (problem) showOpenFailure({ message: message + ' ' + problem }, NOTICES.notTidied)
   else say(message)
-  await refresh()
+  await afterChange()
 })
 
 /** A Mark all run is on its way, so another press does nothing. Each mark redraws the list, so the button cannot hold this. */
@@ -1248,7 +1311,7 @@ async function markAll(rows, mark, keep = () => true) {
   } finally {
     markingAll = false
   }
-  await refresh()
+  await afterChange()
 }
 
 let searchTimer
@@ -1433,7 +1496,6 @@ document.getElementById('dashboard').addEventListener('click', async () => {
   await hidePanel()
 })
 
-const KEY_STEPS = { ArrowDown: 1, ArrowUp: -1 }
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
@@ -1482,7 +1544,7 @@ document.addEventListener('keydown', (event) => {
     if (state.pick && state.searching) return
     const conversation = activeConversation()
     if (conversation) chooseRow(conversation)
-  } else if (startsRename(event) && menu.hidden && list.querySelector('.row.is-active')) {
+  } else if (startsRename(event) && menu.hidden) {
     const conversation = activeConversation()
     if (!conversation) return
     event.preventDefault()

@@ -98,7 +98,11 @@ window.addEventListener('contextmenu', () => {
 
 bubble.addEventListener('click', (event) => {
   if (press.dragged || event.ctrlKey) return
-  togglePanel()
+  // A working click reads the list again, since the shell sends no new one while it is unchanged.
+  togglePanel().then(refresh, (error) => {
+    if (!(error instanceof CallError)) throw error
+    showTrouble(error.message)
+  })
 })
 // The shell reports the pointer while another app is in front, where :hover may not fire.
 Events.On('pointer', (event) => bubble.classList.toggle('is-hovered', event.data === true))
