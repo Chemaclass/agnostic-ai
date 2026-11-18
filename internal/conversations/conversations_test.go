@@ -1563,7 +1563,7 @@ func TestScan_SkipsNonregularClaudeTranscripts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 	done := make(chan View, 1)
 	go func() { done <- scanner.Scan(context.Background(), ScanOptions{}) }()
 	select {
