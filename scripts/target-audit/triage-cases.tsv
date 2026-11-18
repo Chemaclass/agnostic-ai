@@ -159,8 +159,8 @@ claude-commands-model-invocation	claude	Claude Code slash commands are saved pro
 kiro-permission-request-validation	kiro	Kiro supports no PermissionRequest hook event.	the `PermissionRequest` trigger runs in a V3 session	contradicts	3554
 junie-digit-leading-agent-name	junie	Junie agent names must start with a lowercase letter.	[a-z0-9][a-z0-9_-]*	contradicts	3555
 qwen-project-settings-effort	qwen	The settings file has no repository effort key.	How hard reasoning-capable models think, applied across all providers.	contradicts	3556
-copilot-project-skill-priority	copilot	Copilot chooses .claude/skills before .agents/skills.	first found wins	contradicts	3557
-vibe-native-hook-matcher-lint	vibe	The native pre_tool event does not consume a matcher.	regex with the re: prefix	contradicts	3558
+copilot-project-skill-priority	copilot	Copilot chooses .claude/skills before .agents/skills.	priority order ... `.github/skills/` ... `.agents/skills/` ... `.claude/skills/`	contradicts	3557
+vibe-native-hook-matcher-lint	vibe	The native pre_tool event does not consume a matcher.	type = "pre_tool" ... match = "bash"	contradicts	3558
 kiro-oauth-scope-order	kiro	Nested oauth.oauthScopes always wins over top-level oauthScopes.	top-level `oauthScopes` takes priority	contradicts	3559
 vibe-native-protected-setting-note	vibe	This target cannot write a rule or hook that blocks edits.	denies the tool call	contradicts	3560
 factory-native-protected-setting-note	factory	This target cannot write a rule or hook that blocks edits.	Blocks the tool call and sends the reason to Droid.	contradicts	3560

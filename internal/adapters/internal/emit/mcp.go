@@ -113,9 +113,9 @@ func WithClaudeMCPExtras() MCPOption {
 // `autoApprove` ("Tool names to auto-approve without prompting") and
 // `disabledTools` ("Tool names to omit when calling the Agent") on both
 // local and remote servers, plus `oauth` ("OAuth configuration for
-// servers that require authentication") and `oauthScopes` ("OAuth
-// scopes to request (fallback; overridden by oauth.oauthScopes if both
-// are set)") on remote servers only.
+// servers that require authentication") and `oauthScopes` on remote
+// servers only. Scope precedence depends on the client and version;
+// use one scopes list (kiro.dev/docs/mcp/configuration/#scopes).
 //
 // Kiro's `oauth` object is not Claude Code's: it takes clientId,
 // clientSecret, redirectUri, clientMetadataUrl, and oauthScopes, where

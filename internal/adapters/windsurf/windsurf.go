@@ -174,15 +174,11 @@
 //
 // Ignore specs emit as both `.devinignore` (override via
 // outputs.windsurf.ignore-file) and `.windsurfignore`, gitignore syntax
-// under a `#` provenance header. "Paths matched by `.devinignore` are
-// excluded from indexing and cannot be viewed, edited, or created by
-// Devin", and "The legacy `.windsurfignore` and `.codeiumignore`
-// filenames are still read and enforced alongside `.devinignore`"
-// (docs.devin.ai/desktop/context-awareness/devin-ignore). The legacy
-// `.windsurfignore` copy keeps agent file access covered on Windsurf
-// builds that predate that page, where it was the only file the agent
-// honored and the indexing file alone left a user's `secrets/**`
-// readable (target-audit 2026-09-18, #863; 2026-09-24, #1115).
+// under a `#` provenance header. `.devinignore` controls indexing, Tab,
+// and DeepWiki, not Devin Local file tools. Current Devin Desktop also
+// reads `.codeiumignore`, but no longer reads `.windsurfignore`
+// (docs.devin.ai/desktop/context-awareness/devin-ignore). The
+// `.windsurfignore` copy remains for older Windsurf builds.
 package windsurf
 
 import (
@@ -215,13 +211,12 @@ const (
 	// Desktop scans; codex, amp, zed, crush, and openhands already
 	// write here, so identical skill folders dedupe.
 	defaultSkillsDir = ".agents/skills"
-	// defaultIgnoreFile is the file Devin reads for both indexing and
-	// agent file access. `.codeiumignore` is a legacy name for it,
-	// reachable through outputs.windsurf.ignore-file.
+	// defaultIgnoreFile controls indexing, Tab, and DeepWiki, not file
+	// tools. `.codeiumignore` has the same effect and is reachable through
+	// outputs.windsurf.ignore-file.
 	defaultIgnoreFile = ".devinignore"
-	// agentIgnoreFile is the other legacy name, "still read and
-	// enforced alongside `.devinignore`". Older Windsurf builds read it
-	// for agent file access only, so one ignore spec writes both.
+	// agentIgnoreFile keeps the compatibility copy for older Windsurf
+	// builds. Current Devin Desktop does not read this name.
 	agentIgnoreFile = ".windsurfignore"
 	// defaultMCPFile is the project-scoped MCP config Devin Local
 	// reads. The legacy Cascade agent has no project-tier MCP file of
@@ -278,8 +273,8 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 // (default `.agents/skills`, a path Devin Desktop also reads beside its
 // own `.devin/skills/`; a flat file there never loads as a skill).
 // Ignore specs merge into `.devinignore` (default; override via
-// outputs.windsurf.ignore-file) for indexing and `.windsurfignore` for
-// agent file access. MCP servers merge into
+// outputs.windsurf.ignore-file) for indexing, Tab, and DeepWiki, plus
+// `.windsurfignore` for older Windsurf builds. MCP servers merge into
 // `.devin/mcp_config.json` (default; override via
 // outputs.windsurf.mcp-file), the file Devin Local reads. Hooks merge
 // into `.devin/hooks.v1.json` (default; override via
@@ -339,12 +334,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	return nil
 }
 
-// emitIgnores writes one Ignore spec to `.devinignore` and to the legacy
-// `.windsurfignore`. Current Devin reads both
-// (docs.devin.ai/desktop/context-awareness/devin-ignore); older
-// Windsurf builds honored only `.windsurfignore` for agent file access,
-// and writing the indexing file alone left the agent free to read and
-// edit everything a user had excluded (target-audit 2026-09-18, #863).
+// emitIgnores writes one Ignore spec to `.devinignore` for indexing,
+// Tab, and DeepWiki, and to `.windsurfignore` for older Windsurf builds.
+// Current Devin Desktop does not read the compatibility copy
+// (docs.devin.ai/desktop/context-awareness/devin-ignore).
 //
 // outputs.windsurf.ignore-file moves the main file, including onto the
 // legacy `.codeiumignore` name. Pointed at `.windsurfignore` itself,

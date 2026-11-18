@@ -109,6 +109,6 @@ Already have native files? Run `agnostic-ai import vibe` first ([import and owne
 
 ## Protected paths
 
-Not enforced. This target cannot write a rule or hook that blocks edits. Sync prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. The portable `protected` setting produces a [coverage note](@/docs/spec-format/settings.md#protected-paths), without generating a blocking hook. Vibe documents `pre_tool` hooks that deny tool calls through a JSON response ([native hooks](https://docs.mistral.ai/vibe/code/cli/hooks)). Write a separate [hook spec](@/docs/targets/vibe-reference.md#connections-settings-and-hooks) for a custom guard.
 
 Next, see the [Vibe native reference](@/docs/targets/vibe-reference.md) for agents, skills, MCP, hooks, and import.
