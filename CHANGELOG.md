@@ -76,7 +76,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Trae
 
-- `hook run` reports context for the events and reply formats Trae consumes.
+- `hook run` reports context for Trae's supported events and reply formats; the hook guide lists the same limits (#3569).
 
 #### Mistral Vibe
 
@@ -84,8 +84,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
-- Shared memory guidance distinguishes Auggie 0.x startup injection from the documented 1.x rule fallback (#3577).
-
+- Shared guides distinguish Goose hook data from helper support and Auggie 0.x memory injection from the 1.x rule fallback (#3574, #3577).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.

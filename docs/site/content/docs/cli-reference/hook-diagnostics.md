@@ -152,7 +152,7 @@ Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `Pr
 Reads stdout, or stderr when stdout is empty. A JSON `"decision": "deny"` or `"block"`, `"continue": false`, or plain text with an exit other than 0 and 1 is `block`. No text, or exit 1, is `error`. `SessionStart`, `SessionEnd`, `Notification`, and `PreCompress` ignore decisions, so a block there reads as `error`. Only a JSON `additionalContext` reaches the model; plain stdout goes to the user.
 ### Trae replies
 
-As Claude Code.
+Decisions follow the Claude Code rules above. On a successful exit, a `context` line marks nonempty plain stdout on `SessionStart` and `UserPromptSubmit`. JSON `hookSpecificOutput.additionalContext` counts on `SessionStart`, `UserPromptSubmit`, `PreToolUse`, and `PostToolUse`. `Notification` ignores stdout, including JSON; failed or timed-out hooks add no context. See [Trae's hook reference](https://docs.trae.ai/ide/hook-configuration-reference).
 ### OpenHands replies
 
 Blocks only on `PreToolUse`, `UserPromptSubmit`, and `Stop`: on exit 2, or a JSON `"decision": "deny"` or `"continue": false` at any exit code. A `context` line marks a JSON `additionalContext` on `UserPromptSubmit`, `Stop`, and `SessionStart` only. OpenHands SDK 1.62.0 and later queue `SessionStart` context and send it once, after the system prompt.
