@@ -163,6 +163,7 @@ function approvals(now) {
  * openProblem (a conversation that did not open) with its openCommand,
  * sendProblem (the send call fails), unsent (nothing was typed and the conversation was not switched to),
  * slowQueries (queries that contain the word wait that many milliseconds),
+ * searchPages (a search answers {size} matches per page, each after {ms} milliseconds),
  * rereadMs (a mark answers that many milliseconds later, once the list read after it arrives),
  * marksIgnored (a mark is kept, but the list read after it shows the chat where it was),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
@@ -316,6 +317,11 @@ export const FIXTURES = {
     label: 'Slow search for "release"',
     conversations: mixed,
     slowQueries: { release: 1500 },
+  },
+  'paged-search': {
+    label: 'Search answers two matches per page, each 0.6 seconds later',
+    conversations: mixed,
+    searchPages: { size: 2, ms: 600 },
   },
   'slow-reread': {
     label: 'A mark answers 2.5 seconds later, with the list read after it',

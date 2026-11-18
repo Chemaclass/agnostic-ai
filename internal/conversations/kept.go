@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -129,14 +130,26 @@ func (s *Scanner) claudeFiles() []string {
 // so a caller that asks on a timer can compare it first and skip the
 // scan while it holds.
 func (s *Scanner) Stamp() string {
+	files := s.storeFiles()
+	return s.stampOf(files, fileStamp(files...))
+}
+
+// storeFiles are the files of the three tools' stores a read depends on.
+func (s *Scanner) storeFiles() []string {
 	files := append(s.claudeFiles(), s.codexFiles()...)
 	files = append(files, s.cursorFiles()...)
 	files = append(files, s.claudeAppFiles()...)
-	files = append(files, s.chatGPTFiles()...)
+	return append(files, s.chatGPTFiles()...)
+}
+
+// stampOf is the Stamp of files, the store files, whose fileStamp is stores.
+func (s *Scanner) stampOf(files []string, stores string) string {
+	marks := ""
 	if s.MarksPath != "" {
-		files = append(files, s.MarksPath)
+		files = append(slices.Clip(files), s.MarksPath)
+		marks = fileStamp(s.MarksPath)
 	}
 	// The names are part of the stamp: a file that replaces another of
 	// the same size and time is still a change.
-	return strconv.FormatInt(spanOf(s.Now()), 10) + "\x00" + strings.Join(files, "\x00") + "\x00" + fileStamp(files...)
+	return strconv.FormatInt(spanOf(s.Now()), 10) + "\x00" + strings.Join(files, "\x00") + "\x00" + stores + marks
 }

@@ -14,6 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
+- A companion search shows the matches from the newest weeks as soon as they arrive, and the foot says "Searching…" until the older weeks are read. When no chat file changed between two weeks, the server reuses the first week's read instead of reading every store again. While an agent writes, a file changes between weeks, so the server still reads them all for each week. (#3606)
 - A closed companion list with a search left in it no longer runs that search again each time the list changes, which kept the server reading up to 8 weeks of matches again and again while agents worked. Opening the list runs the search once and keeps the words. (#3607)
 - The circle's shadow and count badge are no longer cut off at the edge of its window, at rest or under the pointer. The circle has a smaller shadow and a slightly larger window. (#3597)
 - `agnostic-ai companion uninstall` removes a companion that cannot run, such as one built for another processor, with a warning, instead of keeping it. (#3591)

@@ -49,6 +49,8 @@ const state = {
   view: undefined,
   /** A search was typed and its answer is not here yet. */
   searching: false,
+  /** The search whose matches from the newest weeks show while older weeks are still read; undefined otherwise. */
+  readingOlder: undefined,
   /** Why the list could not be read; undefined when it could. */
   problem: undefined,
   /** What the companion itself has to say, such as a version mismatch. */
@@ -498,11 +500,13 @@ function draw({ force } = { force: false }) {
   // The quiet notes go in too: a silent chat's "No activity for 7m" tooltip changes with no new row data.
   const now = Date.now()
   const reasons = view.conversations.map((conversation) => quietNoteOf(conversation, now))
-  const signature = JSON.stringify([view.conversations, reasons, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place, state.pick?.hash])
+  const stillSearching = state.query !== '' && state.readingOlder === state.query
+  const signature = JSON.stringify([view.conversations, reasons, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
-  summary.textContent = summaryOf(view, state.query)
+  // The count covers weeks not read yet, so it waits for the last page.
+  summary.textContent = stillSearching ? 'Searching…' : summaryOf(view, state.query)
 
   const groups = grouped(view.conversations)
   const scroll = list.scrollTop
@@ -599,11 +603,15 @@ function sayFailure(error) {
 /** How many weeks with matches one search reads. */
 const MAX_SEARCH_PAGES = 8
 
-/** The list, or a search's matches from the newest weeks that hold any, read one after the other. */
-async function readEveryPage(asked, signal) {
+/**
+ * The list, or a search's matches from the newest weeks that hold any, read one after the other.
+ * `readSoFar` gets the matches read so far each time an older week is still to come.
+ */
+async function readEveryPage(asked, signal, readSoFar) {
   let reply = await readInbox(asked, undefined, signal)
   if (asked === '') return reply
   for (let pages = 1; reply.view.next && pages < MAX_SEARCH_PAGES; pages += 1) {
+    readSoFar(reply)
     const older = await readInbox(asked, reply.view.next, signal)
     reply = { ...reply, view: afterPage(reply.view, older.view) }
   }
@@ -648,8 +656,17 @@ async function refresh({ restart = false, version } = {}) {
 async function readList(asked, search) {
   let reply
   let problem
+  const readSoFar = (soFar) => {
+    if (asked !== state.query || searchOnItsWay !== search) return
+    // A search read again keeps the rows on screen: until the new answer is whole, or while older weeks were
+    // still coming, until it holds as many.
+    const shown = state.view?.conversations.length ?? 0
+    if (!state.searching && (state.readingOlder !== asked || soFar.view.conversations.length < shown)) return
+    state.readingOlder = asked
+    show(soFar)
+  }
   try {
-    reply = await readEveryPage(asked, search?.given.signal)
+    reply = await readEveryPage(asked, search?.given.signal, readSoFar)
   } catch (error) {
     if (error instanceof GivenUp) return
     if (!(error instanceof CallError)) throw error
@@ -659,17 +676,22 @@ async function readList(asked, search) {
   }
   // A search typed meanwhile has its own request on the way.
   if (asked !== state.query) return
+  state.readingOlder = undefined
+  landed = { query: asked, version: reply?.version }
+  show(reply, problem)
+  if (search?.stale && listShown && !(search.staleFor && search.staleFor === reply?.version)) await refresh()
+}
+
+function show(reply, problem) {
   state.searching = false
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
-  landed = { query: asked, version: reply?.version }
   // A search's answer may leave out the selected row; the picker then selects one it offers, so Enter sends.
   if (state.pick && state.view) state.activeKey = pickKey(state.activeKey)
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
-  if (search?.stale && listShown && !(search.staleFor && search.staleFor === reply?.version)) await refresh()
 }
 
 /**
