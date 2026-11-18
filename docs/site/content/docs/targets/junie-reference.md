@@ -42,9 +42,13 @@ A `## Rules` block follows the instructions that point to source specs, marked s
 
 [Project commands folder](https://junie.jetbrains.com/docs/custom-slash-commands.html). Junie documents `description` and `allowPromptArgument` (free-form text through a `$prompt` placeholder). Other keys are copied as written. Junie fills `$argumentName` placeholders in the body when you run the command.
 
-### CLI only
+### CLI and ACP clients {#cli-only}
 
-The IDE plugin docs mention neither subagents nor slash commands.
+Junie CLI and compatible Agent Client Protocol (ACP) clients use the same command files. In ACP sessions, `/commands` lists available commands and how to invoke them with `/name`. Create or edit commands through their Markdown files or the CLI's interactive `/commands` screen ([command docs](https://junie.jetbrains.com/docs/custom-slash-commands.html)).
+
+Custom agents can run as the main agent in an ACP session through `--agent <name>`; the client must pass that option when it launches Junie ([standalone agents](https://junie.jetbrains.com/docs/junie-cli-subagents.html#run-a-custom-agent-standalone)).
+
+IDE AI Chat uses the CLI-backed integration, where command reuse depends on ACP support in the client. The [separate Junie tool window](https://junie.jetbrains.com/docs/junie-ide-plugin.html) is a different integration; its documentation does not describe custom command or subagent file support.
 
 ### Skills
 
