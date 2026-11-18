@@ -41,6 +41,9 @@ func installReleaseBinary(out io.Writer, path, version, baseURL string, client *
 }
 
 func installVerifiedRelease(out io.Writer, path, version, baseURL string, client *http.Client, verify provenanceCheck) error {
+	if app, bundled := companionAppForCommand(path); bundled {
+		return fmt.Errorf("%s: use Check for updates in the companion circle's right-click menu to update the app and its bundled CLI together", app)
+	}
 	if err := standalonePlatformError(runtime.GOOS); err != nil {
 		return err
 	}

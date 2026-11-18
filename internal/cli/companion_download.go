@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -26,23 +25,9 @@ func companionAsset(goarch string) string {
 // unless both checks pass.
 func downloadCompanion(ctx context.Context, out io.Writer, client *http.Client, baseURL, version, goarch, into string, verify provenanceCheck) (string, error) {
 	asset := companionAsset(goarch)
-	checksums, err := downloadReleaseAssetContext(ctx, client, releaseAssetURL(baseURL, version, "checksums.txt"), maxChecksumsFile)
-	if err != nil {
-		return "", missingAsNoPrebuilt("checksums.txt", err)
-	}
-	want, err := releaseChecksum(checksums, asset)
+	archive, err := downloadVerifiedCompanionAsset(ctx, out, client, baseURL, version, asset, verify)
 	if err != nil {
 		return "", missingAsNoPrebuilt("", err)
-	}
-	archive, err := downloadReleaseAssetContext(ctx, client, releaseAssetURL(baseURL, version, asset), maxReleaseArchive)
-	if err != nil {
-		return "", missingAsNoPrebuilt(asset, err)
-	}
-	if sha256.Sum256(archive) != want {
-		return "", fmt.Errorf("%s: checksum mismatch", asset)
-	}
-	if err := checkReleaseProvenance(out, archive, asset, version, verify); err != nil {
-		return "", err
 	}
 	path := filepath.Join(into, companionName)
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)

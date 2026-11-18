@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -104,11 +105,12 @@ const savePause = 500 * time.Millisecond
 
 // shell owns the two windows.
 type shell struct {
-	app    *application.App
-	bubble application.Window
-	panel  application.Window
-	inbox  *inbox
-	server *server
+	app         *application.App
+	bubble      application.Window
+	panel       application.Window
+	inbox       *inbox
+	server      *server
+	appCommands *appCommands
 
 	settingsPath  string
 	bubblePressed func() bool
@@ -814,6 +816,8 @@ func main() {
 	s.app.Event.RegisterApplicationEventHook(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
 		s.appReopened(event.Cancel)
 	})
+	updateContext, stopUpdates := context.WithCancel(context.Background())
+	defer stopUpdates()
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		s.placeBubble(saved.Bubble)
 		watchPointer(s.bubble.NativeWindow(), func(over bool) {
@@ -821,6 +825,7 @@ func main() {
 		})
 		s.registerShortcuts()
 		in.start()
+		go s.appCommands.watchUpdates(updateContext)
 	})
 
 	err = s.app.Run()

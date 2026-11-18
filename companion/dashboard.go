@@ -43,9 +43,6 @@ func recordedBinary() (string, bool) {
 	return named, true
 }
 
-// findBinary locates the agnostic-ai command: AGNOSTIC_AI_BIN when set,
-// then the path `agnostic-ai companion` wrote down, then PATH, then the
-// usual install folders.
 func findBinary() (string, error) {
 	if named := os.Getenv("AGNOSTIC_AI_BIN"); named != "" {
 		if _, err := os.Stat(named); err != nil {
@@ -69,6 +66,9 @@ func findBinary() (string, error) {
 		if found, err := exec.LookPath(filepath.Join(folder, binaryName)); err == nil {
 			return found, nil
 		}
+	}
+	if _, command, ok := ownBundledCommand(); ok {
+		return command, nil
 	}
 	return "", errNoBinary
 }
