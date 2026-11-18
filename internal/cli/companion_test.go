@@ -587,6 +587,27 @@ func TestUninstallCompanion_DeletesTheWindowsLoginValueOfAGoneProgram(t *testing
 	}
 }
 
+func TestUninstallCompanion_DeletesTheWindowsLoginValueOfAProgramThatCannotRun(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "windows")
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) { return false, errors.New("bad exe format") }
+	tools.loginOff = func(context.Context, string) error { return errors.New("bad exe format") }
+	tools.builtFor = func(context.Context, string) (string, error) { return "", errCompanionCannotRun }
+	tools.runValueOff = func() (bool, error) { return true, nil }
+	var out bytes.Buffer
+
+	err := uninstallCompanion(context.Background(), &out, tools, dir, "windows", nil)
+
+	want := "! Could not stop the companion (ask the companion to stop: bad exe format). If it still runs, end the agnostic-ai-companion process.\n" +
+		"✓ Start at login is off\n" +
+		"✓ Removed " + companionFolder(dir) + "\n" +
+		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
+	if err != nil || out.String() != want {
+		t.Errorf("err %v, output:\n%s\nwant:\n%s", err, out.String(), want)
+	}
+}
+
 func TestUninstallCompanion_FailsWhenTheWindowsLoginValueStays(t *testing.T) {
 	tools := builtTools(t)
 	tools.runValueOff = func() (bool, error) { return false, errors.New("access is denied") }

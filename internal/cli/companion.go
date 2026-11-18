@@ -434,6 +434,10 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 		case err == nil:
 			loginOff = true
 		case brokenProgram || cannotRun():
+			// On Windows the registry value is deleted below instead.
+			if goos == "windows" {
+				break
+			}
 			_, _ = fmt.Fprintf(out, "! Could not turn off start at login (%v). Remove %s from the items that open at login.\n", err, companionAppName)
 		case ran:
 			return fmt.Errorf("turn off start at login: %w. The companion was stopped; start it again with: agnostic-ai companion", err)

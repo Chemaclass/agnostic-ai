@@ -423,7 +423,7 @@ jobs:
     needs: editor_changes
     if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.companion == 'true') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -437,7 +437,10 @@ jobs:
       # The packages `agnostic-ai companion install` asks for on Linux.
       - name: Install GTK 4, WebKitGTK 6.0 and X11
         if: runner.os == 'Linux'
+        # Rebuilding the manual page index after each package took most
+        # of ten minutes.
         run: |
+          sudo rm -f /var/lib/man-db/auto-update
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
 
