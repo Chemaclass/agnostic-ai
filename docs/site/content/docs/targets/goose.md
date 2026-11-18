@@ -43,7 +43,6 @@ Already have Goose files? See [what `import goose` reads](@/docs/targets/goose-r
 | Hooks | `.agents/plugins/agnostic-ai/plugin.json` and `.agents/plugins/agnostic-ai/hooks/hooks.json` |
 | Plugin skills | `.agents/plugins/agnostic-ai/skills/<name>/SKILL.md`, only with `skills-dir` pointed at the plugin |
 | Concatenated rules | `.goosehints`, only when `rules-file` is set |
-| Reviews | `.agents/REVIEW.md`, and `<scope>/.agents/REVIEW.md` for directory-specific instructions |
 
 The plugin manifest is written whenever a component lands in the plugin.
 
@@ -55,7 +54,7 @@ The plugin manifest is written whenever a component lands in the plugin.
 | `outputs.goose.rules-file` | unset | opt-in; writes all rules into one `.goosehints` |
 | `outputs.goose.skills-dir` | `.agents/skills` | point at `.agents/plugins/<name>/skills` to bundle skills as a plugin; the manifest follows |
 | `outputs.goose.hooks-file` | `.agents/plugins/agnostic-ai/hooks/hooks.json` | an override must keep the `<plugin>/hooks/hooks.json` suffix |
-| `outputs.goose.review-file` | `.agents/REVIEW.md` | relative to each scope |
+| `outputs.goose.review-file` | no output | accepted for compatibility; has no effect |
 
 {% </details> %}
 
@@ -74,6 +73,7 @@ To test hooks before a session, run [`agnostic-ai hook run`](@/docs/cli-referenc
 - Goose reads `.goosehints` only with the `Developer` extension enabled.
 - Goose reads context files in the subdirectories it works in, so scoped rules go to a nested `AGENTS.md`. See [scoped rules](@/docs/targets/goose-reference.md#native-mappings).
 - Project hooks load as an Open Plugins package. `sync --global` writes a separate package for every project.
+- Review specs are unsupported after Goose 1.60 removed `goose review`. See [legacy review guidance](@/docs/targets/goose-reference.md#reviews).
 
 {% <details summary="More limits"> %}
 - No skill can be kept user-only, so `disable-model-invocation` is dropped with a note and commands are skipped.

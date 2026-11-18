@@ -54,6 +54,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
 
+### By tool
+
+#### Goose
+
+- **Removed:** Native Review output after Goose removed `goose review` in 1.60. Reuse the source text in another target or a skill.
+
 ### Site
 
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.

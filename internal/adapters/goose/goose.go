@@ -58,10 +58,7 @@
 // `my-plugin` is loaded as `my-plugin:review`". One plugin carrying
 // both components gets one manifest.
 //
-// Reviews emit plain bodies to .agents/REVIEW.md at the root and in each
-// scope, with same-scope specs concatenated. goose review composes changed-
-// file directories and their ancestors. outputs.goose.review-file overrides
-// the path relative to each scope.
+// Goose 1.60 removed its native review command, so Review specs are unsupported.
 package goose
 
 import (
@@ -81,7 +78,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindReview},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook},
 }
 
 // Adapter emits Goose configs.
@@ -128,9 +125,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	hooksPlugin, err := emitHooks(sess, b.Hooks, cfg, dryRun)
 	if err != nil {
-		return err
-	}
-	if err := emitReviews(sess, b.Reviews, cfg, dryRun); err != nil {
 		return err
 	}
 	var skillsPlugin string

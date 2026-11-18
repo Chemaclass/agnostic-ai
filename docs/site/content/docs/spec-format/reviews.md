@@ -15,10 +15,9 @@ group = "Reference"
 |--------|-------|
 | [Cursor](@/docs/targets/cursor.md) (Bugbot) | `.cursor/BUGBOT.md`, and `<scope>/.cursor/BUGBOT.md` for scoped specs |
 | [Codex](@/docs/targets/codex.md) (code review) | a `## Code Review Rules` section of the root or scoped `AGENTS.md` |
-| [Goose](@/docs/targets/goose.md) (`goose review`) | `.agents/REVIEW.md`, and `<scope>/.agents/REVIEW.md` for scoped specs |
 | [Ellipsis](@/docs/targets/ellipsis.md) (code review) | one reviewer's prompt in `.ellipsis/code-review.yaml`; scoped specs become sections that apply only to changes in their directory |
 
-Other tools report review specs as unsupported.
+Other tools report review specs as unsupported. Goose 1.60 removed its native review command; see [legacy review guidance](@/docs/targets/goose-reference.md#reviews).
 
 Ellipsis takes the reviewer, its model, and any posting rules from `x-ellipsis` in a [settings spec](@/docs/spec-format/settings.md). Without a reviewer, sync writes no file and says what is missing.
 

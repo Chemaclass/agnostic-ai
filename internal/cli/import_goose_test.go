@@ -14,7 +14,7 @@ import (
 // The second emit must byte-match the first: import reconstructs rules
 // (from the inlined `## Rules` block in AGENTS.md), agents (from
 // `.agents/agents/`), skills (from `.agents/skills/`), hooks (from the
-// plugin's `hooks/hooks.json`), and reviews (from `.agents/REVIEW.md`).
+// plugin's `hooks/hooks.json`).
 func TestImportGoose_RoundTripFixedPoint(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -32,8 +32,6 @@ func TestImportGoose_RoundTripFixedPoint(t *testing.T) {
 		"name: edited\nevent: PostToolUse\nmatcher: Edit\ncommand: echo edited\ntimeout: 12\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: [\"echo a\", \"echo b\"]\nx-goose:\n  on_failure: block\n")
-	writeFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "root.md"),
-		"---\nname: root\n---\n\nCheck changed code for correctness.\n")
 
 	execCLI(t, "sync", "-t", "goose")
 	first := snapshotEmitted(t, dir)
@@ -43,7 +41,6 @@ func TestImportGoose_RoundTripFixedPoint(t *testing.T) {
 		".agents/skills/my-skill/SKILL.md",
 		".agents/plugins/agnostic-ai/plugin.json",
 		".agents/plugins/agnostic-ai/hooks/hooks.json",
-		".agents/REVIEW.md",
 	} {
 		if _, ok := first[want]; !ok {
 			t.Fatalf("first emit produced no %s: %v", want, keys(first))
@@ -68,10 +65,6 @@ func TestImportGoose_RoundTripFixedPoint(t *testing.T) {
 	skill := readFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "my-skill", "SKILL.md"))
 	if !strings.Contains(skill, "description: An example skill") || !strings.Contains(skill, "Skill body here.") {
 		t.Errorf("skill not reconstructed:\n%s", skill)
-	}
-	review := readFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "review.md"))
-	if !strings.Contains(review, "Check changed code for correctness.") {
-		t.Errorf("review not reconstructed:\n%s", review)
 	}
 	hooks := readHookSpecs(t, filepath.Join(dir, ".agnostic-ai", "hooks"))
 	if len(hooks) != 2 {

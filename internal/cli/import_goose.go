@@ -37,10 +37,7 @@ const (
 	// package may carry a `skills/` directory, a `hooks/hooks.json`, or
 	// both.
 	goosePluginsDir = ".agents/plugins"
-	// gooseReviewFile is the review-instruction file `goose review`
-	// reads: "goose review can discover review checks from
-	// `.agents/checks/*.md` and scoped review instructions from
-	// `.agents/REVIEW.md`" (documentation/docs/guides/goose-cli-commands.md).
+	// gooseReviewFile preserves import of review guidance from before Goose 1.60.
 	gooseReviewFile = ".agents/REVIEW.md"
 	// rootReviewSpecName is the filename a root review file imports to,
 	// from goose or cursor. The spec itself is target-neutral, so it is
@@ -50,7 +47,7 @@ const (
 )
 
 // importFromGoose reads an existing Block Goose project and writes specs
-// into the configured source directories, reversing the goose emit:
+// into the configured source directories, including legacy review guidance:
 //
 //   - `AGENTS.md` carries rule bodies inlined in a sentinel-marked
 //     `## Rules` block (Goose has no per-rule directory); each
@@ -66,16 +63,10 @@ const (
 //   - `.agents/plugins/<name>/` packages contribute both components a
 //     plugin may carry: `skills/<name>/SKILL.md` folders and
 //     `hooks/hooks.json` matcher groups. See importGoosePlugins.
-//   - `.agents/REVIEW.md` reconstructs one review spec.
+//   - Legacy `.agents/REVIEW.md` reconstructs one portable review spec.
 //
-// Lossy fields (the goose emit cannot carry them, so a round-trip drops
-// them without changing Goose's output): a rule's source-layout scope
-// collapses, since rules reach Goose through one inlined block per
-// scope and only the root block is read back, the same line
-// `import claude` holds on nested CLAUDE.md files; review specs sharing
-// a scope concatenate into one file on emit and re-import as a single
-// spec; a scoped `<scope>/.agents/REVIEW.md` is not read back for the
-// same reason.
+// Only root rules and legacy review guidance are read back. Scoped files
+// remain available for manual reuse.
 func importFromGoose(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.Reviews); err != nil {
 		return err
@@ -257,9 +248,9 @@ func importGooseHooks(src, dstDir, warnRoot string) (int, error) {
 	return count, nil
 }
 
-// importGooseReview reads the root `.agents/REVIEW.md` and writes one
-// review spec into dstDir. The file is a plain body with no frontmatter
-// (the loader reads it as plain text), so the spec carries only a name.
+// importGooseReview reads the legacy root `.agents/REVIEW.md` and writes one
+// review spec into dstDir. Legacy files hold a plain body with no frontmatter,
+// so the spec carries only a name.
 // No-op when the file is absent or holds nothing but the provenance
 // header.
 func importGooseReview(root, dstDir string) (int, error) {

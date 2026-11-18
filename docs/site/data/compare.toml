@@ -1023,7 +1023,7 @@
 
   [[targets.kinds]]
     id = "review"
-    paths = [".agents/REVIEW.md"]
+    paths = []
 
   [[targets.kinds]]
     id = "environment"

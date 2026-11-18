@@ -276,6 +276,9 @@ func TestImport_KeepsSharedAggregateSpecsWhenTheLocalLayerFeedsThem(t *testing.T
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 
+			if tc.source == "goose" {
+				writeFile(t, filepath.Join(".agents", "REVIEW.md"), "Shared review line.\n\nLocal review line.\n")
+			}
 			out := importCapturing(t, tc.source)
 
 			for path, body := range shared {

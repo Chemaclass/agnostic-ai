@@ -225,7 +225,7 @@ statuses = ["no", "no", "native", "no", "no", "no", "no", "no", "no", "no"]
 id = "goose"
 name = "Goose"
 href = "@/docs/targets/goose.md"
-statuses = ["native", "native", "native", "native", "no", "no", "no", "native", "no", "no"]
+statuses = ["native", "native", "native", "native", "no", "no", "no", "no", "no", "no"]
 
 [[targets]]
 id = "augment"
