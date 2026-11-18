@@ -35,7 +35,7 @@ async function expectBadgeInside(page: Page, side: number) {
   expect(box!.y + box!.height).toBeLessThanOrEqual(side)
 }
 
-for (const side of [92, 62]) {
+for (const side of [92, 64]) {
   test(`the ${side}-point bubble window paints nothing on its edge, at rest and under the pointer`, async ({ page }) => {
     await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
     await page.setViewportSize({ width: side, height: side })

@@ -14,7 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
-- The circle no longer shows a dark square around it. Its shadow and badge reached past the edge of their see-through window, which cut them off in a straight line. The circle now has a smaller shadow and a slightly larger window, so they fade out inside it, also while the pointer enlarges the circle. (#3597)
+- The circle's shadow and count badge are no longer cut off at the edge of its window, at rest or under the pointer. The circle has a smaller shadow and a slightly larger window. (#3597)
 - `agnostic-ai companion uninstall` removes a companion that cannot run, such as one built for another processor, with a warning, instead of keeping it. (#3591)
 - `agnostic-ai companion` says when the companion cannot run, and names its path, instead of saying it is on screen. It also warns when an `agnostic-ai` from another commit installed it. (#3591)
 - `agnostic-ai companion install` stops on a Mac older than macOS 13, which the companion needs, and the app now says 13.0 too. An Intel `agnostic-ai` under Rosetta gets the Apple silicon companion, a slow download has 10 minutes, and a failing `gh` check names `AGNOSTIC_AI_VERIFY_ATTESTATION=0`. (#3591)

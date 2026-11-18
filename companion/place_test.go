@@ -65,26 +65,26 @@ func TestBubbleSideFor_IsTwoThirdsForTheSmallCircle(t *testing.T) {
 	if got := bubbleSideFor(false); got != 92 {
 		t.Errorf("regular window side = %d; want 92, the 60-point circle and room for its badge", got)
 	}
-	if got := bubbleSideFor(true); got != 62 {
-		t.Errorf("small window side = %d; want 62, the 40-point circle and room for its badge", got)
+	if got := bubbleSideFor(true); got != 64 {
+		t.Errorf("small window side = %d; want 64, the 40-point circle and room for its badge", got)
 	}
 }
 
 func TestResizedBubble_KeepsTheEdgesNearestTheCircle(t *testing.T) {
 	work := rect{X: 0, Y: 25, Width: 1440, Height: 875}
 	defaultX, defaultY := defaultBubblePosition(work, 92)
-	smallX, smallY := defaultBubblePosition(work, 62)
+	smallX, smallY := defaultBubblePosition(work, 64)
 	cases := []struct {
 		name         string
 		bubble       rect
 		side         int
 		wantX, wantY int
 	}{
-		{"the default place stays the default place", rect{defaultX, defaultY, 92, 92}, 62, smallX, smallY},
-		{"and grows back to it", rect{smallX, smallY, 62, 62}, 92, defaultX, defaultY},
-		{"upper left keeps its top and left", rect{20, 40, 92, 92}, 62, 20, 40},
-		{"upper right keeps its top and right", rect{1340, 40, 92, 92}, 62, 1340 + 30, 40},
-		{"lower left keeps its bottom and left", rect{20, 800, 92, 92}, 62, 20, 800 + 30},
+		{"the default place stays the default place", rect{defaultX, defaultY, 92, 92}, 64, smallX, smallY},
+		{"and grows back to it", rect{smallX, smallY, 64, 64}, 92, defaultX, defaultY},
+		{"upper left keeps its top and left", rect{20, 40, 92, 92}, 64, 20, 40},
+		{"upper right keeps its top and right", rect{1340, 40, 92, 92}, 64, 1340 + 28, 40},
+		{"lower left keeps its bottom and left", rect{20, 800, 92, 92}, 64, 20, 800 + 28},
 	}
 	for _, tc := range cases {
 		x, y := resizedBubble(tc.bubble, work, tc.side)

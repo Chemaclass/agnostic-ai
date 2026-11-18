@@ -280,7 +280,7 @@ func TestSetSmallCompanion_SavesTheResizedPlace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (point{X: 1230, Y: 730}); saved.Bubble == nil || *saved.Bubble != want {
+	if want := (point{X: 1228, Y: 728}); saved.Bubble == nil || *saved.Bubble != want {
 		t.Errorf("saved place %+v; want %+v, where the small circle went", saved.Bubble, want)
 	}
 }
@@ -303,11 +303,11 @@ func TestSetSmallCompanion_KeepsTheListOnItsSideNearTheMiddle(t *testing.T) {
 		s.bubbleMoved()
 	}
 
-	if bubble.x != 670 {
-		t.Errorf("circle at x %d; want 670, its right edge kept", bubble.x)
+	if bubble.x != 672 {
+		t.Errorf("circle at x %d; want 672, its right edge kept", bubble.x)
 	}
-	if x, _ := s.panel.Position(); x != 670-panelGap-panelWidth || beforeX != 700-panelGap-panelWidth {
-		t.Errorf("list at x %d (was %d); want it still left of the circle at %d", x, beforeX, 670-panelGap-panelWidth)
+	if x, _ := s.panel.Position(); x != 672-panelGap-panelWidth || beforeX != 700-panelGap-panelWidth {
+		t.Errorf("list at x %d (was %d); want it still left of the circle at %d", x, beforeX, 672-panelGap-panelWidth)
 	}
 }
 

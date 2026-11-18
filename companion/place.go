@@ -11,7 +11,7 @@ const (
 	// and room for its shadow, progress ring and badge.
 	bubbleSide = 92
 	// smallBubbleSide is the same room for the 40-point circle, two thirds.
-	smallBubbleSide = 62
+	smallBubbleSide = 64
 )
 
 func bubbleSideFor(small bool) int {

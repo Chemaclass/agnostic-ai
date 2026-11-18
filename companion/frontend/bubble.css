@@ -173,7 +173,7 @@ body {
   animation: pop 360ms var(--ease-spring);
 }
 
-/* The small circle: two thirds of every part. The shell gives it a 62-point
+/* The small circle: two thirds of every part. The shell gives it a 64-point
    window, so the window's width decides, and the circle never outgrows its
    window while a size change or the first appearance read is on the way. */
 @media (max-width: 70px) {
