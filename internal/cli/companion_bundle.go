@@ -22,6 +22,9 @@ const (
 	companionBundleID = "dev.agnostic-ai.companion"
 	// companionIconName is the icon file in the app's Resources, without its extension.
 	companionIconName = "companion"
+	// companionAsideName is where an install moves the installed app while
+	// it puts the new one in place.
+	companionAsideName = "replaced.app"
 )
 
 // companionIconPNG is docs/site/static/icon-512.png, which go:embed cannot reach.
@@ -68,7 +71,7 @@ func companionInfoPlist(version string) []byte {
 	<key>LSUIElement</key>
 	<true/>
 	<key>LSMinimumSystemVersion</key>
-	<string>11.0</string>
+	<string>13.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
@@ -120,19 +123,35 @@ func assembleCompanionApp(ctx context.Context, tools companionTools, program, ap
 // replaceCompanionApp puts the app built in staging where the installed
 // one is. A folder cannot be renamed onto another, so the installed one
 // moves aside first and comes back when the new one cannot take its place.
-func replaceCompanionApp(built, installed, staging string) error {
-	aside := filepath.Join(staging, "replaced.app")
-	if err := os.Rename(installed, aside); err != nil && !errors.Is(err, fs.ErrNotExist) {
+func replaceCompanionApp(rename func(from, to string) error, built, installed, staging string) error {
+	aside := filepath.Join(staging, companionAsideName)
+	if err := rename(installed, aside); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
-	if err := os.Rename(built, installed); err != nil {
+	if err := rename(built, installed); err != nil {
 		if _, statErr := os.Stat(aside); statErr == nil {
-			return errors.Join(err, os.Rename(aside, installed))
+			if restoreErr := rename(aside, installed); restoreErr != nil {
+				return companionKeptAside{err: errors.Join(err, restoreErr), aside: aside, installed: installed}
+			}
 		}
 		return err
 	}
 	return nil
 }
+
+// companionKeptAside is an install that could neither put the new app in
+// place nor the old one back. The old one stays aside, for the person to
+// move back.
+type companionKeptAside struct {
+	err              error
+	aside, installed string
+}
+
+func (e companionKeptAside) Error() string {
+	return fmt.Sprintf("%v. The earlier companion is kept at %s; move it back to %s", e.err, e.aside, e.installed)
+}
+
+func (e companionKeptAside) Unwrap() error { return e.err }
 
 func signCompanion(ctx context.Context, app string) error {
 	out, err := exec.CommandContext(ctx, "codesign", "--force", "--sign", "-", app).CombinedOutput()

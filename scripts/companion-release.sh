@@ -44,6 +44,11 @@ for arch in arm64 amd64; do
     echo "$name for $arch is built for $got" >&2
     exit 1
   fi
+  minos="$(otool -l "$work/$arch/$name" | awk '$1 == "minos" { print $2; exit }')"
+  if [ "$minos" != "$min_macos" ]; then
+    echo "$name for $arch needs macOS ${minos:-<unknown>}, not $min_macos" >&2
+    exit 1
+  fi
   if [ "$(uname -m)" = "$arch" ] || { [ "$arch" = amd64 ] && [ "$(uname -m)" = x86_64 ]; }; then
     said="$("$work/$arch/$name" --version)"
     if [ "$said" != "$version" ]; then
@@ -51,6 +56,7 @@ for arch in arm64 amd64; do
       exit 1
     fi
   fi
-  tar -czf "$outdir/${name}_darwin_${arch}.tar.gz" -C "$work/$arch" "$name"
+  # Without this, macOS tar adds ._ files that hold extended attributes.
+  COPYFILE_DISABLE=1 tar -czf "$outdir/${name}_darwin_${arch}.tar.gz" -C "$work/$arch" "$name"
   echo "$outdir/${name}_darwin_${arch}.tar.gz"
 done

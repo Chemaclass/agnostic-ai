@@ -248,11 +248,27 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 	if err := runDetectedUpgrade(out, checkOnly, requestedVersion, info, deps); err != nil {
 		return err
 	}
-	if !willInstall || deps.companion == nil {
+	if checkOnly || deps.companion == nil {
+		return nil
+	}
+	if !willInstall {
+		// A package manager may have upgraded the CLI outside this
+		// command and left the companion behind.
+		installed, companionErr = deps.companion.installed()
+		if companionErr == nil && installed && (info.Path != "" || info.LinkPath != "") {
+			companionErr = refreshUpgradedCompanion(out, info, info.Version, *deps.companion)
+		}
+		if companionErr != nil {
+			return &companionUpgradeError{cause: companionErr, cliCurrent: true}
+		}
 		return nil
 	}
 	if companionErr == nil && installed {
 		companionErr = refreshUpgradedCompanion(out, info, want, *deps.companion)
+	}
+	var notYet cliNotYetPublished
+	if errors.As(companionErr, &notYet) {
+		return notYet
 	}
 	if companionErr != nil {
 		return &companionUpgradeError{cause: companionErr}

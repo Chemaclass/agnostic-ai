@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -23,9 +24,9 @@ func companionAsset(goarch string) string {
 // checks it against checksums.txt and the release's build provenance,
 // and writes the program into the folder into. Nothing is written
 // unless both checks pass.
-func downloadCompanion(out io.Writer, client *http.Client, baseURL, version, goarch, into string, verify provenanceCheck) (string, error) {
+func downloadCompanion(ctx context.Context, out io.Writer, client *http.Client, baseURL, version, goarch, into string, verify provenanceCheck) (string, error) {
 	asset := companionAsset(goarch)
-	checksums, err := downloadReleaseAsset(client, releaseAssetURL(baseURL, version, "checksums.txt"), maxChecksumsFile)
+	checksums, err := downloadReleaseAssetContext(ctx, client, releaseAssetURL(baseURL, version, "checksums.txt"), maxChecksumsFile)
 	if err != nil {
 		return "", missingAsNoPrebuilt("checksums.txt", err)
 	}
@@ -33,7 +34,7 @@ func downloadCompanion(out io.Writer, client *http.Client, baseURL, version, goa
 	if err != nil {
 		return "", missingAsNoPrebuilt("", err)
 	}
-	archive, err := downloadReleaseAsset(client, releaseAssetURL(baseURL, version, asset), maxReleaseArchive)
+	archive, err := downloadReleaseAssetContext(ctx, client, releaseAssetURL(baseURL, version, asset), maxReleaseArchive)
 	if err != nil {
 		return "", missingAsNoPrebuilt(asset, err)
 	}

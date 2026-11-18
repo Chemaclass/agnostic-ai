@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,11 +32,12 @@ func builtTools(t *testing.T, lines ...string) companionTools {
 			return errors.New("no GOBIN in the environment")
 		},
 		start:    func(string, []string) error { return nil },
-		builtFor: func(context.Context, string) string { return "1.2.3" },
+		builtFor: func(context.Context, string) (string, error) { return "1.2.3", nil },
 		quit:     func(context.Context, string) (bool, error) { return false, nil },
 		loginOff: func(context.Context, string) error { return nil },
 		loginOn:  func(context.Context, string) error { return nil },
 		sign:     func(context.Context, string) error { return nil },
+		rename:   os.Rename,
 		pause:    func(time.Duration) {},
 	}
 }
@@ -183,7 +185,7 @@ func TestRunCompanion_SaysHowToInstallAMissingCompanion(t *testing.T) {
 		return nil
 	}
 
-	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, t.TempDir(), "darwin", "1.2.3")
+	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, t.TempDir(), "darwin", "1.2.3", "")
 
 	if err == nil || err.Error() != "the companion is not installed yet. Install it with: agnostic-ai companion install" {
 		t.Errorf("err = %v", err)
@@ -213,13 +215,13 @@ func TestRunCompanion_StartsItAndSaysWhenItWasBuiltForAnotherRelease(t *testing.
 	}
 	var out bytes.Buffer
 
-	err := runCompanion(context.Background(), &out, tools, dir, "linux", "1.3.0")
+	err := runCompanion(context.Background(), &out, tools, dir, "linux", "1.3.0", "")
 
 	if err != nil || started != installed || !pointsBack {
 		t.Fatalf("err %v, started %q, told where agnostic-ai is: %t", err, started, pointsBack)
 	}
 	want := "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.\n" +
-		"! It was built for agnostic-ai \"1.2.3\" and this is 1.3.0. Install it again with: agnostic-ai companion install\n"
+		"! It was built for agnostic-ai 1.2.3 and this is 1.3.0. Install it again with: agnostic-ai companion install\n"
 	if out.String() != want {
 		t.Errorf("output:\n%s", out.String())
 	}
@@ -485,27 +487,70 @@ func TestUninstallCompanion_SaysWhenNothingIsInstalled(t *testing.T) {
 	}
 }
 
-func TestUninstallCompanion_KeepsEverythingWhenStartAtLoginStaysOn(t *testing.T) {
+func TestUninstallCompanion_RemovesACompanionThatCannotRun(t *testing.T) {
 	dir := t.TempDir()
-	installed := installedCompanion(t, dir, "linux")
-	kept := []string{installed, filepath.Join(dir, companionCommandFile), filepath.Join(dir, companionSettingsFile)}
-	for _, path := range kept[1:] {
-		if err := os.WriteFile(path, []byte("{}"), 0o600); err != nil {
+	installedCompanion(t, dir, "linux")
+	for _, name := range []string{companionCommandFile, companionRevisionFile, companionSettingsFile} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	tools := builtTools(t)
-	tools.loginOff = func(context.Context, string) error { return errors.New("the system refused") }
+	tools.quit = func(context.Context, string) (bool, error) { return false, errors.New("exec format error") }
+	tools.loginOff = func(context.Context, string) error { return errors.New("exec format error") }
+	tools.builtFor = func(context.Context, string) (string, error) { return "", errCompanionCannotRun }
+	var out bytes.Buffer
 
-	err := uninstallCompanion(context.Background(), &bytes.Buffer{}, tools, dir, "linux", nil)
+	err := uninstallCompanion(context.Background(), &out, tools, dir, "linux", nil)
 
-	if err == nil || err.Error() != "turn off start at login: the system refused" {
-		t.Errorf("err = %v", err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, path := range kept {
-		if _, statErr := os.Stat(path); statErr != nil {
-			t.Errorf("removed although the login item stays: %v", statErr)
+	for _, gone := range []string{"companion", companionCommandFile, companionRevisionFile, companionSettingsFile} {
+		if _, err := os.Stat(filepath.Join(dir, gone)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s is still there (%v)", gone, err)
 		}
+	}
+	want := "! Could not stop the companion (ask the companion to stop: exec format error). If it still runs, end the agnostic-ai-companion process.\n" +
+		"! Could not turn off start at login (exec format error). Remove agnostic-ai companion from the items that open at login.\n" +
+		"✓ Removed " + filepath.Join(dir, "companion") + "\n" +
+		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
+	if out.String() != want {
+		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+func TestUninstallCompanion_KeepsACompanionThatRunsButDoesNotAnswer(t *testing.T) {
+	for name, change := range map[string]func(*companionTools){
+		"quit times out": func(tools *companionTools) {
+			tools.quit = func(context.Context, string) (bool, error) { return false, context.DeadlineExceeded }
+		},
+		"still runs": func(tools *companionTools) {
+			tools.quit = func(context.Context, string) (bool, error) { return true, nil }
+		},
+		"quit and version time out": func(tools *companionTools) {
+			tools.quit = func(context.Context, string) (bool, error) { return false, context.DeadlineExceeded }
+			tools.builtFor = func(context.Context, string) (string, error) { return "", context.DeadlineExceeded }
+		},
+		"login off fails": func(tools *companionTools) {
+			tools.loginOff = func(context.Context, string) error { return errors.New("the system refused") }
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			installed := installedCompanion(t, dir, "linux")
+			tools := builtTools(t)
+			change(&tools)
+
+			err := uninstallCompanion(context.Background(), io.Discard, tools, dir, "linux", nil)
+
+			if err == nil {
+				t.Error("uninstall succeeded")
+			}
+			if _, statErr := os.Stat(installed); statErr != nil {
+				t.Errorf("removed a companion that can still run: %v", statErr)
+			}
+		})
 	}
 }
 
@@ -517,7 +562,7 @@ func TestRunCompanion_AfterUninstallSaysHowToInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, dir, "linux", "1.2.3")
+	err := runCompanion(context.Background(), &bytes.Buffer{}, tools, dir, "linux", "1.2.3", "")
 
 	if err == nil || err.Error() != "the companion is not installed yet. Install it with: agnostic-ai companion install" {
 		t.Errorf("err = %v", err)
@@ -687,5 +732,217 @@ func TestUninstallCompanion_SucceedsWithoutAConfigDirectory(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "missing")
 	if err := uninstallCompanion(context.Background(), &bytes.Buffer{}, builtTools(t), dir, "linux", nil); err != nil {
 		t.Errorf("uninstall without a config directory: %v", err)
+	}
+}
+
+func TestInstallCompanion_RemovesBuildFoldersAnInterruptedInstallLeft(t *testing.T) {
+	dir := t.TempDir()
+	old := time.Now().Add(-2 * companionBuildAge)
+	folders := map[string]bool{"left": true, "in use": false, "kept aside": false}
+	for name := range folders {
+		folder := filepath.Join(dir, companionBuildPrefix+name)
+		if err := os.MkdirAll(filepath.Join(folder, "companion"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if name == "kept aside" {
+			if err := os.MkdirAll(filepath.Join(folder, companionAsideName), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if name != "in use" {
+			if err := os.Chtimes(folder, old, old); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	err := installCompanion(context.Background(), io.Discard, false, builtTools(t), dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, removed := range folders {
+		_, err := os.Stat(filepath.Join(dir, companionBuildPrefix+name))
+		if gone := errors.Is(err, os.ErrNotExist); gone != removed {
+			t.Errorf("%s: removed %t, want %t", name, gone, removed)
+		}
+	}
+}
+
+func TestInstallCompanion_InstallsNothingWhenInterrupted(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	tools := builtTools(t)
+	build := tools.build
+	tools.build = func(ctx context.Context, dir string, env []string, line func(string), args ...string) error {
+		cancel()
+		return build(ctx, dir, env, line, args...)
+	}
+
+	err := installCompanion(ctx, io.Discard, false, tools, dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+	if !errors.Is(err, context.Canceled) || !strings.HasPrefix(err.Error(), "the install was interrupted and changed nothing") {
+		t.Errorf("err = %v", err)
+	}
+	entries, _ := os.ReadDir(dir)
+	for _, entry := range entries {
+		if entry.Name() != "companion" {
+			t.Errorf("left %s", entry.Name())
+		}
+	}
+	if _, err := os.Stat(companionFile(dir, "linux")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("installed although interrupted (%v)", err)
+	}
+}
+
+func TestRunCompanion_SaysWhenTheCompanionCannotRun(t *testing.T) {
+	dir := t.TempDir()
+	installed := installedCompanion(t, dir, "linux")
+	tools := builtTools(t)
+	tools.builtFor = func(context.Context, string) (string, error) { return "", errCompanionCannotRun }
+	tools.start = func(string, []string) error {
+		t.Error("started a companion that cannot run")
+		return nil
+	}
+	var out bytes.Buffer
+
+	err := runCompanion(context.Background(), &out, tools, dir, "linux", "1.2.3", "")
+
+	if err == nil || !strings.HasPrefix(err.Error(), "the companion at "+installed+" could not run (") || !strings.HasSuffix(err.Error(), "). Install it again with: agnostic-ai companion install") {
+		t.Errorf("err = %v", err)
+	}
+	if out.Len() != 0 {
+		t.Errorf("output:\n%s", out.String())
+	}
+}
+
+func TestRunCompanion_SaysWhenAnotherCommitInstalledIt(t *testing.T) {
+	dir := t.TempDir()
+	if err := installCompanion(context.Background(), io.Discard, false, builtTools(t), dir, companionBuild{goos: "linux", version: "1.2.3", revision: "0123456789abcdef"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	for revision, want := range map[string]string{
+		"0123456789abcdef": "",
+		"":                 "",
+		"fedcba9876543210": "! It was installed by agnostic-ai 1.2.3 from commit 0123456789ab, and this one is from commit fedcba987654. Install it again with: agnostic-ai companion install\n",
+	} {
+		var out bytes.Buffer
+		if err := runCompanion(context.Background(), &out, builtTools(t), dir, "linux", "1.2.3", revision); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.TrimPrefix(out.String(), "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.\n"); got != want {
+			t.Errorf("revision %q: output:\n%s", revision, out.String())
+		}
+	}
+}
+
+func TestInstallCompanion_FinishesOnceItStartsReplacing(t *testing.T) {
+	dir := t.TempDir()
+	installed := installedCompanion(t, dir, "linux")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tools := builtTools(t)
+	asked := 0
+	tools.quit = func(ctx context.Context, _ string) (bool, error) {
+		cancel()
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		asked++
+		return asked == 1, nil
+	}
+	started := ""
+	tools.start = func(path string, _ []string) error {
+		started = path
+		return nil
+	}
+
+	err := installCompanion(ctx, io.Discard, false, tools, dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw, _ := os.ReadFile(installed); string(raw) != "built from github.com/chemaclass/agnostic-ai/companion@abc123" {
+		t.Errorf("installed program = %q", raw)
+	}
+	if started != installed {
+		t.Errorf("started %q: the stopped companion was not started again", started)
+	}
+}
+
+func TestCompanionBuiltFor_TellsAProgramThatCannotRunFromASlowOne(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses shell scripts")
+	}
+	dir := t.TempDir()
+	write := func(name, content string, mode os.FileMode) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(content), mode); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	for _, tc := range []struct {
+		name, path string
+		cannotRun  bool
+	}{
+		{"missing", filepath.Join(dir, "missing"), true},
+		{"not executable", write("plain", "#!/bin/sh\necho 1.2.3\n", 0o600), true},
+		{"not a program", write("garbage", "\x00\x01\x02\x03", 0o700), true},
+		{"fails silently", write("fails", "#!/bin/sh\nexit 1\n", 0o700), true},
+		{"slow", write("slow", "#!/bin/sh\nexec sleep 5\n", 0o700), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+			defer cancel()
+
+			_, err := companionBuiltFor(ctx, tc.path)
+
+			if err == nil || errors.Is(err, errCompanionCannotRun) != tc.cannotRun {
+				t.Errorf("err = %v, cannot run %t", err, tc.cannotRun)
+			}
+		})
+	}
+	version, err := companionBuiltFor(context.Background(), write("works", "#!/bin/sh\necho 1.2.3\n", 0o700))
+	if err != nil || version != "1.2.3" {
+		t.Errorf("version %q, err %v", version, err)
+	}
+}
+
+func TestRunCompanion_StartsAFirstLaunchTooSlowToSayItsVersion(t *testing.T) {
+	dir := t.TempDir()
+	installed := installedCompanion(t, dir, "linux")
+	tools := builtTools(t)
+	tools.builtFor = func(context.Context, string) (string, error) { return "", context.DeadlineExceeded }
+	started := ""
+	tools.start = func(path string, _ []string) error {
+		started = path
+		return nil
+	}
+	var out bytes.Buffer
+
+	err := runCompanion(context.Background(), &out, tools, dir, "linux", "1.3.0", "")
+
+	if err != nil || started != installed {
+		t.Fatalf("err %v, started %q", err, started)
+	}
+	if out.String() != "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.\n" {
+		t.Errorf("output:\n%s", out.String())
+	}
+}
+
+func TestUninstallCompanion_SaysHowToStartTheCompanionItStopped(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "linux")
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	tools.loginOff = func(context.Context, string) error { return errors.New("the system refused") }
+
+	err := uninstallCompanion(context.Background(), io.Discard, tools, dir, "linux", nil)
+
+	want := "turn off start at login: the system refused. The companion was stopped; start it again with: agnostic-ai companion"
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v", err)
 	}
 }
