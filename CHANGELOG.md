@@ -84,7 +84,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
-- Goose hook guidance distinguishes documented edit fields from the missing `hook paths` decoder (#3574).
+- Shared guides distinguish Goose hook data from helper support and Auggie 0.x memory injection from the 1.x rule fallback (#3574, #3577).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
 - Target guides clarify native hook settings, OAuth scope, Devin ignores, and versioned OpenCode instruction fallback (#3575).
