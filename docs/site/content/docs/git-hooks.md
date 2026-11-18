@@ -179,7 +179,7 @@ agnostic-ai sync --keep-edits
 
 The same command works in `post-merge` (no `$3` check) and in `postinstall`. A pull with rebase needs `post-rewrite` (see [Node monorepos](#node-monorepos)).
 
-`agnostic-ai` must be on `PATH` wherever the repo is checked out. Document the install in `CONTRIBUTING.md`. If some contributors lack the CLI, commit the outputs, or in a Node project install it with the dependencies ([Node monorepos](#node-monorepos)).
+`agnostic-ai` must be on `PATH` wherever the repo is checked out. Document the install in `CONTRIBUTING.md`, so a new contributor does not hit `command not found`. If some contributors lack the CLI, commit the outputs, or in a Node project install it with the dependencies ([Node monorepos](#node-monorepos)).
 
 <details>
 <summary>Pin the CLI and restore files in Node workspaces and worktrees</summary>
