@@ -628,9 +628,9 @@ func (s *Scanner) claudeLiveEntries() (entries []claudeLive, unreadable map[int]
 		}
 		path := filepath.Join(dir, file.Name())
 		pid, _ := strconv.Atoi(strings.TrimSuffix(file.Name(), ".json"))
-		data, err := os.ReadFile(path)
+		data, err := readClaudeMetadata(path)
 		if err != nil {
-			unreadable[pid] = fmt.Errorf("%s: %w", path, err)
+			unreadable[pid] = err
 			continue
 		}
 		var entry claudeLive
@@ -653,7 +653,7 @@ func (s *Scanner) claudeActiveJobs() map[string]string {
 	jobs := map[string]string{}
 	files, _ := filepath.Glob(filepath.Join(s.Stores.ClaudeDir, "jobs", "*", "state.json"))
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		data, err := readClaudeMetadata(file)
 		if err != nil {
 			continue
 		}
@@ -672,6 +672,17 @@ func (s *Scanner) claudeActiveJobs() map[string]string {
 		}
 	}
 	return jobs
+}
+
+func readClaudeMetadata(path string) ([]byte, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s: expected a regular file, got %s", path, info.Mode().Type())
+	}
+	return os.ReadFile(path)
 }
 
 func isoTime(value string) string {
