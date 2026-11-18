@@ -337,9 +337,10 @@ Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their o
 <details>
 <summary>Tools the command does not read</summary>
 
-Their docs do not show an edit's event data, so the command fails:
+The command does not read these targets:
 
-- Windsurf, Trae, Copilot, Goose, Antigravity, OpenHands, Cline.
+- Windsurf, Trae, Copilot, Antigravity, OpenHands, Cline: their docs do not show an edit's event data.
+- Goose: `hook paths` has no Goose decoder. Goose [documents its tool input](https://github.com/aaif-goose/goose/blob/v1.60.0/documentation/docs/guides/context-engineering/hooks.md#tool-input-keys): `write` has `path` and `content`; `edit` has `path`, `before`, and `after`.
 - Kiro: a `PostFileSave` command can use its `filePath` template variable.
 - Crush: tool events set `CRUSH_TOOL_INPUT_FILE_PATH`. See [native lifecycle events and matcher limits](@/docs/targets/crush-reference.md#hooks).
 - OpenCode V1 and Kilo: plugins get tool arguments as JavaScript objects, not as event data on stdin. OpenCode V2 sends native event JSON, which this command does not read.
