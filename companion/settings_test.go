@@ -163,3 +163,28 @@ func TestReadSettings_LeavesAFileThatIsNotJSONWhereItIs(t *testing.T) {
 		t.Errorf("readSettings moved the file: %v", err)
 	}
 }
+
+func TestReadSettings_LeavesAWrongTypedValueAtItsDefault(t *testing.T) {
+	for name, tc := range map[string]struct {
+		raw   string
+		check func(settings) bool
+	}{
+		"animate":            {`{"animate":"yes","shortcut":"Cmd+Shift+K"}`, func(s settings) bool { return s.Animate == nil && s.animate() }},
+		"whole bubble":       {`{"bubble":"x","shortcut":"Cmd+Shift+K"}`, func(s settings) bool { return s.Bubble == nil }},
+		"one bubble field":   {`{"bubble":{"x":"9","y":300},"shortcut":"Cmd+Shift+K"}`, func(s settings) bool { return s.Bubble == nil }},
+		"a field after them": {`{"smallCompanion":"yes","dimWhenIdle":true,"shortcut":"Cmd+Shift+K"}`, func(s settings) bool { return !s.SmallCompanion && s.DimWhenIdle }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "companion.json")
+			if err := os.WriteFile(path, []byte(tc.raw), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			saved, err := readSettings(path)
+
+			if err != nil || saved.Shortcut != "Cmd+Shift+K" || !tc.check(saved) {
+				t.Errorf("readSettings(%s) = %+v, %v", tc.raw, saved, err)
+			}
+		})
+	}
+}

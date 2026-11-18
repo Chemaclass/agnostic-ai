@@ -94,11 +94,34 @@ func readSettings(path string) (settings, error) {
 		var wrongType *json.UnmarshalTypeError
 		if errors.As(err, &wrongType) {
 			log.Printf("companion settings %s: %v; kept the other settings", path, err)
-			return s, nil
+			return fieldsThatParse(raw), nil
 		}
 		return settings{}, &unreadableSettings{path: path, cause: err}
 	}
 	return s, nil
+}
+
+// fieldsThatParse reads each top-level field of raw on its own and keeps
+// those that parse. A field that fails leaves its default: decoding the
+// whole file would leave a pointer such as Bubble half filled.
+func fieldsThatParse(raw []byte) settings {
+	var s settings
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return s
+	}
+	for name, value := range fields {
+		one, err := json.Marshal(map[string]json.RawMessage{name: value})
+		if err != nil {
+			continue
+		}
+		var probe settings
+		if json.Unmarshal(one, &probe) != nil {
+			continue
+		}
+		_ = json.Unmarshal(one, &s)
+	}
+	return s
 }
 
 // unreadableSettings is a settings file that is not JSON, such as one
