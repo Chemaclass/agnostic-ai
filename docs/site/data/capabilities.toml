@@ -137,6 +137,7 @@ statuses = ["mapped", "native", "native", "no", "native", "no", "no", "no", "no"
 id = "amp"
 name = "Amp"
 href = "@/docs/targets/amp.md"
+opt_in_href = "@/docs/targets/amp-reference.md"
 statuses = ["opt-in", "native", "native", "no", "native", "no", "source", "no", "native", "no"]
 opt_in = { agent = "outputs.amp.agents" }
 
@@ -144,6 +145,7 @@ opt_in = { agent = "outputs.amp.agents" }
 id = "zed"
 name = "Zed"
 href = "@/docs/targets/zed.md"
+opt_in_href = "@/docs/targets/zed-reference.md"
 statuses = ["opt-in", "native", "native", "opt-in", "native", "mapped", "no", "no", "no", "no"]
 opt_in = { agent = "outputs.zed.agents", hook = "outputs.zed.tasks-file" }
 
@@ -245,6 +247,7 @@ opt_in = { settings = "x-ellipsis" }
 id = "codebuddy"
 name = "CodeBuddy Code"
 href = "@/docs/targets/codebuddy.md"
+opt_in_href = "@/docs/targets/codebuddy-reference.md"
 statuses = ["native", "native", "native", "native", "opt-in", "native", "native", "no", "no", "no"]
 opt_in = { mcp = "outputs.codebuddy.root-mcp-file" }
 
@@ -276,6 +279,7 @@ statuses = ["native", "native", "native", "native", "native", "mapped", "native"
 id = "kimi"
 name = "Kimi Code CLI"
 href = "@/docs/targets/kimi.md"
+opt_in_href = "@/docs/targets/kimi-reference.md"
 statuses = ["native", "native", "native", "opt-in", "native", "no", "opt-in", "no", "no", "no"]
 opt_in_anchor = "selected-profile"
 opt_in = { hook = "conf-file", settings = "conf-file" }
