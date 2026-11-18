@@ -713,7 +713,7 @@ jobs:
             exit 0
           fi
 
-          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh 'internal/cli/companion*' .github/workflows/ci.yml; then
+          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh 'internal/cli/companion*' 'internal/cli/upgrade*' go.mod go.sum .github/workflows/ci.yml; then
             echo "companion=false" >> "$GITHUB_OUTPUT"
           else
             echo "companion=true" >> "$GITHUB_OUTPUT"

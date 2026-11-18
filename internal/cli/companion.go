@@ -340,21 +340,28 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 		return err
 	}
 	// A companion that cannot run, such as one built for another
-	// processor, must not keep its own files: each failure here is only
-	// a warning.
+	// processor, must not keep its own files, so its failures are only
+	// warnings. One that runs keeps them until it answers.
 	loginOff := false
 	if found {
 		ran, err := endCompanion(ctx, tools, installed)
+		cannotRun := err != nil && !ran && tools.builtFor(ctx, installed) == ""
 		switch {
+		case err != nil && !cannotRun:
+			return err
 		case err != nil:
 			_, _ = fmt.Fprintf(out, "! Could not stop the companion (%v). If it still runs, end the %s process.\n", err, companionName)
 		case ran:
 			_, _ = fmt.Fprintln(out, "✓ Stopped the companion")
 		}
-		if err := tools.loginOff(ctx, installed); err != nil {
-			_, _ = fmt.Fprintf(out, "! Could not turn off start at login (%v). Remove %s from the items that open at login.\n", err, companionAppName)
-		} else {
+		err = tools.loginOff(ctx, installed)
+		switch {
+		case err == nil:
 			loginOff = true
+		case cannotRun || tools.builtFor(ctx, installed) == "":
+			_, _ = fmt.Fprintf(out, "! Could not turn off start at login (%v). Remove %s from the items that open at login.\n", err, companionAppName)
+		default:
+			return fmt.Errorf("turn off start at login: %w", err)
 		}
 	}
 	left, err := removeLoginEntries(loginEntries)
@@ -645,10 +652,12 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		target = companionBundle(dir)
 		place = func() error { return replaceCompanionApp(tools.rename, app, target, staging) }
 	}
-	// An interrupt stops here, before anything installed changes.
+	// An interrupt stops here, before anything installed changes. Past
+	// this point the install finishes, so a stopped companion starts again.
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("the install was interrupted and changed nothing: %w", err)
 	}
+	ctx = context.WithoutCancel(ctx)
 	installed, found, err := companionInstalled(dir, build.goos)
 	if err != nil {
 		return err
@@ -819,12 +828,12 @@ func runCompanion(ctx context.Context, out io.Writer, tools companionTools, dir,
 	if err := recordCompanionCommand(dir); err != nil {
 		return err
 	}
-	if err := startInstalledCompanion(tools, installed); err != nil {
-		return err
-	}
 	builtFor := tools.builtFor(ctx, installed)
 	if builtFor == "" {
 		return fmt.Errorf("the companion at %s could not run. Install it again with: agnostic-ai companion install", installed)
+	}
+	if err := startInstalledCompanion(tools, installed); err != nil {
+		return err
 	}
 	_, _ = fmt.Fprintln(out, "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.")
 	if builtFor != version {

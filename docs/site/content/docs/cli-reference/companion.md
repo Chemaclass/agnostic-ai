@@ -69,7 +69,7 @@ Put the circle on your screen.
 - `stop` when nothing runs: it succeeds and says so.
 - **Quit Agnostic AI companion** in the menus does the same as `stop`.
 - `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices), `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
-- When the companion cannot stop or turn off start at login, such as one built for another processor, `uninstall` warns and still deletes it. `stop` fails instead.
+- When the companion cannot run at all, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
 - On macOS and Linux it also removes a login entry that a deleted program left behind.
 - On Windows it names the registry value to delete.

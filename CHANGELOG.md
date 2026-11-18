@@ -14,7 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
-- `agnostic-ai companion uninstall` removes a companion that cannot run or stop, such as one built for another processor, with a warning, instead of keeping it. (#3591)
+- `agnostic-ai companion uninstall` removes a companion that cannot run, such as one built for another processor, with a warning, instead of keeping it. (#3591)
 - `agnostic-ai companion` says when the companion cannot run, and names its path, instead of saying it is on screen. It also warns when an `agnostic-ai` from another commit installed it. (#3591)
 - `agnostic-ai companion install` stops on a Mac older than macOS 13, which the companion needs, and the app now says 13.0 too. An Intel `agnostic-ai` under Rosetta gets the Apple silicon companion, a slow download has 10 minutes, and a failing `gh` check names `AGNOSTIC_AI_VERIFY_ATTESTATION=0`. (#3591)
 - Ctrl-C during `agnostic-ai companion install` removes its build folder, and the next install removes one an earlier install left over an hour ago. When neither the new app nor the old one can take its place, the old one is kept and the error names where. (#3591)

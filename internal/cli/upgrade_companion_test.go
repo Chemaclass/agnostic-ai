@@ -281,7 +281,7 @@ func TestUpgradeCompanion_SaysWhenThePackageManagerHasNotPublishedTheRelease(t *
 
 	err := runUpgradeWithDeps(io.Discard, false, "", "1.0.0", deps)
 
-	if err == nil || err.Error() != "the CLI is still 1.0.0: homebrew does not serve 2.0.0 yet. Run agnostic-ai upgrade again later" {
+	if err == nil || err.Error() != "the CLI is still 1.0.0: Homebrew does not serve 2.0.0 yet. Run agnostic-ai upgrade again later" {
 		t.Errorf("err = %v", err)
 	}
 }

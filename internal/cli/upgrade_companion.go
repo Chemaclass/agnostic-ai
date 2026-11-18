@@ -31,14 +31,21 @@ func (e *companionUpgradeError) Error() string {
 
 // cliNotYetPublished is a package manager that upgraded nothing because
 // it does not serve the new release yet.
-type cliNotYetPublished struct{ method, current, want string }
+type cliNotYetPublished struct {
+	method        installMethod
+	current, want string
+}
 
 func (e cliNotYetPublished) Error() string {
 	want := e.want
 	if want == "" {
 		want = "a newer release"
 	}
-	return fmt.Sprintf("the CLI is still %s: %s does not serve %s yet. Run agnostic-ai upgrade again later", e.current, e.method, want)
+	source := map[installMethod]string{installHomebrew: "Homebrew", installNPM: "npm", installGoInstall: "the Go module proxy"}[e.method]
+	if source == "" {
+		source = "the install source"
+	}
+	return fmt.Sprintf("the CLI is still %s: %s does not serve %s yet. Run agnostic-ai upgrade again later", e.current, source, want)
 }
 func (e *companionUpgradeError) Unwrap() error { return e.cause }
 
@@ -119,7 +126,7 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 		return err
 	}
 	if stillOld && !ranBroken {
-		return cliNotYetPublished{method: info.Method.String(), current: info.Version, want: version}
+		return cliNotYetPublished{method: info.Method, current: info.Version, want: version}
 	}
 	return fmt.Errorf("verify updated executable: %w", errors.Join(problems...))
 }

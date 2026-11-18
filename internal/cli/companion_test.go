@@ -498,6 +498,7 @@ func TestUninstallCompanion_RemovesACompanionThatCannotRun(t *testing.T) {
 	tools := builtTools(t)
 	tools.quit = func(context.Context, string) (bool, error) { return false, errors.New("exec format error") }
 	tools.loginOff = func(context.Context, string) error { return errors.New("exec format error") }
+	tools.builtFor = func(context.Context, string) string { return "" }
 	var out bytes.Buffer
 
 	err := uninstallCompanion(context.Background(), &out, tools, dir, "linux", nil)
@@ -516,6 +517,36 @@ func TestUninstallCompanion_RemovesACompanionThatCannotRun(t *testing.T) {
 		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
 	if out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+func TestUninstallCompanion_KeepsACompanionThatRunsButDoesNotAnswer(t *testing.T) {
+	for name, change := range map[string]func(*companionTools){
+		"quit times out": func(tools *companionTools) {
+			tools.quit = func(context.Context, string) (bool, error) { return false, context.DeadlineExceeded }
+		},
+		"still runs": func(tools *companionTools) {
+			tools.quit = func(context.Context, string) (bool, error) { return true, nil }
+		},
+		"login off fails": func(tools *companionTools) {
+			tools.loginOff = func(context.Context, string) error { return errors.New("the system refused") }
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			installed := installedCompanion(t, dir, "linux")
+			tools := builtTools(t)
+			change(&tools)
+
+			err := uninstallCompanion(context.Background(), io.Discard, tools, dir, "linux", nil)
+
+			if err == nil {
+				t.Error("uninstall succeeded")
+			}
+			if _, statErr := os.Stat(installed); statErr != nil {
+				t.Errorf("removed a companion that can still run: %v", statErr)
+			}
+		})
 	}
 }
 
@@ -765,6 +796,10 @@ func TestRunCompanion_SaysWhenTheCompanionCannotRun(t *testing.T) {
 	installed := installedCompanion(t, dir, "linux")
 	tools := builtTools(t)
 	tools.builtFor = func(context.Context, string) string { return "" }
+	tools.start = func(string, []string) error {
+		t.Error("started a companion that cannot run")
+		return nil
+	}
 	var out bytes.Buffer
 
 	err := runCompanion(context.Background(), &out, tools, dir, "linux", "1.2.3", "")
@@ -794,5 +829,39 @@ func TestRunCompanion_SaysWhenAnotherCommitInstalledIt(t *testing.T) {
 		if got := strings.TrimPrefix(out.String(), "The companion is on your screen. Its ⋯ menu hides it or quits it, and its shortcut brings a hidden one back. `agnostic-ai companion stop` ends it.\n"); got != want {
 			t.Errorf("revision %q: output:\n%s", revision, out.String())
 		}
+	}
+}
+
+func TestInstallCompanion_FinishesOnceItStartsReplacing(t *testing.T) {
+	dir := t.TempDir()
+	installed := installedCompanion(t, dir, "linux")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tools := builtTools(t)
+	asked := 0
+	tools.quit = func(ctx context.Context, _ string) (bool, error) {
+		cancel()
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		asked++
+		return asked == 1, nil
+	}
+	started := ""
+	tools.start = func(path string, _ []string) error {
+		started = path
+		return nil
+	}
+
+	err := installCompanion(ctx, io.Discard, false, tools, dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw, _ := os.ReadFile(installed); string(raw) != "built from github.com/chemaclass/agnostic-ai/companion@abc123" {
+		t.Errorf("installed program = %q", raw)
+	}
+	if started != installed {
+		t.Errorf("started %q: the stopped companion was not started again", started)
 	}
 }
