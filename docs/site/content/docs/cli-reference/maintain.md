@@ -37,35 +37,31 @@ Handoffs, generated-file recovery, packs, hook helpers, git hooks, completion, a
 
 ## handoff list
 
-List saved [task handoffs](@/docs/handoff.md) across the repository's worktrees:
+List saved [task handoffs](@/docs/handoff.md) across the repository's worktrees. Each branch gets one row.
 
 ```bash
 agnostic-ai handoff list
 ```
 
-Each branch gets one row:
+| Column | Value |
+|--------|-------|
+| Worktree | Live, or `removed` |
+| Saved HEAD | Commit and date |
+| Working changes | `clean`, `dirty`, or `unknown` |
+| Task status | From the handoff |
+| PR | `-` when missing |
+| Handoff file | Path |
 
-- live worktree, or `removed`
-- saved HEAD and date
-- working changes: `clean`, `dirty`, or `unknown`
-- task status
-- PR (`-` when missing)
-- handoff file
-
-The newest manual note wins over automatic snapshots. It reads only note headers, from the stores the [handoff skill](@/docs/handoff.md#limits-and-overrides) uses.
-
-It suggests removal only when local Git ancestry proves the branch merged and no working changes are pending, so squash merges need your review. It never fetches or deletes files.
+{% <details summary="Details: which note wins, and removal hints"> %}
+- The newest manual note wins over automatic snapshots.
+- It reads only note headers, from the stores the [handoff skill](@/docs/handoff.md#limits-and-overrides) uses.
+- It suggests removal only when local Git ancestry proves the branch merged and no working changes are pending. Squash merges need your review.
+- It never fetches or deletes files.
+{% </details> %}
 
 ## revert
 
 Undo a `sync --backup`. For each generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), it restores `<path>.bak` and removes the backup.
-
-- Restored files keep their permissions, never wider than the file's.
-- A nested `CLAUDE.md` that sync deleted comes back too.
-- An unfiltered `revert` also restores intact recorded backups of removed outputs, including those from dropped targets.
-- Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched.
-- A shared `AGENTS.md` is handled once.
-- `revert` takes the project lock, so it stops while another command writes. `--dry-run` does not.
 
 | Flag | Description |
 |------|-------------|
@@ -73,6 +69,15 @@ Undo a `sync --backup`. For each generated file and tool instruction file (`CLAU
 | `--dry-run` | Show what it would do and change nothing. |
 | `--force` | Also delete generated files that have no `.bak`, including generated tool instruction files and your own files at the same paths. |
 | `--json` | Same format as `sync --json`. Actions: `"restore"`, `"remove"`, `"preserve"` (no `.bak`, no `--force`), `"skip"` (already gone). |
+
+{% <details summary="Details: what revert restores and skips"> %}
+- Restored files keep their permissions, never wider than the file's.
+- A nested `CLAUDE.md` that sync deleted comes back too.
+- An unfiltered `revert` also restores intact recorded backups of removed outputs, including those from dropped targets.
+- Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched.
+- A shared `AGENTS.md` is handled once.
+- `revert` takes the project lock, so it stops while another command writes. `--dry-run` does not.
+{% </details> %}
 
 ## cleanup
 
@@ -105,12 +110,7 @@ files=$(agnostic-ai hook paths) || exit 1
 printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
 
-<details>
-<summary>Why capture the output first</summary>
-
-Capture the output first, as above: piping it straight into the loop hides failures and lets the hook exit 0.
-
-</details>
+Capture the output first, as above. Piping it straight into the loop hides failures and lets the hook exit 0.
 
 | Flag | Description |
 |------|-------------|
@@ -120,7 +120,7 @@ Capture the output first, as above: piping it straight into the loop hides failu
 
 ## hook worktree-remove
 
-Remove one clean Git worktree from a Claude Code [`WorktreeRemove`](https://code.claude.com/docs/en/hooks#worktreeremove) event on stdin. Pair it with your `WorktreeCreate` hook; it does not change cleanup for worktrees the host creates without one.
+Remove one clean Git worktree from a Claude Code [`WorktreeRemove`](https://code.claude.com/docs/en/hooks#worktreeremove) event on stdin. Pair it with your `WorktreeCreate` hook. It does not change cleanup for worktrees the host creates without one.
 
 ```bash
 agnostic-ai hook worktree-remove --repo "/path/to/repository" --allowed-root "/path/to/disposable worktrees"
@@ -131,10 +131,11 @@ agnostic-ai hook worktree-remove --repo "/path/to/repository" --allowed-root "/p
 | `--repo <path>` | Required. A surviving checkout of the repository, outside the disposable worktrees. |
 | `--allowed-root <path>` | Required. Only descendants of this directory may be removed. |
 
-<details>
-<summary>What worktree-remove refuses, and its results</summary>
-
-After checking Git's worktree registration and repository metadata, it runs `git worktree remove` without force, keeping the branch. It refuses the main checkout, the allowed root itself, other repositories, unregistered directories, traversal, symlinks below the allowed root, locked worktrees, and worktrees with changed, untracked, or ignored files (ignored dependencies included; remove them first). It also refuses indexes with `assume-unchanged` or `skip-worktree` entries, sparse checkouts included, because those can hide changed contents.
+{% <details summary="Details: what worktree-remove refuses, and its results"> %}
+- After checking Git's worktree registration and repository metadata, it runs `git worktree remove` without force, keeping the branch.
+- It refuses the main checkout, the allowed root itself, other repositories, unregistered directories, traversal, symlinks below the allowed root, and locked worktrees.
+- It refuses worktrees with changed, untracked, or ignored files. Ignored dependencies count; remove them first.
+- It refuses indexes with `assume-unchanged` or `skip-worktree` entries, sparse checkouts included, because those can hide changed contents.
 
 | Result | Output | Exit |
 |--------|--------|------|
@@ -143,8 +144,7 @@ After checking Git's worktree registration and repository metadata, it runs `git
 | Unsafe input, event data over 1 MiB, or a failed Git operation | error | 1 |
 
 Claude Code runs this event instead of its own cleanup, while the directory still exists. A non-zero exit keeps the directory, with no Git fallback.
-
-</details>
+{% </details> %}
 
 ## hook guard
 
@@ -155,9 +155,12 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard after-e
 command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 ```
 
-- `after-edit` reads the event data on stdin, like [`hook paths`](#hook-paths), and reports lint errors in the specs the edit touched.
-- `stop` reports specs changed without a sync. It passes when the agent already continued from a stop hook, so the notice cannot loop.
-- It uses the nearest `agnostic-ai.yaml` at or above the current directory, and exits 0 when it cannot read the event data or config.
+| Event | What it reports |
+|-------|-----------------|
+| `after-edit` | Lint errors in the specs the edit touched. Reads event data on stdin, like [`hook paths`](#hook-paths). |
+| `stop` | Specs changed without a sync. It passes when the agent already continued from a stop hook, so the notice cannot loop. |
+
+It uses the nearest `agnostic-ai.yaml` at or above the current directory. It exits 0 when it cannot read the event data or config.
 
 | Flag | Description |
 |------|-------------|
@@ -171,9 +174,11 @@ Print the `MEMORY.md` fact lists, personal first, for a `session-start` hook to 
 agnostic-ai hook memory --target codex
 ```
 
-<details>
-<summary>Output format per tool, size limit, and project lookup</summary>
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Tool that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
 
+{% <details summary="Details: output format per tool, size limit, and project lookup"> %}
 | Tool | Output |
 |------|--------|
 | Codex, Factory | Plain text |
@@ -182,33 +187,33 @@ agnostic-ai hook memory --target codex
 | Copilot | That object for VS Code, plus a top-level `additionalContext` for Copilot CLI |
 | Claude Code | `{"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": ...}}` with personal memory only, since `CLAUDE.md` gives subagents the project list. Nothing when `CLAUDE.md` imports the personal list too. |
 
-- Output stays under 6,000 bytes, cut at a line end with a note naming the full index. Hidden characters are dropped first (see [session start](@/docs/memory.md#load-at-session-start)), except a zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word.
-- With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project as the `shared-memory` skill does.
-
-</details>
-
-| Flag | Description |
-|------|-------------|
-| `-t`, `--target <name>` | Tool that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
+- Output stays under 6,000 bytes, cut at a line end with a note naming the full index.
+- Hidden characters are dropped first (see [session start](@/docs/memory.md#load-at-session-start)), except a zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word.
+- With no project, it prints nothing.
+- With `memory.personal: repo`, it names the personal folder even before an index exists. In checkout mode, no index means no output.
+- It finds the project as the `shared-memory` skill does.
+{% </details> %}
 
 ## hook worktree-refresh
 
-Rerun Claude Code's configured environment setup in one registered linked worktree:
+Rerun Claude Code's configured environment setup in one registered linked worktree.
 
 ```bash
 agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
 ```
 
-`--repo` is a checkout of the owning repository and `--worktree` the linked checkout. The helper checks that the worktree is registered to that repository and refuses the main checkout. Run `agnostic-ai sync` in that worktree first when setup changes: it resets the completion marker only when the generated setup script matches current source, including output-path overrides such as `outputs.claude.dir`. See [refresh an existing worktree](@/docs/spec-format/environments.md#refresh-an-existing-worktree) for how markers work.
+`--repo` is a checkout of the owning repository and `--worktree` the linked checkout. The helper checks that the worktree is registered to that repository and refuses the main checkout.
 
-<details>
-<summary>Limits of worktree-refresh</summary>
+When setup changes, run `agnostic-ai sync` in that worktree first. Sync resets the completion marker only when the generated setup script matches current source, including output-path overrides such as `outputs.claude.dir`. See [refresh an existing worktree](@/docs/spec-format/environments.md#refresh-an-existing-worktree) for how markers work.
 
-- Setup runs from the worktree with a 600-second limit; output and failures pass through. Cancellation stops the setup processes it owns; a successful setup can leave background services running. Other worktrees keep their markers.
+{% <details summary="Details: limits of worktree-refresh"> %}
+- Setup runs from the worktree with a 600-second limit. Output and failures pass through.
+- Cancellation stops the setup processes it owns. A successful setup can leave background services running.
+- Other worktrees keep their markers.
 - On Windows it needs Git Bash, from `CLAUDE_CODE_GIT_BASH_PATH` or the Git for Windows install, never a `bash` launcher from PATH.
-- It installs dependencies only if your setup command does. It does not check application health or change other tools' setup, and normal Claude setup hooks still run once per worktree.
-
-</details>
+- It installs dependencies only if your setup command does.
+- It does not check application health or change other tools' setup. Normal Claude setup hooks still run once per worktree.
+{% </details> %}
 
 ## hook run
 
@@ -218,6 +223,7 @@ Test a synced hook spec without starting a session. See [test a hook](@/docs/cli
 agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
 ```
 
+{% <details summary="Flags: choose the event, the tools, and the expected result"> %}
 | Flag | Description |
 |------|-------------|
 | `-t`, `--target <names>` | Test only these tools. Defaults to every configured tool the hook applies to. |
@@ -229,6 +235,7 @@ agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect b
 | `--expect allow\|block` | Fail unless every tool gives this result. |
 | `--include-assumed` | Count [assumed results](@/docs/cli-reference/hook-diagnostics.md#assumed-results) toward `--expect` and the comparison between tools. |
 | `--format text\|json` | `json` prints one report with a `targets` array; see the [JSON fields](@/docs/cli-reference/hook-diagnostics.md#json-output). Defaults to `text`. |
+{% </details> %}
 
 ## install-hook
 
@@ -243,16 +250,14 @@ agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-che
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
-<details>
-<summary>Existing hooks and install-hook options</summary>
-
-An existing hook keeps its content, and the checks go at its end. A hook that would stop before them (its first line does not select `sh` or `bash`, or it has an `exec` or an unindented `exit`) is left alone, and the command prints the lines to add by hand.
-
+{% <details summary="Details: existing hooks and each option"> %}
+- An existing hook keeps its content, and the checks go at its end.
+- A hook that would stop before them is left alone, and the command prints the lines to add by hand. That means its first line does not select `sh` or `bash`, or it has an `exec` or an unindented `exit`.
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
-- `--global` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree). Not with `--shared` or `--post-checkout`; it stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
-- `--post-checkout` installs `post-checkout` and `post-merge`, which run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single file) or a merge, pull included. See [regenerate on checkout](@/docs/git-hooks.md#regenerate-on-checkout).
-
-</details>
+- `--global` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree).
+- `--global` is not allowed with `--shared` or `--post-checkout`. It stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
+- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single file) or a merge, pull included. See [regenerate on checkout](@/docs/git-hooks.md#regenerate-on-checkout).
+{% </details> %}
 
 ## completion
 
@@ -269,8 +274,13 @@ Restart your shell or `source` the file. Completing `--target` reads `agnostic-a
 
 ## lsp
 
-Start the language server on stdin and stdout. The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) starts it for a configured workspace, using `agnostic-ai.binaryPath`; other editors can launch `agnostic-ai lsp` for Markdown and YAML files.
+Start the language server on stdin and stdout. The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) starts it for a configured workspace, using `agnostic-ai.binaryPath`. Other editors can launch `agnostic-ai lsp` for Markdown and YAML files.
 
-- It lints the project's configured sources, custom and absolute directories included, when you open or save a file. Unsaved edits are not linted.
+It lints the project's configured sources when you open or save a file.
+
+{% <details summary="Details: what gets linted and when diagnostics clear"> %}
+- Custom and absolute source directories are linted too. Unsaved edits are not.
 - Config and spec load failures appear on the source file, with the parser location when known, or as a workspace error.
-- A successful check clears resolved diagnostics from every affected file, deleted sources included. After a failed load, earlier diagnostics stay until you fix the problem and save a project file.
+- A successful check clears resolved diagnostics from every affected file, deleted sources included.
+- After a failed load, earlier diagnostics stay until you fix the problem and save a project file.
+{% </details> %}

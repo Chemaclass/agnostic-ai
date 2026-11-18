@@ -21,9 +21,16 @@ rtk-approval-diagnostics = "@/docs/cli-reference/doctor.md#rtk-approval-diagnost
 
 ## RTK approval diagnostics {#rtk-approval-diagnostics .legacy-anchor}
 
-Start troubleshooting with [`doctor`](@/docs/cli-reference/doctor.md#doctor). It checks project and local setup, then suggests a next step. It is read-only unless you pass `--fix`.
+Pick the command for the problem:
 
-Use [`validate`](#validate) for invalid spec formats, [`lint`](#lint) for spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) for generated files that differ from the sources. [`status`](#status) summarizes the project. [`verify`](#verify) runs your own tasks to check each AI tool's behavior.
+| Problem | Run |
+|---------|-----|
+| Anything is wrong, and you do not know what | [`doctor`](@/docs/cli-reference/doctor.md#doctor): checks project and local setup, then suggests a next step. Read-only unless you pass `--fix`. |
+| A spec has an invalid format | [`validate`](#validate) |
+| Spec quality | [`lint`](#lint) |
+| Generated files differ from the sources | [`sync --check`](@/docs/cli-reference/sync.md#sync) |
+| A summary of the project | [`status`](#status) |
+| Your own tasks, run against each tool | [`verify`](#verify) |
 
 `validate` and `lint` skip built-in hooks whose target selectors match no selected tool. User-authored hooks get the usual checks.
 
@@ -31,6 +38,12 @@ Use [`validate`](#validate) for invalid spec formats, [`lint`](#lint) for spec q
 
 Load all specs and report parse errors. On success it prints `loaded 12 entries. ok.`. With no specs it prints `loaded 0 entries. ok.` and stderr suggests `init` or `import`.
 
+| Flag | Description |
+|------|-------------|
+| `--fix` | Rewrite source spec files to repair issues it can fix. |
+| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Works outside a project. |
+
+{% <details summary="Details: what validate checks, and global mode"> %}
 | Check | Reports |
 |-------|------------|
 | Hook events | A hook with neither `on:` nor `event:`, or an event no target the hook emits to supports, after its `x-<target>` event. The report lists the supported events. |
@@ -40,40 +53,46 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | Global rules | With `--global`: a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | Global settings | With `--global`: a settings `effort` that a tool cannot take, such as `max` for Claude. |
 
-| Flag | Description |
-|------|-------------|
-| `--fix` | Rewrite source spec files to repair issues it can fix. |
-| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Hook events are checked against the tools `sync --global` writes hooks for, narrowed by a `targets` list in the home config. Works outside a project. |
-
-For event names, see [portable hook events](@/docs/spec-format/hook-reference.md#portable-events) and each [target page](@/docs/targets/_index.md). Use `on:` to share an event across tools.
+- With `--global`, hook events are checked against the tools `sync --global` writes hooks for, narrowed by a `targets` list in the home config.
+- For event names, see [portable hook events](@/docs/spec-format/hook-reference.md#portable-events) and each [target page](@/docs/targets/_index.md). Use `on:` to share an event across tools.
+{% </details> %}
 
 ## lint
 
-Check spec quality after parsing. Exits 1 on errors. Each code, and the context budgets, are on [lint codes](@/docs/cli-reference/lint-codes.md); `agnostic-ai explain LINT011` prints one code's cause, fix, and config key.
+Check spec quality after parsing. Exits 1 on errors. Each code is on [lint codes](@/docs/cli-reference/lint-codes.md); `agnostic-ai explain LINT011` prints one code's cause, fix, and config key.
 
 ```bash
 agnostic-ai lint --strict
 ```
 
+Fix the named source, rerun lint, then sync if generated output changes.
+
 | Flag | Description |
 |------|-------------|
 | `--strict` | Exit 1 on warnings too, for CI. |
 | `--suggest-capabilities` | Suggest neutral names for tool aliases (LINT037). Off by default. |
-| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. Works outside a project. |
-| `--json` | Print `{version, command, findings}` on stdout. Each finding has `code`, `severity` (`error` or `warn`), `path`, and `message`, like the `lint` list in `doctor --json`. Works with `--global`. |
-| `--files <path>...` | Report only findings on these files, or on specs below a directory. `-` reads paths from stdin, one per line. A missing path, or no path, fails. Not with `--global`. The [spec guard hook](@/docs/spec-format/hook-reference.md#spec-guard) uses it after each edit. |
+| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` and its `local/` overrides. Works outside a project. |
+| `--json` | Print `{version, command, findings}` on stdout. Works with `--global`. |
+| `--files <path>...` | Report only findings on these files, or on specs below a directory. |
 
-Fix the named source, rerun lint, then sync if generated output changes.
+{% <details summary="Details: --global, --json, and --files"> %}
+- `--global` also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. `$AGNOSTIC_AI_HOME` defaults to `~/.agnostic-ai`.
+- Each `--json` finding has `code`, `severity` (`error` or `warn`), `path`, and `message`, like the `lint` list in `doctor --json`.
+- `--files -` reads paths from stdin, one per line. A missing path, or no path, fails. Not with `--global`.
+- The [spec guard hook](@/docs/spec-format/hook-reference.md#spec-guard) uses `--files` after each edit.
+{% </details> %}
 
 ## verify
 
-Run your own checks against each selected AI tool. Omit `--target` to check every configured target. It first runs `sync --check`; a missing or stale generated file stops it before any verifier runs or any result is written.
+Run your own checks against each selected AI tool. Omit `--target` to check every configured target.
 
 ```bash
 agnostic-ai verify --target codex
 ```
 
-The command in [`verify.command`](@/docs/configuration.md#verify) runs once per target, without a shell, and gets this JSON on stdin. Stdout and stderr pass through. A non-zero exit stops the run and becomes the `agnostic-ai` exit code.
+`verify` first runs `sync --check`. A missing or stale generated file stops it before any verifier runs or any result is written.
+
+The command in [`verify.command`](@/docs/configuration.md#verify) runs once per target, without a shell. It gets the JSON below on stdin. Stdout and stderr pass through. A non-zero exit stops the run and becomes the `agnostic-ai` exit code.
 
 | Field | Meaning |
 |------|---------|
@@ -85,7 +104,7 @@ The command in [`verify.command`](@/docs/configuration.md#verify) runs once per 
 
 ### Record and compare runs
 
-Recording is optional. Pick a private destination and an evaluation identifier that names the same task suite, dataset revision, and evaluation rules for both runs:
+Recording is optional. Save two runs, then compare them. Use one evaluation identifier for both. It must name the same task suite, dataset revision, and evaluation rules.
 
 ```bash
 agnostic-ai verify --target codex --evaluation smoke-v1 --record before.json
@@ -97,7 +116,7 @@ agnostic-ai verify compare before.json after.json [--json]
 
 | Flag | Effect |
 |------|--------|
-| `--record <path>` | Save one run at this path. Parent directories must exist. |
+| `--record <path>` | Save one run at this path. Parent directories must exist. Pick a private destination. |
 | `--evaluation <identifier>` | Name the task suite and dataset revision. Required with `--record`. |
 | `--overwrite` | Allow replacing an existing result file. Requires `--record`. |
 
@@ -112,13 +131,21 @@ Each target in a comparison gets one result:
 | `non_comparable` | The verifier identity is unknown or changed, the evaluation identifiers differ, or the target was skipped. |
 | `execution_error` | The verifier failed to launch. |
 
-A changed harness fingerprint names the configuration change, not a failure. The elapsed difference is the second duration minus the first (nanoseconds in JSON); one comparison does not show a statistical improvement. `verify compare` exits 0 when it can read both files, regressions included, and 1 on an invalid or unsupported file.
+`verify compare` exits 0 when it can read both files, regressions included. It exits 1 on an invalid or unsupported file.
 
-The files use schema `version: 1` with `started_at` (UTC RFC 3339), `evaluation`, `verifier_identity`, and `targets`. Each target holds the input fields above, `elapsed_ns`, `outcome`, and an optional `exit_code`. The outcome is `passed` (exit 0), `failed` (non-zero exit), `execution_error` (launch, cancellation, or context preparation failed), or `skipped` (not attempted after an earlier failure; no context or exit code, duration `0`). The CLI and model fields do not establish the model used at runtime.
-
-`verifier_identity` hashes the resolved executable and the configured arguments. For a known interpreter, a direct script argument adds its code; options before the script, module loading, and inline code leave the identity unknown. Other file arguments do not change it. Change the evaluation identifier when tasks, datasets, remote dependencies, or rules change without changing the executable, arguments, or script.
-
-Raw arguments, verifier output, and environment values are not saved; credentials in CLI and model metadata are redacted, and an evaluation identifier holding a detected credential is rejected. Files are written in one step with mode `0600`, which needs a filesystem with hard links for a new file. If saving fails, a failed evaluation keeps its exit code and a passing one exits 1; the save error is reported separately. Pass rates, token use, and cost are not inferred.
+{% <details summary="Details: comparison output, file format, identity, and privacy"> %}
+- A changed harness fingerprint names the configuration change, not a failure.
+- The elapsed difference is the second duration minus the first (nanoseconds in JSON). One comparison does not show a statistical improvement.
+- The files use schema `version: 1` with `started_at` (UTC RFC 3339), `evaluation`, `verifier_identity`, and `targets`. Each target holds the input fields above, `elapsed_ns`, `outcome`, and an optional `exit_code`.
+- The outcome is `passed` (exit 0), `failed` (non-zero exit), `execution_error` (launch, cancellation, or context preparation failed), or `skipped` (not attempted after an earlier failure; no context or exit code, duration `0`).
+- The CLI and model fields do not establish the model used at runtime.
+- `verifier_identity` hashes the resolved executable and the configured arguments. For a known interpreter, a direct script argument adds its code. Options before the script, module loading, and inline code leave the identity unknown. Other file arguments do not change it.
+- Change the evaluation identifier when tasks, datasets, remote dependencies, or rules change without changing the executable, arguments, or script.
+- Raw arguments, verifier output, and environment values are not saved. Credentials in CLI and model metadata are redacted, and an evaluation identifier holding a detected credential is rejected.
+- Files are written in one step with mode `0600`, which needs a filesystem with hard links for a new file.
+- If saving fails, a failed evaluation keeps its exit code and a passing one exits 1. The save error is reported separately.
+- Pass rates, token use, and cost are not inferred.
+{% </details> %}
 
 ## status
 
@@ -137,6 +164,7 @@ Last sync: 2026-05-07 14:22 (5 files changed)
 Drift:   in sync
 ```
 
+{% <details summary="Details: --json keys"> %}
 | JSON key | Type | Description |
 |-----|------|-------------|
 | `project` | string | Project directory base name. |
@@ -146,3 +174,4 @@ Drift:   in sync
 | `last_sync` | string or null | RFC 3339 time of the last successful `sync`. Falls back to the newest generated file's modified time. `null` (`unknown` in text) with no files. |
 | `files_changed_last_sync` | number or null | Files written by the last sync. `null` when `last_sync` uses the modified-time fallback. |
 | `drift_files` | number | Generated files that differ from what `sync` would write. |
+{% </details> %}

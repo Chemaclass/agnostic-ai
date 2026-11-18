@@ -19,11 +19,11 @@ agnostic-ai upgrade --check              # show install details without updating
 agnostic-ai upgrade --version v0.92.0    # install a specific release
 ```
 
-`upgrade` updates the installed tool. If the latest release is installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`, which updates the project requirement and schema URL, then runs sync.
+Upgrading the tool and upgrading a project are two steps. If the latest release is installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`.
 
-Stop `agnostic-ai sync --watch` before upgrading. Install the new release first, since it contains the migrations. Then, in each project:
+Stop `agnostic-ai sync --watch` first, and install the new release before anything else, since it holds the migrations. Then, in each project:
 
-1. Run `agnostic-ai upgrade --requires`. It syncs and lists applicable migrations. Old spec forms still work.
+1. Run `agnostic-ai upgrade --requires`. It raises `requires`, updates the editor schema URL, syncs, and lists applicable migrations. Old spec forms still work.
 2. Run `agnostic-ai migrate --dry-run`, review the changes, then run `agnostic-ai migrate`.
 3. Make any manual spec edits listed on the release page.
 4. Run `agnostic-ai sync`, review the generated diff, then run `agnostic-ai sync --check`.
@@ -50,15 +50,14 @@ In a project, accepting does four things:
 
 Outside a project, it updates only the tool. Rerun your command afterward; the release page lists manual steps.
 
-<details>
-<summary>Offer limits and opt-out</summary>
+{% <details summary="Offer limits and opt-out"> %}
 
 - A failed install or version check starts no project change. A later failed step stops, keeps what finished, and prints how to continue.
 - If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the global specs folder, the offer is skipped and names it. Links within the project are fine.
 - Project-local npm or pnpm installs, and npx, get a command to run yourself. Automatic npm updates apply only to confirmed global installs (a two-second check).
 - `AGNOSTIC_AI_NO_UPDATE_CHECK=1` turns the checks off. They are silent offline and skip CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds.
 
-</details>
+{% </details> %}
 
 ### Upgrade options
 
@@ -71,8 +70,7 @@ Outside a project, it updates only the tool. Rerun your command afterward; the r
 
 After updating through a package manager, run its installed CLI from the project root, as in `pnpm exec agnostic-ai upgrade --requires`.
 
-<details>
-<summary>How --requires rewrites the requires value</summary>
+{% <details summary="How --requires rewrites the requires value"> %}
 
 `--requires` changes the base config and any existing local `requires`, keeping comments and other settings. With 0.92.0 installed:
 
@@ -90,8 +88,11 @@ A missing key is added only to the base config. When a range becomes a minimum, 
 
 The config needs one root setting per line and a single-line `requires`. Before upgrading, expand a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines.
 
-</details>
+{% </details> %}
 
+`upgrade` picks the update command from where the binary lives. Package-manager installs use that manager; a standalone binary on macOS or Linux is replaced in place after a checksum and provenance check.
+
+{% <details summary="Details: update command per install location"> %}
 | Binary location | Upgrade |
 |-----------------|---------|
 | `*/Cellar/*`, `*/Caskroom/*`, `/opt/homebrew/*`, `/home/linuxbrew/.linuxbrew/*` | `brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai` |
@@ -101,15 +102,15 @@ The config needs one root setting per line and a single-line `requires`. Before 
 | `*/node_modules/*` | `npm install -g agnostic-ai@latest` |
 | Standalone binary on macOS or Linux | `upgrade` downloads the release, checks its checksum and its [build provenance](@/docs/verify-a-release.md#build-provenance), and replaces the binary. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md). Windows cannot replace a running program. |
+{% </details> %}
 
-<details>
-<summary>PATH copies and companion upgrades</summary>
+{% <details summary="PATH copies and companion upgrades"> %}
 
 The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.
 
 An installed companion is rebuilt through the updated CLI and restarted if it was running. If that update fails, the CLI stays upgraded and the error gives a retry command. See [companion upgrades](@/docs/cli-reference/companion.md#upgrade-the-companion).
 
-</details>
+{% </details> %}
 
 ## migrate
 
@@ -129,8 +130,7 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
 | `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
 
-<details>
-<summary>Migration rules and limits</summary>
+{% <details summary="Migration rules and limits"> %}
 
 - A migration rewrites only what keeps its meaning; anything else stays, with the reason. `secrets-mcp-literals` names each variable to set, never the value.
 - A symlinked spec keeps its link, and its target gets the rewrite. A pack, or a spec linked into one, is never rewritten; the output names the pack.
@@ -138,8 +138,11 @@ agnostic-ai migrate --global    # rewrite the global specs
 - A migration that cannot plan, such as on a spec that does not parse, prints `cannot plan` with the reason; the others run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs you, such as a spec setting both old and new forms. `--dry-run` and `--list` show every skip.
 
-</details>
+{% </details> %}
 
+The migrations, by ID:
+
+{% <details summary="Details: what each migration rewrites"> %}
 | Migration | Rewrites |
 |-----------|----------|
 | `config-file-name` | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file; it skips when they differ or Git ignores `agnostic-ai.yaml`. |
@@ -147,3 +150,4 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `capabilities-agent-tools`, `capabilities-settings-permissions`, `capabilities-skill-tools` | Agent `tools` to `can`, and Claude Code names in permissions and skill `allowed-tools` to names shared across tools. An adjacent `WebFetch, WebSearch` pair becomes `web`; names without a shared form stay. Run with `--only capabilities`. |
 | `secrets-mcp-literals` | Plain MCP `env` and `headers` values: credentials become `${NAME}` references, named as `import` names them, and other values get [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Skips keys with credential names whose values do not look like credentials, credentials mixed with a reference, and pack specs. Run with `--only secrets`. |
 | `mcps-codex-environment-id` | The Codex MCP field `experimental_environment: local` to `environment_id: local`. Skips `remote` and other values, which name no executor, a spec that sets both fields, a spec a `local/` spec extends, and pack specs. Run with `--only mcps`. |
+{% </details> %}

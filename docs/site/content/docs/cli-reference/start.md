@@ -63,15 +63,14 @@ It then syncs and shows what each added tool now reads:
 
 A tool already in `targets` changes nothing, and an interrupted run finishes on the next try. A mistyped name suggests the closest one. To remove a tool, edit `targets` by hand.
 
-<details>
-<summary>When use refuses or stops</summary>
+{% <details summary="When use refuses or stops"> %}
 
 - A tool whose instructions file is in `sync.unmanaged` stops `use`, because importing it would copy that file to every tool. Import it by hand.
 - If `use` is interrupted before its imports finish, `sync` stops until `use` runs again.
 - It refuses to start a project inside an existing project's directory.
 - It refuses to add a tool when `agnostic-ai.local.yaml` sets `targets`, because that list wins. Add the tool there.
 
-</details>
+{% </details> %}
 
 ## init
 
@@ -93,8 +92,7 @@ agnostic-ai sync
 | `--from <cli>` | Then import existing config from this [import source](@/docs/cli-reference/import.md#import), or `all`. |
 | `--dry-run` | List the files it, and with `--from` the import, would write. |
 
-<details>
-<summary>How init picks targets and offers an import</summary>
+{% <details summary="How init picks targets and offers an import"> %}
 
 Without `--all`, `init` takes targets from a terminal prompt or a comma-separated list on stdin. Unknown names error and write nothing. The prompt preselects the first nonempty set below. Press Enter to accept it:
 
@@ -108,7 +106,7 @@ In a terminal, when the project has config an importer reads, or a root `AGENTS.
 
 The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) ticks only the tools it detects.
 
-</details>
+{% </details> %}
 
 ## list
 
@@ -134,4 +132,10 @@ agnostic-ai new rule payments-context --scope services/payments
 | `--dry-run` | Preview the destination and exact content. |
 | `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
 
-It errors if the destination exists. Names are lowercase slugs (`[a-z0-9][a-z0-9-]*`). Replace the `TODO` description and body; `lint` reports the placeholder description as LINT031. Settings and environment templates hold only commented hints, and an ignore spec excludes no paths until you add patterns.
+Names are lowercase slugs (`[a-z0-9][a-z0-9-]*`). Replace the `TODO` description and body afterward; `lint` reports the placeholder description as LINT031.
+
+{% <details summary="Details: errors and empty templates"> %}
+- It errors if the destination exists.
+- Settings and environment templates hold only commented hints.
+- An ignore spec excludes no paths until you add patterns.
+{% </details> %}
