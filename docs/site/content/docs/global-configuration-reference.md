@@ -274,7 +274,7 @@ If two tools would write different content to one path, the run stops before wri
 - V1 reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist.
 - The current [V2 migration guide](https://opencode.ai/v2/docs/migrate-v1#instruction-files) documents a `CLAUDE.md` fallback in each directory without `AGENTS.md`, plus `~/.claude/CLAUDE.md` when the global OpenCode `AGENTS.md` is absent.
 - V2 chooses per directory, so an `AGENTS.md` at the project root does not hide a nested `CLAUDE.md`.
-- `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` disables only the global Claude fallback. `OPENCODE_DISABLE_CLAUDE_CODE` disables all `CLAUDE.md` fallback.
+- In V2 2.3.1 and later, either `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` or `OPENCODE_DISABLE_CLAUDE_CODE` disables every `CLAUDE.md` fallback, both project and global ([2.3.1 release notes](https://github.com/anomalyco/opencode/releases/tag/v2.3.1)).
 - Put OpenCode guidance in its `AGENTS.md` when syncing both tools.
 
 **Devin CLI and VS Code Copilot**
