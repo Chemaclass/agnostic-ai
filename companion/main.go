@@ -75,6 +75,8 @@ const (
 	eventInbox = "inbox"
 	// eventPanelShown says the panel opened; its data is the corner nearest the bubble.
 	eventPanelShown = "panel-shown"
+	// eventPanelHidden says the panel closed, so it can leave its search until it opens again.
+	eventPanelHidden = "panel-hidden"
 	// eventAppearance says how the pages look changed; its data is the new appearance.
 	eventAppearance = "appearance"
 	// eventPointer says the pointer entered or left the bubble window; its data is true while it is over it.
@@ -588,7 +590,7 @@ func (s *shell) panelLostFocus() {
 	// Hiding the panel hands the keys to the bubble. Focusing the panel
 	// then would show it again.
 	if !asked {
-		s.panel.Hide()
+		s.putPanelAway()
 		return
 	}
 	if s.bubble.IsFocused() || (s.bubblePressed != nil && s.bubblePressed()) {
@@ -613,7 +615,12 @@ func (s *shell) hidePanelLocked() {
 	s.mu.Lock()
 	s.panelAsked = false
 	s.mu.Unlock()
+	s.putPanelAway()
+}
+
+func (s *shell) putPanelAway() {
 	s.panel.Hide()
+	s.panel.EmitEvent(eventPanelHidden)
 }
 
 // routes serves the companion's pages and the few calls they make.

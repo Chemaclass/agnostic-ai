@@ -625,6 +625,9 @@ async function readEveryPage(asked, signal) {
  */
 let searchOnItsWay
 
+/** Whether the list is on screen. A closed list keeps its search and asks for it again when it opens. */
+let listShown = false
+
 async function refresh({ restart = false } = {}) {
   const asked = state.query
   if (!restart && asked !== '' && searchOnItsWay?.query === asked) {
@@ -656,7 +659,7 @@ async function refresh({ restart = false } = {}) {
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
-  if (search?.stale) await refresh()
+  if (search?.stale && listShown) await refresh()
 }
 
 /**
@@ -1554,6 +1557,7 @@ document.addEventListener('keydown', (event) => {
 
 /** The panel opened: it grows out of the corner nearest the bubble, and the search takes the keys. */
 function opened(from) {
+  listShown = true
   card.dataset.from = from
   card.classList.remove('is-opening')
   if (document.documentElement.dataset.motion !== 'off') {
@@ -1587,8 +1591,16 @@ document.addEventListener('motion', () => {
 })
 
 drawPlaces()
-Events.On('inbox', () => refresh().then(showLateOpenFailure))
+Events.On('inbox', () => {
+  // A search costs the server a read of every week it covers; a closed list asks again when it opens.
+  if (!listShown && state.query !== '') {
+    showLateOpenFailure()
+    return
+  }
+  refresh().then(showLateOpenFailure)
+})
 Events.On('panel-shown', (event) => opened(event.data))
+Events.On('panel-hidden', () => { listShown = false })
 Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 // Quit in the right-click menu: the list opens on the question.
 Events.On('quit-asked', (event) => {

@@ -347,7 +347,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard)),
     'POST /api/send': send,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },
-    'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response) },
+    'POST /api/panel/hide': (request, response) => { logCall('/api/panel/hide'); noContent(response); emit('panel-hidden') },
     // Like the shell: a hidden or faded companion does not show the list for the page.
     'POST /api/panel/show': (request, response) => {
       logCall('/api/panel/show')

@@ -474,11 +474,14 @@ func TestShortcut_BringsAHiddenCompanionBackWithItsList(t *testing.T) {
 func TestSendShortcut_BringsAHiddenCompanionBackWithTheListToSend(t *testing.T) {
 	s, _ := placedShell(t)
 	s.setPresence(hidden)
+	panel := s.panel.(*fakeWindow)
+	panel.mu.Lock()
+	panel.events = nil
+	panel.mu.Unlock()
 
 	_, send := s.shortcutSlots()
 	send.pressed()
 
-	panel := s.panel.(*fakeWindow)
 	if s.presenceNow() != shown || !s.bubble.IsVisible() || !panel.IsVisible() || !panel.IsFocused() {
 		t.Errorf("presence %q, circle %v, list %v, focused %v", s.presenceNow(), s.bubble.IsVisible(), panel.IsVisible(), panel.IsFocused())
 	}
@@ -895,5 +898,35 @@ func TestTogglePanel_OpensAListThatIsStillHiding(t *testing.T) {
 	defer panel.mu.Unlock()
 	if panel.shows != shows+1 {
 		t.Error("a click on the bubble while the list was still hiding did not open it")
+	}
+}
+
+func TestHidingThePanel_TellsThePage(t *testing.T) {
+	for name, hide := range map[string]func(*shell){
+		"the page asked":         func(s *shell) { s.hidePanel() },
+		"the bubble was clicked": func(s *shell) { s.togglePanel() },
+		"a page shown unasked lost focus": func(s *shell) {
+			s.mu.Lock()
+			s.panelAsked = false
+			s.mu.Unlock()
+			s.panelLostFocus()
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, _ := placedShell(t)
+			s.togglePanel()
+			panel := s.panel.(*fakeWindow)
+			panel.mu.Lock()
+			panel.focused, panel.events = false, nil
+			panel.mu.Unlock()
+
+			hide(s)
+
+			panel.mu.Lock()
+			defer panel.mu.Unlock()
+			if panel.visible || strings.Join(panel.events, ",") != eventPanelHidden {
+				t.Errorf("visible %v, events %v; want it hidden and told once", panel.visible, panel.events)
+			}
+		})
 	}
 }
