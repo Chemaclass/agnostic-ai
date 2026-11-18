@@ -14,6 +14,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
+- Claude Code conversations skip named pipes posing as transcripts, which could freeze the companion list (#3601).
 - macOS disk images include the CLI; the app offers updates and can install the command line tool without replacing an existing install (#3516).
 
 - On Windows, `agnostic-ai companion uninstall` deletes the companion's start at login value from the registry, even when the program is gone, and its browser data, which the companion now keeps in its own folder. After this upgrade the Windows companion starts with an empty browser data folder, so the list forgets its last chosen place once and opens on All. On Linux, `stop` and `uninstall` from a shell without a D-Bus session bus, such as an SSH login, say so: `stop` stops nothing, and `uninstall` still deletes the files. (#3221, #3222)

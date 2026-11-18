@@ -376,7 +376,7 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 // the file is unchanged.
 func (s *Scanner) claudeMeta(file string) (claudeMeta, bool) {
 	info, err := os.Stat(file)
-	if err != nil {
+	if err != nil || !info.Mode().IsRegular() {
 		return claudeMeta{}, false
 	}
 	if cached, ok := s.claude[file]; ok && cached.size == info.Size() && cached.modTime.Equal(info.ModTime()) {
