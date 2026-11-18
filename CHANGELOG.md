@@ -85,6 +85,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### Site
 
 - Goose hook guidance distinguishes documented edit fields from the missing `hook paths` decoder (#3574).
+- Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
 - Target guides clarify Kiro OAuth scope order, native hook options for protected paths, and Devin indexing ignores.
 - The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).

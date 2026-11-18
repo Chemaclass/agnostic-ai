@@ -204,21 +204,25 @@ The run exits 1, so it works as a CI check, when a counted command times out or 
 
 ### Assumed results {#assumed-results}
 
-Some tools' docs leave out part of how a command runs. `hook run` runs those commands on an assumption and ends the result line in `(assumed: shell, timeout)`. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`.
+Some results use assumptions because vendor behavior is undocumented or the local preview does not fully model it. `hook run` runs those commands on an assumption and ends the result line in `(assumed: shell, timeout)`. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`.
 
 {% <details summary="What is assumed, and how assumed results are counted"> %}
 
-Some tools' docs leave out part of how a command runs. `hook run` runs those commands on an assumption instead of skipping them, ends the result line in `(assumed: shell, timeout)`, and adds one line per assumption. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`. A warning flags an assumed result that disagrees with the counted ones, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
+Some results use assumptions because vendor behavior is undocumented or the local preview does not fully model it. `hook run` runs those commands on an assumption instead of skipping them, ends the result line in `(assumed: shell, timeout)`, and adds one line per assumption. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`. A warning flags an assumed result that disagrees with the counted ones, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
 
 | Assumption | Targets | What `hook run` assumes |
 |---|---|---|
-| Shell | Cursor, Factory, Antigravity, Kiro, Windsurf, Copilot's `command` form, Qoder without `shell` | `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments. A command with shell syntax, such as a pipe, is not run, with a note to use a script path; Windows is not run. Copilot's and Qoder's exec form (`args`) runs with no shell and assumes none. |
+| Shell | Cursor, Antigravity, Kiro, Windsurf, Copilot's `command` form, Qoder without `shell` | `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments. A command with shell syntax, such as a pipe, is not run, with a note to use a script path; Windows is not run. Copilot's and Qoder's exec form (`args`) runs with no shell and assumes none. |
+| Shell | Factory | The preview still marks `sh -c` as assumed. It accepts plain commands and single-quoted arguments, including script paths, but skips shell operators, general expansions, and Windows commands. This is a local diagnostic limit; Factory documents its launcher. |
 | Timeout | Cursor, Windsurf | 30 seconds when the spec sets none. Set `timeout` to remove it. |
 | Timeout | Kiro | 60 seconds for `timeout: 0`, which Kiro documents as no limit. |
 | Working directory | Copilot | The project root for a hook without `cwd`. With `cwd`, a relative exec path resolves from it. |
-| Working directory | Factory, Qoder, Antigravity, Windsurf | The project root, since the docs do not say. A command starting `"$FACTORY_PROJECT_DIR"/` or `"${QODER_PROJECT_DIR}"/` counts as a script path, with the variable set to the root; Windsurf sets `DEVIN_PROJECT_DIR` the same way. |
+| Working directory | Qoder, Antigravity, Windsurf | The project root, since the docs do not say. A command starting `"${QODER_PROJECT_DIR}"/` counts as a script path, with the variable set to the root; Windsurf sets `DEVIN_PROJECT_DIR` the same way. |
+| Working directory | Factory | The preview uses the project root and sets `FACTORY_PROJECT_DIR` to it. A command starting `"$FACTORY_PROJECT_DIR"/` counts as a script path. Native hooks use Droid's current working directory, which can differ from the repository root. |
 | Working directory | Cline | The project root, where Cline uses the directory the CLI started in. |
 | `jq`, `coreutils` | Crush | Crush has built-in `jq` and, on Windows, `cat`, `ls`, `rm`, `find`, and the other core utilities, unless `CRUSH_CORE_UTILS=false`. `hook run` runs the ones on `PATH` and adds an assumption for each it reached, only for inline commands and `./` scripts without a shebang. |
+
+[Factory documents](https://docs.factory.com/harness/hooks#how-hooks-run) `/bin/sh -c` on macOS and Linux for commands without `args`, outside per-command sandboxing. On Windows it uses an absolute `ComSpec` path, or `cmd.exe` otherwise, with `/d /s /c`. The preview restrictions above do not describe native launcher support.
 
 {% </details> %}
 
