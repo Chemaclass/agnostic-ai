@@ -74,7 +74,7 @@ agnostic-ai sync --only claude,cursor
 - Accepted: `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--backup`, `--plan`, `--json`, and `--diff` with `--dry-run`, `--check`, or `--plan`.
 - Rejected: `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
 - `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
-- Files per tool: [global output](@/docs/global-configuration.md#global-output), [MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers), [model, effort, and permissions](@/docs/global-configuration-reference.md#global-default-model-and-effort).
+- Files per tool: [global output](@/docs/global-configuration-reference.md#global-output), [MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers), [model, effort, and permissions](@/docs/global-configuration-reference.md#global-default-model-and-effort).
 
 </details>
 

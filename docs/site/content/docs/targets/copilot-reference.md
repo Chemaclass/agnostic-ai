@@ -40,7 +40,7 @@ A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its ow
 - Import moves native keys with no portable field (`user-invocable`, `disable-model-invocation`, `hooks`, ...) under `x-copilot`.
 - Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `reasoningEffort`, ...) are copied as written.
 - A portable `hooks` field is not written. Set `x-copilot.hooks` for hooks that Copilot CLI runs only while that agent is selected ([agent-scoped hooks](https://docs.github.com/en/copilot/reference/hooks-reference#agent-scoped-hooks)).
-- Portable agent `effort` gets a project sync note. Copilot CLI documents the native profile field [`reasoningEffort`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#custom-agent-frontmatter-fields); set it with `x-copilot.reasoningEffort`. This CLI field does not establish VS Code or cloud-agent support. `sync --global` keeps writing supported portable agent effort to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json` (see [global output](@/docs/global-configuration.md#global-output)).
+- Portable agent `effort` gets a project sync note. Copilot CLI documents the native profile field [`reasoningEffort`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#custom-agent-frontmatter-fields); set it with `x-copilot.reasoningEffort`. This CLI field does not establish VS Code or cloud-agent support. `sync --global` keeps writing supported portable agent effort to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json` (see [global output](@/docs/global-configuration-reference.md#global-output)).
 
 ### Skills
 

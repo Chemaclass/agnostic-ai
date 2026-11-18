@@ -92,7 +92,7 @@ A skill with a broken relative link still syncs. `agnostic-ai doctor --check-ref
 
 ## Hook timeouts
 
-`UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool. It does not say who installed the hook or why it was slow.
+`UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool. It does not name the hook's owner or the slow step.
 
 1. In Claude Code, open `/hooks` and find the event and command in the message. Check project settings, user settings, and enabled plugins. A `${CLAUDE_PLUGIN_ROOT}` command belongs to a plugin, not your specs. See the [hook reference](https://code.claude.com/docs/en/hooks).
 2. For a hook generated from `.agnostic-ai/hooks/`, find its source with [`why`](@/docs/cli-reference/inspect.md#why) and inspect or test it with [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md). Edit the source, then sync.

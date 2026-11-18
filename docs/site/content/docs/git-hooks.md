@@ -139,11 +139,19 @@ Paste the list into the glob, or drop the glob. Rerun after adding an `@path` li
 
 With ignored outputs (`gitignore.enabled: true`), a fresh clone or worktree has no tool files until `sync` runs, so an automated session can start without its config.
 
-`git checkout`, `git clone`, and `git worktree add` run `post-checkout`. A pull that merges runs `post-merge`, which also restores generated files untracked by the incoming commit.
+`git checkout`, `git clone`, and `git worktree add` run `post-checkout`. A pull that merges runs `post-merge`, which also restores generated files untracked by the incoming commit. `agnostic-ai install-hook --post-checkout` writes both. Rerun it to update older hooks and add pull coverage.
 
-`agnostic-ai install-hook --post-checkout` writes both hooks. They prefer the local binary, run `agnostic-ai project` from the worktree root (keeps manual edits, installs nothing), skip a checkout without `agnostic-ai.yaml`, and print a recovery command when the binary is missing. Rerun it to update older hooks and add pull coverage.
+<details>
+<summary>What the installed hooks do</summary>
 
-To write them yourself, use [`sync --keep-edits`](@/docs/cli-reference/sync.md#sync): it writes every other output and leaves files you edited since the last sync, printing `~ kept <path>`. To keep an edit, move it into `.agnostic-ai/` and sync.
+- They prefer the local binary.
+- They run `agnostic-ai project` from the worktree root. It keeps manual edits and installs nothing.
+- They skip a checkout without `agnostic-ai.yaml`.
+- They print a recovery command when the binary is missing.
+
+</details>
+
+To write them yourself, use [`sync --keep-edits`](@/docs/cli-reference/sync.md#sync). It writes every other output and leaves files you edited since the last sync, printing `~ kept <path>`. To keep an edit, move it into `.agnostic-ai/` and sync.
 
 lefthook (`lefthook.yml`):
 
@@ -171,7 +179,7 @@ agnostic-ai sync --keep-edits
 
 The same command works in `post-merge` (no `$3` check) and in `postinstall`. A pull with rebase needs `post-rewrite` (see [Node monorepos](#node-monorepos)).
 
-`agnostic-ai` must be on `PATH` wherever the repo is checked out; document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found`. If some contributors lack the CLI, commit the outputs, or in a Node project install the CLI with the dependencies ([Node monorepos](#node-monorepos)).
+`agnostic-ai` must be on `PATH` wherever the repo is checked out. Document the install in `CONTRIBUTING.md`. If some contributors lack the CLI, commit the outputs, or in a Node project install it with the dependencies ([Node monorepos](#node-monorepos)).
 
 <details>
 <summary>Pin the CLI and restore files in Node workspaces and worktrees</summary>

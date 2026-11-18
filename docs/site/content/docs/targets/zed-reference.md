@@ -90,7 +90,7 @@ With `outputs.zed.tasks-file` set, hooks become [Zed Tasks](https://zed.dev/docs
 
 ## Global instructions
 
-`agnostic-ai sync --global --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). Each platform's path is in the [global output table](@/docs/global-configuration.md#global-output). Skills still use `~/.agents/skills/`.
+`agnostic-ai sync --global --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). Each platform's path is in the [global output table](@/docs/global-configuration-reference.md#global-output). Skills still use `~/.agents/skills/`.
 
 | Platform | File |
 |---|---|

@@ -9,23 +9,23 @@ group = "Reference"
 
 # Sync and gitignore settings
 
-These two keys of `agnostic-ai.yaml` control how `sync` writes generated files and what it adds to `.gitignore`. Every other key is in [Configuration](@/docs/configuration.md).
+These two keys of `agnostic-ai.yaml` control how `sync` writes files and what it adds to `.gitignore`. Other keys: [Configuration](@/docs/configuration.md).
 
 ## `sync`
 
-Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key. See [`sync`](@/docs/cli-reference/sync.md#sync) and [reading a failing `--check`](@/docs/cli-reference/sync.md#reading-a-failing---check).
+Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key ([`sync`](@/docs/cli-reference/sync.md#sync), [failing `--check`](@/docs/cli-reference/sync.md#reading-a-failing---check)).
 
 | Key | Default | Effect |
 |-----|---------|--------|
-| [`collision-policy`](#synccollision-policy) | `prompt` | What happens when two targets write the same path. |
-| [`target-overview`](#synctarget-overview) | `false` | Add a section to each entry-point file that lists where generated files live. |
-| [`resolve-imports`](#syncresolve-imports) | `passthrough` | What tools that cannot resolve `@path` lines get. |
-| [`dropped-summary`](#syncdropped-summary) | `false` | Print a per-target summary of dropped and downgraded kinds. |
+| [`collision-policy`](#synccollision-policy) | `prompt` | Two targets write one path. |
+| [`target-overview`](#synctarget-overview) | `false` | List generated file locations in each entry-point file. |
+| [`resolve-imports`](#syncresolve-imports) | `passthrough` | What tools that cannot resolve `@path` get. |
+| [`dropped-summary`](#syncdropped-summary) | `false` | Summarize dropped and downgraded kinds. |
 | [`shared-skills`](#syncshared-skills) | `false` | Link identical skill folders to one copy. |
 | [`unmanaged`](#syncunmanaged) | empty | Paths sync never touches. |
-| [`output-manifest`](#syncoutput-manifest) | `false` | Write `.agnostic-ai/outputs.lock`, the committed list of generated paths. |
-| [`allow-global-names`](#syncallow-global-names) | empty | Names shared with the global home that `sync` does not warn about. |
-| [`global-name-clash`](#syncglobal-name-clash) | `warn` | Whether `sync` warns about names shared with the global home. |
+| [`output-manifest`](#syncoutput-manifest) | `false` | Write `.agnostic-ai/outputs.lock`. |
+| [`allow-global-names`](#syncallow-global-names) | empty | Shared global names that do not warn. |
+| [`global-name-clash`](#syncglobal-name-clash) | `warn` | Warn about shared global names. |
 
 ### `sync.collision-policy` {#synccollision-policy}
 
@@ -34,7 +34,7 @@ Applies when two targets write different content to one path, such as `outputs.c
 | Value | Behavior |
 |-------|----------|
 | `prompt` | Default. Fail with an `output collision` error and a hint. |
-| `prefer-spec` | Write the version of the last tool in `targets:` that writes the file. `sync --check` expects that version. Sync prints one note per winning tool naming the files it won and the tools it overrode; reorder `targets:` to change it. Use in CI when the overlap is intentional. |
+| `prefer-spec` | The last tool in `targets:` that writes the file wins. Use in CI when the overlap is intentional. |
 | `fail` | Hard error with no hint. |
 
 ```yaml
@@ -42,9 +42,18 @@ sync:
   collision-policy: prefer-spec
 ```
 
+<details>
+<summary>How prefer-spec reports</summary>
+
+- `sync --check` expects the winning version.
+- Sync prints one note per winning tool, naming the files it won and the tools it overrode.
+- Reorder `targets:` to change the winner.
+
+</details>
+
 ### `sync.target-overview` {#synctarget-overview}
 
-When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) gets a section listing where that tool's generated files live, following `outputs.<target>.*` overrides.
+When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, ...) gets a section listing where that tool's generated files live, following `outputs.<target>.*` overrides.
 
 <details>
 <summary>Target overview details</summary>
@@ -56,22 +65,29 @@ When `true`, each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, ...) 
 
 ### `sync.resolve-imports` {#syncresolve-imports}
 
-Controls standalone `@path` lines in `AGNOSTIC_AI.md` for tools that cannot resolve imports. `CLAUDE.md` always keeps the line. An `@mention` inside a sentence or a fenced code block is untouched. Paths resolve from the project root.
+Controls standalone `@path` lines in `AGNOSTIC_AI.md` for tools that cannot resolve imports. Paths resolve from the project root. `CLAUDE.md` always keeps the line. An `@mention` inside a sentence or a fenced code block is untouched.
 
 | Value | Tools that cannot resolve it get |
 |-------|---------------------------|
 | `passthrough` | Default. The `@`-line as written, as a dead reference. |
 | `strip` | Nothing: the line is dropped. |
-| `inline` | The file's content between `<!-- agnostic-ai:import:start <path> -->` and `<!-- agnostic-ai:import:end -->`. `import` restores the `@`-line. A missing file fails the sync. |
+| `inline` | The file's content. A missing file fails the sync. |
 
 ```yaml
 sync:
   resolve-imports: inline
 ```
 
+<details>
+<summary>Inline markers</summary>
+
+`inline` wraps the content between `<!-- agnostic-ai:import:start <path> -->` and `<!-- agnostic-ai:import:end -->`. `import` restores the `@`-line.
+
+</details>
+
 ### `sync.dropped-summary` {#syncdropped-summary}
 
-When `true`, sync ends with a per-target list of kinds that were dropped (the tool has no support) or downgraded (written only behind an opt-in key, or only in the source directory). It groups capability warnings and [coverage notes](@/docs/configuration-reference.md#coverage-notes) by tool.
+When `true`, sync ends with a per-target list of kinds that were dropped (no tool support) or downgraded (written only behind an opt-in key, or only in the source directory). It groups capability warnings and [coverage notes](@/docs/configuration-reference.md#coverage-notes) by tool.
 
 ### `sync.shared-skills` {#syncshared-skills}
 
@@ -89,7 +105,7 @@ When `true`, tools that share the Agent Skills layout (`<dir>/<name>/SKILL.md` p
 <details>
 <summary>Commit shared skill links</summary>
 
-If you commit shared skill links, Git must check them out as links. Git's `core.symlinks` setting is separate from the system's permission to create links. With `core.symlinks=false`, `sync --check --against index` and `--against HEAD` name each link Git exported as a plain file. To fix it:
+Git must check committed links out as links. With `core.symlinks=false`, `sync --check --against index` and `--against HEAD` name each link Git exported as a plain file. This setting is separate from the system's permission to create links. To fix it:
 
 - Where the system can create links, run `git config --local core.symlinks true` and rerun the check.
 - To keep `core.symlinks=false`, set `sync.shared-skills: false`, run `agnostic-ai sync`, and stage the config and the restored skill copies. Commit that before you check `--against HEAD`.
@@ -122,7 +138,7 @@ sync:
 
 ### `sync.output-manifest` {#syncoutput-manifest}
 
-Use it when you commit generated files. A full `sync` writes `.agnostic-ai/outputs.lock`: one line per generated path, with a checksum of what sync wrote. Commit it with the outputs; `sync --check` fails when it is missing or out of date.
+Use it when you commit generated files. A full `sync` writes `.agnostic-ai/outputs.lock`: one line per generated path, with a checksum. Commit it with the outputs. `sync --check` fails when it is missing or out of date.
 
 ```yaml
 sync:
@@ -140,7 +156,7 @@ sync:
 
 ### `sync.allow-global-names` {#syncallow-global-names}
 
-Skill and agent names this project shares with the [global home](@/docs/global-configuration-reference.md#global-shared-names) on purpose. `sync` prints no warning for a listed name. Other shared names still warn.
+Skill and agent names this project shares with the [global home](@/docs/global-configuration-reference.md#global-shared-names) on purpose. `sync` does not warn about a listed name; other shared names still warn.
 
 ```yaml
 # agnostic-ai.local.yaml
@@ -181,15 +197,15 @@ sync:
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `false` when absent; `agnostic-ai init` writes `true` | Every `sync` rewrites a managed `.gitignore` block listing every path the configured adapters write. |
-| `path` | `.gitignore` | Another file inside the project, such as a nested folder's `.gitignore` or the local-only `.git/info/exclude`. Any other path outside the project or in `.git/` fails to load. |
+| `path` | `.gitignore` | Another file inside the project, such as a nested `.gitignore` or `.git/info/exclude`. Any other path outside the project or in `.git/` fails to load. |
 | `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one. The block leaves out their paths. |
-| `allow` | empty | Gitignore globs written as `!` lines at the end of the block, so a hand-written file at a generated path (such as a `testdata/AGENTS.md` fixture) is not ignored. One pattern per entry; a line break fails to load. |
+| `allow` | empty | Globs written as `!` lines at the end of the block, so a hand-written file at a generated path (such as `testdata/AGENTS.md`) is not ignored. One pattern per entry; a line break fails to load. |
 | `worktree-include` | `true` | Keep the same block in `.worktreeinclude`. See [Claude Code worktrees](#claude-code-worktrees). |
 | `ignore-worktree-include` | `false` | Keep `.worktreeinclude` out of Git. See [Claude Code worktrees](#claude-code-worktrees). |
 
-`sync --gitignore` and `init --gitignore` override it per run. See the [CLI reference](@/docs/cli-reference/start.md#init).
+`sync --gitignore` and `init --gitignore` override it per run ([CLI reference](@/docs/cli-reference/start.md#init)).
 
-Use `commit` for files that review bots and a fresh worktree read before any sync runs:
+Use `commit` for files that review bots and fresh worktrees read before any sync:
 
 ```yaml
 gitignore:
@@ -218,13 +234,13 @@ gitignore:
 
 This keeps `.cursor/environment.json`, `.cursor/worktrees.json`, and every `BUGBOT.md` in Git, and ignores `.claude/launch.json` and `.codex/environments/environment.toml`. `lint` warns (LINT017) when the target is not in `targets`.
 
-The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept.
+The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it stay.
 
 ### Claude Code worktrees
 
-A new Claude Code worktree has no gitignored files. Claude Code copies the ones that [`.worktreeinclude`](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) lists from the main checkout.
+A new Claude Code worktree has no gitignored files. Claude Code copies the ones that [`.worktreeinclude`](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) lists.
 
-With `claude` in `targets`, sync also keeps the block in `.worktreeinclude`, minus `.sync-state`, `.command-lock`, Claude worktree directories, and the task lock. Your local files and packs come along, so the worktree renders what the main checkout does.
+With `claude` in `targets`, sync keeps the block in `.worktreeinclude` too, minus `.sync-state`, `.command-lock`, Claude worktree directories, and the task lock. Your local files and packs come along, so the worktree renders what the main checkout does.
 
 <details>
 <summary>Worktree include options</summary>

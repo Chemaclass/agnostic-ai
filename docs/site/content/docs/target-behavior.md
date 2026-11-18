@@ -139,5 +139,5 @@ Cursor, Copilot, and Trae can read `.claude/settings.json` beside their own hook
 
 - [Shared memory](@/docs/memory.md): one store every tool reads, beside each tool's own memory.
 - [Target selection](@/docs/configuration.md#targets): which tools sync writes by default.
-- [Global output](@/docs/global-configuration.md#global-output): user-level files and the variables that move a tool's config folder.
+- [Global output](@/docs/global-configuration-reference.md#global-output): user-level files and the variables that move a tool's config folder.
 - [Adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md), or [open an issue](https://github.com/Chemaclass/agnostic-ai/issues) to request a target.

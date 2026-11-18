@@ -10,7 +10,7 @@ group = "Reference"
 
 # Global configuration reference
 
-Setup and the list of files `sync --global` writes are in [Global configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail.
+Setup is in [Global configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail, and the [list of files `sync --global` writes](#global-output).
 
 ## Shared names {#global-shared-names}
 
@@ -297,3 +297,49 @@ Hooks reach these tools at user level: Claude Code, CodeBuddy Code, Codex, Gemin
 - Amp, OpenCode, and Kilo take hooks only as TypeScript plugins. Sync writes them at project level only, for OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`).
 - OpenCode defaults to V1. A hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux.
 - On Windows, V2 refuses matching callbacks, so keep the default V1 hooks.
+
+## Global output {#global-output}
+
+A dash means global sync writes nothing for that kind.
+
+| Target | Instructions | Rules | Hooks | Skills | Agents | Session retention |
+|--------|--------------|-------|-------|--------|--------|-------------------|
+| **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` | `~/.claude/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
+| **codebuddy** | `~/.codebuddy/CODEBUDDY.md` | inlined | `~/.codebuddy/settings.json` | `~/.codebuddy/skills/<name>/` | `~/.codebuddy/agents/<name>.md` | [days](@/docs/targets/codebuddy.md#fields-and-limits) |
+| **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` | `~/.cursor/agents/<name>.md` | - |
+| **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` | `~/.codex/agents/<name>.toml` | - |
+| **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | `~/.gemini/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
+| **kimi** | `~/.kimi-code/AGENTS.md` | inlined | `~/.kimi-code/config.toml` | `~/.kimi-code/skills/<name>/` | `~/.kimi-code/agents/<name>.md` | - |
+| **vibe** | `~/.vibe/AGENTS.md` | inlined | `~/.vibe/hooks.toml` | `~/.vibe/skills/<name>/` | `~/.vibe/agents/<name>.toml` | - |
+| **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` | `~/.qoder/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
+| **copilot** | `~/.copilot/copilot-instructions.md` | inlined | `~/.copilot/hooks/agnostic-ai.json` | `~/.copilot/skills/<name>/` | `~/.copilot/agents/<name>.agent.md` | - |
+| **cline** | `~/.agents/AGENTS.md` | inlined | `~/.cline/hooks/<event>` | `~/.cline/skills/<name>/` | `~/.cline/agents/<name>.yml` | - |
+| **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | `~/.config/devin/agents/<name>.md` | - |
+| **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
+| **zed** | `~/.config/zed/AGENTS.md`; Windows: `%APPDATA%\Zed\AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
+| **warp** | `~/.agents/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
+| **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` | `~/.config/opencode/agents/<name>.md` | - |
+| **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` | `~/.gemini/config/agents/<name>/agent.md` | - |
+| **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` | `~/.junie/agents/<name>.md` | - |
+| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | `~/.kiro/hooks/<name>.json` | `~/.kiro/skills/<name>/` | `~/.kiro/agents/<name>.md` | - |
+| **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` | - | - |
+| **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` | `~/.factory/droids/<name>.md` | - |
+| **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` | `~/.config/kilo/agents/<name>.md` | - |
+| **goose** | `~/.config/goose/.goosehints` | inlined | `~/.agents/plugins/agnostic-ai-global/hooks/hooks.json` | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
+| **openhands** | - | - | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
+| **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` | - |
+| **grok** | `~/.grok/AGENTS.md` | inlined | `~/.grok/hooks/<name>.json` | `~/.grok/skills/<name>/` | `~/.grok/agents/<name>.md` | - |
+| **qwen** | `~/.qwen/QWEN.md` | inlined | `~/.qwen/settings.json` | `~/.qwen/skills/<name>/` | `~/.qwen/agents/<name>.md` | - |
+| **augment** | - | `~/.augment/rules/<name>.md` | `~/.augment/settings.json` | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` | - |
+
+- [MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers) and [settings](@/docs/global-configuration-reference.md#global-default-model-and-effort) have their own tables in the reference. Agents use the same formats as project agents ([the agent example](@/docs/global-configuration.md#global-agents)).
+- **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body.
+- Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
+- Existing instruction files keep their personal text and file permissions.
+- Sync stops if a file changes while it is preparing the update.
+
+Path notes:
+
+- Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Zed on macOS.
+- Zed on Linux and FreeBSD prefers `FLATPAK_XDG_CONFIG_HOME` ([native instruction roots](@/docs/targets/zed-reference.md#global-instructions)).
+- Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
