@@ -282,8 +282,16 @@ func AddsContext(target, event string, r Result) bool {
 		}
 		return !r.TimedOut && json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && reply.AdditionalContext != ""
 	case "trae":
-		reply, ok := readReply(r)
-		return ok && r.Exit == 0 && reply.HookSpecificOutput.AdditionalContext != ""
+		if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
+			return false
+		}
+		if !slices.Contains([]string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse"}, event) {
+			return false
+		}
+		if reply, ok := readReply(r); ok {
+			return reply.HookSpecificOutput.AdditionalContext != ""
+		}
+		return slices.Contains(contextEvents, event) && strings.TrimSpace(r.Stdout) != ""
 	}
 	if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
 		return false

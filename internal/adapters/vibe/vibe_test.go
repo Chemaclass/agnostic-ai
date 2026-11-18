@@ -463,3 +463,44 @@ func TestEmit_NativeEventOverrides(t *testing.T) {
 		})
 	}
 }
+
+func TestEmit_SkillDescriptionLimitCountsUnicodeCharacters(t *testing.T) {
+	for _, tc := range []struct {
+		name, character string
+		count           int
+		rejected        bool
+	}{
+		{"ASCII below limit", "a", 600, false},
+		{"Unicode below limit", "\U000000E9", 600, false},
+		{"Unicode at limit", "\U0001F680", 1024, false},
+		{"Unicode over limit", "\U000000E9", 1025, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			description := strings.Repeat(tc.character, tc.count)
+			skill := spec.Entry{Kind: spec.KindSkill, Name: "review", Meta: map[string]any{"description": description}, Body: "Review."}
+			err := New().Emit(emit.NewSession(), spec.Bundle{Skills: []spec.Entry{skill}}, &config.Config{}, false)
+			if tc.rejected {
+				if err == nil {
+					t.Error("accepted description over limit")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("valid description rejected: %v", err)
+				return
+			}
+			data, err := os.ReadFile(".vibe/skills/review/SKILL.md")
+			if err != nil {
+				t.Fatal(err)
+			}
+			emitted, err := spec.ParseMarkdownBytes(spec.KindSkill, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if emitted.Meta["description"] != description {
+				t.Error("emitted description changed")
+			}
+		})
+	}
+}

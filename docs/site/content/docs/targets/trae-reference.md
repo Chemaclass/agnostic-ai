@@ -64,6 +64,7 @@ Sync always writes `description`, `globs`, and `alwaysApply` (Cursor's `.mdc` fi
 
 - A `version` field (always 1) wraps the `hooks` map. Each event holds `{matcher, hooks: [{type, command, timeout}]}` groups.
 - Claude Code, Codex, OpenHands, and Qoder use the same shape, so one hook spec feeds all five.
+- The `hook run` context preview recognizes successful plain stdout on `SessionStart` and `UserPromptSubmit`. JSON `hookSpecificOutput.additionalContext` applies to those events and `PreToolUse` and `PostToolUse`. `Notification` ignores stdout; `Stop` does not read `additionalContext`.
 - Six [events](https://docs.trae.ai/ide/automate-actions-with-hooks): `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`.
 - Each entry takes `type` (only `command`), `command`, and `timeout` (seconds, default 30).
 - `loop_limit` caps how often a `Stop` hook can block the agent (default 5).

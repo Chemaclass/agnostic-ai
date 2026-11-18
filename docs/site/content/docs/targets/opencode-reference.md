@@ -186,7 +186,7 @@ With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows 
 
 - **Instructions and rules**: root `AGENTS.md`, falling back to legacy `.opencode/AGENTS.md` when the root file is absent. The shared body becomes `.agnostic-ai/AGNOSTIC_AI.md`. Rule sections that sync wrote become rule specs. Hand-written instructions stay whole.
 - **Agents and commands**: top-level Markdown files in `.opencode/agents/` and `.opencode/commands/`.
-- **Skills**: `.opencode/skills/`, `.claude/skills/`, then `.agents/skills/` (first wins within a scope), with scoped paths and bundled files.
+- **Skills**: `.opencode/skills/`, `.agents/skills/`, then `.claude/skills/` (first wins within a scope), with scoped paths and bundled files. This preserves the [OpenCode V2 source priority](https://opencode.ai/docs/skills.md#precedence) for duplicate compatibility skills.
 - **MCP servers**: the `mcp` map in `opencode.json`.
 - **Settings and permissions**: the default `model` becomes `settings/opencode.yaml`; portable entries in the `permission` map become `settings/permissions-opencode.yaml`. Namespaced MCP permission keys have no portable spelling and stay in the file.
 - **Providers**: the `provider` block, such as a model's cache lifetime, becomes `settings/opencode-provider.yaml` under `x-opencode.provider`. `{env:NAME}` and `{file:path}` references import as written. A block that holds a literal credential, such as an inline `apiKey`, is left out with a warning and stays in `opencode.json`. Import fails when another settings spec sets a different `x-opencode.provider`.

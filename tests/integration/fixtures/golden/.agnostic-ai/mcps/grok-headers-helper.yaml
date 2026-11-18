@@ -1,0 +1,6 @@
+name: grok-headers-helper
+targets: [grok]
+type: http
+url: https://example.test/mcp
+x-grok:
+  headers_helper: sh headers.sh

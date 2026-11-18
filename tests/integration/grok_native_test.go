@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func TestGrokNativeProject_ImportSyncCheckAndLint(t *testing.T) {
@@ -20,7 +22,7 @@ func TestGrokNativeProject_ImportSyncCheckAndLint(t *testing.T) {
 		".grok/skills/review/guide.txt":   "Check the tests.\n",
 		".grok/commands/check.md":         "---\ndescription: Check work\n---\n\nRun the project checks.\n",
 		".grok/hooks/guard.json":          `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo safe","timeout":7}]}]}}`,
-		".grok/config.toml":               "[mcp_servers.docs]\ncommand = \"server\"\nenabled = false\n[permission]\ndeny = [\"Bash(git push *)\"]\n",
+		".grok/config.toml":               "[mcp_servers.docs]\ncommand = \"server\"\nenabled = false\n[mcp_servers.remote]\nurl = \"https://example.test/mcp\"\nheaders_helper = \"sh headers.sh\"\n[permission]\ndeny = [\"Bash(git push *)\"]\n",
 	}
 	for path, body := range files {
 		path = filepath.Join(project, path)
@@ -44,7 +46,23 @@ func TestGrokNativeProject_ImportSyncCheckAndLint(t *testing.T) {
 		}
 	}
 	run("import", "grok")
+	imported, err := os.ReadFile(filepath.Join(project, ".agnostic-ai/mcps/remote.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	importedMCP, err := spec.ParseYAMLBytes(spec.KindMCP, imported)
+	if err != nil {
+		t.Fatal(err)
+	}
+	native, _ := importedMCP.Meta["x-grok"].(map[string]any)
+	if native["headers_helper"] != "sh headers.sh" {
+		t.Errorf("import lost native helper: %#v", importedMCP.Meta)
+	}
 	run("sync", "-t", "grok")
+	nativeConfig, err := os.ReadFile(filepath.Join(project, ".grok/config.toml"))
+	if err != nil || !strings.Contains(string(nativeConfig), `headers_helper = "sh headers.sh"`) {
+		t.Errorf("sync lost native helper: %v\n%s", err, nativeConfig)
+	}
 	run("sync", "--check")
 	run("lint")
 	for path, want := range map[string]string{".grok/rules/style.md": "Conventional Commits", "backend/.grok/rules/database.md": "transactions", ".grok/agents/reviewer.md": "Read", ".grok/skills/review/guide.txt": "Check the tests.", ".grok/commands/check.md": "Run the project checks.", ".grok/hooks/guard.json": "PreToolUse", ".grok/config.toml": "enabled = false"} {
