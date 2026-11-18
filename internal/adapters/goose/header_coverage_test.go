@@ -84,7 +84,6 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
-		{Kind: spec.KindReview, Name: "review", Body: "Check the changed code."},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},

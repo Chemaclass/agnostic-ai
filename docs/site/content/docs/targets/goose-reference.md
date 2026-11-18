@@ -54,9 +54,11 @@ Start with the [Goose setup](@/docs/targets/goose.md). Output keys are listed un
 
 ### Reviews
 
-- `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from every directory with changed files and every parent, so root and scoped guidance combine ([v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md)).
-- Specs with the same scope are joined into one file, without frontmatter, because Goose reads plain text.
-- Agent-style check files are not written.
+Goose [1.60.0 removed `goose review`](https://github.com/aaif-goose/goose/releases/tag/v1.60.0). Review specs are reported as unsupported, and sync writes no root or scoped review files. `outputs.goose.review-file` remains accepted but has no effect.
+
+Portable Review specs stay valid for other supported targets. `agnostic-ai import goose` still reads a legacy root `.agents/REVIEW.md` into a portable review spec. Scoped review files need manual reuse. Sync leaves user-owned review files untouched; previously generated review files follow the normal cleanup of managed output.
+
+There is no automatic rewrite because Goose has no equivalent native review surface.
 
 ### MCP
 
@@ -74,7 +76,7 @@ Skipped with a warning.
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
 | `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every enabled plugin in the project |
 | `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group and distinct `timeout` and `on_failure` pair, `on_failure` under `x-goose` |
-| `.agents/REVIEW.md` | `<reviews>/review.md` |
+| Legacy `.agents/REVIEW.md` | `<reviews>/review.md` for supported review targets |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 - `.goosehints` is a fallback. With `rules-file` set, both files hold the same rules.
@@ -83,10 +85,10 @@ Skipped with a warning.
 - The `plugins` switch in Goose's `config.yaml` is not read, so a plugin turned off there still imports.
 - `agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/REVIEW.md`, or a plugin with `hooks/hooks.json` under `.agents/plugins/`. Antigravity shares `.agents/plugins/`, and OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`, so those alone do not count. For a project with only rules or plugin skills, run `agnostic-ai import goose`.
 
-Import loses these, but the next sync still writes the same Goose files:
+Import has these limits:
 
 - Only the rules block in the root file is read back, as with `import claude` and nested `CLAUDE.md` files.
-- Review specs with the same scope come back as one spec.
+- A legacy root review file becomes one portable spec. Goose no longer emits it.
 - Scoped `<scope>/.agents/REVIEW.md` files are not read back.
 - A plugin's `scripts/` folder is not copied. Import warns when a written hook command uses `$PLUGIN_ROOT` or `${PLUGIN_ROOT}`, outside the plugin sync writes to. Copy the scripts there before it can run.
 - A hook group splits into one spec per distinct `timeout` and `on_failure` pair, so each command keeps its values. The emitted file merges them back into one group.

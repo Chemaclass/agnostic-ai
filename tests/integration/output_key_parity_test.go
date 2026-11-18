@@ -66,6 +66,7 @@ var valueOutputKeys = map[string]bool{
 // point of the key is then to explain a path a reader may still have in
 // their config.
 var documentedNoOpKeys = map[string]string{
+	"goose.review-file":      "Goose 1.60 removed its native review command, so no review file is emitted",
 	"amp.commands-dir":       "Amp removed its file-based command surface, so nothing is emitted to point at",
 	"junie.rules-dir":        "rules inline into .junie/AGENTS.md; the key only redirects the legacy-tree sweep",
 	"openhands.mcp-file":     "OpenHands keeps MCP servers in its settings store, so project sync writes no MCP file",
