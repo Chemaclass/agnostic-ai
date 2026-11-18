@@ -242,7 +242,7 @@ A local Claude Code session shared with claude.ai through Remote Control is one 
 
 | Event | What happens |
 |-------|--------------|
-| A claude.ai reply within two minutes of the session's last reply | The shared row rings. |
+| A claude.ai reply within two minutes of the session's last reply | It stays folded into the archived shared row, which shows no ring. |
 | A later reply | The cloud row shows alone, under Needs you. |
 
 The server restarting, or resuming without Remote Control, shows two rows again. Deleting the local session leaves the cloud row.
@@ -252,8 +252,7 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 - After you delete the local session, the cloud row stays because claude.ai still keeps it.
 - The link is kept in memory only.
 - After a restart, the cloud row does not count a reply the local row already showed.
-- One exception: the last reply reached claude.ai after the server last read the list while the session ran, and you did not mark it read. Then the cloud row counts that reply once, and the local row keeps its ring for it too.
-- If claude.ai records the disconnect itself as activity, which is not confirmed, a session closed within two minutes of a reply you already read can show the ring for no new reply. Mark it read to delete it.
+- One exception: the last reply reached claude.ai after the server last read the list while the session ran, and you did not mark it read. Then the cloud row counts that reply once. The archived local row shows no ring for it.
 {% </details> %}
 
 ## What a chat waits for {#waiting}
