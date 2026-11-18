@@ -438,13 +438,21 @@ jobs:
       # The packages `agnostic-ai companion install` asks for on Linux. The
       # Ubuntu mirror served them at under 100 kB/s, so the downloads are
       # kept between runs.
+      # A new key each week picks up package updates; a run early in the
+      # week starts from the last week's packages.
+      - name: Name this week's package cache
+        if: runner.os == 'Linux'
+        id: apt-week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
       - name: Restore the Linux packages
         if: runner.os == 'Linux'
         id: apt-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/apt-archives
-          key: companion-apt-${{ matrix.os }}-v1
+          key: companion-apt-${{ matrix.os }}-${{ steps.apt-week.outputs.week }}
+          restore-keys: companion-apt-${{ matrix.os }}-
 
       - name: Install GTK 4, WebKitGTK 6.0 and X11
         if: runner.os == 'Linux'
@@ -452,6 +460,7 @@ jobs:
           mkdir -p ~/apt-archives/partial
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends -o APT::Keep-Downloaded-Packages=true -o Dir::Cache::Archives="$HOME/apt-archives" pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+          sudo apt-get autoclean -o Dir::Cache::Archives="$HOME/apt-archives"
           sudo rm -rf ~/apt-archives/partial ~/apt-archives/lock
           sudo chown -R "$USER" ~/apt-archives
 
@@ -460,7 +469,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/apt-archives
-          key: companion-apt-${{ matrix.os }}-v1
+          key: companion-apt-${{ matrix.os }}-${{ steps.apt-week.outputs.week }}
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
