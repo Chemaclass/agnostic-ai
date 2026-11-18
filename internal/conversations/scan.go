@@ -290,7 +290,7 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 		if fileStamp(files...) == stores {
 			read.key = s.Stamp() + "\x00" + search
 		}
-		// A cancelled read may miss rows, so no later page takes it.
+		// A canceled read may miss rows, so no later page takes it.
 		if ctx.Err() != nil {
 			read.key = ""
 		}
