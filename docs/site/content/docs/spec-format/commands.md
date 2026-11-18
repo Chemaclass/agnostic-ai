@@ -9,9 +9,13 @@ group = "Reference"
 
 # Commands
 
-`commands/` holds slash commands: saved prompts you start by name, such as `/deploy`. The body is the prompt the tool sends. Claude Code can also run a command on its own; add `disable-model-invocation: true` to the command's frontmatter to stop that ([Claude Code](@/docs/targets/claude.md#loading-and-limits)).
+`commands/` holds slash commands: saved prompts you start by name, such as `/deploy`. The body is the prompt the tool sends.
 
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
+
+{% <details summary="Details: Claude Code can run a command on its own"> %}
+- Claude Code can also run a command without being asked. Add `disable-model-invocation: true` to the command's frontmatter to stop that ([Claude Code](@/docs/targets/claude.md#loading-and-limits)).
+{% </details> %}
 
 ## Write one
 
@@ -44,11 +48,21 @@ Other frontmatter is kept. Put keys for one tool under `x-<target>`, like `x-cla
 
 ## Output
 
-Each target page lists the exact directory. Gemini writes each command as a `.toml` file named after `name`. Codex without `outputs.codex.commands-dir`, Copilot, Zed, Windsurf, and Crush get each command as a skill ([below](#tools-without-commands)). Other tools without command support skip it with a note.
+Each target page lists the exact directory.
+
+- Gemini writes each command as a `.toml` file named after `name`.
+- Codex without `outputs.codex.commands-dir`, Copilot, Zed, Windsurf, and Crush get each command as a skill ([below](#tools-without-commands)).
+- Other tools without command support skip it with a note.
 
 ## Tools without commands {#tools-without-commands}
 
-Tools with skills but no commands can receive commands as skills. The tool must support preventing the model from starting them: [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no such switch, so they skip commands.
+A tool with skills but no commands gets each command as a skill, if it can stop the model from starting that skill.
+
+| Tools | Result |
+|-------|--------|
+| [Codex](@/docs/targets/codex.md) | Command written as a skill |
+| [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), [Crush](@/docs/targets/crush.md) | Same, only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field |
+| Cline, Amp, Warp, Antigravity, Continue, Goose, OpenHands | Skip commands: no documented switch |
 
 <details>
 <summary>What the generated skill contains, and name clashes</summary>

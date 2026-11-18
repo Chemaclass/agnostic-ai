@@ -32,7 +32,11 @@ Create a personal access token on GitHub and export it as `GITHUB_PAT`.
 
 A shared spec uses each person's own `${GITHUB_PAT}` without storing the token. If only you want the server, save the spec as `.agnostic-ai/local/mcps/github.yaml`, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so teammates who want it add their own.
 
-A local file still loads, so it does not turn the server off. To keep a server off, leave it out of every spec that loads, or turn it off in the tool; `disabled: true` does not work on every tool ([`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target)).
+{% <details summary="Details: keeping a server off"> %}
+- A local file still loads, so it does not turn the server off.
+- To keep a server off, leave it out of every spec that loads, or turn it off in the tool.
+- `disabled: true` does not work on every tool ([`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target)).
+{% </details> %}
 
 ## Context7 (remote)
 

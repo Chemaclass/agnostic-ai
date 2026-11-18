@@ -31,16 +31,29 @@ dist/
 ```
 ````
 
-With fenced code blocks, only the lines inside them are patterns, and the text around them is prose. Without a fence, the whole body is read as patterns. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`. Comment and blank lines exclude nothing; `#` starts a comment only at the start of a line.
+With fenced code blocks, only the lines inside them are patterns, and the text around them is prose. Without a fence, the whole body is read as patterns.
+
+{% <details summary="Details: comments, blank lines and trailing spaces"> %}
+- Comment and blank lines exclude nothing. `#` starts a comment only at the start of a line.
+- Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`.
+{% </details> %}
 
 ## Output
 
-Specs are joined into each tool's ignore file under a `#` header naming the source, with a blank line between them. Order and whitespace are kept, and CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Tools without an ignore file report the spec as unsupported.
+Specs are joined into each tool's ignore file under a `#` header naming the source, with a blank line between them. Order and whitespace are kept, and CRLF becomes LF.
+
+- Override the path with `outputs.<target>.ignore-file`.
+- Tools without an ignore file report the spec as unsupported.
 
 ## Overwrite behaviour
 
 Sync replaces an ignore file that has no agnostic-ai generated-file header only when every existing pattern stays, unchanged and in order. Extra patterns are fine. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with [`AAI-103`](@/docs/errors.md#aai-103-hand-authored-ignore-file-would-lose-patterns) and leave the file untouched, even when the rewrite means the same thing.
 
-Run `agnostic-ai import <target>` to copy the patterns into `ignore/<target>.md` as a fenced block, with comments, order, and whitespace kept and a leading UTF-8 byte-order mark dropped. The spec sets `target: <target>`; remove it to share the patterns with every tool, and check the combined order if other specs add negations or reorder patterns.
+To keep your patterns, run `agnostic-ai import <target>`. It copies them into `ignore/<target>.md` as a fenced block.
 
-`outputs.<target>.provenance-header: false` removes the header and turns this check off. A dry run skips the check; `sync --check` still reports unsafe overwrites.
+{% <details summary="Details: import, sharing across tools and turning the check off"> %}
+- Import keeps comments, order, and whitespace, and drops a leading UTF-8 byte-order mark.
+- The spec sets `target: <target>`. Remove it to share the patterns with every tool, and check the combined order if other specs add negations or reorder patterns.
+- `outputs.<target>.provenance-header: false` removes the header and turns this check off.
+- A dry run skips the check. `sync --check` still reports unsafe overwrites.
+{% </details> %}

@@ -50,3 +50,18 @@ This table covers project files. For user files written by `sync --global`, see 
 | [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers written to `.mcp.json`. Import restores it |
 | [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | The key is removed with a note, and the server stays in the file. Disable the server in the tool itself; Warp starts a project server only when you start it |
 | [Ellipsis](@/docs/targets/ellipsis.md) | Server left out, since a listed server is always available. Written into the environment file, not an MCP file |
+
+## Environment references by target {#environment-references-by-target}
+
+How sync writes a `${NAME}` reference for each tool. Where the cell says "left out", the note names the server, key, and variable. See [environment references](@/docs/spec-format/mcps.md#environment-references).
+
+| Target | `env` and `headers` | `url` and `args` |
+|--------|---------------------|------------------|
+| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md), [Gemini](@/docs/targets/gemini.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
+| [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
+| [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
+| [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}`, in `env` on stdio servers and under `requestOptions.headers` | `{% raw %}${{ secrets.NAME }}{% endraw %}` |
+| [Amp](@/docs/targets/amp.md) | `headers`: `${NAME}`. `env`: key left out | `url`: `${NAME}`. `args`: server left out |
+| [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Ellipsis](@/docs/targets/ellipsis.md) | `${NAME}` | Server left out |
+| [Codex](@/docs/targets/codex.md) | `env`: `KEY: ${KEY}` adds `KEY` to `env_vars`. `headers`: `Authorization: Bearer ${NAME}` sets `bearer_token_env_var`, and another header of exactly `${NAME}` joins `env_http_headers`. Any other reference: key left out | Server left out |
+| [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Key left out | Server left out |

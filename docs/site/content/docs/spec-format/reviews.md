@@ -38,7 +38,9 @@ scope: backend
 Flag any handler that talks to the database directly instead of going through a repository.
 ```
 
-Reviews follow `scope` and the folder layout like [rules](@/docs/spec-format/rules.md). Specs with the same scope are joined into one file, without frontmatter. The Codex section sits in `AGENTS.md`, so every tool that reads `AGENTS.md` loads it, unless a `targets:` filter leaves out `codex`.
+Reviews follow `scope` and the folder layout like [rules](@/docs/spec-format/rules.md). Specs with the same scope are joined into one file, without frontmatter.
+
+The Codex section sits in `AGENTS.md`, so every tool that reads `AGENTS.md` loads it, unless a `targets:` filter leaves out `codex`.
 
 ## Include a file
 
@@ -53,8 +55,10 @@ target: cursor
 @services/billing/README.md
 ```
 
-- Sync writes the file's text in place of the line, so a README change shows up in `sync --check`.
-- A missing file, an absolute path, or a path outside the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)).
+Sync writes the file's text in place of the line, so a README change shows up in `sync --check`. A missing file, an absolute path, or a path outside the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)).
+
+{% <details summary="Details: limits of @path lines"> %}
 - A line inside a fenced code block stays as written.
 - An included file is not searched for more `@path` lines.
 - Only reviews take `@path` lines. On `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/sync-settings.md#syncresolve-imports) setting controls them.
+{% </details> %}

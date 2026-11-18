@@ -26,20 +26,25 @@ timeout: 10
 
 The script reads `tool_input.command` from the event JSON on stdin, with no `jq`, and splits it into words the way `sh` does. On a force push it prints the reason on stderr and exits 2.
 
-- `--force` or `-f` blocks, even next to `--force-with-lease`.
-- A `+main` refspec or `--mirror` counts as forced unless the push uses `--force-with-lease`.
-- A force push written outside quotes blocks, even behind a wrapper the script does not parse, such as `xargs`.
-- A `git push --force` inside quotes, a comment, or a heredoc body passes, and so does a quoted command inside `bash -c` or `eval`.
+| Command | Result |
+|---------|--------|
+| `--force` or `-f`, even next to `--force-with-lease` | Blocked |
+| `+main` refspec or `--mirror`, without `--force-with-lease` | Blocked |
+| Force push outside quotes, even behind a wrapper such as `xargs` | Blocked |
+| `git push --force` inside quotes, a comment, or a heredoc body | Passes |
+| A quoted command inside `bash -c` or `eval` | Passes |
 
 Both tools start a hook in the session directory, which can be below the project root, so the script path starts at the [project root](@/docs/spec-format/hook-reference.md#imported-project-root-paths).
 
-On Windows, Codex runs `commandWindows` with `powershell.exe -Command`, and the command above handles three PowerShell quirks:
-
+{% <details summary="Details: Windows, PowerShell and commandWindows by tool"> %}
+- Codex runs `commandWindows` with `powershell.exe -Command`. The command above handles three PowerShell quirks.
 - PowerShell ignores the script's `#!/bin/sh` line, so the command names `sh`. That needs `sh` on `PATH`, as Git for Windows provides.
 - PowerShell reports a failed native command as exit 1, which Codex lets through. `exit $LASTEXITCODE` passes on the script's exit 2.
 - The Git root lookup resets `$LASTEXITCODE`, so the command checks for `sh` with `Get-Command` and exits 1 when it is missing.
-
-Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`; without Git Bash it uses PowerShell, where this guard cannot run. Cursor and Gemini CLI ignore `commandWindows`. On Copilot, a hook with one plain command writes it as the `powershell` field; a portable `on:` hook, `args`, or a command list keeps one `command`, with a sync note.
+- Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`. Without Git Bash it uses PowerShell, where this guard cannot run.
+- Cursor and Gemini CLI ignore `commandWindows`.
+- On Copilot, a hook with one plain command writes it as the `powershell` field. A portable `on:` hook, `args`, or a command list keeps one `command`, with a sync note.
+{% </details> %}
 
 <details>
 <summary>.agnostic-ai/scripts/no-force-push.sh</summary>
@@ -370,20 +375,28 @@ esac
 
 </details>
 
-Test the guard before using it in a session:
+Test the guard before you use it:
 
 ```sh
 agnostic-ai hook run no-force-push --bash 'git push --force origin main' --expect block
 agnostic-ai hook run no-force-push --bash 'git status' --expect allow
 ```
 
-This guard misses pushes from script files and aliases. For stronger restrictions, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
+It misses pushes from script files and aliases. For stronger limits, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
 
-`sync` copies the script, with its permissions and subdirectories under `scripts/`, into each tool's script directory and changes the command to run that copy. A missing script fails sync. Make the source executable when the command runs it directly. A file at `.agnostic-ai/scripts/<target>/guard.sh` replaces the shared script for that tool.
+## How scripts reach each tool
 
-For a shell command that starts an interpreter, quote the path: `command: 'node ".agnostic-ai/scripts/guard.mjs"'`. The path can also follow a [project-root variable](@/docs/spec-format/hook-reference.md#imported-project-root-paths). Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working.
+- `sync` copies the script, with its permissions and subdirectories under `scripts/`, into each tool's script directory and points the command at that copy.
+- A missing script fails sync. Make the source executable when the command runs it directly.
+- A file at `.agnostic-ai/scripts/<target>/guard.sh` replaces the shared script for that tool.
+- For a shell command that starts an interpreter, quote the path: `command: 'node ".agnostic-ai/scripts/guard.mjs"'`. The path can also follow a [project-root variable](@/docs/spec-format/hook-reference.md#imported-project-root-paths).
+- Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working.
+- Script sharing does not translate event names or reply formats, so pick ones every tool supports.
 
-`sync --global` copies scripts from the global source root's `scripts/` directory into the selected tools' user hook directories, and its commands use absolute paths to those copies. [Copilot user hooks](@/docs/targets/copilot-reference.md#hooks) use the same command fields and event casing as project hooks; an imported one records its source file in `x-copilot.user-hook-file`. Script sharing does not translate event names or reply formats, so pick ones every tool supports.
+{% <details summary="Details: global sync and Copilot user hooks"> %}
+- `sync --global` copies scripts from the global source root's `scripts/` directory into the selected tools' user hook directories. Its commands use absolute paths to those copies.
+- [Copilot user hooks](@/docs/targets/copilot-reference.md#hooks) use the same command fields and event casing as project hooks. An imported one records its source file in `x-copilot.user-hook-file`.
+{% </details> %}
 
 <details>
 <summary>Where each tool keeps its scripts</summary>

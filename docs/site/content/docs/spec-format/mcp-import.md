@@ -14,11 +14,17 @@ How `import` turns MCP credentials into `${NAME}` references, and which servers 
 
 ## What import writes
 
-Import cannot tell a token from a plain setting in a spec that will be committed, so it replaces every literal `env` and `headers` value with a reference. `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set. Mark it [`!literal`](@/docs/spec-format/mcps.md#plain-settings) by hand to put it back. Import prints each replacement and the variable to set.
+Import cannot tell a token from a plain setting in a spec that will be committed. It replaces every literal `env` and `headers` value with a `${NAME}` reference and prints each replacement and the variable to set.
 
-Import also reads each tool's own reference form in `env`, `headers`, `url`, and `args` back as `${NAME}`. That includes a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini. A `${NAME}` in a field the tool never expands (Warp, Zed, Codex `args`) is plain text, so the spec gets [`$${NAME}`](@/docs/spec-format/mcps.md#literal-text).
+- `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set. Mark it [`!literal`](@/docs/spec-format/mcps.md#plain-settings) by hand to put it back.
+- A tool's own reference form in `env`, `headers`, `url`, and `args` is read back as `${NAME}`.
+- A `${NAME}` in a field the tool never expands becomes [`$${NAME}`](@/docs/spec-format/mcps.md#literal-text).
+- A server that still holds a literal credential after the rewrite is left out. Import names the server and field.
 
-A server that still holds a literal credential after the rewrite is left out, and import names the server and field.
+{% <details summary="Details: native reference forms and fields a tool never expands"> %}
+- Native forms read back include a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini.
+- Fields a tool never expands: Warp, Zed, and Codex `args`. A `${NAME}` there is plain text.
+{% </details> %}
 
 <details>
 <summary>How variables are named</summary>
@@ -100,17 +106,13 @@ Check these by hand:
 
 ## Setting values
 
-Other imports use one rule per value: Claude Code `env` values, hook headers, and `mcp_tool` inputs, Codex overlay values, and Grok hook and agent metadata. A value holds a credential when it has literal text and either:
+Other imports use one rule per value: Claude Code `env` values, hook headers, and `mcp_tool` inputs, Codex overlay values, and Grok hook and agent metadata. A value holds a credential when it has literal text and either looks like a credential by the rules above, or has a [credential name](#credential-names) as its key and is not a boolean (`true`, `false`, `yes`, `no`, `on`, `off`, `0`, `1`), a path, or a file name.
 
-- the text looks like a credential by the rules above, or
-- its key has a [credential name](#credential-names) and the value is not a boolean (`true`, `false`, `yes`, `no`, `on`, `off`, `0`, `1`), a path, or a file name.
-
-What happens next:
-
-- Claude Code import leaves out such an `env` value with a warning, and the whole matcher group of a hook with such a header or input.
-- It also leaves out any literal value of its fixed token variables, such as `ANTHROPIC_API_KEY`, and header variables, such as `OTEL_EXPORTER_OTLP_HEADERS` (see [overlays](@/docs/spec-format/overlays.md)).
-- Codex import leaves out such a value with a warning. Keys that start with `env_` and prose keys such as `instructions` use their own checks ([Codex reference](@/docs/targets/codex-reference.md)).
-- Grok import stops before writing.
+| Import | When a value holds a credential |
+|--------|---------------------------------|
+| Claude Code | Leaves out the `env` value with a warning, and the whole matcher group of a hook with such a header or input. Also leaves out any literal value of its fixed token variables, such as `ANTHROPIC_API_KEY`, and header variables, such as `OTEL_EXPORTER_OTLP_HEADERS` (see [overlays](@/docs/spec-format/overlays.md)). |
+| Codex | Leaves out the value with a warning. Keys that start with `env_` and prose keys such as `instructions` use their own checks ([Codex reference](@/docs/targets/codex-reference.md)). |
+| Grok | Stops before writing. |
 
 <details>
 <summary>Literal text and path rules, with examples</summary>
@@ -137,15 +139,12 @@ What happens next:
 
 A name is a credential name when its last word is one of: `token`, `secret`, `password`, `passwd`, `passphrase`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, `authorization`.
 
+{% <details summary="Details: how words split, and the key, cred and auth rules"> %}
 - Words split at punctuation and camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not.
 - `pass_phrase` counts as `passphrase`.
 - A one-word name ending in `password`, `passwd`, `passphrase`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.
-
-<details>
-<summary>Rules for key, cred and auth names</summary>
-
 - A last word `key` counts unless the word before it is `sort`, `cache`, `public`, `partition`, `primary`, `foreign`, `idempotency`, `routing`, `object`, `row`, `hash`, `map`, `lookup`, `group`, `dedup`, `shard`, `index`, `unique`, `composite`, `natural`, `surrogate`, `ssh`, `gpg`, `pgp`, `s3`, or `id`.
 - So `api_key`, `OPENAI_KEY`, and `--openai-key` count. `sort_key`, `cache_key`, `--public-key`, and `--ssh-key` do not.
 - In an `env` or header key, an `x-<target>` or `requestOptions` key, and a `Name: value` line or JSON pair, a last word `cred` or `auth` counts too, as in `MY_CRED` and `X_AUTH`. A flag such as `--auth oauth` does not.
 
-</details>
+{% </details> %}
