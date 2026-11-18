@@ -510,6 +510,9 @@ function test_fetch_target_stops_retrying_once_its_retry_budget_is_spent() {
 }
 
 function test_fetch_target_forces_the_proxy_for_a_target_marked_fetch_reader_proxy() {
+  function source_sections() {
+    printf '%s\n' '- docs: https://kiro.dev/docs/steering/ · https://kiro.dev/docs/steering.md' '- fetch: reader-proxy'
+  }
   stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nKiro reference %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)" \
     "https://kiro.dev/*|200|<html><body><p>direct copy served to some networks only</p></body></html>"
   local rows
@@ -518,12 +521,13 @@ function test_fetch_target_forces_the_proxy_for_a_target_marked_fetch_reader_pro
   assert_equals "markdown-mirror" "$(printf '%s\n' "$rows" | awk -F '\t' '$3 ~ /\.md$/ { print $5 }' | sort -u)"
 }
 
-# Cursor's source section is long enough that `grep -q` stops reading
-# before it ends; under pipefail the writer's SIGPIPE must not read as "no
-# fetch line", or every Cursor page is fetched as HTML and never hashes
-# like the locked proxy copy.
+# Reading a long section must not turn a writer SIGPIPE into a missing proxy flag.
 function test_fetch_target_forces_the_proxy_for_a_long_source_section() {
   set -o pipefail
+  function source_sections() {
+    printf '%s\n' '- fetch: reader-proxy' '- docs: https://cursor.com/docs/rules · https://cursor.com/docs/rules.md' '- schema: https://cursor.com/schemas/environment.schema.json'
+    printf '%131072s\n' 'long section padding'
+  }
   stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nCursor reference %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)" \
     "https://cursor.com/*|200|<html><body><p>direct copy served to some networks only</p></body></html>"
   local rows
