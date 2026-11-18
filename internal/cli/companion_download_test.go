@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -90,7 +91,7 @@ func TestDownloadCompanion_WritesTheVerifiedProgram(t *testing.T) {
 	if raw, _ := os.ReadFile(path); string(raw) != "the released companion" {
 		t.Errorf("program = %q", raw)
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm()&0o100 == 0 {
+	if info, err := os.Stat(path); err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("the program cannot run: %v %v", info, err)
 	}
 	if !slices.Equal(verified, []string{"1.2.3"}) {

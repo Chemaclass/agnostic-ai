@@ -345,8 +345,7 @@ func cursorDrift(body []byte, event, matcher string, handlers []Handler) ([]Hand
 	return drift, nil
 }
 
-// Assumption is a contract item hook run fills in because the target's
-// docs leave it out.
+// Assumption records an undocumented contract or a local execution limit.
 type Assumption struct {
 	Item   string `json:"item"`
 	Value  string `json:"value"`
@@ -378,9 +377,7 @@ func ShellNeutral(command string) bool {
 	return !quoted
 }
 
-// Assumptions returns what hook run assumes to run h as target does on
-// goos, and why it cannot run h at all when no safe assumption exists.
-// Targets whose contract is documented return neither.
+// Assumptions reports local execution assumptions or why a handler cannot run.
 func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
 	c, ok := assumedContracts[target]
 	if !ok {
@@ -390,6 +387,9 @@ func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
 		return c.assume(goos, h)
 	}
 	if goos == "windows" {
+		if target == "factory" {
+			return nil, "hook run does not implement Factory hook execution on Windows"
+		}
 		return nil, c.name + " does not document how it runs a hook command on Windows"
 	}
 	command := h.Command
@@ -397,9 +397,16 @@ func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
 		command = expandRootVar(command, factoryRootVar, "root")
 	}
 	if !ShellNeutral(command) {
+		if target == "factory" {
+			return nil, "hook run cannot simulate this Factory shell command; use a script path"
+		}
 		return nil, c.name + " does not document its shell; use a script path"
 	}
-	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: c.name + " does not document the shell that runs a hook command"}}
+	shellReason := c.name + " does not document the shell that runs a hook command"
+	if target == "factory" {
+		shellReason = "Factory documents /bin/sh -c outside per-command sandboxing; hook run retains a limited shell simulation"
+	}
+	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: shellReason}}
 	if c.cwdReason != "" {
 		out = append(out, Assumption{Item: "working directory", Value: "project root", Reason: c.cwdReason})
 	}

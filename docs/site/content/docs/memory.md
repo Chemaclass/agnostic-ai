@@ -121,7 +121,7 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 ### When a session starts {#load-at-session-start}
 
-On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Auggie CLI on Unix, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
+On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, and Devin CLI, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
 Auggie documents startup context injection in 0.x. Its 1.x docs say `SessionStart` runs in the background without adding output to context, so use the memory rule that tells the agent to read both lists. Sync still emits the hook; see [Augment shared memory](@/docs/targets/augment-reference.md#shared-memory).
 
