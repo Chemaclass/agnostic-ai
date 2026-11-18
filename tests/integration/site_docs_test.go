@@ -174,6 +174,7 @@ func TestSiteDocs_OptInCellsOpenTheSectionNamingTheKey(t *testing.T) {
 			ID          string            `toml:"id"`
 			Href        string            `toml:"href"`
 			Statuses    []string          `toml:"statuses"`
+			OptInHref   string            `toml:"opt_in_href"`
 			OptInAnchor string            `toml:"opt_in_anchor"`
 			OptIn       map[string]string `toml:"opt_in"`
 		} `toml:"targets"`
@@ -198,13 +199,12 @@ func TestSiteDocs_OptInCellsOpenTheSectionNamingTheKey(t *testing.T) {
 				t.Errorf("%s %s is opt-in but opt_in names no key to set", target.ID, feature)
 				continue
 			}
-			page := filepath.Join(siteDocsContentDir, strings.TrimPrefix(target.Href, "@/docs/"))
-			section, ok := markdownSection(readBuiltFile(t, page), anchor)
-			if !ok {
-				if reference, err := os.ReadFile(strings.TrimSuffix(page, ".md") + "-reference.md"); err == nil {
-					section, ok = markdownSection(string(reference), anchor)
-				}
+			href := target.OptInHref
+			if href == "" {
+				href = target.Href
 			}
+			page := filepath.Join(siteDocsContentDir, strings.TrimPrefix(href, "@/docs/"))
+			section, ok := markdownSection(readBuiltFile(t, page), anchor)
 			if !ok {
 				t.Errorf("%s has no section with anchor #%s for its %s opt-in cell", page, anchor, feature)
 				continue

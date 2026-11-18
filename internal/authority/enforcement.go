@@ -86,14 +86,14 @@ var formPhrases = map[ruleForm]string{
 //     `*`), exact commands, read and edit paths, server-wide MCP rules,
 //     and WebFetch(domain:). A mid-command `*` is documented as matching
 //     literally in deny, so it is left out.
-//   - Kilo Code: kilo.md says each rule becomes one glob matched against
+//   - Kilo Code: kilo-reference.md says each rule becomes one glob matched against
 //     the tool's arguments, with prefix, exact, and path examples.
-//   - OpenCode: opencode.md shows a command prefix becoming a glob.
-//   - Windsurf: windsurf.md says Exec matches only the start of a
+//   - OpenCode: opencode-reference.md shows a command prefix becoming a glob.
+//   - Windsurf: windsurf-reference.md says Exec matches only the start of a
 //     command, for the `:*` form.
-//   - Augment: augment.md says a `:*` prefix becomes a regex anchored at
+//   - Augment: augment-reference.md says a `:*` prefix becomes a regex anchored at
 //     the start and an exact command one anchored at both ends.
-//   - Codex: codex.md says ` *` and `:*` rules become prefix rules that
+//   - Codex: codex-reference.md says ` *` and `:*` rules become prefix rules that
 //     match extra arguments.
 var documentedForms = map[string][]ruleForm{
 	"claude":   {formShellExact, formShellColon, formShellStar, formPath, formMCPServer, formWebDomain},
@@ -117,7 +117,7 @@ func formDocumented(target string, form ruleForm) (string, bool) {
 	if target == "claude" {
 		return docSettings, true
 	}
-	return targetDoc(target), true
+	return targetDoc(target + "-reference"), true
 }
 
 // classifyRule names the form of a permission rule.
