@@ -1060,7 +1060,7 @@ func TestArchivedAsOf_RefusesADormantRowWithNoReadTime(t *testing.T) {
 	}
 }
 
-func TestDelete_RefusesAClosedSessionUntilItsReplyIsRead(t *testing.T) {
+func TestDelete_DeletesAClosedSessionWithoutReadingItsReply(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{}})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	files := sessionFiles(t, stores, idSafari)
@@ -1082,23 +1082,12 @@ func TestDelete_RefusesAClosedSessionUntilItsReplyIsRead(t *testing.T) {
 	scanner.Now = func() time.Time { return now }
 	scanner.Scan(context.Background(), ScanOptions{})
 	now = archivedAt
-	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.State != StateDormant || !c.Unread {
-		t.Fatalf("the fixture session is %s, unread %v; want dormant and unread", c.State, c.Unread)
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.State != StateDormant || c.Unread || c.SeenAt != "" {
+		t.Fatalf("the fixture session is %s, unread %v, seen %q; want dormant, no marker and not seen", c.State, c.Unread, c.SeenAt)
 	}
 
-	reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{})
-
-	if refusal := deleteRefusal(t, err); refusal.Kind != DeleteUnread || reply.Deleted {
-		t.Errorf("= %s %+v", asJSON(t, reply), refusal)
-	}
-	assertFiles(t, files, true)
-
-	if err := scanner.Mark(ToolClaude, idSafari, MarkSeen); err != nil {
-		t.Fatal(err)
-	}
-	now = archivedAt.Add(time.Minute)
 	if reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); err != nil || !reply.Deleted {
-		t.Fatalf("once read it can be deleted: %s %v", asJSON(t, reply), err)
+		t.Fatalf("an archived chat is deleted without reading it first: %s %v", asJSON(t, reply), err)
 	}
 	assertFiles(t, files, false)
 }

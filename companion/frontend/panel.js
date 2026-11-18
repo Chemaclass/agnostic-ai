@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadShownOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -195,7 +195,7 @@ function stateMark(conversation) {
   // parent's own working activity keeps its mark moving.
   else if (childrenWork && conversation.activity !== 'working') parentState = 'active'
   const mark = element('span', 'state is-' + parentState)
-  mark.classList.toggle('has-unread', conversation.unread === true)
+  mark.classList.toggle('has-unread', unreadMarkOf(conversation))
   mark.setAttribute('aria-hidden', 'true')
   if (parentState === 'working' || conversation.workingSubagents > 0) {
     // Keep the mechanism's phase when a new reply or selection redraws the list.
@@ -439,14 +439,6 @@ function groupHead(group) {
     all.type = 'button'
     all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
     all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
-    head.append(all)
-  }
-  const unreadShown = group.id === 'archived' ? unreadShownOf(group, folded) : []
-  if (unreadShown.length > 0) {
-    const all = element('button', 'group-action', 'Mark all as read')
-    all.type = 'button'
-    all.title = 'Clear the unread marker of every chat shown here without opening it'
-    all.addEventListener('click', () => markAll(unreadShown, 'seen', (conversation) => stillWaits(state.view, conversation)))
     head.append(all)
   }
   if (group.id === 'active') {

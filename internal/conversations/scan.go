@@ -470,13 +470,13 @@ func joinNotes(first, second string) string {
 // weekPage picks one page from all: below to, from a week earlier, or
 // from a week before the newest conversation when that week is empty.
 // The first page also holds every open conversation, every one that
-// needs the person and every one marked unread, whatever its age, so the
+// needs the person, whatever its age, so the
 // rows under Needs you are the ones View.NeedsYou counts. It takes rows dated after to, which a skewed
 // clock can write.
 func weekPage(all []Conversation, to time.Time, first bool) (page []Conversation, from time.Time, more bool) {
 	var older []Conversation
 	for _, c := range all {
-		pinned := c.Live || needsPerson(c.State) || c.Unread
+		pinned := c.Live || needsPerson(c.State)
 		switch {
 		case pinned && first:
 			page = append(page, c)

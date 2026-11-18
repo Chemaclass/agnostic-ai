@@ -138,7 +138,7 @@ The chat leaves Needs you in the companion and the web interface, and moves wher
 {% <details summary="Details: same mark as opening, failures, the circle count"> %}
 - The mark is the seen mark that opening a chat saves, stored through the server.
 - When a closed chat moves at once and when it waits a day: see [`state`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
-- On an archived chat that closed with a reply you have not read, it clears the orange ring. The next write brings it back.
+- On a chat resumed by hand with a reply from before, it clears the orange ring. The next write brings it to Needs you.
 - If the save fails, the row stays and the list shows why.
 - **Mark all as read** saves one chat after another.
 - A chat written in since the list was drawn is skipped and stays.
@@ -226,12 +226,8 @@ Archiving here never changes the chat in its app. Click an archived chat to resu
 {% <details summary="Details: unread replies, resuming, working chats, silent Codex chats"> %}
 - A process that ends shows as archived within a minute. Quitting an app archives none of its chats.
 - The tooltip of an archived chat says **Resume in Terminal**, or the app it last ran in.
-- An archived terminal chat with an unread reply has its mark ringed in the Needs you orange. The tooltip says "Closed with a reply you have not read".
-- It does not count in the circle.
-- Its right-click menu offers **Mark as read**, and **Delete permanently…** only once it is read.
-- While Archived is folded, its header says how many such chats it holds, such as "2 unread".
-- Once you unfold it, its **Mark all as read** clears the markers of the chats it shows.
-- If you resume it by hand, its old reply does not bring it to Needs you. It shows under Active with the same ring until you open it or mark it read. The tooltip says "Resumed with a reply from before that you have not read". A later reply does bring it to Needs you.
+- An archived chat has no read or unread state, even when it closed with a reply you have not read. It shows no ring, adds nothing to the Archived header, and does not count in the circle. You can delete it without reading it first.
+- If you resume such a chat by hand, its old reply does not bring it to Needs you. It shows under Active with its mark ringed in the Needs you orange until you open it or mark it read. The tooltip says "Resumed with a reply from before that you have not read". A later reply does bring it to Needs you.
 - An editor panel or background job archives after a day because nothing reliable says when it closes.
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute.
 - That clears the archive in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
@@ -246,7 +242,7 @@ A local Claude Code session shared with claude.ai through Remote Control is one 
 
 | Event | What happens |
 |-------|--------------|
-| A claude.ai reply within two minutes of the session's last reply | The shared row rings. |
+| A claude.ai reply within two minutes of the session's last reply | It stays folded into the archived shared row, which shows no ring. |
 | A later reply | The cloud row shows alone, under Needs you. |
 
 The server restarting, or resuming without Remote Control, shows two rows again. Deleting the local session leaves the cloud row.
@@ -256,8 +252,7 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 - After you delete the local session, the cloud row stays because claude.ai still keeps it.
 - The link is kept in memory only.
 - After a restart, the cloud row does not count a reply the local row already showed.
-- One exception: the last reply reached claude.ai after the server last read the list while the session ran, and you did not mark it read. Then the cloud row counts that reply once, and the local row keeps its ring for it too.
-- If claude.ai records the disconnect itself as activity, which is not confirmed, a session closed within two minutes of a reply you already read can show the ring for no new reply. Mark it read to delete it.
+- One exception: the last reply reached claude.ai after the server last read the list while the session ran, and you did not mark it read. Then the cloud row counts that reply once. The archived local row shows no ring for it.
 {% </details> %}
 
 ## What a chat waits for {#waiting}

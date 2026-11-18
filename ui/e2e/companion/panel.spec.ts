@@ -1495,21 +1495,23 @@ test('the send shortcut with nothing copied says so and opens no pick mode', asy
   expect(await calledPaths(page)).not.toContain('/api/send')
 })
 
-test('a folded Archived names its chat that closed unread, and Mark all as read, shown once unfolded, clears the marker', async ({ page }) => {
+test('Archived has no read state: a chat that closed unread shows no ring, no count and no Mark all as read, and can be deleted', async ({ page }) => {
   await openPanel(page, 'closed-unread')
+  const resumed = row(page, 'Write the migration guide')
+  await expect(resumed.locator('.state.has-unread')).toHaveCount(1)
+  await expect(groupTitle(page, 'Active')).toContainText('1 unread')
   const archived = groupTitle(page, 'Archived')
   await expect(archived).toHaveAttribute('aria-expanded', 'false')
-  await expect(archived).toContainText('1 unread')
-  await expect(page.locator('.group-head').filter({ hasText: 'Archived' }).getByRole('button', { name: 'Mark all as read' })).toHaveCount(0)
+  await expect(archived).not.toContainText('unread')
   await archived.click()
+  await expect(archived).not.toContainText('unread')
+  await expect(page.locator('.group-head').filter({ hasText: 'Archived' }).getByRole('button', { name: 'Mark all as read' })).toHaveCount(0)
   const closed = row(page, 'Port the billing job')
-  await expect(closed).toHaveAttribute('title', /Closed with a reply you have not read/)
-  await expect(closed.locator('.state.has-unread')).toHaveCount(1)
+  await expect(closed).not.toHaveAttribute('title', /not read/)
+  await expect(closed.locator('.state.has-unread')).toHaveCount(0)
   await closed.click({ button: 'right' })
-  await expect(page.getByRole('menuitem', { name: 'Delete permanently…' })).toBeHidden()
-  await page.keyboard.press('Escape')
-  await page.locator('.group-head').filter({ hasText: 'Archived' }).getByRole('button', { name: 'Mark all as read' }).click()
-  await expect(groupTitle(page, 'Archived')).not.toContainText('unread')
+  await expect(page.getByRole('menuitem', { name: 'Delete permanently…' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Mark as read' })).toBeHidden()
 })
 
 test('a folded Needs you offers no Mark all as read, so no row nobody saw is marked', async ({ page }) => {

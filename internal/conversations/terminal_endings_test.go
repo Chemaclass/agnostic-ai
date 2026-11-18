@@ -111,8 +111,8 @@ func TestScan_ATerminalSessionIsArchivedHoweverItsProcessEnds(t *testing.T) {
 			_, stores, table, sync, scan := endingScanner(t)
 			end(stores, table)
 			sync()
-			if c := scan(); c.Live || !c.liveRead || c.State != StateDormant || !c.Unread {
-				t.Errorf("an ended session is archived with its unread marker: %s", asJSON(t, c))
+			if c := scan(); c.Live || !c.liveRead || c.State != StateDormant || c.Unread {
+				t.Errorf("an ended session is archived, without an unread marker: %s", asJSON(t, c))
 			}
 		})
 	}
@@ -220,14 +220,14 @@ func TestReopen_ResumingAClosedUnreadSessionMarksItRead(t *testing.T) {
 	scanner, _, table, sync, scan := endingScanner(t)
 	delete(table, 4242)
 	sync()
-	if c := scan(); c.State != StateDormant || !c.Unread {
-		t.Fatalf("the ended session is archived unread: %s", asJSON(t, c))
+	if c := scan(); c.State != StateDormant || c.SeenAt != "" {
+		t.Fatalf("the ended session is archived and not seen: %s", asJSON(t, c))
 	}
 	launcher := &fakeLauncher{}
 	if reply, found := scanner.Reopen(context.Background(), ToolClaude, idSafari, ScanOptions{}, launcher); !found || !reply.Opened {
 		t.Fatalf("the closed session resumes: %+v, found %t", reply, found)
 	}
-	if c := scan(); c.State != StateDormant || c.Unread {
+	if c := scan(); c.State != StateDormant || c.SeenAt == "" {
 		t.Errorf("resuming it from the list reads it: %s", asJSON(t, c))
 	}
 }
