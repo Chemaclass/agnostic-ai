@@ -1506,7 +1506,10 @@ test('Enter opens nothing once the selected row was marked complete and folded a
   await page.keyboard.press('Enter')
   await page.keyboard.press('F2')
   await expect(page.getByLabel('New name')).toHaveCount(0)
-  expect(await calledPaths(page)).not.toContain('/api/open')
+  await page.waitForTimeout(300)
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/panel/hide')
+  expect(calls).not.toContain('/api/open')
 })
 
 test('mark all complete skips a row that got a reply after it was drawn', async ({ page }) => {
@@ -1610,6 +1613,16 @@ test('the search field names the selected row for a screen reader', async ({ pag
   await expect(search).toHaveAttribute('aria-activedescendant', id!)
   await page.keyboard.press('ArrowDown')
   await expect(search).toHaveAttribute('aria-activedescendant', (await selected(page).getAttribute('id'))!)
+})
+
+test('the arrow keys move through the row menu in the order it shows', async ({ page }) => {
+  await openArchived(page, 'archived-shared')
+  await row(page, 'Ship the retry queue').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Open on claude.ai' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(deleteItem(page)).toBeFocused()
 })
 
 test('the arrow keys move through the row menu and wrap around', async ({ page }) => {

@@ -1026,8 +1026,10 @@ async function completeRow(conversation, row, button) {
   }
   await tickShown
   state.completing.delete(key)
-  // The row moves to Archived as the tick ends, even when the new list is still on its way.
-  if (state.view) state.view = withState(state.view, key, 'completed')
+  // The row moves to Archived as the tick ends, even when the new list is still on its way,
+  // unless a list that came during the tick shows it changed.
+  const current = state.view?.conversations.find((row) => keyOf(row) === key)
+  if (current?.state === conversation.state && current.updatedAt === conversation.updatedAt) state.view = withState(state.view, key, 'completed')
   await afterChange()
 }
 
@@ -1170,7 +1172,7 @@ rowMenu.addEventListener('keydown', (event) => {
   const step = KEY_STEPS[event.key]
   if (step === undefined) return
   event.preventDefault()
-  const items = Object.values(menuItems).filter((item) => !item.hidden)
+  const items = [...rowMenu.querySelectorAll('.menu-item')].filter((item) => !item.hidden)
   const at = items.indexOf(document.activeElement)
   items[(at + step + items.length) % items.length].focus()
 })

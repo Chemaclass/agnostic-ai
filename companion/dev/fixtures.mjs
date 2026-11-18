@@ -238,6 +238,10 @@ export const FIXTURES = {
     markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
   },
   archived: { label: 'Archived chats to delete', conversations: archived },
+  'archived-shared': {
+    label: 'An archived chat that was also on claude.ai, so its menu offers both the page and delete',
+    conversations: (now) => [...archived(now), { ...conversation(now, 'claude', 'done-rc', 'Ship the retry queue', 'completed', { minutesAgo: 2 * 24 * 60, shared: 'cse_done' }), live: false }],
+  },
   'one-terminal': {
     label: 'One chat runs in a Ghostty tab, so pick mode starts on it',
     conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),

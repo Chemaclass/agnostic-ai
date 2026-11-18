@@ -161,8 +161,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   }
 
   /** Like the shell: the pages read the new list, and a chat that starts waiting brings a hidden circle back faded. */
-  function listChanged() {
-    state.polled = structuredClone(state.conversations)
+  function listChanged(polled = state.conversations) {
+    state.polled = structuredClone(polled)
     emit('inbox')
     const now = waitingIn(state.conversations)
     const gained = [...now].some((key) => !state.waitingSeen.has(key))
@@ -210,7 +210,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     noContent(response)
     // Like the shell: a mark asks for a new list, which the server reads before the event goes out.
     const marked = state
-    if (marked.fixture.rereadMs) setTimeout(() => state === marked && listChanged(), marked.fixture.rereadMs)
+    const read = structuredClone(state.conversations)
+    if (marked.fixture.rereadMs) setTimeout(() => state === marked && listChanged(read), marked.fixture.rereadMs)
     else listChanged()
   }
 
