@@ -197,12 +197,18 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     // Like the server: a slow search answers with the rows as they were when it was asked.
     const asked = state
     const read = structuredClone(state.conversations.filter((row) => matches(row, words)))
-    const wait = slowness(state, query.toLowerCase())
+    const paged = state.fixture.searchPages
+    const wait = paged?.ms ?? slowness(state, query.toLowerCase())
     if (wait > 0) await new Promise((done) => setTimeout(done, wait))
     // The page gave this search up; a fixture chosen meanwhile answers with its own rows.
     if (response.destroyed) return
     const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
-    sendJSON(response, 200, { view: viewOf(state, rows, query), note, version })
+    if (!paged) return sendJSON(response, 200, { view: viewOf(state, rows, query), note, version })
+    // Like the server's weeks: before is where the previous page stopped, and matches counts every page.
+    const start = Number(url.searchParams.get('before') ?? 0)
+    const view = { ...viewOf(state, rows.slice(start, start + paged.size), query), matches: rows.length }
+    if (start + paged.size < rows.length) view.next = String(start + paged.size)
+    sendJSON(response, 200, { view, note, version })
   }
 
   async function mark(request, response, url) {

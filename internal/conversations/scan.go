@@ -119,6 +119,8 @@ type Scanner struct {
 	// claudeChatsSeen holds, by id, the Claude app chats an earlier read
 	// found in the app's cached list; see claudeChatsGone.
 	claudeChatsSeen map[string]Conversation
+	// search holds the latest search's matches for its later pages.
+	search keptSearch
 
 	// lastReadMu guards lastRead apart from mu: an open reads it without
 	// waiting for a scan to end.
@@ -186,21 +188,13 @@ type ScanOptions struct {
 func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.shown.start()
-	defer s.shown.finish()
-	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, marksErr := s.applyMarks(results)
-	var all []Conversation
-	for _, result := range results {
-		if opts.Tool == "" || result.source.Tool == opts.Tool {
-			all = append(all, result.conversations...)
-		}
-	}
 	words := queryWords(opts.Query)
-	if len(words) > 0 {
-		all = s.searchAll(ctx, all, words)
-	}
 	first := opts.Before.IsZero()
+	read, kept := s.searchRead(ctx, opts, words, first)
+	if !kept {
+		defer s.shown.finish()
+	}
+	all := read.all
 	to := opts.Before
 	if first {
 		// Next is written in whole seconds, so the page boundary must be too.
@@ -215,11 +209,11 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 		From: from.UTC().Format(time.RFC3339), To: to.UTC().Format(time.RFC3339),
 		Tools: []Source{}, Conversations: page,
 	}
-	view.NeedsYou = needsYou
-	if marksErr != nil {
-		view.MarksNote = "Seen and completed marks are unavailable: " + marksErr.Error()
+	view.NeedsYou = read.needsYou
+	if read.marksErr != nil {
+		view.MarksNote = "Seen and completed marks are unavailable: " + read.marksErr.Error()
 	}
-	view.CloudNote = cloudNote
+	view.CloudNote = read.cloudNote
 	if more {
 		view.Next = view.From
 	}
@@ -227,19 +221,82 @@ func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
 		matches := len(all)
 		view.Matches = &matches
 	}
-	for _, result := range results {
-		result.source.Count = len(result.conversations)
+	for _, source := range read.sources {
 		for _, c := range page {
-			if c.Tool == result.source.Tool {
-				result.source.Shown++
+			if c.Tool == source.Tool {
+				source.Shown++
 			}
 		}
-		view.Tools = append(view.Tools, result.source)
+		view.Tools = append(view.Tools, source)
 	}
 	if view.Conversations == nil {
 		view.Conversations = []Conversation{}
 	}
 	return view
+}
+
+// keptSearch is what one read of every store gave a scan: the rows it
+// keeps, with the sources and notes the view reports.
+type keptSearch struct {
+	// key names the search and the stamp of the files it read; empty
+	// for a read that is not kept.
+	key       string
+	all       []Conversation
+	sources   []Source
+	needsYou  int
+	marksErr  error
+	cloudNote string
+}
+
+// searchRead reads every store and keeps the rows opts asks for. A
+// search's later page takes the rows its first page read while Stamp
+// holds, so reading the weeks of one search one after the other reads
+// the stores once, as long as nothing changed between them. A kept read
+// leaves the shown texts cache alone: one week's texts could replace a
+// large store's. Otherwise searchRead starts that cache and the caller
+// finishes it.
+func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []string, first bool) (read keptSearch, kept bool) {
+	var key string
+	var files []string
+	var stores string
+	search := shapeOf(opts) + "\x00" + string(opts.Tool) + "\x00" + strings.Join(words, " ")
+	if len(words) > 0 {
+		// Taken before the read, like the server's list tag: a write made
+		// during the read changes it, and the next page reads again.
+		files = s.storeFiles()
+		stores = fileStamp(files...)
+		key = s.stampOf(files, stores) + "\x00" + search
+		if !first && s.search.key == key {
+			return s.search, true
+		}
+	}
+	s.shown.start()
+	results, cloudNote := s.readAll(ctx, opts)
+	needsYou, marksErr := s.applyMarks(results)
+	read = keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
+	for _, result := range results {
+		if opts.Tool == "" || result.source.Tool == opts.Tool {
+			read.all = append(read.all, result.conversations...)
+		}
+		result.source.Count = len(result.conversations)
+		read.sources = append(read.sources, result.source)
+	}
+	if len(words) > 0 {
+		read.all = s.searchAll(ctx, read.all, words)
+		read.key = key
+		// The read itself writes the marks and finds the files of workers
+		// that went live. When no store file changed meanwhile, the stamp
+		// after it names what it read, so the next page takes it.
+		if fileStamp(files...) == stores {
+			read.key = s.Stamp() + "\x00" + search
+		}
+		// A canceled read may miss rows, so no later page takes it.
+		if ctx.Err() != nil {
+			read.key = ""
+		}
+		s.search = read
+	}
+	return read, false
 }
 
 // Find returns one conversation of any age from a fresh read.
