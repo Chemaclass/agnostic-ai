@@ -76,7 +76,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Trae
 
-- `hook run` reports context for the events and reply formats Trae consumes.
+- `hook run` reports context for Trae's supported events and reply formats; the hook guide lists the same limits (#3569).
 
 #### Mistral Vibe
 
