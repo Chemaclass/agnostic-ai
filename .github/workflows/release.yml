@@ -329,30 +329,6 @@ jobs:
       # check retries with bounded exponential backoff. Homebrew keeps its
       # short replica-lag window. npm gets about 20 minutes because publish-time
       # malware scanning commonly takes five minutes and can exceed 15.
-      # A release without the archives leaves users without Go unable to
-      # install the companion, so only a prerelease may ship without them.
-      - name: Release ships the companion archives
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          case "$GITHUB_REF_NAME" in
-            *-*)
-              echo "prerelease $GITHUB_REF_NAME: the companion archives are optional"
-              exit 0
-              ;;
-          esac
-          assets=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          missing=0
-          for arch in arm64 amd64; do
-            name="agnostic-ai-companion_darwin_${arch}.tar.gz"
-            if ! grep -qx "$name" <<<"$assets"; then
-              echo "::error::release $GITHUB_REF_NAME lacks $name"
-              missing=1
-            fi
-          done
-          exit "$missing"
-
       - name: Homebrew cask serves this tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -462,3 +438,28 @@ jobs:
             echo "::error::the npm release is incomplete; installs break on any platform whose package is missing, and an unpinned install resolves whatever ${dist_tag} still points at"
             exit 1
           fi
+
+      # A release without the archives leaves users without Go unable to
+      # install the companion, so only a prerelease may ship without them.
+      - name: Release ships the companion archives
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            *-*)
+              echo "prerelease $GITHUB_REF_NAME: the companion archives are optional"
+              exit 0
+              ;;
+          esac
+          assets=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          missing=0
+          for arch in arm64 amd64; do
+            name="agnostic-ai-companion_darwin_${arch}.tar.gz"
+            if ! grep -qx "$name" <<<"$assets"; then
+              echo "::error::release $GITHUB_REF_NAME lacks $name"
+              missing=1
+            fi
+          done
+          exit "$missing"

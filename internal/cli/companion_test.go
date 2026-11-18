@@ -702,9 +702,23 @@ func TestUninstallCompanion_SucceedsWithoutAConfigDirectory(t *testing.T) {
 
 func TestInstallCompanion_RemovesBuildFoldersAnInterruptedInstallLeft(t *testing.T) {
 	dir := t.TempDir()
-	left := filepath.Join(dir, companionBuildPrefix+"123")
-	if err := os.MkdirAll(filepath.Join(left, "companion"), 0o700); err != nil {
-		t.Fatal(err)
+	old := time.Now().Add(-2 * companionBuildAge)
+	folders := map[string]bool{"left": true, "in use": false, "kept aside": false}
+	for name := range folders {
+		folder := filepath.Join(dir, companionBuildPrefix+name)
+		if err := os.MkdirAll(filepath.Join(folder, "companion"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if name == "kept aside" {
+			if err := os.MkdirAll(filepath.Join(folder, companionAsideName), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if name != "in use" {
+			if err := os.Chtimes(folder, old, old); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 
 	err := installCompanion(context.Background(), io.Discard, false, builtTools(t), dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
@@ -712,8 +726,11 @@ func TestInstallCompanion_RemovesBuildFoldersAnInterruptedInstallLeft(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(left); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("the build folder an interrupted install left is still there (%v)", err)
+	for name, removed := range folders {
+		_, err := os.Stat(filepath.Join(dir, companionBuildPrefix+name))
+		if gone := errors.Is(err, os.ErrNotExist); gone != removed {
+			t.Errorf("%s: removed %t, want %t", name, gone, removed)
+		}
 	}
 }
 
@@ -729,7 +746,7 @@ func TestInstallCompanion_InstallsNothingWhenInterrupted(t *testing.T) {
 
 	err := installCompanion(ctx, io.Discard, false, tools, dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
 
-	if !errors.Is(err, context.Canceled) {
+	if !errors.Is(err, context.Canceled) || !strings.HasPrefix(err.Error(), "the install was interrupted and changed nothing") {
 		t.Errorf("err = %v", err)
 	}
 	entries, _ := os.ReadDir(dir)

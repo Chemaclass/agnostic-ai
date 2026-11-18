@@ -82,6 +82,8 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 	var problems []error
 	// stillOld says a candidate reported the version this upgrade started from.
 	stillOld := false
+	// ranBroken says a candidate could not report its version at all.
+	ranBroken := false
 	for _, path := range candidates {
 		if path == "" || seen[path] {
 			continue
@@ -89,6 +91,9 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 		seen[path] = true
 		actual, err := deps.run(path, "", []string{"--version"}, io.Discard)
 		fields := strings.Fields(actual)
+		if err != nil {
+			ranBroken = true
+		}
 		if err == nil && len(fields) > 0 && info.Version != "" && !versionsEqual(version, info.Version) && versionsEqual(fields[len(fields)-1], info.Version) {
 			stillOld = true
 		}
@@ -113,7 +118,7 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 		_, err = deps.run(path, "", []string{"companion", "install"}, out)
 		return err
 	}
-	if stillOld {
+	if stillOld && !ranBroken {
 		return cliNotYetPublished{method: info.Method.String(), current: info.Version, want: version}
 	}
 	return fmt.Errorf("verify updated executable: %w", errors.Join(problems...))

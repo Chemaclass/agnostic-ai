@@ -285,3 +285,20 @@ func TestUpgradeCompanion_SaysWhenThePackageManagerHasNotPublishedTheRelease(t *
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestUpgradeCompanion_BlamesTheNewCLIWhenItCannotRun(t *testing.T) {
+	info := upgradeInfo{Path: "/brew/Caskroom/agnostic-ai/1.0.0/agnostic-ai", Method: installHomebrew, Version: "1.0.0"}
+	deps := upgradeCompanionDeps{run: func(path, _ string, _ []string, _ io.Writer) (string, error) {
+		if path == info.Path {
+			return "agnostic-ai version 1.0.0", nil
+		}
+		return "", errors.New("killed")
+	}}
+
+	err := refreshUpgradedCompanion(io.Discard, info, "2.0.0", deps)
+
+	var notYet cliNotYetPublished
+	if err == nil || errors.As(err, &notYet) || !strings.Contains(err.Error(), "killed") {
+		t.Errorf("err = %v", err)
+	}
+}

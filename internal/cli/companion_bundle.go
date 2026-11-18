@@ -22,6 +22,9 @@ const (
 	companionBundleID = "dev.agnostic-ai.companion"
 	// companionIconName is the icon file in the app's Resources, without its extension.
 	companionIconName = "companion"
+	// companionAsideName is where an install moves the installed app while
+	// it puts the new one in place.
+	companionAsideName = "replaced.app"
 )
 
 // companionIconPNG is docs/site/static/icon-512.png, which go:embed cannot reach.
@@ -121,7 +124,7 @@ func assembleCompanionApp(ctx context.Context, tools companionTools, program, ap
 // one is. A folder cannot be renamed onto another, so the installed one
 // moves aside first and comes back when the new one cannot take its place.
 func replaceCompanionApp(rename func(from, to string) error, built, installed, staging string) error {
-	aside := filepath.Join(staging, "replaced.app")
+	aside := filepath.Join(staging, companionAsideName)
 	if err := rename(installed, aside); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}

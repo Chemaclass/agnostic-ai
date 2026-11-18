@@ -79,7 +79,7 @@ func TestDownloadCompanion_WritesTheVerifiedProgram(t *testing.T) {
 		return nil
 	}
 
-	path, err := downloadCompanion(io.Discard, server.Client(), server.URL, "1.2.3", "arm64", into, verify)
+	path, err := downloadCompanion(context.Background(), io.Discard, server.Client(), server.URL, "1.2.3", "arm64", into, verify)
 
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func TestDownloadCompanion_SaysWhenTheReleaseHasNoBuiltCompanion(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			server := companionRelease(t, tc.checksums, tc.archive)
 
-			_, err := downloadCompanion(io.Discard, server.Client(), server.URL, "1.2.3", "arm64", t.TempDir(), skipProvenance)
+			_, err := downloadCompanion(context.Background(), io.Discard, server.Client(), server.URL, "1.2.3", "arm64", t.TempDir(), skipProvenance)
 
 			if !errors.Is(err, errNoPrebuiltCompanion) {
 				t.Errorf("err = %v", err)
@@ -139,7 +139,7 @@ func TestDownloadCompanion_RefusesAnArchiveThatDoesNotVerify(t *testing.T) {
 			server := companionRelease(t, tc.checksums, archive)
 			into := t.TempDir()
 
-			_, err := downloadCompanion(io.Discard, server.Client(), server.URL, "1.2.3", "arm64", into, tc.verify)
+			_, err := downloadCompanion(context.Background(), io.Discard, server.Client(), server.URL, "1.2.3", "arm64", into, tc.verify)
 
 			if err == nil || errors.Is(err, errNoPrebuiltCompanion) || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("err = %v, want %q", err, tc.want)
@@ -171,7 +171,7 @@ func downloadedTools(t *testing.T) companionTools {
 		t.Error("built although the companion was downloaded")
 		return errors.New("no build here")
 	}
-	tools.download = func(_ io.Writer, version, into string) (string, error) {
+	tools.download = func(_ context.Context, _ io.Writer, version, into string) (string, error) {
 		path := filepath.Join(into, companionName)
 		return path, os.WriteFile(path, []byte("released for "+version), 0o700)
 	}
@@ -203,7 +203,7 @@ func TestInstallCompanion_InstallsTheReleasedCompanionOnMacOSWithoutBuilding(t *
 func TestInstallCompanion_BuildsWhenTheReleaseHasNoBuiltCompanion(t *testing.T) {
 	dir := t.TempDir()
 	tools := builtTools(t)
-	tools.download = func(io.Writer, string, string) (string, error) {
+	tools.download = func(context.Context, io.Writer, string, string) (string, error) {
 		return "", fmt.Errorf("checksums.txt: %w", errNoPrebuiltCompanion)
 	}
 	var out bytes.Buffer
@@ -227,7 +227,7 @@ func TestInstallCompanion_StopsWhenTheDownloadDoesNotVerify(t *testing.T) {
 	dir := t.TempDir()
 	installed := installedCompanion(t, dir, "darwin")
 	tools := downloadedTools(t)
-	tools.download = func(io.Writer, string, string) (string, error) {
+	tools.download = func(context.Context, io.Writer, string, string) (string, error) {
 		return "", errors.New("agnostic-ai-companion_darwin_arm64.tar.gz: checksum mismatch")
 	}
 
@@ -256,7 +256,7 @@ func TestInstallCompanion_DownloadsOnlyAReleaseForMacOSFetchedFromItsCommit(t *t
 	} {
 		t.Run(name, func(t *testing.T) {
 			tools := builtTools(t)
-			tools.download = func(io.Writer, string, string) (string, error) {
+			tools.download = func(context.Context, io.Writer, string, string) (string, error) {
 				t.Error("downloaded a companion")
 				return "", errNoPrebuiltCompanion
 			}
@@ -285,7 +285,7 @@ func TestInstallCompanion_DownloadsOnlyAReleaseForMacOSFetchedFromItsCommit(t *t
 func TestInstallCompanion_NamesHowToSkipAProvenanceCheckThatFails(t *testing.T) {
 	t.Setenv(verifyAttestationEnv, "")
 	tools := downloadedTools(t)
-	tools.download = func(io.Writer, string, string) (string, error) {
+	tools.download = func(context.Context, io.Writer, string, string) (string, error) {
 		return "", fmt.Errorf("agnostic-ai-companion_darwin_arm64.tar.gz: %w: gh crashed", errProvenanceFailed)
 	}
 

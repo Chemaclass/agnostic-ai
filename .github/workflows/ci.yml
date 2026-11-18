@@ -441,6 +441,16 @@ jobs:
       - name: Build the release archives
         run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
 
+      # The CLI's install code has parts that build only on macOS.
+      - name: Set up Go for the CLI
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Test the CLI's companion commands
+        run: go test -count=1 ./internal/cli/ -run 'Companion|Upgrade|MacOS'
+
 
   opencode-hooks:
     name: OpenCode hooks

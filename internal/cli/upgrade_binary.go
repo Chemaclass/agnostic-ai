@@ -106,7 +106,11 @@ func releaseAssetURL(baseURL, version, asset string) string {
 }
 
 func downloadReleaseAsset(client *http.Client, assetURL string, limit int64) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, assetURL, nil)
+	return downloadReleaseAssetContext(context.Background(), client, assetURL, limit)
+}
+
+func downloadReleaseAssetContext(ctx context.Context, client *http.Client, assetURL string, limit int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, assetURL, nil)
 	if err != nil {
 		return nil, err
 	}

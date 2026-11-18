@@ -40,6 +40,9 @@ const (
 	companionRevisionFile = "companion-revision"
 	// companionBuildPrefix names the folders an install builds in.
 	companionBuildPrefix = ".companion-build-"
+	// companionBuildAge is how long an install may use its build folder.
+	// The next install leaves a younger one alone.
+	companionBuildAge = time.Hour
 	// companionSettingsFile is where the companion keeps its place and shortcut.
 	companionSettingsFile = "companion.json"
 
@@ -101,7 +104,7 @@ type companionTools struct {
 	build func(ctx context.Context, dir string, env []string, lines func(string), args ...string) error
 	// download writes the released macOS companion for version into a
 	// folder and returns its path; nil where nothing is downloaded.
-	download func(out io.Writer, version, into string) (string, error)
+	download func(ctx context.Context, out io.Writer, version, into string) (string, error)
 	// start runs the companion apart from this terminal.
 	start func(path string, env []string) error
 	// builtFor asks a companion which agnostic-ai release it was built for.
@@ -128,8 +131,8 @@ func systemCompanionTools() companionTools {
 			return exec.CommandContext(ctx, name, args...).Run() == nil
 		},
 		build: runGoBuild,
-		download: func(out io.Writer, version, into string) (string, error) {
-			return downloadCompanion(out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, machineArch(), into, ghProvenance)
+		download: func(ctx context.Context, out io.Writer, version, into string) (string, error) {
+			return downloadCompanion(ctx, out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, machineArch(), into, ghProvenance)
 		},
 		start:    startCompanion,
 		builtFor: companionBuiltFor,
@@ -379,7 +382,7 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 			return fmt.Errorf("remove the companion: %w", err)
 		}
 	}
-	if err := removeBuildFolders(dir); err != nil {
+	if err := removeBuildFolders(dir, time.Time{}); err != nil {
 		return fmt.Errorf("remove the companion: %w", err)
 	}
 	if !found {
@@ -391,8 +394,11 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 	return nil
 }
 
-// removeBuildFolders deletes the build folders an interrupted install left.
-func removeBuildFolders(dir string) error {
+// removeBuildFolders deletes the build folders an interrupted install
+// left. A zero before removes them all. Otherwise it keeps those changed
+// since before, which an install may still use, and those that hold an
+// app kept aside, the only copy of a companion an install could not put back.
+func removeBuildFolders(dir string, before time.Time) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
@@ -401,7 +407,17 @@ func removeBuildFolders(dir string) error {
 		if !strings.HasPrefix(entry.Name(), companionBuildPrefix) {
 			continue
 		}
-		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+		folder := filepath.Join(dir, entry.Name())
+		if !before.IsZero() {
+			info, err := entry.Info()
+			if err != nil || info.ModTime().After(before) {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(folder, companionAsideName)); err == nil {
+				continue
+			}
+		}
+		if err := os.RemoveAll(folder); err != nil {
 			return err
 		}
 	}
@@ -575,7 +591,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 			return fmt.Errorf("the companion needs macOS %d or later, and this Mac runs macOS %s", companionMinMacOS, version)
 		}
 	}
-	if err := removeBuildFolders(dir); err != nil {
+	if err := removeBuildFolders(dir, time.Now().Add(-companionBuildAge)); err != nil {
 		return fmt.Errorf("install the companion: %w", err)
 	}
 	// The program is written in a folder of its own and moved into place
@@ -601,7 +617,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	built := ""
 	if tools.download != nil && build.downloads() {
 		_, _ = fmt.Fprintf(out, "Downloading the companion for agnostic-ai %s.\n", build.version)
-		built, err = tools.download(out, build.version, build.into)
+		built, err = tools.download(ctx, out, build.version, build.into)
 		switch {
 		case errors.Is(err, errNoPrebuiltCompanion):
 			_, _ = fmt.Fprintln(out, "! This release ships no built companion for this Mac, so it is built here.")
@@ -631,7 +647,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	}
 	// An interrupt stops here, before anything installed changes.
 	if err := ctx.Err(); err != nil {
-		return err
+		return fmt.Errorf("the install was interrupted and changed nothing: %w", err)
 	}
 	installed, found, err := companionInstalled(dir, build.goos)
 	if err != nil {

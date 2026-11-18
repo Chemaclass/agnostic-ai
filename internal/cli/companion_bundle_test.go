@@ -435,7 +435,7 @@ func TestMacOSTooOld(t *testing.T) {
 func TestInstallCompanion_RefusesAMacOSTheCompanionDoesNotRunOn(t *testing.T) {
 	dir := t.TempDir()
 	tools := downloadedTools(t)
-	tools.download = func(io.Writer, string, string) (string, error) {
+	tools.download = func(context.Context, io.Writer, string, string) (string, error) {
 		t.Error("downloaded a companion this Mac cannot run")
 		return "", errors.New("no download")
 	}

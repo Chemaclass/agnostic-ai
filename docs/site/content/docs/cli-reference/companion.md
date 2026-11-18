@@ -40,7 +40,7 @@ Put the circle on your screen.
 - Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` that runs through Rosetta gets the Apple silicon one. It needs no compiler.
 - Checks: the download is checked against the release's `checksums.txt`. When `gh` is installed and logged in, it is also checked against the release's build provenance, as `agnostic-ai upgrade` checks the CLI.
 - A download that does not verify stops the install and leaves the installed companion as it was. When `gh` itself fails, `AGNOSTIC_AI_VERIFY_ATTESTATION=0` installs on the checksum alone.
-- Ctrl-C stops the install and removes its build folder. The next install also removes any build folder an earlier one left.
+- Ctrl-C stops the install and removes its build folder. The next install also removes a build folder an earlier one left over an hour ago.
 - When neither the new app nor the old one can take its place, the old one stays in the build folder, and the error names both paths.
 - Build instead of download: a release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source`.
 - A build uses the same commit as the `agnostic-ai` you run, and prints each step.
