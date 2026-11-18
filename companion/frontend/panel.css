@@ -435,7 +435,7 @@ body {
 }
 
 .group-title.is-working {
-  color: #9bbdce;
+  color: var(--busy-text);
 }
 
 .row {
@@ -810,7 +810,7 @@ body {
   align-items: center;
   gap: 4px;
   vertical-align: bottom;
-  color: #9bbdce;
+  color: var(--busy-text);
 }
 
 .worker-count svg {
@@ -1253,7 +1253,7 @@ button:focus-visible {
   border: 0;
   background: none;
   font: inherit;
-  color: #9bbdce;
+  color: var(--busy-text);
   cursor: pointer;
 }
 

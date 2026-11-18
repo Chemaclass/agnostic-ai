@@ -9,14 +9,15 @@ export class GivenUp extends Error {}
 
 async function call(path, options) {
   let response
+  let body
   try {
     response = await fetch(path, options)
+    if (response.status === 204) return undefined
+    body = await response.json()
   } catch (cause) {
     if (options?.signal?.aborted) throw new GivenUp()
     throw new CallError('The companion could not reach its own shell.', { cause })
   }
-  if (response.status === 204) return undefined
-  const body = await response.json()
   if (!response.ok) throw new CallError(body.error)
   return body
 }

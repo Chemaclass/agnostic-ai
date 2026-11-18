@@ -27,7 +27,7 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 |-----|--------------|
 | ⌃⌥V on a Mac (Ctrl+Alt+V elsewhere) | Open the send picker from any app. You can change it. |
 | Cmd+Shift+V | Open the send picker in the open list, keeping your search. |
-| Arrow keys, Enter | Pick a chat, then open it or send to it. |
+| Arrow keys, Enter | Pick a chat, then open it or send to it. In the right-click menu, move between its items. |
 | Escape | Cancel the picker, or keep the old name in a rename. |
 | F2 | Rename the selected row. |
 {% </details> %}
@@ -130,7 +130,7 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 Clear a chat that needs you without opening it.
 
 - **Mark as read**: right-click the chat.
-- **Mark all as read**: the button beside Needs you. It marks each chat the group shows, after the search and the All, Local or Cloud choice.
+- **Mark all as read**: the button beside Needs you, while the group is unfolded. It marks each chat the group shows, after the search and the All, Local or Cloud choice.
 
 The chat leaves Needs you in the companion and the web interface, and moves where an opened one would: Active, or Archived when closed.
 

@@ -89,7 +89,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   takes one that is already archived out of the list. A working chat has no
   mark complete button, since the work would bring it back at once. The tick turns green for a
   moment when you mark a chat complete. **Mark all complete** beside Active
-  archives every active chat at once, with no tick.
+  archives every active chat at once, with no tick. A chat that got a reply
+  or started working since the list was drawn keeps its place.
 - **Right-click** a row and choose **Rename…**, click the pencil, or press
   **F2** to give the chat your own name. **Enter** saves it and **Esc** keeps
   the old one. An empty name is
@@ -101,7 +102,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
 - **Mark all as read** beside Needs you does the same for every chat that
-  group shows, after the search and the All, Local or Cloud choice. A chat
+  group shows, after the search and the All, Local or Cloud choice. It shows
+  only while the group is unfolded. A chat
   that got a new message since the list was drawn keeps its place. If a mark
   fails, the run stops there, those rows stay, and the list says why. The
   list holds every unread or waiting chat of any age, so with All chosen and
