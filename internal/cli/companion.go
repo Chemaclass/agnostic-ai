@@ -162,7 +162,7 @@ func systemCompanionTools() companionTools {
 }
 
 // errNoSessionBus is a Linux shell, such as an SSH login, with no D-Bus
-// session bus. A companion asked from it fails before it can answer.
+// session bus, so a companion that runs in the desktop session is out of reach.
 var errNoSessionBus = errors.New("this shell has no D-Bus session bus, so it cannot reach a companion")
 
 // sessionBusMissing reports whether a program started here finds no
@@ -323,12 +323,14 @@ func systemCompanionLoginEntries(goos string) ([]string, error) {
 // endCompanion asks the running companion to quit and waits until it is
 // gone. It reports whether one ran.
 func endCompanion(ctx context.Context, tools companionTools, installed string) (bool, error) {
+	// Asked from there, the companion either fails or starts a bus of
+	// its own and finds no companion on it.
+	if tools.noSessionBus() {
+		return false, errNoSessionBus
+	}
 	ran := false
 	for try := 0; ; try++ {
 		running, err := tools.quit(ctx, installed)
-		if err != nil && tools.noSessionBus() {
-			return ran, errNoSessionBus
-		}
 		if err != nil {
 			return ran, fmt.Errorf("ask the companion to stop: %w", err)
 		}

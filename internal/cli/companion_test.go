@@ -650,7 +650,8 @@ func TestUninstallCompanion_RemovesTheFilesWithoutASessionBus(t *testing.T) {
 	}
 	tools := builtTools(t)
 	tools.quit = func(context.Context, string) (bool, error) {
-		return false, errors.New("exit status 1: failed to initialize single instance manager")
+		t.Error("a companion was asked to stop from a shell with no session bus")
+		return false, nil
 	}
 	tools.noSessionBus = func() bool { return true }
 	tools.loginOff = func(context.Context, string) error {
@@ -682,7 +683,9 @@ func TestStopCompanion_SaysWhenThereIsNoSessionBus(t *testing.T) {
 	dir := t.TempDir()
 	installedCompanion(t, dir, "linux")
 	tools := builtTools(t)
-	tools.quit = func(context.Context, string) (bool, error) { return false, errors.New("exit status 1") }
+	// With dbus-launch the companion starts a bus of its own and finds
+	// none running there.
+	tools.quit = func(context.Context, string) (bool, error) { return false, nil }
 	tools.noSessionBus = func() bool { return true }
 
 	err := stopCompanionCommand(context.Background(), &bytes.Buffer{}, tools, dir, "linux")
