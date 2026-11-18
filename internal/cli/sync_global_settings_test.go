@@ -625,3 +625,84 @@ func TestSyncGlobal_CopilotSettingsTakeEveryDocumentedEffort(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncGlobal_QwenSettingsReasoningEffort(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings/defaults.yaml"), "effort: high\n")
+	path := filepath.Join(home, ".qwen/settings.json")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var native struct {
+		Model map[string]any `json:"model"`
+	}
+	if err := json.Unmarshal(got, &native); err != nil {
+		t.Fatal(err)
+	}
+	if native.Model["reasoningEffort"] != "high" {
+		t.Errorf("global Qwen effort absent: %s", got)
+	}
+}
+
+func TestSyncGlobal_QwenEffortRemovalRestoresSettingsBytes(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".qwen/settings.json")
+	const original = "{\n\t\"model\": {\"name\": \"example\",   \"temperature\": 0.3},\n\t\"theme\": \"dark\"\n}"
+	mustWriteGlobalTest(t, path, original)
+	settings := filepath.Join(source, "settings/defaults.yaml")
+	mustWriteGlobalTest(t, settings, "effort: high\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if err := os.Remove(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("settings bytes changed after effort removal: %q", got)
+	}
+}
+
+func TestSyncGlobal_QwenEffortRemovalDropsCreatedSettingsFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(source, "settings/defaults.yaml")
+	mustWriteGlobalTest(t, settings, "effort: high\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if err := os.Remove(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, warnings)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".qwen/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("created settings file remains: %v", err)
+	}
+}
+
+func TestImportGlobal_QwenReasoningEffortRoundTrips(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".qwen/settings.json")
+	const original = `{"model":{"name":"example","reasoningEffort":"high","temperature":0.3}}`
+	mustWriteGlobalTest(t, path, original)
+	if _, warnings, err := runImportGlobalTest("qwen"); err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	got := readGlobalTest(t, filepath.Join(source, "settings/imported.yaml"))
+	if !strings.Contains(got, "qwen: high") {
+		t.Errorf("imported effort absent: %s", got)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("import/sync changed existing settings: %s", got)
+	}
+}

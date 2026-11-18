@@ -22,7 +22,7 @@ func TestQwenNativeProject_BuiltBinaryImportSyncCheck(t *testing.T) {
 		".qwen/skills/check/SKILL.md":         "---\nname: check\ndescription: Check\nuser-invocable: false\n---\nRun scripts/check.sh.\n",
 		".qwen/skills/check/scripts/check.sh": "#!/bin/sh\necho checked\n",
 		".qwen/commands/git/commit.md":        "---\ndescription: Commit\n---\nCommit {{args}}\n",
-		".qwen/settings.json":                 `{"custom":{"keep":true},"model":{"name":"custom-model","temperature":0.2},"mcpServers":{"http":{"httpUrl":"https://example.test/mcp"},"sse":{"url":"https://example.test/events"},"local":{"command":"runner"}},"hooks":{"enabled":true,"PreToolUse":[{"hooks":[{"type":"command","command":"echo checked","timeout":7}]}]}}`,
+		".qwen/settings.json":                 `{"custom":{"keep":true},"model":{"name":"custom-model","reasoningEffort":"high","temperature":0.2},"mcpServers":{"http":{"httpUrl":"https://example.test/mcp"},"sse":{"url":"https://example.test/events"},"local":{"command":"runner"}},"hooks":{"enabled":true,"PreToolUse":[{"hooks":[{"type":"command","command":"echo checked","timeout":7}]}]}}`,
 		".qwenignore":                         ".env\n",
 	}
 	for path, body := range files {
@@ -53,6 +53,17 @@ func TestQwenNativeProject_BuiltBinaryImportSyncCheck(t *testing.T) {
 	var native map[string]any
 	if err := json.Unmarshal(data, &native); err != nil {
 		t.Fatal(err)
+	}
+	model, _ := native["model"].(map[string]any)
+	if model["reasoningEffort"] != "high" {
+		t.Errorf("native effort lost: %s", data)
+	}
+	imported, err := os.ReadFile(".agnostic-ai/settings/qwen.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(imported), "effort: high") {
+		t.Errorf("portable effort absent: %s", imported)
 	}
 	servers := native["mcpServers"].(map[string]any)
 	if servers["http"].(map[string]any)["httpUrl"] != "https://example.test/mcp" || servers["sse"].(map[string]any)["url"] != "https://example.test/events" {

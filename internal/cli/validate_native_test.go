@@ -522,3 +522,16 @@ func TestValidate_AcceptsKiroCompactionTriggers(t *testing.T) {
 		}
 	}
 }
+
+func TestValidate_AcceptsKiroPermissionRequest(t *testing.T) {
+	if got := validateKiroHookEvent(t, "PermissionRequest"); strings.Contains(got, "unknown hook event") {
+		t.Errorf("validate rejected PermissionRequest: %s", got)
+	}
+}
+
+func TestValidate_PointsKiroPermissionRequestAliasAtCanonicalEvent(t *testing.T) {
+	got := validateKiroHookEvent(t, "permissionRequest")
+	if strings.Contains(got, "unknown hook event") || !strings.Contains(got, `kiro alias of "PermissionRequest"`) {
+		t.Errorf("expected canonical event advice for permissionRequest: %s", got)
+	}
+}

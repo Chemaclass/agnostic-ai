@@ -32,13 +32,11 @@ var (
 )
 
 // copilotSkillsDirs lists the three project skill directories the
-// vendor documents ("create a `.github/skills`, `.claude/skills`, or
-// `.agents/skills` directory in your repository"), in precedence order.
-// `.github/skills/` is what the adapter emits, so it comes first.
+// CLI loads, in native precedence order (first duplicate name wins).
 var copilotSkillsDirs = []string{
 	filepath.Join(".github", "skills"),
-	filepath.Join(".claude", "skills"),
 	filepath.Join(".agents", "skills"),
+	filepath.Join(".claude", "skills"),
 }
 
 // copilotPluginKeys are the repository plugin defaults that Copilot CLI

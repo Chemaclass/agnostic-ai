@@ -574,3 +574,21 @@ func TestImportCopilot_AgentToolsCommaStringKeepsTools(t *testing.T) {
 		t.Errorf("tools dropped:\n%s", got)
 	}
 }
+
+func TestImportCopilot_PreservesSharedSkillBeforeClaudeSkill(t *testing.T) {
+	dir := importEffortProject(t, "copilot")
+	writeFile(t, filepath.Join(dir, ".agents/skills/priority/SKILL.md"), "---\nname: priority\ndescription: Shared winner\n---\nShared winner body.\n")
+	writeFile(t, filepath.Join(dir, ".claude/skills/priority/SKILL.md"), "---\nname: priority\ndescription: Claude loser\n---\nClaude loser body.\n")
+	execCLI(t, "import", "copilot")
+	imported := readFile(t, filepath.Join(dir, ".agnostic-ai/skills/priority/SKILL.md"))
+	if !strings.Contains(imported, "Shared winner body.") {
+		t.Errorf("import lost the higher-priority shared skill: %s", imported)
+	}
+	execCLI(t, "sync")
+	native := readFile(t, filepath.Join(dir, ".agents/skills/priority/SKILL.md"))
+	if !strings.Contains(native, "Shared winner body.") {
+		t.Errorf("sync replaced the higher-priority shared skill: %s", native)
+	}
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
+}

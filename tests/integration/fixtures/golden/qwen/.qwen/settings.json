@@ -17,7 +17,8 @@
     ]
   },
   "model": {
-    "name": "example-model"
+    "name": "example-model",
+    "reasoningEffort": "high"
   },
   "permissions": {
     "allow": [

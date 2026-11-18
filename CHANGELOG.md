@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
+
 #### Companion
 
 - On macOS, `agnostic-ai companion install` downloads the companion the release built, for Apple silicon and Intel, instead of building it. It needs no Go and no Xcode Command Line Tools, and checks the download against the release's checksums and build provenance. A download that does not verify stops the install. A release without a built companion, an `agnostic-ai` built from any commit but a release tag, and `--source` still build it on your machine.

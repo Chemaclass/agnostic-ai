@@ -61,7 +61,7 @@
 // when both are set; a spec author can write either key and both pass
 // through unchanged, since there is no separate `effort` field to
 // translate from. That same table constrains `name` to
-// `[a-z][a-z0-9_-]*`, and the filename fallback ("If missing, the file
+// `[a-z0-9][a-z0-9_-]*`, and the filename fallback ("If missing, the file
 // name (without extension) is used") carries the constraint too, so an
 // agent name breaking it fails before output is written (#857).
 // Agent bodies no longer inline into `.junie/AGENTS.md`
@@ -187,11 +187,11 @@ var caps = emit.Capabilities{
 
 // agentNameRule is the regex the subagent frontmatter table states for
 // `name`. It is looser than the opencode and zed skill rule (underscores
-// are allowed, the first character must be a letter), so the shared
+// and leading digits are allowed), so the shared
 // emit.ValidateNames takes the pattern and the prose (#857).
 var agentNameRule = emit.NameRule{
-	Pattern: regexp.MustCompile(`^[a-z][a-z0-9_-]*$`),
-	Rule:    "start with a lowercase letter, then use only lowercase letters, digits, hyphens, or underscores",
+	Pattern: regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`),
+	Rule:    "start with a lowercase letter or digit, then use only lowercase letters, digits, hyphens, or underscores",
 }
 
 // Adapter emits Junie configs.

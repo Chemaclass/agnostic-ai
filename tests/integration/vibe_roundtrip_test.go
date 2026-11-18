@@ -25,7 +25,7 @@ func TestVibeRoundTrip_NativeProject(t *testing.T) {
 		".vibe/config.toml":                 "active_model='devstral'\nenable_mouse_capture=false\n[[mcp_servers]]\nname='docs.api'\ntransport='streamable-http'\nurl='https://example.test/mcp'\n[mcp_servers.auth]\ntype='static'\napi_key_env='DOCS_TOKEN'\n",
 		".vibe/hooks.toml":                  "[[hooks]]\nname='guard'\ntype='post_agent'\ncommand=\"echo '{}'\"\nstrict=false\n",
 	}
-	for _, event := range []string{"pre_agent", "notification", "session_start", "session_end"} {
+	for _, event := range []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"} {
 		native[".vibe/hooks.toml"] += fmt.Sprintf("[[hooks]]\nname=%q\ntype=%q\ncommand=\"echo done\"\nmatch='main'\nstrict=%t\n", strings.ReplaceAll(event, "_", "-"), event, event == "pre_agent")
 	}
 	must(t, os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [vibe]\n"), 0o644))
@@ -47,7 +47,7 @@ func TestVibeRoundTrip_NativeProject(t *testing.T) {
 	}
 	run("sync", "-t", "vibe")
 	run("sync", "--check", "-t", "vibe")
-	run("lint")
+	run("lint", "--strict")
 	run("validate")
 	for path, wants := range map[string][]string{
 		"AGENTS.md":                         {"Use small changes."},

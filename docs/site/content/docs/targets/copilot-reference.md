@@ -38,9 +38,9 @@ A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its ow
 - Frontmatter has `name`, `description`, and `tools` and `model` when set. An empty `tools: []` is written as is, because Copilot reads it as no tools while a missing key enables all of them.
 - `x-copilot.name` sets a display name that differs from the file name. Import fills it when the two differ.
 - Import moves native keys with no portable field (`user-invocable`, `disable-model-invocation`, `hooks`, ...) under `x-copilot`.
-- Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) are copied as written.
+- Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `reasoningEffort`, ...) are copied as written.
 - A portable `hooks` field is not written. Set `x-copilot.hooks` for hooks that Copilot CLI runs only while that agent is selected ([agent-scoped hooks](https://docs.github.com/en/copilot/reference/hooks-reference#agent-scoped-hooks)).
-- The profile has no effort key, so a portable `effort` gets a sync note. Per-agent `effortLevel` exists only in the `subagents.agents` setting of your personal `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/global-configuration.md#global-output)).
+- Portable agent `effort` gets a project sync note. Copilot CLI documents the native profile field [`reasoningEffort`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#custom-agent-frontmatter-fields); set it with `x-copilot.reasoningEffort`. This CLI field does not establish VS Code or cloud-agent support. `sync --global` keeps writing supported portable agent effort to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json` (see [global output](@/docs/global-configuration.md#global-output)).
 
 ### Skills
 
@@ -153,11 +153,11 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 | `.github/copilot-instructions.md` | `.agnostic-ai/AGNOSTIC_AI.md`, whole. Only a rules block that `sync` wrote also becomes `<rules>/<name>.md` specs |
 | `.github/instructions/<name>.instructions.md` | `<rules>/<name>.md`. Files with an `agent-` or `skill-` prefix become agents and skills |
 | `.github/agents/<name>.agent.md` and `.github/chatmodes/<name>.chatmode.md` | `<agents>/<name>.md`, keeping the frontmatter keys Copilot output does not use |
-| `.github/skills/<name>/`, `.claude/skills/<name>/`, `.agents/skills/<name>/` | `<skills>/<name>/` |
+| `.github/skills/<name>/`, `.agents/skills/<name>/`, `.claude/skills/<name>/` | `<skills>/<name>/` |
 | `.github/hooks/*.json` | one target-scoped hook spec per handler |
 | `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
 | `.github/copilot/settings.json` `model`, `effortLevel`, `enabledPlugins`, `extraKnownMarketplaces` | `<settings>/copilot.yaml`: `model`, `effort` as in [Settings](#settings), and the plugin keys under `x-copilot`, unless another settings spec for Copilot sets them |
 
-All three skill directories are [documented](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a name clash, `.github/skills` wins, then `.claude/skills`, then `.agents/skills`.
+All three skill directories are [documented](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a name clash, `.github/skills` wins, then `.agents/skills`, then `.claude/skills`, matching the [Copilot CLI skill search order](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#skill-locations).
 
 Global import reads these native server fields from `mcp-config.json`. Sync adopts equal imported servers and keeps unrelated user content. Project import continues to read the editor file listed above.

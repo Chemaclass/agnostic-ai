@@ -216,3 +216,57 @@ func TestImportJunie_KeepsHandWrittenHatchKeysBesideTheEffort(t *testing.T) {
 		})
 	}
 }
+
+func TestImportQwen_PromotesReasoningEffort(t *testing.T) {
+	dir := importEffortProject(t, "qwen")
+	writeFile(t, filepath.Join(dir, ".qwen/settings.json"), `{"model":{"name":"example-model","reasoningEffort":"high","temperature":0.3}}`)
+	execCLI(t, "import", "qwen")
+	assertSettingsEffort(t, dir, "qwen.yaml", "high")
+	execCLI(t, "sync")
+	got := readFile(t, filepath.Join(dir, ".qwen/settings.json"))
+	for _, want := range []string{`"reasoningEffort": "high"`, `"name": "example-model"`, `"temperature": 0.3`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s: %s", want, got)
+		}
+	}
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
+}
+
+func TestImportQwen_ShadowedEffortStaysUnderNativeModel(t *testing.T) {
+	dir := importEffortProject(t, "qwen")
+	writeFile(t, filepath.Join(dir, ".qwen/settings.json"), `{"model":{"reasoningEffort":"high"}}`)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/team.yaml"), "effort: low\n")
+	execCLI(t, "import", "qwen")
+	imported := readFile(t, filepath.Join(dir, ".agnostic-ai/settings/qwen.yaml"))
+	if !strings.Contains(imported, "x-qwen:") || !strings.Contains(imported, "reasoningEffort: high") || strings.Contains(imported, "effort: high") {
+		t.Errorf("shadowed effort must stay native: %s", imported)
+	}
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, ".qwen/settings.json")); !strings.Contains(got, `"reasoningEffort": "high"`) {
+		t.Errorf("native effort lost: %s", got)
+	}
+	execCLI(t, "sync", "--check")
+}
+
+func TestImportQwen_UpdatesSyncedEffortOnlySettingsAfterNativeEdit(t *testing.T) {
+	for _, tc := range []struct{ name, effort string }{
+		{"scalar", "high"},
+		{"target", "{qwen: high}"},
+		{"default", "{default: high}"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := importEffortProject(t, "qwen")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/qwen.yaml"), "name: qwen\neffort: "+tc.effort+"\n")
+			execCLI(t, "sync")
+			writeFile(t, filepath.Join(dir, ".qwen/settings.json"), `{"model":{"reasoningEffort":"low"}}`)
+			execCLI(t, "import", "qwen")
+			assertSettingsEffort(t, dir, "qwen.yaml", "low")
+			execCLI(t, "sync")
+			if got := readFile(t, filepath.Join(dir, ".qwen/settings.json")); !strings.Contains(got, `"reasoningEffort": "low"`) {
+				t.Errorf("native effort lost: %s", got)
+			}
+			execCLI(t, "sync", "--check")
+		})
+	}
+}

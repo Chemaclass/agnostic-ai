@@ -1,0 +1,5 @@
+name: kiro-permission
+targets: [kiro]
+event: PermissionRequest
+matcher: ^read_file$
+command: echo audit

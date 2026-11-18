@@ -76,12 +76,13 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// stays out: V3 accepts it only as a compatibility alias of
 	// `SessionStart` (hookEventAliases). `Manual` is documented and was
 	// missing. `PreCompact` and `PostCompact` need Kiro CLI 3.1.0.
+	// `PermissionRequest` needs CLI 3.4.0 and a V3 session.
 	"kiro": setOf(
 		"SessionStart", "SessionEnd", "Stop",
 		"PreCompact", "PostCompact",
 		"PreToolUse", "PostToolUse",
 		"PreTaskExec", "PostTaskExec",
-		"UserPromptSubmit",
+		"UserPromptSubmit", "PermissionRequest",
 		"PostFileCreate", "PostFileSave", "PostFileDelete",
 		"Manual",
 	),
@@ -270,6 +271,9 @@ var matcherAcceptingEvents = setOf(
 	// generated plugin tests against the matcher. The event-bus hook
 	// payload carries no tool name, so nothing else here matches.
 	"tool.execute.before", "tool.execute.after",
+	// Vibe matches tools, agents, notifications, session sources, and end reasons.
+	"pre_tool", "post_tool", "pre_agent", "post_agent",
+	"session_start", "session_end",
 )
 
 // targetsSupportingKind lists the targets whose adapter actually
@@ -307,7 +311,7 @@ var hookEventAliases = map[string]map[string]string{
 	// kiro.dev/docs/hooks/types/: "CLI V3 uses `SessionStart` as the
 	// canonical trigger but accepts `AgentSpawn` and `agentSpawn` for
 	// compatibility."
-	"kiro": {"AgentSpawn": "SessionStart", "agentSpawn": "SessionStart"},
+	"kiro": {"AgentSpawn": "SessionStart", "agentSpawn": "SessionStart", "permissionRequest": "PermissionRequest"},
 }
 
 // commandSkillKind keys the targets in a kindSupport that get commands

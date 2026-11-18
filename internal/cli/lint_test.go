@@ -466,3 +466,12 @@ func TestLintMCPMissingRequiredField_PiControlsStayWithinTheirTarget(t *testing.
 		})
 	}
 }
+
+func TestLintHookMatcherMisuse_VibeNativeEventsStayClean(t *testing.T) {
+	for _, event := range []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"} {
+		hooks := []spec.Entry{{Kind: spec.KindHook, Name: "probe", Meta: map[string]any{"event": event, "matcher": "re:write_file|edit"}}}
+		if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+			t.Errorf("valid Vibe matcher on %s: %v", event, got)
+		}
+	}
+}

@@ -162,6 +162,9 @@ func hookActions(h spec.Entry) ([]any, error) {
 			case "command":
 				field = "command"
 			case "agent":
+				if event, _ := h.Meta["event"].(string); event == "PermissionRequest" || event == "permissionRequest" {
+					return nil, fmt.Errorf("%s supports only command actions", event)
+				}
 				field = "prompt"
 			default:
 				return nil, fmt.Errorf("x-kiro.action.type %q must be command or agent", actionType)

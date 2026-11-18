@@ -547,7 +547,7 @@ func TestEmit_IgnoreFile_SkippedWhenNoSpecs(t *testing.T) {
 	}
 }
 
-// Junie's subagent frontmatter table requires `[a-z][a-z0-9_-]*` for
+// Junie's subagent frontmatter table requires `[a-z0-9][a-z0-9_-]*` for
 // `name`, and the filename fallback carries the same constraint. Emit
 // fails rather than writing an agent file the documented rule rejects
 // (#857).
@@ -570,14 +570,18 @@ func TestEmit_Agent_RejectsNameBreakingVendorRegex(t *testing.T) {
 }
 
 // Junie's regex is looser than opencode's: underscores and digits are
-// allowed after the first character, which must be a lowercase letter.
+// allowed, and the first character can be a lowercase letter or digit.
 func TestEmit_Agent_AcceptsValidVendorNames(t *testing.T) {
 	testutil.TempCwd(t)
 
-	for _, name := range []string{"deploy", "deploy-bot", "deploy_bot", "d1_2-3"} {
+	for _, name := range []string{"deploy", "deploy-bot", "deploy_bot", "d1_2-3", "7review", "0"} {
 		entries := []spec.Entry{{Kind: spec.KindAgent, Name: name, Body: "body"}}
 		if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 			t.Errorf("valid agent name %q rejected: %v", name, err)
+		}
+		got := readFile(t, filepath.Join(".junie/agents", name+".md"))
+		if !strings.Contains(got, "body") {
+			t.Errorf("agent body absent for %s: %s", name, got)
 		}
 	}
 }

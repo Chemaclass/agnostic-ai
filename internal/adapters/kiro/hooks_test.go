@@ -435,3 +435,16 @@ func TestEmit_PortableBeforeToolHookUsesKiroSelectors(t *testing.T) {
 		}
 	}
 }
+
+func TestEmit_PermissionRequestRejectsAgentActions(t *testing.T) {
+	for _, event := range []string{"PermissionRequest", "permissionRequest"} {
+		t.Run(event, func(t *testing.T) {
+			testutil.TempCwd(t)
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindHook, Name: "permission", Meta: map[string]any{"event": event, "x-kiro": map[string]any{"action": map[string]any{"type": "agent", "prompt": "Review."}}}}})
+			err := New().Emit(emit.NewSession(), b, &config.Config{}, false)
+			if err == nil || !strings.Contains(err.Error(), "command") {
+				t.Errorf("expected command-only action error, got %v", err)
+			}
+		})
+	}
+}

@@ -30,7 +30,8 @@
     }
   },
   "model": {
-    "name": "custom-model"
+    "name": "custom-model",
+    "reasoningEffort": "high"
   },
   "permissions": {
     "deny": [
