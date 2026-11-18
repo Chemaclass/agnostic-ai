@@ -42,6 +42,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - A chat deleted in Claude Code, Codex or `cursor-agent` loses its marks once full reads of its store have missed it for 30 days, counted from the first miss, and its own file is gone. A pause of more than 8 days between reads starts the 30 days again. A failed, partial or empty read never removes a mark, and a server that reads another store leaves it alone. Claude chats, ChatGPT chats, Cursor editor chats and cloud sessions keep theirs, since the server cannot read their whole list. A chat restored after its marks went shows as unread, without its chosen name. The marks file now keeps fields it does not know. (#3540)
 - The companion list no longer marks, opens or archives a chat that is out of sight or changed since it was drawn, and a slow search finishes. (#3591)
 - The companion list names the selected chat to screen readers, its menus take arrow keys and Tab, and a failed circle click shows the trouble state. (#3591)
+- An archived chat no longer shows as unread. A chat that closed with a reply you did not read shows no orange ring, adds nothing to the Archived header, which loses its **Mark all as read**, and can be deleted without reading it first. The conversations API sets `unread` only on `active` rows and no longer refuses a delete as `unread`. A chat resumed by hand still shows its ring under Active. (#3596)
 
 #### Sending copied text
 
