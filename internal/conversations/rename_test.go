@@ -368,14 +368,17 @@ func TestRename_CodexStopsAtTheDeadlineWhenAProgramItStartedKeepsTheOutputOpen(t
 		t.Skip("the fake starts sleep, and Windows has no process group to kill")
 	}
 	server, log := fakeCodexAppServer(t, "hang")
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	// The deadline must outlast starting the fake and its child, which a
+	// busy runner under -race can stretch past 200ms.
+	const deadline = 2 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 	started := time.Now()
 
 	err := (&Renamer{codex: server}).Rename(ctx, Conversation{Tool: ToolCodex, App: AppCLI, ID: renamedCodexThread}, "Release notes")
 
-	if took := time.Since(started); took > 3*time.Second {
-		t.Errorf("the rename took %s past a 200ms deadline", took)
+	if took := time.Since(started); took > deadline+3*time.Second {
+		t.Errorf("the rename took %s past a %s deadline", took, deadline)
 	}
 	if got, want := renameError(err), "Codex did not answer in time (unreachable): context deadline exceeded"; got != want {
 		t.Errorf("got  %s\nwant %s", got, want)
