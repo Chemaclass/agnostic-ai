@@ -67,7 +67,7 @@ func hookRootReferences(command string) ([]hookRootReference, string) {
 		if hookRootVariablePrefix(rest, "${#"+claudeProjectDir) || hookRootVariablePrefix(rest, "${!"+claudeProjectDir) || hookRootVariablePrefix(rest, "$env:"+claudeProjectDir) || strings.HasPrefix(rest, "${env:"+claudeProjectDir+"}") {
 			return references, "length, indirect, or PowerShell root syntax cannot be translated"
 		}
-		length := 0
+		var length int
 		switch {
 		case strings.HasPrefix(rest, "${"+claudeProjectDir):
 			end := len("${" + claudeProjectDir)

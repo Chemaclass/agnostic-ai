@@ -254,7 +254,7 @@ func (h *editHandler) applyValidatedWithPrepare(file string, edit func([]byte) (
 	}
 	after, afterErr := h.validationProblems()
 	var added []string
-	if afterErr != nil && beforeErr == nil {
+	if afterErr != nil {
 		added = append(added, afterErr.Error())
 	}
 	for _, problem := range after {

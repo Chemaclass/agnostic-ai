@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -35,7 +36,7 @@ func TestExplainLayers_BuiltBinaryShowsResolutionWithoutChangingFiles(t *testing
 				env = append(env, value)
 			}
 		}
-		cmd.Env = append(env, "HOME="+home, "AGNOSTIC_AI_HOME="+home)
+		cmd.Env = append(slices.Clip(env), "HOME="+home, "AGNOSTIC_AI_HOME="+home)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("%s: %v\n%s", strings.Join(args, " "), err, out)

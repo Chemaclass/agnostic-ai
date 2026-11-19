@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/url"
 	"os"
@@ -174,7 +175,7 @@ func TestLSPLinter_ProtocolClearsCorrectedAndDeletedSources(t *testing.T) {
 	found, cleared := map[string]bool{}, map[string]bool{}
 	for {
 		message, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

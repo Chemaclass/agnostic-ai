@@ -3,6 +3,7 @@ package lsp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -149,7 +150,7 @@ func runDiagnosticProtocol(t *testing.T, root string, linter Linter, uris ...str
 	var messages []*Message
 	for {
 		message, err := reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

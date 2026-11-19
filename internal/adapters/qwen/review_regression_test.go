@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"reflect"
@@ -134,7 +135,7 @@ func TestEmit_OrdinaryPortableHooksProduceNativeBlockingReplies(t *testing.T) {
 				var stderr strings.Builder
 				cmd.Stderr = &stderr
 				stdout, err := cmd.Output()
-				exit, ok := err.(*exec.ExitError)
+				exit, ok := errors.AsType[*exec.ExitError](err)
 				if !ok || exit.ExitCode() != 2 || len(stdout) != 0 {
 					t.Fatalf("exit=%v stdout=%q", err, stdout)
 				}

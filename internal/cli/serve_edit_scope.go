@@ -404,7 +404,7 @@ func (h *editHandler) preparePersonalOutOfGit(file string) (func(bool) error, er
 	}
 	if keepErr != nil {
 		if undoErr := finish(true); undoErr != nil {
-			return nil, fmt.Errorf("%s; restore Git exclusion: %w", keepErr, undoErr)
+			return nil, fmt.Errorf("%s; restore Git exclusion: %w", keepErr, undoErr) //nolint:errorlint // only the restore failure stays in the chain, so edit handlers classify it as before
 		}
 		return nil, keepErr
 	}

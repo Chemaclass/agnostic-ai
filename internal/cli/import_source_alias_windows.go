@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"golang.org/x/sys/windows"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func createImportSourceAlias(target, alias string) error {
@@ -56,7 +57,7 @@ func createImportSourceAlias(target, alias string) error {
 	if err != nil {
 		return fmt.Errorf("open source preview alias %s: %w", alias, err)
 	}
-	defer windows.CloseHandle(handle)
+	defer func() { _ = windows.CloseHandle(handle) }()
 	var returned uint32
 	if err := windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0], uint32(len(data)), nil, 0, &returned, nil); err != nil {
 		return fmt.Errorf("create source preview junction %s: %w", alias, err)

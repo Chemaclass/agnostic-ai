@@ -1284,7 +1284,7 @@ func TestScan_ReadsACursorAgentChatAgainOnlyWhenItChanges(t *testing.T) {
 	write(t, stores.CursorDB, "")
 	write(t, store, "")
 	write(t, transcript, prompt("Ship it"))
-	scanner.Now = func() time.Time { return time.Now() }
+	scanner.Now = time.Now
 	scan := func() Conversation {
 		return byID(t, scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}}), agent)
 	}

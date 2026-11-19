@@ -150,7 +150,7 @@ func rejectsMCPNames(matcher string) bool {
 		end--
 	}
 	prefix := body[:end]
-	return !strings.HasPrefix(spec.MCPToolPrefix, prefix) && !strings.HasPrefix(prefix, spec.MCPToolPrefix)
+	return !strings.HasPrefix(spec.MCPToolPrefix, prefix) && !strings.HasPrefix(prefix, spec.MCPToolPrefix) //nolint:gocritic // checks whether prefix is a prefix of the constant
 }
 
 // scanRegex calls visit for each ( ) and | in a regex that is not escaped

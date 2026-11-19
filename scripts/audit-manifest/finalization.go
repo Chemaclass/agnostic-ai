@@ -45,7 +45,7 @@ func (a app) reconcileFinalization(m *manifest) (string, bool, error) {
 		if err = decoder.Decode(&receipt); err != nil {
 			return "", true, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if err = decoder.Decode(new(any)); err != io.EOF {
+		if err = decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 			return "", true, fmt.Errorf("%s: trailing receipt data", path)
 		}
 		if receipt.ManifestSHA256 != manifestDigest(m) || len(receipt.LockSHA256) != 64 {

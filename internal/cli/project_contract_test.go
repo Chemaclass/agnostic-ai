@@ -209,7 +209,7 @@ func TestProjectProbe_PreservesContextFailure(t *testing.T) {
 		})
 	}
 	var emptyStderr projectProbeOutput
-	if got := projectProbeError(context.Background(), processErr, &emptyStderr); got != processErr {
+	if got := projectProbeError(context.Background(), processErr, &emptyStderr); got != processErr { //nolint:errorlint // asserts the same error value comes back, not a wrapper
 		t.Error("live context changed original process error")
 	}
 	if got := projectProbeError(deadline, nil, &stderr); got != nil {

@@ -163,7 +163,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	}
 	result := found(ToolCodex, conversations)
 	result.runs = runs
-	result.unlisted = append(runRows, workerRows...)
+	result.unlisted = append(slices.Clip(runRows), workerRows...)
 	var notes []string
 	if err != nil {
 		notes = append(notes, "Could not read Codex's latest replies from "+filepath.Base(newestNumbered(s.Stores.CodexDir, codexHistoryPattern)))

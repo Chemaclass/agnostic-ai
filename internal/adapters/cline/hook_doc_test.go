@@ -2,6 +2,7 @@ package cline
 
 import (
 	"encoding/json"
+	"errors"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -60,7 +61,7 @@ func TestHookScript_TurnsExit2IntoACancelReply(t *testing.T) {
 		cmd.Stdin = strings.NewReader("{}")
 		out, err := cmd.Output()
 		code := 0
-		if exit, ok := err.(*exec.ExitError); ok {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 			code = exit.ExitCode()
 		} else if err != nil {
 			t.Fatal(err)

@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chemaclass/agnostic-ai/internal/testutil"
 	"golang.org/x/sys/windows"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestImportAntigravity_PreviewMatchesWindowsShortPaths(t *testing.T) {

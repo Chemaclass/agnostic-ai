@@ -34,7 +34,10 @@ func TestEmit_DenyAndAskComeAfterOverlappingAllows(t *testing.T) {
 			t.Fatalf("no %s object in:\n%s", tool, raw)
 		}
 		data := raw[start:]
-		data = data[:strings.Index(data, "}")]
+		data, _, ok := strings.Cut(data, "}")
+		if !ok {
+			t.Fatalf("%s object does not close in:\n%s", tool, raw)
+		}
 		at := -1
 		for _, want := range order {
 			i := strings.Index(data, want)

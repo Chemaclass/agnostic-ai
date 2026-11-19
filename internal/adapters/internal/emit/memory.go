@@ -50,7 +50,7 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if !cfg.RepoPersonalMemory() {
 		return filepath.Join(root, filepath.Dir(filepath.FromSlash(PersonalMemoryIndexPath))), nil
 	}
-	common := ""
+	var common string
 	if git, ok := config.ProjectGitFor(root); ok {
 		common = git.CommonDir
 	} else {

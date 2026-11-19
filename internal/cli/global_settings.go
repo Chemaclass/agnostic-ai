@@ -114,7 +114,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
 		return nil
 	}
-	out := append(permissions, personal...)
+	out := append(slices.Clip(permissions), personal...)
 	if model := adapters.SettingsModel(settings, target); model != "" {
 		if f.model == "" {
 			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
