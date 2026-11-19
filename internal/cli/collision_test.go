@@ -244,3 +244,147 @@ outputs:
 		t.Error("collision wrote AGENTS.md")
 	}
 }
+
+func writeDivergentCodexAmpRulesFile(t *testing.T, dir, policies string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai", "rules", "r2.md"),
+		[]byte("---\nname: r2\n---\nshared\n\n::target codex\ncodex only\n::end\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ngitignore:\n  enabled: false\n"+policies), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyPreferSpec_Resolves(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `outputs:
+  codex:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+`)
+
+	if out, err := runCLI(t, "sync", "-t", "codex,amp"); err != nil {
+		t.Fatalf("per-target prefer-spec on every colliding target should resolve the collision: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check", "-t", "codex,amp"); err != nil {
+		t.Fatalf("sync --check after a resolved collision: %v\n%s", err, out)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyPreferSpecOnOneTarget_StillPrompts(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `outputs:
+  codex:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  amp:
+    rules-file: AGENTS.md
+`)
+
+	_, err := runCLI(t, "sync", "-t", "codex,amp")
+	if err == nil || !strings.Contains(err.Error(), "output collision") {
+		t.Fatalf("one target's prefer-spec must not loosen another's prompt, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "resolve by dropping one") {
+		t.Errorf("prompt policy should keep its hint, got: %v", err)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyFail_BeatsGlobalPreferSpec(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `sync:
+  collision-policy: prefer-spec
+outputs:
+  codex:
+    rules-file: AGENTS.md
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: fail
+`)
+
+	_, err := runCLI(t, "sync", "-t", "codex,amp")
+	if err == nil || !strings.Contains(err.Error(), "output collision") {
+		t.Fatalf("a per-target fail should beat sync.collision-policy: prefer-spec, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "resolve by") {
+		t.Errorf("fail policy should give no hint, got: %v", err)
+	}
+	if fileExists("AGENTS.md") {
+		t.Error("collision wrote AGENTS.md")
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyPreferSpec_SubsetRunMatchesFullRun(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `targets: [codex, amp]
+outputs:
+  codex:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+`)
+
+	if out, err := runCLI(t, "sync", "-t", "codex"); err != nil {
+		t.Fatalf("sync -t codex: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("a subset run should write the full run's winner: %v\n%s", err, out)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyFail_OutsideRunNamesItsSetting(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `targets: [codex, amp, opencode]
+outputs:
+  codex:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  opencode:
+    rules-file: AGENTS.md
+    collision-policy: fail
+`)
+
+	_, err := runCLI(t, "sync", "-t", "codex,amp")
+	if err == nil || !strings.Contains(err.Error(), "outputs.opencode.collision-policy: fail") {
+		t.Fatalf("a strict target outside the run should still decide, and be named, got: %v", err)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyPrompt_HintNamesItsSetting(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `sync:
+  collision-policy: prefer-spec
+outputs:
+  codex:
+    rules-file: AGENTS.md
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prompt
+`)
+
+	_, err := runCLI(t, "sync", "-t", "codex,amp")
+	if err == nil || !strings.Contains(err.Error(), "for CI use: set outputs.amp.collision-policy to prefer-spec") {
+		t.Fatalf("the CI hint should name the per-target setting, got: %v", err)
+	}
+}

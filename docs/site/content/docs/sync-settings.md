@@ -29,7 +29,7 @@ Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key ([`s
 
 ### `sync.collision-policy` {#synccollision-policy}
 
-Applies when two targets write different content to one path, such as `outputs.codex.rules-file: AGENTS.md` and `outputs.amp.rules-file: AGENTS.md`. Per-target override: `outputs.<target>.collision-policy`.
+Applies when two targets write different content to one path, such as `outputs.codex.rules-file: AGENTS.md` and `outputs.amp.rules-file: AGENTS.md`. Per-target override: `outputs.<target>.collision-policy`. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec`. So the file resolves as `prefer-spec` only when every target that writes it allows it. Every target in `targets:` counts toward that choice, even one that `-t` leaves out of the run.
 
 | Value | Behavior |
 |-------|----------|
