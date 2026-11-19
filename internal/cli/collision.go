@@ -148,13 +148,16 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 	if err != nil {
 		return found, err
 	}
-	if !preferSpec {
-		warnSharedAgentsTreeReaders(owners, targets)
+	// When every target accepts prefer-spec the check reports nothing,
+	// the Devin note included.
+	if slices.ContainsFunc(cfg.Targets, func(t string) bool { return cfg.EffectiveCollisionPolicy(t) != "prefer-spec" }) {
+		warnSharedAgentsTreeReaders(runOwners(owners, targets), targets)
 	}
 
 	resolved := map[string]map[string]bool{}
 	var lines []string
 	policy := "prefer-spec"
+	promptKeys := map[string]bool{}
 	for path, ts := range owners {
 		// Byte-identical writes from several targets dedupe into one
 		// file; only divergent content is a real conflict.
@@ -172,11 +175,9 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		}
 		// Only a target the run selects can clash on a path no
 		// prefer-spec settles.
-		var runOwners []string
 		runContents := map[string]bool{}
 		for _, t := range ts {
 			if slices.Contains(targets, t) {
-				runOwners = append(runOwners, t)
 				runContents[written[path][t]] = true
 			}
 		}
@@ -184,8 +185,18 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 			continue
 		}
 		policy = stricterCollisionPolicy(policy, pathPolicy)
-		sort.Strings(runOwners)
-		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(runOwners, ", ")))
+		keys := collisionPolicyKeys(cfg, ts, pathPolicy)
+		if pathPolicy != "fail" {
+			for _, k := range keys {
+				promptKeys[k] = true
+			}
+		}
+		ts = slices.Sorted(slices.Values(ts))
+		line := fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", "))
+		if !slices.Equal(keys, []string{"sync.collision-policy"}) {
+			line += fmt.Sprintf(" (%s: %s)", strings.Join(keys, ", "), pathPolicy)
+		}
+		lines = append(lines, line)
 	}
 	if len(lines) == 0 {
 		noteCollisionWinners(writers, resolved, lastOwner, written)
@@ -206,7 +217,12 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		"resolve by dropping one from `targets:` in agnostic-ai.yaml, " +
 		"or override the matching `outputs.<target>` path setting for that output"
 	if !term.IsTerminal(os.Stdin.Fd()) {
-		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
+		keys := slices.Sorted(maps.Keys(promptKeys))
+		if slices.Equal(keys, []string{"sync.collision-policy"}) {
+			msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
+		} else {
+			msg += "\nfor CI use: set " + strings.Join(keys, ", ") + " to prefer-spec in agnostic-ai.yaml"
+		}
 	}
 	return found, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
 }
@@ -221,6 +237,41 @@ func collisionPolicy(cfg *config.Config, targets []string) string {
 		policy = stricterCollisionPolicy(policy, cfg.EffectiveCollisionPolicy(t))
 	}
 	return policy
+}
+
+// collisionPolicyKeys names the settings that give the targets the given
+// policy: each outputs.<target>.collision-policy set to it, and
+// sync.collision-policy for a target that inherits it.
+func collisionPolicyKeys(cfg *config.Config, targets []string, policy string) []string {
+	var keys []string
+	inherits := false
+	for _, t := range targets {
+		if cfg.EffectiveCollisionPolicy(t) != policy {
+			continue
+		}
+		if o, ok := cfg.Outputs[t]; ok && o.CollisionPolicy != "" {
+			keys = append(keys, "outputs."+t+".collision-policy")
+		} else {
+			inherits = true
+		}
+	}
+	slices.Sort(keys)
+	if inherits {
+		keys = append(keys, "sync.collision-policy")
+	}
+	return keys
+}
+
+func runOwners(owners map[string][]string, targets []string) map[string][]string {
+	out := make(map[string][]string, len(owners))
+	for path, ts := range owners {
+		for _, t := range ts {
+			if slices.Contains(targets, t) {
+				out[path] = append(out[path], t)
+			}
+		}
+	}
+	return out
 }
 
 // stricterCollisionPolicy ranks fail over prompt over prefer-spec. An

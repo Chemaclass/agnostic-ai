@@ -323,3 +323,68 @@ outputs:
 		t.Error("collision wrote AGENTS.md")
 	}
 }
+
+func TestSync_PerTargetCollisionPolicyPreferSpec_SubsetRunMatchesFullRun(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `targets: [codex, amp]
+outputs:
+  codex:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+`)
+
+	if out, err := runCLI(t, "sync", "-t", "codex"); err != nil {
+		t.Fatalf("sync -t codex: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("a subset run should write the full run's winner: %v\n%s", err, out)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyFail_OutsideRunNamesItsSetting(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `targets: [codex, amp, opencode]
+outputs:
+  codex:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prefer-spec
+  opencode:
+    rules-file: AGENTS.md
+    collision-policy: fail
+`)
+
+	_, err := runCLI(t, "sync", "-t", "codex,amp")
+	if err == nil || !strings.Contains(err.Error(), "outputs.opencode.collision-policy: fail") {
+		t.Fatalf("a strict target outside the run should still decide, and be named, got: %v", err)
+	}
+}
+
+func TestSync_PerTargetCollisionPolicyPrompt_HintNamesItsSetting(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeDivergentCodexAmpRulesFile(t, dir, `sync:
+  collision-policy: prefer-spec
+outputs:
+  codex:
+    rules-file: AGENTS.md
+  amp:
+    rules-file: AGENTS.md
+    collision-policy: prompt
+`)
+
+	_, err := runCLI(t, "sync", "-t", "codex,amp")
+	if err == nil || !strings.Contains(err.Error(), "for CI use: set outputs.amp.collision-policy to prefer-spec") {
+		t.Fatalf("the CI hint should name the per-target setting, got: %v", err)
+	}
+}
