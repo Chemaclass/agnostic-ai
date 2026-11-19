@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -709,7 +709,7 @@ async function showLateOpenFailure() {
     return
   }
   const shown = failure && lateOpenFailureOf(failure, lastDismissedLate)
-  if (!shown || (state.openFailure && !state.openFailure.hint) || opensOnTheirWay > 0) return
+  if (!shown || !lateFailureReplaces(state.openFailure) || opensOnTheirWay > 0) return
   showOpenFailure(shown, NOTICES.notOpened)
 }
 

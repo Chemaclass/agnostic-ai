@@ -529,6 +529,28 @@ const maxSentTitle = 200
 // withoutTitle takes the title a page sent out of an open, since the
 // server refuses any field but tool, id and editor. A body that is no
 // JSON object goes on as it came, for the server to refuse.
+func withoutTitle(body []byte) ([]byte, string) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return body, ""
+	}
+	sent, ok := fields["title"]
+	if !ok {
+		return body, ""
+	}
+	delete(fields, "title")
+	rest, err := json.Marshal(fields)
+	if err != nil {
+		return body, ""
+	}
+	var title string
+	_ = json.Unmarshal(sent, &title)
+	if runes := []rune(title); len(runes) > maxSentTitle {
+		title = string(runes[:maxSentTitle])
+	}
+	return rest, title
+}
+
 // refusesHelper reports whether the server is a release from before an
 // open took a helper: it refuses the field with this exact error.
 func refusesHelper(answer reply) bool {
@@ -551,26 +573,4 @@ func withoutField(body []byte, name string) (rest []byte, named bool) {
 		return body, false
 	}
 	return rest, true
-}
-
-func withoutTitle(body []byte) ([]byte, string) {
-	var fields map[string]json.RawMessage
-	if json.Unmarshal(body, &fields) != nil {
-		return body, ""
-	}
-	sent, ok := fields["title"]
-	if !ok {
-		return body, ""
-	}
-	delete(fields, "title")
-	rest, err := json.Marshal(fields)
-	if err != nil {
-		return body, ""
-	}
-	var title string
-	_ = json.Unmarshal(sent, &title)
-	if runes := []rune(title); len(runes) > maxSentTitle {
-		title = string(runes[:maxSentTitle])
-	}
-	return rest, title
 }

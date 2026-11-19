@@ -648,6 +648,11 @@ export function subagentNoticeOf(reply) {
   return reply.opened && reply.helper ? { message: reply.message, hint: true } : undefined
 }
 
+/** Whether a late open failure may take the notice's place: none shows, or only a hint does. */
+export function lateFailureReplaces(shown) {
+  return !shown || shown.hint === true
+}
+
 /** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */
 function piecesOf(folder) {
   const pieces = folder.replace(/[\\/]+$/, '').split(/([\\/]+)/)

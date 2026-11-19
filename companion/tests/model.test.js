@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -665,6 +665,12 @@ test('an open of a Claude Code subagent leaves the reply as a notice; any other 
   assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: { tool: 'claude', id: 'explore' } }), { message: said, hint: true })
   assert.equal(subagentNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.' }), undefined)
   assert.equal(subagentNoticeOf({ opened: false, message: 'That subagent no longer works in this chat.' }), undefined)
+})
+
+test('a late open failure replaces no notice or a subagent hint, and never another failure', () => {
+  assert.equal(lateFailureReplaces(undefined), true)
+  assert.equal(lateFailureReplaces(subagentNoticeOf({ opened: true, message: 'Opened.', helper: { tool: 'claude', id: 'x' } })), true)
+  assert.equal(lateFailureReplaces({ message: 'Terminal could not be opened.' }), false)
 })
 
 test('a row with an unread marker may still be marked read while the list holds it unchanged', () => {
