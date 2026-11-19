@@ -9,10 +9,11 @@ import (
 	"slices"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
-	"golang.org/x/sync/errgroup"
 )
 
 // emitTarget resolves target t and emits it under detailed recording, shared by

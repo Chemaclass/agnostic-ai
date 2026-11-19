@@ -9,9 +9,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
-	"github.com/spf13/cobra"
 )
 
 // syncJSONOutput is the `sync --json` output: the shared schema plus the
