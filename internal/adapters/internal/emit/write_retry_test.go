@@ -30,7 +30,7 @@ func TestWriteFileAt_EnforcesTheModeAfterRecreatingTheParent(t *testing.T) {
 		t.Skip("Windows keeps no Unix permission bits")
 	}
 	path := filepath.Join(t.TempDir(), "gone", "hook.sh")
-	const mode os.FileMode = 0o775
+	const mode os.FileMode = 0o777
 	if err := writeFileAt(path, "#!/bin/sh\n", mode, true); err != nil {
 		t.Fatal(err)
 	}

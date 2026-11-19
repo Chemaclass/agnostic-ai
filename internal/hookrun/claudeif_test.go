@@ -55,9 +55,10 @@ func TestClaudeIfRuns_BashRules(t *testing.T) {
 		{"Bash(git *)", `echo $(echo "(" ; ls)`, false},
 		{"Bash(git *)", `echo $(echo ')' ; ls)`, false},
 		{"Bash(git *)", `echo $(echo $(ls))`, false},
+		// Bash rejects these two (the escaped backtick leaves one open),
+		// so the hook should run; splitBash reads two commands and
+		// checks them as if the command parsed (#3681).
 		{"Bash(git *)", "echo `echo \\` ; ls`", false},
-		// Bash rejects this command (the escaped backtick leaves one
-		// open); splitBash reads it as two commands and runs the hook.
 		{"Bash(git *)", "echo `echo \\` ; git push`", true},
 		// Bash runs git push here, but the escaped inner backticks are
 		// not split out, so the hook does not run (#3681).
