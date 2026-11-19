@@ -61,7 +61,7 @@ agnostic-ai handoff list
 
 ## revert
 
-Undo a `sync --backup`. For each generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), it restores `<path>.bak` and removes the backup.
+Undo a `sync --backup`. For each generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`), it restores `<path>.bak` and removes the backup. It prints how many files it restored, removed, and kept for each target.
 
 | Flag | Description |
 |------|-------------|
@@ -75,6 +75,7 @@ Undo a `sync --backup`. For each generated file and tool instruction file (`CLAU
 - A nested `CLAUDE.md` that sync deleted comes back too.
 - An unfiltered `revert` also restores intact recorded backups of removed outputs, including those from dropped targets.
 - Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched.
+- Your note `.agnostic-ai/AGNOSTIC_AI.md` is a source file, so `revert` never restores or deletes it, even with `--force`.
 - A shared `AGENTS.md` is handled once.
 - `revert` takes the project lock, so it stops while another command writes. `--dry-run` does not.
 {% </details> %}

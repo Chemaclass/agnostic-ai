@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -105,7 +106,7 @@ func newRevertCmd() *cobra.Command {
 				}
 				files := sess.StopCapture()
 				summaryf("← revert %s\n", t)
-				var restored, removed, preserved int
+				var tally revertTally
 				for _, f := range files {
 					if alreadyHandled(seen, f.Path) {
 						continue
@@ -114,28 +115,16 @@ func newRevertCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("%s: %w", t, err)
 					}
-					switch action {
-					case "restore":
-						restored++
-					case "remove":
-						removed++
-					case "preserve":
-						preserved++
-					}
+					tally.add(action)
 				}
-				if preserved > 0 {
-					summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
-				}
-				_ = restored
-				_ = removed
+				tally.report(dryRun)
 			}
 
 			// sync writes the entry-point files (CLAUDE.md, AGENTS.md, ...)
 			// outside adapter emission, so revert them on the same terms.
-			paths := entryPointPaths(cfg, effective)
 			summaryf("← revert entry-points\n")
-			var preserved int
-			for _, p := range paths {
+			var tally revertTally
+			for _, p := range revertEntryPointPaths(cfg, effective) {
 				if alreadyHandled(seen, p) {
 					continue
 				}
@@ -143,12 +132,7 @@ func newRevertCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("entry-point: %w", err)
 				}
-				if action == "preserve" {
-					preserved++
-				}
-			}
-			if preserved > 0 {
-				summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
+				tally.add(action)
 			}
 			companions, err := adapters.AgentsCompanionPaths(cfg, b, effective)
 			if err != nil {
@@ -158,20 +142,25 @@ func newRevertCmd() *cobra.Command {
 				if alreadyHandled(seen, p) {
 					continue
 				}
-				if _, err := revertOne(p, dryRun, false); err != nil {
+				action, err := revertOne(p, dryRun, false)
+				if err != nil {
 					return fmt.Errorf("claude: %w", err)
 				}
+				tally.add(action)
 			}
 			if len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				for _, p := range missingRecordedBackups(cfg) {
 					if alreadyHandled(seen, p) {
 						continue
 					}
-					if _, err := revertOne(p, dryRun, false); err != nil {
+					action, err := revertOne(p, dryRun, false)
+					if err != nil {
 						return fmt.Errorf("recorded backup: %w", err)
 					}
+					tally.add(action)
 				}
 			}
+			tally.report(dryRun)
 			return nil
 		},
 	}
@@ -183,6 +172,45 @@ func newRevertCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "Also delete adapter-emitted files that lack a .bak (use with care: removes user-authored files that share a path with adapter output)")
 	registerTargetCompletion(cmd)
 	return cmd
+}
+
+// revertEntryPointPaths lists the entry points sync generates. The note
+// .agnostic-ai/AGNOSTIC_AI.md is a source file the user writes, so revert
+// never restores or deletes it.
+func revertEntryPointPaths(cfg *config.Config, targets []string) []string {
+	return slices.DeleteFunc(entryPointPaths(cfg, targets), func(p string) bool {
+		return p == adapters.AgnosticEntryPointPath
+	})
+}
+
+// revertTally counts what revert did to one group of files.
+type revertTally struct{ restored, removed, preserved int }
+
+func (t *revertTally) add(action string) {
+	switch action {
+	case "restore":
+		t.restored++
+	case "remove":
+		t.removed++
+	case "preserve":
+		t.preserved++
+	}
+}
+
+func (t revertTally) report(dryRun bool) {
+	verb := ""
+	if dryRun {
+		verb = "would be "
+	}
+	if t.restored > 0 {
+		summaryf("    %d file(s) %srestored from .bak\n", t.restored, verb)
+	}
+	if t.removed > 0 {
+		summaryf("    %d file(s) %sremoved\n", t.removed, verb)
+	}
+	if t.preserved > 0 {
+		summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", t.preserved)
+	}
 }
 
 // restorePerm sets path to bak's mode before the bytes land, so private
@@ -320,7 +348,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 
 	// Entry-point files are written outside adapter emission; revert them
 	// too so the JSON report matches the text path.
-	for _, p := range entryPointPaths(cfg, targets) {
+	for _, p := range revertEntryPointPaths(cfg, targets) {
 		if alreadyHandled(seen, p) {
 			continue
 		}

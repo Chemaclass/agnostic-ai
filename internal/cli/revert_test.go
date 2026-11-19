@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -368,5 +370,73 @@ func TestRevert_RecordedMissingBackupRequiresIntactSafePath(t *testing.T) {
 	}
 	if got := readFile(t, handEditSkill+".bak"); got != "changed backup\n" {
 		t.Errorf("changed backup = %q", got)
+	}
+}
+
+func TestRevertCmd_ForceKeepsSourceNote(t *testing.T) {
+	for _, args := range [][]string{
+		{"revert", "--force"},
+		{"revert", "--force", "--json"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			note := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+			if err := os.WriteFile(note, []byte("Run tests.\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"sync", "-t", "claude"})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			root = NewRootCmd("test")
+			root.SetOut(io.Discard)
+			root.SetArgs(append(args, "-t", "claude"))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := os.ReadFile(note)
+			if err != nil {
+				t.Fatalf("revert --force removed the source note: %v", err)
+			}
+			if string(got) != "Run tests.\n" {
+				t.Errorf("source note changed: %q", got)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); !os.IsNotExist(err) {
+				t.Errorf("expected CLAUDE.md removed, err=%v", err)
+			}
+		})
+	}
+}
+
+func TestRevertCmd_ReportsRestoredAndRemovedCounts(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("MY NOTES\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--backup"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	buf := captureLog(t)
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"1 file(s) removed", "1 file(s) restored from .bak"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("revert output lacks %q:\n%s", want, out)
+		}
 	}
 }
