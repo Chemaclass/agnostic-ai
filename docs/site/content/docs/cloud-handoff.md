@@ -52,18 +52,19 @@ The cloud session starts from the pushed branch. A Claude Code session puts its 
 | Other tools | none | The agent says so and offers a local [handoff](@/docs/handoff.md) note |
 
 - `claude --cloud` only starts from a terminal. The agent runs it inside `script`, reads the link, then stops the local process; the cloud session keeps running. On Windows, where `script` is missing, the agent gives you the command to run yourself.
-- Codex asks for an environment id each time. Create or find one at [chatgpt.com/codex/settings/environments](https://chatgpt.com/codex/settings/environments), or browse them with `codex cloud` in a terminal. The `codex cloud` command is marked experimental.
+- Codex needs an environment id; the agent asks for it once per session and does not store it. Create or find one at [chatgpt.com/codex/settings/environments](https://chatgpt.com/codex/settings/environments), or browse them with `codex cloud` in a terminal. The `codex cloud` command is marked experimental.
 
 ## Where the session shows up
 
 - The agent's last reply starts with the session link, so the local chat shows where the work went.
-- The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) and in the global web interface, within about a minute. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
+- The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) within about a minute, and in the global web interface when it runs with `agnostic-ai serve --global --cloud-sessions`, after a reload. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
 - Bring the work back with `claude --teleport <session-id>`, or with `codex cloud diff <url>` and then `codex cloud apply <url>`.
 
 ## Limits
 
-- Claude Code cloud sessions are listed on macOS only, since the companion reads the claude.ai sign-in from the macOS keychain. On Linux and Windows the handoff still works, and the list stays empty without a message.
-- The cloud names the session itself. The prompt's first line can shape that title, but does not set it.
+- Claude Code cloud sessions are listed on macOS only, since the companion reads the claude.ai sign-in from the macOS keychain. On Linux and Windows the handoff still works (on Windows you run the Claude Code command yourself), and the list stays empty without a message.
+- Claude Code names the session itself. The prompt's first line can shape that title, but does not set it.
+- A Codex task runs on the repository its environment names, not on this checkout's remote. Pick an environment for this repository.
 - The prompt holds no chat history: only what the agent writes in it.
 - Both cloud commands come from their vendors and can change with any release.
 
