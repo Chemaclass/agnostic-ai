@@ -210,7 +210,7 @@ func buildLayerInfos(projectRoot string, cfg *config.Config) ([]layerInfo, error
 			continue
 		}
 		displayPath := filepath.Dir(filepath.Join(l.Root, l.Sources.Agents))
-		if rel, relErr := filepath.Rel(projectRoot, displayPath); relErr == nil && !strings.HasPrefix(rel, "..") {
+		if rel, inside := pathBelow(projectRoot, displayPath); inside {
 			displayPath = rel
 		}
 		infos = append(infos, layerInfo{Name: l.Name, Path: displayPath + "/"})

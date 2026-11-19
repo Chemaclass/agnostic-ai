@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -123,7 +122,7 @@ func reconcileGuidedRequires(root, version string) error {
 		return fmt.Errorf("reconcile requires and schema: %w", err)
 	}
 	for i, c := range changed {
-		if rel, err := filepath.Rel(root, c.Path); err == nil && !strings.HasPrefix(rel, "..") {
+		if rel, inside := pathBelow(root, c.Path); inside {
 			changed[i].Path = rel
 		}
 	}
