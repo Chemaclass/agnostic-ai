@@ -732,8 +732,10 @@ async function openRow(conversation) {
   await hidePanel().catch(() => {})
   let failure
   let note
+  let pending = false
   try {
     const reply = await openConversation(conversation)
+    pending = reply.pending === true
     failure = reply.pending ? undefined : openFailureOf(reply)
     note = reply.pending ? undefined : subagentNoticeOf(reply)
   } catch (error) {
@@ -742,6 +744,8 @@ async function openRow(conversation) {
   } finally {
     opensOnTheirWay -= 1
   }
+  // A late failure may have landed while this answer was on its way, when the panel skipped it.
+  if (pending) showLateOpenFailure()
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (thisOpen !== latestOpen) return
   // The terminal keeps the front; the note waits in the panel for its next showing, unless a failure replaces it.

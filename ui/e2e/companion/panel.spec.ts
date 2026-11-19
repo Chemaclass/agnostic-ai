@@ -299,8 +299,11 @@ const LATE_RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2"
 async function openSlowly(page: Page) {
   await openArchived(page, 'late-open-failure')
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  // The panel asks once for a late failure after it handled the answer, so later reads are its own.
+  const handled = page.waitForResponse((response) => response.url().endsWith('/api/open/late'))
   await row(page, 'Tidy the old branches').click()
   expect((await answer).status()).toBe(202)
+  await handled
 }
 
 /** Ends the open answered as still opening, with the fixture's late failure. */
