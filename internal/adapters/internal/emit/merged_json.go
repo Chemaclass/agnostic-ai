@@ -23,8 +23,9 @@ type MergedKey struct {
 	// Releasing the file takes out only these.
 	Items []string `json:"items,omitempty"`
 	// Within names, by content sum, the items sync added to a list it
-	// claims whole. Once the user edits the list it stays theirs, and
-	// releasing it takes out only these, each while unchanged.
+	// claims whole, as older versions recorded it. Once the user edits the
+	// list it stays theirs, and releasing it takes out only these, each
+	// while unchanged.
 	Within []string `json:"within,omitempty"`
 	// Follows, when set, is the sum of the value this write replaced. The
 	// key is claimed only if an earlier sync's claim still has that sum;
@@ -141,14 +142,7 @@ func ClaimedJSONEntries(value any, entries []string) any {
 // edited the value and it stays theirs.
 type claimedWithin struct {
 	value   any
-	items   []string
 	entries [][]string
-}
-
-// ClaimedJSONWithItems, as a list value in a merge, claims the list whole
-// and records items, the entries sync added to it (MergedKey.Within).
-func ClaimedJSONWithItems(value any, items []string) any {
-	return claimedWithin{value: value, items: slices.Clone(items)}
 }
 
 // ClaimedJSONWithEntries, as an object value in a merge, claims the

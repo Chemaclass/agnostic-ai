@@ -96,12 +96,6 @@ func NoteDroppedSkillFields(target string, skills []spec.Entry, shared bool) {
 	emit.NoteDroppedSkillFields(target, (spec.Bundle{Skills: skills}).For(target).Skills, coverage)
 }
 
-// ReportClaudeSkillSyntax raises the Claude Code body syntax notes for
-// the skills that reach target. mode is the on-unsupported policy.
-func ReportClaudeSkillSyntax(target string, skills []spec.Entry, mode string) error {
-	return emit.ReportClaudeBodySyntax(target, spec.KindSkill, (spec.Bundle{Skills: skills}).For(target).Skills, mode)
-}
-
 // ReportGlobalSkillSyntax checks syntax against the resolved user skill destination.
 func ReportGlobalSkillSyntax(target string, skills []spec.Entry, mode, home, dir string) error {
 	return emit.ReportGlobalSkillSyntax(target, (spec.Bundle{Skills: skills}).For(target).Skills, mode, home, dir)

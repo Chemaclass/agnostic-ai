@@ -174,6 +174,8 @@ func RulesFileWriters() []string {
 }
 
 // RulesFileTargets returns, sorted, every target rulesFileWriters names.
+// It has no production caller; it exists so a test can check the table
+// names only built-in targets.
 func RulesFileTargets() []string {
 	out := make([]string, 0, len(rulesFileWriters))
 	for t := range rulesFileWriters {
