@@ -10,21 +10,20 @@ import (
 // SupportedVersion is the only config schema version this release reads.
 const SupportedVersion = 1
 
-// typeErrors reports each value in the YAML document data, read from
-// path, that has a shape Config cannot hold, as
-// `path:line: key: expected <shape>, got <shape>`. A document that is
-// not valid YAML reports nothing; decoding it names the syntax error.
-func typeErrors(path string, data []byte) []string {
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil || len(doc.Content) == 0 {
+// typeErrors reports each value in f that has a shape Config cannot
+// hold, as `path:line: key: expected <shape>, got <shape>`. A file that
+// is not valid YAML reports nothing; decoding it names the syntax error.
+func typeErrors(f *configFile) []string {
+	root := f.root()
+	if root == nil {
 		return nil
 	}
 	var out []string
-	walkTypes(doc.Content[0], reflect.TypeFor[Config](), "", func(n *yaml.Node, key, want string) {
+	walkTypes(root, reflect.TypeFor[Config](), "", func(n *yaml.Node, key, want string) {
 		if key != "" {
 			key += ": "
 		}
-		out = append(out, fmt.Sprintf("%s:%d: %sexpected %s, got %s", path, n.Line, key, want, nodeShape(n)))
+		out = append(out, fmt.Sprintf("%s:%d: %sexpected %s, got %s", f.path, n.Line, key, want, nodeShape(n)))
 	})
 	return out
 }
@@ -134,16 +133,16 @@ func nodeShape(n *yaml.Node) string {
 // versionError refuses a version key other than SupportedVersion. A
 // missing version is left to `doctor config`, and one that is not a
 // number to typeErrors.
-func versionError(path string, data []byte) string {
+func versionError(f *configFile) string {
 	var doc struct {
 		Version yaml.Node `yaml:"version"`
 	}
-	if yaml.Unmarshal(data, &doc) != nil || doc.Version.Tag != "!!int" && doc.Version.Tag != "!!float" {
+	if f.decode(&doc) != nil || doc.Version.Tag != "!!int" && doc.Version.Tag != "!!float" {
 		return ""
 	}
 	var version float64
 	if doc.Version.Decode(&version) != nil || version == SupportedVersion {
 		return ""
 	}
-	return fmt.Sprintf("%s:%d: version: %s is not supported; this release reads version: %d", path, doc.Version.Line, doc.Version.Value, SupportedVersion)
+	return fmt.Sprintf("%s:%d: version: %s is not supported; this release reads version: %d", f.path, doc.Version.Line, doc.Version.Value, SupportedVersion)
 }

@@ -34,7 +34,13 @@ func demoServer(t *testing.T, opts HandlerOptions) *httptest.Server {
 	return srv
 }
 
-func getJSON(t *testing.T, url string, out any) *http.Response {
+// jsonReply is what the tests read from a response after getJSON closed its body.
+type jsonReply struct {
+	StatusCode int
+	Header     http.Header
+}
+
+func getJSON(t *testing.T, url string, out any) jsonReply {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
@@ -46,7 +52,7 @@ func getJSON(t *testing.T, url string, out any) *http.Response {
 			t.Fatalf("decode %s: %v", url, err)
 		}
 	}
-	return resp
+	return jsonReply{StatusCode: resp.StatusCode, Header: resp.Header}
 }
 
 func TestHandler_ServesTheViewForTheRequestedSubjectAndHarness(t *testing.T) {
@@ -354,5 +360,22 @@ func TestHandler_HealthNamesTheServingVersion(t *testing.T) {
 	getJSON(t, demoServer(t, HandlerOptions{}).URL+"/api/health", &bare)
 	if _, ok := bare["version"]; ok {
 		t.Errorf("health without a version = %v", bare)
+	}
+}
+
+func TestHandler_HealthNamesWhenTheRunningScanBegan(t *testing.T) {
+	began := time.Date(2026, 11, 19, 9, 30, 0, 0, time.UTC)
+	var health struct {
+		ScanningSince string `json:"scanningSince"`
+	}
+	getJSON(t, demoServer(t, HandlerOptions{ScanningSince: func() time.Time { return began }}).URL+"/api/health", &health)
+	if health.ScanningSince != "2026-11-19T09:30:00Z" {
+		t.Errorf("health scanningSince = %q, want 2026-11-19T09:30:00Z", health.ScanningSince)
+	}
+
+	var idle map[string]any
+	getJSON(t, demoServer(t, HandlerOptions{ScanningSince: func() time.Time { return time.Time{} }}).URL+"/api/health", &idle)
+	if _, ok := idle["scanningSince"]; ok {
+		t.Errorf("health with no scan running = %v", idle)
 	}
 }

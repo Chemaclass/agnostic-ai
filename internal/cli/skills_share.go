@@ -526,7 +526,7 @@ func adjustLedgerForLinks(session []string, applied []skillLink) []string {
 	if len(applied) == 0 {
 		return session
 	}
-	out := make([]string, 0, len(session)+len(applied))
+	out := make([]string, 0, len(session))
 	for _, p := range session {
 		under := false
 		for _, l := range applied {

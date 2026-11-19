@@ -167,9 +167,9 @@ func notOpened(opened tabOpening, line string) error {
 	case errors.Is(opened.err, context.DeadlineExceeded):
 		return fmt.Errorf("macOS is waiting for you to allow control of %s; answer its prompt, or %s", opened.app, byHand)
 	case opened.window:
-		return fmt.Errorf("could not open a Terminal window (%v); %s", opened.err, byHand)
+		return fmt.Errorf("could not open a Terminal window (%v); %s", opened.err, byHand) //nolint:errorlint // opened.err can be an osascript *exec.ExitError; wrapping it would make main exit with that code
 	default:
-		return fmt.Errorf("could not open a %s tab (%v); %s", opened.app, opened.err, byHand)
+		return fmt.Errorf("could not open a %s tab (%v); %s", opened.app, opened.err, byHand) //nolint:errorlint // opened.err can be an osascript *exec.ExitError; wrapping it would make main exit with that code
 	}
 }
 

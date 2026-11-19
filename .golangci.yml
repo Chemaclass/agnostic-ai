@@ -3,6 +3,27 @@ version: "2"
 run:
   timeout: 5m
 
+# Linters measured and rejected (golangci-lint 2.15.0, hits with tests in
+# parentheses). Do not re-measure without a new reason.
+#   wrapcheck 1405 (191): internal errors are returned unwrapped by design.
+#   nilerr 89 (3): deliberate best-effort paths, such as prompt EOF.
+#   nilnil 45 (5): nil, nil means "nothing found" throughout.
+#   gosec ~4950: mostly G304, G306, G301, G204, for a tool that reads and
+#     writes config files and runs git.
+#   govet shadow 1035: the err shadowing idiom.
+#   govet fieldalignment 731: layout tuning without a benchmark.
+#   paralleltest 9853, tparallel 20: many tests change directory or env.
+#   noinlineerr, funcorder, tagalign, embeddedstructfieldcheck, godoclint,
+#     iface, recvcheck, errname, predeclared, dupword: style or naming taste;
+#     dupword hits are fixture text.
+#   exhaustive 56: partial switches over reflect.Kind, yaml.Kind and
+#     syntax.ErrorCode are intended.
+#   forcetypeassert 405 (371), errchkjson 61 (33): each fix adds a failure
+#     branch, so it is not behavior-preserving.
+#   musttag 71 (62): mostly test structs.
+#   noctx 405 (357), contextcheck 17: needs a cancellation design first.
+#   prealloc 155, mirror 25: performance changes need a benchmark first.
+
 linters:
   default: none
   enable:
@@ -13,7 +34,33 @@ linters:
     - revive
     - staticcheck
     - unused
+    - errorlint
+    - bodyclose
+    - gocritic
+    - wastedassign
+    - nolintlint
+    - asciicheck
+    - bidichk
+    - durationcheck
+    - gocheckcompilerdirectives
+    - makezero
+    - nosprintfhostport
+    - reassign
+    - fatcontext
+    - exptostd
   settings:
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+        - fieldalignment
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - singleCaseSwitch
+    nolintlint:
+      require-explanation: true
+      require-specific: true
     misspell:
       locale: US
     revive:

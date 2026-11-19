@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -171,7 +172,7 @@ func TestProtectHook_CommandBlocksWhenGeminiRunsItFromTheProjectRoot(t *testing.
 	cmd.Dir = root
 	cmd.Stdin = strings.NewReader(string(geminiPayload(t, root, "write_file", writeFile("composer.lock"))))
 	out, err := cmd.CombinedOutput()
-	exit, _ := err.(*exec.ExitError)
+	exit, _ := errors.AsType[*exec.ExitError](err)
 	if exit == nil || exit.ExitCode() != 2 || !strings.Contains(string(out), "composer.lock is protected (composer.lock). Run composer instead. Do not edit it.") {
 		t.Fatalf("err = %v, output = %q; want exit 2 with the reason", err, out)
 	}

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -20,7 +21,7 @@ func ellipsisCommand(t *testing.T, binary, dir string, args ...string) (string, 
 			env = append(env, kv)
 		}
 	}
-	cmd.Env = append(env, "HOME="+t.TempDir(), "AGNOSTIC_AI_HOME="+t.TempDir())
+	cmd.Env = append(slices.Clip(env), "HOME="+t.TempDir(), "AGNOSTIC_AI_HOME="+t.TempDir())
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

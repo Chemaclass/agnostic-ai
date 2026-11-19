@@ -738,7 +738,7 @@ func TestServer_ARestWhileAServerStartsStopsThatServer(t *testing.T) {
 		close(rested)
 	}()
 
-	if err := <-answered; err != errResting {
+	if err := <-answered; !errors.Is(err, errResting) {
 		t.Errorf("address during a rest = %v; want %v", err, errResting)
 	}
 	<-rested

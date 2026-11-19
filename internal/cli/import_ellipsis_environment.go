@@ -73,7 +73,7 @@ func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Conf
 	if err := mkdirAllSources(root, src.Environments, src.Settings, src.MCPs); err != nil {
 		return err
 	}
-	envs, settings, mcps := 0, 0, 0
+	envs, mcps := 0, 0
 	if imported.install != "" || imported.setup != "" {
 		wrote, err := writeEllipsisEnvironmentSpec(importSourcePath(root, src.Environments), imported)
 		if err != nil {
@@ -89,7 +89,7 @@ func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Conf
 	if err := importWriteFile(dst, raw, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
-	settings = 1
+	settings := 1
 	if len(imported.servers) > 0 {
 		mcps, err = writeEllipsisMCPSpecs(imported.servers, importSourcePath(root, src.MCPs))
 		if err != nil {

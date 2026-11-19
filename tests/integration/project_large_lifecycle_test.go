@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -111,7 +112,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 		cmd.Dir = clone
 		if err := cmd.Run(); err == nil {
 			t.Errorf("selected committed output is ignored: %s", output)
-		} else if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
+		} else if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 1 {
 			t.Fatalf("check-ignore %s: %v", output, err)
 		}
 	}

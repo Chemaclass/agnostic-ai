@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,7 +82,7 @@ func TestSync_PortableHookRunsOnceOnCursorBesideClaude(t *testing.T) {
 		cmd.Env = append(os.Environ(), "AGNOSTIC_AI_TARGET="+env)
 		err := cmd.Run()
 		code := 0
-		if exit, ok := err.(*exec.ExitError); ok {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 			code = exit.ExitCode()
 		}
 		if code != want {

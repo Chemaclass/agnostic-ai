@@ -116,104 +116,27 @@ var requiresLine = regexp.MustCompile(`^([ \t]*(?:requires|"requires"|'requires'
 var requiresSchema = regexp.MustCompile(`\$schema=(?:"[^"]*"|'[^']*'|[^ \t\r]+)`)
 
 func rewriteRequires(data []byte, version, schema string, base bool) ([]byte, error) {
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	var doc yaml.Node
-	if err := decoder.Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse config: %w", err)
+	root, key, value, skip, err := requiresNode(data, base)
+	if err != nil {
+		return nil, err
 	}
-	var extra yaml.Node
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err != nil {
-			return nil, fmt.Errorf("parse config: %w", err)
-		}
-		return nil, errors.New("cannot update a multi-document config")
-	}
-	if len(doc.Content) == 0 {
-		if !base {
-			return rewriteRequiresSchema(data, schema, false), nil
-		}
-		return nil, errors.New("cannot update an empty config")
-	}
-	root := doc.Content[0]
-	if !base && root.Kind == yaml.ScalarNode && root.Tag == "!!null" {
+	if skip {
 		return rewriteRequiresSchema(data, schema, false), nil
-	}
-	if root.Kind != yaml.MappingNode {
-		return nil, errors.New("config must be a mapping")
-	}
-	var key, value *yaml.Node
-	for i := 0; i < len(root.Content); i += 2 {
-		candidate := root.Content[i]
-		if candidate.Tag == "!!merge" {
-			return nil, errors.New("cannot safely update a config with merged root keys")
-		}
-		if candidate.Value == "requires" {
-			if key != nil {
-				return nil, errors.New("cannot update duplicate requires keys")
-			}
-			key, value = candidate, root.Content[i+1]
-		}
-	}
-	if key == nil && !base {
-		return rewriteRequiresSchema(data, schema, false), nil
-	}
-	if root.Style&yaml.FlowStyle != 0 {
-		return nil, errors.New("cannot safely update a flow-style config")
 	}
 	newline := "\n"
 	if bytes.Contains(data, []byte("\r\n")) {
 		newline = "\r\n"
 	}
 	lines := strings.Split(string(data), "\n")
-	adopted := AdoptRequirement("", version)
+	var adopted string
 	if key != nil {
-		if value.Kind != yaml.ScalarNode || value.Anchor != "" || key.Anchor != "" || value.Style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0 {
-			return nil, errors.New("cannot safely update an anchored or non-scalar requires value")
-		}
-		if value.Line != key.Line && value.Tag != "!!null" {
-			return nil, errors.New("cannot safely update a multiline requires scalar")
-		}
-		index := key.Line - 1
-		if index < 0 || index >= len(lines) {
-			return nil, errors.New("cannot safely update this config newline style")
-		}
-		line := strings.TrimSuffix(lines[index], "\r")
-		match := requiresLine.FindStringSubmatchIndex(line)
-		if match == nil {
-			return nil, errors.New("cannot locate the requires scalar")
-		}
-		start := match[3]
-		end, quote, err := requiresScalarEnd(line, start)
-		if err != nil {
-			return nil, err
-		}
-		if value.Tag == "!!null" {
-			quote = '"'
-		} else {
-			adopted = AdoptRequirement(value.Value, version)
-		}
-		if quote == 0 && strings.HasPrefix(adopted, ">") {
-			// A plain scalar starting with > is a folded block in YAML.
-			quote = '"'
-		}
-		replacement := adopted
-		if quote != 0 {
-			replacement = string(quote) + adopted + string(quote)
-		}
-		if start > 0 && line[start-1] == ':' {
-			replacement = " " + replacement
-		}
-		if start == end && end < len(line) && line[end] == '#' {
-			replacement += " "
-		}
-		lines[index] = line[:start] + replacement + line[end:] + strings.TrimPrefix(lines[index], line)
+		adopted, err = replaceRequiresLine(lines, key, value, version)
 	} else {
-		index := root.Content[0].Line - 1
-		if index < 0 || index >= len(lines) {
-			return nil, errors.New("cannot safely update this config newline style")
-		}
-		addition := "requires: \"" + adopted + "\"" + strings.TrimSuffix(newline, "\n")
-		lines = append(lines[:index], append([]string{addition}, lines[index:]...)...)
+		adopted = AdoptRequirement("", version)
+		lines, err = insertRequiresLine(lines, root, adopted, newline)
+	}
+	if err != nil {
+		return nil, err
 	}
 	out := rewriteRequiresSchema([]byte(strings.Join(lines, "\n")), schema, base)
 	var checked struct {
@@ -226,6 +149,114 @@ func rewriteRequires(data []byte, version, schema string, base bool) ([]byte, er
 		return nil, errors.New("rewritten config does not contain the adopted requires value")
 	}
 	return out, nil
+}
+
+// requiresNode parses data and refuses the shapes rewriteRequires cannot
+// update safely. It returns the root mapping and the requires key and
+// value, nil when absent. skip is true when a local config has nothing
+// to update, so only its schema comment changes.
+func requiresNode(data []byte, base bool) (root, key, value *yaml.Node, skip bool, err error) {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	var doc yaml.Node
+	if err := decoder.Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
+		return nil, nil, nil, false, fmt.Errorf("parse config: %w", err)
+	}
+	var extra yaml.Node
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err != nil {
+			return nil, nil, nil, false, fmt.Errorf("parse config: %w", err)
+		}
+		return nil, nil, nil, false, errors.New("cannot update a multi-document config")
+	}
+	if len(doc.Content) == 0 {
+		if !base {
+			return nil, nil, nil, true, nil
+		}
+		return nil, nil, nil, false, errors.New("cannot update an empty config")
+	}
+	root = doc.Content[0]
+	if !base && root.Kind == yaml.ScalarNode && root.Tag == "!!null" {
+		return nil, nil, nil, true, nil
+	}
+	if root.Kind != yaml.MappingNode {
+		return nil, nil, nil, false, errors.New("config must be a mapping")
+	}
+	for i := 0; i < len(root.Content); i += 2 {
+		candidate := root.Content[i]
+		if candidate.Tag == "!!merge" {
+			return nil, nil, nil, false, errors.New("cannot safely update a config with merged root keys")
+		}
+		if candidate.Value == "requires" {
+			if key != nil {
+				return nil, nil, nil, false, errors.New("cannot update duplicate requires keys")
+			}
+			key, value = candidate, root.Content[i+1]
+		}
+	}
+	if key == nil && !base {
+		return nil, nil, nil, true, nil
+	}
+	if root.Style&yaml.FlowStyle != 0 {
+		return nil, nil, nil, false, errors.New("cannot safely update a flow-style config")
+	}
+	return root, key, value, false, nil
+}
+
+// replaceRequiresLine rewrites the requires value on its line in lines
+// and returns the requirement it wrote.
+func replaceRequiresLine(lines []string, key, value *yaml.Node, version string) (string, error) {
+	if value.Kind != yaml.ScalarNode || value.Anchor != "" || key.Anchor != "" || value.Style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0 {
+		return "", errors.New("cannot safely update an anchored or non-scalar requires value")
+	}
+	if value.Line != key.Line && value.Tag != "!!null" {
+		return "", errors.New("cannot safely update a multiline requires scalar")
+	}
+	index := key.Line - 1
+	if index < 0 || index >= len(lines) {
+		return "", errors.New("cannot safely update this config newline style")
+	}
+	line := strings.TrimSuffix(lines[index], "\r")
+	match := requiresLine.FindStringSubmatchIndex(line)
+	if match == nil {
+		return "", errors.New("cannot locate the requires scalar")
+	}
+	start := match[3]
+	end, quote, err := requiresScalarEnd(line, start)
+	if err != nil {
+		return "", err
+	}
+	adopted := AdoptRequirement("", version)
+	if value.Tag == "!!null" {
+		quote = '"'
+	} else {
+		adopted = AdoptRequirement(value.Value, version)
+	}
+	if quote == 0 && strings.HasPrefix(adopted, ">") {
+		// A plain scalar starting with > is a folded block in YAML.
+		quote = '"'
+	}
+	replacement := adopted
+	if quote != 0 {
+		replacement = string(quote) + adopted + string(quote)
+	}
+	if start > 0 && line[start-1] == ':' {
+		replacement = " " + replacement
+	}
+	if start == end && end < len(line) && line[end] == '#' {
+		replacement += " "
+	}
+	lines[index] = line[:start] + replacement + line[end:] + strings.TrimPrefix(lines[index], line)
+	return adopted, nil
+}
+
+// insertRequiresLine adds a requires line above the first root key.
+func insertRequiresLine(lines []string, root *yaml.Node, adopted, newline string) ([]string, error) {
+	index := root.Content[0].Line - 1
+	if index < 0 || index >= len(lines) {
+		return nil, errors.New("cannot safely update this config newline style")
+	}
+	addition := "requires: \"" + adopted + "\"" + strings.TrimSuffix(newline, "\n")
+	return append(lines[:index], append([]string{addition}, lines[index:]...)...), nil
 }
 
 func rewriteRequiresSchema(data []byte, schema string, base bool) []byte {

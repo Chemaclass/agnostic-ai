@@ -121,7 +121,7 @@ func runErrorRecovery(cmd *cobra.Command, original error, requires string, targe
 	}
 	prompt := errorRecoveryPrompt(cmd.CommandPath(), original)
 	for _, target := range targets {
-		label := ""
+		var label string
 		switch target {
 		case "claude":
 			label = "Claude Code"

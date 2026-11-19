@@ -45,6 +45,7 @@ Takes no input.
 - Returns `ok`, absolute `root`, `global`, `ui` (whether the web interface is served), and `version` (as `agnostic-ai --version` prints it). It does not load specs.
 - A global server started in a project adds that project's absolute `projectRoot`.
 - When the config sets [`requires`](@/docs/configuration.md#requires), it adds `requires` as written and `requiresMet`: `true` or `false`, or `null` for a build that is not a release. It reads both on each request.
+- While a conversation list is being read, it adds `scanningSince`: when that read began, in RFC 3339. The companion replaces a server whose read has run for over two minutes.
 
 ## `POST /api/switch`
 

@@ -71,7 +71,7 @@ func buildCLI(dir, ldflags string) (string, error) {
 	build := exec.Command("go", append(args, "-o", binary, "./cmd/agnostic-ai")...)
 	build.Dir = moduleRoot
 	if out, err := build.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build CLI (ldflags %q): %v\n%s", ldflags, err, out)
+		return "", fmt.Errorf("build CLI (ldflags %q): %w\n%s", ldflags, err, out)
 	}
 	return binary, nil
 }

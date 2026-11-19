@@ -53,7 +53,7 @@ func DirectoryAlias(t *testing.T, target, alias string) {
 	if err != nil {
 		t.Fatalf("open directory alias %s: %v", alias, err)
 	}
-	defer windows.CloseHandle(handle)
+	defer func() { _ = windows.CloseHandle(handle) }()
 	var returned uint32
 	if err := windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0], uint32(len(data)), nil, 0, &returned, nil); err != nil {
 		t.Fatalf("create directory junction %s: %v", alias, err)

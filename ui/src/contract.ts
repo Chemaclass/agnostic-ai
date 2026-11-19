@@ -1061,7 +1061,7 @@ export interface ConversationOpenReply {
 //   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 404 when not listed, 413 over 256 KB
 //   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
 //   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
-//   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet? }
+//   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet?, scanningSince? }; scanningSince is when the running conversation read began, set only while one runs
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
 //   POST /api/global/create                               → GlobalCreateReply (body: { git })
 //   POST /api/edit/spec/move                              → SpecMovePreview (body: SpecMoveRequest); 409 { missing, root } when there is no global setup

@@ -64,39 +64,17 @@ func checkProjectLinks(root, path, verb string, parentsOnly, bookkeeping bool) e
 	}
 	allowed := []string{realRoot}
 	if bookkeeping {
-		if splitPath(rel)[0] != SourceBaseDir || len(splitPath(rel)) != 2 {
-			return refuse("refusing to %s %s: not a file directly in %s", verb, path, SourceBaseDir)
-		}
-		if info, err := os.Lstat(clean); err == nil && info.Mode()&fs.ModeSymlink != 0 {
-			target, _ := os.Readlink(clean)
-			return refuse("refusing to %s %s: it is a link to %s", verb, path, target)
-		}
-		source, _, err := resolvePath(filepath.Join(absRoot, SourceBaseDir), "")
+		source, err := bookkeepingSource(absRoot, realRoot, clean, rel, path, verb)
 		if err != nil {
-			return fmt.Errorf("%s %s: %w", verb, path, err)
+			return err
 		}
-		if !isWithin(realRoot, source) {
-			if !holdsSpecs(source) {
-				return refuse("refusing to %s %s: %s is a link to %s, which holds no %s, so it is not a spec folder sync can keep its files in", verb, path, SourceBaseDir, source, specMarker)
-			}
+		if source != "" {
 			allowed = append(allowed, source)
 		}
 	}
-	// Resolve the path as the system will open it: an unclean path such
-	// as `link/../x` goes up from where link points, not from link.
-	raw := path
-	if !filepath.IsAbs(raw) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("%s %s: %w", verb, path, err)
-		}
-		raw = cwd + string(filepath.Separator) + raw
-	}
-	if parentsOnly {
-		raw = strings.TrimRightFunc(raw, func(r rune) bool { return r == '/' || r == filepath.Separator })
-		if i := strings.LastIndexAny(raw, `/`+string(filepath.Separator)); i >= 0 {
-			raw = raw[:i+1]
-		}
+	raw, err := openedPath(path, parentsOnly)
+	if err != nil {
+		return fmt.Errorf("%s %s: %w", verb, path, err)
 	}
 	real, link, err := resolvePath(raw, realRoot)
 	if err != nil {
@@ -116,6 +94,52 @@ func checkProjectLinks(root, path, verb string, parentsOnly, bookkeeping bool) e
 	}
 	name, _ := filepath.Rel(realRoot, link)
 	return refuse("refusing to %s %s: %s is a link, and the path leads to %s, %s", verb, path, name, real, where)
+}
+
+// bookkeepingSource checks a bookkeeping file at clean, rel to the
+// project. It returns the real spec folder when a link puts it outside
+// realRoot, so the file may land there, and empty otherwise.
+func bookkeepingSource(absRoot, realRoot, clean, rel, path, verb string) (string, error) {
+	if splitPath(rel)[0] != SourceBaseDir || len(splitPath(rel)) != 2 {
+		return "", refuse("refusing to %s %s: not a file directly in %s", verb, path, SourceBaseDir)
+	}
+	if info, err := os.Lstat(clean); err == nil && info.Mode()&fs.ModeSymlink != 0 {
+		target, _ := os.Readlink(clean)
+		return "", refuse("refusing to %s %s: it is a link to %s", verb, path, target)
+	}
+	source, _, err := resolvePath(filepath.Join(absRoot, SourceBaseDir), "")
+	if err != nil {
+		return "", fmt.Errorf("%s %s: %w", verb, path, err)
+	}
+	if isWithin(realRoot, source) {
+		return "", nil
+	}
+	if !holdsSpecs(source) {
+		return "", refuse("refusing to %s %s: %s is a link to %s, which holds no %s, so it is not a spec folder sync can keep its files in", verb, path, SourceBaseDir, source, specMarker)
+	}
+	return source, nil
+}
+
+// openedPath spells path as the system will open it: an unclean path
+// such as `link/../x` goes up from where link points, not from link, so
+// it is joined to the working folder without cleaning. parentsOnly
+// keeps only the folders above path.
+func openedPath(path string, parentsOnly bool) (string, error) {
+	raw := path
+	if !filepath.IsAbs(raw) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		raw = cwd + string(filepath.Separator) + raw
+	}
+	if parentsOnly {
+		raw = strings.TrimRightFunc(raw, func(r rune) bool { return r == '/' || r == filepath.Separator })
+		if i := strings.LastIndexAny(raw, `/`+string(filepath.Separator)); i >= 0 {
+			raw = raw[:i+1]
+		}
+	}
+	return raw, nil
 }
 
 // resolvePath returns where path lands once every link along it is

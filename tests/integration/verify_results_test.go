@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -38,7 +39,7 @@ func TestVerify_RecordsAndComparesInstructionChange(t *testing.T) {
 		out, err := cmd.CombinedOutput()
 		code := 0
 		if err != nil {
-			if e, ok := err.(*exec.ExitError); ok {
+			if e, ok := errors.AsType[*exec.ExitError](err); ok {
 				code = e.ExitCode()
 			} else {
 				t.Fatal(err)

@@ -324,7 +324,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 		h.last = h.applied
 		restored, rollback := journal.rollback(h.root)
 		if rollback != nil {
-			return builtinChangeView{}, fmt.Errorf("apply failed: %w; rollback could not restore all files: %v; keep the current files and run agnostic-ai doctor before retrying", err, rollback)
+			return builtinChangeView{}, fmt.Errorf("apply failed: %w; rollback could not restore all files: %w; keep the current files and run agnostic-ai doctor before retrying", err, rollback)
 		}
 		h.refreshUndoAfterRollback(restored)
 		return builtinChangeView{}, fmt.Errorf("apply failed and its file changes were restored: %w", err)
@@ -368,7 +368,7 @@ func (h *builtinChangeHandler) restore(id string) (builtinChangeView, error) {
 	if err != nil {
 		restored, rollback := journal.rollback(h.root)
 		if rollback != nil {
-			return builtinChangeView{}, fmt.Errorf("undo failed: %w; rollback could not restore all files: %v; run agnostic-ai doctor before retrying", err, rollback)
+			return builtinChangeView{}, fmt.Errorf("undo failed: %w; rollback could not restore all files: %w; run agnostic-ai doctor before retrying", err, rollback)
 		}
 		h.refreshUndoAfterRollback(restored)
 		return builtinChangeView{}, fmt.Errorf("undo failed and the applied files were restored: %w", err)

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -106,7 +107,7 @@ func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing
 		t.Fatal(err)
 	}
 	key := filepath.Join(resolvedHome, "hooks.json") + ":pre_tool_use:0:0"
-	trusted := append(config, []byte(fmt.Sprintf("\n[hooks.state.%q]\ntrusted_hash = %q\n", key, hash))...)
+	trusted := append(slices.Clip(config), []byte(fmt.Sprintf("\n[hooks.state.%q]\ntrusted_hash = %q\n", key, hash))...)
 	mustWriteGlobalTest(t, filepath.Join(codexHome, "config.toml"), string(trusted))
 	body, err := os.ReadFile(filepath.Join(codexHome, "hooks.json"))
 	if err != nil {

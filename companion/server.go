@@ -39,6 +39,11 @@ const maxLateReads = 3
 // only a stuck one, as after a sleep, is replaced.
 const healthTimeout = 5 * time.Second
 
+// stuckScanAfter is how long the server's running scan may last before
+// a server that still answers its health is replaced too: each scan
+// waits for the one before, so one that never ends holds every list.
+const stuckScanAfter = 2 * time.Minute
+
 // callTimeout bounds one call to the server. A first scan of a large
 // history takes seconds.
 const callTimeout = 30 * time.Second
@@ -391,7 +396,7 @@ func (s *server) unanswered(base string, listRead bool, caller, limited context.
 	if !stuck {
 		return err
 	}
-	healthy := s.answersHealth(base)
+	healthy := s.servesLists(base)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.base != base {
@@ -401,7 +406,7 @@ func (s *server) unanswered(base string, listRead bool, caller, limited context.
 		s.lateReads = 0
 		return err
 	}
-	log.Printf("agnostic-ai serve answered none of %d list reads in a row, nor its health; starting another", maxLateReads)
+	log.Printf("agnostic-ai serve answered none of %d list reads in a row, and its health did not answer or named a scan running over %s; starting another", maxLateReads, stuckScanAfter)
 	if s.input != nil {
 		_ = s.input.Close()
 	}
@@ -412,9 +417,9 @@ func (s *server) unanswered(base string, listRead bool, caller, limited context.
 	return err
 }
 
-// answersHealth reports whether the server at base answers its health
-// within healthWait.
-func (s *server) answersHealth(base string) bool {
+// servesLists reports whether the server at base answers its health
+// within healthWait, with no scan running past stuckScanAfter.
+func (s *server) servesLists(base string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), s.healthWait)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/health", nil)
@@ -425,8 +430,17 @@ func (s *server) answersHealth(base string) bool {
 	if err != nil {
 		return false
 	}
-	_ = response.Body.Close()
-	return response.StatusCode == http.StatusOK
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		return false
+	}
+	var health struct {
+		ScanningSince time.Time `json:"scanningSince"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<10)).Decode(&health); err != nil {
+		return true
+	}
+	return health.ScanningSince.IsZero() || time.Since(health.ScanningSince) < stuckScanAfter
 }
 
 // unanswered words a call that got no whole answer for the person, and

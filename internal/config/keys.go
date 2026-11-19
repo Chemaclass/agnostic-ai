@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 
@@ -26,27 +25,23 @@ func (e *UnknownKeysError) Error() string { return strings.Join(e.Keys, "\n") }
 
 var unmarshalerType = reflect.TypeFor[yaml.Unmarshaler]()
 
-// unknownKeys reports each key in the YAML file at path that Config does
-// not read, as `path:line: unknown key "a.b"`, with a did-you-mean when a
-// sibling key is close.
-func unknownKeys(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil || len(doc.Content) == 0 {
-		return nil, nil
+// unknownKeys reports each key in f that Config does not read, as
+// `path:line: unknown key "a.b"`, with a did-you-mean when a sibling key
+// is close. A file that is not valid YAML reports nothing.
+func unknownKeys(f *configFile) []string {
+	root := f.root()
+	if root == nil {
+		return nil
 	}
 	var out []string
-	walkKeys(doc.Content[0], reflect.TypeFor[Config](), "", func(n *yaml.Node, key string, known []string) {
-		msg := fmt.Sprintf("%s:%d: unknown key %q", path, n.Line, key)
+	walkKeys(root, reflect.TypeFor[Config](), "", func(n *yaml.Node, key string, known []string) {
+		msg := fmt.Sprintf("%s:%d: unknown key %q", f.path, n.Line, key)
 		if s := suggest.Name(n.Value, known); s != "" {
 			msg += fmt.Sprintf(" (did you mean %s?)", s)
 		}
 		out = append(out, msg)
 	})
-	return out, nil
+	return out
 }
 
 func walkKeys(n *yaml.Node, t reflect.Type, prefix string, unknown func(n *yaml.Node, key string, known []string)) {

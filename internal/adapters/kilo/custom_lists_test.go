@@ -3,6 +3,7 @@ package kilo
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -51,7 +52,7 @@ func TestEmit_XKiloListsMergeWithKeptAndGeneratedEntries(t *testing.T) {
 			if tc.inlined {
 				sess.SetInlinedRules([]spec.Entry{{Kind: spec.KindRule, Name: "r1"}})
 			}
-			entries := append(tc.entries, spec.Entry{Kind: spec.KindSettings, Name: "s", Meta: map[string]any{"x-kilo": tc.custom}})
+			entries := append(slices.Clip(tc.entries), spec.Entry{Kind: spec.KindSettings, Name: "s", Meta: map[string]any{"x-kilo": tc.custom}})
 			if err := New().Emit(sess, spec.NewBundle(entries), tc.cfg, false); err != nil {
 				t.Fatal(err)
 			}

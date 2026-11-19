@@ -47,7 +47,7 @@ func (a app) ingest(m *manifest, path string) (string, error) {
 		return "", fmt.Errorf("parse %s: %w", path, err)
 	}
 	var extra any
-	if err = dec.Decode(&extra); err != io.EOF {
+	if err = dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		return "", fmt.Errorf("parse %s: trailing JSON", path)
 	}
 	if err = a.validateEvidence(m, m.LockBaseline); err != nil {

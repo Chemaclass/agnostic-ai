@@ -849,7 +849,7 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 	cmd.Stderr = &stderr
 	// check-ignore exits 1 when it matches nothing.
 	if err := cmd.Run(); err != nil {
-		if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
+		if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 1 {
 			return nil, fmt.Errorf("git check-ignore: %w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 	}
@@ -959,7 +959,7 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
+		if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 1 {
 			return nil, fmt.Errorf("git check-ignore: %w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 	}

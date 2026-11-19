@@ -508,7 +508,7 @@ func (p specMovePlan) swapFolder(work string) error {
 	}
 	if err := renameMoveUnit(staged, p.dst); err != nil {
 		if undo := renameMoveUnit(old, p.dst); undo != nil {
-			return rollbackError{fmt.Errorf("replace %s: %w; restoring it failed too (%v): the old skill is in %s and the new one in %s", p.dst, err, undo, old, staged)}
+			return rollbackError{fmt.Errorf("replace %s: %w; restoring it failed too (%w): the old skill is in %s and the new one in %s", p.dst, err, undo, old, staged)}
 		}
 		return err
 	}

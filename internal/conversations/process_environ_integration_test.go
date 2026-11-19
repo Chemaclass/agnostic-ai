@@ -5,6 +5,7 @@ package conversations
 import (
 	"os"
 	"os/exec"
+	"slices"
 	"testing"
 	"time"
 )
@@ -21,7 +22,7 @@ func TestClaudeParents_ReadsRealEnvironmentsOnly(t *testing.T) {
 	start := func(env []string, args ...string) int {
 		t.Helper()
 		cmd := exec.Command(os.Args[0], append([]string{"-test.run=^TestHelperProcessSleeps$"}, args...)...)
-		cmd.Env = append(env, "CONVERSATIONS_HELPER_SLEEPS=1")
+		cmd.Env = append(slices.Clip(env), "CONVERSATIONS_HELPER_SLEEPS=1")
 		if err := cmd.Start(); err != nil {
 			t.Fatal(err)
 		}

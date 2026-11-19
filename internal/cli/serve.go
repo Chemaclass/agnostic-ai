@@ -195,6 +195,8 @@ type serveMuxOptions struct {
 func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts serveMuxOptions) http.Handler {
 	switches := muxOpts.switches
 	mux := http.NewServeMux()
+	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
+	opts.ScanningSince = conversationsHandler.scanner.ScanningSince
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", muxOpts.compareInstalled)
 	if opts.Global {
@@ -217,7 +219,6 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
-	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
 	if muxOpts.cloudSessions {
 		conversationsHandler.scanner.Cloud = conversations.NewClaudeCloud()
 		conversationsHandler.scanner.CodexCloud = conversations.NewCodexCloud()

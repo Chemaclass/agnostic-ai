@@ -333,7 +333,7 @@ func noteUnseenScopedKeys(scoped, mapping, native *yaml.Node, dst, key string, k
 			}
 			return p
 		}
-		if rel, err := filepath.Rel(real(wd), real(dst)); err == nil && !strings.HasPrefix(rel, "..") {
+		if rel, inside := pathBelow(real(wd), real(dst)); inside {
 			shown = rel
 		}
 	}

@@ -69,7 +69,7 @@ var cursorFixedMatchValues = map[string]string{
 // the subagent type for the subagent events, and a fixed name for the
 // rest. It is "" for an event Cursor names no matcher value for.
 func cursorMatchValue(event string, doc map[string]any) string {
-	field := ""
+	var field string
 	switch event {
 	case "beforeShellExecution", "afterShellExecution":
 		field = "command"

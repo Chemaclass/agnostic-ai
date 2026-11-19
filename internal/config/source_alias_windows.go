@@ -18,7 +18,7 @@ func ResolveSourceAlias(path string) (string, error) {
 	if err != nil {
 		return "", &fs.PathError{Op: "open", Path: path, Err: err}
 	}
-	defer windows.CloseHandle(handle)
+	defer func() { _ = windows.CloseHandle(handle) }()
 	buf := make([]uint16, 260)
 	for {
 		n, err := windows.GetFinalPathNameByHandle(handle, &buf[0], uint32(len(buf)), 0)

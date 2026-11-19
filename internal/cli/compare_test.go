@@ -273,7 +273,11 @@ func TestCompare_OrdersSpecsAndFieldsStablyAndStatesCoverage(t *testing.T) {
 	if strings.Contains(first, "rules/always.md") {
 		t.Errorf("a rule without scope or activation fields must not be listed:\n%s", first)
 	}
-	reviewer := first[strings.Index(first, "agents/reviewer.md"):]
+	at := strings.Index(first, "agents/reviewer.md")
+	if at < 0 {
+		t.Fatalf("agents/reviewer.md not listed in:\n%s", first)
+	}
+	reviewer := first[at:]
 	if strings.Index(reviewer, "  tools") > strings.Index(reviewer, "  model") {
 		t.Errorf("fields must follow source order:\n%s", reviewer)
 	}

@@ -55,7 +55,10 @@ type HandlerOptions struct {
 	// running build is inside it, on each health request: nil met when
 	// the build is not a release the check can place. An empty requires,
 	// or a nil Requires, leaves both out.
-	Requires       func() (requires string, met *bool)
+	Requires func() (requires string, met *bool)
+	// ScanningSince is when the running conversation scan began, zero
+	// while none runs; nil leaves it out of health.
+	ScanningSince  func() time.Time
 	AllowedOrigins []string
 }
 
@@ -97,6 +100,9 @@ type serverIdentity struct {
 	// requires; RequiresMet is null when the build cannot be placed.
 	Requires    string          `json:"requires,omitempty"`
 	RequiresMet json.RawMessage `json:"requiresMet,omitempty"`
+	// ScanningSince is when the running conversation scan began; empty
+	// while none runs.
+	ScanningSince string `json:"scanningSince,omitempty"`
 }
 
 // endpoint documents one route for the schema endpoint.
@@ -110,7 +116,7 @@ var endpoints = []endpoint{
 	{Method: http.MethodGet, Path: pathView + "?agentId=<id>&target=<tool>", Description: "The Authority view for one subject on one coding tool."},
 	{Method: http.MethodPost, Path: pathImpact, Description: "The impact of a proposed permission change, computed on a copy of the specs; nothing is written."},
 	{Method: http.MethodGet, Path: pathSchema, Description: "The schema version and these endpoints."},
-	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, the config's requires and whether that version meets it, and for a global server the project it started in."},
+	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, the config's requires and whether that version meets it, when the running conversation scan began, and for a global server the project it started in."},
 }
 
 // NewHandler serves the Authority view as JSON, and the built client
@@ -218,6 +224,11 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 			if met != nil {
 				identity.RequiresMet = json.RawMessage(strconv.FormatBool(*met))
 			}
+		}
+	}
+	if h.opts.ScanningSince != nil {
+		if since := h.opts.ScanningSince(); !since.IsZero() {
+			identity.ScanningSince = since.UTC().Format(time.RFC3339)
 		}
 	}
 	writeJSON(w, http.StatusOK, identity)
