@@ -102,6 +102,9 @@ type claudeReplies struct {
 	known bool
 	// pending are the tool calls with no result yet, oldest first.
 	pending []toolCall
+	// subagent reads a subagent's own transcript, whose lines are all
+	// sidechain lines.
+	subagent bool
 }
 
 // waitingCall is the oldest tool call that has no result yet: Claude
@@ -149,7 +152,7 @@ func (block claudeBlock) firstQuestion() string {
 // API errors, placeholder messages and subagent lines are skipped, and a
 // line of any other type is bookkeeping.
 func (r *claudeReplies) visit(line claudeLine) {
-	if line.IsSidechain || line.Message == nil {
+	if (line.IsSidechain && !r.subagent) || line.Message == nil {
 		return
 	}
 	switch line.Type {
@@ -329,6 +332,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	}
 	if ctx.Err() == nil {
 		forget(s.claudeAgentMetas, seenMetas)
+		forget(s.claudeAgentReplies, seenMetas)
 	}
 	s.rolloutsMu.Lock()
 	s.claudeWorkerFiles = workerFiles
@@ -469,8 +473,14 @@ func lookBack(path string, size int64) (lines []byte, ok bool) {
 }
 
 func eachClaudeLine(data []byte, visit func(claudeLine)) {
+	eachClaudeLineWithout(data, nil, visit)
+}
+
+// eachClaudeLineWithout visits the lines that do not hold skip, which
+// are never decoded.
+func eachClaudeLineWithout(data, skip []byte, visit func(claudeLine)) {
 	for _, raw := range bytes.Split(data, []byte("\n")) {
-		if len(bytes.TrimSpace(raw)) == 0 {
+		if len(bytes.TrimSpace(raw)) == 0 || (skip != nil && bytes.Contains(raw, skip)) {
 			continue
 		}
 		var line claudeLine

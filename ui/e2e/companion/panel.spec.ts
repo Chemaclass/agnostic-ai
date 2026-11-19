@@ -1135,6 +1135,10 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   await expect(helpers).toHaveCount(5)
   await expect(helpers.locator('.title')).toHaveText(['Find rename call sites', 'Size budget check', 'Review #3511: local app chats', 'Review #3512: rename in each app', 'Helper rows design'])
   await expect(helpers.locator('.meta')).toHaveText(['Claude Code · Explore · 1m', 'Claude Code · 1m', 'Codex · 2m', 'Codex · 4m', 'Claude Code · Plan · 6m'])
+  // A subagent's latest message sits between its title and its details; one that wrote none has no line.
+  await expect(helpers.first().locator('.text > *')).toHaveClass(['title', 'reply', 'meta'])
+  await expect(helpers.first().locator('.reply')).toHaveText('Twelve call sites so far, most in internal/cli.')
+  await expect(helpers.locator('.reply')).toHaveCount(1)
   await expect(helpers.locator('.state.is-working > .work-system')).toHaveCount(5)
   // Subagents never become rows of their own.
   await expect(page.getByRole('option')).toHaveCount(2)

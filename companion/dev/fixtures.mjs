@@ -212,7 +212,7 @@ export const FIXTURES = {
           workingSubagents: 4,
           helpers: [
             helper('codex', 'run-3511', 'Review #3511: local app chats', 2),
-            helper('claude', 'agent-explore', 'Find rename call sites', 1, 'Explore'),
+            { ...helper('claude', 'agent-explore', 'Find rename call sites', 1, 'Explore'), reply: 'Twelve call sites so far, most in internal/cli.' },
             helper('claude', 'agent-size', 'Size budget check', 1, 'general-purpose'),
             helper('codex', 'run-3512', 'Review #3512: rename in each app', 4),
             helper('claude', 'agent-plan', 'Helper rows design', 6, 'Plan'),

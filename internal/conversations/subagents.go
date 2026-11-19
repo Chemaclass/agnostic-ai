@@ -408,6 +408,57 @@ func (s *Scanner) claudeAgentMetaOf(path string) claudeAgentMeta {
 	return meta
 }
 
+// claudeAgentReplyOf is a subagent's latest message, read from the end
+// of its transcript and kept until the file changes. Every line of a
+// subagent's own transcript is a sidechain line.
+func (s *Scanner) claudeAgentReplyOf(path string) string {
+	stamp := fileStamp(path)
+	if kept, ok := s.claudeAgentReplies[path]; ok && kept.stamp == stamp {
+		return kept.value
+	}
+	reply := readClaudeAgentReply(path)
+	if s.claudeAgentReplies == nil {
+		s.claudeAgentReplies = map[string]cached[string]{}
+	}
+	s.claudeAgentReplies[path] = cached[string]{stamp: stamp, value: reply}
+	return reply
+}
+
+// toolResultToken marks a line that holds a tool result. Quotes inside
+// a JSON string are escaped, so only the structure itself holds it. A
+// tool result never changes the reply, and a large one is the costly
+// part of a subagent transcript to decode.
+var toolResultToken = []byte(`"tool_result"`)
+
+// readClaudeAgentReply reads the last claudeWindow bytes of a subagent
+// transcript, and the last claudeReplyWindow when those hold neither a
+// prompt nor a message, as after a large tool result.
+func readClaudeAgentReply(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return ""
+	}
+	var replies claudeReplies
+	for _, window := range []int64{claudeWindow, claudeReplyWindow} {
+		tail, err := readTail(f, info.Size(), window)
+		if err != nil {
+			return ""
+		}
+		replies = claudeReplies{subagent: true}
+		eachClaudeLineWithout(tail, toolResultToken, replies.visit)
+		if replies.known || window >= info.Size() {
+			break
+		}
+	}
+	reply, _ := agentSaid(replies.message, replies.message, "")
+	return reply
+}
+
 // claudeHelpers lists a live session's native subagents that work, from
 // its subagents folder: those work names working, and those whose
 // spawning call work names as waiting for its result. A finished one is
@@ -439,9 +490,12 @@ func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]b
 		if !working {
 			continue
 		}
+		transcript := filepath.Join(dir, entry.Name())
+		seen[transcript] = true
 		helpers = append(helpers, helper{
 			Tool: ToolClaude, ID: id, Kind: meta.AgentType, State: helperWorking,
 			Title:     s.helperTitle(meta.Description, ""),
+			Reply:     s.shown.get(texts{reply: s.claudeAgentReplyOf(transcript)}).reply,
 			UpdatedAt: stamp(info.ModTime()),
 		})
 	}

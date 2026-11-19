@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -512,5 +513,35 @@ func TestSubagentReply_KeepsTheOpenMessageAndPointsAtTheAgentRowsOnlyInATerminal
 				t.Errorf("reply = %q, helper %v", reply.Message, reply.Helper)
 			}
 		})
+	}
+}
+
+func TestClaudeHelpers_CarryTheSubagentsLatestMessageAsItsReply(t *testing.T) {
+	scanner, stores := testScanner(t, nil, fakeProcesses{})
+	file := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari+".jsonl")
+	dir := claudeSubagentsDir(file)
+	write(t, file, "")
+	own := func(line obj) obj { line["isSidechain"] = true; return line }
+	transcripts := map[string][]any{
+		"talks":  {own(typedPrompt("Find the call sites")), own(agentLine(textPart("Looking in internal/cli first."))), own(agentLine(obj{"type": "tool_use", "id": "t1", "name": "Grep"})), own(toolResultLine("12 matches"))},
+		"secret": {own(typedPrompt("Log in")), own(agentLine(textPart("I logged in with password hunter2.")))},
+		"silent": {own(typedPrompt("Size the budget")), own(agentLine(obj{"type": "tool_use", "id": "t2", "name": "Read"}))},
+	}
+	for id, transcript := range transcripts {
+		write(t, filepath.Join(dir, "agent-"+id+".jsonl"), lines(transcript...))
+		write(t, filepath.Join(dir, "agent-"+id+".meta.json"), `{"agentType":"Explore","description":"`+id+`","toolUseId":"call-`+id+`"}`)
+		appendWorkerEvent(t, file, workerDispatch("call-"+id))
+	}
+	started, _ := time.Parse(time.RFC3339, workerTime)
+	work, _ := scanner.claudeWorkOf(file, liveSession{startedAt: started.Add(-time.Minute).UnixMilli()})
+
+	replies := map[string]string{}
+	for _, h := range scanner.claudeHelpers(file, work, map[string]bool{}) {
+		replies[h.ID] = h.Reply
+	}
+
+	want := map[string]string{"talks": "Looking in internal/cli first.", "secret": "", "silent": ""}
+	if !maps.Equal(replies, want) {
+		t.Errorf("each subagent's latest message, withheld when it may hold a credential, none before it wrote one: %v", replies)
 	}
 }
