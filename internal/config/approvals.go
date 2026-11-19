@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -39,14 +40,20 @@ const ApprovalsFromDefault = "default"
 type ApprovalsConfig struct {
 	Mode      string            `yaml:"mode,omitempty"       json:"mode,omitempty"       jsonschema:"enum=ask,enum=review,enum=yolo" jsonschema_description:"What happens when a tool wants permission: ask (default) shows the tool's prompt; review lets the tool's own reviewer model decide; yolo approves one call at a time unless a fixed always-ask rule matches. review and yolo are read only from $AGNOSTIC_AI_HOME/agnostic-ai.yaml or its local/ file; a project file may set ask only."`
 	Tools     map[string]string `yaml:"tools,omitempty"      json:"tools,omitempty"      jsonschema_description:"Mode per tool, by target name. Replaces mode. Home config only."`
-	Projects  map[string]string `yaml:"projects,omitempty"   json:"projects,omitempty"   jsonschema_description:"Mode per project folder; ~ means the home folder. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."`
-	AlwaysAsk []string          `yaml:"always-ask,omitempty" json:"always-ask,omitempty" jsonschema_description:"Extra patterns that always show the prompt, added to the fixed list. Home config only."`
+	Projects  map[string]string `yaml:"projects,omitempty"   json:"projects,omitempty"   jsonschema_description:"Mode per project folder, an absolute path or one under ~. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."`
+	AlwaysAsk []string          `yaml:"always-ask,omitempty" json:"always-ask,omitempty" jsonschema_description:"Extra patterns that always show the prompt, added to the fixed list. The patterns of both home files add up. Home config only."`
 }
 
-// Validate rejects a mode outside ApprovalModes.
+// Validate rejects a mode outside ApprovalModes and a projects key that
+// is not an absolute path or one under ~.
 func (a ApprovalsConfig) Validate(source string) error {
 	if err := validApprovalMode(source, "approvals.mode", a.Mode); err != nil {
 		return err
+	}
+	for key := range a.Projects {
+		if _, ok := projectKeyPath(key, "/"); !ok {
+			return errs.Coded(errs.CodeConfigDecode, "%s: approvals.projects: %q is not an absolute path or one under ~", source, key)
+		}
 	}
 	for _, field := range []struct {
 		name   string
@@ -93,9 +100,10 @@ type ApprovalDecision struct {
 
 // Resolve returns the mode for tool in dir, strictest source first: the
 // environment, a project file, projects, tools, mode. A value outside
-// ApprovalModes reads as ask.
+// ApprovalModes reads as ask. Any value of the environment variable asks:
+// it can only tighten.
 func (p ApprovalsPolicy) Resolve(tool, dir string) ApprovalDecision {
-	if p.Env == ApprovalsAsk {
+	if strings.TrimSpace(p.Env) != "" {
 		return ApprovalDecision{ApprovalsAsk, EnvApprovals}
 	}
 	if p.ProjectAsk != "" {
@@ -120,26 +128,47 @@ func checkedDecision(mode, from string) ApprovalDecision {
 	return ApprovalDecision{mode, from}
 }
 
-// project returns the deepest projects key that holds dir.
+// project returns the deepest projects key that holds dir. Two keys for
+// one folder resolve to the stricter mode.
 func (p ApprovalsPolicy) project(dir string) (key, mode string, ok bool) {
 	dir = realPath(dir)
 	best := -1
 	for k, m := range p.Home.Projects {
-		path := k
-		if p.UserHome != "" && (path == "~" || strings.HasPrefix(path, "~/")) {
-			path = filepath.Join(p.UserHome, strings.TrimPrefix(path, "~"))
-		}
-		path = filepath.FromSlash(path)
-		if !filepath.IsAbs(path) && !strings.HasPrefix(path, string(filepath.Separator)) {
+		path, valid := projectKeyPath(k, p.UserHome)
+		if !valid {
 			continue
 		}
 		path = realPath(path)
-		if !pathHolds(path, dir) || len(path) < best || (len(path) == best && k > key) {
+		if !pathHolds(path, dir) || len(path) < best {
+			continue
+		}
+		if len(path) == best && (strictness(m) > strictness(mode) || (strictness(m) == strictness(mode) && k > key)) {
 			continue
 		}
 		key, mode, ok, best = k, m, true, len(path)
 	}
 	return key, mode, ok
+}
+
+// strictness ranks ask first; an unknown mode reads as ask.
+func strictness(mode string) int {
+	if i := slices.Index(ApprovalModes, mode); i >= 0 {
+		return i
+	}
+	return 0
+}
+
+// projectKeyPath is a projects key as a path: ~ expands to userHome.
+// ok is false for a relative key.
+func projectKeyPath(key, userHome string) (string, bool) {
+	if key == "~" || strings.HasPrefix(key, "~/") || strings.HasPrefix(key, `~\`) {
+		if userHome == "" {
+			return "", false
+		}
+		return filepath.Join(userHome, filepath.FromSlash(key[1:])), true
+	}
+	path := filepath.FromSlash(key)
+	return path, filepath.IsAbs(path) || strings.HasPrefix(path, string(filepath.Separator))
 }
 
 // realPath is path with symlinks resolved, or cleaned when it does not
@@ -151,15 +180,26 @@ func realPath(path string) string {
 	return filepath.Clean(path)
 }
 
+// pathHolds reports whether path is root or inside it. macOS and Windows
+// disks ignore case by default, so there a key matches in any case.
 func pathHolds(root, path string) bool {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		root, path = strings.ToLower(root), strings.ToLower(path)
+	}
 	rel, err := filepath.Rel(root, path)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 // LoadHomeApprovals reads the approvals block of the home config in
-// source. A block in local/agnostic-ai.yaml replaces the shared one whole.
+// source. A block in local/agnostic-ai.yaml replaces the shared one whole,
+// except always-ask, whose patterns add up. A relative source is refused:
+// it would read a file in whatever folder the session runs in.
 func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
+	if !filepath.IsAbs(source) {
+		return ApprovalsConfig{}, fmt.Errorf("approvals: the home folder %q is not an absolute path", source)
+	}
 	var out ApprovalsConfig
+	var alwaysAsk []string
 	for _, path := range []string{filepath.Join(source, ConfigFileName), filepath.Join(source, "local", ConfigFileName)} {
 		node, err := approvalsNode(path)
 		if err != nil {
@@ -184,7 +224,9 @@ func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
 			return ApprovalsConfig{}, err
 		}
 		out = block
+		alwaysAsk = append(alwaysAsk, block.AlwaysAsk...)
 	}
+	out.AlwaysAsk = alwaysAsk
 	return out, nil
 }
 
@@ -214,12 +256,22 @@ var projectConfigNames = []string{ConfigFileName, LegacyConfigFileName, LocalOve
 
 // ProjectApprovalsAsk returns the first project file in dir or a parent
 // folder that sets approvals.mode: ask, or "" when none does. Any other
-// value is ignored: a project file cannot loosen.
+// value is ignored: a project file cannot loosen. Both the path as given
+// and the path with links resolved are walked.
 func ProjectApprovalsAsk(dir string) (string, error) {
-	dir, err := filepath.Abs(dir)
+	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", dir, err)
 	}
+	for _, start := range []string{abs, realPath(abs)} {
+		if path, err := projectAskFrom(start); path != "" || err != nil {
+			return path, err
+		}
+	}
+	return "", nil
+}
+
+func projectAskFrom(dir string) (string, error) {
 	for {
 		for _, name := range projectConfigNames {
 			path := filepath.Join(dir, name)
@@ -240,15 +292,26 @@ func ProjectApprovalsAsk(dir string) (string, error) {
 }
 
 func approvalsModeOf(node *yaml.Node) string {
-	if node == nil || node.Kind != yaml.MappingNode {
+	if node == nil {
+		return ""
+	}
+	if node.Kind == yaml.ScalarNode {
+		return normalizedMode(node.Value)
+	}
+	if node.Kind != yaml.MappingNode {
 		return ""
 	}
 	for i := 0; i+1 < len(node.Content); i += 2 {
-		if node.Content[i].Value == "mode" && node.Content[i+1].Kind == yaml.ScalarNode {
-			return node.Content[i+1].Value
+		if strings.EqualFold(node.Content[i].Value, "mode") && node.Content[i+1].Kind == yaml.ScalarNode {
+			return normalizedMode(node.Content[i+1].Value)
 		}
 	}
 	return ""
+}
+
+// normalizedMode reads a project file's near miss of ask, such as Ask, as ask.
+func normalizedMode(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 // ApprovalsIssue is a project file key that would loosen approvals.

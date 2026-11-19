@@ -208,10 +208,11 @@ approvals:
 ```
 
 - `review` and `yolo` are read only from the home config. A cloned repository, a pull request, or the agent itself can write a project's files, so a project's `agnostic-ai.yaml` or `agnostic-ai.local.yaml` may set `approvals.mode: ask` and nothing else. Any other `approvals` key there is ignored, and `validate` and `lint` report it as [LINT064](@/docs/cli-reference/lint-codes.md).
-- An `approvals` block in `local/agnostic-ai.yaml` replaces the shared block whole.
-- In `projects`, `~` is the home folder, and the deepest folder that holds the session wins.
-- The strictest source wins, in this order: `AGNOSTIC_AI_APPROVALS=ask` in the session's environment, a project file that says `ask`, `projects`, `tools`, `mode`. The environment variable honors only `ask`.
-- A config without `approvals` behaves as `ask`.
+- An `approvals` block in `local/agnostic-ai.yaml` replaces the shared block whole, except `always-ask`: the patterns of both files add up.
+- A `projects` key is an absolute path or one under `~`, the home folder. The deepest folder that holds the session wins; links are resolved, and on macOS and Windows case is ignored. Two keys for one folder take the stricter mode.
+- The strictest source wins, in this order: `AGNOSTIC_AI_APPROVALS=ask` in the session's environment, a project file that says `ask`, `projects`, `tools`, `mode`. Any value of the environment variable means `ask`: it can only tighten.
+- A config without `approvals` behaves as `ask`. `$AGNOSTIC_AI_HOME` must be an absolute path for approvals to read it.
+- No tool carries out `review` or `yolo` yet: [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) shows each tool falling back to `ask`.
 
 Run [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) to see the mode and route per tool, and [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) to show every prompt again.
 

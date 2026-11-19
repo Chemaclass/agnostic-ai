@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -35,7 +36,7 @@ func TestApprovalsPolicy_ResolveOrder(t *testing.T) {
 		{"a sibling folder is not inside", ApprovalsPolicy{Home: home, UserHome: "/u"}, "claude", "/u/Code/sandbox2", ApprovalDecision{ApprovalsAsk, "approvals.tools.claude"}},
 		{"project file says ask", ApprovalsPolicy{Home: home, UserHome: "/u", ProjectAsk: "/u/Code/sandbox/agnostic-ai.yaml"}, "codex", "/u/Code/sandbox", ApprovalDecision{ApprovalsAsk, "/u/Code/sandbox/agnostic-ai.yaml"}},
 		{"environment says ask", ApprovalsPolicy{Home: home, UserHome: "/u", Env: "ask"}, "codex", "/u/Code/sandbox", ApprovalDecision{ApprovalsAsk, EnvApprovals}},
-		{"environment cannot loosen", ApprovalsPolicy{Home: ApprovalsConfig{}, Env: "yolo"}, "codex", "/work/app", ApprovalDecision{ApprovalsAsk, ApprovalsFromDefault}},
+		{"any environment value asks", ApprovalsPolicy{Home: home, Env: "yolo"}, "codex", "/work/app", ApprovalDecision{ApprovalsAsk, EnvApprovals}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -211,5 +212,95 @@ func TestLoad_RejectsUnknownApprovalsMode(t *testing.T) {
 
 	if err == nil || !strings.Contains(err.Error(), "approvals.mode") {
 		t.Fatalf("got %v, want an approvals.mode error", err)
+	}
+}
+
+func TestApprovalsPolicy_SameFolderTwiceTakesTheStricterMode(t *testing.T) {
+	policy := ApprovalsPolicy{UserHome: "/u", Home: ApprovalsConfig{Projects: map[string]string{
+		"/u/Code/x": ApprovalsYolo,
+		"~/Code/x":  ApprovalsAsk,
+		"~/Code/x/": ApprovalsReview,
+	}}}
+
+	if got := policy.Resolve("claude", filepath.FromSlash("/u/Code/x/app")); got.Mode != ApprovalsAsk {
+		t.Fatalf("got %+v, want ask", got)
+	}
+}
+
+func TestApprovalsConfig_RejectsARelativeProjectKey(t *testing.T) {
+	err := ApprovalsConfig{Projects: map[string]string{"Code/work": ApprovalsAsk}}.Validate("home")
+
+	if err == nil || !strings.Contains(err.Error(), "Code/work") {
+		t.Fatalf("got %v, want an error naming the key", err)
+	}
+}
+
+func TestLoadHomeApprovals_RefusesARelativeHome(t *testing.T) {
+	if _, err := LoadHomeApprovals(".cfg"); err == nil {
+		t.Fatal("a relative home loaded")
+	}
+}
+
+func TestLoadHomeApprovals_AlwaysAskAddsUp(t *testing.T) {
+	source := t.TempDir()
+	writeApprovalsFile(t, filepath.Join(source, ConfigFileName), "approvals:\n  always-ask: [\"Bash(make deploy*)\"]\n")
+	writeApprovalsFile(t, filepath.Join(source, "local", ConfigFileName), "approvals:\n  mode: yolo\n  always-ask: [\"Bash(make release*)\"]\n")
+
+	got, err := LoadHomeApprovals(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got.AlwaysAsk) != 2 || got.Mode != ApprovalsYolo {
+		t.Fatalf("got %+v, want both patterns and the local mode", got)
+	}
+}
+
+func TestProjectApprovalsAsk_FollowsALinkedFolder(t *testing.T) {
+	team := t.TempDir()
+	writeApprovalsFile(t, filepath.Join(team, ConfigFileName), "version: 1\napprovals:\n  mode: ask\n")
+	sub := filepath.Join(team, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(sub, link); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+
+	got, err := ProjectApprovalsAsk(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got == "" {
+		t.Fatal("a linked folder missed the project's ask")
+	}
+}
+
+func TestProjectApprovalsAsk_ReadsNearMisses(t *testing.T) {
+	for _, body := range []string{"approvals: ask\n", "approvals:\n  mode: Ask\n"} {
+		root := t.TempDir()
+		writeApprovalsFile(t, filepath.Join(root, LocalOverrideFileName), body)
+
+		got, err := ProjectApprovalsAsk(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got == "" {
+			t.Errorf("%q: not read as ask", body)
+		}
+	}
+}
+
+func TestApprovalsPolicy_ProjectKeyIgnoresCaseWhereTheDiskDoes(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		t.Skip("case-sensitive disk")
+	}
+	policy := ApprovalsPolicy{Home: ApprovalsConfig{Mode: ApprovalsYolo, Projects: map[string]string{filepath.FromSlash("/u/Code/Work"): ApprovalsAsk}}}
+
+	if got := policy.Resolve("claude", filepath.FromSlash("/u/code/work/sub")); got.Mode != ApprovalsAsk {
+		t.Fatalf("got %+v, want ask", got)
 	}
 }

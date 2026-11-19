@@ -69,6 +69,12 @@ func TestApprovalsStatus_DefaultIsAsk(t *testing.T) {
 }
 
 func TestApprovalsStatus_RoutePerTool(t *testing.T) {
+	saved := approvalRoutes
+	t.Cleanup(func() { approvalRoutes = saved })
+	approvalRoutes = map[string]map[string]string{
+		"claude": {config.ApprovalsYolo: "PermissionRequest hook"},
+		"codex":  {config.ApprovalsReview: "Codex Auto-review"},
+	}
 	approvalsHome(t, "version: 1\ntargets: [claude, codex, cursor]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
 
 	got := approvalsStatusJSON(t)
@@ -129,6 +135,9 @@ func TestApprovalsStatus_ProjectFileCannotLoosen(t *testing.T) {
 }
 
 func TestApprovalsAsk_WritesTheLocalHomeConfig(t *testing.T) {
+	saved := approvalRoutes
+	t.Cleanup(func() { approvalRoutes = saved })
+	approvalRoutes = map[string]map[string]string{"codex": {config.ApprovalsReview: "Codex Auto-review"}}
 	source := approvalsHome(t, "version: 1\ntargets: [claude, codex]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
 	local := filepath.Join(source, "local", config.ConfigFileName)
 	mustWriteFile(t, local, "# mine\nmodels:\n  fast:\n    claude: haiku\napprovals:\n  tools:\n    codex: review\n  projects:\n    /tmp/x: yolo\n  always-ask:\n    - \"Bash(make deploy*)\"\n")
@@ -231,5 +240,61 @@ func TestValidate_SkipsApprovalsCheckInTheHomeConfig(t *testing.T) {
 
 	if out, err := runCLI(t, "validate"); err != nil {
 		t.Fatalf("validate in the home folder: %v\n%s", err, out)
+	}
+}
+
+func TestApprovalsAsk_WritesDespiteABrokenConfig(t *testing.T) {
+	source := approvalsHome(t, "version: 1\napprovals:\n  mode: yollo\n")
+
+	if out, err := runCLI(t, "approvals", "ask"); err != nil {
+		t.Fatalf("approvals ask: %v\n%s", err, out)
+	}
+
+	data, err := os.ReadFile(filepath.Join(source, "local", config.ConfigFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "approvals:\n  mode: ask\n" {
+		t.Errorf("got:\n%s", data)
+	}
+}
+
+func TestApprovalsAskYAML(t *testing.T) {
+	cases := map[string]struct{ in, want, err string }{
+		"comments only":  {in: "# mine\n", want: "# mine\napprovals:\n  mode: ask\n"},
+		"document start": {in: "---\n", want: "---\napprovals:\n  mode: ask\n"},
+		"no newline":     {in: "targets: [claude]", want: "targets: [claude]\napprovals:\n  mode: ask\n"},
+		"flow mapping":   {in: "{targets: [claude]}\n", want: "{targets: [claude], approvals: {mode: ask}}\n"},
+		"two documents":  {in: "targets: [claude]\n---\nother: 1\n", err: "more than one YAML document"},
+		"an anchor":      {in: "approvals: &a {mode: yolo}\nmodels: {x: *a}\n", err: "anchor"},
+		"a list":         {in: "- a\n", err: "not a mapping"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := approvalsAskYAML([]byte(c.in))
+			if c.err != "" {
+				if err == nil || !strings.Contains(err.Error(), c.err) {
+					t.Fatalf("got %v, want an error with %q", err, c.err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != c.want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, c.want)
+			}
+		})
+	}
+}
+
+func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
+	source := approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yollo\n")
+	mustWriteFile(t, filepath.Join(source, "rules", "style.md"), "Be brief.\n")
+
+	out, err := runCLI(t, "validate", "--global")
+
+	if err == nil || !strings.Contains(out, "yollo") {
+		t.Fatalf("validate --global passed or did not name the value: %v\n%s", err, out)
 	}
 }

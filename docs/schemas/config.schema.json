@@ -26,14 +26,14 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Mode per project folder; ~ means the home folder. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."
+          "description": "Mode per project folder, an absolute path or one under ~. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."
         },
         "always-ask": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Extra patterns that always show the prompt, added to the fixed list. Home config only."
+          "description": "Extra patterns that always show the prompt, added to the fixed list. The patterns of both home files add up. Home config only."
         }
       },
       "additionalProperties": false,

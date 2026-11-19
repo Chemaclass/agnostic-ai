@@ -9,20 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // approvalRoutes names how each tool carries out a loosening mode. A
 // tool or mode missing here has no safe route and falls back to ask.
-var approvalRoutes = map[string]map[string]string{
-	"claude": {config.ApprovalsReview: "Claude Code auto mode", config.ApprovalsYolo: "PermissionRequest hook"},
-	"codex":  {config.ApprovalsReview: "Codex Auto-review", config.ApprovalsYolo: "PermissionRequest hook"},
-}
+var approvalRoutes = map[string]map[string]string{}
 
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
@@ -84,10 +83,9 @@ func newApprovalsAskCmd() *cobra.Command {
 			"one, so no tool or project keeps review or yolo; its always-ask patterns stay. It needs no sync.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			before, err := readApprovalsStatus(io.Discard)
-			if err != nil {
-				return err
-			}
+			// A broken config must not block the switch off, so a failed
+			// read only drops the reviewer note.
+			before, _ := readApprovalsStatus(io.Discard)
 			source, err := globalSourceRoot()
 			if err != nil {
 				return err
@@ -178,54 +176,85 @@ func writeApprovalsAsk(path string) error {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
+	out, err := approvalsAskYAML(data)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
+	}
+	if err := atomicfile.Write(path, out, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
+const approvalsAskBlock = "approvals:\n  mode: ask\n"
+
+// approvalsAskYAML is data with approvals.mode: ask. A file without an
+// approvals block gets one appended as text, so its layout stays.
+func approvalsAskYAML(data []byte) ([]byte, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
 	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("parse %s: %w", path, err)
+	if err := dec.Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("parse: %w", err)
 	}
-	if doc.Kind == 0 {
-		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}}
+	var extra yaml.Node
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, errors.New("holds more than one YAML document; set approvals.mode: ask by hand")
 	}
-	root := doc.Content[0]
-	if root.Kind != yaml.MappingNode {
-		return fmt.Errorf("%s: the file is not a mapping of keys", path)
+	var root *yaml.Node
+	if len(doc.Content) > 0 && doc.Content[0].Tag != "!!null" {
+		root = doc.Content[0]
+		if root.Kind != yaml.MappingNode {
+			return nil, errors.New("is not a mapping of keys")
+		}
+	}
+	index := -1
+	if root != nil {
+		for i := 0; i+1 < len(root.Content); i += 2 {
+			if root.Content[i].Value == "approvals" {
+				index = i + 1
+			}
+		}
+	}
+	if index < 0 && (root == nil || root.Style&yaml.FlowStyle == 0) {
+		text := string(data)
+		if text != "" && !strings.HasSuffix(text, "\n") {
+			text += "\n"
+		}
+		return []byte(text + approvalsAskBlock), nil
 	}
 	block := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
 		{Kind: yaml.ScalarNode, Tag: "!!str", Value: "mode"},
 		{Kind: yaml.ScalarNode, Tag: "!!str", Value: config.ApprovalsAsk},
 	}}
-	found := false
-	for i := 0; i+1 < len(root.Content); i += 2 {
-		if root.Content[i].Value != "approvals" {
-			continue
+	if index < 0 {
+		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "approvals"}, block)
+	} else {
+		old := root.Content[index]
+		if old.Anchor != "" {
+			return nil, fmt.Errorf("approvals carries the YAML anchor &%s; set approvals.mode: ask by hand", old.Anchor)
 		}
-		if old := root.Content[i+1]; old.Kind == yaml.MappingNode {
+		if old.Kind == yaml.MappingNode {
 			for j := 0; j+1 < len(old.Content); j += 2 {
 				if old.Content[j].Value == "always-ask" {
 					block.Content = append(block.Content, old.Content[j], old.Content[j+1])
 				}
 			}
 		}
-		root.Content[i+1], found = block, true
-	}
-	if !found {
-		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "approvals"}, block)
+		root.Content[index] = block
 	}
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 	if err := enc.Encode(&doc); err != nil {
-		return fmt.Errorf("encode %s: %w", path, err)
+		return nil, fmt.Errorf("encode: %w", err)
 	}
 	if err := enc.Close(); err != nil {
-		return fmt.Errorf("encode %s: %w", path, err)
+		return nil, fmt.Errorf("encode: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
+	return buf.Bytes(), nil
 }
 
 // projectApprovalsIssues reports approvals keys in the project files at
