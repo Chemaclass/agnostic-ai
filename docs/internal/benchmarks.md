@@ -269,3 +269,19 @@ Measured the same day, `-count 6 -cpu 4`, in milliseconds per scan:
 | 11.5 | 7.7 | 7.4 |
 
 A first `listTree` that ran `filepath.Match` on every name and joined every path took 11.6 ms. `cursor-agent` chat stores use the same walk.
+
+## Stamping the stores for a search
+
+`BenchmarkSearchFirstPage_CursorAgentChats` in `internal/conversations/cursor_agent_bench_test.go` times one first-page search request over 2,000 `cursor-agent` chats, on a scanner that already read them once:
+
+- `status_quo`: `Stamp` for the list tag, then `Scan`, which globs and stats every store file again for its search key.
+- `proposed`: `TakeStamp` for the list tag, then `ScanStamped`, which keys the search on that stamp. This is what the server uses since [#3623](https://github.com/Chemaclass/agnostic-ai/issues/3623).
+- `direct`: `Scan` alone with no tag, the floor of any stamp sharing.
+
+Measured 2026-11-19 on an Apple M4 Pro, `-benchtime 20x -count 6`, on a busy machine, in milliseconds per request:
+
+| status_quo | proposed | direct |
+|---:|---:|---:|
+| 380 | 311 | 303 |
+
+The search still stamps the store files once after its read, to catch a write made during it. A new scanner per request reads every store cold, about 14 seconds here, which `BenchmarkScan_CursorAgentChats/uncached` already times.

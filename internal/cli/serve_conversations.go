@@ -176,21 +176,22 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// The tag is taken before the scan. A scan that itself writes the
 	// marks then changes the stamp, and the caller's next question gets
 	// one more scan instead of a list that missed a write made meanwhile.
-	tag := h.listTag(r)
+	stamp := h.scanner.TakeStamp()
+	tag := listTag(stamp.Tag, r)
 	w.Header().Set("ETag", tag)
 	if r.Header.Get("If-None-Match") == tag {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	writeEditJSON(w, http.StatusOK, h.scanner.Scan(r.Context(), opts))
+	writeEditJSON(w, http.StatusOK, h.scanner.ScanStamped(r.Context(), opts, stamp))
 }
 
 // listTag names what a list request would answer: it changes when a
 // scan could answer differently (conversations.Scanner.Stamp) or the
 // request asks for something else. A caller that polls sends it back as
 // If-None-Match and gets 304 without a scan while it holds.
-func (h *conversationsHandler) listTag(r *http.Request) string {
-	sum := sha256.Sum256([]byte(h.scanner.Stamp() + "\x00" + r.URL.RawQuery))
+func listTag(stamp string, r *http.Request) string {
+	sum := sha256.Sum256([]byte(stamp + "\x00" + r.URL.RawQuery))
 	return `"` + hex.EncodeToString(sum[:16]) + `"`
 }
 

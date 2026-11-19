@@ -186,11 +186,23 @@ type ScanOptions struct {
 // past weeks with no conversation, so a page is never empty while older
 // ones remain. View.Next asks for the following page.
 func (s *Scanner) Scan(ctx context.Context, opts ScanOptions) View {
+	return s.scan(ctx, opts, nil)
+}
+
+// ScanStamped is Scan for a caller that took stamp just before. A
+// search keys its read on stamp instead of stamping the stores again,
+// so its rows are as fresh as stamp: a write made after it shows on
+// the next request, whose stamp differs.
+func (s *Scanner) ScanStamped(ctx context.Context, opts ScanOptions, stamp StoreStamp) View {
+	return s.scan(ctx, opts, &stamp)
+}
+
+func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp) View {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	words := queryWords(opts.Query)
 	first := opts.Before.IsZero()
-	read, kept := s.searchRead(ctx, opts, words, first)
+	read, kept := s.searchRead(ctx, opts, words, first, stamp)
 	if !kept {
 		defer s.shown.finish()
 	}
@@ -255,7 +267,7 @@ type keptSearch struct {
 // leaves the shown texts cache alone: one week's texts could replace a
 // large store's. Otherwise searchRead starts that cache and the caller
 // finishes it.
-func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []string, first bool) (read keptSearch, kept bool) {
+func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []string, first bool, stamp *StoreStamp) (read keptSearch, kept bool) {
 	var key string
 	var files []string
 	var stores string
@@ -263,8 +275,12 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	if len(words) > 0 {
 		// Taken before the read, like the server's list tag: a write made
 		// during the read changes it, and the next page reads again.
-		files = s.storeFiles()
-		stores = fileStamp(files...)
+		if stamp != nil {
+			files, stores = stamp.files, stamp.stores
+		} else {
+			files = s.storeFiles()
+			stores = fileStamp(files...)
+		}
 		key = s.stampOf(files, stores) + "\x00" + search
 		if !first && s.search.key == key {
 			return s.search, true
