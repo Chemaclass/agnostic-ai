@@ -68,7 +68,7 @@ const doctorExample = `  # Project and local runtime diagnostic
   # Validate project files on a fresh CI runner
   agnostic-ai doctor --scope project --check-references
 
-  # Reconcile drift in place, keeping a .bak of each hand-edited file
+  # Reconcile drift in place, keeping a .bak of every file it overwrites
   agnostic-ai doctor --fix --backup
 
   # Machine-readable drift report for CI dashboards

@@ -32,8 +32,8 @@ It exits non-zero on any drift, [lint](@/docs/cli-reference/check.md#lint) error
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config). An unknown name fails with AAI-301, as in `sync`. |
 | `--scope <all\|project>` | `all` (default) includes local Codex hook trust and your own Claude settings files. `project` skips them. |
-| `--fix` | Write missing files and overwrite stale or edited ones. See below. |
-| `--backup` | With `--fix`, copy each file to `<path>.bak` before it is overwritten or removed. |
+| `--fix` | Write missing files and overwrite stale or edited ones. Like `sync`, it first saves each hand-edited file as `<path>.bak`. See below. |
+| `--backup` | With `--fix`, copy every file to `<path>.bak` before it is overwritten or removed, not only hand-edited ones. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag broken relative Markdown links in generated skills. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`, plus the lists in the [reference](#reference). Fails on the same findings as text mode. Not with `--fix`. |
@@ -45,6 +45,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 - In a terminal, `--fix` asks before removing each kept orphan and each group of [Claude skill overrides](#claude-skill-overrides). No is the default.
 - Without a terminal, `--fix` keeps them and explains why. It exits non-zero while any orphan remains.
 - `--backup` also covers removing a confirmed orphan or confirmed skill overrides.
+- A hand-edited file whose `<path>.bak` already holds an earlier edit is kept, and `--fix` fails until you move both into `.agnostic-ai/` and delete the `.bak`.
 - With `--scope project`, Codex hook trust shows `SKIPPED` in text. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and an empty `hook_trust`.
 - `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 - When sync removes unchanged managed keys from a shared settings file but keeps your keys and edits, doctor reports the file as out of date. JSON reports its action as `stale`.
@@ -72,7 +73,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 | **Claude skill overrides** | Synced skills that Claude settings turn off or hide. See [below](#claude-skill-overrides). | Never |
 
 {% <details summary="Details: the longer blocks"> %}
-- Codex hook trust is read from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`).
+- Codex hook trust is read from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). When `CODEX_HOME` does not exist yet and the project has no Codex hooks file, the check is skipped.
 - MCP: a `${NAME}` is checked in `env`, `headers`, `url`, and `args`, and listed by name only. A reference with a default is skipped. Install hints come with the missing commands.
 - Packaging ignores: the report names the ignore file.
 - Claude hook specs: with `claude` enabled, doctor flags a spec with several commands that `.claude/settings.json` already runs in one group with different settings, as an older `import claude` wrote it. To fix it, delete the spec, run `sync`, then run `import claude`.
