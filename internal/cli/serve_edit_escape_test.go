@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,6 +51,19 @@ func TestServeEdit_RefusesRequestPathsOutsideTheProject(t *testing.T) {
 					}
 				})
 			}
+		}
+	}
+}
+
+// hookPreview builds the file path itself, so it must refuse a name that
+// leaves the hooks folder even when the request check is skipped.
+func TestHookPreview_RefusesANameOutsideTheHooksFolder(t *testing.T) {
+	project := scopeProject(t)
+	h := &editHandler{root: project}
+	for _, name := range []string{"../escape", filepath.Join(t.TempDir(), "escape")} {
+		_, file, err := h.hookPreview(hookSpecRequest{Name: name, On: "after-edit", Command: "exit 0"}, audienceShared)
+		if err == nil || file != "" || !strings.Contains(err.Error(), "not a usable file name") {
+			t.Errorf("hookPreview(%q) = %q, %v; want a refusal", name, file, err)
 		}
 	}
 }

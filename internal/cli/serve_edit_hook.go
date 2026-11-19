@@ -222,7 +222,7 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 	}
 	file, ok := pathUnder(dir, req.Name+".yaml")
 	if !ok {
-		return hookSpecPreview{}, "", fmt.Errorf("name %q must use lowercase letters, digits, and hyphens, such as format-on-save", req.Name)
+		return hookSpecPreview{}, "", fmt.Errorf("name %q is not a usable file name on this system", req.Name)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil && !os.IsNotExist(err) {
