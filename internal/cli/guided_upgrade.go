@@ -167,9 +167,8 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 		}
 		_, _ = fmt.Fprintln(out, companionErr)
 	}
-	actual, err := deps.run(path, "", []string{"--version"}, io.Discard)
-	fields := strings.Fields(actual)
-	if err != nil || len(fields) == 0 || !versionsEqual(fields[len(fields)-1], offer.Latest) {
+	reported, actual, err := reportedCLIVersion(deps.run, path)
+	if err != nil || reported == "" || !versionsEqual(reported, offer.Latest) {
 		if err == nil {
 			err = fmt.Errorf("installed version is %q, expected %s", strings.TrimSpace(actual), offer.Latest)
 		}
@@ -189,4 +188,16 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 	}
 	_, _ = fmt.Fprintln(out, "\nUpgrade complete. Review any migration skips above. Rerun your original command.")
 	return true, nil
+}
+
+// reportedCLIVersion runs the CLI at path with --version and returns the
+// last field of what it printed, empty when it printed nothing, and the
+// whole output.
+func reportedCLIVersion(run func(path, root string, args []string, out io.Writer) (string, error), path string) (version, raw string, err error) {
+	raw, err = run(path, "", []string{"--version"}, io.Discard)
+	fields := strings.Fields(raw)
+	if len(fields) > 0 {
+		version = fields[len(fields)-1]
+	}
+	return version, raw, err
 }
