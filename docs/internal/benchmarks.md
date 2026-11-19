@@ -105,6 +105,7 @@ make test-shell
 | `BenchmarkSyncEmit` | Select every target and render its specs without writing files. Measures the main computation in `sync`. |
 | `BenchmarkSyncFull` | Run `sync` completely: write changed files, distribute entry points, update the generated-file record, and save state. Measures a repeat sync. |
 | `BenchmarkSyncCheck` | Run `--check` by rendering and comparing output with files that already match. |
+| `BenchmarkLoadProject` | Load the project once: parse the config, resolve the spec layers, and load every spec. One `sync` invocation loads the project once. |
 | `BenchmarkEntryPointRender` | Render entry-point content and remove identical copies across targets. |
 | `BenchmarkFolderFingerprint` | Calculate the content hash for a shared-skills folder (`folderFingerprint`). |
 | `BenchmarkCompare` | `compare claude codex` against a synced tree: every agent, skill, and rule emitted alone to both targets. |
@@ -173,7 +174,7 @@ Each target's time measures its emit call. With `--jobs > 1`, these times overla
 The flag lives on the root command (`internal/cli/root.go`): profiling
 starts in the persistent pre-run hook and stops in the persistent post-run
 hook, so the profile covers a completed run. The per-target stopwatch wraps
-the emit call in `emitTargetsConcurrent` (`internal/cli/sync_run.go`).
+the emit call in `emitTargetsConcurrent` (`internal/cli/sync_emit.go`).
 
 ## Staged checks in a large repository
 

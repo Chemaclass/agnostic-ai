@@ -56,7 +56,7 @@ func newUseCmd() *cobra.Command {
 			listedBefore := readStateFile(".").Listed
 			// Always sync, a no-op when nothing changed, so a run that
 			// stopped halfway finishes on the next try.
-			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
+			if err := runSyncPass(".", nil, syncRunOptions{}); err != nil {
 				return err
 			}
 			if len(added) == 0 {

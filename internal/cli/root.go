@@ -192,8 +192,11 @@ func profileEachRun(cmd *cobra.Command, path *string) {
 // specs load, so a spec only a newer release reads cannot fail ahead of
 // the upgrade hint.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
-	return loadProjectWithLoader(root, spec.LoadLayered)
+	return loadProjectWithLoader(root, loadSpecLayers)
 }
+
+// loadSpecLayers loads the project's spec layers; tests count its calls.
+var loadSpecLayers = spec.LoadLayered
 
 func loadProjectWithLoader(root string, load func([]spec.Layer) (spec.Bundle, error)) (*config.Config, spec.Bundle, error) {
 	cfg, sources, err := loadValidConfig(root)
