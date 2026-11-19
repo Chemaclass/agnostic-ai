@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -510,6 +511,82 @@ func TestSubagentReply_KeepsTheOpenMessageAndPointsAtTheAgentRowsOnlyInATerminal
 			reply := subagentReply(OpenReply{Opened: true, Message: "Opened."}, tc.conversation, tc.picked)
 			if reply.Message != tc.want || reply.Helper == nil || reply.Helper.ID != tc.picked.ID {
 				t.Errorf("reply = %q, helper %v", reply.Message, reply.Helper)
+			}
+		})
+	}
+}
+
+func TestClaudeHelpers_CarryTheSubagentsLatestMessageAsItsReply(t *testing.T) {
+	scanner, stores := testScanner(t, nil, fakeProcesses{})
+	file := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari+".jsonl")
+	dir := claudeSubagentsDir(file)
+	write(t, file, "")
+	own := func(line obj) obj { line["isSidechain"] = true; return line }
+	transcripts := map[string][]any{
+		"talks":  {own(typedPrompt("Find the call sites")), own(agentLine(textPart("Looking in internal/cli first."))), own(agentLine(obj{"type": "tool_use", "id": "t1", "name": "Grep"})), own(toolResultLine("12 matches"))},
+		"secret": {own(typedPrompt("Log in")), own(agentLine(textPart("I logged in with password hunter2.")))},
+		"silent": {own(typedPrompt("Size the budget")), own(agentLine(obj{"type": "tool_use", "id": "t2", "name": "Read"}))},
+	}
+	for id, transcript := range transcripts {
+		write(t, filepath.Join(dir, "agent-"+id+".jsonl"), lines(transcript...))
+		write(t, filepath.Join(dir, "agent-"+id+".meta.json"), `{"agentType":"Explore","description":"`+id+`","toolUseId":"call-`+id+`"}`)
+		appendWorkerEvent(t, file, workerDispatch("call-"+id))
+	}
+	started, _ := time.Parse(time.RFC3339, workerTime)
+	work, _ := scanner.claudeWorkOf(file, liveSession{startedAt: started.Add(-time.Minute).UnixMilli()})
+
+	replies := map[string]string{}
+	for _, h := range scanner.claudeHelpers(file, work, map[string]bool{}) {
+		replies[h.ID] = h.Reply
+	}
+
+	want := map[string]string{"talks": "Looking in internal/cli first.", "secret": "", "silent": ""}
+	if !maps.Equal(replies, want) {
+		t.Errorf("each subagent's latest message, withheld when it may hold a credential, none before it wrote one: %v", replies)
+	}
+}
+
+func TestClaudeAgentReply_KeepsItsLineThroughALaterMessageAndRereadsOnlyAChangedFile(t *testing.T) {
+	scanner, _ := testScanner(t, nil, fakeProcesses{})
+	path := filepath.Join(t.TempDir(), "agent-a.jsonl")
+	own := func(line obj) obj { line["isSidechain"] = true; return line }
+	teammate := own(typedPrompt("<teammate-message teammate_id=\"lead\">Also check the docs.</teammate-message>"))
+	write(t, path, lines(own(typedPrompt("Find the call sites")), own(agentLine(textPart("Twelve so far."))), teammate))
+
+	if got := scanner.claudeAgentReplyOf(path); got != "Twelve so far." {
+		t.Errorf("a message to the subagent keeps its latest line, actual %q", got)
+	}
+	scanner.claudeAgentReplies[path] = cached[string]{stamp: fileStamp(path), value: "kept"}
+	if got := scanner.claudeAgentReplyOf(path); got != "kept" {
+		t.Errorf("an unchanged transcript is not read again, actual %q", got)
+	}
+	write(t, path, lines(own(agentLine(textPart("Done: fourteen.")))))
+	if got := scanner.claudeAgentReplyOf(path); got != "Done: fourteen." {
+		t.Errorf("a changed transcript is read again, actual %q", got)
+	}
+}
+
+func TestReadClaudeAgentReply_ReadsBackPastALargeToolResultWithinItsBound(t *testing.T) {
+	own := func(line obj) obj { line["isSidechain"] = true; return line }
+	big := func(kb int) obj {
+		return own(obj{"type": "user", "message": obj{"role": "user", "content": []obj{{"type": "tool_result", "tool_use_id": "t", "content": strings.Repeat("x", kb<<10)}}}})
+	}
+	for name, tc := range map[string]struct {
+		transcript []any
+		want       string
+	}{
+		"a tool result past the first window": {[]any{own(agentLine(textPart("Twelve so far."))), big(100)}, "Twelve so far."},
+		"a message past the bound":            {[]any{own(agentLine(textPart("Twelve so far."))), big(300)}, ""},
+		"a tool call whose input holds a tool result shape": {[]any{
+			own(agentLine(textPart("old"))),
+			own(agentLine(textPart("new"), obj{"type": "tool_use", "id": "t", "name": "Write", "input": obj{"block": obj{"type": "tool_result"}}})),
+		}, "new"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "agent-a.jsonl")
+			write(t, path, lines(tc.transcript...))
+			if got := readClaudeAgentReply(path); got != tc.want {
+				t.Errorf("reply = %q, want %q", got, tc.want)
 			}
 		})
 	}
