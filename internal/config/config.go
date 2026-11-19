@@ -471,22 +471,14 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if legacy {
 		warnLegacyOnce(basePath)
 	}
-
-	localPath := filepath.Join(root, LocalOverrideFileName)
-	localExists := fileExists(localPath)
-
-	shapePaths := []string{basePath}
-	if localExists {
-		shapePaths = append(shapePaths, localPath)
+	files, err := readConfigFiles(basePath, filepath.Join(root, LocalOverrideFileName))
+	if err != nil {
+		return nil, nil, err
 	}
 	var wrong []string
-	for _, src := range shapePaths {
-		data, err := os.ReadFile(src)
-		if err != nil {
-			return nil, nil, fmt.Errorf("read %s: %w", src, err)
-		}
-		wrong = append(wrong, typeErrors(src, data)...)
-		if msg := versionError(src, data); msg != "" {
+	for _, f := range files {
+		wrong = append(wrong, typeErrors(f)...)
+		if msg := versionError(f); msg != "" {
 			wrong = append(wrong, msg)
 		}
 	}
@@ -495,74 +487,24 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	}
 
 	cfg := defaults()
-	if localExists {
-		if err := loadAndMerge(cfg, basePath, localPath); err != nil {
-			return nil, nil, err
-		}
+	if len(files) > 1 {
+		err = loadAndMerge(cfg, files[0], files[1])
 	} else {
-		if err := loadInto(cfg, basePath); err != nil {
-			return nil, nil, err
-		}
+		err = loadInto(cfg, files[0])
 	}
-	cfg.applyDefaults()
-
-	sources := []string{basePath}
-	if localExists {
-		sources = append(sources, localPath)
-	}
-	var unknown []string
-	for _, src := range sources {
-		keys, err := unknownKeys(src)
-		if err != nil {
-			return nil, nil, err
-		}
-		unknown = append(unknown, keys...)
-	}
-	if len(unknown) > 0 {
-		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%w", &UnknownKeysError{Source: strings.Join(sources, " + "), Requires: cfg.Requires, Targets: cfg.Targets, Keys: unknown})
-	}
-	if !slices.Contains(OnUnsupportedModes, cfg.OnUnsupported) {
-		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: on-unsupported: %q is not one of %s",
-			strings.Join(sources, " + "), cfg.OnUnsupported, strings.Join(OnUnsupportedModes, ", "))
-	}
-	if mode := cfg.Sync.GlobalNameClash; mode != "" && !slices.Contains(GlobalNameClashModes, mode) {
-		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: sync.global-name-clash: %q is not one of %s",
-			strings.Join(sources, " + "), mode, strings.Join(GlobalNameClashModes, ", "))
-	}
-	if codex := cfg.Outputs["codex"].Config; codex != nil && codex.Sandbox != "" && !slices.Contains(CodexSandboxModes, codex.Sandbox) {
-		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: outputs.codex.config.sandbox: %q is not one of %s",
-			strings.Join(sources, " + "), codex.Sandbox, strings.Join(CodexSandboxModes, ", "))
-	}
-	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	if err := validateProjectPaths(cfg, root, strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	cleanOutputPaths(cfg)
-	if err := validateRequires(cfg.Requires, strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	if err := ValidateModels(cfg.Models, strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	if err := cfg.Lint.Validate(strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	if err := cfg.Gitignore.Validate(strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	if err := cfg.Coverage.Validate(strings.Join(sources, " + ")); err != nil {
-		return nil, nil, err
-	}
-	base, err := readYAMLMap(basePath)
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := validateMemory(cfg.Memory, base, basePath, strings.Join(sources, " + ")); err != nil {
+	cfg.applyDefaults()
+
+	sources := make([]string, 0, len(files)+1)
+	for _, f := range files {
+		sources = append(sources, f.path)
+	}
+	if err := cfg.validate(root, files); err != nil {
 		return nil, nil, err
 	}
-	if !localExists {
+	if len(files) == 1 {
 		inherited, err := inheritPersonalMemory(cfg, root)
 		if err != nil {
 			return nil, nil, err
@@ -572,6 +514,60 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		}
 	}
 	return cfg, sources, nil
+}
+
+// validate checks the loaded cfg against the config files it came from,
+// base first. The first failing check decides the error a user sees.
+func (c *Config) validate(root string, files []*configFile) error {
+	var unknown []string
+	paths := make([]string, len(files))
+	for i, f := range files {
+		paths[i] = f.path
+		unknown = append(unknown, unknownKeys(f)...)
+	}
+	source := strings.Join(paths, " + ")
+	if len(unknown) > 0 {
+		return errs.Coded(errs.CodeConfigDecode, "%w", &UnknownKeysError{Source: source, Requires: c.Requires, Targets: c.Targets, Keys: unknown})
+	}
+	if !slices.Contains(OnUnsupportedModes, c.OnUnsupported) {
+		return errs.Coded(errs.CodeConfigDecode, "%s: on-unsupported: %q is not one of %s",
+			source, c.OnUnsupported, strings.Join(OnUnsupportedModes, ", "))
+	}
+	if mode := c.Sync.GlobalNameClash; mode != "" && !slices.Contains(GlobalNameClashModes, mode) {
+		return errs.Coded(errs.CodeConfigDecode, "%s: sync.global-name-clash: %q is not one of %s",
+			source, mode, strings.Join(GlobalNameClashModes, ", "))
+	}
+	if codex := c.Outputs["codex"].Config; codex != nil && codex.Sandbox != "" && !slices.Contains(CodexSandboxModes, codex.Sandbox) {
+		return errs.Coded(errs.CodeConfigDecode, "%s: outputs.codex.config.sandbox: %q is not one of %s",
+			source, codex.Sandbox, strings.Join(CodexSandboxModes, ", "))
+	}
+	if err := validateUnmanaged(c.Sync.Unmanaged, source); err != nil {
+		return err
+	}
+	if err := validateProjectPaths(c, root, source); err != nil {
+		return err
+	}
+	cleanOutputPaths(c)
+	if err := validateRequires(c.Requires, source); err != nil {
+		return err
+	}
+	if err := ValidateModels(c.Models, source); err != nil {
+		return err
+	}
+	if err := c.Lint.Validate(source); err != nil {
+		return err
+	}
+	if err := c.Gitignore.Validate(source); err != nil {
+		return err
+	}
+	if err := c.Coverage.Validate(source); err != nil {
+		return err
+	}
+	base, err := files[0].yamlMap()
+	if err != nil {
+		return err
+	}
+	return validateMemory(c.Memory, base, files[0].path, source)
 }
 
 // TeamBuiltins returns the built-ins the shared config in root turns
@@ -611,33 +607,95 @@ func ResolveConfigPath(root string) (path string, legacy bool, err error) {
 		ConfigFileName, LegacyConfigFileName, root)
 }
 
-// loadInto unmarshals path directly into cfg. Used when no local
-// override file is present and the map-merge round-trip is wasteful.
-func loadInto(cfg *Config, path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
+// configFile is one config file, read once. Every check and decode
+// shares its bytes and its node tree, so all of them see one snapshot.
+type configFile struct {
+	path   string
+	data   []byte
+	doc    *yaml.Node
+	parsed bool
+}
+
+// readConfigFiles reads basePath and, when it exists, localPath.
+func readConfigFiles(basePath, localPath string) ([]*configFile, error) {
+	paths := []string{basePath}
+	if fileExists(localPath) {
+		paths = append(paths, localPath)
 	}
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+	files := make([]*configFile, len(paths))
+	for i, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+		files[i] = &configFile{path: path, data: data}
+	}
+	return files, nil
+}
+
+// root returns the file's top node, or nil when the file is empty or
+// is not valid YAML.
+func (f *configFile) root() *yaml.Node {
+	f.document()
+	if f.doc == nil || len(f.doc.Content) == 0 {
+		return nil
+	}
+	return f.doc.Content[0]
+}
+
+func (f *configFile) document() *yaml.Node {
+	if !f.parsed {
+		f.parsed = true
+		var doc yaml.Node
+		if yaml.Unmarshal(f.data, &doc) == nil {
+			f.doc = &doc
+		}
+	}
+	return f.doc
+}
+
+// decode decodes the file into v, as yaml.Unmarshal of its bytes would.
+func (f *configFile) decode(v any) error {
+	if doc := f.document(); doc != nil {
+		return doc.Decode(v)
+	}
+	return yaml.Unmarshal(f.data, v)
+}
+
+func (f *configFile) yamlMap() (map[string]any, error) {
+	out := map[string]any{}
+	if len(f.data) == 0 {
+		return out, nil
+	}
+	if err := f.decode(&out); err != nil {
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", f.path, err)
+	}
+	return out, nil
+}
+
+// loadInto decodes f directly into cfg. Used when no local override
+// file is present and the map-merge round-trip is wasteful.
+func loadInto(cfg *Config, f *configFile) error {
+	if err := f.decode(cfg); err != nil {
+		return errs.Coded(errs.CodeConfigDecode, "parse %s: %w", f.path, err)
 	}
 	return nil
 }
 
 // loadAndMerge parses base and local as untyped maps, deep-merges
 // local over base, and decodes the result into cfg.
-func loadAndMerge(cfg *Config, basePath, localPath string) error {
-	base, err := readYAMLMap(basePath)
+func loadAndMerge(cfg *Config, base, local *configFile) error {
+	merged, err := base.yamlMap()
 	if err != nil {
 		return err
 	}
-	local, err := readYAMLMap(localPath)
+	over, err := local.yamlMap()
 	if err != nil {
 		return err
 	}
-	replaceLocalTiers(base, local)
-	deepMerge(base, local)
-	data, err := yaml.Marshal(base)
+	replaceLocalTiers(merged, over)
+	deepMerge(merged, over)
+	data, err := yaml.Marshal(merged)
 	if err != nil {
 		return fmt.Errorf("re-encode merged config: %w", err)
 	}
@@ -652,14 +710,7 @@ func readYAMLMap(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	out := map[string]any{}
-	if len(data) == 0 {
-		return out, nil
-	}
-	if err := yaml.Unmarshal(data, &out); err != nil {
-		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
-	}
-	return out, nil
+	return (&configFile{path: path, data: data}).yamlMap()
 }
 
 // replaceLocalTiers drops each base model tier the local file redefines,
