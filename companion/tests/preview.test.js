@@ -164,9 +164,12 @@ test('pages a search by time, newest first, and refuses a before that is not one
   const found = await inbox(preview.url, 'the')
   assert.equal(ids.length, found.body.view.matches)
   assert.equal(new Set(ids).size, ids.length)
-  const refused = await fetch(preview.url + '/api/inbox?q=the&before=2')
-  assert.equal(refused.status, 400)
-  assert.match((await refused.json()).error, /^before must be a time/)
+  for (const before of ['2', '2026-13-45T99:99:99Z']) {
+    const refused = await fetch(preview.url + '/api/inbox?q=the&before=' + before)
+    assert.equal(refused.status, 400, before)
+    assert.match((await refused.json()).error, /^before must be a time/)
+  }
+  assert.equal((await fetch(preview.url + '/api/inbox?q=the&before=')).status, 200)
 })
 
 test('refuses a request that names another host', async (t) => {

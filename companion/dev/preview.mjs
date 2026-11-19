@@ -193,8 +193,9 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
 
   async function inbox(request, response, url) {
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
-    const before = url.searchParams.get('before')
-    if (before !== null && !RFC3339.test(before)) return sendJSON(response, 400, { error: 'before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page' })
+    // Like serve, an empty before asks for the first page.
+    const before = url.searchParams.get('before') || undefined
+    if (before !== undefined && (!RFC3339.test(before) || Number.isNaN(Date.parse(before)))) return sendJSON(response, 400, { error: 'before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page' })
     const query = url.searchParams.get('q')
     const note = state.fixture.note
     const version = state.version
@@ -211,8 +212,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
     if (!paged) return sendJSON(response, 200, { view: viewOf(state, rows, query, state.conversations), note, version })
     // Like the server's weeks: before is the time the previous page stopped at, newest first, and matches counts every page.
-    const older = rows.filter((row) => before === null || Date.parse(row.updatedAt) < Date.parse(before)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-    const page = older.slice(0, paged.size)
+    const older = rows.filter((row) => before === undefined || Date.parse(row.updatedAt) < Date.parse(before)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    // A page ends between two times, so rows written at its last time all stay on it.
+    let end = Math.min(paged.size, older.length)
+    while (end < older.length && older[end].updatedAt === older[end - 1].updatedAt) end += 1
+    const page = older.slice(0, end)
     const view = { ...viewOf(state, page, query, state.conversations), matches: rows.length }
     if (older.length > page.length) view.next = page.at(-1).updatedAt.replace(/\.\d+Z$/, 'Z')
     sendJSON(response, 200, { view, note, version })

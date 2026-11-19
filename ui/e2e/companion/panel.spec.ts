@@ -860,9 +860,9 @@ test('a search started again while older weeks load keeps the rows already shown
   const startedAgain = page.waitForResponse((response) => response.url().includes('q=the') && !response.url().includes('before='))
   await page.getByRole('menuitem', { name: 'Mark as read' }).click()
   await startedAgain
-  // Its first page is in; a draw of that page alone would have dropped the second week by now.
+  // Its first page is in; a draw of that page alone would have dropped the second week, which holds this row, by now.
   await page.waitForTimeout(300)
-  expect(await row(page, 'Refactor the search index').count()).toBe(1)
+  expect(await row(page, 'Draft the release notes').count()).toBe(1)
 
   await expect(row(page, 'Write the onboarding guide')).toBeVisible()
   await expect(page.locator('#summary')).toHaveText('8 conversations match')
