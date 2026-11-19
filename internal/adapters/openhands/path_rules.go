@@ -62,7 +62,7 @@ func pathTriggerGlobs(e spec.Entry) []string {
 		return nil
 	}
 	scoped := e.EffectiveScope() != ""
-	if paths := globList(m["paths"]); len(paths) > 0 && (scoped || !hasCatchAllGlob(paths)) {
+	if paths := emit.PathList(m["paths"]); len(paths) > 0 && (scoped || !hasCatchAllGlob(paths)) {
 		return paths
 	}
 	if globs := spec.GlobList(m["globs"]); len(globs) > 0 && (scoped || !hasCatchAllGlob(globs)) {
@@ -89,31 +89,6 @@ func hasCatchAllGlob(globs []string) bool {
 		}
 	}
 	return false
-}
-
-// globList normalizes a `paths` value (a scalar string or a list) into
-// a slice of glob strings. Returns nil when the key is absent or
-// carries no usable value.
-func globList(v any) []string {
-	switch p := v.(type) {
-	case string:
-		if p == "" {
-			return nil
-		}
-		return []string{p}
-	case []string:
-		return p
-	case []any:
-		out := make([]string, 0, len(p))
-		for _, item := range p {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 // pathRuleMarkdown renders one path-triggered rule as a SKILL.md body:

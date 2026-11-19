@@ -486,7 +486,7 @@ func agentMarkdown(a spec.Entry) (body string, droppedTools bool) {
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, "name", "description", "color", "model")
 	front := emit.FrontmatterOrdered(meta, keys)
-	droppedTools = len(emit.StringSlice(a.Meta["tools"])) > 0 && !xAugmentSetsTools(a.Meta)
+	droppedTools = len(emit.StringSlice(a.Meta["tools"])) > 0 && !emit.TargetMetaSets(a.Meta, target, "tools") && !emit.TargetMetaSets(a.Meta, target, "disabled_tools")
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {
 		return front + "\n", droppedTools
@@ -532,20 +532,6 @@ func noteUnsupportedAgentEffort(agents []spec.Entry) {
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", unsupported,
 		"the agent file has no reasoning effort key for this value; thinking takes off, minimal, low, medium, high or xhigh, or set x-augment.thinking")
-}
-
-// xAugmentSetsTools reports whether the spec already carries an
-// explicit x-augment.tools or x-augment.disabled_tools override: the
-// one channel this adapter trusts to already be Augment's own tool
-// vocabulary rather than agnostic-ai's generic Claude-style names.
-func xAugmentSetsTools(meta map[string]any) bool {
-	x, _ := emit.CustomTargetMeta(meta, target)
-	if x == nil {
-		return false
-	}
-	_, tools := x["tools"]
-	_, disabledTools := x["disabled_tools"]
-	return tools || disabledTools
 }
 
 // AgentCoverage names the agent fields this target writes.
