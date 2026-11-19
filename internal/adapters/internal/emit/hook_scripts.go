@@ -255,6 +255,10 @@ func neutralHookFilename(path string, quote byte, literal bool) (int, string) {
 	return len(path), name.String()
 }
 
+// HookSourceCommands returns each command a hook runs for target, before
+// the path rewrite, so the script lookup still sees the tool that owns
+// the stash. The second value reports whether the commands are literal
+// argv paths rather than shell text.
 func HookSourceCommands(hook spec.Entry, target string) ([]string, bool) {
 	meta := ResolveMeta(hook.Meta, target)
 	literal := len(StringSlice(meta["args"])) > 0

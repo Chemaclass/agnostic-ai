@@ -260,7 +260,10 @@ func TestMaterializeHookScripts_WritesNeutralThenStashedScriptsInHookOrder(t *te
 	t.Chdir(t.TempDir())
 	for path, body := range map[string]string{
 		".agnostic-ai/scripts/guard.sh":          "neutral\n",
-		".agnostic-ai/scripts/claude/protect.sh": "stashed\n",
+		".agnostic-ai/scripts/claude/protect.sh": "protect\n",
+		".agnostic-ai/scripts/claude/first.sh":   "first\n",
+		".agnostic-ai/scripts/claude/second.sh":  "second\n",
+		".agnostic-ai/scripts/claude/native.sh":  "native\n",
 	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
@@ -273,6 +276,10 @@ func TestMaterializeHookScripts_WritesNeutralThenStashedScriptsInHookOrder(t *te
 		{Kind: spec.KindHook, Name: "stashed", Meta: map[string]any{"event": "PreToolUse", "command": ".claude/hooks/protect.sh"}},
 		{Kind: spec.KindHook, Name: "plain", Meta: map[string]any{"event": "PreToolUse", "command": "gofmt -l ."}},
 		{Kind: spec.KindHook, Name: "neutral", Meta: map[string]any{"event": "PreToolUse", "command": "sh .agnostic-ai/scripts/guard.sh"}},
+		{Kind: spec.KindHook, Name: "list", Meta: map[string]any{"event": "PostToolUse", "command": []any{".claude/hooks/second.sh", ".claude/hooks/first.sh"}}},
+		{Kind: spec.KindHook, Name: "native", Meta: map[string]any{"event": "PostToolUse", "command": "true", "x-gemini": map[string]any{"hooks": []any{
+			map[string]any{"type": "command", "command": ".claude/hooks/native.sh"},
+		}}}},
 	}
 	for _, target := range []string{"claude", "codex", "cline", "cursor", "gemini"} {
 		t.Run(target, func(t *testing.T) {
@@ -283,9 +290,22 @@ func TestMaterializeHookScripts_WritesNeutralThenStashedScriptsInHookOrder(t *te
 			}
 			var got []string
 			for _, file := range sess.StopCapture() {
-				got = append(got, filepath.ToSlash(file.Path)+"="+file.Content)
+				mode := file.Mode.Perm().String()
+				if runtime.GOOS == "windows" {
+					mode = "-rwxr-xr-x"
+				}
+				got = append(got, filepath.ToSlash(file.Path)+"="+file.Content+" "+mode)
 			}
-			want := []string{HookScriptsDir(target) + "/guard.sh=neutral\n", "." + target + "/hooks/protect.sh=stashed\n"}
+			dir := "." + target + "/hooks/"
+			want := []string{
+				HookScriptsDir(target) + "/guard.sh=neutral\n -rwxr-xr-x",
+				dir + "protect.sh=protect\n -rwxr-xr-x",
+				dir + "second.sh=second\n -rwxr-xr-x",
+				dir + "first.sh=first\n -rwxr-xr-x",
+			}
+			if target == "gemini" {
+				want = append(want, dir+"native.sh=native\n -rwxr-xr-x")
+			}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("writes = %q, want %q", got, want)
 			}
@@ -333,8 +353,17 @@ func TestHookSourceCommands_MatchesNativeHookLookup(t *testing.T) {
 				map[string]any{"type": "command", "command": ".claude/hooks/one.sh"},
 				map[string]any{"type": "command", "command": "two --flag"},
 			}}},
-			"string command": {"command": "only"},
-			"list command":   {"command": []any{"first", "second"}},
+			"string command":      {"command": "only"},
+			"list command":        {"command": []any{"first", "second"}},
+			"nil native hooks":    {"command": "a", "x-" + target: map[string]any{"hooks": nil}},
+			"scalar native hooks": {"command": "a", "x-" + target: map[string]any{"hooks": "nope"}},
+			"prompt and empty handlers": {"command": "a", "x-" + target: map[string]any{"hooks": []any{
+				map[string]any{"type": "prompt", "prompt": "p"},
+				map[string]any{"type": "command", "command": ""},
+				map[string]any{"type": "command", "command": "kept"},
+			}}},
+			"native block not a map": {"command": "a", "x-" + target: "nope"},
+			"nil meta":               nil,
 		}
 		for name, meta := range cases {
 			t.Run(target+"/"+name, func(t *testing.T) {
