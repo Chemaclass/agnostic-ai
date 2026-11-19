@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -586,11 +587,13 @@ func runGit(root string, args ...string) (string, bool) {
 	return runGitWithin(root, 2*time.Second, args...)
 }
 
-// runGitWithin is runGit with its own time limit. Outside a repository it
-// starts no Git, unless the environment points Git at one.
+// runGitWithin is runGit with its own time limit. When Git already said
+// there is no repository at root, it starts no Git, unless the environment
+// points Git at one.
 func runGitWithin(root string, timeout time.Duration, args ...string) (string, bool) {
 	if !gitEnvNamesRepository() {
-		if _, err := gitquery.LayoutAt(root); err != nil {
+		var exit *exec.ExitError
+		if _, err := gitquery.LayoutAt(root); errors.As(err, &exit) {
 			return "", false
 		}
 	}

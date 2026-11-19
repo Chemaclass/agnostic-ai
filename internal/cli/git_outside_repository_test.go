@@ -22,8 +22,8 @@ func TestSync_GitRunsOutsideRepository(t *testing.T) {
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
-	if runs := gitRunLines(t, log); len(runs) > 2 {
-		t.Errorf("sync outside a repository started %d Git processes, want at most 2:\n%s", len(runs), strings.Join(runs, "\n"))
+	if runs := gitRunLines(t, log); len(runs) != 1 {
+		t.Errorf("sync outside a repository started %d Git processes, want 1:\n%s", len(runs), strings.Join(runs, "\n"))
 	}
 }
 
@@ -91,6 +91,14 @@ func countGitRuns(t *testing.T) string {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(t.TempDir()))
+	for _, name := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"} {
+		if value, set := os.LookupEnv(name); set {
+			t.Setenv(name, value)
+			if err := os.Unsetenv(name); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	return log
 }
 
