@@ -1090,7 +1090,7 @@ func (t *againstTree) recollect(reports []driftReport, targets []string, gitigno
 	}
 	defer quiet()()
 	resetDrops()
-	return collectDriftWithGitignore(targets, nil, gitignoreFlag)
+	return collectDriftWithLedger(targets, nil, gitignoreFlag, readLedger("."))
 }
 
 // quiet silences warnings, notes, and verbose lines until the returned

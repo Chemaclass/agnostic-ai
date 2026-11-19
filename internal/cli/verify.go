@@ -96,7 +96,7 @@ func newVerifyCmd() *cobra.Command {
 				return false
 			})
 			entryPointTargets := configuredEntryPointConsumers(cfg, effective)
-			reports, err := collectDriftWithEntryPointTargets(effective, entryPointTargets)
+			reports, err := collectDriftWithLedger(effective, entryPointTargets, "", readLedger("."))
 			if err != nil {
 				return err
 			}

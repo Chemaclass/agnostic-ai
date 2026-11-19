@@ -219,23 +219,15 @@ func allTargetsResolve(requested, configured []string) bool {
 }
 
 func collectDrift(targets []string) ([]driftReport, error) {
-	return collectDriftWithEntryPointTargets(targets, nil)
+	return collectDriftWithLedger(targets, nil, "", readLedger("."))
 }
 
-// collectDriftWithEntryPointTargets keeps native adapter verification scoped
-// to targets while allowing shared entry points to be rendered with their
-// complete configured consumer set. A nil entryPointTargets slice preserves
-// the normal check/doctor behavior by using targets for both concerns.
-func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]driftReport, error) {
-	return collectDriftWithGitignore(targets, entryPointTargets, "")
-}
-
-func collectDriftWithGitignore(targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
-	return collectDriftWithLedger(targets, entryPointTargets, gitignoreFlag, readLedger("."))
-}
-
-// collectDriftWithLedger is collectDriftWithGitignore with the state
-// file the caller read.
+// collectDriftWithLedger loads the project and collects its drift against
+// the state file the caller read. It keeps native adapter verification
+// scoped to targets while allowing shared entry points to be rendered with
+// their complete configured consumer set. A nil entryPointTargets slice
+// preserves the normal check/doctor behavior by using targets for both
+// concerns.
 func collectDriftWithLedger(targets, entryPointTargets []string, gitignoreFlag string, ledger ledgerSnapshot) ([]driftReport, error) {
 	cfg, b, err := loadProject(".")
 	if err != nil {
@@ -244,7 +236,7 @@ func collectDriftWithLedger(targets, entryPointTargets []string, gitignoreFlag s
 	return collectLoadedDriftWith(ledger, cfg, b, targets, entryPointTargets, gitignoreFlag)
 }
 
-// collectLoadedDrift is collectDriftWithGitignore for a project the
+// collectLoadedDrift is collectDriftWithLedger for a project the
 // caller already loaded. It leaves cfg unchanged.
 func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
 	return collectLoadedDriftWith(readLedger("."), loaded, b, targets, entryPointTargets, gitignoreFlag)

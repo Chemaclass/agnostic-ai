@@ -170,7 +170,7 @@ func TestCheck_ClaudeOnlyCompanionAgentsMDIsNotALeftover(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("sync --check after sync: %v", err)
 	}
-	reports, err := collectDriftWithEntryPointTargets(nil, nil)
+	reports, err := collectDrift(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestDoctorFix_KeepsClaudeOnlyCompanionAgentsMD(t *testing.T) {
 func TestCheck_AgentsMDIsLeftoverOnceCLAUDEmdStopsImportingIt(t *testing.T) {
 	claudeOnlyCompanionProject(t)
 	writeFile(t, "CLAUDE.md", "Full text, no import.\n")
-	reports, err := collectDriftWithEntryPointTargets(nil, nil)
+	reports, err := collectDrift(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
