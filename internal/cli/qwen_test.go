@@ -145,14 +145,14 @@ func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
 			path := filepath.Join(native, "settings.json")
 			original := "{\n  \"model\": {\"temperature\": 0.2},\n  \"custom\": true\n}\n"
 			if existing {
-				mustWriteGlobalTest(t, path, original)
+				writeFile(t, path, original)
 				if err := os.Chmod(path, 0600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			specs := map[string]string{"settings/default.yaml": "model:\n  qwen: my-model\npermissions:\n  deny: [write, 'shell(git push *)']\n", "hooks/guard.yaml": "event: PreToolUse\ncommand: guard\nargs: ['two words']\ntimeout: 7\ntarget: qwen\n", "mcps/http.yaml": "name: http\ntype: http\nurl: https://example.test/mcp\n"}
 			for rel, body := range specs {
-				mustWriteGlobalTest(t, filepath.Join(source, rel), body)
+				writeFile(t, filepath.Join(source, rel), body)
 			}
 			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
@@ -208,11 +208,11 @@ func TestQwen_GlobalNativeTreesAndImport(t *testing.T) {
 	native := filepath.Join(t.TempDir(), "qwen")
 	t.Setenv("QWEN_HOME", native)
 	for path, body := range map[string]string{"AGNOSTIC_AI.md": "# Agreements\nKeep changes small.\n", "agents/reviewer.md": "---\nname: reviewer\ndescription: Review\ncan: [read]\n---\nReview carefully.\n", "skills/check/SKILL.md": "---\nname: check\ndescription: Check\n---\nRun scripts/check.sh.\n", "skills/check/scripts/check.sh": "#!/bin/sh\necho checked\n"} {
-		mustWriteGlobalTest(t, filepath.Join(source, path), body)
+		writeFile(t, filepath.Join(source, path), body)
 	}
 	settings := filepath.Join(native, "settings.json")
 	original := `{"custom":true,"model":{"name":"native-model","temperature":0.3},"mcpServers":{"http":{"httpUrl":"https://example.test/mcp"},"sse":{"url":"https://example.test/events"}}}`
-	mustWriteGlobalTest(t, settings, original)
+	writeFile(t, settings, original)
 	if _, warnings, err := runImportGlobalTest("qwen"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}

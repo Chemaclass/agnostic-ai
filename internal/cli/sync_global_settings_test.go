@@ -49,11 +49,11 @@ func readGlobalTest(t *testing.T, path string) string {
 func TestSyncGlobal_SettingsWriteModelAndEffortKeys(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "settings", "defaults.yaml")
-	mustWriteGlobalTest(t, spec, globalDefaultsSettings)
+	writeFile(t, spec, globalDefaultsSettings)
 	codexPath := filepath.Join(home, ".codex", "config.toml")
 	claudePath := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, codexPath, handWrittenCodexConfig)
-	mustWriteGlobalTest(t, claudePath, handWrittenClaudeSettings)
+	writeFile(t, codexPath, handWrittenCodexConfig)
+	writeFile(t, claudePath, handWrittenClaudeSettings)
 
 	if _, warnings, err := runGlobalAgentTest("--only", "codex,claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -119,7 +119,7 @@ args = ["--port", "[8080]"]
 
 func TestSyncGlobal_SettingsCreateMissingCodexConfig(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
 
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -132,10 +132,10 @@ func TestSyncGlobal_SettingsCreateMissingCodexConfig(t *testing.T) {
 
 func TestSyncGlobal_SettingsAdoptMatchingValue(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), "model:\n  codex: gpt-6-luna\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "model:\n  codex: gpt-6-luna\n")
 	codexPath := filepath.Join(home, ".codex", "config.toml")
 	existing := "model = \"gpt-6-luna\" # picked in /model\n\n[profiles.fast]\nmodel = \"mini\"\n"
-	mustWriteGlobalTest(t, codexPath, existing)
+	writeFile(t, codexPath, existing)
 
 	_, warnings, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
@@ -152,10 +152,10 @@ func TestSyncGlobal_SettingsAdoptMatchingValue(t *testing.T) {
 func TestSyncGlobal_SettingsConflictStopsUnlessBackup(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "settings", "defaults.yaml")
-	mustWriteGlobalTest(t, spec, "model:\n  codex: gpt-6-luna\n")
+	writeFile(t, spec, "model:\n  codex: gpt-6-luna\n")
 	codexPath := filepath.Join(home, ".codex", "config.toml")
 	existing := "model = \"gpt-6-sol\" # picked in /model\nsandbox_mode = \"workspace-write\"\n"
-	mustWriteGlobalTest(t, codexPath, existing)
+	writeFile(t, codexPath, existing)
 
 	_, _, err := runGlobalAgentTest("--only", "codex")
 	if err == nil {
@@ -183,7 +183,7 @@ func TestSyncGlobal_SettingsConflictStopsUnlessBackup(t *testing.T) {
 
 	// The /model picker saving a new choice is drift, caught by the
 	// next run rather than overwritten.
-	mustWriteGlobalTest(t, codexPath, "model = \"gpt-6-mini\"\nsandbox_mode = \"workspace-write\"\n")
+	writeFile(t, codexPath, "model = \"gpt-6-mini\"\nsandbox_mode = \"workspace-write\"\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err == nil {
 		t.Error("check must fail on a changed managed key")
 	}
@@ -194,8 +194,8 @@ func TestSyncGlobal_SettingsConflictStopsUnlessBackup(t *testing.T) {
 
 func TestSyncGlobal_SettingsLocalLayerWins(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "machine.yaml"), "model:\n  codex: gpt-6-mini\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
+	writeFile(t, filepath.Join(source, "local", "settings", "machine.yaml"), "model:\n  codex: gpt-6-mini\n")
 
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -208,8 +208,8 @@ func TestSyncGlobal_SettingsLocalLayerWins(t *testing.T) {
 
 func TestSyncGlobal_SettingsKeepClaudeHooks(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -l .\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -l .\n")
 
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -228,7 +228,7 @@ func TestSyncGlobal_SettingsKeepClaudeHooks(t *testing.T) {
 
 func TestSyncGlobal_SettingsNotesWhatItCannotWrite(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), `model: opus
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), `model: opus
 effort:
   claude: max
 permissions:
@@ -260,14 +260,14 @@ x-claude:
 func TestSyncGlobal_SettingsReplaceLastClaudeHook(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "start.yaml")
-	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
+	writeFile(t, hook, "event: SessionStart\ncommand: echo hi\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if err := os.Remove(hook); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("second sync: %v\n%s", err, warnings)
 	}
@@ -282,10 +282,10 @@ func TestSyncGlobal_SettingsReplaceLastClaudeHook(t *testing.T) {
 
 func TestSyncGlobal_DryRunNamesHookWriteBesideAdoptedSetting(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  claude: opus\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  claude: opus\n")
 	settings := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, settings, "{\n  \"model\": \"opus\"\n}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: echo hi\n")
+	writeFile(t, settings, "{\n  \"model\": \"opus\"\n}\n")
+	writeFile(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: echo hi\n")
 
 	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run")
 	if err != nil {
@@ -298,13 +298,13 @@ func TestSyncGlobal_DryRunNamesHookWriteBesideAdoptedSetting(t *testing.T) {
 
 func TestSyncGlobal_WritesThroughSymlinkedUserFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
 	dotfiles := filepath.Join(home, "dotfiles")
 	realClaude := filepath.Join(dotfiles, "CLAUDE.md")
 	realSettings := filepath.Join(dotfiles, "settings.json")
-	mustWriteGlobalTest(t, realClaude, "Mine.\n")
-	mustWriteGlobalTest(t, realSettings, "{\n  \"theme\": \"dark\"\n}\n")
+	writeFile(t, realClaude, "Mine.\n")
+	writeFile(t, realSettings, "{\n  \"theme\": \"dark\"\n}\n")
 	link := filepath.Join(home, ".claude", "CLAUDE.md")
 	settingsLink := filepath.Join(home, ".claude", "settings.json")
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
@@ -344,7 +344,7 @@ func TestSyncGlobal_WritesThroughSymlinkedUserFile(t *testing.T) {
 func TestSyncGlobal_SettingsPassThroughTargetKeys(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "settings", "d.yaml")
-	mustWriteGlobalTest(t, spec, `model: opus
+	writeFile(t, spec, `model: opus
 x-claude:
   model: sonnet
   alwaysThinkingEnabled: true
@@ -359,9 +359,9 @@ x-codex:
       model: mini
 `)
 	claudePath := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, claudePath, "{\n  \"statusLine\": {\n    \"padding\": 1\n  }\n}\n")
+	writeFile(t, claudePath, "{\n  \"statusLine\": {\n    \"padding\": 1\n  }\n}\n")
 	codexPath := filepath.Join(home, ".codex", "config.toml")
-	mustWriteGlobalTest(t, codexPath, "[tui]\ntheme = \"dark\"\n")
+	writeFile(t, codexPath, "[tui]\ntheme = \"dark\"\n")
 
 	_, warnings, err := runGlobalAgentTest("--only", "claude,codex")
 	if err != nil {
@@ -402,7 +402,7 @@ x-codex:
 
 func TestSyncGlobal_SettingsReachGeminiQoderCopilot(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), `model:
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), `model:
   gemini: gemini-3-pro
   qoder: qoder-max
   copilot: gpt-6-luna
@@ -412,7 +412,7 @@ effort:
   gemini: high
 `)
 	geminiPath := filepath.Join(home, ".gemini", "settings.json")
-	mustWriteGlobalTest(t, geminiPath, "{\n  \"model\": {\n    \"maxSessionTurns\": 20\n  }\n}\n")
+	writeFile(t, geminiPath, "{\n  \"model\": {\n    \"maxSessionTurns\": 20\n  }\n}\n")
 
 	_, warnings, err := runGlobalAgentTest("--only", "gemini,qoder,copilot")
 	if err != nil {
@@ -448,7 +448,7 @@ effort:
 
 func TestSyncGlobal_ClaudeEffortNotesOlderModelsOnly(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "s.yaml"), "effort: high\n")
+	writeFile(t, filepath.Join(source, "settings", "s.yaml"), "effort: high\n")
 
 	_, warnings, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {
@@ -474,9 +474,9 @@ func TestSyncGlobal_SettingsPermissionModeLifecycle(t *testing.T) {
 	settingsSpec := filepath.Join(source, "settings", "defaults.yaml")
 	original := `{ "permissions": {"allow": ["Read"], "deny": ["Bash(rm:*)"], "ask": ["Write"]}, "hooks": {"Stop": []} }
 `
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	for _, mode := range []string{"plan", "acceptEdits"} {
-		mustWriteGlobalTest(t, settingsSpec, "permissions:\n  default-mode: "+mode+"\n")
+		writeFile(t, settingsSpec, "permissions:\n  default-mode: "+mode+"\n")
 		if _, warnings, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
 			t.Fatalf("sync: %v\n%s", err, warnings)
 		}
@@ -506,10 +506,10 @@ func TestSyncGlobal_SettingsPermissionModeLifecycle(t *testing.T) {
 
 func TestSyncGlobal_SettingsPermissionModeConflictHint(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "permissions:\n  default-mode: plan\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "permissions:\n  default-mode: plan\n")
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := `{"permissions":{"defaultMode":"default","allow":["Read"]}}`
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	_, _, err := runGlobalAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), `set permissions.default-mode to "default"`) {
 		t.Fatalf("conflict hint: %v", err)
@@ -527,7 +527,7 @@ func TestSyncGlobal_SettingsPermissionModeConflictHint(t *testing.T) {
 
 func TestSyncGlobal_SettingsPermissionModeNotesUnsupportedFields(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), `model: opus
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), `model: opus
 permissions:
   default-mode: invalid
   allow: [Read]
@@ -561,15 +561,15 @@ func TestSyncGlobal_SettingsPermissionModeExclusionRemovesOwnedValue(t *testing.
 	path := filepath.Join(home, ".claude", "settings.json")
 	settingsSpec := filepath.Join(source, "settings", "mode.yaml")
 	original := `{"permissions":{"allow":["Read"]}}`
-	mustWriteGlobalTest(t, path, original)
-	mustWriteGlobalTest(t, settingsSpec, "permissions:\n  default-mode: plan\n")
+	writeFile(t, path, original)
+	writeFile(t, settingsSpec, "permissions:\n  default-mode: plan\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	if got := readGlobalTest(t, path); !strings.Contains(got, `"defaultMode"`) {
 		t.Fatalf("mode was not written: %s", got)
 	}
-	mustWriteGlobalTest(t, settingsSpec, "targets-exclude: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
+	writeFile(t, settingsSpec, "targets-exclude: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -580,7 +580,7 @@ func TestSyncGlobal_SettingsPermissionModeExclusionRemovesOwnedValue(t *testing.
 
 func TestSyncGlobal_SettingsNoteClaudeManagedOnlyKeys(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), `x-claude:
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), `x-claude:
   deniedModels: [opus]
   autoMode:
     soft_deny: [x]
@@ -607,7 +607,7 @@ func TestSyncGlobal_CopilotSettingsTakeEveryDocumentedEffort(t *testing.T) {
 	for _, level := range []string{"none", "minimal", "max"} {
 		t.Run(level, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "effort:\n  copilot: "+level+"\n")
+			writeFile(t, filepath.Join(source, "settings", "d.yaml"), "effort:\n  copilot: "+level+"\n")
 
 			if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
@@ -628,7 +628,7 @@ func TestSyncGlobal_CopilotSettingsTakeEveryDocumentedEffort(t *testing.T) {
 
 func TestSyncGlobal_QwenSettingsReasoningEffort(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings/defaults.yaml"), "effort: high\n")
+	writeFile(t, filepath.Join(source, "settings/defaults.yaml"), "effort: high\n")
 	path := filepath.Join(home, ".qwen/settings.json")
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -652,9 +652,9 @@ func TestSyncGlobal_QwenEffortRemovalRestoresSettingsBytes(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".qwen/settings.json")
 	const original = "{\n\t\"model\": {\"name\": \"example\",   \"temperature\": 0.3},\n\t\"theme\": \"dark\"\n}"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings/defaults.yaml")
-	mustWriteGlobalTest(t, settings, "effort: high\n")
+	writeFile(t, settings, "effort: high\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -672,7 +672,7 @@ func TestSyncGlobal_QwenEffortRemovalRestoresSettingsBytes(t *testing.T) {
 func TestSyncGlobal_QwenEffortRemovalDropsCreatedSettingsFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(source, "settings/defaults.yaml")
-	mustWriteGlobalTest(t, settings, "effort: high\n")
+	writeFile(t, settings, "effort: high\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -691,7 +691,7 @@ func TestImportGlobal_QwenReasoningEffortRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".qwen/settings.json")
 	const original = `{"model":{"name":"example","reasoningEffort":"high","temperature":0.3}}`
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	if _, warnings, err := runImportGlobalTest("qwen"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}

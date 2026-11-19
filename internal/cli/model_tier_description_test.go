@@ -170,9 +170,9 @@ func TestLintBudget_CountsTheModelTiersLayer(t *testing.T) {
 
 func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n"+describedTiersConfig)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n"+describedTiersConfig)
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	if _, errOut, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, errOut)
@@ -189,8 +189,8 @@ func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
 
 func TestSyncGlobal_LocalTierReplacesItsDescription(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+describedTiersConfig)
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "version: 1\nmodels:\n  strong: {claude: opus, description: for the hard parts}\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+describedTiersConfig)
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "version: 1\nmodels:\n  strong: {claude: opus, description: for the hard parts}\n")
 
 	if _, errOut, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, errOut)
@@ -206,8 +206,8 @@ func TestSyncGlobal_TiersWithoutDescriptionsKeepTheManagedBlock(t *testing.T) {
 	blocks := make([]string, 0, 2)
 	for _, models := range []string{"", "models:\n  strong: {claude: opus}\n"} {
 		home, source := globalAgentTestHome(t)
-		mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+models)
-		mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+		writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+models)
+		writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 		if _, errOut, err := runGlobalCheck("sync"); err != nil {
 			t.Fatalf("sync --global: %v\n%s", err, errOut)
 		}
@@ -256,8 +256,8 @@ func TestSync_RulesFileBesideTheEntryPointGetsNoTiers(t *testing.T) {
 
 func TestSyncGlobal_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nmodels:\n  \"<!-- agnostic-ai:global:end -->\": {claude: opus, description: for all}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nmodels:\n  \"<!-- agnostic-ai:global:end -->\": {claude: opus, description: for all}\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 
 	_, _, err := runGlobalCheck("sync")
 

@@ -69,12 +69,12 @@ func TestSyncGlobal_PiOwnsNativeKeysAndRestoresUserBytes(t *testing.T) {
 	mcp := filepath.Join(root, "mcp.json")
 	beforeSettings := "{\n\t\"theme\": \"light\"\n}\n"
 	beforeMCP := "{\n\t\"mcpServers\": {\n\t\t\"mine\": {\"command\": \"mine\"}\n\t}\n}\n"
-	mustWriteGlobalTest(t, settings, beforeSettings)
-	mustWriteGlobalTest(t, mcp, beforeMCP)
+	writeFile(t, settings, beforeSettings)
+	writeFile(t, mcp, beforeMCP)
 	settingsSpec := filepath.Join(source, "settings/pi.yaml")
 	mcpSpec := filepath.Join(source, "mcps/docs.yaml")
-	mustWriteGlobalTest(t, settingsSpec, "model: model-a\neffort: high\n")
-	mustWriteGlobalTest(t, mcpSpec, "name: docs\ncommand: docs-mcp\ndisabled: true\n")
+	writeFile(t, settingsSpec, "model: model-a\neffort: high\n")
+	writeFile(t, mcpSpec, "name: docs\ncommand: docs-mcp\ndisabled: true\n")
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("sync: %v %s", err, warn)
 	}
@@ -113,7 +113,7 @@ func TestImportGlobal_PiAdoptsNativeFilesWithoutChangingBytes(t *testing.T) {
 		"mcp.json":      "{\n\t\"mcpServers\":{\n\t\t\"docs\":{\"command\":\"docs-mcp\",\"enabled\":false,\"timeout\":40,\"exposure\":\"direct\"},\n\t\t\"web\":{\"url\":\"https://example.com/mcp\",\"type\":\"streamable-http\",\"headers\":{\"Authorization\":\"${TOKEN}\"},\"enabled\":true}\n\t}\n}\n",
 	}
 	for path, body := range native {
-		mustWriteGlobalTest(t, filepath.Join(root, path), body)
+		writeFile(t, filepath.Join(root, path), body)
 	}
 	if _, warnings, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
@@ -145,11 +145,11 @@ func TestSyncGlobal_PiCreatedFilesAreReleasedAndPrivateFilesStayPrivate(t *testi
 		"settings/pi.yaml":       "model: model-a\neffort: high\nx-pi:\n  defaultProjectTrust: allow\n",
 	}
 	for path, body := range specs {
-		mustWriteGlobalTest(t, filepath.Join(source, path), body)
+		writeFile(t, filepath.Join(source, path), body)
 	}
 	private := filepath.Join(root, "settings.json")
 	before := "{\"theme\":\"light\"}\n"
-	mustWriteGlobalTest(t, private, before)
+	writeFile(t, private, before)
 	if err := os.Chmod(private, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -228,9 +228,9 @@ func TestSyncGlobal_PiInvalidMCPPreservesManagedFiles(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, ".pi/agent")
 	t.Setenv("PI_CODING_AGENT_DIR", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: docs-mcp\n")
+	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: docs-mcp\n")
 	settingsSpec := filepath.Join(source, "settings/pi.yaml")
-	mustWriteGlobalTest(t, settingsSpec, "model: model-a\n")
+	writeFile(t, settingsSpec, "model: model-a\n")
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("initial sync: %v %s", err, warn)
 	}
@@ -238,8 +238,8 @@ func TestSyncGlobal_PiInvalidMCPPreservesManagedFiles(t *testing.T) {
 	for _, path := range []string{filepath.Join(root, "mcp.json"), filepath.Join(root, "settings.json"), filepath.Join(source, "state/global.json")} {
 		before[path] = readGlobalTest(t, path)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/bad.yaml"), "name: bad\ntype: sse\nurl: https://example.com/sse\n")
-	mustWriteGlobalTest(t, settingsSpec, "model: changed\n")
+	writeFile(t, filepath.Join(source, "mcps/bad.yaml"), "name: bad\ntype: sse\nurl: https://example.com/sse\n")
+	writeFile(t, settingsSpec, "model: changed\n")
 	if _, _, err := runGlobalAgentTest("--only", "pi"); err == nil || !strings.Contains(err.Error(), "SSE") {
 		t.Errorf("expected SSE rendering error, got %v", err)
 	}
@@ -278,7 +278,7 @@ func TestImportGlobal_PiProviderAuthRoundTrip(t *testing.T) {
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	path := filepath.Join(home, ".pi/agent/mcp.json")
 	original := "{\n\t\"unrelated\":true,\n\t\"mcpServers\":{\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"auth\":{\"provider\":\"radius\"},\"oauth\":{\"clientRegistration\":\"dcr\"},\"enabled\":false}}\n}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	if _, warnings, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
 	}

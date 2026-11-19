@@ -289,7 +289,7 @@ func TestGlobalOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 	home := nativeMCPHome(t)
 	dir := testutil.TempCwd(t)
 	writeNativeMCPProject(t, home, dir)
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(home, "source", "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
 
 	out, err := runCLI(t, "view", "--global", "--json")
 	if err != nil {

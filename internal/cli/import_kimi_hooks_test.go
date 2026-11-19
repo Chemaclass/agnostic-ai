@@ -52,7 +52,7 @@ func TestImportGlobal_KimiRejectsHookCredentialsBeforeWrites(t *testing.T) {
 			t.Setenv("KIMI_CODE_HOME", root)
 			path := filepath.Join(root, "config.toml")
 			before := fmt.Sprintf("[[hooks]]\nevent='Stop'\ncommand='safe-hook'\n[[hooks]]\nevent='Stop'\ncommand=%q\n", command)
-			mustWriteGlobalTest(t, path, before)
+			writeFile(t, path, before)
 			out, warnings, err := runImportGlobalTest("kimi")
 			assertKimiHookCredentialRefused(t, source, out+warnings, path, err)
 			if got := readGlobalTest(t, path); got != before {

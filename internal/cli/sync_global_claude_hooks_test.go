@@ -8,7 +8,7 @@ import (
 
 func TestSyncGlobal_NotesClaudeHookIfOnNonToolEvent(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "stop.yaml"), "name: stop\nevent: Stop\ncommand: echo hi\nif: \"Bash(ls *)\"\n")
+	writeFile(t, filepath.Join(source, "hooks", "stop.yaml"), "name: stop\nevent: Stop\ncommand: echo hi\nif: \"Bash(ls *)\"\n")
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {
@@ -21,7 +21,7 @@ func TestSyncGlobal_NotesClaudeHookIfOnNonToolEvent(t *testing.T) {
 
 func TestSyncGlobal_ClaudeHookIfOnToolEventGetsNoNote(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "pre.yaml"), "name: pre\nevent: PreToolUse\nmatcher: Bash\ncommand: echo hi\nif: \"Bash(ls *)\"\n")
+	writeFile(t, filepath.Join(source, "hooks", "pre.yaml"), "name: pre\nevent: PreToolUse\nmatcher: Bash\ncommand: echo hi\nif: \"Bash(ls *)\"\n")
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {

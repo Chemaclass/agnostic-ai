@@ -95,8 +95,8 @@ func TestValidate_NamesTheSameLayerWinnerWhenALocalSpecExtendsIt(t *testing.T) {
 
 func TestSyncGlobal_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "b.md"), "---\nname: b\n---\nbody1\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "b2.md"), "---\nname: b\n---\nbody2\n")
+	writeFile(t, filepath.Join(source, "rules", "b.md"), "---\nname: b\n---\nbody1\n")
+	writeFile(t, filepath.Join(source, "rules", "b2.md"), "---\nname: b\n---\nbody2\n")
 
 	_, errOut, err := runGlobalCheck("sync", "--dry-run")
 	if err != nil {

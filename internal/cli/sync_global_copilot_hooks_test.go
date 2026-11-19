@@ -23,8 +23,8 @@ func TestSyncGlobal_CopilotUserHooksUseNativeHomeAndValidate(t *testing.T) {
 			} else {
 				t.Setenv("COPILOT_HOME", "")
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "session.yaml"), "name: session\ntarget: copilot\nevent: SessionStart\ncommand: echo ready\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+			writeFile(t, filepath.Join(source, "hooks", "session.yaml"), "name: session\ntarget: copilot\nevent: SessionStart\ncommand: echo ready\n")
 			if _, warnings, err := runGlobalCheck("validate"); err != nil {
 				t.Errorf("validate Copilot user hook: %v\n%s", err, warnings)
 			}
@@ -58,7 +58,7 @@ func TestImportGlobal_CopilotUserHookAdoptionDoesNotDuplicateCommands(t *testing
 	t.Setenv("COPILOT_HOME", "")
 	path := filepath.Join(home, ".copilot", "hooks", "personal.json")
 	native := `{"version":1,"hooks":{"SessionStart":[{"type":"command","bash":"echo personal","powershell":"Write-Output personal","timeoutSec":9}]}}`
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	if _, warnings, err := runImportGlobalTest("copilot", "--dry-run"); err != nil {
 		t.Fatalf("dry-run import: %v\n%s", err, warnings)
 	}
@@ -117,7 +117,7 @@ func TestImportGlobal_CopilotSkipsUnknownFieldsAndPreservesNeighbors(t *testing.
 	t.Setenv("COPILOT_HOME", "")
 	native := `{"version":1,"hooks":{"PreToolUse":[{"type":"command","command":"guard","futurePolicy":true}]}}`
 	path := filepath.Join(home, ".copilot", "hooks", "future.json")
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	_, warnings, err := runImportGlobalTest("copilot")
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestSyncGlobal_CopilotEditedImportRefusesBeforeWrites(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("COPILOT_HOME", "")
 	path := filepath.Join(home, ".copilot", "hooks", "personal.json")
-	mustWriteGlobalTest(t, path, `{"version":1,"hooks":{"SessionStart":[{"type":"command","command":"echo original"}]}}`)
+	writeFile(t, path, `{"version":1,"hooks":{"SessionStart":[{"type":"command","command":"echo original"}]}}`)
 	if _, _, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestSyncGlobal_CopilotEditedImportRefusesBeforeWrites(t *testing.T) {
 	}
 	specPath := filepath.Join(source, "hooks", files[0].Name())
 	edited := strings.ReplaceAll(readGlobalTest(t, specPath), "echo original", "echo changed")
-	mustWriteGlobalTest(t, specPath, edited)
+	writeFile(t, specPath, edited)
 	_, _, err = runGlobalAgentTest("--only", "copilot")
 	if err == nil || !strings.Contains(err.Error(), "differs from its source file") {
 		t.Fatalf("want nonduplicating refusal, got %v", err)
@@ -165,7 +165,7 @@ func TestImportGlobal_CopilotManagedHandlersPreserveAllSupportedFields(t *testin
 	t.Setenv("COPILOT_HOME", "")
 	native := `{"version":1,"hooks":{"preToolUse":[{"type":"command","exec":"guard","args":["a b"],"matcher":"bash|edit","timeoutSec":8,"cwd":"sub","env":{"LOCAL":"value"}},{"type":"http","url":"https://example.test/hooks","headers":{"X-Local":"value"},"allowedEnvVars":["LOCAL"],"timeoutSec":7}],"SessionStart":[{"type":"prompt","prompt":"Check session","timeoutSec":5}]}}`
 	path := filepath.Join(home, ".copilot", "hooks", "agnostic-ai.json")
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -189,7 +189,7 @@ func TestImportGlobal_CopilotReconstructsInFreshHomeAndKeepsUserOwnedOriginal(t 
 	t.Setenv("COPILOT_HOME", "")
 	native := `{"version":1,"hooks":{"SessionStart":[{"type":"command","command":"echo personal"}]}}`
 	original := filepath.Join(home, ".copilot", "hooks", "personal.json")
-	mustWriteGlobalTest(t, original, native)
+	writeFile(t, original, native)
 	if _, _, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatal(err)
 	}
@@ -228,8 +228,8 @@ func TestSyncGlobal_CopilotMemoryAndPortableHookUseGlobalPaths(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	native := filepath.Join(home, "native home")
 	t.Setenv("COPILOT_HOME", native)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\non: before-tool\ncommand: echo guard\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\non: before-tool\ncommand: echo guard\n")
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}

@@ -564,8 +564,8 @@ func TestSync_URLArgsRefLeavesServerOutWithNote(t *testing.T) {
 func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mcpDir := filepath.Join(source, "mcps")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nargs: [--token, \"${GH_TOKEN}\", \"${workspaceFolder}\", \"${env:workspaceFolder}\"]\n")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "api.yaml"), "name: api\ntype: http\nurl: https://${API_HOST}/mcp\n")
+	writeFile(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nargs: [--token, \"${GH_TOKEN}\", \"${workspaceFolder}\", \"${env:workspaceFolder}\"]\n")
+	writeFile(t, filepath.Join(mcpDir, "api.yaml"), "name: api\ntype: http\nurl: https://${API_HOST}/mcp\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}

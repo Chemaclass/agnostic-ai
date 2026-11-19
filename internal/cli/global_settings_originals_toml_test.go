@@ -19,9 +19,9 @@ func TestVoiceTargets_RestoreTOMLAssignmentsExactly(t *testing.T) {
 		t.Run(tc.target+"/"+tc.original, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, filepath.FromSlash(tc.file))
-			mustWriteGlobalTest(t, path, tc.original)
+			writeFile(t, path, tc.original)
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, settings, targetVoiceSpec)
+			writeFile(t, settings, targetVoiceSpec)
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -42,13 +42,13 @@ func TestVoiceTargets_GrokParentOverrideRestoresOriginalTable(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".grok", "config.toml")
 	original := "# preferences\n[ui]\nvoice_capture_mode = 'hold' # mode\nvoice_stt_language = 'en'\ntheme = 'dark'\n[plugins]\nenabled = true\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "voice.yaml")
-	mustWriteGlobalTest(t, settings, targetVoiceSpec)
+	writeFile(t, settings, targetVoiceSpec)
 	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, settings, targetVoiceSpec+"x-grok:\n  ui: {}\n")
+	writeFile(t, settings, targetVoiceSpec+"x-grok:\n  ui: {}\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
 		t.Fatalf("parent override: %v\n%s", err, warnings)
 	}
@@ -75,9 +75,9 @@ func TestVoiceTargets_GrokParentOverrideRestoresSeparatedChildTables(t *testing.
 		t.Run(original, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".grok", "config.toml")
-			mustWriteGlobalTest(t, path, original)
+			writeFile(t, path, original)
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, settings, targetVoiceSpec+"x-grok:\n  ui: {}\n")
+			writeFile(t, settings, targetVoiceSpec+"x-grok:\n  ui: {}\n")
 			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
 				t.Fatalf("parent override: %v\n%s", err, warnings)
 			}

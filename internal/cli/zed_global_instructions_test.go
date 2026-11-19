@@ -57,7 +57,7 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 	for _, before := range []string{"absent", "private native file"} {
 		t.Run(before, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [zed]\nbuiltins: []\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [zed]\nbuiltins: []\n")
 			g := globalTargets["zed"]
 			path := filepath.Join(home, ".config", "zed", "AGENTS.md")
 			if runtime.GOOS == "windows" {
@@ -68,13 +68,13 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 			}
 			original := "# Personal notes\r\nKeep this private"
 			if before != "absent" {
-				mustWriteGlobalTest(t, path, original)
+				writeFile(t, path, original)
 				if err := os.Chmod(path, 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			rule := filepath.Join(source, "rules", "personal.md")
-			mustWriteGlobalTest(t, rule, "---\nname: personal\n---\nUse the portable marker.\n")
+			writeFile(t, rule, "---\nname: personal\n---\nUse the portable marker.\n")
 			if _, notes, err := runGlobalAgentTest("--only", "zed"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, notes)
 			}
@@ -147,7 +147,7 @@ func TestZedGlobalInstructions_WindowsMigratesOnlyRecordedLegacyBlock(t *testing
 				personal = ""
 				original = globalStart + "\nOld portable text\n" + globalEnd + "\n"
 			}
-			mustWriteGlobalTest(t, legacy, original)
+			writeFile(t, legacy, original)
 			if err := os.Chmod(legacy, 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -211,13 +211,13 @@ func TestZedGlobalInstructions_StopsAfterNativeTextChanges(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	g := globalTargets["zed"]
 	path := g.path(home, g.instructions)
-	mustWriteGlobalTest(t, path, "Personal text before planning.\n")
+	writeFile(t, path, "Personal text before planning.\n")
 	writes, next, err := buildGlobalWrites(home, source, []string{"zed"}, []byte("Portable marker"), spec.Bundle{}, globalState{}, nil, io.Discard, "warn")
 	if err != nil {
 		t.Fatal(err)
 	}
 	edited := "Personal text edited while sync ran.\n"
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	if _, err := applyGlobalChanges(writes, nil, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("changed native text was not guarded: %v", err)
 	}
@@ -231,14 +231,14 @@ func TestZedGlobalInstructions_RemovalStopsAfterNativeTextChanges(t *testing.T) 
 	g := globalTargets["zed"]
 	path := g.path(home, g.instructions)
 	original := globalStart + "\nPortable text\n" + globalEnd + "\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	old := globalState{Version: globalStateVersion, Files: []string{path}, Sums: map[string]string{path: globalSum([]byte(original))}}
 	writes, next, err := buildGlobalWrites(home, source, []string{"zed"}, nil, spec.Bundle{}, old, nil, io.Discard, "warn")
 	if err != nil {
 		t.Fatal(err)
 	}
 	edited := "Personal text edited while sync ran.\n" + original
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("changed native text was not guarded on removal: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestZedGlobalInstructions_LegacyAliasKeepsTheActiveFile(t *testing.T) {
 	}
 	testutil.DirectoryAlias(t, filepath.Dir(native), filepath.Dir(legacy))
 	original := "Personal text.\n" + globalStart + "\nOld portable text\n" + globalEnd + "\n"
-	mustWriteGlobalTest(t, native, original)
+	writeFile(t, native, original)
 	old := globalState{Version: globalStateVersion, Files: []string{legacy}, Sums: map[string]string{legacy: globalSum([]byte(original))}}
 	writes, next, err := buildGlobalWritesForPlatform(home, source, []string{"zed"}, []byte("New portable text"), spec.Bundle{}, old, nil, io.Discard, "warn", "windows")
 	if err != nil {
@@ -334,7 +334,7 @@ func TestZedGlobalInstructions_AbsentAliasStopsWhenNativeAppears(t *testing.T) {
 				t.Fatal(err)
 			}
 			const personal = "User wrote this while sync ran.\n"
-			mustWriteGlobalTest(t, native, personal)
+			writeFile(t, native, personal)
 			if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 				t.Errorf("expected stale write refusal, got %v", err)
 			}
@@ -387,7 +387,7 @@ func TestZedGlobalInstructions_AbsentLegacyRemovalKeepsNewUserFile(t *testing.T)
 	if !slices.Contains(removals, legacy) {
 		t.Fatalf("expected guarded stale removal, got %v", removals)
 	}
-	mustWriteGlobalTest(t, legacy, "")
+	writeFile(t, legacy, "")
 	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("expected stale removal refusal, got %v", err)
 	}

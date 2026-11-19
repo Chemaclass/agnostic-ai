@@ -34,8 +34,8 @@ func readGlobalPermissionState(t *testing.T, source string) map[string][]string 
 func TestSyncGlobal_PermissionRulesAppendMissingSpecRules(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, userClaudeSettings)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  allow: [\"Bash(git status)\", \"Bash(ls:*)\"]\n  deny: [\"Bash(rm -rf:*)\"]\n")
+	writeFile(t, path, userClaudeSettings)
+	writeFile(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  allow: [\"Bash(git status)\", \"Bash(ls:*)\"]\n  deny: [\"Bash(rm -rf:*)\"]\n")
 
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -70,17 +70,17 @@ func TestSyncGlobal_PermissionRulesAppendMissingSpecRules(t *testing.T) {
 func TestSyncGlobal_PermissionRulesRemoveOnlyWhatSyncWrote(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, userClaudeSettings)
+	writeFile(t, path, userClaudeSettings)
 	rules := filepath.Join(source, "settings", "rules.yaml")
-	mustWriteGlobalTest(t, rules, "permissions:\n  allow: [Read, \"Bash(git status)\"]\n")
+	writeFile(t, rules, "permissions:\n  allow: [Read, \"Bash(git status)\"]\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	// The tool adds a rule of its own after the sync.
 	synced := readGlobalTest(t, path)
-	mustWriteGlobalTest(t, path, strings.Replace(synced, `"Bash(git status)"`, `"Bash(git status)",`+"\n"+`      "WebFetch"`, 1))
+	writeFile(t, path, strings.Replace(synced, `"Bash(git status)"`, `"Bash(git status)",`+"\n"+`      "WebFetch"`, 1))
 
-	mustWriteGlobalTest(t, rules, "permissions:\n  allow: [\"Bash(git status)\"]\n")
+	writeFile(t, rules, "permissions:\n  allow: [\"Bash(git status)\"]\n")
 	out, _, err := runGlobalAgentTest("--only", "claude", "--plan")
 	if err != nil || !strings.Contains(out, `remove "Read" from permissions.allow`) {
 		t.Errorf("plan must name the removal: %v\n%s", err, out)
@@ -116,9 +116,9 @@ func TestSyncGlobal_PermissionRulesRemoveOnlyWhatSyncWrote(t *testing.T) {
 func TestSyncGlobal_PermissionRulesCheckReportsDrift(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, userClaudeSettings)
+	writeFile(t, path, userClaudeSettings)
 	rules := filepath.Join(source, "settings", "rules.yaml")
-	mustWriteGlobalTest(t, rules, "permissions:\n  allow: [Read]\n")
+	writeFile(t, rules, "permissions:\n  allow: [Read]\n")
 
 	// A spec rule the file lacks.
 	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err == nil || !strings.Contains(err.Error(), path) {
@@ -137,14 +137,14 @@ func TestSyncGlobal_PermissionRulesCheckReportsDrift(t *testing.T) {
 
 	// A rule removed from the file by hand.
 	synced := readGlobalTest(t, path)
-	mustWriteGlobalTest(t, path, userClaudeSettings)
+	writeFile(t, path, userClaudeSettings)
 	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err == nil {
 		t.Error("a spec rule removed by hand must drift")
 	}
-	mustWriteGlobalTest(t, path, synced)
+	writeFile(t, path, synced)
 
 	// A recorded rule the specs dropped, still in the file.
-	mustWriteGlobalTest(t, rules, "model: opus\n")
+	writeFile(t, rules, "model: opus\n")
 	out, _, err = runGlobalAgentTest("--only", "claude", "--check", "--diff")
 	if err == nil || !strings.Contains(out, `-      "Read"`) {
 		t.Errorf("a dropped recorded rule must drift: %v\n%s", err, out)
@@ -154,8 +154,8 @@ func TestSyncGlobal_PermissionRulesCheckReportsDrift(t *testing.T) {
 func TestSyncGlobal_PermissionRulesAdoptARuleAlreadyThere(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, userClaudeSettings)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  allow: [\"Bash(ls:*)\"]\n")
+	writeFile(t, path, userClaudeSettings)
+	writeFile(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  allow: [\"Bash(ls:*)\"]\n")
 
 	_, warnings, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {
@@ -175,9 +175,9 @@ func TestSyncGlobal_PermissionRulesAdoptARuleAlreadyThere(t *testing.T) {
 func TestSyncGlobal_PermissionRulesMergeTargetBlock(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, userClaudeSettings)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "permissions:\n  allow: [Read]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "b.yaml"), "x-claude:\n  permissions:\n    allow: [\"mcp__docs\"]\n    ask: [\"Bash(git push:*)\"]\n")
+	writeFile(t, path, userClaudeSettings)
+	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "permissions:\n  allow: [Read]\n")
+	writeFile(t, filepath.Join(source, "settings", "b.yaml"), "x-claude:\n  permissions:\n    allow: [\"mcp__docs\"]\n    ask: [\"Bash(git push:*)\"]\n")
 
 	_, warnings, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {
@@ -200,7 +200,7 @@ func TestSyncGlobal_PermissionRulesCreateAndRemoveTheFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	rules := filepath.Join(source, "settings", "rules.yaml")
-	mustWriteGlobalTest(t, rules, "permissions:\n  deny: [\"Bash(rm -rf:*)\"]\n")
+	writeFile(t, rules, "permissions:\n  deny: [\"Bash(rm -rf:*)\"]\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -220,7 +220,7 @@ func TestSyncGlobal_PermissionRulesCreateAndRemoveTheFile(t *testing.T) {
 
 func TestSyncGlobal_PermissionRulesStopOnAnUnreadableRule(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  deny: [\"write(.env)\"]\n")
+	writeFile(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  deny: [\"write(.env)\"]\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil {
 		t.Error("an unreadable deny rule must stop the sync")
 	}
@@ -231,7 +231,7 @@ func TestSyncGlobal_PermissionRulesStopOnAnUnreadableRule(t *testing.T) {
 
 func TestExplainGlobal_PermissionRulesNameTheirList(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, filepath.Join(source, "settings", "rules.yaml"), "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)

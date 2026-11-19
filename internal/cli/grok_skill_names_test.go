@@ -14,10 +14,10 @@ func TestSyncGlobal_GrokRejectsInvalidSkillBeforeNativeWrites(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	instructions := filepath.Join(home, ".grok", "AGENTS.md")
 	before := "Personal instructions.\n"
-	mustWriteGlobalTest(t, instructions, before)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions.\n")
+	writeFile(t, instructions, before)
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions.\n")
 	name := strings.Repeat("a", 65)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", name+".md"), "---\nname: "+name+"\ndescription: Inspect a diff.\n---\nRead the diff.\n")
+	writeFile(t, filepath.Join(source, "skills", name+".md"), "---\nname: "+name+"\ndescription: Inspect a diff.\n---\nRead the diff.\n")
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err == nil || !strings.Contains(err.Error(), "64") {
 		t.Fatalf("invalid global native identity accepted: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestImportGrok_SkillNamesKeepNativeFallbacksOnFreshSync(t *testing.T) {
 func TestSyncGlobal_GrokKeepsNativeDirectoryNameFallback(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review.md"), "---\nname: review\ndescription: Inspect a diff.\nx-grok:\n  name: '!!!'\n---\nRead the supplied diff.\n")
+	writeFile(t, filepath.Join(source, "skills", "review.md"), "---\nname: review\ndescription: Inspect a diff.\nx-grok:\n  name: '!!!'\n---\nRead the supplied diff.\n")
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatal(err)
 	}

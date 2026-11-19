@@ -18,13 +18,13 @@ func TestSyncGlobal_VibeComposesNativeArraysAndSettings(t *testing.T) {
 	config := filepath.Join(root, "config.toml")
 	hooks := filepath.Join(root, "hooks.toml")
 	original := "# user\n[ui]\ncolor='blue'\n"
-	mustWriteGlobalTest(t, config, original)
+	writeFile(t, config, original)
 	if err := os.Chmod(config, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "model.yaml"), "model:\n  vibe: devstral\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ntype: stdio\ncommand: node\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: vibe\nevent: pre_tool\ncommand: echo '{}'\n")
+	writeFile(t, filepath.Join(source, "settings", "model.yaml"), "model:\n  vibe: devstral\n")
+	writeFile(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ntype: stdio\ncommand: node\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: vibe\nevent: pre_tool\ncommand: echo '{}'\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, warnings)
 	}
@@ -64,9 +64,9 @@ func TestSyncGlobal_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, "vibe-one")
 	t.Setenv("VIBE_HOME", root)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "model.yaml"), "model: devstral\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ncommand: node\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: vibe\nevent: pre_tool\ncommand: echo '{}'\n")
+	writeFile(t, filepath.Join(source, "settings", "model.yaml"), "model: devstral\n")
+	writeFile(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ncommand: node\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: vibe\nevent: pre_tool\ncommand: echo '{}'\n")
 	if _, _, err := runGlobalAgentTest("--only", "vibe", "--dry-run"); err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestSyncGlobal_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
 		t.Fatal("no-op rewrote config")
 	}
 	edited := strings.Replace(before, `command = "node"`, `command = "edited"`, 1)
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	moved := filepath.Join(home, "vibe-two")
 	t.Setenv("VIBE_HOME", moved)
 	if _, _, err := runGlobalAgentTest("--only", "vibe"); err == nil {
@@ -117,11 +117,11 @@ func TestSyncGlobal_VibeInstructionsAgentsSkillsFollowHome(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, "native-root")
 	t.Setenv("VIBE_HOME", root)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Personal instructions.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "style.md"), "---\nname: style\n---\nPersonal rule.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews\ncan: [read]\n---\nReview changes.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "check", "SKILL.md"), "---\nname: check\ndescription: Checks\n---\nCheck changes.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "check", "asset.txt"), "asset\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Personal instructions.\n")
+	writeFile(t, filepath.Join(source, "rules", "style.md"), "---\nname: style\n---\nPersonal rule.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews\ncan: [read]\n---\nReview changes.\n")
+	writeFile(t, filepath.Join(source, "skills", "check", "SKILL.md"), "---\nname: check\ndescription: Checks\n---\nCheck changes.\n")
+	writeFile(t, filepath.Join(source, "skills", "check", "asset.txt"), "asset\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
@@ -141,8 +141,8 @@ func TestImportGlobal_VibeAdoptsUserEntriesAndExcludesOwnedRecords(t *testing.T)
 	t.Setenv("VIBE_HOME", root)
 	config := "[[mcp_servers]]\nname='docs'\ntransport='http'\nurl='https://example.test/mcp'\n[mcp_servers.auth]\ntype='static'\napi_key_env='DOCS_TOKEN'\n"
 	hooks := "# personal hook\n[[hooks]]\nname='guard'\ntype='pre_tool'\ncommand=\"echo '{}'\"\nstrict=false\n"
-	mustWriteGlobalTest(t, filepath.Join(root, "config.toml"), config)
-	mustWriteGlobalTest(t, filepath.Join(root, "hooks.toml"), hooks)
+	writeFile(t, filepath.Join(root, "config.toml"), config)
+	writeFile(t, filepath.Join(root, "hooks.toml"), hooks)
 	if _, warnings, err := runImportGlobalTest("vibe"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
 	}
@@ -176,7 +176,7 @@ func TestSyncGlobal_VibePlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 	t.Setenv("VIBE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	original := "# personal\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "devstral"}}, {Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"command": "node"}}})
 	writes, _, err := buildGlobalWrites(home, source, []string{"vibe"}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "warn")
 	if err != nil {
@@ -200,7 +200,7 @@ func TestSyncGlobal_VibePlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 		t.Fatalf("planned %d config writes", count)
 	}
 	edited := "# changed while sync ran\n"
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("stale plan accepted: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestSyncGlobal_VibeNativeLifecycleEvents(t *testing.T) {
 	events := []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"}
 	for _, event := range events {
 		name := strings.ReplaceAll(event, "_", "-")
-		mustWriteGlobalTest(t, filepath.Join(source, "hooks", name+".yaml"), "name: "+name+"\ntarget: vibe\nevent: "+event+"\ncommand: echo done\nx-vibe:\n  match: main\n")
+		writeFile(t, filepath.Join(source, "hooks", name+".yaml"), "name: "+name+"\ntarget: vibe\nevent: "+event+"\ncommand: echo done\nx-vibe:\n  match: main\n")
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, warnings)

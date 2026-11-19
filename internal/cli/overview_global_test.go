@@ -28,11 +28,11 @@ func globalOverviewHome(t *testing.T) string {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "helper.md"), "---\nname: helper\ndescription: Helps with chores\n---\nHelp with chores.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
+	writeFile(t, filepath.Join(source, "agents", "helper.md"), "---\nname: helper\ndescription: Helps with chores\n---\nHelp with chores.\n")
+	writeFile(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
 	return home
 }
 
@@ -49,8 +49,8 @@ func driftFindings(findings []overview.Finding) []overview.Finding {
 func TestGlobalOverview_LaterClaudeModelMatchesWhatSyncWritesForCodex(t *testing.T) {
 	home := globalOverviewHome(t)
 	source := filepath.Join(home, "source")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "model: {codex: gpt-5}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "b.yaml"), "model: claude-opus-4\n")
+	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "model: {codex: gpt-5}\n")
+	writeFile(t, filepath.Join(source, "settings", "b.yaml"), "model: claude-opus-4\n")
 
 	root := NewRootCmd("test")
 	root.SetOut(io.Discard)

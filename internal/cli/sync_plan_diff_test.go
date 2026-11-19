@@ -103,12 +103,12 @@ func TestSync_PlanDiffRejectsJSON(t *testing.T) {
 
 func TestSyncGlobal_PlanDiffPrintsPlanThenDiffs(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.ToSlash(filepath.Join(home, ".claude", "CLAUDE.md"))
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one, revised.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one, revised.\n")
 	before := snapshotTree(t, home)
 
 	out, _, err := runGlobalAgentTest("--only", "claude", "--plan", "--diff")

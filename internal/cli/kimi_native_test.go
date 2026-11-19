@@ -57,14 +57,14 @@ func TestSyncGlobal_KimiRestoresConfigAndUserHooks(t *testing.T) {
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	original := "# user settings\n[thinking]\neffort='low'\nenabled=true\n[[hooks]]\nevent='Stop'\ncommand='user-hook'\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	if err := os.Chmod(path, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "settings/kimi.yaml"), "model:\n  kimi: existing-model\nx-kimi:\n  telemetry: false\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\ntarget: kimi\nevent: PreToolUse\ncommand: check\nmatcher: Bash\ntimeout: 5\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents/reviewer.md"), "---\nname: reviewer\ndescription: Review changes\ncan: []\n---\nReview changes.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: server\ndisabled: true\n")
+	writeFile(t, filepath.Join(source, "settings/kimi.yaml"), "model:\n  kimi: existing-model\nx-kimi:\n  telemetry: false\n")
+	writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\ntarget: kimi\nevent: PreToolUse\ncommand: check\nmatcher: Bash\ntimeout: 5\n")
+	writeFile(t, filepath.Join(source, "agents/reviewer.md"), "---\nname: reviewer\ndescription: Review changes\ncan: []\n---\nReview changes.\n")
+	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: server\ndisabled: true\n")
 	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("sync: %v %s", err, w)
 	}
@@ -109,8 +109,8 @@ func TestImportGlobal_KimiAdoptsNativeHooksAndMCP(t *testing.T) {
 	before := "# mine\ndefault_model='existing-model'\n[[hooks]]\nevent='Stop'\ncommand='check'\ntimeout=5\n"
 	mcp := filepath.Join(root, "mcp.json")
 	beforeMCP := "{\"mcpServers\":{\"docs\":{\"transport\":\"sse\",\"url\":\"https://example.com/mcp\",\"enabled\":false,\"enabledTools\":[]}}}\n"
-	mustWriteGlobalTest(t, path, before)
-	mustWriteGlobalTest(t, mcp, beforeMCP)
+	writeFile(t, path, before)
+	writeFile(t, mcp, beforeMCP)
 	if _, w, err := runImportGlobalTest("kimi"); err != nil {
 		t.Fatalf("import: %v %s", err, w)
 	}
@@ -134,8 +134,8 @@ func TestSyncGlobal_KimiEmptyMCPFilterIsNotUnrestricted(t *testing.T) {
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "mcp.json")
 	before := `{"mcpServers":{"docs":{"transport":"stdio","command":"server"}}}` + "\n"
-	mustWriteGlobalTest(t, path, before)
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: server\nx-kimi:\n  enabledTools: []\n")
+	writeFile(t, path, before)
+	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: server\nx-kimi:\n  enabledTools: []\n")
 	if _, _, err := runGlobalAgentTest("--only", "kimi"); err == nil {
 		t.Fatal("empty allowlist was adopted as unrestricted user server")
 	}
@@ -167,7 +167,7 @@ func TestSyncGlobal_KimiCreatedConfigRemovedAndEffortLeftAlone(t *testing.T) {
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	specPath := filepath.Join(source, "settings/kimi.yaml")
-	mustWriteGlobalTest(t, specPath, "model: existing-model\neffort: high\nx-kimi:\n  telemetry: false\n  thinking:\n    enabled: false\n")
+	writeFile(t, specPath, "model: existing-model\neffort: high\nx-kimi:\n  telemetry: false\n  thinking:\n    enabled: false\n")
 	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("create: %v %s", err, w)
 	}
@@ -320,7 +320,7 @@ func TestSyncGlobal_KimiPlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	original := "# user\n[thinking]\neffort='low'\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "existing-model"}}, {Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"target": "kimi", "event": "PreToolUse", "command": "check"}}})
 	writes, _, err := buildGlobalWrites(home, source, []string{"kimi"}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "warn")
 	if err != nil {
@@ -343,7 +343,7 @@ func TestSyncGlobal_KimiPlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 		t.Fatalf("planned %d config writes", count)
 	}
 	edited := "# user changed while sync ran\n"
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("stale plan accepted: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestSyncGlobal_KimiPlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 func TestSyncGlobal_KimiFallbackRootAndMove(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("KIMI_CODE_HOME", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\ntarget: kimi\nevent: Stop\ncommand: check\n")
+	writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\ntarget: kimi\nevent: Stop\ncommand: check\n")
 	if _, _, err := runGlobalAgentTest("--only", "kimi"); err != nil {
 		t.Fatal(err)
 	}

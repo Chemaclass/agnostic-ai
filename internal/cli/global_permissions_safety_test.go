@@ -21,10 +21,10 @@ func TestSyncGlobal_PermissionPreviewsHideCredentials(t *testing.T) {
 					home, source := globalAgentTestHome(t)
 					path := filepath.Join(home, ".claude", "settings.json")
 					rules := filepath.Join(source, "local", "settings", "private.yaml")
-					mustWriteGlobalTest(t, path, "{}\n")
-					mustWriteGlobalTest(t, rules, "permissions:\n  allow: ["+jsonString(rule)+"]\n")
+					writeFile(t, path, "{}\n")
+					writeFile(t, rules, "permissions:\n  allow: ["+jsonString(rule)+"]\n")
 					if action == "adopt" {
-						mustWriteGlobalTest(t, path, `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
+						writeFile(t, path, `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
 					}
 					if action == "remove" {
 						if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
@@ -80,7 +80,7 @@ func TestImportGlobal_PermissionRulesDetectCredentialHeaders(t *testing.T) {
 		t.Run(header, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			rule := "Bash(curl " + header + " https://example.test)"
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
 			out, warnings, err := runImportGlobalTest("claude")
 			if err != nil {
 				t.Fatal(err)
@@ -101,7 +101,7 @@ func TestImportGlobal_PermissionRulesKeepSafeHeadersAndReferences(t *testing.T) 
 		t.Run(header, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			rule := "Bash(curl " + header + " https://example.test)"
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
 			_, warnings, err := runImportGlobalTest("claude")
 			if err != nil {
 				t.Fatal(err)
@@ -134,13 +134,13 @@ func TestSyncGlobal_NativePermissionShapeErrorsPreserveOwnedDenials(t *testing.T
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
 			rules := filepath.Join(source, "settings", "rules.yaml")
-			mustWriteGlobalTest(t, rules, "x-claude:\n  permissions:\n    deny: [\"Bash(rm:*)\"]\n")
+			writeFile(t, rules, "x-claude:\n  permissions:\n    deny: [\"Bash(rm:*)\"]\n")
 			if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatal(err)
 			}
 			state := filepath.Join(source, "state", "global.json")
 			before, beforeState := readGlobalTest(t, path), readGlobalTest(t, state)
-			mustWriteGlobalTest(t, rules, invalid)
+			writeFile(t, rules, invalid)
 			if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), rules) {
 				t.Errorf("malformed native permissions must stop sync: %v", err)
 			}
@@ -173,7 +173,7 @@ func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(
 			configDir := filepath.Join(home, "12345")
 			t.Setenv("CLAUDE_CONFIG_DIR", configDir)
 			rule := "Bash(" + command + ")"
-			mustWriteGlobalTest(t, filepath.Join(configDir, "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
+			writeFile(t, filepath.Join(configDir, "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
 			out, warnings, err := runImportGlobalTest("claude")
 			if err != nil {
 				t.Fatal(err)
@@ -194,7 +194,7 @@ func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(
 func TestImportGlobal_PermissionRulesDetectCredentialInAnyToolSpelling(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	rule := `PowerShell(curl -H "X-Api-Key: test-api-key" https://example.test)`
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Read(src/**)",`+jsonString(rule)+"]}}\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Read(src/**)",`+jsonString(rule)+"]}}\n")
 	out, warnings, err := runImportGlobalTest("claude")
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestImportGlobal_PermissionRulesKeepAssignmentAndNestedReferences(t *testin
 		t.Run(name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			rule := "Bash(" + command + ")"
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
 			_, warnings, err := runImportGlobalTest("claude")
 			if err != nil {
 				t.Fatal(err)
@@ -242,14 +242,14 @@ func TestSyncGlobal_UnsupportedPermissionRulesHonorPolicy(t *testing.T) {
 				home, source := globalAgentTestHome(t)
 				path := filepath.Join(home, ".claude", "settings.json")
 				rules := filepath.Join(source, "settings", "rules.yaml")
-				mustWriteGlobalTest(t, path, userClaudeSettings)
+				writeFile(t, path, userClaudeSettings)
 				if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 					t.Fatal(err)
 				}
 				state := filepath.Join(source, "state", "global.json")
 				before, beforeState := readGlobalTest(t, path), readGlobalTest(t, state)
-				mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\non-unsupported: "+mode+"\n")
-				mustWriteGlobalTest(t, rules, "permissions:\n  deny: ["+rule+"]\n")
+				writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\non-unsupported: "+mode+"\n")
+				writeFile(t, rules, "permissions:\n  deny: ["+rule+"]\n")
 				_, warnings, err := runGlobalAgentTest("--only", "claude")
 				if mode == "error" {
 					if err == nil || !strings.Contains(err.Error(), "permissions.deny") {
@@ -279,9 +279,9 @@ func TestImportGlobal_PermissionOwnershipFollowsTheSettingsPath(t *testing.T) {
 	a := filepath.Join(home, "claude-a")
 	b := filepath.Join(home, "claude-b")
 	t.Setenv("CLAUDE_CONFIG_DIR", a)
-	mustWriteGlobalTest(t, filepath.Join(a, "settings.json"), userClaudeSettings)
+	writeFile(t, filepath.Join(a, "settings.json"), userClaudeSettings)
 	rules := filepath.Join(source, "settings", "rules.yaml")
-	mustWriteGlobalTest(t, rules, "permissions:\n  allow: [\"Bash(git status)\"]\n")
+	writeFile(t, rules, "permissions:\n  allow: [\"Bash(git status)\"]\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ func TestImportGlobal_PermissionOwnershipFollowsTheSettingsPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("CLAUDE_CONFIG_DIR", b)
-	mustWriteGlobalTest(t, filepath.Join(b, "settings.json"), `{"permissions":{"allow":["Bash(git status)"]}}`+"\n")
+	writeFile(t, filepath.Join(b, "settings.json"), `{"permissions":{"allow":["Bash(git status)"]}}`+"\n")
 	beforeB := readGlobalTest(t, filepath.Join(b, "settings.json"))
 	if _, _, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatal(err)
@@ -327,9 +327,9 @@ func TestImportGlobal_MalformedPermissionRulesLeaveTheHomeUnchanged(t *testing.T
 		t.Run(name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
-			mustWriteGlobalTest(t, path, `{"model":"opus","permissions":`+permissions+"}\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "existing.yaml"), "model: sonnet\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "state", "global.json"), "{\"version\":8}\n")
+			writeFile(t, path, `{"model":"opus","permissions":`+permissions+"}\n")
+			writeFile(t, filepath.Join(source, "settings", "existing.yaml"), "model: sonnet\n")
+			writeFile(t, filepath.Join(source, "state", "global.json"), "{\"version\":8}\n")
 			before, beforeHome := readGlobalTest(t, path), snapshotTree(t, source)
 			if _, _, err := runImportGlobalTest("claude"); err == nil || !strings.Contains(err.Error(), "permissions") {
 				t.Errorf("malformed native permissions must stop import: %v", err)

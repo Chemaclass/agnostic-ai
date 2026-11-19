@@ -49,10 +49,10 @@ func TestPiBOM_GlobalImportAndAdoptionKeepOriginalBytes(t *testing.T) {
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := piBOM + "{\n // keep native formatting\n \"mcpServers\": {\"tools\":" + piOrderedServer + "}\n}\n"
-	mustWriteGlobalTest(t, native, before)
+	writeFile(t, native, before)
 	settings := filepath.Join(home, ".pi/agent/settings.json")
 	beforeSettings := piBOM + "{\n \"defaultModel\": \"model-a\",\n \"theme\": \"light\"\n}\n"
-	mustWriteGlobalTest(t, settings, beforeSettings)
+	writeFile(t, settings, beforeSettings)
 	if _, warn, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warn)
 	}
@@ -76,17 +76,17 @@ func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := piBOM + "{\r\n // keep this comment\r\n \"mcpServers\": {\r\n  \"mine\": {\"command\": \"mine\"}\r\n }\r\n}\r\n"
-	mustWriteGlobalTest(t, native, before)
+	writeFile(t, native, before)
 	if err := os.Chmod(native, 0600); err != nil {
 		t.Fatal(err)
 	}
 	specPath := filepath.Join(source, "mcps/tools.yaml")
-	mustWriteGlobalTest(t, specPath, piOrderedSpec)
+	writeFile(t, specPath, piOrderedSpec)
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("add: %v %s", err, warn)
 	}
 	requirePiOrder(t, readGlobalTest(t, native))
-	mustWriteGlobalTest(t, specPath, strings.Replace(piOrderedSpec, "command: tools-mcp", "command: updated-mcp", 1))
+	writeFile(t, specPath, strings.Replace(piOrderedSpec, "command: tools-mcp", "command: updated-mcp", 1))
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("update: %v %s", err, warn)
 	}
@@ -122,7 +122,7 @@ func TestPiBOM_GlobalStaleReadStopsBeforeWriting(t *testing.T) {
 	native := filepath.Join(dir, "mcp.json")
 	before := []byte(piBOM + `{"mcpServers":{"tools":` + piOrderedServer + `}}`)
 	changed := append(bytes.Clone(before), ' ')
-	mustWriteGlobalTest(t, native, string(changed))
+	writeFile(t, native, string(changed))
 	write := globalWrite{path: native, data: []byte(piBOM + `{}`), mode: 0600, planned: &diskSnapshot{data: before}}
 	if _, err := applyGlobalChanges([]globalWrite{write}, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("stale BOM snapshot did not stop: %v", err)

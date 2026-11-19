@@ -24,7 +24,7 @@ func TestSyncGlobal_RemovesAUserFileItCreatedOnceEmpty(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			for rel, body := range tc.specs {
-				mustWriteGlobalTest(t, filepath.Join(source, filepath.FromSlash(rel)), body)
+				writeFile(t, filepath.Join(source, filepath.FromSlash(rel)), body)
 			}
 			if _, w, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, w)
@@ -54,12 +54,12 @@ func TestSyncGlobal_RemovesAUserFileItCreatedOnceEmpty(t *testing.T) {
 func TestSyncGlobal_KeepsACreatedFileTheUserAddedTo(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "settings", "d.yaml")
-	mustWriteGlobalTest(t, spec, "model: opus\n")
+	writeFile(t, spec, "model: opus\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, "{\n  \"model\": \"opus\",\n  \"theme\": \"dark\"\n}\n")
+	writeFile(t, path, "{\n  \"model\": \"opus\",\n  \"theme\": \"dark\"\n}\n")
 	if err := os.Remove(spec); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestSyncGlobal_KeepsACreatedFileTheUserAddedTo(t *testing.T) {
 // not proof of another HOME, and its key moves with the root.
 func TestSyncGlobal_CreatedFileUnderMovedRootIsNotForeign(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  codex: gpt-6-luna\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  codex: gpt-6-luna\n")
 	elsewhere := filepath.Join(t.TempDir(), "codex")
 	t.Setenv("CODEX_HOME", elsewhere)
 	if _, w, err := runGlobalAgentTest("--only", "codex"); err != nil {
@@ -97,11 +97,11 @@ func TestSyncGlobal_CreatedFileUnderMovedRootIsNotForeign(t *testing.T) {
 func TestSyncGlobal_KeepsAPreexistingEmptyFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, "{}\n")
+	writeFile(t, path, "{}\n")
 	hook := filepath.Join(source, "hooks", "start.yaml")
 	settings := filepath.Join(source, "settings", "d.yaml")
-	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
-	mustWriteGlobalTest(t, settings, "model: opus\n")
+	writeFile(t, hook, "event: SessionStart\ncommand: echo hi\n")
+	writeFile(t, settings, "model: opus\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
@@ -120,7 +120,7 @@ func TestSyncGlobal_KeepsAPreexistingEmptyFile(t *testing.T) {
 
 func TestApplyGlobalChanges_RemovalStopsWhenFileChangedSincePlan(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	mustWriteGlobalTest(t, path, "{\"a\": 1}\n")
+	writeFile(t, path, "{\"a\": 1}\n")
 	guards := map[string]*diskSnapshot{path: {data: []byte("{}\n")}}
 	if _, err := applyGlobalChanges(nil, []string{path}, false, guards); err == nil {
 		t.Fatal("a changed file must not be removed")
@@ -134,7 +134,7 @@ func symlinkedGlobalTestFile(t *testing.T, body string) (link, target string) {
 	t.Helper()
 	dir := t.TempDir()
 	target = filepath.Join(dir, "dotfiles", "settings.json")
-	mustWriteGlobalTest(t, target, body)
+	writeFile(t, target, body)
 	link = filepath.Join(dir, "settings.json")
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlinks unsupported: %v", err)
@@ -183,7 +183,7 @@ func TestApplyGlobalChanges_BrokenSymlinkRemovalTouchesOnlyTheLink(t *testing.T)
 		t.Fatal(err)
 	}
 	other := filepath.Join(filepath.Dir(target), "other.json")
-	mustWriteGlobalTest(t, other, "{}\n")
+	writeFile(t, other, "{}\n")
 	guards := map[string]*diskSnapshot{link: {data: []byte("{}\n")}}
 	if _, err := applyGlobalChanges(nil, []string{link}, false, guards); err != nil {
 		t.Fatal(err)
@@ -199,7 +199,7 @@ func TestApplyGlobalChanges_BrokenSymlinkRemovalTouchesOnlyTheLink(t *testing.T)
 func TestApplyGlobalChanges_LaterRefusalRestoresRemovedSymlinkAndTarget(t *testing.T) {
 	link, target := symlinkedGlobalTestFile(t, "{}\n")
 	changed := filepath.Join(t.TempDir(), "settings.json")
-	mustWriteGlobalTest(t, changed, "{\"a\": 1}\n")
+	writeFile(t, changed, "{\"a\": 1}\n")
 	guards := map[string]*diskSnapshot{link: {data: []byte("{}\n")}, changed: {data: []byte("{}\n")}}
 	if _, err := applyGlobalChanges(nil, []string{link, changed}, false, guards); err == nil {
 		t.Fatal("a changed file must stop the removal")
@@ -217,7 +217,7 @@ func TestApplyGlobalChanges_LaterRefusalRestoresRemovedSymlinkAndTarget(t *testi
 
 func TestSyncGlobal_PlannedGuardStopsRemovingAChangedSymlinkedFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
@@ -245,7 +245,7 @@ func TestSyncGlobal_PlannedGuardStopsRemovingAChangedSymlinkedFile(t *testing.T)
 		t.Fatalf("the plan must remove %s under a guard: removals %q, guards %v", link, removals, next.removalGuards)
 	}
 	edited := "{\n  \"theme\": \"dark\"\n}\n"
-	mustWriteGlobalTest(t, target, edited)
+	writeFile(t, target, edited)
 	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("stale plan accepted: %v", err)
 	}

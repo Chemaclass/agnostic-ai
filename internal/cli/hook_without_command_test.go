@@ -120,7 +120,7 @@ func TestSync_SummaryLeavesOutAHookNoToolWrote(t *testing.T) {
 
 func TestExplainGlobal_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
 	out, err := runRoot(t, "explain", "--global", "hooks/fmt.yaml")
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestExplainGlobal_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
 	if !strings.Contains(out, "no target sync --global writes takes anything") {
 		t.Errorf("explain must list no output for a hook with nothing to run:\n%s", out)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
 	if out, err = runRoot(t, "explain", "--global", "hooks/fmt.yaml"); err != nil || !strings.Contains(out, "settings.json") {
 		t.Errorf("a hook with a command still lists its outputs: %v\n%s", err, out)
 	}

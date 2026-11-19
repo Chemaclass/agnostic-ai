@@ -63,8 +63,8 @@ func TestGlobalSettings_LintSkipsEffortRoutedAway(t *testing.T) {
 
 func TestSyncGlobal_SettingsHonorTargetFilters(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), "model: opus\neffort: medium\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "codex.yaml"),
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "model: opus\neffort: medium\n")
+	writeFile(t, filepath.Join(source, "local", "settings", "codex.yaml"),
 		"name: codex\ntargets: [codex]\nmodel: should-not-reach-claude\neffort: high\nx-claude:\n  env:\n    DEMO: excluded-value\n")
 	claudePath := filepath.Join(home, ".claude", "settings.json")
 
@@ -101,9 +101,9 @@ func TestSyncGlobal_SettingsHonorTargetFilters(t *testing.T) {
 func TestSyncGlobal_SettingsRoutedAwayRemoveOwnedValue(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	defaults := filepath.Join(source, "settings", "defaults.yaml")
-	mustWriteGlobalTest(t, defaults, "model: opus\n")
+	writeFile(t, defaults, "model: opus\n")
 	claudePath := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, claudePath, "{\n  \"theme\": \"dark\"\n}\n")
+	writeFile(t, claudePath, "{\n  \"theme\": \"dark\"\n}\n")
 
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -111,7 +111,7 @@ func TestSyncGlobal_SettingsRoutedAwayRemoveOwnedValue(t *testing.T) {
 	if !strings.Contains(readGlobalTest(t, claudePath), `"model": "opus"`) {
 		t.Fatalf("first sync must write the model:\n%s", readGlobalTest(t, claudePath))
 	}
-	mustWriteGlobalTest(t, defaults, "targets: [codex]\nmodel: opus\n")
+	writeFile(t, defaults, "targets: [codex]\nmodel: opus\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("resync: %v\n%s", err, warnings)
 	}
@@ -122,7 +122,7 @@ func TestSyncGlobal_SettingsRoutedAwayRemoveOwnedValue(t *testing.T) {
 
 func TestExplainGlobal_SkipsTargetsASettingsSpecExcludes(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"),
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"),
 		"targets: [codex]\nmodel: gpt-6-mini\neffort: high\nx-claude:\n  env:\n    DEMO: excluded-value\n")
 
 	out, _, err := runGlobalCheck("explain", "settings/defaults.yaml")
@@ -136,8 +136,8 @@ func TestExplainGlobal_SkipsTargetsASettingsSpecExcludes(t *testing.T) {
 
 func TestImportGlobal_ReadsModelASettingsSpecRoutesAway(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "codex.yaml"), "targets: [codex]\nmodel: gpt-6-mini\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), "{\"model\": \"sonnet\"}\n")
+	writeFile(t, filepath.Join(source, "settings", "codex.yaml"), "targets: [codex]\nmodel: gpt-6-mini\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), "{\"model\": \"sonnet\"}\n")
 
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)

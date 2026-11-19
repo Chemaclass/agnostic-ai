@@ -71,8 +71,8 @@ func TestCodebuddy_GlobalRejectsInactiveOrUnsupportedHooks(t *testing.T) {
 	for _, extra := range []string{"disabled: true\n", "type: prompt\n"} {
 		t.Run(extra, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks/guard.yaml"), "event: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n"+extra)
-			mustWriteGlobalTest(t, filepath.Join(source, "scripts/guard.sh"), "#!/bin/sh\nexit 0\n")
+			writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "event: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n"+extra)
+			writeFile(t, filepath.Join(source, "scripts/guard.sh"), "#!/bin/sh\nexit 0\n")
 			if _, _, err := runGlobalAgentTest("--only", "codebuddy"); err == nil {
 				t.Fatal("inactive/unsupported hook became active")
 			}

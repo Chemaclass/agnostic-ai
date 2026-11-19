@@ -136,8 +136,8 @@ func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
 func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testing.T) {
 	home := globalOverviewHome(t)
 	source := filepath.Join(home, "source")
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n  - cursor\n  - opencode\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "base.yaml"), "model: gpt-5\neffort: high\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n  - cursor\n  - opencode\n")
+	writeFile(t, filepath.Join(source, "settings", "base.yaml"), "model: gpt-5\neffort: high\n")
 	testutil.Chdir(t, t.TempDir())
 
 	const reason = "sync --global does not write this target's user settings yet"

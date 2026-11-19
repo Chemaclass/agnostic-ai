@@ -43,10 +43,10 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 					}
 				}
 				if before != "absent" {
-					mustWriteGlobalTest(t, path, original)
+					writeFile(t, path, original)
 				}
 				specPath := filepath.Join(source, "settings", "voice.yaml")
-				mustWriteGlobalTest(t, specPath, targetVoiceSpec)
+				writeFile(t, specPath, targetVoiceSpec)
 				if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--backup"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
@@ -97,7 +97,7 @@ func TestVoiceTargets_TranslateHoldMode(t *testing.T) {
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), "voice:\n  mode: hold\n")
+			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), "voice:\n  mode: hold\n")
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -132,9 +132,9 @@ func TestVoiceTargets_QwenNoteDependsOnVoiceModel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			if tc.native != "" {
-				mustWriteGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"), tc.native)
+				writeFile(t, filepath.Join(home, ".qwen", "settings.json"), tc.native)
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.extra)
+			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.extra)
 			_, warnings, err := runGlobalAgentTest("--only", "qwen", "--backup")
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
@@ -152,7 +152,7 @@ func TestVoiceTargets_QwenNoteDependsOnVoiceModel(t *testing.T) {
 
 func TestVoiceTargets_GrokExplainsEnabledLimit(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
+	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
 	_, warnings, err := runGlobalAgentTest("--only", "grok")
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -176,7 +176,7 @@ func TestVoiceTargets_NativeParentOverridesPortableValues(t *testing.T) {
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.override)
+			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.override)
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -208,7 +208,7 @@ func TestVoiceTargets_NativeParentOverridesPortableValues(t *testing.T) {
 
 func TestVoiceTargets_ExplainListsAllWrittenKeys(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
+	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
 	out, err := runRoot(t, "explain", "--global", "settings/voice.yaml")
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ func TestVoiceTargets_ExplainUnsupportedMembersAndDeferredMappings(t *testing.T)
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			_, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
+			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
 			_, warnings, err := runGlobalAgentTest("--only", tc.target)
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
@@ -270,12 +270,12 @@ func TestVoiceTargets_RemovalKeepsUserEdits(t *testing.T) {
 		t.Run(tc.target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, settings, targetVoiceSpec)
+			writeFile(t, settings, targetVoiceSpec)
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			path := filepath.Join(home, filepath.FromSlash(tc.file))
-			mustWriteGlobalTest(t, path, tc.edited)
+			writeFile(t, path, tc.edited)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
@@ -320,12 +320,12 @@ func TestVoiceTargets_RestoreTOMLValuePreservesUserFormatting(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, filepath.FromSlash(tc.path))
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, path, tc.original)
-			mustWriteGlobalTest(t, settings, tc.spec)
+			writeFile(t, path, tc.original)
+			writeFile(t, settings, tc.spec)
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			mustWriteGlobalTest(t, path, tc.edited)
+			writeFile(t, path, tc.edited)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
@@ -343,11 +343,11 @@ func TestVoiceTargets_QwenNotesRemovedModel(t *testing.T) {
 	const note = "Qwen keeps dictation off until a voice model is chosen"
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(source, "settings", "voice.yaml")
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
+	writeFile(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("initial sync: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n")
+	writeFile(t, settings, "voice:\n  enabled: true\n")
 	_, warnings, err := runGlobalAgentTest("--only", "qwen")
 	if err != nil {
 		t.Fatalf("second sync: %v\n%s", err, warnings)
@@ -364,14 +364,14 @@ func TestVoiceTargets_QwenNotesRemovedModel(t *testing.T) {
 func TestVoiceTargets_QwenKeepsUserChangedModelWithoutNote(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(source, "settings", "voice.yaml")
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
+	writeFile(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("initial sync: %v\n%s", err, warnings)
 	}
 	path := filepath.Join(home, ".qwen", "settings.json")
 	data := readGlobalTest(t, path)
-	mustWriteGlobalTest(t, path, strings.Replace(data, "whisper", "custom", 1))
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n")
+	writeFile(t, path, strings.Replace(data, "whisper", "custom", 1))
+	writeFile(t, settings, "voice:\n  enabled: true\n")
 	_, warnings, err := runGlobalAgentTest("--only", "qwen")
 	if err != nil {
 		t.Fatalf("second sync: %v\n%s", err, warnings)
@@ -425,12 +425,12 @@ func TestVoiceTargets_GrokParentRestorePreservesUserComments(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".grok", "config.toml")
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, path, tc.original)
-			mustWriteGlobalTest(t, settings, "voice:\n  mode: tap\nx-grok:\n  ui: {}\n")
+			writeFile(t, path, tc.original)
+			writeFile(t, settings, "voice:\n  mode: tap\nx-grok:\n  ui: {}\n")
 			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			mustWriteGlobalTest(t, path, tc.edited)
+			writeFile(t, path, tc.edited)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
@@ -456,12 +456,12 @@ func TestVoiceTargets_GrokRestoresMultilineQuoteEndings(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".grok", "config.toml")
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, path, "[ui]\r\nvoice_stt_language = 'en'\r\n")
-			mustWriteGlobalTest(t, settings, "voice:\n  language: "+tc.yaml+"\n")
+			writeFile(t, path, "[ui]\r\nvoice_stt_language = 'en'\r\n")
+			writeFile(t, settings, "voice:\n  language: "+tc.yaml+"\n")
 			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			mustWriteGlobalTest(t, path, "[ui]\r\nvoice_stt_language = "+tc.native+" # new\r\n")
+			writeFile(t, path, "[ui]\r\nvoice_stt_language = "+tc.native+" # new\r\n")
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}

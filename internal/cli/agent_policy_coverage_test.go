@@ -80,8 +80,8 @@ func outputContains(t *testing.T, root, needle string) bool {
 // Qwen's permissionMode note must come from its own agent writer.
 func TestSyncGlobal_NotesQwenAgentPermissionMode(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "guard.md"), "---\nname: guard\ndescription: Guards the shell.\npermissionMode: plan\n---\n\nGuard.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "watch.md"), "---\nname: watch\ndescription: Watches the shell.\npermissionMode: plan\n---\n\nWatch.\n")
+	writeFile(t, filepath.Join(source, "agents", "guard.md"), "---\nname: guard\ndescription: Guards the shell.\npermissionMode: plan\n---\n\nGuard.\n")
+	writeFile(t, filepath.Join(source, "agents", "watch.md"), "---\nname: watch\ndescription: Watches the shell.\npermissionMode: plan\n---\n\nWatch.\n")
 	_, errOut, err := runGlobalAgentTest("--only", "qwen")
 	if err != nil {
 		t.Fatalf("sync --global: %v", err)

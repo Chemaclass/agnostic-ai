@@ -143,7 +143,7 @@ func TestSync_WritesExecFormHookArgsOnAugment(t *testing.T) {
 
 func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), execFormHook)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), execFormHook)
 	_, warnings, err := runGlobalAgentTest("--only", "augment")
 	if err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, warnings)

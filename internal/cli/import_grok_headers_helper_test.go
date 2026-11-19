@@ -39,10 +39,10 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 			path := filepath.Join(home, ".grok/config.toml")
 			before := "# Keep formatting.\n[plugins]\ncustom = 'untouched' # Keep note.\n"
 			if existing {
-				mustWriteGlobalTest(t, path, before)
+				writeFile(t, path, before)
 			}
 			sourcePath := filepath.Join(source, "mcps/docs.yaml")
-			mustWriteGlobalTest(t, sourcePath, "name: docs\nurl: https://example.com/mcp\nx-grok:\n  headers_helper: sh headers.sh\n")
+			writeFile(t, sourcePath, "name: docs\nurl: https://example.com/mcp\nx-grok:\n  headers_helper: sh headers.sh\n")
 			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -85,7 +85,7 @@ func TestImportGlobal_GrokHeadersHelperRoundTrips(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok/config.toml")
 	before := "# Keep comment.\n[mcp_servers.docs]\nurl = 'https://example.com/mcp'\nheaders_helper = 'sh headers.sh' # Keep helper.\n"
-	mustWriteGlobalTest(t, path, before)
+	writeFile(t, path, before)
 	if _, warnings, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}

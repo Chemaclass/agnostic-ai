@@ -154,7 +154,7 @@ func TestImportWriteFile_RefusesAColonNameWhereItNamesAStream(t *testing.T) {
 func TestImportGlobal_SkipsAColonMCPNameWhereItNamesAStream(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	config := filepath.Join(home, ".cursor", "mcp.json")
-	mustWriteGlobalTest(t, config, `{"mcpServers": {"ns:tool": {"command": "x"}, "plain": {"command": "x"}}}`+"\n")
+	writeFile(t, config, `{"mcpServers": {"ns:tool": {"command": "x"}, "plain": {"command": "x"}}}`+"\n")
 	fakeWindowsDataStreams(t)
 	_, warnings, err := runImportGlobalTest("cursor")
 	if err != nil {

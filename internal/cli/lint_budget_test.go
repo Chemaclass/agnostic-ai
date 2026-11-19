@@ -270,8 +270,8 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 
 func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(3000)+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(3000)+"\n")
 
 	out, _, err := runGlobalCheck("lint", "--strict")
 	if err == nil || len(findingLines(out, "LINT011")) != 1 {
@@ -281,9 +281,9 @@ func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
 
 func TestLintGlobal_ValidatesBudgetAfterLocalOverride(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: -1\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 100\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: -1\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 100\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	if out, _, err := runGlobalCheck("lint", "--strict"); err != nil {
 		t.Errorf("local/agnostic-ai.yaml replaces the negative value, so lint must pass: %v\n%s", err, out)
@@ -301,10 +301,10 @@ func TestLintBudget_RejectsNegativeBudget(t *testing.T) {
 
 func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "AGNOSTIC_AI.md"), words(15)+"\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\n"+words(10)+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
+	writeFile(t, filepath.Join(source, "local", "AGNOSTIC_AI.md"), words(15)+"\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\n"+words(10)+"\n")
 
 	out, errOut, err := runGlobalCheck("lint")
 	if err != nil {
@@ -330,11 +330,11 @@ func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 
 func TestLintGlobal_LocalConfigReplacesBudget(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: 10\n  description-chars: 10\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 5000\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: 10\n  description-chars: 10\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 5000\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
 	skill := filepath.Join(source, "skills", "review", "SKILL.md")
-	mustWriteGlobalTest(t, skill, "---\nname: review\ndescription: Review the code in front of you\n---\nReview it.\n")
+	writeFile(t, skill, "---\nname: review\ndescription: Review the code in front of you\n---\nReview it.\n")
 
 	out, _, _ := runGlobalCheck("lint")
 	if strings.Contains(out, "LINT011") {

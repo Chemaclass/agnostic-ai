@@ -24,9 +24,9 @@ func TestSyncGlobal_SettingsAddThenRemoveKeepsParentsTheUserWrote(t *testing.T) 
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
-			mustWriteGlobalTest(t, path, tc.original)
+			writeFile(t, path, tc.original)
 			settings := filepath.Join(source, "settings", "defaults.yaml")
-			mustWriteGlobalTest(t, settings, "name: defaults\n"+tc.spec)
+			writeFile(t, settings, "name: defaults\n"+tc.spec)
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -51,7 +51,7 @@ func TestSyncGlobal_SettingsRemovalDropsTheFileSyncCreated(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	settings := filepath.Join(source, "settings", "defaults.yaml")
-	mustWriteGlobalTest(t, settings, "name: defaults\nx-claude:\n  env:\n    DEMO: hello\n")
+	writeFile(t, settings, "name: defaults\nx-claude:\n  env:\n    DEMO: hello\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -70,11 +70,11 @@ func TestSyncGlobal_SettingsPartialRemovalKeepsTheParentForTheRest(t *testing.T)
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"theme\":\"dark\"}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	first := filepath.Join(source, "settings", "a.yaml")
 	second := filepath.Join(source, "settings", "b.yaml")
-	mustWriteGlobalTest(t, first, "name: a\nx-claude:\n  env:\n    A: one\n")
-	mustWriteGlobalTest(t, second, "name: b\nx-claude:\n  env:\n    B: two\n")
+	writeFile(t, first, "name: a\nx-claude:\n  env:\n    A: one\n")
+	writeFile(t, second, "name: b\nx-claude:\n  env:\n    B: two\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -95,10 +95,10 @@ func TestSyncGlobal_SettingsParentOwnershipSurvivesEmptyObjectBecomingChild(t *t
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"theme\":\"dark\"}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "defaults.yaml")
 	for _, value := range []string{"env: {}", "env:\n    DEMO: hello"} {
-		mustWriteGlobalTest(t, settings, "name: defaults\nx-claude:\n  "+value+"\n")
+		writeFile(t, settings, "name: defaults\nx-claude:\n  "+value+"\n")
 		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 			t.Fatalf("sync %q: %v\n%s", value, err, warnings)
 		}
@@ -118,10 +118,10 @@ func TestSyncGlobal_AdoptedEmptyObjectSurvivesBecomingChild(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"env\":{}}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "defaults.yaml")
 	for _, value := range []string{"env: {}", "env:\n    DEMO: hello"} {
-		mustWriteGlobalTest(t, settings, "name: defaults\nx-claude:\n  "+value+"\n")
+		writeFile(t, settings, "name: defaults\nx-claude:\n  "+value+"\n")
 		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 			t.Fatalf("sync %q: %v\n%s", value, err, warnings)
 		}
@@ -140,13 +140,13 @@ func TestSyncGlobal_AdoptedEmptyObjectSurvivesBecomingChild(t *testing.T) {
 func TestSyncGlobal_SettingsRemovalKeepsAParentTheUserFilled(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, "{}\n")
+	writeFile(t, path, "{}\n")
 	settings := filepath.Join(source, "settings", "defaults.yaml")
-	mustWriteGlobalTest(t, settings, "name: defaults\nx-claude:\n  env:\n    DEMO: hello\n")
+	writeFile(t, settings, "name: defaults\nx-claude:\n  env:\n    DEMO: hello\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, path, "{\"env\":{\"DEMO\":\"hello\",\"MINE\":\"x\"}}\n")
+	writeFile(t, path, "{\"env\":{\"DEMO\":\"hello\",\"MINE\":\"x\"}}\n")
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
@@ -163,12 +163,12 @@ func TestSyncGlobal_SettingsParentsFromOlderStateStayWhenOwnershipIsUnknown(t *t
 		t.Run(strings.Join(first, " "), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
-			mustWriteGlobalTest(t, path, "{\"theme\":\"dark\",\"env\":{\"DEMO\":\"hello\"}}\n")
+			writeFile(t, path, "{\"theme\":\"dark\",\"env\":{\"DEMO\":\"hello\"}}\n")
 			recorded, err := json.Marshal(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "state", "global.json"), `{"version":8,"files":[],"settings":{"claude":{"env.DEMO":"hello"}},"settingsPaths":{"claude":`+string(recorded)+`}}`)
+			writeFile(t, filepath.Join(source, "state", "global.json"), `{"version":8,"files":[],"settings":{"claude":{"env.DEMO":"hello"}},"settingsPaths":{"claude":`+string(recorded)+`}}`)
 			if first != nil {
 				if _, warnings, err := runGlobalAgentTest(first...); err != nil {
 					t.Fatalf("sync of another target: %v\n%s", err, warnings)
@@ -187,12 +187,12 @@ func TestSyncGlobal_SettingsParentsFromOlderStateStayWhenOwnershipIsUnknown(t *t
 func TestSyncGlobal_PermissionParentsFromOlderStateStayWhenOwnershipIsUnknown(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, "{\"permissions\":{\"allow\":[\"Read\"]}}\n")
+	writeFile(t, path, "{\"permissions\":{\"allow\":[\"Read\"]}}\n")
 	recorded, err := json.Marshal(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "state", "global.json"), `{"version":8,"files":[],"permissionRules":{"claude":{"allow":["Read"]}},"settingsPaths":{"claude":`+string(recorded)+`}}`)
+	writeFile(t, filepath.Join(source, "state", "global.json"), `{"version":8,"files":[],"permissionRules":{"claude":{"allow":["Read"]}},"settingsPaths":{"claude":`+string(recorded)+`}}`)
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
@@ -217,10 +217,10 @@ func TestSyncGlobal_SettingsListsKeepParentsTheUserWrote(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, "."+tc.target, "settings.json")
-			mustWriteGlobalTest(t, path, tc.original)
+			writeFile(t, path, tc.original)
 			settings := filepath.Join(source, "settings", "defaults.yaml")
 			for _, step := range tc.steps {
-				mustWriteGlobalTest(t, settings, "name: defaults\n"+step)
+				writeFile(t, settings, "name: defaults\n"+step)
 				if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}

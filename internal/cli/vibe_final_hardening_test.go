@@ -19,7 +19,7 @@ func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 			original := ""
 			if scenario == "existing-mode" {
 				original = "# user configuration\nkey=1\n"
-				mustWriteGlobalTest(t, path, original)
+				writeFile(t, path, original)
 				if err := os.Chmod(path, 0o640); err != nil {
 					t.Fatal(err)
 				}

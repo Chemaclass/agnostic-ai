@@ -8,7 +8,7 @@ import (
 
 func TestSyncGlobal_KeepsHandWrittenHookKeyOrder(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -l .\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -l .\n")
 	path := filepath.Join(home, ".claude", "settings.json")
 	mine := `{
         "matcher": "Bash",
@@ -19,7 +19,7 @@ func TestSyncGlobal_KeepsHandWrittenHookKeyOrder(t *testing.T) {
           }
         ]
       }`
-	mustWriteGlobalTest(t, path, "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      "+mine+"\n    ]\n  }\n}\n")
+	writeFile(t, path, "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      "+mine+"\n    ]\n  }\n}\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}

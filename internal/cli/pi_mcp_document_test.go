@@ -15,10 +15,10 @@ func TestSyncGlobal_PiRejectsNonObjectMCPWithoutWrites(t *testing.T) {
 			native := filepath.Join(home, ".pi/agent/mcp.json")
 			settings := filepath.Join(home, ".pi/agent/settings.json")
 			beforeSettings := "{\"theme\":\"light\"}\n"
-			mustWriteGlobalTest(t, native, document)
-			mustWriteGlobalTest(t, settings, beforeSettings)
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings/pi.yaml"), "model: model-a\n")
+			writeFile(t, native, document)
+			writeFile(t, settings, beforeSettings)
+			writeFile(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
+			writeFile(t, filepath.Join(source, "settings/pi.yaml"), "model: model-a\n")
 			var syncErr error
 			var panicValue any
 			func() { defer func() { panicValue = recover() }(); _, _, syncErr = runGlobalAgentTest("--only", "pi") }()
@@ -52,9 +52,9 @@ func TestSyncGlobal_PiAcceptsMissingOrEmptyMCPDocument(t *testing.T) {
 			t.Setenv("PI_CODING_AGENT_DIR", "")
 			native := filepath.Join(home, ".pi/agent/mcp.json")
 			if existing {
-				mustWriteGlobalTest(t, native, "")
+				writeFile(t, native, "")
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
+			writeFile(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
 			if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 				t.Fatalf("sync: %v %s", err, warn)
 			}

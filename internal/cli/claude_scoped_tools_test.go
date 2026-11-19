@@ -166,8 +166,8 @@ func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			notes := captureNotes(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview.\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview.\n")
 			_, warnings, err := runGlobalAgentTest("--only", "claude")
 			const line = "shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern"
 			if mode == "error" {

@@ -46,11 +46,11 @@ func TestZedGlobalInstructions_NativeRootMigratesRecordedBlock(t *testing.T) {
 					}
 					personal := "# Private\r\nKeep these bytes"
 					original := personal + "\n" + globalStart + "\nOld portable text\n" + globalEnd + "\n"
-					mustWriteGlobalTest(t, legacy, original)
+					writeFile(t, legacy, original)
 					if err := os.Chmod(legacy, 0o600); err != nil {
 						t.Fatal(err)
 					}
-					mustWriteGlobalTest(t, native, personal)
+					writeFile(t, native, personal)
 					if err := os.Chmod(native, 0o600); err != nil {
 						t.Fatal(err)
 					}

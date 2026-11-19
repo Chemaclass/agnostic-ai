@@ -102,7 +102,7 @@ func TestStopOnSpecTypos_RefusesANonBooleanAgentOnly(t *testing.T) {
 
 func TestSyncGlobal_RefusesANonBooleanAgentOnly(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "github.yaml"), "name: github\nagent-only: \"yes\"\ncommand: github-mcp\n")
+	writeFile(t, filepath.Join(source, "mcps", "github.yaml"), "name: github\nagent-only: \"yes\"\ncommand: github-mcp\n")
 	_, _, err := runGlobalAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), "agent-only must be true or false") {
 		t.Fatalf("sync --global must refuse it: %v", err)

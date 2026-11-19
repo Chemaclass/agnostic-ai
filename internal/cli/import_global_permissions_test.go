@@ -10,7 +10,7 @@ import (
 func TestImportGlobal_HoistsClaudePermissionRules(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, `{
+	writeFile(t, path, `{
   "permissions": {
     "allow": ["Bash(git status)", "WebFetch(domain:example.com)"],
     "ask": ["Bash(git push:*)"],
@@ -24,8 +24,8 @@ func TestImportGlobal_HoistsClaudePermissionRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(wd, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(project-only)"]}}`)
-	mustWriteGlobalTest(t, filepath.Join(wd, ".claude", "settings.local.json"), `{"permissions":{"allow":["Bash(local-only)"]}}`)
+	writeFile(t, filepath.Join(wd, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(project-only)"]}}`)
+	writeFile(t, filepath.Join(wd, ".claude", "settings.local.json"), `{"permissions":{"allow":["Bash(local-only)"]}}`)
 
 	out, warnings, err := runImportGlobalTest("claude", "--dry-run")
 	specPath := filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec))
@@ -72,9 +72,9 @@ func TestImportGlobal_HoistsClaudePermissionRules(t *testing.T) {
 
 func TestImportGlobal_PermissionRulesLeaveWhatTheHomeProvides(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Read","Bash(ls:*)","mcp__docs"],"deny":["Bash(rm:*)"]}}`)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "mine.yaml"), "permissions:\n  allow: [read]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "private.yaml"), "x-claude:\n  permissions:\n    deny: [\"Bash(rm:*)\"]\n    allow: [mcp__docs]\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Read","Bash(ls:*)","mcp__docs"],"deny":["Bash(rm:*)"]}}`)
+	writeFile(t, filepath.Join(source, "settings", "mine.yaml"), "permissions:\n  allow: [read]\n")
+	writeFile(t, filepath.Join(source, "local", "settings", "private.yaml"), "x-claude:\n  permissions:\n    deny: [\"Bash(rm:*)\"]\n    allow: [mcp__docs]\n")
 
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -88,9 +88,9 @@ func TestImportGlobal_PermissionRulesLeaveWhatTheHomeProvides(t *testing.T) {
 func TestImportGlobal_PermissionRulesLeaveWhatSyncWrote(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, `{"permissions":{"allow":["Bash(ls:*)"]}}`)
+	writeFile(t, path, `{"permissions":{"allow":["Bash(ls:*)"]}}`)
 	rules := filepath.Join(source, "settings", "rules.yaml")
-	mustWriteGlobalTest(t, rules, "permissions:\n  allow: [\"Bash(git status)\"]\n")
+	writeFile(t, rules, "permissions:\n  allow: [\"Bash(git status)\"]\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -110,14 +110,14 @@ func TestImportGlobal_PermissionRulesLeaveWhatSyncWrote(t *testing.T) {
 func TestImportGlobal_PermissionRulesAppendOnALaterImport(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, `{"permissions":{"allow":["Bash(ls:*)"]}}`)
+	writeFile(t, path, `{"permissions":{"allow":["Bash(ls:*)"]}}`)
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	specPath := filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec))
 	// The user keeps notes in the spec and adds rules to the user file.
-	mustWriteGlobalTest(t, specPath, "# hoisted from Claude Code\npermissions:\n  allow:\n    - Bash(ls:*)\n")
-	mustWriteGlobalTest(t, path, `{"permissions":{"allow":["Bash(ls:*)","Bash(go test:*)"],"deny":["Bash(rm:*)"]}}`)
+	writeFile(t, specPath, "# hoisted from Claude Code\npermissions:\n  allow:\n    - Bash(ls:*)\n")
+	writeFile(t, path, `{"permissions":{"allow":["Bash(ls:*)","Bash(go test:*)"],"deny":["Bash(rm:*)"]}}`)
 
 	out, _, err := runImportGlobalTest("claude", "--dry-run")
 	if err != nil || !strings.Contains(out, "dry-run: update "+specPath+": add 2 permission rule(s)") {
@@ -145,7 +145,7 @@ func TestImportGlobal_PermissionRulesAppendOnALaterImport(t *testing.T) {
 
 func TestImportGlobal_PermissionRulesLeaveOutCredentials(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(ls:*)","Bash(curl -H 'Authorization: Bearer ghp_abcdefghijklmnop1234' https://api.github.com)"]}}`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(ls:*)","Bash(curl -H 'Authorization: Bearer ghp_abcdefghijklmnop1234' https://api.github.com)"]}}`)
 	_, warnings, err := runImportGlobalTest("claude")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)

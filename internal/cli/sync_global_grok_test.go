@@ -16,11 +16,11 @@ func TestSyncGlobal_GrokSharesConfigAndRestoresBytes(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok", "config.toml")
 	before := "# hand written\n[plugins]\nenabled = true\n[models]\n# preserve this\nother = 'keep'\n"
-	mustWriteGlobalTest(t, path, before)
+	writeFile(t, path, before)
 	model := filepath.Join(source, "settings", "grok.yaml")
 	mcp := filepath.Join(source, "mcps", "docs.yaml")
-	mustWriteGlobalTest(t, model, "model: grok-code\n")
-	mustWriteGlobalTest(t, mcp, "name: docs\ncommand: server\ndisabled: true\n")
+	writeFile(t, model, "model: grok-code\n")
+	writeFile(t, mcp, "name: docs\ncommand: server\ndisabled: true\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
@@ -51,8 +51,8 @@ func TestSyncGlobal_GrokCustomRootAndNativeHookImport(t *testing.T) {
 	t.Setenv("GROK_HOME", root)
 	path := filepath.Join(root, "hooks", "guard.json")
 	native := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo safe","env":{"MODE":"safe"},"timeout":7}]}]}}`
-	mustWriteGlobalTest(t, path, native)
-	mustWriteGlobalTest(t, filepath.Join(root, "config.toml"), "[models]\ndefault = \"grok-code\"\n[mcp_servers.docs]\ncommand = \"server\"\nenabled = false\n")
+	writeFile(t, path, native)
+	writeFile(t, filepath.Join(root, "config.toml"), "[models]\ndefault = \"grok-code\"\n[mcp_servers.docs]\ncommand = \"server\"\nenabled = false\n")
 	if _, warnings, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
@@ -74,7 +74,7 @@ func TestSyncGlobal_GrokNewConfigIsPrivateAndRemoved(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
 	model := filepath.Join(source, "settings", "model.yaml")
-	mustWriteGlobalTest(t, model, "model: grok-code\n")
+	writeFile(t, model, "model: grok-code\n")
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestSyncGlobal_GrokCombinedConfigStopsOnConcurrentEdit(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok", "config.toml")
 	before := "# keep\n[plugins]\nx = 1\n"
-	mustWriteGlobalTest(t, path, before)
+	writeFile(t, path, before)
 	bundle := spec.Bundle{Settings: []spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "grok-code"}}}, MCPs: []spec.Entry{{Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"command": "server"}}}}
 	writes, _, err := buildGlobalWrites(home, source, []string{"grok"}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "")
 	if err != nil {
@@ -151,7 +151,7 @@ func TestSyncGlobal_GrokCombinedConfigStopsOnConcurrentEdit(t *testing.T) {
 		t.Fatalf("config writes %d", count)
 	}
 	changed := before + "# external write\n"
-	mustWriteGlobalTest(t, path, changed)
+	writeFile(t, path, changed)
 	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("got %v", err)
 	}
@@ -167,9 +167,9 @@ func TestSyncGlobal_GrokRootMoveReleasesOldConfig(t *testing.T) {
 	t.Setenv("GROK_HOME", oldRoot)
 	before := "# keep old root\n[plugins]\nx = 1\n"
 	path := filepath.Join(oldRoot, "config.toml")
-	mustWriteGlobalTest(t, path, before)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "model.yaml"), "model: grok-code\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ncommand: server\n")
+	writeFile(t, path, before)
+	writeFile(t, filepath.Join(source, "settings", "model.yaml"), "model: grok-code\n")
+	writeFile(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ncommand: server\n")
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestSyncGlobal_GrokImportsRemoteTransportDefaults(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok/config.toml")
 	native := "[mcp_servers.http]\nurl = \"https://example.com/mcp\"\n[mcp_servers.sse]\nurl = \"https://example.com/sse\"\n"
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	if _, warnings, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
@@ -212,7 +212,7 @@ func TestSyncGlobal_GrokSkipsHookCredentials(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok/hooks/guard.json")
 	native := `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo safe","env":{"API_TOKEN":"private-token-value"}}]}]}}`
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	out, warnings, err := runImportGlobalTest("grok")
 	if err != nil {
 		t.Fatal(err)
@@ -230,8 +230,8 @@ func TestSyncGlobal_GrokSkipsHookCredentials(t *testing.T) {
 func TestSyncGlobal_GrokImportKeepsExistingCasefoldMCPName(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"), "name: Docs\ncommand: existing\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".grok/config.toml"), "[mcp_servers.docs]\ncommand = \"different\"\n")
+	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: Docs\ncommand: existing\n")
+	writeFile(t, filepath.Join(home, ".grok/config.toml"), "[mcp_servers.docs]\ncommand = \"different\"\n")
 	if _, _, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatal(err)
 	}
@@ -245,9 +245,9 @@ func TestSyncGlobal_GrokAdoptsEquivalentNativeMCPDefaults(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok/config.toml")
 	before := "# keep native spellings\n[mcp_servers.local]\ncommand = 'server'\n[mcp_servers.remote]\ntype = 'streamable-http'\nurl = 'https://example.com/mcp'\n"
-	mustWriteGlobalTest(t, path, before)
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/local.yaml"), "name: local\ncommand: server\ndisabled: false\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/remote.yaml"), "name: remote\ntype: http\nurl: https://example.com/mcp\n")
+	writeFile(t, path, before)
+	writeFile(t, filepath.Join(source, "mcps/local.yaml"), "name: local\ncommand: server\ndisabled: false\n")
+	writeFile(t, filepath.Join(source, "mcps/remote.yaml"), "name: remote\ntype: http\nurl: https://example.com/mcp\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
@@ -259,8 +259,8 @@ func TestSyncGlobal_GrokRawHookStripsProjectRootFromSharedScript(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, "native-grok")
 	t.Setenv("GROK_HOME", root)
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts/guard.sh"), "#!/bin/sh\necho safe\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: grok\nx-grok:\n  hooks:\n    PreToolUse:\n      - hooks:\n          - type: command\n            command: '$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.sh'\n")
+	writeFile(t, filepath.Join(source, "scripts/guard.sh"), "#!/bin/sh\necho safe\n")
+	writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: grok\nx-grok:\n  hooks:\n    PreToolUse:\n      - hooks:\n          - type: command\n            command: '$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.sh'\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
@@ -272,7 +272,7 @@ func TestSyncGlobal_GrokRawHookStripsProjectRootFromSharedScript(t *testing.T) {
 func TestSyncGlobal_GrokRejectsUnsupportedNativeTransport(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ntype: http\nurl: https://example.com/mcp\nx-grok:\n  type: unsupported\n")
+	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ntype: http\nurl: https://example.com/mcp\nx-grok:\n  type: unsupported\n")
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err == nil || !strings.Contains(err.Error(), "unsupported transport") {
 		t.Fatalf("got %v", err)
 	}

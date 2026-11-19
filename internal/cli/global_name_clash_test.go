@@ -19,7 +19,7 @@ func globalNameClashProject(t *testing.T, targets string, global, project map[st
 	t.Helper()
 	_, source := globalAgentTestHome(t)
 	for path, body := range global {
-		mustWriteGlobalTest(t, filepath.Join(source, path), body)
+		writeFile(t, filepath.Join(source, path), body)
 	}
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
 	for path, body := range project {

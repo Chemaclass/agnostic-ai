@@ -75,14 +75,14 @@ func TestKiroHome_RefusesForeignPriorStateWithoutChangingFiles(t *testing.T) {
 	t.Setenv("KIRO_HOME", filepath.Dir(home))
 	oldPath := filepath.Join(t.TempDir(), "steering", "AGENTS.md")
 	original := "User-owned file outside the fallback root.\n"
-	mustWriteGlobalTest(t, oldPath, original)
+	writeFile(t, oldPath, original)
 	statePath := filepath.Join(source, "state", "global.json")
 	state, err := json.Marshal(globalState{Version: globalStateVersion, Files: []string{oldPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, statePath, string(state))
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "New instructions.\n")
+	writeFile(t, statePath, string(state))
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "New instructions.\n")
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err == nil || !strings.Contains(err.Error(), "recorded under another home") || !strings.Contains(err.Error(), oldPath) {
 		t.Fatalf("unsafe prior state accepted: %v", err)
 	}

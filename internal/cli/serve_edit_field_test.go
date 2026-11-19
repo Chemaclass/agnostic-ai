@@ -267,9 +267,9 @@ func TestEditField_TargetedSpecOverridesOnlyItsTools(t *testing.T) {
 func TestEditField_GlobalLaterClaudeModelNameOverridesCodex(t *testing.T) {
 	silence(t)
 	source := editHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "name: a\nmodel:\n  codex: gpt-5\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "b.yaml"), "name: b\nmodel: claude-opus-4\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\n")
+	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "name: a\nmodel:\n  codex: gpt-5\n")
+	writeFile(t, filepath.Join(source, "settings", "b.yaml"), "name: b\nmodel: claude-opus-4\n")
 	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"shared","path":"settings/a.yaml","key":"model","target":"codex","value":"gpt-5.5"}`, nil)
 	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "b.yaml sets model and overrides") {
 		t.Fatalf("codex edit = %d %s", rec.Code, rec.Body)
@@ -319,7 +319,7 @@ func TestEditField_NeverShadowsASpecNamedDefaults(t *testing.T) {
 	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "base.yaml"), "name: defaults\npermissions:\n  deny: [Bash]\n")
+	writeFile(t, filepath.Join(source, "settings", "base.yaml"), "name: defaults\npermissions:\n  deny: [Bash]\n")
 	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"shared","key":"model","value":"sonnet"}`, nil)
 	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "settings/base.yaml") {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
@@ -413,7 +413,7 @@ func TestEditField_RejectsAStaleExpectedValue(t *testing.T) {
 	native := filepath.Join(source, "settings", "native.yaml")
 	created := filepath.Join(source, "settings", "defaults.yaml")
 	overlay := filepath.Join(source, "local", "settings", "native.yaml")
-	mustWriteGlobalTest(t, native, "name: native\nmodel: opus\n")
+	writeFile(t, native, "name: native\nmodel: opus\n")
 	h := newEditHandler(source, true)
 	for _, tc := range []struct {
 		name, body string
@@ -467,7 +467,7 @@ func TestEditField_RefusesAnExpectedValueThePageHides(t *testing.T) {
 	source := editHome(t)
 	native := filepath.Join(source, "settings", "native.yaml")
 	original := "name: native\nmodel: abcdefghijklmnopqrstuvwxyz0123456789ABCD\n"
-	mustWriteGlobalTest(t, native, original)
+	writeFile(t, native, original)
 	h := newEditHandler(source, true)
 	for _, body := range []string{
 		`{"audience":"shared","path":"settings/native.yaml","key":"model","value":"haiku","expected":"abcdefghijklmnopqrstuvwxyz0123456789ABCE"}`,

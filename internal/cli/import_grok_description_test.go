@@ -12,7 +12,7 @@ func TestImportGlobal_GrokDescribedServerRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".grok", "config.toml")
 	native := "# Native notes stay here.\n[mcp_servers.docs]\ncommand = 'docs-mcp'\nargs = ['--stdio']\ndescription = 'Docs search' # ignored\n"
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	_, warnings, err := runImportGlobalTest("grok")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -84,7 +84,7 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 					filepath.Join(home, otherRel):            "{\"mcpServers\":{\"fs\":{\"command\":\"fs-mcp\",\"description\":\"Files\"}}}\n",
 				}
 				for path, native := range paths {
-					mustWriteGlobalTest(t, path, native)
+					writeFile(t, path, native)
 				}
 				_, warnings, err := runImportGlobalTest(targets...)
 				if err != nil {
@@ -121,7 +121,7 @@ func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
 				paths[filepath.Join(home, ".claude.json")] = "{\"mcpServers\":{\"fs\":{\"command\":\"fs-mcp\",\"description\":\"Files\"}}}\n"
 			}
 			for path, native := range paths {
-				mustWriteGlobalTest(t, path, native)
+				writeFile(t, path, native)
 			}
 			_, warnings, err := runImportGlobalTest(targets...)
 			if err != nil {

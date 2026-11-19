@@ -58,7 +58,7 @@ func TestImportClaude_ProjectRootHookRunsOnCodex(t *testing.T) {
 
 func TestSyncGlobal_HookRootUsesRuntimeProject(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\ncommand: 'printf %s \"${CLAUDE_PROJECT_DIR}\"'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\ncommand: 'printf %s \"${CLAUDE_PROJECT_DIR}\"'\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestSyncGlobal_HookRootUsesRuntimeProject(t *testing.T) {
 
 func TestSyncGlobal_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\nshell: powershell\ncommand: '\"$CLAUDE_PROJECT_DIR/custom/guard.ps1\"'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\nshell: powershell\ncommand: '\"$CLAUDE_PROJECT_DIR/custom/guard.ps1\"'\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestSyncGlobal_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
 
 func TestSyncGlobal_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: windows-guard\nevent: PreToolUse\ntarget: codex\ncommand: guard.sh\ncommandWindows: '$env:CLAUDE_PROJECT_DIR/custom/guard.ps1'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: windows-guard\nevent: PreToolUse\ntarget: codex\ncommand: guard.sh\ncommandWindows: '$env:CLAUDE_PROJECT_DIR/custom/guard.ps1'\n")
 	_, warnings, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func TestSyncGlobal_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
 	if handler["commandWindows"] != `$env:CLAUDE_PROJECT_DIR/custom/guard.ps1` {
 		t.Errorf("Windows override changed: %v", handler["commandWindows"])
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err == nil || !strings.Contains(err.Error(), "windows-guard") {
 		t.Errorf("want named global Windows error, got %v", err)
 	}

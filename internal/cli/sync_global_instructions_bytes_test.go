@@ -34,9 +34,9 @@ func TestSyncGlobal_AddThenRemoveRestoresTheInstructionsFileBytes(t *testing.T) 
 				t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 				t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 				intro := filepath.Join(home, "source", "AGNOSTIC_AI.md")
-				mustWriteGlobalTest(t, intro, "Shared instructions\n")
+				writeFile(t, intro, "Shared instructions\n")
 				path := filepath.Join(home, f.file)
-				mustWriteGlobalTest(t, path, shape.text)
+				writeFile(t, path, shape.text)
 
 				syncGlobalOnly(t, f.target)
 				added := readGlobalTestFile(t, path)
@@ -96,7 +96,7 @@ func TestMergeGlobalBlock_TouchesOnlyTheBlockAndItsSeparator(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "CLAUDE.md")
-			mustWriteGlobalTest(t, path, tc.file)
+			writeFile(t, path, tc.file)
 			got, err := mergeGlobalBlock(path, tc.managed)
 			if err != nil {
 				t.Fatal(err)

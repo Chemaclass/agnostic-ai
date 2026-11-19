@@ -125,7 +125,7 @@ func TestWhy_LeavesTheGeminiMemoryRuleOutOfAFileCodexReads(t *testing.T) {
 // rule for one tool stays out of it instead of stopping the sync.
 func TestSyncGlobal_LeavesTheGeminiMemoryRuleOut(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [gemini]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [gemini]\nbuiltins: [memory]\n")
 
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, warnings)

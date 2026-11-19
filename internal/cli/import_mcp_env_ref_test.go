@@ -139,7 +139,7 @@ func TestImportMCP_EnvRefsRoundTrip(t *testing.T) {
 func TestImportGlobal_CursorEnvRefsRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mcpDir := filepath.Join(source, "mcps")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nenv:\n  GITHUB_TOKEN: ${GITHUB_TOKEN}\n")
+	writeFile(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nenv:\n  GITHUB_TOKEN: ${GITHUB_TOKEN}\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}

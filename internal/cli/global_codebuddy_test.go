@@ -14,14 +14,14 @@ func TestCodebuddy_GlobalFilesRestoreOriginalBytes(t *testing.T) {
 	mcp := filepath.Join(home, ".codebuddy/mcp.json")
 	beforeSettings := "{\n  \"nativeControl\" : true,\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"echo mine\"}]}]\n  }\n}\n"
 	beforeMCP := "{\n  \"projects\": {\"/my/project\": {\"localServer\":true}},\n  \"mcpServers\": {\n    \"mine\": {\"type\": \"stdio\", \"command\": \"mine\"}\n  }\n}\n"
-	mustWriteGlobalTest(t, settings, beforeSettings)
-	mustWriteGlobalTest(t, mcp, beforeMCP)
+	writeFile(t, settings, beforeSettings)
+	writeFile(t, mcp, beforeMCP)
 	if err := os.Chmod(mcp, 0600); err != nil {
 		t.Fatal(err)
 	}
 	specs := map[string]string{"settings/defaults.yaml": "model: lite\neffort: high\npermissions:\n  default-mode: plan\n  deny: [shell(rm *)]\n", "hooks/guard.yaml": "event: Stop\ncommand: echo\nargs: ['a b']\n", "mcps/docs.yaml": globalDocsMCP, "agents/reviewer.md": "---\nname: reviewer\ndescription: Review\ncan: [read]\n---\nReview changes.\n", "skills/review/SKILL.md": "---\nname: review\ndescription: Review\n---\nRead references/guide.txt.\n", "skills/review/references/guide.txt": "Use complete diff.\n"}
 	for p, b := range specs {
-		mustWriteGlobalTest(t, filepath.Join(source, p), b)
+		writeFile(t, filepath.Join(source, p), b)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
@@ -76,7 +76,7 @@ func TestCodebuddy_GlobalCreatesPreferredPrivateMCPAndRemovesIt(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".codebuddy/.mcp.json")
 	spec := filepath.Join(source, "mcps/docs.yaml")
-	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	writeFile(t, spec, globalDocsMCP)
 	if _, w, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
@@ -100,13 +100,13 @@ func TestCodebuddy_GlobalCreatesPreferredPrivateMCPAndRemovesIt(t *testing.T) {
 func TestCodebuddy_GlobalUnsupportedServerDoesNotDeleteManagedEntries(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "mcps/docs.yaml")
-	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	writeFile(t, spec, globalDocsMCP)
 	if _, w, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	path := filepath.Join(home, ".codebuddy/.mcp.json")
 	before := readGlobalTest(t, path)
-	mustWriteGlobalTest(t, spec, globalDocsMCP+"disabled: true\n")
+	writeFile(t, spec, globalDocsMCP+"disabled: true\n")
 	if _, _, err := runGlobalAgentTest("--only", "codebuddy"); err == nil {
 		t.Fatal("unsupported disabled server enabled or removed")
 	}
@@ -117,7 +117,7 @@ func TestCodebuddy_GlobalUnsupportedServerDoesNotDeleteManagedEntries(t *testing
 func TestCodebuddy_ImportGlobalUsesLegacyAndPreservesNativeMCPExtras(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".codebuddy/mcp.json")
-	mustWriteGlobalTest(t, path, `{"projects":{"mine":{}},"mcpServers":{"docs":{"type":"stdio","command":"docs-mcp","defer_loading":true,"tools":{"read":{"defer_loading":false}}}}}`)
+	writeFile(t, path, `{"projects":{"mine":{}},"mcpServers":{"docs":{"type":"stdio","command":"docs-mcp","defer_loading":true,"tools":{"read":{"defer_loading":false}}}}}`)
 	if _, w, err := runImportGlobalTest("codebuddy"); err != nil {
 		t.Fatalf("import: %v\n%s", err, w)
 	}
@@ -141,7 +141,7 @@ func TestCodebuddy_ImportGlobalUsesLegacyAndPreservesNativeMCPExtras(t *testing.
 
 func TestCodebuddy_GlobalNativeConditionalRuleIsRejected(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "rules/go.md"), "---\nname: go\nx-codebuddy:\n  alwaysApply: false\n  paths: ['*.go']\n---\nGo only.\n")
+	writeFile(t, filepath.Join(source, "rules/go.md"), "---\nname: go\nx-codebuddy:\n  alwaysApply: false\n  paths: ['*.go']\n---\nGo only.\n")
 	if _, _, err := runGlobalAgentTest("--only", "codebuddy"); err == nil {
 		t.Fatal("conditional rule broadened globally")
 	}
@@ -149,7 +149,7 @@ func TestCodebuddy_GlobalNativeConditionalRuleIsRejected(t *testing.T) {
 
 func TestCodebuddy_GlobalPromptHookIsRejected(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks/stop-check.yaml"), "name: stop-check\nevent: Stop\ntype: prompt\nprompt: check\n")
+	writeFile(t, filepath.Join(source, "hooks/stop-check.yaml"), "name: stop-check\nevent: Stop\ntype: prompt\nprompt: check\n")
 	if _, _, err := runGlobalAgentTest("--only", "codebuddy"); err == nil || !strings.Contains(err.Error(), "user settings take only command hooks") {
 		t.Fatalf("prompt hook dropped from user settings without an error: %v", err)
 	}

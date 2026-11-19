@@ -157,7 +157,7 @@ func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
 
 	silence(t)
 	source := editHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, aider]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, aider]\n")
 	rec = postEdit(t, newEditHandler(source, true), editTargetsPath, `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "keep at least one coding tool on") {
 		t.Errorf("global = %d, want 400 naming the rule: %s", rec.Code, rec.Body)

@@ -19,7 +19,7 @@ func TestImportGlobal_ReadsClaudeVoice(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	native := "{\n  \"voice\": {\"enabled\": true, \"mode\": \"tap\"},\n  \"language\": \"Spanish\"\n}\n"
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -47,7 +47,7 @@ func TestImportGlobal_ClaudeVoiceEnabledFallback(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), tc.native+"\n")
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), tc.native+"\n")
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -74,8 +74,8 @@ func TestImportGlobal_VoiceSkipsOnlyTheCoveredTool(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			existing := tc.scope + "voice:\n  mode: hold\n"
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, settings, existing)
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			writeFile(t, settings, existing)
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -111,9 +111,9 @@ func readImportedVoice(t *testing.T, source string) map[string]any {
 
 func TestImportGlobal_VoiceScopePreservesCoveredToolsAndTheirModels(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "aaa.yaml"), "target: gemini\nvoice:\n  mode: hold\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".gemini", "settings.json"), `{"model":{"name":"gemini-pro"}}`+"\n")
+	writeFile(t, filepath.Join(source, "settings", "aaa.yaml"), "target: gemini\nvoice:\n  mode: hold\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+	writeFile(t, filepath.Join(home, ".gemini", "settings.json"), `{"model":{"name":"gemini-pro"}}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude", "gemini"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -166,7 +166,7 @@ func TestImportGlobal_ReadsVoiceAcrossNativeTools(t *testing.T) {
 		".vibe/config.toml":     "voice_mode_enabled = true\n",
 	}
 	for file, contents := range files {
-		mustWriteGlobalTest(t, filepath.Join(home, filepath.FromSlash(file)), contents)
+		writeFile(t, filepath.Join(home, filepath.FromSlash(file)), contents)
 	}
 	if _, warnings, err := runImportGlobalTest("claude", "qwen", "gemini", "grok", "vibe"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -188,8 +188,8 @@ func TestImportGlobal_VoiceConflictsFollowCommandOrder(t *testing.T) {
 	for _, first := range []string{"claude", "qwen"} {
 		t.Run(first, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
-			mustWriteGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"), `{"general":{"voice":{"enabled":false,"mode":"hold","language":"es"}}}`+"\n")
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), `{"general":{"voice":{"enabled":false,"mode":"hold","language":"es"}}}`+"\n")
 			second := "qwen"
 			want := map[string]any{"enabled": true, "mode": "tap", "language": "es"}
 			if first == "qwen" {
@@ -219,7 +219,7 @@ func TestImportGlobal_VoiceReversesHoldModes(t *testing.T) {
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(home, filepath.FromSlash(tc.file)), tc.native+"\n")
+			writeFile(t, filepath.Join(home, filepath.FromSlash(tc.file)), tc.native+"\n")
 			if _, warnings, err := runImportGlobalTest(tc.target); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -232,7 +232,7 @@ func TestImportGlobal_VoiceReversesHoldModes(t *testing.T) {
 
 func TestImportGlobal_VoiceIgnoresInvalidNativeMembers(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":"yes","mode":["tap"]},"language":"Spanish"}`+"\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":"yes","mode":["tap"]},"language":"Spanish"}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -245,7 +245,7 @@ func TestImportGlobal_LegacyVoiceCanChangeAndRestore(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{ \"voiceEnabled\":  true }\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -256,7 +256,7 @@ func TestImportGlobal_LegacyVoiceCanChangeAndRestore(t *testing.T) {
 		t.Errorf("matching legacy value changed: %q", got)
 	}
 	settings := filepath.Join(source, globalImportSettingsSpec)
-	mustWriteGlobalTest(t, settings, "target: claude\nvoice:\n  enabled: false\n")
+	writeFile(t, settings, "target: claude\nvoice:\n  enabled: false\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("change enabled: %v\n%s", err, warnings)
 	}
@@ -282,9 +282,9 @@ func TestImportGlobal_LegacyVoiceWithModeRestoresCreatedParent(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"voiceEnabled\":true}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "voice.yaml")
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n  mode: hold\n")
+	writeFile(t, settings, "voice:\n  enabled: true\n  mode: hold\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync mode: %v\n%s", err, warnings)
 	}
@@ -312,13 +312,13 @@ func TestImportGlobal_LegacyVoiceWithModeRestoresCreatedParent(t *testing.T) {
 func TestImportGlobal_LegacyVoiceDoesNotHideRestoredCanonicalValue(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, "{\"voiceEnabled\":true,\"voice\":{\"enabled\":false}}\n")
+	writeFile(t, path, "{\"voiceEnabled\":true,\"voice\":{\"enabled\":false}}\n")
 	settings := filepath.Join(source, "settings", "voice.yaml")
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n  mode: tap\nx-claude:\n  voice: {}\n")
+	writeFile(t, settings, "voice:\n  enabled: true\n  mode: tap\nx-claude:\n  voice: {}\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("sync parent: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, settings, "voice:\n  enabled: true\n  mode: tap\n")
+	writeFile(t, settings, "voice:\n  enabled: true\n  mode: tap\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("replace parent: %v\n%s", err, warnings)
 	}
@@ -334,8 +334,8 @@ func TestImportGlobal_LegacyVoiceDoesNotHideRestoredCanonicalValue(t *testing.T)
 func TestImportGlobal_LegacyVoiceKeepsExplicitNativeOverride(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, path, "{\"voiceEnabled\":true}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), "voice:\n  enabled: true\nx-claude:\n  voice:\n    enabled: false\n")
+	writeFile(t, path, "{\"voiceEnabled\":true}\n")
+	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), "voice:\n  enabled: true\nx-claude:\n  voice:\n    enabled: false\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("native override: %v\n%s", err, warnings)
 	}
@@ -350,7 +350,7 @@ func TestImportGlobal_LegacyVoiceKeepsExplicitNativeOverride(t *testing.T) {
 
 func TestImportGlobal_ImportedVoiceIsSharedBeyondSourceTools(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -392,7 +392,7 @@ func TestImportGlobal_VoiceSkipsUnknownNativeModes(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(home, filepath.FromSlash(tc.file)), tc.native)
+			writeFile(t, filepath.Join(home, filepath.FromSlash(tc.file)), tc.native)
 			if _, warnings, err := runImportGlobalTest(tc.target); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -405,12 +405,12 @@ func TestImportGlobal_VoiceSkipsUnknownNativeModes(t *testing.T) {
 
 func TestImportGlobal_VoiceModelCompanionKeepsExistingFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "aaa.yaml"), "target: gemini\nvoice:\n  mode: hold\n")
+	writeFile(t, filepath.Join(source, "settings", "aaa.yaml"), "target: gemini\nvoice:\n  mode: hold\n")
 	path := filepath.Join(source, "settings", "imported-models.yaml")
 	original := "# personal models\nmodel:\n  codex: gpt-test\n"
-	mustWriteGlobalTest(t, path, original)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".gemini", "settings.json"), `{"model":{"name":"gemini-pro"}}`+"\n")
+	writeFile(t, path, original)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+	writeFile(t, filepath.Join(home, ".gemini", "settings.json"), `{"model":{"name":"gemini-pro"}}`+"\n")
 	_, warnings, err := runImportGlobalTest("claude", "gemini")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -432,13 +432,13 @@ func TestImportGlobal_AddsVoiceToPriorModelImport(t *testing.T) {
 		t.Run(original, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(source, globalImportSettingsSpec)
-			mustWriteGlobalTest(t, path, original)
+			writeFile(t, path, original)
 			if err := os.Chmod(path, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			nativePath := filepath.Join(home, ".claude", "settings.json")
 			native := "{\"model\":\"sonnet\",\"effortLevel\":\"high\",\"voice\":{\"enabled\":true,\"mode\":\"tap\"}}\n"
-			mustWriteGlobalTest(t, nativePath, native)
+			writeFile(t, nativePath, native)
 			if _, warnings, err := runImportGlobalTest("claude", "--dry-run"); err != nil {
 				t.Fatalf("dry-run: %v\n%s", err, warnings)
 			}
@@ -475,8 +475,8 @@ func TestImportGlobal_PriorSettingsScopeDoesNotNarrowNewVoice(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(source, globalImportSettingsSpec)
 	original := "# keep scope\ntarget: codex\nmodel: {codex: 'gpt-test'} # model\n"
-	mustWriteGlobalTest(t, path, original)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+	writeFile(t, path, original)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -517,8 +517,8 @@ func TestImportGlobal_PriorVoiceImportHandlesUnusualYAML(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(source, globalImportSettingsSpec)
-			mustWriteGlobalTest(t, path, tc.original)
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"sonnet","voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			writeFile(t, path, tc.original)
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"sonnet","voice":{"enabled":true,"mode":"tap"}}`+"\n")
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -557,9 +557,9 @@ func TestImportGlobal_PriorVoiceImportStopsIfDestinationChanges(t *testing.T) {
 			path := filepath.Join(source, globalImportSettingsSpec)
 			original := "model: {claude: 'sonnet'}\n"
 			current := original
-			mustWriteGlobalTest(t, path, original)
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"sonnet","voice":{"enabled":true}}`+"\n")
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"docs":{"command":"docs-mcp"}}}`+"\n")
+			writeFile(t, path, original)
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"sonnet","voice":{"enabled":true}}`+"\n")
+			writeFile(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"docs":{"command":"docs-mcp"}}}`+"\n")
 			mutated := false
 			cmd := NewRootCmd("test")
 			cmd.SetErr(io.Discard)
@@ -567,7 +567,7 @@ func TestImportGlobal_PriorVoiceImportStopsIfDestinationChanges(t *testing.T) {
 			prefix := "wrote "
 			if change == "content" {
 				prefix = "warning: "
-				mustWriteGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"), `{"general":{"voice":{"enabled":false}}}`+"\n")
+				writeFile(t, filepath.Join(home, ".qwen", "settings.json"), `{"general":{"voice":{"enabled":false}}}`+"\n")
 			}
 			writer := importVoiceMutationWriter(func(data []byte) (int, error) {
 				if !mutated && strings.HasPrefix(string(data), prefix) {
@@ -575,10 +575,10 @@ func TestImportGlobal_PriorVoiceImportStopsIfDestinationChanges(t *testing.T) {
 					switch change {
 					case "content":
 						current = "# changed by another writer\n" + original
-						mustWriteGlobalTest(t, path, current)
+						writeFile(t, path, current)
 					case "identical replacement":
 						replacement := path + ".replacement"
-						mustWriteGlobalTest(t, replacement, original)
+						writeFile(t, replacement, original)
 						if err := os.Rename(replacement, path); err != nil {
 							t.Fatal(err)
 						}
@@ -626,20 +626,20 @@ func TestImportGlobal_LayeredDestinationDoesNotNarrowOrDeleteVoice(t *testing.T)
 			home, source := globalAgentTestHome(t)
 			shared := filepath.Join(source, "settings", "imported.yaml")
 			if tc.shared != "" {
-				mustWriteGlobalTest(t, shared, tc.shared)
+				writeFile(t, shared, tc.shared)
 			}
 			if tc.localImported != "" {
-				mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "imported.yaml"), tc.localImported)
+				writeFile(t, filepath.Join(source, "local", "settings", "imported.yaml"), tc.localImported)
 			}
 			if tc.localFallback != "" {
-				mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "imported-voice.yaml"), tc.localFallback)
+				writeFile(t, filepath.Join(source, "local", "settings", "imported-voice.yaml"), tc.localFallback)
 				if tc.localFallback == "voice: null\n" {
-					mustWriteGlobalTest(t, filepath.Join(source, "settings", "imported-voice.yaml"), "model: {codex: gpt-test}\n")
+					writeFile(t, filepath.Join(source, "settings", "imported-voice.yaml"), "model: {codex: gpt-test}\n")
 				}
 			}
 			nativePath := filepath.Join(home, ".claude", "settings.json")
 			native := "{\"voice\":{\"enabled\":true,\"mode\":\"tap\"}}\n"
-			mustWriteGlobalTest(t, nativePath, native)
+			writeFile(t, nativePath, native)
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -685,12 +685,12 @@ func TestImportGlobal_NamedDestinationUsesEffectiveLocalOverlay(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(source, "settings", "imported.yaml")
 			original := "name: personal\nmodel: {codex: gpt-test}\n"
-			mustWriteGlobalTest(t, path, original)
+			writeFile(t, path, original)
 			local := filepath.Join(source, "local", "settings", "personal.yaml")
-			mustWriteGlobalTest(t, local, overlay)
+			writeFile(t, local, overlay)
 			collision := filepath.Join(source, "local", "settings", "different.yaml")
-			mustWriteGlobalTest(t, collision, "name: imported-voice\ntarget: codex\n")
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			writeFile(t, collision, "name: imported-voice\ntarget: codex\n")
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -717,9 +717,9 @@ func TestImportGlobal_NamedDestinationUsesEffectiveLocalOverlay(t *testing.T) {
 func TestImportGlobal_CompatibleLocalSettingsStillAllowVoiceAppend(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	shared := filepath.Join(source, "settings", "imported.yaml")
-	mustWriteGlobalTest(t, shared, "model: {codex: gpt-test}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "imported.yaml"), "targets: []\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
+	writeFile(t, shared, "model: {codex: gpt-test}\n")
+	writeFile(t, filepath.Join(source, "local", "settings", "imported.yaml"), "targets: []\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -732,9 +732,9 @@ func TestImportGlobal_ShadowedDestinationDoesNotLoseVoice(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(source, "settings", "imported.yaml")
 	original := "name: personal\nmodel: {codex: gpt-test}\n"
-	mustWriteGlobalTest(t, path, original)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "later.yaml"), "name: personal\ntarget: codex\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
+	writeFile(t, path, original)
+	writeFile(t, filepath.Join(source, "settings", "later.yaml"), "name: personal\ntarget: codex\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -755,9 +755,9 @@ func TestImportGlobal_NewDestinationDoesNotShadowNamedSettings(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(source, "settings", filename)
 			original := "name: imported\ntarget: codex\nmodel: {codex: gpt-test}\n"
-			mustWriteGlobalTest(t, path, original)
+			writeFile(t, path, original)
 			native := filepath.Join(home, ".claude", "settings.json")
-			mustWriteGlobalTest(t, native, `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
+			writeFile(t, native, `{"voice":{"enabled":true,"mode":"tap"}}`+"\n")
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -788,8 +788,8 @@ func TestImportGlobal_NewDestinationDoesNotShadowNamedSettings(t *testing.T) {
 func TestImportGlobal_NewDestinationExtendsCompatibleLocalOnlySettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	local := filepath.Join(source, "local", "settings", "imported.yaml")
-	mustWriteGlobalTest(t, local, "targets: []\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
+	writeFile(t, local, "targets: []\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"voice":{"enabled":true}}`+"\n")
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}

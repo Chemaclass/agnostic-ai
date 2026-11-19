@@ -13,7 +13,7 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	cursor := filepath.Join(home, ".cursor", "mcp.json")
 	native := `{"mcpServers": {"app": {"command": "app-mcp", "env": {"API_KEY": "sk-live-abc", "NODE_ENV": "production"}}}}` + "\n"
-	mustWriteGlobalTest(t, cursor, native)
+	writeFile(t, cursor, native)
 
 	if _, warnings, err := runImportGlobalTest("cursor"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -38,7 +38,7 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 // must accept a comment and a trailing comma there.
 func TestImportGlobal_AugmentAcceptsJSONCSettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".augment", "settings.json"), `{
+	writeFile(t, filepath.Join(home, ".augment", "settings.json"), `{
   // personal servers
   "mcpServers": {"app": {"command": "app-mcp",},},
 }

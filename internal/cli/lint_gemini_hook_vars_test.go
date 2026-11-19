@@ -94,8 +94,8 @@ func TestBareGeminiVariables(t *testing.T) {
 
 func TestLintGlobal_GeminiHookVariableInQuotesFailsStrict(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [gemini]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "check.yaml"), "name: check\nevent: PreToolUse\ncommand: 'echo \"$GEMINI_PROJECT_DIR\"'\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [gemini]\n")
+	writeFile(t, filepath.Join(source, "hooks", "check.yaml"), "name: check\nevent: PreToolUse\ncommand: 'echo \"$GEMINI_PROJECT_DIR\"'\n")
 
 	out, _, err := runGlobalCheck("lint")
 	if err != nil {

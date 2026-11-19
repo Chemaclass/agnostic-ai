@@ -10,7 +10,7 @@ import (
 // project files, so they mean nothing in a home file every project reads.
 func TestSyncGlobal_MemoryBuiltinLeavesTheKiroIncludeToProjects(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro, codex]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro, codex]\nbuiltins: [memory]\n")
 
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("sync --global with the memory built-in: %v\n%s", err, warnings)
@@ -34,7 +34,7 @@ func TestSyncGlobal_MemoryBuiltinLeavesTheKiroIncludeToProjects(t *testing.T) {
 
 func TestLintGlobal_MemoryBuiltinRulesAreNotConditionalRules(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro]\nbuiltins: [memory]\n")
 
 	for _, command := range []string{"lint", "validate"} {
 		out, _, err := runGlobalCheck(command)
@@ -46,8 +46,8 @@ func TestLintGlobal_MemoryBuiltinRulesAreNotConditionalRules(t *testing.T) {
 
 func TestCheckScopeGlobal_SkipsInactiveBuiltinHooksAndKeepsUserHooks(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro]\nbuiltins: [memory]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "user-subagent.yaml"), "name: user-subagent\ntargets: [claude]\nevent: SubagentStart\ncommand: echo user-hook\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "hooks", "user-subagent.yaml"), "name: user-subagent\ntargets: [claude]\nevent: SubagentStart\ncommand: echo user-hook\n")
 
 	scope, err := loadCheckScope(true)
 	if err != nil {

@@ -26,8 +26,8 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 			if mode == "empty" {
 				original = "[[mcp_servers]]\nname='---'\ncommand='node'\n"
 			}
-			mustWriteGlobalTest(t, path, original)
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\n")
+			writeFile(t, path, original)
+			writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\n")
 			_, w, err := runGlobalAgentTest("--only", "vibe")
 			if mode != "equal" {
 				if err == nil {
@@ -54,7 +54,7 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 			if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
 				t.Fatalf("repeat: %v %s", err, w)
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: updated\n")
+			writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: updated\n")
 			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("owned alias update: %v %s", err, w)
 			}
@@ -78,7 +78,7 @@ func TestImportVibe_NativeMCPIdentityRejectsBeforeWrites(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			body := "[[mcp_servers]]\nname='docs.api'\ncommand='node'\n\n[[mcp_servers]]\nname='docs_api'\ncommand='node'\n"
 			if global {
-				mustWriteGlobalTest(t, filepath.Join(home, ".vibe/config.toml"), body)
+				writeFile(t, filepath.Join(home, ".vibe/config.toml"), body)
 				if _, _, err := runImportGlobalTest("vibe"); err == nil {
 					t.Error("duplicate identity imported")
 				}
@@ -107,23 +107,23 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			mcp := filepath.Join(source, "mcps/docs.api.yaml")
-			mustWriteGlobalTest(t, path, "# keep\nkey=1\n")
-			mustWriteGlobalTest(t, mcp, "name: docs.api\ncommand: node\n")
+			writeFile(t, path, "# keep\nkey=1\n")
+			writeFile(t, mcp, "name: docs.api\ncommand: node\n")
 			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("setup: %v %s", err, w)
 			}
 			statePath := filepath.Join(source, "state/global.json")
 			switch scenario {
 			case "desired-collision":
-				mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\n")
+				writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\n")
 			case "invalid-current-unrelated":
 				if err := os.Remove(mcp); err != nil {
 					t.Fatal(err)
 				}
-				mustWriteGlobalTest(t, filepath.Join(source, "settings/model.yaml"), "model: devstral\n")
-				mustWriteGlobalTest(t, path, readGlobalTest(t, path)+"\n[[mcp_servers]]\nname='---'\ncommand='node'\n")
+				writeFile(t, filepath.Join(source, "settings/model.yaml"), "model: devstral\n")
+				writeFile(t, path, readGlobalTest(t, path)+"\n[[mcp_servers]]\nname='---'\ncommand='node'\n")
 			case "renamed", "renamed-removal", "renamed-root-move":
-				mustWriteGlobalTest(t, path, strings.ReplaceAll(readGlobalTest(t, path), `"docs.api"`, `"docs_api"`))
+				writeFile(t, path, strings.ReplaceAll(readGlobalTest(t, path), `"docs.api"`, `"docs_api"`))
 				if scenario == "renamed-removal" {
 					if err := os.Remove(mcp); err != nil {
 						t.Fatal(err)
@@ -147,7 +147,7 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 				if err != nil {
 					t.Fatal(err)
 				}
-				mustWriteGlobalTest(t, statePath, string(data))
+				writeFile(t, statePath, string(data))
 			}
 			if err := os.Chmod(path, 0o600); err != nil {
 				t.Fatal(err)
@@ -189,9 +189,9 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 				name = "docs_api"
 				native += "\n[[mcp_servers]]\nname='docs.api'\ntransport='stdio'\ncommand='node'\n"
 			}
-			mustWriteGlobalTest(t, path, native)
+			writeFile(t, path, native)
 			mcp := filepath.Join(source, "mcps/"+name+".yaml")
-			mustWriteGlobalTest(t, mcp, "name: "+name+"\ncommand: node\n")
+			writeFile(t, mcp, "name: "+name+"\ncommand: node\n")
 			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("add: %v %s", err, w)
 			}
@@ -207,7 +207,7 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 				}
 				mcp = filepath.Join(source, "mcps/docs_api.yaml")
 			}
-			mustWriteGlobalTest(t, mcp, "name: docs_api\ncommand: updated\n")
+			writeFile(t, mcp, "name: docs_api\ncommand: updated\n")
 			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("alias update: %v %s", err, w)
 			}
@@ -248,14 +248,14 @@ func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			src := filepath.Join(source, "mcps/docs_api.yaml")
 			specBody := "name: docs_api\ncommand: node\n"
-			mustWriteGlobalTest(t, src, specBody)
+			writeFile(t, src, specBody)
 			command := "node"
 			if !equal {
 				command = "different"
 			}
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := fmt.Sprintf("# native\n[[mcp_servers]]\nname='docs.api'\ncommand=%q\ntransport='stdio'\n", command)
-			mustWriteGlobalTest(t, path, original)
+			writeFile(t, path, original)
 			_, _, err := runImportGlobalTest("vibe")
 			if equal {
 				if err != nil {
@@ -296,7 +296,7 @@ func TestImportVibe_NoncanonicalNativeNameRoundTripsFresh(t *testing.T) {
 			} else {
 				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")
 			}
-			mustWriteGlobalTest(t, path, "[[mcp_servers]]\nname='docs.api'\ncommand='node'\ntransport='stdio'\n")
+			writeFile(t, path, "[[mcp_servers]]\nname='docs.api'\ncommand='node'\ntransport='stdio'\n")
 			if global {
 				if _, _, err := runImportGlobalTest("vibe"); err != nil {
 					t.Fatal(err)
@@ -336,8 +336,8 @@ func TestImportVibe_NoncanonicalNativeNameRoundTripsFresh(t *testing.T) {
 
 func TestSyncGlobal_VibeExcludedNativeAliasDoesNotCollide(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\nx-vibe:\n  name: ignored\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.api.yaml"), "name: docs.api\ncommand: node\ntarget-exclude: vibe\n")
+	writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\nx-vibe:\n  name: ignored\n")
+	writeFile(t, filepath.Join(source, "mcps/docs.api.yaml"), "name: docs.api\ncommand: node\ntarget-exclude: vibe\n")
 	if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("excluded alias: %v %s", err, w)
 	}

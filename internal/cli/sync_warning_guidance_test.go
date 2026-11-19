@@ -12,7 +12,7 @@ import (
 
 func TestSyncGlobal_UnsupportedAgentsGiveOneHomeConfigFix(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "amp,zed,warp,crush")
 	if err != nil {
 		t.Fatal(err)
@@ -95,8 +95,8 @@ func TestSyncGlobalJSON_SuggestionsIncludeSharedSkillLimitAndPreviewParity(t *te
 	for _, mode := range []string{"--check", "--plan", "--dry-run"} {
 		t.Run(mode, func(t *testing.T) {
 			_, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\nmetadata:\n  owner: team\ndisable-model-invocation: true\n---\nDeploy.\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview.\n")
+			writeFile(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\nmetadata:\n  owner: team\ndisable-model-invocation: true\n---\nDeploy.\n")
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview.\n")
 			out, previewWarnings, _ := runGlobalAgentTest("--only", "claude,codex,cursor,amp,zed", "--json", mode)
 			if previewWarnings != "" {
 				t.Errorf("global JSON %s leaked diagnostics: %s", mode, previewWarnings)
@@ -188,10 +188,10 @@ func TestSyncJSON_PolicySuggestionsKeepTheRequiredAccess(t *testing.T) {
 
 func TestSyncGlobal_UnsupportedAgentFixNamesLocalTargetOverride(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
 	localConfig := filepath.Join(source, "local", "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, localConfig, "targets: [amp]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
+	writeFile(t, localConfig, "targets: [amp]\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
 	_, warnings, err := runGlobalAgentTest()
 	if err != nil {
 		t.Fatal(err)
@@ -233,7 +233,7 @@ func TestSyncJSON_MetadataFixNamesEveryTargetThatKeepsIt(t *testing.T) {
 
 func TestSyncGlobal_SharedAndOwnSkillFoldersGetSeparateFixes(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "codex,gemini", "--plan")
 	if err != nil {
 		t.Fatal(err)
@@ -256,13 +256,13 @@ func TestSyncGlobal_SharedAndOwnSkillFoldersGetSeparateFixes(t *testing.T) {
 
 func TestSyncGlobalJSON_FailureStillPrintsWarningsAndNotes(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "tone.md"), "---\nname: tone\n---\nBe brief.\n")
+	writeFile(t, filepath.Join(source, "rules", "tone.md"), "---\nname: tone\n---\nBe brief.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "CLAUDE.md"), "hand edit\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(home, ".claude", "CLAUDE.md"), "hand edit\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
 	out, warnings, err := runGlobalAgentTest("--only", "claude,amp", "--json")
 	if err == nil || !strings.Contains(err.Error(), "edited since the last global sync") {
 		t.Fatalf("want hand-edit failure, got %v\n%s", err, out)
@@ -276,7 +276,7 @@ func TestSyncGlobalJSON_FailureStillPrintsWarningsAndNotes(t *testing.T) {
 
 func TestSyncGlobalJSON_UnsupportedMCPLandsInWarnings(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+	writeFile(t, filepath.Join(source, "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
 	out, warnings, err := runGlobalAgentTest("--only", "claude,amp", "--json")
 	if err != nil {
 		t.Fatal(err)

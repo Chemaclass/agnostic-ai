@@ -121,8 +121,8 @@ func TestSpecMove_CopyKeepsTheSourceAndNamesOnlyTheDestinationSync(t *testing.T)
 
 func TestSpecMove_OverwriteNeedsTheFlagAndReplacesTheWholeFolder(t *testing.T) {
 	project, global := moveProject(t)
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "stale.md"), "old\n")
+	writeFile(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	writeFile(t, filepath.Join(global, "skills", "review-pr", "stale.md"), "old\n")
 	h := projectMoveHandler(project, global)
 
 	preview, code, reply := previewThenApply(t, h, moveBody("skill", "review-pr", "project", "global", "copy"))
@@ -220,7 +220,7 @@ func TestSpecMove_MissingGlobalSetupOffersCreate(t *testing.T) {
 
 func TestSpecMove_GlobalServerCopiesToItsProject(t *testing.T) {
 	project, global := moveProject(t)
-	mustWriteGlobalTest(t, filepath.Join(global, "hooks", "lint.yaml"), "name: lint\non: after-edit\ncommand: npm run lint\n")
+	writeFile(t, filepath.Join(global, "hooks", "lint.yaml"), "name: lint\non: after-edit\ncommand: npm run lint\n")
 	h := newSpecMoveHandler(global, true, &switchPeer{root: project})
 	_, code, reply := previewThenApply(t, h, moveBody("hook", "lint", "global", "project", "copy"))
 	if code != http.StatusOK {
@@ -328,7 +328,7 @@ func TestSpecMove_RefusesWhenSourceAndDestinationAreTheSameFile(t *testing.T) {
 func TestSpecMove_RefusesASkillAtTheSkillsFolderRoot(t *testing.T) {
 	project, global := moveProject(t)
 	mustWrite(t, ".agnostic-ai/skills/SKILL.md", "---\ndescription: Root.\n---\n\nRoot.\n")
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n")
+	writeFile(t, filepath.Join(global, "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "skills", "project", "global", "copy"))
 	if code != http.StatusUnprocessableEntity {
 		t.Errorf("= %d %+v, want 422", code, reply)
@@ -366,14 +366,14 @@ func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
 func TestSpecMove_RefusesWhenTheDestinationLayoutChangesHowTheSkillLoads(t *testing.T) {
 	project, global := moveProject(t)
 	mustWrite(t, ".agnostic-ai/skills/tools/lint.md", "---\nname: lint\ndescription: Lint.\n---\n\nLint.\n")
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "tools", "SKILL.md"), "---\nname: tools\ndescription: Tools.\n---\n\nTools.\n")
+	writeFile(t, filepath.Join(global, "skills", "tools", "SKILL.md"), "---\nname: tools\ndescription: Tools.\n---\n\nTools.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "lint", "project", "global", "move"))
 	if code != http.StatusConflict || !strings.Contains(reply.Error, "tools") {
 		t.Errorf("flat skill into a folder skill = %d %+v", code, reply)
 	}
 
 	// A folder skill must not replace a folder of flat skills.
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "keep.md"), "---\nname: keep\ndescription: Keep.\n---\n\nKeep.\n")
+	writeFile(t, filepath.Join(global, "skills", "review-pr", "keep.md"), "---\nname: keep\ndescription: Keep.\n---\n\nKeep.\n")
 	request := moveBody("skill", "review-pr", "project", "global", "copy")
 	request["overwrite"] = true
 	code, reply = postSpecMove(t, projectMoveHandler(project, global), request)
@@ -387,7 +387,7 @@ func TestSpecMove_RefusesWhenTheDestinationLayoutChangesHowTheSkillLoads(t *test
 
 func TestSpecMove_StagesOutsideTheSkillsFolderAndWarnsOnLeftovers(t *testing.T) {
 	project, global := moveProject(t)
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	writeFile(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
 	removeAll := removeMoveStaging
 	removeMoveStaging = func(string) error { return os.ErrPermission }
 	t.Cleanup(func() { removeMoveStaging = removeAll })
@@ -429,7 +429,7 @@ func TestSpecMove_RefusesADestinationInsideTheSourceSkill(t *testing.T) {
 
 func TestSpecMove_KeepsTheOldSkillWhenRollbackFails(t *testing.T) {
 	project, global := moveProject(t)
-	mustWriteGlobalTest(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	writeFile(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
 	rename := renameMoveUnit
 	calls := 0
 	renameMoveUnit = func(from, to string) error {

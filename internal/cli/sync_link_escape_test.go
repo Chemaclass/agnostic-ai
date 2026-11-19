@@ -118,7 +118,7 @@ func TestSyncGlobal_WritesThroughALinkedToolFolder(t *testing.T) {
 		t.Skip("symlinks need privileges on Windows")
 	}
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
 	dotfiles := filepath.Join(t.TempDir(), "dotfiles", "claude")
 	if err := os.MkdirAll(dotfiles, 0o755); err != nil {
 		t.Fatal(err)
