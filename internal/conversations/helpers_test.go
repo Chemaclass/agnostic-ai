@@ -404,7 +404,7 @@ func TestReopenHelper_FocusesTheParentAndNamesTheSubagent(t *testing.T) {
 	if !slices.ContainsFunc(launcher.calls, func(call string) bool { return strings.HasPrefix(call, "focus ") }) {
 		t.Errorf("the parent's tab must come to the front, actual calls %v", launcher.calls)
 	}
-	want := "Opened the chat it runs in. Its subagent is 'Find call sites'. Use the agent rows below the prompt to switch to it."
+	want := "Switched to the Terminal tab that runs it. Its subagent is 'Find call sites'. Use the agent rows below the prompt to switch to it."
 	if reply.Message != want {
 		t.Errorf("reply = %q", reply.Message)
 	}
@@ -484,5 +484,33 @@ func TestReopenHelper_OpensOfOneChatShareOneOpenAndEachGetsItsOwnReply(t *testin
 	}
 	if n := launcher.focuses.Load(); n != 1 {
 		t.Errorf("opens of one chat share one tab switch, actual %d", n)
+	}
+}
+
+func TestSubagentReply_KeepsTheOpenMessageAndPointsAtTheAgentRowsOnlyInATerminal(t *testing.T) {
+	picked := helper{Tool: ToolClaude, ID: "explore", Title: "Find call sites", Kind: "Explore"}
+	inTerminal := Conversation{App: AppCLI, Open: Route{Kind: RouteFocus}}
+	for name, tc := range map[string]struct {
+		conversation Conversation
+		picked       helper
+		want         string
+	}{
+		"a terminal tab": {inTerminal, picked,
+			"Opened. Its subagent is 'Find call sites'. Use the agent rows below the prompt to switch to it."},
+		"an editor extension": {Conversation{App: AppIDE, Open: Route{Kind: RouteLink}}, picked,
+			"Opened. Its subagent is 'Find call sites'."},
+		"a background session": {Conversation{App: AppCLI, Open: Route{Kind: RouteFocus}, placed: &placement{claudeBackground: true}}, picked,
+			"Opened. Its subagent is 'Find call sites'."},
+		"a subagent with only a type": {inTerminal, helper{Tool: ToolClaude, ID: "x", Kind: "Explore"},
+			"Opened. Its subagent is 'Explore'. Use the agent rows below the prompt to switch to it."},
+		"a subagent with no name": {inTerminal, helper{Tool: ToolClaude, ID: "x"},
+			"Opened. Use the agent rows below the prompt to switch to its subagent."},
+	} {
+		t.Run(name, func(t *testing.T) {
+			reply := subagentReply(OpenReply{Opened: true, Message: "Opened."}, tc.conversation, tc.picked)
+			if reply.Message != tc.want || reply.Helper == nil || reply.Helper.ID != tc.picked.ID {
+				t.Errorf("reply = %q, helper %v", reply.Message, reply.Helper)
+			}
+		})
 	}
 }

@@ -293,7 +293,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
     const picked = body.helper && row?.helpers?.find((helper) => helper.tool === 'claude' && helper.id === body.helper)
-    const said = picked ? { message: `Opened the chat it runs in. Its subagent is '${picked.title}'. Use the agent rows below the prompt to switch to it.`, helper: picked } : {}
+    const said = picked ? { message: `Switched to the Terminal tab that runs it. Its subagent is '${picked.title}'. Use the agent rows below the prompt to switch to it.`, helper: picked } : {}
     sendJSON(response, 200, { opened: true, ...said })
     listChanged()
   }

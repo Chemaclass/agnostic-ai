@@ -662,7 +662,7 @@ test('a subagent row says what its click does', () => {
 
 test('an open of a Claude Code subagent leaves the reply as a notice; any other open leaves none', () => {
   const said = 'Opened the chat it runs in. Its subagent is \'Find call sites\'. Use the agent rows below the prompt to switch to it.'
-  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: { tool: 'claude', id: 'explore' } }), { message: said })
+  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: { tool: 'claude', id: 'explore' } }), { message: said, hint: true })
   assert.equal(subagentNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.' }), undefined)
   assert.equal(subagentNoticeOf({ opened: false, message: 'That subagent no longer works in this chat.' }), undefined)
 })

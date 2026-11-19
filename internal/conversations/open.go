@@ -195,20 +195,24 @@ func Open(ctx context.Context, c Conversation, processes Processes, launcher Lau
 // it finished, or it was never there.
 const subagentGone = "That subagent no longer works in this chat, so nothing was opened. Refresh the list."
 
-// subagentReply says which subagent was asked for once the chat it runs
-// in opened. The tool takes no command that shows a subagent, so the
-// person switches to it in the chat.
-func subagentReply(reply OpenReply, picked helper) OpenReply {
+// subagentReply adds which subagent was asked for to the reply of the
+// chat it runs in. Only a terminal tab shows the agent rows below the
+// prompt; the tool takes no command that shows a subagent.
+func subagentReply(reply OpenReply, c Conversation, picked helper) OpenReply {
 	reply.Helper = &picked
 	name := picked.Title
 	if name == "" {
 		name = picked.Kind
 	}
-	if name == "" {
-		reply.Message = "Opened the chat it runs in. Use the agent rows below the prompt to switch to its subagent."
-		return reply
+	rows := c.App == AppCLI && c.Open.Kind == RouteFocus && (c.placed == nil || !c.placed.claudeBackground)
+	switch {
+	case name != "" && rows:
+		reply.Message += fmt.Sprintf(" Its subagent is '%s'. Use the agent rows below the prompt to switch to it.", name)
+	case name != "":
+		reply.Message += fmt.Sprintf(" Its subagent is '%s'.", name)
+	case rows:
+		reply.Message += " Use the agent rows below the prompt to switch to its subagent."
 	}
-	reply.Message = fmt.Sprintf("Opened the chat it runs in. Its subagent is '%s'. Use the agent rows below the prompt to switch to it.", name)
 	return reply
 }
 

@@ -369,3 +369,42 @@ func TestInbox_OpeningTheSameChatAgainWithSuccessDropsItsLateFailure(t *testing.
 		t.Errorf("the failure stayed after the chat opened: %d %s", status, body)
 	}
 }
+
+// olderServer refuses a helper field the way a server from before it
+// took one does, and opens anything else.
+type olderServer struct {
+	mu     sync.Mutex
+	bodies []string
+}
+
+func (o *olderServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	raw, _ := io.ReadAll(r.Body)
+	o.mu.Lock()
+	o.bodies = append(o.bodies, string(raw))
+	o.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	if strings.Contains(string(raw), `"helper"`) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"send {tool, id, editor}"}`))
+		return
+	}
+	_, _ = w.Write([]byte(`{"opened":true,"message":"Switched to the Terminal tab that runs it."}`))
+}
+
+func TestInbox_AnOlderServerStillOpensTheChatOfASubagent(t *testing.T) {
+	older := &olderServer{}
+	in, _ := lateInbox(t, older)
+	lockedLog(t)
+
+	rec := httptest.NewRecorder()
+	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"chat","title":"Rename chats","helper":"explore"}`)))
+
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"opened":true`) {
+		t.Errorf("the chat still opens = %d %s", rec.Code, rec.Body)
+	}
+	older.mu.Lock()
+	defer older.mu.Unlock()
+	if len(older.bodies) != 2 || strings.Contains(older.bodies[1], "helper") || !strings.Contains(older.bodies[1], `"id":"chat"`) {
+		t.Errorf("one resend without the helper, actual %q", older.bodies)
+	}
+}

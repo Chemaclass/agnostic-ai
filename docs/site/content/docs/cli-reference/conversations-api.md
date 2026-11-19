@@ -161,7 +161,7 @@ Cloud sessions and refresh:
 Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from the server's own origin.
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?, helper?}`.
-- `helper` is the `id` of a Claude Code subagent the conversation lists in `helpers`. Its conversation opens as without it. When it opened, `message` names the subagent and says to switch to it in the agent rows below the prompt, and the reply's `helper` is that subagent. A subagent the conversation does not list, such as one that finished, opens nothing: `opened` is false and `message` says so. A Codex subagent opens with its own `tool` and `id` instead.
+- `helper` is the `id` of a Claude Code subagent the conversation lists in `helpers`. Its conversation opens as without it. When it opened, `message` keeps what the open says and adds the subagent's name; for a terminal tab it also says to switch to it in the agent rows below the prompt. The reply's `helper` is that subagent. A subagent the conversation does not list, such as one that finished, opens nothing: `opened` is false and `message` says so. A companion sends an open without `helper` again once to a server that refuses the field. A Codex subagent opens with its own `tool` and `id` instead.
 
 {% <details summary="Open details, results and status codes"> %}
 

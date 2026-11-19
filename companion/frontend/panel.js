@@ -709,7 +709,7 @@ async function showLateOpenFailure() {
     return
   }
   const shown = failure && lateOpenFailureOf(failure, lastDismissedLate)
-  if (!shown || state.openFailure || opensOnTheirWay > 0) return
+  if (!shown || (state.openFailure && !state.openFailure.hint) || opensOnTheirWay > 0) return
   showOpenFailure(shown, NOTICES.notOpened)
 }
 
@@ -744,7 +744,7 @@ async function openRow(conversation) {
   }
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (thisOpen !== latestOpen) return
-  // The terminal keeps the front; the note waits in the panel for its next showing.
+  // The terminal keeps the front; the note waits in the panel for its next showing, unless a failure replaces it.
   if (note) showOpenFailure(note, NOTICES.subagent)
   if (!failure) return
   showOpenFailure(failure, NOTICES.notOpened)

@@ -373,7 +373,11 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	}
 	settled := make(chan outcome, 1)
 	go func() {
-		answer, err := in.server.callWithin(context.WithoutCancel(r.Context()), in.server.openLateWait, http.MethodPost, serverOpenPath, body, "")
+		ctx := context.WithoutCancel(r.Context())
+		answer, err := in.server.callWithin(ctx, in.server.openLateWait, http.MethodPost, serverOpenPath, body, "")
+		if plain, named := withoutField(body, "helper"); named && err == nil && refusesHelper(answer) {
+			answer, err = in.server.callWithin(ctx, in.server.openLateWait, http.MethodPost, serverOpenPath, plain, "")
+		}
 		settled <- outcome{answer, err}
 	}()
 	waited := time.NewTimer(in.server.openWait)
@@ -525,6 +529,30 @@ const maxSentTitle = 200
 // withoutTitle takes the title a page sent out of an open, since the
 // server refuses any field but tool, id and editor. A body that is no
 // JSON object goes on as it came, for the server to refuse.
+// refusesHelper reports whether the server is a release from before an
+// open took a helper: it refuses the field with this exact error.
+func refusesHelper(answer reply) bool {
+	return answer.status == http.StatusBadRequest && errorOf(answer) == "send {tool, id, editor}"
+}
+
+// withoutField is body without the named field; named is false when
+// body has no such field.
+func withoutField(body []byte, name string) (rest []byte, named bool) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return body, false
+	}
+	if _, named = fields[name]; !named {
+		return body, false
+	}
+	delete(fields, name)
+	rest, err := json.Marshal(fields)
+	if err != nil {
+		return body, false
+	}
+	return rest, true
+}
+
 func withoutTitle(body []byte) ([]byte, string) {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(body, &fields) != nil {

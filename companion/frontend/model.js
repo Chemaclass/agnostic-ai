@@ -640,9 +640,12 @@ export function helperTooltipOf(helper) {
   return helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in, and show how to reach this subagent'
 }
 
-/** The notice an opened Claude Code subagent leaves: which one it was and how to reach it; undefined for any other open. */
+/**
+ * The notice an opened Claude Code subagent leaves: which one it was and how to reach it; undefined for any other
+ * open. It is a `hint`: any failure that comes after it takes its place.
+ */
 export function subagentNoticeOf(reply) {
-  return reply.opened && reply.helper ? { message: reply.message } : undefined
+  return reply.opened && reply.helper ? { message: reply.message, hint: true } : undefined
 }
 
 /** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */

@@ -595,8 +595,9 @@ type openOutcome struct {
 	found bool
 	// ran is false when the open stopped at a subagent the chat does not
 	// list, before anything opened.
-	ran     bool
-	helpers []helper
+	ran bool
+	// chat is the conversation the open found.
+	chat Conversation
 	// unmarked is why the opened chat could not be marked seen.
 	unmarked string
 }
@@ -607,12 +608,12 @@ func (o openOutcome) replyFor(subagent string) (OpenReply, bool) {
 	}
 	reply := o.reply
 	if subagent != "" {
-		picked, listed := subagentIn(o.helpers, subagent)
+		picked, listed := subagentIn(o.chat.Helpers, subagent)
 		if !listed {
 			return OpenReply{Message: subagentGone}, true
 		}
 		if reply.Opened {
-			reply = subagentReply(reply, picked)
+			reply = subagentReply(reply, o.chat, picked)
 		}
 	}
 	if o.unmarked != "" {
@@ -626,7 +627,7 @@ func (s *Scanner) reopen(ctx context.Context, tool Tool, id, subagent string, op
 	if !found {
 		return openOutcome{ran: true}
 	}
-	out := openOutcome{found: true, helpers: conversation.Helpers}
+	out := openOutcome{found: true, chat: conversation}
 	if _, listed := subagentIn(conversation.Helpers, subagent); subagent != "" && !listed {
 		return out
 	}
