@@ -807,17 +807,10 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	prior.warn()
 	edits := editGuardFor(keepEdits, prev)
 
-	// mainSess drives the serial post-emission writes (entry points,
-	// shared-skill links, orphan sweep). Each concurrent target owns its
-	// own session; sessions collects every session with a rollback log in
-	// write order, so the deferred rollback undoes the latest phase first.
-	mainSess := adapters.NewSession()
-	mainSess.SetProjectRoot(".")
-	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
-	if backup {
-		mainSess.SetBackup(true)
-	}
-	edits.apply(mainSess)
+	// Each concurrent target owns its own session; sessions collects every
+	// session with a rollback log in write order, so the deferred rollback
+	// undoes the latest phase first.
+	mainSess := newMainSession(cfg, backup, edits)
 	var sessions []*adapters.Session
 	// No session logs the ignore files, so the rollback restores them.
 	var ignoreFiles []priorFile
@@ -935,54 +928,24 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		}
 		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", manifestWrites)
-		// resolveAgnosticBody reads AGNOSTIC_AI.md from disk on
-		// subsequent syncs and skips the re-write, so detailed
-		// recording never captures the path. Add it explicitly so
-		// the ledger does not treat the source body as an orphan.
-		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
-			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
-		}
+		ledgerSession = withAgnosticEntryPoint(ledgerSession)
 	}
 	applied := shared.apply(mainSess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, dryRun)
+	// No session writes after the sweep, so one read of the backups serves
+	// the ignore files and the ledger.
+	var backups map[string]string
+	if !dryRun {
+		backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	}
 	if gitignoreOn {
-		for _, l := range applied {
-			gitignoreEntries = append(gitignoreEntries, l.path)
-		}
-
-		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
-			retained = ledger.outputs
-		}
-		for _, path := range retained {
-			if !cfg.IsUnmanaged(path) {
-				gitignoreEntries = append(gitignoreEntries, path)
-			}
-		}
-		// Some adapters choose output paths from what is on disk, so the
-		// planners render after the emit, never from the renders before it.
-		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
+		ignores, err := writeSyncIgnores(root, cfg, b, effectiveTargets, gitignoreEntries, applied, ledger, sweepErr, emitted, prior.missing(), backups)
+		ignoreFiles = ignores.prior
 		if err != nil {
 			return err
 		}
-		ignoreFiles = priorIgnoreFiles(root, cfg)
-		rel, changed, err := writeGitignoreBlock(root, cfg, block)
-		if err != nil {
-			return fmt.Errorf("gitignore: %w", err)
-		}
-		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
-		if err := writePersonalExcludes(root, personal); err != nil {
-			return fmt.Errorf("git exclude: %w", err)
-		}
-		if changed {
-			report.updated = append(report.updated, filepath.ToSlash(rel))
-		}
-		if changed, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return fmt.Errorf("worktreeinclude: %w", err)
-		} else if changed {
-			report.updated = append(report.updated, worktreeIncludeFile)
-		}
+		report.updated = append(report.updated, ignores.changed...)
 	}
 
 	if !dryRun {
@@ -1111,18 +1074,13 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
-	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
-	var untrackErr error
-	if untrack && len(trackedIgnored) > 0 {
-		removed, err := gitRmCached(root, trackedIgnored)
-		report.untracked = removed
-		if len(removed) > 0 && verbosity < levelDefault {
-			keptf("  %s %s\n", bang(), untrackPullAdvice)
-		}
-		trackedIgnored = removeMatching(trackedIgnored, removed)
-		if err != nil {
-			untrackErr = fmt.Errorf("untrack: %w", err)
-		}
+	trackedIgnored, untracked, untrackErr := untrackIgnored(root, cfg, ledger.outputs, untrack)
+	report.untracked = untracked
+	if len(untracked) > 0 && verbosity < levelDefault {
+		keptf("  %s %s\n", bang(), untrackPullAdvice)
+	}
+	if untrackErr != nil {
+		untrackErr = fmt.Errorf("untrack: %w", untrackErr)
 	}
 	report.trackedIgnored = trackedIgnored
 	if verbosity >= levelDefault {
@@ -1139,7 +1097,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	} else {
 		ledger.modelAliases = addedModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	}
-	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	ledger.backups = backups
 	ledger.warningRecords, ledger.noteRecords = warningRecords, noteRecords
 	if !complete || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.warningRecords = mergePartialDropRecords(prev.WarningRecords, warningRecords, emitted)
@@ -1182,6 +1140,110 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		flushDrops()
 	}
 	return errors.Join(untrackErr, stateErr)
+}
+
+// newMainSession returns the session that drives the serial writes after
+// the targets emit: entry points, shared-skill links, and the orphan sweep.
+func newMainSession(cfg *config.Config, backup bool, edits editGuard) *adapters.Session {
+	sess := adapters.NewSession()
+	sess.SetProjectRoot(".")
+	sess.SetUnmanaged(cfg.Sync.Unmanaged)
+	if backup {
+		sess.SetBackup(true)
+	}
+	edits.apply(sess)
+	return sess
+}
+
+// withAgnosticEntryPoint lists AGNOSTIC_AI.md in the ledger session. A
+// later sync reads it from disk and skips the rewrite, so detailed
+// recording never captures it, and the ledger would treat it as an orphan.
+func withAgnosticEntryPoint(session []string) []string {
+	if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
+		return append(session, adapters.AgnosticEntryPointPath)
+	}
+	return session
+}
+
+// ignoreStep is the last step writeSyncIgnores reached, so each pass can
+// keep its own rollback when one fails.
+type ignoreStep int
+
+const (
+	ignorePlan ignoreStep = iota
+	ignoreGitignore
+	ignoreExcludes
+	ignoreWorktree
+)
+
+// syncIgnores holds the ignore files as they were before the write, the
+// managed block, and the files the write changed.
+type syncIgnores struct {
+	prior   []priorFile
+	block   []string
+	changed []string
+	step    ignoreStep
+}
+
+// writeSyncIgnores writes the managed .gitignore block, the personal
+// excludes, and the worktree include after the sweep. recorded is what the
+// targets and entry points wrote; the links and the outputs the sweep
+// kept join it.
+func writeSyncIgnores(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string, links []skillLink, ledger syncLedger, sweepErr error, emitted []string, noLedger bool, backups map[string]string) (syncIgnores, error) {
+	entries := recorded
+	for _, l := range links {
+		entries = append(entries, l.path)
+	}
+	retained := ledger.orphans
+	if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
+		retained = ledger.outputs
+	}
+	for _, path := range retained {
+		if !cfg.IsUnmanaged(path) {
+			entries = append(entries, path)
+		}
+	}
+	var w syncIgnores
+	// Some adapters choose output paths from what is on disk, so the
+	// planners render after the emit, never from the renders before it.
+	block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), targets, entries, noLedger)
+	if err != nil {
+		return w, err
+	}
+	w.block = block
+	w.prior = priorIgnoreFiles(root, cfg)
+	w.step = ignoreGitignore
+	rel, changed, err := writeGitignoreBlock(root, cfg, block)
+	if err != nil {
+		return w, fmt.Errorf("gitignore: %w", err)
+	}
+	w.step = ignoreExcludes
+	if err := writePersonalExcludes(root, withLeftoverBackups(personal, block, backups)); err != nil {
+		return w, fmt.Errorf("git exclude: %w", err)
+	}
+	if changed {
+		w.changed = append(w.changed, filepath.ToSlash(rel))
+	}
+	w.step = ignoreWorktree
+	if changed, err = writeWorktreeInclude(root, cfg, block); err != nil {
+		return w, fmt.Errorf("worktreeinclude: %w", err)
+	}
+	if changed {
+		w.changed = append(w.changed, worktreeIncludeFile)
+	}
+	return w, nil
+}
+
+// untrackIgnored lists the outputs Git both tracks and ignores. With
+// untrack, it removes them from the index, never the working tree, and
+// returns the ones still tracked and the ones it removed.
+func untrackIgnored(root string, cfg *config.Config, outputs []string, untrack bool) (stillTracked, removedFromIndex []string, err error) {
+	tracked := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, outputs))
+	if !untrack || len(tracked) == 0 {
+		return tracked, nil, nil
+	}
+	removedFromIndex, err = gitRmCached(root, tracked)
+	return removeMatching(tracked, removedFromIndex), removedFromIndex, err
 }
 
 // unlistedTargets returns the targets whose first sync has not shown
@@ -1439,13 +1501,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	edits := editGuardFor(keepEdits, prev)
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
-	mainSess := adapters.NewSession()
-	mainSess.SetProjectRoot(".")
-	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
-	if backup {
-		mainSess.SetBackup(true)
-	}
-	edits.apply(mainSess)
+	mainSess := newMainSession(cfg, backup, edits)
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
 	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, false)
 	if err != nil {
@@ -1511,12 +1567,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 		}
 		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
 		appendFileRecords(&out, "agnostic-ai", manifestWrites)
-		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
-		// syncs without going through emit, so register it for the
-		// ledger by hand.
-		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
-			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
-		}
+		ledgerSession = withAgnosticEntryPoint(ledgerSession)
 	}
 	if gitignoreOn {
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
@@ -1526,6 +1577,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	mainSess.StartTransaction()
 	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, false)
+	backups := syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	for _, l := range applied {
 		if l.changed {
 			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
@@ -1534,35 +1586,13 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 		}
 	}
 	if gitignoreOn {
-		for _, l := range applied {
-			gitignoreEntries = append(gitignoreEntries, l.path)
-		}
-
-		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
-			retained = ledger.outputs
-		}
-		for _, path := range retained {
-			if !cfg.IsUnmanaged(path) {
-				gitignoreEntries = append(gitignoreEntries, path)
-			}
-		}
-		// Some adapters choose output paths from what is on disk, so the
-		// planners render after the emit, never from the renders before it.
-		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
+		ignores, err := writeSyncIgnores(root, cfg, b, effectiveTargets, gitignoreEntries, applied, ledger, sweepErr, emitted, prior.missing(), backups)
 		if err != nil {
-			return undoSweep(mainSess, nil, err)
-		}
-		prior := priorIgnoreFiles(root, cfg)
-		if err := updateGitignore(root, cfg, block); err != nil {
-			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
-		}
-		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
-		if err := writePersonalExcludes(root, personal); err != nil {
-			return undoSweep(mainSess, prior, fmt.Errorf("git exclude: %w", err))
-		}
-		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return undoSweep(mainSess, widenIgnores(prior, filepath.Join(root, gitignoreRel(cfg)), block), fmt.Errorf("worktreeinclude: %w", err))
+			restore := ignores.prior
+			if ignores.step == ignoreWorktree {
+				restore = widenIgnores(restore, filepath.Join(root, gitignoreRel(cfg)), ignores.block)
+			}
+			return undoSweep(mainSess, restore, err)
 		}
 	}
 	mainSess.Commit()
@@ -1593,19 +1623,15 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
-	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
-	if untrack && len(trackedIgnored) > 0 {
-		removedFromIndex, err := gitRmCached(root, trackedIgnored)
-		for _, p := range removedFromIndex {
-			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
-		}
-		if len(removedFromIndex) > 0 {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
-		}
-		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
-		if err != nil {
-			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", err)})
-		}
+	trackedIgnored, removedFromIndex, untrackErr := untrackIgnored(root, cfg, ledger.outputs, untrack)
+	for _, p := range removedFromIndex {
+		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
+	}
+	if len(removedFromIndex) > 0 {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
+	}
+	if untrackErr != nil {
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", untrackErr)})
 	}
 	for _, p := range trackedIgnored {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "tracked"})
@@ -1622,7 +1648,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	if len(out.Errors) == 0 {
 		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, sessions, mainSess), cfg)
 	}
-	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	ledger.backups = backups
 	ledger.warningRecords, ledger.noteRecords = prev.WarningRecords, prev.NoteRecords
 	ledger.listed = carriedListed(prev)
 	release()
