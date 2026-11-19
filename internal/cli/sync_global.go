@@ -89,26 +89,8 @@ func (w *globalWrite) addTarget(target string) {
 }
 
 func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
-	if o.watch || o.watchPoll || o.allTargets || o.gitignore != "" || o.jobs != 0 {
-		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --all, --gitignore, or --jobs")
-	}
-	if o.plan && o.dryRun {
-		return errs.Coded(errs.CodeFlagConflict, "--plan cannot be combined with --dry-run")
-	}
-	if o.jsonOut && o.diff {
-		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
-	}
-	if o.diff && !o.check && !o.dryRun && !o.plan {
-		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check, --plan, or --dry-run with --global")
-	}
-	if len(o.only) > 0 && len(o.except) > 0 {
-		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
-	}
-	if err := validateCheckFormat(o.format); err != nil {
+	if err := validateGlobalFlags(o); err != nil {
 		return err
-	}
-	if o.format != checkFormatHuman && !o.check {
-		return errs.Coded(errs.CodeFlagConflict, "--format requires --check with --global")
 	}
 	home, err := globalUserHome()
 	if err != nil {
@@ -128,50 +110,10 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err := requireGlobalVersion(source, skipBroken); err != nil {
 		return err
 	}
-	targets := o.targets
-	// A default run spans every supported target, so one target's
-	// problem (a relative root variable, a name its native format
-	// rejects) warns and skips that target instead of failing the rest.
-	// A home config names its targets, as --only does.
-	explicit := len(o.targets) > 0 || len(o.only) > 0
-	if len(targets) == 0 {
-		// -t replaces the home config, so a broken one does not block it.
-		if targets, err = loadGlobalTargets(source, warn); err != nil {
-			return err
-		}
-		explicit = explicit || targets != nil
-	}
-	if len(targets) == 0 {
-		targets = globalTargetNames()
-	}
-	// The home config's targets, before --only and --except, as project
-	// sync reads agnostic-ai.yaml.
-	configured := slices.Clone(targets)
-	targets, err = filterTargets(targets, o.only, o.except)
+	targets, configured, explicit, err := resolveGlobalTargets(o, source, warn)
 	if err != nil {
 		return err
 	}
-	for _, target := range targets {
-		if err := unsupportedGlobalTarget("--global", target); err != nil {
-			return err
-		}
-	}
-
-	var usable []string
-	for _, target := range targets {
-		err := globalTargets[target].rootError(target)
-		if err == nil {
-			usable = append(usable, target)
-			continue
-		}
-		if explicit {
-			return err
-		}
-		if _, werr := fmt.Fprintf(warn, "warning: %v; skipping %s\n", err, target); werr != nil {
-			return fmt.Errorf("write global target warning: %w", werr)
-		}
-	}
-	targets = usable
 	names, err := loadGlobalBuiltins(source, skipBroken)
 	if err != nil {
 		return err
@@ -180,20 +122,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	own := ownSpecs(bundle)
-	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
-	issues = append(issues, agentLimitIssues(own.Agents)...)
-	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
-	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
-	issues = append(issues, voiceIssues(bundle.Settings)...)
-	issues = append(issues, agentOnlyIssues(bundle.MCPs)...)
-	issues = append(issues, mcpRootsIssues(own.MCPs)...)
-	// A permission rule the target cannot read would be written as it
-	// stands, so a deny rule could stop guarding anything.
-	if slices.ContainsFunc(targets, func(t string) bool { return globalTargets[t].settings.permissionLists }) {
-		issues = append(issues, permissionCapabilityIssues(bundle.Settings)...)
-	}
-	if err := stopOnIssues(issues); err != nil {
+	if err := checkGlobalSpecIssues(bundle, targets); err != nil {
 		return err
 	}
 	tiers, unloaded, err := loadGlobalModels(source, skipBroken)
@@ -224,13 +153,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	for _, rule := range bundle.Rules {
-		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
-			return fmt.Errorf("global rule %q is conditional for codebuddy; global rules must apply unconditionally", rule.Name)
-		}
-		if globalRuleConditional(rule, targets) {
-			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
-		}
+	if err := checkGlobalRules(bundle.Rules, targets); err != nil {
+		return err
 	}
 	instructions, err := globalInstructions(source, tiers, bundle.Rules)
 	if err != nil {
@@ -280,127 +204,283 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	removals := removedGlobalFiles(old.Files, next.Files, writes...)
-	if o.check && o.jsonOut && !o.plan {
-		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
-		jsonWritten = true
-		if len(records) == 0 && !globalStateCurrent(statePath, next) {
-			drops.Notes = append(drops.Notes, dropRecord{Kind: "ownership", Count: 1, Message: globalOwnershipNote(statePath)})
+	run := globalRun{
+		cmd: cmd, o: o, warn: warn, source: source, statePath: statePath,
+		writes: writes, removals: removals, existing: existingPaths(removals), adopted: adopted, trees: trees,
+		old: old, next: next, drops: drops, targets: len(targets), jsonWritten: &jsonWritten,
+	}
+	return run.output()
+}
+
+// validateGlobalFlags rejects flags --global cannot honor. The first
+// failing check wins, so the order of the checks is part of the message.
+func validateGlobalFlags(o globalSyncOptions) error {
+	if o.watch || o.watchPoll || o.allTargets || o.gitignore != "" || o.jobs != 0 {
+		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --all, --gitignore, or --jobs")
+	}
+	if o.plan && o.dryRun {
+		return errs.Coded(errs.CodeFlagConflict, "--plan cannot be combined with --dry-run")
+	}
+	if o.jsonOut && o.diff {
+		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
+	}
+	if o.diff && !o.check && !o.dryRun && !o.plan {
+		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check, --plan, or --dry-run with --global")
+	}
+	if len(o.only) > 0 && len(o.except) > 0 {
+		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
+	}
+	if err := validateCheckFormat(o.format); err != nil {
+		return err
+	}
+	if o.format != checkFormatHuman && !o.check {
+		return errs.Coded(errs.CodeFlagConflict, "--format requires --check with --global")
+	}
+	return nil
+}
+
+// resolveGlobalTargets returns the targets this run syncs, the home
+// config's targets before --only and --except, and whether the user
+// named the targets.
+func resolveGlobalTargets(o globalSyncOptions, source string, warn io.Writer) (targets, configured []string, explicit bool, err error) {
+	targets = o.targets
+	// A default run spans every supported target, so one target's
+	// problem (a relative root variable, a name its native format
+	// rejects) warns and skips that target instead of failing the rest.
+	// A home config names its targets, as --only does.
+	explicit = len(o.targets) > 0 || len(o.only) > 0
+	if len(targets) == 0 {
+		// -t replaces the home config, so a broken one does not block it.
+		if targets, err = loadGlobalTargets(source, warn); err != nil {
+			return nil, nil, false, err
 		}
-		if err := emitGlobalJSON(cmd, "sync --global --check", records, drops); err != nil {
+		explicit = explicit || targets != nil
+	}
+	if len(targets) == 0 {
+		targets = globalTargetNames()
+	}
+	// The home config's targets, before --only and --except, as project
+	// sync reads agnostic-ai.yaml.
+	configured = slices.Clone(targets)
+	targets, err = filterTargets(targets, o.only, o.except)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	for _, target := range targets {
+		if err := unsupportedGlobalTarget("--global", target); err != nil {
+			return nil, nil, false, err
+		}
+	}
+
+	var usable []string
+	for _, target := range targets {
+		err := globalTargets[target].rootError(target)
+		if err == nil {
+			usable = append(usable, target)
+			continue
+		}
+		if explicit {
+			return nil, nil, false, err
+		}
+		if _, werr := fmt.Fprintf(warn, "warning: %v; skipping %s\n", err, target); werr != nil {
+			return nil, nil, false, fmt.Errorf("write global target warning: %w", werr)
+		}
+	}
+	return usable, configured, explicit, nil
+}
+
+// checkGlobalSpecIssues stops on a spec the selected targets cannot
+// carry at user scope.
+func checkGlobalSpecIssues(bundle spec.Bundle, targets []string) error {
+	own := ownSpecs(bundle)
+	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
+	issues = append(issues, agentLimitIssues(own.Agents)...)
+	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
+	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
+	issues = append(issues, voiceIssues(bundle.Settings)...)
+	issues = append(issues, agentOnlyIssues(bundle.MCPs)...)
+	issues = append(issues, mcpRootsIssues(own.MCPs)...)
+	// A permission rule the target cannot read would be written as it
+	// stands, so a deny rule could stop guarding anything.
+	if slices.ContainsFunc(targets, func(t string) bool { return globalTargets[t].settings.permissionLists }) {
+		issues = append(issues, permissionCapabilityIssues(bundle.Settings)...)
+	}
+	return stopOnIssues(issues)
+}
+
+// checkGlobalRules requires every global rule to apply unconditionally.
+func checkGlobalRules(rules []spec.Entry, targets []string) error {
+	for _, rule := range rules {
+		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
+			return fmt.Errorf("global rule %q is conditional for codebuddy; global rules must apply unconditionally", rule.Name)
+		}
+		if globalRuleConditional(rule, targets) {
+			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
+		}
+	}
+	return nil
+}
+
+// globalRun is a planned global sync, ready for one output mode.
+type globalRun struct {
+	cmd                *cobra.Command
+	o                  globalSyncOptions
+	warn               io.Writer
+	source, statePath  string
+	writes             []globalWrite
+	removals, existing []string
+	adopted, trees     []string
+	old, next          globalState
+	drops              syncDrops
+	targets            int
+	// jsonWritten tells runGlobalSync the JSON carried its held warnings.
+	jsonWritten *bool
+}
+
+// output checks, plans, previews, or applies the run, as the flags ask.
+func (r globalRun) output() error {
+	o := r.o
+	switch {
+	case o.check && o.jsonOut && !o.plan:
+		return r.checkJSON()
+	case o.check && !o.plan:
+		return checkGlobalWrites(r.cmd, r.writes, r.existing, r.statePath, r.next, o.diff)
+	case o.plan || (o.dryRun && o.jsonOut):
+		return r.plan()
+	case o.dryRun && o.diff:
+		return r.dryRunDiff()
+	case o.dryRun:
+		return r.dryRun()
+	default:
+		return r.apply()
+	}
+}
+
+func (r globalRun) checkJSON() error {
+	records := globalFileRecords(r.writes, r.existing, r.statePath, r.next, true)
+	*r.jsonWritten = true
+	if len(records) == 0 && !globalStateCurrent(r.statePath, r.next) {
+		r.drops.Notes = append(r.drops.Notes, dropRecord{Kind: "ownership", Count: 1, Message: globalOwnershipNote(r.statePath)})
+	}
+	if err := emitGlobalJSON(r.cmd, "sync --global --check", records, r.drops); err != nil {
+		return err
+	}
+	if len(records) > 0 {
+		return errDriftDetected()
+	}
+	return nil
+}
+
+func (r globalRun) plan() error {
+	o, writes := r.o, r.writes
+	records := globalFileRecords(writes, r.existing, r.statePath, r.next, false)
+	// Mark what would stop the real run, as a key conflict is.
+	edited, err := handEditedGlobalFiles(writes, r.removals, r.old)
+	if err != nil {
+		return err
+	}
+	for i := range records {
+		path := filepath.FromSlash(records[i].Path)
+		if slices.Contains(edited, path) {
+			records[i].Keys = append(records[i].Keys, "conflict: edited since the last global sync; move the edit into the source or use --backup")
+		}
+		if j := slices.IndexFunc(writes, func(w globalWrite) bool { return w.path == path }); j >= 0 && writes[j].dropsComments {
+			records[i].Keys = append(records[i].Keys, "conflict: the rewrite drops the file's comments; use --backup")
+		}
+	}
+	var driftErr error
+	if o.check && len(globalFileRecords(writes, r.existing, r.statePath, r.next, true)) > 0 {
+		driftErr = errDriftDetected()
+	}
+	if o.jsonOut {
+		command := "sync --global --plan"
+		if o.dryRun {
+			command = "sync --global --dry-run"
+		}
+		*r.jsonWritten = true
+		return errors.Join(emitGlobalJSON(r.cmd, command, records, r.drops), driftErr)
+	}
+	if err := printGlobalPlan(r.cmd, records); err != nil {
+		return err
+	}
+	if o.diff {
+		if _, err := globalDrift(r.cmd, writes, r.existing, r.statePath, r.next, true); err != nil {
 			return err
 		}
-		if len(records) > 0 {
-			return errDriftDetected()
-		}
-		return nil
 	}
-	if o.check && !o.plan {
-		return checkGlobalWrites(cmd, writes, existingPaths(removals), statePath, next, o.diff)
-	}
-	if o.plan || (o.dryRun && o.jsonOut) {
-		records := globalFileRecords(writes, existingPaths(removals), statePath, next, false)
-		// Mark what would stop the real run, as a key conflict is.
-		edited, err := handEditedGlobalFiles(writes, removals, old)
-		if err != nil {
+	return driftErr
+}
+
+func (r globalRun) dryRunDiff() error {
+	if !r.o.backup {
+		if err := refuseGlobalOverwrites(r.writes, r.removals, r.old, r.source); err != nil {
 			return err
 		}
-		for i := range records {
-			path := filepath.FromSlash(records[i].Path)
-			if slices.Contains(edited, path) {
-				records[i].Keys = append(records[i].Keys, "conflict: edited since the last global sync; move the edit into the source or use --backup")
-			}
-			if j := slices.IndexFunc(writes, func(w globalWrite) bool { return w.path == path }); j >= 0 && writes[j].dropsComments {
-				records[i].Keys = append(records[i].Keys, "conflict: the rewrite drops the file's comments; use --backup")
-			}
-		}
-		var driftErr error
-		if o.check && len(globalFileRecords(writes, existingPaths(removals), statePath, next, true)) > 0 {
-			driftErr = errDriftDetected()
-		}
-		if o.jsonOut {
-			command := "sync --global --plan"
-			if o.dryRun {
-				command = "sync --global --dry-run"
-			}
-			jsonWritten = true
-			return errors.Join(emitGlobalJSON(cmd, command, records, drops), driftErr)
-		}
-		if err := printGlobalPlan(cmd, records); err != nil {
-			return err
-		}
-		if o.diff {
-			if _, err := globalDrift(cmd, writes, existingPaths(removals), statePath, next, true); err != nil {
-				return err
-			}
-		}
-		return driftErr
 	}
-	if o.dryRun && o.diff {
-		if !o.backup {
-			if err := refuseGlobalOverwrites(writes, removals, old, source); err != nil {
-				return err
-			}
-		}
-		if _, err := globalDrift(cmd, writes, existingPaths(removals), statePath, next, true); err != nil {
-			return err
-		}
-		return printGlobalAdoptions(cmd, adopted, writes)
+	if _, err := globalDrift(r.cmd, r.writes, r.existing, r.statePath, r.next, true); err != nil {
+		return err
 	}
-	if o.dryRun {
-		for _, w := range writes {
-			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
-				continue
-			}
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: write %s\n", w.path); err != nil {
+	return printGlobalAdoptions(r.cmd, r.adopted, r.writes)
+}
+
+func (r globalRun) dryRun() error {
+	out := r.cmd.OutOrStdout()
+	for _, w := range r.writes {
+		if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
+			continue
+		}
+		if _, err := fmt.Fprintf(out, "dry-run: write %s\n", w.path); err != nil {
+			return fmt.Errorf("write dry-run output: %w", err)
+		}
+		for _, change := range w.changes {
+			if _, err := fmt.Fprintf(out, "dry-run:   %s\n", change); err != nil {
 				return fmt.Errorf("write dry-run output: %w", err)
 			}
-			for _, change := range w.changes {
-				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run:   %s\n", change); err != nil {
-					return fmt.Errorf("write dry-run output: %w", err)
-				}
-			}
 		}
-		for _, path := range existingPaths(removals) {
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: remove %s\n", path); err != nil {
-				return fmt.Errorf("write dry-run output: %w", err)
-			}
-		}
-		return printGlobalAdoptions(cmd, adopted, writes)
 	}
-	if !o.backup {
-		if err := refuseGlobalOverwrites(writes, removals, old, source); err != nil {
+	for _, path := range r.existing {
+		if _, err := fmt.Fprintf(out, "dry-run: remove %s\n", path); err != nil {
+			return fmt.Errorf("write dry-run output: %w", err)
+		}
+	}
+	return printGlobalAdoptions(r.cmd, r.adopted, r.writes)
+}
+
+func (r globalRun) apply() error {
+	if !r.o.backup {
+		if err := refuseGlobalOverwrites(r.writes, r.removals, r.old, r.source); err != nil {
 			return err
 		}
 	}
 	var applied []globalFileRecord
-	if o.jsonOut {
-		applied = globalFileRecords(writes, existingPaths(removals), statePath, next, false)
+	if r.o.jsonOut {
+		applied = globalFileRecords(r.writes, r.existing, r.statePath, r.next, false)
 	}
-	linked, err := applyGlobalChanges(writes, removals, o.backup, next.removalGuards)
+	linked, err := applyGlobalChanges(r.writes, r.removals, r.o.backup, r.next.removalGuards)
 	if err != nil {
 		return err
 	}
-	pruneEmptyGlobalDirs(removals, trees)
-	if o.jsonOut {
-		jsonWritten = true
-		return emitGlobalJSON(cmd, "sync --global", applied, drops)
+	pruneEmptyGlobalDirs(r.removals, r.trees)
+	if r.o.jsonOut {
+		*r.jsonWritten = true
+		return emitGlobalJSON(r.cmd, "sync --global", applied, r.drops)
 	}
 	for _, link := range linked {
-		if _, err := fmt.Fprintln(warn, link); err != nil {
+		if _, err := fmt.Fprintln(r.warn, link); err != nil {
 			return fmt.Errorf("write symlink note: %w", err)
 		}
 	}
-	for _, path := range adopted {
-		if _, err := fmt.Fprintf(warn, "adopted %s: matches what sync writes\n", path); err != nil {
+	for _, path := range r.adopted {
+		if _, err := fmt.Fprintf(r.warn, "adopted %s: matches what sync writes\n", path); err != nil {
 			return fmt.Errorf("write adoption note: %w", err)
 		}
 	}
-	for _, line := range settingsAdoptions(writes) {
-		if _, err := fmt.Fprintf(warn, "adopted %s: matches what sync writes\n", line); err != nil {
+	for _, line := range settingsAdoptions(r.writes) {
+		if _, err := fmt.Fprintf(r.warn, "adopted %s: matches what sync writes\n", line); err != nil {
 			return fmt.Errorf("write adoption note: %w", err)
 		}
 	}
-	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets)); err != nil {
+	if _, err := fmt.Fprintf(r.cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", r.targets); err != nil {
 		return fmt.Errorf("write sync summary: %w", err)
 	}
 	return nil
