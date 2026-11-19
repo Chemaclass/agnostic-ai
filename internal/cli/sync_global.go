@@ -122,6 +122,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	warnShadowedSpecs(warn, bundle)
 	if err := checkGlobalSpecIssues(bundle, targets); err != nil {
 		return err
 	}

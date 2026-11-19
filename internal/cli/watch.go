@@ -756,6 +756,7 @@ func resyncForChanges(root string, configured, changed []string, opts watchOptio
 		// for a narrower emit. runSyncOnce surfaces the load error itself.
 		return opts.sync(root, configured)
 	}
+	warnShadowedSpecs(os.Stderr, b)
 	if noTargetsKept(cfg) {
 		warnEmptyTargetsSummary()
 		return nil
