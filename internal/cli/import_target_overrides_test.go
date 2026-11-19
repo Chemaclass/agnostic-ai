@@ -196,7 +196,9 @@ func TestImport_ShowsRelativePathForDotDotPrefixedDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join("..data", "agent.md")
-	noteUnseenScopedKeys(scoped.Content[0], &yaml.Node{}, &yaml.Node{}, filepath.Join(root, path), "x-codex", nil, func(string) bool { return true })
+	file := filepath.Join(root, path)
+	writeFile(t, file, "---\nname: agent\n---\n")
+	noteUnseenScopedKeys(scoped.Content[0], &yaml.Node{}, &yaml.Node{}, file, "x-codex", nil, func(string) bool { return true })
 	if want := "note: " + filepath.ToSlash(path) + " keeps x-codex.model"; !strings.HasPrefix(importPendingKeptNote, want) {
 		t.Errorf("note = %q, want prefix %q", importPendingKeptNote, want)
 	}
