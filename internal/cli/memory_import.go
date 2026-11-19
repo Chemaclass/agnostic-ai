@@ -394,25 +394,34 @@ func (p *memoryImportPlan) classifyFacts(facts []memoryCopy, pick memoryImportPi
 				continue
 			}
 		}
-		if line := memorySecretLine(string(f.body)); line > 0 {
-			p.skipped = append(p.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
-			continue
+		if err := p.placeFact(f); err != nil {
+			return err
 		}
-		if memorySecretIn(f.line) {
-			f.line = parseMemoryTopic(f.file, string(f.body)).indexLine()
-			p.relined = append(p.relined, f.file)
-		}
-		existing, err := os.ReadFile(filepath.Join(p.target, f.file))
-		switch {
-		case err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(f.body)):
-			p.present = append(p.present, f)
-		case err == nil:
-			p.kept = append(p.kept, f.file)
-		case errors.Is(err, fs.ErrNotExist):
-			p.copies = append(p.copies, f)
-		default:
-			return fmt.Errorf("%s: %w", filepath.Join(p.target, f.file), err)
-		}
+	}
+	return nil
+}
+
+// placeFact sorts a fact import may copy: skipped for a secret, otherwise
+// present, kept or copied by what the target holds.
+func (p *memoryImportPlan) placeFact(f memoryCopy) error {
+	if line := memorySecretLine(string(f.body)); line > 0 {
+		p.skipped = append(p.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
+		return nil
+	}
+	if memorySecretIn(f.line) {
+		f.line = parseMemoryTopic(f.file, string(f.body)).indexLine()
+		p.relined = append(p.relined, f.file)
+	}
+	existing, err := os.ReadFile(filepath.Join(p.target, f.file))
+	switch {
+	case err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(f.body)):
+		p.present = append(p.present, f)
+	case err == nil:
+		p.kept = append(p.kept, f.file)
+	case errors.Is(err, fs.ErrNotExist):
+		p.copies = append(p.copies, f)
+	default:
+		return fmt.Errorf("%s: %w", filepath.Join(p.target, f.file), err)
 	}
 	return nil
 }
