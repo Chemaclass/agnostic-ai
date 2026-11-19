@@ -111,7 +111,9 @@ func TestLog_RollsOverToOneOlderFile(t *testing.T) {
 func TestLog_ConcurrentRollOverKeepsEveryLine(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "decisions.jsonl")
-	line, err := json.Marshal(NewEntry("claude", "s", ModeYolo, bash("go test ./..."), approved, time.Now()))
+	// A fixed time keeps every line the same length.
+	at := time.Date(2026, 11, 19, 10, 0, 0, 0, time.UTC)
+	line, err := json.Marshal(NewEntry("claude", "s", ModeYolo, bash("go test ./..."), approved, at))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +123,7 @@ func TestLog_ConcurrentRollOverKeepsEveryLine(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
-			if err := log.Append(NewEntry("claude", "s", ModeYolo, bash("go test ./..."), approved, time.Now())); err != nil {
+			if err := log.Append(NewEntry("claude", "s", ModeYolo, bash("go test ./..."), approved, at)); err != nil {
 				t.Error(err)
 			}
 		})

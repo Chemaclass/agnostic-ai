@@ -121,11 +121,11 @@ func TestDecide_GateRows(t *testing.T) {
 		{"gh api post", bash("gh api -X POST repos/o/r/issues"), RulePublish},
 		{"gh api field", bash("gh api repos/o/r/issues -f title=x"), RulePublish},
 		{"npm publish", bash("npm publish"), RulePublish},
-		{"docker push", bash("docker push img"), RulePublish},
-		{"terraform apply", bash("terraform apply -auto-approve"), RulePublish},
-		{"terraform plan", bash("terraform plan"), ""},
-		{"kubectl apply", bash("kubectl apply -f k.yaml"), RulePublish},
-		{"kubectl get", bash("kubectl get pods"), ""},
+		{"docker push", bash("docker push img"), RuleUnknownCommand},
+		{"terraform apply", bash("terraform apply -auto-approve"), RuleUnknownCommand},
+		{"terraform plan", bash("terraform plan"), RuleUnknownCommand},
+		{"kubectl apply", bash("kubectl apply -f k.yaml"), RuleUnknownCommand},
+		{"kubectl get", bash("kubectl get pods"), RuleUnknownCommand},
 		{"release script", bash("./scripts/release.sh 1.2.3"), RulePublish},
 		{"make release", bash("make release"), RulePublish},
 		{"make test", bash("make test"), ""},
@@ -557,7 +557,8 @@ func TestDecide_ShellEvasions(t *testing.T) {
 		`python3.12 -c 'x'`,
 		`gofmt -w *.go`,
 		`ls internal/*/gate.go`,
-		`git diff HEAD^`,
+		`ls ^*.go`,
+		`ls a^b`,
 		"echo \xff\xfe",
 	} {
 		t.Run(command, func(t *testing.T) {
@@ -643,10 +644,6 @@ func TestDecide_EverydayCommandsPass(t *testing.T) {
 		"gh issue view 3700 --comments",
 		"gh run list --limit 5",
 		"gh api repos/o/r/pulls/1/comments --paginate",
-		"docker build -t x .",
-		"docker ps",
-		"kubectl get pods -n x",
-		"terraform plan -out plan.tfplan",
 		"command -v go",
 		"which go",
 		"pwd",
@@ -657,7 +654,7 @@ func TestDecide_EverydayCommandsPass(t *testing.T) {
 		"agnostic-ai sync --check",
 		"go run ./cmd/agnostic-ai sync",
 		"uv run pytest -q",
-		"bundle exec rspec",
+		"bundle exec go test ./...",
 		"tar -czf out.tgz dist",
 		"fd -e go",
 		"rg --files",
@@ -900,5 +897,160 @@ func TestParseShell_Words(t *testing.T) {
 	}
 	if !commands[1].piped || commands[1].words[1].text != "out log.txt" {
 		t.Fatalf("second command = %+v", commands[1])
+	}
+}
+
+// The trusted set is kept small: programs with an option that runs
+// another program, deletes or publishes are left out or limited to the
+// options listed for them, and any other option asks.
+func TestDecide_ShrunkAllowlist(t *testing.T) {
+	t.Parallel()
+	patchAdd := "*** Begin Patch\n*** Add File: a.txt\n+a\n*** End Patch"
+	patchDelete := "*** Begin Patch\n*** Delete File: main.go\n*** End Patch"
+	for _, tc := range []struct {
+		name string
+		r    Request
+		rule string
+	}{
+		{"cd then ; asks", bash("cd nope && true ; echo pwned > ../outside.txt"), RuleShellSyntax},
+		{"cd behind !", bash("! cd nope && echo pwned > ../outside.txt"), RuleShellSyntax},
+		{"cd then ||", bash("cd nope && true || cat ../notes.txt"), RuleShellSyntax},
+		{"cd then &", bash("cd src && true & echo pwned > ../outside.txt"), RuleShellSyntax},
+		{"cd then pipe", bash("cd src && ls | wc -l"), RuleShellSyntax},
+		{"cd and chain", bash("cd internal && go test ./..."), ""},
+		{"cmake dropped", bash("cmake -E rm -rf src"), RuleUnknownCommand},
+		{"gotestsum dropped", bash("gotestsum --raw-command -- rm -rf src"), RuleUnknownCommand},
+		{"pylint dropped", bash("pylint --init-hook=x x.py"), RuleUnknownCommand},
+		{"rustc dropped", bash("rustc -C linker=rm x.rs"), RuleUnknownCommand},
+		{"gcc dropped", bash("gcc -wrapper rm,-rf,src x.c"), RuleUnknownCommand},
+		{"cc dropped", bash("cc @/home/me/.kube/config"), RuleUnknownCommand},
+		{"rake dropped", bash(`rake -e "system('rm -rf src')"`), RuleUnknownCommand},
+		{"just dropped", bash("just --command rm -rf src"), RuleUnknownCommand},
+		{"mvn dropped", bash("mvn exec:exec"), RuleUnknownCommand},
+		{"docker dropped", bash("docker build --push -t x ."), RuleUnknownCommand},
+		{"kubectl dropped", bash("kubectl config view --raw"), RuleUnknownCommand},
+		{"helm dropped", bash("helm template . --post-renderer rm"), RuleUnknownCommand},
+		{"hugo dropped", bash("hugo deploy"), RuleUnknownCommand},
+		{"buf dropped", bash("buf push"), RuleUnknownCommand},
+		{"zip dropped", bash("zip -rm out.zip src"), RuleUnknownCommand},
+		{"pytest basetemp", bash("pytest --basetemp=src"), RuleShellSyntax},
+		{"pytest plugin", bash("pytest -p evil"), RuleShellSyntax},
+		{"pytest plain", bash("pytest -q -x -k smoke tests"), ""},
+		{"python -m coverage", bash("python3 -m coverage run -m pip install evil"), RuleShellSyntax},
+		{"python -m pylint", bash("python3 -m pylint --init-hook=x x.py"), RuleShellSyntax},
+		{"python -m pytest", bash("python3 -m pytest -q"), ""},
+		{"git reset --h", bash("git reset --h"), RuleDelete},
+		{"git restore --w", bash("git restore --staged --w ."), RuleDelete},
+		{"git checkout --f", bash("git checkout -b tmp --f"), RuleDelete},
+		{"git tag --d", bash("git tag --d v1"), RuleDelete},
+		{"git reset --k", bash("git reset --k"), RuleDelete},
+		{"git init --t", bash("git init --t=tpl"), RuleShellSyntax},
+		{"git commit abbreviation", bash("git commit --amen"), RulePublish},
+		{"git log full name", bash("git log --oneline -n 5"), ""},
+		{"go run -mod=mod", bash("go run -mod=mod github.com/evil/cmd"), RuleShellSyntax},
+		{"go extld", bash("go build -ldflags '-linkmode=external -extld=rm' ./cmd/x"), RuleShellSyntax},
+		{"go ldflags version", bash("go build -ldflags '-s -w' ./cmd/x"), ""},
+		{"go bug", bash("go bug"), RuleShellSyntax},
+		{"go clean modcache", bash("go clean -modcache"), RuleShellSyntax},
+		{"bash PATH lookup", bash("bash brew install evil"), RuleShellSyntax},
+		{"bash script path", bash("bash ./scripts/check.sh"), ""},
+		{"jq indent env", bash("jq -n --indent 2 env"), RuleSecret},
+		{"jq arg env", bash("jq -n --arg a b env"), RuleSecret},
+		{"jq file option", bash("jq --rawfile a /home/me/.netrc ."), RuleShellSyntax},
+		{"glued include path", bash("grep -include/home/me/.kube/config x"), RuleSecret},
+		{"at file", bash("cat @/home/me/.kube/config"), RuleSecret},
+		{"at file outside", bash("cat @/etc/hosts"), RuleOutsideProject},
+		{"grep glob star env", call("Grep", map[string]any{"pattern": ".", "glob": "*env*"}), RuleSecret},
+		{"grep glob class env", call("Grep", map[string]any{"pattern": ".", "glob": "[.]env"}), RuleSecret},
+		{"grep glob question env", call("Grep", map[string]any{"pattern": ".", "glob": "?env"}), RuleSecret},
+		{"grep glob key files", call("Grep", map[string]any{"pattern": ".", "glob": "*.key"}), RuleSecret},
+		{"grep glob ts", call("Grep", map[string]any{"pattern": ".", "glob": "src/**/*.ts"}), ""},
+		{"rg glob env", bash("rg -g '*env*' KEY"), RuleSecret},
+		{"rg glob long", bash("rg --glob='?env' KEY"), RuleSecret},
+		{"rg glob go", bash("rg -g '*.go' KEY"), ""},
+		{"cp -R onto root", bash("cp -R staging/. ."), RuleProtectedPath},
+		{"cp -r into src", bash("cp -r a src/b"), ""},
+		{"rsync onto root", bash("rsync -a staging/ ."), RuleProtectedPath},
+		{"tar x in root", bash("tar xf staging.tar"), RuleProtectedPath},
+		{"tar x into folder", bash("tar -xzf a.tgz -C build"), ""},
+		{"unzip in root", bash("unzip a.zip"), RuleProtectedPath},
+		{"unzip into folder", bash("unzip a.zip -d build"), ""},
+		{"patch two fields", call("apply_patch", map[string]any{"patch": patchAdd, "input": patchDelete}), RuleInput},
+		{"patch one field", call("apply_patch", map[string]any{"patch": patchAdd}), ""},
+		{"make var override", bash("make SHELL=/tmp/x test"), RuleShellSyntax},
+		{"make eval option", bash("make --eval=x test"), RuleShellSyntax},
+		{"make target", bash("make -j4 test"), ""},
+		{"git config list", bash("git config --list"), RuleSecret},
+		{"git config remote url", bash("git config --get remote.origin.url"), RuleSecret},
+		{"git config name", bash("git config --get user.name"), ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			wantDecision(t, Decide(tc.r, testPolicy()), tc.rule)
+		})
+	}
+}
+
+// Everyday commands that the second review found asking.
+func TestDecide_EverydayFalseAsks(t *testing.T) {
+	t.Parallel()
+	for _, command := range []string{
+		"sort x.txt | uniq",
+		"git log --format=%an | sort | uniq -c",
+		"file x.bin",
+		"comm -12 a.txt b.txt",
+		"paste a.txt b.txt",
+		"tac x.txt",
+		"rev x.txt",
+		"xxd x.bin",
+		"rtk git status",
+		"rtk proxy go test ./...",
+		"pnpm dev",
+		"yarn dev",
+		"npm run serve",
+		"pnpm watch",
+		"git add .github/workflows/ci.yml",
+		"git diff .github/workflows/ci.yml",
+		"git log -p .github/workflows/ci.yml",
+		"git diff HEAD^",
+		"git diff HEAD~2",
+		"git show HEAD^:main.go",
+		"git checkout -b feature",
+		"sed -i '' '/foo/d' f.txt",
+		"sed -i.bak 's/a/b/' f.txt",
+		"jq --slurp . f.json",
+		"jq -r .name package.json",
+		"uv run script.py",
+		"node --test",
+		"go test ./internal/approvals/",
+		"cd internal/approvals && go test .",
+	} {
+		t.Run(command, func(t *testing.T) {
+			t.Parallel()
+			if got := Decide(bash(command), testPolicy()); got.Outcome != Approved {
+				t.Fatalf("Decide(%q) = %+v, want approved", command, got)
+			}
+		})
+	}
+	t.Run("agnostic-ai folder name", func(t *testing.T) {
+		t.Parallel()
+		p := testPolicy()
+		p.ProjectRoot = "/work/agnostic-ai"
+		r := bash("go test ./internal/approvals/")
+		r.Cwd = p.ProjectRoot
+		wantDecision(t, Decide(r, p), "")
+	})
+	for _, command := range []string{
+		"agnostic-ai approvals log",
+		"AGNOSTIC_AI_APPROVALS=off go test ./...",
+		"git checkout main",
+		"git checkout -- main.go",
+	} {
+		t.Run("asks "+command, func(t *testing.T) {
+			t.Parallel()
+			if got := Decide(bash(command), testPolicy()); got.Outcome != Asked {
+				t.Fatalf("Decide(%q) = %+v, want asked", command, got)
+			}
+		})
 	}
 }

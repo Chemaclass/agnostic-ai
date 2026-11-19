@@ -229,11 +229,8 @@ func (g *gate) alwaysAsk(r Request) string {
 }
 
 func namesPolicy(text string) bool {
-	lower := strings.ToLower(text)
-	if strings.Contains(lower, "agnostic_ai_") {
-		return true
-	}
-	return strings.Contains(lower, "agnostic-ai") && strings.Contains(lower, "approvals")
+	unquoted := strings.NewReplacer(`\`, "", `'`, "", `"`, "").Replace(strings.ToLower(text))
+	return strings.Contains(unquoted, "agnostic_ai_")
 }
 
 // path is a request path made absolute: ~ from home, relative from cwd.
@@ -398,13 +395,8 @@ func (g *gate) readCall(call string, input map[string]any) string {
 		}
 	}
 	if glob, ok := input["glob"].(string); ok && glob != "" {
-		if rule := g.globRule(glob, g.cwd); rule != "" {
+		if rule := g.searchGlobRule(glob, g.cwd); rule != "" {
 			return rule
-		}
-		for segment := range strings.SplitSeq(glob, "/") {
-			if secretName(segment) || strings.HasPrefix(segment, ".") {
-				return RuleSecret
-			}
 		}
 	}
 	for _, p := range paths {
@@ -439,8 +431,10 @@ func (g *gate) patch(input map[string]any) string {
 	var body string
 	for _, field := range []string{"patch", "input", "command"} {
 		if text, ok := input[field].(string); ok && text != "" {
+			if body != "" {
+				return RuleInput
+			}
 			body = text
-			break
 		}
 	}
 	if !strings.Contains(body, "*** Begin Patch") {

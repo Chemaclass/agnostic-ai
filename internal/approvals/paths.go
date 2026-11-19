@@ -1,9 +1,11 @@
 package approvals
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -64,55 +66,88 @@ func secretName(name string) bool {
 	return false
 }
 
-// globRule asks for an unquoted glob that may expand to a credential
-// file, a protected path, or a path outside the project. Each segment
-// is tried against sample names; only a segment that starts with a dot
-// reaches dot files, which hold most of both.
-func (g *gate) globRule(word, cwd string) string {
-	if pathLike(word) {
+// searchGlobRule asks for a search tool's file glob that may match a
+// credential file or reach outside the project. Search tools such as
+// ripgrep let *, ? and [ match a leading dot, so the glob is matched
+// that way against sample names, segment by segment and as a whole.
+func (g *gate) searchGlobRule(glob, cwd string) string {
+	glob = strings.TrimPrefix(glob, "!")
+	if glob == "" {
+		return ""
+	}
+	if pathLike(glob) {
 		return RuleOutsideProject
 	}
-	if base := globBase(word); base != "." {
+	if base := globBase(glob); base != "." {
 		abs, ok := g.path(base, cwd)
-		switch {
-		case !ok || !g.inside(abs):
+		if !ok || !g.inside(abs) {
 			return RuleOutsideProject
-		case g.secret(abs):
-			return RuleSecret
-		case g.protected(abs) || g.protectedBelow(g.relative(abs)):
-			return RuleProtectedPath
 		}
 	}
-	secrets := []string{".env", ".env.local", "id_rsa", "x.pem", "x.key", "x.p12", ".netrc", ".npmrc", "credentials", ".ssh", ".aws", ".gnupg"}
-	protected := []string{"agnostic-ai.yaml", "agnostic-ai.local.yaml", "jenkinsfile", "azure-pipelines.yml", "lefthook.yml", "lefthook.yaml", "mise.toml"}
-	segments := strings.Split(word, "/")
-	for i, segment := range segments {
-		if !strings.ContainsAny(segment, "*?[") {
-			continue
+	re, err := dotGlobRegexp(strings.ToLower(glob))
+	if err != nil {
+		return RuleSecret
+	}
+	samples := []string{".env", ".env.local", ".envrc", "id_rsa", "id_ed25519", "x.pem", "x.key", "x.p12", "x.pfx", ".netrc", ".npmrc", ".pypirc", ".git-credentials", "credentials", "credentials.json"}
+	for _, sample := range samples {
+		if re.MatchString(sample) || re.MatchString("dir/"+sample) {
+			return RuleSecret
 		}
-		lower := strings.ToLower(segment)
-		last := i == len(segments)-1
-		for _, sample := range secrets {
-			// The shell matches a leading dot only with a literal dot;
-			// the other samples are file names.
-			dot := strings.HasPrefix(sample, ".")
-			if dot && !strings.HasPrefix(segment, ".") || !dot && !last {
-				continue
-			}
-			if ok, err := path.Match(lower, sample); ok || err != nil {
-				return RuleSecret
-			}
-		}
-		if strings.HasPrefix(segment, ".") {
-			return RuleProtectedPath
-		}
-		for _, sample := range protected {
-			if ok, _ := path.Match(lower, sample); ok && last {
-				return RuleProtectedPath
-			}
+	}
+	for segment := range strings.SplitSeq(glob, "/") {
+		if secretName(segment) {
+			return RuleSecret
 		}
 	}
 	return ""
+}
+
+// dotGlobRegexp reads a glob as search tools do: * and ? stay inside a
+// segment and match a leading dot, ** crosses segments, [...] is a
+// class, and a glob with no slash matches a file name at any depth.
+func dotGlobRegexp(glob string) (*regexp.Regexp, error) {
+	var b strings.Builder
+	b.WriteString("^")
+	if !strings.Contains(glob, "/") {
+		b.WriteString("(?:.*/)?")
+	}
+	for i := 0; i < len(glob); i++ {
+		c := glob[i]
+		switch {
+		case strings.HasPrefix(glob[i:], "**/"):
+			b.WriteString("(?:.*/)?")
+			i += 2
+		case strings.HasPrefix(glob[i:], "**"):
+			b.WriteString(".*")
+			i++
+		case c == '*':
+			b.WriteString("[^/]*")
+		case c == '?':
+			b.WriteString("[^/]")
+		case c == '[':
+			end := strings.IndexByte(glob[i:], ']')
+			if end < 0 {
+				return nil, fmt.Errorf("open class in %q", glob)
+			}
+			class := glob[i+1 : i+end]
+			negate := strings.HasPrefix(class, "!") || strings.HasPrefix(class, "^")
+			if negate {
+				class = class[1:]
+			}
+			class = strings.NewReplacer(`\`, `\\`, `[`, `\[`, `^`, `\^`).Replace(class)
+			if negate {
+				class = "^" + class
+			}
+			b.WriteString("[" + class + "]")
+			i += end
+		case c == '{' || c == '}':
+			return nil, fmt.Errorf("braces in %q", glob)
+		default:
+			b.WriteString(regexp.QuoteMeta(string(c)))
+		}
+	}
+	b.WriteString("$")
+	return regexp.Compile(b.String())
 }
 
 // fixedProtected are paths an edit always asks for: Git internals, CI,

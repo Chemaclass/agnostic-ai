@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -15,6 +16,10 @@ func shellInterpreter(args []shellWord, c simpleCommand) string {
 	for _, a := range args {
 		text := a.text
 		if !strings.HasPrefix(text, "-") {
+			// bash looks a script name with no slash up on PATH.
+			if !strings.Contains(text, "/") {
+				return RuleShellSyntax
+			}
 			return ""
 		}
 		if !setFlags.MatchString(text) || strings.HasPrefix(text, "+") {
@@ -32,7 +37,7 @@ var (
 
 	// pythonModules are the modules python -m may run: test runners and
 	// linters that read the project and fetch nothing.
-	pythonModules = []string{"pytest", "unittest", "mypy", "black", "ruff", "pylint", "flake8", "isort", "coverage", "json.tool", "compileall", "py_compile", "doctest", "venv"}
+	pythonModules = []string{"unittest", "black", "ruff", "isort", "json.tool", "compileall", "py_compile", "doctest", "venv"}
 )
 
 // interpreter allows python or node only as `prog [known options]
@@ -51,6 +56,9 @@ func interpreter(name string, args []shellWord, c simpleCommand) string {
 		text := a.text
 		switch {
 		case name != "node" && text == "-m":
+			if i+1 < len(args) && args[i+1].text == "pytest" {
+				return pytestRule(args[i+2:])
+			}
 			if i+1 < len(args) && slices.Contains(pythonModules, args[i+1].text) {
 				return ""
 			}
@@ -68,7 +76,36 @@ func interpreter(name string, args []shellWord, c simpleCommand) string {
 			return ""
 		}
 	}
+	if name == "node" && slices.ContainsFunc(args, func(w shellWord) bool { return w.text == "--test" }) {
+		return ""
+	}
 	return RuleShellSyntax
+}
+
+// pytestRule allows pytest with options that select, report and stop;
+// any other option asks, such as -p, which loads a plugin, or
+// --basetemp, which empties the folder it names.
+func pytestRule(args []shellWord) string {
+	plain := []string{"--lf", "--ff", "--last-failed", "--failed-first", "--co", "--collect-only", "--no-header",
+		"--exitfirst", "--quiet", "--verbose", "--strict-markers", "--disable-warnings", "--showlocals", "-l",
+		"--new-first", "--nf", "--sw", "--stepwise"}
+	withValue := []string{"-k", "-m", "-n", "-r", "-W", "--tb", "--maxfail", "--durations", "--color", "--deselect"}
+	for i := 0; i < len(args); i++ {
+		text := args[i].text
+		name, _, hasValue := strings.Cut(text, "=")
+		switch {
+		case !strings.HasPrefix(text, "-") || text == "--":
+		case slices.Contains(plain, text):
+		case regexp.MustCompile(`^-[qvxs]+$`).MatchString(text):
+		case slices.Contains(withValue, name) && hasValue:
+		case slices.Contains(withValue, text):
+			i++
+		case len(text) > 2 && slices.Contains([]string{"-k", "-m", "-n", "-r", "-W"}, text[:2]):
+		default:
+			return RuleShellSyntax
+		}
+	}
+	return ""
 }
 
 func readsInput(c simpleCommand) bool {
@@ -126,18 +163,29 @@ func awkRule(args []shellWord) string {
 	return ""
 }
 
-// jqRule asks for a filter that reads the environment, or for options
-// that read other files or set the filter from a file.
+// jqRule allows jq with options that only shape its output or pass
+// values on the line. Any word that names the environment asks, since
+// jq prints it as env and $ENV.
 func jqRule(args []shellWord) string {
-	text := map[int]bool{}
-	markPattern(text, args, "", nil, []string{"--from-file"})
-	for i, a := range args {
-		if text[i] && (strings.Contains(strings.ToLower(a.text), "env") || strings.Contains(a.text, "$__loc__") || strings.Contains(a.text, "input_filename")) {
+	plain := []string{"-r", "--raw-output", "-c", "--compact-output", "-n", "--null-input", "-s", "--slurp", "-e",
+		"--exit-status", "-S", "--sort-keys", "-j", "--join-output", "-a", "--ascii-output", "--tab", "-M", "-C",
+		"--color-output", "--monochrome-output", "-R", "--raw-input", "--seq", "--stream", "--raw-output0"}
+	withValue := map[string]int{"--indent": 1, "--arg": 2, "--argjson": 2}
+	for i := 0; i < len(args); i++ {
+		text := args[i].text
+		lower := strings.ToLower(text)
+		if strings.Contains(lower, "env") || strings.Contains(text, "$__loc__") || strings.Contains(text, "input_filename") {
 			return RuleSecret
 		}
-	}
-	if flagged(args, []string{"--from-file", "--rawfile", "--slurpfile", "--library-path"}, "fL") {
-		return RuleShellSyntax
+		switch {
+		case !strings.HasPrefix(text, "-") || text == "--":
+		case slices.Contains(plain, text):
+		case regexp.MustCompile(`^-[rcnsejSaMCR]+$`).MatchString(text):
+		case withValue[text] > 0:
+			i += withValue[text]
+		default:
+			return RuleShellSyntax
+		}
 	}
 	return ""
 }
@@ -156,28 +204,63 @@ func tarRule(args []shellWord) string {
 	return ""
 }
 
+// tarExtracts reports a tar run that unpacks an archive.
+func tarExtracts(args []shellWord) bool {
+	if flagged(args, []string{"--extract", "--get"}, "x") {
+		return true
+	}
+	return len(args) > 0 && !strings.HasPrefix(args[0].text, "-") && strings.Contains(args[0].text, "x")
+}
+
+// sedScriptIndexes are the words of args that sed reads as its script,
+// as sedRule reads them.
+func sedScriptIndexes(args []shellWord) []int {
+	scripts, _, _, _ := parseSed(args)
+	return scripts
+}
+
 // sedRule reads the script strictly: only commands that print, delete
 // or substitute pass; e, w, r and anything not read ask. In-place
 // edits check their files as targets. Any option outside the plain
 // ones asks, since GNU sed reads abbreviated long options.
 func (g *gate) sedRule(args []shellWord, cwd string) string {
-	var scripts []string
-	var files []shellWord
-	inPlace := false
+	scripts, files, inPlace, rule := parseSed(args)
+	if rule != "" {
+		return rule
+	}
+	if len(scripts) == 0 {
+		return RuleInput
+	}
+	for _, i := range scripts {
+		if !sedScriptReadable(args[i].text) {
+			return RuleShellSyntax
+		}
+	}
+	if inPlace {
+		var targets []shellWord
+		for _, i := range files {
+			targets = append(targets, args[i])
+		}
+		return g.targets(targets, cwd, RuleOutsideProject)
+	}
+	return ""
+}
+
+// parseSed splits sed's words into the indexes of its scripts and its
+// files, and reports an in-place edit. rule is set for an option the
+// gate does not read.
+func parseSed(args []shellWord) (scripts, files []int, inPlace bool, rule string) {
 	explicit := false
 	for i := 0; i < len(args); i++ {
 		text := args[i].text
 		switch {
 		case text == "-e" || text == "--expression":
 			if i+1 >= len(args) {
-				return RuleInput
+				return nil, nil, false, RuleInput
 			}
-			scripts = append(scripts, args[i+1].text)
+			scripts = append(scripts, i+1)
 			explicit = true
 			i++
-		case strings.HasPrefix(text, "--expression="):
-			scripts = append(scripts, strings.TrimPrefix(text, "--expression="))
-			explicit = true
 		case text == "-i" || text == "-I":
 			inPlace = true
 			// BSD sed reads the next word as the backup suffix.
@@ -188,29 +271,18 @@ func (g *gate) sedRule(args []shellWord, cwd string) string {
 			inPlace = true
 		case slices.Contains([]string{"--quiet", "--silent", "--regexp-extended", "--null-data", "--separate", "--posix", "--sandbox", "--debug", "--unbuffered"}, text):
 		case strings.HasPrefix(text, "--"):
-			return RuleShellSyntax
+			return nil, nil, false, RuleShellSyntax
 		case strings.HasPrefix(text, "-") && text != "-":
 			if strings.Trim(text[1:], "nErsuz") != "" {
-				return RuleShellSyntax
+				return nil, nil, false, RuleShellSyntax
 			}
 		case !explicit && len(scripts) == 0:
-			scripts = append(scripts, text)
+			scripts = append(scripts, i)
 		default:
-			files = append(files, args[i])
+			files = append(files, i)
 		}
 	}
-	if len(scripts) == 0 {
-		return RuleInput
-	}
-	for _, s := range scripts {
-		if !sedScriptReadable(s) {
-			return RuleShellSyntax
-		}
-	}
-	if inPlace {
-		return g.targets(files, cwd, RuleOutsideProject)
-	}
-	return ""
+	return scripts, files, inPlace, ""
 }
 
 // sedScriptReadable reports a script made only of s, y, d, p, q, =, and

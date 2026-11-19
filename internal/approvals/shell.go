@@ -141,6 +141,12 @@ func (p *shellParser) parse() ([]simpleCommand, error) {
 			p.inWord = true
 			p.word.WriteRune(r)
 			p.pos++
+		case r == '^' && p.inWord && revisionSuffix(p.peek(1)):
+			// A git revision suffix such as HEAD^ or HEAD^2. Under zsh's
+			// extended globbing it would be a pattern that matches no file
+			// name like it, which stops the command.
+			p.word.WriteRune(r)
+			p.pos++
 		case strings.ContainsRune("*?[^#", r):
 			// ^ and # are patterns under zsh's extended globbing.
 			return nil, unreadable("glob pattern")
@@ -426,4 +432,9 @@ func isAssignment(w shellWord) bool {
 func assignmentName(w shellWord) string {
 	name, _, _ := strings.Cut(w.text, "=")
 	return strings.TrimSuffix(name, "+")
+}
+
+// revisionSuffix reports a rune that may follow ^ in a git revision.
+func revisionSuffix(next rune) bool {
+	return next == 0 || next == ' ' || next == '\t' || next == ':' || next == '^' || next == '~' || next >= '0' && next <= '9'
 }

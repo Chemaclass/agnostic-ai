@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -45,65 +46,178 @@ func isVersionOrHelp(args []shellWord) bool {
 	return len(args) == 1 && slices.Contains([]string{"--version", "-v", "-V", "version", "--help", "-h", "help"}, args[0].text)
 }
 
-// allowVerbs allows the listed subcommands only; anything else asks as
-// a publish, the usual harm of a write through these tools.
-func allowVerbs(args []shellWord, allowed ...string) string {
-	if isVersionOrHelp(args) {
-		return ""
+// options is the set of options a command may take: long options by
+// their full name only, short letters that stand alone in a bundle, and
+// short letters whose value is the rest of the bundle or the next word.
+// Long options in withValue take the next word unless written --name=value.
+type options struct {
+	longs      []string
+	withValue  []string
+	shorts     string
+	valueShort string
+}
+
+// check returns false at the first option not in o. Every word after
+// "--" is an operand.
+func (o options) check(args []shellWord) bool {
+	for i := 0; i < len(args); i++ {
+		text := args[i].text
+		switch {
+		case text == "--":
+			return true
+		case strings.HasPrefix(text, "--"):
+			name, _, hasValue := strings.Cut(text, "=")
+			switch {
+			case slices.Contains(o.longs, text), slices.Contains(o.longs, name) && hasValue:
+			case slices.Contains(o.withValue, name):
+				if !hasValue {
+					i++
+				}
+			default:
+				return false
+			}
+		case strings.HasPrefix(text, "-") && len(text) > 1:
+			for j, letter := range text[1:] {
+				if letter >= '0' && letter <= '9' {
+					continue
+				}
+				if strings.ContainsRune(o.valueShort, letter) {
+					if j == len(text)-2 {
+						i++
+					}
+					break
+				}
+				if !strings.ContainsRune(o.shorts, letter) {
+					return false
+				}
+			}
+		}
 	}
-	verb, rest, ok := subcommand(args)
-	if !ok {
-		return RulePublish
-	}
-	if slices.Contains(allowed, verb) {
-		return ""
-	}
-	next, _, _ := subcommand(rest)
-	if verb == "config" && slices.Contains([]string{"view", "get-contexts", "current-context"}, next) {
-		return ""
-	}
-	if verb == "auth" && next == "can-i" {
-		return ""
-	}
-	return RulePublish
+	return true
 }
 
 // gitGlobalFlags are the git options before a subcommand the gate
 // reads; -C takes a folder, which the argument check reads as a path.
 var gitGlobalFlags = []string{"--no-pager", "-P", "--no-optional-locks", "--no-replace-objects", "--literal-pathspecs"}
 
-// gitRules are the subcommands git may run, with the long options and
-// short letters that make each one ask, and the rule they ask under.
-type gitCheck struct {
-	longs  []string
-	shorts string
-	rule   string
+var (
+	gitLogOptions = options{
+		longs: []string{"--oneline", "--graph", "--decorate", "--no-decorate", "--all", "--stat", "--shortstat", "--numstat",
+			"--patch", "--no-patch", "--name-only", "--name-status", "--follow", "--no-merges", "--merges", "--first-parent",
+			"--abbrev-commit", "--left-right", "--cherry-pick", "--reverse", "--color", "--no-color", "--invert-grep",
+			"--all-match", "--regexp-ignore-case", "--source", "--boundary", "--topo-order", "--date-order", "--summary",
+			"--simplify-by-decoration", "--show-signature", "--full-history", "--no-abbrev-commit", "--parents", "--quiet",
+			"--relative-date", "--word-diff", "--raw", "--no-ext-diff", "--no-textconv"},
+		withValue: []string{"--format", "--pretty", "--author", "--committer", "--since", "--until", "--after", "--before",
+			"--grep", "--max-count", "--skip", "--date", "--abbrev", "--diff-filter", "--branches", "--tags", "--remotes", "--exclude"},
+		shorts:     "psiqz",
+		valueShort: "nL",
+	}
+	gitDiffOptions = options{
+		longs: []string{"--stat", "--shortstat", "--numstat", "--name-only", "--name-status", "--cached", "--staged",
+			"--color", "--no-color", "--word-diff", "--patch", "--no-patch", "--exit-code", "--quiet", "--check",
+			"--ignore-all-space", "--ignore-space-change", "--ignore-blank-lines", "--minimal", "--relative", "--merge-base",
+			"--summary", "--raw", "--color-words", "--no-ext-diff", "--no-textconv", "--text", "--find-renames",
+			"--dirstat", "--no-renames", "--histogram", "--patience", "--full-index", "--binary", "--compact-summary"},
+		withValue:  []string{"--unified", "--diff-filter", "--stat-width", "--word-diff-regex", "--src-prefix", "--dst-prefix", "--abbrev"},
+		shorts:     "pswbRaz",
+		valueShort: "UMC",
+	}
+	gitOptions = map[string]options{
+		"status": {longs: []string{"--short", "--branch", "--porcelain", "--long", "--ignored", "--column", "--no-column",
+			"--ahead-behind", "--no-ahead-behind", "--renames", "--no-renames", "--show-stash", "--verbose"},
+			withValue: []string{"--untracked-files"}, shorts: "sbvz", valueShort: "u"},
+		"log":         gitLogOptions,
+		"whatchanged": gitLogOptions,
+		"shortlog":    {longs: []string{"--summary", "--numbered", "--email", "--all"}, withValue: []string{"--format", "--since", "--until"}, shorts: "sne"},
+		"show":        gitLogOptions,
+		"diff":        gitDiffOptions,
+		"blame": {longs: []string{"--porcelain", "--line-porcelain", "--show-email", "--show-number", "--show-name", "--root", "--show-stats"},
+			withValue: []string{"--date", "--abbrev"}, shorts: "wesltnfcpb", valueShort: "LCM"},
+		"describe": {longs: []string{"--tags", "--always", "--long", "--dirty", "--exact-match", "--contains", "--all", "--first-parent"},
+			withValue: []string{"--abbrev", "--match", "--exclude", "--candidates"}},
+		"rev-parse": {longs: []string{"--abbrev-ref", "--short", "--verify", "--show-toplevel", "--git-dir", "--is-inside-work-tree",
+			"--symbolic-full-name", "--show-prefix", "--absolute-git-dir", "--git-common-dir", "--show-cdup", "--quiet",
+			"--is-shallow-repository", "--sq", "--is-inside-git-dir", "--is-bare-repository", "--show-superproject-working-tree"}, shorts: "q"},
+		"rev-list":     {longs: []string{"--count", "--all", "--left-right", "--no-merges", "--reverse", "--first-parent", "--objects"}, withValue: []string{"--max-count", "--since", "--until"}, valueShort: "n"},
+		"ls-files":     {longs: []string{"--others", "--exclude-standard", "--cached", "--modified", "--deleted", "--stage", "--ignored", "--directory", "--full-name", "--error-unmatch", "--unmerged", "--killed"}, shorts: "ocmdsikutz"},
+		"ls-tree":      {longs: []string{"--name-only", "--full-tree", "--name-status", "--long"}, shorts: "rtdlz"},
+		"cat-file":     {longs: []string{"--batch-check"}, shorts: "tspe"},
+		"show-ref":     {longs: []string{"--heads", "--tags", "--verify", "--quiet", "--hash"}, shorts: "qsd"},
+		"for-each-ref": {withValue: []string{"--format", "--sort", "--count", "--contains", "--merged", "--no-merged", "--points-at"}},
+		"merge-base":   {longs: []string{"--is-ancestor", "--all", "--fork-point", "--octopus"}, shorts: "a"},
+		"check-ignore": {longs: []string{"--verbose", "--quiet", "--non-matching", "--no-index"}, shorts: "vqn"},
+		"range-diff":   {longs: []string{"--no-color", "--color"}},
+		"name-rev":     {longs: []string{"--name-only", "--tags", "--always"}},
+		"version":      {},
+		"help":         {},
+		"add":          {longs: []string{"--all", "--update", "--verbose", "--dry-run", "--intent-to-add", "--force", "--ignore-errors", "--renormalize", "--no-all", "--ignore-removal"}, shorts: "AuvnNf"},
+		"mv":           {longs: []string{"--force", "--verbose", "--dry-run"}, shorts: "fknv"},
+		"merge": {longs: []string{"--no-ff", "--ff-only", "--ff", "--squash", "--no-commit", "--commit", "--abort", "--continue",
+			"--no-edit", "--quit", "--stat", "--no-stat", "--signoff", "--allow-unrelated-histories", "--no-verify", "--autostash", "--quiet"},
+			withValue: []string{"--message", "--strategy", "--strategy-option"}, shorts: "nqv", valueShort: "msX"},
+		"cherry-pick": {longs: []string{"--continue", "--abort", "--skip", "--quit", "--no-commit", "--signoff", "--ff", "--allow-empty", "--keep-redundant-commits"},
+			withValue: []string{"--mainline", "--strategy", "--strategy-option"}, shorts: "nxs", valueShort: "mX"},
+		"revert":       {longs: []string{"--no-commit", "--no-edit", "--continue", "--abort", "--skip", "--quit", "--signoff"}, withValue: []string{"--mainline"}, shorts: "ns", valueShort: "m"},
+		"format-patch": {longs: []string{"--stdout", "--numbered", "--cover-letter", "--root", "--no-stat"}, withValue: []string{"--output-directory", "--subject-prefix", "--reroll-count", "--base"}, shorts: "n", valueShort: "ov"},
+		"init":         {longs: []string{"--quiet"}, withValue: []string{"--initial-branch"}, shorts: "q", valueShort: "b"},
+		"commit": {longs: []string{"--all", "--signoff", "--no-verify", "--allow-empty", "--allow-empty-message", "--quiet", "--verbose",
+			"--no-edit", "--no-gpg-sign", "--dry-run", "--short", "--porcelain", "--no-signoff", "--status", "--no-status"},
+			withValue: []string{"--message", "--file", "--fixup", "--squash", "--author", "--date", "--reuse-message", "--cleanup", "--trailer", "--gpg-sign"},
+			shorts:    "asnqv", valueShort: "mFCS"},
+		"fetch": {longs: []string{"--all", "--prune", "--tags", "--no-tags", "--unshallow", "--dry-run", "--quiet", "--verbose", "--force", "--prune-tags", "--atomic", "--no-recurse-submodules"},
+			withValue: []string{"--depth", "--deepen", "--shallow-since", "--jobs"}, shorts: "ptqvfa", valueShort: "j"},
+		"pull": {longs: []string{"--rebase", "--no-rebase", "--ff-only", "--ff", "--no-ff", "--quiet", "--verbose", "--autostash", "--no-autostash",
+			"--no-edit", "--prune", "--tags", "--all", "--squash", "--no-commit", "--no-recurse-submodules"},
+			withValue: []string{"--depth"}, shorts: "rqvp"},
+		"reset":  {longs: []string{"--soft", "--mixed", "--quiet", "--no-refresh"}, shorts: "qN"},
+		"switch": {longs: []string{"--create", "--detach", "--no-track", "--track", "--guess", "--no-guess", "--quiet", "--orphan", "--merge"}, shorts: "dtqm", valueShort: "c"},
+		"branch": {longs: []string{"--all", "--remotes", "--list", "--verbose", "--show-current", "--column", "--no-column", "--color",
+			"--no-color", "--track", "--no-track", "--quiet", "--unset-upstream", "--no-abbrev", "--ignore-case"},
+			withValue: []string{"--contains", "--no-contains", "--merged", "--no-merged", "--sort", "--format", "--points-at", "--set-upstream-to", "--abbrev"},
+			shorts:    "arlvtqi", valueShort: "u"},
+		"tag": {longs: []string{"--list", "--annotate", "--sign", "--column", "--ignore-case"},
+			withValue: []string{"--message", "--file", "--sort", "--contains", "--no-contains", "--merged", "--points-at", "--format"},
+			shorts:    "lasin", valueShort: "mF"},
+		"rebase": {longs: []string{"--continue", "--abort", "--skip", "--quit", "--autostash", "--no-autostash", "--rebase-merges", "--root",
+			"--keep-base", "--update-refs", "--no-update-refs", "--signoff", "--committer-date-is-author-date", "--ignore-date",
+			"--no-verify", "--fork-point", "--no-fork-point", "--quiet", "--verbose", "--force-rebase", "--stat", "--no-stat"},
+			withValue: []string{"--onto", "--strategy", "--strategy-option", "--empty"}, shorts: "rqvfn", valueShort: "sX"},
+		"stash":    {longs: []string{"--include-untracked", "--keep-index", "--quiet", "--staged", "--all", "--stat", "--patch", "--index", "--name-only"}, withValue: []string{"--message"}, shorts: "ukqSap", valueShort: "m"},
+		"bisect":   {},
+		"worktree": {longs: []string{"--porcelain", "--verbose", "--detach", "--lock", "--checkout", "--no-checkout", "--quiet"}, shorts: "vq", valueShort: "b"},
+		"remote":   {longs: []string{"--verbose"}, shorts: "v"},
+		"config":   {longs: []string{"--get", "--get-all", "--get-regexp", "--list", "--global", "--local", "--system", "--show-origin", "--show-scope", "--name-only", "--null", "--bool", "--int", "--path"}, shorts: "lz"},
+		"reflog":   {longs: []string{"--date", "--all"}, withValue: []string{"--format", "--pretty", "--max-count"}, valueShort: "n"},
+		"restore":  {longs: []string{"--staged", "--quiet"}, shorts: "Sq"},
+		"checkout": {longs: []string{"--quiet", "--track", "--no-track"}, shorts: "qt", valueShort: "bc"},
+		"grep":     {longs: []string{"--line-number", "--count", "--ignore-case", "--word-regexp", "--files-with-matches", "--name-only", "--cached", "--untracked", "--extended-regexp", "--fixed-strings", "--heading", "--break", "--column", "--invert-match", "--all-match", "--quiet", "--recurse-submodules", "--full-name", "--no-index"}, withValue: []string{"--max-depth", "--threads"}, shorts: "nciwlLEFvhHqrz", valueShort: "efABCm"},
+	}
+)
+
+// gitDenyRule names the harm of an option a subcommand does not allow.
+var gitDenyRule = map[string]string{
+	"reset": RuleDelete, "switch": RuleDelete, "branch": RuleDelete, "tag": RuleDelete, "restore": RuleDelete,
+	"checkout": RuleDelete, "stash": RuleDelete, "worktree": RuleDelete, "commit": RulePublish,
 }
 
-var gitRules = map[string][]gitCheck{
-	"status": nil, "diff": nil, "log": nil, "show": nil, "blame": nil, "shortlog": nil, "describe": nil,
-	"rev-parse": nil, "rev-list": nil, "ls-files": nil, "ls-tree": nil, "cat-file": nil, "show-ref": nil,
-	"for-each-ref": nil, "merge-base": nil, "check-ignore": nil, "range-diff": nil, "whatchanged": nil,
-	"version": nil, "help": nil, "add": nil,
-	"init": {{longs: []string{"--template", "--separate-git-dir"}, rule: RuleShellSyntax}}, "mv": nil, "merge": nil, "cherry-pick": nil,
-	"revert": nil, "format-patch": nil, "name-rev": nil,
-	"grep":   {{longs: []string{"--open-files-in-pager"}, shorts: "O", rule: RuleShellSyntax}},
-	"commit": {{longs: []string{"--amend"}, rule: RulePublish}},
-	"fetch":  {{longs: []string{"--upload-pack"}, rule: RuleShellSyntax}},
-	"pull":   {{longs: []string{"--upload-pack"}, rule: RuleShellSyntax}},
-	"reset":  {{longs: []string{"--hard", "--merge", "--keep"}, rule: RuleDelete}},
-	"switch": {{longs: []string{"--discard-changes", "--force", "--force-create"}, shorts: "fC", rule: RuleDelete}},
-	"branch": {{longs: []string{"--delete", "--move", "--copy", "--force", "--edit-description"}, shorts: "dDmMcCf", rule: RuleDelete}},
-	"tag":    {{longs: []string{"--delete", "--force"}, shorts: "df", rule: RuleDelete}},
-	"rebase": {{longs: []string{"--exec", "--interactive", "--edit-todo"}, shorts: "xi", rule: RuleShellSyntax}},
-	"stash":  nil,
-	"bisect": nil,
+// gitReads reports a git command that reads the paths it names, or
+// stages them, and writes none of them.
+func gitReads(args []shellWord) bool {
+	for len(args) > 0 && strings.HasPrefix(args[0].text, "-") {
+		if args[0].text == "-C" && len(args) > 1 {
+			args = args[1:]
+		}
+		args = args[1:]
+	}
+	verb, _, ok := subcommand(args)
+	return ok && slices.Contains([]string{"add", "diff", "log", "show", "blame", "status", "ls-files", "grep", "whatchanged", "shortlog"}, verb)
 }
 
-// gitRule reads git's options, then a subcommand from gitRules. An
-// unknown subcommand may be an alias that runs a shell command, so it
-// asks. Long options are matched by prefix and short letters inside
-// bundles, as git reads them.
+// gitRule reads git's options, then a subcommand from gitOptions with
+// only the options listed for it, by their full names: any other
+// option, an abbreviation included, asks. An unknown subcommand may be
+// an alias that runs a shell command, so it asks too.
 func gitRule(args []shellWord) string {
 	for len(args) > 0 && strings.HasPrefix(args[0].text, "-") {
 		switch {
@@ -133,97 +247,95 @@ func gitRule(args []shellWord) string {
 		return RuleSecret
 	case "daemon", "instaweb", "clone", "ls-remote", "archive":
 		return RuleNetwork
-	case "checkout":
-		return gitCheckout(rest)
-	case "restore":
-		if flagged(rest, []string{"--staged"}, "S") && !flagged(rest, []string{"--worktree", "--source", "--patch"}, "Wsp") {
-			return ""
-		}
-		return RuleDelete
-	case "stash":
-		verb, _, _ := subcommand(rest)
-		if slices.Contains([]string{"drop", "clear"}, verb) {
-			return RuleDelete
-		}
-		return ""
-	case "bisect":
-		if verb, _, _ := subcommand(rest); verb == "run" {
-			return RuleShellSyntax
-		}
-		return ""
-	case "worktree":
-		if verb, _, _ := subcommand(rest); verb == "list" || verb == "add" && !flagged(rest, []string{"--force"}, "fB") {
-			return ""
-		}
-		return RuleDelete
-	case "remote":
-		if len(rest) == 0 || isVersionOrHelp(rest) || rest[0].text == "-v" || rest[0].text == "show" || rest[0].text == "get-url" {
-			return ""
-		}
-		return RulePublish
-	case "config":
-		return gitConfig(rest)
-	case "reflog":
-		if verb, _, _ := subcommand(rest); len(rest) == 0 || verb == "show" {
-			return ""
-		}
-		return RuleDelete
 	}
-	checks, known := gitRules[sub]
+	opts, known := gitOptions[sub]
 	if !known {
 		return RuleShellSyntax
 	}
-	for _, check := range checks {
-		if flagged(rest, check.longs, check.shorts) {
-			return check.rule
+	if slices.ContainsFunc(rest, func(w shellWord) bool { return w.text == "--amend" }) {
+		return RulePublish
+	}
+	if !opts.check(rest) {
+		if rule, named := gitDenyRule[sub]; named {
+			return rule
+		}
+		return RuleShellSyntax
+	}
+	return gitVerbRule(sub, rest)
+}
+
+// gitVerbRule checks the subcommands whose own verbs or operands decide
+// the harm.
+func gitVerbRule(sub string, rest []shellWord) string {
+	verb, _, _ := subcommand(rest)
+	switch sub {
+	case "checkout":
+		return gitCheckout(rest)
+	case "restore":
+		if !slices.ContainsFunc(rest, func(w shellWord) bool { return w.text == "--staged" || w.text == "-S" }) {
+			return RuleDelete
+		}
+	case "stash":
+		if slices.Contains([]string{"drop", "clear"}, verb) {
+			return RuleDelete
+		}
+	case "bisect":
+		if verb == "run" {
+			return RuleShellSyntax
+		}
+	case "worktree":
+		if verb != "list" && verb != "add" {
+			return RuleDelete
+		}
+	case "remote":
+		if len(rest) > 0 && rest[0].text != "-v" && rest[0].text != "--verbose" && verb != "show" && verb != "get-url" {
+			return RulePublish
+		}
+	case "config":
+		read := len(rest) > 0 && (rest[0].text == "get" || rest[0].text == "list")
+		for _, a := range rest {
+			name, _, _ := strings.Cut(a.text, "=")
+			if slices.Contains([]string{"--get", "--get-all", "--get-regexp", "--list", "-l"}, name) {
+				read = true
+			}
+		}
+		if !read {
+			return RuleShellSyntax
+		}
+		// Stored tokens live in remote URLs, credential helpers and extra
+		// headers, which a listing prints.
+		for _, a := range rest {
+			if a.text == "--list" || a.text == "-l" || a.text == "list" || a.text == "--get-regexp" || gitSecretKey.MatchString(a.text) {
+				return RuleSecret
+			}
+		}
+	case "reflog":
+		if len(rest) > 0 && verb != "show" && verb != "" {
+			return RuleDelete
 		}
 	}
 	return ""
 }
 
 // gitCheckout allows only creating a branch with -b or -c: any other
-// form may overwrite files with a branch's or commit's version.
+// form may overwrite files with a branch's or commit's version, and
+// without reading the repository the gate cannot tell a branch name
+// from a path.
 func gitCheckout(rest []shellWord) string {
 	if len(rest) == 0 || rest[0].text != "-b" && rest[0].text != "-c" {
 		return RuleDelete
 	}
-	if flagged(rest, []string{"--force", "--ours", "--theirs", "--patch", "--pathspec-from-file", "--merge", "--overwrite-ignore"}, "fpmB") {
-		return RuleDelete
-	}
-	operands := 0
+	n := 0
 	for _, a := range rest[1:] {
 		if a.text == "--" {
 			return RuleDelete
 		}
 		if !strings.HasPrefix(a.text, "-") {
-			operands++
+			n++
 		}
 	}
-	if operands < 1 || operands > 2 {
+	if n < 1 || n > 2 {
 		return RuleDelete
-	}
-	return ""
-}
-
-// gitConfig allows reading a value only; any write may make git run a
-// command.
-func gitConfig(rest []shellWord) string {
-	read := false
-	for _, a := range rest {
-		text := a.text
-		switch {
-		case optionPrefixOf(strings.SplitN(text, "=", 2)[0], []string{"--get", "--get-all", "--get-regexp", "--list"}) || text == "-l":
-			read = true
-		case slices.Contains([]string{"--global", "--local", "--system", "--worktree", "--show-origin", "--show-scope", "--name-only", "--null", "-z", "--bool", "--int", "--path"}, text):
-		case strings.HasPrefix(text, "-"):
-			return RuleShellSyntax
-		}
-	}
-	if len(rest) > 0 && (rest[0].text == "get" || rest[0].text == "list") {
-		read = true
-	}
-	if !read {
-		return RuleShellSyntax
 	}
 	return ""
 }
@@ -261,27 +373,13 @@ func ghRule(args []shellWord) string {
 	return ""
 }
 
-func dockerRule(args []shellWord) string {
-	if isVersionOrHelp(args) {
-		return ""
-	}
-	verb, rest, ok := subcommand(args)
-	if !ok {
-		return RulePrivilege
-	}
-	switch verb {
-	case "build", "images", "ps", "logs", "inspect", "info", "history":
-		return ""
-	case "pull", "search", "login":
-		return RuleNetwork
-	case "push":
-		return RulePublish
-	case "compose":
-		if next, _, ok := subcommand(rest); ok && slices.Contains([]string{"ps", "logs", "config", "ls", "version", "images"}, next) {
-			return ""
-		}
-	}
-	return RulePrivilege
+// scriptOptions are the options a package manager reads after its
+// subcommand; anything after "--" goes to the script.
+var scriptOptions = options{
+	longs:      []string{"--silent", "--if-present", "--workspaces", "--ws", "--include-workspace-root", "--recursive", "--parallel", "--stream", "--watch", "--coverage", "--bail"},
+	withValue:  []string{"--workspace", "--filter", "--reporter"},
+	shorts:     "sr",
+	valueShort: "w",
 }
 
 // packageRule allows a package manager to run tests, scripts and read
@@ -299,11 +397,14 @@ func packageRule(name string, args []shellWord) string {
 		return RuleNetwork
 	}
 	switch verb {
-	case "test", "t", "tst", "lint", "build", "typecheck", "format", "fmt", "check", "start":
+	case "test", "t", "tst", "lint", "build", "typecheck", "format", "fmt", "check", "start", "dev", "serve", "watch", "e2e":
+		if !scriptOptions.check(rest) {
+			return RuleShellSyntax
+		}
 		return scriptRule(verb)
 	case "run", "run-script":
-		script, _, ok := subcommand(rest)
-		if !ok {
+		script, scriptArgs, ok := subcommand(rest)
+		if !ok || !scriptOptions.check(scriptArgs) {
 			return RuleShellSyntax
 		}
 		return scriptRule(script)
@@ -338,7 +439,7 @@ func denoRule(args []shellWord) string {
 	}
 	switch verb {
 	case "test", "fmt", "lint", "check":
-		if flagged(rest, []string{"--allow-all", "--allow-run", "--allow-net", "--allow-env", "--allow-write", "--allow-read"}, "A") {
+		if !(options{longs: []string{"--check", "--quiet", "--watch"}, shorts: "q"}).check(rest) {
 			return RuleShellSyntax
 		}
 		return ""
@@ -370,6 +471,30 @@ func runOnlyRule(args []shellWord) string {
 	return RuleNetwork
 }
 
+// goBuildOptions are the go build, test, vet and run flags the gate
+// allows. Flags such as -exec, -toolexec, -overlay, -modfile and -mod
+// may run or fetch other code, so they are left out and ask.
+var goBuildOptions = map[string]bool{
+	"-v": true, "-race": true, "-count": true, "-run": true, "-bench": true, "-benchmem": true, "-cover": true,
+	"-coverprofile": true, "-covermode": true, "-coverpkg": true, "-short": true, "-timeout": true, "-tags": true,
+	"-failfast": true, "-json": true, "-o": true, "-p": true, "-parallel": true, "-cpu": true, "-trimpath": true,
+	"-x": true, "-n": true, "-a": true, "-buildvcs": true, "-benchtime": true, "-shuffle": true, "-skip": true,
+	"-fuzz": true, "-fuzztime": true, "-list": true, "-cpuprofile": true, "-memprofile": true, "-ldflags": true,
+	"-gcflags": true, "-vet": true, "-msan": true, "-asan": true, "-work": true, "-outputdir": true, "-blockprofile": true,
+	"-mutexprofile": true, "-trace": true, "-benchtime=": true, "-m": true, "-u": true, "-f": true, "-e": true, "-deps": true,
+	"-find": true, "-test": true, "-compiled": true, "-export": true,
+}
+
+// goValueFlags take the next word as their value when not written
+// -flag=value.
+var goValueFlags = []string{"-count", "-run", "-bench", "-coverprofile", "-covermode", "-coverpkg", "-timeout", "-tags",
+	"-o", "-p", "-parallel", "-cpu", "-benchtime", "-shuffle", "-skip", "-fuzz", "-fuzztime", "-list", "-cpuprofile",
+	"-memprofile", "-ldflags", "-gcflags", "-vet", "-outputdir", "-blockprofile", "-mutexprofile", "-trace", "-f"}
+
+var gitSecretKey = regexp.MustCompile(`(?i)url|credential|token|password|header|auth`)
+
+var goExternalLinker = regexp.MustCompile(`(?i)extld|linkmode|-X\s*main|toolexec`)
+
 func goRule(args []shellWord) string {
 	if isVersionOrHelp(args) {
 		return ""
@@ -378,37 +503,71 @@ func goRule(args []shellWord) string {
 	if !ok {
 		return RuleShellSyntax
 	}
-	if flagged(rest, []string{"-exec", "-toolexec", "-vettool", "--exec", "--toolexec", "--vettool"}, "") ||
-		slices.ContainsFunc(rest, func(w shellWord) bool {
-			name, _, _ := strings.Cut(w.text, "=")
-			return slices.Contains([]string{"-exec", "-toolexec", "-vettool", "-overlay", "-modfile", "-C"}, name)
-		}) {
-		return RuleShellSyntax
-	}
 	switch verb {
-	case "build", "test", "vet", "fmt", "list", "doc", "version", "help", "generate", "mod", "work", "clean", "bug":
-		if verb == "mod" || verb == "work" {
-			if next, _, _ := subcommand(rest); next == "download" || next == "get" {
-				return RuleNetwork
-			}
+	case "build", "test", "vet", "list", "run":
+		return goFlags(verb, rest)
+	case "mod":
+		if next, _, _ := subcommand(rest); slices.Contains([]string{"tidy", "verify", "why", "graph"}, next) && len(rest) == 1 {
+			return ""
 		}
-		return ""
-	case "run", "tool":
-		for _, w := range rest {
-			if strings.Contains(w.text, "@") {
-				return RuleNetwork
-			}
-		}
-		return ""
+		return RuleNetwork
 	case "env":
-		if flagged(rest, nil, "wu") {
-			return RuleShellSyntax
+		if len(rest) == 0 || !strings.HasPrefix(rest[0].text, "-") {
+			return ""
 		}
+		if rest[0].text == "-json" {
+			return ""
+		}
+		return RuleShellSyntax
+	case "fmt", "doc", "help":
 		return ""
 	case "install", "get":
 		return RuleNetwork
 	}
 	return RuleShellSyntax
+}
+
+// goFlags checks go's flags up to -args or the first operand after which
+// test binary flags follow; a flag go does not list asks.
+func goFlags(verb string, rest []shellWord) string {
+	for i := 0; i < len(rest); i++ {
+		text := rest[i].text
+		if text == "-args" || text == "--args" {
+			return ""
+		}
+		if !strings.HasPrefix(text, "-") {
+			if verb == "run" && strings.Contains(text, "@") {
+				return RuleNetwork
+			}
+			if verb == "run" {
+				// Everything after the package goes to the program.
+				return ""
+			}
+			continue
+		}
+		name, value, hasValue := strings.Cut(strings.Replace(text, "--", "-", 1), "=")
+		if !goBuildOptions[name] {
+			return RuleShellSyntax
+		}
+		if !hasValue && slices.Contains(goValueFlags, name) && i+1 < len(rest) {
+			i++
+			value = rest[i].text
+		}
+		if (name == "-ldflags" || name == "-gcflags") && goExternalLinker.MatchString(value) {
+			return RuleShellSyntax
+		}
+	}
+	return ""
+}
+
+var cargoOptions = options{
+	longs: []string{"--release", "--all", "--workspace", "--all-features", "--no-default-features", "--lib", "--bins", "--tests",
+		"--examples", "--benches", "--all-targets", "--locked", "--frozen", "--offline", "--quiet", "--verbose", "--no-run",
+		"--doc", "--check", "--no-fail-fast", "--future-incompat-report", "--keep-going"},
+	withValue: []string{"--package", "--features", "--bin", "--test", "--example", "--bench", "--target", "--jobs",
+		"--message-format", "--color", "--profile", "--manifest-path", "--exclude", "--target-dir"},
+	shorts:     "qv",
+	valueShort: "pjF",
 }
 
 func cargoRule(args []shellWord) string {
@@ -419,11 +578,11 @@ func cargoRule(args []shellWord) string {
 	if !ok {
 		return RuleShellSyntax
 	}
-	if flagged(rest, []string{"--config"}, "Z") {
-		return RuleShellSyntax
-	}
 	switch verb {
-	case "build", "b", "check", "c", "test", "t", "fmt", "clippy", "doc", "d", "run", "r", "bench", "tree", "metadata", "clean":
+	case "build", "b", "check", "c", "test", "t", "fmt", "clippy", "doc", "d", "run", "r", "bench", "tree", "metadata":
+		if !cargoOptions.check(rest) {
+			return RuleShellSyntax
+		}
 		return ""
 	case "install", "add", "uninstall", "remove", "update", "fetch":
 		return RuleNetwork
