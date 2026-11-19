@@ -253,3 +253,10 @@ func TestEditValue_TeamScopeWritesASharedSpecThatAlsoGrantsPermissions(t *testin
 		t.Errorf("shared = %q", got)
 	}
 }
+
+func TestOverviewDisplay_ShowsAChildWhoseNameStartsWithDotsRelative(t *testing.T) {
+	root := t.TempDir()
+	if got := overviewDisplay(root, filepath.Join(root, "..data", "a.yaml")); got != "..data/a.yaml" {
+		t.Errorf("overviewDisplay = %q, want ..data/a.yaml", got)
+	}
+}

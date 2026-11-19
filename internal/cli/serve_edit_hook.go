@@ -220,7 +220,10 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 		local, _ := h.personalRoot("")
 		dir = filepath.Join(local, "hooks")
 	}
-	file := filepath.Join(dir, req.Name+".yaml")
+	file, ok := pathUnder(dir, req.Name+".yaml")
+	if !ok {
+		return hookSpecPreview{}, "", fmt.Errorf("name %q is not a usable file name on this system", req.Name)
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil && !os.IsNotExist(err) {
 		return hookSpecPreview{}, "", fmt.Errorf("%s: %w", dir, err)
