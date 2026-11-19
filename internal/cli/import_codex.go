@@ -70,7 +70,11 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
-	rules, err := importCodexRules(root, importSourcePath(root, src.Rules), src, opts)
+	agentsFiles, err := findHierarchicalMainFiles(root, "AGENTS.md", src)
+	if err != nil {
+		return err
+	}
+	rules, err := importCodexRulesFrom(root, importSourcePath(root, src.Rules), agentsFiles, src, opts)
 	if err != nil {
 		return err
 	}
@@ -79,7 +83,7 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 		return err
 	}
 	rules += rulesFileRules
-	reviews, err := importCodexReviews(root, src)
+	reviews, err := importCodexReviews(root, agentsFiles, src)
 	if err != nil {
 		return err
 	}
@@ -171,6 +175,12 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 	if err != nil {
 		return 0, err
 	}
+	return importCodexRulesFrom(root, dstDir, files, src, opts)
+}
+
+// importCodexRulesFrom is importCodexRules over the AGENTS.md files
+// already found, so the reviews import reuses the same walk.
+func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src config.Sources, opts importCodexOpts) (int, error) {
 	if len(files) == 0 {
 		return 0, nil
 	}

@@ -253,6 +253,9 @@ func runExplainContext(cmd *cobra.Command, target, file string, jsonOut bool) er
 	if err != nil {
 		return err
 	}
+	// Every rule renders alone, and each render reads the state file
+	// through the prior-state hooks unless it is held.
+	defer holdStateFile(".")()
 	report, err := explainContext(cfg, b, target, file)
 	if err != nil {
 		return err

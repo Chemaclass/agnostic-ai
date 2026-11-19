@@ -24,34 +24,34 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestMtimesChanged_DetectsAdd(t *testing.T) {
+func TestChangedPaths_DetectsAdd(t *testing.T) {
 	prev := map[string]time.Time{"a": time.Unix(1, 0)}
 	curr := map[string]time.Time{"a": time.Unix(1, 0), "b": time.Unix(2, 0)}
-	if !mtimesChanged(prev, curr) {
+	if len(changedPaths(prev, curr)) == 0 {
 		t.Error("expected changed when file added")
 	}
 }
 
-func TestMtimesChanged_DetectsRemove(t *testing.T) {
+func TestChangedPaths_DetectsRemove(t *testing.T) {
 	prev := map[string]time.Time{"a": time.Unix(1, 0), "b": time.Unix(2, 0)}
 	curr := map[string]time.Time{"a": time.Unix(1, 0)}
-	if !mtimesChanged(prev, curr) {
+	if len(changedPaths(prev, curr)) == 0 {
 		t.Error("expected changed when file removed")
 	}
 }
 
-func TestMtimesChanged_DetectsModify(t *testing.T) {
+func TestChangedPaths_DetectsModify(t *testing.T) {
 	prev := map[string]time.Time{"a": time.Unix(1, 0)}
 	curr := map[string]time.Time{"a": time.Unix(2, 0)}
-	if !mtimesChanged(prev, curr) {
+	if len(changedPaths(prev, curr)) == 0 {
 		t.Error("expected changed when mtime updated")
 	}
 }
 
-func TestMtimesChanged_NoChange(t *testing.T) {
+func TestChangedPaths_NoChange(t *testing.T) {
 	prev := map[string]time.Time{"a": time.Unix(1, 0)}
 	curr := map[string]time.Time{"a": time.Unix(1, 0)}
-	if mtimesChanged(prev, curr) {
+	if len(changedPaths(prev, curr)) != 0 {
 		t.Error("expected no change when mtimes identical")
 	}
 }
@@ -87,7 +87,7 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, false, false, "off", false, 1)
+		done <- watchSync(ctx, 10*time.Millisecond, ".", []string{"claude"}, watchOptions{gitignoreFlag: "off", jobs: 1}, false)
 	}()
 
 	// Wait for the watcher to arm, not merely for the initial sync: the
@@ -194,7 +194,7 @@ func TestWatchSync_PollFallback(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		// forcePoll = true exercises the polling backend explicitly.
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", true, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, watchOptions{gitignoreFlag: "off", jobs: 1}, true)
 	}()
 
 	waitForOutput(t, buf, "watching", 10*time.Second)
@@ -313,7 +313,7 @@ func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		// forcePoll=true: deterministic across platforms.
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"codex"}, false, false, "off", true, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"codex"}, watchOptions{gitignoreFlag: "off", jobs: 1}, true)
 	}()
 
 	waitForOutput(t, buf, "watching", 10*time.Second)
@@ -678,7 +678,7 @@ func TestWatchSync_IncrementalReSyncsOnlyAffectedTarget(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		// forcePoll=true keeps the test deterministic across platforms.
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude", "cursor"}, false, false, "off", true, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude", "cursor"}, watchOptions{gitignoreFlag: "off", jobs: 1}, true)
 	}()
 
 	// Wait for the initial full sync to land claude's agent file.
@@ -815,7 +815,7 @@ func assertWatchPicksUpNewLocalInstructions(t *testing.T, forcePoll bool) {
 	buf := captureWatchOutput(t)
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", forcePoll, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, watchOptions{gitignoreFlag: "off", jobs: 1}, forcePoll)
 	}()
 	waitForOutput(t, buf, "watching", 10*time.Second)
 	if _, err := os.Stat(defaultProjectUser); err == nil {
@@ -1023,7 +1023,7 @@ func startWatch(t *testing.T, targets []string, forcePoll bool) (*safeBuffer, fu
 	buf := captureWatchOutput(t)
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 20*time.Millisecond, ".", targets, false, false, "off", forcePoll, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", targets, watchOptions{gitignoreFlag: "off", jobs: 1}, forcePoll)
 	}()
 	waitForOutput(t, buf, "watching", 10*time.Second)
 	return buf, func() {
@@ -1454,7 +1454,7 @@ func TestResyncForChanges_IgnoresHandoffBeforeLoadingConfig(t *testing.T) {
 	writeTestFile(t, config.ConfigFileName, "invalid: [")
 	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3", "handoffs/feat-a.md", "handoffs/.feat-a.md.a1B2c3.tmp", "handoffs/feat-a.md.a1B2c3.tmp"} {
 		path := filepath.Join(dir, defaultProjectUser, name)
-		if err := resyncForChanges(dir, []string{"claude"}, []string{path}, false, false, "off", 1); err != nil {
+		if err := resyncForChanges(dir, []string{"claude"}, []string{path}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 			t.Errorf("ignored %s loaded broken config: %v", name, err)
 		}
 	}
@@ -1467,7 +1467,7 @@ func TestResyncForChanges_MixedHandoffAndRuleSyncsRule(t *testing.T) {
 	buf := captureWatchOutput(t)
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
 	writeTestFile(t, rule, "---\nname: r1\n---\nUpdated rule.\n")
-	if err := resyncForChanges(dir, []string{"claude"}, []string{filepath.Join(dir, defaultProjectUser, "HANDOFF.md"), filepath.Join(dir, defaultProjectUser, "HANDOFF.auto.md.a1B2c3"), rule}, false, false, "off", 1); err != nil {
+	if err := resyncForChanges(dir, []string{"claude"}, []string{filepath.Join(dir, defaultProjectUser, "HANDOFF.md"), filepath.Join(dir, defaultProjectUser, "HANDOFF.auto.md.a1B2c3"), rule}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "r1.md"))
@@ -1488,7 +1488,7 @@ func TestResyncForChanges_HandoffNamedRuleSyncs(t *testing.T) {
 	silence(t)
 	path := filepath.Join(dir, ".agnostic-ai", "rules", "HANDOFF.md")
 	writeTestFile(t, path, "---\nname: handoff-rule\n---\nKeep this ordinary rule.\n")
-	if err := resyncForChanges(dir, []string{"claude"}, []string{path}, false, false, "off", 1); err != nil {
+	if err := resyncForChanges(dir, []string{"claude"}, []string{path}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "handoff-rule.md"))

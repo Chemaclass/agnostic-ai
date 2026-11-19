@@ -5,7 +5,8 @@
 Use the benchmark suite to measure writing, comparing, and rendering output before and after changing frequently run code.
 
 Most benchmarks live in `internal/cli/bench_test.go`, in the same package so they can
-call the unexported sync internals directly. `BenchmarkCompareToDisk` lives
+call the unexported sync internals directly. `BenchmarkImportWalks` lives in
+`internal/cli/import_bench_test.go`. `BenchmarkCompareToDisk` lives
 in `internal/adapters/internal/emit` beside the compare helper it measures.
 Test projects (fixtures) use Go's `testing` package only, with no external dependencies.
 
@@ -44,6 +45,9 @@ scripts/bench-commands.sh --specs 100 --runs 5
 ```
 
 It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
+`import all` runs last among the synced rows because it writes specs; with
+`--runs` above 1, the later runs re-import a tree that already matches. The
+script uses a separate copy of the project for the rows without `.sync-state`.
 The final three rows measure `status`, `doctor`, and `sync --dry-run`
 without `.sync-state`, as in a fresh checkout. A tracked hand-written
 Claude launch configuration checks whether history identifies generated files without changing
@@ -89,6 +93,8 @@ Every other command must exit 0. Unexpected exits, setup errors, rejected doctor
 
 Comparison requires matching schema, measurement method, paired-session identity, environment (including compiler), fixture, command list, warm-up policy, and sample count. It rejects missing or malformed data and unexpected exits. Keep the pair from one recording session together; separate sessions do not prove alternation. A comparison returns success when its inputs are valid, regardless of timing differences.
 
+Pairs recorded with this method before the `import all` and `explain --context` rows were added still compare with each other.
+
 Each row shows sample count, median, minimum and maximum (the spread), candidate minus baseline in milliseconds, and that difference as a percentage of the baseline median. Positive differences mean more elapsed time. The raw samples remain in the JSON files. A range or slow sample is evidence to investigate, not a confirmed regression. Rerun anomalous observations as another complete paired session and retain both pairs with their exact commands, revisions, build flags, and machine label. These local measurements add no CI latency threshold or performance claim.
 
 The normal shell tests run small synthetic recording controls, not the 500-spec benchmark:
@@ -108,11 +114,15 @@ make test-shell
 | `BenchmarkLoadProject` | Load the project once: parse the config, resolve the spec layers, and load every spec. One `sync` invocation loads the project once. |
 | `BenchmarkLoad` | Load one project config with `config.Load` (`internal/config`), for a base file alone and with `agnostic-ai.local.yaml`: read, shape checks, decode, and every validation. |
 | `BenchmarkLoadDecodeOnly` | The lower bound for `BenchmarkLoad`: read the base file and decode it, with no checks. |
+| `BenchmarkWatchResync` | One `sync --watch` event for a rule saved without changes, so the pass writes nothing: the current path, which loads the project to pick targets, again in the pass, and parses the config to refresh the watch list, versus one load handed to the pass, and the pass alone over the same targets. |
 | `BenchmarkEntryPointRender` | Render entry-point content and remove identical copies across targets. |
 | `BenchmarkFolderFingerprint` | Calculate the content hash for a shared-skills folder (`folderFingerprint`). |
 | `BenchmarkCompare` | `compare claude codex` against a synced tree: every agent, skill, and rule emitted alone to both targets. |
 | `BenchmarkGraph` | `graph` edges against a synced tree: every spec emitted alone to every target. |
 | `BenchmarkExplain` | `explain` for one rule against a synced tree: every target rendered with and without it. |
+| `BenchmarkExplainContext` | `explain --context` for Claude and Codex, without and with `--file`, against a synced tree: each rule rendered alone to find its output. Baselines are one render of the whole bundle and one render of one rule; `µs/rule` divides the command's time by the rule count. |
+| `BenchmarkExplainFile` | `explain --file` for Claude and Codex against a synced tree, with the same baselines as `BenchmarkExplainContext`. |
+| `BenchmarkImportWalks` | Import in a project of 1,000 and 8,000 directories: the OpenCode skill import and `import` over codex, cursor, warp, opencode, and factory in one run, against one bare directory walk. `walks/op` counts the whole-project walks one run made. |
 | `BenchmarkLint` | The full project `lint` report, the source-spec checks `doctor` also runs. |
 | `BenchmarkCompareToDisk` | Compare rendered output with files: the current full read versus checking size first with `CompareToDisk`, across scenarios and file sizes. |
 | `BenchmarkAgentPermission` | Build one Kilo agent permission map: compiling each wildcard pattern on every comparison versus the per-pattern cache, cold and warm, and a matcher with no regular expression, across narrow and wide tool lists with and without project rules. |

@@ -436,3 +436,28 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 		t.Error("global check after environment write failed")
 	}
 }
+
+func TestCredentialPreview_DryRunHidesAPIKeyAndHelperSecrets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, openhands]\noutputs:\n  claude:\n    settings:\n      apiKeyHelper: echo PREVIEW_SECRET_3659_HELPER\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "remote.yaml"), "name: remote\ntype: http\nurl: https://example.test/mcp\napi_key: !literal PREVIEW_SECRET_3659_KEY\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: Uses the remote server.\nmcpServers: [remote]\n---\nHelp.\n")
+	printed := captureStdout(t, func() {
+		out, err := runCLI(t, "sync", "--dry-run")
+		if err != nil {
+			t.Fatalf("sync --dry-run: %v", err)
+		}
+		if strings.Contains(out, "PREVIEW_SECRET_3659_") {
+			t.Error("command output leaked a credential")
+		}
+	})
+	if strings.Contains(printed, "PREVIEW_SECRET_3659_") {
+		t.Error("dry-run preview leaked a credential")
+	}
+	for _, shown := range []string{".claude/settings.json", "Authorization", "apiKeyHelper"} {
+		if !strings.Contains(printed, shown) {
+			t.Errorf("dry-run preview lost %q", shown)
+		}
+	}
+}

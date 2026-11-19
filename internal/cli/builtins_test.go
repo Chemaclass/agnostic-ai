@@ -356,7 +356,7 @@ func TestBuiltins_WatchReloadRepairsDamagedCache(t *testing.T) {
 			silence(t)
 			rule := filepath.Join(dir, ".agnostic-ai", "rules", "check.md")
 			writeFile(t, rule, "---\nname: check\n---\nOriginal rule.\n")
-			if err := resyncForChanges(dir, []string{"claude"}, []string{rule}, false, false, "off", 1); err != nil {
+			if err := resyncForChanges(dir, []string{"claude"}, []string{rule}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 				t.Fatal(err)
 			}
 			_, b, err := loadProject(dir)
@@ -389,7 +389,7 @@ func TestBuiltins_WatchReloadRepairsDamagedCache(t *testing.T) {
 				writeFile(t, extra, "unexpected\n")
 			}
 			writeFile(t, rule, "---\nname: check\n---\nUpdated rule.\n")
-			if err := resyncForChanges(dir, []string{"claude"}, []string{rule}, false, false, "off", 1); err != nil {
+			if err := resyncForChanges(dir, []string{"claude"}, []string{rule}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 				t.Fatal(err)
 			}
 			out, err := os.ReadFile(output)

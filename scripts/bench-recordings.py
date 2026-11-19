@@ -245,6 +245,10 @@ def command_plan():
     return plan
 
 
+def command_signature(item):
+    return item['mode'], tuple(item['argv']), item['expected_exit']
+
+
 def expected_doctor_summary(mode):
     require(mode in ('synced', 'no-ledger'), 'unknown doctor fixture mode')
     return {'kind': 'fixture-doctor-findings', 'mode': mode, 'untrusted_hooks': 5,
@@ -414,9 +418,11 @@ def validate(data):
                 if item['argv'] == ['doctor', '--json']:
                     require(sample.get('diagnostic') == expected_doctor_summary(item['mode']), 'unexpected doctor diagnostic')
                 require(type(sample.get('actual_exit')) is int and sample['actual_exit'] == item['expected_exit'], 'unexpected command exit')
-    expected_plan = command_plan()
-    require([(item['mode'], item['argv'], item['expected_exit']) for item in commands] ==
-            [(item['mode'], item['argv'], item['expected_exit']) for item in expected_plan],
+    expected_plan = [command_signature(item) for item in command_plan()]
+    added_rows = {('synced', ('import', 'all'), 0),
+                  ('synced', ('explain', '--context', '--target', 'claude'), 0)}
+    legacy_plan = [row for row in expected_plan if row not in added_rows]
+    require([command_signature(item) for item in commands] in (expected_plan, legacy_plan),
             'incomplete or unsupported command list')
     require(len(set(keys)) == len(keys), 'duplicate commands')
     require(set(item[0] for item in keys) == {'synced', 'no-ledger'}, 'both fixture modes are required')
@@ -429,9 +435,8 @@ def compare(baseline, candidate):
     require(baseline['role'] == 'baseline' and candidate['role'] == 'candidate', 'expected baseline then candidate')
     for field in ('schema', 'method', 'session', 'environment', 'fixture', 'warmups', 'runs'):
         require(baseline[field] == candidate[field], 'incomparable ' + field)
-    def signature(item):
-        return item['mode'], item['argv'], item['expected_exit']
-    require([signature(item) for item in baseline['commands']] == [signature(item) for item in candidate['commands']],
+    require([command_signature(item) for item in baseline['commands']] ==
+            [command_signature(item) for item in candidate['commands']],
             'incomparable command lists')
     rows = ['mode / command | n | baseline median [min,max] ms | candidate median [min,max] ms | delta ms | delta %']
     for before, after in zip(baseline['commands'], candidate['commands']):

@@ -116,10 +116,7 @@ func reconcilePartialLedger(ledger, priorOutputs []string, coversAll bool) []str
 	if coversAll {
 		return ledger
 	}
-	merged := make([]string, 0, len(ledger)+len(priorOutputs))
-	merged = append(merged, ledger...)
-	merged = append(merged, priorOutputs...)
-	return finalizeLedger(merged)
+	return finalizeLedger(slices.Concat(ledger, priorOutputs))
 }
 
 // sweepAndFinalizeLedger builds this sync's ledger from the recorded
