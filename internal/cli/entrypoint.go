@@ -284,7 +284,8 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 // out. A full run makes CLAUDE.md import AGENTS.md, so the partial run
 // needs it to write the same CLAUDE.md. The run does not write AGENTS.md,
 // so CLAUDE.md imports it only while the file on disk is current; a
-// missing or stale one, a failed render, keep the full text. Its notes
+// missing or stale one, a failed render, keep the full text. A user-owned
+// AGENTS.md is never written, so a full run's decision stands. Its notes
 // belong to the run that writes it.
 func agentsForClaudeImport(cfg *config.Config, b spec.Bundle, consumers map[string][]string, body string) (entryPointFile, bool) {
 	if _, ok := consumers["CLAUDE.md"]; !ok {
@@ -306,6 +307,9 @@ func agentsForClaudeImport(cfg *config.Config, b spec.Bundle, consumers map[stri
 		for _, f := range files {
 			if f.Path != "AGENTS.md" {
 				continue
+			}
+			if cfg.IsUnmanaged(f.Path) {
+				return f, true
 			}
 			disk, err := os.ReadFile(f.Path)
 			if err != nil || strings.ReplaceAll(string(disk), "\r\n", "\n") != f.Content {

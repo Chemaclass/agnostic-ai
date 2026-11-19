@@ -261,6 +261,30 @@ func TestSyncCheck_TargetFilterMatchesFullSync(t *testing.T) {
 	}
 }
 
+// A user-owned AGENTS.md is never written, so a claude run decides the
+// import the way a full run does, without comparing it.
+func TestSyncCheck_TargetFilterMatchesFullSyncWithUnmanagedAgents(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex]\nsync:\n  unmanaged: [AGENTS.md]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("My own notes.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"sync"}, {"sync", "--check", "-t", "claude"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+}
+
 // Claude Code-only text stays in CLAUDE.md after the import line, while
 // AGENTS.md keeps only what its readers share.
 func TestWriteAgnosticEntryPoints_ClaudeImportsAgentsAndKeepsItsOwnBlock(t *testing.T) {
