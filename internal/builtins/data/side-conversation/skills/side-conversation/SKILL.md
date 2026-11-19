@@ -13,6 +13,7 @@ Start a second conversation, seeded with a short brief, in a new terminal tab. T
 - Offer it when a second task comes up that is not needed to finish the current one.
 - It is not a subagent: no result comes back to this session, and the user talks to the new conversation. When this session needs the answer, delegate instead.
 - It is not a handoff: this session does not end. To pass this same task to the next agent, use the `handoff` skill if it is installed.
+- It runs on this computer. To move this task to a cloud session that goes on without it, use the `cloud-handoff` skill if it is installed.
 
 ## Write the brief
 
