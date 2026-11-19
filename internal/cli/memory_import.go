@@ -817,6 +817,20 @@ func appendMemoryIndexLines(target string, facts []memoryCopy) error {
 	return nil
 }
 
+// existingAncestor returns path, or its nearest parent that exists.
+func existingAncestor(path string) string {
+	for {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return path
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return path
+		}
+		path = parent
+	}
+}
+
 // print reports the plan, or what it would do with dryRun.
 func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 	from, to := filepath.ToSlash(p.source), filepath.ToSlash(p.target)

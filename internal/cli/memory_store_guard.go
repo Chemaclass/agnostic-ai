@@ -103,20 +103,6 @@ func gitWouldTrack(dir, path string) bool {
 	return errors.As(err, &exit) && exit.ExitCode() == 1
 }
 
-// existingAncestor returns path, or its nearest parent that exists.
-func existingAncestor(path string) string {
-	for {
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return path
-		}
-		parent := filepath.Dir(path)
-		if parent == path {
-			return path
-		}
-		path = parent
-	}
-}
-
 // memoryStoreLockWait bounds how long import waits for another import
 // into the same store.
 const memoryStoreLockWait = 5 * time.Second
