@@ -11,7 +11,8 @@ package cli
 //   - BenchmarkSyncFull:          the full end-to-end `sync` including
 //     disk compare, ledger, and state write (steady-state re-sync).
 //   - BenchmarkSyncOutsideRepository: BenchmarkSyncFull at specs=10,
-//     serial, in a folder outside any Git repository.
+//     serial, in a folder outside any Git repository, status-quo
+//     (Git started for every question) and proposed (skipped).
 //   - BenchmarkSyncInsideRepository:  the same after git init.
 //   - BenchmarkSyncCheck:         the `--check` capture-compare pass.
 //   - BenchmarkLoadProject:       one config and spec load, which a
@@ -140,17 +141,38 @@ func BenchmarkSyncFull(b *testing.B) {
 
 // BenchmarkSyncOutsideRepository is BenchmarkSyncFull at specs=10, serial,
 // in a folder outside any Git repository, where every Git question fails.
+// status-quo turns off the skip in runGitWithin, so the sync helpers start
+// Git as they did before; proposed keeps it on.
 func BenchmarkSyncOutsideRepository(b *testing.B) {
-	benchSyncGitRepository(b, false)
+	benchSyncGitSubjects(b, false)
 }
 
 // BenchmarkSyncInsideRepository is BenchmarkSyncOutsideRepository after
 // git init in the project folder: a repository must pay nothing extra.
 func BenchmarkSyncInsideRepository(b *testing.B) {
-	benchSyncGitRepository(b, true)
+	benchSyncGitSubjects(b, true)
+}
+
+func benchSyncGitSubjects(b *testing.B, initRepository bool) {
+	b.Helper()
+	for _, subject := range []struct {
+		name string
+		skip bool
+	}{
+		{"status-quo", false},
+		{"proposed", true},
+	} {
+		b.Run(subject.name, func(b *testing.B) {
+			prev := skipGitOutsideRepository
+			skipGitOutsideRepository = subject.skip
+			b.Cleanup(func() { skipGitOutsideRepository = prev })
+			benchSyncGitRepository(b, initRepository)
+		})
+	}
 }
 
 func benchSyncGitRepository(b *testing.B, initRepository bool) {
+	b.Helper()
 	root := benchProject(b, 10)
 	b.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(root))
 	if initRepository {

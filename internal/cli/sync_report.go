@@ -587,11 +587,15 @@ func runGit(root string, args ...string) (string, bool) {
 	return runGitWithin(root, 2*time.Second, args...)
 }
 
+// skipGitOutsideRepository is off only in the benchmark that measures the
+// earlier behavior, which started Git even outside a repository.
+var skipGitOutsideRepository = true
+
 // runGitWithin is runGit with its own time limit. When Git already said
 // there is no repository at root, it starts no Git, unless the environment
 // points Git at one.
 func runGitWithin(root string, timeout time.Duration, args ...string) (string, bool) {
-	if !gitEnvNamesRepository() {
+	if skipGitOutsideRepository && !gitEnvNamesRepository() {
 		var exit *exec.ExitError
 		if _, err := gitquery.LayoutAt(root); errors.As(err, &exit) {
 			return "", false

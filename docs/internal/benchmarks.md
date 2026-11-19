@@ -110,7 +110,7 @@ make test-shell
 | --- | --- |
 | `BenchmarkSyncEmit` | Select every target and render its specs without writing files. Measures the main computation in `sync`. |
 | `BenchmarkSyncFull` | Run `sync` completely: write changed files, distribute entry points, update the generated-file record, and save state. Measures a repeat sync. |
-| `BenchmarkSyncOutsideRepository` | `BenchmarkSyncFull` at 10 specs, serial, in a folder outside any Git repository. Measures the Git questions sync skips there. |
+| `BenchmarkSyncOutsideRepository` | `BenchmarkSyncFull` at 10 specs, serial, in a folder outside any Git repository. `status-quo` starts Git for every sync status question; `proposed` skips the questions that must fail. |
 | `BenchmarkSyncInsideRepository` | The same sync after `git init` in that folder. Shows that a repository pays nothing extra for the skip. |
 | `BenchmarkLayoutAtFresh` | Read the repository layout around a folder (`internal/gitquery`) in a work tree, a bare repository and a folder outside any repository. See [Git outside a repository](#git-outside-a-repository). |
 | `BenchmarkSyncCheck` | Run `--check` by rendering and comparing output with files that already match. |
@@ -169,7 +169,7 @@ Before changing frequently run production code, add a `proposed` sub-benchmark b
 - `proposed`: `LayoutAtFresh`, which asks for the top level last. A bare repository still prints the other answers before Git fails, so one process answers every case.
 - `baseline`: one `rev-parse` whose output is thrown away, the cost of a single Git process.
 
-Each process costs about 8 to 10 ms on an Apple M4 Pro with Git 2.54.0, so `outside` and `bare` drop by about half and `worktree` stays the same. `BenchmarkSyncOutsideRepository` gains less because the rest of sync dominates; `BenchmarkSyncInsideRepository` shows no change.
+Each process costs about 8 to 10 ms on an Apple M4 Pro with Git 2.54.0, so `outside` and `bare` drop by about half and `worktree` stays the same. `BenchmarkSyncOutsideRepository` and `BenchmarkSyncInsideRepository` each run two subjects. `status-quo` turns off the skip in `runGitWithin` (`internal/cli/sync_report.go`), so the sync status helpers start Git as before; `proposed` keeps it on. Neither subject brings back the second `rev-parse` of the earlier layout read; `BenchmarkLayoutAtFresh` measures that. Outside a repository `proposed` gains less than the layout read because the rest of sync dominates; inside a repository the two subjects match.
 
 ```bash
 go test -run '^$' -bench 'BenchmarkLayoutAtFresh' -benchmem -count=6 ./internal/gitquery
