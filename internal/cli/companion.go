@@ -308,6 +308,12 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			return runCompanion(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS, cmd.Root().Version, buildRevision())
 		},
 	}
+	cmd.AddCommand(newCompanionInstallCmd(tools), newCompanionStopCmd(tools), newCompanionUninstallCmd(tools))
+	cmd.AddCommand(companionAppCommands(tools)...)
+	return cmd
+}
+
+func newCompanionInstallCmd(tools companionTools) *cobra.Command {
 	var source string
 	install := &cobra.Command{
 		Use:   "install",
@@ -356,7 +362,11 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 		},
 	}
 	install.Flags().StringVar(&source, "source", "", "Build from this folder, the companion folder of an agnostic-ai checkout, instead of fetching the source.")
-	stop := &cobra.Command{
+	return install
+}
+
+func newCompanionStopCmd(tools companionTools) *cobra.Command {
+	return &cobra.Command{
 		Use:   "stop",
 		Short: "End the running companion.",
 		Long: "Ends the companion and the server it started. Hiding the companion from its menu " +
@@ -372,7 +382,10 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			return stopCompanionCommand(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS)
 		},
 	}
-	uninstall := &cobra.Command{
+}
+
+func newCompanionUninstallCmd(tools companionTools) *cobra.Command {
+	return &cobra.Command{
 		Use:   "uninstall",
 		Short: "Remove the companion from this machine.",
 		Long: "Ends the companion, turns off start at login, and deletes the built program, its " +
@@ -392,7 +405,4 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 			return uninstallCompanion(cmd.Context(), cmd.OutOrStdout(), tools, dir, runtime.GOOS, loginEntries)
 		},
 	}
-	cmd.AddCommand(install, stop, uninstall)
-	cmd.AddCommand(companionAppCommands(tools)...)
-	return cmd
 }
