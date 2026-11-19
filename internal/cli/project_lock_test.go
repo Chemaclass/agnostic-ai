@@ -58,7 +58,7 @@ func TestProjectCommands_RefreshRuntimeIgnoresOnUpgrade(t *testing.T) {
 			oldBlock := "node_modules/\n# Personal ignore.\nprivate.txt\n\n" + gitignoreBlockStart + "\n" + gitignoreBlockNote + "\n" + gitignoreBlockHint + "\n/.agnostic-ai/.sync-state\n/.agnostic-ai/packs/\n/.agnostic-ai/local/\n/agnostic-ai.local.yaml\n# Keep this managed comment.\n!/fixtures/\n" + gitignoreBlockEnd + "\n\n# Personal exception.\n!important.txt\n"
 			writeFile(t, ".gitignore", oldBlock)
 			if args[0] == "import" {
-				writeScopedFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nSkill body.\n")
+				writeFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nSkill body.\n")
 			}
 			root := NewRootCmd("test")
 			root.SetArgs(args)
@@ -91,7 +91,7 @@ func TestProjectCommands_NestedWritesUseOneLock(t *testing.T) {
 		t.Run(args[0], func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			captureLogOut(t)
-			writeScopedFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nSkill body.\n")
+			writeFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nSkill body.\n")
 			root := NewRootCmd("test")
 			root.SetArgs(args)
 			root.SetIn(strings.NewReader(""))
