@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -189,23 +190,25 @@ func reportIssues(cmd *cobra.Command, issues []validationIssue) {
 	}
 }
 
+// warnShadowedSpecs prints one warning per spec a same-layer peer replaced.
+func warnShadowedSpecs(w io.Writer, b spec.Bundle) {
+	for _, issue := range shadowedSpecIssues(b) {
+		_, _ = fmt.Fprintf(w, "warning: %s: %s\n", issue.Path, issue.Message)
+	}
+}
+
 // shadowedSpecIssues reports each spec a same-named peer in its layer
 // replaced: the loader keeps the last one, so the other reaches no tool.
 func shadowedSpecIssues(b spec.Bundle) []validationIssue {
-	all := b.All()
 	var out []validationIssue
 	for _, e := range b.Shadowed {
 		if e.Layer == layerNameBuiltin {
 			continue
 		}
-		winner := ""
-		if i := slices.IndexFunc(all, func(w spec.Entry) bool { return w.Kind == e.Kind && w.Name == e.Name }); i >= 0 {
-			winner = filepath.ToSlash(all[i].Path)
-		}
 		out = append(out, validationIssue{
 			Path:    filepath.ToSlash(e.Path),
 			Field:   "name",
-			Message: fmt.Sprintf("duplicate %s name %q; %s wins and this spec reaches no tool", e.Kind, e.Name, winner),
+			Message: fmt.Sprintf("duplicate %s name %q; %s wins and this spec reaches no tool", e.Kind, e.Name, filepath.ToSlash(e.ShadowedBy)),
 			entry:   e,
 		})
 	}

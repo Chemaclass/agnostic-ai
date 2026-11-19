@@ -82,3 +82,37 @@ func TestNew_NotesWhenNoEnabledTargetReadsTheKind(t *testing.T) {
 		t.Errorf("new did not say which targets read ignore specs:\n%s", out)
 	}
 }
+
+func TestValidate_NamesTheSameLayerWinnerWhenALocalSpecExtendsIt(t *testing.T) {
+	duplicateRuleProject(t)
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "local", "rules", "b.md"), "---\nname: b\n---\nlocal\n")
+
+	out, _ := runCLI(t, "validate")
+	if !strings.Contains(filepath.ToSlash(out), `duplicate rule name "b"; .agnostic-ai/rules/b2.md wins`) {
+		t.Errorf("validate did not name the same-layer winner:\n%s", out)
+	}
+}
+
+func TestSyncGlobal_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "rules", "b.md"), "---\nname: b\n---\nbody1\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "rules", "b2.md"), "---\nname: b\n---\nbody2\n")
+
+	_, errOut, err := runGlobalCheck("sync", "--dry-run")
+	if err != nil {
+		t.Fatalf("sync --global --dry-run: %v\n%s", err, errOut)
+	}
+	if !strings.Contains(filepath.ToSlash(errOut), `duplicate rule name "b"`) {
+		t.Errorf("sync --global did not warn about the dropped spec:\n%s", errOut)
+	}
+}
+
+func TestReportIssues_OffersFixForAnAutofixableIssue(t *testing.T) {
+	var out bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	reportIssues(cmd, []validationIssue{{Path: "rules/a.md", Message: "missing name", kind: issueMissingName}})
+	if !strings.Contains(out.String(), "(* = autofixable; rerun with --fix)") {
+		t.Errorf("reportIssues did not offer --fix:\n%s", out.String())
+	}
+}

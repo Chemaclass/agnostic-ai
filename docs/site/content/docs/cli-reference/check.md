@@ -48,7 +48,7 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 |-------|------------|
 | Hook events | A hook with neither `on:` nor `event:`, or an event no target the hook emits to supports, after its `x-<target>` event. The report lists the supported events. |
 | Unused spec kinds | Hook, MCP, command, settings, review, environment, or ignore specs that no enabled target reads. The line names the targets that would. `new` names them too when it writes such a spec. |
-| Duplicate names | Two specs of one kind with the same `name` in one layer. Only the last one loaded reaches any tool, so validate fails and `sync` prints a warning naming both files. A team or pack layer that overrides a lower one is not a duplicate. |
+| Duplicate names | Two specs of one kind with the same `name` in one layer. Only the last one loaded reaches any tool, so validate fails and `sync` prints a warning naming both files. A project spec that overrides a pack, or a `local/` spec that extends a project spec, is not a duplicate. |
 | Declared sources | A `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr, loads the kind empty, and passes. |
 | Tool-specific instruction blocks | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor an external adapter listed in `targets`. Also a tool that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`: a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
