@@ -734,6 +734,8 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 		}
 	}
 	writeStub("claude", "#!/bin/sh\n[ \"$1\" = --cloud ] || exit 9\nprintf '%s' \"$2\" >\"$PROMPT_OUT\"\necho 'View: https://claude.ai/code/session_test'\nexec sleep 30\n")
+	scratch := t.TempDir()
+	writeStub("mktemp", "#!/bin/sh\nexec /usr/bin/mktemp "+scratch+"/tmp.XXXXXX\n")
 	writeStub("script", "#!/bin/sh\n[ \"$1\" = -q ] || exit 9\nif [ \"$2\" = -c ]; then exec sh -c \"$3\"; fi\nshift 2\nexec \"$@\"\n")
 
 	run := 0

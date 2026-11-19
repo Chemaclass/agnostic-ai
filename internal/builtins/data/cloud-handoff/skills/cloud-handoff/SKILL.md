@@ -20,6 +20,7 @@ Check each of these before you change anything. If one fails, stop and say which
 2. `git remote get-url origin` prints a URL. Without a remote the cloud cannot clone the work.
 3. `command -v` finds the launch command of the row you will use in the Launch table below.
 4. The row's other needs are met: a terminal wrapper for the cloud launch, or an environment id.
+5. The push and the launch need network access. In a sandbox without it, ask the user to allow it, or give them the lines to run, and stop.
 
 ## Branch, commit, push
 
@@ -47,7 +48,7 @@ The prompt is all the cloud session knows. Write it like this:
 - **Branch**: the pushed branch, and that the work is committed on it.
 - **Verify**: the checks to run before calling it done.
 - Keep it under 60 lines. Never write secrets, tokens, or `.env` values.
-- Write it to a file through a quoted heredoc, so the shell expands nothing in it, then read the file into a variable. Keep the heredoc outside `$( )`: an older bash, such as macOS `/bin/bash` and `/bin/sh`, breaks on quotes and parentheses there. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt.
+- Write it to a file through a quoted heredoc, so the shell expands nothing in it, then read the file into a variable. Keep the heredoc outside `$( )`: an older bash, such as macOS `/bin/bash` and `/bin/sh`, breaks on quotes and parentheses there. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt. The file stays in the temp folder, which the system clears.
 
 ```bash
 f=$(mktemp)
@@ -65,8 +66,6 @@ export CLOUD_PROMPT
 ## Launch
 
 Use the row for the tool this session runs in. Use another row only when the user names that tool.
-
-The push and both launches need network access. In a sandbox without it, ask the user to allow it, or give them the line to run, and stop.
 
 | Tool | Launch | Needs |
 |---|---|---|
