@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
-# bench-commands.sh - time every read-only command and a no-op sync on the
-# benchmark fixture, end to end with a built binary.
+# bench-commands.sh - time commands on the benchmark fixture with a built binary.
 #
 # The fixture is the one `make bench` uses (benchProject in
 # internal/cli/bench_test.go): N rules, N agents, and N skills plus a few
@@ -89,8 +88,6 @@ bench_commands_prepare() {
 
 bench_commands_no_ledger() {
   local dir="$1"
-  # import all writes specs; start the no-ledger runs from the committed fixture.
-  (cd "$dir" && git reset -q --hard && git clean -fdq)
   mkdir -p "$dir/.claude"
   printf '{"version":"0.0.1","configurations":[]}\n' >"$dir/.claude/launch.json"
   (cd "$dir" && git add -f .claude/launch.json && git -c user.name=bench -c user.email=bench@localhost \
@@ -99,7 +96,7 @@ bench_commands_no_ledger() {
 }
 
 bench_commands_main() {
-  local bin="$BENCH_COMMANDS_ROOT/agnostic-ai" specs=500 runs=3 dir
+  local bin="$BENCH_COMMANDS_ROOT/agnostic-ai" specs=500 runs=3 dir no_ledger
   while [ $# -gt 0 ]; do
     case "$1" in
       --bin) bin="${2:?--bin needs a path}"; shift 2 ;;
@@ -114,14 +111,17 @@ bench_commands_main() {
   [ "$specs" -ge 1 ] && [ "$runs" -ge 1 ] || { printf 'error: --specs and --runs need positive integers\n' >&2; return 2; }
   [ -x "$bin" ] || { printf 'error: no binary at %s; run make build\n' "$bin" >&2; return 1; }
   bin="$(CDPATH='' cd -- "$(dirname -- "$bin")" && pwd)/$(basename -- "$bin")"
-  dir=$(mktemp -d)
-  BENCH_COMMANDS_DIR="$dir"
+  BENCH_COMMANDS_DIR=$(mktemp -d)
   trap 'rm -rf "$BENCH_COMMANDS_DIR"' EXIT
+  dir="$BENCH_COMMANDS_DIR/synced"
+  no_ledger="$BENCH_COMMANDS_DIR/no-ledger"
+  mkdir "$dir"
   bench_commands_prepare "$bin" "$dir" "$specs"
+  cp -R -P "$dir" "$no_ledger"
+  bench_commands_no_ledger "$no_ledger"
   printf '# %s specs, best of %s runs, %s\n' "$specs" "$runs" "$("$bin" --version)"
   bench_commands_run "$bin" "$dir" "$runs"
-  bench_commands_no_ledger "$dir"
-  bench_commands_run "$bin" "$dir" "$runs" no-ledger
+  bench_commands_run "$bin" "$no_ledger" "$runs" no-ledger
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then

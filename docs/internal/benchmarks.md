@@ -47,7 +47,7 @@ scripts/bench-commands.sh --specs 100 --runs 5
 It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
 `import all` runs last among the synced rows because it writes specs; with
 `--runs` above 1, the later runs re-import a tree that already matches. The
-script resets the project from Git before the rows without `.sync-state`.
+script uses a separate copy of the project for the rows without `.sync-state`.
 The final three rows measure `status`, `doctor`, and `sync --dry-run`
 without `.sync-state`, as in a fresh checkout. A tracked hand-written
 Claude launch configuration checks whether history identifies generated files without changing
@@ -92,6 +92,8 @@ Recorded `doctor --json` must exit 1 with a version 1 report, no reported errors
 Every other command must exit 0. Unexpected exits, setup errors, rejected doctor reports, and timeouts abort recording. Errors include the last lines of command output, except on timeouts. Only the baseline binary syncs the fixture, so candidate output must match it byte for byte. A failed candidate `sync --check` is named in the error with its final output lines. Incomplete JSON records remain for diagnosis and cannot be compared. Expected failures are defined in advance, never inferred from the observed exit.
 
 Comparison requires matching schema, measurement method, paired-session identity, environment (including compiler), fixture, command list, warm-up policy, and sample count. It rejects missing or malformed data and unexpected exits. Keep the pair from one recording session together; separate sessions do not prove alternation. A comparison returns success when its inputs are valid, regardless of timing differences.
+
+Pairs recorded with this method before the `import all` and `explain --context` rows were added still compare with each other.
 
 Each row shows sample count, median, minimum and maximum (the spread), candidate minus baseline in milliseconds, and that difference as a percentage of the baseline median. Positive differences mean more elapsed time. The raw samples remain in the JSON files. A range or slow sample is evidence to investigate, not a confirmed regression. Rerun anomalous observations as another complete paired session and retain both pairs with their exact commands, revisions, build flags, and machine label. These local measurements add no CI latency threshold or performance claim.
 
