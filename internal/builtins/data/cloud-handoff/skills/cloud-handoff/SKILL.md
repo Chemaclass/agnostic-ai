@@ -47,7 +47,7 @@ The prompt is all the cloud session knows. Write it like this:
 - **Branch**: the pushed branch, and that the work is committed on it.
 - **Verify**: the checks to run before calling it done.
 - Keep it under 60 lines. Never write secrets, tokens, or `.env` values.
-- Put it in a shell variable through a quoted heredoc, so the shell expands nothing in it:
+- Put it in a shell variable through a quoted heredoc, so the shell expands nothing in it. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt.
 
 ```bash
 CLOUD_PROMPT=$(cat <<'PROMPT'
@@ -58,6 +58,7 @@ Finish the parser error messages. [cloud/parser-errors]
 PROMPT
 )
 export CLOUD_PROMPT
+[ -n "$CLOUD_PROMPT" ] || exit 1
 ```
 
 ## Launch
@@ -67,25 +68,25 @@ Use the row for the tool this session runs in. Use another row only when the use
 | Tool | Launch | Needs |
 |---|---|---|
 | Claude Code | `claude --cloud "$CLOUD_PROMPT"`, wrapped in a terminal as shown below | A claude.ai sign-in, and `script` on macOS or Linux. `--environment <id>` only for a self-hosted environment. |
-| Codex | `printf '%s\n' "$CLOUD_PROMPT" \| codex cloud exec --env <id> --branch <branch> -` | An environment id. The subcommand is marked experimental. |
+| Codex | `codex cloud exec --env <id> --branch <branch> -`, with the prompt on standard input as shown below | An environment id. The subcommand is marked experimental. |
 | Any other tool | none | Falls back to a local handoff note. |
 
 ### Claude Code
 
-`claude --cloud` refuses to run without a terminal (`Error: --cloud requires an interactive terminal.`), and a shell tool has none. Give it one with `script`, write its output to a file, wait for the `View: ` line, then kill it: after printing that line it keeps running.
+`claude --cloud` refuses to run without a terminal (`Error: --cloud requires an interactive terminal.`), and a shell tool has none. Give it one with `script`, write its output to a file, wait for the `View: ` line, then kill it: after printing that line it keeps running. Feed it from `sleep`, so its input stays open and sends nothing; `</dev/null` would send it an end of input at once.
 
-On macOS:
+On macOS, after the prompt lines above:
 
 ```bash
 log=$(mktemp)
-script -q /dev/null claude --cloud "$CLOUD_PROMPT" >"$log" 2>&1 </dev/null &
+sleep 150 | script -q /dev/null claude --cloud "$CLOUD_PROMPT" >"$log" 2>&1 &
 pid=$!
 for _ in $(seq 60); do grep -qE 'View: |Error' "$log" && break; sleep 2; done
 sleep 2; kill "$pid" 2>/dev/null
 cat "$log"
 ```
 
-On Linux, start it with `script -q -c 'claude --cloud "$CLOUD_PROMPT"' /dev/null` instead; the rest is the same.
+On Linux, start it with `sleep 150 | script -q -c 'claude --cloud "$CLOUD_PROMPT"' /dev/null >"$log" 2>&1 &` instead; the rest is the same. It reads the exported variable.
 
 On success the output holds three lines: `Created cloud session: <title>`, `View: https://claude.ai/code/session_<id>?...`, and `Resume with: claude --teleport session_<id>`. The output may also hold terminal escape codes; read past them.
 
@@ -93,14 +94,20 @@ Without `script`, such as on Windows, do not launch. Show the user the prompt an
 
 ### Codex
 
-The command reads the prompt from standard input when the prompt argument is `-`, and needs no terminal. It prints one line on success: the task URL, `https://chatgpt.com/codex/tasks/<task_id>`.
+The command reads the prompt from standard input when the prompt argument is `-`, and needs no terminal. After the prompt lines above:
+
+```bash
+printf '%s\n' "$CLOUD_PROMPT" | codex cloud exec --env <id> --branch <branch> -
+```
+
+It prints one line on success: the task URL, `https://chatgpt.com/codex/tasks/<task_id>`.
 
 The environment id is not stored anywhere this skill can read. If the user has not given one in this session, ask the user for it and stop. Tell them they can find or create it at chatgpt.com/codex/settings/environments, or browse it with `codex cloud` in their own terminal.
 
 ## After
 
 - Start your last reply with one line that holds the session URL or id from the output, such as "Sent to the cloud: <url>". The user finds the cloud session from this line.
-- Say that the cloud session starts from the pushed branch and puts its own work on a new branch or diff, so the user's branch stays theirs.
+- Say that the cloud session starts from the pushed branch. A Claude Code session puts its work on a new branch of its own, so the user's branch stays theirs; a Codex task returns its work as a diff to apply.
 - Name the command that brings the work back: `claude --teleport session_<id>`, or `codex cloud diff <url>` then `codex cloud apply <url>`.
 - Say the session shows under Cloud in the companion within about a minute, when the companion lists cloud sessions.
 
@@ -109,6 +116,6 @@ The environment id is not stored anywhere this skill can read. If the user has n
 - Show the tool's message. Do not work around it: no other launch method, no retry with other flags.
 - `Cloud sessions need a claude.ai sign-in.` or `Not signed in.`: the user signs in (`claude auth login` or `codex login`) and asks again.
 - `no cloud environments are available for this workspace`: the user has no Codex environment yet; point to chatgpt.com/codex/settings/environments.
-- `environment '<id>' not found; run `codex cloud` to list available environments`: the id is wrong; ask the user for it and stop.
+- ``environment '<id>' not found; run `codex cloud` to list available environments``: the id is wrong; ask the user for it and stop.
 - A line starting `Branch <name> is not on GitHub`: the session started from older work. Say so; the push did not reach the remote the cloud reads.
 - No row for this tool: say there is no cloud launch for it. Offer a local handoff note through the `handoff` skill if it is installed.

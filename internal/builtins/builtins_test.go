@@ -581,12 +581,16 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"Sent to the cloud: ", "claude --teleport", "codex cloud apply", "within about a minute",
 		// refusals and fallback
 		"Do not work around it", "ask the user for it and stop", "`handoff` skill",
+		"Use another row only when the user names that tool", "Stage only the files of this task",
+		"name it in your reply", "in brackets", "Never write secrets", "stop and show the error",
+		"stays theirs", "no cloud launch", "sleep 150 | script", " | codex cloud exec",
+		"Set it and launch in one shell command", "[ -n \"$CLOUD_PROMPT\" ] || exit 1",
 	} {
 		if !strings.Contains(skill.Body, rule) {
 			t.Errorf("skill is missing rule %q", rule)
 		}
 	}
-	for _, banned := range []string{"hooks/", "--force", "\u2013", "\u2014"} {
+	for _, banned := range []string{"hooks/", "--force", "</dev/null &", "\u2013", "\u2014"} {
 		if strings.Contains(skill.Body, banned) {
 			t.Errorf("skill contains %q", banned)
 		}
