@@ -103,7 +103,7 @@ func TestHandoffList_SuggestsOnlyBranchesProvenMergedAndNeverDeletes(t *testing.
 	path := filepath.Join(store, "feat-a.md")
 	writeListHandoff(t, path, "feat/a", a, git(t, a, "rev-parse", "HEAD"), "ready", "#1")
 	writeListHandoff(t, filepath.Join(store, "feat-b.md"), "feat/b", b, git(t, b, "rev-parse", "HEAD"), "ready", "#2")
-	before := readText(t, path)
+	before := readFile(t, path)
 	out, err := runRoot(t, "handoff", "list")
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestHandoffList_SuggestsOnlyBranchesProvenMergedAndNeverDeletes(t *testing.
 	if strings.Contains(out, "feat/b is merged") {
 		t.Errorf("unproven branch suggested: %s", out)
 	}
-	if after := readText(t, path); after != before {
+	if after := readFile(t, path); after != before {
 		t.Error("list changed handoff")
 	}
 }
@@ -128,7 +128,7 @@ func TestHandoffList_HiddenUntrackedCodePreventsRemovalSuggestion(t *testing.T) 
 	git(t, active, "config", "status.showUntrackedFiles", "no")
 	path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-a.md")
 	writeListHandoff(t, path, "feat/a", active, git(t, active, "rev-parse", "HEAD"), "ready", "#1")
-	before := readText(t, path)
+	before := readFile(t, path)
 	code := filepath.Join(active, "new-code.go")
 	writeFile(t, code, "package probe\n")
 	out, err := runRoot(t, "handoff", "list")
@@ -144,7 +144,7 @@ func TestHandoffList_HiddenUntrackedCodePreventsRemovalSuggestion(t *testing.T) 
 	if got := git(t, active, "config", "status.showUntrackedFiles"); got != "no" {
 		t.Errorf("list changed the user's status setting: %q", got)
 	}
-	if readText(t, code) != "package probe\n" || readText(t, path) != before {
+	if readFile(t, code) != "package probe\n" || readFile(t, path) != before {
 		t.Error("list changed the code or handoff")
 	}
 }
@@ -270,7 +270,7 @@ func TestHandoffList_ComparesMixedHeaderDateFormats(t *testing.T) {
 	shared := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-b.md")
 	local := filepath.Join(b, ".agnostic-ai", "local", "handoffs", "feat-b.md")
 	writeListHandoff(t, shared, "feat/b", b, head, "blocked", "#1")
-	body := strings.Replace(readText(t, shared), "2026-10-13T09:00Z", "2026-10-13T08:00:00Z", 1)
+	body := strings.Replace(readFile(t, shared), "2026-10-13T09:00Z", "2026-10-13T08:00:00Z", 1)
 	writeFile(t, shared, body)
 	writeListHandoff(t, local, "feat/b", b, head, "ready", "#6")
 	older := time.Unix(100, 0)

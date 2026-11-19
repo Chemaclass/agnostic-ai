@@ -202,7 +202,7 @@ func TestSync_OpenCodePermissionSpecGrantLeavesWithItsSpecInRepoMode(t *testing.
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, "opencode.json")) + "/**"
+	store := repoStore(t, parent, readFile(t, "opencode.json")) + "/**"
 	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{"*": "allow", store: "allow"}) {
 		t.Fatalf("external_directory = %#v", got)
 	}
@@ -227,7 +227,7 @@ func TestSync_OpenCodePermissionKeepsUserDirectoryRulesInRepoMode(t *testing.T) 
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, "opencode.json")) + "/**"
+	store := repoStore(t, parent, readFile(t, "opencode.json")) + "/**"
 	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{"/data/**": "deny", store: "allow"}) {
 		t.Fatalf("external_directory = %#v", got)
 	}
@@ -279,7 +279,7 @@ func TestSync_OpenCodePermissionSpecDirectoryRuleLeavesWithItsSpecInRepoMode(t *
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, "opencode.json")) + "/**"
+	store := repoStore(t, parent, readFile(t, "opencode.json")) + "/**"
 	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{"/tmp/a/**": "deny", store: "allow"}) {
 		t.Fatalf("external_directory = %#v", got)
 	}

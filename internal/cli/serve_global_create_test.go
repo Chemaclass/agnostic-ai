@@ -85,13 +85,13 @@ func TestGlobalCreate_WritesTheStarterFilesAndRunsGitInit(t *testing.T) {
 	if reply.Root != root || reply.Git != "initialized" || len(reply.Created) != 3 {
 		t.Errorf("reply = %+v", reply)
 	}
-	if got := readText(t, filepath.Join(root, "agnostic-ai.yaml")); got != "version: 1\n" {
+	if got := readFile(t, filepath.Join(root, "agnostic-ai.yaml")); got != "version: 1\n" {
 		t.Errorf("agnostic-ai.yaml = %q", got)
 	}
-	if got := readText(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
+	if got := readFile(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
 		t.Errorf(".gitignore = %q", got)
 	}
-	if got := readText(t, filepath.Join(root, "AGNOSTIC_AI.md")); got != "" {
+	if got := readFile(t, filepath.Join(root, "AGNOSTIC_AI.md")); got != "" {
 		t.Errorf("AGNOSTIC_AI.md = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(root, ".git")); err != nil {
@@ -115,7 +115,7 @@ func TestGlobalCreate_SkipsGitWhenNotRequestedOrMissing(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "skipped: git not found") {
 		t.Fatalf("create without git = %d %s", rec.Code, rec.Body)
 	}
-	if got := readText(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
+	if got := readFile(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
 		t.Errorf(".gitignore = %q", got)
 	}
 }
@@ -133,7 +133,7 @@ func TestGlobalCreate_KeepsAnExistingGitignoreAndAddsLocalOnce(t *testing.T) {
 			t.Fatalf("create %d = %d %s", i, rec.Code, rec.Body)
 		}
 	}
-	if got := readText(t, ignore); got != "node_modules\n/local/\n" {
+	if got := readFile(t, ignore); got != "node_modules\n/local/\n" {
 		t.Errorf(".gitignore = %q", got)
 	}
 }
@@ -185,7 +185,7 @@ func TestGlobalCreate_ExistingSetupIsLeftUntouched(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("create = %d %s", rec.Code, rec.Body)
 	}
-	if got := readText(t, sentinel); got != "mine\n" {
+	if got := readFile(t, sentinel); got != "mine\n" {
 		t.Errorf("sentinel = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(root, "agnostic-ai.yaml")); err == nil {
@@ -198,7 +198,7 @@ func TestGlobalCreate_WorksInAnEmptyExistingFolder(t *testing.T) {
 	if rec := postCreate(t, newGlobalCreateHandler(root), `{"git":false}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("create = %d %s", rec.Code, rec.Body)
 	}
-	if got := readText(t, filepath.Join(root, "agnostic-ai.yaml")); got != "version: 1\n" {
+	if got := readFile(t, filepath.Join(root, "agnostic-ai.yaml")); got != "version: 1\n" {
 		t.Errorf("agnostic-ai.yaml = %q", got)
 	}
 }
