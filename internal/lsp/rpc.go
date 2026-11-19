@@ -98,6 +98,9 @@ func (rr *Reader) Read() (*Message, error) {
 	}
 	body := make([]byte, length)
 	if _, err := io.ReadFull(rr.r, body); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		}
 		return nil, fmt.Errorf("lsp: read body: %w", err)
 	}
 	if !json.Valid(body) {

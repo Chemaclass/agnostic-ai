@@ -2,6 +2,7 @@ package spec
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,18 @@ func TestFormatYAMLError_TypeErrorUsesFirstMessage(t *testing.T) {
 	want := codePrefix + "mcps/m.yaml:4:1: cannot unmarshal !!str into int"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestYAMLErrorMessages_WrappedTypeErrorKeepsEachMessage(t *testing.T) {
+	t.Parallel()
+	te := &yaml.TypeError{Errors: []string{
+		"line 2: cannot unmarshal !!str into int",
+		"line 5: cannot unmarshal !!seq into string",
+	}}
+	got := yamlErrorMessages(fmt.Errorf("decode: %w", te))
+	if len(got) != 2 || got[0] != te.Errors[0] || got[1] != te.Errors[1] {
+		t.Errorf("got %q, want %q", got, te.Errors)
 	}
 }
 

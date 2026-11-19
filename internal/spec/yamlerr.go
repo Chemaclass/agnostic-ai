@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,7 +41,8 @@ func formatYAMLError(path string, err error, lineOffset int) error {
 // human-readable strings. yaml.TypeError carries multiple lines in its
 // Errors slice; everything else is a single-string error.
 func yamlErrorMessages(err error) []string {
-	if te, ok := err.(*yaml.TypeError); ok && len(te.Errors) > 0 {
+	var te *yaml.TypeError
+	if errors.As(err, &te) && len(te.Errors) > 0 {
 		return te.Errors
 	}
 	return []string{err.Error()}

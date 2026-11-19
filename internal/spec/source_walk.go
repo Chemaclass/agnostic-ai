@@ -23,7 +23,7 @@ func WalkSourceRoot(root string, fn fs.WalkDirFunc) error {
 	}
 	if err != nil {
 		err = fn(root, nil, sourceWalkError(root, err))
-		if err == fs.SkipDir || err == fs.SkipAll {
+		if errors.Is(err, fs.SkipDir) || errors.Is(err, fs.SkipAll) {
 			return nil
 		}
 		return err

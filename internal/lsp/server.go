@@ -86,7 +86,7 @@ func (s *Server) Run() error {
 	for {
 		msg, err := s.r.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			var perr *parseError
@@ -114,10 +114,8 @@ func (s *Server) dispatch(msg *Message) {
 		s.handleInitialize(msg)
 	case "initialized":
 		// no-op notification
-	case "textDocument/didOpen":
-		s.handleDidOpen(msg)
-	case "textDocument/didSave":
-		s.handleDidSave(msg)
+	case "textDocument/didOpen", "textDocument/didSave":
+		s.publishFor(msg)
 	case "textDocument/didClose":
 		s.handleDidClose(msg)
 	case "shutdown":
@@ -151,19 +149,7 @@ func (s *Server) handleInitialize(msg *Message) {
 	})
 }
 
-func (s *Server) handleDidOpen(msg *Message) {
-	var params struct {
-		TextDocument struct {
-			URI string `json:"uri"`
-		} `json:"textDocument"`
-	}
-	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return
-	}
-	s.publishDiagnostics(params.TextDocument.URI)
-}
-
-func (s *Server) handleDidSave(msg *Message) {
+func (s *Server) publishFor(msg *Message) {
 	var params struct {
 		TextDocument struct {
 			URI string `json:"uri"`
@@ -258,7 +244,7 @@ func (s *Server) publishDiagnostics(triggerURI string) {
 func (s *Server) reply(id json.RawMessage, result any) {
 	_ = s.w.Send(map[string]any{
 		"jsonrpc": "2.0",
-		"id":      json.RawMessage(id),
+		"id":      id,
 		"result":  result,
 	})
 }
@@ -266,7 +252,7 @@ func (s *Server) reply(id json.RawMessage, result any) {
 func (s *Server) replyError(id json.RawMessage, code int, message string) {
 	_ = s.w.Send(map[string]any{
 		"jsonrpc": "2.0",
-		"id":      json.RawMessage(id),
+		"id":      id,
 		"error":   ResponseError{Code: code, Message: message},
 	})
 }
