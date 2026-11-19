@@ -27,13 +27,10 @@ var codexReviewHeadings = map[string]bool{
 // writes is found by its markers; a hand-written one by its heading, in
 // a nested AGENTS.md only: the root file is mirrored whole to
 // AGNOSTIC_AI.md, which would keep a second copy of the section.
-func importCodexReviews(root string, src config.Sources) (int, error) {
+// files are the AGENTS.md files the rules import found.
+func importCodexReviews(root string, files []hierarchicalFile, src config.Sources) (int, error) {
 	if src.Reviews == "" {
 		return 0, nil
-	}
-	files, err := findHierarchicalMainFiles(root, "AGENTS.md", src)
-	if err != nil {
-		return 0, err
 	}
 	dstDir := importSourcePath(root, src.Reviews)
 	used := map[string]int{}

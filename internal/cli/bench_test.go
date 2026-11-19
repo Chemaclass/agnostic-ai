@@ -21,6 +21,8 @@ package cli
 //   - BenchmarkCompare:           `compare claude codex`, per-spec emits.
 //   - BenchmarkGraph:             `graph` edges, per-spec emits.
 //   - BenchmarkExplain:           `explain` for one rule, two emits per target.
+//   - BenchmarkExplainContext:    `explain --context`, one emit per rule.
+//   - BenchmarkExplainFile:       `explain --file`, one emit per rule.
 //   - BenchmarkLint:              the full project `lint` report.
 //   - BenchmarkWatchResync:       one `sync --watch` event, three subjects.
 //
@@ -266,6 +268,126 @@ func BenchmarkExplain(b *testing.B) {
 			}
 		})
 	}
+}
+
+// benchExplainTargets are the targets whose `explain --context` and
+// `explain --file` render every rule alone to find its output.
+var benchExplainTargets = []string{"claude", "codex"}
+
+// benchExplainFile is the project file the --file benchmarks ask about.
+const benchExplainFile = "README.md"
+
+// BenchmarkExplainContext measures `explain --context`, with and without
+// --file. It follows the "three subjects" shape: status-quo is the
+// command, baseline/full-render is one render of the whole bundle (the
+// floor), and baseline/single-rule is one render of one rule, the unit
+// the command repeats per rule. µs/rule divides the command's time by
+// the rule count.
+func BenchmarkExplainContext(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		for _, target := range benchExplainTargets {
+			b.Run(fmt.Sprintf("status-quo/context/%s/specs=%d", target, n), func(b *testing.B) {
+				cfg, bundle := benchSyncedProject(b, n)
+				benchExplainLoop(b, bundle, target, func() int {
+					out, err := explainContext(cfg, bundle, target, "")
+					if err != nil {
+						b.Fatal(err)
+					}
+					return len(out.Contributions)
+				})
+			})
+			b.Run(fmt.Sprintf("status-quo/context-file/%s/specs=%d", target, n), func(b *testing.B) {
+				cfg, bundle := benchSyncedProject(b, n)
+				writeBenchFile(b, benchExplainFile, "# Project\n")
+				benchExplainLoop(b, bundle, target, func() int {
+					out, err := explainContext(cfg, bundle, target, benchExplainFile)
+					if err != nil {
+						b.Fatal(err)
+					}
+					return len(out.Contributions)
+				})
+			})
+			benchExplainBaselines(b, n, target)
+		}
+	}
+}
+
+// BenchmarkExplainFile measures `explain --file`, which renders every
+// rule alone for Claude and Codex. The baselines are the same as
+// BenchmarkExplainContext's.
+func BenchmarkExplainFile(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		for _, target := range benchExplainTargets {
+			b.Run(fmt.Sprintf("status-quo/file/%s/specs=%d", target, n), func(b *testing.B) {
+				cfg, bundle := benchSyncedProject(b, n)
+				writeBenchFile(b, benchExplainFile, "# Project\n")
+				benchExplainLoop(b, bundle, target, func() int {
+					out, err := explainFile(benchExplainFile, target, cfg, bundle, ".")
+					if err != nil {
+						b.Fatal(err)
+					}
+					return len(out.Instructions)
+				})
+			})
+			benchExplainBaselines(b, n, target)
+		}
+	}
+}
+
+// benchExplainBaselines adds the full-render and single-rule floors for
+// target at n specs.
+func benchExplainBaselines(b *testing.B, n int, target string) {
+	b.Run(fmt.Sprintf("baseline/full-render/%s/specs=%d", target, n), func(b *testing.B) {
+		cfg, bundle := benchSyncedProject(b, n)
+		adapter := benchAdapter(b, target)
+		benchExplainLoop(b, bundle, target, func() int {
+			files, err := captureEmit(adapter, bundle, cfg)
+			if err != nil {
+				b.Fatal(err)
+			}
+			return len(files)
+		})
+	})
+	b.Run(fmt.Sprintf("baseline/single-rule/%s/specs=%d", target, n), func(b *testing.B) {
+		cfg, bundle := benchSyncedProject(b, n)
+		adapter := benchAdapter(b, target)
+		one := singleEntryBundle(bundle.For(target).Rules[0])
+		defer holdStateFile(".")()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			files, err := captureEmit(adapter, one, cfg)
+			if err != nil {
+				b.Fatal(err)
+			}
+			benchIntSink = len(files)
+		}
+	})
+}
+
+// benchExplainLoop times op b.N times and reports its cost per rule the
+// target renders. It holds the state file as the explain commands do.
+func benchExplainLoop(b *testing.B, bundle spec.Bundle, target string, op func() int) {
+	b.Helper()
+	rules := len(bundle.For(target).Rules)
+	defer holdStateFile(".")()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchIntSink = op()
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(b.Elapsed().Microseconds())/float64(b.N)/float64(rules), "µs/rule")
+}
+
+// benchAdapter resolves target's adapter for a benchmark.
+func benchAdapter(b *testing.B, target string) adapters.Adapter {
+	b.Helper()
+	adapter, err := adapters.Resolve(target)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return adapter
 }
 
 // BenchmarkLint measures the full project `lint` report, the same pass

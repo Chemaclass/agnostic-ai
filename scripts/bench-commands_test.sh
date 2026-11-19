@@ -52,6 +52,24 @@ function test_no_ledger_reports_read_only_commands() {
   assert_matches $'^[0-9]+\t0\tsync --dry-run \(no ledger\)$' "$(printf '%s\n' "$out" | grep sync)"
 }
 
+function test_no_ledger_uses_a_copy_from_before_import() {
+  local out
+  out="$(
+    bench_commands_prepare() { touch "$2/original"; }
+    bench_commands_no_ledger() { test -f "$1/original" && test ! -e "$1/imported"; }
+    bench_commands_run() {
+      if [ "${4:-synced}" = synced ]; then
+        touch "$2/imported"
+      elif [ -f "$2/original" ] && [ ! -e "$2/imported" ]; then
+        printf '%s\n' 'clean no-ledger fixture'
+      fi
+    }
+    bench_commands_main --bin "$dir/bin" --runs 1
+  )"
+  assert_successful_code "$?"
+  assert_contains 'clean no-ledger fixture' "$out"
+}
+
 function test_recording_comparison_controls() {
   local out
   out="$(python3 "$SCRIPT_DIR/bench-recordings_test.py" 2>&1)"

@@ -57,6 +57,16 @@ class RecordingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'command list'):
             bench.compare(self.baseline, self.candidate)
 
+    def test_recordings_made_before_import_and_context_rows_can_still_be_compared(self):
+        for recording in (self.baseline, self.candidate):
+            recording['commands'] = [command for command in recording['commands']
+                                     if command['argv'] not in (['import', 'all'],
+                                                                ['explain', '--context', '--target', 'claude'])]
+        report = bench.compare(self.baseline, self.candidate)
+        self.assertIn('synced / sync --check', report)
+        with self.assertRaisesRegex(ValueError, 'incomparable command lists'):
+            bench.compare(self.baseline, fixture('candidate'))
+
     def test_incomparable_metadata_is_rejected(self):
         for field in ('schema', 'method', 'session', 'environment', 'fixture', 'warmups', 'runs'):
             with self.subTest(field=field):
