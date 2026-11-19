@@ -494,8 +494,8 @@ func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry,
 	if s.MarksPath == "" {
 		return errors.New("this server keeps no conversation marks")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.lock()
+	defer s.unlock()
 	keys := []string{markKey(tool, id)}
 	if cloud := s.sharedClouds[keys[0]]; withCloud && cloud != "" {
 		keys = append(keys, markKey(tool, cloud))
