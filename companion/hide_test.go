@@ -559,11 +559,11 @@ func TestBubbleMoved_LeavesAClosedListClosed(t *testing.T) {
 func TestAppReopened_BringsAHiddenCompanionBackInsteadOfTheSystem(t *testing.T) {
 	s, _ := placedShell(t)
 	s.setPresence(hidden)
-	cancelled := false
+	canceled := false
 
-	s.appReopened(func() { cancelled = true })
+	s.appReopened(func() { canceled = true })
 
-	if !cancelled {
+	if !canceled {
 		t.Error("the system was left to show the windows itself")
 	}
 	waitFor(t, "the companion to come back", func() bool { return s.presenceNow() == shown })
@@ -572,12 +572,12 @@ func TestAppReopened_BringsAHiddenCompanionBackInsteadOfTheSystem(t *testing.T) 
 
 func TestAppReopened_LeavesAShownCompanionToTheSystem(t *testing.T) {
 	s, _ := placedShell(t)
-	cancelled := false
+	canceled := false
 
-	s.appReopened(func() { cancelled = true })
+	s.appReopened(func() { canceled = true })
 
-	if cancelled {
-		t.Error("a reopen of a shown companion was cancelled")
+	if canceled {
+		t.Error("a reopen of a shown companion was canceled")
 	}
 }
 

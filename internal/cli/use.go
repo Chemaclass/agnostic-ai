@@ -15,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -56,7 +57,7 @@ func newUseCmd() *cobra.Command {
 			listedBefore := readStateFile(".").Listed
 			// Always sync, a no-op when nothing changed, so a run that
 			// stopped halfway finishes on the next try.
-			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
+			if err := runSyncPass(".", nil, syncRunOptions{}); err != nil {
 				return err
 			}
 			if len(added) == 0 {
@@ -621,22 +622,8 @@ func replaceStateFile(root string, state syncStateFile) error {
 	}
 	// A rename replaces the file whole, so a stop mid-write never leaves
 	// a state that reads as nothing pending.
-	tmp, err := os.CreateTemp(filepath.Dir(p), ".sync-state-*")
-	if err != nil {
-		return fmt.Errorf("create %s: %w", p, err)
-	}
-	_, werr := tmp.Write(data)
-	if err := errors.Join(werr, tmp.Sync(), tmp.Close()); err != nil {
-		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("write %s: %w", p, err)
-	}
-	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
-		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("chmod %s: %w", p, err)
-	}
-	if err := os.Rename(tmp.Name(), p); err != nil {
-		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("replace %s: %w", p, err)
+	if err := atomicfile.Replace(p, data, 0o644); err != nil {
+		return fmt.Errorf("replace %w", err)
 	}
 	return nil
 }

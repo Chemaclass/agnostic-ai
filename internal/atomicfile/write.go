@@ -22,22 +22,38 @@ func Write(path string, data []byte, defaultMode fs.FileMode) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
+	if err := replace(target, data, mode, exists); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}
+
+// Replace writes data over path with exactly mode, whatever the umask. It
+// does not follow a symlink at path: the link itself is replaced.
+func Replace(path string, data []byte, mode fs.FileMode) error {
+	if err := replace(path, data, mode, true); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}
+
+func replace(target string, data []byte, mode fs.FileMode, chmod bool) error {
 	tmp, err := createTemp(filepath.Dir(target), "."+filepath.Base(target), mode)
 	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+		return err
 	}
 	_, werr := tmp.Write(data)
 	var cerr error
-	if exists {
+	if chmod {
 		cerr = tmp.Chmod(mode)
 	}
 	if err := errors.Join(werr, cerr, tmp.Sync(), tmp.Close()); err != nil {
 		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("%s: %w", path, err)
+		return err
 	}
 	if err := os.Rename(tmp.Name(), target); err != nil {
 		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("%s: %w", path, err)
+		return err
 	}
 	return nil
 }

@@ -182,8 +182,8 @@ func importJunieCommands(root, dstDir string) (int, error) {
 
 // importJunieAppendix extracts the sentinel-marked block bounded by
 // start/end from body, unwraps its `### <name>` children (the same
-// WriteSection shape RenderRulesAppendix and RenderAgentsAppendix both
-// produce), and writes one rule-shaped spec file per child into dstDir.
+// WriteSection shape RenderRulesAppendix produces and the retired agents
+// appendix used), and writes one rule-shaped spec file per child into dstDir.
 // Returns 0 with no error when the markers are absent (a bundle with no
 // rules, or none with agents, renders no block at all) or the block has
 // no H3 children.

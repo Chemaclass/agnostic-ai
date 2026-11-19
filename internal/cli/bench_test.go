@@ -11,6 +11,8 @@ package cli
 //   - BenchmarkSyncFull:          the full end-to-end `sync` including
 //     disk compare, ledger, and state write (steady-state re-sync).
 //   - BenchmarkSyncCheck:         the `--check` capture-compare pass.
+//   - BenchmarkLoadProject:       one config and spec load, which a
+//     `sync` invocation pays once.
 //   - BenchmarkEntryPointRender:  the entry-point body render plus
 //     byte-dedupe across targets.
 //   - BenchmarkFolderFingerprint: the shared-skills folder fingerprint,
@@ -66,7 +68,7 @@ var (
 
 // BenchmarkSyncEmit measures the emission loop: resolve every target and
 // render the whole bundle for it, in capture mode so no bytes touch disk.
-// This is the CPU core of `sync` (sync_run.go emitTarget loop) and the
+// This is the CPU core of `sync` (sync_emit.go emitTarget loop) and the
 // subject a future parallel-emission change would optimize.
 func BenchmarkSyncEmit(b *testing.B) {
 	for _, n := range benchSpecCounts {
@@ -156,6 +158,28 @@ func BenchmarkSyncCheck(b *testing.B) {
 					b.Fatal(err)
 				}
 				benchIntSink = len(out)
+			}
+		})
+	}
+}
+
+// BenchmarkLoadProject measures one project load: parse the config,
+// resolve the spec layers, and load every spec. Each extra load in a
+// `sync` invocation costs this much.
+func BenchmarkLoadProject(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			root := benchProject(b, n)
+			benchQuiet(b)
+			benchChdir(b, root)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_, bundle, err := loadProject(".")
+				if err != nil {
+					b.Fatal(err)
+				}
+				benchIntSink = len(bundle.All())
 			}
 		})
 	}

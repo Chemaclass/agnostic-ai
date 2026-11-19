@@ -544,52 +544,6 @@ func TestFrontmatterOrdered_UnhintedKeysAppendAlphabetically(t *testing.T) {
 	}
 }
 
-func TestStartCounting_CountsRealWrites(t *testing.T) {
-	sess := NewSession()
-	dir := t.TempDir()
-	sess.StartCounting()
-	if err := sess.WriteFile(filepath.Join(dir, "a.txt"), "aaa", false); err != nil {
-		t.Fatal(err)
-	}
-	if err := sess.WriteFile(filepath.Join(dir, "b.txt"), "bbb", false); err != nil {
-		t.Fatal(err)
-	}
-	n := sess.StopCounting()
-	if n != 2 {
-		t.Fatalf("want 2, got %d", n)
-	}
-}
-
-func TestStartCounting_IgnoresDryRun(t *testing.T) {
-	sess := NewSession()
-	dir := t.TempDir()
-	sess.StartCounting()
-	_ = sess.WriteFile(filepath.Join(dir, "x.txt"), "xxx", true)
-	n := sess.StopCounting()
-	if n != 0 {
-		t.Fatalf("want 0 for dry-run, got %d", n)
-	}
-}
-
-func TestStartCounting_IgnoresCaptureMode(t *testing.T) {
-	sess := NewSession()
-	sess.StartCapture()
-	sess.StartCounting()
-	_ = sess.WriteFile("/nonexistent/fake.txt", "zzz", false)
-	_ = sess.StopCapture()
-	n := sess.StopCounting()
-	if n != 0 {
-		t.Fatalf("want 0 in capture mode, got %d", n)
-	}
-}
-
-func TestStopCounting_WithoutStart_ReturnsZero(t *testing.T) {
-	sess := NewSession()
-	if n := sess.StopCounting(); n != 0 {
-		t.Fatalf("want 0 when not counting, got %d", n)
-	}
-}
-
 // The prune race surfaces as two different errnos, and only ENOENT was
 // handled: sync failed intermittently with `invalid argument` instead
 // (#701). EACCES is in the table because widening the guard must not

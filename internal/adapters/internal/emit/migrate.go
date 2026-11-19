@@ -159,13 +159,12 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		}
 	}
 	// claimWithin records what sync added inside a value it just claimed
-	// whole at path (ClaimedJSONWithItems, ClaimedJSONWithEntries).
+	// whole at path (ClaimedJSONWithEntries).
 	claimWithin := func(path []string, raw any) {
 		within, ok := raw.(claimedWithin)
 		if !ok || len(owned) == 0 {
 			return
 		}
-		owned[len(owned)-1].Within = within.items
 		if within.entries != nil {
 			released = append(released, path)
 		}

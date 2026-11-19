@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -86,22 +87,7 @@ func SaveCache(root string, c Cache) error {
 	if err != nil {
 		return fmt.Errorf("encode MCP tools cache: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".mcp-tools-*")
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
-	if _, err := tmp.Write(append(data, '\n')); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	return nil
+	return atomicfile.Replace(path, append(data, '\n'), 0o600)
 }
 
 // SpecFingerprint names a server spec's fields, so a change to any of

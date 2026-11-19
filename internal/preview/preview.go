@@ -3,6 +3,7 @@ package preview
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -101,7 +102,7 @@ func structured(format, body string) Result {
 		for {
 			var node yaml.Node
 			err := decoder.Decode(&node)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

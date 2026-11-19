@@ -95,7 +95,7 @@ func installVerifiedRelease(out io.Writer, path, version, baseURL string, client
 	if err := staged.Close(); err != nil {
 		return fmt.Errorf("%s: close staged binary: %w", staged.Name(), err)
 	}
-	if err := verifyReleaseBinary(staged.Name(), version); err != nil {
+	if err := verifyReleaseBinary(context.Background(), staged.Name(), version); err != nil {
 		return err
 	}
 	if err := os.Rename(staged.Name(), path); err != nil {
@@ -195,8 +195,8 @@ func extractReleaseFile(dst io.Writer, archive []byte, name string) error {
 	}
 }
 
-func verifyReleaseBinary(path, version string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func verifyReleaseBinary(ctx context.Context, path, version string) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, path, "--version").Output()
 	if err != nil {

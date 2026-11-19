@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 func newHookWorktreeRemoveCmd() *cobra.Command {
@@ -214,14 +216,5 @@ func worktreeGit(repo string, args ...string) ([]byte, error) {
 }
 
 func worktreeGitEnvironment(environ []string) []string {
-	env := make([]string, 0, len(environ))
-	for _, value := range environ {
-		key, _, _ := strings.Cut(value, "=")
-		switch strings.ToUpper(key) {
-		case "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE":
-			continue
-		}
-		env = append(env, value)
-	}
-	return env
+	return gitquery.IsolatedEnv(environ)
 }

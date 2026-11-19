@@ -1,695 +1,26 @@
 package cli
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
-	"sync"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
-	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
-// Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
-// when OutputSums and Orphans were added, to 4 when SpecSums was added,
-// to 5 when Unledgered was added, to 6 when Merged was added, and to 7
-// when Merged covered Aider's YAML config.
-// Readers tolerate older versions by treating missing fields as zero
-// values, and refuse a newer one.
-const syncStateVersion = mergedYAMLLedgerVersion
-
-// newerLedgerError is a state file a newer release wrote. Its paths or
-// claims may mean something this release misreads, and acting on them
-// can strip merged keys or delete a file it believes it created.
-type newerLedgerError struct {
-	path    string
-	version int
-}
-
-func (e *newerLedgerError) Error() string {
-	return e.reason() + "; upgrade agnostic-ai with `agnostic-ai upgrade`, then run the command again"
-}
-
-func (e *newerLedgerError) reason() string {
-	return fmt.Sprintf("%s was written by a newer agnostic-ai (ledger version %d, this release reads up to %d)",
-		filepath.ToSlash(e.path), e.version, syncStateVersion)
-}
-
-type syncStateFile struct {
-	Version        int       `json:"version,omitempty"`
-	SyncedAt       time.Time `json:"synced_at"`
-	FilesChanged   int       `json:"files_changed"`
-	WarningsDigest string    `json:"warnings_digest,omitempty"`
-	// NotesDigest fingerprints the coverage notes from the previous
-	// sync so the next run can sticky-suppress an unchanged set, the
-	// same way WarningsDigest gates capability warnings.
-	NotesDigest    string   `json:"notes_digest,omitempty"`
-	WarningRecords []string `json:"warning_records,omitempty"`
-	NoteRecords    []string `json:"note_records,omitempty"`
-	// Outputs lists every file path the previous sync wrote (create or
-	// update or skip), relative to the project root. The next sync uses
-	// it to detect orphans: any path present in the prior ledger but
-	// absent from the current write set is swept via the emit
-	// session's RemoveGenerated. The header-guarded sweep skips
-	// user-authored files. An empty list (older state files, or first
-	// sync after upgrade) disables the sweep so projects without a
-	// recorded baseline never lose files.
-	Outputs []string `json:"outputs,omitempty"`
-	// OutputSums maps each ledgered path to the sha256 of the bytes sync
-	// wrote. The sweep removes a file without the provenance header only
-	// while its bytes still match, so a hand-edited leftover survives
-	// (#785), and `sync --check` reports a file whose bytes no longer
-	// match as edited rather than out of date (#1270). Older state may
-	// lack the sum of a file with the header; check reads such a file
-	// as out of date.
-	OutputSums map[string]string `json:"output_sums,omitempty"`
-	// Orphans lists ledgered paths the last sync no longer emits but
-	// could not remove (edited since, or no recorded sum). They stay in
-	// Outputs so the next sync retries them, and `sync --check` and
-	// `doctor` report them as drift while they remain on disk.
-	Orphans []string `json:"orphans,omitempty"`
-	// Unledgered lists leftovers a sync run without a prior ledger found
-	// (unledgeredReport). No record proves sync wrote them, so they stay
-	// out of Outputs and no sync removes them; `sync --check` and
-	// `doctor` report them while they remain (#1354).
-	Unledgered []string `json:"unledgered,omitempty"`
-	// Merged records the ledgered JSON files sync merges into beside
-	// keys it did not write. Once sync stops writing one, it takes out
-	// only these keys instead of deleting the file (#1541).
-	Merged map[string]mergedOutput `json:"merged,omitempty"`
-	// SpecSums fingerprints each source spec and the merged config, so
-	// the next sync can name which sources changed since this one.
-	SpecSums map[string]string `json:"spec_sums,omitempty"`
-	// SpecTargets lists the targets that emitted each spec in SpecSums.
-	SpecTargets map[string][]string `json:"spec_targets,omitempty"`
-	// SpecFileSums maps each spec file, slash-form and relative to the
-	// project, to the sha256 of its raw bytes when sync rendered it or
-	// import wrote it, so import can tell a spec a tool already reads
-	// from one it would replace unseen (#1620).
-	SpecFileSums map[string]specFileSum `json:"spec_file_sums,omitempty"`
-	// ModelAliases records the id each vendor model alias resolved to,
-	// by target, so the next sync can say when an upgrade moved one.
-	ModelAliases map[string]map[string]string `json:"model_aliases,omitempty"`
-	// Backups maps each `<path>.bak` sync made to the sum of its bytes, so
-	// import can tell it from a skill's own asset while it is unchanged.
-	Backups map[string]string `json:"backups,omitempty"`
-	// Listed names the targets a sync has shown what they read. A project
-	// whose first sync covered only some targets lists the others once
-	// later; a project synced before this field lists none.
-	// Written even when empty, so an empty list stays apart from a
-	// ledger older than the field.
-	Listed []string `json:"listed"`
-	// PendingImports lists the tools `use` added to targets before their
-	// own config was imported. A sync waits until `use` finishes them, so
-	// it never writes over native config nothing has imported.
-	PendingImports []string `json:"pending_imports,omitempty"`
-}
-
-// showRepeatedDrops lets -vv print capability warnings and coverage notes
-// that match the previous sync. Watch mode clears it after its first pass.
-var showRepeatedDrops = true
-
-// syncLedger is the output footprint one sync persists to the state file.
-type syncLedger struct {
-	outputs []string
-	sums    map[string]string
-	orphans []string
-	// unledgered lists the leftovers no ledger proves sync wrote.
-	unledgered []string
-	merged     map[string]mergedOutput
-	// specSums is not part of the output footprint, but it is written
-	// beside it so the next sync can diff sources against this one.
-	specSums       map[string]string
-	specTargets    map[string][]string
-	specFileSums   map[string]specFileSum
-	modelAliases   map[string]map[string]string
-	backups        map[string]string
-	listed         []string
-	warningRecords []string
-	noteRecords    []string
-}
-
-func stateFilePath(projectRoot string) string {
-	return filepath.Join(projectRoot, ".agnostic-ai", ".sync-state")
-}
-
-// readStateFile loads the sync-state cache. A missing or corrupt file
-// yields the zero value on purpose: the state is a self-healing cache the
-// next sync rewrites, so an unreadable one means "no prior state" rather
-// than a fatal error. Sync warns about a corrupt one (unparsableLedger).
-func readStateFile(projectRoot string) syncStateFile {
-	return readLedger(projectRoot).state
-}
-
-var readStateBytes = os.ReadFile
-
-// emitAdapter is the entry point every render and write here takes, so a
-// test can count renders per target.
-var emitAdapter = adapters.EmitWithProvenance
-
-// ledgerSnapshot is one read of the state file. The state file lists
-// every output, so a sync or check reads it once and asks this copy.
-// A file that does not parse keeps what decoded before the error.
-type ledgerSnapshot struct {
-	path     string
-	state    syncStateFile
-	absent   bool
-	readErr  error
-	parseErr error
-}
-
-func readLedger(root string) ledgerSnapshot {
-	l := ledgerSnapshot{path: stateFilePath(root)}
-	if _, err := os.Lstat(l.path); errors.Is(err, fs.ErrNotExist) {
-		l.absent = true
-		return l
-	}
-	data, err := readStateBytes(l.path)
-	if err != nil {
-		l.readErr = err
-		return l
-	}
-	l.state, l.parseErr = decodeLedger(root, l.path, data)
-	if newer := new(newerLedgerError); errors.As(l.parseErr, &newer) {
-		l.readErr, l.parseErr = l.parseErr, nil
-	}
-	return l
-}
-
-// refuseNewer stops a command that acts on a state file a newer release
-// wrote.
-func (l ledgerSnapshot) refuseNewer() error {
-	if newer := new(newerLedgerError); errors.As(l.readErr, &newer) {
-		return newer
-	}
-	return nil
-}
-
-// warnNewer tells a command that only reports that a newer release
-// wrote the state file, so the report may be wrong.
-func (l ledgerSnapshot) warnNewer() {
-	if newer := new(newerLedgerError); errors.As(l.readErr, &newer) {
-		_, _ = fmt.Fprintf(ledgerWarnOut, "warning: %s; this report may be wrong until you upgrade agnostic-ai with `agnostic-ai upgrade`\n", newer.reason())
-	}
-}
-
-// decodeLedger is every read of the state file: entries outside the
-// project dropped, each path in the spelling the config's own paths get.
-// A file that does not parse keeps what decoded before the error.
-func decodeLedger(root, path string, data []byte) (syncStateFile, error) {
-	var s syncStateFile
-	err := json.Unmarshal(data, &s)
-	s.dropEscapingEntries(root, path)
-	if s.Version > syncStateVersion {
-		return s, &newerLedgerError{path: path, version: s.Version}
-	}
-	s.mergeSpellings(root, config.CleanOutputPath)
-	return s, err
-}
-
-// missing is ledgerMissing for this read.
-func (l ledgerSnapshot) missing() bool {
-	return l.absent || l.readErr == nil && (l.parseErr != nil || l.state.SyncedAt.IsZero())
-}
-
-// workdir is the working directory's ledger, which the leftover scan
-// and the shared-skills cleanup read whatever root a pass syncs.
-func (l ledgerSnapshot) workdir(root string) ledgerSnapshot {
-	if filepath.Clean(root) == "." {
-		return l
-	}
-	return readLedger(".")
-}
-
-// unparsable is unparsableLedger for this read.
-func (l ledgerSnapshot) unparsable() error {
-	if l.absent || l.readErr != nil || l.parseErr == nil {
-		return nil
-	}
-	return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(l.path), l.parseErr)
-}
-
-// checkError fails `sync --check` when it cannot read the ledger,
-// which would otherwise hide every leftover the ledger listed.
-func (l ledgerSnapshot) checkError() error {
-	if l.readErr != nil {
-		return fmt.Errorf("read sync ledger: %w", l.readErr)
-	}
-	if err := l.unparsable(); err != nil {
-		return fmt.Errorf("%w; run agnostic-ai sync to rebuild the ledger", err)
-	}
-	return nil
-}
-
-// warn tells the user sync treats a ledger that does not parse as missing.
-func (l ledgerSnapshot) warn() {
-	if err := l.unparsable(); err != nil {
-		fmt.Fprintf(os.Stderr, "! %v; treating the ledger as missing until a sync writes a new one\n", err)
-	}
-}
-
-// A nil frame state masks outer snapshots while history changes directories.
-type priorStateFrame struct {
-	state    *syncStateFile
-	previous *priorStateFrame
-	released bool
-}
-
-var heldState struct {
-	sync.Mutex
-	frame *priorStateFrame
-}
-
-// holdStateFile reads the state file under root once and serves the
-// prior-key hooks from that copy until release runs. The state file
-// lists every output, and a command that emits each spec alone asks the
-// hooks on every emit. Only a command that never writes the state file
-// may hold it; sync holds its own copy through holdPriorState.
-func holdStateFile(root string) (release func()) {
-	return holdState(readStateFile(root))
-}
-
-// holdPriorState serves the prior-key hooks from prev, the state file a
-// sync pass read before its first write, until release runs. The pass
-// writes the state file only after its last emit, so it must release
-// before that write. The hooks read the working directory's state file,
-// so a pass on another root holds nothing.
-func holdPriorState(root string, prev syncStateFile) (release func()) {
-	if filepath.Clean(root) != "." {
-		return func() {}
-	}
-	return holdState(prev)
-}
-
-func holdState(s syncStateFile) (release func()) {
-	return holdStateFrame(&s, false)
-}
-
-func holdCaptureState(s syncStateFile) (release func()) {
-	return holdStateFrame(&s, true)
-}
-
-func isolatePriorState() (release func()) {
-	return holdStateFrame(nil, false)
-}
-
-func holdStateFrame(state *syncStateFile, borrow bool) (release func()) {
-	heldState.Lock()
-	if borrow && heldState.frame != nil && heldState.frame.state != nil {
-		heldState.Unlock()
-		return func() {}
-	}
-	frame := &priorStateFrame{state: state, previous: heldState.frame}
-	heldState.frame = frame
-	heldState.Unlock()
-	return func() {
-		heldState.Lock()
-		frame.released = true
-		for heldState.frame != nil && heldState.frame.released {
-			heldState.frame = heldState.frame.previous
-		}
-		heldState.Unlock()
-	}
-}
-
-// priorStateFile is the held state file, or else the one on disk.
-// Callers must not modify the result.
-func priorStateFile() syncStateFile {
-	heldState.Lock()
-	var held *syncStateFile
-	if heldState.frame != nil {
-		held = heldState.frame.state
-	}
-	heldState.Unlock()
-	if held != nil {
-		return *held
-	}
-	return readStateFile(".")
-}
-
-// readStateFileStrict is readStateFile that reports a state file that
-// exists but cannot be read or parsed, for a caller about to write it.
-func readStateFileStrict(projectRoot string) (syncStateFile, error) {
-	p := stateFilePath(projectRoot)
-	data, err := os.ReadFile(p)
-	if errors.Is(err, fs.ErrNotExist) {
-		return syncStateFile{}, nil
-	}
-	if err != nil {
-		return syncStateFile{}, fmt.Errorf("read %s: %w", p, err)
-	}
-	s, err := decodeLedger(projectRoot, p, data)
-	if newer := new(newerLedgerError); errors.As(err, &newer) {
-		return s, err
-	}
-	if err != nil {
-		return s, fmt.Errorf("parse %s: %w", p, err)
-	}
-	return s, nil
-}
-
-func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesDigest string, ledger syncLedger) error {
-	return replaceStateFile(projectRoot, syncStateFile{
-		Version:        syncStateVersion,
-		SyncedAt:       time.Now().UTC(),
-		FilesChanged:   filesChanged,
-		WarningsDigest: warningsDigest,
-		NotesDigest:    notesDigest,
-		WarningRecords: ledger.warningRecords,
-		NoteRecords:    ledger.noteRecords,
-		Outputs:        ledger.outputs,
-		OutputSums:     ledger.sums,
-		Orphans:        ledger.orphans,
-		Unledgered:     ledger.unledgered,
-		Merged:         ledger.merged,
-		SpecSums:       ledger.specSums,
-		SpecTargets:    ledger.specTargets,
-		SpecFileSums:   ledger.specFileSums,
-		ModelAliases:   ledger.modelAliases,
-		Backups:        ledger.backups,
-		Listed:         ledger.listed,
-	})
-}
-
-// recordOutputSums merges sums of files written outside a sync, such as
-// by `doctor --fix`, into the state file, so the next check does not
-// read them as hand edits. With no readable state file there is no
-// ledger to update; the next sync writes one.
-func recordOutputSums(projectRoot string, sums map[string]string) error {
-	if len(sums) == 0 {
-		return nil
-	}
-	p := stateFilePath(projectRoot)
-	data, err := os.ReadFile(p)
-	if err != nil {
-		return nil
-	}
-	s, err := decodeLedger(projectRoot, p, data)
-	if newer := new(newerLedgerError); errors.As(err, &newer) {
-		return err
-	}
-	if err != nil {
-		return nil
-	}
-	if s.OutputSums == nil {
-		s.OutputSums = map[string]string{}
-	}
-	maps.Copy(s.OutputSums, sums)
-	return replaceStateFile(projectRoot, s)
-}
-
-// unparsableLedger reports a state file that exists but does not parse,
-// as a full disk or a stop mid-write leaves it. Such a ledger counts as
-// missing (ledgerMissing) and the next sync replaces it.
-func unparsableLedger(root string) error {
-	return readLedger(root).unparsable()
-}
-
-// emitTarget resolves target t and emits it under detailed recording, shared by
-// the text, dry-run, and JSON sync paths so the resolve+record+emit boilerplate
-// lives in one place. resolved reports whether the adapter resolved, letting
-// callers tell a resolve failure (skippable) from an emit failure (fatal for
-// text sync); writes holds the recorded write events, including those made
-// before an emit error, and is empty in dry-run.
-// The recording buffer is always stopped before returning, so no global
-// recording state leaks.
-func emitTarget(sess *adapters.Session, t string, b spec.Bundle, cfg *config.Config, dryRun bool) (writes []adapters.WrittenFile, resolved bool, err error) {
-	adapter, err := adapters.Resolve(t)
-	if err != nil {
-		return nil, false, err
-	}
-	sess.StartDetailedRecording()
-	err = emitAdapter(sess, adapter, b, cfg, dryRun)
-	return sess.StopDetailedRecording(), true, err
-}
-
-// targetEmit is one target's emission result. Collecting these lets the
-// serial post-emission phase process targets in stable order, so output
-// stays deterministic regardless of how many workers ran the emits.
-type targetEmit struct {
-	target   string
-	writes   []adapters.WrittenFile
-	recorded []string // gitignore paths; empty unless gitignore recording is on
-	resolved bool     // false when the adapter could not be resolved (skippable)
-	err      error
-	dur      time.Duration // wall time the target's emit took, for the verbose summary
-}
-
-func importProvenanceTargets(emits []targetEmit, sessions []*adapters.Session, main *adapters.Session) []string {
-	// Skipped outputs cannot prove that a changed spec reached its tool.
-	if len(main.KeptEdits()) > 0 || len(main.UnmanagedSkips()) > 0 || len(main.BackupBlockedEdits()) > 0 {
-		return nil
-	}
-	var targets []string
-	for i, e := range emits {
-		if !e.resolved || e.err != nil || slices.ContainsFunc(e.writes, func(w adapters.WrittenFile) bool {
-			return w.Action == "edited"
-		}) {
-			continue
-		}
-		if i < len(sessions) && sessions[i] != nil && len(sessions[i].UnmanagedSkips()) > 0 {
-			continue
-		}
-		targets = append(targets, e.target)
-	}
-	return targets
-}
-
-// resolveJobs maps the --jobs flag to a worker count: 0 or negative means
-// runtime.NumCPU(). The count is capped at the target count (idle workers
-// buy nothing) and floored at 1.
-func resolveJobs(jobs, targets int) int {
-	if jobs <= 0 {
-		jobs = runtime.NumCPU()
-	}
-	if jobs > targets {
-		jobs = targets
-	}
-	if jobs < 1 {
-		jobs = 1
-	}
-	return jobs
-}
-
-// provenanceBatch is a set of target indices that share one
-// provenance-header setting, run together so the process-global toggle is
-// constant while they emit concurrently.
-type provenanceBatch struct {
-	provenance bool
-	indices    []int
-}
-
-// provenanceBatches partitions target indices by their provenance-header
-// setting, preserving target order within each batch. Concurrent emission
-// runs one batch at a time and pins the toggle to the batch's value, so no
-// target sees another's setting through the shared global (see
-// internal/adapters/internal/emit/header.go). The common case — every
-// target on the default — is a single batch, i.e. full fan-out.
-func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {
-	var on, off []int
-	for i, t := range targets {
-		if cfg.ProvenanceHeaderEnabled(t) {
-			on = append(on, i)
-		} else {
-			off = append(off, i)
-		}
-	}
-	var batches []provenanceBatch
-	if len(on) > 0 {
-		batches = append(batches, provenanceBatch{provenance: true, indices: on})
-	}
-	if len(off) > 0 {
-		batches = append(batches, provenanceBatch{provenance: false, indices: off})
-	}
-	return batches
-}
-
-// emitTargetsConcurrent emits every target on its own emit.Session with
-// bounded parallelism (jobs workers), returning the per-target results in
-// the SAME order as targets so downstream processing is deterministic
-// regardless of --jobs. Each target owns its Session, so the per-target
-// detailed-recording, gitignore-recording, and transaction buffers never
-// cross-talk; the returned sessions (target order) carry the transaction
-// logs the caller commits or rolls back.
-//
-// Targets run in provenance-homogeneous batches so the one emit-time
-// process global adapters still share — the provenance-header toggle — is
-// constant for every concurrently-running target.
-//
-// With failFast set, the first emit error cancels the group and is
-// returned wrapped with its target (`<target>: <err>`); resolve failures
-// (unknown target) stay non-fatal and ride along in the result. Without
-// it, every target runs to completion and all errors ride along in the
-// results — the JSON path, which reports per-target errors rather than
-// aborting the whole sync. edits sets how each session treats a hand edit.
-func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, edits editGuard, winners map[string]string) ([]targetEmit, []*adapters.Session, error) {
-	cfg = cfg.WithAdditionalTargets(targets...)
-	results := make([]targetEmit, len(targets))
-	sessions := make([]*adapters.Session, len(targets))
-	for i, t := range targets {
-		results[i] = targetEmit{target: t}
-	}
-	workers := resolveJobs(jobs, len(targets))
-
-	// Pin/restore the shared provenance toggle around the whole phase so
-	// the serial post-emission writers (entry points) see the prior value.
-	orig := adapters.ProvenanceEnabled()
-	defer adapters.SetProvenanceEnabled(orig)
-
-	var firstErr error
-	for _, batch := range provenanceBatches(cfg, targets) {
-		adapters.SetProvenanceEnabled(batch.provenance)
-		g, ctx := errgroup.WithContext(context.Background())
-		g.SetLimit(workers)
-		for _, idx := range batch.indices {
-			idx := idx
-			g.Go(func() error {
-				if failFast && ctx.Err() != nil {
-					return nil // group already failing; do not start new work
-				}
-				sess := adapters.NewSession()
-				sess.SetProjectRoot(".")
-				sessions[idx] = sess
-				if backup {
-					sess.SetBackup(true)
-				}
-				edits.apply(sess)
-				sess.SetCollisionWinners(winners)
-				if !dryRun {
-					sess.StartTransaction()
-				}
-				if gitignoreOn {
-					sess.StartRecording()
-				}
-				emitStart := time.Now()
-				writes, resolved, err := emitTarget(sess, targets[idx], b, cfg, dryRun)
-				emitDur := time.Since(emitStart)
-				var recorded []string
-				if gitignoreOn {
-					recorded = sess.StopRecording()
-				}
-				results[idx] = targetEmit{target: targets[idx], writes: writes, recorded: recorded, resolved: resolved, err: err, dur: emitDur}
-				if failFast && err != nil && resolved {
-					return fmt.Errorf("%s: %w", targets[idx], err)
-				}
-				return nil
-			})
-		}
-		if err := g.Wait(); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
-			if failFast {
-				break
-			}
-		}
-	}
-	return results, sessions, firstErr
-}
-
-// rollbackSessions undoes the writes recorded across every session, latest
-// phase first: sessions are appended in write order (targets, then the
-// serial entry-point session), so reverse iteration restores a path an
-// entry point overwrote before the target-level create is undone. Errors
-// are joined.
-func rollbackSessions(sessions []*adapters.Session) error {
-	var errs []error
-	for i := len(sessions) - 1; i >= 0; i-- {
-		if sessions[i] == nil {
-			continue
-		}
-		if err := sessions[i].Rollback(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
-}
-
-// undoSweep rolls back the orphan sweep logged on sess, puts back the
-// ignore files in prior, and returns err, so a sync that fails after the
-// sweep keeps every orphan its unchanged ledger still names, and the
-// ignores that list them.
-func undoSweep(sess *adapters.Session, prior []priorFile, err error) error {
-	if rbErr := errors.Join(sess.Rollback(), restoreFiles(prior)); rbErr != nil {
-		fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
-	}
-	return err
-}
-
-// commitSessions releases the transaction log on every session. Order is
-// irrelevant: Commit only clears state.
-func commitSessions(sessions []*adapters.Session) {
-	for _, s := range sessions {
-		if s != nil {
-			s.Commit()
-		}
-	}
-}
-
-// normalizeSharedWriteAttribution makes the create/update/skip action for a
-// path several targets write deterministic regardless of --jobs. The emit
-// layer's per-path lock already guarantees exactly one target creates or
-// updates a shared path and the rest skip it, but WHICH target won the write
-// depends on goroutine scheduling. Serial emission always credits the
-// create/update to the first target in target order and skips the rest, so
-// reassign the non-skip action to the earliest target (emits is in stable
-// target order) and force every later occurrence of the path to "skip".
-//
-// The sharing targets wrote byte-identical content — a genuine content
-// conflict on one path is caught earlier by collision detection — so this
-// relabels bookkeeping only; it never changes bytes on disk, the total
-// created+updated count, or the ledger's path set.
-func normalizeSharedWriteAttribution(emits []targetEmit) {
-	// winning[path] is the non-skip action some target recorded for path.
-	// A path absent here was skipped by every target, so its attribution is
-	// already order-independent and left untouched.
-	winning := map[string]string{}
-	for i := range emits {
-		for _, w := range emits[i].writes {
-			if w.Action != "skip" {
-				winning[w.Path] = w.Action
-			}
-		}
-	}
-	claimed := map[string]bool{}
-	for i := range emits {
-		for j := range emits[i].writes {
-			w := &emits[i].writes[j]
-			act, ok := winning[w.Path]
-			if !ok {
-				continue
-			}
-			if claimed[w.Path] {
-				w.Action = "skip"
-				continue
-			}
-			w.Action = act
-			claimed[w.Path] = true
-		}
-	}
-}
-
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
 	gitquery.Reset()
-	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
+	return runSyncPass(root, targets, syncRunOptions{dryRun: dryRun, backup: backup, gitignoreFlag: gitignoreFlag, jobs: jobs})
 }
 
 // resetSyncBuffers clears what an earlier pass left in the adapter buffers.
@@ -703,9 +34,9 @@ func resetSyncBuffers() {
 // prepareSyncTargets runs the checks and setup both `sync` and
 // `sync --json` share before emitting: it queues the personal memory seed,
 // stops on errors in the specs, and notes overlay files no target reads.
-func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, renders *targetRenders, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
+func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, renders *targetRenders, targets []string, opts syncRunOptions) ([]string, map[string]string, error) {
 	b := renders.b
-	if !dryRun {
+	if !opts.dryRun {
 		preparePersonalMemorySync(root, cfg)
 	}
 	if len(targets) == 0 {
@@ -718,7 +49,7 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err := stopOnPendingImports(prior.state, cfg); err != nil {
 		return nil, nil, err
 	}
-	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, backup, keepEdits); err != nil {
+	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, opts.backup, opts.keepEdits); err != nil {
 		return nil, nil, err
 	}
 	winners, err := detectRenderedCollisions(renders, cfg, targets, root, prior.state.Backups)
@@ -729,24 +60,47 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	return targets, winners, noteUnreadOverlays(root)
 }
 
+// syncRunOptions are the flags one sync pass runs with.
+type syncRunOptions struct {
+	dryRun, backup, keepEdits, untrack bool
+	gitignoreFlag                      string
+	jobs                               int
+}
+
 // runSyncPass is one sync pass. With keepEdits, an output edited since the
 // last sync is left in place and named, and the rest is written. With
 // untrack, a generated path git both tracks and ignores is removed from
 // the index (not the working tree) after the sweep.
-func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
-	return runSyncPassWith(root, readLedger(root), targets, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+func runSyncPass(root string, targets []string, opts syncRunOptions) error {
+	return runSyncPassWith(root, readLedger(root), nil, targets, opts)
+}
+
+// projectLoad is a project the caller loaded under root. log holds the
+// verbose lines the load printed while the caller held them back.
+type projectLoad struct {
+	cfg    *config.Config
+	bundle spec.Bundle
+	log    string
+}
+
+// view returns the project with a config the pass can change without
+// changing the caller's.
+func (p projectLoad) view() (*config.Config, spec.Bundle) {
+	cfg := *p.cfg
+	return &cfg, p.bundle
 }
 
 // runSyncPassWith is runSyncPass with the state file the caller read
-// under root. Nothing writes the state file before the pass ends.
-func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
+// under root, and the project it loaded, or nil to load it here.
+// Nothing writes the state file before the pass ends.
+func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, targets []string, opts syncRunOptions) (retErr error) {
 	if err := prior.refuseNewer(); err != nil {
 		return err
 	}
 	start := time.Now()
 	originalLog := logOut
 	var earlyMessages strings.Builder
-	if verbosity == levelVerbose && !dryRun {
+	if verbosity == levelVerbose && !opts.dryRun {
 		logOut = &earlyMessages
 		defer func() {
 			logOut = originalLog
@@ -754,22 +108,214 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		}()
 	}
 	resetSyncBuffers()
-	cfg, b, err := loadProject(root)
+	cfg, b, err := project.orLoad(root)
 	if err != nil {
 		return err
 	}
-	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, opts.gitignoreFlag)
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
 	renders := newTargetRenders(cfg, b)
-	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, renders, targets, dryRun, backup, keepEdits)
+	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, renders, targets, opts)
 	if err != nil {
 		return err
 	}
+	warnOwnSpecs(cfg, b, effectiveTargets)
+	shared, err := planSharedSkills(cfg, renders, effectiveTargets)
+	if err != nil {
+		return err
+	}
+	prior.warn()
+	edits := editGuardFor(opts.keepEdits, prev)
+
+	// Each concurrent target owns its own session; sessions collects every
+	// session with a rollback log in write order, so the deferred rollback
+	// undoes the latest phase first.
+	mainSess := newMainSession(cfg, opts.backup, edits)
+	var sessions []*adapters.Session
+	// No session logs the ignore files, so the rollback restores them.
+	var ignoreFiles []priorFile
+	// writesCompleted marks the point past which a returned error (the
+	// --untrack index cleanup, below) is a real, already-written sync
+	// reported as failed, never grounds to undo the writes themselves.
+	var writesCompleted bool
+	if !opts.dryRun {
+		mainSess.StartTransaction()
+		defer func() {
+			if retErr != nil && !writesCompleted {
+				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
+				if rbErr := errors.Join(rollbackSessions(sessions), restoreFiles(ignoreFiles)); rbErr != nil {
+					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
+				}
+			} else {
+				commitSessions(sessions)
+			}
+		}()
+	}
+	gitignoreOn := !opts.dryRun && resolveGitignore(cfg, opts.gitignoreFlag)
+
+	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, opts.dryRun)
+	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
+	if err != nil {
+		return err
+	}
+
+	// Emit every target concurrently (bounded by jobs) on its own session,
+	// collecting per-target results in stable order. The first emit error
+	// cancels the group and trips the rollback above.
+	// A dry run records its writes too, so it can tell which merged
+	// files the sweep it skips would release.
+	recordWrites := gitignoreOn || opts.dryRun
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, opts.dryRun, opts.backup, recordWrites, true, opts.jobs, edits, winners)
+	for _, s := range targetSessions {
+		if s != nil {
+			sessions = append(sessions, s)
+		}
+	}
+	sessions = append(sessions, mainSess) // written last (entry points), rolled back first
+	if emitErr != nil {
+		return emitErr
+	}
+	normalizeSharedWriteAttribution(emits)
+	accepted, notesErr := applyCoverageAccept(cfg, effectiveTargets)
+	if notesErr != nil {
+		flushFailedCoverageNotes()
+		return notesErr
+	}
+
+	w := collectEmits(emits, opts.dryRun)
+	if err := w.writeEntryPoints(mainSess, cfg, b, effectiveTargets, prev, opts, recordWrites); err != nil {
+		return err
+	}
+	applied := shared.apply(mainSess, opts.dryRun)
+	w.ledgerSession = adjustLedgerForLinks(w.ledgerSession, applied)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, w.ledgerSession, w.written, w.merged, w.emitted, cfg.Targets, opts.dryRun)
+	// No session writes after the sweep, so one read of the backups serves
+	// the ignore files and the ledger.
+	var backups map[string]string
+	if !opts.dryRun {
+		backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	}
+	if gitignoreOn {
+		ignores, err := writeSyncIgnores(root, cfg, b, effectiveTargets, w.gitignore, applied, ledger, sweepErr, w.emitted, prior.missing(), backups)
+		ignoreFiles = ignores.prior
+		if err != nil {
+			return err
+		}
+		w.report.updated = append(w.report.updated, ignores.changed...)
+	}
+
+	if !opts.dryRun {
+		runMemorySeeds()
+	}
+
+	// Concurrent emission appends capability warnings / coverage notes in
+	// completion order; re-sort them to the target sequence so the flushed
+	// output below is byte-identical regardless of --jobs.
+	adapters.OrderBufferedDropsByTarget(effectiveTargets)
+	drops := newPassDrops(cfg, prev, accepted)
+	if verbosity != levelVerbose {
+		drops.flush()
+	}
+	holdKept := verbosity == levelVerbose && !opts.dryRun
+	var deferredMessages strings.Builder
+	printKept := func(format string, args ...any) {
+		if holdKept {
+			_, _ = fmt.Fprintf(&deferredMessages, format, args...)
+		} else {
+			keptf(format, args...)
+		}
+	}
+	if sweepErr != nil {
+		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
+	}
+	if len(w.unresolved) > 0 && !opts.dryRun {
+		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(w.unresolved, ", "))
+	}
+	w.reportSweep(printKept, removed, stripped, kept, ledger.merged, prev.OutputSums)
+	allTargets := w.complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets)
+	if !opts.dryRun {
+		printUnledgered(printKept, keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, w.written, allTargets))
+	}
+	printSessionEdits(printKept, sessions, cfg, effectiveTargets, holdKept)
+	if opts.dryRun {
+		if verbosity == levelVerbose {
+			drops.flush()
+		}
+		summaryf("%s would sync %d target%s · %s\n", tick(), len(w.emitted), plural(len(w.emitted)), shortDuration(time.Since(start)))
+		return nil
+	}
+	// Every write this sync makes is done; an --untrack failure below
+	// reports as a failed run but never undoes them (see writesCompleted
+	// above).
+	writesCompleted = true
+	base := specSums(cfg, b, cfg.Targets)
+	w.report.specs = diffSpecSums(specBaseline{prev.SpecSums, prev.SpecTargets}, base, bundleSpecKeys(b))
+	// A partial run leaves other targets on older specs; keep the old
+	// baseline so the run that updates them still names the change.
+	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
+	if coversAllConfiguredTargets(w.emitted, cfg.Targets) {
+		ledger.specSums, ledger.specTargets = base.sums, base.targets
+	}
+	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
+	trackedIgnored, untracked, untrackErr := untrackIgnored(root, cfg, ledger.outputs, opts.untrack)
+	w.report.untracked = untracked
+	if len(untracked) > 0 && verbosity < levelDefault {
+		keptf("  %s %s\n", bang(), untrackPullAdvice)
+	}
+	if untrackErr != nil {
+		untrackErr = fmt.Errorf("untrack: %w", untrackErr)
+	}
+	w.report.trackedIgnored = trackedIgnored
+	if verbosity >= levelDefault {
+		w.report.pending = removeMatching(gitPending(root, w.report.changedPaths()), w.report.trackedIgnored)
+	}
+	recordModelAliases(&ledger, prev.ModelAliases, w.emitted, printKept)
+	ledger.backups = backups
+	digest, notesDigest := drops.record(&ledger, w.emitted, !allTargets)
+	toList := unlistedTargets(prev, intersect(effectiveTargets, w.emitted))
+	ledger.listed = carriedListed(prev)
+	if verbosity >= levelDefault && len(toList) > 0 {
+		ledger.listed = append(slices.Clone(ledger.listed), toList...)
+	}
+	release()
+	stateErr := writeStateFile(root, w.report.filesChanged(), digest, notesDigest, ledger)
+	if stateErr != nil {
+		stateErr = fmt.Errorf("sync wrote files but could not record them: %w", stateErr)
+	}
+	if verbosity >= levelDefault {
+		if verbosity == levelVerbose {
+			logOut = originalLog
+		}
+		w.render(cfg, b, toList, time.Since(start))
+	}
+	if verbosity == levelVerbose {
+		_, _ = fmt.Fprint(logOut, earlyMessages.String())
+		earlyMessages.Reset()
+		_, _ = fmt.Fprint(logOut, deferredMessages.String())
+		drops.flush()
+	}
+	return errors.Join(untrackErr, stateErr)
+}
+
+// orLoad returns the project's config and bundle, and loads the project
+// under root when the caller has not.
+func (p *projectLoad) orLoad(root string) (*config.Config, spec.Bundle, error) {
+	if p == nil {
+		return loadProject(root)
+	}
+	_, _ = fmt.Fprint(logOut, p.log)
+	cfg, b := p.view()
+	return cfg, b, nil
+}
+
+// warnOwnSpecs warns about mistakes in the project's own specs that still
+// parse and emit. Pack specs are not the user's to edit; lint still
+// reports them.
+func warnOwnSpecs(cfg *config.Config, b spec.Bundle, targets []string) {
 	// A mistyped key parses and emits, so without this line nothing in a
-	// sync says the rule or agent lost its setting. Pack specs are not the
-	// user's to edit; lint still reports them.
+	// sync says the rule or agent lost its setting.
 	var own []spec.Entry
 	for _, e := range b.All() {
 		if !strings.HasPrefix(e.Layer, "pack:") {
@@ -795,282 +341,143 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 	for _, f := range lintMalformedGlobs(unscoped) {
 		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
 	}
-	for _, c := range globalNameClashes(b, effectiveTargets) {
+	for _, c := range globalNameClashes(b, targets) {
 		if c.silencedBy(cfg.Sync) == "" {
 			summaryf("%s %s\n", bang(), c)
 		}
 	}
-	shared, err := planSharedSkills(cfg, renders, effectiveTargets)
-	if err != nil {
-		return err
-	}
-	prior.warn()
-	edits := editGuardFor(keepEdits, prev)
+}
 
-	// mainSess drives the serial post-emission writes (entry points,
-	// shared-skill links, orphan sweep). Each concurrent target owns its
-	// own session; sessions collects every session with a rollback log in
-	// write order, so the deferred rollback undoes the latest phase first.
-	mainSess := adapters.NewSession()
-	mainSess.SetProjectRoot(".")
-	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
-	if backup {
-		mainSess.SetBackup(true)
-	}
-	edits.apply(mainSess)
-	var sessions []*adapters.Session
-	// No session logs the ignore files, so the rollback restores them.
-	var ignoreFiles []priorFile
-	// writesCompleted marks the point past which a returned error (the
-	// --untrack index cleanup, below) is a real, already-written sync
-	// reported as failed, never grounds to undo the writes themselves.
-	var writesCompleted bool
-	if !dryRun {
-		mainSess.StartTransaction()
-		defer func() {
-			if retErr != nil && !writesCompleted {
-				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
-				if rbErr := errors.Join(rollbackSessions(sessions), restoreFiles(ignoreFiles)); rbErr != nil {
-					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
-				}
-			} else {
-				commitSessions(sessions)
-			}
-		}()
-	}
-	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
+// passWrites gathers what the targets and entry points of one text pass
+// wrote, for the report, the ledger, and the ignore files.
+type passWrites struct {
+	report        syncReport
+	ledgerSession []string
+	written       map[string]string
+	merged        map[string]mergedOutput
+	gitignore     []string
+	// complete is false when a target did not load.
+	complete            bool
+	emitted, unresolved []string
+	rows                []emitRow
+}
 
-	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, dryRun)
-	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
-	if err != nil {
-		return err
-	}
-
-	// Emit every target concurrently (bounded by jobs) on its own session,
-	// collecting per-target results in stable order. The first emit error
-	// cancels the group and trips the rollback above.
-	// A dry run records its writes too, so it can tell which merged
-	// files the sweep it skips would release.
-	recordWrites := gitignoreOn || dryRun
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, recordWrites, true, jobs, edits, winners)
-	for _, s := range targetSessions {
-		if s != nil {
-			sessions = append(sessions, s)
-		}
-	}
-	sessions = append(sessions, mainSess) // written last (entry points), rolled back first
-	if emitErr != nil {
-		return emitErr
-	}
-	normalizeSharedWriteAttribution(emits)
-	accepted, notesErr := applyCoverageAccept(cfg, effectiveTargets)
-	if notesErr != nil {
-		flushFailedCoverageNotes()
-		return notesErr
-	}
-
-	verbose := verbosity >= levelVerbose
-	var report syncReport
-	var ledgerSession []string
-	ledgerWritten := map[string]string{}
-	ledgerMergedWrites := map[string]mergedOutput{}
-	var gitignoreEntries []string
-	complete := true
-	var emitted, unresolved []string
-	var emitRows []emitRow
+// collectEmits records each target's writes. A target that did not load
+// is named on stderr and left out of the emitted targets.
+func collectEmits(emits []targetEmit, dryRun bool) passWrites {
+	w := passWrites{written: map[string]string{}, merged: map[string]mergedOutput{}, complete: true}
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
-			complete = false
-			unresolved = append(unresolved, e.target)
+			w.complete = false
+			w.unresolved = append(w.unresolved, e.target)
 			continue
 		}
-		emitted = append(emitted, e.target)
-		gitignoreEntries = append(gitignoreEntries, e.recorded...)
+		w.emitted = append(w.emitted, e.target)
+		w.gitignore = append(w.gitignore, e.recorded...)
 		if dryRun {
 			continue
 		}
-		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
-		recordMergedWrites(e.writes, ledgerMergedWrites)
-		report.addWrites(e.target, e.writes)
-		if verbose {
+		recordLedgerWrites(e.writes, &w.ledgerSession, w.written)
+		recordMergedWrites(e.writes, w.merged)
+		w.report.addWrites(e.target, e.writes)
+		if verbosity >= levelVerbose {
 			created, updated, skipped := classifyDetailedWrites(e.writes)
-			emitRows = append(emitRows, emitRow{target: e.target, created: created, updated: updated, skipped: skipped, dur: e.dur})
+			w.rows = append(w.rows, emitRow{target: e.target, created: created, updated: updated, skipped: skipped, dur: e.dur})
 		}
 	}
+	return w
+}
 
-	// Entry points and shared-skill links write serially through mainSess,
-	// after every target, so their ordering, dedupe, and gitignore capture
-	// stay stable regardless of --jobs.
-	if recordWrites {
-		mainSess.StartRecording()
+// writeEntryPoints writes the entry points serially through sess, after
+// every target, so their ordering, dedupe, and gitignore capture stay
+// stable regardless of --jobs, then the output manifest.
+func (w *passWrites) writeEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, prev syncStateFile, opts syncRunOptions, record bool) error {
+	if record {
+		sess.StartRecording()
 	}
-	mainSess.StartDetailedRecording()
-	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, dryRun)
+	sess.StartDetailedRecording()
+	entryFiles, err := writeEntryPointFiles(sess, cfg, b, targets, opts.dryRun)
 	if err != nil {
-		mainSess.StopDetailedRecording()
-		if recordWrites {
-			mainSess.StopRecording()
+		sess.StopDetailedRecording()
+		if record {
+			sess.StopRecording()
 		}
 		return err
 	}
-	entryWrites := mainSess.StopDetailedRecording()
-	if recordWrites {
-		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
+	entryWrites := sess.StopDetailedRecording()
+	if record {
+		w.gitignore = append(w.gitignore, sess.StopRecording()...)
 	}
-	// Like the sweep, release merged files only when every configured
-	// target emitted; otherwise another target may still own them.
-	if dryRun && coversAllConfiguredTargets(emitted, cfg.Targets) {
-		if err := printMergedRewrites(prev, gitignoreEntries, keepEdits, cfg.Sync.Unmanaged); err != nil {
-			return err
+	if opts.dryRun {
+		// Like the sweep, release merged files only when every configured
+		// target emitted; otherwise another target may still own them.
+		if coversAllConfiguredTargets(w.emitted, cfg.Targets) {
+			return printMergedRewrites(prev, w.gitignore, opts.keepEdits, cfg.Sync.Unmanaged)
 		}
+		return nil
 	}
-	if !dryRun {
-		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
-		report.addWrites("", entryWrites)
-		creditEntryPointReaders(cfg, &report, emitRows, emitted, entryWrites, entryFiles)
-		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
-		if err != nil {
-			return err
-		}
-		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
-		report.addWrites("", manifestWrites)
-		// resolveAgnosticBody reads AGNOSTIC_AI.md from disk on
-		// subsequent syncs and skips the re-write, so detailed
-		// recording never captures the path. Add it explicitly so
-		// the ledger does not treat the source body as an orphan.
-		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
-			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
-		}
+	recordLedgerWrites(entryWrites, &w.ledgerSession, w.written)
+	w.report.addWrites("", entryWrites)
+	creditEntryPointReaders(cfg, &w.report, w.rows, w.emitted, entryWrites, entryFiles)
+	manifestWrites, err := writeOutputManifest(sess, cfg, w.written, w.complete && coversAllConfiguredTargets(targets, cfg.Targets), false)
+	if err != nil {
+		return err
 	}
-	applied := shared.apply(mainSess, dryRun)
-	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
-	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, dryRun)
-	if gitignoreOn {
-		for _, l := range applied {
-			gitignoreEntries = append(gitignoreEntries, l.path)
-		}
+	recordLedgerWrites(manifestWrites, &w.ledgerSession, w.written)
+	w.report.addWrites("", manifestWrites)
+	w.ledgerSession = withAgnosticEntryPoint(w.ledgerSession)
+	return nil
+}
 
-		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
-			retained = ledger.outputs
-		}
-		for _, path := range retained {
-			if !cfg.IsUnmanaged(path) {
-				gitignoreEntries = append(gitignoreEntries, path)
-			}
-		}
-		// Some adapters choose output paths from what is on disk, so the
-		// planners render after the emit, never from the renders before it.
-		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
-		if err != nil {
-			return err
-		}
-		ignoreFiles = priorIgnoreFiles(root, cfg)
-		rel, changed, err := writeGitignoreBlock(root, cfg, block)
-		if err != nil {
-			return fmt.Errorf("gitignore: %w", err)
-		}
-		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
-		if err := writePersonalExcludes(root, personal); err != nil {
-			return fmt.Errorf("git exclude: %w", err)
-		}
-		if changed {
-			report.updated = append(report.updated, filepath.ToSlash(rel))
-		}
-		if changed, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return fmt.Errorf("worktreeinclude: %w", err)
-		} else if changed {
-			report.updated = append(report.updated, worktreeIncludeFile)
-		}
+// render prints the pass report, the per-target rows under -v, and, on a
+// target's first sync, what each tool now reads.
+func (w *passWrites) render(cfg *config.Config, b spec.Bundle, toList []string, took time.Duration) {
+	if verbosity == levelVerbose {
+		w.report.renderCompact(logOut, len(w.emitted), took)
+	} else {
+		w.report.render(logOut, len(w.emitted), took, verbosity > levelVerbose)
 	}
+	if verbosity >= levelVerbose && len(w.rows) > 0 {
+		renderTargetRows(logOut, w.rows, verbosity > levelVerbose)
+	}
+	// The first sync is where the setup pays off, so it shows what
+	// each tool now reads from the one source.
+	if len(toList) > 0 {
+		printToolReads(logOut, cfg, b, toList)
+	}
+}
 
-	if !dryRun {
-		runMemorySeeds()
-	}
-
-	// Concurrent emission appends capability warnings / coverage notes in
-	// completion order; re-sort them to the target sequence so the flushed
-	// output below is byte-identical regardless of --jobs.
-	adapters.OrderBufferedDropsByTarget(effectiveTargets)
-
-	digest := adapters.CapabilityWarningsDigest()
-	notesDigest := adapters.CoverageNotesDigest()
-	warningRecords := dropFingerprints(adapters.PendingCapabilityWarnings())
-	noteRecords := dropFingerprints(adapters.PendingCoverageNotes())
-	reshow := verbosity > levelVerbose && showRepeatedDrops
-	warningsUnchanged := !reshow && digest != "" && digest == prev.WarningsDigest && (verbosity != levelVerbose || len(prev.WarningRecords) == 0)
-	notesUnchanged := !reshow && notesDigest != "" && notesDigest == prev.NotesDigest && (verbosity != levelVerbose || len(prev.NoteRecords) == 0)
-	flushDrops := func() {
-		var hidden []string
-		if verbosity == levelVerbose && !warningsUnchanged && len(prev.WarningRecords) > 0 {
-			if n := adapters.SuppressKnownCapabilityWarnings(fingerprintSet(prev.WarningRecords)); n > 0 {
-				hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
-			}
-		}
-		if verbosity == levelVerbose && !notesUnchanged && len(prev.NoteRecords) > 0 {
-			if n := adapters.SuppressKnownCoverageNotes(fingerprintSet(prev.NoteRecords)); n > 0 {
-				hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
-			}
-		}
-		if warningsUnchanged {
-			n := adapters.PendingCapabilityWarningsCount()
-			hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
-			adapters.ResetCapabilityWarnings()
-		}
-		if notesUnchanged {
-			n := adapters.PendingCoverageNotesCount()
-			hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
-			adapters.DiscardCoverageNotes()
-		}
-		if cfg.Sync.DroppedSummary && verbosity >= levelDefault {
-			adapters.RenderDroppedSummary(logOut)
-		}
-		adapters.FlushCapabilityWarnings()
-		adapters.FlushCoverageNotes()
-		if len(hidden) > 0 {
-			summaryf("  (%s unchanged since last sync; -vv shows them)\n", strings.Join(hidden, " and "))
-		}
-		if verbosity > levelVerbose {
-			adapters.PrintAcceptedNotes(accepted)
-		}
-	}
-	if verbosity != levelVerbose {
-		flushDrops()
-	}
-	var deferredMessages strings.Builder
-	printKept := func(format string, args ...any) {
-		if verbosity == levelVerbose && !dryRun {
-			_, _ = fmt.Fprintf(&deferredMessages, format, args...)
-		} else {
-			keptf(format, args...)
-		}
-	}
-	if sweepErr != nil {
-		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
-	}
-	if len(unresolved) > 0 && !dryRun {
-		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(unresolved, ", "))
-	}
+// reportSweep adds the files the sweep removed or stripped to the report,
+// and names the orphans it kept.
+func (w *passWrites) reportSweep(printKept func(string, ...any), removed, stripped, kept []string, merged map[string]mergedOutput, priorSums map[string]string) {
 	for _, p := range removed {
-		report.removed = append(report.removed, filepath.ToSlash(p))
+		w.report.removed = append(w.report.removed, filepath.ToSlash(p))
 	}
 	for _, p := range stripped {
-		report.updated = append(report.updated, filepath.ToSlash(p))
+		w.report.updated = append(w.report.updated, filepath.ToSlash(p))
 	}
 	for _, p := range kept {
-		reason := keptOrphanReason(ledger.merged, prev.OutputSums, p)
+		reason := keptOrphanReason(merged, priorSums, p)
 		printKept("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
 	}
-	if !dryRun {
-		unledgered := keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
-		for _, p := range unledgered.Leftover {
-			printKept("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
-		}
-		for _, p := range unledgered.Orphaned {
-			printKept("  ~ kept leftover %s (looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged)\n", filepath.ToSlash(p))
-		}
+}
+
+// printUnledgered names the leftovers no ledger proves sync wrote.
+func printUnledgered(printKept func(string, ...any), unledgered driftReport) {
+	for _, p := range unledgered.Leftover {
+		printKept("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
 	}
+	for _, p := range unledgered.Orphaned {
+		printKept("  ~ kept leftover %s (looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged)\n", filepath.ToSlash(p))
+	}
+}
+
+// printSessionEdits names the hand edits the sessions kept, removed,
+// overwrote, or could not back up, then the unmanaged paths they skipped.
+// It runs after the sweep, so refused orphan removals are reported too.
+// holdSkips sends the skips through printKept with the other held lines.
+func printSessionEdits(printKept func(string, ...any), sessions []*adapters.Session, cfg *config.Config, targets []string, holdSkips bool) {
 	for _, p := range sessionPaths(sessions, (*adapters.Session).KeptEdits) {
 		printKept("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
@@ -1078,110 +485,217 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		printKept("%s removed a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
 	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
-		printKept("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, effectiveTargets, p))
+		printKept("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, targets, p))
 	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).BackupBlockedEdits) {
 		printKept("%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
 	}
-	// After the sweep, so refused orphan removals are reported too.
 	for _, p := range unmanagedSkips(sessions) {
-		if verbosity == levelVerbose && !dryRun {
+		if holdSkips {
 			printKept("  ~ skip (unmanaged) %s\n", p)
 		} else {
 			summaryf("  ~ skip (unmanaged) %s\n", p)
 		}
 	}
-	if dryRun {
-		if verbosity == levelVerbose {
-			flushDrops()
+}
+
+// recordModelAliases records the model aliases this run resolved. --quiet
+// prints no notes, so it records only new aliases and leaves a moved one
+// for the next sync that does to report.
+func recordModelAliases(ledger *syncLedger, prev map[string]map[string]string, emitted []string, printKept func(string, ...any)) {
+	resolved := adapters.TakeResolvedAliases()
+	if verbosity < levelDefault {
+		ledger.modelAliases = addedModelAliases(prev, resolved, emitted)
+		return
+	}
+	for _, note := range movedAliasNotes(prev, resolved) {
+		printKept("  note: %s\n", note)
+	}
+	ledger.modelAliases = nextModelAliases(prev, resolved, emitted)
+}
+
+// passDrops are the capability warnings and coverage notes one pass
+// buffered, with whether each set matches what the last sync printed.
+type passDrops struct {
+	cfg                               *config.Config
+	prev                              syncStateFile
+	accepted                          []adapters.AcceptedNote
+	digest, notesDigest               string
+	warningRecords, noteRecords       []string
+	warningsUnchanged, notesUnchanged bool
+}
+
+func newPassDrops(cfg *config.Config, prev syncStateFile, accepted []adapters.AcceptedNote) passDrops {
+	d := passDrops{
+		cfg:            cfg,
+		prev:           prev,
+		accepted:       accepted,
+		digest:         adapters.CapabilityWarningsDigest(),
+		notesDigest:    adapters.CoverageNotesDigest(),
+		warningRecords: dropFingerprints(adapters.PendingCapabilityWarnings()),
+		noteRecords:    dropFingerprints(adapters.PendingCoverageNotes()),
+	}
+	reshow := verbosity > levelVerbose && showRepeatedDrops
+	d.warningsUnchanged = !reshow && d.digest != "" && d.digest == prev.WarningsDigest && (verbosity != levelVerbose || len(prev.WarningRecords) == 0)
+	d.notesUnchanged = !reshow && d.notesDigest != "" && d.notesDigest == prev.NotesDigest && (verbosity != levelVerbose || len(prev.NoteRecords) == 0)
+	return d
+}
+
+// flush prints the buffered drops, folding the ones the last sync already
+// printed into one count line.
+func (d passDrops) flush() {
+	var hidden []string
+	if verbosity == levelVerbose && !d.warningsUnchanged && len(d.prev.WarningRecords) > 0 {
+		if n := adapters.SuppressKnownCapabilityWarnings(fingerprintSet(d.prev.WarningRecords)); n > 0 {
+			hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
 		}
-		summaryf("%s would sync %d target%s · %s\n", tick(), len(emitted), plural(len(emitted)), shortDuration(time.Since(start)))
-		return nil
 	}
-	// Every write this sync makes is done; an --untrack failure below
-	// reports as a failed run but never undoes them (see writesCompleted
-	// above).
-	writesCompleted = true
-	base := specSums(cfg, b, cfg.Targets)
-	report.specs = diffSpecSums(specBaseline{prev.SpecSums, prev.SpecTargets}, base, bundleSpecKeys(b))
-	// A partial run leaves other targets on older specs; keep the old
-	// baseline so the run that updates them still names the change.
-	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
-	if coversAllConfiguredTargets(emitted, cfg.Targets) {
-		ledger.specSums, ledger.specTargets = base.sums, base.targets
-	}
-	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
-	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
-	var untrackErr error
-	if untrack && len(trackedIgnored) > 0 {
-		removed, err := gitRmCached(root, trackedIgnored)
-		report.untracked = removed
-		if len(removed) > 0 && verbosity < levelDefault {
-			keptf("  %s %s\n", bang(), untrackPullAdvice)
-		}
-		trackedIgnored = removeMatching(trackedIgnored, removed)
-		if err != nil {
-			untrackErr = fmt.Errorf("untrack: %w", err)
+	if verbosity == levelVerbose && !d.notesUnchanged && len(d.prev.NoteRecords) > 0 {
+		if n := adapters.SuppressKnownCoverageNotes(fingerprintSet(d.prev.NoteRecords)); n > 0 {
+			hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
 		}
 	}
-	report.trackedIgnored = trackedIgnored
-	if verbosity >= levelDefault {
-		report.pending = removeMatching(gitPending(root, report.changedPaths()), report.trackedIgnored)
+	if d.warningsUnchanged {
+		n := adapters.PendingCapabilityWarningsCount()
+		hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
+		adapters.ResetCapabilityWarnings()
 	}
-	// --quiet prints no notes, so it records only new aliases and leaves a
-	// moved one for the next sync that does to report.
-	resolvedAliases := adapters.TakeResolvedAliases()
-	if verbosity >= levelDefault {
-		for _, note := range movedAliasNotes(prev.ModelAliases, resolvedAliases) {
-			printKept("  note: %s\n", note)
-		}
-		ledger.modelAliases = nextModelAliases(prev.ModelAliases, resolvedAliases, emitted)
-	} else {
-		ledger.modelAliases = addedModelAliases(prev.ModelAliases, resolvedAliases, emitted)
+	if d.notesUnchanged {
+		n := adapters.PendingCoverageNotesCount()
+		hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
+		adapters.DiscardCoverageNotes()
 	}
-	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
-	ledger.warningRecords, ledger.noteRecords = warningRecords, noteRecords
-	if !complete || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.warningRecords = mergePartialDropRecords(prev.WarningRecords, warningRecords, emitted)
-		ledger.noteRecords = mergePartialDropRecords(prev.NoteRecords, noteRecords, emitted)
+	if d.cfg.Sync.DroppedSummary && verbosity >= levelDefault {
+		adapters.RenderDroppedSummary(logOut)
+	}
+	adapters.FlushCapabilityWarnings()
+	adapters.FlushCoverageNotes()
+	if len(hidden) > 0 {
+		summaryf("  (%s unchanged since last sync; -vv shows them)\n", strings.Join(hidden, " and "))
+	}
+	if verbosity > levelVerbose {
+		adapters.PrintAcceptedNotes(d.accepted)
+	}
+}
+
+// record sets the drop records the ledger keeps and returns the digests
+// the state file stores. A partial run keeps the records of the targets
+// it left out; --quiet printed nothing, so it keeps the last sync's.
+func (d passDrops) record(ledger *syncLedger, emitted []string, partial bool) (digest, notesDigest string) {
+	ledger.warningRecords, ledger.noteRecords = d.warningRecords, d.noteRecords
+	if partial {
+		ledger.warningRecords = mergePartialDropRecords(d.prev.WarningRecords, d.warningRecords, emitted)
+		ledger.noteRecords = mergePartialDropRecords(d.prev.NoteRecords, d.noteRecords, emitted)
 	}
 	if verbosity < levelDefault {
-		ledger.warningRecords, ledger.noteRecords = prev.WarningRecords, prev.NoteRecords
-		digest, notesDigest = prev.WarningsDigest, prev.NotesDigest
+		ledger.warningRecords, ledger.noteRecords = d.prev.WarningRecords, d.prev.NoteRecords
+		return d.prev.WarningsDigest, d.prev.NotesDigest
 	}
-	toList := unlistedTargets(prev, intersect(effectiveTargets, emitted))
-	ledger.listed = carriedListed(prev)
-	if verbosity >= levelDefault && len(toList) > 0 {
-		ledger.listed = append(slices.Clone(ledger.listed), toList...)
+	return d.digest, d.notesDigest
+}
+
+// newMainSession returns the session that drives the serial writes after
+// the targets emit: entry points, shared-skill links, and the orphan sweep.
+func newMainSession(cfg *config.Config, backup bool, edits editGuard) *adapters.Session {
+	sess := adapters.NewSession()
+	sess.SetProjectRoot(".")
+	sess.SetUnmanaged(cfg.Sync.Unmanaged)
+	if backup {
+		sess.SetBackup(true)
 	}
-	release()
-	stateErr := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger)
-	if stateErr != nil {
-		stateErr = fmt.Errorf("sync wrote files but could not record them: %w", stateErr)
+	edits.apply(sess)
+	return sess
+}
+
+// withAgnosticEntryPoint lists AGNOSTIC_AI.md in the ledger session. A
+// later sync reads it from disk and skips the rewrite, so detailed
+// recording never captures it, and the ledger would treat it as an orphan.
+func withAgnosticEntryPoint(session []string) []string {
+	if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
+		return append(session, adapters.AgnosticEntryPointPath)
 	}
-	if verbosity >= levelDefault {
-		if verbosity == levelVerbose {
-			logOut = originalLog
-			report.renderCompact(logOut, len(emitted), time.Since(start))
-		} else {
-			report.render(logOut, len(emitted), time.Since(start), verbosity > levelVerbose)
+	return session
+}
+
+// ignoreStep is the last step writeSyncIgnores reached, so each pass can
+// keep its own rollback when one fails.
+type ignoreStep int
+
+const (
+	ignorePlan ignoreStep = iota
+	ignoreGitignore
+	ignoreExcludes
+	ignoreWorktree
+)
+
+// syncIgnores holds the ignore files as they were before the write, the
+// managed block, and the files the write changed.
+type syncIgnores struct {
+	prior   []priorFile
+	block   []string
+	changed []string
+	step    ignoreStep
+}
+
+// writeSyncIgnores writes the managed .gitignore block, the personal
+// excludes, and the worktree include after the sweep. recorded is what the
+// targets and entry points wrote; the links and the outputs the sweep
+// kept join it.
+func writeSyncIgnores(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string, links []skillLink, ledger syncLedger, sweepErr error, emitted []string, noLedger bool, backups map[string]string) (syncIgnores, error) {
+	entries := recorded
+	for _, l := range links {
+		entries = append(entries, l.path)
+	}
+	retained := ledger.orphans
+	if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
+		retained = ledger.outputs
+	}
+	for _, path := range retained {
+		if !cfg.IsUnmanaged(path) {
+			entries = append(entries, path)
 		}
-		if verbose && len(emitRows) > 0 {
-			renderTargetRows(logOut, emitRows, verbosity > levelVerbose)
-		}
-		// The first sync is where the setup pays off, so it shows what
-		// each tool now reads from the one source.
-		if len(toList) > 0 {
-			printToolReads(logOut, cfg, b, toList)
-		}
 	}
-	if verbosity == levelVerbose {
-		_, _ = fmt.Fprint(logOut, earlyMessages.String())
-		earlyMessages.Reset()
-		_, _ = fmt.Fprint(logOut, deferredMessages.String())
-		flushDrops()
+	var w syncIgnores
+	// Some adapters choose output paths from what is on disk, so the
+	// planners render after the emit, never from the renders before it.
+	block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), targets, entries, noLedger)
+	if err != nil {
+		return w, err
 	}
-	return errors.Join(untrackErr, stateErr)
+	w.block = block
+	w.prior = priorIgnoreFiles(root, cfg)
+	w.step = ignoreGitignore
+	rel, changed, err := writeGitignoreBlock(root, cfg, block)
+	if err != nil {
+		return w, fmt.Errorf("gitignore: %w", err)
+	}
+	w.step = ignoreExcludes
+	if err := writePersonalExcludes(root, withLeftoverBackups(personal, block, backups)); err != nil {
+		return w, fmt.Errorf("git exclude: %w", err)
+	}
+	if changed {
+		w.changed = append(w.changed, filepath.ToSlash(rel))
+	}
+	w.step = ignoreWorktree
+	if changed, err = writeWorktreeInclude(root, cfg, block); err != nil {
+		return w, fmt.Errorf("worktreeinclude: %w", err)
+	}
+	if changed {
+		w.changed = append(w.changed, worktreeIncludeFile)
+	}
+	return w, nil
+}
+
+// untrackIgnored lists the outputs Git both tracks and ignores. With
+// untrack, it removes them from the index, never the working tree, and
+// returns the ones still tracked and the ones it removed.
+func untrackIgnored(root string, cfg *config.Config, outputs []string, untrack bool) (stillTracked, removedFromIndex []string, err error) {
+	tracked := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, outputs))
+	if !untrack || len(tracked) == 0 {
+		return tracked, nil, nil
+	}
+	removedFromIndex, err = gitRmCached(root, tracked)
+	return removeMatching(tracked, removedFromIndex), removedFromIndex, err
 }
 
 // unlistedTargets returns the targets whose first sync has not shown
@@ -1411,23 +925,20 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target. prior is the state file
-// the caller read under root.
-func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+// the caller read under root, and project the project it loaded there.
+func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project projectLoad, targets []string, opts syncRunOptions) error {
 	if err := prior.refuseNewer(); err != nil {
 		return err
 	}
 	resetSyncBuffers()
 	defer resetSyncBuffers()
-	cfg, b, err := loadProject(root)
-	if err != nil {
-		return err
-	}
-	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
+	cfg, b := project.view()
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, opts.gitignoreFlag)
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
 	renders := newTargetRenders(cfg, b)
-	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, renders, targets, false, backup, keepEdits)
+	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, renders, targets, syncRunOptions{backup: opts.backup, keepEdits: opts.keepEdits})
 	if err != nil {
 		return err
 	}
@@ -1436,17 +947,11 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 		return err
 	}
 	prior.warn()
-	edits := editGuardFor(keepEdits, prev)
+	edits := editGuardFor(opts.keepEdits, prev)
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
-	mainSess := adapters.NewSession()
-	mainSess.SetProjectRoot(".")
-	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
-	if backup {
-		mainSess.SetBackup(true)
-	}
-	edits.apply(mainSess)
-	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
+	mainSess := newMainSession(cfg, opts.backup, edits)
+	gitignoreOn := resolveGitignore(cfg, opts.gitignoreFlag)
 	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, false)
 	if err != nil {
 		return err
@@ -1460,7 +965,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits, winners)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, opts.backup, gitignoreOn, false, opts.jobs, edits, winners)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	_, notesErr := applyCoverageAccept(cfg, effectiveTargets)
@@ -1511,12 +1016,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 		}
 		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
 		appendFileRecords(&out, "agnostic-ai", manifestWrites)
-		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
-		// syncs without going through emit, so register it for the
-		// ledger by hand.
-		if _, err := os.Stat(adapters.AgnosticEntryPointPath); err == nil {
-			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
-		}
+		ledgerSession = withAgnosticEntryPoint(ledgerSession)
 	}
 	if gitignoreOn {
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
@@ -1526,6 +1026,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	mainSess.StartTransaction()
 	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, false)
+	backups := syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	for _, l := range applied {
 		if l.changed {
 			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
@@ -1534,35 +1035,13 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 		}
 	}
 	if gitignoreOn {
-		for _, l := range applied {
-			gitignoreEntries = append(gitignoreEntries, l.path)
-		}
-
-		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
-			retained = ledger.outputs
-		}
-		for _, path := range retained {
-			if !cfg.IsUnmanaged(path) {
-				gitignoreEntries = append(gitignoreEntries, path)
-			}
-		}
-		// Some adapters choose output paths from what is on disk, so the
-		// planners render after the emit, never from the renders before it.
-		block, personal, err := personalSplitBlock(root, cfg, newTargetRenders(cfg, b), effectiveTargets, gitignoreEntries, prior.missing())
+		ignores, err := writeSyncIgnores(root, cfg, b, effectiveTargets, gitignoreEntries, applied, ledger, sweepErr, emitted, prior.missing(), backups)
 		if err != nil {
-			return undoSweep(mainSess, nil, err)
-		}
-		prior := priorIgnoreFiles(root, cfg)
-		if err := updateGitignore(root, cfg, block); err != nil {
-			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
-		}
-		personal = withLeftoverBackups(personal, block, syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups)))
-		if err := writePersonalExcludes(root, personal); err != nil {
-			return undoSweep(mainSess, prior, fmt.Errorf("git exclude: %w", err))
-		}
-		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return undoSweep(mainSess, widenIgnores(prior, filepath.Join(root, gitignoreRel(cfg)), block), fmt.Errorf("worktreeinclude: %w", err))
+			restore := ignores.prior
+			if ignores.step == ignoreWorktree {
+				restore = widenIgnores(restore, filepath.Join(root, gitignoreRel(cfg)), ignores.block)
+			}
+			return undoSweep(mainSess, restore, err)
 		}
 	}
 	mainSess.Commit()
@@ -1593,19 +1072,15 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
-	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
-	if untrack && len(trackedIgnored) > 0 {
-		removedFromIndex, err := gitRmCached(root, trackedIgnored)
-		for _, p := range removedFromIndex {
-			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
-		}
-		if len(removedFromIndex) > 0 {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
-		}
-		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
-		if err != nil {
-			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", err)})
-		}
+	trackedIgnored, removedFromIndex, untrackErr := untrackIgnored(root, cfg, ledger.outputs, opts.untrack)
+	for _, p := range removedFromIndex {
+		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
+	}
+	if len(removedFromIndex) > 0 {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
+	}
+	if untrackErr != nil {
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", untrackErr)})
 	}
 	for _, p := range trackedIgnored {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "tracked"})
@@ -1622,7 +1097,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets 
 	if len(out.Errors) == 0 {
 		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, sessions, mainSess), cfg)
 	}
-	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	ledger.backups = backups
 	ledger.warningRecords, ledger.noteRecords = prev.WarningRecords, prev.NoteRecords
 	ledger.listed = carriedListed(prev)
 	release()
@@ -1673,417 +1148,6 @@ func mergePartialDropRecords(previous, current, emitted []string) []string {
 	}
 	slices.Sort(out)
 	return slices.Compact(out)
-}
-
-// syncJSONOutput is the `sync --json` output: the shared schema plus the
-// capability warnings and coverage notes a plain sync prints.
-type syncJSONOutput struct {
-	jsonOutput
-	syncDrops
-}
-
-type syncDrops struct {
-	Warnings []dropRecord `json:"warnings"`
-	Notes    []dropRecord `json:"notes"`
-}
-
-// pendingSyncDrops returns the buffered capability warnings and coverage
-// notes, ordered by target, without clearing them.
-func pendingSyncDrops() syncDrops {
-	return syncDrops{
-		Warnings: dropRecords(adapters.PendingCapabilityWarnings()),
-		Notes:    dropRecords(adapters.PendingCoverageNotes()),
-	}
-}
-
-func dropRecords(records []adapters.DropRecord) []dropRecord {
-	out := make([]dropRecord, 0, len(records))
-	for _, r := range records {
-		out = append(out, dropRecord{Target: r.Target, Kind: string(r.Kind), Count: r.Count, Message: r.Message, Suggestion: r.Suggestion})
-	}
-	return out
-}
-
-// printSyncPlan prints a human-readable per-target summary of what sync
-// would change: how many files are missing (added) or stale (changed).
-func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
-	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-	for _, r := range reports {
-		if !r.hasDrift() {
-			_, _ = fmt.Fprintf(w, "[%s]\tno changes\n", r.Target)
-			continue
-		}
-		_, _ = fmt.Fprintf(w, "[%s]\tadded: %d\tchanged: %d", r.Target, len(r.Missing), len(r.changed()))
-		if len(r.Orphaned) > 0 {
-			_, _ = fmt.Fprintf(w, "\torphaned: %d", len(r.Orphaned))
-		}
-		switch {
-		case len(r.Leftover) > 0 && r.Unledgered:
-			_, _ = fmt.Fprintf(w, "\tleftover: %d", len(r.Leftover))
-		case len(r.Leftover) > 0:
-			_, _ = fmt.Fprintf(w, "\tremoved: %d", len(r.Leftover))
-		}
-		_, _ = fmt.Fprintln(w)
-	}
-	_ = w.Flush()
-}
-
-// printSyncPlanJSON emits what a sync would do in the `sync --json`
-// schema, with the create, update, and delete actions a real run reports,
-// and kept orphans and leftovers in skipped. A dry run also lists each
-// unchanged file as a skip, so every planned output appears once.
-func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool, drops syncDrops, notesErr error) error {
-	out := jsonOutput{Version: "1", Command: command}
-	out.addError(notesErr)
-	for _, r := range reports {
-		for _, f := range r.Missing {
-			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: f.Path, Action: "create", Bytes: len(f.Content)})
-		}
-		for _, f := range r.changed() {
-			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: f.Path, Action: "update", Bytes: len(f.Content)})
-		}
-		for _, p := range r.Leftover {
-			if r.Unledgered {
-				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: p, Action: "leftover"})
-				continue
-			}
-			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: p, Action: "delete"})
-		}
-		for _, p := range r.Orphaned {
-			out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
-		}
-		if withCurrent {
-			for _, f := range r.Current {
-				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: f.Path, Action: "skip", Bytes: len(f.Content)})
-			}
-		}
-	}
-	if err := writeIndentedJSON(cmd, syncJSONOutput{out.forOutput(), drops}); err != nil {
-		return err
-	}
-	return notesErr
-}
-
-// printSyncCheckJSON emits a JSON result for `sync --check`. Every drifted
-// file appears in writes, with the actions driftRecords assigns.
-func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport, drops syncDrops, notesErr error) error {
-	out := jsonOutput{Version: "1", Command: "sync --check", Writes: driftRecords(reports)}
-	out.addError(notesErr)
-	hasDrift := len(out.Writes) > 0
-	if err := writeIndentedJSON(cmd, syncJSONOutput{out.forOutput(), drops}); err != nil {
-		return err
-	}
-	if hasDrift {
-		return errors.Join(errDriftDetected(), notesErr)
-	}
-	return notesErr
-}
-
-// checkFormatHuman is the default `--check` report: a per-target table.
-// checkFormatGitHub emits GitHub Actions annotations. JSON output stays
-// behind the separate `--json` flag, which takes precedence over --format.
-const (
-	checkFormatHuman  = "human"
-	checkFormatGitHub = "github"
-)
-
-// validateCheckFormat rejects an unknown `--format` value so a typo fails
-// fast instead of silently falling back to the human table.
-func validateCheckFormat(format string) error {
-	switch format {
-	case checkFormatHuman, checkFormatGitHub:
-		return nil
-	}
-	return fmt.Errorf("--format: expected %q or %q, got %q", checkFormatHuman, checkFormatGitHub, format)
-}
-
-// errDriftDetected is the failure a drifting `sync --check` returns. It names
-// `agnostic-ai doctor` so a bare CI line still points at the full diagnosis;
-// the reconcile command prints separately as a stderr hint.
-func errDriftDetected() error {
-	return fmt.Errorf("drift detected; run `agnostic-ai doctor` for a full diagnosis")
-}
-
-// reportCheckDrift renders a `sync --check` result in the requested text
-// format and returns a non-zero error when any target drifts. The report
-// goes to stdout; the fix hint goes to stderr, so a machine reading stdout (a
-// captured log, a github matcher) sees only the drift lines. Presentation
-// only: it never writes files or changes what counts as drift.
-func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, diff bool) error {
-	var drift bool
-	switch format {
-	case checkFormatGitHub:
-		drift = printDriftGitHub(cmd, reports)
-	default:
-		drift = printDrift(reports)
-	}
-	if diff {
-		printDriftDiffs(cmd, reports)
-	}
-	if !drift {
-		return nil
-	}
-	if n, ref := lineEndingCount(foldSharedDrift(reports)); n > 0 {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%d file(s) differ only in line endings: %s\n", n, lineEndingAdvice(ref))
-	}
-	if hint := reconcileHint(reports); hint != "" {
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), hint)
-	}
-	return errDriftDetected()
-}
-
-// reconcileHint names what settles the drift in reports. doctor --fix
-// removes an unledgered leftover and writes the rest; a scope document
-// no ledger proves sync wrote is left to the user, so it gets a manual
-// step instead of a command that would leave it in place.
-func reconcileHint(reports []driftReport) string {
-	var syncDrift, removable, scoped bool
-	var adopt []string
-	for _, r := range reports {
-		for _, f := range r.Unmanaged {
-			if !slices.Contains(adopt, f.Target) {
-				adopt = append(adopt, f.Target)
-			}
-		}
-		switch {
-		case !r.hasDrift():
-		case r.against != "" && len(r.Leftover)+len(r.Orphaned) == 0:
-			// The --against step, not sync, settles it.
-		case len(r.Unmanaged) > 0:
-		case r.Unledgered:
-			removable = removable || len(r.Leftover) > 0
-			scoped = scoped || len(r.Orphaned) > 0
-		default:
-			syncDrift = true
-		}
-	}
-	const manual = "delete the files that look generated, listed above, by hand if stale, or list them under sync.unmanaged"
-	fix := ""
-	switch {
-	case removable:
-		fix = "doctor --fix"
-	case syncDrift:
-		fix = "sync"
-	}
-	var hint string
-	switch {
-	case fix == "" && !scoped:
-	case fix == "":
-		hint = "to reconcile, " + manual
-	case scoped:
-		hint = "to reconcile, run: agnostic-ai " + fix + ", then " + manual
-	default:
-		hint = "to reconcile, run: agnostic-ai " + fix
-	}
-	if len(adopt) == 0 {
-		return hint
-	}
-	imports := make([]string, len(adopt))
-	for i, t := range adopt {
-		imports[i] = "agnostic-ai import " + t
-	}
-	move := "to move the hand-written files into .agnostic-ai/, run: " + strings.Join(imports, ", ") + ", then git rm --cached them"
-	if hint == "" {
-		return move
-	}
-	return hint + "; " + move
-}
-
-// printDriftGitHub emits one GitHub Actions error annotation per drifted file
-// so drift surfaces inline on the pull request. Missing files carry no line;
-// stale and edited files point at the first changed line. Returns true if any target
-// drifted, so an in-sync run emits nothing and stays silent.
-func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
-	out := cmd.OutOrStdout()
-	drift := false
-	for _, r := range foldSharedDrift(reports) {
-		missing, stale := "run agnostic-ai sync to generate it", "run agnostic-ai sync to reconcile"
-		if r.against != "" {
-			where, step := againstPlace(r.against)
-			missing = "is not " + where + "; " + step
-			stale = "does not match the specs " + where + "; " + step
-		} else {
-			missing, stale = "is missing; "+missing, "drifted from specs; "+stale
-		}
-		for _, f := range r.Missing {
-			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s%s\n",
-				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)), missing, githubData(r.sharedNote(f.Path)))
-		}
-		for _, f := range r.Stale {
-			drift = true
-			reason := stale
-			if r.lineEndings[f.Path] {
-				reason = "differs only in line endings; " + lineEndingAdvice(r.against)
-			}
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s %s%s\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), githubData(reason), githubData(r.sharedNote(f.Path)))
-		}
-		for _, f := range r.Edited {
-			drift = true
-			effect := "move the edit into .agnostic-ai/, then run agnostic-ai sync"
-			if f.Merged {
-				effect = "sync keeps the keys it did not write and resets the ones it writes; move those edits into .agnostic-ai/, then run agnostic-ai sync"
-			}
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; %s%s\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), effect, githubData(r.sharedNote(f.Path)))
-		}
-		orphanHint := "is no longer generated and its ownership could not be proven; run agnostic-ai doctor --fix to choose removal, or list it under sync.unmanaged"
-		if r.Unledgered {
-			orphanHint = "looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged"
-		}
-		for _, p := range r.Orphaned {
-			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s%s\n", githubProp(p), githubData(filepath.ToSlash(p)), orphanHint, githubData(r.sharedNote(p)))
-		}
-		for _, p := range r.Leftover {
-			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai %s to remove it%s\n",
-				githubProp(p), githubData(filepath.ToSlash(p)), r.leftoverFix(), githubData(r.sharedNote(p)))
-		}
-		for _, f := range r.Unmanaged {
-			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s is hand-written in a generated folder, so only %s reads it; adopt it with agnostic-ai import %s, then git rm --cached it\n",
-				githubProp(f.Path), githubData(f.Path), githubData(f.Target), githubData(f.Target))
-		}
-	}
-	return drift
-}
-
-// diffBodyMax caps the changed lines shown per file so a large rewrite does
-// not flood CI logs. Past it, a summary line reports the remainder.
-const diffBodyMax = 200
-
-// printDriftDiffs prints a unified diff for every drifted file: the on-disk
-// content against what sync would write. Missing files show a concise create
-// line rather than a full body. Only drifted files produce output, so an
-// in-sync run stays silent. Presentation only; nothing is written.
-func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
-	out := cmd.OutOrStdout()
-	for _, r := range foldSharedDrift(reports) {
-		for _, f := range r.Missing {
-			_, _ = fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(f.Path), len(f.Content))
-		}
-		for _, f := range r.changed() {
-			disk, err := os.ReadFile(f.Path)
-			if err != nil {
-				_, _ = fmt.Fprintf(out, "%s: %v\n", f.Path, err)
-				continue
-			}
-			_, _ = fmt.Fprint(out, unifiedDiff(f.Path, string(disk), f.Content, diffBodyMax))
-		}
-	}
-}
-
-// printDriftRemovals names each generated file a sync would delete,
-// the removals a dry-run diff has no hunk for.
-func printDriftRemovals(cmd *cobra.Command, reports []driftReport) {
-	out := cmd.OutOrStdout()
-	for _, r := range foldSharedDrift(reports) {
-		if r.Unledgered {
-			continue
-		}
-		for _, path := range r.Leftover {
-			_, _ = fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path))
-		}
-	}
-}
-
-// unifiedDiff renders a minimal unified diff between the on-disk content
-// (have) and what sync would write (want), keyed by path. It trims the shared
-// leading and trailing lines and prints the differing middle as one hunk:
-// on-disk lines with `-`, would-write lines with `+`. Output past maxLines is
-// dropped with a summary so CI logs stay lean. A display helper over line
-// slices, not a general diff engine.
-func unifiedDiff(path, have, want string, maxLines int) string {
-	slash := filepath.ToSlash(path)
-	return previewDiff(path, slash+" (on disk)", slash+" (agnostic-ai sync)", have, want, false, maxLines)
-}
-
-func previewDiff(path, haveLabel, wantLabel, have, want string, create bool, maxLines int) string {
-	before, after := preview.Display(path, have), preview.Display(path, want)
-	if have != want && before.Text == after.Text && (before.Hidden || after.Hidden) {
-		return fmt.Sprintf("--- %s\n+++ %s\nsensitive value changed; contents hidden\n", haveLabel, wantLabel)
-	}
-	var haveLines []string
-	if !create {
-		haveLines = splitLines(before.Text)
-	}
-	return labeledDiff(haveLabel, wantLabel, haveLines, splitLines(after.Text), maxLines)
-}
-
-// labeledDiff is unifiedDiff over line slices with caller-chosen `---` and
-// `+++` labels. A nil haveLines renders a file creation.
-func labeledDiff(haveLabel, wantLabel string, haveLines, wantLines []string, maxLines int) string {
-	p := commonPrefix(haveLines, wantLines)
-	s := 0
-	for s < len(haveLines)-p && s < len(wantLines)-p &&
-		haveLines[len(haveLines)-1-s] == wantLines[len(wantLines)-1-s] {
-		s++
-	}
-	removed := haveLines[p : len(haveLines)-s]
-	added := wantLines[p : len(wantLines)-s]
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "--- %s\n", haveLabel)
-	fmt.Fprintf(&b, "+++ %s\n", wantLabel)
-	fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", p+1, len(removed), p+1, len(added))
-
-	shown := 0
-	body := len(removed) + len(added)
-	write := func(mark string, lines []string) {
-		for _, ln := range lines {
-			if shown >= maxLines {
-				return
-			}
-			fmt.Fprintf(&b, "%s%s\n", mark, ln)
-			shown++
-		}
-	}
-	write("-", removed)
-	write("+", added)
-	if body > maxLines {
-		fmt.Fprintf(&b, "... %d more changed line(s) truncated\n", body-maxLines)
-	}
-	return b.String()
-}
-
-// firstChangedLine returns the 1-based line where the on-disk file at path
-// first differs from want, or 1 when the file is unreadable. Only used to aim
-// a github annotation; never load-bearing.
-func firstChangedLine(path, want string) int {
-	disk, err := os.ReadFile(path)
-	if err != nil {
-		return 1
-	}
-	return commonPrefix(splitLines(string(disk)), splitLines(want)) + 1
-}
-
-// commonPrefix returns the count of leading lines a and b share.
-func commonPrefix(a, b []string) int {
-	n := 0
-	for n < len(a) && n < len(b) && a[n] == b[n] {
-		n++
-	}
-	return n
-}
-
-// githubData escapes a value for the message body of a github workflow
-// command. `%` is escaped first so later escapes are not re-escaped.
-func githubData(s string) string {
-	s = strings.ReplaceAll(s, "%", "%25")
-	s = strings.ReplaceAll(s, "\r", "%0D")
-	s = strings.ReplaceAll(s, "\n", "%0A")
-	return s
-}
-
-// githubProp escapes a value used as a github workflow command property
-// (file=...). Properties additionally escape `:` and `,`.
-func githubProp(s string) string {
-	s = githubData(filepath.ToSlash(s))
-	s = strings.ReplaceAll(s, ":", "%3A")
-	s = strings.ReplaceAll(s, ",", "%2C")
-	return s
 }
 
 // resolveGitignore picks the effective gitignore mode: the --gitignore

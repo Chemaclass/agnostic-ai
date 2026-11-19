@@ -471,3 +471,12 @@ func TestServer_OversizedContentLengthEndsWithError(t *testing.T) {
 		t.Fatalf("Run error = %v, want limit error", err)
 	}
 }
+
+func TestServer_StreamClosedBeforeBodyEndsWithError(t *testing.T) {
+	t.Parallel()
+	in := "Content-Length: 10\r\n\r\n"
+	err := New(strings.NewReader(in), io.Discard, nil).Run()
+	if err == nil || !strings.Contains(err.Error(), "read body") {
+		t.Fatalf("Run error = %v, want read body error", err)
+	}
+}

@@ -97,16 +97,15 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 			continue
 		}
 		seen[path] = true
-		actual, err := deps.run(path, "", []string{"--version"}, io.Discard)
-		fields := strings.Fields(actual)
+		reported, actual, err := reportedCLIVersion(deps.run, path)
 		if err != nil {
 			ranBroken = true
 		}
-		if err == nil && len(fields) > 0 && info.Version != "" && !versionsEqual(version, info.Version) && versionsEqual(fields[len(fields)-1], info.Version) {
+		if err == nil && reported != "" && info.Version != "" && !versionsEqual(version, info.Version) && versionsEqual(reported, info.Version) {
 			stillOld = true
 		}
 		if err == nil {
-			if len(fields) == 0 || (version != "" && !versionsEqual(fields[len(fields)-1], version)) || (version == "" && versionsEqual(fields[len(fields)-1], info.Version)) {
+			if reported == "" || (version != "" && !versionsEqual(reported, version)) || (version == "" && versionsEqual(reported, info.Version)) {
 				err = fmt.Errorf("%s reports %q, expected updated CLI %s", path, strings.TrimSpace(actual), version)
 			}
 		}
@@ -119,7 +118,7 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 			if err != nil {
 				return err
 			}
-			if !found || versionsEqual(builtFor, fields[len(fields)-1]) {
+			if !found || versionsEqual(builtFor, reported) {
 				return nil
 			}
 		}
