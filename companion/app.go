@@ -82,7 +82,7 @@ func latestCompanionRelease(ctx context.Context, client *http.Client, url, curre
 	if err != nil {
 		return "", fmt.Errorf("check for companion updates: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("check for companion updates: GitHub returned %s", response.Status)
 	}
@@ -192,7 +192,7 @@ func (c *appCommands) update(next string) {
 		c.inform("Update failed", fmt.Sprintf("%s: %v", path, err))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	// The updater must survive the companion ending while it replaces the app.
 	command := exec.Command(c.command, "companion", "update-app", "--app", c.app, "--version", next)
 	command.Stdout, command.Stderr = file, file

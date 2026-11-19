@@ -106,7 +106,7 @@ type server struct {
 
 var errResting = errors.New("the companion is quitting and asks agnostic-ai nothing")
 
-var errMismatchedAgnosticAI = errors.New("The installed agnostic-ai does not match this companion. Run: agnostic-ai upgrade, then agnostic-ai companion install")
+var errMismatchedAgnosticAI = errors.New("The installed agnostic-ai does not match this companion. Run: agnostic-ai upgrade, then agnostic-ai companion install") //nolint:staticcheck // shown to the user as a full sentence; server_test.go pins the text
 
 func newServer() *server {
 	// Each call sets its own time limit; see callWithin.

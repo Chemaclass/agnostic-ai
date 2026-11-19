@@ -458,6 +458,13 @@ jobs:
         shell: bash
         run: go vet . && go test -count=1 .
 
+      # Each system lints the files behind its own build tags.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
+          working-directory: companion
+
       - name: Build the release archives
         if: runner.os == 'macOS'
         run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
