@@ -22,6 +22,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
+- In the companion list, Enter on a focused button, such as Settings, Home, the search's clear button or Local, runs only that button instead of also opening the selected chat. While the settings menu is open, the arrow keys and Enter leave the list behind it alone, and Esc gives the keys back to the search (#3708).
+- The companion search field takes at most 200 characters, the most `serve` searches for, instead of emptying the list on a longer paste. `serve` now says "the search is longer than 200 characters" instead of naming the `q` parameter (#3708).
+- The companion refuses shortcuts every app uses, such as Cmd+C, Cmd+Q, Ctrl+C or Ctrl+Tab, with a message, and keeps the old shortcut (#3708).
 - `agnostic-ai companion update-app` names a refused `--version` and asks for X.Y.Z. Its `--help` says it quits and restarts the companion, and both `update-app` and `install-command` show an example (#3708).
 - On macOS, the CLI opens the companion as its own app so macOS uses the app’s permissions when it controls a terminal (#3601).
 - Claude Code conversations skip named pipes posing as transcripts, which could freeze the companion list (#3601).

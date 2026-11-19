@@ -172,6 +172,13 @@ test('pages a search by time, newest first, and refuses a before that is not one
   assert.equal((await fetch(preview.url + '/api/inbox?q=the&before=')).status, 200)
 })
 
+test('refuses a search longer than serve takes, as serve does', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  assert.equal((await inbox(preview.url, 'é'.repeat(200))).status, 200)
+  assert.deepEqual(await inbox(preview.url, 'a'.repeat(201)), { status: 400, body: { error: 'the search is longer than 200 characters' } })
+})
+
 test('refuses a request that names another host', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)

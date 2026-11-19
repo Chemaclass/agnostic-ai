@@ -93,6 +93,9 @@ function viewOf(state, conversations, query, all = conversations) {
   return view
 }
 
+/** The longest search serve takes, in characters. */
+const MAX_QUERY = 200
+
 /** A time as the server writes and reads it: RFC 3339. */
 const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
 
@@ -197,6 +200,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const before = url.searchParams.get('before') || undefined
     if (before !== undefined && (!RFC3339.test(before) || Number.isNaN(Date.parse(before)))) return sendJSON(response, 400, { error: 'before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page' })
     const query = url.searchParams.get('q')
+    if (query && [...query].length > MAX_QUERY) return sendJSON(response, 400, { error: `the search is longer than ${MAX_QUERY} characters` })
     const note = state.fixture.note
     const version = state.version
     if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note, version })
