@@ -55,191 +55,275 @@ type globalHooksMerge struct {
 }
 
 func mergeGlobalHooksData(path, format string, target globalHookTarget, entries []spec.Entry, previous, next map[string][]any, created []string, legacy bool, merge *globalHooksMerge, warn io.Writer) ([]byte, error) {
-	doc := map[string]any{}
-	before := map[string]any{}
-	ordered := adapters.NewOrderedJSON()
-	data, err := os.ReadFile(path)
-	absent := os.IsNotExist(err)
-	merge.read = &diskSnapshot{data: data, absent: absent}
-	owns := func(token string) bool { return legacy || slices.Contains(created, token) }
-	made := slices.Clone(created)
-	mark := func(token string) {
-		if !slices.Contains(made, token) {
-			made = append(made, token)
-		}
+	f, err := readGlobalHooksFile(path, format, previous, created, legacy, merge)
+	if err != nil {
+		return nil, err
 	}
-	// Version 5 state treated every empty container as sync's, which
-	// holds only for a file that already carried its hooks.
-	legacy = legacy && len(previous) > 0
-	if legacy {
-		for _, token := range []string{"<file>", "hooks", "env", "version"} {
-			mark(token)
-		}
-		for event := range previous {
-			mark("hooks." + event)
-		}
-	}
-	if absent {
-		mark("<file>")
-	}
-	if err == nil {
-		// The text edit keeps comments, so only the parse drops them.
-		stripped, _ := adapters.StripJSONC(data)
-		if err := json.Unmarshal(stripped, &doc); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, err)
-		}
-		if err := json.Unmarshal(stripped, &before); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, err)
-		}
-		if err := json.Unmarshal(stripped, ordered); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, err)
-		}
-	} else if !absent {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	if format == "copilot" && !absent && doc["version"] != float64(1) {
+	if format == "copilot" && !f.absent && f.doc["version"] != float64(1) {
 		return nil, fmt.Errorf("%s: Copilot user hooks require integer version 1", path)
 	}
 	// Nothing managed, nothing previously managed, no file: leave the
 	// user's home directory untouched rather than seeding an empty one.
-	if absent && len(entries) == 0 && len(previous) == 0 {
+	if f.absent && len(entries) == 0 && len(previous) == 0 {
 		return nil, nil
 	}
-	rawHooks, hadHooks := doc["hooks"]
-	hooks, _ := rawHooks.(map[string]any)
-	if hooks == nil {
-		hooks = map[string]any{}
+	f.target, f.next, f.warn = target, next, warn
+	f.rawHooks, f.hadHooks = f.doc["hooks"]
+	f.hooks, _ = f.rawHooks.(map[string]any)
+	if f.hooks == nil {
+		f.hooks = map[string]any{}
 	}
-	// planned holds each entry as sync writes it now, one per command.
-	type plannedHook struct {
-		event       string
-		item, plain any
-		spec        bool
+	planned, err := f.plannedHooks(entries)
+	if err != nil {
+		return nil, err
 	}
-	var planned []plannedHook
+	if err := f.reconcilePrevious(previous, planned); err != nil {
+		return nil, err
+	}
+	told, err := f.placeHooks(planned)
+	if err != nil {
+		return nil, err
+	}
+	restore := f.settleContainers(told, merge)
+	// Nothing of ours left and nothing of the user's either: drop a file
+	// sync created rather than leave a shell behind.
+	if len(f.doc) == 0 && f.absent {
+		merge.created = nil
+		return nil, nil
+	}
+	if !f.absent {
+		return f.rewriteExisting(restore, merge)
+	}
+	return f.writeNew(told)
+}
+
+// plannedGlobalHook is one entry as sync writes it now, one per command.
+type plannedGlobalHook struct {
+	event       string
+	item, plain any
+	spec        bool
+}
+
+// globalHooksFile is a hooks file as one merge reads and edits it.
+type globalHooksFile struct {
+	path, format string
+	target       globalHookTarget
+	data         []byte
+	absent       bool
+	// doc is the file the merge edits; before is the file as read.
+	doc, before map[string]any
+	ordered     *adapters.OrderedJSON
+	rawHooks    any
+	hadHooks    bool
+	hooks       map[string]any
+	// created is what the state records sync made; made grows with what
+	// this merge makes.
+	created, made []string
+	legacy        bool
+	// next collects the managed entries this merge writes, per event.
+	next map[string][]any
+	warn io.Writer
+}
+
+func (f *globalHooksFile) owns(token string) bool {
+	return f.legacy || slices.Contains(f.created, token)
+}
+
+func (f *globalHooksFile) mark(token string) {
+	if !slices.Contains(f.made, token) {
+		f.made = append(f.made, token)
+	}
+}
+
+// readGlobalHooksFile reads and parses the hooks file at path.
+func readGlobalHooksFile(path, format string, previous map[string][]any, created []string, legacy bool, merge *globalHooksMerge) (*globalHooksFile, error) {
+	f := &globalHooksFile{path: path, format: format, doc: map[string]any{}, before: map[string]any{}, ordered: adapters.NewOrderedJSON(), created: created, made: slices.Clone(created)}
+	data, err := os.ReadFile(path)
+	f.data, f.absent = data, os.IsNotExist(err)
+	merge.read = &diskSnapshot{data: data, absent: f.absent}
+	// Version 5 state treated every empty container as sync's, which
+	// holds only for a file that already carried its hooks.
+	f.legacy = legacy && len(previous) > 0
+	if f.legacy {
+		for _, token := range []string{"<file>", "hooks", "env", "version"} {
+			f.mark(token)
+		}
+		for event := range previous {
+			f.mark("hooks." + event)
+		}
+	}
+	if f.absent {
+		f.mark("<file>")
+	}
+	if err == nil {
+		// The text edit keeps comments, so only the parse drops them.
+		stripped, _ := adapters.StripJSONC(data)
+		if err := json.Unmarshal(stripped, &f.doc); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if err := json.Unmarshal(stripped, &f.before); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if err := json.Unmarshal(stripped, f.ordered); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+	} else if !f.absent {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	return f, nil
+}
+
+// plannedHooks renders each entry in the file's native form.
+func (f *globalHooksFile) plannedHooks(entries []spec.Entry) ([]plannedGlobalHook, error) {
+	var planned []plannedGlobalHook
 	var claudeHooks []spec.Entry
 	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
-		if event == "" || format == "augment" && !slices.Contains(augment.HookEvents(), event) {
+		if event == "" || f.format == "augment" && !slices.Contains(augment.HookEvents(), event) {
 			continue
 		}
-		if format == "copilot" {
-			native, err := globalCopilotHookEntries(entry, target.scriptsDir)
+		fromSpec := i < f.target.specHooks
+		if f.format == "copilot" {
+			items, err := f.plannedCopilotHooks(entry, event, fromSpec)
 			if err != nil {
-				return nil, fmt.Errorf("render %s hooks: %w", path, err)
+				return nil, err
 			}
-			for _, item := range native[event] {
-				plain := jsonRoundTrip(item)
-				dropHookTargetEnv(plain.(map[string]any), "copilot")
-				adopted, err := adoptGlobalCopilotHook(path, event, item, plain, entry.Meta)
-				if err != nil {
-					return nil, err
-				}
-				if !adopted {
-					planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
-				}
-			}
+			planned = append(planned, items...)
 			continue
 		}
 		args := stringSliceFromAny(entry.Meta["args"])
-		wraps := entry.WrapsCommand(target.name)
+		wraps := entry.WrapsCommand(f.target.name)
 		commands := globalHookCommands(entry.Meta["command"])
-		if target.name == "claude" && len(commands) > 0 {
+		if f.target.name == "claude" && len(commands) > 0 {
 			hook := entry
 			hook.Meta = maps.Clone(entry.Meta)
 			hook.Meta["type"] = "command"
 			claudeHooks = append(claudeHooks, hook)
 		}
 		for _, command := range commands {
-			source := command
-			rewrite := func(command string, meta ...map[string]any) string {
-				if target.scriptsDir != "" {
-					return adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), meta...)
-				}
-				return adapters.RewriteGlobalHookRoot(command, target.name, meta...)
-			}
-			command = rewrite(command, entry.Meta)
-			// The wrapper runs a command line, so args fold in first.
-			if wraps {
-				command = adapters.PortableHookCommand(entry, target.name, adapters.ExecFormCommand(command, args), func(path string) string { return rewrite(path) })
-			}
-			var item, plain any
-			switch format {
-			case "augment":
-				// Augment documents type, command, args, and timeout (ms)
-				// on a hook, and a matcher only on tool events. Without
-				// args, Auggie hands the command to cmd.exe on Windows.
-				if target.goos == "windows" && len(args) == 0 && !wraps && target.scriptsDir != "" {
-					command = adapters.RewriteGlobalHookRoot(adapters.RewriteGlobalWindowsHookPath(source, filepath.ToSlash(target.scriptsDir)), target.name, entry.Meta)
-				}
-				commandHook := map[string]any{"type": "command", "command": command}
-				if len(args) > 0 && !wraps {
-					commandHook["args"] = args
-				}
-				if timeout, ok := augment.HookTimeout(entry.Meta); ok {
-					commandHook["timeout"] = timeout
-				}
-				group := map[string]any{"hooks": []any{commandHook}}
-				if matcher, _ := entry.Meta["matcher"].(string); matcher != "" && !augment.SessionOnlyEvent(event) {
-					group["matcher"] = matcher
-				}
-				item, plain = group, group
-				// An empty matcher means the same as none, so a hand-written
-				// `"matcher": ""` entry satisfies the spec.
-				if _, has := group["matcher"]; !has {
-					plain = map[string]any{"matcher": "", "hooks": []any{maps.Clone(commandHook)}}
-				}
-			case "claude":
-				commandHook := map[string]any{"type": "command", "command": command}
-				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
-					if value, ok := entry.Meta[key]; ok {
-						commandHook[key] = value
-					}
-				}
-				if target.name == "claude" && metaTrue(entry.Meta["failClosed"]) {
-					commandHook["onFailure"] = "block"
-				}
-				if len(args) > 0 && !wraps {
-					switch {
-					case target.args:
-						commandHook["args"] = args
-					case target.foldArgs:
-						commandHook["command"] = adapters.ExecFormCommand(command, args)
-					}
-				}
-				if target.timeout != nil {
-					delete(commandHook, "timeout")
-					if timeout, ok := target.timeout(entry.Meta); ok {
-						commandHook["timeout"] = timeout
-					}
-				}
-				matcher, _ := entry.Meta["matcher"].(string)
-				plain = map[string]any{"matcher": matcher, "hooks": []any{maps.Clone(commandHook)}}
-				target.tell(commandHook, entry.Meta)
-				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
-			default:
-				if target.foldArgs && !wraps {
-					command = adapters.ExecFormCommand(command, args)
-				}
-				cursorHook := map[string]any{"command": command}
-				for _, key := range []string{"matcher", "timeout", "loop_limit", "failClosed"} {
-					if value, ok := entry.Meta[key]; ok {
-						cursorHook[key] = value
-					}
-				}
-				item, plain = cursorHook, cursorHook
-			}
-			planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
+			item, plain := f.nativeHook(entry, event, command, args, wraps)
+			planned = append(planned, plannedGlobalHook{event: event, item: item, plain: plain, spec: fromSpec})
 		}
 	}
 	claude.NoteFailClosedNoOps(claudeHooks)
 	claude.NoteHookEventNoOps(claudeHooks)
+	return planned, nil
+}
+
+func (f *globalHooksFile) plannedCopilotHooks(entry spec.Entry, event string, fromSpec bool) ([]plannedGlobalHook, error) {
+	native, err := globalCopilotHookEntries(entry, f.target.scriptsDir)
+	if err != nil {
+		return nil, fmt.Errorf("render %s hooks: %w", f.path, err)
+	}
+	var planned []plannedGlobalHook
+	for _, item := range native[event] {
+		plain := jsonRoundTrip(item)
+		dropHookTargetEnv(plain.(map[string]any), "copilot")
+		adopted, err := adoptGlobalCopilotHook(f.path, event, item, plain, entry.Meta)
+		if err != nil {
+			return nil, err
+		}
+		if !adopted {
+			planned = append(planned, plannedGlobalHook{event: event, item: item, plain: plain, spec: fromSpec})
+		}
+	}
+	return planned, nil
+}
+
+// nativeHook renders one command of entry as the file's format writes it,
+// and plain, the same entry without the target signal.
+func (f *globalHooksFile) nativeHook(entry spec.Entry, event, command string, args []string, wraps bool) (item, plain any) {
+	target := f.target
+	source := command
+	rewrite := func(command string, meta ...map[string]any) string {
+		if target.scriptsDir != "" {
+			return adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), meta...)
+		}
+		return adapters.RewriteGlobalHookRoot(command, target.name, meta...)
+	}
+	command = rewrite(command, entry.Meta)
+	// The wrapper runs a command line, so args fold in first.
+	if wraps {
+		command = adapters.PortableHookCommand(entry, target.name, adapters.ExecFormCommand(command, args), func(path string) string { return rewrite(path) })
+	}
+	switch f.format {
+	case "augment":
+		// Augment documents type, command, args, and timeout (ms)
+		// on a hook, and a matcher only on tool events. Without
+		// args, Auggie hands the command to cmd.exe on Windows.
+		if target.goos == "windows" && len(args) == 0 && !wraps && target.scriptsDir != "" {
+			command = adapters.RewriteGlobalHookRoot(adapters.RewriteGlobalWindowsHookPath(source, filepath.ToSlash(target.scriptsDir)), target.name, entry.Meta)
+		}
+		commandHook := map[string]any{"type": "command", "command": command}
+		if len(args) > 0 && !wraps {
+			commandHook["args"] = args
+		}
+		if timeout, ok := augment.HookTimeout(entry.Meta); ok {
+			commandHook["timeout"] = timeout
+		}
+		group := map[string]any{"hooks": []any{commandHook}}
+		if matcher, _ := entry.Meta["matcher"].(string); matcher != "" && !augment.SessionOnlyEvent(event) {
+			group["matcher"] = matcher
+		}
+		item, plain = group, group
+		// An empty matcher means the same as none, so a hand-written
+		// `"matcher": ""` entry satisfies the spec.
+		if _, has := group["matcher"]; !has {
+			plain = map[string]any{"matcher": "", "hooks": []any{maps.Clone(commandHook)}}
+		}
+	case "claude":
+		commandHook := map[string]any{"type": "command", "command": command}
+		for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
+			if value, ok := entry.Meta[key]; ok {
+				commandHook[key] = value
+			}
+		}
+		if target.name == "claude" && metaTrue(entry.Meta["failClosed"]) {
+			commandHook["onFailure"] = "block"
+		}
+		if len(args) > 0 && !wraps {
+			switch {
+			case target.args:
+				commandHook["args"] = args
+			case target.foldArgs:
+				commandHook["command"] = adapters.ExecFormCommand(command, args)
+			}
+		}
+		if target.timeout != nil {
+			delete(commandHook, "timeout")
+			if timeout, ok := target.timeout(entry.Meta); ok {
+				commandHook["timeout"] = timeout
+			}
+		}
+		matcher, _ := entry.Meta["matcher"].(string)
+		plain = map[string]any{"matcher": matcher, "hooks": []any{maps.Clone(commandHook)}}
+		target.tell(commandHook, entry.Meta)
+		item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
+	default:
+		if target.foldArgs && !wraps {
+			command = adapters.ExecFormCommand(command, args)
+		}
+		cursorHook := map[string]any{"command": command}
+		for _, key := range []string{"matcher", "timeout", "loop_limit", "failClosed"} {
+			if value, ok := entry.Meta[key]; ok {
+				cursorHook[key] = value
+			}
+		}
+		item, plain = cursorHook, cursorHook
+	}
+	return item, plain
+}
+
+// reconcilePrevious takes out of the file each entry the last sync
+// recorded, warning about one that is gone and stopping on one edited
+// by hand.
+func (f *globalHooksFile) reconcilePrevious(previous map[string][]any, planned []plannedGlobalHook) error {
 	// writesNow reports that an edited copy of a recorded entry is what
 	// sync writes now. The form without the target signal counts only
 	// for a record that lacked it too, as versions before it wrote:
 	// removing the signal from a record that had it is an edit.
 	writesNow := func(event string, existing, recorded any) bool {
-		return slices.ContainsFunc(planned, func(p plannedHook) bool {
+		return slices.ContainsFunc(planned, func(p plannedGlobalHook) bool {
 			if p.event != event {
 				return false
 			}
@@ -247,6 +331,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 				(!carriesHookTarget(recorded) && reflect.DeepEqual(existing, jsonRoundTrip(p.plain)))
 		})
 	}
+	hooks := f.hooks
 	for _, event := range slices.Sorted(maps.Keys(previous)) {
 		current, _ := hooks[event].([]any)
 		var lost []any
@@ -270,21 +355,21 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			case writesNow(event, current[edited], oldEntry):
 				current = slices.Delete(current, edited, edited+1)
 			default:
-				return nil, fmt.Errorf("%s: managed %s hook was edited; restore it or remove it, then sync", path, event)
+				return fmt.Errorf("%s: managed %s hook was edited; restore it or remove it, then sync", f.path, event)
 			}
 		}
 		lost = stillLost
 		if len(lost) > 0 {
-			if _, err := fmt.Fprintf(warn, "warning: %s: managed %s hook is missing, so it counts as removed\n", path, event); err != nil {
-				return nil, fmt.Errorf("write global hook warning: %w", err)
+			if _, err := fmt.Fprintf(f.warn, "warning: %s: managed %s hook is missing, so it counts as removed\n", f.path, event); err != nil {
+				return fmt.Errorf("write global hook warning: %w", err)
 			}
 		}
 		switch {
 		case len(current) > 0:
 			hooks[event] = current
-		case owns("hooks." + event):
+		case f.owns("hooks." + event):
 			delete(hooks, event)
-		case owns("hooks." + event + "=null"):
+		case f.owns("hooks." + event + "=null"):
 			hooks[event] = nil
 		default:
 			if _, isList := hooks[event].([]any); isList {
@@ -292,6 +377,16 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			}
 		}
 	}
+	return nil
+}
+
+// placeHooks adds each planned entry to the file. told reports that a
+// spec hook is in the file, written by sync or by the user, so the target
+// signal outside the entries (settings env, session hook) is due. An
+// adopted entry keeps its own form, so a codex, gemini, or qoder hook the
+// user wrote gets no signal.
+func (f *globalHooksFile) placeHooks(planned []plannedGlobalHook) (told bool, err error) {
+	hooks := f.hooks
 	unrecorded := map[string][]any{}
 	for event, items := range hooks {
 		current, _ := items.([]any)
@@ -309,75 +404,78 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			}
 		}
 		if slices.ContainsFunc(unrecorded[event], func(existing any) bool {
-			return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) || (format == "copilot" && sameGlobalCopilotHandler(existing, item))
+			return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) || (f.format == "copilot" && sameGlobalCopilotHandler(existing, item))
 		}) {
-			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
+			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", f.path, event)
 		}
 		if value, ok := hooks[event]; !ok {
-			mark("hooks." + event)
+			f.mark("hooks." + event)
 		} else if value == nil {
-			mark("hooks." + event + "=null")
+			f.mark("hooks." + event + "=null")
 		}
 		current, _ := hooks[event].([]any)
 		hooks[event] = append(current, item)
-		next[event] = append(next[event], item)
+		f.next[event] = append(f.next[event], item)
 		return nil
 	}
-	// told reports that a spec hook is in the file, written by sync or
-	// by the user, so the target signal outside the entries (settings
-	// env, session hook) is due. An adopted entry keeps its own form,
-	// so a codex, gemini, or qoder hook the user wrote gets no signal.
-	told := false
 	for _, p := range planned {
 		if err := place(p.event, p.item, p.plain); err != nil {
-			return nil, err
+			return false, err
 		}
 		told = told || p.spec
 	}
-	if target.mode == hookTargetSessionEnv && told {
+	if f.target.mode == hookTargetSessionEnv && told {
 		item := map[string]any{"command": cursor.HookTargetCommand}
 		if err := place(cursor.HookTargetEvent, item, item); err != nil {
-			return nil, err
+			return false, err
 		}
 	}
-	keepGlobalContainer(doc, "hooks", rawHooks, hadHooks, hooks, owns, mark)
-	if target.mode == hookTargetSettingsEnv {
-		target.setSettingsEnv(doc, told, owns, mark)
+	return told, nil
+}
+
+// settleContainers keeps or drops the containers around the hooks and
+// records in merge what of the file sync created. It returns the inside
+// each emptied container the user wrote gets back.
+func (f *globalHooksFile) settleContainers(told bool, merge *globalHooksMerge) map[string]string {
+	doc, hooks := f.doc, f.hooks
+	keepGlobalContainer(doc, "hooks", f.rawHooks, f.hadHooks, hooks, f.owns, f.mark)
+	if f.target.mode == hookTargetSettingsEnv {
+		f.target.setSettingsEnv(doc, told, f.owns, f.mark)
 	}
 	// Cursor's schema version goes with the last managed hook when sync
 	// added it.
-	if format == "cursor" || format == "copilot" {
+	if f.format == "cursor" || f.format == "copilot" {
 		_, hasVersion := doc["version"]
 		switch {
-		case len(next) > 0:
+		case len(f.next) > 0:
 			if !hasVersion {
-				mark("version")
+				f.mark("version")
 			}
 			doc["version"] = float64(1)
-		case hasVersion && owns("version") && (format != "copilot" || len(hooks) == 0):
+		case hasVersion && f.owns("version") && (f.format != "copilot" || len(hooks) == 0):
 			delete(doc, "version")
 		}
 	}
 	// An empty container the user wrote gets back its own inside, such
 	// as a line break, once sync's entries leave it: the text alone
 	// cannot tell that break from the one an insert adds.
-	for _, key := range globalHookContainerKeys(before) {
-		was, _ := globalHookContainer(before, key)
+	for _, key := range globalHookContainerKeys(f.before) {
+		was, _ := globalHookContainer(f.before, key)
 		now, _ := globalHookContainer(doc, key)
 		if emptyJSONContainer(was) && !emptyJSONContainer(now) && now != nil {
-			if inner, ok := jsonContainerInner(string(data), key); ok {
-				mark(globalInnerToken(key, inner))
+			if inner, ok := jsonContainerInner(string(f.data), key); ok {
+				f.mark(globalInnerToken(key, inner))
 			}
 		}
 	}
 	restore := map[string]string{}
-	for _, token := range made {
+	for _, token := range f.made {
 		key, inner, ok := parseGlobalInnerToken(token)
 		if now, present := globalHookContainer(doc, key); ok && present && emptyJSONContainer(now) {
 			restore[key] = inner
 		}
 	}
-	merge.created = slices.DeleteFunc(made, func(token string) bool {
+	merge.created = slices.DeleteFunc(f.made, func(token string) bool {
 		if key, _, ok := parseGlobalInnerToken(token); ok {
 			now, present := globalHookContainer(doc, key)
 			return !present || emptyJSONContainer(now)
@@ -397,69 +495,71 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	slices.Sort(merge.created)
 	// With no managed hook and no container of sync's left, what remains
 	// is the user's, file included.
-	if len(next) == 0 && slices.Equal(merge.created, []string{"<file>"}) {
+	if len(f.next) == 0 && slices.Equal(merge.created, []string{"<file>"}) {
 		merge.created = nil
 	}
-	// Nothing of ours left and nothing of the user's either: drop a file
-	// sync created rather than leave a shell behind.
-	if len(doc) == 0 && absent {
+	return restore
+}
+
+// rewriteExisting edits the file's text in place, or reports it unchanged.
+func (f *globalHooksFile) rewriteExisting(restore map[string]string, merge *globalHooksMerge) ([]byte, error) {
+	// Round-trip so spec integers compare equal to decoded JSON numbers.
+	raw, err := json.Marshal(f.doc)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", f.path, err)
+	}
+	var merged map[string]any
+	if err := json.Unmarshal(raw, &merged); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", f.path, err)
+	}
+	out := f.data
+	if !reflect.DeepEqual(merged, f.before) {
+		if out, err = editGlobalHooksText(f.path, f.data, f.before, merged, restore); err != nil {
+			return nil, err
+		}
+	}
+	// A comment left after the edit is the user's, so it keeps the
+	// file; one inside what the edit removed went with it.
+	if _, commented := adapters.StripJSONC(out); len(f.doc) == 0 && f.owns("<file>") && !commented {
 		merge.created = nil
 		return nil, nil
 	}
-	if !absent {
-		// Round-trip so spec integers compare equal to decoded JSON numbers.
-		raw, err := json.Marshal(doc)
-		if err != nil {
-			return nil, fmt.Errorf("marshal %s: %w", path, err)
-		}
-		var merged map[string]any
-		if err := json.Unmarshal(raw, &merged); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, err)
-		}
-		out := data
-		if !reflect.DeepEqual(merged, before) {
-			if out, err = editGlobalHooksText(path, data, before, merged, restore); err != nil {
-				return nil, err
-			}
-		}
-		// A comment left after the edit is the user's, so it keeps the
-		// file; one inside what the edit removed went with it.
-		if _, commented := adapters.StripJSONC(out); len(doc) == 0 && owns("<file>") && !commented {
-			merge.created = nil
-			return nil, nil
-		}
-		if reflect.DeepEqual(merged, before) {
-			return nil, errGlobalFileUnchanged
-		}
-		return out, nil
+	if reflect.DeepEqual(merged, f.before) {
+		return nil, errGlobalFileUnchanged
 	}
+	return out, nil
+}
+
+// writeNew encodes a file sync creates.
+func (f *globalHooksFile) writeNew(told bool) ([]byte, error) {
+	ordered := f.ordered
 	for _, key := range []string{"version", "hooks"} {
-		value, ok := doc[key]
+		value, ok := f.doc[key]
 		if !ok {
 			ordered.Delete(key)
 			continue
 		}
 		if key == "hooks" {
 			original, _ := ordered.Get("hooks")
-			raw, err := orderedHooksRaw(original, hooks)
+			raw, err := orderedHooksRaw(original, f.hooks)
 			if err != nil {
-				return nil, fmt.Errorf("marshal %s: %w", path, err)
+				return nil, fmt.Errorf("marshal %s: %w", f.path, err)
 			}
 			ordered.SetRaw("hooks", raw)
 			continue
 		}
 		if err := ordered.Set(key, value); err != nil {
-			return nil, fmt.Errorf("marshal %s: %w", path, err)
+			return nil, fmt.Errorf("marshal %s: %w", f.path, err)
 		}
 	}
-	if target.mode == hookTargetSettingsEnv {
-		if err := adapters.SetHookTargetEnv(ordered, target.name, told); err != nil {
-			return nil, fmt.Errorf("%s: %w", path, err)
+	if f.target.mode == hookTargetSettingsEnv {
+		if err := adapters.SetHookTargetEnv(ordered, f.target.name, told); err != nil {
+			return nil, fmt.Errorf("%s: %w", f.path, err)
 		}
 	}
-	out, err := adapters.MarshalJSONIndentWith(ordered, adapters.DetectJSONIndent(data))
+	out, err := adapters.MarshalJSONIndentWith(ordered, adapters.DetectJSONIndent(f.data))
 	if err != nil {
-		return nil, fmt.Errorf("marshal %s: %w", path, err)
+		return nil, fmt.Errorf("marshal %s: %w", f.path, err)
 	}
 	return append(out, '\n'), nil
 }

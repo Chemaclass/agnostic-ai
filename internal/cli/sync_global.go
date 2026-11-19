@@ -579,42 +579,6 @@ func globalBlock(data []byte) string {
 	return body
 }
 
-// handEditedGlobalFiles lists owned files whose content no longer
-// matches what the last sync wrote and that this run would overwrite or
-// remove. A file whose record predates sums is never listed.
-func handEditedGlobalFiles(writes []globalWrite, removals []string, old globalState) ([]string, error) {
-	var edited []string
-	check := func(path string, planned []byte) error {
-		recorded, ok := old.Sums[path]
-		if !ok {
-			return nil
-		}
-		data, err := os.ReadFile(path)
-		if os.IsNotExist(err) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
-		}
-		current := globalSum(data)
-		if current != recorded && (planned == nil || current != globalSum(planned)) {
-			edited = append(edited, path)
-		}
-		return nil
-	}
-	for _, w := range writes {
-		if err := check(w.path, w.data); err != nil {
-			return nil, err
-		}
-	}
-	for _, path := range removals {
-		if err := check(path, nil); err != nil {
-			return nil, err
-		}
-	}
-	return edited, nil
-}
-
 func sharedGlobalSkillsDir(home, dir string) bool {
 	readers := 0
 	for _, target := range globalTargets {

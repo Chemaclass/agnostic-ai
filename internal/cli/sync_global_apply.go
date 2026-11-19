@@ -182,193 +182,208 @@ func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data 
 // on the first failure. It returns a note for each symlink it wrote
 // through or removed.
 func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, guards map[string]*diskSnapshot) (linked []string, err error) {
-	type prior struct {
-		path   string
-		data   []byte
-		mode   fs.FileMode
-		absent bool
-		// link is the text of a symlink removed at path.
-		link string
-	}
-	var done []prior
-	rollback := func() {
-		for i := len(done) - 1; i >= 0; i-- {
-			p := done[i]
-			if p.link != "" {
-				_ = os.Symlink(p.link, p.path)
-				continue
-			}
-			if p.absent {
-				_ = os.Remove(p.path)
-			} else {
-				_ = os.WriteFile(p.path, p.data, p.mode)
-				_ = os.Chmod(p.path, p.mode.Perm())
-			}
-		}
-	}
-	keepBackup := func(path string, data []byte, mode fs.FileMode) error {
-		bak := path + ".bak"
-		if info, err := os.Lstat(bak); err == nil && !info.Mode().IsRegular() {
-			return fmt.Errorf("backup %s: %s is not a regular file; move it aside and rerun", path, bak)
-		}
-		old, err := os.ReadFile(bak)
-		absent := os.IsNotExist(err)
-		if err != nil && !absent {
-			return fmt.Errorf("backup %s: %w", path, err)
-		}
-		oldMode := mode
-		if info, err := os.Stat(bak); err == nil {
-			oldMode = info.Mode()
-		}
-		done = append(done, prior{path: bak, data: old, mode: oldMode, absent: absent})
-		if err := os.WriteFile(bak, data, mode.Perm()); err != nil {
-			return fmt.Errorf("backup %s: %w", path, err)
-		}
-		// An existing .bak keeps its own mode on write; the copy of a
-		// private file must be private too.
-		if err := os.Chmod(bak, mode.Perm()); err != nil {
-			return fmt.Errorf("backup %s: %w", path, err)
-		}
-		return nil
-	}
+	a := &globalApply{backup: backup, guards: guards}
 	for _, w := range writes {
-		old, err := os.ReadFile(w.path)
-		absent := os.IsNotExist(err)
-		if err != nil && !absent {
-			rollback()
-			return nil, fmt.Errorf("read %s: %w", w.path, err)
-		}
-		if !absent && reflect.DeepEqual(old, w.data) {
-			continue
-		}
-		if w.planned != nil && (w.planned.absent != absent || !bytes.Equal(w.planned.data, old)) {
-			rollback()
-			return nil, fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", w.path)
-		}
-		mode := fs.FileMode(0o644)
-		if info, statErr := os.Stat(w.path); statErr == nil {
-			mode = info.Mode()
-		}
-		// Replace the file a symlink points at, so the link stays.
-		target := w.path
-		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			if target, err = filepath.EvalSymlinks(w.path); err != nil {
-				rollback()
-				return nil, fmt.Errorf("%s: broken symlink: %w", w.path, err)
-			}
-			linked = append(linked, "wrote through symlink "+w.path+" -> "+target)
-		}
-		done = append(done, prior{path: target, data: old, mode: mode, absent: absent})
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			rollback()
-			return nil, fmt.Errorf("create directory for %s: %w", w.path, err)
-		}
-		if backup && !absent {
-			if err := keepBackup(w.path, old, mode); err != nil {
-				rollback()
-				return nil, err
-			}
-		}
-		tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-global-*")
-		if err != nil {
-			rollback()
-			return nil, fmt.Errorf("create temporary file for %s: %w", w.path, err)
-		}
-		tmpName := tmp.Name()
-		// A user's own file, such as an MCP config holding API keys at
-		// 0600, keeps its permission bits.
-		perm := w.mode
-		if (!w.owned || w.keepMode) && !absent {
-			perm = mode.Perm()
-		}
-		writeErr := func() error {
-			defer func() { _ = os.Remove(tmpName) }()
-			if _, err := tmp.Write(w.data); err != nil {
-				return err
-			}
-			if err := tmp.Chmod(perm); err != nil {
-				return err
-			}
-			if err := tmp.Close(); err != nil {
-				return err
-			}
-			return os.Rename(tmpName, target)
-		}()
-		if writeErr != nil {
-			_ = tmp.Close()
-			rollback()
-			return nil, fmt.Errorf("write %s: %w", w.path, writeErr)
+		if err := a.write(w); err != nil {
+			a.rollback()
+			return nil, err
 		}
 	}
 	for _, path := range removals {
-		// Removing a file reached through a symlink removes the file the
-		// link points at, then the link, so no stale copy stays behind
-		// in a dotfiles repository.
-		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			text, err := os.Readlink(path)
-			if err != nil {
-				rollback()
-				return nil, fmt.Errorf("read symlink %s: %w", path, err)
-			}
-			if target, err := filepath.EvalSymlinks(path); err == nil {
-				data, readErr := os.ReadFile(target)
-				targetInfo, statErr := os.Stat(target)
-				if readErr != nil || statErr != nil {
-					rollback()
-					return nil, fmt.Errorf("read managed %s: %w", target, errors.Join(readErr, statErr))
-				}
-				if err := removalChangedSincePlan(guards, path, data); err != nil {
-					rollback()
-					return nil, err
-				}
-				if backup {
-					if err := keepBackup(path, data, targetInfo.Mode()); err != nil {
-						rollback()
-						return nil, err
-					}
-				}
-				done = append(done, prior{path: target, data: data, mode: targetInfo.Mode()})
-				if err := os.Remove(target); err != nil {
-					rollback()
-					return nil, fmt.Errorf("remove managed %s: %w", target, err)
-				}
-				linked = append(linked, "removed "+target+" and its symlink "+path)
-			}
-			done = append(done, prior{path: path, link: text})
-			if err := os.Remove(path); err != nil {
-				rollback()
-				return nil, fmt.Errorf("remove managed %s: %w", path, err)
-			}
-			continue
-		}
-		data, err := os.ReadFile(path)
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			rollback()
-			return nil, fmt.Errorf("read managed %s: %w", path, err)
-		}
-		if err := removalChangedSincePlan(guards, path, data); err != nil {
-			rollback()
+		if err := a.remove(path); err != nil {
+			a.rollback()
 			return nil, err
 		}
-		info, err := os.Stat(path)
-		if err != nil {
-			rollback()
-			return nil, fmt.Errorf("stat managed %s: %w", path, err)
+	}
+	return a.linked, nil
+}
+
+// globalApply is one run of applyGlobalChanges: what it changed so far,
+// so a failure can put it back.
+type globalApply struct {
+	backup bool
+	guards map[string]*diskSnapshot
+	done   []globalPrior
+	linked []string
+}
+
+// globalPrior is a path as it was before applyGlobalChanges changed it.
+type globalPrior struct {
+	path   string
+	data   []byte
+	mode   fs.FileMode
+	absent bool
+	// link is the text of a symlink removed at path.
+	link string
+}
+
+func (a *globalApply) rollback() {
+	for i := len(a.done) - 1; i >= 0; i-- {
+		p := a.done[i]
+		if p.link != "" {
+			_ = os.Symlink(p.link, p.path)
+			continue
 		}
-		if backup {
-			if err := keepBackup(path, data, info.Mode()); err != nil {
-				rollback()
-				return nil, err
-			}
-		}
-		done = append(done, prior{path: path, data: data, mode: info.Mode()})
-		if err := os.Remove(path); err != nil {
-			rollback()
-			return nil, fmt.Errorf("remove managed %s: %w", path, err)
+		if p.absent {
+			_ = os.Remove(p.path)
+		} else {
+			_ = os.WriteFile(p.path, p.data, p.mode)
+			_ = os.Chmod(p.path, p.mode.Perm())
 		}
 	}
-	return linked, nil
+}
+
+func (a *globalApply) keepBackup(path string, data []byte, mode fs.FileMode) error {
+	bak := path + ".bak"
+	if info, err := os.Lstat(bak); err == nil && !info.Mode().IsRegular() {
+		return fmt.Errorf("backup %s: %s is not a regular file; move it aside and rerun", path, bak)
+	}
+	old, err := os.ReadFile(bak)
+	absent := os.IsNotExist(err)
+	if err != nil && !absent {
+		return fmt.Errorf("backup %s: %w", path, err)
+	}
+	oldMode := mode
+	if info, err := os.Stat(bak); err == nil {
+		oldMode = info.Mode()
+	}
+	a.done = append(a.done, globalPrior{path: bak, data: old, mode: oldMode, absent: absent})
+	if err := os.WriteFile(bak, data, mode.Perm()); err != nil {
+		return fmt.Errorf("backup %s: %w", path, err)
+	}
+	// An existing .bak keeps its own mode on write; the copy of a
+	// private file must be private too.
+	if err := os.Chmod(bak, mode.Perm()); err != nil {
+		return fmt.Errorf("backup %s: %w", path, err)
+	}
+	return nil
+}
+
+func (a *globalApply) write(w globalWrite) error {
+	old, err := os.ReadFile(w.path)
+	absent := os.IsNotExist(err)
+	if err != nil && !absent {
+		return fmt.Errorf("read %s: %w", w.path, err)
+	}
+	if !absent && reflect.DeepEqual(old, w.data) {
+		return nil
+	}
+	if w.planned != nil && (w.planned.absent != absent || !bytes.Equal(w.planned.data, old)) {
+		return fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", w.path)
+	}
+	mode := fs.FileMode(0o644)
+	if info, statErr := os.Stat(w.path); statErr == nil {
+		mode = info.Mode()
+	}
+	// Replace the file a symlink points at, so the link stays.
+	target := w.path
+	if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if target, err = filepath.EvalSymlinks(w.path); err != nil {
+			return fmt.Errorf("%s: broken symlink: %w", w.path, err)
+		}
+		a.linked = append(a.linked, "wrote through symlink "+w.path+" -> "+target)
+	}
+	a.done = append(a.done, globalPrior{path: target, data: old, mode: mode, absent: absent})
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("create directory for %s: %w", w.path, err)
+	}
+	if a.backup && !absent {
+		if err := a.keepBackup(w.path, old, mode); err != nil {
+			return err
+		}
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-global-*")
+	if err != nil {
+		return fmt.Errorf("create temporary file for %s: %w", w.path, err)
+	}
+	tmpName := tmp.Name()
+	// A user's own file, such as an MCP config holding API keys at
+	// 0600, keeps its permission bits.
+	perm := w.mode
+	if (!w.owned || w.keepMode) && !absent {
+		perm = mode.Perm()
+	}
+	writeErr := func() error {
+		defer func() { _ = os.Remove(tmpName) }()
+		if _, err := tmp.Write(w.data); err != nil {
+			return err
+		}
+		if err := tmp.Chmod(perm); err != nil {
+			return err
+		}
+		if err := tmp.Close(); err != nil {
+			return err
+		}
+		return os.Rename(tmpName, target)
+	}()
+	if writeErr != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write %s: %w", w.path, writeErr)
+	}
+	return nil
+}
+
+func (a *globalApply) remove(path string) error {
+	// Removing a file reached through a symlink removes the file the
+	// link points at, then the link, so no stale copy stays behind
+	// in a dotfiles repository.
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return a.removeLink(path)
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read managed %s: %w", path, err)
+	}
+	if err := removalChangedSincePlan(a.guards, path, data); err != nil {
+		return err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat managed %s: %w", path, err)
+	}
+	if a.backup {
+		if err := a.keepBackup(path, data, info.Mode()); err != nil {
+			return err
+		}
+	}
+	a.done = append(a.done, globalPrior{path: path, data: data, mode: info.Mode()})
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("remove managed %s: %w", path, err)
+	}
+	return nil
+}
+
+func (a *globalApply) removeLink(path string) error {
+	text, err := os.Readlink(path)
+	if err != nil {
+		return fmt.Errorf("read symlink %s: %w", path, err)
+	}
+	if target, err := filepath.EvalSymlinks(path); err == nil {
+		data, readErr := os.ReadFile(target)
+		targetInfo, statErr := os.Stat(target)
+		if readErr != nil || statErr != nil {
+			return fmt.Errorf("read managed %s: %w", target, errors.Join(readErr, statErr))
+		}
+		if err := removalChangedSincePlan(a.guards, path, data); err != nil {
+			return err
+		}
+		if a.backup {
+			if err := a.keepBackup(path, data, targetInfo.Mode()); err != nil {
+				return err
+			}
+		}
+		a.done = append(a.done, globalPrior{path: target, data: data, mode: targetInfo.Mode()})
+		if err := os.Remove(target); err != nil {
+			return fmt.Errorf("remove managed %s: %w", target, err)
+		}
+		a.linked = append(a.linked, "removed "+target+" and its symlink "+path)
+	}
+	a.done = append(a.done, globalPrior{path: path, link: text})
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("remove managed %s: %w", path, err)
+	}
+	return nil
 }
