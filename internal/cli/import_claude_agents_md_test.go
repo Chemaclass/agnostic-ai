@@ -116,8 +116,8 @@ func TestImportFromClaude_CompanionOfAgentsMDFencesClaudeText(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Project\n\nRoot guidance.\n")
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# CLAUDE.md\n\n@AGENTS.md\n\n## Claude Code specifics\n\n- Use the Dashboard launch config.\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Project\n\nRoot guidance.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# CLAUDE.md\n\n@AGENTS.md\n\n## Claude Code specifics\n\n- Use the Dashboard launch config.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -144,8 +144,8 @@ func TestImportFromCodex_NoWarnForClaudeCompanion(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Project\n\nRoot guidance.\n")
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Project\n\nRoot guidance.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
 
 	if _, err := mirrorMainFile(dir, "AGENTS.md"); err != nil {
 		t.Fatal(err)
@@ -163,8 +163,8 @@ func syncFencedClaudeBlock(t *testing.T, source string) (string, *bytes.Buffer) 
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, agnosticMainFile), source)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, agnosticMainFile), source)
 	if err := runSync(t); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -209,9 +209,9 @@ func TestImportFromClaude_NoWarnRightAfterSyncWhenAgentsMDCarriesARule(t *testin
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, agnosticMainFile), source)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Style rule\n---\n\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, agnosticMainFile), source)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Style rule\n---\n\nUse tabs.\n")
 	if err := runSync(t); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestImportFromClaude_WarnsWhenCompanionClaudeTextEdited(t *testing.T) {
 	if edited == original {
 		t.Fatal("CLAUDE.md does not hold the claude-only line")
 	}
-	mustWrite(t, claudePath, edited)
+	writeFile(t, claudePath, edited)
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -262,7 +262,7 @@ func TestImportFromClaude_WarningNamesAgentsMDWhenOnlyItWasEdited(t *testing.T) 
 	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
 	dir, buf := syncFencedClaudeBlock(t, source)
 	agentsPath := filepath.Join(dir, "AGENTS.md")
-	mustWrite(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
+	writeFile(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -281,8 +281,8 @@ func TestImportFromClaude_WarningNamesBothWhenBothEdited(t *testing.T) {
 	dir, buf := syncFencedClaudeBlock(t, source)
 	agentsPath := filepath.Join(dir, "AGENTS.md")
 	claudePath := filepath.Join(dir, "CLAUDE.md")
-	mustWrite(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
-	mustWrite(t, claudePath, strings.Replace(mustRead(t, claudePath), "- Claude only line.", "- Claude only line, edited.", 1))
+	writeFile(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
+	writeFile(t, claudePath, strings.Replace(mustRead(t, claudePath), "- Claude only line.", "- Claude only line, edited.", 1))
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -301,9 +301,9 @@ func TestImportFromClaude_UnchangedLineNamesThePairOnRepeatImport(t *testing.T) 
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Rules\n\nHand written rules.\n")
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\nClaude only: use plan mode.\n\n\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Rules\n\nHand written rules.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\nClaude only: use plan mode.\n\n\n")
 
 	for i := range 2 {
 		buf.Reset()

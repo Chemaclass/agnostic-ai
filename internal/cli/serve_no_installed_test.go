@@ -98,7 +98,7 @@ func TestRunOverviewChecks_SkipsRenderingAndReadingGeneratedFiles(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "stale\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "stale\n")
 
 	skipped := runOverviewChecksWith(".", cfg, b, false)
 	if len(skipped.compared) != 0 || len(skipped.skipped) != 0 || len(driftByPath(t, skipped.findings)) != 0 || len(skipped.fieldNotes) != 0 {

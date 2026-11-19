@@ -33,13 +33,13 @@ exit 2
 func factoryProject(t *testing.T, hook, body string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, factory]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, factory]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "protect-files.sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "protect-files.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "protect-files.yaml"), hook)
 	mustSync(t)
 }
 
@@ -120,13 +120,13 @@ func TestHookRun_FactoryRunsTheDocumentedProjectRootForm(t *testing.T) {
 		t.Fatal(err)
 	}
 	testutil.Chdir(t, dir)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
 	script := filepath.Join(dir, ".factory", "hooks", "x.sh")
-	mustWrite(t, script, factoryGuardScript)
+	writeFile(t, script, factoryGuardScript)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "x.yaml"), "name: x\nevent: PreToolUse\ncommand: '\"$FACTORY_PROJECT_DIR\"/.factory/hooks/x.sh'\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "x.yaml"), "name: x\nevent: PreToolUse\ncommand: '\"$FACTORY_PROJECT_DIR\"/.factory/hooks/x.sh'\n")
 	mustSync(t)
 
 	out, err := runHookRun(t, "x", "--bash", "rm -rf /", "--include-assumed", "--expect", "block")

@@ -294,7 +294,7 @@ func TestEditPersonal_RollbackKeepsExclusionWhenPersonalFileAppears(t *testing.T
 
 func TestEditPersonal_FailedGitExclusionKeepsExclude(t *testing.T) {
 	project := gitScopeProject(t)
-	mustWrite(t, ".gitignore", "!/agnostic-ai.local.yaml\n")
+	writeFile(t, ".gitignore", "!/agnostic-ai.local.yaml\n")
 	before := excludeOf(t, project)
 	rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true,"expected":false}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Git would still track") {

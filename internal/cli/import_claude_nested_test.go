@@ -13,9 +13,9 @@ func TestImportFromClaude_NestedCLAUDEmdBecomesOneScopedRule(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Root\n\nroot text\n")
-	mustWrite(t, filepath.Join(dir, "src", "a", "CLAUDE.md"), "# Module A\n\nA facts.\n\n## Tests\n\nRun make test.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Root\n\nroot text\n")
+	writeFile(t, filepath.Join(dir, "src", "a", "CLAUDE.md"), "# Module A\n\nA facts.\n\n## Tests\n\nRun make test.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -37,7 +37,7 @@ func TestImportFromClaude_HandWrittenRootCLAUDEmdFeedsOnlyAgnosticMain(t *testin
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Root\n\nroot text\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Root\n\nroot text\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -58,8 +58,8 @@ func TestImportFromClaude_NestedCompanionImportsItsAgentsMD(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "# API\n\nUse integer minor units.\n")
-	mustWrite(t, filepath.Join(dir, "services", "api", "CLAUDE.md"), "# CLAUDE.md\n\n@AGENTS.md\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "# API\n\nUse integer minor units.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "CLAUDE.md"), "# CLAUDE.md\n\n@AGENTS.md\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -75,8 +75,8 @@ func TestImportFromClaude_NestedCompanionFencesItsClaudeText(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "# API\n\nUse integer minor units.\n")
-	mustWrite(t, filepath.Join(dir, "services", "api", "CLAUDE.md"), "@AGENTS.md\n\nUse the API launch config.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "# API\n\nUse integer minor units.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "CLAUDE.md"), "@AGENTS.md\n\nUse the API launch config.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -93,10 +93,10 @@ func TestImportFromClaude_NestedCompanionLeavesAgentsMDToCodex(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "# API\n\nUse integer minor units.\n")
-	mustWrite(t, filepath.Join(dir, "services", "api", "CLAUDE.md"), "@AGENTS.md\n")
-	mustWrite(t, filepath.Join(dir, "services", "web", "AGENTS.md"), "# Web\n\nUse server components.\n")
-	mustWrite(t, filepath.Join(dir, "services", "web", "CLAUDE.md"), "@AGENTS.md\n\nUse the web launch config.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "# API\n\nUse integer minor units.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "CLAUDE.md"), "@AGENTS.md\n")
+	writeFile(t, filepath.Join(dir, "services", "web", "AGENTS.md"), "# Web\n\nUse server components.\n")
+	writeFile(t, filepath.Join(dir, "services", "web", "CLAUDE.md"), "@AGENTS.md\n\nUse the web launch config.\n")
 	setImportRunSources([]string{"claude", "codex"})
 	t.Cleanup(func() { setImportRunSources(nil) })
 
@@ -120,8 +120,8 @@ func TestImportFromClaude_ClaudeRulesDirOutranksNestedCLAUDEmd(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, ".claude", "rules", "src", "a", "a.md"), "---\nname: a\npaths:\n  - src/a/**\n---\n\nA facts.\n")
-	mustWrite(t, filepath.Join(dir, "src", "a", "CLAUDE.md"), "A facts.\n")
+	writeFile(t, filepath.Join(dir, ".claude", "rules", "src", "a", "a.md"), "---\nname: a\npaths:\n  - src/a/**\n---\n\nA facts.\n")
+	writeFile(t, filepath.Join(dir, "src", "a", "CLAUDE.md"), "A facts.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)

@@ -16,10 +16,10 @@ func TestDoctor_ListsNestedClaudeMDARuleHolds(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
 	nested := filepath.Join(dir, "src", "a", "CLAUDE.md")
-	mustWrite(t, nested, "# Module A\n\nA facts.\n")
+	writeFile(t, nested, "# Module A\n\nA facts.\n")
 
 	out, err := runDoctor(t)
 	if err == nil {
@@ -39,10 +39,10 @@ func TestDoctorFix_RemovesImportedNestedClaudeMDSoSyncPasses(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Root\n\nroot text\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Root\n\nroot text\n")
 	nested := filepath.Join(dir, "src", "a", "CLAUDE.md")
-	mustWrite(t, nested, "# Module A\n\nA facts.\n\n## Tests\n\nRun make test.\n")
+	writeFile(t, nested, "# Module A\n\nA facts.\n\n## Tests\n\nRun make test.\n")
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
@@ -66,13 +66,13 @@ func TestDoctorFix_KeepsNestedClaudeMDThatDiffersFromEveryRule(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
 	nested := filepath.Join(dir, "src", "a", "CLAUDE.md")
 	edited := "# Module A\n\nA facts.\n\nA line added after import.\n"
-	mustWrite(t, nested, edited)
+	writeFile(t, nested, edited)
 	elsewhere := filepath.Join(dir, "src", "c", "CLAUDE.md")
-	mustWrite(t, elsewhere, "# Module A\n\nA facts.\n")
+	writeFile(t, elsewhere, "# Module A\n\nA facts.\n")
 
 	out, _ := runDoctor(t, "--fix")
 
@@ -94,9 +94,9 @@ func TestDoctorFix_DoesNotRenderANestedCopyItRemovedFromTheRulesSource(t *testin
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, "rules", "sub", "tabs.md"), "---\nscope: rules/sub\n---\nUse tabs in sub.\n")
-	mustWrite(t, filepath.Join(dir, "rules", "sub", "CLAUDE.md"), "Use tabs in sub.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "rules", "sub", "tabs.md"), "---\nscope: rules/sub\n---\nUse tabs in sub.\n")
+	writeFile(t, filepath.Join(dir, "rules", "sub", "CLAUDE.md"), "Use tabs in sub.\n")
 
 	if out, err := runDoctor(t, "--fix"); err != nil {
 		t.Logf("doctor --fix: %v\n%s", err, out)
@@ -114,8 +114,8 @@ func TestCollectLoadedDrift_LeavesTheLoadedConfigUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)

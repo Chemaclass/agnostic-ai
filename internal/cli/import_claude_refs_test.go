@@ -15,10 +15,10 @@ func TestImportFromClaude_PointsNativePathsAtSources(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, ".claude", "CLAUDE.md"),
+	writeFile(t, filepath.Join(dir, ".claude", "CLAUDE.md"),
 		"# Project\n\n@.claude/rules/tone.md\n\nRead `.claude/skills/style/SKILL.md`.\n\nSee ./.claude/skills/gone/SKILL.md.\n")
-	mustWrite(t, filepath.Join(dir, ".claude", "rules", "tone.md"), "# Tone\n\nBe plain.\n")
-	mustWrite(t, filepath.Join(dir, ".claude", "skills", "style", "SKILL.md"),
+	writeFile(t, filepath.Join(dir, ".claude", "rules", "tone.md"), "# Tone\n\nBe plain.\n")
+	writeFile(t, filepath.Join(dir, ".claude", "skills", "style", "SKILL.md"),
 		"---\nname: style\ndescription: Style guide.\n---\n\nPair with .claude/rules/tone.md.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
@@ -43,8 +43,8 @@ func TestImportFromClaude_KeepsImportOfRuleItDidNotWrite(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Project\n\n@.claude/rules/tone.md\n")
-	mustWrite(t, filepath.Join(dir, ".claude", "rules", "other.md"), "Other.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Project\n\n@.claude/rules/tone.md\n")
+	writeFile(t, filepath.Join(dir, ".claude", "rules", "other.md"), "Other.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)

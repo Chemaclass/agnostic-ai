@@ -733,7 +733,7 @@ func TestInitCmd_NoTTYNoPipe_SuggestsCodexForRootAgentsMainFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n")
 
 	stderr := &bytes.Buffer{}
 	root := NewRootCmd("test")

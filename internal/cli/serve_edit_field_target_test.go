@@ -19,9 +19,9 @@ func targetProject(t *testing.T, spec string) *editHandler {
 	testutil.Chdir(t, project)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nmodels:\n  strong:\n    claude: opus\n    codex: gpt-5.5\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nmodels:\n  strong:\n    claude: opus\n    codex: gpt-5.5\n")
 	if spec != "" {
-		mustWrite(t, ".agnostic-ai/settings/defaults.yaml", spec)
+		writeFile(t, ".agnostic-ai/settings/defaults.yaml", spec)
 	}
 	return &editHandler{root: project}
 }
@@ -162,7 +162,7 @@ func TestEditFieldTarget_PersonalOverSharedMapBlocksOnlyItsAddress(t *testing.T)
 
 func TestEditFieldTarget_PersonalScalarOverSharedMapIsRefused(t *testing.T) {
 	h := targetProject(t, "name: defaults\nmodel:\n  default: sonnet\n  claude: opus\n")
-	mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nmodel: haiku\n")
+	writeFile(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nmodel: haiku\n")
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"personal","key":"model","target":"codex","value":"gpt-5.5"}`, nil); rec.Code == http.StatusOK {
 		t.Fatalf("set = %d %s", rec.Code, rec.Body)
 	}
@@ -289,7 +289,7 @@ func TestEditFieldTarget_TeamEditsUnderAPersonalMapKeepOtherTools(t *testing.T) 
 	if got := loadedSettingsValue(t, "defaults", "model"); !reflect.DeepEqual(got, map[string]any{"default": "opus", "codex": "gpt-5.5"}) {
 		t.Fatalf("merged model = %v", got)
 	}
-	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel:\n  default: sonnet\n  claude: opus\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel:\n  default: sonnet\n  claude: opus\n")
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"shared","key":"model","target":"claude","value":null,"expected":"opus"}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("team reset claude = %d %s", rec.Code, rec.Body)
 	}
@@ -300,7 +300,7 @@ func TestEditFieldTarget_TeamEditsUnderAPersonalMapKeepOtherTools(t *testing.T) 
 
 func TestEditFieldTarget_TierEffortRefusesOneTool(t *testing.T) {
 	h := targetProject(t, "name: defaults\nmodel: strong\n")
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nmodels:\n  strong:\n    claude: opus\n    codex: gpt-5.5\n    effort: high\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nmodels:\n  strong:\n    claude: opus\n    codex: gpt-5.5\n    effort: high\n")
 	rec := postEdit(t, h, editFieldPath, `{"audience":"shared","key":"effort","target":"codex","value":"low"}`, nil)
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "tier") {
 		t.Fatalf("tier effort per tool = %d %s", rec.Code, rec.Body)
@@ -319,7 +319,7 @@ func TestEditFieldTarget_EffortForAToolWithoutEffort(t *testing.T) {
 	testutil.Chdir(t, project)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini]\n")
 	rec := postEdit(t, &editHandler{root: project}, editFieldPath, `{"audience":"shared","key":"effort","target":"gemini","value":"high"}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "gemini has no effort setting") {
 		t.Fatalf("gemini effort = %d %s", rec.Code, rec.Body)
@@ -350,8 +350,8 @@ func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
 	} {
 		t.Run(tc.key, func(t *testing.T) {
 			h := targetProject(t, "")
-			mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\n"+tc.key+": "+tc.shared+"\n")
-			mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\n"+tc.key+":\n  claude: "+tc.claude+"\n")
+			writeFile(t, ".agnostic-ai/settings/a.yaml", "name: a\n"+tc.key+": "+tc.shared+"\n")
+			writeFile(t, ".agnostic-ai/settings/b.yaml", "name: b\n"+tc.key+":\n  claude: "+tc.claude+"\n")
 			edit := func(target, value string) (int, string) {
 				rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"`+tc.key+`","target":"`+target+`","value":"`+value+`"}`, nil)
 				return rec.Code, rec.Body.String()
@@ -365,7 +365,7 @@ func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
 			if code, body := edit("claude", tc.codex); code != http.StatusBadRequest || !strings.Contains(body, "b.yaml sets "+tc.key+" and overrides") {
 				t.Fatalf("claude edit = %d %s", code, body)
 			}
-			mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\n"+tc.key+":\n  default: "+tc.codex+"\n")
+			writeFile(t, ".agnostic-ai/settings/b.yaml", "name: b\n"+tc.key+":\n  default: "+tc.codex+"\n")
 			if code, body := edit("codex", tc.shared); code != http.StatusBadRequest || !strings.Contains(body, "b.yaml sets "+tc.key+" and overrides") {
 				t.Fatalf("codex edit under default = %d %s", code, body)
 			}
@@ -386,8 +386,8 @@ func TestEditFieldTarget_GlobalPerToolEffortSaves(t *testing.T) {
 
 func TestEditFieldTarget_LaterClaudeModelDoesNotOverrideCodex(t *testing.T) {
 	h := targetProject(t, "")
-	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel:\n  codex: gpt-5.4\n")
-	mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: claude-opus-4\n")
+	writeFile(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel:\n  codex: gpt-5.4\n")
+	writeFile(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: claude-opus-4\n")
 	edit := func(target, value string) (int, string) {
 		rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","target":"`+target+`","value":"`+value+`"}`, nil)
 		return rec.Code, rec.Body.String()
@@ -405,8 +405,8 @@ func TestEditFieldTarget_LaterClaudeModelDoesNotOverrideCodex(t *testing.T) {
 
 func TestEditFieldTarget_OverrideErrorNamesTheFileThatHoldsTheValue(t *testing.T) {
 	h := targetProject(t, "")
-	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
-	mustWrite(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: gpt-5.5\n")
+	writeFile(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	writeFile(t, ".agnostic-ai/settings/b.yaml", "name: b\nmodel: gpt-5.5\n")
 	edit := func(target string) (int, string) {
 		rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","target":"`+target+`","value":"x"}`, nil)
 		return rec.Code, rec.Body.String()
@@ -418,7 +418,7 @@ func TestEditFieldTarget_OverrideErrorNamesTheFileThatHoldsTheValue(t *testing.T
 		{"name: b\nmodel:\n  claude: opus\n", "codex", shared},
 		{"name: b\nmodel:\n  claude: opus\n", "claude", personal},
 	} {
-		mustWrite(t, ".agnostic-ai/local/settings/b.yaml", tc.overlay)
+		writeFile(t, ".agnostic-ai/local/settings/b.yaml", tc.overlay)
 		if code, body := edit(tc.target); code != http.StatusBadRequest || !strings.Contains(body, tc.want) {
 			t.Errorf("overlay %q, %s edit = %d %s, want %s", tc.overlay, tc.target, code, body, tc.want)
 		}

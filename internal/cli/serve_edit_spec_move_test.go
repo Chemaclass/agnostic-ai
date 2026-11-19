@@ -33,13 +33,13 @@ func moveProject(t *testing.T) (project, global string) {
 	t.Helper()
 	global = editHome(t)
 	project = scopeProject(t)
-	mustWrite(t, ".agnostic-ai/skills/review-pr/SKILL.md", "---\nname: review-pr\ndescription: Review a pull request.\n---\n\nReview it.\n")
-	mustWrite(t, ".agnostic-ai/skills/review-pr/checklist.md", "- tests\n")
-	mustWrite(t, ".agnostic-ai/agents/guard.md", "---\nname: guard\ndescription: Guards the shell.\n---\n\nGuard.\n")
-	mustWrite(t, ".agnostic-ai/rules/style.md", "---\nname: style\ndescription: Style.\n---\n\nUse tabs.\n")
-	mustWrite(t, ".agnostic-ai/rules/api.md", "---\nname: api\ndescription: API.\npaths: [\"api/**\"]\n---\n\nVersion the API.\n")
-	mustWrite(t, ".agnostic-ai/commands/ship.md", "---\nname: ship\ndescription: Ship.\n---\n\nShip it.\n")
-	mustWrite(t, ".agnostic-ai/local/agents/mine.md", "---\nname: mine\ndescription: Mine.\n---\n\nMine.\n")
+	writeFile(t, ".agnostic-ai/skills/review-pr/SKILL.md", "---\nname: review-pr\ndescription: Review a pull request.\n---\n\nReview it.\n")
+	writeFile(t, ".agnostic-ai/skills/review-pr/checklist.md", "- tests\n")
+	writeFile(t, ".agnostic-ai/agents/guard.md", "---\nname: guard\ndescription: Guards the shell.\n---\n\nGuard.\n")
+	writeFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\ndescription: Style.\n---\n\nUse tabs.\n")
+	writeFile(t, ".agnostic-ai/rules/api.md", "---\nname: api\ndescription: API.\npaths: [\"api/**\"]\n---\n\nVersion the API.\n")
+	writeFile(t, ".agnostic-ai/commands/ship.md", "---\nname: ship\ndescription: Ship.\n---\n\nShip it.\n")
+	writeFile(t, ".agnostic-ai/local/agents/mine.md", "---\nname: mine\ndescription: Mine.\n---\n\nMine.\n")
 	return project, global
 }
 
@@ -198,7 +198,7 @@ func TestSpecMove_StalePreviewWritesNothing(t *testing.T) {
 	h := projectMoveHandler(project, global)
 	request := moveBody("agent", "guard", "project", "global", "move")
 	_, preview := postSpecMove(t, h, request)
-	mustWrite(t, ".agnostic-ai/agents/guard.md", "---\nname: guard\ndescription: Changed.\n---\n\nGuard.\n")
+	writeFile(t, ".agnostic-ai/agents/guard.md", "---\nname: guard\ndescription: Changed.\n---\n\nGuard.\n")
 	request["action"], request["expected"] = "apply", preview.Expected
 	code, reply := postSpecMove(t, h, request)
 	if code != http.StatusConflict {
@@ -327,7 +327,7 @@ func TestSpecMove_RefusesWhenSourceAndDestinationAreTheSameFile(t *testing.T) {
 
 func TestSpecMove_RefusesASkillAtTheSkillsFolderRoot(t *testing.T) {
 	project, global := moveProject(t)
-	mustWrite(t, ".agnostic-ai/skills/SKILL.md", "---\ndescription: Root.\n---\n\nRoot.\n")
+	writeFile(t, ".agnostic-ai/skills/SKILL.md", "---\ndescription: Root.\n---\n\nRoot.\n")
 	writeFile(t, filepath.Join(global, "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "skills", "project", "global", "copy"))
 	if code != http.StatusUnprocessableEntity {
@@ -353,7 +353,7 @@ func TestSpecMove_RefusesADestinationLinkedOutsideTheSetup(t *testing.T) {
 
 func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
 	project, global := moveProject(t)
-	mustWrite(t, ".agnostic-ai/rules/web.md", "---\nname: web\ndescription: Web.\nx-claude:\n  paths: [\"web/**\"]\n---\n\nWeb.\n")
+	writeFile(t, ".agnostic-ai/rules/web.md", "---\nname: web\ndescription: Web.\nx-claude:\n  paths: [\"web/**\"]\n---\n\nWeb.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("rule", "web", "project", "global", "move"))
 	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "global rules") {
 		t.Errorf("= %d %+v", code, reply)
@@ -365,7 +365,7 @@ func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
 
 func TestSpecMove_RefusesWhenTheDestinationLayoutChangesHowTheSkillLoads(t *testing.T) {
 	project, global := moveProject(t)
-	mustWrite(t, ".agnostic-ai/skills/tools/lint.md", "---\nname: lint\ndescription: Lint.\n---\n\nLint.\n")
+	writeFile(t, ".agnostic-ai/skills/tools/lint.md", "---\nname: lint\ndescription: Lint.\n---\n\nLint.\n")
 	writeFile(t, filepath.Join(global, "skills", "tools", "SKILL.md"), "---\nname: tools\ndescription: Tools.\n---\n\nTools.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "lint", "project", "global", "move"))
 	if code != http.StatusConflict || !strings.Contains(reply.Error, "tools") {
@@ -417,7 +417,7 @@ func TestSpecMove_RefusesADestinationInsideTheSourceSkill(t *testing.T) {
 	project, _ := moveProject(t)
 	// The global setup sits inside the skill being moved.
 	nested := filepath.Join(project, ".agnostic-ai", "skills", "review-pr")
-	mustWrite(t, ".agnostic-ai/skills/review-pr/agnostic-ai.yaml", "targets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/review-pr/agnostic-ai.yaml", "targets: [claude]\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, nested), moveBody("skill", "review-pr", "project", "global", "move"))
 	if code != http.StatusConflict || !strings.Contains(reply.Error, "same") {
 		t.Errorf("= %d %+v, want 409", code, reply)

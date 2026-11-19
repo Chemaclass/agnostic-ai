@@ -58,8 +58,8 @@ func hookWithoutCommandProject(t *testing.T) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
 }
 
 func TestValidate_FailsOnAHookWithoutCommand(t *testing.T) {
@@ -94,8 +94,8 @@ func TestLint_ReportsAHookWithoutCommandAsAnErrorAndNotAsEmpty(t *testing.T) {
 func TestLint_ValidHookGetsNoNewFinding(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
 	log := captureLog(t)
 	out, err := runCLI(t, "lint")
 	if text := out + log.String(); err != nil || strings.Contains(text, "LINT052") || strings.Contains(text, "LINT001") {

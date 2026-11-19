@@ -191,8 +191,8 @@ func TestInitFromAll_FoldsRootAgentsMainFile(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, ".claude", "CLAUDE.md"), "# Project\n\nUse make test.\n")
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n\nRun make lint before pushing.\n")
+	writeFile(t, filepath.Join(dir, ".claude", "CLAUDE.md"), "# Project\n\nUse make test.\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n\nRun make lint before pushing.\n")
 
 	root := NewRootCmd("test")
 	root.SetIn(devNullStdin(t))
@@ -222,8 +222,8 @@ func TestImportAll_FoldsOnlyTheUniqueSectionsOfRootAgentsMainFile(t *testing.T) 
 	buf := captureSummary(t)
 	shared := "# Project\n\n## Testing\n\nUse make test.\n"
 	extra := "\n## Linting\n\nRun make lint.\n\n## Review\n\nAsk for one review.\n"
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), shared)
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), shared+extra)
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), shared)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), shared+extra)
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"import", "all"})
@@ -245,8 +245,8 @@ func TestImportAll_LeavesAMatchingRootAgentsMainFileAlone(t *testing.T) {
 	silence(t)
 	buf := captureSummary(t)
 	body := "# Project\n\nUse make test.\n"
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), body)
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), body)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), body)
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"import", "all"})
@@ -267,7 +267,7 @@ func TestImportAll_SeedsFromARootAgentsMainFileAlone(t *testing.T) {
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
 	body := "# Repository Guidelines\n\nRun make lint before pushing.\n"
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), body)
 
 	var err error
 	out := captureStdout(t, func() {
@@ -296,7 +296,7 @@ func TestInitFromAll_SeedsFromARootAgentsMainFileAlone(t *testing.T) {
 	silence(t)
 	buf := captureSummary(t)
 	body := "# Repository Guidelines\n\nRun make lint before pushing.\n"
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), body)
 
 	root := NewRootCmd("test")
 	root.SetIn(devNullStdin(t))
@@ -318,7 +318,7 @@ func TestImportAll_LeavesAGeneratedRootAgentsMainFileAlone(t *testing.T) {
 	testutil.Chdir(t, dir)
 	captureSummary(t)
 	generated := header.Line(header.FormatMarkdown) + "# Repository Guidelines\n\nRun make lint before pushing.\n"
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), generated)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), generated)
 
 	var err error
 	out := captureStdout(t, func() {
@@ -346,8 +346,8 @@ func TestImportClaude_StillWarnsAboutRootAgentsMainFile(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	buf := captureSummary(t)
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Project\n\nUse make test.\n")
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n\nRun make lint before pushing.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Project\n\nUse make test.\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n\nRun make lint before pushing.\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"import", "claude"})

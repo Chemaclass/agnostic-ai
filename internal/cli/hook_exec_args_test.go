@@ -43,8 +43,8 @@ func TestSync_FoldsExecFormArgsOnTargetsWithoutAnArgsField(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.target, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+tc.target+"]\n"+tc.config)
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), execFormHook)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+tc.target+"]\n"+tc.config)
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), execFormHook)
 			mustSync(t)
 
 			body, err := os.ReadFile(filepath.Join(dir, tc.path))
@@ -78,13 +78,13 @@ func TestSync_FoldsExecFormArgsOnTargetsWithoutAnArgsField(t *testing.T) {
 func TestHookRun_CrushRunsAQuotedScriptPathWithArgs(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "prüfen.sh")
-	mustWrite(t, script, "[ \"$1\" = --strict ] && exit 2\nexit 0\n")
+	writeFile(t, script, "[ \"$1\" = --strict ] && exit 2\nexit 0\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/prüfen.sh\nargs: [--strict]\n")
 	mustSync(t)
 
@@ -105,9 +105,9 @@ func TestSync_NotesExecFormArgsWindowsCannotRead(t *testing.T) {
 	adapters.ResetCoverageNotes()
 	adapters.SetWarner(&notes)
 	t.Cleanup(func() { adapters.ResetCoverageNotes(); adapters.SetWarner(os.Stderr) })
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae, openhands]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "plain.yaml"), execFormHook)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "quote.yaml"), "name: quote\nevent: PreToolUse\ncommand: echo\nargs: [\"it's\"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae, openhands]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "plain.yaml"), execFormHook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "quote.yaml"), "name: quote\nevent: PreToolUse\ncommand: echo\nargs: [\"it's\"]\n")
 	mustSync(t)
 
 	for _, want := range []string{"1 hook reaches trae but not Windows (Trae runs a hook in PowerShell", "2 hooks reach openhands but not Windows (OpenHands runs a hook with cmd.exe"} {
@@ -125,8 +125,8 @@ func TestSync_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	adapters.ResetCoverageNotes()
 	adapters.SetWarner(&notes)
 	t.Cleanup(func() { adapters.ResetCoverageNotes(); adapters.SetWarner(os.Stderr) })
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), execFormHook)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), execFormHook)
 	mustSync(t)
 
 	body, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json"))
@@ -175,9 +175,9 @@ func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 func TestSync_AugmentRewritesASharedScriptInsideACommandLine(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	captureLogOut(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "scripts", "check.sh"), "#!/bin/sh\nexit 0\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: bash .agnostic-ai/scripts/check.sh --flag\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "scripts", "check.sh"), "#!/bin/sh\nexit 0\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: bash .agnostic-ai/scripts/check.sh --flag\n")
 	mustSync(t)
 
 	body, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json"))

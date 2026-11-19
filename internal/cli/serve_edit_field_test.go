@@ -249,9 +249,9 @@ func TestEditField_TargetedSpecOverridesOnlyItsTools(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
-	mustWrite(t, ".agnostic-ai/settings/z.yaml", "name: z\ntargets: [codex]\nmodel: gpt-5\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	writeFile(t, ".agnostic-ai/settings/z.yaml", "name: z\ntargets: [codex]\nmodel: gpt-5\n")
 	h := newEditHandler(project, false)
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/a.yaml","key":"model","value":"opus"}`, nil); rec.Code != 200 {
 		t.Fatalf("claude edit = %d %s", rec.Code, rec.Body)
@@ -280,10 +280,10 @@ func TestEditField_PackValueSavesToProjectDefault(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
 	pack := ".agnostic-ai/packs/team/settings/team.yaml"
-	mustWrite(t, pack, "name: team\nmodel: sonnet\n")
+	writeFile(t, pack, "name: team\nmodel: sonnet\n")
 	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"shared","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), ".agnostic-ai/settings/defaults.yaml") {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
@@ -298,7 +298,7 @@ func TestEditField_AbsoluteSettingsSourceAndDescribedScaffold(t *testing.T) {
 	project := t.TempDir()
 	settings := filepath.Join(t.TempDir(), "settings")
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  settings: "+filepath.ToSlash(settings)+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  settings: "+filepath.ToSlash(settings)+"\n")
 	shown := filepath.ToSlash(filepath.Join(settings, "defaults.yaml"))
 	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"shared","path":"`+shown+`","key":"model","value":"sonnet"}`, nil)
 	if rec.Code != 200 {
@@ -333,12 +333,12 @@ func TestEditField_PackValueLaterInOrderIsNotHiddenByAProjectSpec(t *testing.T) 
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
-	mustWrite(t, ".agnostic-ai/packs/team/settings/base.yaml", "name: base\npermissions:\n  allow: [Read]\n")
-	mustWrite(t, ".agnostic-ai/packs/team/settings/model.yaml", "name: model\nmodel: sonnet\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	writeFile(t, ".agnostic-ai/packs/team/settings/base.yaml", "name: base\npermissions:\n  allow: [Read]\n")
+	writeFile(t, ".agnostic-ai/packs/team/settings/model.yaml", "name: model\nmodel: sonnet\n")
 	base := ".agnostic-ai/settings/base.yaml"
-	mustWrite(t, base, "name: base\neffort: high\n")
+	writeFile(t, base, "name: base\neffort: high\n")
 	h := newEditHandler(project, false)
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":"`+base+`","key":"model","value":"opus"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "packs/team/settings/model.yaml") {
 		t.Fatalf("base path = %d %s", rec.Code, rec.Body)
@@ -356,10 +356,10 @@ func TestEditField_EditsASpecWithFlowStyleTargets(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
 	z := ".agnostic-ai/settings/z.yaml"
-	mustWrite(t, z, "name: z\ntargets: [codex]\nmodel: gpt-5\n")
+	writeFile(t, z, "name: z\ntargets: [codex]\nmodel: gpt-5\n")
 	h := newEditHandler(project, false)
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":"`+z+`","key":"model","value":"o3"}`, nil); rec.Code != 200 {
 		t.Fatalf("update = %d %s", rec.Code, rec.Body)
@@ -376,10 +376,10 @@ func TestEditField_ClearRefusesAnInheritedLocalValue(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
 	local := ".agnostic-ai/local/settings/a.yaml"
-	mustWrite(t, local, "name: a\neffort: high\n")
+	writeFile(t, local, "name: a\neffort: high\n")
 	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":"`+local+`","key":"model","value":null}`, nil)
 	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "inherits model") || !strings.Contains(rec.Body.String(), "switch to Project") {
 		t.Fatalf("clear = %d %s", rec.Code, rec.Body)
@@ -393,11 +393,11 @@ func TestEditField_DefaultPathOverridesALaterPackValue(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
-	mustWrite(t, ".agnostic-ai/packs/team/settings/base.yaml", "name: base\neffort: high\n")
-	mustWrite(t, ".agnostic-ai/packs/team/settings/model.yaml", "name: model\nmodel: sonnet\n")
-	mustWrite(t, ".agnostic-ai/settings/base.yaml", "name: base\nmodel: haiku\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	writeFile(t, ".agnostic-ai/packs/team/settings/base.yaml", "name: base\neffort: high\n")
+	writeFile(t, ".agnostic-ai/packs/team/settings/model.yaml", "name: model\nmodel: sonnet\n")
+	writeFile(t, ".agnostic-ai/settings/base.yaml", "name: base\nmodel: haiku\n")
 	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
@@ -485,8 +485,8 @@ func TestEditField_RefusesAnExpectedValueThePageHides(t *testing.T) {
 func TestEditField_ExpectsTheEffortAModelTierGives(t *testing.T) {
 	project := scopeProject(t)
 	spec := ".agnostic-ai/settings/defaults.yaml"
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nmodels:\n  fast:\n    claude: haiku\n    effort: low\n")
-	mustWrite(t, spec, "name: defaults\nmodel: fast\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nmodels:\n  fast:\n    claude: haiku\n    effort: low\n")
+	writeFile(t, spec, "name: defaults\nmodel: fast\n")
 	h := newEditHandler(project, false)
 	rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":"`+spec+`","key":"effort","value":"high","expected":"medium"}`, nil)
 	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "is now low") {
@@ -519,7 +519,7 @@ func TestEditField_ConflictsWhenAnotherFileNowSetsTheField(t *testing.T) {
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"personal","path":"`+team+`","key":"effort","value":null,"expected":"low"}`, nil); rec.Code != 200 {
 		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
 	}
-	mustWrite(t, ".agnostic-ai/settings/zz.yaml", "name: zz\neffort: low\n")
+	writeFile(t, ".agnostic-ai/settings/zz.yaml", "name: zz\neffort: low\n")
 	rec = postEdit(t, h, editFieldPath, `{"audience":"shared","path":"`+team+`","key":"effort","value":"medium","expected":"high"}`, nil)
 	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "overrides") {
 		t.Fatalf("team save under an overriding spec the page may list = %d %s", rec.Code, rec.Body)

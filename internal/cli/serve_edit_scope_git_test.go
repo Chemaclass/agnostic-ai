@@ -17,7 +17,7 @@ func gitScopeProject(t *testing.T) string {
 	t.Helper()
 	isolateGit(t)
 	project := scopeProject(t)
-	mustWrite(t, ".agnostic-ai/settings/native.yaml", "name: native\nx-claude:\n  verbose: false\n")
+	writeFile(t, ".agnostic-ai/settings/native.yaml", "name: native\nx-claude:\n  verbose: false\n")
 	git(t, project, "init", "-q")
 	git(t, project, "add", ".")
 	git(t, project, "commit", "-qm", "base")
@@ -54,7 +54,7 @@ func TestEditScope_FirstPersonalSaveStaysOutOfGit(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			project := gitScopeProject(t)
-			mustWrite(t, ".git/info/exclude", "# mine\n*.log\n")
+			writeFile(t, ".git/info/exclude", "# mine\n*.log\n")
 			rec := postEdit(t, newEditHandler(project, false), tc.path, tc.body, nil)
 			if rec.Code != 200 {
 				t.Fatalf("save = %d %s", rec.Code, rec.Body)
@@ -69,7 +69,7 @@ func TestEditScope_FirstPersonalSaveStaysOutOfGit(t *testing.T) {
 
 func TestEditScope_PersonalSaveKeepsAnExistingIgnoreRule(t *testing.T) {
 	project := gitScopeProject(t)
-	mustWrite(t, ".gitignore", "/.agnostic-ai/local/\n")
+	writeFile(t, ".gitignore", "/.agnostic-ai/local/\n")
 	git(t, project, "add", ".gitignore")
 	git(t, project, "commit", "-qm", "ignore")
 	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
@@ -88,8 +88,8 @@ func TestEditScope_PersonalSaveInANestedProjectAnchorsItsFolder(t *testing.T) {
 	git(t, repo, "init", "-q")
 	project := filepath.Join(repo, "app")
 	testutil.Chdir(t, repo)
-	mustWrite(t, "app/agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, "app/.agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel: sonnet\n")
+	writeFile(t, "app/agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "app/.agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel: sonnet\n")
 	git(t, repo, "add", ".")
 	git(t, repo, "commit", "-qm", "base")
 	silence(t)

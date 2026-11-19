@@ -14,15 +14,15 @@ import (
 func uncountedProject(t *testing.T, target, hook string, scripts map[string]string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
 	for name, body := range scripts {
 		script := filepath.Join(dir, ".agnostic-ai", "scripts", name)
-		mustWrite(t, script, body)
+		writeFile(t, script, body)
 		if err := os.Chmod(script, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
 	mustSync(t)
 }
 
@@ -39,7 +39,7 @@ func TestHookRun_AnUncountedReplyKeepsAnotherCommandsTimeout(t *testing.T) {
 			uncountedProject(t, "kiro", "name: guard\nevent: PreToolUse\ntimeout: 2\ncommand: ["+commands+"]\n", scripts)
 
 			payload := filepath.Join(t.TempDir(), "call.json")
-			mustWrite(t, payload, `{"hook_event_name":"preToolUse","tool_name":"execute_bash","tool_input":{}}`)
+			writeFile(t, payload, `{"hook_event_name":"preToolUse","tool_name":"execute_bash","tool_input":{}}`)
 
 			out, err := runHookRun(t, "guard", "--target", "kiro", "--payload", payload, "--include-assumed")
 			if !strings.Contains(out, "not counted: Kiro's docs disagree") {

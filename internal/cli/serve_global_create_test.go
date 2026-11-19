@@ -123,8 +123,8 @@ func TestGlobalCreate_SkipsGitWhenNotRequestedOrMissing(t *testing.T) {
 func TestGlobalCreate_KeepsAnExistingGitignoreAndAddsLocalOnce(t *testing.T) {
 	root := t.TempDir()
 	ignore := filepath.Join(root, ".gitignore")
-	mustWrite(t, ignore, "node_modules")
-	mustWrite(t, filepath.Join(root, "README.md"), "notes\n")
+	writeFile(t, ignore, "node_modules")
+	writeFile(t, filepath.Join(root, "README.md"), "notes\n")
 	for i := range 2 {
 		_ = os.Remove(filepath.Join(root, "agnostic-ai.yaml"))
 		_ = os.Remove(filepath.Join(root, "AGNOSTIC_AI.md"))
@@ -180,7 +180,7 @@ func TestGlobalCreate_TheSwitchAcceptsTheHomeItJustWrote(t *testing.T) {
 func TestGlobalCreate_ExistingSetupIsLeftUntouched(t *testing.T) {
 	root := t.TempDir()
 	sentinel := filepath.Join(root, "AGNOSTIC_AI.md")
-	mustWrite(t, sentinel, "mine\n")
+	writeFile(t, sentinel, "mine\n")
 	rec := postCreate(t, newGlobalCreateHandler(root), `{"git":true}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("create = %d %s", rec.Code, rec.Body)

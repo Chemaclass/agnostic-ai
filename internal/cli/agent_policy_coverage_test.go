@@ -33,8 +33,8 @@ func TestSync_AgentHooksAndPermissionModeAreWrittenOrNoted(t *testing.T) {
 				dir := testutil.TempCwd(t)
 				silence(t)
 				notes := captureNotes(t)
-				mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
-				mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "guard.md"), "---\nname: guard\ndescription: Guards the shell.\n"+f.frontmatter+"---\n\nGuard.\n")
+				writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
+				writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "guard.md"), "---\nname: guard\ndescription: Guards the shell.\n"+f.frontmatter+"---\n\nGuard.\n")
 				mustSync(t)
 
 				written := outputContains(t, dir, f.written)

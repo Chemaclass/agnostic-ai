@@ -18,8 +18,8 @@ func TestImportFromClaude_WarnsAboutDivergentSiblingEntryPoint(t *testing.T) {
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
 
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Claude guide\n\nFull instructions.\n")
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Agents\n\nUnique codex-only notes.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Claude guide\n\nFull instructions.\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Agents\n\nUnique codex-only notes.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
@@ -45,8 +45,8 @@ func TestImportFromClaude_NoWarnWhenSiblingMatches(t *testing.T) {
 	buf := captureSummary(t)
 
 	body := "# Shared\n\nIdentical body.\n"
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), body)
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), body)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), body)
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
