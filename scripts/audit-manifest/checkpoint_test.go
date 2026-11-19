@@ -15,6 +15,7 @@ func writeRunFile(t *testing.T, run, name, body string) {
 }
 
 func TestStoppedAuditorLeavesCheckpointedTargetsThatARelaunchSkips(t *testing.T) {
+	t.Parallel()
 	a, run := fixtureFor(t, "alpha", "beta", "gamma", "delta")
 	for _, target := range []string{"alpha", "beta"} {
 		writeRunFile(t, run, target+".md", "### Clean\n- "+target+": verified\n")
@@ -45,6 +46,7 @@ func TestStoppedAuditorLeavesCheckpointedTargetsThatARelaunchSkips(t *testing.T)
 }
 
 func TestCheckpointMarkerGoesStaleWhenTheReportChanges(t *testing.T) {
+	t.Parallel()
 	a, run := fixtureFor(t, "alpha", "beta")
 	writeRunFile(t, run, "alpha.md", "first report\n")
 	call(t, a, "checkpoint", run, "alpha")
@@ -58,6 +60,7 @@ func TestCheckpointMarkerGoesStaleWhenTheReportChanges(t *testing.T) {
 }
 
 func TestCheckpointRequiresARequestedTargetWithAReport(t *testing.T) {
+	t.Parallel()
 	a, run := fixtureFor(t, "alpha", "beta")
 	if _, err := a.run([]string{"checkpoint", run, "alpha"}); err == nil {
 		t.Error("checkpoint accepted a target without a report")
@@ -72,6 +75,7 @@ func TestCheckpointRequiresARequestedTargetWithAReport(t *testing.T) {
 }
 
 func TestCheckpointDoesNotWaitForTheCoordinatorWriteGuard(t *testing.T) {
+	t.Parallel()
 	a, run := fixtureFor(t, "alpha", "beta")
 	if err := os.Mkdir(filepath.Join(run, ".audit-writing"), 0o700); err != nil {
 		t.Fatal(err)
@@ -84,6 +88,7 @@ func TestCheckpointDoesNotWaitForTheCoordinatorWriteGuard(t *testing.T) {
 }
 
 func TestCheckpointRejectsAFinalizedRun(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	mutate(t, run, func(m map[string]any) { m["finalized"] = "2026-10-29T00:00:00Z" })
 	writeRunFile(t, run, "alpha.md", "report\n")

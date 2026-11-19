@@ -15,6 +15,7 @@ func nextRun(t *testing.T, a app) string {
 }
 
 func TestResumeNeedsIndependentFreshCapture(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	covered(t, a, prior, false)
@@ -42,6 +43,7 @@ func TestResumeNeedsIndependentFreshCapture(t *testing.T) {
 }
 
 func TestResumeKeepsIncompleteAndLimitedTargetsPending(t *testing.T) {
+	t.Parallel()
 	for _, state := range []string{"before-evidence", "after-evidence", "before-page-completion", "limit", "failed"} {
 		t.Run(state, func(t *testing.T) {
 			a, prior := fixture(t)
@@ -87,6 +89,7 @@ func TestResumeKeepsIncompleteAndLimitedTargetsPending(t *testing.T) {
 }
 
 func TestResumeRejectsChangedOrCorruptContext(t *testing.T) {
+	t.Parallel()
 	for _, change := range []string{"body", "missing", "outcome", "policy", "inventory", "baseline", "embedded", "untracked", "staged", "version", "source-lock", "donor-busy", "fresh-busy"} {
 		t.Run(change, func(t *testing.T) {
 			a, prior := fixture(t)
@@ -145,6 +148,7 @@ func TestResumeRejectsChangedOrCorruptContext(t *testing.T) {
 }
 
 func TestRepeatedFinalizationValidatesWithoutRewritingLock(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -166,6 +170,7 @@ func TestRepeatedFinalizationValidatesWithoutRewritingLock(t *testing.T) {
 }
 
 func TestFinalizeReconcilesCommittedLockWithMissingMarker(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -212,6 +217,7 @@ func replaceCapturedBody(t *testing.T, a app, run, body, comparison string) {
 }
 
 func TestResumeDoesNotTrustNormalizedSchemaHash(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	normalized := "{\"a\":1}\n"
@@ -232,6 +238,7 @@ func TestResumeDoesNotTrustNormalizedSchemaHash(t *testing.T) {
 }
 
 func TestResumeChangedSuccessfulSourceKeepsTargetPending(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	covered(t, a, prior, false)
@@ -251,6 +258,7 @@ func TestResumeChangedSuccessfulSourceKeepsTargetPending(t *testing.T) {
 }
 
 func TestResumeRetryAfterInterruptedArtifactCopy(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	covered(t, a, prior, false)
@@ -282,6 +290,7 @@ func TestResumeRetryAfterInterruptedArtifactCopy(t *testing.T) {
 }
 
 func TestRepeatedFinalizationRejectsDifferentCurrentLock(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -293,6 +302,7 @@ func TestRepeatedFinalizationRejectsDifferentCurrentLock(t *testing.T) {
 }
 
 func TestResumePreservesAmbiguousPublicationForManualReconciliation(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	covered(t, a, prior, false)
@@ -325,6 +335,7 @@ func TestResumePreservesAmbiguousPublicationForManualReconciliation(t *testing.T
 }
 
 func TestResumePreservesIndependentlyRequestedTargetOrder(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	covered(t, a, prior, false)
@@ -343,6 +354,7 @@ func TestResumePreservesIndependentlyRequestedTargetOrder(t *testing.T) {
 }
 
 func TestResumeChecksCopiedProvenanceAndArtifacts(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"report", "manifest"} {
 		t.Run(name, func(t *testing.T) {
 			a, prior := fixture(t)
@@ -368,6 +380,7 @@ func TestResumeChecksCopiedProvenanceAndArtifacts(t *testing.T) {
 }
 
 func TestFinalizationRejectsCorruptReceiptAndChangedReconciliationEvidence(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"receipt", "evidence", "lock", "baseline"} {
 		t.Run(name, func(t *testing.T) {
 			a, run := fixture(t)
@@ -397,6 +410,7 @@ func TestFinalizationRejectsCorruptReceiptAndChangedReconciliationEvidence(t *te
 }
 
 func TestFinalizationReceiptBeforeCommitRequiresFreshValidation(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -414,6 +428,7 @@ func TestFinalizationReceiptBeforeCommitRequiresFreshValidation(t *testing.T) {
 }
 
 func TestResumeSelectsOnePriorRunEvenWhenEverythingIsPending(t *testing.T) {
+	t.Parallel()
 	a, prior := fixture(t)
 	fetched(t, a, prior, "changed")
 	fresh := nextRun(t, a)
@@ -425,6 +440,7 @@ func TestResumeSelectsOnePriorRunEvenWhenEverythingIsPending(t *testing.T) {
 }
 
 func TestResumeRejectsUnsafeCopyBeforeCreatingDirectories(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"donor-traversal", "destination-symlink"} {
 		t.Run(name, func(t *testing.T) {
 			a, _ := fixture(t)

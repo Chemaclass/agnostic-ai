@@ -20,7 +20,10 @@ import (
 	"time"
 )
 
-type app struct{ root, lock string }
+type app struct {
+	root, lock string
+	env        []string
+}
 
 type artifact struct {
 	Path   string `json:"path"`
@@ -118,6 +121,9 @@ func fileDigest(path string) (string, error) {
 func (a app) command(name string, args ...string) (string, error) {
 	c := exec.Command(name, args...)
 	c.Dir = a.root
+	if len(a.env) > 0 {
+		c.Env = append(os.Environ(), a.env...)
+	}
 	b, err := c.Output()
 	if err != nil {
 		return "", fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)

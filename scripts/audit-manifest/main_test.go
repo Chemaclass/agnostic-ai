@@ -149,6 +149,7 @@ func mutate(t *testing.T, run string, f func(map[string]any)) {
 }
 
 func TestFinalizationRequiresCompleteCoverage(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	rejectedUnchanged(t, a, run)
 	fetched(t, a, run, "changed")
@@ -168,6 +169,7 @@ func TestFinalizationRequiresCompleteCoverage(t *testing.T) {
 }
 
 func TestResearchLimitPreservesSharedURLWhileOtherPagesAdvance(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, true)
@@ -182,6 +184,7 @@ func TestResearchLimitPreservesSharedURLWhileOtherPagesAdvance(t *testing.T) {
 }
 
 func TestFinalizationRejectsChangedInputs(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"version", "unknown-field", "missing-assignment", "duplicate-assignment", "extra-target", "unknown-source", "evidence", "artifact", "rows", "sources", "context", "lock"} {
 		t.Run(name, func(t *testing.T) {
 			a, run := fixture(t)
@@ -226,6 +229,7 @@ func TestFinalizationRejectsChangedInputs(t *testing.T) {
 }
 
 func TestFreshRunsRejectReusedDirectoriesAndDuplicateTargets(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	for _, args := range [][]string{{"start", "--out", run, "alpha"}, {"start", "alpha", "alpha"}, {"start", "unknown"}} {
 		if _, err := a.run(args); err == nil {
@@ -235,6 +239,7 @@ func TestFreshRunsRejectReusedDirectoriesAndDuplicateTargets(t *testing.T) {
 }
 
 func TestAssignmentsAndSourceRecordsAreExactOnce(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -251,6 +256,7 @@ func TestAssignmentsAndSourceRecordsAreExactOnce(t *testing.T) {
 }
 
 func TestCaptureRejectsMissingDuplicateAndUnknownFetchRows(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"missing", "duplicate", "unknown"} {
 		t.Run(name, func(t *testing.T) {
 			a, run := fixture(t)
@@ -287,6 +293,7 @@ func TestCaptureRejectsMissingDuplicateAndUnknownFetchRows(t *testing.T) {
 }
 
 func TestFailedSourceNeedsResearchLimitAndKeepsOldHash(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "failed")
 	covered(t, a, run, false)
@@ -313,6 +320,7 @@ func TestFailedSourceNeedsResearchLimitAndKeepsOldHash(t *testing.T) {
 }
 
 func TestFastPathNeedsJustificationAndSavedArtifact(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -332,6 +340,7 @@ func TestFastPathNeedsJustificationAndSavedArtifact(t *testing.T) {
 }
 
 func TestSharedURLConflictRejectsWithoutChangingLock(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	path := filepath.Join(run, "pages/beta-docs.body")
@@ -362,6 +371,7 @@ func TestSharedURLConflictRejectsWithoutChangingLock(t *testing.T) {
 }
 
 func TestJSONComparisonHashDiffersFromExactEvidenceHash(t *testing.T) {
+	t.Parallel()
 	if _, err := exec.LookPath("jq"); err != nil {
 		t.Fatal("jq is needed to test docfetch JSON hashing")
 	}
@@ -399,6 +409,7 @@ func TestJSONComparisonHashDiffersFromExactEvidenceHash(t *testing.T) {
 }
 
 func TestFailedHTTPFetchWithoutBodySavesFailureEvidence(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "failed")
 	rowsPath := filepath.Join(run, "docfetch.tsv")
@@ -433,6 +444,7 @@ func TestFailedHTTPFetchWithoutBodySavesFailureEvidence(t *testing.T) {
 }
 
 func TestSharedOwnerOutsideRequestedScopeRetainsPriorHash(t *testing.T) {
+	t.Parallel()
 	a, original := fixture(t)
 	fetched(t, a, original, "changed")
 	run := filepath.Join(t.TempDir(), "partial")
@@ -481,6 +493,7 @@ func TestSharedOwnerOutsideRequestedScopeRetainsPriorHash(t *testing.T) {
 }
 
 func TestInterruptedStateRejectsWithoutChangingLock(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -498,8 +511,9 @@ func TestInterruptedStateRejectsWithoutChangingLock(t *testing.T) {
 }
 
 func TestBuiltinDeepRejectsFastPath(t *testing.T) {
-	t.Setenv("AUDIT_TEST_DEEP", "alpha")
+	t.Parallel()
 	a, run := fixture(t)
+	a.env = append(a.env, "AUDIT_TEST_DEEP=alpha")
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
 	mutate(t, run, func(m map[string]any) {
@@ -514,6 +528,7 @@ func TestBuiltinDeepRejectsFastPath(t *testing.T) {
 }
 
 func TestMalformedManifestRejectsWithoutChangingLock(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	if err := os.WriteFile(filepath.Join(run, "audit.json"), []byte(`{"version":1,`), 0o644); err != nil {
 		t.Fatal(err)
@@ -538,6 +553,7 @@ func obstructFinalizationMarker(t *testing.T, run string) *manifest {
 }
 
 func TestFinalizationReportsCommittedLockWhenManifestMarkerFails(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	covered(t, a, run, false)
@@ -565,6 +581,7 @@ func TestFinalizationReportsCommittedLockWhenManifestMarkerFails(t *testing.T) {
 }
 
 func TestInvalidCoveragePreservesLockWhenManifestMarkerCannotBeSaved(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	m := obstructFinalizationMarker(t, run)

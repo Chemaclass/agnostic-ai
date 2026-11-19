@@ -23,7 +23,7 @@ func commentCaptureFixture(t *testing.T) (app, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("TARGET_FACTS_CODE_ROOT", codeRoot)
+	a.env = append(a.env, "TARGET_FACTS_CODE_ROOT="+codeRoot)
 	script, err := os.ReadFile("../target-facts.sh")
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +63,7 @@ func commentCaptureFixture(t *testing.T) (app, string) {
 }
 
 func TestSharedCommentReviewIsRequiredBeforeFinalization(t *testing.T) {
+	t.Parallel()
 	a, run := commentFixture(t)
 	m, err := load(run)
 	if err != nil {
@@ -88,6 +89,7 @@ func TestSharedCommentReviewIsRequiredBeforeFinalization(t *testing.T) {
 }
 
 func TestSharedCommentReviewRejectsMissingAndStaleProof(t *testing.T) {
+	t.Parallel()
 	a, run := commentFixture(t)
 	m, err := load(run)
 	if err != nil {
@@ -111,6 +113,7 @@ func TestSharedCommentReviewRejectsMissingAndStaleProof(t *testing.T) {
 }
 
 func TestSharedCommentReviewCannotReuseChangedReviewerEvidence(t *testing.T) {
+	t.Parallel()
 	a, run := commentFixture(t)
 	m, err := load(run)
 	if err != nil {
@@ -124,6 +127,7 @@ func TestSharedCommentReviewCannotReuseChangedReviewerEvidence(t *testing.T) {
 }
 
 func TestSharedCommentReviewResumesOnlyMatchingProof(t *testing.T) {
+	t.Parallel()
 	a, prior := commentFixture(t)
 	m, err := load(prior)
 	if err != nil {
@@ -144,6 +148,7 @@ func TestSharedCommentReviewResumesOnlyMatchingProof(t *testing.T) {
 }
 
 func TestScheduledFastPathsRequireCurrentSharedProseReview(t *testing.T) {
+	t.Parallel()
 	a, run := commentCaptureFixture(t)
 	call(t, a, "schedule", run, "1", "alpha", "beta")
 	for _, target := range []string{"alpha", "beta"} {
@@ -213,6 +218,7 @@ func TestScheduledFastPathsRequireCurrentSharedProseReview(t *testing.T) {
 }
 
 func TestOlderResearchPolicyCannotGainCommentExclusions(t *testing.T) {
+	t.Parallel()
 	a, prior := commentFixture(t)
 	mutate(t, prior, func(m map[string]any) { m["research_version"] = 1; delete(m, "comment_reviews") })
 	run := call(t, a, "start", "--out", filepath.Join(t.TempDir(), "next"), "--builtins-since", "HEAD", "alpha", "beta")
@@ -224,6 +230,7 @@ func TestOlderResearchPolicyCannotGainCommentExclusions(t *testing.T) {
 }
 
 func TestSharedCommentResumeRequiresFreshMatchingVendorEvidence(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"changed", "failed"} {
 		t.Run(status, func(t *testing.T) {
 			a, prior := commentFixture(t)
@@ -273,6 +280,7 @@ func TestSharedCommentResumeRequiresFreshMatchingVendorEvidence(t *testing.T) {
 }
 
 func TestSharedCommentResumePreservesCurrentReviewedCorrection(t *testing.T) {
+	t.Parallel()
 	a, prior := commentFixture(t)
 	m, err := load(prior)
 	if err != nil {
