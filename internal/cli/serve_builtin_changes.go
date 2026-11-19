@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"net/http"
@@ -99,11 +100,14 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			Expected json.RawMessage `json:"expected"`
 		} `json:"setting"`
 	}
-	if err := decodeOneJSON(w, r, 8193, &request); errors.Is(err, errExtraJSONValue) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send exactly one JSON object"})
-		return
-	} else if err != nil {
+	decoder := json.NewDecoder(io.LimitReader(r.Body, 8193))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object with the requested change"})
+		return
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send exactly one JSON object"})
 		return
 	}
 	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.sent() || request.Setting != nil || request.ID == "") {
