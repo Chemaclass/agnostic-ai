@@ -218,10 +218,10 @@ func checkConversationTool(w http.ResponseWriter, tool conversations.Tool) bool 
 }
 
 // readConversationRequest decodes one conversation request of at most
-// limit bytes, answering 400 with usage for a body it cannot read.
-func readConversationRequest[T interface{ tool() conversations.Tool }](w http.ResponseWriter, r *http.Request, limit int64, usage string) (T, bool) {
-	req, err := decodeOneJSON[T](w, r, limit)
-	return req, conversationRequestOK(w, req, err, usage)
+// limit bytes into req, answering 400 with usage for a body it cannot
+// read.
+func readConversationRequest(w http.ResponseWriter, r *http.Request, limit int64, usage string, req interface{ tool() conversations.Tool }) bool {
+	return conversationRequestOK(w, req, decodeOneJSON(w, r, limit, req), usage)
 }
 
 // conversationRequestOK answers 400 and is false when a decoded request
@@ -251,8 +251,8 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	}
 	deadline := time.Now().Add(h.openReplyWait)
 	_ = http.NewResponseController(w).SetWriteDeadline(deadline)
-	req, ok := readConversationRequest[conversationOpenRequest](w, r, maxConversationOpenBytes, "send {tool, id, editor}")
-	if !ok {
+	var req conversationOpenRequest
+	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, editor}", &req) {
 		return
 	}
 	// The route comes from the server's own scan; the request only names
@@ -293,7 +293,8 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	tooLarge := func(size string) {
 		writeEditJSON(w, http.StatusRequestEntityTooLarge, editError{Error: fmt.Sprintf("The text is %s the %d KB a send takes, so nothing was typed.", size, conversations.MaxSendBytes>>10)})
 	}
-	req, err := decodeOneJSON[conversationSendRequest](w, r, maxConversationSendBytes)
+	var req conversationSendRequest
+	err := decodeOneJSON(w, r, maxConversationSendBytes, &req)
 	var overLimit *http.MaxBytesError
 	if errors.As(err, &overLimit) {
 		tooLarge("over")
@@ -338,8 +339,8 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	req, ok := readConversationRequest[conversationMarkRequest](w, r, maxConversationOpenBytes, "send {tool, id, as}")
-	if !ok {
+	var req conversationMarkRequest
+	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, as}", &req) {
 		return
 	}
 	if !conversations.KnownMark(req.As) {
@@ -367,8 +368,8 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	req, ok := readConversationRequest[conversationRenameRequest](w, r, maxConversationOpenBytes, "send {tool, id, title}")
-	if !ok {
+	var req conversationRenameRequest
+	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, title}", &req) {
 		return
 	}
 	title, err := conversations.CleanTitle(req.Title)
@@ -462,8 +463,8 @@ func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	req, ok := readConversationRequest[conversationDeleteRequest](w, r, maxConversationOpenBytes, "send {tool, id}")
-	if !ok {
+	var req conversationDeleteRequest
+	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id}", &req) {
 		return
 	}
 	reply, err := h.scanner.Delete(r.Context(), req.Tool, req.ID, h.scanOptions(""))
