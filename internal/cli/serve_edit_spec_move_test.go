@@ -263,7 +263,7 @@ func TestServeMux_RoutesSpecMoveToThePeer(t *testing.T) {
 	}
 	switches := newSwitchHandler(&switchPeer{root: global, global: true}, nil, probeViewServer, nil)
 	defer switches.close()
-	mux := newServeMuxWithSwitch(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}, true, switches)
+	mux := newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}, serveMuxOptions{compareInstalled: true, switches: switches})
 	_, code, reply := previewThenApply(t, mux, moveBody("agent", "guard", "project", "global", "move"))
 	if code != http.StatusOK {
 		t.Fatalf("apply = %d %+v", code, reply)

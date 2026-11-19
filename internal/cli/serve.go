@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -152,7 +153,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if stopWithStdin {
 				ctx = endedWith(ctx, cmd.InOrStdin())
 			}
-			return serveUntilInterrupted(ctx, ln, newServeMuxWithCloud(src.load, opts, !noInstalled, switches, cloudSessions))
+			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions}))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -171,6 +172,19 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	return cmd
 }
 
+// serveMuxOptions are the parts of a served configuration that only
+// serve itself turns on.
+type serveMuxOptions struct {
+	// compareInstalled compares the generated files with disk in the
+	// overview.
+	compareInstalled bool
+	// switches mounts the switch to the other configuration.
+	switches *switchHandler
+	// cloudSessions also lists Claude Code cloud sessions and Codex cloud
+	// threads. Without it nothing reads the sign-in or leaves this machine.
+	cloudSessions bool
+}
+
 // newServeMux routes the API and the client. More specific patterns win
 // over "/", so a view mounted here bypasses the authority handler.
 //
@@ -178,31 +192,13 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 // working directory, which serve has changed into for the project. For
 // --global it runs the global lint and compares the files sync --global
 // would write with disk, from any directory.
-func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
-	return newServeMuxWith(load, opts, true)
-}
-
-// newServeMuxWith is newServeMux that leaves the generated files
-// uncompared in the overview when compareInstalled is false.
-func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool) http.Handler {
-	return newServeMuxWithSwitch(load, opts, compareInstalled, nil)
-}
-
-// newServeMuxWithSwitch also mounts the switch to the other
-// configuration when switches is set.
-func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler) http.Handler {
-	return newServeMuxWithCloud(load, opts, compareInstalled, switches, false)
-}
-
-// newServeMuxWithCloud also lists Claude Code cloud sessions and Codex
-// cloud threads when cloudSessions is set. Without it nothing reads the sign-in or leaves
-// this machine.
-func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler, cloudSessions bool) http.Handler {
+func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts serveMuxOptions) http.Handler {
+	switches := muxOpts.switches
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
-	views := newOverviewHandler(".", compareInstalled)
+	views := newOverviewHandler(".", muxOpts.compareInstalled)
 	if opts.Global {
-		views = newGlobalOverviewHandler(compareInstalled)
+		views = newGlobalOverviewHandler(muxOpts.compareInstalled)
 	}
 	mux.Handle(overview.OverviewPath, views)
 	edits := newEditHandler(".", false)
@@ -222,16 +218,13 @@ func newServeMuxWithCloud(load authority.Loader, opts authority.HandlerOptions, 
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
 	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
-	if cloudSessions {
+	if muxOpts.cloudSessions {
 		conversationsHandler.scanner.Cloud = conversations.NewClaudeCloud()
 		conversationsHandler.scanner.CodexCloud = conversations.NewCodexCloud()
 	}
-	mux.Handle(conversationsViewPath, conversationsHandler)
-	mux.Handle(conversationOpenPath, conversationsHandler)
-	mux.Handle(conversationMarkPath, conversationsHandler)
-	mux.Handle(conversationRenamePath, conversationsHandler)
-	mux.Handle(conversationDeletePath, conversationsHandler)
-	mux.Handle(conversationSendPath, conversationsHandler)
+	for _, path := range conversationPaths {
+		mux.Handle(path, conversationsHandler)
+	}
 	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
 	var peer *switchPeer
 	if switches != nil {
@@ -261,8 +254,7 @@ func serializeAPI(next http.Handler) http.Handler {
 		// Conversations read only the coding tools' own stores and lock
 		// their own scanner, so a slow scan does not hold up the overview.
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath &&
-			r.URL.Path != conversationsViewPath && r.URL.Path != conversationOpenPath && r.URL.Path != conversationMarkPath &&
-			r.URL.Path != conversationRenamePath && r.URL.Path != conversationDeletePath && r.URL.Path != conversationSendPath {
+			!slices.Contains(conversationPaths, r.URL.Path) {
 			mu.Lock()
 			defer mu.Unlock()
 		}

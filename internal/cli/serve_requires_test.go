@@ -13,7 +13,7 @@ import (
 
 func healthFields(t *testing.T, root string, global bool) map[string]json.RawMessage {
 	t.Helper()
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: root, Global: global, Requires: servedRequiresOf(root, global)}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: root, Global: global, Requires: servedRequiresOf(root, global)}, serveMuxOptions{compareInstalled: true}))
 	t.Cleanup(srv.Close)
 	return getHealthFields(t, srv.URL)
 }
@@ -119,7 +119,7 @@ func TestHealthFollowsRequiresEditedWhileTheServerRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, Requires: servedRequiresOf(src.root, false)}))
+	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, Requires: servedRequiresOf(src.root, false)}, serveMuxOptions{compareInstalled: true}))
 	t.Cleanup(srv.Close)
 	if got := string(getHealthFields(t, srv.URL)["requiresMet"]); got != "true" {
 		t.Fatalf("requiresMet before the edit = %s, want true", got)

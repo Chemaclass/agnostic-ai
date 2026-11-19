@@ -487,7 +487,7 @@ func TestServeMux_ServesConversations(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + conversationsViewPath)

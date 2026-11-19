@@ -262,13 +262,13 @@ func TestServeMux_GlobalCreateOnlyOnAProjectServer(t *testing.T) {
 	defer project.close()
 	global := newSwitchHandler(&switchPeer{root: src.root}, nil, probeViewServer, nil)
 	defer global.close()
-	if code := post(newServeMuxWithSwitch(src.load, opts, true, global)); code != http.StatusNotFound {
+	if code := post(newServeMux(src.load, opts, serveMuxOptions{compareInstalled: true, switches: global})); code != http.StatusNotFound {
 		t.Errorf("global server create = %d, want 404", code)
 	}
 	if _, err := os.Stat(home); err == nil {
 		t.Error("the global server created the folder")
 	}
-	if code := post(newServeMuxWithSwitch(src.load, opts, true, project)); code != http.StatusOK {
+	if code := post(newServeMux(src.load, opts, serveMuxOptions{compareInstalled: true, switches: project})); code != http.StatusOK {
 		t.Errorf("project server create route = %d", code)
 	}
 	if _, err := os.Stat(filepath.Join(home, "agnostic-ai.yaml")); err != nil {

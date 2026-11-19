@@ -27,6 +27,10 @@ const (
 	conversationSendPath   = "/api/conversations/send"
 )
 
+// conversationPaths are the endpoints conversationsHandler serves. The
+// mux mounts each one and serializeAPI leaves each out of its lock.
+var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath}
+
 // maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
 const maxConversationOpenBytes = 4 << 10
 
