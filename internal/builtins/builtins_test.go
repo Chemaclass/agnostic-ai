@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -572,7 +573,7 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"## Launch", "| Tool | Launch | Needs |",
 		"script -q /dev/null claude --cloud \"$CLOUD_PROMPT\"",
 		"script -q -c 'claude --cloud \"$CLOUD_PROMPT\"' /dev/null",
-		"codex cloud exec --env <id> --branch <branch> -",
+		"codex cloud exec --env \"<id>\" --branch \"<branch>\" -",
 		"View: ", "kill", "requires an interactive terminal",
 		"Cloud sessions need a claude.ai sign-in", "Not signed in.",
 		"no cloud environments are available for this workspace", "not found; run `codex cloud`",
@@ -584,7 +585,7 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"Use another row only when the user names that tool", "Stage only the files of this task",
 		"name it in your reply", "in brackets", "Never write secrets", "stop and show the error",
 		"stays theirs", "no cloud launch", "sleep 150 | script", " | codex cloud exec",
-		"Set it and launch in one shell command", "[ -n \"$CLOUD_PROMPT\" ] || exit 1",
+		"Set it and launch in one shell command", "cat >\"$f\" <<'PROMPT'", "pkill -P $$ -x sleep", "[ -n \"$CLOUD_PROMPT\" ] || exit 1",
 	} {
 		if !strings.Contains(skill.Body, rule) {
 			t.Errorf("skill is missing rule %q", rule)
@@ -679,4 +680,88 @@ func TestHandoffAndWrapUp_PointToSideConversation(t *testing.T) {
 			t.Errorf("%s skill does not point to the side-conversation skill", name)
 		}
 	}
+}
+
+func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the snippet is for macOS and Linux shells")
+	}
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("cloud-handoff")
+	if err != nil {
+		t.Fatalf("materialize cloud-handoff: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(root, "skills", "cloud-handoff", "SKILL.md"))
+	if cerr := cleanup(); cerr != nil {
+		t.Errorf("cleanup %s: %v", root, cerr)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocks := bashBlocks(string(body))
+	if len(blocks) < 2 {
+		t.Fatalf("bash blocks = %d, want the prompt and the launch", len(blocks))
+	}
+	prompt := "Fix it's \"quoted\" `tick` (paren) $(date) $HOME. [cloud/x]\n\n## Done\n- done: a) lexer\n- b) parser ) ("
+	start := strings.Index(blocks[0], "<<'PROMPT'\n")
+	end := strings.Index(blocks[0], "\nPROMPT\n")
+	if start < 0 || end < start {
+		t.Fatalf("prompt block has no quoted PROMPT heredoc:\n%s", blocks[0])
+	}
+	setPrompt := blocks[0][:start+len("<<'PROMPT'\n")] + prompt + blocks[0][end:]
+	// A unique sleep length lets the test find a leftover input process.
+	launch := strings.Replace(blocks[1], "sleep 150 |", "sleep 157 |", 1)
+	if launch == blocks[1] {
+		t.Fatalf("launch block does not feed the input from sleep 150:\n%s", blocks[1])
+	}
+
+	stubs := t.TempDir()
+	got := filepath.Join(stubs, "prompt.txt")
+	writeStub := func(name, script string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(stubs, name), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeStub("claude", "#!/bin/sh\n[ \"$1\" = --cloud ] || exit 9\nprintf '%s' \"$2\" >\"$PROMPT_OUT\"\necho 'View: https://claude.ai/code/session_test'\nexec sleep 30\n")
+	writeStub("script", "#!/bin/sh\n[ \"$1\" = -q ] || exit 9\nif [ \"$2\" = -c ]; then exec sh -c \"$3\"; fi\nshift 2\nexec \"$@\"\n")
+
+	for _, shell := range []string{"/bin/bash", "/bin/sh", "zsh"} {
+		path, err := exec.LookPath(shell)
+		if err != nil {
+			continue
+		}
+		t.Run(filepath.Base(shell), func(t *testing.T) {
+			_ = os.Remove(got)
+			cmd := exec.Command(path, "-c", setPrompt+launch)
+			cmd.Env = append(os.Environ(), "PATH="+stubs+":/usr/bin:/bin", "PROMPT_OUT="+got)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("snippet failed: %v\n%s", err, out)
+			}
+			if !strings.Contains(string(out), "View: https://claude.ai/code/session_test") {
+				t.Errorf("snippet output lacks the View line:\n%s", out)
+			}
+			sent, err := os.ReadFile(got)
+			if err != nil {
+				t.Fatalf("the stand-in claude never ran: %v\n%s", err, out)
+			}
+			if string(sent) != prompt {
+				t.Errorf("prompt arrived as\n%q\nwant\n%q", sent, prompt)
+			}
+			if left, _ := exec.Command("pgrep", "-f", "^sleep 157$").Output(); len(left) > 0 {
+				t.Errorf("the input sleep is still running: %s", left)
+			}
+		})
+	}
+}
+
+func bashBlocks(body string) []string {
+	var blocks []string
+	for _, part := range strings.Split(body, "```bash\n")[1:] {
+		if end := strings.Index(part, "```"); end >= 0 {
+			blocks = append(blocks, part[:end])
+		}
+	}
+	return blocks
 }

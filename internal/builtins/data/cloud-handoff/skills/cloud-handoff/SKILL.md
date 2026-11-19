@@ -47,16 +47,17 @@ The prompt is all the cloud session knows. Write it like this:
 - **Branch**: the pushed branch, and that the work is committed on it.
 - **Verify**: the checks to run before calling it done.
 - Keep it under 60 lines. Never write secrets, tokens, or `.env` values.
-- Put it in a shell variable through a quoted heredoc, so the shell expands nothing in it. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt.
+- Write it to a file through a quoted heredoc, so the shell expands nothing in it, then read the file into a variable. Keep the heredoc outside `$( )`: an older bash, such as macOS `/bin/bash` and `/bin/sh`, breaks on quotes and parentheses there. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt.
 
 ```bash
-CLOUD_PROMPT=$(cat <<'PROMPT'
+f=$(mktemp)
+cat >"$f" <<'PROMPT'
 Finish the parser error messages. [cloud/parser-errors]
 
 ## Done
 ...
 PROMPT
-)
+CLOUD_PROMPT=$(cat "$f"); rm -f "$f"
 export CLOUD_PROMPT
 [ -n "$CLOUD_PROMPT" ] || exit 1
 ```
@@ -68,7 +69,7 @@ Use the row for the tool this session runs in. Use another row only when the use
 | Tool | Launch | Needs |
 |---|---|---|
 | Claude Code | `claude --cloud "$CLOUD_PROMPT"`, wrapped in a terminal as shown below | A claude.ai sign-in, and `script` on macOS or Linux. `--environment <id>` only for a self-hosted environment. |
-| Codex | `codex cloud exec --env <id> --branch <branch> -`, with the prompt on standard input as shown below | An environment id. The subcommand is marked experimental. |
+| Codex | `codex cloud exec --env "<id>" --branch "<branch>" -`, with the prompt on standard input as shown below | An environment id. The subcommand is marked experimental. |
 | Any other tool | none | Falls back to a local handoff note. |
 
 ### Claude Code
@@ -82,7 +83,7 @@ log=$(mktemp)
 sleep 150 | script -q /dev/null claude --cloud "$CLOUD_PROMPT" >"$log" 2>&1 &
 pid=$!
 for _ in $(seq 60); do grep -qE 'View: |Error' "$log" && break; sleep 2; done
-sleep 2; kill "$pid" 2>/dev/null
+sleep 2; kill "$pid" 2>/dev/null; pkill -P $$ -x sleep
 cat "$log"
 ```
 
@@ -97,7 +98,7 @@ Without `script`, such as on Windows, do not launch. Show the user the prompt an
 The command reads the prompt from standard input when the prompt argument is `-`, and needs no terminal. After the prompt lines above:
 
 ```bash
-printf '%s\n' "$CLOUD_PROMPT" | codex cloud exec --env <id> --branch <branch> -
+printf '%s\n' "$CLOUD_PROMPT" | codex cloud exec --env "<id>" --branch "<branch>" -
 ```
 
 It prints one line on success: the task URL, `https://chatgpt.com/codex/tasks/<task_id>`.
