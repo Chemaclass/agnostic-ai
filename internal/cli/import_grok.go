@@ -146,6 +146,11 @@ func readGrokConfigDocument(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	return parseGrokConfig(path, data)
+}
+
+// parseGrokConfig parses data, the Grok settings file at path.
+func parseGrokConfig(path string, data []byte) (map[string]any, error) {
 	var doc map[string]any
 	if _, err := toml.Decode(string(data), &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: invalid Grok settings", path)
