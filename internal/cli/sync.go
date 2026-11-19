@@ -402,7 +402,7 @@ func newSyncCmd() *cobra.Command {
 			if watch {
 				ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 				defer stop()
-				return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(targets, only, except, effective), dryRun, backup, gitignoreFlag, watchPoll, jobs)
+				return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(targets, only, except, effective), watchOptions{dryRun: dryRun, backup: backup, gitignoreFlag: gitignoreFlag, jobs: jobs}, watchPoll)
 			}
 			// The drift reports keep every file when targets is empty, so
 			// they name none of the files --allow-empty-targets removes.

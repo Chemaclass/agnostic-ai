@@ -52,7 +52,7 @@ func TestWatchPass_SkipsAPassWhileConfigListsNoTargets(t *testing.T) {
 	stop()
 	writeTestFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets:\n")
 
-	if err := watchPass(".", nil, false, false, "off", 1); err != nil {
+	if err := watchPass(".", nil, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "lists no tool") {
@@ -64,7 +64,7 @@ func TestWatchPass_SkipsAPassWhileConfigListsNoTargets(t *testing.T) {
 		}
 	}
 
-	if err := watchPass(".", []string{"claude"}, false, false, "off", 1); err != nil {
+	if err := watchPass(".", []string{"claude"}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err != nil {

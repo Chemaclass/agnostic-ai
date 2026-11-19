@@ -234,7 +234,7 @@ func TestWatchResync_StopsOnceRequiresIsRaised(t *testing.T) {
 	rule := filepath.Join(".agnostic-ai", "rules", "safe.md")
 	mustWriteFile(t, rule, "---\nname: safe\n---\nBe very safe.\n")
 
-	err := resyncForChanges(".", nil, []string{rule}, false, false, "off", 1)
+	err := resyncForChanges(".", nil, []string{rule}, watchOptions{gitignoreFlag: "off", jobs: 1})
 	assertUnmetRequires(t, err, "agnostic-ai.yaml", ">=0.70.0", "0.69.0")
 	if got := readFile(t, emitted); got != before {
 		t.Errorf("watch re-synced past an unmet requires:\n%s", got)

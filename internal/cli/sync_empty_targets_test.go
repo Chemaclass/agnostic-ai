@@ -231,7 +231,7 @@ func TestWatch_PinnedResyncKeepsFilesWhenTargetsBecomeEmpty(t *testing.T) {
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
 	buf := captureWatchOutput(t)
 
-	err := resyncForChanges(".", []string{"claude"}, []string{"agnostic-ai.yaml"}, false, false, "off", 1)
+	err := resyncForChanges(".", []string{"claude"}, []string{"agnostic-ai.yaml"}, watchOptions{gitignoreFlag: "off", jobs: 1})
 
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func testWatchFirstPassKeepsFiles(t *testing.T, pinned []string) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		done <- watchSync(ctx, 20*time.Millisecond, ".", pinned, false, false, "off", true, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", pinned, watchOptions{gitignoreFlag: "off", jobs: 1}, true)
 	}()
 
 	waitForOutput(t, buf, "watching", 10*time.Second)

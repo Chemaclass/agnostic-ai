@@ -29,11 +29,23 @@ const debounceWindow = 50 * time.Millisecond
 // --watch` so hand-edits to the overlay trigger a re-emit.
 const agnosticOverlayDir = ".agnostic-ai/overlays"
 
+// watchOptions are the sync flags every pass of a watch reuses.
+type watchOptions struct {
+	dryRun        bool
+	backup        bool
+	gitignoreFlag string
+	jobs          int
+}
+
+func (o watchOptions) sync(root string, targets []string) error {
+	return runSyncOnce(root, targets, o.dryRun, o.backup, o.gitignoreFlag, o.jobs)
+}
+
 // watchSync runs an initial sync, then re-runs whenever a watched path
 // changes. When forcePoll is false it tries fsnotify and falls back to
 // polling if the watcher cannot be created.
-func watchSync(ctx context.Context, pollInterval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, forcePoll bool, jobs int) error {
-	if err := watchPass(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
+func watchSync(ctx context.Context, pollInterval time.Duration, root string, targets []string, opts watchOptions, forcePoll bool) error {
+	if err := watchPass(root, targets, opts); err != nil {
 		return err
 	}
 	// -v showed every warning on the first pass; each save after it
@@ -42,14 +54,14 @@ func watchSync(ctx context.Context, pollInterval time.Duration, root string, tar
 	defer func() { showRepeatedDrops = true }()
 	reconcile := false
 	if !forcePoll {
-		err := watchSyncFsnotify(ctx, root, targets, dryRun, backup, gitignoreFlag, jobs)
+		err := watchSyncFsnotify(ctx, root, targets, opts)
 		if err == nil || ctx.Err() != nil {
 			return err
 		}
 		fmt.Fprintf(os.Stderr, "! fsnotify unavailable (%v); falling back to polling\n", err)
 		reconcile = errors.Is(err, errWatchLost)
 	}
-	return watchSyncPoll(ctx, pollInterval, root, targets, dryRun, backup, gitignoreFlag, jobs, reconcile)
+	return watchSyncPoll(ctx, pollInterval, root, targets, opts, reconcile)
 }
 
 // errWatchLost marks a watch that stopped seeing every change mid-session:
@@ -63,7 +75,7 @@ var errWatchLost = errors.New("watch lost mid-session")
 // unrecoverable setup error so the caller can fall back to polling.
 // A watcher error that means lost events ends the loop with errWatchLost;
 // any other is logged and the loop continues.
-func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+func watchSyncFsnotify(ctx context.Context, root string, targets []string, opts watchOptions) error {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return err
@@ -85,7 +97,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 	}
 	localSnapshot := collectMtimes([]string{localRoot})
 	// Reconcile edits made after the initial sync while watches were armed.
-	if err := watchPass(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
+	if err := watchPass(root, targets, opts); err != nil {
 		fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 	}
 
@@ -188,7 +200,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			printWatchEvent(lastEvent)
 			paths := mapKeys(changed)
 			changed = map[string]struct{}{}
-			if err := resyncForChanges(root, targets, paths, dryRun, backup, gitignoreFlag, jobs); err != nil {
+			if err := resyncForChanges(root, targets, paths, opts); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
 			// Pick up source roots that may have appeared (e.g. a
@@ -264,7 +276,7 @@ var pollSyncPause = func() {}
 // With reconcile set it re-syncs once after taking its baseline, so a
 // change the lost fsnotify watch saw but never synced still lands, and a
 // change made after the baseline is still caught by the next tick.
-func watchSyncPoll(ctx context.Context, interval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int, reconcile bool) error {
+func watchSyncPoll(ctx context.Context, interval time.Duration, root string, targets []string, opts watchOptions, reconcile bool) error {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return err
@@ -272,7 +284,7 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 	watched := watchDirs(root, cfg)
 	snapshot := collectMtimes(watched)
 	if reconcile {
-		if err := watchPass(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
+		if err := watchPass(root, targets, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 		}
 	}
@@ -288,13 +300,13 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 			return nil
 		case <-ticker.C:
 			curr := collectMtimes(watched)
-			if !mtimesChanged(snapshot, curr) {
+			changed := changedPaths(snapshot, curr)
+			if len(changed) == 0 {
 				continue
 			}
-			changed := changedPaths(snapshot, curr)
 			snapshot = curr
 			printWatchEvent(firstOf(changed))
-			if err := resyncForChanges(root, targets, changed, dryRun, backup, gitignoreFlag, jobs); err != nil {
+			if err := resyncForChanges(root, targets, changed, opts); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
 			pollSyncPause()
@@ -708,19 +720,6 @@ func collectMtimes(paths []string) map[string]time.Time {
 	return mtimes
 }
 
-// mtimesChanged reports whether any file was added, removed, or modified.
-func mtimesChanged(prev, curr map[string]time.Time) bool {
-	if len(prev) != len(curr) {
-		return true
-	}
-	for k, t := range curr {
-		if prev[k] != t {
-			return true
-		}
-	}
-	return false
-}
-
 // affectedResync describes how one debounced change burst maps onto the
 // targets that must re-emit. When full is set the caller re-syncs every
 // configured target (config or overlay edits, deletes, renames, or paths
@@ -739,7 +738,7 @@ type affectedResync struct {
 // bundle the emission will, and it always defers the actual writing to
 // runSyncOnce so the affected subset gets the identical ledger, gitignore,
 // and orphan-sweep handling a partial `--only` sync already gets.
-func resyncForChanges(root string, configured, changed []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+func resyncForChanges(root string, configured, changed []string, opts watchOptions) error {
 	paths := make([]string, 0, len(changed))
 	for _, path := range changed {
 		if !isLocalStatePath(root, path) {
@@ -755,7 +754,7 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 		// Without a loadable project the change cannot be attributed;
 		// re-sync every configured target so correctness is never traded
 		// for a narrower emit. runSyncOnce surfaces the load error itself.
-		return runSyncOnce(root, configured, dryRun, backup, gitignoreFlag, jobs)
+		return opts.sync(root, configured)
 	}
 	if noTargetsKept(cfg) {
 		warnEmptyTargetsSummary()
@@ -768,7 +767,7 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 	plan := planWatchResync(root, cfg, b, changed, effective)
 	if plan.full {
 		summaryf("  ↳ %s · full re-sync\n", plan.reason)
-		return runSyncOnce(root, effective, dryRun, backup, gitignoreFlag, jobs)
+		return opts.sync(root, effective)
 	}
 	if len(plan.targets) == 0 {
 		summaryf("  ↳ %s change · no configured target emits it; skipped\n", plan.reason)
@@ -776,19 +775,19 @@ func resyncForChanges(root string, configured, changed []string, dryRun, backup 
 	}
 	summaryf("  ↳ %s change · re-syncing %d target%s: %s\n",
 		plan.reason, len(plan.targets), plural(len(plan.targets)), strings.Join(plan.targets, ", "))
-	return runSyncOnce(root, plan.targets, dryRun, backup, gitignoreFlag, jobs)
+	return opts.sync(root, plan.targets)
 }
 
 // watchPass runs one sync pass of a watch. A watch whose config lists no
 // tool skips the pass, pinned with -t or not: an empty list is often an
 // autosave in the middle of an edit, and a pass over it would remove every
 // generated file.
-func watchPass(root string, configured []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+func watchPass(root string, configured []string, opts watchOptions) error {
 	if cfg, _, err := loadValidConfig(root); err == nil && noTargetsKept(cfg) {
 		warnEmptyTargetsSummary()
 		return nil
 	}
-	return runSyncOnce(root, configured, dryRun, backup, gitignoreFlag, jobs)
+	return opts.sync(root, configured)
 }
 
 func warnEmptyTargetsSummary() {
