@@ -265,6 +265,51 @@ func BenchmarkLint(b *testing.B) {
 	}
 }
 
+// BenchmarkWatchResync measures one `sync --watch` event: a saved rule.
+// status-quo is what the loop runs today: resyncForChanges loads the
+// project to pick the affected targets, the pass loads it again, and the
+// loop parses the config once more to refresh the watch list. baseline is
+// the pass alone over the same targets, the lower bound any reuse of the
+// loaded project can reach.
+func BenchmarkWatchResync(b *testing.B) {
+	opts := watchOptions{gitignoreFlag: "off", jobs: 1}
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			benchSyncedProject(b, n)
+			changed := []string{filepath.Join(config.SourceBaseDir, "rules", "rule-0000.md")}
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				b.Fatal(err)
+			}
+			plan := planWatchResync(".", cfg, bundle, changed, cfg.Targets)
+			if plan.full || len(plan.targets) == 0 {
+				b.Fatalf("a rule save should re-sync a target subset, got %+v", plan)
+			}
+			b.Run("status-quo", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					if err := resyncForChanges(".", nil, changed, opts); err != nil {
+						b.Fatal(err)
+					}
+					newCfg, err := config.Load(".")
+					if err != nil {
+						b.Fatal(err)
+					}
+					benchIntSink = len(watchDirs(".", newCfg))
+				}
+			})
+			b.Run("baseline", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					if err := opts.sync(".", plan.targets); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		})
+	}
+}
+
 // benchSyncedProject builds the fixture, makes it the working directory,
 // and syncs it once, for commands whose cost depends on the output tree.
 func benchSyncedProject(b *testing.B, n int) (*config.Config, spec.Bundle) {
