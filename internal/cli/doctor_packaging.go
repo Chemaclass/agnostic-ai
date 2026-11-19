@@ -33,8 +33,8 @@ func collectPackagingIgnoreFindings(reports []driftReport) []packagingIgnoreFind
 				if err != nil {
 					continue
 				}
-				rel, err := filepath.Rel(root, absolute)
-				if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				rel, inside := pathBelow(root, absolute)
+				if !inside {
 					continue
 				}
 				generated[filepath.ToSlash(rel)] = true

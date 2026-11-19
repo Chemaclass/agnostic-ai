@@ -69,7 +69,7 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 			return err == nil && memoryFactSum(b) == sum
 		}
 		missing, declinedHere := 0, 0
-		if notes := sourceIndexNotes(c.dir); len(notes) > 0 {
+		if notes := sourceIndexNotes(sourceIndex(c.dir)); len(notes) > 0 {
 			fact, err := uniqueMemoryNotesFact(c.dir, personal, c.from, notes)
 			if err != nil {
 				return nil, err

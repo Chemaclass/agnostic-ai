@@ -51,8 +51,7 @@ func npmUpgradeHint(exe, root, latest string, globalRoot func() (string, error))
 		if resolved, err := config.ResolveSourceAlias(dir); err == nil {
 			dir = resolved
 		}
-		rel, err := filepath.Rel(dir, exe)
-		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if _, inside := pathBelow(dir, exe); inside {
 			return ""
 		}
 	}

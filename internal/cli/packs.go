@@ -370,7 +370,7 @@ func checkPacksDirInsideProject(root string) error {
 		if err != nil {
 			return err
 		}
-		if !pathInside(realRoot, real) {
+		if _, inside := pathBelow(realRoot, real); !inside {
 			return fmt.Errorf("%s links outside the project; remove the link and try again", dir)
 		}
 		return nil
@@ -432,29 +432,18 @@ func checkLocalSource(root, source string) error {
 	if err != nil {
 		return fmt.Errorf("local source %q: %w", source, err)
 	}
-	if !pathInside(realRoot, realPath) {
+	if _, inside := pathBelow(realRoot, realPath); !inside {
 		return errLocalSourceOutsideProject
 	}
 	// Lowercase so a case-insensitive disk cannot spell the packs folder differently.
 	packs := strings.ToLower(filepath.Join(realRoot, packsDir))
 	lowerPath := strings.ToLower(realPath)
-	if pathInside(lowerPath, packs) || pathInside(packs, lowerPath) {
+	_, holdsPacks := pathBelow(lowerPath, packs)
+	_, insidePacks := pathBelow(packs, lowerPath)
+	if holdsPacks || insidePacks {
 		return fmt.Errorf("local source %q must not hold or sit inside %s", source, packsDir)
 	}
 	return nil
-}
-
-func realAbs(path string) (string, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	return filepath.EvalSymlinks(abs)
-}
-
-func pathInside(base, path string) bool {
-	rel, err := filepath.Rel(base, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // fetchLockedPack restores a Git pack at its recorded commit, so a moved

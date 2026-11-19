@@ -405,7 +405,10 @@ func kiroPromptText(value any, dir, root string) (string, error) {
 			return "", fmt.Errorf("prompt file %s cannot be read", uri)
 		}
 		absPath, err := filepath.Abs(path)
-		if err != nil || !pathInside(resolveSymlinks(absRoot), resolveSymlinks(absPath)) {
+		if err != nil {
+			return "", fmt.Errorf("prompt file %s is outside the project", uri)
+		}
+		if _, inside := pathBelow(resolveSymlinks(absRoot), resolveSymlinks(absPath)); !inside {
 			return "", fmt.Errorf("prompt file %s is outside the project", uri)
 		}
 		text, err := os.ReadFile(absPath)

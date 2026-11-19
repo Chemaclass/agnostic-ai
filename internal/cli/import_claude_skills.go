@@ -125,7 +125,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 			out = kept
 			if restored && !unchangedSinceSync(srcPath, string(data)) {
 				shown := dstPath
-				if rel, err := filepath.Rel(root, dstPath); err == nil && !strings.HasPrefix(rel, "..") {
+				if rel, inside := pathBelow(root, dstPath); inside {
 					shown = rel
 				}
 				keptf("note: %s keeps its scoped %s; Claude Code gets the plain tools. To widen it for every tool, edit the spec\n", shown, scopedToolsKey(meta))

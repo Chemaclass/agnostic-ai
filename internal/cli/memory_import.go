@@ -166,6 +166,10 @@ type memoryImportPick struct {
 
 func (p memoryImportPick) declines() bool { return len(p.skip) > 0 || p.skipRest }
 
+func (p memoryImportPick) declinesFile(file string) bool {
+	return p.skipRest || slices.Contains(p.skip, file)
+}
+
 // memoryCopy is one fact file import writes, with the index line it gets.
 type memoryCopy struct {
 	file   string
@@ -285,7 +289,16 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 		_, err := os.Lstat(filepath.Join(target, file))
 		return err == nil || handled[label+"/"+record]
 	}
-	declines := func(file string) bool { return pick.skipRest || slices.Contains(pick.skip, file) }
+	facts, unread := plan.readSourceFacts(entries, pick, declined, isImported)
+	facts, err = plan.indexAndSelectFacts(facts, unread, pick)
+	if err != nil {
+		return plan, err
+	}
+	err = plan.classifyFacts(facts, pick, declined, isImported)
+	return plan, err
+}
+
+func (p *memoryImportPlan) readSourceFacts(entries []os.DirEntry, pick memoryImportPick, declined map[string]string, isImported func(string, string) bool) ([]memoryCopy, []string) {
 	var facts []memoryCopy
 	var unread []string
 	for _, e := range entries {
@@ -295,7 +308,7 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 		}
 		reason := "not a regular file"
 		if e.Type().IsRegular() {
-			body, err := readMemoryFact(filepath.Join(source, name))
+			body, err := readMemoryFact(filepath.Join(p.source, name))
 			if err == nil {
 				facts = append(facts, memoryCopy{file: name, body: body})
 				continue
@@ -303,20 +316,25 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 			reason = err.Error()
 		}
 		unread = append(unread, name)
-		switch sum, ok := declined[label+"/"+name]; {
+		switch sum, ok := declined[p.label+"/"+name]; {
 		case slices.Contains(pick.only, name) || isImported(name, name):
-		case declines(name):
+		case pick.declinesFile(name):
 			if !ok || sum != "" {
-				plan.toDecline = append(plan.toDecline, memoryDecline{file: name, record: name})
+				p.toDecline = append(p.toDecline, memoryDecline{file: name, record: name})
 			}
 			continue
 		case ok && sum == "":
-			plan.declined = append(plan.declined, name)
+			p.declined = append(p.declined, name)
 			continue
 		}
-		plan.skipped = append(plan.skipped, memorySkip{name, reason})
+		p.skipped = append(p.skipped, memorySkip{name, reason})
 	}
-	lines := sourceIndexLines(source)
+	return facts, unread
+}
+
+func (p *memoryImportPlan) indexAndSelectFacts(facts []memoryCopy, unread []string, pick memoryImportPick) ([]memoryCopy, error) {
+	index := sourceIndex(p.source)
+	lines := sourceIndexLines(index)
 	for i, f := range facts {
 		if line, ok := lines[f.file]; ok {
 			facts[i].line = line
@@ -324,75 +342,79 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 			facts[i].line = parseMemoryTopic(f.file, string(f.body)).indexLine()
 		}
 	}
-	if notes := sourceIndexNotes(source); len(notes) > 0 {
-		fact, err := uniqueMemoryNotesFact(source, target, label, notes)
+	if notes := sourceIndexNotes(index); len(notes) > 0 {
+		fact, err := uniqueMemoryNotesFact(p.source, p.target, p.label, notes)
 		if err != nil {
-			return plan, err
+			return nil, err
 		}
 		facts = append(facts, fact)
 	}
 	for _, name := range pick.only {
 		if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) {
-			return plan, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(source))
+			return nil, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(p.source))
 		}
 	}
 	for _, name := range pick.skip {
 		if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) && !slices.Contains(unread, name) {
-			return plan, fmt.Errorf("--skip %s: %s has no such fact file", name, filepath.ToSlash(source))
+			return nil, fmt.Errorf("--skip %s: %s has no such fact file", name, filepath.ToSlash(p.source))
 		}
 	}
+	return facts, nil
+}
+
+func (p *memoryImportPlan) classifyFacts(facts []memoryCopy, pick memoryImportPick, declined map[string]string, isImported func(string, string) bool) error {
 	for _, f := range facts {
 		record := f.recordName()
 		imported := isImported(f.file, record)
 		sum := memoryFactSum(f.body)
-		was, wasDeclined := declined[label+"/"+record]
+		was, wasDeclined := declined[p.label+"/"+record]
 		stillDeclined := wasDeclined && !imported && (was == "" || was == sum)
 		if wasDeclined && !imported && !stillDeclined {
-			plan.changed = append(plan.changed, f.file)
+			p.changed = append(p.changed, f.file)
 		}
 		if !slices.Contains(pick.only, f.file) {
 			if len(pick.only) > 0 || pick.declines() {
 				switch {
 				case imported:
-					plan.imported = append(plan.imported, f.file)
+					p.imported = append(p.imported, f.file)
 					if slices.Contains(pick.skip, f.file) {
-						plan.skipImported = append(plan.skipImported, f.file)
+						p.skipImported = append(p.skipImported, f.file)
 					}
-				case declines(f.file) && was != sum:
-					plan.toDecline = append(plan.toDecline, memoryDecline{file: f.file, record: record, sum: sum})
+				case pick.declinesFile(f.file) && was != sum:
+					p.toDecline = append(p.toDecline, memoryDecline{file: f.file, record: record, sum: sum})
 				case stillDeclined:
-					plan.declined = append(plan.declined, f.file)
+					p.declined = append(p.declined, f.file)
 				default:
-					plan.pending = append(plan.pending, f.file)
+					p.pending = append(p.pending, f.file)
 				}
 				continue
 			}
 			if stillDeclined {
-				plan.declined = append(plan.declined, f.file)
+				p.declined = append(p.declined, f.file)
 				continue
 			}
 		}
 		if line := memorySecretLine(string(f.body)); line > 0 {
-			plan.skipped = append(plan.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
+			p.skipped = append(p.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
 			continue
 		}
 		if memorySecretIn(f.line) {
 			f.line = parseMemoryTopic(f.file, string(f.body)).indexLine()
-			plan.relined = append(plan.relined, f.file)
+			p.relined = append(p.relined, f.file)
 		}
-		existing, err := os.ReadFile(filepath.Join(target, f.file))
+		existing, err := os.ReadFile(filepath.Join(p.target, f.file))
 		switch {
 		case err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(f.body)):
-			plan.present = append(plan.present, f)
+			p.present = append(p.present, f)
 		case err == nil:
-			plan.kept = append(plan.kept, f.file)
+			p.kept = append(p.kept, f.file)
 		case errors.Is(err, fs.ErrNotExist):
-			plan.copies = append(plan.copies, f)
+			p.copies = append(p.copies, f)
 		default:
-			return plan, fmt.Errorf("%s: %w", filepath.Join(target, f.file), err)
+			return fmt.Errorf("%s: %w", filepath.Join(p.target, f.file), err)
 		}
 	}
-	return plan, nil
+	return nil
 }
 
 // memoryFactSum fingerprints a fact's content, so a declined fact that
@@ -452,11 +474,11 @@ func sourceIndex(dir string) []string {
 	return strings.Split(strings.TrimRight(string(normalizeNewlines(body)), "\n"), "\n")
 }
 
-// sourceIndexLines returns, for each fact file the index in dir links,
+// sourceIndexLines returns, for each fact file the index links,
 // the first index line that links it.
-func sourceIndexLines(dir string) map[string]string {
+func sourceIndexLines(index []string) map[string]string {
 	out := map[string]string{}
-	for _, e := range memoryIndexEntries(sourceIndex(dir)) {
+	for _, e := range memoryIndexEntries(index) {
 		if _, seen := out[e.target]; !seen {
 			out[e.target] = e.text
 		}
@@ -464,10 +486,9 @@ func sourceIndexLines(dir string) map[string]string {
 	return out
 }
 
-// sourceIndexNotes returns the lines of the index in dir that link no
+// sourceIndexNotes returns the lines of the index that link no
 // fact and are not blank, or nil when headings are all there is.
-func sourceIndexNotes(dir string) []string {
-	index := sourceIndex(dir)
+func sourceIndexNotes(index []string) []string {
 	linked := map[int]bool{}
 	for _, e := range memoryIndexEntries(index) {
 		linked[e.line] = true

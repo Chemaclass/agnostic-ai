@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -183,5 +185,19 @@ func TestImportScopedTargetKeysKeeping_PreservesUnwrittenKeyWithIncomingBlock(t 
 	}
 	if !strings.Contains(string(got), "terminal") {
 		t.Errorf("unwritten scoped tools lost: %s", got)
+	}
+}
+
+func TestImport_ShowsRelativePathForDotDotPrefixedDirectory(t *testing.T) {
+	root := testutil.TempCwd(t)
+	t.Cleanup(func() { importPendingKeptNote = "" })
+	var scoped yaml.Node
+	if err := yaml.Unmarshal([]byte("model: custom"), &scoped); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join("..data", "agent.md")
+	noteUnseenScopedKeys(scoped.Content[0], &yaml.Node{}, &yaml.Node{}, filepath.Join(root, path), "x-codex", nil, func(string) bool { return true })
+	if want := "note: " + filepath.ToSlash(path) + " keeps x-codex.model"; !strings.HasPrefix(importPendingKeptNote, want) {
+		t.Errorf("note = %q, want prefix %q", importPendingKeptNote, want)
 	}
 }
