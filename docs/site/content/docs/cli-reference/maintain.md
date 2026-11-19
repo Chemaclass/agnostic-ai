@@ -75,7 +75,7 @@ Undo a `sync --backup`. For each generated file and tool instruction file (`CLAU
 - A nested `CLAUDE.md` that sync deleted comes back too.
 - An unfiltered `revert` also restores intact recorded backups of removed outputs, including those from dropped targets.
 - Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched.
-- Your note `.agnostic-ai/AGNOSTIC_AI.md` is a source file, so `revert` never restores or deletes it, even with `--force`.
+- Files in `.agnostic-ai/` and in the spec folders `sources` sets, your note `AGNOSTIC_AI.md` included, are what you write, so `revert` never restores or deletes them, even with `--force` and even when an `outputs` path points there.
 - A shared `AGENTS.md` is handled once.
 - `revert` takes the project lock, so it stops while another command writes. `--dry-run` does not.
 {% </details> %}

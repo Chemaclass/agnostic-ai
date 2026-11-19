@@ -89,6 +89,7 @@ func newRevertCmd() *cobra.Command {
 			}
 
 			seen := map[string]bool{}
+			inSource := sourceTree(cfg)
 			sess := adapters.NewSession()
 			for _, t := range effective {
 				adapter, err := adapters.Resolve(t)
@@ -111,7 +112,7 @@ func newRevertCmd() *cobra.Command {
 					if alreadyHandled(seen, f.Path) {
 						continue
 					}
-					action, err := revertOne(f.Path, dryRun, force)
+					action, err := revertOutput(inSource, f.Path, dryRun, force)
 					if err != nil {
 						return fmt.Errorf("%s: %w", t, err)
 					}
@@ -124,11 +125,11 @@ func newRevertCmd() *cobra.Command {
 			// outside adapter emission, so revert them on the same terms.
 			summaryf("← revert entry-points\n")
 			var tally revertTally
-			for _, p := range revertEntryPointPaths(cfg, effective) {
+			for _, p := range entryPointPaths(cfg, effective) {
 				if alreadyHandled(seen, p) {
 					continue
 				}
-				action, err := revertOne(p, dryRun, force)
+				action, err := revertOutput(inSource, p, dryRun, force)
 				if err != nil {
 					return fmt.Errorf("entry-point: %w", err)
 				}
@@ -142,7 +143,7 @@ func newRevertCmd() *cobra.Command {
 				if alreadyHandled(seen, p) {
 					continue
 				}
-				action, err := revertOne(p, dryRun, false)
+				action, err := revertOutput(inSource, p, dryRun, false)
 				if err != nil {
 					return fmt.Errorf("claude: %w", err)
 				}
@@ -153,7 +154,7 @@ func newRevertCmd() *cobra.Command {
 					if alreadyHandled(seen, p) {
 						continue
 					}
-					action, err := revertOne(p, dryRun, false)
+					action, err := revertOutput(inSource, p, dryRun, false)
 					if err != nil {
 						return fmt.Errorf("recorded backup: %w", err)
 					}
@@ -174,13 +175,70 @@ func newRevertCmd() *cobra.Command {
 	return cmd
 }
 
-// revertEntryPointPaths lists the entry points sync generates. The note
-// .agnostic-ai/AGNOSTIC_AI.md is a source file the user writes, so revert
-// never restores or deletes it.
-func revertEntryPointPaths(cfg *config.Config, targets []string) []string {
-	return slices.DeleteFunc(entryPointPaths(cfg, targets), func(p string) bool {
-		return p == adapters.AgnosticEntryPointPath
-	})
+// sourceTree reports whether path resolves into the source tree: the
+// .agnostic-ai folder or a configured spec folder. Those files are what
+// the user writes, so revert never restores or deletes them, whatever
+// output path a config points there. Lexical containment covers `..`
+// segments; os.SameFile on each existing parent covers letter case on a
+// case-insensitive disk and links.
+func sourceTree(cfg *config.Config) func(path string) bool {
+	var roots []string
+	var infos []os.FileInfo
+	for _, d := range append([]string{config.SourceBaseDir}, sourceFolders(cfg)...) {
+		abs, err := filepath.Abs(d)
+		if err != nil {
+			continue
+		}
+		roots = append(roots, abs)
+		if info, err := os.Stat(abs); err == nil {
+			infos = append(infos, info)
+		}
+	}
+	return func(path string) bool {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return true
+		}
+		for _, r := range roots {
+			if rel, err := filepath.Rel(r, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return true
+			}
+		}
+		for dir := filepath.Dir(abs); ; dir = filepath.Dir(dir) {
+			if info, err := os.Stat(dir); err == nil && slices.ContainsFunc(infos, func(r os.FileInfo) bool { return os.SameFile(r, info) }) {
+				return true
+			}
+			if next := filepath.Dir(dir); next == dir {
+				return false
+			}
+		}
+	}
+}
+
+// sourceFolders lists the spec folders the config sets.
+func sourceFolders(cfg *config.Config) []string {
+	var out []string
+	for _, d := range []string{
+		cfg.Sources.Agents, cfg.Sources.Skills, cfg.Sources.Rules,
+		cfg.Sources.Hooks, cfg.Sources.MCPs, cfg.Sources.Commands,
+		cfg.Sources.Settings, cfg.Sources.Reviews, cfg.Sources.Environments,
+		cfg.Sources.Ignore,
+	} {
+		if d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// revertOutput is revertOne for a path a config can point anywhere: a
+// path in the source tree is kept.
+func revertOutput(inSource func(string) bool, path string, dryRun, force bool) (string, error) {
+	if inSource(path) {
+		verbosef("    keep:    %s (source file)\n", path)
+		return "skip", nil
+	}
+	return revertOne(path, dryRun, force)
 }
 
 // revertTally counts what revert did to one group of files.
@@ -325,6 +383,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 
 	out := jsonOutput{Version: "1", Command: "revert"}
 	seen := map[string]bool{}
+	inSource := sourceTree(cfg)
 	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
@@ -343,7 +402,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 			if alreadyHandled(seen, f.Path) {
 				continue
 			}
-			action, err := revertOne(f.Path, dryRun, force)
+			action, err := revertOutput(inSource, f.Path, dryRun, force)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 				continue
@@ -359,11 +418,11 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 
 	// Entry-point files are written outside adapter emission; revert them
 	// too so the JSON report matches the text path.
-	for _, p := range revertEntryPointPaths(cfg, targets) {
+	for _, p := range entryPointPaths(cfg, targets) {
 		if alreadyHandled(seen, p) {
 			continue
 		}
-		action, err := revertOne(p, dryRun, force)
+		action, err := revertOutput(inSource, p, dryRun, force)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 			continue
@@ -383,7 +442,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 		if alreadyHandled(seen, p) {
 			continue
 		}
-		action, err := revertOne(p, dryRun, false)
+		action, err := revertOutput(inSource, p, dryRun, false)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
 			continue
@@ -397,7 +456,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 			if alreadyHandled(seen, p) {
 				continue
 			}
-			action, err := revertOne(p, dryRun, false)
+			action, err := revertOutput(inSource, p, dryRun, false)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 				continue

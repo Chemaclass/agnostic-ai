@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -410,6 +411,68 @@ func TestRevertCmd_ForceKeepsSourceNote(t *testing.T) {
 				t.Errorf("expected CLAUDE.md removed, err=%v", err)
 			}
 		})
+	}
+}
+
+// An output path that resolves into the source tree, by a letter-case
+// variant, a `..` segment, or a configured folder, is never reverted.
+func TestRevertCmd_ForceKeepsFilesInTheSourceTree(t *testing.T) {
+	for _, tc := range []struct {
+		name, outputs, keep string
+	}{
+		{"case variant", "  codex:\n    file: .agnostic-ai/agnostic_ai.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
+		{"dot dot", "  codex:\n    file: x/../.agnostic-ai/AGNOSTIC_AI.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
+		{"rule file", "  codex:\n    file: .agnostic-ai/rules/style.md\n", ".agnostic-ai/rules/style.md"},
+		{"skills dir", "  claude:\n    skills-dir: .agnostic-ai/skills\n", ".agnostic-ai/skills/s1/SKILL.md"},
+	} {
+		for _, json := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s json=%v", tc.name, json), func(t *testing.T) {
+				dir := setupFixture(t)
+				testutil.Chdir(t, dir)
+				silence(t)
+				cfg := "version: 1\ntargets: [claude, codex]\noutputs:\n" + tc.outputs
+				files := map[string]string{
+					"agnostic-ai.yaml":                cfg,
+					".agnostic-ai/AGNOSTIC_AI.md":     "Run tests.\n",
+					".agnostic-ai/rules/style.md":     "---\nname: style\n---\nUse tabs.\n",
+					".agnostic-ai/skills/s1/SKILL.md": "---\nname: s1\ndescription: d\n---\nbody\n",
+				}
+				for path, body := range files {
+					if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				// sync may refuse the layout, or write into the source tree
+				// itself; revert must leave whatever it finds there.
+				root := NewRootCmd("test")
+				root.SetArgs([]string{"sync"})
+				_ = root.Execute()
+				want, err := os.ReadFile(tc.keep)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				args := []string{"revert", "--force"}
+				if json {
+					args = append(args, "--json")
+				}
+				root = NewRootCmd("test")
+				root.SetOut(io.Discard)
+				root.SetArgs(args)
+				_ = root.Execute()
+
+				got, err := os.ReadFile(tc.keep)
+				if err != nil {
+					t.Fatalf("revert --force removed %s: %v", tc.keep, err)
+				}
+				if string(got) != string(want) {
+					t.Errorf("%s changed: %q", tc.keep, got)
+				}
+			})
+		}
 	}
 }
 
