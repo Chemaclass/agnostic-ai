@@ -689,7 +689,7 @@ func normalizeSharedWriteAttribution(emits []targetEmit) {
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
 	gitquery.Reset()
-	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
+	return runSyncPass(root, targets, syncRunOptions{dryRun: dryRun, backup: backup, gitignoreFlag: gitignoreFlag, jobs: jobs})
 }
 
 // resetSyncBuffers clears what an earlier pass left in the adapter buffers.
@@ -703,9 +703,9 @@ func resetSyncBuffers() {
 // prepareSyncTargets runs the checks and setup both `sync` and
 // `sync --json` share before emitting: it queues the personal memory seed,
 // stops on errors in the specs, and notes overlay files no target reads.
-func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, renders *targetRenders, targets []string, dryRun, backup, keepEdits bool) ([]string, map[string]string, error) {
+func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *config.Config, renders *targetRenders, targets []string, opts syncRunOptions) ([]string, map[string]string, error) {
 	b := renders.b
-	if !dryRun {
+	if !opts.dryRun {
 		preparePersonalMemorySync(root, cfg)
 	}
 	if len(targets) == 0 {
@@ -718,7 +718,7 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err := stopOnPendingImports(prior.state, cfg); err != nil {
 		return nil, nil, err
 	}
-	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, backup, keepEdits); err != nil {
+	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, opts.backup, opts.keepEdits); err != nil {
 		return nil, nil, err
 	}
 	winners, err := detectRenderedCollisions(renders, cfg, targets, root, prior.state.Backups)
@@ -729,12 +729,19 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	return targets, winners, noteUnreadOverlays(root)
 }
 
+// syncRunOptions are the flags one sync pass runs with.
+type syncRunOptions struct {
+	dryRun, backup, keepEdits, untrack bool
+	gitignoreFlag                      string
+	jobs                               int
+}
+
 // runSyncPass is one sync pass. With keepEdits, an output edited since the
 // last sync is left in place and named, and the rest is written. With
 // untrack, a generated path git both tracks and ignores is removed from
 // the index (not the working tree) after the sweep.
-func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
-	return runSyncPassWith(root, readLedger(root), nil, targets, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+func runSyncPass(root string, targets []string, opts syncRunOptions) error {
+	return runSyncPassWith(root, readLedger(root), nil, targets, opts)
 }
 
 // projectLoad is a project the caller loaded under root. log holds the
@@ -755,14 +762,14 @@ func (p projectLoad) view() (*config.Config, spec.Bundle) {
 // runSyncPassWith is runSyncPass with the state file the caller read
 // under root, and the project it loaded, or nil to load it here.
 // Nothing writes the state file before the pass ends.
-func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
+func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, targets []string, opts syncRunOptions) (retErr error) {
 	if err := prior.refuseNewer(); err != nil {
 		return err
 	}
 	start := time.Now()
 	originalLog := logOut
 	var earlyMessages strings.Builder
-	if verbosity == levelVerbose && !dryRun {
+	if verbosity == levelVerbose && !opts.dryRun {
 		logOut = &earlyMessages
 		defer func() {
 			logOut = originalLog
@@ -781,12 +788,12 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		_, _ = fmt.Fprint(logOut, project.log)
 		cfg, b = project.view()
 	}
-	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, opts.gitignoreFlag)
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
 	renders := newTargetRenders(cfg, b)
-	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, renders, targets, dryRun, backup, keepEdits)
+	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, prior, cfg, renders, targets, opts)
 	if err != nil {
 		return err
 	}
@@ -828,12 +835,12 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		return err
 	}
 	prior.warn()
-	edits := editGuardFor(keepEdits, prev)
+	edits := editGuardFor(opts.keepEdits, prev)
 
 	// Each concurrent target owns its own session; sessions collects every
 	// session with a rollback log in write order, so the deferred rollback
 	// undoes the latest phase first.
-	mainSess := newMainSession(cfg, backup, edits)
+	mainSess := newMainSession(cfg, opts.backup, edits)
 	var sessions []*adapters.Session
 	// No session logs the ignore files, so the rollback restores them.
 	var ignoreFiles []priorFile
@@ -841,7 +848,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	// --untrack index cleanup, below) is a real, already-written sync
 	// reported as failed, never grounds to undo the writes themselves.
 	var writesCompleted bool
-	if !dryRun {
+	if !opts.dryRun {
 		mainSess.StartTransaction()
 		defer func() {
 			if retErr != nil && !writesCompleted {
@@ -854,9 +861,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 			}
 		}()
 	}
-	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
+	gitignoreOn := !opts.dryRun && resolveGitignore(cfg, opts.gitignoreFlag)
 
-	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, dryRun)
+	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, opts.dryRun)
 	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
 	if err != nil {
 		return err
@@ -867,8 +874,8 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	// cancels the group and trips the rollback above.
 	// A dry run records its writes too, so it can tell which merged
 	// files the sweep it skips would release.
-	recordWrites := gitignoreOn || dryRun
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, recordWrites, true, jobs, edits, winners)
+	recordWrites := gitignoreOn || opts.dryRun
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, opts.dryRun, opts.backup, recordWrites, true, opts.jobs, edits, winners)
 	for _, s := range targetSessions {
 		if s != nil {
 			sessions = append(sessions, s)
@@ -903,7 +910,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		}
 		emitted = append(emitted, e.target)
 		gitignoreEntries = append(gitignoreEntries, e.recorded...)
-		if dryRun {
+		if opts.dryRun {
 			continue
 		}
 		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
@@ -922,7 +929,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		mainSess.StartRecording()
 	}
 	mainSess.StartDetailedRecording()
-	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, dryRun)
+	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, opts.dryRun)
 	if err != nil {
 		mainSess.StopDetailedRecording()
 		if recordWrites {
@@ -936,16 +943,16 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	}
 	// Like the sweep, release merged files only when every configured
 	// target emitted; otherwise another target may still own them.
-	if dryRun && coversAllConfiguredTargets(emitted, cfg.Targets) {
-		if err := printMergedRewrites(prev, gitignoreEntries, keepEdits, cfg.Sync.Unmanaged); err != nil {
+	if opts.dryRun && coversAllConfiguredTargets(emitted, cfg.Targets) {
+		if err := printMergedRewrites(prev, gitignoreEntries, opts.keepEdits, cfg.Sync.Unmanaged); err != nil {
 			return err
 		}
 	}
-	if !dryRun {
+	if !opts.dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
 		creditEntryPointReaders(cfg, &report, emitRows, emitted, entryWrites, entryFiles)
-		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
+		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), opts.dryRun)
 		if err != nil {
 			return err
 		}
@@ -953,13 +960,13 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		report.addWrites("", manifestWrites)
 		ledgerSession = withAgnosticEntryPoint(ledgerSession)
 	}
-	applied := shared.apply(mainSess, dryRun)
+	applied := shared.apply(mainSess, opts.dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
-	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, dryRun)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, opts.dryRun)
 	// No session writes after the sweep, so one read of the backups serves
 	// the ignore files and the ledger.
 	var backups map[string]string
-	if !dryRun {
+	if !opts.dryRun {
 		backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	}
 	if gitignoreOn {
@@ -971,7 +978,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		report.updated = append(report.updated, ignores.changed...)
 	}
 
-	if !dryRun {
+	if !opts.dryRun {
 		runMemorySeeds()
 	}
 
@@ -1026,7 +1033,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	}
 	var deferredMessages strings.Builder
 	printKept := func(format string, args ...any) {
-		if verbosity == levelVerbose && !dryRun {
+		if verbosity == levelVerbose && !opts.dryRun {
 			_, _ = fmt.Fprintf(&deferredMessages, format, args...)
 		} else {
 			keptf(format, args...)
@@ -1035,7 +1042,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
-	if len(unresolved) > 0 && !dryRun {
+	if len(unresolved) > 0 && !opts.dryRun {
 		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(unresolved, ", "))
 	}
 	for _, p := range removed {
@@ -1048,7 +1055,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		reason := keptOrphanReason(ledger.merged, prev.OutputSums, p)
 		printKept("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
 	}
-	if !dryRun {
+	if !opts.dryRun {
 		unledgered := keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 		for _, p := range unledgered.Leftover {
 			printKept("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
@@ -1071,13 +1078,13 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	}
 	// After the sweep, so refused orphan removals are reported too.
 	for _, p := range unmanagedSkips(sessions) {
-		if verbosity == levelVerbose && !dryRun {
+		if verbosity == levelVerbose && !opts.dryRun {
 			printKept("  ~ skip (unmanaged) %s\n", p)
 		} else {
 			summaryf("  ~ skip (unmanaged) %s\n", p)
 		}
 	}
-	if dryRun {
+	if opts.dryRun {
 		if verbosity == levelVerbose {
 			flushDrops()
 		}
@@ -1097,13 +1104,13 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
-	trackedIgnored, untracked, untrackErr := untrackIgnored(root, cfg, ledger.outputs, untrack)
+	trackedIgnored, untracked, untrackErr := untrackIgnored(root, cfg, ledger.outputs, opts.untrack)
 	report.untracked = untracked
 	if len(untracked) > 0 && verbosity < levelDefault {
 		keptf("  %s %s\n", bang(), untrackPullAdvice)
 	}
 	if untrackErr != nil {
-		untrackErr = fmt.Errorf("untrack: %w", untrackErr)
+		untrackErr = fmt.Errorf("opts.untrack: %w", untrackErr)
 	}
 	report.trackedIgnored = trackedIgnored
 	if verbosity >= levelDefault {
@@ -1497,19 +1504,19 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target. prior is the state file
 // the caller read under root, and project the project it loaded there.
-func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project projectLoad, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project projectLoad, targets []string, opts syncRunOptions) error {
 	if err := prior.refuseNewer(); err != nil {
 		return err
 	}
 	resetSyncBuffers()
 	defer resetSyncBuffers()
 	cfg, b := project.view()
-	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, opts.gitignoreFlag)
 	prev := prior.state
 	release := holdPriorState(root, prev)
 	defer release()
 	renders := newTargetRenders(cfg, b)
-	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, renders, targets, false, backup, keepEdits)
+	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, prior, cfg, renders, targets, syncRunOptions{backup: opts.backup, keepEdits: opts.keepEdits})
 	if err != nil {
 		return err
 	}
@@ -1518,11 +1525,11 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 		return err
 	}
 	prior.warn()
-	edits := editGuardFor(keepEdits, prev)
+	edits := editGuardFor(opts.keepEdits, prev)
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
-	mainSess := newMainSession(cfg, backup, edits)
-	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
+	mainSess := newMainSession(cfg, opts.backup, edits)
+	gitignoreOn := resolveGitignore(cfg, opts.gitignoreFlag)
 	reconciled, err := shared.reconcile(prev.Outputs, prior.workdir(root).state, false)
 	if err != nil {
 		return err
@@ -1536,7 +1543,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits, winners)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, opts.backup, gitignoreOn, false, opts.jobs, edits, winners)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	_, notesErr := applyCoverageAccept(cfg, effectiveTargets)
@@ -1643,7 +1650,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
-	trackedIgnored, removedFromIndex, untrackErr := untrackIgnored(root, cfg, ledger.outputs, untrack)
+	trackedIgnored, removedFromIndex, untrackErr := untrackIgnored(root, cfg, ledger.outputs, opts.untrack)
 	for _, p := range removedFromIndex {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
 	}
@@ -1651,7 +1658,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
 	}
 	if untrackErr != nil {
-		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", untrackErr)})
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("opts.untrack: %v", untrackErr)})
 	}
 	for _, p := range trackedIgnored {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "tracked"})

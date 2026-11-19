@@ -422,11 +422,12 @@ func newSyncCmd() *cobra.Command {
 				}
 				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, drops, notesErr)
 			}
+			runOpts := syncRunOptions{dryRun: dryRun, backup: backup, keepEdits: keepEdits, untrack: untrack, gitignoreFlag: gitignoreFlag, jobs: jobs}
 			if jsonOut {
-				return runSyncJSON(cmd, ".", ledger(), project, effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
+				return runSyncJSON(cmd, ".", ledger(), project, effective, runOpts)
 			}
 			if dryRun && allowEmptyTargets && noTargetsKept(cfg) {
-				if err := runSyncPassWith(".", ledger(), &project, effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs); err != nil {
+				if err := runSyncPassWith(".", ledger(), &project, effective, runOpts); err != nil {
 					return err
 				}
 				// The pass skips the orphan sweep, so it names no file the
@@ -447,7 +448,7 @@ func newSyncCmd() *cobra.Command {
 				printDriftRemovals(cmd, removals)
 				return nil
 			}
-			return runSyncPassWith(".", ledger(), &project, effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+			return runSyncPassWith(".", ledger(), &project, effective, runOpts)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
