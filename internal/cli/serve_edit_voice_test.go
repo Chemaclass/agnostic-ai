@@ -134,7 +134,7 @@ func TestEditField_GlobalVoiceKeepsUserEditedServerScaffold(t *testing.T) {
 			t.Fatalf("%s = %d %s", body, rec.Code, rec.Body)
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("changed user-edited scaffold: %q, want %q", got, original)
 	}
 }
@@ -226,7 +226,7 @@ func TestEditField_VoicePersonalMembersAndStaleValuesStaySeparate(t *testing.T) 
 			t.Fatalf("%s = %d %s, want %d", tc.body, rec.Code, rec.Body, tc.code)
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("personal edits changed shared voice: %s", got)
 	}
 	if _, err := os.Stat(filepath.Join(source, "local", "settings", "native.yaml")); !os.IsNotExist(err) {
@@ -250,7 +250,7 @@ func TestEditField_ProjectVoiceCannotUseTheBooleanEndpoint(t *testing.T) {
 			}
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("project boolean edit changed voice: %s", got)
 	}
 }
@@ -270,7 +270,7 @@ func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 			}
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("per-tool boolean edit changed voice: %s", got)
 	}
 }
@@ -298,7 +298,7 @@ func TestEditField_GlobalVoiceWritesEmptyDocuments(t *testing.T) {
 					t.Fatalf("%s: %d %s", body, rec.Code, rec.Body)
 				}
 			}
-			if got := readGlobalTest(t, file); !strings.Contains(got, original) {
+			if got := readFile(t, file); !strings.Contains(got, original) {
 				t.Errorf("original bytes lost: %q", got)
 			}
 			if info, err := os.Stat(file); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -338,7 +338,7 @@ func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
 			t.Errorf("stale clear %s: %d %s", audience, rec.Code, rec.Body)
 		}
 	}
-	if readGlobalTest(t, shared) != original || readGlobalTest(t, local) != personal {
+	if readFile(t, shared) != original || readFile(t, local) != personal {
 		t.Error("refused edits changed files")
 	}
 }
@@ -360,7 +360,7 @@ func TestEditField_GlobalVoiceRestoresCommentOnlyDocument(t *testing.T) {
 			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("got %q, want %q", got, original)
 	}
 	if info, err := os.Stat(file); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -395,7 +395,7 @@ func TestEditField_GlobalVoiceClearBlocksOnlyItsOwnSpec(t *testing.T) {
 			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
 		}
 	}
-	if readGlobalTest(t, a) != originalA || readGlobalTest(t, local) != originalLocal {
+	if readFile(t, a) != originalA || readFile(t, local) != originalLocal {
 		t.Error("editing changed cleared source")
 	}
 }

@@ -56,14 +56,14 @@ func TestPiBOM_GlobalImportAndAdoptionKeepOriginalBytes(t *testing.T) {
 	if _, warn, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warn)
 	}
-	requirePiOrder(t, readGlobalTest(t, filepath.Join(source, "mcps/tools.yaml")))
+	requirePiOrder(t, readFile(t, filepath.Join(source, "mcps/tools.yaml")))
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("adopt: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, native); got != before {
+	if got := readFile(t, native); got != before {
 		t.Errorf("adoption changed MCP bytes: %q", got)
 	}
-	if got := readGlobalTest(t, settings); got != beforeSettings {
+	if got := readFile(t, settings); got != beforeSettings {
 		t.Errorf("adoption changed settings bytes: %q", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
@@ -85,12 +85,12 @@ func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("add: %v %s", err, warn)
 	}
-	requirePiOrder(t, readGlobalTest(t, native))
+	requirePiOrder(t, readFile(t, native))
 	writeFile(t, specPath, strings.Replace(piOrderedSpec, "command: tools-mcp", "command: updated-mcp", 1))
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("update: %v %s", err, warn)
 	}
-	got := readGlobalTest(t, native)
+	got := readFile(t, native)
 	if !strings.HasPrefix(got, piBOM) || !strings.Contains(got, "updated-mcp") {
 		t.Errorf("owned update changed prefix: %q", got)
 	}
@@ -112,7 +112,7 @@ func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("remove: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, native); got != before {
+	if got := readFile(t, native); got != before {
 		t.Errorf("add-remove did not restore original BOM/comments/bytes: %q", got)
 	}
 }
@@ -127,7 +127,7 @@ func TestPiBOM_GlobalStaleReadStopsBeforeWriting(t *testing.T) {
 	if _, err := applyGlobalChanges([]globalWrite{write}, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("stale BOM snapshot did not stop: %v", err)
 	}
-	if got := readGlobalTest(t, native); got != string(changed) {
+	if got := readFile(t, native); got != string(changed) {
 		t.Errorf("concurrent edit changed: %q", got)
 	}
 }

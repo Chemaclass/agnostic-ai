@@ -55,7 +55,7 @@ func TestImportGlobal_KimiRejectsHookCredentialsBeforeWrites(t *testing.T) {
 			writeFile(t, path, before)
 			out, warnings, err := runImportGlobalTest("kimi")
 			assertKimiHookCredentialRefused(t, source, out+warnings, path, err)
-			if got := readGlobalTest(t, path); got != before {
+			if got := readFile(t, path); got != before {
 				t.Error("native profile changed")
 			}
 		})

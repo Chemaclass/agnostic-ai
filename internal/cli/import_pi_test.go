@@ -78,10 +78,10 @@ func TestSyncGlobal_PiOwnsNativeKeysAndRestoresUserBytes(t *testing.T) {
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("sync: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, settings); !strings.Contains(got, "\"defaultModel\": \"model-a\"") || !strings.Contains(got, "\t\"theme\": \"light\"") {
+	if got := readFile(t, settings); !strings.Contains(got, "\"defaultModel\": \"model-a\"") || !strings.Contains(got, "\t\"theme\": \"light\"") {
 		t.Errorf("settings: %s", got)
 	}
-	if got := readGlobalTest(t, mcp); !strings.Contains(got, "\"enabled\": false") || strings.Contains(got, "disabled") {
+	if got := readFile(t, mcp); !strings.Contains(got, "\"enabled\": false") || strings.Contains(got, "disabled") {
 		t.Errorf("mcp: %s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
@@ -96,10 +96,10 @@ func TestSyncGlobal_PiOwnsNativeKeysAndRestoresUserBytes(t *testing.T) {
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("remove: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, settings); got != beforeSettings {
+	if got := readFile(t, settings); got != beforeSettings {
 		t.Errorf("settings bytes changed: %q", got)
 	}
-	if got := readGlobalTest(t, mcp); got != beforeMCP {
+	if got := readFile(t, mcp); got != beforeMCP {
 		t.Errorf("mcp bytes changed: %q", got)
 	}
 }
@@ -118,14 +118,14 @@ func TestImportGlobal_PiAdoptsNativeFilesWithoutChangingBytes(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps/docs.yaml")); !strings.Contains(got, "disabled: true") {
+	if got := readFile(t, filepath.Join(source, "mcps/docs.yaml")); !strings.Contains(got, "disabled: true") {
 		t.Errorf("missing inversion: %s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("sync: %v %s", err, warnings)
 	}
 	for path, want := range native {
-		if got := readGlobalTest(t, filepath.Join(root, path)); got != want {
+		if got := readFile(t, filepath.Join(root, path)); got != want {
 			t.Errorf("%s bytes changed:\n%s", path, got)
 		}
 	}
@@ -157,11 +157,11 @@ func TestSyncGlobal_PiCreatedFilesAreReleasedAndPrivateFilesStayPrivate(t *testi
 		t.Fatalf("sync: %v %s", err, warn)
 	}
 	for path, want := range map[string]string{"AGENTS.md": "Use plain names.", "skills/review/SKILL.md": "disable-model-invocation: true", "mcp.json": "docs-mcp"} {
-		if got := readGlobalTest(t, filepath.Join(root, path)); !strings.Contains(got, want) {
+		if got := readFile(t, filepath.Join(root, path)); !strings.Contains(got, want) {
 			t.Errorf("%s: %s", path, got)
 		}
 	}
-	if got := readGlobalTest(t, private); strings.Contains(got, "defaultProjectTrust") {
+	if got := readFile(t, private); strings.Contains(got, "defaultProjectTrust") {
 		t.Errorf("sync changed trust: %s", got)
 	}
 	info, err := os.Stat(private)
@@ -179,7 +179,7 @@ func TestSyncGlobal_PiCreatedFilesAreReleasedAndPrivateFilesStayPrivate(t *testi
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("release: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, private); got != before {
+	if got := readFile(t, private); got != before {
 		t.Errorf("user settings bytes: %q", got)
 	}
 	for _, path := range []string{"AGENTS.md", "skills/review/SKILL.md", "mcp.json"} {
@@ -236,7 +236,7 @@ func TestSyncGlobal_PiInvalidMCPPreservesManagedFiles(t *testing.T) {
 	}
 	before := map[string]string{}
 	for _, path := range []string{filepath.Join(root, "mcp.json"), filepath.Join(root, "settings.json"), filepath.Join(source, "state/global.json")} {
-		before[path] = readGlobalTest(t, path)
+		before[path] = readFile(t, path)
 	}
 	writeFile(t, filepath.Join(source, "mcps/bad.yaml"), "name: bad\ntype: sse\nurl: https://example.com/sse\n")
 	writeFile(t, settingsSpec, "model: changed\n")
@@ -244,7 +244,7 @@ func TestSyncGlobal_PiInvalidMCPPreservesManagedFiles(t *testing.T) {
 		t.Errorf("expected SSE rendering error, got %v", err)
 	}
 	for path, want := range before {
-		if got := readGlobalTest(t, path); got != want {
+		if got := readFile(t, path); got != want {
 			t.Errorf("invalid server changed %s:\ngot %s\nwant %s", path, got, want)
 		}
 	}
@@ -282,7 +282,7 @@ func TestImportGlobal_PiProviderAuthRoundTrip(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
 	}
-	imported := readGlobalTest(t, filepath.Join(source, "mcps/remote.yaml"))
+	imported := readFile(t, filepath.Join(source, "mcps/remote.yaml"))
 	if !strings.Contains(imported, "x-pi:") || !strings.Contains(imported, "provider: radius") {
 		t.Errorf("native auth missing: %s", imported)
 	}
@@ -290,7 +290,7 @@ func TestImportGlobal_PiProviderAuthRoundTrip(t *testing.T) {
 		if _, warnings, err := runGlobalAgentTest("--only", "pi"); err != nil {
 			t.Fatalf("sync: %v %s", err, warnings)
 		}
-		if got := readGlobalTest(t, path); got != original {
+		if got := readFile(t, path); got != original {
 			t.Errorf("native bytes changed: %s", got)
 		}
 	}

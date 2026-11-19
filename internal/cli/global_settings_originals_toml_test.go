@@ -31,7 +31,7 @@ func TestVoiceTargets_RestoreTOMLAssignmentsExactly(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != tc.original {
+			if got := readFile(t, path); got != tc.original {
 				t.Errorf("restored %q, want %q", got, tc.original)
 			}
 		})
@@ -61,7 +61,7 @@ func TestVoiceTargets_GrokParentOverrideRestoresOriginalTable(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("restored %q, want %q", got, original)
 	}
 }
@@ -81,7 +81,7 @@ func TestVoiceTargets_GrokParentOverrideRestoresSeparatedChildTables(t *testing.
 			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
 				t.Fatalf("parent override: %v\n%s", err, warnings)
 			}
-			values, err := settingsValues(path, grokTOMLFormat, []byte(readGlobalTest(t, path)))
+			values, err := settingsValues(path, grokTOMLFormat, []byte(readFile(t, path)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -104,7 +104,7 @@ func TestVoiceTargets_GrokParentOverrideRestoresSeparatedChildTables(t *testing.
 			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("restored %q, want %q", got, original)
 			}
 		})

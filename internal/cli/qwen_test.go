@@ -190,7 +190,7 @@ func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if existing {
-				if got := readGlobalTest(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Errorf("restore=%q want=%q", got, original)
 				}
 			} else if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -219,11 +219,11 @@ func TestQwen_GlobalNativeTreesAndImport(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, settings); got != original {
+	if got := readFile(t, settings); got != original {
 		t.Errorf("native settings changed: %s", got)
 	}
 	for path, want := range map[string]string{"QWEN.md": "Keep changes small", "agents/reviewer.md": "read_file", "skills/check/SKILL.md": "Run scripts/check.sh.", "skills/check/scripts/check.sh": "echo checked"} {
-		got := readGlobalTest(t, filepath.Join(native, path))
+		got := readFile(t, filepath.Join(native, path))
 		if !strings.Contains(got, want) {
 			t.Errorf("%s missing %q: %s", path, want, got)
 		}

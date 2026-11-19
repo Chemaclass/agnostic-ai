@@ -59,7 +59,7 @@ func TestPermissionModeEdit_GlobalSaveReachesClaudeThroughGlobalSync(t *testing.
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
 	}
 	var native map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
 		t.Fatal(err)
 	}
 	if perms, _ := native["permissions"].(map[string]any); perms["defaultMode"] != "plan" {
@@ -162,7 +162,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 			t.Fatalf("sync --global: %v\n%s", err, warnings)
 		}
 		var native map[string]any
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
 			t.Fatal(err)
 		}
 		perms, _ := native["permissions"].(map[string]any)
@@ -192,7 +192,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
 	}
 	var native map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
 		t.Fatal(err)
 	}
 	if perms, _ := native["permissions"].(map[string]any); perms["defaultMode"] != "bypassPermissions" {

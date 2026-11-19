@@ -45,7 +45,7 @@ func TestSyncGlobal_PlanJSONListsSettingsKeysAndWritesNothing(t *testing.T) {
 	if !found || plan.Command != "sync --global --plan" {
 		t.Errorf("plan = %+v", plan)
 	}
-	if got := readGlobalTest(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
+	if got := readFile(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
 		t.Errorf("plan must write nothing: %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(source, "state")); !os.IsNotExist(err) {
@@ -120,16 +120,16 @@ func TestSyncGlobal_PlanCheckGatesWithoutWriting(t *testing.T) {
 			if out, _, err := runGlobalAgentTest(args...); err != nil {
 				t.Errorf("clean: %v\n%s", err, out)
 			}
-			before := readGlobalTest(t, output)
-			state := readGlobalTest(t, filepath.Join(source, "state", "global.json"))
+			before := readFile(t, output)
+			state := readFile(t, filepath.Join(source, "state", "global.json"))
 			writeFile(t, input, "Be short.\n")
 			if out, _, err := runGlobalAgentTest(args...); err == nil || !strings.Contains(err.Error(), "drift detected") {
 				t.Errorf("changed source: %v\n%s", err, out)
 			}
-			if got := readGlobalTest(t, output); got != before {
+			if got := readFile(t, output); got != before {
 				t.Error("preview changed output")
 			}
-			if got := readGlobalTest(t, filepath.Join(source, "state", "global.json")); got != state {
+			if got := readFile(t, filepath.Join(source, "state", "global.json")); got != state {
 				t.Error("preview changed state")
 			}
 			if _, err := os.Stat(output + ".bak"); !os.IsNotExist(err) {
@@ -183,7 +183,7 @@ func TestSyncGlobal_PlanMarksHandEdit(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
-	data := readGlobalTest(t, claudeMD)
+	data := readFile(t, claudeMD)
 	writeFile(t, claudeMD, strings.Replace(data, "Be brief.", "Be terse.", 1))
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be short.\n")
 	out, _, err := runGlobalAgentTest("--only", "claude", "--plan")

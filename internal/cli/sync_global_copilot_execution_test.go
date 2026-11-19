@@ -82,7 +82,7 @@ func TestSyncGlobal_CopilotWindowsRootedScriptUsesOnlyNativePath(t *testing.T) {
 	if windows != want {
 		t.Errorf("Windows rooted script command = %q, want %q", windows, want)
 	}
-	if raw := readGlobalTest(t, copied); raw != body {
+	if raw := readFile(t, copied); raw != body {
 		t.Errorf("copied native script changed: %s", raw)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {

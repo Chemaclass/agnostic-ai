@@ -150,7 +150,7 @@ func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	}
 	path := filepath.Join(home, ".augment", "settings.json")
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	hooks, _ := doc["hooks"].(map[string]any)

@@ -51,15 +51,15 @@ func TestPiExposure_GlobalStateAndFreshImportKeepPatternOrder(t *testing.T) {
 	if _, warn, err := runImportGlobalTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warn)
 	}
-	requirePiOrder(t, readGlobalTest(t, filepath.Join(source, "mcps/tools.yaml")))
+	requirePiOrder(t, readFile(t, filepath.Join(source, "mcps/tools.yaml")))
 	if err := os.Remove(native); err != nil {
 		t.Fatal(err)
 	}
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("sync: %v %s", err, warn)
 	}
-	requirePiOrder(t, readGlobalTest(t, native))
-	requirePiOrder(t, readGlobalTest(t, filepath.Join(source, "state/global.json")))
+	requirePiOrder(t, readFile(t, native))
+	requirePiOrder(t, readFile(t, filepath.Join(source, "state/global.json")))
 	if _, warn, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatalf("check: %v %s", err, warn)
 	}
@@ -75,7 +75,7 @@ func TestPiExposure_GlobalReorderedUserServerConflicts(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "pi"); err == nil {
 		t.Error("reversed wildcard order was silently adopted")
 	}
-	if got := readGlobalTest(t, native); got != before {
+	if got := readFile(t, native); got != before {
 		t.Errorf("unapproved write: %s", got)
 	}
 }
@@ -94,12 +94,12 @@ func TestPiExposure_GlobalOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("add: %v %s", err, warn)
 	}
-	requirePiOrder(t, readGlobalTest(t, native))
+	requirePiOrder(t, readFile(t, native))
 	writeFile(t, specPath, strings.Replace(piOrderedSpec, "    write_*: hidden\n    '*': direct", "    '*': direct\n    write_*: hidden", 1))
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("owned update: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, native); strings.Index(got, "\"*\"") > strings.Index(got, "write_*") {
+	if got := readFile(t, native); strings.Index(got, "\"*\"") > strings.Index(got, "write_*") {
 		t.Errorf("owned order update lost: %s", got)
 	}
 	if _, warn, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
@@ -111,7 +111,7 @@ func TestPiExposure_GlobalOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("remove: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, native); got != before {
+	if got := readFile(t, native); got != before {
 		t.Errorf("unrelated bytes changed:\n%q\nwant %q", got, before)
 	}
 	info, err := os.Stat(native)
@@ -139,7 +139,7 @@ func TestPiExposure_GlobalUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
 			if _, _, err := runGlobalAgentTest("--only", "pi"); err == nil {
 				t.Error("user reorder was silently overwritten or adopted")
 			}
-			if got := readGlobalTest(t, native); got != edited {
+			if got := readFile(t, native); got != edited {
 				t.Errorf("conflict changed user server: %s", got)
 			}
 			if operation == "remove" {
@@ -152,11 +152,11 @@ func TestPiExposure_GlobalUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
 			if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 				t.Fatalf("%s: %v %s", operation, err, warn)
 			}
-			if got := readGlobalTest(t, native); got != edited {
+			if got := readFile(t, native); got != edited {
 				t.Errorf("%s deleted/reordered edited server: %s", operation, got)
 			}
 			if operation == "move" {
-				requirePiOrder(t, readGlobalTest(t, filepath.Join(home, "moved-pi/mcp.json")))
+				requirePiOrder(t, readFile(t, filepath.Join(home, "moved-pi/mcp.json")))
 			}
 		})
 	}
@@ -172,13 +172,13 @@ func TestPiExposure_GlobalEquivalentAdoptionAndSkippedTargetKeepRawOrder(t *test
 	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("adopt: %v %s", err, warn)
 	}
-	if got := readGlobalTest(t, native); got != before {
+	if got := readFile(t, native); got != before {
 		t.Errorf("adoption changed bytes: %s", got)
 	}
 	if _, warn, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("unselected target carry: %v %s", err, warn)
 	}
-	requirePiOrder(t, readGlobalTest(t, filepath.Join(source, "state/global.json")))
+	requirePiOrder(t, readFile(t, filepath.Join(source, "state/global.json")))
 	if _, warn, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatalf("reloaded state: %v %s", err, warn)
 	}

@@ -24,7 +24,7 @@ func TestVoiceKiro_WriteCheckAndRestore(t *testing.T) {
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			data := readGlobalTest(t, path)
+			data := readFile(t, path)
 			var values map[string]any
 			if err := json.Unmarshal([]byte(data), &values); err != nil {
 				t.Fatal(err)
@@ -57,7 +57,7 @@ func TestVoiceKiro_WriteCheckAndRestore(t *testing.T) {
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
 					t.Errorf("created file remains: %v", err)
 				}
-			} else if got := readGlobalTest(t, path); got != original {
+			} else if got := readFile(t, path); got != original {
 				t.Errorf("restore = %q, want %q", got, original)
 			}
 		})
@@ -88,7 +88,7 @@ func TestVoiceKiro_NativeOverrideAndRemovalKeepUserChoice(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro", "--backup"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	data := readGlobalTest(t, path)
+	data := readFile(t, path)
 	var values map[string]any
 	if err := json.Unmarshal([]byte(data), &values); err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestVoiceKiro_NativeOverrideAndRemovalKeepUserChoice(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != strings.Replace(original, `"en"`, `"de"`, 1) {
+	if got := readFile(t, path); got != strings.Replace(original, `"en"`, `"de"`, 1) {
 		t.Errorf("user choice lost: %s", got)
 	}
 }
@@ -126,7 +126,7 @@ func TestVoiceKiro_ImportReadsOnlyLanguage(t *testing.T) {
 	if len(voice) != 1 || voice["language"] != "auto" {
 		t.Errorf("imported voice = %#v", voice)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("import changed native bytes: %s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro", "--check"); err != nil {
@@ -147,7 +147,7 @@ func TestVoiceKiro_RemovesLiteralParentWhileLanguageStays(t *testing.T) {
 		t.Fatalf("drop literal voice object: %v\n%s", err, warnings)
 	}
 	var values map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &values); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &values); err != nil {
 		t.Fatal(err)
 	}
 	if _, present := values["voice"]; present {

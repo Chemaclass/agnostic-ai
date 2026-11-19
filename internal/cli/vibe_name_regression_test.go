@@ -33,7 +33,7 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 				if err == nil {
 					t.Errorf("invalid/conflicting native alias accepted: %s", w)
 				}
-				if got := readGlobalTest(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Errorf("conflict changed file: %q", got)
 				}
 				return
@@ -41,7 +41,7 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 			if err != nil {
 				t.Fatalf("adopt: %v %s", err, w)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Fatalf("adoption changed bytes: %q", got)
 			}
 			state, err := loadGlobalState(filepath.Join(source, "state/global.json"))
@@ -121,9 +121,9 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 					t.Fatal(err)
 				}
 				writeFile(t, filepath.Join(source, "settings/model.yaml"), "model: devstral\n")
-				writeFile(t, path, readGlobalTest(t, path)+"\n[[mcp_servers]]\nname='---'\ncommand='node'\n")
+				writeFile(t, path, readFile(t, path)+"\n[[mcp_servers]]\nname='---'\ncommand='node'\n")
 			case "renamed", "renamed-removal", "renamed-root-move":
-				writeFile(t, path, strings.ReplaceAll(readGlobalTest(t, path), `"docs.api"`, `"docs_api"`))
+				writeFile(t, path, strings.ReplaceAll(readFile(t, path), `"docs.api"`, `"docs_api"`))
 				if scenario == "renamed-removal" {
 					if err := os.Remove(mcp); err != nil {
 						t.Fatal(err)
@@ -152,14 +152,14 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 			if err := os.Chmod(path, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			original, stateBefore := readGlobalTest(t, path), readGlobalTest(t, statePath)
+			original, stateBefore := readFile(t, path), readFile(t, statePath)
 			if _, _, err := runGlobalAgentTest("--only", "vibe"); err == nil {
 				t.Error("identity conflict accepted")
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Error("identity conflict wrote native bytes")
 			}
-			if got := readGlobalTest(t, statePath); got != stateBefore {
+			if got := readFile(t, statePath); got != stateBefore {
 				t.Error("identity conflict changed ownership")
 			}
 			info, err := os.Stat(path)
@@ -195,7 +195,7 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("add: %v %s", err, w)
 			}
-			if adopted && readGlobalTest(t, path) != native {
+			if adopted && readFile(t, path) != native {
 				t.Fatal("adoption changed physical bytes")
 			}
 			if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
@@ -236,7 +236,7 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 			if adopted {
 				want += "\n"
 			}
-			if got := readGlobalTest(t, path); got != want {
+			if got := readFile(t, path); got != want {
 				t.Fatalf("unrelated bytes: got %q want %q", got, want)
 			}
 		})
@@ -277,7 +277,7 @@ func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 			} else if err == nil {
 				t.Error("different home alias covered without conflict")
 			}
-			if readGlobalTest(t, src) != specBody || readGlobalTest(t, path) != original {
+			if readFile(t, src) != specBody || readFile(t, path) != original {
 				t.Error("import changed source or native bytes")
 			}
 			if _, err := os.Stat(filepath.Join(source, "mcps/docs.api.yaml")); !os.IsNotExist(err) {

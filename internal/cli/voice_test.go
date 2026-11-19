@@ -37,7 +37,7 @@ func TestVoice_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 			if got := strings.Count(warnings, claudeVoiceLanguageNote); got != 1 {
 				t.Errorf("language note printed %d times, want once:\n%s", got, warnings)
 			}
-			got := readGlobalTest(t, path)
+			got := readFile(t, path)
 			values, err := settingsValues(path, "json", []byte(got))
 			if err != nil {
 				t.Fatal(err)
@@ -63,7 +63,7 @@ func TestVoice_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
 					t.Errorf("created settings file remains: %v", err)
 				}
-			} else if got := readGlobalTest(t, path); got != tc.original {
+			} else if got := readFile(t, path); got != tc.original {
 				t.Errorf("removal changed original bytes:\n%q\nwant:\n%q", got, tc.original)
 			}
 		})
@@ -80,7 +80,7 @@ func TestVoice_ConflictNamesTheNativeOverride(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), `set x-claude.voice.mode to "hold"`) {
 		t.Errorf("conflict does not name the x-claude override: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("conflict changed settings: %s", got)
 	}
 }
@@ -138,7 +138,7 @@ func TestVoice_ClaudeOverrideWins(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+			values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -237,7 +237,7 @@ func TestVoice_MigratesVersion9RetentionOriginals(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != "{\"cleanupPeriodDays\": 30}\n" {
+	if got := readFile(t, path); got != "{\"cleanupPeriodDays\": 30}\n" {
 		t.Errorf("version 9 retention original not restored: %q", got)
 	}
 }
@@ -256,7 +256,7 @@ func TestVoice_ParentOverrideAfterPortableSyncRestoresOriginal(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("override sync: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func TestVoice_ParentOverrideAfterPortableSyncRestoresOriginal(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("remove override: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("removal = %q, want %q", got, original)
 	}
 }
@@ -298,7 +298,7 @@ func TestVoice_ParentOverrideCanReturnToPortableMembers(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("removal = %q, want %q", got, original)
 	}
 }
@@ -318,7 +318,7 @@ func TestVoice_RemovalPreservesUserChanges(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +351,7 @@ func TestVoice_InitialParentOverrideRestoresOriginal(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("removal = %q, want %q", got, original)
 	}
 }
@@ -385,7 +385,7 @@ func TestVoice_EmptyOverrideThenPortableRestoresOriginal(t *testing.T) {
 				if got, err := os.ReadFile(path); !os.IsNotExist(err) {
 					t.Errorf("created settings file remains: %q, %v", got, err)
 				}
-			} else if got := readGlobalTest(t, path); got != tc.original {
+			} else if got := readFile(t, path); got != tc.original {
 				t.Errorf("removal = %q, want %q", got, tc.original)
 			}
 		})

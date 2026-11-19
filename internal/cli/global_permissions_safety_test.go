@@ -85,7 +85,7 @@ func TestImportGlobal_PermissionRulesDetectCredentialHeaders(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+			got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 			if strings.Contains(got+out+warnings, "TOPSECRET123") {
 				t.Error("credential was imported or displayed")
 			}
@@ -106,7 +106,7 @@ func TestImportGlobal_PermissionRulesKeepSafeHeadersAndReferences(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+			got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 			var imported struct{ Permissions map[string][]string }
 			if err := yaml.Unmarshal([]byte(got), &imported); err != nil {
 				t.Fatal(err)
@@ -139,13 +139,13 @@ func TestSyncGlobal_NativePermissionShapeErrorsPreserveOwnedDenials(t *testing.T
 				t.Fatal(err)
 			}
 			state := filepath.Join(source, "state", "global.json")
-			before, beforeState := readGlobalTest(t, path), readGlobalTest(t, state)
+			before, beforeState := readFile(t, path), readFile(t, state)
 			writeFile(t, rules, invalid)
 			if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), rules) {
 				t.Errorf("malformed native permissions must stop sync: %v", err)
 			}
 			after, err := os.ReadFile(path)
-			if err != nil || string(after) != before || readGlobalTest(t, state) != beforeState {
+			if err != nil || string(after) != before || readFile(t, state) != beforeState {
 				t.Error("settings or state changed after a malformed native permission")
 			}
 		})
@@ -178,7 +178,7 @@ func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+			got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 			if strings.Contains(got+out+warnings, "test-api-key") || strings.Contains(got+out+warnings, numericCredential) {
 				t.Error("credential assignment or nested command was imported or displayed")
 			}
@@ -199,7 +199,7 @@ func TestImportGlobal_PermissionRulesDetectCredentialInAnyToolSpelling(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+	got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 	if strings.Contains(got+out+warnings, "test-api-key") {
 		t.Error("credential rule was imported or displayed")
 	}
@@ -224,7 +224,7 @@ func TestImportGlobal_PermissionRulesKeepAssignmentAndNestedReferences(t *testin
 				t.Fatal(err)
 			}
 			var imported struct{ Permissions map[string][]string }
-			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+			got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 			if err := yaml.Unmarshal([]byte(got), &imported); err != nil {
 				t.Fatal(err)
 			}
@@ -247,7 +247,7 @@ func TestSyncGlobal_UnsupportedPermissionRulesHonorPolicy(t *testing.T) {
 					t.Fatal(err)
 				}
 				state := filepath.Join(source, "state", "global.json")
-				before, beforeState := readGlobalTest(t, path), readGlobalTest(t, state)
+				before, beforeState := readFile(t, path), readFile(t, state)
 				writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\non-unsupported: "+mode+"\n")
 				writeFile(t, rules, "permissions:\n  deny: ["+rule+"]\n")
 				_, warnings, err := runGlobalAgentTest("--only", "claude")
@@ -255,7 +255,7 @@ func TestSyncGlobal_UnsupportedPermissionRulesHonorPolicy(t *testing.T) {
 					if err == nil || !strings.Contains(err.Error(), "permissions.deny") {
 						t.Errorf("unsupported denial must stop sync: %v", err)
 					}
-					if readGlobalTest(t, path) != before || readGlobalTest(t, state) != beforeState {
+					if readFile(t, path) != before || readFile(t, state) != beforeState {
 						t.Error("settings or state changed after unsupported-rule error")
 					}
 					return
@@ -263,7 +263,7 @@ func TestSyncGlobal_UnsupportedPermissionRulesHonorPolicy(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if readGlobalTest(t, path) != before || len(readGlobalPermissionState(t, source)) != 0 {
+				if readFile(t, path) != before || len(readGlobalPermissionState(t, source)) != 0 {
 					t.Error("an unsupported Delete rule was written or recorded")
 				}
 				if noted := strings.Contains(warnings, "no native"); noted != (mode == "warn") {
@@ -285,13 +285,13 @@ func TestImportGlobal_PermissionOwnershipFollowsTheSettingsPath(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	beforeA := readGlobalTest(t, filepath.Join(a, "settings.json"))
+	beforeA := readFile(t, filepath.Join(a, "settings.json"))
 	if err := os.Remove(rules); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("CLAUDE_CONFIG_DIR", b)
 	writeFile(t, filepath.Join(b, "settings.json"), `{"permissions":{"allow":["Bash(git status)"]}}`+"\n")
-	beforeB := readGlobalTest(t, filepath.Join(b, "settings.json"))
+	beforeB := readFile(t, filepath.Join(b, "settings.json"))
 	if _, _, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestImportGlobal_PermissionOwnershipFollowsTheSettingsPath(t *testing.T) {
 	if err != nil || !strings.Contains(string(imported), "shell(git status)") {
 		t.Errorf("independent rule at the new path must be imported: %v", err)
 	}
-	if readGlobalTest(t, filepath.Join(a, "settings.json")) != beforeA || readGlobalTest(t, filepath.Join(b, "settings.json")) != beforeB {
+	if readFile(t, filepath.Join(a, "settings.json")) != beforeA || readFile(t, filepath.Join(b, "settings.json")) != beforeB {
 		t.Error("import changed native settings")
 	}
 	if err != nil {
@@ -308,10 +308,10 @@ func TestImportGlobal_PermissionOwnershipFollowsTheSettingsPath(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if readGlobalTest(t, filepath.Join(b, "settings.json")) != beforeB {
+	if readFile(t, filepath.Join(b, "settings.json")) != beforeB {
 		t.Error("round trip changed the independent rule")
 	}
-	if readGlobalTest(t, filepath.Join(a, "settings.json")) != userClaudeSettings {
+	if readFile(t, filepath.Join(a, "settings.json")) != userClaudeSettings {
 		t.Error("round trip did not preserve unrelated rules at the old path")
 	}
 }
@@ -330,11 +330,11 @@ func TestImportGlobal_MalformedPermissionRulesLeaveTheHomeUnchanged(t *testing.T
 			writeFile(t, path, `{"model":"opus","permissions":`+permissions+"}\n")
 			writeFile(t, filepath.Join(source, "settings", "existing.yaml"), "model: sonnet\n")
 			writeFile(t, filepath.Join(source, "state", "global.json"), "{\"version\":8}\n")
-			before, beforeHome := readGlobalTest(t, path), snapshotTree(t, source)
+			before, beforeHome := readFile(t, path), snapshotTree(t, source)
 			if _, _, err := runImportGlobalTest("claude"); err == nil || !strings.Contains(err.Error(), "permissions") {
 				t.Errorf("malformed native permissions must stop import: %v", err)
 			}
-			if readGlobalTest(t, path) != before || !reflect.DeepEqual(snapshotTree(t, source), beforeHome) {
+			if readFile(t, path) != before || !reflect.DeepEqual(snapshotTree(t, source), beforeHome) {
 				t.Error("native settings, state, or home specs changed after import failed")
 			}
 		})

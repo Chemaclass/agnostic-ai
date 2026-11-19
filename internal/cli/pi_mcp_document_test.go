@@ -28,10 +28,10 @@ func TestSyncGlobal_PiRejectsNonObjectMCPWithoutWrites(t *testing.T) {
 			if syncErr == nil || !strings.Contains(syncErr.Error(), native) {
 				t.Errorf("expected native-path parse error, got %v", syncErr)
 			}
-			if got := readGlobalTest(t, native); got != document {
+			if got := readFile(t, native); got != document {
 				t.Errorf("native MCP changed: %s", got)
 			}
-			if got := readGlobalTest(t, settings); got != beforeSettings {
+			if got := readFile(t, settings); got != beforeSettings {
 				t.Errorf("pending settings write escaped: %s", got)
 			}
 			if _, err := os.Stat(filepath.Join(source, "state/global.json")); !os.IsNotExist(err) {
@@ -58,7 +58,7 @@ func TestSyncGlobal_PiAcceptsMissingOrEmptyMCPDocument(t *testing.T) {
 			if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 				t.Fatalf("sync: %v %s", err, warn)
 			}
-			requirePiOrder(t, readGlobalTest(t, native))
+			requirePiOrder(t, readFile(t, native))
 			if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
 				t.Fatal(err)
 			}

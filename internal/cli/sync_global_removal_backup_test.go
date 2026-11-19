@@ -27,7 +27,7 @@ func TestSyncGlobal_BackupKeepsHandEditedRemovedSkill(t *testing.T) {
 	if _, err := os.Stat(out); !os.IsNotExist(err) {
 		t.Errorf("the removed skill must be gone: %v", err)
 	}
-	if got := readGlobalTest(t, out+".bak"); got != edited {
+	if got := readFile(t, out+".bak"); got != edited {
 		t.Errorf("backup must hold the hand edit:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
@@ -45,7 +45,7 @@ func TestApplyGlobalChanges_BackupKeepsRemovedFileBytes(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("the file must be removed: %v", err)
 	}
-	if got := readGlobalTest(t, path+".bak"); got != "{\"a\": 1}\n" {
+	if got := readFile(t, path+".bak"); got != "{\"a\": 1}\n" {
 		t.Errorf("backup = %q", got)
 	}
 }
@@ -73,10 +73,10 @@ func TestApplyGlobalChanges_FailedRemovalBackupKeepsTheFile(t *testing.T) {
 	if _, err := applyGlobalChanges(nil, []string{first, path}, true, nil); err == nil || !strings.Contains(err.Error(), "backup "+path) {
 		t.Fatalf("a failed backup must stop the removal: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != "{\"a\": 1}\n" {
+	if got := readFile(t, path); got != "{\"a\": 1}\n" {
 		t.Errorf("file = %q", got)
 	}
-	if got := readGlobalTest(t, first); got != "{}\n" {
+	if got := readFile(t, first); got != "{}\n" {
 		t.Errorf("an earlier removal must be rolled back: %q", got)
 	}
 }
@@ -100,7 +100,7 @@ func TestApplyGlobalChanges_RemovalBackupOfPrivateFileStaysPrivate(t *testing.T)
 	if info.Mode().Perm() != 0o600 {
 		t.Errorf("backup mode = %v, want 0600", info.Mode().Perm())
 	}
-	if got := readGlobalTest(t, path+".bak"); got != "{\"key\": \"secret\"}\n" {
+	if got := readFile(t, path+".bak"); got != "{\"key\": \"secret\"}\n" {
 		t.Errorf("backup = %q", got)
 	}
 }
@@ -116,7 +116,7 @@ func TestApplyGlobalChanges_SymlinkRemovalBackupKeepsTargetBytesBesideTheLink(t 
 			t.Errorf("%s must be gone: %v", path, err)
 		}
 	}
-	if got := readGlobalTest(t, link+".bak"); got != "{\"theme\":\"dark\"}\n" {
+	if got := readFile(t, link+".bak"); got != "{\"theme\":\"dark\"}\n" {
 		t.Errorf("backup = %q", got)
 	}
 	if _, err := os.Lstat(target + ".bak"); !os.IsNotExist(err) {
@@ -144,10 +144,10 @@ func TestSyncGlobal_ReaddedSkillSyncsBesideItsBackup(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("a skill put back in the source must sync beside its backup: %v", err)
 	}
-	if got := readGlobalTest(t, out); !strings.Contains(got, "Tidy, my way.") {
+	if got := readFile(t, out); !strings.Contains(got, "Tidy, my way.") {
 		t.Errorf("skill = %q", got)
 	}
-	if got := readGlobalTest(t, out+".bak"); got != edited {
+	if got := readFile(t, out+".bak"); got != edited {
 		t.Errorf("the backup must stay: %q", got)
 	}
 }
@@ -163,10 +163,10 @@ func TestApplyGlobalChanges_RollbackRestoresAnEarlierBackup(t *testing.T) {
 	if _, err := applyGlobalChanges(nil, []string{first, changed}, true, guards); err == nil {
 		t.Fatal("a changed file must stop the removal")
 	}
-	if got := readGlobalTest(t, first); got != "{}\n" {
+	if got := readFile(t, first); got != "{}\n" {
 		t.Errorf("first = %q", got)
 	}
-	if got := readGlobalTest(t, first+".bak"); got != "kept by the user\n" {
+	if got := readFile(t, first+".bak"); got != "kept by the user\n" {
 		t.Errorf("an earlier backup must come back: %q", got)
 	}
 	if _, err := os.Stat(changed + ".bak"); !os.IsNotExist(err) {
@@ -185,7 +185,7 @@ func TestApplyGlobalChanges_RefusesABackupPathThatIsASymlink(t *testing.T) {
 	if _, err := applyGlobalChanges(nil, []string{path}, true, nil); err == nil || !strings.Contains(err.Error(), "not a regular file") {
 		t.Fatalf("a symlinked backup path must stop the run: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != "{}\n" {
+	if got := readFile(t, path); got != "{}\n" {
 		t.Errorf("file = %q", got)
 	}
 	if _, err := os.Lstat(elsewhere); !os.IsNotExist(err) {

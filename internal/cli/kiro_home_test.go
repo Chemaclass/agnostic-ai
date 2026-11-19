@@ -86,10 +86,10 @@ func TestKiroHome_RefusesForeignPriorStateWithoutChangingFiles(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err == nil || !strings.Contains(err.Error(), "recorded under another home") || !strings.Contains(err.Error(), oldPath) {
 		t.Fatalf("unsafe prior state accepted: %v", err)
 	}
-	if got := readGlobalTest(t, oldPath); got != original {
+	if got := readFile(t, oldPath); got != original {
 		t.Errorf("prior file changed: %q", got)
 	}
-	if got := readGlobalTest(t, statePath); got != string(state) {
+	if got := readFile(t, statePath); got != string(state) {
 		t.Error("blocked sync changed recorded ownership")
 	}
 	if _, err := os.Stat(filepath.Join(home, ".kiro", "steering", "AGENTS.md")); !os.IsNotExist(err) {

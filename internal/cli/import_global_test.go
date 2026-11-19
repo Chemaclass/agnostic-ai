@@ -28,18 +28,18 @@ func TestImportGlobal_CodexConfigRoundTrips(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("codex"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	settings := readGlobalTest(t, filepath.Join(source, "settings", "imported.yaml"))
+	settings := readFile(t, filepath.Join(source, "settings", "imported.yaml"))
 	if !strings.Contains(settings, "codex: gpt-6-luna") || !strings.Contains(settings, "codex: high") {
 		t.Errorf("settings spec:\n%s", settings)
 	}
 	if _, err := os.Stat(filepath.Join(source, "mcps", "docs.yaml")); err != nil {
 		t.Fatalf("docs MCP spec: %v", err)
 	}
-	before := readGlobalTest(t, codexPath)
+	before := readFile(t, codexPath)
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != before {
+	if got := readFile(t, codexPath); got != before {
 		t.Errorf("sync after import changed config.toml:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
@@ -62,17 +62,17 @@ func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
 	if !strings.Contains(warnings, "codex mcp docs: description and roots have no effect on Codex") {
 		t.Errorf("import must say it left the keys out:\n%s", warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"))
+	got := readFile(t, filepath.Join(source, "mcps", "docs.yaml"))
 	for _, unwanted := range []string{"description", "roots", "file:///workspace"} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("docs.yaml must leave out %q:\n%s", unwanted, got)
 		}
 	}
-	before := readGlobalTest(t, codexPath)
+	before := readFile(t, codexPath)
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != before {
+	if got := readFile(t, codexPath); got != before {
 		t.Errorf("sync after import changed config.toml:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
@@ -116,17 +116,17 @@ func TestImportGlobal_LaterToolKeepsDescriptionCodexDrops(t *testing.T) {
 			if _, warnings, err := runImportGlobalTest("codex", tc.other); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, filepath.Join(source, "mcps", "fs.yaml")); !strings.Contains(got, "description: Files") {
+			if got := readFile(t, filepath.Join(source, "mcps", "fs.yaml")); !strings.Contains(got, "description: Files") {
 				t.Errorf("fs.yaml lost the %s description:\n%s", tc.other, got)
 			}
-			codexBefore, otherBefore := readGlobalTest(t, codexPath), readGlobalTest(t, otherPath)
+			codexBefore, otherBefore := readFile(t, codexPath), readFile(t, otherPath)
 			if _, warnings, err := runGlobalAgentTest("--only", "codex,"+tc.other); err != nil {
 				t.Fatalf("sync after import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, codexPath); got != codexBefore {
+			if got := readFile(t, codexPath); got != codexBefore {
 				t.Errorf("sync changed config.toml:\n%s", got)
 			}
-			if got := readGlobalTest(t, otherPath); got != otherBefore {
+			if got := readFile(t, otherPath); got != otherBefore {
 				t.Errorf("sync changed %s:\n%s", tc.rel, got)
 			}
 		})
@@ -158,7 +158,7 @@ effort:
 	}
 	snapshot := map[string]string{}
 	for _, rel := range []string{".claude.json", ".claude/settings.json", ".codex/config.toml", ".copilot/settings.json", ".copilot/mcp-config.json", ".cursor/mcp.json", ".gemini/settings.json", ".qoder/settings.json"} {
-		snapshot[rel] = readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel)))
+		snapshot[rel] = readFile(t, filepath.Join(home, filepath.FromSlash(rel)))
 	}
 	for _, path := range []string{settings, mcpDir, filepath.Join(source, "state")} {
 		if err := os.RemoveAll(path); err != nil {
@@ -174,7 +174,7 @@ effort:
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
 	for rel, want := range snapshot {
-		if got := readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel))); got != want {
+		if got := readFile(t, filepath.Join(home, filepath.FromSlash(rel))); got != want {
 			t.Errorf("%s changed after import:\n%s\nwant:\n%s", rel, got, want)
 		}
 	}
@@ -190,7 +190,7 @@ func TestImportGlobal_NeverReplacesASpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	if got := readGlobalTest(t, existing); got != "effort:\n  claude: low\n" {
+	if got := readFile(t, existing); got != "effort:\n  claude: low\n" {
 		t.Errorf("an existing spec must stay: %q", got)
 	}
 	if !strings.Contains(warnings, "skipped "+existing) {
@@ -254,7 +254,7 @@ func TestImportGlobal_HandWrittenShapesRoundTrip(t *testing.T) {
 		if err := json.Unmarshal([]byte(body), &before); err != nil {
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel)))), &after); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, filepath.FromSlash(rel)))), &after); err != nil {
 			t.Fatal(err)
 		}
 		for name, server := range before["mcpServers"] {
@@ -294,14 +294,14 @@ func TestImportGlobal_OneServerAcrossToolsImportsOnce(t *testing.T) {
 	if strings.Contains(warnings, "differently") {
 		t.Errorf("one server in two spellings is not a clash:\n%s", warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps", "d.yaml")); strings.Contains(got, "tools") {
+	if got := readFile(t, filepath.Join(source, "mcps", "d.yaml")); strings.Contains(got, "tools") {
 		t.Errorf("Copilot's default tools must not reach the spec:\n%s", got)
 	}
 	if _, w, err := runGlobalAgentTest("--only", "copilot,cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	for rel, want := range map[string]string{".copilot/mcp-config.json": `{"mcpServers": {"d": {"command": "x", "tools": ["*"]}}}`, ".cursor/mcp.json": `{"mcpServers": {"d": {"command": "x"}}}`} {
-		if got := readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel))); got != want+"\n" {
+		if got := readFile(t, filepath.Join(home, filepath.FromSlash(rel))); got != want+"\n" {
 			t.Errorf("%s: both tools must adopt the server as written:\n%s", rel, got)
 		}
 	}
@@ -333,7 +333,7 @@ func TestImportGlobal_CopilotNativeClientSettingsRoundTrip(t *testing.T) {
 		if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 			t.Fatalf("sync: %v %s", err, warnings)
 		}
-		if got := readGlobalTest(t, path); got != original {
+		if got := readFile(t, path); got != original {
 			t.Errorf("native bytes changed: %s", got)
 		}
 	}
@@ -360,7 +360,7 @@ func TestImportGlobal_CopilotExtraServerFieldsRoundTrip(t *testing.T) {
 		if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 			t.Fatalf("sync: %v %s", err, warnings)
 		}
-		if got := readGlobalTest(t, path); got != original {
+		if got := readFile(t, path); got != original {
 			t.Errorf("native bytes changed: %s", got)
 		}
 	}

@@ -331,7 +331,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	readServers := func() map[string]any {
 		t.Helper()
 		var doc map[string]any
-		if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 			t.Fatal("decode native MCP output")
 		}
 		servers, ok := doc["mcpServers"].(map[string]any)
@@ -352,7 +352,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 			t.Error("global write changed literal header or URL values")
 		}
 		var state globalState
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
 			t.Fatal("decode global ownership state")
 		}
 		for _, name := range []string{"local", "remote"} {
@@ -413,7 +413,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 		t.Fatal("accepted native environment arrays failed to write")
 	}
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
 		t.Fatal("decode native environment settings")
 	}
 	env := doc["env"].(map[string]any)
@@ -424,7 +424,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 		}
 	}
 	var state globalState
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
 		t.Fatal("decode global environment ownership")
 	}
 	for _, key := range []string{"args", "command", "referenced"} {

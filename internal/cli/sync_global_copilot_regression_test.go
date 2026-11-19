@@ -32,7 +32,7 @@ func TestSyncGlobal_CopilotImportKeepsExistingGlobalScriptSpec(t *testing.T) {
 				t.Fatal(err)
 			}
 			managed := filepath.Join(native, "hooks", "agnostic-ai.json")
-			before := readGlobalTest(t, managed)
+			before := readFile(t, managed)
 			if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -51,11 +51,11 @@ func TestSyncGlobal_CopilotImportKeepsExistingGlobalScriptSpec(t *testing.T) {
 			if len(handlers) != 1 {
 				t.Errorf("global sync/import/sync emitted %d handlers, want one", len(handlers))
 			}
-			if after := readGlobalTest(t, managed); after != before {
+			if after := readFile(t, managed); after != before {
 				t.Errorf("import changed emitted command or wrapper: before %s\nafter %s", before, after)
 			}
 			copied := filepath.Join(native, "hooks", "hooks", "guard.sh")
-			if got := readGlobalTest(t, copied); got != body {
+			if got := readFile(t, copied); got != body {
 				t.Errorf("copied script changed: %s", got)
 			}
 			if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {
@@ -152,10 +152,10 @@ func TestSyncGlobal_CopilotMatchingNeighborCannotHideEditedImportedSource(t *tes
 	if err == nil || !strings.Contains(err.Error(), original) || !strings.Contains(err.Error(), "differs from its source file") {
 		t.Errorf("matching earlier file bypassed source conflict: %v", err)
 	}
-	if got := readGlobalTest(t, original); got != edited {
+	if got := readFile(t, original); got != edited {
 		t.Errorf("conflict changed edited native file: %s", got)
 	}
-	if got := readGlobalTest(t, earlier); got != native {
+	if got := readFile(t, earlier); got != native {
 		t.Errorf("conflict changed neighboring file: %s", got)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.json")); !os.IsNotExist(err) {

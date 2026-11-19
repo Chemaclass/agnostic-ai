@@ -19,7 +19,7 @@ func TestSyncGlobal_MemoryBuiltinLeavesTheKiroIncludeToProjects(t *testing.T) {
 		filepath.Join(home, ".kiro", "steering", "AGENTS.md"),
 		filepath.Join(home, ".codex", "AGENTS.md"),
 	} {
-		got := readGlobalTest(t, path)
+		got := readFile(t, path)
 		if !strings.Contains(got, "shared-memory-policy") {
 			t.Errorf("%s lacks the shared memory policy:\n%s", path, got)
 		}

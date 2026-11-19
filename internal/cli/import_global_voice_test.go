@@ -27,7 +27,7 @@ func TestImportGlobal_ReadsClaudeVoice(t *testing.T) {
 	if want := (map[string]any{"enabled": true, "mode": "tap"}); !reflect.DeepEqual(voice, want) {
 		t.Errorf("voice = %#v, want %#v; response language must stay out", voice, want)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("import changed native settings:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
@@ -79,7 +79,7 @@ func TestImportGlobal_VoiceSkipsOnlyTheCoveredTool(t *testing.T) {
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, settings); got != existing {
+			if got := readFile(t, settings); got != existing {
 				t.Errorf("import changed existing home spec:\n%s", got)
 			}
 			if tc.skip {
@@ -97,7 +97,7 @@ func TestImportGlobal_VoiceSkipsOnlyTheCoveredTool(t *testing.T) {
 
 func readImportedVoice(t *testing.T, source string) map[string]any {
 	t.Helper()
-	data := readGlobalTest(t, filepath.Join(source, globalImportSettingsSpec))
+	data := readFile(t, filepath.Join(source, globalImportSettingsSpec))
 	var doc map[string]any
 	if err := yaml.Unmarshal([]byte(data), &doc); err != nil {
 		t.Fatalf("parse imported settings: %v", err)
@@ -147,7 +147,7 @@ func TestImportGlobal_VoiceScopePreservesCoveredToolsAndTheirModels(t *testing.T
 		t.Fatalf("sync uncovered tool: %v\n%s", err, warnings)
 	}
 	path := filepath.Join(home, ".qwen", "settings.json")
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestImportGlobal_ReadsVoiceAcrossNativeTools(t *testing.T) {
 		t.Errorf("voice = %#v, want %#v", got, want)
 	}
 	for file, contents := range files {
-		if got := readGlobalTest(t, filepath.Join(home, filepath.FromSlash(file))); got != contents {
+		if got := readFile(t, filepath.Join(home, filepath.FromSlash(file))); got != contents {
 			t.Errorf("import changed %s", file)
 		}
 	}
@@ -252,7 +252,7 @@ func TestImportGlobal_LegacyVoiceCanChangeAndRestore(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync legacy value: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("matching legacy value changed: %q", got)
 	}
 	settings := filepath.Join(source, globalImportSettingsSpec)
@@ -260,7 +260,7 @@ func TestImportGlobal_LegacyVoiceCanChangeAndRestore(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("change enabled: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestImportGlobal_LegacyVoiceCanChangeAndRestore(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("remove canonical value: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("restored legacy file = %q, want %q", got, original)
 	}
 }
@@ -288,7 +288,7 @@ func TestImportGlobal_LegacyVoiceWithModeRestoresCreatedParent(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync mode: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +304,7 @@ func TestImportGlobal_LegacyVoiceWithModeRestoresCreatedParent(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("restored legacy file = %q, want %q", got, original)
 	}
 }
@@ -322,7 +322,7 @@ func TestImportGlobal_LegacyVoiceDoesNotHideRestoredCanonicalValue(t *testing.T)
 	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("replace parent: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ func TestImportGlobal_LegacyVoiceKeepsExplicitNativeOverride(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("native override: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +355,7 @@ func TestImportGlobal_ImportedVoiceIsSharedBeyondSourceTools(t *testing.T) {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	var doc map[string]any
-	if err := yaml.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, globalImportSettingsSpec))), &doc); err != nil {
+	if err := yaml.Unmarshal([]byte(readFile(t, filepath.Join(source, globalImportSettingsSpec))), &doc); err != nil {
 		t.Fatal(err)
 	}
 	for _, selector := range []string{"target", "targets", "target-exclude", "targets-exclude"} {
@@ -370,7 +370,7 @@ func TestImportGlobal_ImportedVoiceIsSharedBeyondSourceTools(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync another tool: %v\n%s", err, warnings)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestImportGlobal_VoiceModelCompanionKeepsExistingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("existing companion changed: %q", got)
 	}
 	if !strings.Contains(warnings, "skipped "+path+": it exists with other content") {
@@ -442,7 +442,7 @@ func TestImportGlobal_AddsVoiceToPriorModelImport(t *testing.T) {
 			if _, warnings, err := runImportGlobalTest("claude", "--dry-run"); err != nil {
 				t.Fatalf("dry-run: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("dry-run changed prior settings: %q", got)
 			}
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
@@ -451,7 +451,7 @@ func TestImportGlobal_AddsVoiceToPriorModelImport(t *testing.T) {
 			if got, want := readImportedVoice(t, source), (map[string]any{"enabled": true, "mode": "tap"}); !reflect.DeepEqual(got, want) {
 				t.Errorf("voice = %#v, want %#v", got, want)
 			}
-			if got := readGlobalTest(t, path); !strings.HasPrefix(got, original) {
+			if got := readFile(t, path); !strings.HasPrefix(got, original) {
 				t.Errorf("existing settings bytes changed:\n%q", got)
 			}
 			info, err := os.Stat(path)
@@ -461,7 +461,7 @@ func TestImportGlobal_AddsVoiceToPriorModelImport(t *testing.T) {
 			if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 				t.Errorf("private mode changed: %v", info.Mode())
 			}
-			if got := readGlobalTest(t, nativePath); got != native {
+			if got := readFile(t, nativePath); got != native {
 				t.Errorf("native file changed: %q", got)
 			}
 			if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
@@ -480,12 +480,12 @@ func TestImportGlobal_PriorSettingsScopeDoesNotNarrowNewVoice(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("existing scoped settings changed: %q", got)
 	}
 	voicePath := filepath.Join(source, "settings", "imported-voice.yaml")
 	var doc map[string]any
-	if err := yaml.Unmarshal([]byte(readGlobalTest(t, voicePath)), &doc); err != nil {
+	if err := yaml.Unmarshal([]byte(readFile(t, voicePath)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	if voice, present := doc[voiceField]; !present || !sameSetting(voice, map[string]any{"enabled": true, "mode": "tap"}) {
@@ -499,7 +499,7 @@ func TestImportGlobal_PriorSettingsScopeDoesNotNarrowNewVoice(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync uncovered tool: %v\n%s", err, warnings)
 	}
-	qwen := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+	qwen := readFile(t, filepath.Join(home, ".qwen", "settings.json"))
 	if !strings.Contains(qwen, `"tap"`) {
 		t.Errorf("shared voice missing from Qwen: %s", qwen)
 	}
@@ -522,7 +522,7 @@ func TestImportGlobal_PriorVoiceImportHandlesUnusualYAML(t *testing.T) {
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
-			got := readGlobalTest(t, path)
+			got := readFile(t, path)
 			voicePath := path
 			if tc.separate {
 				if got != tc.original {
@@ -533,7 +533,7 @@ func TestImportGlobal_PriorVoiceImportHandlesUnusualYAML(t *testing.T) {
 				t.Errorf("existing model bytes changed: %q", got)
 			}
 			var doc map[string]any
-			if err := yaml.Unmarshal([]byte(readGlobalTest(t, voicePath)), &doc); err != nil {
+			if err := yaml.Unmarshal([]byte(readFile(t, voicePath)), &doc); err != nil {
 				t.Fatal(err)
 			}
 			if voice, present := doc[voiceField]; !present || !sameSetting(voice, map[string]any{"enabled": true, "mode": "tap"}) {
@@ -607,7 +607,7 @@ func TestImportGlobal_PriorVoiceImportStopsIfDestinationChanges(t *testing.T) {
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
 					t.Errorf("removed destination was recreated: %v", err)
 				}
-			} else if got := readGlobalTest(t, path); got != current {
+			} else if got := readFile(t, path); got != current {
 				t.Errorf("concurrent content overwritten: %q, want %q", got, current)
 			}
 		})
@@ -660,19 +660,19 @@ func TestImportGlobal_LayeredDestinationDoesNotNarrowOrDeleteVoice(t *testing.T)
 					t.Errorf("%s = %v, present %t, want %v", key, got, ok, want)
 				}
 			}
-			if tc.shared != "" && readGlobalTest(t, shared) != tc.shared {
+			if tc.shared != "" && readFile(t, shared) != tc.shared {
 				t.Errorf("existing shared settings changed")
 			}
-			if tc.localImported != "" && readGlobalTest(t, filepath.Join(source, "local", "settings", "imported.yaml")) != tc.localImported {
+			if tc.localImported != "" && readFile(t, filepath.Join(source, "local", "settings", "imported.yaml")) != tc.localImported {
 				t.Error("local settings changed")
 			}
-			if tc.localFallback != "" && readGlobalTest(t, filepath.Join(source, "local", "settings", "imported-voice.yaml")) != tc.localFallback {
+			if tc.localFallback != "" && readFile(t, filepath.Join(source, "local", "settings", "imported-voice.yaml")) != tc.localFallback {
 				t.Error("local fallback changed")
 			}
-			if tc.localFallback == "voice: null\n" && readGlobalTest(t, filepath.Join(source, "settings", "imported-voice.yaml")) != "model: {codex: gpt-test}\n" {
+			if tc.localFallback == "voice: null\n" && readFile(t, filepath.Join(source, "settings", "imported-voice.yaml")) != "model: {codex: gpt-test}\n" {
 				t.Error("shared fallback changed")
 			}
-			if got := readGlobalTest(t, nativePath); got != native {
+			if got := readFile(t, nativePath); got != native {
 				t.Errorf("native changed: %q", got)
 			}
 		})
@@ -694,10 +694,10 @@ func TestImportGlobal_NamedDestinationUsesEffectiveLocalOverlay(t *testing.T) {
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("shared settings changed: %q", got)
 			}
-			if got := readGlobalTest(t, local); got != overlay {
+			if got := readFile(t, local); got != overlay {
 				t.Errorf("local settings changed: %q", got)
 			}
 			if _, err := os.Stat(filepath.Join(source, "settings", "imported-voice-2.yaml")); err != nil {
@@ -706,7 +706,7 @@ func TestImportGlobal_NamedDestinationUsesEffectiveLocalOverlay(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			qwen := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+			qwen := readFile(t, filepath.Join(home, ".qwen", "settings.json"))
 			if !strings.Contains(qwen, `"tap"`) {
 				t.Errorf("shared voice missing from Qwen: %s", qwen)
 			}
@@ -723,7 +723,7 @@ func TestImportGlobal_CompatibleLocalSettingsStillAllowVoiceAppend(t *testing.T)
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, shared); !strings.Contains(got, "voice:") {
+	if got := readFile(t, shared); !strings.Contains(got, "voice:") {
 		t.Errorf("compatible settings did not receive voice: %s", got)
 	}
 }
@@ -738,7 +738,7 @@ func TestImportGlobal_ShadowedDestinationDoesNotLoseVoice(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("shadowed settings changed: %q", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
@@ -761,7 +761,7 @@ func TestImportGlobal_NewDestinationDoesNotShadowNamedSettings(t *testing.T) {
 			if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("existing settings changed: %q", got)
 			}
 			if _, err := os.Stat(filepath.Join(source, "settings", "imported.yaml")); !os.IsNotExist(err) {
@@ -777,7 +777,7 @@ func TestImportGlobal_NewDestinationDoesNotShadowNamedSettings(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			qwen := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+			qwen := readFile(t, filepath.Join(home, ".qwen", "settings.json"))
 			if !strings.Contains(qwen, `"tap"`) {
 				t.Errorf("Qwen voice missing: %s", qwen)
 			}
@@ -793,10 +793,10 @@ func TestImportGlobal_NewDestinationExtendsCompatibleLocalOnlySettings(t *testin
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "settings", "imported.yaml")); !strings.Contains(got, "voice:") {
+	if got := readFile(t, filepath.Join(source, "settings", "imported.yaml")); !strings.Contains(got, "voice:") {
 		t.Errorf("voice not imported: %s", got)
 	}
-	if got := readGlobalTest(t, local); got != "targets: []\n" {
+	if got := readFile(t, local); got != "targets: []\n" {
 		t.Errorf("local settings changed: %q", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {

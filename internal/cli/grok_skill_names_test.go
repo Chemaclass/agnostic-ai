@@ -21,7 +21,7 @@ func TestSyncGlobal_GrokRejectsInvalidSkillBeforeNativeWrites(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err == nil || !strings.Contains(err.Error(), "64") {
 		t.Fatalf("invalid global native identity accepted: %v", err)
 	}
-	if got := readGlobalTest(t, instructions); got != before {
+	if got := readFile(t, instructions); got != before {
 		t.Errorf("instructions changed before validation: %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".grok", "skills", name)); !os.IsNotExist(err) {
@@ -65,7 +65,7 @@ func TestSyncGlobal_GrokKeepsNativeDirectoryNameFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".grok", "skills", "review", "SKILL.md")
-	if data := readGlobalTest(t, path); !strings.Contains(data, "!!!") || !strings.Contains(data, "Read the supplied diff.") {
+	if data := readFile(t, path); !strings.Contains(data, "!!!") || !strings.Contains(data, "Read the supplied diff.") {
 		t.Errorf("native fallback content changed: %s", data)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {

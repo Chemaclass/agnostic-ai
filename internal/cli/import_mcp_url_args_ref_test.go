@@ -570,7 +570,7 @@ func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
-	want := readGlobalTest(t, cursorPath)
+	want := readFile(t, cursorPath)
 	for _, form := range []string{`"${env:GH_TOKEN}"`, `"${workspaceFolder}"`, `"${env:workspaceFolder}"`, `"https://${env:API_HOST}/mcp"`} {
 		if !strings.Contains(want, form) {
 			t.Fatalf("cursor lacks %s:\n%s", form, want)
@@ -582,16 +582,16 @@ func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest(); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "- ${GH_TOKEN}") || !strings.Contains(got, "- ${workspaceFolder}") || !strings.Contains(got, "- ${env:workspaceFolder}") {
+	if got := readFile(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "- ${GH_TOKEN}") || !strings.Contains(got, "- ${workspaceFolder}") || !strings.Contains(got, "- ${env:workspaceFolder}") {
 		t.Errorf("import must read ${env:NAME} back and keep ${workspaceFolder}:\n%s", got)
 	}
-	if got := readGlobalTest(t, filepath.Join(mcpDir, "api.yaml")); !strings.Contains(got, "url: https://${API_HOST}/mcp") {
+	if got := readFile(t, filepath.Join(mcpDir, "api.yaml")); !strings.Contains(got, "url: https://${API_HOST}/mcp") {
 		t.Errorf("import must read the url reference back:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, cursorPath); got != want {
+	if got := readFile(t, cursorPath); got != want {
 		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, want)
 	}
 }

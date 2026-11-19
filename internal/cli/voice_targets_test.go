@@ -81,7 +81,7 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 					if _, err := os.Stat(path); !os.IsNotExist(err) {
 						t.Errorf("created file remains: %v", err)
 					}
-				} else if got := readGlobalTest(t, path); got != original {
+				} else if got := readFile(t, path); got != original {
 					t.Errorf("restored bytes = %q, want %q", got, original)
 				}
 			})
@@ -282,7 +282,7 @@ func TestVoiceTargets_RemovalKeepsUserEdits(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
-			data := readGlobalTest(t, path)
+			data := readFile(t, path)
 			key, format := "general.voice.enabled", "json"
 			switch tc.target {
 			case "gemini":
@@ -332,7 +332,7 @@ func TestVoiceTargets_RestoreTOMLValuePreservesUserFormatting(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != tc.want {
+			if got := readFile(t, path); got != tc.want {
 				t.Errorf("got %q, want %q", got, tc.want)
 			}
 		})
@@ -355,7 +355,7 @@ func TestVoiceTargets_QwenNotesRemovedModel(t *testing.T) {
 	if count := strings.Count(warnings, note); count != 1 {
 		t.Errorf("note count = %d, want 1: %s", count, warnings)
 	}
-	data := readGlobalTest(t, filepath.Join(home, ".qwen", "settings.json"))
+	data := readFile(t, filepath.Join(home, ".qwen", "settings.json"))
 	if strings.Contains(data, "voiceModel") {
 		t.Errorf("model remains: %s", data)
 	}
@@ -369,7 +369,7 @@ func TestVoiceTargets_QwenKeepsUserChangedModelWithoutNote(t *testing.T) {
 		t.Fatalf("initial sync: %v\n%s", err, warnings)
 	}
 	path := filepath.Join(home, ".qwen", "settings.json")
-	data := readGlobalTest(t, path)
+	data := readFile(t, path)
 	writeFile(t, path, strings.Replace(data, "whisper", "custom", 1))
 	writeFile(t, settings, "voice:\n  enabled: true\n")
 	_, warnings, err := runGlobalAgentTest("--only", "qwen")
@@ -379,7 +379,7 @@ func TestVoiceTargets_QwenKeepsUserChangedModelWithoutNote(t *testing.T) {
 	if strings.Contains(warnings, "Qwen keeps dictation off") {
 		t.Errorf("unexpected note: %s", warnings)
 	}
-	if got := readGlobalTest(t, path); !strings.Contains(got, "custom") {
+	if got := readFile(t, path); !strings.Contains(got, "custom") {
 		t.Errorf("user model removed: %s", got)
 	}
 }
@@ -437,7 +437,7 @@ func TestVoiceTargets_GrokParentRestorePreservesUserComments(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != tc.want {
+			if got := readFile(t, path); got != tc.want {
 				t.Errorf("got %q, want %q", got, tc.want)
 			}
 		})
@@ -468,7 +468,7 @@ func TestVoiceTargets_GrokRestoresMultilineQuoteEndings(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
-			if got, want := readGlobalTest(t, path), "[ui]\r\nvoice_stt_language = 'en' # new\r\n"; got != want {
+			if got, want := readFile(t, path), "[ui]\r\nvoice_stt_language = 'en' # new\r\n"; got != want {
 				t.Errorf("got %q, want %q", got, want)
 			}
 		})

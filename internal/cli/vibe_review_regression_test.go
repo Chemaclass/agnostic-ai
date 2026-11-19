@@ -31,7 +31,7 @@ func TestImportVibe_UnsafeNativeHookNameWritesNothing(t *testing.T) {
 			if err := cmd.Execute(); err == nil {
 				t.Error("unsafe native name accepted")
 			}
-			if got := readGlobalTest(t, sentinel); got != "sentinel\n" {
+			if got := readFile(t, sentinel); got != "sentinel\n" {
 				t.Fatal("native name overwrote sentinel")
 			}
 			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai")); !os.IsNotExist(err) {
@@ -53,7 +53,7 @@ func TestImportGlobal_VibeUnsafeHookDryRunKeepsSentinel(t *testing.T) {
 	if _, _, err := runImportGlobalTest("vibe", "--dry-run"); err == nil {
 		t.Error("unsafe global hook name accepted")
 	}
-	if got := readGlobalTest(t, sentinel); got != "sentinel\n" {
+	if got := readFile(t, sentinel); got != "sentinel\n" {
 		t.Fatal("global dry run overwrote sentinel")
 	}
 	if _, err := os.Stat(source); !os.IsNotExist(err) {
@@ -90,7 +90,7 @@ func TestImportGlobal_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
 				if len(entries) != 1 {
 					t.Fatalf("wanted one case-insensitive output, got %v", entries)
 				}
-				got := readGlobalTest(t, filepath.Join(source, "mcps", entries[0].Name()))
+				got := readFile(t, filepath.Join(source, "mcps", entries[0].Name()))
 				wantCommand := codexCommand
 				if order[0] == "vibe" {
 					wantCommand = vibeCommand
@@ -136,7 +136,7 @@ func TestSyncGlobal_VibeScalarEditsPreserveArraySeparatorOwnership(t *testing.T)
 			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("remove: %v %s", err, w)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Fatalf("separator restoration: got %q want %q", got, original)
 			}
 		})
@@ -169,7 +169,7 @@ func TestImportVibe_PostAgentStrictFalseRoundTripsFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	execCLI(t, "sync")
-	if got := readGlobalTest(t, filepath.Join(dir, ".vibe/hooks.toml")); !strings.Contains(got, "strict = false") {
+	if got := readFile(t, filepath.Join(dir, ".vibe/hooks.toml")); !strings.Contains(got, "strict = false") {
 		t.Fatalf("false native default lost: %s", got)
 	}
 	execCLI(t, "sync", "--check")
@@ -183,7 +183,7 @@ func TestImportVibe_PostAgentMatchRoundTripsFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	execCLI(t, "sync")
-	if got := readGlobalTest(t, filepath.Join(dir, ".vibe/hooks.toml")); !strings.Contains(got, `match = "main"`) {
+	if got := readFile(t, filepath.Join(dir, ".vibe/hooks.toml")); !strings.Contains(got, `match = "main"`) {
 		t.Fatalf("post_agent match lost: %s", got)
 	}
 	execCLI(t, "sync", "--check")
@@ -201,7 +201,7 @@ func TestImportGlobal_VibePostAgentStrictFalseRoundTripsFresh(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, w)
 	}
-	if got := readGlobalTest(t, path); !strings.Contains(got, "strict = false") {
+	if got := readFile(t, path); !strings.Contains(got, "strict = false") {
 		t.Fatalf("false native default lost: %s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
@@ -260,7 +260,7 @@ func TestSyncGlobal_VibeSeparatorProofKeepsUserScalarChanges(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatal(err)
 	}
-	text := strings.Replace(readGlobalTest(t, path), "key=1", "key=2", 1)
+	text := strings.Replace(readFile(t, path), "key=1", "key=2", 1)
 	writeFile(t, path, text)
 	for _, p := range []string{model, mcp} {
 		if err := os.Remove(p); err != nil {
@@ -270,7 +270,7 @@ func TestSyncGlobal_VibeSeparatorProofKeepsUserScalarChanges(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, path); got != "key=2\n" {
+	if got := readFile(t, path); got != "key=2\n" {
 		t.Fatalf("owned separator cleanup changed user scalar: %q", got)
 	}
 }

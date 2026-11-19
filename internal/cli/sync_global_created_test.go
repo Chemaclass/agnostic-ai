@@ -66,7 +66,7 @@ func TestSyncGlobal_KeepsACreatedFileTheUserAddedTo(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != "{\n  \"theme\": \"dark\"\n}\n" {
+	if got := readFile(t, path); got != "{\n  \"theme\": \"dark\"\n}\n" {
 		t.Errorf("the user's key must stay: %q", got)
 	}
 }
@@ -88,7 +88,7 @@ func TestSyncGlobal_CreatedFileUnderMovedRootIsNotForeign(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(elsewhere, "config.toml")); !os.IsNotExist(err) {
 		t.Errorf("the file sync created under the old root must go: %v", err)
 	}
-	if got := readGlobalTest(t, filepath.Join(home, ".codex", "config.toml")); got != "model = \"gpt-6-luna\"\n" {
+	if got := readFile(t, filepath.Join(home, ".codex", "config.toml")); got != "model = \"gpt-6-luna\"\n" {
 		t.Errorf("config.toml = %q", got)
 	}
 }
@@ -125,7 +125,7 @@ func TestApplyGlobalChanges_RemovalStopsWhenFileChangedSincePlan(t *testing.T) {
 	if _, err := applyGlobalChanges(nil, []string{path}, false, guards); err == nil {
 		t.Fatal("a changed file must not be removed")
 	}
-	if got := readGlobalTest(t, path); got != "{\"a\": 1}\n" {
+	if got := readFile(t, path); got != "{\"a\": 1}\n" {
 		t.Errorf("file = %q", got)
 	}
 }
@@ -148,7 +148,7 @@ func TestApplyGlobalChanges_SymlinkRemovalStopsWhenTargetChangedSincePlan(t *tes
 	if _, err := applyGlobalChanges(nil, []string{link}, false, guards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("a changed target must not be removed: %v", err)
 	}
-	if got := readGlobalTest(t, target); got != "{\"theme\":\"dark\"}\n" {
+	if got := readFile(t, target); got != "{\"theme\":\"dark\"}\n" {
 		t.Errorf("target = %q", got)
 	}
 	if got, err := os.Readlink(link); err != nil || got != target {
@@ -191,7 +191,7 @@ func TestApplyGlobalChanges_BrokenSymlinkRemovalTouchesOnlyTheLink(t *testing.T)
 	if _, err := os.Lstat(link); !os.IsNotExist(err) {
 		t.Errorf("the broken link must go: %v", err)
 	}
-	if got := readGlobalTest(t, other); got != "{}\n" {
+	if got := readFile(t, other); got != "{}\n" {
 		t.Errorf("an unrelated file must stay: %q", got)
 	}
 }
@@ -204,13 +204,13 @@ func TestApplyGlobalChanges_LaterRefusalRestoresRemovedSymlinkAndTarget(t *testi
 	if _, err := applyGlobalChanges(nil, []string{link, changed}, false, guards); err == nil {
 		t.Fatal("a changed file must stop the removal")
 	}
-	if got := readGlobalTest(t, target); got != "{}\n" {
+	if got := readFile(t, target); got != "{}\n" {
 		t.Errorf("target = %q", got)
 	}
 	if got, err := os.Readlink(link); err != nil || got != target {
 		t.Errorf("the symlink must come back: %q, %v", got, err)
 	}
-	if got := readGlobalTest(t, changed); got != "{\"a\": 1}\n" {
+	if got := readFile(t, changed); got != "{\"a\": 1}\n" {
 		t.Errorf("changed file = %q", got)
 	}
 }
@@ -249,7 +249,7 @@ func TestSyncGlobal_PlannedGuardStopsRemovingAChangedSymlinkedFile(t *testing.T)
 	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("stale plan accepted: %v", err)
 	}
-	if got := readGlobalTest(t, target); got != edited {
+	if got := readFile(t, target); got != edited {
 		t.Errorf("the edit must survive: %q", got)
 	}
 	if got, err := os.Readlink(link); err != nil || got != target {

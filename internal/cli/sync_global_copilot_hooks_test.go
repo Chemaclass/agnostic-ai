@@ -80,7 +80,7 @@ func TestImportGlobal_CopilotUserHookAdoptionDoesNotDuplicateCommands(t *testing
 	if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatalf("repeated import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("adoption changed handwritten native hook: %s", got)
 	}
 	files, err := os.ReadDir(filepath.Dir(path))
@@ -95,7 +95,7 @@ func TestImportGlobal_CopilotUserHookAdoptionDoesNotDuplicateCommands(t *testing
 		var doc struct {
 			Hooks map[string][]map[string]any `json:"hooks"`
 		}
-		raw := readGlobalTest(t, filepath.Join(filepath.Dir(path), file.Name()))
+		raw := readFile(t, filepath.Join(filepath.Dir(path), file.Name()))
 		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 			t.Fatalf("parse %s: %v", file.Name(), err)
 		}
@@ -128,7 +128,7 @@ func TestImportGlobal_CopilotSkipsUnknownFieldsAndPreservesNeighbors(t *testing.
 	if _, err := os.Stat(filepath.Join(source, "hooks")); !os.IsNotExist(err) {
 		t.Errorf("lossy specs written: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("unknown native fields changed: %s", got)
 	}
 }
@@ -146,13 +146,13 @@ func TestSyncGlobal_CopilotEditedImportRefusesBeforeWrites(t *testing.T) {
 		t.Fatalf("imported specs: %v, %v", files, err)
 	}
 	specPath := filepath.Join(source, "hooks", files[0].Name())
-	edited := strings.ReplaceAll(readGlobalTest(t, specPath), "echo original", "echo changed")
+	edited := strings.ReplaceAll(readFile(t, specPath), "echo original", "echo changed")
 	writeFile(t, specPath, edited)
 	_, _, err = runGlobalAgentTest("--only", "copilot")
 	if err == nil || !strings.Contains(err.Error(), "differs from its source file") {
 		t.Fatalf("want nonduplicating refusal, got %v", err)
 	}
-	if got := readGlobalTest(t, path); strings.Contains(got, "echo changed") {
+	if got := readFile(t, path); strings.Contains(got, "echo changed") {
 		t.Errorf("refusal altered original: %s", got)
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(path), "agnostic-ai.json")); !os.IsNotExist(err) {
@@ -176,7 +176,7 @@ func TestImportGlobal_CopilotManagedHandlersPreserveAllSupportedFields(t *testin
 	if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("native field preservation: %s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {
@@ -219,7 +219,7 @@ func TestImportGlobal_CopilotReconstructsInFreshHomeAndKeepsUserOwnedOriginal(t 
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, original); got != native {
+	if got := readFile(t, original); got != native {
 		t.Errorf("removing the spec removed user-owned hook: %s", got)
 	}
 }

@@ -33,7 +33,7 @@ func TestSyncGlobal_OtherTargetOverrideConditionDoesNotBlock(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, filepath.Join(home, ".qwen", "QWEN.md")); !strings.Contains(got, "Go only.") {
+	if got := readFile(t, filepath.Join(home, ".qwen", "QWEN.md")); !strings.Contains(got, "Go only.") {
 		t.Errorf("QWEN.md missing rule body: %s", got)
 	}
 }

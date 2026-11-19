@@ -46,7 +46,7 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			got := readGlobalTest(t, path)
+			got := readFile(t, path)
 			if !strings.Contains(got, `headers_helper = "sh headers.sh"`) {
 				t.Errorf("global helper lost:\n%s", got)
 			}
@@ -70,7 +70,7 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if existing {
-				if got := readGlobalTest(t, path); got != before {
+				if got := readFile(t, path); got != before {
 					t.Errorf("remove changed original bytes:\n%s", got)
 				}
 			} else if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -89,11 +89,11 @@ func TestImportGlobal_GrokHeadersHelperRoundTrips(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	assertGrokImportedHeadersHelper(t, readGlobalTest(t, filepath.Join(source, "mcps/docs.yaml")))
+	assertGrokImportedHeadersHelper(t, readFile(t, filepath.Join(source, "mcps/docs.yaml")))
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("native config changed:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {

@@ -38,7 +38,7 @@ func TestImportGlobal_HoistsClaudePermissionRules(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	got := readGlobalTest(t, specPath)
+	got := readFile(t, specPath)
 	want := `permissions:
     allow:
         - shell(git status)
@@ -53,11 +53,11 @@ func TestImportGlobal_HoistsClaudePermissionRules(t *testing.T) {
 	}
 
 	// The round trip: sync adopts every rule and changes nothing.
-	before := readGlobalTest(t, path)
+	before := readFile(t, path)
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("sync after import changed settings.json:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
@@ -79,7 +79,7 @@ func TestImportGlobal_PermissionRulesLeaveWhatTheHomeProvides(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+	got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 	if want := "permissions:\n    allow:\n        - shell(ls:*)\n"; got != want {
 		t.Errorf("only the rule no home spec gives may be hoisted:\n%s", got)
 	}
@@ -101,7 +101,7 @@ func TestImportGlobal_PermissionRulesLeaveWhatSyncWrote(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+	got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 	if want := "permissions:\n    allow:\n        - shell(ls:*)\n"; got != want {
 		t.Errorf("a rule sync wrote must not be hoisted:\n%s", got)
 	}
@@ -131,14 +131,14 @@ func TestImportGlobal_PermissionRulesAppendOnALaterImport(t *testing.T) {
 		t.Errorf("the spec must be updated, not skipped:\n%s\n%s", out, warnings)
 	}
 	want := "# hoisted from Claude Code\npermissions:\n  allow:\n    - Bash(ls:*)\n    - shell(go test:*)\n  deny:\n    - shell(rm:*)\n"
-	if got := readGlobalTest(t, specPath); got != want {
+	if got := readFile(t, specPath); got != want {
 		t.Errorf("permissions spec:\n%s\nwant:\n%s", got, want)
 	}
-	before := readGlobalTest(t, path)
+	before := readFile(t, path)
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("sync after import changed settings.json:\n%s", got)
 	}
 }
@@ -150,7 +150,7 @@ func TestImportGlobal_PermissionRulesLeaveOutCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+	got := readFile(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
 	if strings.Contains(got, "ghp_") || !strings.Contains(got, "shell(ls:*)") {
 		t.Errorf("a rule with a credential must stay out:\n%s", got)
 	}

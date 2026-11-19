@@ -24,7 +24,7 @@ func TestSyncGlobal_GrokSharesConfigAndRestoresBytes(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
-	got := readGlobalTest(t, path)
+	got := readFile(t, path)
 	for _, want := range []string{"default = \"grok-code\"", "enabled = false", "# preserve this", "other = 'keep'"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q: %s", want, got)
@@ -41,7 +41,7 @@ func TestSyncGlobal_GrokSharesConfigAndRestoresBytes(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("did not restore exact bytes: %q", got)
 	}
 }
@@ -62,7 +62,7 @@ func TestSyncGlobal_GrokCustomRootAndNativeHookImport(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Fatalf("native hook changed %q", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {
@@ -155,7 +155,7 @@ func TestSyncGlobal_GrokCombinedConfigStopsOnConcurrentEdit(t *testing.T) {
 	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("got %v", err)
 	}
-	if got := readGlobalTest(t, path); got != changed {
+	if got := readFile(t, path); got != changed {
 		t.Errorf("external write lost %q", got)
 	}
 }
@@ -177,10 +177,10 @@ func TestSyncGlobal_GrokRootMoveReleasesOldConfig(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("old config changed %q", got)
 	}
-	got := readGlobalTest(t, filepath.Join(newRoot, "config.toml"))
+	got := readFile(t, filepath.Join(newRoot, "config.toml"))
 	if !strings.Contains(got, "grok-code") || !strings.Contains(got, "mcp_servers.docs") {
 		t.Errorf("new config missing owned fields %s", got)
 	}
@@ -203,7 +203,7 @@ func TestSyncGlobal_GrokImportsRemoteTransportDefaults(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Fatalf("native transport changed %q", got)
 	}
 }
@@ -223,7 +223,7 @@ func TestSyncGlobal_GrokSkipsHookCredentials(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(source, "hooks/guard.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("credential imported %v", err)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Fatal("native credential hook changed")
 	}
 }
@@ -235,7 +235,7 @@ func TestSyncGlobal_GrokImportKeepsExistingCasefoldMCPName(t *testing.T) {
 	if _, _, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatal(err)
 	}
-	got := readGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"))
+	got := readFile(t, filepath.Join(source, "mcps/docs.yaml"))
 	if !strings.Contains(got, "existing") {
 		t.Fatalf("existing casefold name changed %s", got)
 	}
@@ -251,7 +251,7 @@ func TestSyncGlobal_GrokAdoptsEquivalentNativeMCPDefaults(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("changed native default bytes %q", got)
 	}
 }
@@ -264,7 +264,7 @@ func TestSyncGlobal_GrokRawHookStripsProjectRootFromSharedScript(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("%v %s", err, warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(root, "hooks/guard.json"))
+	got := readFile(t, filepath.Join(root, "hooks/guard.json"))
 	if strings.Contains(got, "CLAUDE_PROJECT_DIR") || !strings.Contains(got, filepath.ToSlash(filepath.Join(root, "hook-scripts/guard.sh"))) {
 		t.Fatalf("wrong global script command %s", got)
 	}

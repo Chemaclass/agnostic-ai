@@ -260,7 +260,7 @@ func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) 
 		if _, _, err := runGlobalAgentTest("--only", target); err != nil {
 			t.Fatal(err)
 		}
-		return readGlobalTest(t, filepath.Join(home, filepath.FromSlash(file)))
+		return readFile(t, filepath.Join(home, filepath.FromSlash(file)))
 	}
 	for _, target := range []struct{ name, file string }{
 		{"claude", ".claude/settings.json"},
@@ -280,7 +280,7 @@ func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) 
 				if _, _, err := runGlobalAgentTest("--only", target.name); err != nil {
 					t.Fatal(err)
 				}
-				got := readGlobalTest(t, native)
+				got := readFile(t, native)
 				body := strings.TrimSuffix(strings.TrimSuffix(want, "\n}\n"), "\n")
 				if original == "{}\n" && got != want || !strings.HasPrefix(got, body) {
 					t.Errorf("a hook added to %q must be indented like a file sync creates\nwant: %q\ngot:  %q", original, want, got)
@@ -297,7 +297,7 @@ func TestSyncGlobal_UpgradeKeepsUserEnvOnTargetWithoutHookHistory(t *testing.T) 
 		t.Fatal(err)
 	}
 	statePath := filepath.Join(source, "state", "global.json")
-	writeFile(t, statePath, strings.Replace(readGlobalTest(t, statePath), fmt.Sprintf(`"version": %d`, globalStateVersion), `"version": 5`, 1))
+	writeFile(t, statePath, strings.Replace(readFile(t, statePath), fmt.Sprintf(`"version": %d`, globalStateVersion), `"version": 5`, 1))
 	settings := filepath.Join(home, ".claude", "settings.json")
 	original := `{"model":"x","env":{}}`
 	writeFile(t, settings, original)
@@ -312,7 +312,7 @@ func TestSyncGlobal_UpgradeKeepsUserEnvOnTargetWithoutHookHistory(t *testing.T) 
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, settings); got != original {
+	if got := readFile(t, settings); got != original {
 		t.Errorf("a target with no hook history must not take the user's containers\nwant: %q\ngot:  %q", original, got)
 	}
 }
@@ -329,7 +329,7 @@ func TestSyncGlobal_HookRemoveAfterUpgradeDropsContainersOlderStateMade(t *testi
 	}
 	statePath := filepath.Join(source, "state", "global.json")
 	var state map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, statePath)), &state); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, statePath)), &state); err != nil {
 		t.Fatal(err)
 	}
 	state["version"] = 5
@@ -345,7 +345,7 @@ func TestSyncGlobal_HookRemoveAfterUpgradeDropsContainersOlderStateMade(t *testi
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, settings); got != original {
+	if got := readFile(t, settings); got != original {
 		t.Errorf("state from before the container record must still drop the hooks and env sync added\nwant: %q\ngot:  %q", original, got)
 	}
 }
@@ -380,7 +380,7 @@ func TestSyncGlobal_HooksWriteStopsWhenFileChangedAfterRead(t *testing.T) {
 			if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 				t.Fatalf("err = %v", err)
 			}
-			if got := readGlobalTest(t, native); got != changed {
+			if got := readFile(t, native); got != changed {
 				t.Errorf("the tool's write must survive: %q", got)
 			}
 		})

@@ -68,7 +68,7 @@ func TestSyncGlobal_AntigravityMemoryIncludeStaysProjectOnly(t *testing.T) {
 	if _, notes, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("global sync: %v\n%s", err, notes)
 	}
-	body := readGlobalTest(t, filepath.Join(home, ".gemini", "GEMINI.md"))
+	body := readFile(t, filepath.Join(home, ".gemini", "GEMINI.md"))
 	if strings.Contains(body, "antigravity-memory-index") || strings.Contains(body, "@[Project memory]") {
 		t.Error("project includes reached global instructions")
 	}

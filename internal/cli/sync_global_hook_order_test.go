@@ -23,7 +23,7 @@ func TestSyncGlobal_KeepsHandWrittenHookKeyOrder(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	got := readGlobalTest(t, path)
+	got := readFile(t, path)
 	if !strings.Contains(got, mine) {
 		t.Errorf("the hand-written hook must keep its key order:\n%s", got)
 	}

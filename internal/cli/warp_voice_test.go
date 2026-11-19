@@ -95,7 +95,7 @@ func TestWarpVoice_WriteCheckAndRestore(t *testing.T) {
 					t.Errorf("created file remains: %v", err)
 				}
 			} else {
-				if got := readGlobalTest(t, path); got != tc.original {
+				if got := readFile(t, path); got != tc.original {
 					t.Errorf("restored bytes %q, want %q", got, tc.original)
 				}
 				if info, err := os.Stat(path); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -169,11 +169,11 @@ func TestWarpVoice_LanguageMatchesNativeFormat(t *testing.T) {
 				t.Fatalf("sync: %v\n%s", err, notes)
 			}
 			if language != "es" && language != "" {
-				if got := readGlobalTest(t, path); got != original || !strings.Contains(notes, "two-letter language code") {
+				if got := readFile(t, path); got != original || !strings.Contains(notes, "two-letter language code") {
 					t.Errorf("unsupported language changed native bytes or missed note: %q\n%s", got, notes)
 				}
 			} else {
-				values, err := settingsValues(path, "toml", []byte(readGlobalTest(t, path)))
+				values, err := settingsValues(path, "toml", []byte(readFile(t, path)))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -190,7 +190,7 @@ func TestWarpVoice_LanguageMatchesNativeFormat(t *testing.T) {
 			if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, notes)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("restored language bytes %q, want %q", got, original)
 			}
 		})
@@ -219,7 +219,7 @@ func TestWarpVoice_NativeOverrideKeepsShortcut(t *testing.T) {
 	if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil || !strings.Contains(notes, "keep other settings in Warp") {
 		t.Fatalf("native override: %v\n%s", err, notes)
 	}
-	values, err := settingsValues(path, "toml", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "toml", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestWarpVoice_NativeOverrideKeepsShortcut(t *testing.T) {
 	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, notes)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("restored %q, want %q", got, original)
 	}
 }
@@ -256,7 +256,7 @@ func TestWarpVoice_RemovalKeepsUserChanges(t *testing.T) {
 	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, notes)
 	}
-	if got := readGlobalTest(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Errorf("user changes lost: %q", got)
 	}
 }
@@ -269,10 +269,10 @@ func TestWarpVoice_ExistingGlobalImportRoundTripsReadOnly(t *testing.T) {
 	if _, err := runRoot(t, "import", "--global", "warp"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("import changed native bytes: %q", got)
 	}
-	imported := readGlobalTest(t, filepath.Join(source, "settings", "imported.yaml"))
+	imported := readFile(t, filepath.Join(source, "settings", "imported.yaml"))
 	for _, want := range []string{"enabled: false", "language: es"} {
 		if !strings.Contains(imported, want) {
 			t.Errorf("import misses %s: %s", want, imported)
@@ -287,7 +287,7 @@ func TestWarpVoice_ExistingGlobalImportRoundTripsReadOnly(t *testing.T) {
 	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, notes)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("round trip changed native bytes: %q", got)
 	}
 }
@@ -309,7 +309,7 @@ func TestWarpVoice_UnsupportedTableShapesStayUnchanged(t *testing.T) {
 			if _, _, err := runGlobalAgentTest("--only", "warp", "--backup"); err == nil || !strings.Contains(err.Error(), "rewrite it as [agents.voice]") {
 				t.Errorf("unsupported shape error: %v", err)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("refused edit changed native bytes: %q", got)
 			}
 			if info, err := os.Stat(path); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -370,7 +370,7 @@ func TestWarpVoice_NativeNullClearsEarlierOverrides(t *testing.T) {
 				if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
 					t.Fatalf("remove portable: %v\n%s", err, notes)
 				}
-				if got := readGlobalTest(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Errorf("restored = %q, want %q", got, original)
 				}
 			}
@@ -398,7 +398,7 @@ func TestWarpVoice_NativeNullClearsOnlySelectedOverride(t *testing.T) {
 		if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil {
 			t.Fatalf("sync %s: %v\n%s", tc.override, err, notes)
 		}
-		values, err := settingsValues(path, "toml", []byte(readGlobalTest(t, path)))
+		values, err := settingsValues(path, "toml", []byte(readFile(t, path)))
 		if err != nil {
 			t.Fatal(err)
 		}

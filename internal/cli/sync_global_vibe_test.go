@@ -28,13 +28,13 @@ func TestSyncGlobal_VibeComposesNativeArraysAndSettings(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, warnings)
 	}
-	got := readGlobalTest(t, config)
+	got := readFile(t, config)
 	for _, want := range []string{`active_model = "devstral"`, `[[mcp_servers]]`, original} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q: %s", want, got)
 		}
 	}
-	if !strings.Contains(readGlobalTest(t, hooks), `type = "pre_tool"`) {
+	if !strings.Contains(readFile(t, hooks), `type = "pre_tool"`) {
 		t.Fatal("missing native hook")
 	}
 	info, err := os.Stat(config)
@@ -52,7 +52,7 @@ func TestSyncGlobal_VibeComposesNativeArraysAndSettings(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("remove: %v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, config); got != original {
+	if got := readFile(t, config); got != original {
 		t.Errorf("config not restored: got %q want %q", got, original)
 	}
 	if _, err := os.Stat(hooks); !os.IsNotExist(err) {
@@ -77,7 +77,7 @@ func TestSyncGlobal_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(root, "config.toml")
-	before := readGlobalTest(t, path)
+	before := readFile(t, path)
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +95,7 @@ func TestSyncGlobal_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !info.ModTime().Equal(after.ModTime()) || readGlobalTest(t, path) != before {
+	if !info.ModTime().Equal(after.ModTime()) || readFile(t, path) != before {
 		t.Fatal("no-op rewrote config")
 	}
 	edited := strings.Replace(before, `command = "node"`, `command = "edited"`, 1)
@@ -105,7 +105,7 @@ func TestSyncGlobal_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "vibe"); err == nil {
 		t.Fatal("root move must protect edited old MCP record")
 	}
-	if got := readGlobalTest(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Fatal("root move changed user edits")
 	}
 	if _, err := os.Stat(filepath.Join(moved, "config.toml")); !os.IsNotExist(err) {
@@ -126,7 +126,7 @@ func TestSyncGlobal_VibeInstructionsAgentsSkillsFollowHome(t *testing.T) {
 		t.Fatalf("%v %s", err, warnings)
 	}
 	for path, want := range map[string]string{"AGENTS.md": "Personal instructions.", "agents/reviewer.toml": `enabled_tools = ["read_file"]`, "skills/check/SKILL.md": "Check changes.", "skills/check/asset.txt": "asset\n"} {
-		if got := readGlobalTest(t, filepath.Join(root, path)); !strings.Contains(got, want) {
+		if got := readFile(t, filepath.Join(root, path)); !strings.Contains(got, want) {
 			t.Errorf("%s: missing %q: %s", path, want, got)
 		}
 	}
@@ -149,10 +149,10 @@ func TestImportGlobal_VibeAdoptsUserEntriesAndExcludesOwnedRecords(t *testing.T)
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("adopt: %v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(root, "config.toml")); got != config {
+	if got := readFile(t, filepath.Join(root, "config.toml")); got != config {
 		t.Errorf("adoption rewrote MCP: %s", got)
 	}
-	if got := readGlobalTest(t, filepath.Join(root, "hooks.toml")); got != hooks {
+	if got := readFile(t, filepath.Join(root, "hooks.toml")); got != hooks {
 		t.Errorf("adoption rewrote hooks: %s", got)
 	}
 	for _, path := range []string{"mcps/docs.yaml", "hooks/guard.yaml"} {
@@ -204,7 +204,7 @@ func TestSyncGlobal_VibePlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("stale plan accepted: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Fatal("concurrent user edit replaced")
 	}
 }
@@ -221,7 +221,7 @@ func TestSyncGlobal_VibeNativeLifecycleEvents(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(root, "hooks.toml"))
+	got := readFile(t, filepath.Join(root, "hooks.toml"))
 	for _, event := range events {
 		if !strings.Contains(got, `type = "`+event+`"`) {
 			t.Errorf("missing %s: %s", event, got)

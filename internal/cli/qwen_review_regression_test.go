@@ -82,7 +82,7 @@ func TestQwen_NativeSkillAndSettingsImportIntoFreshOutputs(t *testing.T) {
 	if len(groups) != 2 {
 		t.Errorf("native and generated guards must both survive fresh sync: %#v", groups)
 	}
-	skill := readGlobalTest(t, filepath.Join(dir, ".qwen/skills/check/SKILL.md"))
+	skill := readFile(t, filepath.Join(dir, ".qwen/skills/check/SKILL.md"))
 	if !strings.Contains(skill, "model: custom-model") {
 		t.Errorf("native skill model lost: %s", skill)
 	}
@@ -95,7 +95,7 @@ func TestQwen_GlobalNativeSkillModelIsPreserved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	native := readGlobalTest(t, filepath.Join(home, ".qwen/skills/check/SKILL.md"))
+	native := readFile(t, filepath.Join(home, ".qwen/skills/check/SKILL.md"))
 	if !strings.Contains(native, "model: custom-model") {
 		t.Errorf("native skill model lost: %s", native)
 	}
@@ -136,11 +136,11 @@ func TestQwen_GlobalNativeMCPExclusionsPreserveUserSettings(t *testing.T) {
 	input := filepath.Join(source, "settings/exclude.yaml")
 	for _, name := range []string{"inherited", "replacement"} {
 		writeFile(t, input, "model: custom-model\nx-qwen:\n  mcp:\n    excluded: ["+name+"]\n")
-		beforeCheck := readGlobalTest(t, settings)
+		beforeCheck := readFile(t, settings)
 		if _, _, err := runGlobalAgentTest("--only", "qwen", "--check"); err == nil {
 			t.Error("check missed exclusion drift")
 		}
-		if got := readGlobalTest(t, settings); got != beforeCheck {
+		if got := readFile(t, settings); got != beforeCheck {
 			t.Errorf("check changed native bytes: %s", got)
 		}
 		for _, args := range [][]string{{"--only", "qwen"}, {"--only", "qwen", "--check"}} {
@@ -157,17 +157,17 @@ func TestQwen_GlobalNativeMCPExclusionsPreserveUserSettings(t *testing.T) {
 			t.Errorf("unowned native server removed: %#v", doc)
 		}
 		var state globalState
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, "state/global.json"))), &state); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state/global.json"))), &state); err != nil {
 			t.Fatal(err)
 		}
 		if !sameSetting(state.Settings["qwen"]["mcp.excluded"], []string{name}) {
 			t.Errorf("unrelated exclusion claimed: %#v", state.Settings["qwen"])
 		}
-		before := readGlobalTest(t, settings)
+		before := readFile(t, settings)
 		if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 			t.Fatalf("repeat: %v\n%s", err, warnings)
 		}
-		if got := readGlobalTest(t, settings); got != before {
+		if got := readFile(t, settings); got != before {
 			t.Errorf("repeat changed native bytes: %s", got)
 		}
 	}
@@ -177,7 +177,7 @@ func TestQwen_GlobalNativeMCPExclusionsPreserveUserSettings(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, settings); got != original {
+	if got := readFile(t, settings); got != original {
 		t.Errorf("removal changed original bytes:\n%s", got)
 	}
 	if info, err := os.Stat(settings); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -196,7 +196,7 @@ func TestQwen_GlobalNativeMCPExclusionsKeepUserAdditions(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	synced := readGlobalTest(t, settings)
+	synced := readFile(t, settings)
 	writeFile(t, settings, strings.Replace(synced, `"user-block"`, `"user-block","user-added"`, 1))
 	if err := os.Remove(input); err != nil {
 		t.Fatal(err)
@@ -279,7 +279,7 @@ func TestQwen_GlobalNativeMCPExclusionsShareOneGuardedSettingsWrite(t *testing.T
 	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("stale write was accepted: %v", err)
 	}
-	if got := readGlobalTest(t, settings); got != changed {
+	if got := readFile(t, settings); got != changed {
 		t.Errorf("stale write lost user change: %s", got)
 	}
 }

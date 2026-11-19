@@ -79,7 +79,7 @@ func TestSyncGlobal_SettingsHonorTargetFilters(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	var claude map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, claudePath)), &claude); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, claudePath)), &claude); err != nil {
 		t.Fatal(err)
 	}
 	if claude["model"] != "opus" || claude["effortLevel"] != "medium" || claude["env"] != nil {
@@ -93,7 +93,7 @@ func TestSyncGlobal_SettingsHonorTargetFilters(t *testing.T) {
 		t.Fatalf("sync codex: %v\n%s", err, warnings)
 	}
 	want := "model = \"should-not-reach-claude\"\nmodel_reasoning_effort = \"high\"\n"
-	if got := readGlobalTest(t, filepath.Join(home, ".codex", "config.toml")); got != want {
+	if got := readFile(t, filepath.Join(home, ".codex", "config.toml")); got != want {
 		t.Errorf("config.toml = %q, want %q", got, want)
 	}
 }
@@ -108,14 +108,14 @@ func TestSyncGlobal_SettingsRoutedAwayRemoveOwnedValue(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if !strings.Contains(readGlobalTest(t, claudePath), `"model": "opus"`) {
-		t.Fatalf("first sync must write the model:\n%s", readGlobalTest(t, claudePath))
+	if !strings.Contains(readFile(t, claudePath), `"model": "opus"`) {
+		t.Fatalf("first sync must write the model:\n%s", readFile(t, claudePath))
 	}
 	writeFile(t, defaults, "targets: [codex]\nmodel: opus\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("resync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, claudePath); got != "{\n  \"theme\": \"dark\"\n}\n" {
+	if got := readFile(t, claudePath); got != "{\n  \"theme\": \"dark\"\n}\n" {
 		t.Errorf("routing the spec away must restore the original bytes, got %q", got)
 	}
 }
@@ -142,7 +142,7 @@ func TestImportGlobal_ReadsModelASettingsSpecRoutesAway(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "settings", "imported.yaml")); !strings.Contains(got, "claude: sonnet") {
+	if got := readFile(t, filepath.Join(source, "settings", "imported.yaml")); !strings.Contains(got, "claude: sonnet") {
 		t.Errorf("a Codex-only model must not stop the Claude import:\n%s", got)
 	}
 }

@@ -126,7 +126,7 @@ func TestCodebuddy_SourceAuditThirdLegacyJSONCOwnershipRestoresBytes(t *testing.
 	if _, warnings, err := runImportGlobalTest("codebuddy"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps/mine.yaml")); !strings.Contains(got, "mine-server") {
+	if got := readFile(t, filepath.Join(source, "mcps/mine.yaml")); !strings.Contains(got, "mine-server") {
 		t.Fatal("third legacy server was not imported")
 	}
 	added := filepath.Join(source, "mcps/docs.yaml")
@@ -134,7 +134,7 @@ func TestCodebuddy_SourceAuditThirdLegacyJSONCOwnershipRestoresBytes(t *testing.
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, native); !strings.Contains(got, "docs-mcp") || !strings.Contains(got, "account and project state") {
+	if got := readFile(t, native); !strings.Contains(got, "docs-mcp") || !strings.Contains(got, "account and project state") {
 		t.Fatal("server or comments lost")
 	}
 	for _, path := range []string{".codebuddy/.mcp.json", ".codebuddy/mcp.json"} {
@@ -151,7 +151,7 @@ func TestCodebuddy_SourceAuditThirdLegacyJSONCOwnershipRestoresBytes(t *testing.
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, native); got != original {
+	if got := readFile(t, native); got != original {
 		t.Fatalf("original bytes changed:\n%q\nwant:\n%q", got, original)
 	}
 	info, err := os.Stat(native)
@@ -189,7 +189,7 @@ func TestCodebuddy_SourceAuditMCPFirstExistingAndStaleProtection(t *testing.T) {
 			if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 				t.Fatalf("stale write accepted: %v", err)
 			}
-			if got := readGlobalTest(t, native); got != changed {
+			if got := readFile(t, native); got != changed {
 				t.Fatal("stale user edit overwritten")
 			}
 		})
@@ -235,7 +235,7 @@ func TestCodebuddy_SourceAuditGlobalNativeFields(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(home, ".codebuddy/agents/reviewer.md")); !strings.Contains(got, "disable-model-invocation: true") {
+	if got := readFile(t, filepath.Join(home, ".codebuddy/agents/reviewer.md")); !strings.Contains(got, "disable-model-invocation: true") {
 		t.Fatal("manual-only flag lost from global agent")
 	}
 	servers, err := readJSONMapAt(filepath.Join(home, ".codebuddy/.mcp.json"), "mcpServers")

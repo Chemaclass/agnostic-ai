@@ -30,7 +30,7 @@ func TestSyncGlobal_SettingsAddThenRemoveKeepsParentsTheUserWrote(t *testing.T) 
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			added := readGlobalTest(t, path)
+			added := readFile(t, path)
 			if added == tc.original {
 				t.Fatalf("the managed settings must land:\n%s", added)
 			}
@@ -40,7 +40,7 @@ func TestSyncGlobal_SettingsAddThenRemoveKeepsParentsTheUserWrote(t *testing.T) 
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("removal: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != tc.original {
+			if got := readFile(t, path); got != tc.original {
 				t.Errorf("add then remove must restore the original bytes\nwant: %q\ngot:  %q\nafter add:\n%s", tc.original, got, added)
 			}
 		})
@@ -86,7 +86,7 @@ func TestSyncGlobal_SettingsPartialRemovalKeepsTheParentForTheRest(t *testing.T)
 			t.Fatalf("removal: %v\n%s", err, warnings)
 		}
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("a parent sync created must go with its last managed child: %q, want %q", got, original)
 	}
 }
@@ -109,7 +109,7 @@ func TestSyncGlobal_SettingsParentOwnershipSurvivesEmptyObjectBecomingChild(t *t
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("add then remove must restore the original bytes: %q, want %q", got, original)
 	}
 }
@@ -132,7 +132,7 @@ func TestSyncGlobal_AdoptedEmptyObjectSurvivesBecomingChild(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("add then remove must restore the adopted object: %q, want %q", got, original)
 	}
 }
@@ -153,7 +153,7 @@ func TestSyncGlobal_SettingsRemovalKeepsAParentTheUserFilled(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got, want := readGlobalTest(t, path), "{\"env\":{\"MINE\":\"x\"}}\n"; got != want {
+	if got, want := readFile(t, path), "{\"env\":{\"MINE\":\"x\"}}\n"; got != want {
 		t.Errorf("the user's key must stay: %q, want %q", got, want)
 	}
 }
@@ -177,7 +177,7 @@ func TestSyncGlobal_SettingsParentsFromOlderStateStayWhenOwnershipIsUnknown(t *t
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("removal: %v\n%s", err, warnings)
 			}
-			if got, want := readGlobalTest(t, path), "{\"theme\":\"dark\",\"env\":{}}\n"; got != want {
+			if got, want := readFile(t, path), "{\"theme\":\"dark\",\"env\":{}}\n"; got != want {
 				t.Errorf("a parent with unknown ownership must stay: %q, want %q", got, want)
 			}
 		})
@@ -196,7 +196,7 @@ func TestSyncGlobal_PermissionParentsFromOlderStateStayWhenOwnershipIsUnknown(t 
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
-	if got, want := readGlobalTest(t, path), "{\"permissions\":{}}\n"; got != want {
+	if got, want := readFile(t, path), "{\"permissions\":{}}\n"; got != want {
 		t.Errorf("a parent with unknown ownership must stay: %q, want %q", got, want)
 	}
 }
@@ -225,14 +225,14 @@ func TestSyncGlobal_SettingsListsKeepParentsTheUserWrote(t *testing.T) {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 			}
-			added := readGlobalTest(t, path)
+			added := readFile(t, path)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
 			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("removal: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != tc.original {
+			if got := readFile(t, path); got != tc.original {
 				t.Errorf("add then remove must restore the original bytes\nwant: %q\ngot:  %q\nafter add:\n%s", tc.original, got, added)
 			}
 		})

@@ -47,7 +47,7 @@ func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 				if _, warnings, err := runGlobalAgentTest("--only", target, "--backup"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
-				values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+				values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -68,7 +68,7 @@ func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 					if _, err := os.Stat(path); !os.IsNotExist(err) {
 						t.Errorf("created settings file remains: %v", err)
 					}
-				} else if got := readGlobalTest(t, path); got != original {
+				} else if got := readFile(t, path); got != original {
 					t.Errorf("removal changed original bytes:\n%s\nwant:\n%s", got, original)
 				}
 			})
@@ -104,7 +104,7 @@ func TestSessionRetention_DoesNotEnableDisabledCleanup(t *testing.T) {
 			if err != nil || !strings.Contains(warnings, "disabled") {
 				t.Errorf("missing disabled cleanup note: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("disabled cleanup changed: %s", got)
 			}
 		})
@@ -120,7 +120,7 @@ func TestSessionRetention_ClaudeOverrideWinsAndWarnsForShorterAge(t *testing.T) 
 	if err != nil || !strings.Contains(warnings, "older sessions") {
 		t.Errorf("missing shorter-retention warning: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); !strings.Contains(got, "\"cleanupPeriodDays\":7") {
+	if got := readFile(t, path); !strings.Contains(got, "\"cleanupPeriodDays\":7") {
 		t.Errorf("native override lost: %s", got)
 	}
 }
@@ -189,7 +189,7 @@ func TestSessionRetention_RestoresExistingEmptyContainers(t *testing.T) {
 				if _, warnings, err := runGlobalAgentTest("--only", target); err != nil {
 					t.Fatalf("removal: %v\n%s", err, warnings)
 				}
-				if got := readGlobalTest(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Errorf("original containers lost: %q, want %q", got, original)
 				}
 			})
@@ -252,7 +252,7 @@ func TestSessionRetention_RejectsEmptyNativeDocumentsBeforeWriting(t *testing.T)
 				if err == nil || !strings.Contains(err.Error(), "unexpected end of JSON input") {
 					t.Errorf("invalid native document must fail before retention: %v", err)
 				}
-				if got := readGlobalTest(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Errorf("rejected native document changed: %q, want %q", got, original)
 				}
 			})
@@ -280,7 +280,7 @@ func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T)
 			if !strings.Contains(notes, "invalid") || !strings.Contains(notes, "manual") {
 				t.Errorf("missing manual correction note: %s", notes)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("portable retention enabled paused native cleanup: %s", got)
 			}
 			if err := os.Remove(settings); err != nil {
@@ -289,7 +289,7 @@ func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T)
 			if _, notes, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Errorf("remove portable retention: %v\n%s", err, notes)
 			}
-			if got := readGlobalTest(t, path); got != original {
+			if got := readFile(t, path); got != original {
 				t.Errorf("removal changed untouched native zero: %s", got)
 			}
 		})
@@ -314,7 +314,7 @@ func TestSessionRetention_ClaudeUserEditedZeroStaysPaused(t *testing.T) {
 	if !strings.Contains(notes, "invalid") || !strings.Contains(notes, "manual") {
 		t.Errorf("missing manual correction note: %s", notes)
 	}
-	if got := readGlobalTest(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Errorf("sync overwrote user zero: %s", got)
 	}
 	if err := os.Remove(settings); err != nil {
@@ -323,7 +323,7 @@ func TestSessionRetention_ClaudeUserEditedZeroStaysPaused(t *testing.T) {
 	if _, notes, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Errorf("release ownership: %v\n%s", err, notes)
 	}
-	if got := readGlobalTest(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Errorf("restoration overwrote user zero: %s", got)
 	}
 }
@@ -336,7 +336,7 @@ func TestSessionRetention_ClaudeExplicitOverlayCanCorrectNativeZero(t *testing.T
 	if _, notes, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("explicit native correction: %v\n%s", err, notes)
 	}
-	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
 	if err != nil {
 		t.Fatal(err)
 	}

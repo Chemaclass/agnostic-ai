@@ -27,13 +27,13 @@ func TestSyncGlobal_MCPServersReachUserFiles(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	wantCodex := codexBefore + "\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\n"
-	if got := readGlobalTest(t, codexPath); got != wantCodex {
+	if got := readFile(t, codexPath); got != wantCodex {
 		t.Errorf("config.toml = %q, want %q", got, wantCodex)
 	}
 	server := func(path string) map[string]any {
 		t.Helper()
 		var doc map[string]any
-		if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
 		servers, _ := doc["mcpServers"].(map[string]any)
@@ -66,10 +66,10 @@ func TestSyncGlobal_MCPServersReachUserFiles(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "codex,cursor,gemini,qoder,copilot"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != codexBefore {
+	if got := readFile(t, codexPath); got != codexBefore {
 		t.Errorf("removal must restore config.toml:\n%q", got)
 	}
-	if got := readGlobalTest(t, cursorPath); got != cursorBefore {
+	if got := readFile(t, cursorPath); got != cursorBefore {
 		t.Errorf("removal must restore mcp.json:\n%q", got)
 	}
 }
@@ -114,7 +114,7 @@ func TestSyncGlobal_CodexAdoptsServerThatDiffersOnlyByDescription(t *testing.T) 
 	if !strings.Contains(warnings, "adopted "+codexPath+" [mcp_servers.docs]") {
 		t.Errorf("adoption must be named:\n%s", warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != described {
+	if got := readFile(t, codexPath); got != described {
 		t.Errorf("adoption must keep config.toml as written:\n%q", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
@@ -127,7 +127,7 @@ func TestSyncGlobal_CodexAdoptsServerThatDiffersOnlyByDescription(t *testing.T) 
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != mine {
+	if got := readFile(t, codexPath); got != mine {
 		t.Errorf("removal must take the adopted server and keep the rest:\n%q", got)
 	}
 }
@@ -147,8 +147,8 @@ func TestSyncGlobal_CodexNotesDroppedDescriptionAndRestoresOnRemoval(t *testing.
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if want := before + "\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\n"; readGlobalTest(t, codexPath) != want {
-		t.Errorf("config.toml = %q, want %q", readGlobalTest(t, codexPath), want)
+	if want := before + "\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\n"; readFile(t, codexPath) != want {
+		t.Errorf("config.toml = %q, want %q", readFile(t, codexPath), want)
 	}
 	for _, field := range []string{"description", "roots"} {
 		if !strings.Contains(warnings, "`"+field+"` on 1 mcp has no effect on codex") {
@@ -162,7 +162,7 @@ func TestSyncGlobal_CodexNotesDroppedDescriptionAndRestoresOnRemoval(t *testing.
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != before {
+	if got := readFile(t, codexPath); got != before {
 		t.Errorf("removal must restore config.toml:\n%q", got)
 	}
 }
@@ -176,7 +176,7 @@ func TestSyncGlobal_CodexDropsKeysAnOlderSyncWrote(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	current := readGlobalTest(t, codexPath)
+	current := readFile(t, codexPath)
 	old := strings.Replace(current, "args = [\"--stdio\"]\n", "args = [\"--stdio\"]\ndescription = \"Docs search\"\n", 1)
 	if old == current {
 		t.Fatalf("docs table not found:\n%s", current)
@@ -184,14 +184,14 @@ func TestSyncGlobal_CodexDropsKeysAnOlderSyncWrote(t *testing.T) {
 	writeFile(t, codexPath, old)
 	statePath := filepath.Join(source, "state", "global.json")
 	var state map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, statePath)), &state); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, statePath)), &state); err != nil {
 		t.Fatal(err)
 	}
 	mcp, _ := state["mcp"].(map[string]any)
 	codexState, _ := mcp["codex"].(map[string]any)
 	docs, _ := codexState["docs"].(map[string]any)
 	if docs == nil {
-		t.Fatalf("no recorded docs server in state:\n%s", readGlobalTest(t, statePath))
+		t.Fatalf("no recorded docs server in state:\n%s", readFile(t, statePath))
 	}
 	docs["description"] = "Docs search"
 	data, err := json.MarshalIndent(state, "", "  ")
@@ -206,7 +206,7 @@ func TestSyncGlobal_CodexDropsKeysAnOlderSyncWrote(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after upgrade: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != current {
+	if got := readFile(t, codexPath); got != current {
 		t.Errorf("sync must drop the stale key:\n%q\nwant\n%q", got, current)
 	}
 }
@@ -221,12 +221,12 @@ func TestSyncGlobal_CodexHandEditInOwnedTableConflictsOnSpecChange(t *testing.T)
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	edited := strings.Replace(readGlobalTest(t, codexPath), "args = [\"--stdio\"]\n", "args = [\"--stdio\"]\ndescription = \"my note\"\n", 1)
+	edited := strings.Replace(readFile(t, codexPath), "args = [\"--stdio\"]\n", "args = [\"--stdio\"]\ndescription = \"my note\"\n", 1)
 	writeFile(t, codexPath, edited)
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("an unchanged spec must leave the edit alone: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != edited {
+	if got := readFile(t, codexPath); got != edited {
 		t.Errorf("unchanged spec rewrote the edited table:\n%q", got)
 	}
 
@@ -235,7 +235,7 @@ func TestSyncGlobal_CodexHandEditInOwnedTableConflictsOnSpecChange(t *testing.T)
 	if err == nil || !strings.Contains(err.Error(), "was written outside agnostic-ai and differs") {
 		t.Fatalf("a spec change must stop on the hand edit: %v", err)
 	}
-	if got := readGlobalTest(t, codexPath); got != edited {
+	if got := readFile(t, codexPath); got != edited {
 		t.Errorf("the hand edit must survive:\n%q", got)
 	}
 }
@@ -318,7 +318,7 @@ func TestSyncGlobal_ClaudeMCPKeepsAppState(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	got := readGlobalTest(t, path)
+	got := readFile(t, path)
 	if !strings.HasPrefix(got, "{\n  \"userID\": \"abc\",\n  \"projects\": {\n    \"/src\": {\"hasTrustDialogAccepted\": true}\n  },") || !strings.Contains(got, `"docs": {`) {
 		t.Errorf(".claude.json:\n%s", got)
 	}
@@ -331,7 +331,7 @@ func TestSyncGlobal_ClaudeMCPKeepsAppState(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("removal must restore .claude.json:\n%s", got)
 	}
 }
@@ -344,7 +344,7 @@ func TestSyncGlobal_ClaudeMCPFollowsConfigDir(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
+	if got := readFile(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
 		t.Errorf("config dir .claude.json:\n%s", got)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".claude.json")); !os.IsNotExist(err) {
@@ -397,10 +397,10 @@ func TestSyncGlobal_MCPMovesWithConfigRoot(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync after move: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, oldPath); got != "{\n  \"userID\": \"abc\"\n}\n" {
+	if got := readFile(t, oldPath); got != "{\n  \"userID\": \"abc\"\n}\n" {
 		t.Errorf("the old file must lose the server:\n%s", got)
 	}
-	if got := readGlobalTest(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
+	if got := readFile(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
 		t.Errorf("the new file must get it:\n%s", got)
 	}
 }
@@ -413,7 +413,7 @@ func TestApplyGlobalChanges_StopsWhenFileChangedSincePlan(t *testing.T) {
 	if _, err := applyGlobalChanges([]globalWrite{w}, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("err = %v", err)
 	}
-	if got := readGlobalTest(t, path); got != "{\"a\": 2}\n" {
+	if got := readFile(t, path); got != "{\"a\": 2}\n" {
 		t.Errorf("the tool's write must survive: %q", got)
 	}
 }
@@ -475,7 +475,7 @@ func TestSyncGlobal_OpenHandsRemovesTheUserFileAnEarlierSyncCreated(t *testing.T
 	writeFile(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
 	path := filepath.Join(home, ".openhands", "mcp.json")
 	syncOpenHandsMCPAsBefore(t)
-	if !strings.Contains(readGlobalTest(t, path), "docs-mcp") {
+	if !strings.Contains(readFile(t, path), "docs-mcp") {
 		t.Fatal("the earlier sync did not write docs")
 	}
 	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
@@ -496,13 +496,13 @@ func TestSyncGlobal_OpenHandsRestoresAUserFileAnEarlierSyncEdited(t *testing.T) 
 	before := "{\n  \"mcpServers\": {\n    \"web\": {\"url\": \"https://x.test/sse\"}\n  }\n}\n"
 	writeFile(t, path, before)
 	syncOpenHandsMCPAsBefore(t)
-	if !strings.Contains(readGlobalTest(t, path), "docs-mcp") {
+	if !strings.Contains(readFile(t, path), "docs-mcp") {
 		t.Fatal("the earlier sync did not write docs")
 	}
 	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("mcp.json = %q, want the original bytes %q", got, before)
 	}
 }
@@ -525,7 +525,7 @@ func TestSyncGlobal_OpenHandsCleanupSurvivesTheCLIRewrite(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); strings.Contains(got, "docs-mcp") || !strings.Contains(got, "x.test") {
+	if got := readFile(t, path); strings.Contains(got, "docs-mcp") || !strings.Contains(got, "x.test") {
 		t.Errorf("cleanup must take only the synced server:\n%s", got)
 	}
 }
@@ -537,7 +537,7 @@ func TestSyncGlobal_OpenHandsCleanupFollowsPersistenceDir(t *testing.T) {
 	t.Setenv("OPENHANDS_PERSISTENCE_DIR", dir)
 	syncOpenHandsMCPAsBefore(t)
 	path := filepath.Join(dir, "mcp.json")
-	if !strings.Contains(readGlobalTest(t, path), "docs-mcp") {
+	if !strings.Contains(readFile(t, path), "docs-mcp") {
 		t.Fatal("the earlier sync did not write docs")
 	}
 	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
@@ -558,16 +558,16 @@ func TestSyncGlobal_OpenHandsCleanupRemovesAnAdoptedServerAndBackupKeepsIt(t *te
 	adopted := "{\"mcpServers\": {\"docs\": {\"command\": \"docs-mcp\", \"args\": [\"--stdio\"]}, \"web\": {\"url\": \"https://x.test/sse\"}}}\n"
 	writeFile(t, path, adopted)
 	syncOpenHandsMCPAsBefore(t)
-	if got := readGlobalTest(t, path); got != adopted {
+	if got := readFile(t, path); got != adopted {
 		t.Fatalf("the earlier sync changed the adopted file:\n%s", got)
 	}
 	if _, w, err := runGlobalAgentTest("--only", "openhands", "--backup"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); strings.Contains(got, "docs-mcp") || !strings.Contains(got, "x.test") {
+	if got := readFile(t, path); strings.Contains(got, "docs-mcp") || !strings.Contains(got, "x.test") {
 		t.Errorf("cleanup must take the adopted server and keep web:\n%s", got)
 	}
-	if got := readGlobalTest(t, path+".bak"); got != adopted {
+	if got := readFile(t, path+".bak"); got != adopted {
 		t.Errorf("mcp.json.bak = %q, want %q", got, adopted)
 	}
 }
@@ -582,7 +582,7 @@ func TestSyncGlobal_OpenHandsLeavesAHandWrittenUserFile(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != body {
+	if got := readFile(t, path); got != body {
 		t.Errorf("mcp.json changed:\n%s", got)
 	}
 }
@@ -604,7 +604,7 @@ func TestImportGlobal_OpenHandsCLIShapesRoundTrip(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != body {
+	if got := readFile(t, path); got != body {
 		t.Errorf("mcp.json changed after import:\n%s", got)
 	}
 }
@@ -623,7 +623,7 @@ func TestSyncGlobal_AugmentUserSettingsGetHooksMCPAndKeys(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	hooks, _ := doc["hooks"].(map[string]any)
@@ -659,7 +659,7 @@ func TestSyncGlobal_AugmentUserSettingsGetHooksMCPAndKeys(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != "{\n  \"indexing\": true\n}\n" {
+	if got := readFile(t, path); got != "{\n  \"indexing\": true\n}\n" {
 		t.Errorf("removal must restore settings.json:\n%s", got)
 	}
 }
@@ -675,7 +675,7 @@ func TestSyncGlobal_AugmentUserSettingsGetDefaultModelAndEffort(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	if doc["defaultModel"] != "sonnet-4" || doc["defaultThinkingLevel"] != "high" || doc["indexing"] != true {
@@ -691,7 +691,7 @@ func TestSyncGlobal_AugmentUserSettingsGetDefaultModelAndEffort(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
 		t.Fatalf("sync after removal: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != original {
+	if got := readFile(t, path); got != original {
 		t.Errorf("removal must restore settings.json:\n%s", got)
 	}
 }
@@ -705,7 +705,7 @@ func TestSyncGlobal_AugmentAdoptsEmptyMatcherSessionHook(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != existing {
+	if got := readFile(t, path); got != existing {
 		t.Errorf("the hand-written hook must stay as written:\n%s", got)
 	}
 }
@@ -722,7 +722,7 @@ func TestSyncGlobal_WarpMCPPreservesUserServersAndRemovesOwnedEntries(t *testing
 	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	got := readGlobalTest(t, path)
+	got := readFile(t, path)
 	var doc map[string]map[string]map[string]any
 	if err := json.Unmarshal([]byte(got), &doc); err != nil {
 		t.Fatal(err)
@@ -743,7 +743,7 @@ func TestSyncGlobal_WarpMCPPreservesUserServersAndRemovesOwnedEntries(t *testing
 	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("second sync: %v\n%s", err, w)
 	}
-	if next := readGlobalTest(t, path); next != got {
+	if next := readFile(t, path); next != got {
 		t.Errorf("second sync changed output: %s", next)
 	}
 	for _, p := range []string{stdio, remote} {
@@ -754,7 +754,7 @@ func TestSyncGlobal_WarpMCPPreservesUserServersAndRemovesOwnedEntries(t *testing
 	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("removal changed user file: %s", got)
 	}
 }
@@ -768,7 +768,7 @@ func TestSyncGlobal_WarpMCPConflictsAndAdoptsEqualServer(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "warp"); err == nil || !strings.Contains(err.Error(), "mcpServers.docs") || !strings.Contains(err.Error(), "--backup") {
 		t.Fatalf("expected conflict: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("conflict changed file: %s", got)
 	}
 	equal := `{ "mcpServers": {"docs": {"command": "docs-mcp", "args": ["--stdio"]}} }` + "\n"
@@ -804,7 +804,7 @@ func TestSyncGlobal_WarpMCPPreviewAndTargetFilters(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("warp sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); strings.Contains(got, "other") || !strings.Contains(got, "docs-mcp") {
+	if got := readFile(t, path); strings.Contains(got, "other") || !strings.Contains(got, "docs-mcp") {
 		t.Errorf("target filtering: %s", got)
 	}
 }
@@ -830,13 +830,13 @@ func TestImportGlobal_WarpMCPRoundTrip(t *testing.T) {
 	if _, w, err := runImportGlobalTest("warp"); err != nil {
 		t.Fatalf("import: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml")); !strings.Contains(got, "cwd: /src") || strings.Contains(got, "working_directory") {
+	if got := readFile(t, filepath.Join(source, "mcps", "docs.yaml")); !strings.Contains(got, "cwd: /src") || strings.Contains(got, "working_directory") {
 		t.Errorf("stdio import: %s", got)
 	}
 	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("round trip changed file: %s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "warp", "--check"); err != nil {
@@ -856,7 +856,7 @@ func TestSyncGlobal_AntigravityMCPPreservesUserServersAndRemovesOwnedEntries(t *
 	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	got := readGlobalTest(t, path)
+	got := readFile(t, path)
 	var doc map[string]map[string]map[string]any
 	if err := json.Unmarshal([]byte(got), &doc); err != nil {
 		t.Fatal(err)
@@ -877,7 +877,7 @@ func TestSyncGlobal_AntigravityMCPPreservesUserServersAndRemovesOwnedEntries(t *
 	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
 		t.Fatalf("second sync: %v\n%s", err, w)
 	}
-	if next := readGlobalTest(t, path); next != got {
+	if next := readFile(t, path); next != got {
 		t.Errorf("second sync changed output: %s", next)
 	}
 	for _, p := range []string{stdio, remote} {
@@ -888,7 +888,7 @@ func TestSyncGlobal_AntigravityMCPPreservesUserServersAndRemovesOwnedEntries(t *
 	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("removal changed user file: %s", got)
 	}
 }
@@ -902,7 +902,7 @@ func TestSyncGlobal_AntigravityMCPConflictsAndAdoptsEqualServer(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "antigravity"); err == nil || !strings.Contains(err.Error(), "mcpServers.docs") || !strings.Contains(err.Error(), "--backup") {
 		t.Fatalf("expected conflict: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("conflict changed file: %s", got)
 	}
 	equal := `{ "mcpServers": {"docs": {"command": "docs-mcp", "args": ["--stdio"]}} }` + "\n"
@@ -938,7 +938,7 @@ func TestSyncGlobal_AntigravityMCPPreviewAndTargetFilters(t *testing.T) {
 	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
 		t.Fatalf("antigravity sync: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); strings.Contains(got, "other") || !strings.Contains(got, "docs-mcp") {
+	if got := readFile(t, path); strings.Contains(got, "other") || !strings.Contains(got, "docs-mcp") {
 		t.Errorf("target filtering: %s", got)
 	}
 }
@@ -951,7 +951,7 @@ func TestSyncGlobal_AntigravityDisabledMCPKeepsNativeDisableFlag(t *testing.T) {
 	}
 	path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
 	var doc map[string]map[string]map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	if server := doc["mcpServers"]["docs"]; server["disabled"] != true || server["command"] != "docs-mcp" {
@@ -967,16 +967,16 @@ func TestImportGlobal_AntigravityMCPRoundTrip(t *testing.T) {
 	if _, w, err := runImportGlobalTest("antigravity"); err != nil {
 		t.Fatalf("import: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml")); !strings.Contains(got, "cwd: /src") || strings.Contains(got, "serverUrl") {
+	if got := readFile(t, filepath.Join(source, "mcps", "docs.yaml")); !strings.Contains(got, "cwd: /src") || strings.Contains(got, "serverUrl") {
 		t.Errorf("stdio import: %s", got)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps", "api.yaml")); !strings.Contains(got, "url: https://api.test/mcp") || !strings.Contains(got, "authProviderType: google_credentials") || !strings.Contains(got, "x-antigravity:") || strings.Contains(got, "serverUrl") {
+	if got := readFile(t, filepath.Join(source, "mcps", "api.yaml")); !strings.Contains(got, "url: https://api.test/mcp") || !strings.Contains(got, "authProviderType: google_credentials") || !strings.Contains(got, "x-antigravity:") || strings.Contains(got, "serverUrl") {
 		t.Errorf("remote import: %s", got)
 	}
 	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, w)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("round trip changed file: %s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "antigravity", "--check"); err != nil {
@@ -994,7 +994,7 @@ func TestSyncGlobal_AugmentSkipsAnEventAuggieNeverFires(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	got := readGlobalTest(t, path)
+	got := readFile(t, path)
 	if strings.Contains(got, "UserPromptSubmit") || !strings.Contains(got, "SessionStart") {
 		t.Errorf("settings.json = %s", got)
 	}
