@@ -50,6 +50,9 @@ type form struct {
 	maxOperands int
 	verify      func(operands []string) string
 	requires    string
+	// wordOptions marks a program whose single-dash options are whole
+	// words, as Go's are: -overlay is not -o with a value.
+	wordOptions bool
 	skip        int
 }
 
@@ -100,11 +103,11 @@ var (
 	)
 
 	goVerbs = map[string]form{
-		"test":    {opts: goTestOpts, operand: operandPackage, maxOperands: -1},
-		"build":   {opts: goTestOpts, operand: operandPackage, maxOperands: -1},
-		"vet":     {opts: opts(separate|glued, true, "-tags"), operand: operandPackage, maxOperands: -1},
+		"test":    {opts: goTestOpts, wordOptions: true, operand: operandPackage, maxOperands: -1},
+		"build":   {opts: goTestOpts, wordOptions: true, operand: operandPackage, maxOperands: -1},
+		"vet":     {opts: opts(separate|glued, true, "-tags"), wordOptions: true, operand: operandPackage, maxOperands: -1},
 		"fmt":     {operand: operandPackage, maxOperands: -1},
-		"run":     {opts: opts(flag, false, "-race"), operand: operandPackage, minOperands: 1, maxOperands: 1},
+		"run":     {opts: opts(flag, false, "-race"), wordOptions: true, operand: operandPackage, minOperands: 1, maxOperands: 1},
 		"version": {maxOperands: 0},
 	}
 

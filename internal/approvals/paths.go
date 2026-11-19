@@ -74,10 +74,13 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 	if glob == "" {
 		return ""
 	}
-	if strings.HasPrefix(glob, "!") {
-		// A negated glob searches every other file.
+	if strings.HasPrefix(glob, "!") || strings.ContainsAny(glob, " ,") {
+		// A negated glob searches every other file; a space or comma may
+		// split one glob into several.
 		return RuleSecret
 	}
+	// A backslash escapes the next rune; dropping it only widens the glob.
+	glob = strings.ReplaceAll(glob, `\`, "")
 	if pathLike(glob) {
 		return RuleOutsideProject
 	}

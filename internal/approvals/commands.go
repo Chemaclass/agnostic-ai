@@ -249,7 +249,7 @@ func (f form) option(text string, rest []shellWord) (value *string, isText bool,
 		}
 		return nil, false, 0, false
 	}
-	if !strings.HasPrefix(text, "--") && len(text) > 2 {
+	if !f.wordOptions && !strings.HasPrefix(text, "--") && len(text) > 2 {
 		if o, found := f.opts[text[:2]]; found && o.kind&glued != 0 {
 			v := text[2:]
 			return &v, o.text, 0, true
@@ -290,9 +290,16 @@ func (g *gate) operandRule(kind operandKind, w shellWord, cwd string) string {
 	case operandNone:
 		return RuleUnknownCommand
 	}
-	// git reads rev:path as a file of a commit.
-	if _, file, ok := strings.Cut(w.text, ":"); ok {
-		if rule := g.pathValue(file, cwd); rule != "" {
+	// git reads :path as a pathspec, where :(magic) and :stage: change
+	// its meaning, and rev:path as a file of a commit.
+	if rest, ok := strings.CutPrefix(w.text, ":"); ok {
+		if strings.HasPrefix(rest, "(") || strings.Contains(rest, ":") {
+			return RuleUnknownCommand
+		}
+		return g.pathValue(rest, cwd)
+	}
+	if i := strings.LastIndex(w.text, ":"); i >= 0 {
+		if rule := g.pathValue(w.text[i+1:], cwd); rule != "" {
 			return rule
 		}
 	}
