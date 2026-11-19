@@ -979,4 +979,7 @@
 # #3591 measured 27152544 bytes locally (make size-check): companion uninstall, install and upgrade check whether the companion runs, record the installing commit, and keep a moved-aside app; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3516 measured 27168928 bytes: verified whole-app updates and bundled
 # command installation; allow 8192 bytes, rounded up to a 4096-byte page.
-27181056
+# #3719 measured 27197600 bytes in CI: copy to global brings the scripts a
+# hook runs, and Windows hook commands are read as PowerShell; allow 8192
+# bytes, rounded up to a 4096-byte page.
+27209728
