@@ -15,9 +15,6 @@ func shellInterpreter(args []shellWord, c simpleCommand) string {
 	for _, a := range args {
 		text := a.text
 		if !strings.HasPrefix(text, "-") {
-			if a.glob {
-				return RuleShellSyntax
-			}
 			return ""
 		}
 		if !setFlags.MatchString(text) || strings.HasPrefix(text, "+") {
@@ -53,8 +50,6 @@ func interpreter(name string, args []shellWord, c simpleCommand) string {
 	for i, a := range args {
 		text := a.text
 		switch {
-		case a.glob:
-			return RuleShellSyntax
 		case name != "node" && text == "-m":
 			if i+1 < len(args) && slices.Contains(pythonModules, args[i+1].text) {
 				return ""

@@ -80,8 +80,11 @@ type Policy struct {
 	AgnosticHome string
 	// Protected are the settings specs' protected blocks.
 	Protected []spec.ProtectGroup
-	// AlwaysAsk are extra permission rules, such as Bash(make deploy*),
-	// that ask on a match. They add to the fixed rules, never remove.
+	// AlwaysAsk are permission rules, such as Bash(make deploy*), that
+	// ask on a match, read the way Claude Code reads its permission
+	// rules. The caller passes the person's own ask rules from the tool's
+	// settings, since a hook allow skips them (decision 022), and the
+	// approvals.always-ask list. They add to the fixed rules, never remove.
 	AlwaysAsk []string
 	// Resolve, when set, returns a path with its symbolic links
 	// resolved. Without it the gate compares paths as written.

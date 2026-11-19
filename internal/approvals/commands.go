@@ -50,9 +50,6 @@ func (g *gate) command(c simpleCommand, cwd *string, andChain bool) string {
 		if r.dup {
 			continue
 		}
-		if r.target.glob {
-			return RuleShellSyntax
-		}
 		var rule string
 		if r.output {
 			rule = g.targetRule(r.target.text, *cwd, RuleDelete)
@@ -76,7 +73,7 @@ func (g *gate) program(words []shellWord, c simpleCommand, cwd *string, andChain
 	if len(words) == 0 {
 		return ""
 	}
-	if words[0].glob || words[0].text == "" {
+	if words[0].text == "" {
 		return RuleShellSyntax
 	}
 	if namesPolicyWords(words) {
@@ -196,7 +193,7 @@ func runsProgram(name string, args []shellWord) ([]shellWord, bool) {
 		return nil, false
 	}
 	if strings.HasPrefix(args[1].text, "-") {
-		return []shellWord{{text: "-", glob: true}}, true
+		return []shellWord{{text: ""}}, true
 	}
 	return args[1:], true
 }
@@ -429,18 +426,12 @@ func agnosticRule(args []shellWord) string {
 }
 
 // argsRule checks every argument of a command: a credential path, a
-// path outside the project, a glob that may reach either, or, for a
-// command that may write, a protected path.
+// path outside the project, or, for a command that may write, a
+// protected path.
 func (g *gate) argsRule(name string, args []shellWord, cwd string) string {
 	text := textArgs(name, args)
 	for i, a := range args {
 		if text[i] {
-			continue
-		}
-		if a.glob {
-			if rule := g.globRule(a.text, cwd); rule != "" {
-				return rule
-			}
 			continue
 		}
 		for _, value := range argValues(a) {
@@ -585,9 +576,6 @@ func pathLike(word string) bool {
 // as a path it writes.
 func (g *gate) targets(args []shellWord, cwd, outsideRule string) string {
 	for _, a := range args {
-		if a.glob {
-			return RuleShellSyntax
-		}
 		for _, value := range argValues(a) {
 			if strings.Contains(value, "://") || hostPath(value) {
 				return RuleNetwork
@@ -601,7 +589,7 @@ func (g *gate) targets(args []shellWord, cwd, outsideRule string) string {
 }
 
 func (g *gate) changeDir(args []shellWord, cwd *string) string {
-	if len(args) != 1 || args[0].glob || strings.HasPrefix(args[0].text, "-") {
+	if len(args) != 1 || strings.HasPrefix(args[0].text, "-") {
 		return RuleOutsideProject
 	}
 	abs, ok := g.path(args[0].text, *cwd)

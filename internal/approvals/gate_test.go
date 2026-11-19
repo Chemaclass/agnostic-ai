@@ -555,6 +555,10 @@ func TestDecide_ShellEvasions(t *testing.T) {
 		`chmod --recursiv 777 .`,
 		`some-unknown-tool --flag`,
 		`python3.12 -c 'x'`,
+		`gofmt -w *.go`,
+		`ls internal/*/gate.go`,
+		`git diff HEAD^`,
+		"echo \xff\xfe",
 	} {
 		t.Run(command, func(t *testing.T) {
 			t.Parallel()
@@ -593,8 +597,8 @@ func TestDecide_EverydayCommandsPass(t *testing.T) {
 		"grep -rn 'func Decide' internal",
 		"grep -rn '/api/v1' internal",
 		"rg -n TODO",
-		"wc -l internal/approvals/*.go",
 		"find . -name '*.go' -newer go.mod",
+		"wc -l internal/approvals/gate.go",
 		"sed -n '1,20p' main.go",
 		"sed -i '' 's/foo/bar/g' main.go",
 		"sed -i 's/foo/bar/g;s/a/b/' main.go",
@@ -658,8 +662,6 @@ func TestDecide_EverydayCommandsPass(t *testing.T) {
 		"fd -e go",
 		"rg --files",
 		"yarn run test",
-		"gofmt -w *.go",
-		"ls internal/*/gate.go",
 	} {
 		t.Run(command, func(t *testing.T) {
 			t.Parallel()
@@ -784,6 +786,18 @@ func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
 
 	p.AlwaysAsk = []string{"Bash(rm *"}
 	wantDecision(t, Decide(bash("ls"), p), RuleAlwaysAsk)
+
+	// The person's own ask rules, as Claude Code reads them: a Bash
+	// prefix rule matches any subcommand, a Read rule matches paths
+	// gitignore style, and a tool name alone matches every call.
+	p.AlwaysAsk = []string{"Bash(echo askrule*)", "Bash(npm run build:*)", "Read(./secrets/**)", "Write"}
+	wantDecision(t, Decide(bash("echo askrule one"), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(bash("go vet ./... && echo askrule"), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(bash("FOO_UPDATE=1 npm run build --watch"), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/secrets/a.txt"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/a.txt"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(bash("echo other"), p), "")
+	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/docs/a.txt"}), p), "")
 
 	// A pattern can never approve what a fixed rule asks for.
 	p.AlwaysAsk = []string{"Bash(nothing-matches)"}

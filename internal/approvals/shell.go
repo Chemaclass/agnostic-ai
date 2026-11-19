@@ -1,11 +1,20 @@
 package approvals
 
+// The gate's shell reader fails closed: unlike hookrun's splitter, which
+// reads as much as it can so a hook runs when unsure, it refuses any text
+// it cannot read word for word, and the gate then asks.
+
 import (
 	"errors"
 	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
+
+// maxCommandBytes caps the shell text the gate reads; a longer command
+// asks.
+const maxCommandBytes = 16 << 10
 
 // errUnreadable is shell text the gate does not read word for word.
 var errUnreadable = errors.New("unreadable shell text")
@@ -15,8 +24,6 @@ type shellWord struct {
 	text string
 	// quoted is set when any part of the word was quoted or escaped.
 	quoted bool
-	// glob is set when the word holds an unquoted pattern character.
-	glob bool
 	// tilde is set when the word starts with an unquoted ~.
 	tilde bool
 }
@@ -52,10 +59,17 @@ type simpleCommand struct {
 // parseShell reads command as a list of simple commands joined by
 // &&, ||, ;, |, & or newlines. It refuses any text whose words it
 // cannot know without running the shell: expansions, substitutions,
-// here-documents, comments, subshells, groups, brace expansion, line
-// continuations, zsh's clobber redirections and control characters.
+// here-documents, comments, globs, subshells, groups, brace expansion,
+// line continuations, zsh's clobber redirections, control characters,
+// text that is not UTF-8, and text over maxCommandBytes.
 // It reads bash and zsh alike only where they agree.
 func parseShell(command string) ([]simpleCommand, error) {
+	if len(command) > maxCommandBytes {
+		return nil, unreadable("command too long")
+	}
+	if !utf8.ValidString(command) {
+		return nil, unreadable("not UTF-8")
+	}
 	p := shellParser{runes: []rune(command)}
 	return p.parse()
 }
@@ -122,12 +136,14 @@ func (p *shellParser) parse() ([]simpleCommand, error) {
 			p.w.tilde = true
 			p.word.WriteRune(r)
 			p.pos++
-		case strings.ContainsRune("*?[^#", r):
-			// ^ and # are patterns under zsh's extended globbing.
+		case r == '[' && !p.inWord && (p.peek(1) == ' ' || p.peek(1) == 0):
+			// The test command [, not a pattern.
 			p.inWord = true
-			p.w.glob = true
 			p.word.WriteRune(r)
 			p.pos++
+		case strings.ContainsRune("*?[^#", r):
+			// ^ and # are patterns under zsh's extended globbing.
+			return nil, unreadable("glob pattern")
 		default:
 			p.inWord = true
 			p.word.WriteRune(r)
@@ -156,10 +172,6 @@ func (p *shellParser) endWord() {
 	}
 	w := p.w
 	w.text = p.word.String()
-	if w.text == "[" {
-		// The test command, not a pattern.
-		w.glob = false
-	}
 	p.word.Reset()
 	p.inWord = false
 	p.w = shellWord{}
@@ -261,7 +273,7 @@ func (p *shellParser) pipe() error {
 
 func (p *shellParser) redirection(r rune) error {
 	// Unquoted digits right before the operator name the descriptor.
-	if p.inWord && !p.w.quoted && !p.w.glob && !p.w.tilde && allDigits(p.word.String()) {
+	if p.inWord && !p.w.quoted && !p.w.tilde && allDigits(p.word.String()) {
 		p.word.Reset()
 		p.inWord = false
 		p.w = shellWord{}
@@ -399,7 +411,7 @@ func allDigits(s string) bool {
 func isAssignment(w shellWord) bool {
 	name, _, ok := strings.Cut(w.text, "=")
 	name = strings.TrimSuffix(name, "+")
-	if !ok || name == "" || w.glob || w.tilde {
+	if !ok || name == "" || w.tilde {
 		return false
 	}
 	for i, r := range name {
