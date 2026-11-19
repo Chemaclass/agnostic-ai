@@ -70,10 +70,10 @@ func TestZedGlobalInstructions_NativeRootMigratesRecordedBlock(t *testing.T) {
 					if owned {
 						want = personal
 					}
-					if got := readGlobalTestFile(t, legacy); got != want {
+					if got := readFile(t, legacy); got != want {
 						t.Errorf("legacy=%q, want %q", got, want)
 					}
-					if got := readGlobalTestFile(t, native); !strings.HasPrefix(got, personal) || !strings.Contains(got, "New portable text") {
+					if got := readFile(t, native); !strings.HasPrefix(got, personal) || !strings.Contains(got, "New portable text") {
 						t.Errorf("native=%q", got)
 					}
 					writes, removed, err := buildGlobalWritesForPlatform(home, source, []string{"zed"}, nil, spec.Bundle{}, next, nil, io.Discard, "warn", goos)
@@ -83,7 +83,7 @@ func TestZedGlobalInstructions_NativeRootMigratesRecordedBlock(t *testing.T) {
 					if _, err = applyGlobalChanges(writes, removedGlobalFiles(next.Files, removed.Files, writes...), false, removed.removalGuards); err != nil {
 						t.Fatal(err)
 					}
-					if got := readGlobalTestFile(t, native); got != personal {
+					if got := readFile(t, native); got != personal {
 						t.Errorf("restored native=%q", got)
 					}
 					if info, err := os.Stat(native); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {

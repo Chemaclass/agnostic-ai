@@ -78,7 +78,7 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 			if _, notes, err := runGlobalAgentTest("--only", "zed"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, notes)
 			}
-			added := readGlobalTestFile(t, path)
+			added := readFile(t, path)
 			if before == "absent" && runtime.GOOS != "windows" {
 				if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o644 {
 					t.Errorf("created default mode changed: %v, %v", info, err)
@@ -110,7 +110,7 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 			if _, err := runRoot(t, "import", "--global", "zed"); err == nil || !strings.Contains(err.Error(), "has no user settings, MCP file, or hook directory") {
 				t.Errorf("global instruction import contract changed: %v", err)
 			}
-			if got := readGlobalTestFile(t, path); got != added {
+			if got := readFile(t, path); got != added {
 				t.Errorf("unsupported import changed native file: %q", got)
 			}
 			if err := os.Remove(rule); err != nil {
@@ -124,7 +124,7 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 					t.Errorf("created instructions remain: %v", err)
 				}
 			} else {
-				if got := readGlobalTestFile(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Errorf("restored bytes %q, want %q", got, original)
 				}
 				if info, err := os.Stat(path); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -181,7 +181,7 @@ func TestZedGlobalInstructions_WindowsMigratesOnlyRecordedLegacyBlock(t *testing
 			if removed := removedGlobalFiles(old.Files, next.Files); slices.Contains(removed, legacy) != (before == "sync created") {
 				t.Errorf("wrong legacy removal: %v", removed)
 			}
-			if got := readGlobalTestFile(t, legacy); got != original {
+			if got := readFile(t, legacy); got != original {
 				t.Errorf("planning changed native file: %q", got)
 			}
 			if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err != nil {
@@ -196,7 +196,7 @@ func TestZedGlobalInstructions_WindowsMigratesOnlyRecordedLegacyBlock(t *testing
 				if before != "unowned" {
 					want = personal
 				}
-				if got := readGlobalTestFile(t, legacy); got != want {
+				if got := readFile(t, legacy); got != want {
 					t.Errorf("migration changed legacy user bytes: %q, want %q", got, want)
 				}
 				if info, err := os.Stat(legacy); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -221,7 +221,7 @@ func TestZedGlobalInstructions_StopsAfterNativeTextChanges(t *testing.T) {
 	if _, err := applyGlobalChanges(writes, nil, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("changed native text was not guarded: %v", err)
 	}
-	if got := readGlobalTestFile(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Errorf("native edit lost: %q", got)
 	}
 }
@@ -242,7 +242,7 @@ func TestZedGlobalInstructions_RemovalStopsAfterNativeTextChanges(t *testing.T) 
 	if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("changed native text was not guarded on removal: %v", err)
 	}
-	if got := readGlobalTestFile(t, path); got != edited {
+	if got := readFile(t, path); got != edited {
 		t.Errorf("native edit lost on removal: %q", got)
 	}
 }
@@ -270,7 +270,7 @@ func TestZedGlobalInstructions_LegacyAliasKeepsTheActiveFile(t *testing.T) {
 	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTestFile(t, native); !strings.Contains(got, "New portable text") || !strings.HasPrefix(got, "Personal text.\n") {
+	if got := readFile(t, native); !strings.Contains(got, "New portable text") || !strings.HasPrefix(got, "Personal text.\n") {
 		t.Errorf("active native instructions lost: %q", got)
 	}
 	if slices.Contains(next.Files, legacy) {
@@ -302,7 +302,7 @@ func TestZedGlobalInstructions_AbsentLegacyAliasKeepsRecreatedFile(t *testing.T)
 	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTestFile(t, native); !strings.Contains(got, "Portable marker") {
+	if got := readFile(t, native); !strings.Contains(got, "Portable marker") {
 		t.Errorf("native instructions = %q", got)
 	}
 	if slices.Contains(next.Files, legacy) || !slices.Contains(next.Files, native) {
@@ -338,7 +338,7 @@ func TestZedGlobalInstructions_AbsentAliasStopsWhenNativeAppears(t *testing.T) {
 			if _, err := applyGlobalChanges(writes, removedGlobalFiles(old.Files, next.Files, writes...), false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 				t.Errorf("expected stale write refusal, got %v", err)
 			}
-			if got := readGlobalTestFile(t, native); got != personal {
+			if got := readFile(t, native); got != personal {
 				t.Errorf("user file changed: %q", got)
 			}
 		})
@@ -369,7 +369,7 @@ func TestZedGlobalInstructions_DanglingLegacyAliasKeepsRecreatedFile(t *testing.
 	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTestFile(t, native); !strings.Contains(got, "Portable marker") {
+	if got := readFile(t, native); !strings.Contains(got, "Portable marker") {
 		t.Errorf("native instructions = %q", got)
 	}
 }
