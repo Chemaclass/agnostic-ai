@@ -185,6 +185,45 @@ func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
 	}
 }
 
+// A run limited to claude writes the CLAUDE.md a full run writes, so
+// `sync -t claude` and `sync --check -t claude` agree with a plain sync.
+func TestWriteAgnosticEntryPoints_ClaudeOnlyRunStillImportsAgents(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	cfg := &config.Config{Targets: []string{"claude", "codex"}}
+
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
+		t.Fatal(err)
+	}
+	claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil || strings.TrimSpace(header.Strip(string(claude))) != "@AGENTS.md" {
+		t.Errorf("CLAUDE.md should import AGENTS.md (%v):\n%s", err, claude)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("a claude-only run wrote AGENTS.md, err=%v", err)
+	}
+}
+
+func TestSyncCheck_TargetFilterMatchesFullSync(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A rule inlined into AGENTS.md keeps a full CLAUDE.md, so drop it.
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"sync"}, {"sync", "--check", "-t", "claude"}, {"sync", "--check", "--only", "claude"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+}
+
 // Claude Code-only text stays in CLAUDE.md after the import line, while
 // AGENTS.md keeps only what its readers share.
 func TestWriteAgnosticEntryPoints_ClaudeImportsAgentsAndKeepsItsOwnBlock(t *testing.T) {

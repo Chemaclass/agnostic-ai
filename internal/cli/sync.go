@@ -483,6 +483,15 @@ func (r syncRun) plan() error {
 	if r.f.check && slices.ContainsFunc(reports, driftReport.hasDrift) {
 		driftErr = errDriftDetected()
 	}
+	// The ignore files are listed but never gate --check, which does not
+	// compare them either.
+	if resolveGitignore(r.cfg, r.f.gitignoreFlag) {
+		ignores, err := planIgnoreFiles(".", r.cfg, r.bundle, r.effective, reports, r.ledger())
+		if err != nil {
+			return err
+		}
+		reports = withIgnorePlan(reports, ignores)
+	}
 	if r.f.check {
 		notesErr = errors.Join(notesErr, r.ledger().checkError())
 	}

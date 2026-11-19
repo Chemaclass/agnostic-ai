@@ -116,6 +116,11 @@ func newInitCmd() *cobra.Command {
 					return err
 				}
 				defer func() { _ = lock.Close() }()
+				// Stop before the target picker, which prompts or prints
+				// its choice for a project init will not write.
+				if err := ensureNoExistingConfig(".", config.ConfigFileName); err != nil {
+					return err
+				}
 			}
 			targets := allTargetNames()
 			if !all {

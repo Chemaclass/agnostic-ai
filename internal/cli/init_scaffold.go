@@ -151,6 +151,18 @@ func ensureNoExistingConfig(root, cfgPath string) error {
 // without touching disk.
 func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 	fmt.Printf("create: %s\n", cfgPath)
+	gitignore := filepath.Join(opts.Root, gitignoreRel(&config.Config{}))
+	existing, updated, err := plannedIgnoreFile(gitignore, func(existing string) string {
+		return replaceManagedBlock(stripLooseFixedDuplicates(existing), buildManagedBlock(&config.Config{}, nil, nil))
+	})
+	switch {
+	case err != nil:
+		return err
+	case !fileExists(gitignore):
+		fmt.Printf("create: %s\n", gitignore)
+	case updated != existing:
+		fmt.Printf("update: %s\n", gitignore)
+	}
 	if opts.MemoryEnabled && opts.GitignoreEnabled {
 		if inside, err := gitRevParse(opts.Root, "--is-inside-work-tree"); err == nil && inside == "true" {
 			path := filepath.Join(opts.Root, config.LocalOverrideFileName)
