@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,7 @@ func TestPortableHookWrapper_GeminiPrintsTheDeny(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := exec.Command(wrapper, "--decision", `echo '{"decision":"deny","reason":"{}"}'`).Output()
-	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 2 || string(out) != "{\"decision\":\"deny\",\"reason\":\"\\u007b\\u007d\"}\n" {
+	if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 2 || string(out) != "{\"decision\":\"deny\",\"reason\":\"\\u007b\\u007d\"}\n" {
 		t.Errorf("gemini deny = %q %v", out, err)
 	}
 }
@@ -61,7 +62,7 @@ func TestPortableHookWrapper_ReadsALargeStdoutQuickly(t *testing.T) {
 		var stderr strings.Builder
 		cmd.Stderr = &stderr
 		out, err := cmd.Output()
-		exit, ok := err.(*exec.ExitError)
+		exit, ok := errors.AsType[*exec.ExitError](err)
 		if !ok || exit.ExitCode() != 2 || len(out) != 0 {
 			t.Errorf("%s: exit %v, stdout %d bytes; want a block", name, err, len(out))
 		}

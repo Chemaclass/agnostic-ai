@@ -91,7 +91,7 @@ func (e *CloudError) Unwrap() error { return e.Cause }
 // a CloudSessions; its text is not shown, since it may hold the
 // provider's words.
 func cloudNote(tool Tool, err error) string {
-	cloudErr, ok := err.(*CloudError)
+	cloudErr, ok := errors.AsType[*CloudError](err)
 	if !ok {
 		return cloudNotePrefixes[tool] + "an unknown problem."
 	}
@@ -229,7 +229,7 @@ func (s *Scanner) cloudRows(ctx context.Context, opts ScanOptions, tool Tool, cl
 	shown, shownAt := last.rows, last.at
 	if last.err != nil {
 		reason := CloudReason("")
-		if cloudErr, ok := last.err.(*CloudError); ok {
+		if cloudErr, ok := errors.AsType[*CloudError](last.err); ok {
 			reason = cloudErr.Reason
 		}
 		riding := cloudPassing[reason] && !last.goodAt.IsZero() && now.Sub(last.goodAt) < cloudRideSpan

@@ -2,6 +2,7 @@ package cursor
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,7 +69,7 @@ func TestDecisionWrapper_RepliesAsACursorPermissionHook(t *testing.T) {
 		cmd.Stderr = &stderr
 		out, err := cmd.Output()
 		code := 0
-		if exit, ok := err.(*exec.ExitError); ok {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 			code = exit.ExitCode()
 		} else if err != nil {
 			t.Fatal(err)

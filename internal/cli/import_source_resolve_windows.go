@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"golang.org/x/sys/windows"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func resolveImportSource(path string) (string, error) {

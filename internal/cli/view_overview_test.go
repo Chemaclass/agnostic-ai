@@ -283,7 +283,7 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 					data, err := io.ReadAll(resp.Body)
 					_ = resp.Body.Close()
 					if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(data), "<html") {
-						result <- fmt.Errorf("UI status %d, read error %v", resp.StatusCode, err)
+						result <- fmt.Errorf("UI status %d, read error %w", resp.StatusCode, err)
 						return
 					}
 					resp, err = client.Get(url + "api/views/overview")
@@ -295,7 +295,7 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 					err = json.NewDecoder(resp.Body).Decode(&view)
 					_ = resp.Body.Close()
 					if err != nil || resp.StatusCode != http.StatusOK {
-						result <- fmt.Errorf("overview status %d, error %v", resp.StatusCode, err)
+						result <- fmt.Errorf("overview status %d, error %w", resp.StatusCode, err)
 						return
 					}
 					if err := checkViewDiscoveryScope(view, tc.targets, tc.global); err != nil {

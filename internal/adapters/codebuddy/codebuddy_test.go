@@ -142,7 +142,7 @@ func TestEmit_OutputOverridesAndDryRun(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(read(t, filepath.Join("settings.json")), "lite") {
+	if !strings.Contains(read(t, "settings.json"), "lite") {
 		t.Fatal("override ignored")
 	}
 }

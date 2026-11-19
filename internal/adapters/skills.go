@@ -61,7 +61,7 @@ func PrepareSkillCapabilities(target string, skills []spec.Entry, mode string) (
 
 // RenderSkillMarkdown keeps shared user directories free of target-specific metadata.
 func RenderSkillMarkdown(target string, skill spec.Entry, shared bool) (string, error) {
-	content := ""
+	var content string
 	if shared {
 		content = emit.SkillMarkdown(skill, "")
 	} else {

@@ -305,7 +305,7 @@ func load(dir string) (*manifest, error) {
 	if err = d.Decode(&m); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if err = d.Decode(new(any)); err != io.EOF {
+	if err = d.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: trailing JSON", path)
 	}
 	if m.Version != 1 {

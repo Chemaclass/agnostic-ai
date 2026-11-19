@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -80,7 +81,7 @@ func TestTOMLArray_RemovalKeepsLaterUserContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := append(add.data, []byte("\n# personal\n[ui]\ncolor='blue'\n")...)
+	data := append(slices.Clip(add.data), []byte("\n# personal\n[ui]\ncolor='blue'\n")...)
 	remove, _, err := mergeTOMLArray("hooks.toml", data, "hooks", nil, add.owned, layout)
 	if err != nil {
 		t.Fatal(err)

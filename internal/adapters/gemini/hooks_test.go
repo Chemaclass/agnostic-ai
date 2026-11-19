@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -105,7 +106,7 @@ func TestEmit_StdoutDecisionWrapsNativeHandlers(t *testing.T) {
 		t.Errorf("native handler must read the decision: %q", command)
 	}
 	out, err := exec.Command("bash", "-c", command).Output()
-	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 2 {
+	if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 2 {
 		t.Errorf("native handler must block malformed stdout: %v, %q", err, out)
 	}
 	var reply struct{ Decision string }

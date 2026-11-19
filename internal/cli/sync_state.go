@@ -232,7 +232,7 @@ func (l ledgerSnapshot) unparsable() error {
 	if l.absent || l.readErr != nil || l.parseErr == nil {
 		return nil
 	}
-	return fmt.Errorf("%s does not parse (%v)", filepath.ToSlash(l.path), l.parseErr)
+	return fmt.Errorf("%s does not parse (%w)", filepath.ToSlash(l.path), l.parseErr)
 }
 
 // checkError fails `sync --check` when it cannot read the ledger,

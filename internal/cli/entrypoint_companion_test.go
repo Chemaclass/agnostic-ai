@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,7 +33,7 @@ func TestSync_ClaudeOnlyKeepsTheAgentsCompanion(t *testing.T) {
 	if !strings.Contains(claude, "@AGENTS.md") || !strings.Contains(claude, "Claude only.") || strings.Contains(claude, "Shared instructions.") {
 		t.Errorf("CLAUDE.md should import AGENTS.md and keep its own text:\n%s", claude)
 	}
-	agents := readFile(t, filepath.Join("AGENTS.md"))
+	agents := readFile(t, "AGENTS.md")
 	if !strings.Contains(agents, "Shared instructions.") || strings.Contains(agents, "Claude only.") {
 		t.Errorf("AGENTS.md should hold the shared body alone:\n%s", agents)
 	}

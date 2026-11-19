@@ -100,7 +100,11 @@ func TestRevertCmd_DryRunListsASharedRulesFileOnce(t *testing.T) {
 func agentsActions(t *testing.T, out string) []string {
 	t.Helper()
 	var got jsonOutput
-	if err := json.Unmarshal([]byte(out[strings.Index(out, "{"):]), &got); err != nil {
+	start := strings.Index(out, "{")
+	if start < 0 {
+		t.Fatalf("no JSON in output:\n%s", out)
+	}
+	if err := json.Unmarshal([]byte(out[start:]), &got); err != nil {
 		t.Fatalf("decode: %v\n%s", err, out)
 	}
 	var actions []string

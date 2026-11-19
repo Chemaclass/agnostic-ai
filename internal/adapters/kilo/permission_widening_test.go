@@ -66,7 +66,11 @@ func TestEmit_DenyAndAskComeAfterOverlappingAllows(t *testing.T) {
 		"edit": {`"secrets/token.txt": "allow"`, `"secrets/**": "deny"`},
 		"bash": {`"*": "allow"`, `"git push origin": "allow"`, `"git *": "ask"`, `"git push *": "deny"`},
 	} {
-		data := raw[strings.Index(raw, `"`+tool+`": {`):]
+		start := strings.Index(raw, `"`+tool+`": {`)
+		if start < 0 {
+			t.Fatalf("no %s object in:\n%s", tool, raw)
+		}
+		data := raw[start:]
 		at := -1
 		for _, want := range order {
 			i := strings.Index(data, want)

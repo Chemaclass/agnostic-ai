@@ -34,7 +34,13 @@ func demoServer(t *testing.T, opts HandlerOptions) *httptest.Server {
 	return srv
 }
 
-func getJSON(t *testing.T, url string, out any) *http.Response {
+// jsonReply is what the tests read from a response after getJSON closed its body.
+type jsonReply struct {
+	StatusCode int
+	Header     http.Header
+}
+
+func getJSON(t *testing.T, url string, out any) jsonReply {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
@@ -46,7 +52,7 @@ func getJSON(t *testing.T, url string, out any) *http.Response {
 			t.Fatalf("decode %s: %v", url, err)
 		}
 	}
-	return resp
+	return jsonReply{StatusCode: resp.StatusCode, Header: resp.Header}
 }
 
 func TestHandler_ServesTheViewForTheRequestedSubjectAndHarness(t *testing.T) {

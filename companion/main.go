@@ -832,6 +832,7 @@ func main() {
 	// The server also stops by itself when this process ends; this stops it sooner.
 	s.restBriefly()
 	if err != nil {
-		log.Fatal(err)
+		stopUpdates()
+		log.Fatal(err) //nolint:gocritic // stopUpdates runs on the line above; the deferred call covers the normal return
 	}
 }

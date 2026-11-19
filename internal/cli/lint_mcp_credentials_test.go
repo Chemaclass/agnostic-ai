@@ -93,10 +93,18 @@ func TestMCPCredentialChecks_AgreeOnTheFields(t *testing.T) {
 	only := mcpEntry(t, "name: api\nagent-only: true\n"+body)
 	var lint, agent []string
 	for _, f := range lintMCPCredentials([]spec.Entry{shared}) {
-		lint = append(lint, f.Message[:strings.Index(f.Message, " holds")])
+		field, _, ok := strings.Cut(f.Message, " holds")
+		if !ok {
+			t.Fatalf("project check message names no field: %s", f.Message)
+		}
+		lint = append(lint, field)
 	}
 	for _, issue := range agentFileCredentialIssues([]spec.Entry{only}) {
-		agent = append(agent, issue.Message[:strings.Index(issue.Message, " holds")])
+		field, _, ok := strings.Cut(issue.Message, " holds")
+		if !ok {
+			t.Fatalf("agent-file check message names no field: %s", issue.Message)
+		}
+		agent = append(agent, field)
 	}
 	if strings.Join(lint, "|") != strings.Join(agent, "|") || len(lint) != 2 {
 		t.Errorf("lint %q, agent file %q: want the same two fields", lint, agent)
