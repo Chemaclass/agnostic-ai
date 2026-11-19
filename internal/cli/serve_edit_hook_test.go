@@ -209,6 +209,10 @@ func TestServeEditHook_RefusesInvalidRequests(t *testing.T) {
 		{"token assignment in command", func(r map[string]any) {
 			r["command"] = "GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789 ./notify.sh"
 		}, "command contains a credential"},
+		{"api key header in command", func(r map[string]any) {
+			r["command"] = `curl -H "X-Api-Key: abc123def456" https://example.com`
+		}, "command contains a credential"},
+		{"password assignment in command", func(r map[string]any) { r["command"] = "PASSWORD=hunter2hunter2 ./deploy.sh" }, "command contains a credential"},
 		{"token in description", func(r map[string]any) {
 			r["description"] = "uses ghp_abcdefghijklmnopqrstuvwxyz0123456789"
 		}, "description contains a credential"},
@@ -395,11 +399,23 @@ func TestServeEditHook_RefusesMatchAny(t *testing.T) {
 	}
 }
 
-func TestServeEditHook_KeepsACommandThatReadsTheCredentialFromTheEnvironment(t *testing.T) {
+func TestServeEditHook_KeepsACommandThatReadsTheCredentialAtRunTime(t *testing.T) {
 	h := newEditHandler(scopeProject(t), false)
-	command := `curl -H "Authorization: Bearer $GITHUB_TOKEN" https://example.com`
-	got := hookEditPreview(t, h, hookEditBody("notify", "session-start", command))
-	if !strings.Contains(got.Spec, "$GITHUB_TOKEN") {
-		t.Errorf("spec = %q, want the environment reference kept", got.Spec)
+	for _, command := range []string{
+		`curl -H "Authorization: Bearer $GITHUB_TOKEN" https://example.com`,
+		`curl -H "Authorization: Bearer ${GITHUB_TOKEN}" https://example.com`,
+		`curl -H "Authorization: Bearer $(gh auth token)" https://example.com`,
+		`TOKEN=$(cat ~/.token) ./notify.sh`,
+		`curl "https://hooks.example.com/notify?token=$HOOK_TOKEN"`,
+		`PASSWORD=$1 ./notify.sh`,
+	} {
+		got := hookEditPreview(t, h, hookEditBody("notify", "session-start", command))
+		if !strings.Contains(got.Spec, "notify") {
+			t.Errorf("spec = %q for %q", got.Spec, command)
+		}
+	}
+	got := hookEditPreview(t, h, map[string]any{"action": "preview", "audience": "shared", "name": "notify", "on": "session-start", "command": "./notify.sh", "description": "Token: read from the vault"})
+	if !strings.Contains(got.Spec, "vault") {
+		t.Errorf("spec = %q, want the description kept", got.Spec)
 	}
 }

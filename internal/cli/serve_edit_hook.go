@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -25,6 +26,11 @@ const editHookPath = "/api/edit/hook"
 // hookFormMatches are the tool kinds the form offers; leaving match out
 // means every tool, so any is not needed.
 var hookFormMatches = []string{"shell", "edit", "read", "web"}
+
+// shellExpansion matches a `$NAME`, `$1`, or one-level `$(...)` the shell
+// fills in at run time; the credential check reads each as a reference,
+// since the detector alone knows only `${NAME}`.
+var shellExpansion = regexp.MustCompile(`\$(?:[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?]|\([^()]*\))`)
 
 type hookSpecRequest struct {
 	Action      string `json:"action"`
@@ -126,10 +132,10 @@ func (req hookSpecRequest) check() error {
 	if strings.TrimSpace(req.Command) == "" {
 		return errors.New("command is required")
 	}
-	if preview.CommandCredentialDetected(req.Command) {
+	if preview.CommandCredentialDetected(shellExpansion.ReplaceAllString(req.Command, "$${REF}")) {
 		return errors.New("command contains a credential; read it from an environment variable such as $GITHUB_TOKEN")
 	}
-	if preview.CredentialDetected(req.Description) {
+	if preview.TokenIn(req.Description) {
 		return errors.New("description contains a credential; leave it out")
 	}
 	if req.Match != "" {
