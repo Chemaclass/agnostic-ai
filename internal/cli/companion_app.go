@@ -193,7 +193,7 @@ func prepareCompanionApp(ctx context.Context, out io.Writer, version, staging st
 	if err := runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", app); err != nil {
 		return "", err
 	}
-	if err := verifyReleaseBinary(filepath.Join(app, "Contents", "Resources", binaryName), version); err != nil {
+	if err := verifyReleaseBinary(ctx, filepath.Join(app, "Contents", "Resources", binaryName), version); err != nil {
 		return "", err
 	}
 	got, err := companionBuiltFor(ctx, filepath.Join(app, "Contents", "MacOS", companionName))
