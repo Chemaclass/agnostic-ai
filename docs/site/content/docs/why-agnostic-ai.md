@@ -59,6 +59,7 @@ Start with the project note. Add another kind of spec only when you need it:
 | Work you pick up in another tool | [Session handoffs](@/docs/handoff.md) | One private note per branch |
 | A summary for people when the work ends | [Session wrap-ups](@/docs/wrap-up.md) | What changed, what is open, a note to paste |
 | A second task, started without leaving this one | [Side conversations](@/docs/side-conversation.md) | A new tab, linked to this session |
+| Work that goes on after you close your laptop | [Cloud handoffs](@/docs/cloud-handoff.md) | A pushed branch and a cloud session |
 | Shorter command output and replies | [RTK and Caveman](@/docs/rtk-and-caveman.md) | Fewer tokens per session |
 
 MCP (Model Context Protocol) is how coding tools connect to other tools and data. An MCP spec names the environment variables that hold credentials, so keys stay out of the repository. Each tool supports a different set of features; the [capability matrix](@/docs/targets/_index.md#capability-matrix) shows what each one gets.

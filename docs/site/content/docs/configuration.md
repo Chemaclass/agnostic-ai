@@ -189,7 +189,7 @@ builtins: [handoff]
 | `caveman` | An on-demand short-reply skill | [Caveman setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 | `side-conversation` | A skill to start a second task in a new tab | [Side conversations](@/docs/side-conversation.md) |
 | `wrap-up` | A skill to end a session with a summary to share | [Session wrap-ups](@/docs/wrap-up.md) |
-| `cloud-handoff` | A skill to push the task and continue it in a cloud session | [Session handoffs](@/docs/handoff.md) |
+| `cloud-handoff` | A skill to push the task and continue it in a cloud session | [Cloud handoffs](@/docs/cloud-handoff.md) |
 
 Set `requires` to the release you use. An upgrade that changes built-in text makes `sync --check` fail until you sync.
 
