@@ -45,11 +45,28 @@ func pinFrom(t *testing.T, path string, re *regexp.Regexp) string {
 // as a real lint break. Failing here names it instead.
 func TestGolangciLintPin_MatchesCI(t *testing.T) {
 	local := pinFrom(t, makefilePath, makefilePinRE)
-	ci := pinFrom(t, ciWorkflowPath, workflowPinRE)
-	if local != ci {
-		t.Errorf("Makefile pins golangci-lint %s but %s pins %s; bump both together so `make lint` matches the PR check",
-			local, ciWorkflowPath, ci)
+	for _, ci := range workflowPins(t, ciWorkflowPath, workflowPinRE) {
+		if local != ci {
+			t.Errorf("Makefile pins golangci-lint %s but %s pins %s; bump both together so `make lint` matches the PR check",
+				local, ciWorkflowPath, ci)
+		}
 	}
+}
+
+func workflowPins(t *testing.T, path string, re *regexp.Regexp) []string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.FromSlash(path))
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var pins []string
+	for _, m := range re.FindAllSubmatch(data, -1) {
+		pins = append(pins, string(m[1]))
+	}
+	if len(pins) == 0 {
+		t.Fatalf("no matching version pin found in %s", path)
+	}
+	return pins
 }
 
 // TestMisePins_MatchRepoPins keeps the optional mise.toml on the versions

@@ -104,6 +104,7 @@ lint:
 		exit 1; \
 	fi
 	golangci-lint run
+	cd companion && golangci-lint run
 
 # Git lists the files so gofmt skips ignored folders such as saved audit evidence.
 GO_FILES = git ls-files -z -co --exclude-standard -- '*.go' | xargs -0 sh -c 'for f; do [ -f "$$f" ] && printf "%s\0" "$$f"; done' sh | xargs -0

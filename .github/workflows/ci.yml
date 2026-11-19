@@ -458,6 +458,13 @@ jobs:
         shell: bash
         run: go vet . && go test -count=1 .
 
+      # Each system lints the files behind its own build tags.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
+          working-directory: companion
+
       - name: Build the release archives
         if: runner.os == 'macOS'
         run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
@@ -733,7 +740,7 @@ jobs:
             exit 0
           fi
 
-          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh 'internal/cli/companion*' 'internal/cli/upgrade*' go.mod go.sum .github/workflows/ci.yml; then
+          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh 'internal/cli/companion*' 'internal/cli/upgrade*' go.mod go.sum .golangci.yml .github/workflows/ci.yml; then
             echo "companion=false" >> "$GITHUB_OUTPUT"
           else
             echo "companion=true" >> "$GITHUB_OUTPUT"
