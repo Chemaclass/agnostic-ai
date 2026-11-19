@@ -13,10 +13,7 @@ func keysIn(t *testing.T, body string) []string {
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	keys, err := unknownKeys(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	keys := unknownKeys(&configFile{path: path, data: []byte(body)})
 	for i, k := range keys {
 		keys[i] = k[len(path):]
 	}

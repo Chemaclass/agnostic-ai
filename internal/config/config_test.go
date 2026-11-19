@@ -310,6 +310,25 @@ targets:
 	}
 }
 
+func TestLoad_LocalOverrideOverBaseWithNoDocument(t *testing.T) {
+	for _, base := range []string{"", "\n", "# only a comment\n"} {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(base), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, LocalOverrideFileName), []byte("targets: [claude]\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := Load(dir)
+		if err != nil {
+			t.Fatalf("base %q: %v", base, err)
+		}
+		if !reflect.DeepEqual(cfg.Targets, []string{"claude"}) {
+			t.Errorf("base %q: targets = %v", base, cfg.Targets)
+		}
+	}
+}
+
 func TestLoad_LocalOverrideAloneIsNotEnough(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, LocalOverrideFileName),

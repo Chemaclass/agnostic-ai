@@ -112,6 +112,8 @@ make test-shell
 | `BenchmarkSyncFull` | Run `sync` completely: write changed files, distribute entry points, update the generated-file record, and save state. Measures a repeat sync. |
 | `BenchmarkSyncCheck` | Run `--check` by rendering and comparing output with files that already match. |
 | `BenchmarkLoadProject` | Load the project once: parse the config, resolve the spec layers, and load every spec. One `sync` invocation loads the project once. |
+| `BenchmarkLoad` | Load one project config with `config.Load` (`internal/config`), for a base file alone and with `agnostic-ai.local.yaml`: read, shape checks, decode, and every validation. |
+| `BenchmarkLoadDecodeOnly` | The lower bound for `BenchmarkLoad`: read the base file and decode it, with no checks. |
 | `BenchmarkWatchResync` | One `sync --watch` event for a rule saved without changes, so the pass writes nothing: the current path, which loads the project to pick targets, again in the pass, and parses the config to refresh the watch list, versus one load handed to the pass, and the pass alone over the same targets. |
 | `BenchmarkEntryPointRender` | Render entry-point content and remove identical copies across targets. |
 | `BenchmarkFolderFingerprint` | Calculate the content hash for a shared-skills folder (`folderFingerprint`). |
