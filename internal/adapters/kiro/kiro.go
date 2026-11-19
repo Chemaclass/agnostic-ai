@@ -478,12 +478,7 @@ func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools bool) {
 // be Kiro's own tool vocabulary rather than agnostic-ai's generic
 // Claude-style names.
 func xKiroSetsTools(meta map[string]any) bool {
-	x, _ := emit.CustomTargetMeta(meta, target)
-	if x == nil {
-		return false
-	}
-	_, tools := x["tools"]
-	return tools
+	return emit.TargetMetaSets(meta, target, "tools")
 }
 
 // withFrontmatter joins a rendered frontmatter block with body,

@@ -48,10 +48,5 @@ func translateTools(names []string) (mapped []string, hasDropped bool) {
 // the cross-tool list cannot express, a category name (`read-only`,
 // `edit`, `execute`, `web`, `mcp`) and a registered MCP tool ID.
 func xFactorySetsTools(meta map[string]any) bool {
-	x, _ := emit.CustomTargetMeta(meta, target)
-	if x == nil {
-		return false
-	}
-	_, tools := x["tools"]
-	return tools
+	return emit.TargetMetaSets(meta, target, "tools")
 }

@@ -93,7 +93,7 @@ func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outp
 		if (target == "cursor" || target == "windsurf") && kind == "prompt" {
 			continue
 		}
-		commands, literal := hookSourceCommands(hook, target)
+		commands, literal := HookSourceCommands(hook, target)
 		type sourceCommand struct {
 			value   string
 			literal bool
@@ -124,6 +124,30 @@ func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outp
 				if err := s.writeFileWithMode(script.Path, string(script.Body), script.Mode, true, dryRun); err != nil {
 					return err
 				}
+			}
+		}
+	}
+	return nil
+}
+
+// MaterializeHookScripts writes every script a target's hooks reference:
+// shared scripts from `.agnostic-ai/scripts/` first, then each command's
+// stashed sibling-tool body, in hook order. The lookup keys off the
+// spec's original command so a script imported from one tool still
+// materializes for another. Free-form shell commands have no stashed
+// body and are skipped.
+func (s *Session) MaterializeHookScripts(hooks []spec.Entry, target string, dryRun bool) error {
+	if err := s.MaterializeNeutralHookScripts(hooks, target, HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
+	for _, h := range hooks {
+		commands, _ := HookSourceCommands(h, target)
+		for _, raw := range commands {
+			raw = RewriteNeutralHookPath(raw, ".")
+			sourceTool, _ := SourceToolFromHookCommand(raw)
+			rewritten := RewriteHookPath(raw, target, h.Meta)
+			if err := s.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
+				return err
 			}
 		}
 	}
@@ -231,7 +255,11 @@ func neutralHookFilename(path string, quote byte, literal bool) (int, string) {
 	return len(path), name.String()
 }
 
-func hookSourceCommands(hook spec.Entry, target string) ([]string, bool) {
+// HookSourceCommands returns each command a hook runs for target, before
+// the path rewrite, so the script lookup still sees the tool that owns
+// the stash. The second value reports whether the commands are literal
+// argv paths rather than shell text.
+func HookSourceCommands(hook spec.Entry, target string) ([]string, bool) {
 	meta := ResolveMeta(hook.Meta, target)
 	literal := len(StringSlice(meta["args"])) > 0
 	if target == "gemini" || target == "qwen" {

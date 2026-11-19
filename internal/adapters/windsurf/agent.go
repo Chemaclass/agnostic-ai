@@ -133,10 +133,5 @@ func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 // adapter trusts to already hold Devin's own vocabulary rather than
 // agnostic-ai's generic Claude-style names.
 func xWindsurfSetsTools(meta map[string]any) bool {
-	x, _ := emit.CustomTargetMeta(meta, target)
-	if x == nil {
-		return false
-	}
-	_, ok := x["allowed-tools"]
-	return ok
+	return emit.TargetMetaSets(meta, target, "allowed-tools")
 }
