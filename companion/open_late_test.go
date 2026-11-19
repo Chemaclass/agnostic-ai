@@ -117,7 +117,7 @@ func TestInbox_ALateFailureOfAChatTheListDoesNotHoldKeepsTheTitleThePageSent(t *
 	sent := fake.bodies[0]
 	fake.mu.Unlock()
 	if strings.Contains(sent, "title") || !strings.Contains(sent, `"id":"a"`) {
-		t.Errorf("the server got %s; it takes {tool, id, editor} and refuses any other field", sent)
+		t.Errorf("the server got %s; it takes {tool, id, editor, helper} and refuses any other field", sent)
 	}
 	heldList(in, "Bump the Go version to 1.26")
 	if _, body := readLate(t, in); !strings.Contains(body, `"title":"Bump the Go version to 1.26"`) {

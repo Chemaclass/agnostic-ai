@@ -376,8 +376,7 @@ func claudeAgentID(entry os.DirEntry) (string, bool) {
 	if entry.IsDir() || !strings.HasPrefix(name, "agent-") || !strings.HasSuffix(name, ".jsonl") {
 		return "", false
 	}
-	id := strings.TrimSuffix(strings.TrimPrefix(name, "agent-"), ".jsonl")
-	return id, ValidAgentID(id)
+	return strings.TrimSuffix(strings.TrimPrefix(name, "agent-"), ".jsonl"), true
 }
 
 // claudeAgentMeta is what Claude Code writes beside a subagent's
@@ -424,8 +423,9 @@ func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]b
 	}
 	var helpers []helper
 	for _, entry := range entries {
+		// Only an id an open request can name is listed.
 		id, ok := claudeAgentID(entry)
-		if !ok {
+		if !ok || !ValidAgentID(id) {
 			continue
 		}
 		info, err := entry.Info()

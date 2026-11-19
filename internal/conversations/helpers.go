@@ -99,9 +99,9 @@ func ValidAgentID(id string) bool {
 	}) < 0
 }
 
-// subagentOf finds a Claude Code subagent the conversation lists.
-func (c Conversation) subagentOf(id string) (helper, bool) {
-	for _, h := range c.Helpers {
+// subagentIn finds the Claude Code subagent id among helpers.
+func subagentIn(helpers []helper, id string) (helper, bool) {
+	for _, h := range helpers {
 		if h.Tool == ToolClaude && h.ID == id {
 			return h, true
 		}

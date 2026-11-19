@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -436,5 +437,52 @@ func TestValidAgentID(t *testing.T) {
 		if ValidAgentID(id) {
 			t.Errorf("%q is not an agent id", id)
 		}
+	}
+}
+
+// heldFocus holds every tab switch until release closes, and counts them.
+type heldFocus struct {
+	fakeLauncher
+	focuses atomic.Int32
+	started chan struct{}
+	release chan struct{}
+}
+
+func (l *heldFocus) FocusTab(context.Context, string, string) (bool, error) {
+	l.focuses.Add(1)
+	l.started <- struct{}{}
+	<-l.release
+	return true, nil
+}
+
+func TestReopenHelper_OpensOfOneChatShareOneOpenAndEachGetsItsOwnReply(t *testing.T) {
+	scanner := liveSubagentScanner(t)
+	launcher := &heldFocus{started: make(chan struct{}, 4), release: make(chan struct{})}
+	open := func(subagent string) <-chan openAnswer {
+		answered := make(chan openAnswer, 1)
+		go func() {
+			reply, found := scanner.ReopenHelper(context.Background(), ToolClaude, idSafari, subagent, ScanOptions{}, launcher)
+			answered <- openAnswer{reply, found}
+		}()
+		return answered
+	}
+
+	first := open("")
+	<-launcher.started
+	picked, gone := open("explore"), open("finished")
+	time.Sleep(sharedWait)
+	close(launcher.release)
+
+	if got := answerOf(t, first); !got.reply.Opened || got.reply.Helper != nil {
+		t.Errorf("the chat's own open names no subagent: %+v", got.reply)
+	}
+	if got := answerOf(t, picked); got.reply.Helper == nil || !strings.Contains(got.reply.Message, "'Find call sites'") {
+		t.Errorf("an open that joined names its subagent: %+v", got.reply)
+	}
+	if got := answerOf(t, gone); got.reply.Opened || got.reply.Message != subagentGone {
+		t.Errorf("an unknown subagent is refused even when it joins an open: %+v", got.reply)
+	}
+	if n := launcher.focuses.Load(); n != 1 {
+		t.Errorf("opens of one chat share one tab switch, actual %d", n)
 	}
 }
