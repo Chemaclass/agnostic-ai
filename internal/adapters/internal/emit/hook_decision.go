@@ -382,7 +382,7 @@ func writesPortableHookWrapper(hooks []spec.Entry, target string) bool {
 		if kind != "" && kind != "command" {
 			continue
 		}
-		commands, _ := hookSourceCommands(h, target)
+		commands, _ := HookSourceCommands(h, target)
 		if h.WrapsCommand(target) && len(commands) > 0 {
 			return true
 		}

@@ -96,18 +96,6 @@ func hookHandlers(h spec.Entry) []map[string]any {
 	return handlers
 }
 
-func hookSourceCommands(h spec.Entry) []string {
-	native, _ := h.Meta["x-qwen"].(map[string]any)
-	if raw, exists := native["hooks"]; exists {
-		var commands []string
-		for _, meta := range emit.HookCommandEntries(raw) {
-			commands = append(commands, meta["command"].(string))
-		}
-		return commands
-	}
-	return emit.HookCommands(emit.ResolveMeta(h.Meta, target)["command"])
-}
-
 func nativeHookHandlers(h spec.Entry, raw any) []map[string]any {
 	var handlers []map[string]any
 	entries, _ := raw.([]any)

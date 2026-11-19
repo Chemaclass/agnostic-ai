@@ -178,7 +178,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	if err := materializeHookScripts(sess, hooks, dryRun); err != nil {
+	if err := sess.MaterializeHookScripts(hooks, target, dryRun); err != nil {
 		return err
 	}
 
@@ -189,31 +189,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	mcps := withoutMCPDisabled(b.MCPs)
 	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
 		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithClaudeMCPExtras())
-}
-
-// materializeHookScripts copies each hook's stashed script body from
-// `.agnostic-ai/scripts/` into `.<target>/hooks/`. The lookup keys off
-// the spec's original `command:` path so a script imported via claude
-// still materializes when the same hook syncs out to claude.
-//
-// Hooks whose command field is a free-form shell expression carry no
-// stashed body and skip silently — there is nothing to copy.
-func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
-	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
-		return err
-	}
-	for _, h := range hooks {
-		cmds := emit.HookCommands(h.Meta["command"])
-		for _, raw := range cmds {
-			raw = emit.RewriteNeutralHookPath(raw, ".")
-			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
-			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (*Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, asset string) bool {

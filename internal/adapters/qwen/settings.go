@@ -75,7 +75,8 @@ func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun 
 		return err
 	}
 	for _, h := range hooks {
-		for _, command := range hookSourceCommands(h) {
+		commands, _ := emit.HookSourceCommands(h, target)
+		for _, command := range commands {
 			source, _ := emit.SourceToolFromHookCommand(command)
 			if err := sess.MaterializeHookScript(emit.RewriteHookPath(command, target, h.Meta), target, source, dryRun); err != nil {
 				return err

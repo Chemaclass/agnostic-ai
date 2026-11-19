@@ -3,8 +3,11 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func TestSourceToolFromHookCommand(t *testing.T) {
@@ -250,5 +253,126 @@ func TestMaterializeHookScript_RollbackRestoresPriorScript(t *testing.T) {
 
 	if got, _ := os.ReadFile(dst); string(got) != "old\n" {
 		t.Errorf("rollback did not restore script: %q", got)
+	}
+}
+
+func TestMaterializeHookScripts_WritesNeutralThenStashedScriptsInHookOrder(t *testing.T) {
+	t.Chdir(t.TempDir())
+	for path, body := range map[string]string{
+		".agnostic-ai/scripts/guard.sh":          "neutral\n",
+		".agnostic-ai/scripts/claude/protect.sh": "protect\n",
+		".agnostic-ai/scripts/claude/first.sh":   "first\n",
+		".agnostic-ai/scripts/claude/second.sh":  "second\n",
+		".agnostic-ai/scripts/claude/native.sh":  "native\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hooks := []spec.Entry{
+		{Kind: spec.KindHook, Name: "stashed", Meta: map[string]any{"event": "PreToolUse", "command": ".claude/hooks/protect.sh"}},
+		{Kind: spec.KindHook, Name: "plain", Meta: map[string]any{"event": "PreToolUse", "command": "gofmt -l ."}},
+		{Kind: spec.KindHook, Name: "neutral", Meta: map[string]any{"event": "PreToolUse", "command": "sh .agnostic-ai/scripts/guard.sh"}},
+		{Kind: spec.KindHook, Name: "list", Meta: map[string]any{"event": "PostToolUse", "command": []any{".claude/hooks/second.sh", ".claude/hooks/first.sh"}}},
+		{Kind: spec.KindHook, Name: "native", Meta: map[string]any{"event": "PostToolUse", "command": "true", "x-gemini": map[string]any{"hooks": []any{
+			map[string]any{"type": "command", "command": ".claude/hooks/native.sh"},
+		}}}},
+	}
+	for _, target := range []string{"claude", "codex", "cline", "cursor", "gemini"} {
+		t.Run(target, func(t *testing.T) {
+			sess := NewSession()
+			sess.StartCapture()
+			if err := sess.MaterializeHookScripts(hooks, target, false); err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, file := range sess.StopCapture() {
+				mode := file.Mode.Perm().String()
+				if runtime.GOOS == "windows" {
+					mode = "-rwxr-xr-x"
+				}
+				got = append(got, filepath.ToSlash(file.Path)+"="+file.Content+" "+mode)
+			}
+			dir := "." + target + "/hooks/"
+			want := []string{
+				HookScriptsDir(target) + "/guard.sh=neutral\n -rwxr-xr-x",
+				dir + "protect.sh=protect\n -rwxr-xr-x",
+				dir + "second.sh=second\n -rwxr-xr-x",
+				dir + "first.sh=first\n -rwxr-xr-x",
+			}
+			if target == "gemini" {
+				want = append(want, dir+"native.sh=native\n -rwxr-xr-x")
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("writes = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestHookSourceCommands_PlainTargetsReadTheCommandField(t *testing.T) {
+	hooks := []spec.Entry{
+		{Meta: map[string]any{"command": "sh .agnostic-ai/scripts/guard.sh"}},
+		{Meta: map[string]any{"command": []any{".claude/hooks/a.sh", "gofmt -l ."}}},
+		{Meta: map[string]any{"command": "x", "x-codex": map[string]any{"command": "y"}, "args": []any{"--flag"}}},
+		{Meta: map[string]any{}},
+	}
+	for _, target := range []string{"claude", "codex", "cline", "cursor"} {
+		for _, hook := range hooks {
+			got, _ := HookSourceCommands(hook, target)
+			if want := HookCommands(hook.Meta["command"]); !reflect.DeepEqual(got, want) {
+				t.Errorf("%s: HookSourceCommands(%v) = %q, want %q", target, hook.Meta, got, want)
+			}
+		}
+	}
+}
+
+// legacyNativeHookCommands is the per-adapter lookup gemini and qwen
+// carried before they shared HookSourceCommands.
+func legacyNativeHookCommands(h spec.Entry, target string) []string {
+	native, _ := h.Meta["x-"+target].(map[string]any)
+	if raw, exists := native["hooks"]; exists {
+		var commands []string
+		for _, meta := range HookCommandEntries(raw) {
+			commands = append(commands, meta["command"].(string))
+		}
+		return commands
+	}
+	return HookCommands(ResolveMeta(h.Meta, target)["command"])
+}
+
+func TestHookSourceCommands_MatchesNativeHookLookup(t *testing.T) {
+	for _, target := range []string{"gemini", "qwen"} {
+		cases := map[string]map[string]any{
+			"no native block": {"command": "sh .agnostic-ai/scripts/guard.sh"},
+			"native override": {"command": "a", "x-" + target: map[string]any{"command": "b"}},
+			"two handlers": {"command": "ignored", "x-" + target: map[string]any{"hooks": []any{
+				map[string]any{"type": "command", "command": ".claude/hooks/one.sh"},
+				map[string]any{"type": "command", "command": "two --flag"},
+			}}},
+			"string command":      {"command": "only"},
+			"list command":        {"command": []any{"first", "second"}},
+			"nil native hooks":    {"command": "a", "x-" + target: map[string]any{"hooks": nil}},
+			"scalar native hooks": {"command": "a", "x-" + target: map[string]any{"hooks": "nope"}},
+			"prompt and empty handlers": {"command": "a", "x-" + target: map[string]any{"hooks": []any{
+				map[string]any{"type": "prompt", "prompt": "p"},
+				map[string]any{"type": "command", "command": ""},
+				map[string]any{"type": "command", "command": "kept"},
+			}}},
+			"native block not a map": {"command": "a", "x-" + target: "nope"},
+			"nil meta":               nil,
+		}
+		for name, meta := range cases {
+			t.Run(target+"/"+name, func(t *testing.T) {
+				hook := spec.Entry{Meta: meta}
+				got, _ := HookSourceCommands(hook, target)
+				if want := legacyNativeHookCommands(hook, target); !reflect.DeepEqual(got, want) {
+					t.Errorf("HookSourceCommands = %q, want %q", got, want)
+				}
+			})
+		}
 	}
 }

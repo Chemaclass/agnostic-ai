@@ -154,12 +154,7 @@ func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 // `*`, `mcp_*`, and `mcp_<server>_*` wildcards) rather than
 // agnostic-ai's generic Claude-style names.
 func xGeminiSetsTools(meta map[string]any) bool {
-	x, _ := emit.CustomTargetMeta(meta, target)
-	if x == nil {
-		return false
-	}
-	_, tools := x["tools"]
-	return tools
+	return emit.TargetMetaSets(meta, target, "tools")
 }
 
 // isNumber reports whether v is a YAML-decoded number. `temperature` is
