@@ -1,6 +1,7 @@
 package builtins_test
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
@@ -735,7 +737,16 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 			_ = os.Remove(got)
 			cmd := exec.Command(path, "-c", setPrompt+launch)
 			cmd.Env = append(os.Environ(), "PATH="+stubs+":/usr/bin:/bin", "PROMPT_OUT="+got)
-			out, err := cmd.CombinedOutput()
+			var buf bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &buf, &buf
+			// A process left behind by the snippet holds its output open.
+			cmd.WaitDelay = 5 * time.Second
+			err := cmd.Run()
+			out := buf.Bytes()
+			if left, _ := exec.Command("pgrep", "-f", "^sleep 157$").Output(); len(left) > 0 {
+				_ = exec.Command("pkill", "-f", "^sleep 157$").Run()
+				t.Fatalf("the input sleep is still running after the snippet: %s", left)
+			}
 			if err != nil {
 				t.Fatalf("snippet failed: %v\n%s", err, out)
 			}
@@ -748,9 +759,6 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 			}
 			if string(sent) != prompt {
 				t.Errorf("prompt arrived as\n%q\nwant\n%q", sent, prompt)
-			}
-			if left, _ := exec.Command("pgrep", "-f", "^sleep 157$").Output(); len(left) > 0 {
-				t.Errorf("the input sleep is still running: %s", left)
 			}
 		})
 	}
