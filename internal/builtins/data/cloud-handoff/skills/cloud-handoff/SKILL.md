@@ -25,7 +25,7 @@ Check each of these before you change anything. If one fails, stop and say which
 
 1. Never push to the default branch (the one `git symbolic-ref --short refs/remotes/origin/HEAD` names, else `main` or `master`). On the default branch or a detached HEAD, create a new branch first, such as `cloud/<short-task-slug>`, and name it in your reply.
 2. Show `git status --short`. Stage only the files of this task, by path. Never stage a `.env` file, a key or certificate file, or anything else that looks like a secret; leave it out and say so.
-3. Commit with a short message that names the task. If a commit hook fails, stop and show its output. Do not skip the hook.
+3. Commit with a short message that names the task. If the commit fails, for example a hook or signing fails, stop and show its output. Do not skip the hook. Do not change Git settings, such as signing, to get the commit through.
 4. `git push -u origin <branch>`. If it fails, stop and show the error. Never force-push.
 
 ## Write the prompt
@@ -57,7 +57,7 @@ Finish the parser error messages. [cloud/parser-errors]
 ## Done
 ...
 PROMPT
-CLOUD_PROMPT=$(cat "$f"); rm -f "$f"
+CLOUD_PROMPT=$(cat "$f")
 export CLOUD_PROMPT
 [ -n "$CLOUD_PROMPT" ] || exit 1
 ```
@@ -65,6 +65,8 @@ export CLOUD_PROMPT
 ## Launch
 
 Use the row for the tool this session runs in. Use another row only when the user names that tool.
+
+The push and both launches need network access. In a sandbox without it, ask the user to allow it, or give them the line to run, and stop.
 
 | Tool | Launch | Needs |
 |---|---|---|

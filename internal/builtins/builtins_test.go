@@ -568,7 +568,7 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"git rev-parse --is-inside-work-tree", "git remote get-url origin", "command -v",
 		// branch, commit, push
 		"default branch", "detached HEAD", "git status --short", "`.env`", "looks like a secret",
-		"commit hook fails", "Never force-push", "git push -u origin <branch>",
+		"If the commit fails", "Do not change Git settings", "need network access", "Never force-push", "git push -u origin <branch>",
 		// prompt
 		"## Done", "## Next step", "## Branch", "## Verify", "under 60 lines", "quoted heredoc",
 		// launch table and its exact lines from decision 021
@@ -593,7 +593,7 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 			t.Errorf("skill is missing rule %q", rule)
 		}
 	}
-	for _, banned := range []string{"hooks/", "--force", "</dev/null &", "\u2013", "\u2014"} {
+	for _, banned := range []string{"hooks/", "--force", "rm -f", "</dev/null &", "\u2013", "\u2014"} {
 		if strings.Contains(skill.Body, banned) {
 			t.Errorf("skill contains %q", banned)
 		}
