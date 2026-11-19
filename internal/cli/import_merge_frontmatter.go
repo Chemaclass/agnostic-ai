@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"gopkg.in/yaml.v3"
@@ -44,7 +45,7 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		importPendingKeptNote, importNativeSource = "", ""
-		return importWriteFile(path, scopeImportedModel(data), mode)
+		return importWriteFile(path, scopeNewImportedModel(nil, path, data), mode)
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
@@ -67,6 +68,7 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
+	data = scopeNewImportedModel(existing, path, data)
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err
 	}
@@ -243,16 +245,38 @@ func detachImportOverride(node *yaml.Node) *yaml.Node {
 	return &detached
 }
 
-// scopeImportedModel scopes the model of a newly imported spec to the
-// tool it came from, so other targets keep their own default instead of
-// a model name from another vendor. `inherit` and a tier name are
+// sharedAgentFileTargets lists, for an import source, every target that
+// writes the same native agent file. A model scoped to only one of them
+// would make the shared file differ between them.
+var sharedAgentFileTargets = map[string][]string{
+	"goose":     {"goose", "openhands"},
+	"openhands": {"goose", "openhands"},
+}
+
+// scopeNewImportedModel scopes the model of an imported agent or command
+// to the tool it came from, so other targets keep their own default
+// instead of a model name from another vendor. existing is the spec
+// already on disk, nil when there is none; a model it already sets keeps
+// its shape. Skills are left alone: most tools write no skill model, so
+// a scoped one would reach no tool. `inherit` and a tier name are
 // portable and stay as written. Claude's importer scopes its own names.
-func scopeImportedModel(data []byte) []byte {
-	target := importScopeTarget
-	if target == "" || target == "claude" {
+func scopeNewImportedModel(existing []byte, path string, data []byte) []byte {
+	source := importScopeTarget
+	if source == "" || source == "claude" || filepath.Base(path) == "SKILL.md" {
 		return data
 	}
-	return []byte(scopeTopLevelModel(string(data), target, func(model string) bool {
+	if existing != nil {
+		if _, _, meta := claudeFrontmatter(string(existing)); meta != nil {
+			if _, set := meta["model"]; set {
+				return data
+			}
+		}
+	}
+	targets := sharedAgentFileTargets[source]
+	if targets == nil {
+		targets = []string{source}
+	}
+	return []byte(scopeTopLevelModel(string(data), targets, func(model string) bool {
 		if model == "inherit" {
 			return false
 		}

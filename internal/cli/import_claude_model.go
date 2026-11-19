@@ -22,21 +22,25 @@ var topLevelModelLineRE = regexp.MustCompile(`^((?:model|'model'|"model")[ \t]*:
 // name as `model: {claude: <name>}`, so every other target falls back to
 // its own default model instead of loading one it cannot run.
 func scopeClaudeModel(doc string) string {
-	return scopeTopLevelModel(doc, "claude", adapters.ClaudeModel)
+	return scopeTopLevelModel(doc, []string{"claude"}, adapters.ClaudeModel)
 }
 
 // scopeTopLevelModel rewrites a top-level `model:` that scope accepts as
-// `model: {<target>: <name>}`. Every other line stays as written. The
-// document comes back unchanged when scope rejects the model or the edit
-// does not parse to the same data.
-func scopeTopLevelModel(doc, target string, scope func(model string) bool) string {
+// `model: {<target>: <name>}`, one entry per target. Every other line
+// stays as written. The document comes back unchanged when scope rejects
+// the model or the edit does not parse to the same data.
+func scopeTopLevelModel(doc string, targets []string, scope func(model string) bool) string {
 	rest, end, before := claudeFrontmatter(doc)
 	model, _ := before["model"].(string)
 	if model == "" || !scope(model) {
 		return doc
 	}
+	perTarget := map[string]any{}
+	for _, target := range targets {
+		perTarget[target] = model
+	}
 	want := maps.Clone(before)
-	want["model"] = map[string]any{target: model}
+	want["model"] = perTarget
 
 	lines := strings.Split(rest[:end], "\n")
 	for i, line := range lines {
@@ -45,9 +49,15 @@ func scopeTopLevelModel(doc, target string, scope func(model string) bool) strin
 			continue
 		}
 		key, value, comment := m[1], m[2], m[3]
+		flow := make([]string, len(targets))
+		block := make([]string, len(targets))
+		for i, target := range targets {
+			flow[i] = target + ": " + value
+			block[i] = "\n  " + target + ": " + value
+		}
 		for _, scoped := range []string{
-			key + " {" + target + ": " + value + "}" + comment,
-			key + "\n  " + target + ": " + value + comment,
+			key + " {" + strings.Join(flow, ", ") + "}" + comment,
+			key + strings.Join(block, "") + comment,
 		} {
 			edited := append(append(append([]string{}, lines[:i]...), scoped), lines[i+1:]...)
 			front := strings.Join(edited, "\n")

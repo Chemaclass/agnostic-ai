@@ -539,11 +539,16 @@ func copyMarkdownFile(src, dst string) error {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
 	importReadingNative(src)
-	out := header.Strip(string(data))
+	out := []byte(header.Strip(string(data)))
+	existing, err := os.ReadFile(dst)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read %s: %w", dst, err)
+	}
+	out = scopeNewImportedModel(existing, dst, out)
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := importWriteMarkdown(dst, []byte(out), 0o644); err != nil {
+	if err := importWriteMarkdown(dst, out, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
