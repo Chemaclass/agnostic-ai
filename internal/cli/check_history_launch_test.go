@@ -227,7 +227,7 @@ func TestHistoryLaunch_NegativeProofStillConsumesHistoricalAdmission(t *testing.
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
 	var paths, commits []string
-	for i := 0; i < maxHistoryRenders; i++ {
+	for i := range maxHistoryRenders {
 		path := fmt.Sprintf(".claude/other-%d.json", i)
 		mustWriteFile(t, path, "{}\n")
 		git("add", "-A")

@@ -3,10 +3,10 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -268,7 +268,7 @@ func TestSyncGlobal_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 
 func TestSyncGlobal_AgentsPreserveExistingStateAndNativeSettings(t *testing.T) {
 	for _, version := range []int{1, 2} {
-		t.Run(fmt.Sprint(version), func(t *testing.T) {
+		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			unselected := filepath.Join(home, ".cursor", "skills", "review", "SKILL.md")
 			mustWriteGlobalTest(t, unselected, "Existing skill.\n")

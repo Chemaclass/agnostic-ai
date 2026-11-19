@@ -382,8 +382,7 @@ func (s *crushShell) shebang(ctx context.Context, path string, head []byte, args
 	cmd := exec.CommandContext(ctx, program, append(append(extra, path), args[1:]...)...)
 	cmd.Dir, cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = hc.Dir, exportedEnv(hc.Env), hc.Stdin, hc.Stdout, hc.Stderr
 	err = crushStart(ctx, cmd, &s.groups, false)
-	var exit *exec.ExitError
-	if errors.As(err, &exit) {
+	if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 		code := exit.ExitCode()
 		if code < 0 {
 			code = 1

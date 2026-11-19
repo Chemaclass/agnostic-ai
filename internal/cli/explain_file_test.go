@@ -20,9 +20,11 @@ func setupFileContextFixture(t *testing.T, targets ...string) string {
 	t.Helper()
 	dir := t.TempDir()
 	cfg := "version: 1\nsources:\n  rules: rules\ntargets:\n"
+	var cfgSb23 strings.Builder
 	for _, tg := range targets {
-		cfg += "  - " + tg + "\n"
+		cfgSb23.WriteString("  - " + tg + "\n")
 	}
+	cfg += cfgSb23.String()
 	files := map[string]string{
 		"agnostic-ai.yaml": cfg,
 		"rules/root-style.md": `---

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -73,7 +74,7 @@ func BenchmarkImportWalks(b *testing.B) {
 			root := benchImportProject(b, d)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				seen := 0
 				err := filepath.WalkDir(root, func(_ string, entry fs.DirEntry, err error) error {
 					if err != nil {
@@ -103,7 +104,7 @@ func benchImportWalks(b *testing.B, op, reset func()) {
 	b.ReportAllocs()
 	walks := 0
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if reset != nil {
 			b.StopTimer()
 			reset()
@@ -123,16 +124,18 @@ func benchImportWalks(b *testing.B, op, reset func()) {
 func benchImportProject(b *testing.B, d int) string {
 	b.Helper()
 	root := b.TempDir()
-	for i := 0; i < d; i++ {
+	for i := range d {
 		dir := filepath.Join(root, fmt.Sprintf("pkg-%03d", i/50), fmt.Sprintf("dir-%02d", i%50))
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			b.Fatal(err)
 		}
 	}
 	yaml := "version: 1\ntargets:\n"
+	var yamlSb133 strings.Builder
 	for _, s := range benchImportSources {
-		yaml += "  - " + s + "\n"
+		yamlSb133.WriteString("  - " + s + "\n")
 	}
+	yaml += yamlSb133.String()
 	writeBenchFile(b, filepath.Join(root, "agnostic-ai.yaml"), yaml)
 	writeBenchFile(b, filepath.Join(root, "AGENTS.md"), "# Project\n\nKeep functions small.\n")
 	writeBenchFile(b, filepath.Join(root, "pkg-000", "AGENTS.md"), "# Package\n\nPrefer table tests.\n")

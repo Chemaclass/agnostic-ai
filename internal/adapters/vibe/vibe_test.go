@@ -66,7 +66,6 @@ func TestEmit_NativeSixKinds(t *testing.T) {
 	if len(hooks.Hooks) != 5 || DeclaredHookCommand(hooks.Hooks[0].Command) != "echo '{}'" {
 		t.Fatalf("native hook command or target wrapper changed: %s", data)
 	}
-
 }
 func TestEmit_UnknownAgentToolFailsClosed(t *testing.T) {
 	testutil.TempCwd(t)

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -401,9 +402,7 @@ func openhandsRemoteEntry(el any) map[string]any {
 		return map[string]any{"url": v}
 	case map[string]any:
 		entry := map[string]any{}
-		for k, val := range v {
-			entry[k] = val
-		}
+		maps.Copy(entry, v)
 		return entry
 	}
 	return map[string]any{}

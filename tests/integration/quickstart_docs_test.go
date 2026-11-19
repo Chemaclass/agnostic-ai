@@ -52,7 +52,6 @@ func TestSiteDocs_LandingQuickstartMatchesREADME(t *testing.T) {
 			t.Errorf("README quickstart is missing %q", command)
 		}
 	}
-
 }
 
 func TestSiteDocs_FreshSetupRoutesExistingConfigurationToImport(t *testing.T) {

@@ -3,6 +3,7 @@ package integration
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -202,7 +203,7 @@ func landingConfigExcerpt(body, format string, fields []string) (string, error) 
 		rest, found := strings.CutPrefix(body, "---\n")
 		frontmatter, _, closed := strings.Cut(rest, "\n---\n")
 		if !found || !closed {
-			return "", fmt.Errorf("no YAML frontmatter to excerpt")
+			return "", errors.New("no YAML frontmatter to excerpt")
 		}
 		if err := yaml.Unmarshal([]byte(frontmatter), &config); err != nil {
 			return "", fmt.Errorf("parse frontmatter excerpt: %w", err)

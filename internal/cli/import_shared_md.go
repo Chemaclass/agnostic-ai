@@ -21,11 +21,11 @@ import (
 // when no rules block is present: hand-authored entry-points and legacy
 // concatenated rules-files slice in full.
 func reduceToGeneratedRules(body string) string {
-	start := strings.Index(body, adapters.RulesStartMarker)
-	if start < 0 {
+	_, after, ok := strings.Cut(body, adapters.RulesStartMarker)
+	if !ok {
 		return body
 	}
-	inner := body[start+len(adapters.RulesStartMarker):]
+	inner := after
 	if end := strings.Index(inner, adapters.RulesEndMarker); end >= 0 {
 		inner = inner[:end]
 	}
@@ -39,11 +39,11 @@ func reduceToGeneratedRules(body string) string {
 // "block present but empty" apart from "no block at all", so an absent
 // start marker reports as no content instead.
 func extractMarkedBlock(body, start, end string) string {
-	i := strings.Index(body, start)
-	if i < 0 {
+	_, after, ok := strings.Cut(body, start)
+	if !ok {
 		return ""
 	}
-	inner := body[i+len(start):]
+	inner := after
 	if j := strings.Index(inner, end); j >= 0 {
 		inner = inner[:j]
 	}
@@ -61,12 +61,12 @@ func extractMarkedBlock(body, start, end string) string {
 // rather than accumulating as body content.
 func extractLeadingItalic(body string) (desc, stripped string, ok bool) {
 	trimmed := strings.TrimLeft(body, "\n")
-	nl := strings.IndexByte(trimmed, '\n')
+	before, after, ok := strings.Cut(trimmed, "\n")
 	var first string
-	if nl < 0 {
+	if !ok {
 		first = trimmed
 	} else {
-		first = trimmed[:nl]
+		first = before
 	}
 	first = strings.TrimSpace(first)
 	if len(first) < 3 || !strings.HasPrefix(first, "_") || !strings.HasSuffix(first, "_") {
@@ -77,8 +77,8 @@ func extractLeadingItalic(body string) (desc, stripped string, ok bool) {
 	}
 	desc = first[1 : len(first)-1]
 	rest := ""
-	if nl >= 0 {
-		rest = strings.TrimLeft(trimmed[nl+1:], "\n")
+	if ok {
+		rest = strings.TrimLeft(after, "\n")
 	}
 	return desc, rest, true
 }

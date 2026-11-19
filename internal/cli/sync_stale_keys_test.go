@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -147,9 +148,7 @@ func TestSync_ClaudeRetiredEnvParentDropsOnlyUneditedValues(t *testing.T) {
 				if !ok {
 					t.Fatalf("env = %#v, want the generated object", doc["env"])
 				}
-				for key, value := range tc.edit {
-					env[key] = value
-				}
+				maps.Copy(env, tc.edit)
 				writeJSONFile(t, settings, doc)
 			}
 			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")

@@ -72,6 +72,7 @@ package crush
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -177,9 +178,7 @@ func buildMCPMap(mcps []spec.Entry) (map[string]any, error) {
 			}
 			return nil, fmt.Errorf("crush MCP %s: %w", source, err)
 		}
-		for key, value := range channels {
-			entry[key] = value
-		}
+		maps.Copy(entry, channels)
 		out[e.Name] = entry
 	}
 	return out, nil

@@ -19,13 +19,12 @@ func (e personalGitError) Unwrap() error { return e.err }
 type staleToggleError struct{ key string }
 
 func (e staleToggleError) Error() string {
-	return fmt.Sprintf("%s changed after this page loaded. Reload saved values and try again", e.key)
+	return e.key + " changed after this page loaded. Reload saved values and try again"
 }
 
 func writeExpectedError(w http.ResponseWriter, err error) {
-	var stale staleToggleError
 	status := http.StatusBadRequest
-	if errors.As(err, &stale) {
+	if _, ok := errors.AsType[staleToggleError](err); ok {
 		status = http.StatusConflict
 	}
 	writeEditJSON(w, status, editError{Error: err.Error()})

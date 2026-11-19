@@ -53,7 +53,7 @@ func main() {
 // mapType describes the types whose YAML shape reflection cannot read: a
 // model tier inlines its target map next to `effort`.
 func mapType(t reflect.Type) *jsonschema.Schema {
-	if t != reflect.TypeOf(config.ModelTier{}) {
+	if t != reflect.TypeFor[config.ModelTier]() {
 		return nil
 	}
 	scalar := func() []*jsonschema.Schema {
@@ -75,8 +75,6 @@ func mapType(t reflect.Type) *jsonschema.Schema {
 		Type:                 "object",
 		Description:          "A model tier: target name (or default) to that target's model id, plus an optional effort and description.",
 		Properties:           props,
-		AdditionalProperties: &jsonschema.Schema{Type: "string", MinLength: ptr(uint64(1))},
+		AdditionalProperties: &jsonschema.Schema{Type: "string", MinLength: new(uint64(1))},
 	}
 }
-
-func ptr[T any](v T) *T { return &v }

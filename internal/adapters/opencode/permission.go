@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
@@ -96,9 +97,7 @@ func buildPermissions(settings []spec.Entry) (map[string]any, int) {
 	// wiping a sibling spec's rules for the others. Same deal
 	// `x-opencode.permission` already gets on an agent.
 	for _, entry := range settings {
-		for tool, value := range nativePermission(entry) {
-			out[tool] = value
-		}
+		maps.Copy(out, nativePermission(entry))
 	}
 
 	if len(out) == 0 {

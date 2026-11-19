@@ -170,10 +170,8 @@ func mergeReadEntry(doc map[string]any, entry string) {
 		return
 	}
 	list := toStringList(doc["read"])
-	for _, s := range list {
-		if s == entry {
-			return
-		}
+	if slices.Contains(list, entry) {
+		return
 	}
 	doc["read"] = append(list, entry)
 }

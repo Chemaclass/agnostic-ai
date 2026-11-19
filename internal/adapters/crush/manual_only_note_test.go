@@ -2,6 +2,7 @@ package crush
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,9 +27,7 @@ func emitManualOnlySkill(t *testing.T, sess *emit.Session, extra map[string]any)
 		Kind: spec.KindSkill, Name: "release", Path: "skills/release/SKILL.md", Body: "body",
 		Meta: map[string]any{"description": "d", "disable-model-invocation": true},
 	}}
-	for k, v := range extra {
-		entries[0].Meta[k] = v
-	}
+	maps.Copy(entries[0].Meta, extra)
 	if err := New().Emit(sess, spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}

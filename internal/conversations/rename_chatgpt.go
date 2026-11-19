@@ -62,7 +62,7 @@ func (c *chatGPTTitles) SetTitle(ctx context.Context, chatID, title string) erro
 		return &RenameError{Tool: ToolChatGPT, Reason: RenameSignedOut, Cause: err}
 	}
 	if !found {
-		return &RenameError{Tool: ToolChatGPT, Reason: RenameSignedOut, Cause: fmt.Errorf("no Codex login with ChatGPT on this machine")}
+		return &RenameError{Tool: ToolChatGPT, Reason: RenameSignedOut, Cause: errors.New("no Codex login with ChatGPT on this machine")}
 	}
 	body, err := json.Marshal(chatGPTTitleChange{Title: title})
 	if err != nil {
@@ -73,7 +73,7 @@ func (c *chatGPTTitles) SetTitle(ctx context.Context, chatID, title string) erro
 		return &RenameError{Tool: ToolChatGPT, Reason: RenameUnreachable, Cause: err}
 	}
 	req.Header.Set("Authorization", "Bearer "+login.AccessToken)
-	req.Header.Set("ChatGPT-Account-Id", login.AccountID)
+	req.Header.Set("Chatgpt-Account-Id", login.AccountID)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "agnostic-ai")

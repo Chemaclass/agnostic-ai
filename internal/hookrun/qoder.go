@@ -62,7 +62,7 @@ var qoderUndecidedEvents = []string{"TaskCreated", "TaskCompleted", "TeammateIdl
 // "" when the docs say how.
 func qoderUndecided(event string) string {
 	if slices.Contains(qoderUndecidedEvents, event) {
-		return fmt.Sprintf("Qoder documents no decision rules for %s", event)
+		return "Qoder documents no decision rules for " + event
 	}
 	return ""
 }

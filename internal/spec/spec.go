@@ -9,6 +9,7 @@ package spec
 import (
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -61,6 +62,9 @@ type Entry struct {
 	// outside the layered loader (legacy path).
 	Layer     string
 	bodyLayer string
+	// ShadowedBy is the path of the same-layer spec with this name that
+	// the loader kept instead of this one. Set only on Bundle.Shadowed.
+	ShadowedBy string
 	// Base is the lower-layer spec a local layer entry extends, and
 	// LocalMeta the keys the local file itself writes. Both are nil
 	// unless the entry extends one.
@@ -195,10 +199,8 @@ func evalIncludeTargets(meta map[string]any, target string) (bool, bool) {
 	if !present || len(names) == 0 {
 		return false, false
 	}
-	for _, s := range names {
-		if s == target {
-			return true, true
-		}
+	if slices.Contains(names, target) {
+		return true, true
 	}
 	return true, false
 }
@@ -211,12 +213,7 @@ func metaContainsTarget(meta map[string]any, singleKey, listKey, target string) 
 		return true
 	}
 	names, _ := stringListField(meta, listKey)
-	for _, s := range names {
-		if s == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(names, target)
 }
 
 // stringListField reads a YAML list of strings from meta[key]. Accepts

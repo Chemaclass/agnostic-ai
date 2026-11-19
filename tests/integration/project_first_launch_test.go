@@ -41,7 +41,7 @@ func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	t.Setenv("CODEX_HOME", t.TempDir())
 
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		dir := filepath.Join(t.TempDir(), fmt.Sprintf("fresh project %d", i))
 		mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nrequires: '99.1.0'\ntargets: [codex]\n")
 		mustWrite(t, filepath.Join(dir, ".agnostic-ai/rules/example.md"), "---\nname: example\ndescription: Example rule.\n---\nKeep the public API stable.\n")
