@@ -66,6 +66,10 @@ func TestClaudeIfRuns_BashRules(t *testing.T) {
 		{"Bash(git *)", "echo \"`echo \\\" ' \\\" ; git push ; echo \\\" ' \\\"`\"", true},
 		{"Bash(git *)", "echo `echo \\` ; ls`", true},
 		{"Bash(git *)", "echo `echo \\` ; git push`", true},
+		// splitBash does not know a here-doc body or a comment is not in
+		// double quotes, so a backtick after a lone " is split both ways.
+		{"Bash(git *)", "cat <<X\n\"`echo \\\" ; git push ; echo \\\"`\"\nX", true},
+		{"Bash(git *)", "echo a # \"\necho `echo \\\" ; git push ; echo \\\"` # \"", true},
 	} {
 		got, err := ClaudeIfRuns(tc.rule, "PreToolUse", toolBody(t, "Bash", map[string]any{"command": tc.command}), "/p")
 		if err != nil {

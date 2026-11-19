@@ -206,11 +206,20 @@ func splitBash(command string) (subs []string, ok bool) {
 			if end < 0 {
 				return nil, false
 			}
-			inner, innerOK := splitBash(unescapeBackticks(runes[i+1:end], quote == '"'))
+			inner, innerOK := splitBash(unescapeBackticks(runes[i+1:end], false))
 			if !innerOK {
 				return nil, false
 			}
 			subs = append(subs, inner...)
+			// A " splitBash reads as opening double quotes may sit in a
+			// here-doc body or a comment, so both readings are checked.
+			if quote == '"' {
+				quoted, quotedOK := splitBash(unescapeBackticks(runes[i+1:end], true))
+				if !quotedOK {
+					return nil, false
+				}
+				subs = append(subs, quoted...)
+			}
 			cur.WriteString("_")
 			i = end
 			continue
