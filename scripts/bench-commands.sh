@@ -11,6 +11,8 @@
 # Usage:
 #   scripts/bench-commands.sh [--bin <agnostic-ai>] [--specs N] [--runs N]
 #
+# `import all` runs last because it writes specs into the fixture.
+#
 # Prints "<ms>\t<exit>\t<command>" per command. A non-zero exit is reported,
 # not fatal: doctor exits 1 when it has findings.
 #
@@ -40,8 +42,10 @@ graph
 compare claude codex
 render .agnostic-ai/rules/rule-0000.md
 explain .agnostic-ai/rules/rule-0000.md
+explain --context --target claude
 why CLAUDE.md
 migrate --dry-run
+import all
 EOF
 }
 
@@ -85,6 +89,8 @@ bench_commands_prepare() {
 
 bench_commands_no_ledger() {
   local dir="$1"
+  # import all writes specs; start the no-ledger runs from the committed fixture.
+  (cd "$dir" && git reset -q --hard && git clean -fdq)
   mkdir -p "$dir/.claude"
   printf '{"version":"0.0.1","configurations":[]}\n' >"$dir/.claude/launch.json"
   (cd "$dir" && git add -f .claude/launch.json && git -c user.name=bench -c user.email=bench@localhost \

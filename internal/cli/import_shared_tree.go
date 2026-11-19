@@ -23,9 +23,23 @@ type scopedSkillDir struct {
 }
 
 func findScopedSkillDirs(root, nativeDir string) ([]scopedSkillDir, error) {
-	nativeDir = filepath.ToSlash(filepath.Clean(nativeDir))
+	return findScopedSkillDirsAll(root, []string{nativeDir})
+}
+
+// findScopedSkillDirsAll finds every directory in nativeDirs in one walk
+// of root. It returns the matches of each native directory in the order
+// given, each prunes the walk as its own walk would, and a match stops
+// the search for that native directory only.
+func findScopedSkillDirsAll(root string, nativeDirs []string) ([]scopedSkillDir, error) {
+	dirs := make([]string, len(nativeDirs))
+	for i, d := range nativeDirs {
+		dirs[i] = filepath.ToSlash(filepath.Clean(d))
+	}
 	tree := importTreeFor(root)
-	var found []scopedSkillDir
+	found := make([][]scopedSkillDir, len(dirs))
+	// searching maps each directory the walk entered to the native
+	// directories still looked for below it.
+	searching := map[string][]bool{}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -41,21 +55,44 @@ func findScopedSkillDirs(root, nativeDir string) ([]scopedSkillDir, error) {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if !onNativePath(rel, nativeDir) && tree.skipsDir(rel) {
+		parent := searching[filepath.ToSlash(filepath.Dir(rel))]
+		skipped, skipKnown := false, false
+		below := make([]bool, len(dirs))
+		descend := false
+		for i, nativeDir := range dirs {
+			if rel != "." && !parent[i] {
+				continue
+			}
+			if !onNativePath(rel, nativeDir) {
+				if !skipKnown {
+					skipped, skipKnown = tree.skipsDir(rel), true
+				}
+				if skipped {
+					continue
+				}
+			}
+			if rel != nativeDir && !strings.HasSuffix(rel, "/"+nativeDir) {
+				below[i], descend = true, true
+				continue
+			}
+			scope := strings.TrimSuffix(rel, nativeDir)
+			scope = strings.TrimSuffix(scope, "/")
+			found[i] = append(found[i], scopedSkillDir{path: path, scope: scope})
+		}
+		if !descend {
 			return filepath.SkipDir
 		}
-		if rel != nativeDir && !strings.HasSuffix(rel, "/"+nativeDir) {
-			return nil
-		}
-		scope := strings.TrimSuffix(rel, nativeDir)
-		scope = strings.TrimSuffix(scope, "/")
-		found = append(found, scopedSkillDir{path: path, scope: scope})
-		return filepath.SkipDir
+		searching[rel] = below
+		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("discover scoped skills under %s: %w", root, err)
 	}
-	return found, nil
+	var all []scopedSkillDir
+	for _, f := range found {
+		all = append(all, f...)
+	}
+	return all, nil
 }
 
 func importScopedSkillFolders(root, nativeDir, dstDir string) (int, error) {
@@ -80,13 +117,9 @@ func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir strin
 }
 
 func importScopedSkillFoldersTransformed(root string, nativeDirs []string, dstDir string, fields *specFields, transform func([]byte) ([]byte, error)) (int, error) {
-	var dirs []scopedSkillDir
-	for _, nativeDir := range nativeDirs {
-		found, err := findScopedSkillDirs(root, nativeDir)
-		if err != nil {
-			return 0, err
-		}
-		dirs = append(dirs, found...)
+	dirs, err := findScopedSkillDirsAll(root, nativeDirs)
+	if err != nil {
+		return 0, err
 	}
 	rootScopeFirst(dirs)
 	count := 0

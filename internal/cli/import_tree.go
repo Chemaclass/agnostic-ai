@@ -65,9 +65,14 @@ func withImportTree(root string, fn func() error) error {
 	return fn()
 }
 
+// importTreeWalks counts importTreeFor calls. Each project-wide walk
+// makes exactly one, so BenchmarkImportWalks reads it as walks per run.
+var importTreeWalks int
+
 // importTreeFor returns the running import's tree when it covers root,
 // and loads one otherwise.
 func importTreeFor(root string) importTree {
+	importTreeWalks++
 	if importRunTree != nil {
 		if abs, err := filepath.Abs(root); err == nil && abs == importRunTree.root {
 			return *importRunTree

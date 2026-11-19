@@ -5,7 +5,8 @@
 Use the benchmark suite to measure writing, comparing, and rendering output before and after changing frequently run code.
 
 Most benchmarks live in `internal/cli/bench_test.go`, in the same package so they can
-call the unexported sync internals directly. `BenchmarkCompareToDisk` lives
+call the unexported sync internals directly. `BenchmarkImportWalks` lives in
+`internal/cli/import_bench_test.go`. `BenchmarkCompareToDisk` lives
 in `internal/adapters/internal/emit` beside the compare helper it measures.
 Test projects (fixtures) use Go's `testing` package only, with no external dependencies.
 
@@ -44,6 +45,8 @@ scripts/bench-commands.sh --specs 100 --runs 5
 ```
 
 It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
+`import all` runs last among the synced rows because it writes specs; the
+script resets the project from Git before the rows without `.sync-state`.
 The final three rows measure `status`, `doctor`, and `sync --dry-run`
 without `.sync-state`, as in a fresh checkout. A tracked hand-written
 Claude launch configuration checks whether history identifies generated files without changing
@@ -110,6 +113,9 @@ make test-shell
 | `BenchmarkCompare` | `compare claude codex` against a synced tree: every agent, skill, and rule emitted alone to both targets. |
 | `BenchmarkGraph` | `graph` edges against a synced tree: every spec emitted alone to every target. |
 | `BenchmarkExplain` | `explain` for one rule against a synced tree: every target rendered with and without it. |
+| `BenchmarkExplainContext` | `explain --context` for Claude and Codex, without and with `--file`, against a synced tree: each rule rendered alone to find its output. Baselines are one render of the whole bundle and one render of one rule; `µs/rule` divides the command's time by the rule count. |
+| `BenchmarkExplainFile` | `explain --file` for Claude and Codex against a synced tree, with the same baselines as `BenchmarkExplainContext`. |
+| `BenchmarkImportWalks` | Import in a project of 1,000 and 8,000 directories: the OpenCode skill import and `import` over codex, cursor, warp, opencode, and factory in one run, against one bare directory walk. `walks/op` counts the whole-project walks one run made. |
 | `BenchmarkLint` | The full project `lint` report, the source-spec checks `doctor` also runs. |
 | `BenchmarkCompareToDisk` | Compare rendered output with files: the current full read versus checking size first with `CompareToDisk`, across scenarios and file sizes. |
 | `BenchmarkAgentPermission` | Build one Kilo agent permission map: compiling each wildcard pattern on every comparison versus the per-pattern cache, cold and warm, and a matcher with no regular expression, across narrow and wide tool lists with and without project rules. |

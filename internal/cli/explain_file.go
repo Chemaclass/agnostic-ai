@@ -90,6 +90,12 @@ func validateExplainInput(args []string, file, target string) error {
 // project file for target, using the output sync would plan. It writes
 // nothing: every emission runs in capture mode.
 func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projectRoot string) (explainFileOutput, error) {
+	return explainFileWith(input, target, cfg, b, projectRoot, ruleRenders{})
+}
+
+// explainFileWith is explainFile reusing the rule renders another report
+// of the same command already made.
+func explainFileWith(input, target string, cfg *config.Config, b spec.Bundle, projectRoot string, renders ruleRenders) (explainFileOutput, error) {
 	if !slices.Contains(fileContextTargets, target) {
 		return explainFileOutput{}, fmt.Errorf("explain --file: target %q is unsupported (supported: %s)", target, strings.Join(fileContextTargets, ", "))
 	}
@@ -135,9 +141,9 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 	var items []fileContextItem
 	switch target {
 	case "claude":
-		items, err = claudeFileItems(cfg, b, adapter, docs, rel, projectRoot, reached)
+		items, err = claudeFileItems(cfg, b, adapter, renders, docs, rel, projectRoot, reached)
 	case "codex":
-		items, err = codexFileItems(cfg, b, adapter, docs, rel, projectRoot, reached)
+		items, err = codexFileItems(cfg, b, adapter, renders, docs, rel, projectRoot, reached)
 	default:
 		items, err = cursorFileItems(cfg, b, adapter, docs, rel, reached)
 	}
@@ -395,6 +401,7 @@ func runExplainForFile(cmd *cobra.Command, file, target string, jsonOut bool) er
 	if err != nil {
 		return err
 	}
+	defer holdStateFile(".")()
 	report, err := explainFile(file, target, cfg, bundle, ".")
 	if err != nil {
 		return err

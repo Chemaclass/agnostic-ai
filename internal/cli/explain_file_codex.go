@@ -11,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func codexFileItems(cfg *config.Config, b spec.Bundle, adapter adapters.Adapter, docs []instructionDoc, rel, projectRoot string, reached map[string]bool) ([]fileContextItem, error) {
+func codexFileItems(cfg *config.Config, b spec.Bundle, adapter adapters.Adapter, renders ruleRenders, docs []instructionDoc, rel, projectRoot string, reached map[string]bool) ([]fileContextItem, error) {
 	root, err := filepath.Abs(projectRoot)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", projectRoot, err)
@@ -70,7 +70,7 @@ func codexFileItems(cfg *config.Config, b spec.Bundle, adapter adapters.Adapter,
 		}
 	}
 	for _, r := range b.For("codex").Rules {
-		files, err := captureEmit(adapter, singleEntryBundle(r), cfg)
+		files, err := renders.of(adapter, r, cfg)
 		if err != nil {
 			return nil, fmt.Errorf("codex rule %s: %w", adapters.EntrySourcePath(r), err)
 		}
