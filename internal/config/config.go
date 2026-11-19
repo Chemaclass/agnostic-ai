@@ -633,21 +633,20 @@ func readConfigFiles(basePath, localPath string) ([]*configFile, error) {
 	return files, nil
 }
 
-// root returns the file's top node, or nil when the file is empty or
-// is not valid YAML.
+// root returns the file's top node, or nil when the file holds no
+// document or is not valid YAML.
 func (f *configFile) root() *yaml.Node {
-	f.document()
-	if f.doc == nil || len(f.doc.Content) == 0 {
-		return nil
+	if doc := f.document(); doc != nil {
+		return doc.Content[0]
 	}
-	return f.doc.Content[0]
+	return nil
 }
 
 func (f *configFile) document() *yaml.Node {
 	if !f.parsed {
 		f.parsed = true
 		var doc yaml.Node
-		if yaml.Unmarshal(f.data, &doc) == nil {
+		if yaml.Unmarshal(f.data, &doc) == nil && len(doc.Content) > 0 {
 			f.doc = &doc
 		}
 	}
@@ -655,6 +654,8 @@ func (f *configFile) document() *yaml.Node {
 }
 
 // decode decodes the file into v, as yaml.Unmarshal of its bytes would.
+// Decoding an empty node would set v to its zero value, where
+// yaml.Unmarshal leaves v alone, so a file with no document falls back.
 func (f *configFile) decode(v any) error {
 	if doc := f.document(); doc != nil {
 		return doc.Decode(v)
