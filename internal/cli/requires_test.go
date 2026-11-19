@@ -40,12 +40,12 @@ func requiresProject(t *testing.T, requires string) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := testutil.TempCwd(t)
 	setRequires(t, requires)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 }
 
 func setRequires(t *testing.T, requires string) {
 	t.Helper()
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \""+requires+"\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \""+requires+"\"\n")
 }
 
 func assertUnmetRequires(t *testing.T, err error, config, required, installed string) {
@@ -232,7 +232,7 @@ func TestWatchResync_StopsOnceRequiresIsRaised(t *testing.T) {
 
 	setRequires(t, ">=0.70.0")
 	rule := filepath.Join(".agnostic-ai", "rules", "safe.md")
-	mustWriteFile(t, rule, "---\nname: safe\n---\nBe very safe.\n")
+	writeFile(t, rule, "---\nname: safe\n---\nBe very safe.\n")
 
 	err := resyncForChanges(".", nil, []string{rule}, watchOptions{gitignoreFlag: "off", jobs: 1})
 	assertUnmetRequires(t, err, "agnostic-ai.yaml", ">=0.70.0", "0.69.0")

@@ -15,10 +15,10 @@ const nanMCPSpec = ".agnostic-ai/mcps/gh.yaml"
 func nanMCPProject(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\n")
-	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\n")
+	writeFile(t, nanMCPSpec, "name: gh\ncommand: npx\n")
 	runSyncOK(t)
-	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
+	writeFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
 }
 
 // An MCP server value JSON cannot hold, such as a YAML .nan, fails the
@@ -48,13 +48,13 @@ func TestSync_FailsOnAnMCPValueJSONCannotHold(t *testing.T) {
 // they and their ledger records stay.
 func TestSyncJSON_AFailedTargetKeepsItsEarlierOutputs(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
-	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
+	writeFile(t, nanMCPSpec, "name: gh\ncommand: npx\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	runSyncOK(t)
 	outputs := readStateFile(".").Outputs
 	before := snapshotFiles(t, outputs...)
-	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
+	writeFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
 
 	out, _ := runCLI(t, "sync", "--json")
 
@@ -75,8 +75,8 @@ func TestSyncJSON_AFailedTargetKeepsItsEarlierOutputs(t *testing.T) {
 // An x-amp value fails amp only: claude never reads it.
 func TestSync_AnotherTargetsBadMCPValueDoesNotFailThisTarget(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp, claude]\n")
-	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp, claude]\n")
+	writeFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
 
 	runSyncOK(t, "-t", "claude")
 

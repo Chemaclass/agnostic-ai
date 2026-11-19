@@ -31,9 +31,9 @@ func TestImport_EqualFrontmatterIsNeitherAConflictNorARewrite(t *testing.T) {
 			t.Run(tool.target+"/"+tc.name, func(t *testing.T) {
 				testutil.Chdir(t, t.TempDir())
 				silence(t)
-				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tool.target+"]\n")
-				mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", tc.source)
-				mustWriteFile(t, tool.native, native)
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tool.target+"]\n")
+				writeFile(t, ".agnostic-ai/skills/review/SKILL.md", tc.source)
+				writeFile(t, tool.native, native)
 				stamp := time.Unix(1_000_000_000, 0)
 				if err := os.Chtimes(".agnostic-ai/skills/review/SKILL.md", stamp, stamp); err != nil {
 					t.Fatal(err)
@@ -71,9 +71,9 @@ func TestImport_DifferentFrontmatterOrBodyStillConflicts(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-			mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", tc.source)
-			mustWriteFile(t, ".cursor/skills/review/SKILL.md", tc.native)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+			writeFile(t, ".agnostic-ai/skills/review/SKILL.md", tc.source)
+			writeFile(t, ".cursor/skills/review/SKILL.md", tc.native)
 
 			_, err := runCLI(t, "import", "cursor")
 
@@ -100,9 +100,9 @@ func TestImport_EqualFrontmatterHoldsForRulesAndCommands(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
-			mustWriteFile(t, tc.source, folded)
-			mustWriteFile(t, tc.native, tc.nativeBody)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+			writeFile(t, tc.source, folded)
+			writeFile(t, tc.native, tc.nativeBody)
 			stamp := time.Unix(1_000_000_000, 0)
 			if err := os.Chtimes(tc.source, stamp, stamp); err != nil {
 				t.Fatal(err)

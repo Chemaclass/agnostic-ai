@@ -9,7 +9,7 @@ import (
 func geminiHookVarsProject(t *testing.T, targets, hook string) {
 	t.Helper()
 	dir := budgetProject(t, targets)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "check.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "check.yaml"), hook)
 }
 
 func TestLint_GeminiHookSingleQuotedVariableWarns(t *testing.T) {

@@ -20,15 +20,15 @@ func TestImportClaude_ProjectRootHookRunsOnCodex(t *testing.T) {
 				t.Fatal(err)
 			}
 			testutil.Chdir(t, project)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-			mustWriteFile(t, "CLAUDE.md", "# Project\n")
-			mustWriteFile(t, ".claude/hooks/guard.sh", "#!/bin/sh\nprintf 'ran:%s' \"$1\"\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+			writeFile(t, "CLAUDE.md", "# Project\n")
+			writeFile(t, ".claude/hooks/guard.sh", "#!/bin/sh\nprintf 'ran:%s' \"$1\"\n")
 			settings := map[string]any{"hooks": map[string]any{"PostToolUse": []any{map[string]any{"matcher": "Write|Edit", "hooks": []any{map[string]any{"type": "command", "command": `sh "` + variable + `/.claude/hooks/guard.sh" "arg with space"`}}}}}}
 			data, err := json.Marshal(settings)
 			if err != nil {
 				t.Fatal(err)
 			}
-			mustWriteFile(t, ".claude/settings.json", string(data))
+			writeFile(t, ".claude/settings.json", string(data))
 			if out, err := runCLI(t, "import", "claude"); err != nil {
 				t.Fatalf("import: %v %s", err, out)
 			}

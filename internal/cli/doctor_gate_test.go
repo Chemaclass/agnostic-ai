@@ -116,7 +116,7 @@ func TestDoctorJSON_OmitsGlobsWithoutFlag(t *testing.T) {
 func TestDoctorJSON_ListsNestedClaudeCopiesAndFails(t *testing.T) {
 	setupDoctorLintProject(t, map[string]string{"rules/a.md": nestedClaudeRuleA})
 	syncProject(t)
-	mustWriteFile(t, filepath.Join("src", "a", "CLAUDE.md"), "# Module A\n\nA facts.\n")
+	writeFile(t, filepath.Join("src", "a", "CLAUDE.md"), "# Module A\n\nA facts.\n")
 
 	out, err := runDoctor(t, "--json", "--scope", "project")
 

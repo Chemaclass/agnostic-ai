@@ -17,9 +17,9 @@ func runDoctorMCP(t *testing.T, mcps map[string]string) string {
 func runDoctorMCPFor(t *testing.T, targets string, mcps map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+targets+"]\n")
 	for name, body := range mcps {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml"), body)
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml"), body)
 	}
 	testutil.Chdir(t, dir)
 	root := NewRootCmd("test")
@@ -124,8 +124,8 @@ func TestDoctorMCP_ChecksDisabledServers(t *testing.T) {
 
 func TestDoctor_ChecksMCPEnvRefsForTheSelectedTarget(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "local.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "local.yaml"),
 		"name: local\ncommand: sh\nx-factory:\n  env:\n    KEY: ${AA_TEST_FACTORY_KEY}\n")
 	testutil.Chdir(t, dir)
 	root := NewRootCmd("test")

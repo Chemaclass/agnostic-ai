@@ -17,11 +17,11 @@ const openCodePermissionSpec = ".agnostic-ai/settings/policy.yaml"
 func openCodePermissionProject(t *testing.T, handWritten string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\n")
 	if handWritten != "" {
-		mustWriteFile(t, "opencode.json", handWritten+"\n")
+		writeFile(t, "opencode.json", handWritten+"\n")
 	}
-	mustWriteFile(t, openCodePermissionSpec, "permissions:\n  allow: [Read]\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, openCodePermissionSpec, "permissions:\n  allow: [Read]\n  deny: [\"Bash(rm:*)\"]\n")
 }
 
 func openCodePermission(t *testing.T) map[string]any {
@@ -41,7 +41,7 @@ func TestSync_OpenCodePermissionKeepsKeysTheSpecsDoNotWrite(t *testing.T) {
 	}
 	runSyncOK(t, "--check")
 
-	mustWriteFile(t, openCodePermissionSpec, "permissions:\n  deny: [Read, \"Bash(rm:*)\"]\n")
+	writeFile(t, openCodePermissionSpec, "permissions:\n  deny: [Read, \"Bash(rm:*)\"]\n")
 	runSyncOK(t)
 	want["read"] = "deny"
 	if got := openCodePermission(t); !reflect.DeepEqual(got, want) {
@@ -49,7 +49,7 @@ func TestSync_OpenCodePermissionKeepsKeysTheSpecsDoNotWrite(t *testing.T) {
 	}
 	runSyncOK(t, "--check")
 
-	mustWriteFile(t, openCodePermissionSpec, "permissions:\n  deny: [Read]\n")
+	writeFile(t, openCodePermissionSpec, "permissions:\n  deny: [Read]\n")
 	runSyncOK(t)
 	want = map[string]any{"edit": "ask", "read": "deny"}
 	if got := openCodePermission(t); !reflect.DeepEqual(got, want) {
@@ -122,7 +122,7 @@ func asWholePermissionClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, path, string(out)+"\n")
+	writeFile(t, path, string(out)+"\n")
 }
 
 func openCodePermissionClaims(t *testing.T) [][]string {
@@ -165,7 +165,7 @@ func TestSync_OpenCodePermissionUpgradesAWholeValueClaim(t *testing.T) {
 		doc := readJSONMap(t, "opencode.json")
 		doc["permission"].(map[string]any)["edit"] = "ask"
 		writeJSONFile(t, "opencode.json", doc)
-		mustWriteFile(t, openCodePermissionSpec, "permissions:\n  deny: [Read, \"Bash(rm:*)\"]\n")
+		writeFile(t, openCodePermissionSpec, "permissions:\n  deny: [Read, \"Bash(rm:*)\"]\n")
 		runSyncOK(t)
 		want := map[string]any{"edit": "ask", "read": "deny", "bash": map[string]any{"rm *": "deny"}}
 		if got := openCodePermission(t); !reflect.DeepEqual(got, want) {

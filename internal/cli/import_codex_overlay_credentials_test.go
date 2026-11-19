@@ -81,8 +81,8 @@ func TestImportCodexConfigOverlay_KeepsLayoutWithoutCredentials(t *testing.T) {
 func TestImport_RestoredCodexOverlayLeavesOutCredentials(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/codex.config.toml", "model = \"gpt-6-luna\"\n\n[shell_environment_policy]\nset = { GITHUB_TOKEN = \"ghp_RESTOREDSECRET0123456\", NODE_ENV = \"production\" }\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/overlays/codex.config.toml", "model = \"gpt-6-luna\"\n\n[shell_environment_policy]\nset = { GITHUB_TOKEN = \"ghp_RESTOREDSECRET0123456\", NODE_ENV = \"production\" }\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -175,8 +175,8 @@ name = "ORG_TOKEN"
 func TestImport_RestoredClaudeOverlayLeavesOutCredentials(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/claude.settings.json", "{\n  \"env\": {\n    \"ANTHROPIC_AUTH_TOKEN\": \"sk-ant-api03-RESTOREDCLAUDE99\",\n    \"DISABLE_TELEMETRY\": \"1\"\n  },\n  \"model\": \"opus\"\n}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/overlays/claude.settings.json", "{\n  \"env\": {\n    \"ANTHROPIC_AUTH_TOKEN\": \"sk-ant-api03-RESTOREDCLAUDE99\",\n    \"DISABLE_TELEMETRY\": \"1\"\n  },\n  \"model\": \"opus\"\n}\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}

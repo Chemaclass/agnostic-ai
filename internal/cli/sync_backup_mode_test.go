@@ -17,8 +17,8 @@ func TestSync_BackupKeepsPrivateMode(t *testing.T) {
 	}
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 	if err := os.Chmod("CLAUDE.md", 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -32,8 +32,8 @@ func TestSync_BackupOfARecordedOutputIsGitIgnored(t *testing.T) {
 	dir, _ := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), handWrittenClaude)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), handWrittenClaude)
 
 	runSyncOK(t, "--backup")
 	if !gitIgnored(t, dir, "CLAUDE.md.bak") {
@@ -43,7 +43,7 @@ func TestSync_BackupOfARecordedOutputIsGitIgnored(t *testing.T) {
 		t.Errorf("%s copies the backup into new worktrees", worktreeIncludeFile)
 	}
 
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md.bak"), handWrittenClaude+"\nEdited.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md.bak"), handWrittenClaude+"\nEdited.\n")
 	runSyncOK(t)
 	if !gitIgnored(t, dir, "CLAUDE.md.bak") {
 		t.Error("an edited CLAUDE.md.bak is not ignored after a later sync")
@@ -55,7 +55,7 @@ func TestRevertOne_RestoresTheBackupMode(t *testing.T) {
 		t.Skip("Windows has no POSIX permission bits")
 	}
 	path := filepath.Join(t.TempDir(), ".mcp.json")
-	mustWriteFile(t, path, "{}\n")
+	writeFile(t, path, "{}\n")
 	if err := os.WriteFile(path+".bak", []byte(`{"token":"secret"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestRevertOne_RestoresFromAReadOnlyBackup(t *testing.T) {
 		t.Skip("Windows has no POSIX permission bits")
 	}
 	path := filepath.Join(t.TempDir(), "CLAUDE.md")
-	mustWriteFile(t, path, "generated\n")
+	writeFile(t, path, "generated\n")
 	if err := os.WriteFile(path+".bak", []byte(handWrittenClaude), 0o444); err != nil {
 		t.Fatal(err)
 	}

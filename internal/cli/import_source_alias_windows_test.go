@@ -28,16 +28,16 @@ func TestImport_AbsoluteSourceJunctionsSharePreviewWrites(t *testing.T) {
 	shared := filepath.Join(external, "shared")
 	alias := filepath.Join(external, "alias")
 	const original = "---\nname: foo\ndescription: Mine.\n---\nMine.\n"
-	mustWriteFile(t, filepath.Join(shared, "foo.md"), original)
+	writeFile(t, filepath.Join(shared, "foo.md"), original)
 	if err := createImportSourceAlias(shared, alias); err != nil {
 		t.Fatalf("create input junction: %v", err)
 	}
 	if got := importSourceAliasReparseTag(t, alias); got != windows.IO_REPARSE_TAG_MOUNT_POINT {
 		t.Fatalf("input reparse tag = %#x, want directory junction", got)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(shared)+"\n  agents: "+filepath.ToSlash(alias)+"\n")
-	mustWriteFile(t, ".claude/rules/foo.md", "Rule replacement.\n")
-	mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(shared)+"\n  agents: "+filepath.ToSlash(alias)+"\n")
+	writeFile(t, ".claude/rules/foo.md", "Rule replacement.\n")
+	writeFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
 		out, err := runAbsoluteImportCLI(t, append([]string{"import", "claude", "--overwrite"}, flags...)...)
 		if err != nil {

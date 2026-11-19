@@ -206,7 +206,7 @@ func TestEditFieldTarget_RejectsUnknownToolsAndFieldsWithoutPerToolValues(t *tes
 
 func TestSettingChanges_PerToolPreviewChangesOnlyThatTool(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel: gpt-5.5\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel: gpt-5.5\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}

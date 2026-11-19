@@ -21,9 +21,9 @@ func globalNameClashProject(t *testing.T, targets string, global, project map[st
 	for path, body := range global {
 		mustWriteGlobalTest(t, filepath.Join(source, path), body)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
 	for path, body := range project {
-		mustWriteFile(t, filepath.Join(".agnostic-ai", path), body)
+		writeFile(t, filepath.Join(".agnostic-ai", path), body)
 	}
 	silence(t)
 	return source
@@ -135,7 +135,7 @@ func allowedClashProject(t *testing.T) {
 			"skills/gh-issue/SKILL.md": skillSpec("gh-issue", ""),
 			"skills/gh-pr/SKILL.md":    skillSpec("gh-pr", ""),
 		})
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  allow-global-names: [GH-Issue]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  allow-global-names: [GH-Issue]\n")
 }
 
 func TestSync_SkipsTheWarningForAnAllowedGlobalName(t *testing.T) {
@@ -175,7 +175,7 @@ func TestDoctor_MarksAnAllowedGlobalNameClash(t *testing.T) {
 
 func TestSync_IgnoresEverySharedGlobalNameWhenTheModeSaysSo(t *testing.T) {
 	allowedClashProject(t)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: ignore\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: ignore\n")
 	buf := captureLog(t)
 
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
@@ -189,7 +189,7 @@ func TestSync_IgnoresEverySharedGlobalNameWhenTheModeSaysSo(t *testing.T) {
 
 func TestSync_WarnModeStillHonoursTheAllowList(t *testing.T) {
 	allowedClashProject(t)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: warn\n  allow-global-names: [gh-issue]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: warn\n  allow-global-names: [gh-issue]\n")
 	buf := captureLog(t)
 
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
@@ -206,7 +206,7 @@ func TestSync_WarnModeStillHonoursTheAllowList(t *testing.T) {
 
 func TestDoctor_MarksIgnoredGlobalNameClashes(t *testing.T) {
 	allowedClashProject(t)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: ignore\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: ignore\n")
 	syncProject(t)
 
 	out, err := runDoctor(t)
@@ -237,8 +237,8 @@ func TestGlobalNameClashes_SkipsAProjectThatIsTheHome(t *testing.T) {
 	home, _ := globalAgentTestHome(t)
 	t.Setenv("AGNOSTIC_AI_HOME", "")
 	testutil.Chdir(t, home)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "skills", "gh-issue", "SKILL.md"), skillSpec("gh-issue", ""))
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "gh-issue", "SKILL.md"), skillSpec("gh-issue", ""))
 
 	if got := clashesInWorkingDir(t); len(got) != 0 {
 		t.Errorf("a skill cannot clash with itself: %v", got)
@@ -247,8 +247,8 @@ func TestGlobalNameClashes_SkipsAProjectThatIsTheHome(t *testing.T) {
 
 func TestGlobalNameClashes_SkipsAHomeLinkedToTheProjectSpecs(t *testing.T) {
 	home, _ := globalAgentTestHome(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "skills", "gh-issue", "SKILL.md"), skillSpec("gh-issue", ""))
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "gh-issue", "SKILL.md"), skillSpec("gh-issue", ""))
 	specs, err := filepath.Abs(".agnostic-ai")
 	if err != nil {
 		t.Fatal(err)
@@ -452,7 +452,7 @@ func TestGlobalNameClashes_ModelTierMakesNoContentClaim(t *testing.T) {
 	globalNameClashProject(t, "claude",
 		map[string]string{"skills/gh-issue/SKILL.md": skillSpec("gh-issue", "model: strong\n")},
 		map[string]string{"skills/gh-issue/SKILL.md": skillSpec("gh-issue", "model: strong\n")})
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nmodels:\n  strong: {claude: opus}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nmodels:\n  strong: {claude: opus}\n")
 
 	got := clashesInWorkingDir(t)
 
@@ -583,7 +583,7 @@ func TestDoctor_ExplainsUnsupportedSkillEvenWhenSyncIsSilenced(t *testing.T) {
 			globalNameClashProject(t, "claude,gemini",
 				map[string]string{"skills/gh-issue/SKILL.md": otherSkill("gh-issue")},
 				map[string]string{"skills/gh-issue/SKILL.md": skillSpec("gh-issue", "")})
-			mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n"+setting)
+			writeFile(t, "agnostic-ai.local.yaml", "sync:\n"+setting)
 			log := captureLog(t)
 			if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 				t.Fatal(err)

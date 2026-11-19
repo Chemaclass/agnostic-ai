@@ -25,7 +25,7 @@ func TestAgainstTreeExportLinkTargets_PreservesFilesDirectoriesAndChains(t *test
 				"assets/pack.ext/ignored.md":    "Sibling sorting before the slash.\n",
 			}
 			for p, body := range files {
-				mustWriteFile(t, filepath.Join(dir, filepath.FromSlash(p)), body)
+				writeFile(t, filepath.Join(dir, filepath.FromSlash(p)), body)
 			}
 			links := map[string]string{
 				"links/directory": "../assets/pack",
@@ -43,9 +43,9 @@ func TestAgainstTreeExportLinkTargets_PreservesFilesDirectoriesAndChains(t *test
 			}
 			git(t, dir, "add", "-A")
 			git(t, dir, "commit", "-q", "-m", "linked assets")
-			mustWriteFile(t, filepath.Join(dir, "assets", "pack", "SKILL.md"), "Staged skill.\n")
+			writeFile(t, filepath.Join(dir, "assets", "pack", "SKILL.md"), "Staged skill.\n")
 			git(t, dir, "add", "assets/pack/SKILL.md")
-			mustWriteFile(t, filepath.Join(dir, "assets", "pack", "SKILL.md"), "Unstaged skill.\n")
+			writeFile(t, filepath.Join(dir, "assets", "pack", "SKILL.md"), "Unstaged skill.\n")
 			beforeIndex := git(t, dir, "write-tree")
 			beforeStatus := git(t, dir, "status", "--porcelain=v1")
 			env := os.Environ()

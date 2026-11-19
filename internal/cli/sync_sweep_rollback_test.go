@@ -15,10 +15,10 @@ func TestSync_FailedGitignoreWriteRestoresSweptOrphan(t *testing.T) {
 	for _, args := range [][]string{{"sync"}, {"sync", "--json"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			testutil.TempCwd(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n")
 			const orphan = ".codex/skills/gone/SKILL.md"
 			const body = "---\nname: gone\n---\nold\n"
-			mustWriteFile(t, orphan, body)
+			writeFile(t, orphan, body)
 			if err := writeStateFile(".", 0, "", "", syncLedger{outputs: []string{orphan}, sums: map[string]string{orphan: adapters.ContentSum(body)}}); err != nil {
 				t.Fatal(err)
 			}
@@ -52,7 +52,7 @@ func TestSync_FailedGitignoreWriteRestoresSweptOrphan(t *testing.T) {
 
 func TestSweepLedgerOrphans_RollbackRestoresSweptLink(t *testing.T) {
 	chdir(t, t.TempDir())
-	mustWriteFile(t, ".agents/skills/gone/SKILL.md", "body\n")
+	writeFile(t, ".agents/skills/gone/SKILL.md", "body\n")
 	const link = ".cursor/skills/gone"
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)

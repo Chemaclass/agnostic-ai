@@ -28,7 +28,7 @@ func syncProjectOK(t *testing.T) {
 
 func TestSync_ListsDescribedTiersInEveryInstructionsFile(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex, gemini, copilot, zed, junie]\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
 
 	syncProjectOK(t)
 
@@ -87,7 +87,7 @@ func TestSync_TiersWithoutDescriptionsChangeNoInstructionsFile(t *testing.T) {
 func syncedInstructions(t *testing.T, models string) map[string]string {
 	t.Helper()
 	dir := budgetProject(t, "targets: [claude, codex, gemini]\n"+models)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
 	syncProjectOK(t)
 	out := map[string]string{}
 	for _, path := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md"} {
@@ -112,7 +112,7 @@ func TestSync_LocalTierReplacesItsDescription(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			dir := budgetProject(t, "targets: [codex]\n"+describedTiersConfig)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), tc.local)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), tc.local)
 
 			syncProjectOK(t)
 
@@ -139,7 +139,7 @@ func TestImport_DropsTheModelTiersBlock(t *testing.T) {
 		t.Run(from, func(t *testing.T) {
 			dir := budgetProject(t, "targets: [claude, codex]\n"+describedTiersConfig)
 			source := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-			mustWriteFile(t, source, "# Project\n\nShared instructions.\n")
+			writeFile(t, source, "# Project\n\nShared instructions.\n")
 			syncProjectOK(t)
 
 			if out, err := runCLI(t, "import", from); err != nil {
@@ -158,7 +158,7 @@ func TestImport_DropsTheModelTiersBlock(t *testing.T) {
 
 func TestLintBudget_CountsTheModelTiersLayer(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nlint:\n  instructions-words: 10\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(5)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(5)+"\n")
 
 	out, _ := runCLI(t, "lint")
 
@@ -230,7 +230,7 @@ func readGlobalManaged(t *testing.T, path string) string {
 
 func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex: {rules-file: AGENTS.md}\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	syncProjectOK(t)
 
@@ -245,7 +245,7 @@ func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
 
 func TestSync_RulesFileBesideTheEntryPointGetsNoTiers(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex: {rules-file: CODEX_RULES.md}\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	syncProjectOK(t)
 
@@ -280,7 +280,7 @@ func TestSync_AdapterWrittenRulesFileListsTheTiers(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				dir := budgetProject(t, "targets: ["+target+"]\noutputs:\n  "+target+": {rules-file: "+path+"}\n"+describedTiersConfig)
 				if withRule {
-					mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+					writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 				}
 
 				syncProjectOK(t)
@@ -302,7 +302,7 @@ func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			path := adapters.EntryPointPath(&config.Config{Targets: []string{target}}, target)
 			dir := budgetProject(t, "targets: ["+target+"]\noutputs:\n  "+target+": {rules-file: "+path+"}\n"+describedTiersConfig)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 			syncProjectOK(t)
 
 			if out, err := runCLI(t, "import", target); err != nil {

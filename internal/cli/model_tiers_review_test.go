@@ -67,7 +67,7 @@ models:
   skilled: {claude: sonnet}
 `)
 	writeTierAgent(t, dir, "reviewer", "careful")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy.\nmodel: skilled\n---\n\nTidy.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy.\nmodel: skilled\n---\n\nTidy.\n")
 
 	out, err := runCLI(t, "lint")
 	if err != nil {

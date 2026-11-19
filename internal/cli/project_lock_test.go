@@ -54,9 +54,9 @@ func TestProjectCommands_RefreshRuntimeIgnoresOnUpgrade(t *testing.T) {
 			dir := setupFixture(t)
 			testutil.Chdir(t, dir)
 			captureLogOut(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
 			oldBlock := "node_modules/\n# Personal ignore.\nprivate.txt\n\n" + gitignoreBlockStart + "\n" + gitignoreBlockNote + "\n" + gitignoreBlockHint + "\n/.agnostic-ai/.sync-state\n/.agnostic-ai/packs/\n/.agnostic-ai/local/\n/agnostic-ai.local.yaml\n# Keep this managed comment.\n!/fixtures/\n" + gitignoreBlockEnd + "\n\n# Personal exception.\n!important.txt\n"
-			mustWriteFile(t, ".gitignore", oldBlock)
+			writeFile(t, ".gitignore", oldBlock)
 			if args[0] == "import" {
 				writeScopedFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nSkill body.\n")
 			}
@@ -276,7 +276,7 @@ func TestProjectLock_PlanNeverPersistsTheFirstSyncSelection(t *testing.T) {
 	testutil.Chdir(t, dir)
 	captureLogOut(t)
 	before := "version: 1\ntargets: [" + strings.Join(allTargetNames(), ", ") + "]\n"
-	mustWriteFile(t, "agnostic-ai.yaml", before)
+	writeFile(t, "agnostic-ai.yaml", before)
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--plan"})
 	root.SetIn(strings.NewReader("claude\n"))

@@ -26,8 +26,8 @@ func TestSync_RefusesALedgerFromANewerRelease(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
 			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
@@ -41,8 +41,8 @@ func TestSync_RefusesALedgerFromANewerRelease(t *testing.T) {
 			}
 			raw["version"] = syncStateVersion + 1
 			newer, _ := json.Marshal(raw)
-			mustWriteFile(t, stateFilePath("."), string(newer))
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+			writeFile(t, stateFilePath("."), string(newer))
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 
 			out, err := runCLI(t, args...)
 
@@ -81,7 +81,7 @@ func TestUpdateStateFile_RefusesALedgerFromANewerRelease(t *testing.T) {
 
 func TestReadLedger_RefusesANewerLedgerThatDoesNotDecode(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteFile(t, stateFilePath("."), `{"version":99,"outputs":[{"path":"a"}]}`)
+	writeFile(t, stateFilePath("."), `{"version":99,"outputs":[{"path":"a"}]}`)
 
 	if err := readLedger(".").refuseNewer(); err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
 		t.Errorf("a newer ledger must be refused even when a field does not decode, got %v", err)
@@ -94,9 +94,9 @@ func TestSync_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) {
 			t.Run(strings.Join(args, " ")+" "+ledger, func(t *testing.T) {
 				dir := testutil.TempCwd(t)
 				silence(t)
-				mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
-				mustWriteFile(t, stateFilePath("."), ledger)
-				mustWriteFile(t, filepath.Join(dir, ".gitignore"), "my-user-ignore\n")
+				writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+				writeFile(t, stateFilePath("."), ledger)
+				writeFile(t, filepath.Join(dir, ".gitignore"), "my-user-ignore\n")
 
 				out, err := runCLI(t, args...)
 
@@ -118,13 +118,13 @@ func newerLedgerProject(t *testing.T) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
-	mustWriteFile(t, stateFilePath("."), `{"version":99,"synced_at":"2026-11-12T00:00:00Z","outputs":["AGENTS.md"],"backups":{"AGENTS.md.bak":"x"}}`)
+	writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
+	writeFile(t, stateFilePath("."), `{"version":99,"synced_at":"2026-11-12T00:00:00Z","outputs":["AGENTS.md"],"backups":{"AGENTS.md.bak":"x"}}`)
 	return dir
 }
 
@@ -171,9 +171,9 @@ func TestUpgradeRequires_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) 
 	dir := testutil.TempCwd(t)
 	silence(t)
 	config := "version: 1\nrequires: \">=0.90.0\"\ntargets: [amp]\n"
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
-	mustWriteFile(t, stateFilePath("."), `{"version":99}`)
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "mine\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
+	writeFile(t, stateFilePath("."), `{"version":99}`)
+	writeFile(t, filepath.Join(dir, ".gitignore"), "mine\n")
 
 	err := executeUpgradeRequiresForTest(t, "v0.93.0")
 
@@ -192,7 +192,7 @@ func TestUpgradeRequires_RefusesANewerLedgerBeforeWritingAnything(t *testing.T) 
 // stop import's records.
 func TestRecordImportedSpecFiles_RefusesALedgerFromANewerRelease(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteFile(t, stateFilePath("."), `{"version":99}`)
+	writeFile(t, stateFilePath("."), `{"version":99}`)
 
 	if err := recordImportedSpecFiles(".", nil, nil); err == nil || !strings.Contains(err.Error(), "newer agnostic-ai") {
 		t.Errorf("recordImportedSpecFiles must refuse the ledger, got %v", err)

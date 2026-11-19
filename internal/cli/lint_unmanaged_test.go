@@ -12,8 +12,8 @@ func seedDoubleStarProject(t *testing.T, unmanaged string) {
 	t.Helper()
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\ngitignore:\n  enabled: false\nsync:\n  unmanaged:\n    - "+unmanaged+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\ngitignore:\n  enabled: false\nsync:\n  unmanaged:\n    - "+unmanaged+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root\n")
 	silence(t)
 }
 
@@ -86,7 +86,7 @@ const localDoubleStarEntry = ".cursor/**/legacy.mdc"
 
 func TestLint_DoubleStarFindingNamesTheLocalFile(t *testing.T) {
 	seedDoubleStarProject(t, ".claude/agents/keep.md")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged:\n    - "+localDoubleStarEntry+"\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged:\n    - "+localDoubleStarEntry+"\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT057")
@@ -100,7 +100,7 @@ func TestLint_DoubleStarFindingNamesTheLocalFile(t *testing.T) {
 
 func TestSync_DoubleStarNoteNamesTheLocalFile(t *testing.T) {
 	seedDoubleStarProject(t, ".claude/agents/keep.md")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged:\n    - "+localDoubleStarEntry+"\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged:\n    - "+localDoubleStarEntry+"\n")
 	notes := captureNotes(t)
 
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
@@ -113,7 +113,7 @@ func TestSync_DoubleStarNoteNamesTheLocalFile(t *testing.T) {
 
 func TestLint_DoubleStarFindingNamesTheBaseWhenLocalSetsOtherSyncKeys(t *testing.T) {
 	seedDoubleStarProject(t, `"**/.cursor/BUGBOT.md"`)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  output-manifest: true\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  output-manifest: true\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT057")

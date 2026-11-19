@@ -12,7 +12,7 @@ import (
 func seedPreferSpecNoteProject(t *testing.T, targets string) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+`
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+`
 gitignore:
   enabled: false
 outputs:
@@ -24,7 +24,7 @@ sync:
   collision-policy: prefer-spec
 `)
 	for _, name := range []string{"alpha", "beta", "gamma", "delta"} {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"),
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"),
 			"---\nname: "+name+"\ndescription: Skill "+name+" does things.\nlicense: MIT\nmetadata:\n  owner: team\n---\n\nBody "+name+".\n")
 	}
 	return dir
@@ -70,7 +70,7 @@ func TestRunSyncOnce_PreferSpecNoteRepeatsOnlyWhenWinnerChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	reordered := strings.Replace(string(cfg), "[codex, amp, gemini, opencode]", "[codex, amp, opencode, gemini]", 1)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), reordered)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), reordered)
 	notes.Reset()
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)

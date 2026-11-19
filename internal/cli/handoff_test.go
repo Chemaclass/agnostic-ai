@@ -15,7 +15,7 @@ import (
 func handoffListProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	main := setupGitRepo(t)
-	mustWriteFile(t, filepath.Join(main, ".gitignore"), "**/.agnostic-ai/local/\n")
+	writeFile(t, filepath.Join(main, ".gitignore"), "**/.agnostic-ai/local/\n")
 	git(t, main, "add", ".gitignore")
 	git(t, main, "commit", "-qm", "fixture")
 	git(t, main, "branch", "-M", "main")
@@ -28,7 +28,7 @@ func handoffListProject(t *testing.T) (string, string, string) {
 
 func writeListHandoff(t *testing.T, path, branch, worktree, head, status, pr string) {
 	t.Helper()
-	mustWriteFile(t, path, fmt.Sprintf("# Handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: %s | head: %s\nworktree: %s | status: %s | pr: %s\n\n## Goal\nBody is never listed.\n", branch, head, worktree, status, pr))
+	writeFile(t, path, fmt.Sprintf("# Handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: %s | head: %s\nworktree: %s | status: %s | pr: %s\n\n## Goal\nBody is never listed.\n", branch, head, worktree, status, pr))
 }
 
 func TestHandoffList_JoinsLiveAndRemovedWorktreesWithoutDuplicatingSnapshots(t *testing.T) {
@@ -38,9 +38,9 @@ func TestHandoffList_JoinsLiveAndRemovedWorktreesWithoutDuplicatingSnapshots(t *
 	writeListHandoff(t, filepath.Join(store, "feat-a.md"), "feat/a", a, head, "blocked", "#17")
 	writeListHandoff(t, filepath.Join(store, "feat-b.md"), "feat/b", b, head, "ready", "none")
 	auto := fmt.Sprintf("# Automatic handoff\ntool: claude | date: 2026-10-13T10:00Z | branch: feat/a | head: %s\nworktree: %s\n\n## Git status\n", head, a)
-	mustWriteFile(t, filepath.Join(store, "feat-a.auto.md"), auto)
-	mustWriteFile(t, filepath.Join(a, ".agnostic-ai", "local", "HANDOFF.auto.md"), auto)
-	mustWriteFile(t, filepath.Join(a, "dirty.txt"), "scratch\n")
+	writeFile(t, filepath.Join(store, "feat-a.auto.md"), auto)
+	writeFile(t, filepath.Join(a, ".agnostic-ai", "local", "HANDOFF.auto.md"), auto)
+	writeFile(t, filepath.Join(a, "dirty.txt"), "scratch\n")
 	git(t, main, "worktree", "remove", b)
 	testutil.Chdir(t, a)
 	out, err := runRoot(t, "handoff", "list")
@@ -66,7 +66,7 @@ func TestHandoffList_JoinsLiveAndRemovedWorktreesWithoutDuplicatingSnapshots(t *
 func TestHandoffList_UsesConfiguredSubprojectAndLegacyFallback(t *testing.T) {
 	main, _, b := handoffListProject(t)
 	for _, root := range []string{main, b} {
-		mustWriteFile(t, filepath.Join(root, "app", "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+		writeFile(t, filepath.Join(root, "app", "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	}
 	head := git(t, main, "rev-parse", "HEAD")
 	writeListHandoff(t, filepath.Join(main, "app", ".agnostic-ai", "local", "handoffs", "feat-b.md"), "feat/b", b, head, "active", "#4")
@@ -80,7 +80,7 @@ func TestHandoffList_UsesConfiguredSubprojectAndLegacyFallback(t *testing.T) {
 		t.Errorf("wrong project store: %s", out)
 	}
 	legacy := filepath.Join(b, "app", ".agnostic-ai", "local", "HANDOFF.md")
-	mustWriteFile(t, legacy, "# Handoff\ntool: codex | date: 2026-10-12T09:00Z | branch: legacy/task | head: abc1234\n\nLegacy body.\n")
+	writeFile(t, legacy, "# Handoff\ntool: codex | date: 2026-10-12T09:00Z | branch: legacy/task | head: abc1234\n\nLegacy body.\n")
 	out, err = runRoot(t, "handoff", "list")
 	if err != nil {
 		t.Fatal(err)
@@ -92,10 +92,10 @@ func TestHandoffList_UsesConfiguredSubprojectAndLegacyFallback(t *testing.T) {
 
 func TestHandoffList_SuggestsOnlyBranchesProvenMergedAndNeverDeletes(t *testing.T) {
 	main, a, b := handoffListProject(t)
-	mustWriteFile(t, filepath.Join(a, "a.txt"), "merged\n")
+	writeFile(t, filepath.Join(a, "a.txt"), "merged\n")
 	git(t, a, "add", "a.txt")
 	git(t, a, "commit", "-qm", "a")
-	mustWriteFile(t, filepath.Join(b, "b.txt"), "unmerged\n")
+	writeFile(t, filepath.Join(b, "b.txt"), "unmerged\n")
 	git(t, b, "add", "b.txt")
 	git(t, b, "commit", "-qm", "b")
 	git(t, main, "merge", "--ff-only", "feat/a")
@@ -121,7 +121,7 @@ func TestHandoffList_SuggestsOnlyBranchesProvenMergedAndNeverDeletes(t *testing.
 
 func TestHandoffList_HiddenUntrackedCodePreventsRemovalSuggestion(t *testing.T) {
 	main, active, _ := handoffListProject(t)
-	mustWriteFile(t, filepath.Join(active, "merged.txt"), "merged\n")
+	writeFile(t, filepath.Join(active, "merged.txt"), "merged\n")
 	git(t, active, "add", "merged.txt")
 	git(t, active, "commit", "-qm", "merged work")
 	git(t, main, "merge", "--ff-only", "feat/a")
@@ -130,7 +130,7 @@ func TestHandoffList_HiddenUntrackedCodePreventsRemovalSuggestion(t *testing.T) 
 	writeListHandoff(t, path, "feat/a", active, git(t, active, "rev-parse", "HEAD"), "ready", "#1")
 	before := readText(t, path)
 	code := filepath.Join(active, "new-code.go")
-	mustWriteFile(t, code, "package probe\n")
+	writeFile(t, code, "package probe\n")
 	out, err := runRoot(t, "handoff", "list")
 	if err != nil {
 		t.Fatalf("handoff list: %v %s", err, out)
@@ -166,7 +166,7 @@ func TestHandoffList_EmptyOutsideGitDoesNotCreateAStore(t *testing.T) {
 func TestHandoffList_FallsBackWhenMainStoreIsNotIgnoredAndSkipsLinks(t *testing.T) {
 	main, _, b := handoffListProject(t)
 	head := git(t, main, "rev-parse", "HEAD")
-	mustWriteFile(t, filepath.Join(main, ".gitignore"), "")
+	writeFile(t, filepath.Join(main, ".gitignore"), "")
 	writeListHandoff(t, filepath.Join(main, ".agnostic-ai", "local", "handoffs", "public.md"), "public/unsafe", main, head, "active", "none")
 	store := filepath.Join(b, ".agnostic-ai", "local", "handoffs")
 	writeListHandoff(t, filepath.Join(store, "feat-b.md"), "feat/b", b, head, "active", "none")
@@ -228,8 +228,8 @@ func TestHandoffList_ReadsOnlyBoundedHeaders(t *testing.T) {
 
 func TestHandoffList_ReadsIndividuallyIgnoredLegacyFileWithoutTaskStore(t *testing.T) {
 	main, _, _ := handoffListProject(t)
-	mustWriteFile(t, filepath.Join(main, ".gitignore"), "/.agnostic-ai/local/HANDOFF.md\n")
-	mustWriteFile(t, filepath.Join(main, ".agnostic-ai", "local", "HANDOFF.md"), "# Handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: main | head: abc1234\n")
+	writeFile(t, filepath.Join(main, ".gitignore"), "/.agnostic-ai/local/HANDOFF.md\n")
+	writeFile(t, filepath.Join(main, ".agnostic-ai", "local", "HANDOFF.md"), "# Handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: main | head: abc1234\n")
 	out, err := runRoot(t, "handoff", "list")
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +271,7 @@ func TestHandoffList_ComparesMixedHeaderDateFormats(t *testing.T) {
 	local := filepath.Join(b, ".agnostic-ai", "local", "handoffs", "feat-b.md")
 	writeListHandoff(t, shared, "feat/b", b, head, "blocked", "#1")
 	body := strings.Replace(readText(t, shared), "2026-10-13T09:00Z", "2026-10-13T08:00:00Z", 1)
-	mustWriteFile(t, shared, body)
+	writeFile(t, shared, body)
 	writeListHandoff(t, local, "feat/b", b, head, "ready", "#6")
 	older := time.Unix(100, 0)
 	newer := time.Unix(200, 0)
@@ -295,7 +295,7 @@ func TestHandoffList_JoinsLegacyDetachedSnapshotWithLiveWorktree(t *testing.T) {
 	_, a, _ := handoffListProject(t)
 	git(t, a, "checkout", "--detach", "-q", "HEAD")
 	head := git(t, a, "rev-parse", "HEAD")
-	mustWriteFile(t, filepath.Join(a, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: detached | head: "+head+"\n\n## Git status\n")
+	writeFile(t, filepath.Join(a, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: detached | head: "+head+"\n\n## Git status\n")
 	testutil.Chdir(t, a)
 	out, err := runRoot(t, "handoff", "list")
 	if err != nil {
@@ -310,7 +310,7 @@ func TestHandoffList_JoinsLegacyDetachedSnapshotWithLiveWorktree(t *testing.T) {
 	git(t, main, "worktree", "add", "-q", "-b", "detached", named)
 	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
 	for _, entry := range []struct{ file, path string }{{"detached-" + head + ".auto.md", a}, {"detached.auto.md", named}} {
-		mustWriteFile(t, filepath.Join(store, entry.file), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+entry.path+"\n")
+		writeFile(t, filepath.Join(store, entry.file), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+entry.path+"\n")
 	}
 	out, err = runRoot(t, "handoff", "list")
 	if err != nil {
@@ -342,7 +342,7 @@ func TestHandoffList_ManualAutoSuffixKeepsAuthoritativeTaskFields(t *testing.T) 
 	head := git(t, linked, "rev-parse", "HEAD")
 	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
 	writeListHandoff(t, filepath.Join(store, "feat.auto.md"), "feat.auto", linked, head, "blocked", "#72")
-	mustWriteFile(t, filepath.Join(store, "feat.auto.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: feat.auto | head: "+head+"\nworktree: "+linked+"\n")
+	writeFile(t, filepath.Join(store, "feat.auto.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: feat.auto | head: "+head+"\nworktree: "+linked+"\n")
 	out, err := runRoot(t, "handoff", "list")
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +372,7 @@ func TestHandoffList_PreservesPipesInBranchesAndWorktreeHeaders(t *testing.T) {
 	git(t, linked, "checkout", "--detach", "-q", "HEAD")
 	named := filepath.Join(t.TempDir(), "named-detached")
 	git(t, main, "worktree", "add", "-q", "-b", "detached", named)
-	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+"\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+"\n")
 	testutil.Chdir(t, linked)
 	out, err = runRoot(t, "handoff", "list")
 	if err != nil {
@@ -393,7 +393,7 @@ func TestHandoffList_ExplicitDetachedMarkerSurvivesNamedBranchReuse(t *testing.T
 	_, linked, _ := handoffListProject(t)
 	git(t, linked, "checkout", "--detach", "-q", "HEAD")
 	head := git(t, linked, "rev-parse", "HEAD")
-	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: true\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: true\n")
 	git(t, linked, "checkout", "-q", "-b", "detached")
 	testutil.Chdir(t, linked)
 	out, err := runRoot(t, "handoff", "list")
@@ -423,7 +423,7 @@ func TestHandoffList_PreservesMetadataLabelsInsideWorktreePaths(t *testing.T) {
 		t.Errorf("path metadata text changed task identity or path: %s", out)
 	}
 	git(t, linked, "checkout", "--detach", "-q", "HEAD")
-	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: true\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: true\n")
 	testutil.Chdir(t, linked)
 	out, err = runRoot(t, "handoff", "list")
 	if err != nil {
@@ -449,7 +449,7 @@ func TestHandoffList_FinalFalseMarkerPreservesLiteralDetachedPath(t *testing.T) 
 	git(t, main, "worktree", "add", "-q", "-b", "detached", linked)
 	head := git(t, linked, "rev-parse", "HEAD")
 	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
-	mustWriteFile(t, filepath.Join(store, "detached.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: false\n")
+	writeFile(t, filepath.Join(store, "detached.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: false\n")
 	out, err := runRoot(t, "handoff", "list")
 	if err != nil {
 		t.Fatal(err)

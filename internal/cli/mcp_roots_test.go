@@ -17,7 +17,7 @@ func TestMCPRoots_RefusesARootWithoutURI(t *testing.T) {
 	} {
 		t.Run(tc.roots, func(t *testing.T) {
 			dir := budgetProject(t, "targets: [claude]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\nargs: [x]\n"+tc.roots)
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\nargs: [x]\n"+tc.roots)
 
 			out, _ := runCLI(t, "lint")
 			lines := findingLines(out, "LINT060")
@@ -36,7 +36,7 @@ func TestMCPRoots_RefusesARootWithoutURI(t *testing.T) {
 
 func TestMCPRoots_AcceptsURIMappings(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\nargs: [x]\nroots:\n  - uri: file:///tmp/x\n    name: tmp\n  - uri: file:///srv\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\nargs: [x]\nroots:\n  - uri: file:///tmp/x\n    name: tmp\n  - uri: file:///srv\n")
 	if out, _ := runCLI(t, "lint"); strings.Contains(out, "LINT060") {
 		t.Errorf("valid roots must lint clean:\n%s", out)
 	}

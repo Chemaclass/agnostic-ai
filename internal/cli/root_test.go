@@ -113,7 +113,7 @@ func TestSync_DryRunDoesNotWrite(t *testing.T) {
 
 func TestSync_UnknownConfigTargetIsSkipped(t *testing.T) {
 	dir := setupFixture(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, no-such-target]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, no-such-target]\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 

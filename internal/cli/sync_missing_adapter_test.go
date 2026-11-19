@@ -21,7 +21,7 @@ func writingAdapterOnPath(t *testing.T, target, path string) {
 	bin := t.TempDir()
 	script := filepath.Join(bin, "agnostic-ai-adapter-"+target)
 	body := "#!/bin/sh\ncat >/dev/null\nprintf '%s' '{\"protocol_version\":1,\"files\":[{\"path\":\"" + path + "\",\"content\":\"from the adapter\\n\"}]}'\n"
-	mustWriteFile(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -30,8 +30,8 @@ func writingAdapterOnPath(t *testing.T, target, path string) {
 
 func TestSync_MissingExternalAdapterKeepsItsOutputs(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, fakex]\ngitignore:\n  enabled: true\n")
-	mustWriteFile(t, ".agnostic-ai/rules/r.md", "---\nname: r\ndescription: A rule.\n---\nBe kind.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, fakex]\ngitignore:\n  enabled: true\n")
+	writeFile(t, ".agnostic-ai/rules/r.md", "---\nname: r\ndescription: A rule.\n---\nBe kind.\n")
 	silence(t)
 	originalPath := os.Getenv("PATH")
 	writingAdapterOnPath(t, "fakex", "FAKEX.md")
@@ -45,7 +45,7 @@ func TestSync_MissingExternalAdapterKeepsItsOutputs(t *testing.T) {
 	}
 
 	t.Setenv("PATH", originalPath)
-	mustWriteFile(t, ".agnostic-ai/rules/r.md", "---\nname: r\ndescription: A rule.\n---\nBe kinder.\n")
+	writeFile(t, ".agnostic-ai/rules/r.md", "---\nname: r\ndescription: A rule.\n---\nBe kinder.\n")
 	var logged bytes.Buffer
 	prev := logOut
 	logOut = &logged

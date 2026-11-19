@@ -24,8 +24,8 @@ func effortMapProject(t *testing.T, target, effort string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [%s]\n", target))
-	mustWriteFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\n"+effort+"---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [%s]\n", target))
+	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\n"+effort+"---\n\nbody\n")
 	runSyncOK(t)
 }
 
@@ -42,7 +42,7 @@ func editNativeEffort(t *testing.T, file, key, value string) {
 			break
 		}
 	}
-	mustWriteFile(t, file, strings.Join(lines, "\n"))
+	writeFile(t, file, strings.Join(lines, "\n"))
 }
 
 func reimportEffortMap(t *testing.T, target string) string {
@@ -153,7 +153,7 @@ func TestImportAgents_ReimportKeepsAScalarEffortScalar(t *testing.T) {
 
 func TestImportAugment_ReimportKeepsAMapEntryAugmentCannotWrite(t *testing.T) {
 	effortMapProject(t, "augment", "effort:\n  augment: 8000\n  zed: low\n")
-	mustWriteFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\n---\n\nbody\n")
+	writeFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\n---\n\nbody\n")
 
 	got := reimportEffortMap(t, "augment")
 	if !strings.Contains(got, "effort:\n  augment: 8000\n  zed: low\n") {

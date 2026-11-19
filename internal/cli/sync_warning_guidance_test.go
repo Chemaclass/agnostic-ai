@@ -34,9 +34,9 @@ func TestSyncJSON_FieldSuggestionsMatchPlainSyncAndPreviewModes(t *testing.T) {
 	for _, mode := range []string{"--check", "--plan", "--dry-run"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, gemini]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\nmetadata:\n  owner: team\ndisable-model-invocation: true\n---\nDeploy.\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, gemini]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\nmetadata:\n  owner: team\ndisable-model-invocation: true\n---\nDeploy.\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview.\n")
 			testutil.Chdir(t, dir)
 			silence(t)
 			captureLogOut(t)
@@ -152,9 +152,9 @@ func TestSyncGlobalJSON_SuggestionsIncludeSharedSkillLimitAndPreviewParity(t *te
 
 func TestSyncJSON_PolicySuggestionsKeepTheRequiredAccess(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, gemini]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\ndisable-model-invocation: false\n---\nDeploy.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "writer.md"), "---\nname: writer\nreadonly: false\nx-codex:\n  sandbox_mode: workspace-write\n---\nWrite code.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, gemini]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\ndisable-model-invocation: false\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "writer.md"), "---\nname: writer\nreadonly: false\nx-codex:\n  sandbox_mode: workspace-write\n---\nWrite code.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
@@ -203,8 +203,8 @@ func TestSyncGlobal_UnsupportedAgentFixNamesLocalTargetOverride(t *testing.T) {
 
 func TestSyncJSON_MetadataFixNamesEveryTargetThatKeepsIt(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, opencode, gemini]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, opencode, gemini]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)

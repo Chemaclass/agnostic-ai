@@ -68,8 +68,8 @@ x-cursor:
 // no `!literal` mark to silence a false match, so sync still runs.
 func TestLintAndSync_CredentialInArgsWarnsWithoutStoppingSync(t *testing.T) {
 	dir := newProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\ncommand: srv\nargs: [--token, "+lint049Token+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\ncommand: srv\nargs: [--token, "+lint049Token+"]\n")
 	out, err := runCLI(t, "lint")
 	if !strings.Contains(out, `LINT049 [warn] `+filepath.Join(".agnostic-ai", "mcps", "api.yaml")+`: MCP server "api": args holds`) {
 		t.Errorf("lint must warn with LINT049: %v\n%s", err, out)
@@ -115,8 +115,8 @@ func TestMCPCredentialChecks_AgreeOnTheFields(t *testing.T) {
 // LINT049's "each tool's MCP file" would be false for it.
 func TestLint_AgentFileServerGetsNoLINT049(t *testing.T) {
 	dir := newProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\nagent-only: true\ncommand: srv\nargs: [--token, "+lint049Token+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\nagent-only: true\ncommand: srv\nargs: [--token, "+lint049Token+"]\n")
 	out, _ := runCLI(t, "lint")
 	if !strings.Contains(out, "LINT035") || strings.Contains(out, "LINT049") {
 		t.Errorf("want LINT035 alone:\n%s", out)

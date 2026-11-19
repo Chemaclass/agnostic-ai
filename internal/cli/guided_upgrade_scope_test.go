@@ -31,9 +31,9 @@ func TestGuidedUpgrade_RejectsLinkedWritableSpecLayersBeforeOfferAndLock(t *test
 			}
 			const originalConfig = "version: 1\nrequires: 0.81.0\ntargets: [claude]\n"
 			const originalAgent = "---\nname: demo\ntools: [Read]\n---\nagent\n"
-			mustWriteFile(t, "agnostic-ai.yaml", originalConfig)
+			writeFile(t, "agnostic-ai.yaml", originalConfig)
 			target := filepath.Join(outside, "agents", "demo.md")
-			mustWriteFile(t, target, originalAgent)
+			writeFile(t, target, originalAgent)
 			alias := filepath.Join(root, ".agnostic-ai")
 			if strings.HasSuffix(name, "local") {
 				if err := os.Mkdir(alias, 0700); err != nil {
@@ -101,7 +101,7 @@ func TestGuidedUpgrade_InternalSpecDirectoryAliasesCanReconcile(t *testing.T) {
 	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
 	source := filepath.Join(root, "sources")
 	local := filepath.Join(root, "personal")
 	for _, dir := range []string{source, local} {
@@ -135,7 +135,7 @@ func TestGuidedUpgrade_RechecksRetargetedSpecDirectoryBeforeLock(t *testing.T) {
 	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
 	inside := filepath.Join(root, "sources")
 	if err := os.Mkdir(inside, 0700); err != nil {
 		t.Fatal(err)
@@ -172,9 +172,9 @@ func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedGlobalHome(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", home)
 			const originalConfig = "version: 1\nrequires: 0.81.0\ntargets: [claude]\n"
 			const originalAgent = "---\nname: demo\ntools: [Read]\n---\nagent\n"
-			mustWriteFile(t, "agnostic-ai.yaml", originalConfig)
+			writeFile(t, "agnostic-ai.yaml", originalConfig)
 			target := filepath.Join(home, "agents", "demo.md")
-			mustWriteFile(t, target, originalAgent)
+			writeFile(t, target, originalAgent)
 			source := filepath.Join(root, ".agnostic-ai")
 			if strings.HasPrefix(name, "local") {
 				source = filepath.Join(source, "local")
@@ -251,10 +251,10 @@ func TestGuidedUpgrade_NestedGlobalHomeKeepsBenignSourceAliases(t *testing.T) {
 				targetRoot = filepath.Join(t.TempDir(), "agents")
 				cfg += "sources:\n  agents: '" + filepath.ToSlash(targetRoot) + "'\n"
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", cfg)
+			writeFile(t, "agnostic-ai.yaml", cfg)
 			target := filepath.Join(targetRoot, "demo.md")
 			const agent = "---\nname: demo\ntools: [Read]\n---\nagent\n"
-			mustWriteFile(t, target, agent)
+			writeFile(t, target, agent)
 			if name != "external custom source" {
 				alias := filepath.Join(root, ".agnostic-ai", "agents")
 				destination := targetRoot
@@ -303,12 +303,12 @@ func TestGuidedUpgrade_RechecksEntryAliasIntoNestedGlobalBeforeLock(t *testing.T
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	t.Setenv("AGNOSTIC_AI_HOME", home)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\ntargets: [claude]\n")
 	const agent = "---\nname: demo\ntools: [Read]\n---\nagent\n"
 	inside := filepath.Join(root, "sources", "demo.md")
 	outside := filepath.Join(home, "agents", "demo.md")
-	mustWriteFile(t, inside, agent)
-	mustWriteFile(t, outside, agent)
+	writeFile(t, inside, agent)
+	writeFile(t, outside, agent)
 	alias := filepath.Join(root, ".agnostic-ai", "agents", "demo.md")
 	if err := os.MkdirAll(filepath.Dir(alias), 0700); err != nil {
 		t.Fatal(err)
@@ -344,9 +344,9 @@ func TestGuidedUpgrade_RechecksEntryAliasIntoNestedGlobalBeforeLock(t *testing.T
 func TestGuidedUpgrade_NestedGlobalHomeUsesPhysicalDirectoryIdentity(t *testing.T) {
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	target := filepath.Join(home, "agents", "demo.md")
-	mustWriteFile(t, target, "---\nname: demo\ntools: [Read]\n---\nagent\n")
+	writeFile(t, target, "---\nname: demo\ntools: [Read]\n---\nagent\n")
 	aliasHome := filepath.Join(strings.ToUpper(root), "global")
 	info, err := os.Stat(aliasHome)
 	originalInfo, originalErr := os.Stat(home)
@@ -370,10 +370,10 @@ func TestGuidedUpgrade_ShadowedGlobalEntryStillRefusesUpgrade(t *testing.T) {
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	t.Setenv("AGNOSTIC_AI_HOME", home)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	target := filepath.Join(home, "agents", "demo.md")
-	mustWriteFile(t, target, "---\nname: demo\ntools: [Read]\n---\nagent\n")
-	mustWriteFile(t, ".agnostic-ai/local/agents/demo.md", "---\nname: demo\ncan: [read]\n---\nlocal agent\n")
+	writeFile(t, target, "---\nname: demo\ntools: [Read]\n---\nagent\n")
+	writeFile(t, ".agnostic-ai/local/agents/demo.md", "---\nname: demo\ncan: [read]\n---\nlocal agent\n")
 	alias := filepath.Join(root, ".agnostic-ai", "agents", "demo.md")
 	if err := os.MkdirAll(filepath.Dir(alias), 0700); err != nil {
 		t.Fatal(err)
@@ -390,12 +390,12 @@ func TestGuidedUpgrade_ShadowedGlobalMCPRemainsWritableToRawPlanner(t *testing.T
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	t.Setenv("AGNOSTIC_AI_HOME", home)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	target := filepath.Join(home, "mcps", "demo.yaml")
 	const original = "name: demo\ncommand: server\nenv:\n  NODE_ENV: production\n"
-	mustWriteFile(t, target, original)
+	writeFile(t, target, original)
 	local := filepath.Join(root, ".agnostic-ai", "local", "mcps", "demo.yaml")
-	mustWriteFile(t, local, "name: demo\nenv:\n  NODE_ENV: !literal development\n")
+	writeFile(t, local, "name: demo\nenv:\n  NODE_ENV: !literal development\n")
 	alias := filepath.Join(root, ".agnostic-ai", "mcps", "demo.yaml")
 	if err := os.MkdirAll(filepath.Dir(alias), 0700); err != nil {
 		t.Fatal(err)
@@ -440,7 +440,7 @@ func TestGuidedUpgrade_InternalDirectoryAliasUsesPhysicalProjectIdentity(t *test
 	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
 	inside := filepath.Join(root, "sources")
 	if err := os.Mkdir(inside, 0700); err != nil {
 		t.Fatal(err)

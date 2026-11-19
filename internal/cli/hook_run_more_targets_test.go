@@ -108,8 +108,8 @@ func TestHookRun_OpenHandsSessionStartContextNeedsSyncHook(t *testing.T) {
 	}{{"sync", "", true}, {"async", "async: true\n", false}} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "ctx.yaml"), "name: ctx\nevent: SessionStart\n"+tc.async+"command: >-\n  printf '{\"additionalContext\":\"fixture fact\"}'\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "ctx.yaml"), "name: ctx\nevent: SessionStart\n"+tc.async+"command: >-\n  printf '{\"additionalContext\":\"fixture fact\"}'\n")
 			syncProject(t)
 			out, err := runHookRun(t, "ctx", "--target", "openhands", "--format", "json")
 			if err != nil {

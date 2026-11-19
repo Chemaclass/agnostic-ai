@@ -125,9 +125,9 @@ func TestImportAugmentPermissions_AcceptsJSONC(t *testing.T) {
 func TestImportAugment_ReadsDefaultModelAndEffort(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
 	native := `{"defaultModel":"sonnet-4","defaultThinkingLevel":"high"}`
-	mustWriteFile(t, ".augment/settings.json", native)
+	writeFile(t, ".augment/settings.json", native)
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)
@@ -154,9 +154,9 @@ func TestImportAugment_ReadsDefaultModelAndEffort(t *testing.T) {
 func TestImportAugment_KeepsAConflictingModelUnderXAugment(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/team.yaml", "model:\n  augment: opus-4\n")
-	mustWriteFile(t, ".augment/settings.json", `{"defaultModel":"sonnet-4"}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".agnostic-ai/settings/team.yaml", "model:\n  augment: opus-4\n")
+	writeFile(t, ".augment/settings.json", `{"defaultModel":"sonnet-4"}`)
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)
@@ -179,9 +179,9 @@ func TestImportAugment_KeepsAConflictingModelUnderXAugment(t *testing.T) {
 func TestImportAugment_DropsAModelOtherSpecsAlreadySet(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/team.yaml", "model: sonnet-4\n")
-	mustWriteFile(t, ".augment/settings.json", `{"defaultModel":"sonnet-4","toolPermissions":[{"toolName":"read","permission":{"type":"allow"}}]}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".agnostic-ai/settings/team.yaml", "model: sonnet-4\n")
+	writeFile(t, ".augment/settings.json", `{"defaultModel":"sonnet-4","toolPermissions":[{"toolName":"read","permission":{"type":"allow"}}]}`)
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)
@@ -196,8 +196,8 @@ func TestImportAugment_DropsAModelOtherSpecsAlreadySet(t *testing.T) {
 func TestImportAugment_ReadsAskUserRulesBack(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".augment/settings.json", `{"toolPermissions":[{"toolName":"write","permission":{"type":"ask-user"}},{"toolName":"read","permission":{"type":"allow"}}]}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".augment/settings.json", `{"toolPermissions":[{"toolName":"write","permission":{"type":"ask-user"}},{"toolName":"read","permission":{"type":"allow"}}]}`)
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)

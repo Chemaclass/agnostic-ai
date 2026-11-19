@@ -19,7 +19,7 @@ models:
 
 func writeTierAgent(t *testing.T, dir, name, model string) {
 	t.Helper()
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"),
 		"---\nname: "+name+"\ndescription: Reviews diffs.\nmodel: "+model+"\n---\n\nReview.\n")
 }
 
@@ -213,7 +213,7 @@ func TestSync_DropsASharedClaudeModelWhereTheNoteSaysItHasNoEffect(t *testing.T)
 	dir := budgetProject(t, "targets: [claude, codex, cursor]\n")
 	writeTierAgent(t, dir, "reviewer", "sonnet")
 	writeTierAgent(t, dir, "architect", "{claude: opus, default: fable}")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: opus\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: opus\n")
 	notes := &strings.Builder{}
 	adapters.SetWarner(notes)
 	t.Cleanup(func() { adapters.SetWarner(os.Stderr) })
@@ -241,7 +241,7 @@ func TestSync_DropsASharedClaudeModelWhereTheNoteSaysItHasNoEffect(t *testing.T)
 func TestSyncAndExplain_ResolveACodexModelAlias(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\nmodels:\n  strong: {claude: opus, codex: sol}\n")
 	writeTierAgent(t, dir, "architect", "strong")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {claude: sonnet, codex: luna}\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {claude: sonnet, codex: luna}\n")
 
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
@@ -280,9 +280,9 @@ func TestSyncAndExplain_ResolveCodexTerraAlias(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nmodels:\n  balanced: {codex: terra}\n")
 	writeTierAgent(t, dir, "reviewer", "balanced")
 	writeTierAgent(t, dir, "exact", "gpt-5.6-terra")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "literal.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "literal.md"),
 		"---\nname: literal\ndescription: Reviews diffs.\nmodel: balanced\nx-codex:\n  model: terra\n---\n\nReview.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {codex: terra}\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {codex: terra}\n")
 
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)

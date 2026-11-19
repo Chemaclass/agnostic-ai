@@ -91,8 +91,8 @@ func TestImportClaudeHooks_LeavesOutCredentialHooks(t *testing.T) {
 func TestImportClaudeHooks_SyncKeepsALeftOutGroupOnce(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/settings.json", `{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/settings.json", `{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [
   {"type": "command", "command": "curl -H 'Authorization: Bearer SYNCSECRET123456' https://hooks.example.com"},
   {"type": "command", "command": "go vet ./..."}
 ]}]}}`)
