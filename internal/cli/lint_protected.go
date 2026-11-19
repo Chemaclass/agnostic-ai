@@ -16,7 +16,7 @@ import (
 // only blocks the agent from the output while the source stays open.
 // Rendering every target costs a full capture, so it runs only when a
 // settings spec protects something.
-func lintProtectedPaths(scope checkScope) ([]lintFinding, error) {
+func lintProtectedPaths(scope checkScope) []lintFinding {
 	var groups []spec.ProtectGroup
 	var invalid []lintFinding
 	for _, entry := range scope.bundle.Settings {
@@ -27,10 +27,10 @@ func lintProtectedPaths(scope checkScope) ([]lintFinding, error) {
 		groups = append(groups, group...)
 	}
 	if len(invalid) > 0 {
-		return invalid, nil
+		return invalid
 	}
 	if len(groups) == 0 {
-		return nil, nil
+		return nil
 	}
 	written, failures := syncWrittenPaths(scope)
 	var findings []lintFinding
@@ -58,7 +58,7 @@ func lintProtectedPaths(scope checkScope) ([]lintFinding, error) {
 				Message: fmt.Sprintf("protected path %s covers %d file(s) sync writes (%s); sync regenerates them from .agnostic-ai/, so protect the source spec instead", pattern, len(covered), example)})
 		}
 	}
-	return findings, nil
+	return findings
 }
 
 type renderFailure struct {

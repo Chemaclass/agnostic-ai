@@ -345,7 +345,7 @@ func specPathForms(path string) []string {
 
 // relativeKey is abs in slash form, relative to wd when inside it.
 func relativeKey(wd, abs string) string {
-	if rel, err := filepath.Rel(wd, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if rel, inside := pathBelow(wd, abs); inside {
 		return filepath.ToSlash(rel)
 	}
 	return filepath.ToSlash(abs)
@@ -362,8 +362,8 @@ func underAny(path string, dirs []string) bool {
 		if err != nil {
 			return false
 		}
-		rel, err := filepath.Rel(base, abs)
-		return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+		rel, inside := pathBelow(base, abs)
+		return inside && rel != "."
 	})
 }
 

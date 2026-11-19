@@ -346,7 +346,7 @@ func (s migrationScope) keepInSpecRoots(changes []migrationChange) ([]migrationC
 			continue
 		}
 		if c.NewPath == "" {
-			c.realPath, _ = migrationRealPath(c.Path)
+			c.realPath, _ = realAbs(c.Path)
 		}
 		kept = append(kept, c)
 	}
@@ -366,7 +366,7 @@ func (s migrationScope) specRoots() ([]string, map[string]string) {
 	}
 	var roots []string
 	for _, dir := range []string{s.root, local} {
-		if real, err := migrationRealPath(dir); err == nil {
+		if real, err := realAbs(dir); err == nil {
 			roots = append(roots, real)
 		}
 	}
@@ -374,22 +374,12 @@ func (s migrationScope) specRoots() ([]string, map[string]string) {
 	for _, dir := range packDirs {
 		entries, _ := os.ReadDir(dir)
 		for _, e := range entries {
-			if real, err := migrationRealPath(filepath.Join(dir, e.Name())); err == nil {
+			if real, err := realAbs(filepath.Join(dir, e.Name())); err == nil {
 				packs[e.Name()] = real
 			}
 		}
 	}
 	return roots, packs
-}
-
-// migrationRealPath is path made absolute with every symlink resolved,
-// so a working directory reached through a symlink still compares equal.
-func migrationRealPath(path string) (string, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	return filepath.EvalSymlinks(abs)
 }
 
 // outsideSpecRoots returns the skip for a change whose file, or the
@@ -404,7 +394,7 @@ func (s migrationScope) outsideSpecRoots(c migrationChange, roots []string, pack
 		where = "the global home"
 	}
 	for _, path := range paths {
-		real, err := migrationRealPath(path)
+		real, err := realAbs(path)
 		if err != nil {
 			return migrationSkip{Path: c.Path, Reason: "cannot resolve its real path: " + err.Error()}, true
 		}
@@ -749,7 +739,7 @@ func writeMigrationChange(c migrationChange) error {
 	target := c.target()
 	if c.NewPath == "" {
 		// Writing the file a symlink resolves to keeps the symlink.
-		if target, err = migrationRealPath(c.Path); err != nil {
+		if target, err = realAbs(c.Path); err != nil {
 			return err
 		}
 		if c.realPath != "" && target != c.realPath {

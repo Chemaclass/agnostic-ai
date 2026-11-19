@@ -253,3 +253,28 @@ func TestImportFromClaude_NotesAKeptScopedSpecOnlyAfterAHandEdit(t *testing.T) {
 		t.Errorf("hand-edited agent kept the scoped spec without a note:\n%s", logs)
 	}
 }
+
+// A spec folder whose name starts with two dots is still inside the
+// project, so the note shows the path relative to it.
+func TestImportClaudeAgents_NotesARelativePathUnderADotDotFolder(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	logs := captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	spec := "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview the diff.\n"
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", spec)
+	execCLI(t, "sync")
+	native := readFile(t, ".claude/agents/reviewer.md")
+	writeFile(t, ".claude/agents/reviewer.md", native+"\nEdited by hand.\n")
+	agents := filepath.Join(dir, "..data", "agents")
+	writeFile(t, filepath.Join(agents, "reviewer.md"), spec)
+
+	if _, err := importClaudeAgents(dir, agents, defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	want := "note: " + filepath.Join("..data", "agents", "reviewer.md") + " keeps its scoped can:"
+	if !strings.Contains(logs.String(), want) {
+		t.Errorf("note must show the project-relative path:\n%s\nwant %q", logs, want)
+	}
+}

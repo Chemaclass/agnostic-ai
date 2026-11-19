@@ -64,7 +64,7 @@ func TestShouldPromptTargetSelection_TargetsNarrowed(t *testing.T) {
 }
 
 func TestSelectTargetsForSync_NonTTYNoData(t *testing.T) {
-	picked, err := selectTargetsForSync(bytes.NewReader(nil), &bytes.Buffer{}, nil)
+	picked, err := selectTargetsForSync(bytes.NewReader(nil), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestSelectTargetsForSync_NonTTYNoData(t *testing.T) {
 
 func TestSelectTargetsForSync_PipedReader(t *testing.T) {
 	in := strings.NewReader("claude,codex\n")
-	picked, err := selectTargetsForSync(in, &bytes.Buffer{}, nil)
+	picked, err := selectTargetsForSync(in, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestSelectTargetsForSync_PipedReader(t *testing.T) {
 
 func TestSelectTargetsForSync_PipedUnknownTarget(t *testing.T) {
 	in := strings.NewReader("claude,bogus\n")
-	_, err := selectTargetsForSync(in, &bytes.Buffer{}, nil)
+	_, err := selectTargetsForSync(in, nil)
 	if err == nil {
 		t.Error("expected error for unknown target")
 	}

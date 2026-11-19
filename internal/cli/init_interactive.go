@@ -145,7 +145,7 @@ func newTargetPicker(picked *[]string) *huh.MultiSelect[string] {
 // runInteractivePrompt drives the huh multi-select. It is glue around
 // the third-party widget; behavior is verified manually rather than
 // in unit tests. preselected names are pre-ticked on entry.
-func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, error) {
+func runInteractivePrompt(preselected []string) ([]string, error) {
 	picked := make([]string, 0, len(preselected))
 	known := map[string]bool{}
 	for _, n := range preselected {
@@ -322,8 +322,8 @@ func resolvedInside(root, resolved string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	rel, err := filepath.Rel(base, resolved)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	rel, inside := pathBelow(base, resolved)
+	if !inside {
 		return "", false
 	}
 	return rel, true
