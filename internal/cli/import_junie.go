@@ -104,7 +104,6 @@ func importFromJunie(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d ignores, %d settings, %d MCP servers (from junie)\n", c.rules, c.agents, c.skills, commands, ignores, settings, mcps)
-	printImportNextSteps(root, "junie")
 	return nil
 }
 
@@ -178,11 +177,7 @@ func importJunieAgents(root, dstDir string) (int, error) {
 // stripped, but every frontmatter key round-trips verbatim, the same
 // way importClaudeCommands handles Claude Code's own command folder.
 func importJunieCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, junieCommandsDir)
-	if !dirExists(src) {
-		return 0, nil
-	}
-	return copyMarkdownDir(src, dstDir)
+	return copyMarkdownDir(filepath.Join(root, junieCommandsDir), dstDir)
 }
 
 // importJunieAppendix extracts the sentinel-marked block bounded by

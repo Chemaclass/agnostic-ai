@@ -56,7 +56,6 @@ func importFromWarp(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n", rules, agents, skills, mcps)
-	printImportNextSteps(root, "warp")
 	return nil
 }
 

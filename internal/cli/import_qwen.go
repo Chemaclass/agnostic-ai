@@ -96,7 +96,6 @@ func importFromQwen(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d hooks, %d settings, %d ignores (from qwen)\n", rules, agents, skills, commands, mcps, hooks, settings, ignores)
-	printImportNextSteps(root, "qwen")
 	return nil
 }
 

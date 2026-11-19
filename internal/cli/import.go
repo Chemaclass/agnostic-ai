@@ -13,9 +13,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
-// rulesDirImporters holds sources handled by the flat rules importer.
-var rulesDirImporters = map[string]string{}
-
 // importSourceNames lists every source runImport dispatches. Both the
 // help text and multi-source validation read it, so the two cannot
 // disagree: when they were separate lists, `import antigravity codex`
@@ -31,9 +28,6 @@ var importSourceNames = []string{
 // help text and error messages.
 func importSources() string {
 	names := append([]string(nil), importSourceNames...)
-	for k := range rulesDirImporters {
-		names = append(names, k)
-	}
 	sort.Strings(names)
 	return strings.Join(names, ", ")
 }
@@ -102,22 +96,7 @@ func newImportCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("load config: %w", err)
 				}
-				if err := validateVibeMCPImport(".", cfg); err != nil {
-					return err
-				}
-				hooks := cfg.Outputs["vibe"].HooksFile
-				if hooks == "" {
-					hooks = ".vibe/hooks.toml"
-				}
-				doc, err := readVibeTOML(hooks)
-				if err != nil {
-					return err
-				}
-				records, err := nativeTOMLRecords(hooks, "hooks", doc["hooks"])
-				if err != nil {
-					return err
-				}
-				if err := validateImportedVibeHookNames(hooks, records); err != nil {
+				if err := validateVibeImport(".", cfg); err != nil {
 					return err
 				}
 			}
@@ -182,7 +161,13 @@ func runImport(root, source string, cfg *config.Config) error {
 	if err := runImportSource(root, source, cfg); err != nil {
 		return err
 	}
-	return importInlinedEntryPointRules(root, source, cfg)
+	if err := importInlinedEntryPointRules(root, source, cfg); err != nil {
+		return err
+	}
+	if source != "all" && len(importRunSources) == 0 {
+		printImportNextSteps(root, source)
+	}
+	return nil
 }
 
 // runImportSource dispatches to the per-source importer.
@@ -273,9 +258,6 @@ func runImportSource(root, source string, cfg *config.Config) error {
 	case "ellipsis":
 		return importFromEllipsis(root, src, cfg)
 	}
-	if srcDir, ok := rulesDirImporters[source]; ok {
-		return importFromRulesDir(root, source, srcDir, src)
-	}
 	return errs.Coded(errs.CodeImportFileUnknown,
 		"unknown source: %q (supported: %s, all)", source, importSources())
 }
@@ -295,6 +277,17 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 				"unknown source: %q (supported: %s, all)", s, importSources())
 		}
 	}
+	imported, err := importEach(root, sources, cfg)
+	if imported {
+		printImportNextSteps(root, sources...)
+	}
+	return err
+}
+
+// importEach imports from each source in order as one run, reports
+// whether at least one succeeded, and returns importFailedError naming
+// the ones that failed.
+func importEach(root string, sources []string, cfg *config.Config) (imported bool, err error) {
 	setImportRunSources(sources)
 	defer setImportRunSources(nil)
 	var failed []string
@@ -307,19 +300,16 @@ func runImportMany(root string, sources []string, cfg *config.Config) error {
 			failures = append(failures, err)
 		}
 	}
+	imported = len(failed) < len(sources)
 	if len(failed) > 0 {
-		return importFailedError(failed, failures)
+		return imported, importFailedError(failed, failures)
 	}
-	return nil
+	return imported, nil
 }
 
 // isKnownImportSource reports whether source is dispatched by runImport.
 func isKnownImportSource(source string) bool {
-	if slices.Contains(importSourceNames, source) {
-		return true
-	}
-	_, ok := rulesDirImporters[source]
-	return ok
+	return slices.Contains(importSourceNames, source)
 }
 
 // detectImportSources splits the targets detected under root into the
@@ -357,23 +347,12 @@ func importAll(root string, cfg *config.Config) error {
 		}
 		return nil
 	}
-	setImportRunSources(detected)
-	defer setImportRunSources(nil)
-	var failed []string
-	var failures []error
-	for _, t := range detected {
-		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
-		if err := runImport(root, t, cfg); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
-			failed = append(failed, t)
-			failures = append(failures, err)
-		}
-	}
+	imported, importErr := importEach(root, detected, cfg)
 	if _, err := foldRootAgentsMainFile(root); err != nil {
 		return err
 	}
-	if len(failed) > 0 {
-		return importFailedError(failed, failures)
+	if imported {
+		printImportNextSteps(root, detected...)
 	}
-	return nil
+	return importErr
 }

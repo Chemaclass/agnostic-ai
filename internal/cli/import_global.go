@@ -88,7 +88,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err := stageGlobalPermissions(home, stage, targets, bundle.Settings, state, warn); err != nil {
 		return err
 	}
-	if err := stageGlobalTOMLArrays(home, stage, targets, bundle, state, warn); err != nil {
+	if err := stageGlobalTOMLArrays(home, stage, targets, bundle, state); err != nil {
 		return err
 	}
 	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, state, warn); err != nil {
@@ -402,7 +402,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				}
 			}
 			if target == "grok" {
-				native, _, err := readGrokConfig(path)
+				native, err := readGrokConfig(path)
 				if err != nil {
 					return err
 				}

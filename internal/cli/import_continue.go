@@ -59,7 +59,6 @@ func importFromContinue(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
 		c.rules, c.agents, c.skills+skills, mcps)
-	printImportNextSteps(root, "continue")
 	return nil
 }
 

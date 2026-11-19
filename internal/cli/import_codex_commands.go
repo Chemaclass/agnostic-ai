@@ -13,9 +13,5 @@ const codexCommandsDir = ".codex/prompts"
 // every frontmatter key is preserved verbatim so a round-trip through emit
 // produces an identical file.
 func importCodexCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, codexCommandsDir)
-	if !dirExists(src) {
-		return 0, nil
-	}
-	return copyMarkdownDir(src, dstDir)
+	return copyMarkdownDir(filepath.Join(root, codexCommandsDir), dstDir)
 }

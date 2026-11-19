@@ -98,7 +98,6 @@ func importFromOpenhands(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d environments\n",
 		rules+skillRules, agents, skills, hooks, mcps, envs)
-	printImportNextSteps(root, "openhands")
 	return nil
 }
 

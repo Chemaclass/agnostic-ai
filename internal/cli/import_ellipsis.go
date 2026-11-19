@@ -55,7 +55,6 @@ func importFromEllipsis(root string, src config.Sources, cfg *config.Config) err
 	if err := importEllipsisEnvironment(root, src, cfg, environment); err != nil {
 		return err
 	}
-	printImportNextSteps(root, "ellipsis")
 	return nil
 }
 

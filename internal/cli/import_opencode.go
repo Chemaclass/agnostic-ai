@@ -108,7 +108,6 @@ func importFromOpencode(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d settings\n", rules, agents, skills, commands, mcps, settings)
-	printImportNextSteps(root, "opencode")
 	return nil
 }
 
@@ -125,11 +124,7 @@ func importOpencodeRules(root, dstDir string) (int, error) {
 // flat per-file surfaces `.opencode/agents/` (native subagents) and
 // `.opencode/commands/` (slash commands).
 func importOpencodeMarkdownDir(root, dir, dstDir string) (int, error) {
-	src := filepath.Join(root, dir)
-	if !dirExists(src) {
-		return 0, nil
-	}
-	return copyMarkdownDir(src, dstDir)
+	return copyMarkdownDir(filepath.Join(root, dir), dstDir)
 }
 
 // importOpencodeAgents copies `.opencode/agents/*.md` like

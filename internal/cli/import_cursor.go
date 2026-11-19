@@ -77,7 +77,6 @@ func importFromCursor(root string, src config.Sources) error {
 	}
 	environments := worktrees + cloud
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d reviews, %d ignores, %d environments\n", rules, agents, skills, commands, reviews, ignores, environments)
-	printImportNextSteps(root, "cursor")
 	return nil
 }
 

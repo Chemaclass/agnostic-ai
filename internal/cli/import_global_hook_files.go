@@ -57,7 +57,7 @@ func stageGlobalHookFiles(home, stage string, targets []string, have []spec.Entr
 					}
 					continue
 				}
-				if _, err := importGrokHookFile(path, filepath.Join(stage, "hooks")); err != nil {
+				if err := importGrokHookFile(path, filepath.Join(stage, "hooks")); err != nil {
 					return err
 				}
 			}

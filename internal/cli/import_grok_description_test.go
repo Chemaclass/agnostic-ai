@@ -51,7 +51,7 @@ func TestImportGrok_DescribedProjectServerRoundTrips(t *testing.T) {
 		t.Errorf("spec retains ignored description:\n%s", got)
 	}
 	execCLI(t, "sync", "-t", "grok")
-	native, _, err := readGrokConfig(path)
+	native, err := readGrokConfig(path)
 	if err != nil {
 		t.Fatal(err)
 	}

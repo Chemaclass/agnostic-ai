@@ -1,16 +1,8 @@
 package cli
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 // opencodeToolToPortable reverses the vocabulary the opencode adapter
@@ -48,39 +40,7 @@ var opencodeToolToPortable = map[string]string{
 // tool already merges `mcp` and `model` into, so a team that wrote a
 // policy before adopting agnostic-ai keeps it (#922).
 func importOpencodePermissions(root, dstDir string) (int, error) {
-	src := filepath.Join(root, opencodeMCPFile)
-	data, err := os.ReadFile(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
-	}
-	data, _ = adapters.StripJSONC(data)
-	var doc struct {
-		Permission map[string]json.RawMessage `json:"permission"`
-	}
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return 0, fmt.Errorf("parse %s: %w", src, err)
-	}
-
-	lists := map[string][]string{}
-	for _, tool := range sortedPermissionTools(doc.Permission) {
-		scope, known := opencodeToolToPortable[tool]
-		if !known {
-			continue
-		}
-		for pattern, action := range permissionToolRules(doc.Permission[tool]) {
-			if !isPortablePermissionList(action) {
-				continue
-			}
-			lists[action] = appendUnique(lists[action], portableOpencodeRule(scope, pattern))
-		}
-	}
-	for list := range lists {
-		sort.Strings(lists[list])
-	}
-	return writePermissionsSpec(dstDir, "permissions-opencode", lists)
+	return importPermissionMap(filepath.Join(root, opencodeMCPFile), opencodeToolToPortable, portableOpencodeRule, "permissions-opencode", dstDir)
 }
 
 // portableOpencodeRule composes the portable spelling for one tool and

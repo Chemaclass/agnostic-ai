@@ -93,7 +93,6 @@ func importFromCodebuddy(root string, cfg *config.Config) error {
 	if _, err := writeMCPYAMLs("codebuddy", servers, importSourcePath(root, src.MCPs)); err != nil {
 		return err
 	}
-	printImportNextSteps(root, "codebuddy")
 	return nil
 }
 func importCodebuddyInstructions(root, main, dir string, explicit bool, src config.Sources) error {

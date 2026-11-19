@@ -94,7 +94,7 @@ func heldInstructions(captured string) (string, error) {
 // with an importer, else codex for the root AGENTS.md, which it reads.
 func importSourceFor(f entryPointFile) string {
 	for _, r := range f.Readers {
-		if _, rulesDir := rulesDirImporters[r]; rulesDir || slices.Contains(importSourceNames, r) {
+		if slices.Contains(importSourceNames, r) {
 			return r
 		}
 	}

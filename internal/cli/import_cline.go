@@ -112,7 +112,6 @@ func importFromCline(root string, src config.Sources) error {
 		c.skills += folderSkills
 	}
 	summaryf("imported %d rules, %d agents, %d skills (from cline)\n", c.rules, c.agents, c.skills)
-	printImportNextSteps(root, "cline")
 	return nil
 }
 

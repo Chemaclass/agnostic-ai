@@ -42,7 +42,15 @@ var kiloToolToPortable = map[string]string{
 // (kilo.ai/docs/getting-started/settings/auto-approving-actions), so a
 // team that wrote one before adopting agnostic-ai keeps it (#890).
 func importKiloPermissions(root, dstDir string) (int, error) {
-	src := filepath.Join(root, "kilo.jsonc")
+	return importPermissionMap(filepath.Join(root, "kilo.jsonc"), kiloToolToPortable, portableKiloRule, "permissions-kilo", dstDir)
+}
+
+// importPermissionMap reads the `permission` map of the JSON or JSONC
+// file at src, keeps the tools toolToPortable names and the actions
+// that name a portable list, spells each pattern with rule, and writes
+// the lists as the Settings spec specName. A missing file writes
+// nothing.
+func importPermissionMap(src string, toolToPortable map[string]string, rule func(scope, pattern string) string, specName, dstDir string) (int, error) {
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -59,7 +67,7 @@ func importKiloPermissions(root, dstDir string) (int, error) {
 	}
 	lists := map[string][]string{}
 	for _, tool := range sortedPermissionTools(doc.Permission) {
-		scope, known := kiloToolToPortable[tool]
+		scope, known := toolToPortable[tool]
 		if !known {
 			continue
 		}
@@ -67,16 +75,16 @@ func importKiloPermissions(root, dstDir string) (int, error) {
 			if !isPortablePermissionList(action) {
 				continue
 			}
-			lists[action] = appendUnique(lists[action], portableKiloRule(scope, pattern))
+			lists[action] = appendUnique(lists[action], rule(scope, pattern))
 		}
 	}
 	for list := range lists {
 		sort.Strings(lists[list])
 	}
-	return writePermissionsSpec(dstDir, "permissions-kilo", lists)
+	return writePermissionsSpec(dstDir, specName, lists)
 }
 
-// kiloToolRules normalizes one tool's value into pattern-to-action
+// permissionToolRules normalizes one tool's value into pattern-to-action
 // pairs. Kilo accepts both shapes: "You can write each permission as
 // one action for the whole tool or as a pattern map".
 func permissionToolRules(raw json.RawMessage) map[string]string {
@@ -118,7 +126,7 @@ func isPortablePermissionList(action string) bool {
 	return false
 }
 
-// sortedKiloTools returns the permission map's tool keys in a stable
+// sortedPermissionTools returns the permission map's tool keys in a stable
 // order so two imports of the same file produce the same spec.
 func sortedPermissionTools(m map[string]json.RawMessage) []string {
 	out := make([]string, 0, len(m))

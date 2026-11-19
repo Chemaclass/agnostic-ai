@@ -313,7 +313,6 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores, %d settings (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps, ignores, settings)
-	printImportNextSteps(root, "windsurf")
 	return nil
 }
 

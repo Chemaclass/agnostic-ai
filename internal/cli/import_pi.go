@@ -56,7 +56,6 @@ func importFromPi(root string, cfg *config.Config) error {
 		return err
 	}
 	summaryf("imported %d rules, %d skills, %d commands, %d mcps, %d settings (from pi)\n", rules, skills, commands, mcps, settings)
-	printImportNextSteps(root, "pi")
 	return nil
 }
 

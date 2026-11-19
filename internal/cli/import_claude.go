@@ -132,7 +132,6 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if err := resolveClaudeNativeRefs(root, src, layout, stopTracking()); err != nil {
 		return err
 	}
-	printImportNextSteps(root, "claude")
 	return nil
 }
 
@@ -469,9 +468,12 @@ func renderedViewIs(cfg *config.Config, bundle spec.Bundle, srcName, source, bod
 // copyMarkdownDir copies every top-level *.md file from srcDir into
 // dstDir. Subdirectories and non-.md entries are skipped. The
 // agnostic-ai provenance header (when present) is stripped so a
-// roundtrip does not carry it back into source specs. Caller must
-// ensure srcDir exists.
+// roundtrip does not carry it back into source specs. A missing srcDir
+// copies nothing.
 func copyMarkdownDir(srcDir, dstDir string) (int, error) {
+	if !dirExists(srcDir) {
+		return 0, nil
+	}
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", srcDir, err)

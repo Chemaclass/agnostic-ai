@@ -42,7 +42,6 @@ func importFromAmp(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n", rules, agents, skills, mcps)
-	printImportNextSteps(root, "amp")
 	return nil
 }
 
@@ -61,11 +60,7 @@ func importAmpRules(root, dstDir string) (int, error) {
 // specs is how they reach every other target. On a migrated project the
 // directory is absent and this is a no-op.
 func importAmpCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, ampCommandsDir)
-	if !dirExists(src) {
-		return 0, nil
-	}
-	return copyMarkdownDir(src, dstDir)
+	return copyMarkdownDir(filepath.Join(root, ampCommandsDir), dstDir)
 }
 
 // importAmpMCP reads `.amp/settings.json` and writes one yaml per
