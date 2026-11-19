@@ -395,6 +395,44 @@ test('a notice shown and dismissed while an open was still opening does not drop
   await expectLateFailure(page)
 })
 
+type HeldOpens = Window & { releaseOpens: () => void; inboxesHandled: number }
+
+/** Holds the page's view of each /api/open answer until releaseOpens, and counts the inbox events the page handled. */
+function holdOpenAnswers() {
+  const held: (() => void)[] = []
+  const page = window as unknown as HeldOpens
+  page.releaseOpens = () => held.splice(0).forEach((release) => release())
+  page.inboxesHandled = 0
+  const fetchFirst = window.fetch
+  window.fetch = async (input, init) => {
+    const response = await fetchFirst(input, init)
+    if (String(input).endsWith('/api/open')) await new Promise<void>((resolve) => held.push(resolve))
+    return response
+  }
+  const listen = EventSource.prototype.addEventListener
+  EventSource.prototype.addEventListener = function (this: EventSource, type: string, listener: EventListener, options?: boolean | AddEventListenerOptions) {
+    if (type !== 'message') return listen.call(this, type, listener, options)
+    listen.call(this, type, (event: Event) => {
+      listener.call(this, event)
+      if (JSON.parse((event as MessageEvent).data).name === 'inbox') page.inboxesHandled += 1
+    }, options)
+  } as typeof listen
+}
+
+test('a late open failure that lands before the panel read its open\'s answer still shows', async ({ page }) => {
+  await page.addInitScript(holdOpenAnswers)
+  await openArchived(page, 'late-open-failure')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Tidy the old branches').click()
+  expect((await answer).status()).toBe(202)
+  const handled = await page.evaluate(() => (window as unknown as HeldOpens).inboxesHandled)
+
+  await settleLateOpen(page)
+  await page.waitForFunction((before) => (window as unknown as HeldOpens).inboxesHandled > before, handled)
+  await page.evaluate(() => (window as unknown as HeldOpens).releaseOpens())
+  await expectLateFailure(page)
+})
+
 test('a dismissed late open failure stays gone', async ({ page }) => {
   await openSlowly(page)
   await settleLateOpen(page)
