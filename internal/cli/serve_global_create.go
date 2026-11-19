@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -93,9 +92,8 @@ func (h *globalCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req globalCreateRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
+	// A value after the object has never been refused here.
+	if err := decodeOneJSON(w, r, 1<<10, &req); err != nil && !errors.Is(err, errExtraJSONValue) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a JSON body such as {\"git\": true}"})
 		return
 	}

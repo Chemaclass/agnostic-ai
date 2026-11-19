@@ -215,7 +215,8 @@ func checkConversationTool(w http.ResponseWriter, tool conversations.Tool) bool 
 // readConversationRequest decodes one conversation request of at most
 // limit bytes, answering 400 with usage for a body it cannot read.
 func readConversationRequest[T interface{ tool() conversations.Tool }](w http.ResponseWriter, r *http.Request, limit int64, usage string) (T, bool) {
-	req, err := decodeOneJSON[T](w, r, limit)
+	var req T
+	err := decodeOneJSON(w, r, limit, &req)
 	return req, conversationRequestOK(w, req, err, usage)
 }
 
@@ -288,7 +289,8 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	tooLarge := func(size string) {
 		writeEditJSON(w, http.StatusRequestEntityTooLarge, editError{Error: fmt.Sprintf("The text is %s the %d KB a send takes, so nothing was typed.", size, conversations.MaxSendBytes>>10)})
 	}
-	req, err := decodeOneJSON[conversationSendRequest](w, r, maxConversationSendBytes)
+	var req conversationSendRequest
+	err := decodeOneJSON(w, r, maxConversationSendBytes, &req)
 	var overLimit *http.MaxBytesError
 	if errors.As(err, &overLimit) {
 		tooLarge("over")
