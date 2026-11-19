@@ -179,6 +179,7 @@ func TestRemoveAgentsCompanion(t *testing.T) {
 			name: "capture", agents: generated, claude: "@AGENTS.md\n", wantKept: true,
 			before: func(s *Session) { s.StartCapture() },
 			after: func(t *testing.T, s *Session) {
+				t.Helper()
 				s.StopCapture()
 				if got := s.CapturedRemovals(); len(got) != 1 || got[0].Path != filepath.FromSlash("services/api/CLAUDE.md") {
 					t.Errorf("CapturedRemovals() = %v, want the companion", got)
@@ -189,6 +190,7 @@ func TestRemoveAgentsCompanion(t *testing.T) {
 			name: "rollback", agents: generated, claude: "@AGENTS.md\n", wantKept: true,
 			before: func(s *Session) { s.StartTransaction() },
 			after: func(t *testing.T, s *Session) {
+				t.Helper()
 				if err := s.Rollback(); err != nil {
 					t.Fatal(err)
 				}

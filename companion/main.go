@@ -304,10 +304,9 @@ func (s *shell) quit() {
 	s.endOnce.Do(s.end)
 }
 
-// comeBack puts a hidden or faded companion back at full color. It
-// reports whether it was hidden or faded.
-func (s *shell) comeBack() bool {
-	return s.setPresence(shown)
+// comeBack puts a hidden or faded companion back at full color.
+func (s *shell) comeBack() {
+	s.setPresence(shown)
 }
 
 // secondStart answers a companion started while this one runs, which

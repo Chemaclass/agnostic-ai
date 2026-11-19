@@ -132,6 +132,7 @@ func TestSyncJSON_FailedWorktreeIncludeKeepsNewAndRestoredPathsIgnored(t *testin
 // the message names it once.
 func TestIgnoreFileErrorsNameTheFileOnce(t *testing.T) {
 	runSync := func(t *testing.T) error {
+		t.Helper()
 		_, err := runCLI(t, "sync")
 		return err
 	}

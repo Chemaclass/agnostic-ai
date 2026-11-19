@@ -209,11 +209,12 @@ func TestSyncPreviews_WithoutLedgerAgreeWithSync(t *testing.T) {
 func TestSync_PartialRunWithoutLedgerRecordsLeftovers(t *testing.T) {
 	for name, partialSync := range map[string]func(t *testing.T){
 		"text": func(t *testing.T) {
+			t.Helper()
 			if err := runSyncOnce(".", []string{"codex"}, false, false, "off", 1); err != nil {
 				t.Fatal(err)
 			}
 		},
-		"json": func(t *testing.T) { runSyncJSONArgs(t, "--json", "--only", "codex") },
+		"json": func(t *testing.T) { t.Helper(); runSyncJSONArgs(t, "--json", "--only", "codex") },
 	} {
 		t.Run(name, func(t *testing.T) {
 			lostLedgerProjectFor(t, "codex, claude")

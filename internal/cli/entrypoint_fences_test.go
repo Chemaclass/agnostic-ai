@@ -119,7 +119,7 @@ func TestWriteAgnosticEntryPoints_SourceKeepsFences(t *testing.T) {
 	writeAgnosticFile(t, body)
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -142,7 +142,7 @@ func TestCollectEntryPointDrift_UnfencedTripleTrailingNewline_NoDrift(t *testing
 	writeAgnosticFile(t, "Shared.\n\n\n")
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

@@ -244,9 +244,11 @@ func TestDelete_RefusesWhatThisServerDoesNotList(t *testing.T) {
 func TestDelete_RefusesARunningSessionEvenWhenArchived(t *testing.T) {
 	for name, start := range map[string]func(t *testing.T, stores Stores){
 		"an idle process holds it": func(t *testing.T, stores Stores) {
+			t.Helper()
 			writeClaudeProcess(t, stores, 4242, idSafari, "idle")
 		},
 		"a background job holds it": func(t *testing.T, stores Stores) {
+			t.Helper()
 			write(t, filepath.Join(stores.ClaudeDir, "jobs", "5f12e206", "state.json"), `{"sessionId":"`+idSafari+`","state":"idle"}`)
 		},
 	} {
@@ -870,9 +872,11 @@ func TestDelete_RefusesASessionWrittenAfterThePersonsLastLook(t *testing.T) {
 func TestDelete_RefusesARunningDormantSession(t *testing.T) {
 	for name, start := range map[string]func(t *testing.T, stores Stores){
 		"an idle process holds it": func(t *testing.T, stores Stores) {
+			t.Helper()
 			writeClaudeProcess(t, stores, 4242, idSafari, "idle")
 		},
 		"a background job holds it": func(t *testing.T, stores Stores) {
+			t.Helper()
 			write(t, filepath.Join(stores.ClaudeDir, "jobs", "5f12e206", "state.json"), `{"sessionId":"`+idSafari+`","state":"idle"}`)
 		},
 	} {

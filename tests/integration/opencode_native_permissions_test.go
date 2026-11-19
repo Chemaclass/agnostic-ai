@@ -12,7 +12,7 @@ func TestOpencodeNativePermissions_SyncImportSyncKeepsLimits(t *testing.T) {
 	binary := builtBinary(t)
 	dir := t.TempDir()
 	home := t.TempDir()
-	run := func(args ...string) string {
+	run := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(binary, args...)
 		cmd.Dir = dir
@@ -21,7 +21,6 @@ func TestOpencodeNativePermissions_SyncImportSyncKeepsLimits(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
-		return string(out)
 	}
 	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [opencode]\n"), 0o644))
 	project := `{"permissions":[{"action":"r*","resource":"private/*","effect":"ask"},{"action":"read","resource":"secrets/*","effect":"deny"}]}`

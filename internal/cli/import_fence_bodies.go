@@ -19,7 +19,7 @@ import (
 // `::target <name>` / `::end` block. Identical bodies pass through
 // unchanged; if one side is empty the other ends up wholly inside a
 // fence.
-func fenceDivergent(claudeBody, codexBody, claudeName, codexName string) string {
+func fenceDivergent(claudeBody, codexBody, claudeName, codexName string) string { //nolint:unparam // the fence target names stay at the call site, beside their bodies
 	if claudeBody == codexBody {
 		return claudeBody
 	}

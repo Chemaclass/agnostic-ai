@@ -223,7 +223,7 @@ func seedPersonalList(data []byte, key string, teamList []string, inherited stri
 	if len(bytes.TrimSpace(data)) == 0 && inherited != "" {
 		data = []byte("memory:\n  personal: " + inherited + "\n")
 	}
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +540,7 @@ func (h *editHandler) matchesShownSpec(e spec.Entry, shown string) bool {
 // and the parent keys it leaves empty, then checks that nothing else
 // changed.
 func removeYAMLPath(data []byte, key string) ([]byte, error) {
-	_, parent, err := yamlDocument(data)
+	parent, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}

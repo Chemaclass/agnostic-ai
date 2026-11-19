@@ -291,13 +291,13 @@ func (work *claudeWork) count() int {
 	return count
 }
 
-func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) (*int, []string) {
-	work, watch := s.claudeWorkOf(file, session)
+func (s *Scanner) claudeWorkingSubagents(file string, session liveSession) *int {
+	work, _ := s.claudeWorkOf(file, session)
 	if work == nil {
-		return nil, watch
+		return nil
 	}
 	count := work.count()
-	return &count, watch
+	return &count
 }
 
 // claudeWorkOf reads a live session's task events, and those of its

@@ -236,6 +236,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}{
 			{name: "native-git-rejects-shell-paths", relativeGit: true},
 			{name: "external-shared-store", prepare: func(t *testing.T, main, store string) {
+				t.Helper()
 				external := t.TempDir()
 				handoffGit(t, external, "init")
 				handoffWrite(t, filepath.Join(external, ".gitignore"), "*\n")
@@ -248,6 +249,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				}
 			}},
 			{name: "parent-tracked-note-with-nested-git", prepare: func(t *testing.T, main, store string) {
+				t.Helper()
 				handoffWrite(t, filepath.Join(store, "feat-probe.auto.md"), protected)
 				handoffGit(t, main, "add", "-f", "--", ".agnostic-ai/local/handoffs/feat-probe.auto.md")
 				handoffGit(t, store, "init")
@@ -1649,6 +1651,7 @@ func handoffSetenv(t *testing.T, key, value string) {
 // handoffEnviron returns the process environment with the values that t
 // and its parent tests set through handoffSetenv; the innermost test wins.
 func handoffEnviron(t *testing.T) []string {
+	t.Helper()
 	var scopes []string
 	for name := t.Name(); ; {
 		scopes = append(scopes, name)

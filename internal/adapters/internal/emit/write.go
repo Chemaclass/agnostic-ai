@@ -121,7 +121,7 @@ func ReadFile(path string) ([]byte, error) {
 // contention is between the OS and two threads, not over shared program
 // state, and serializing every directory creation would cost parallelism
 // on every sync to paper over a failure that resolves in microseconds.
-func mkdirAll(dir string, perm os.FileMode) error {
+func mkdirAll(dir string, perm os.FileMode) error { //nolint:unparam // perm names the mode at each call, like os.MkdirAll
 	var err error
 	delay := time.Millisecond
 	for attempt := 0; attempt < 5; attempt++ {

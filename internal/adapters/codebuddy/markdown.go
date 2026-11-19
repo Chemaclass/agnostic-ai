@@ -21,13 +21,13 @@ var toolTable = emit.ToolCapabilityTable{
 
 func (Adapter) ToolCapabilities() emit.ToolCapabilityTable { return toolTable }
 func (Adapter) TranslateAgentCapability(rule string) ([]string, bool) {
-	if server, _, ok := mcpRuleParts(rule); ok && server != "*" || nativeTool(rule) {
+	if server, ok := mcpRuleParts(rule); ok && server != "*" || nativeTool(rule) {
 		return []string{rule}, true
 	}
 	return nil, false
 }
 func (Adapter) TranslatePermission(list string, rule string) ([]string, bool) {
-	if server, _, ok := mcpRuleParts(rule); ok {
+	if server, ok := mcpRuleParts(rule); ok {
 		if server != "*" || list == "deny" || list == "ask" {
 			return []string{rule}, true
 		}
@@ -44,27 +44,27 @@ func nativeTool(name string) bool {
 	return slices.Contains([]string{"Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebFetch", "WebSearch"}, name)
 }
 
-func mcpRuleParts(rule string) (string, string, bool) {
+func mcpRuleParts(rule string) (string, bool) {
 	name, ok := strings.CutPrefix(rule, "mcp__")
 	if !ok {
-		return "", "", false
+		return "", false
 	}
 	parts := strings.Split(name, "__")
 	if len(parts) > 2 {
-		return "", "", false
+		return "", false
 	}
 	for _, part := range parts {
 		if part == "" || part != "*" && strings.ContainsAny(part, "*?[]() \t\r\n") {
-			return "", "", false
+			return "", false
 		}
 	}
 	if len(parts) == 1 {
-		return parts[0], "", true
+		return parts[0], true
 	}
 	if parts[0] == "*" {
-		return "", "", false
+		return "", false
 	}
-	return parts[0], parts[1], true
+	return parts[0], true
 }
 func validateAgentTools(agents []spec.Entry) error {
 	for _, a := range agents {

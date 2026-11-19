@@ -238,8 +238,8 @@ func collectDriftWithLedger(targets, entryPointTargets []string, gitignoreFlag s
 
 // collectLoadedDrift is collectDriftWithLedger for a project the
 // caller already loaded. It leaves cfg unchanged.
-func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
-	return collectLoadedDriftWith(readLedger("."), loaded, b, targets, entryPointTargets, gitignoreFlag)
+func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets []string, gitignoreFlag string) ([]driftReport, error) {
+	return collectLoadedDriftWith(readLedger("."), loaded, b, targets, nil, gitignoreFlag)
 }
 
 func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {

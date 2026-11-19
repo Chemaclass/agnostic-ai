@@ -1384,7 +1384,7 @@ func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
 	config := "version: 1\nbuiltins: [handoff, handoff-hook]\ntargets: [factory]\ngitignore:\n  enabled: true\n"
 	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
 	path := filepath.Join(linked, ".factory/settings.local.json")
-	run := func(args ...string) string {
+	run := func(args ...string) {
 		t.Helper()
 		cmd := handoffCommand(home, binary, args...)
 		cmd.Dir = linked
@@ -1392,7 +1392,6 @@ func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output)
 		}
-		return string(output)
 	}
 	run("sync")
 	created := handoffRead(t, path)

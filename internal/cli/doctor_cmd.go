@@ -384,7 +384,7 @@ func reportDoctorDrift(cmd *cobra.Command, opts doctorOptions, cfg *config.Confi
 			return doctorDrift{}, err
 		}
 	}
-	reports, err := collectLoadedDrift(cfg, bundle, opts.targets, nil, "")
+	reports, err := collectLoadedDrift(cfg, bundle, opts.targets, "")
 	if err != nil {
 		return doctorDrift{}, err
 	}

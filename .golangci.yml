@@ -48,6 +48,9 @@ linters:
     - reassign
     - fatcontext
     - exptostd
+    - unparam
+    - thelper
+    - usetesting
   settings:
     govet:
       enable-all: true
@@ -67,6 +70,24 @@ linters:
       severity: warning
   exclusions:
     generated: lax
+    rules:
+      # Test helpers keep a fixed argument at each call so every test reads
+      # on its own.
+      - path: _test\.go
+        linters:
+          - unparam
+        text: always receives
+      # Functions take the project root explicitly; every caller runs at the
+      # root today, so the value is always ".".
+      - linters:
+          - unparam
+        text: ' - (root|projectRoot) always receives "\."'
+      # goos is runtime.GOOS, so it looks constant only on Linux; a nolint
+      # there would be unused on the other systems.
+      - path: internal/cli/companion_stop\.go
+        linters:
+          - unparam
+        text: stopCompanionCommand - goos always receives
 
 formatters:
   enable:

@@ -189,6 +189,7 @@ func byID(t *testing.T, view View, id string) Conversation {
 }
 
 func writeClaudeSessions(t *testing.T, stores Stores) {
+	t.Helper()
 	project := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app")
 	write(t, filepath.Join(project, idSafari+".jsonl"), lines(
 		obj{"type": "user", "cwd": "/tmp/app", "gitBranch": "main", "entrypoint": "cli", "timestamp": "2026-11-07T08:00:00.000Z",
@@ -341,6 +342,7 @@ func TestScan_RoutesAClaudeBackgroundJobToAttach(t *testing.T) {
 
 // fakeStores answers queries by database file name and a word of the query.
 func fakeStores(t *testing.T, answers map[string]string) SQLiteQuery {
+	t.Helper()
 	return func(_ context.Context, path, query string) ([]json.RawMessage, error) {
 		for key, rows := range answers {
 			file, word, _ := strings.Cut(key, "|")

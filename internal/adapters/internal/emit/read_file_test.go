@@ -26,7 +26,7 @@ func TestReadFileWaitsForSharedWrite(t *testing.T) {
 	t.Run("windows extended path", func(t *testing.T) { testReadFileWaitsForSharedWrite(t, "windows-extended") })
 }
 
-func testReadFileWaitsForSharedWrite(t *testing.T, alias string) {
+func testReadFileWaitsForSharedWrite(t *testing.T, alias string) { //nolint:thelper // subtest body, not a helper
 	root := t.TempDir()
 	if alias == "relative" || alias == "other-output" {
 		testutil.Chdir(t, root)

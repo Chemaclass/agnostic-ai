@@ -343,15 +343,12 @@ func sectionBodyEnd(lines []string, i int) int {
 }
 
 // writeAgentMD writes an agent spec to path with a name + optional
-// description and tags frontmatter, followed by body.
-func writeAgentMD(path, name, description string, tags []string, body string) error {
+// description frontmatter, followed by body.
+func writeAgentMD(path, name, description, body string) error {
 	var sb strings.Builder
 	sb.WriteString("---\nname: " + name + "\n")
 	if description != "" {
 		sb.WriteString(yamlFrontmatterLine("description", description))
-	}
-	if len(tags) > 0 {
-		sb.WriteString("tags: [" + strings.Join(tags, ", ") + "]\n")
 	}
 	sb.WriteString("---\n\n")
 	sb.WriteString(strings.TrimRight(body, "\n"))

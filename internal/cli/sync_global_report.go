@@ -201,7 +201,7 @@ func globalDrift(cmd *cobra.Command, writes []globalWrite, removals []string, st
 		if have == want {
 			have, want = string(data), string(w.data)
 		}
-		if _, werr := fmt.Fprint(out, unifiedDiff(w.path, have, want, diffBodyMax)); werr != nil {
+		if _, werr := fmt.Fprint(out, unifiedDiff(w.path, have, want)); werr != nil {
 			return nil, fmt.Errorf("write global diff: %w", werr)
 		}
 	}

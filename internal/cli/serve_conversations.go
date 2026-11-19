@@ -221,10 +221,10 @@ func checkConversationTool(w http.ResponseWriter, tool conversations.Tool) bool 
 }
 
 // readConversationRequest decodes one conversation request of at most
-// limit bytes into req, answering 400 with usage for a body it cannot
-// read.
-func readConversationRequest(w http.ResponseWriter, r *http.Request, limit int64, usage string, req interface{ tool() conversations.Tool }) bool {
-	return conversationRequestOK(w, req, decodeOneJSON(w, r, limit, req), usage)
+// maxConversationOpenBytes into req, answering 400 with usage for a body
+// it cannot read.
+func readConversationRequest(w http.ResponseWriter, r *http.Request, usage string, req interface{ tool() conversations.Tool }) bool {
+	return conversationRequestOK(w, req, decodeOneJSON(w, r, maxConversationOpenBytes, req), usage)
 }
 
 // conversationRequestOK answers 400 and is false when a decoded request
@@ -255,7 +255,7 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	deadline := time.Now().Add(h.openReplyWait)
 	_ = http.NewResponseController(w).SetWriteDeadline(deadline)
 	var req conversationOpenRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, editor, helper}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id, editor, helper}", &req) {
 		return
 	}
 	if req.Helper != "" && !conversations.ValidAgentID(req.Helper) {
@@ -347,7 +347,7 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req conversationMarkRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, as}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id, as}", &req) {
 		return
 	}
 	if !conversations.KnownMark(req.As) {
@@ -376,7 +376,7 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req conversationRenameRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, title}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id, title}", &req) {
 		return
 	}
 	title, err := conversations.CleanTitle(req.Title)
@@ -471,7 +471,7 @@ func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req conversationDeleteRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id}", &req) {
 		return
 	}
 	reply, err := h.scanner.Delete(r.Context(), req.Tool, req.ID, h.scanOptions(""))

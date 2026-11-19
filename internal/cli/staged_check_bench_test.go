@@ -250,6 +250,7 @@ func applyStagedCheckCase(tb testing.TB, root, scenario string) {
 	}
 }
 
+//nolint:usetesting // restores the directory before returning, since benchmark loops call it many times
 func runStagedCheckCommand(tb testing.TB, root string, args ...string) error {
 	tb.Helper()
 	cwd, err := os.Getwd()

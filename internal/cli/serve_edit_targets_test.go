@@ -11,13 +11,13 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func targetsProject(t *testing.T, body string) (string, http.Handler) {
+func targetsProject(t *testing.T, body string) http.Handler {
 	t.Helper()
 	silence(t)
 	root := t.TempDir()
 	testutil.Chdir(t, root)
 	mustWrite(t, "agnostic-ai.yaml", body)
-	return root, newEditHandler(root, false)
+	return newEditHandler(root, false)
 }
 
 func TestEditTargets_SwitchesTheSharedListAndKeepsComments(t *testing.T) {
@@ -34,7 +34,7 @@ func TestEditTargets_SwitchesTheSharedListAndKeepsComments(t *testing.T) {
 		{"external name is kept", "version: 1\ntargets: [claude, mytool]\n", `{"audience":"shared","name":"codex","enabled":true,"expected":false}`, "version: 1\ntargets: [claude, mytool, codex]\n", http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, h := targetsProject(t, tc.config)
+			h := targetsProject(t, tc.config)
 			rec := postEdit(t, h, editTargetsPath, tc.body, nil)
 			if rec.Code != tc.status {
 				t.Fatalf("status = %d, want %d: %s", rec.Code, tc.status, rec.Body)
@@ -47,7 +47,7 @@ func TestEditTargets_SwitchesTheSharedListAndKeepsComments(t *testing.T) {
 }
 
 func TestEditTargets_NoKeyWritesTheDefaultListWithTheSwitchApplied(t *testing.T) {
-	_, h := targetsProject(t, "# Head.\nversion: 1\n")
+	h := targetsProject(t, "# Head.\nversion: 1\n")
 	rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"cursor","enabled":false,"expected":true}`, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
@@ -68,7 +68,7 @@ func TestEditTargets_NoKeyWritesTheDefaultListWithTheSwitchApplied(t *testing.T)
 }
 
 func TestEditTargets_PersonalSeedsReplacesAndResets(t *testing.T) {
-	_, h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
+	h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
 	if rec := postEdit(t, h, editTargetsPath, `{"audience":"personal","name":"codex","enabled":false,"expected":true}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("personal off = %d %s", rec.Code, rec.Body)
 	}
@@ -94,7 +94,7 @@ func TestEditTargets_PersonalSeedsReplacesAndResets(t *testing.T) {
 }
 
 func TestEditTargets_PersonalResetDropsTheList(t *testing.T) {
-	_, h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
+	h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
 	if rec := postEdit(t, h, editTargetsPath, `{"audience":"personal","name":"codex","enabled":false,"expected":true}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("personal off = %d %s", rec.Code, rec.Body)
 	}
@@ -110,7 +110,7 @@ func TestEditTargets_PersonalResetDropsTheList(t *testing.T) {
 }
 
 func TestEditTargets_RefusesBadRequests(t *testing.T) {
-	_, h := targetsProject(t, "version: 1\ntargets: [claude]\n")
+	h := targetsProject(t, "version: 1\ntargets: [claude]\n")
 	for _, body := range []string{
 		`{"audience":"shared"}`,
 		`{"audience":"shared","name":"codex"}`,
@@ -146,7 +146,7 @@ func TestEditTargets_GlobalWritesTheHomeConfigAndRefusesProjectOnlyTools(t *test
 }
 
 func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
-	_, h := targetsProject(t, "version: 1\ntargets: [claude, mytool]\n")
+	h := targetsProject(t, "version: 1\ntargets: [claude, mytool]\n")
 	rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "keep at least one coding tool on") {
 		t.Errorf("project = %d, want 400 naming the rule: %s", rec.Code, rec.Body)
@@ -165,7 +165,7 @@ func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
 }
 
 func TestEditTargets_ResetIgnoresNamesThePanelDoesNotShow(t *testing.T) {
-	_, h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
+	h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
 	mustWrite(t, "agnostic-ai.local.yaml", "targets: [claude, mytool]\n")
 	rec := postEdit(t, h, editTargetsPath, `{"audience":"personal","reset":true,"expected":["claude"]}`, nil)
 	if rec.Code != http.StatusOK {
@@ -178,7 +178,7 @@ func TestEditTargets_ResetIgnoresNamesThePanelDoesNotShow(t *testing.T) {
 
 func TestEditTargets_OffThenOnRestoresAConfigWithNoTargetsKey(t *testing.T) {
 	const original = "# Head.\nversion: 1\n"
-	_, h := targetsProject(t, original)
+	h := targetsProject(t, original)
 	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"cursor","enabled":false,"expected":true}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("off = %d %s", rec.Code, rec.Body)
 	}

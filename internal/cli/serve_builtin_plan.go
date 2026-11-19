@@ -170,7 +170,7 @@ func (p *builtinPlanner) snapshotInputs(cfg *config.Config) error {
 	if p.cfg, p.bundle, err = loadProject("."); err != nil {
 		return err
 	}
-	if p.baseline, err = collectLoadedDrift(p.cfg, p.bundle, p.cfg.Targets, nil, ""); err != nil {
+	if p.baseline, err = collectLoadedDrift(p.cfg, p.bundle, p.cfg.Targets, ""); err != nil {
 		return err
 	}
 	return validateBuiltinOutputs(p.root, p.baseline, p.previous)
@@ -250,7 +250,7 @@ func (p *builtinPlanner) renderOutputs() error {
 	}
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
-	if p.reports, err = collectLoadedDrift(cfg, p.bundle, cfg.Targets, nil, ""); err != nil {
+	if p.reports, err = collectLoadedDrift(cfg, p.bundle, cfg.Targets, ""); err != nil {
 		return err
 	}
 	if err := validateBuiltinMemory(p.root, cfg, p.reports); err != nil {
