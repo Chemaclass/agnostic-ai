@@ -20,6 +20,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -917,26 +918,7 @@ func skillOverridesEditBlock(report *skillOverrideReport, data []byte) error {
 // replaceSettingsFile writes body beside path and renames it into place,
 // so a failed write never leaves the user's settings empty or cut short.
 func replaceSettingsFile(path string, body []byte, perm os.FileMode) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
-	if err != nil {
-		return fmt.Errorf("%s: %w", filepath.Dir(path), err)
-	}
-	name := tmp.Name()
-	defer func() { _ = os.Remove(name) }()
-	_, err = tmp.Write(body)
-	if closeErr := tmp.Close(); err == nil {
-		err = closeErr
-	}
-	if err == nil {
-		err = os.Chmod(name, perm)
-	}
-	if err != nil {
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	if err := os.Rename(name, path); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	return nil
+	return atomicfile.Replace(path, body, perm)
 }
 
 func rootKeyCount(data []byte, key string) (int, error) {

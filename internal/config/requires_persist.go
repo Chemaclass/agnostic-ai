@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 )
 
 type requiresEdit struct {
@@ -293,24 +295,5 @@ func requiresScalarEnd(line string, start int) (int, byte, error) {
 }
 
 func writeRequiresFile(path string, data []byte, mode fs.FileMode) error {
-	temp, err := os.CreateTemp(filepath.Dir(path), ".agnostic-ai-requires-*")
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	defer func() { _ = os.Remove(temp.Name()) }()
-	if _, err := temp.Write(data); err != nil {
-		_ = temp.Close()
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := temp.Chmod(mode); err != nil {
-		_ = temp.Close()
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := temp.Close(); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := os.Rename(temp.Name(), path); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	return nil
+	return atomicfile.Replace(path, data, mode)
 }

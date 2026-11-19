@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 )
 
 // ProcessInfo is one row of the process table.
@@ -610,20 +612,5 @@ func writeJSONFile(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	temp, err := os.CreateTemp(dir, filepath.Base(path)+"-*")
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	defer func() { _ = os.Remove(temp.Name()) }()
-	if _, err := temp.Write(append(data, '\n')); err != nil {
-		_ = temp.Close()
-		return fmt.Errorf("%s: %w", temp.Name(), err)
-	}
-	if err := temp.Close(); err != nil {
-		return fmt.Errorf("%s: %w", temp.Name(), err)
-	}
-	if err := os.Rename(temp.Name(), path); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	return nil
+	return atomicfile.Replace(path, append(data, '\n'), 0o600)
 }
