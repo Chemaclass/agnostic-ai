@@ -106,6 +106,7 @@ make test-shell
 | `BenchmarkSyncFull` | Run `sync` completely: write changed files, distribute entry points, update the generated-file record, and save state. Measures a repeat sync. |
 | `BenchmarkSyncCheck` | Run `--check` by rendering and comparing output with files that already match. |
 | `BenchmarkLoadProject` | Load the project once: parse the config, resolve the spec layers, and load every spec. One `sync` invocation loads the project once. |
+| `BenchmarkWatchResync` | One `sync --watch` event for a saved rule: the current path, which loads the project to pick targets, again in the pass, and parses the config to refresh the watch list, versus one load handed to the pass, and the pass alone over the same targets. |
 | `BenchmarkEntryPointRender` | Render entry-point content and remove identical copies across targets. |
 | `BenchmarkFolderFingerprint` | Calculate the content hash for a shared-skills folder (`folderFingerprint`). |
 | `BenchmarkCompare` | `compare claude codex` against a synced tree: every agent, skill, and rule emitted alone to both targets. |
