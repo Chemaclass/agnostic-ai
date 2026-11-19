@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"os/exec"
 	"slices"
 
@@ -116,6 +117,10 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
+		if dir, ok := enclosingWorkingProject(); ok {
+			cmd.Println("  Run agnostic-ai doctor from the project folder " + dir)
+			return
+		}
 		cmd.Println("  No agnostic-ai.yaml found. Run: agnostic-ai init")
 		return
 	}
@@ -223,4 +228,14 @@ func newDoctorInstallCmd() *cobra.Command {
 func doctorConfigOK() bool {
 	_, _, err := config.ResolveConfigPath(".")
 	return err == nil
+}
+
+// enclosingWorkingProject returns the project folder above the working
+// directory, if any.
+func enclosingWorkingProject() (string, bool) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", false
+	}
+	return enclosingProject(cwd)
 }

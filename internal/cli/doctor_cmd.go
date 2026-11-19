@@ -209,7 +209,11 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	cmd.Println()
 	cmd.Println("Config:")
 	if !configOK {
-		cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
+		if dir, ok := enclosingWorkingProject(); ok {
+			cmd.Println("  ✗ agnostic-ai.yaml not found here; this directory is inside the agnostic-ai project at " + dir)
+		} else {
+			cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
+		}
 		doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
 		return errDoctorNoConfig
 	}
