@@ -191,16 +191,43 @@ func TestWriteAgnosticEntryPoints_ClaudeOnlyRunStillImportsAgents(t *testing.T) 
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
+	claudeBody := func() string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(header.Strip(string(data)))
+	}
 
+	// With no AGENTS.md on disk, an import would leave Claude nothing.
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
 		t.Fatal(err)
 	}
-	claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
-	if err != nil || strings.TrimSpace(header.Strip(string(claude))) != "@AGENTS.md" {
-		t.Errorf("CLAUDE.md should import AGENTS.md (%v):\n%s", err, claude)
+	if got := claudeBody(); !strings.Contains(got, "My instructions.") {
+		t.Errorf("CLAUDE.md without AGENTS.md = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
 		t.Errorf("a claude-only run wrote AGENTS.md, err=%v", err)
+	}
+
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := claudeBody(); got != "@AGENTS.md" {
+		t.Errorf("CLAUDE.md with a current AGENTS.md = %q", got)
+	}
+
+	// A stale AGENTS.md would hide the new text from Claude.
+	writeAgnosticFile(t, "# Project\n\nNew instructions.\n")
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := claudeBody(); !strings.Contains(got, "New instructions.") {
+		t.Errorf("CLAUDE.md with a stale AGENTS.md = %q", got)
 	}
 }
 
@@ -215,12 +242,22 @@ func TestSyncCheck_TargetFilterMatchesFullSync(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"sync"}, {"sync", "--check", "-t", "claude"}, {"sync", "--check", "--only", "claude"}} {
+	run := func(args ...string) error {
 		root := NewRootCmd("test")
 		root.SetArgs(args)
-		if err := root.Execute(); err != nil {
+		return root.Execute()
+	}
+	for _, args := range [][]string{{"sync"}, {"sync", "--check", "-t", "claude"}, {"sync", "--check", "--only", "claude"}, {"sync", "-t", "claude"}, {"sync", "--check"}} {
+		if err := run(args...); err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
+	}
+
+	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte("Run tests.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("sync", "--check", "-t", "claude"); err == nil {
+		t.Error("sync --check -t claude passed with an edited AGNOSTIC_AI.md")
 	}
 }
 

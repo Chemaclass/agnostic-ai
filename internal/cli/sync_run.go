@@ -716,7 +716,7 @@ func planIgnoreFiles(root string, cfg *config.Config, b spec.Bundle, targets []s
 	for _, l := range shared.links {
 		recorded = append(recorded, l.path)
 	}
-	block, _, err := personalSplitBlock(root, cfg, renders, targets, recorded, ledger.missing())
+	block, _, err := plannedSplitBlock(root, cfg, renders, targets, recorded, ledger.missing())
 	if err != nil {
 		return plan, err
 	}
@@ -734,7 +734,7 @@ func planIgnoreFiles(root string, cfg *config.Config, b spec.Bundle, targets []s
 	for _, f := range files {
 		existing, updated, err := plannedIgnoreFile(filepath.Join(root, f.rel), f.render)
 		if err != nil {
-			return plan, fmt.Errorf("%s: %w", f.rel, err)
+			return plan, err
 		}
 		switch {
 		case updated == existing:

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,6 +41,45 @@ func TestSyncPlan_ListsTheIgnoreFilesSyncWrites(t *testing.T) {
 	}
 	if _, err := cliOutput(t, "sync", "--plan", "--check"); err != nil {
 		t.Errorf("plan --check after sync: %v", err)
+	}
+}
+
+func TestSyncPlan_IgnoreFilesWriteNothingAndNeverFailThePlan(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	gitInit(t, dir)
+	if err := os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [claude, codex]\ngitignore:\n  enabled: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	execCLI(t, "sync")
+
+	// The config turned off, the flag turned on: the block stays as is.
+	if err := os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [claude, codex]\ngitignore:\n  enabled: false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(dir, ".git", "info", "agnostic-ai-exclude.lock")
+	if err := os.Remove(lock); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	planned, err := cliOutput(t, "sync", "--plan", "--json", "--gitignore", "on")
+	if err != nil || strings.Contains(planned, ".gitignore") {
+		t.Errorf("plan --gitignore on lists the unchanged .gitignore (%v):\n%s", err, planned)
+	}
+	if _, err := os.Stat(lock); !os.IsNotExist(err) {
+		t.Errorf("plan left an exclude lock file, err=%v", err)
+	}
+
+	data, err := os.ReadFile(".gitignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	broken := strings.Replace(string(data), gitignoreBlockEnd, "", 1)
+	if err := os.WriteFile(".gitignore", []byte(broken), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cliOutput(t, "sync", "--plan", "--check", "--gitignore", "on"); err != nil {
+		t.Errorf("a broken managed block failed plan --check: %v", err)
 	}
 }
 
