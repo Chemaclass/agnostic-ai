@@ -107,16 +107,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		}()
 	}
 	resetSyncBuffers()
-	var cfg *config.Config
-	var b spec.Bundle
-	if project == nil {
-		var err error
-		if cfg, b, err = loadProject(root); err != nil {
-			return err
-		}
-	} else {
-		_, _ = fmt.Fprint(logOut, project.log)
-		cfg, b = project.view()
+	cfg, b, err := project.orLoad(root)
+	if err != nil {
+		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, opts.gitignoreFlag)
 	prev := prior.state
@@ -127,39 +120,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	if err != nil {
 		return err
 	}
-	// A mistyped key parses and emits, so without this line nothing in a
-	// sync says the rule or agent lost its setting. Pack specs are not the
-	// user's to edit; lint still reports them.
-	var own []spec.Entry
-	for _, e := range b.All() {
-		if !strings.HasPrefix(e.Layer, "pack:") {
-			own = append(own, e)
-		}
-	}
-	for _, f := range lintNearMissKeys(own, cfg.Targets) {
-		summaryf("%s %s: %s\n", bang(), filepath.ToSlash(f.Path), f.Message)
-	}
-	// Targets read a malformed globs as none, so the rule loads in every
-	// session. A scoped rule already fails its scope check instead.
-	var unscoped []spec.Entry
-	for _, e := range own {
-		if e.Kind == spec.KindRule && e.EffectiveScope() == "" {
-			unscoped = append(unscoped, e)
-		}
-	}
-	// An agent may name a user or plugin skill sync cannot see, so a
-	// likely typo of a project skill only warns.
-	for _, is := range agentSkillTypos(ownSpecs(b)) {
-		summaryf("%s %s: %s\n", bang(), is.Path, is.Message)
-	}
-	for _, f := range lintMalformedGlobs(unscoped) {
-		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
-	}
-	for _, c := range globalNameClashes(b, effectiveTargets) {
-		if c.silencedBy(cfg.Sync) == "" {
-			summaryf("%s %s\n", bang(), c)
-		}
-	}
+	warnOwnSpecs(cfg, b, effectiveTargets)
 	shared, err := planSharedSkills(cfg, renders, effectiveTargets)
 	if err != nil {
 		return err
@@ -222,77 +183,13 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		return notesErr
 	}
 
-	verbose := verbosity >= levelVerbose
-	var report syncReport
-	var ledgerSession []string
-	ledgerWritten := map[string]string{}
-	ledgerMergedWrites := map[string]mergedOutput{}
-	var gitignoreEntries []string
-	complete := true
-	var emitted, unresolved []string
-	var emitRows []emitRow
-	for _, e := range emits {
-		if e.err != nil && !e.resolved {
-			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
-			complete = false
-			unresolved = append(unresolved, e.target)
-			continue
-		}
-		emitted = append(emitted, e.target)
-		gitignoreEntries = append(gitignoreEntries, e.recorded...)
-		if opts.dryRun {
-			continue
-		}
-		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
-		recordMergedWrites(e.writes, ledgerMergedWrites)
-		report.addWrites(e.target, e.writes)
-		if verbose {
-			created, updated, skipped := classifyDetailedWrites(e.writes)
-			emitRows = append(emitRows, emitRow{target: e.target, created: created, updated: updated, skipped: skipped, dur: e.dur})
-		}
-	}
-
-	// Entry points and shared-skill links write serially through mainSess,
-	// after every target, so their ordering, dedupe, and gitignore capture
-	// stay stable regardless of --jobs.
-	if recordWrites {
-		mainSess.StartRecording()
-	}
-	mainSess.StartDetailedRecording()
-	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, opts.dryRun)
-	if err != nil {
-		mainSess.StopDetailedRecording()
-		if recordWrites {
-			mainSess.StopRecording()
-		}
+	w := collectEmits(emits, opts.dryRun)
+	if err := w.writeEntryPoints(mainSess, cfg, b, effectiveTargets, prev, opts, recordWrites); err != nil {
 		return err
 	}
-	entryWrites := mainSess.StopDetailedRecording()
-	if recordWrites {
-		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
-	}
-	// Like the sweep, release merged files only when every configured
-	// target emitted; otherwise another target may still own them.
-	if opts.dryRun && coversAllConfiguredTargets(emitted, cfg.Targets) {
-		if err := printMergedRewrites(prev, gitignoreEntries, opts.keepEdits, cfg.Sync.Unmanaged); err != nil {
-			return err
-		}
-	}
-	if !opts.dryRun {
-		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
-		report.addWrites("", entryWrites)
-		creditEntryPointReaders(cfg, &report, emitRows, emitted, entryWrites, entryFiles)
-		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), opts.dryRun)
-		if err != nil {
-			return err
-		}
-		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
-		report.addWrites("", manifestWrites)
-		ledgerSession = withAgnosticEntryPoint(ledgerSession)
-	}
 	applied := shared.apply(mainSess, opts.dryRun)
-	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
-	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, opts.dryRun)
+	w.ledgerSession = adjustLedgerForLinks(w.ledgerSession, applied)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, w.ledgerSession, w.written, w.merged, w.emitted, cfg.Targets, opts.dryRun)
 	// No session writes after the sweep, so one read of the backups serves
 	// the ignore files and the ledger.
 	var backups map[string]string
@@ -300,12 +197,12 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	}
 	if gitignoreOn {
-		ignores, err := writeSyncIgnores(root, cfg, b, effectiveTargets, gitignoreEntries, applied, ledger, sweepErr, emitted, prior.missing(), backups)
+		ignores, err := writeSyncIgnores(root, cfg, b, effectiveTargets, w.gitignore, applied, ledger, sweepErr, w.emitted, prior.missing(), backups)
 		ignoreFiles = ignores.prior
 		if err != nil {
 			return err
 		}
-		report.updated = append(report.updated, ignores.changed...)
+		w.report.updated = append(w.report.updated, ignores.changed...)
 	}
 
 	if !opts.dryRun {
@@ -316,54 +213,14 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	// completion order; re-sort them to the target sequence so the flushed
 	// output below is byte-identical regardless of --jobs.
 	adapters.OrderBufferedDropsByTarget(effectiveTargets)
-
-	digest := adapters.CapabilityWarningsDigest()
-	notesDigest := adapters.CoverageNotesDigest()
-	warningRecords := dropFingerprints(adapters.PendingCapabilityWarnings())
-	noteRecords := dropFingerprints(adapters.PendingCoverageNotes())
-	reshow := verbosity > levelVerbose && showRepeatedDrops
-	warningsUnchanged := !reshow && digest != "" && digest == prev.WarningsDigest && (verbosity != levelVerbose || len(prev.WarningRecords) == 0)
-	notesUnchanged := !reshow && notesDigest != "" && notesDigest == prev.NotesDigest && (verbosity != levelVerbose || len(prev.NoteRecords) == 0)
-	flushDrops := func() {
-		var hidden []string
-		if verbosity == levelVerbose && !warningsUnchanged && len(prev.WarningRecords) > 0 {
-			if n := adapters.SuppressKnownCapabilityWarnings(fingerprintSet(prev.WarningRecords)); n > 0 {
-				hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
-			}
-		}
-		if verbosity == levelVerbose && !notesUnchanged && len(prev.NoteRecords) > 0 {
-			if n := adapters.SuppressKnownCoverageNotes(fingerprintSet(prev.NoteRecords)); n > 0 {
-				hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
-			}
-		}
-		if warningsUnchanged {
-			n := adapters.PendingCapabilityWarningsCount()
-			hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
-			adapters.ResetCapabilityWarnings()
-		}
-		if notesUnchanged {
-			n := adapters.PendingCoverageNotesCount()
-			hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
-			adapters.DiscardCoverageNotes()
-		}
-		if cfg.Sync.DroppedSummary && verbosity >= levelDefault {
-			adapters.RenderDroppedSummary(logOut)
-		}
-		adapters.FlushCapabilityWarnings()
-		adapters.FlushCoverageNotes()
-		if len(hidden) > 0 {
-			summaryf("  (%s unchanged since last sync; -vv shows them)\n", strings.Join(hidden, " and "))
-		}
-		if verbosity > levelVerbose {
-			adapters.PrintAcceptedNotes(accepted)
-		}
-	}
+	drops := newPassDrops(cfg, prev, accepted)
 	if verbosity != levelVerbose {
-		flushDrops()
+		drops.flush()
 	}
+	holdKept := verbosity == levelVerbose && !opts.dryRun
 	var deferredMessages strings.Builder
 	printKept := func(format string, args ...any) {
-		if verbosity == levelVerbose && !opts.dryRun {
+		if holdKept {
 			_, _ = fmt.Fprintf(&deferredMessages, format, args...)
 		} else {
 			keptf(format, args...)
@@ -372,53 +229,20 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
-	if len(unresolved) > 0 && !opts.dryRun {
-		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(unresolved, ", "))
+	if len(w.unresolved) > 0 && !opts.dryRun {
+		printKept("  ~ skipped removing stale files: %s did not load; a sync that loads every target removes them\n", strings.Join(w.unresolved, ", "))
 	}
-	for _, p := range removed {
-		report.removed = append(report.removed, filepath.ToSlash(p))
-	}
-	for _, p := range stripped {
-		report.updated = append(report.updated, filepath.ToSlash(p))
-	}
-	for _, p := range kept {
-		reason := keptOrphanReason(ledger.merged, prev.OutputSums, p)
-		printKept("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
-	}
+	w.reportSweep(printKept, removed, stripped, kept, ledger.merged, prev.OutputSums)
+	allTargets := w.complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets)
 	if !opts.dryRun {
-		unledgered := keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
-		for _, p := range unledgered.Leftover {
-			printKept("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
-		}
-		for _, p := range unledgered.Orphaned {
-			printKept("  ~ kept leftover %s (looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged)\n", filepath.ToSlash(p))
-		}
+		printUnledgered(printKept, keepUnledgered(cfg, prev, prior.workdir(root).missing(), &ledger, w.written, allTargets))
 	}
-	for _, p := range sessionPaths(sessions, (*adapters.Session).KeptEdits) {
-		printKept("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
-	}
-	for _, p := range sessionPaths(sessions, (*adapters.Session).RemovedEdits) {
-		printKept("%s removed a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
-	}
-	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
-		printKept("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, effectiveTargets, p))
-	}
-	for _, p := range sessionPaths(sessions, (*adapters.Session).BackupBlockedEdits) {
-		printKept("%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
-	}
-	// After the sweep, so refused orphan removals are reported too.
-	for _, p := range unmanagedSkips(sessions) {
-		if verbosity == levelVerbose && !opts.dryRun {
-			printKept("  ~ skip (unmanaged) %s\n", p)
-		} else {
-			summaryf("  ~ skip (unmanaged) %s\n", p)
-		}
-	}
+	printSessionEdits(printKept, sessions, cfg, effectiveTargets, holdKept)
 	if opts.dryRun {
 		if verbosity == levelVerbose {
-			flushDrops()
+			drops.flush()
 		}
-		summaryf("%s would sync %d target%s · %s\n", tick(), len(emitted), plural(len(emitted)), shortDuration(time.Since(start)))
+		summaryf("%s would sync %d target%s · %s\n", tick(), len(w.emitted), plural(len(w.emitted)), shortDuration(time.Since(start)))
 		return nil
 	}
 	// Every write this sync makes is done; an --untrack failure below
@@ -426,80 +250,347 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	// above).
 	writesCompleted = true
 	base := specSums(cfg, b, cfg.Targets)
-	report.specs = diffSpecSums(specBaseline{prev.SpecSums, prev.SpecTargets}, base, bundleSpecKeys(b))
+	w.report.specs = diffSpecSums(specBaseline{prev.SpecSums, prev.SpecTargets}, base, bundleSpecKeys(b))
 	// A partial run leaves other targets on older specs; keep the old
 	// baseline so the run that updates them still names the change.
 	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
-	if coversAllConfiguredTargets(emitted, cfg.Targets) {
+	if coversAllConfiguredTargets(w.emitted, cfg.Targets) {
 		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
 	trackedIgnored, untracked, untrackErr := untrackIgnored(root, cfg, ledger.outputs, opts.untrack)
-	report.untracked = untracked
+	w.report.untracked = untracked
 	if len(untracked) > 0 && verbosity < levelDefault {
 		keptf("  %s %s\n", bang(), untrackPullAdvice)
 	}
 	if untrackErr != nil {
-		untrackErr = fmt.Errorf("opts.untrack: %w", untrackErr)
+		untrackErr = fmt.Errorf("untrack: %w", untrackErr)
 	}
-	report.trackedIgnored = trackedIgnored
+	w.report.trackedIgnored = trackedIgnored
 	if verbosity >= levelDefault {
-		report.pending = removeMatching(gitPending(root, report.changedPaths()), report.trackedIgnored)
+		w.report.pending = removeMatching(gitPending(root, w.report.changedPaths()), w.report.trackedIgnored)
 	}
-	// --quiet prints no notes, so it records only new aliases and leaves a
-	// moved one for the next sync that does to report.
-	resolvedAliases := adapters.TakeResolvedAliases()
-	if verbosity >= levelDefault {
-		for _, note := range movedAliasNotes(prev.ModelAliases, resolvedAliases) {
-			printKept("  note: %s\n", note)
-		}
-		ledger.modelAliases = nextModelAliases(prev.ModelAliases, resolvedAliases, emitted)
-	} else {
-		ledger.modelAliases = addedModelAliases(prev.ModelAliases, resolvedAliases, emitted)
-	}
+	recordModelAliases(&ledger, prev.ModelAliases, w.emitted, printKept)
 	ledger.backups = backups
-	ledger.warningRecords, ledger.noteRecords = warningRecords, noteRecords
-	if !complete || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.warningRecords = mergePartialDropRecords(prev.WarningRecords, warningRecords, emitted)
-		ledger.noteRecords = mergePartialDropRecords(prev.NoteRecords, noteRecords, emitted)
-	}
-	if verbosity < levelDefault {
-		ledger.warningRecords, ledger.noteRecords = prev.WarningRecords, prev.NoteRecords
-		digest, notesDigest = prev.WarningsDigest, prev.NotesDigest
-	}
-	toList := unlistedTargets(prev, intersect(effectiveTargets, emitted))
+	digest, notesDigest := drops.record(&ledger, w.emitted, !allTargets)
+	toList := unlistedTargets(prev, intersect(effectiveTargets, w.emitted))
 	ledger.listed = carriedListed(prev)
 	if verbosity >= levelDefault && len(toList) > 0 {
 		ledger.listed = append(slices.Clone(ledger.listed), toList...)
 	}
 	release()
-	stateErr := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger)
+	stateErr := writeStateFile(root, w.report.filesChanged(), digest, notesDigest, ledger)
 	if stateErr != nil {
 		stateErr = fmt.Errorf("sync wrote files but could not record them: %w", stateErr)
 	}
 	if verbosity >= levelDefault {
 		if verbosity == levelVerbose {
 			logOut = originalLog
-			report.renderCompact(logOut, len(emitted), time.Since(start))
-		} else {
-			report.render(logOut, len(emitted), time.Since(start), verbosity > levelVerbose)
 		}
-		if verbose && len(emitRows) > 0 {
-			renderTargetRows(logOut, emitRows, verbosity > levelVerbose)
-		}
-		// The first sync is where the setup pays off, so it shows what
-		// each tool now reads from the one source.
-		if len(toList) > 0 {
-			printToolReads(logOut, cfg, b, toList)
-		}
+		w.render(cfg, b, toList, time.Since(start))
 	}
 	if verbosity == levelVerbose {
 		_, _ = fmt.Fprint(logOut, earlyMessages.String())
 		earlyMessages.Reset()
 		_, _ = fmt.Fprint(logOut, deferredMessages.String())
-		flushDrops()
+		drops.flush()
 	}
 	return errors.Join(untrackErr, stateErr)
+}
+
+// orLoad returns the project's config and bundle, and loads the project
+// under root when the caller has not.
+func (p *projectLoad) orLoad(root string) (*config.Config, spec.Bundle, error) {
+	if p == nil {
+		return loadProject(root)
+	}
+	_, _ = fmt.Fprint(logOut, p.log)
+	cfg, b := p.view()
+	return cfg, b, nil
+}
+
+// warnOwnSpecs warns about mistakes in the project's own specs that still
+// parse and emit. Pack specs are not the user's to edit; lint still
+// reports them.
+func warnOwnSpecs(cfg *config.Config, b spec.Bundle, targets []string) {
+	// A mistyped key parses and emits, so without this line nothing in a
+	// sync says the rule or agent lost its setting.
+	var own []spec.Entry
+	for _, e := range b.All() {
+		if !strings.HasPrefix(e.Layer, "pack:") {
+			own = append(own, e)
+		}
+	}
+	for _, f := range lintNearMissKeys(own, cfg.Targets) {
+		summaryf("%s %s: %s\n", bang(), filepath.ToSlash(f.Path), f.Message)
+	}
+	// Targets read a malformed globs as none, so the rule loads in every
+	// session. A scoped rule already fails its scope check instead.
+	var unscoped []spec.Entry
+	for _, e := range own {
+		if e.Kind == spec.KindRule && e.EffectiveScope() == "" {
+			unscoped = append(unscoped, e)
+		}
+	}
+	// An agent may name a user or plugin skill sync cannot see, so a
+	// likely typo of a project skill only warns.
+	for _, is := range agentSkillTypos(ownSpecs(b)) {
+		summaryf("%s %s: %s\n", bang(), is.Path, is.Message)
+	}
+	for _, f := range lintMalformedGlobs(unscoped) {
+		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
+	}
+	for _, c := range globalNameClashes(b, targets) {
+		if c.silencedBy(cfg.Sync) == "" {
+			summaryf("%s %s\n", bang(), c)
+		}
+	}
+}
+
+// passWrites gathers what the targets and entry points of one text pass
+// wrote, for the report, the ledger, and the ignore files.
+type passWrites struct {
+	report        syncReport
+	ledgerSession []string
+	written       map[string]string
+	merged        map[string]mergedOutput
+	gitignore     []string
+	// complete is false when a target did not load.
+	complete            bool
+	emitted, unresolved []string
+	rows                []emitRow
+}
+
+// collectEmits records each target's writes. A target that did not load
+// is named on stderr and left out of the emitted targets.
+func collectEmits(emits []targetEmit, dryRun bool) passWrites {
+	w := passWrites{written: map[string]string{}, merged: map[string]mergedOutput{}, complete: true}
+	for _, e := range emits {
+		if e.err != nil && !e.resolved {
+			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
+			w.complete = false
+			w.unresolved = append(w.unresolved, e.target)
+			continue
+		}
+		w.emitted = append(w.emitted, e.target)
+		w.gitignore = append(w.gitignore, e.recorded...)
+		if dryRun {
+			continue
+		}
+		recordLedgerWrites(e.writes, &w.ledgerSession, w.written)
+		recordMergedWrites(e.writes, w.merged)
+		w.report.addWrites(e.target, e.writes)
+		if verbosity >= levelVerbose {
+			created, updated, skipped := classifyDetailedWrites(e.writes)
+			w.rows = append(w.rows, emitRow{target: e.target, created: created, updated: updated, skipped: skipped, dur: e.dur})
+		}
+	}
+	return w
+}
+
+// writeEntryPoints writes the entry points serially through sess, after
+// every target, so their ordering, dedupe, and gitignore capture stay
+// stable regardless of --jobs, then the output manifest.
+func (w *passWrites) writeEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, prev syncStateFile, opts syncRunOptions, record bool) error {
+	if record {
+		sess.StartRecording()
+	}
+	sess.StartDetailedRecording()
+	entryFiles, err := writeEntryPointFiles(sess, cfg, b, targets, opts.dryRun)
+	if err != nil {
+		sess.StopDetailedRecording()
+		if record {
+			sess.StopRecording()
+		}
+		return err
+	}
+	entryWrites := sess.StopDetailedRecording()
+	if record {
+		w.gitignore = append(w.gitignore, sess.StopRecording()...)
+	}
+	if opts.dryRun {
+		// Like the sweep, release merged files only when every configured
+		// target emitted; otherwise another target may still own them.
+		if coversAllConfiguredTargets(w.emitted, cfg.Targets) {
+			return printMergedRewrites(prev, w.gitignore, opts.keepEdits, cfg.Sync.Unmanaged)
+		}
+		return nil
+	}
+	recordLedgerWrites(entryWrites, &w.ledgerSession, w.written)
+	w.report.addWrites("", entryWrites)
+	creditEntryPointReaders(cfg, &w.report, w.rows, w.emitted, entryWrites, entryFiles)
+	manifestWrites, err := writeOutputManifest(sess, cfg, w.written, w.complete && coversAllConfiguredTargets(targets, cfg.Targets), false)
+	if err != nil {
+		return err
+	}
+	recordLedgerWrites(manifestWrites, &w.ledgerSession, w.written)
+	w.report.addWrites("", manifestWrites)
+	w.ledgerSession = withAgnosticEntryPoint(w.ledgerSession)
+	return nil
+}
+
+// render prints the pass report, the per-target rows under -v, and, on a
+// target's first sync, what each tool now reads.
+func (w *passWrites) render(cfg *config.Config, b spec.Bundle, toList []string, took time.Duration) {
+	if verbosity == levelVerbose {
+		w.report.renderCompact(logOut, len(w.emitted), took)
+	} else {
+		w.report.render(logOut, len(w.emitted), took, verbosity > levelVerbose)
+	}
+	if verbosity >= levelVerbose && len(w.rows) > 0 {
+		renderTargetRows(logOut, w.rows, verbosity > levelVerbose)
+	}
+	// The first sync is where the setup pays off, so it shows what
+	// each tool now reads from the one source.
+	if len(toList) > 0 {
+		printToolReads(logOut, cfg, b, toList)
+	}
+}
+
+// reportSweep adds the files the sweep removed or stripped to the report,
+// and names the orphans it kept.
+func (w *passWrites) reportSweep(printKept func(string, ...any), removed, stripped, kept []string, merged map[string]mergedOutput, priorSums map[string]string) {
+	for _, p := range removed {
+		w.report.removed = append(w.report.removed, filepath.ToSlash(p))
+	}
+	for _, p := range stripped {
+		w.report.updated = append(w.report.updated, filepath.ToSlash(p))
+	}
+	for _, p := range kept {
+		reason := keptOrphanReason(merged, priorSums, p)
+		printKept("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
+	}
+}
+
+// printUnledgered names the leftovers no ledger proves sync wrote.
+func printUnledgered(printKept func(string, ...any), unledgered driftReport) {
+	for _, p := range unledgered.Leftover {
+		printKept("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
+	}
+	for _, p := range unledgered.Orphaned {
+		printKept("  ~ kept leftover %s (looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged)\n", filepath.ToSlash(p))
+	}
+}
+
+// printSessionEdits names the hand edits the sessions kept, removed,
+// overwrote, or could not back up, then the unmanaged paths they skipped.
+// It runs after the sweep, so refused orphan removals are reported too.
+// holdSkips sends the skips through printKept with the other held lines.
+func printSessionEdits(printKept func(string, ...any), sessions []*adapters.Session, cfg *config.Config, targets []string, holdSkips bool) {
+	for _, p := range sessionPaths(sessions, (*adapters.Session).KeptEdits) {
+		printKept("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
+	}
+	for _, p := range sessionPaths(sessions, (*adapters.Session).RemovedEdits) {
+		printKept("%s removed a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+	}
+	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
+		printKept("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, targets, p))
+	}
+	for _, p := range sessionPaths(sessions, (*adapters.Session).BackupBlockedEdits) {
+		printKept("%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
+	}
+	for _, p := range unmanagedSkips(sessions) {
+		if holdSkips {
+			printKept("  ~ skip (unmanaged) %s\n", p)
+		} else {
+			summaryf("  ~ skip (unmanaged) %s\n", p)
+		}
+	}
+}
+
+// recordModelAliases records the model aliases this run resolved. --quiet
+// prints no notes, so it records only new aliases and leaves a moved one
+// for the next sync that does to report.
+func recordModelAliases(ledger *syncLedger, prev map[string]map[string]string, emitted []string, printKept func(string, ...any)) {
+	resolved := adapters.TakeResolvedAliases()
+	if verbosity < levelDefault {
+		ledger.modelAliases = addedModelAliases(prev, resolved, emitted)
+		return
+	}
+	for _, note := range movedAliasNotes(prev, resolved) {
+		printKept("  note: %s\n", note)
+	}
+	ledger.modelAliases = nextModelAliases(prev, resolved, emitted)
+}
+
+// passDrops are the capability warnings and coverage notes one pass
+// buffered, with whether each set matches what the last sync printed.
+type passDrops struct {
+	cfg                               *config.Config
+	prev                              syncStateFile
+	accepted                          []adapters.AcceptedNote
+	digest, notesDigest               string
+	warningRecords, noteRecords       []string
+	warningsUnchanged, notesUnchanged bool
+}
+
+func newPassDrops(cfg *config.Config, prev syncStateFile, accepted []adapters.AcceptedNote) passDrops {
+	d := passDrops{
+		cfg:            cfg,
+		prev:           prev,
+		accepted:       accepted,
+		digest:         adapters.CapabilityWarningsDigest(),
+		notesDigest:    adapters.CoverageNotesDigest(),
+		warningRecords: dropFingerprints(adapters.PendingCapabilityWarnings()),
+		noteRecords:    dropFingerprints(adapters.PendingCoverageNotes()),
+	}
+	reshow := verbosity > levelVerbose && showRepeatedDrops
+	d.warningsUnchanged = !reshow && d.digest != "" && d.digest == prev.WarningsDigest && (verbosity != levelVerbose || len(prev.WarningRecords) == 0)
+	d.notesUnchanged = !reshow && d.notesDigest != "" && d.notesDigest == prev.NotesDigest && (verbosity != levelVerbose || len(prev.NoteRecords) == 0)
+	return d
+}
+
+// flush prints the buffered drops, folding the ones the last sync already
+// printed into one count line.
+func (d passDrops) flush() {
+	var hidden []string
+	if verbosity == levelVerbose && !d.warningsUnchanged && len(d.prev.WarningRecords) > 0 {
+		if n := adapters.SuppressKnownCapabilityWarnings(fingerprintSet(d.prev.WarningRecords)); n > 0 {
+			hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
+		}
+	}
+	if verbosity == levelVerbose && !d.notesUnchanged && len(d.prev.NoteRecords) > 0 {
+		if n := adapters.SuppressKnownCoverageNotes(fingerprintSet(d.prev.NoteRecords)); n > 0 {
+			hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
+		}
+	}
+	if d.warningsUnchanged {
+		n := adapters.PendingCapabilityWarningsCount()
+		hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
+		adapters.ResetCapabilityWarnings()
+	}
+	if d.notesUnchanged {
+		n := adapters.PendingCoverageNotesCount()
+		hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
+		adapters.DiscardCoverageNotes()
+	}
+	if d.cfg.Sync.DroppedSummary && verbosity >= levelDefault {
+		adapters.RenderDroppedSummary(logOut)
+	}
+	adapters.FlushCapabilityWarnings()
+	adapters.FlushCoverageNotes()
+	if len(hidden) > 0 {
+		summaryf("  (%s unchanged since last sync; -vv shows them)\n", strings.Join(hidden, " and "))
+	}
+	if verbosity > levelVerbose {
+		adapters.PrintAcceptedNotes(d.accepted)
+	}
+}
+
+// record sets the drop records the ledger keeps and returns the digests
+// the state file stores. A partial run keeps the records of the targets
+// it left out; --quiet printed nothing, so it keeps the last sync's.
+func (d passDrops) record(ledger *syncLedger, emitted []string, partial bool) (digest, notesDigest string) {
+	ledger.warningRecords, ledger.noteRecords = d.warningRecords, d.noteRecords
+	if partial {
+		ledger.warningRecords = mergePartialDropRecords(d.prev.WarningRecords, d.warningRecords, emitted)
+		ledger.noteRecords = mergePartialDropRecords(d.prev.NoteRecords, d.noteRecords, emitted)
+	}
+	if verbosity < levelDefault {
+		ledger.warningRecords, ledger.noteRecords = d.prev.WarningRecords, d.prev.NoteRecords
+		return d.prev.WarningsDigest, d.prev.NotesDigest
+	}
+	return d.digest, d.notesDigest
 }
 
 // newMainSession returns the session that drives the serial writes after
@@ -988,7 +1079,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
 	}
 	if untrackErr != nil {
-		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("opts.untrack: %v", untrackErr)})
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", untrackErr)})
 	}
 	for _, p := range trackedIgnored {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "tracked"})
