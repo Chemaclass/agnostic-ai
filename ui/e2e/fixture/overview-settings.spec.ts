@@ -250,7 +250,7 @@ test.describe('overview', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'false')
     await expect(page.getByText('Saves source files.')).toHaveCount(1)
     await expect(page.getByText('agnostic-ai sync --global', { exact: true })).toBeVisible()
-    await expect(page.getByRole('switch')).toHaveCount(7)
+    await expect(page.getByRole('switch')).toHaveCount(8)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(posted).toEqual([{ audience: 'shared', name: 'memory', enabled: true, expected: false }])
