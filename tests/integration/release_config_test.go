@@ -793,6 +793,11 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 			t.Errorf("scripts/companion-release.sh no longer has %q; the archives must keep the names the CLI downloads", want)
 		}
 	}
+	for _, want := range []string{"hdiutil_retrying create", `hdiutil_retrying verify "$image"`} {
+		if !strings.Contains(script, want) {
+			t.Errorf("scripts/companion-release.sh no longer runs %q; a busy runner fails the disk image without the retry", want)
+		}
+	}
 }
 
 // needsJob reports whether a job's `needs`, one name or a list, names job.

@@ -6,6 +6,31 @@
 # companion archives that `agnostic-ai companion install` downloads.
 # Requires macOS with the Xcode Command Line Tools.
 
+# A busy macOS runner sometimes leaves a new disk image unreadable for a
+# moment, so hdiutil says "Resource temporarily unavailable". Only that
+# error is retried; any other fails at once.
+hdiutil_retrying() {
+  local attempts=4 delay=5 attempt=1 output status
+  while :; do
+    status=0
+    output="$(hdiutil "$@" 2>&1)" || status=$?
+    printf '%s\n' "$output"
+    [ "$status" -eq 0 ] && return 0
+    if [[ "$output" != *"Resource temporarily unavailable"* ]] || [ "$attempt" -ge "$attempts" ]; then
+      return "$status"
+    fi
+    echo "hdiutil $1: resource busy, attempt $attempt of $attempts; retrying in ${delay}s" >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+}
+
+# Sourced by scripts/companion-release_test.sh for the function above.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+  return 0
+fi
+
 set -Eeuo pipefail
 
 version="${1:?usage: $0 <version> <outdir>}"
@@ -121,8 +146,8 @@ PLIST
   codesign --verify --deep --strict "$app"
   ln -s /Applications "$work/$arch/image/Applications"
   image="$outdir/${name}_darwin_${arch}.dmg"
-  hdiutil create -ov -format UDZO -volname "$app_name" \
+  hdiutil_retrying create -ov -format UDZO -volname "$app_name" \
     -srcfolder "$work/$arch/image" "$image"
-  hdiutil verify "$image"
+  hdiutil_retrying verify "$image"
   echo "$image"
 done
