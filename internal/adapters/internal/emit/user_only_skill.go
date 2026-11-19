@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"maps"
 	"path/filepath"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -23,9 +24,7 @@ func (u UserOnlySkill) Markdown(s spec.Entry) string {
 	}
 	custom, _ := s.Meta[XPrefix+u.Target].(map[string]any)
 	merged := make(map[string]any, len(custom))
-	for k, v := range custom {
-		merged[k] = v
-	}
+	maps.Copy(merged, custom)
 	added := false
 	for _, k := range u.Keys {
 		if _, explicit := custom[k]; explicit {
@@ -46,9 +45,7 @@ func (u UserOnlySkill) Markdown(s spec.Entry) string {
 	}
 	out := s
 	out.Meta = make(map[string]any, len(s.Meta))
-	for k, v := range s.Meta {
-		out.Meta[k] = v
-	}
+	maps.Copy(out.Meta, s.Meta)
 	out.Meta[XPrefix+u.Target] = merged
 	return SkillMarkdown(out, u.Target)
 }

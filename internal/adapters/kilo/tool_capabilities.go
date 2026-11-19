@@ -2,6 +2,7 @@ package kilo
 
 import (
 	"encoding/json"
+	"maps"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -54,14 +55,10 @@ func (Adapter) TranslatePermissionContext(list, rule string, entry spec.Entry, s
 	result := emit.CapabilityTranslation{Native: names, Supported: ok}
 	own, authoritative := emit.SettingsCustomObject(entry, target, permissionKey)
 	finalNative := map[string]any{}
-	for key, value := range own {
-		finalNative[key] = value
-	}
+	maps.Copy(finalNative, own)
 	for _, candidate := range settings {
 		native, _ := emit.SettingsCustomObject(candidate, target, permissionKey)
-		for key, value := range native {
-			finalNative[key] = value
-		}
+		maps.Copy(finalNative, native)
 	}
 	result.Native = nil
 	if authoritative {

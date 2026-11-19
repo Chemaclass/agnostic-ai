@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -73,7 +74,7 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 }
 func TestImportVibe_NativeMCPIdentityRejectsBeforeWrites(t *testing.T) {
 	for _, global := range []bool{false, true} {
-		t.Run(fmt.Sprint(global), func(t *testing.T) {
+		t.Run(strconv.FormatBool(global), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			body := "[[mcp_servers]]\nname='docs.api'\ncommand='node'\n\n[[mcp_servers]]\nname='docs_api'\ncommand='node'\n"
 			if global {
@@ -178,7 +179,7 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 }
 func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 	for _, adopted := range []bool{false, true} {
-		t.Run(fmt.Sprint(adopted), func(t *testing.T) {
+		t.Run(strconv.FormatBool(adopted), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := "# unrelated\nkey=1\n"
@@ -243,7 +244,7 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 }
 func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 	for _, equal := range []bool{false, true} {
-		t.Run(fmt.Sprint(equal), func(t *testing.T) {
+		t.Run(strconv.FormatBool(equal), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			src := filepath.Join(source, "mcps/docs_api.yaml")
 			specBody := "name: docs_api\ncommand: node\n"
@@ -287,7 +288,7 @@ func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 }
 func TestImportVibe_NoncanonicalNativeNameRoundTripsFresh(t *testing.T) {
 	for _, global := range []bool{false, true} {
-		t.Run(fmt.Sprint(global), func(t *testing.T) {
+		t.Run(strconv.FormatBool(global), func(t *testing.T) {
 			home, _ := globalAgentTestHome(t)
 			path := ".vibe/config.toml"
 			if global {

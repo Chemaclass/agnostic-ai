@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -123,8 +124,7 @@ func Local(doc string) []Link {
 func RewriteLocal(doc string, replace func(Link) (string, bool)) string {
 	links := Local(doc)
 	// Splice from the end so earlier offsets stay valid.
-	for i := len(links) - 1; i >= 0; i-- {
-		l := links[i]
+	for _, l := range slices.Backward(links) {
 		if path, ok := replace(l); ok {
 			doc = doc[:l.start] + path + doc[l.start+len(l.Raw):]
 		}

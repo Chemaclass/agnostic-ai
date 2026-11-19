@@ -124,7 +124,7 @@ func downloadReleaseAssetContext(ctx context.Context, client *http.Client, asset
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, releaseAssetMissing{fmt.Sprintf("download: %s", resp.Status)}
+		return nil, releaseAssetMissing{"download: " + resp.Status}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("download: %s", resp.Status)

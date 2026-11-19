@@ -273,7 +273,7 @@ func TestMemoryIndex_PreservesExistingLinksAndIsIdempotent(t *testing.T) {
 		"sub/deep.md":  "nested\n",
 	})
 	want := strings.Replace(index, "- [Missing](gone.md): stale\n", "", 1) + "- [new space](new%20space.md): new\n"
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if out, err := runRoot(t, "memory", "index"); err != nil {
 			t.Fatalf("memory index: %v\n%s", err, out)
 		}

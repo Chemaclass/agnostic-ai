@@ -137,9 +137,7 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 	// agent: that author is presumed to know Kilo's own spelling.
 	for _, entry := range settings {
 		native, _ := emit.SettingsCustomObject(entry, target, permissionKey)
-		for tool, value := range native {
-			out[tool] = value
-		}
+		maps.Copy(out, native)
 	}
 	if len(out) == 0 {
 		return nil, len(dropped)

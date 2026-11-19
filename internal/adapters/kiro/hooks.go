@@ -1,7 +1,9 @@
 package kiro
 
 import (
+	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -154,7 +156,7 @@ func hookActions(h spec.Entry) ([]any, error) {
 		if raw, exists := native["action"]; exists {
 			action, ok := raw.(map[string]any)
 			if !ok {
-				return nil, fmt.Errorf("x-kiro.action must be an object")
+				return nil, errors.New("x-kiro.action must be an object")
 			}
 			actionType, _ := action["type"].(string)
 			var field string
@@ -175,9 +177,7 @@ func hookActions(h spec.Entry) ([]any, error) {
 			}
 			if actionType == "command" {
 				copy := make(map[string]any, len(action))
-				for key, value := range action {
-					copy[key] = value
-				}
+				maps.Copy(copy, action)
 				copy["command"] = emit.RewriteNeutralHookPath(value, emit.HookScriptsDir(target))
 				return []any{copy}, nil
 			}

@@ -33,7 +33,7 @@ func codexAPI(t *testing.T, answer func(w http.ResponseWriter, r *http.Request))
 			http.Error(w, "unexpected path "+r.URL.String(), http.StatusTeapot)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("ChatGPT-Account-Id") != fakeAccount || r.Header.Get("X-OpenAI-Product-Sku") != "codex" {
+		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("Chatgpt-Account-Id") != fakeAccount || r.Header.Get("X-Openai-Product-Sku") != "codex" {
 			http.Error(w, "missing the sign-in headers", http.StatusTeapot)
 			return
 		}

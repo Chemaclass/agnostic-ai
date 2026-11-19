@@ -1,6 +1,7 @@
 package kimi
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/url"
@@ -48,11 +49,11 @@ func nativeStringList(value any, scalar bool) bool {
 }
 func validateAgent(meta map[string]any) error {
 	if d, ok := meta["description"].(string); !ok || strings.TrimSpace(d) == "" {
-		return fmt.Errorf("description must be a nonempty string")
+		return errors.New("description must be a nonempty string")
 	}
 	if v, ok := meta["override"]; ok {
 		if _, valid := v.(bool); !valid {
-			return fmt.Errorf("override must be a boolean")
+			return errors.New("override must be a boolean")
 		}
 	}
 	for _, key := range []string{"tools", "disallowedTools", "subagents"} {
@@ -73,17 +74,17 @@ func ValidateHookRecord(record map[string]any) error {
 		return fmt.Errorf("kimi hook event %q is unsupported", event)
 	}
 	if command, ok := record["command"].(string); !ok || strings.TrimSpace(command) == "" {
-		return fmt.Errorf("kimi hook requires a nonempty command")
+		return errors.New("kimi hook requires a nonempty command")
 	}
 	if matcher, ok := record["matcher"]; ok {
 		if _, valid := matcher.(string); !valid {
-			return fmt.Errorf("kimi hook matcher must be a string")
+			return errors.New("kimi hook matcher must be a string")
 		}
 	}
 	if value, ok := record["timeout"]; ok {
 		n, valid := nativeInteger(value)
 		if !valid || n < 1 || n > 600 {
-			return fmt.Errorf("kimi hook timeout must be an integer from 1 to 600 seconds")
+			return errors.New("kimi hook timeout must be an integer from 1 to 600 seconds")
 		}
 	}
 	return nil
@@ -120,16 +121,16 @@ func validateMCP(meta map[string]any) error {
 		}
 	}
 	if auth, ok := meta["auth"]; ok && auth != "oauth" {
-		return fmt.Errorf("auth must be oauth")
+		return errors.New("auth must be oauth")
 	}
 	if value, ok := meta["environment_id"]; ok {
 		if id, valid := value.(string); !valid || strings.TrimSpace(id) == "" {
-			return fmt.Errorf("environment_id must name an environment")
+			return errors.New("environment_id must name an environment")
 		}
 	}
 	if value, ok := meta["bearerTokenEnvVar"]; ok {
 		if name, valid := value.(string); !valid || strings.TrimSpace(name) == "" {
-			return fmt.Errorf("bearerTokenEnvVar must name an environment variable")
+			return errors.New("bearerTokenEnvVar must name an environment variable")
 		}
 	}
 	if meta["transport"] == "stdio" {
@@ -142,7 +143,7 @@ func validateMCP(meta map[string]any) error {
 		raw, _ := meta["url"].(string)
 		u, err := url.Parse(raw)
 		if err != nil || u.Scheme == "" || u.Host == "" {
-			return fmt.Errorf("url must be absolute")
+			return errors.New("url must be absolute")
 		}
 	}
 	return nil

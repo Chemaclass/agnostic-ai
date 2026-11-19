@@ -150,9 +150,7 @@ func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrder
 
 func encodeMCPSpec(name string, entry map[string]any, orders []mcpSpecOrderHints) ([]byte, error) {
 	doc := map[string]any{"name": name}
-	for key, value := range markMCPLiterals(entry) {
-		doc[key] = value
-	}
+	maps.Copy(doc, markMCPLiterals(entry))
 	if _, hasType := doc["type"]; !hasType {
 		if _, hasURL := doc["url"]; hasURL {
 			doc["type"] = "http"
@@ -253,10 +251,8 @@ func settingPathShaped(v string) bool {
 	if !settingPath.MatchString(v) {
 		return false
 	}
-	for _, segment := range strings.FieldsFunc(v, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if settingBase64Like(segment) {
-			return false
-		}
+	if slices.ContainsFunc(strings.FieldsFunc(v, func(r rune) bool { return r == '/' || r == '\\' }), settingBase64Like) {
+		return false
 	}
 	joined := strings.NewReplacer("/", "", "\\", "").Replace(v)
 	return strings.ContainsAny(v, ".-_~ ") || len(joined) < 20 || !settingBase64.MatchString(joined) || !settingDigitsAndLetters(joined) || !settingMixedCase(joined)

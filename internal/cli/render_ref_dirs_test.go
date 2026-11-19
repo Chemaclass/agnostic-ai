@@ -97,7 +97,7 @@ func TestRenderRef_MatchesARenderWhereEveryDirectoryExists(t *testing.T) {
 			mustWriteFile(t, filepath.Join(project, ".agnostic-ai/skills/backend/review/SKILL.md"), "---\nname: review\ndescription: Review.\n---\nReview.\n")
 			mustWriteFile(t, filepath.Join(project, ".agnostic-ai/rules/global.md"), "---\nname: global\nalwaysApply: true\n---\nGlobal rule.\n")
 			mustWriteFile(t, filepath.Join(project, "backend/handler.go"), "package backend\n")
-			for i := 0; i < 12; i++ {
+			for i := range 12 {
 				mustWriteFile(t, filepath.Join(project, fmt.Sprintf("apps/unit-%02d/src/main.go", i)), "package main\n")
 			}
 			git("add", "-A")

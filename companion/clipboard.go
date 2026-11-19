@@ -137,8 +137,7 @@ func (in *inbox) send(w http.ResponseWriter, r *http.Request) {
 // mayHaveArrived reports whether err is a call that got no answer after
 // it may have reached the server: anything but a failed connect.
 func mayHaveArrived(err error) bool {
-	var failed *callError
-	if !errors.As(err, &failed) {
+	if _, ok := errors.AsType[*callError](err); !ok {
 		return false
 	}
 	var dial *net.OpError

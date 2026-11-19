@@ -1,7 +1,6 @@
 package overview
 
 import (
-	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -367,14 +366,14 @@ func VoiceEditDisabledReason(e spec.Entry, root string) string {
 	if !personalFieldCleared(e, "voice") {
 		return ""
 	}
-	return fmt.Sprintf("%s sets voice: null, which clears every voice setting. Remove voice: null from that local file before editing an individual setting.", SpecPath(root, e))
+	return SpecPath(root, e) + " sets voice: null, which clears every voice setting. Remove voice: null from that local file before editing an individual setting."
 }
 
 func PermissionEditDisabledReason(e spec.Entry, root string) string {
 	if !personalPermissionsCleared(e) {
 		return ""
 	}
-	return fmt.Sprintf("%s sets permissions: null, which clears every permission list. Remove permissions: null from that local file before editing an individual list.", SpecPath(root, e))
+	return SpecPath(root, e) + " sets permissions: null, which clears every permission list. Remove permissions: null from that local file before editing an individual list."
 }
 
 func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
@@ -521,14 +520,14 @@ func SettingsEditCandidate(e spec.Entry, key string) bool {
 // spec overrides, else the last one that sets it. -1 when none does.
 func SettingsInEffect(settings []spec.Entry, key string, targets []string, global bool) int {
 	last := -1
-	for i := len(settings) - 1; i >= 0; i-- {
-		if !hasField(settings[i], key) {
+	for i, setting := range slices.Backward(settings) {
+		if !hasField(setting, key) {
 			continue
 		}
 		if last < 0 {
 			last = i
 		}
-		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(settings[i], key, t) }) && SettingsOverride(settings, i, key, targets, global) < 0 {
+		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(setting, key, t) }) && SettingsOverride(settings, i, key, targets, global) < 0 {
 			return i
 		}
 	}

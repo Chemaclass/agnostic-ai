@@ -255,11 +255,11 @@ func extractTOMLString(s, key string) string {
 // inner block. Returns empty if not present.
 func extractTOMLMultiline(s, key string) string {
 	open := key + " = \"\"\""
-	i := strings.Index(s, open)
-	if i < 0 {
+	_, after, ok := strings.Cut(s, open)
+	if !ok {
 		return ""
 	}
-	rest := s[i+len(open):]
+	rest := after
 	rest = strings.TrimPrefix(rest, "\n")
 	end := strings.Index(rest, "\"\"\"")
 	if end < 0 {

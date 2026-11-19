@@ -1,6 +1,8 @@
 package continueai
 
 import (
+	"slices"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -119,10 +121,5 @@ func orderedRuleKeys(keys []string) []string {
 }
 
 func contains(keys []string, want string) bool {
-	for _, k := range keys {
-		if k == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(keys, want)
 }

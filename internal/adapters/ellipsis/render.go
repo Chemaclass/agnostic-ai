@@ -3,6 +3,7 @@ package ellipsis
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -16,9 +17,7 @@ var reviewerOrder = []string{"name", "paths", "claude_code", "codex", "gemini", 
 func render(f *reviewConfig, prompt string) (string, error) {
 	top := mapping()
 	header := map[string]any{"kind": fileKind, "name": f.name}
-	for k, v := range f.header {
-		header[k] = v
-	}
+	maps.Copy(header, f.header)
 	add(top, "ellipsis", orderedMap(header, headerKeys))
 	if f.pullRequests != nil {
 		add(top, "pull_requests", orderedMap(f.pullRequests, nil))

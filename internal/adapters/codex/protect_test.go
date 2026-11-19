@@ -319,7 +319,7 @@ func TestProtectHook_ReadsALargePatchQuickly(t *testing.T) {
 	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
 	var patch strings.Builder
 	patch.WriteString("*** Begin Patch\n*** Add File: big.txt\n")
-	for i := 0; i < 200000; i++ {
+	for i := range 200000 {
 		fmt.Fprintf(&patch, "+line %d with a \"quote\", a \\ backslash, and a tab\t.\n", i)
 	}
 	patch.WriteString("*** Update File: composer.lock\n+x\n*** End Patch")

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -124,7 +125,7 @@ func validateBuiltinMemory(root string, cfg *config.Config, reports []driftRepor
 		return err
 	}
 	if _, err := builtinRelativePath(root, store); err != nil {
-		return fmt.Errorf("memory.personal: web changes require a project-local store; use agnostic-ai sync in the CLI")
+		return errors.New("memory.personal: web changes require a project-local store; use agnostic-ai sync in the CLI")
 	}
 	if hasMarkdownFile(store) {
 		return nil

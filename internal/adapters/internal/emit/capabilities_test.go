@@ -48,7 +48,7 @@ func TestReportUnsupported_DedupTargetKindWithinFlush(t *testing.T) {
 	buf := swapWarner(t)
 	caps := Capabilities{Target: "aider", Supports: []spec.Kind{spec.KindRule}}
 	b := spec.Bundle{Hooks: []spec.Entry{{Name: "h1"}}}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if err := ReportUnsupported(caps, b, OnUnsupportedWarn); err != nil {
 			t.Fatal(err)
 		}

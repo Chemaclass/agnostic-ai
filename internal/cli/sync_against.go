@@ -382,7 +382,7 @@ func (t *againstTree) diagnoseSkillLinks(cfg *config.Config, reports []driftRepo
 	sort.Strings(paths)
 	failures := make([]againstSkillLinkFailure, 0, len(paths))
 	for _, link := range paths {
-		message := fmt.Sprintf("%s: Git exported this shared skill link as a plain file because core.symlinks=false; where link creation is supported, run git config --local core.symlinks true and rerun the check; otherwise set sync.shared-skills: false, run agnostic-ai sync, and stage the config and real skill copies", link)
+		message := link + ": Git exported this shared skill link as a plain file because core.symlinks=false; where link creation is supported, run git config --local core.symlinks true and rerun the check; otherwise set sync.shared-skills: false, run agnostic-ai sync, and stage the config and real skill copies"
 		if t.ref == againstHEAD {
 			message += "; commit the repair before checking HEAD"
 		}
@@ -694,8 +694,8 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	}
 	var includes []string
 	for _, r := range roots {
-		if strings.HasSuffix(r, "/") {
-			refs, err := reviewIncludes(filepath.FromSlash(strings.TrimSuffix(r, "/")))
+		if before, ok := strings.CutSuffix(r, "/"); ok {
+			refs, err := reviewIncludes(filepath.FromSlash(before))
 			if err != nil {
 				return nil, err
 			}

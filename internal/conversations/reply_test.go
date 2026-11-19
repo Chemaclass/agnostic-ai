@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -397,7 +398,7 @@ func TestScan_RereadsTheReplyOfACursorChatOpenInAWindow(t *testing.T) {
 			for _, id := range []string{open, closed} {
 				if strings.Contains(query, id) {
 					reads[id]++
-					rows = append(rows, json.RawMessage(`{"id":"`+id+`","first_text":"Fix it","last_text":"Fix it","start":"`+answer+`","ending":"`+answer+`","length":`+fmt.Sprint(len(answer))+`}`))
+					rows = append(rows, json.RawMessage(`{"id":"`+id+`","first_text":"Fix it","last_text":"Fix it","start":"`+answer+`","ending":"`+answer+`","length":`+strconv.Itoa(len(answer))+`}`))
 				}
 			}
 			return rows, nil
@@ -435,7 +436,7 @@ func TestScan_RereadsACursorChatWrittenTwiceInOneSecond(t *testing.T) {
 		case strings.Contains(query, "FROM composerHeaders"):
 			return []json.RawMessage{
 				json.RawMessage(`{"id":"` + open + `","workspace_id":"ws1","created_at":1794049200000,"recency":1794049200000,"name":"Open chat","folder":"/tmp/app"}`),
-				json.RawMessage(`{"id":"` + closed + `","workspace_id":"ws1","created_at":1794049200000,"recency":` + fmt.Sprint(recency) + `,"name":"Closed chat","folder":"/tmp/app"}`),
+				json.RawMessage(`{"id":"` + closed + `","workspace_id":"ws1","created_at":1794049200000,"recency":` + strconv.FormatInt(recency, 10) + `,"name":"Closed chat","folder":"/tmp/app"}`),
 			}, nil
 		case strings.Contains(query, "ItemTable"):
 			return []json.RawMessage{json.RawMessage(`{"value":"{\"selectedComposerIds\":[\"` + open + `\"]}"}`)}, nil
@@ -443,7 +444,7 @@ func TestScan_RereadsACursorChatWrittenTwiceInOneSecond(t *testing.T) {
 			var rows []json.RawMessage
 			for _, id := range []string{open, closed} {
 				if strings.Contains(query, id) {
-					rows = append(rows, json.RawMessage(`{"id":"`+id+`","first_text":"Fix it","last_text":"Fix it","start":"`+answer+`","ending":"`+answer+`","length":`+fmt.Sprint(len(answer))+`}`))
+					rows = append(rows, json.RawMessage(`{"id":"`+id+`","first_text":"Fix it","last_text":"Fix it","start":"`+answer+`","ending":"`+answer+`","length":`+strconv.Itoa(len(answer))+`}`))
 				}
 			}
 			return rows, nil

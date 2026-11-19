@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -117,9 +118,7 @@ func importedVoiceLayerCompatible(settings []spec.Entry, name string, doc map[st
 			return false
 		}
 		merged := make(map[string]any, len(doc))
-		for key, value := range doc {
-			merged[key] = value
-		}
+		maps.Copy(merged, doc)
 		for _, key := range []string{"target", "targets", "target-exclude", "targets-exclude"} {
 			if value, present := local[key]; present {
 				if value == nil {

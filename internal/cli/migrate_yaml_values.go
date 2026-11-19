@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -36,7 +37,7 @@ func editNestedYAMLValues(src string, edits []yamlValueEdit) (string, error) {
 		return "", err
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode {
-		return "", fmt.Errorf("not a mapping")
+		return "", errors.New("not a mapping")
 	}
 	lines := strings.SplitAfter(src, "\n")
 	var splices []yamlSplice
@@ -142,10 +143,10 @@ func sameApartFromValues(before, after string, edits []yamlValueEdit) error {
 		values[ed.Key] = ed.Value
 	}
 	if !reflect.DeepEqual(old, next) {
-		return fmt.Errorf("the rewrite changes other values")
+		return errors.New("the rewrite changes other values")
 	}
 	if !maps.Equal(oldTags, nextTags) {
-		return fmt.Errorf("the rewrite changes other tags")
+		return errors.New("the rewrite changes other tags")
 	}
 	return nil
 }

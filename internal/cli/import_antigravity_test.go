@@ -786,7 +786,7 @@ func TestImportAntigravity_KeepsNativeAgentFields(t *testing.T) {
 			if !strings.Contains(spec, "x-antigravity:") {
 				t.Fatalf("native fields not scoped:\n%s", spec)
 			}
-			head := strings.SplitN(spec, "x-antigravity:", 2)[0]
+			head, _, _ := strings.Cut(spec, "x-antigravity:")
 			for _, key := range []string{"tools:", "commandExecutionPolicy:", "mainAgent:", "subagent:", "skills:", "plugins:", "mcpServers:"} {
 				if strings.Contains(head, key) {
 					t.Errorf("%s left at the top level:\n%s", key, spec)

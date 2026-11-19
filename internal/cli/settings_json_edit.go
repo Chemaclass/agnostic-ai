@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -65,7 +66,7 @@ func jsonRootOpen(text string) (int, error) {
 	}
 	i := skipJSONSpace(text, start)
 	if i >= len(text) || text[i] != '{' {
-		return 0, fmt.Errorf("expected a JSON object")
+		return 0, errors.New("expected a JSON object")
 	}
 	return i, nil
 }
@@ -431,10 +432,10 @@ func scanJSONArray(text string, open int) ([]jsonMember, int, error) {
 			comma = i
 			i = skipJSONSpace(text, i+1)
 		} else if i < len(text) && text[i] != ']' {
-			return nil, 0, fmt.Errorf("expected , or ] in a JSON array")
+			return nil, 0, errors.New("expected , or ] in a JSON array")
 		}
 	}
-	return nil, 0, fmt.Errorf("expected a JSON array")
+	return nil, 0, errors.New("expected a JSON array")
 }
 
 // jsonValueEnd is the offset just past the JSON value starting at i.
@@ -455,14 +456,14 @@ func jsonValueEnd(text string, i int) (int, error) {
 				return j + 1, nil
 			}
 		}
-		return 0, fmt.Errorf("unterminated string")
+		return 0, errors.New("unterminated string")
 	}
 	j := i
 	for j < len(text) && !strings.ContainsRune(" \t\r\n,]}/", rune(text[j])) {
 		j++
 	}
 	if j == i {
-		return 0, fmt.Errorf("expected a JSON value")
+		return 0, errors.New("expected a JSON value")
 	}
 	return j, nil
 }
@@ -512,8 +513,8 @@ type jsonMember struct {
 }
 
 func lastJSONMember(members []jsonMember, key string) int {
-	for i := len(members) - 1; i >= 0; i-- {
-		if members[i].key == key {
+	for i, member := range slices.Backward(members) {
+		if member.key == key {
 			return i
 		}
 	}
@@ -541,7 +542,7 @@ func scanJSONObject(text string, open int) ([]jsonMember, int, error) {
 		case strings.HasPrefix(text[i:], "/*"):
 			end := strings.Index(text[i+2:], "*/")
 			if end < 0 {
-				return nil, 0, fmt.Errorf("unterminated comment")
+				return nil, 0, errors.New("unterminated comment")
 			}
 			i += end + 3
 		case c == '"':
@@ -552,7 +553,7 @@ func scanJSONObject(text string, open int) ([]jsonMember, int, error) {
 				}
 			}
 			if j >= len(text) {
-				return nil, 0, fmt.Errorf("unterminated string")
+				return nil, 0, errors.New("unterminated string")
 			}
 			if depth == 1 && expectKey {
 				var key string
@@ -589,7 +590,7 @@ func scanJSONObject(text string, open int) ([]jsonMember, int, error) {
 			current.end = i + 1
 		}
 	}
-	return nil, 0, fmt.Errorf("expected a JSON object")
+	return nil, 0, errors.New("expected a JSON object")
 }
 
 func settingsJSONPath(key string, flat ...bool) []string {

@@ -2,7 +2,7 @@ package cli
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -169,15 +169,15 @@ func TestUpgradeRequires_DoesNotDetectOrInstall(t *testing.T) {
 	deps := upgradeDeps{
 		detect: func(string) (upgradeInfo, error) {
 			t.Error("reconciliation detected an installation")
-			return upgradeInfo{}, fmt.Errorf("unexpected installation detection")
+			return upgradeInfo{}, errors.New("unexpected installation detection")
 		},
 		run: func(io.Writer, string) error {
 			t.Error("reconciliation ran an installer command")
-			return fmt.Errorf("unexpected installer command")
+			return errors.New("unexpected installer command")
 		},
 		install: func(io.Writer, string, string, string, *http.Client) error {
 			t.Error("reconciliation downloaded a release")
-			return fmt.Errorf("unexpected release download")
+			return errors.New("unexpected release download")
 		},
 	}
 	root := &cobra.Command{Use: "agnostic-ai", Version: "9.9.9", SilenceUsage: true, SilenceErrors: true}

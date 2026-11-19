@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -40,7 +41,7 @@ func withWorkspaces(text string, scopes []string) (string, error) {
 		mapping = doc.Content[0]
 	case strings.TrimSpace(front) == "":
 	default:
-		return "", fmt.Errorf("frontmatter is not a block mapping")
+		return "", errors.New("frontmatter is not a block mapping")
 	}
 	var key, value *yaml.Node
 	if mapping != nil {
@@ -57,7 +58,7 @@ func withWorkspaces(text string, scopes []string) (string, error) {
 		return text, nil
 	}
 	if key.Column != 1 {
-		return "", fmt.Errorf("`workspaces` is not at the start of its line")
+		return "", errors.New("`workspaces` is not at the start of its line")
 	}
 	lines := strings.Split(front, "\n")
 	first := key.Line - 1
@@ -126,7 +127,7 @@ func onlyWorkspacesChanged(before, after string, scopes []string) error {
 	}
 	was.Meta["workspaces"] = items
 	if was.Body != now.Body || !reflect.DeepEqual(was.Meta, now.Meta) {
-		return fmt.Errorf("the edit changes more than `workspaces`")
+		return errors.New("the edit changes more than `workspaces`")
 	}
 	return nil
 }

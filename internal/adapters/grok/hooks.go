@@ -2,6 +2,7 @@ package grok
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -139,7 +140,7 @@ func HookFile(e spec.Entry, scriptDirs ...string) ([]byte, error) {
 
 func ValidateWindowsScriptRewrite(before, after, scriptDir string) error {
 	if before != after && strings.Contains(after, emit.ShellQuote(strings.TrimRight(scriptDir, "/"))+"/") {
-		return fmt.Errorf("shared script path requires shell-specific quoting; use a native wrapper command on Windows")
+		return errors.New("shared script path requires shell-specific quoting; use a native wrapper command on Windows")
 	}
 	return nil
 }

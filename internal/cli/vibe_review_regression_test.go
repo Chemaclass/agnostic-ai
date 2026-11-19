@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -109,7 +110,7 @@ func TestImportGlobal_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
 
 func TestSyncGlobal_VibeScalarEditsPreserveArraySeparatorOwnership(t *testing.T) {
 	for _, update := range []bool{false, true} {
-		t.Run(fmt.Sprint(update), func(t *testing.T) {
+		t.Run(strconv.FormatBool(update), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := "key=1\n"
