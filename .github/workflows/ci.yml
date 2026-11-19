@@ -121,21 +121,13 @@ jobs:
           RUN: ${{ matrix.run }}
           SKIP: ${{ matrix.skip }}
           AGNOSTIC_AI_REQUIRE_ZOLA: ${{ matrix.require_zola }}
+        # Package paths hold no spaces, so $packages splits on newlines.
         run: |
-          packages=()
-          if [ -n "$PACKAGES" ]; then
-            packages=("$PACKAGES")
-          else
-            module=$(go list -m)
-            all_packages=$(go list ./...)
-            while IFS= read -r package; do
-              case "$package" in
-                "$module/tests/integration"|"$module/internal/cli") ;;
-                *) packages+=("$package") ;;
-              esac
-            done <<< "$all_packages"
+          packages=$PACKAGES
+          if [ -z "$packages" ]; then
+            packages=$(scripts/go-packages.sh ./internal/cli ./tests/integration)
           fi
-          go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic -run "$RUN" -skip "$SKIP" "${packages[@]}"
+          go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic -run "$RUN" -skip "$SKIP" $packages
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
@@ -182,16 +174,8 @@ jobs:
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          module=$(go list -m)
-          all_packages=$(go list ./...)
-          packages=()
-          while IFS= read -r package; do
-            case "$package" in
-              "$module/tests/integration"|"$module/tests/integration/"*|"$module/internal/cli") ;;
-              *) packages+=("$package") ;;
-            esac
-          done <<< "$all_packages"
-          go test -vet=all -timeout=10m -count=1 -race "${packages[@]}"
+          packages=$(scripts/go-packages.sh ./internal/cli ./tests/integration/...)
+          go test -vet=all -timeout=10m -count=1 -race $packages
 
       - name: Windows smoke
         if: matrix.os == 'windows-latest' && inputs.full_windows != true
@@ -292,21 +276,13 @@ jobs:
           PACKAGES: ${{ matrix.packages }}
           RUN: ${{ matrix.run }}
           SKIP: ${{ matrix.skip }}
+        # Package paths hold no spaces, so $packages splits on newlines.
         run: |
-          packages=()
-          if [ -n "$PACKAGES" ]; then
-            packages=("$PACKAGES")
-          else
-            module=$(go list -m)
-            all_packages=$(go list ./...)
-            while IFS= read -r package; do
-              case "$package" in
-                "$module/tests/integration"|"$module/internal/cli") ;;
-                *) packages+=("$package") ;;
-              esac
-            done <<< "$all_packages"
+          packages=$PACKAGES
+          if [ -z "$packages" ]; then
+            packages=$(scripts/go-packages.sh ./internal/cli ./tests/integration)
           fi
-          go test -vet=all -timeout=10m -count=1 -race -run "$RUN" -skip "$SKIP" "${packages[@]}"
+          go test -vet=all -timeout=10m -count=1 -race -run "$RUN" -skip "$SKIP" $packages
 
   # Split the macOS CLI race tests by name to stay within the job timeout.
   # The last shard skips the first two, so new tests land in exactly one shard.
@@ -594,18 +570,9 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Build WASM playground
-        run: GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
-
-      - name: Test WASM playground
-        run: GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/agnostic-ai-wasm
-
-      - name: Test OpenCode browser permissions
-        run: GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$'
-
-      - name: Test browser TOML capture
-        timeout-minutes: 2
-        run: GOOS=js GOARCH=wasm go test -timeout=30s -count=1 -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/internal/emit -run '^TestMergeTOMLFileBrowserCapturesWithoutFilesystem$'
+      - name: Build and test WASM playground
+        timeout-minutes: 5
+        run: make wasm-test
 
   schema:
     name: Schema drift
@@ -892,15 +859,14 @@ jobs:
         working-directory: .
         run: go build -o agnostic-ai ./cmd/agnostic-ai
 
-      - name: Companion page tests
-        working-directory: companion
-        run: node --test tests/*.test.js
+      - name: Cache browser
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('ui/package-lock.json') }}
 
       - name: Install browser
         run: npx playwright install chromium
-
-      - name: Companion browser tests
-        run: npx playwright test --config playwright.companion.config.ts
 
       - name: Fixture browser tests
         env:
@@ -912,3 +878,42 @@ jobs:
         env:
           AGNOSTIC_E2E_BIN: ${{ github.workspace }}/agnostic-ai
         run: npm run e2e:live
+
+  # The companion pages run against their own preview server, so they need
+  # neither Go nor the built client and finish in parallel with Web client.
+  companion_pages:
+    name: Companion pages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '26'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Companion page tests
+        working-directory: companion
+        run: node --test tests/*.test.js
+
+      - name: Cache browser
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('ui/package-lock.json') }}
+
+      - name: Install browser
+        run: npx playwright install chromium
+
+      - name: Companion browser tests
+        run: npx playwright test --config playwright.companion.config.ts

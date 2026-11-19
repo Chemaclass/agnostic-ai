@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools doctor-dev hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -74,7 +74,7 @@ bashunit --parallel scripts/release-notes_test.sh scripts/target-facts_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
 		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh \
-		scripts/bench-commands_test.sh scripts/test-go_test.sh scripts/doctor-dev_test.sh scripts/gofmt-on-edit_test.sh
+		scripts/bench-commands_test.sh scripts/test-go_test.sh scripts/go-packages_test.sh scripts/doctor-dev_test.sh scripts/gofmt-on-edit_test.sh
 endef
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
@@ -131,9 +131,9 @@ preflight: fmt-check lint test
 # now tests on Linux only (#982): preflight alone no longer approximates CI.
 #
 # It does not reproduce CI exactly and does not try to. It runs the Go tests
-# with -race on this OS alone. It skips the Web client job (make ui-check
-# only checks the bundle), govulncheck, the VS Code package step, the
-# JetBrains buildPlugin step, and the plugin version-bump job, which compares
+# with -race on this OS alone. It skips the Web client and Companion pages
+# jobs (make ui-check only checks the bundle), govulncheck, the VS Code
+# package step, the JetBrains buildPlugin step, and the plugin version-bump job, which compares
 # a pull request against its merge base. Cut a release from a
 # main commit whose own CI run is green across all three platforms; this
 # target is what you run before you get there.
@@ -148,10 +148,7 @@ preflight: fmt-check lint test
 # Each line is the local equivalent of one job, in the workflow's own order.
 ci-local: fmt-check test-race build lint
 	$(MAKE) opencode-hooks-test
-	GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
-	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/agnostic-ai-wasm
-	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$$'
-	GOOS=js GOARCH=wasm go test -timeout=30s -count=1 -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/internal/emit -run '^TestMergeTOMLFileBrowserCapturesWithoutFilesystem$$'
+	$(MAKE) wasm-test
 	go run ./cmd/schemagen
 	git diff --exit-code docs/schemas/config.schema.json
 	./$(BIN) lint
@@ -175,6 +172,14 @@ else
 endif
 	@echo "ci-local: ok"
 
+# The WASM steps of the CI build job. The tests run under Node.
+wasm-test:
+	@dir=$$(mktemp -d) && trap 'rm -rf "$$dir"' EXIT && \
+	GOOS=js GOARCH=wasm go build -o "$$dir/agnostic-ai.wasm" ./cmd/agnostic-ai-wasm
+	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/agnostic-ai-wasm
+	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$$'
+	GOOS=js GOARCH=wasm go test -timeout=30s -count=1 -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/internal/emit -run '^TestMergeTOMLFileBrowserCapturesWithoutFilesystem$$'
+
 # tools installs the developer toolchain pinned to the versions CI uses.
 # Idempotent. Run once after cloning, and again whenever the pins above
 # bump.
@@ -195,10 +200,6 @@ doctor-dev:
 hooks:
 	lefthook install
 
-cover:
-	go test -coverprofile=coverage.out ./...
-	go tool cover -func=coverage.out
-
 coverage:
 	go test -coverpkg=./internal/...,./cmd/... -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1
@@ -214,14 +215,6 @@ clean:
 	rm -f $(BIN) coverage.out coverage.html
 	rm -rf dist/
 
-release:
-	mkdir -p dist
-	GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/$(BIN)-darwin-arm64  $(PKG)
-	GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/$(BIN)-darwin-amd64  $(PKG)
-	GOOS=linux   GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/$(BIN)-linux-arm64   $(PKG)
-	GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/$(BIN)-linux-amd64   $(PKG)
-	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/$(BIN)-windows-amd64.exe $(PKG)
-
 # Static site (docs/site/). Zola owns templates, content, feeds, and aliases.
 # The sitemap is written after Zola so its lastmod values can come from Git.
 SITE_DIR := docs/site
@@ -230,23 +223,22 @@ SITE_OUTPUT_DIR := _site
 site-generate:
 	go run ./cmd/sitegen
 
-site-check:
-	go run ./cmd/sitegen -check
-	@have=$$(zola --version 2>/dev/null); \
+define require-zola
+@have=$$(zola --version 2>/dev/null); \
 	want="zola $(ZOLA_VERSION)"; \
 	if [ "$$have" != "$$want" ]; then \
 		echo "$$want required, found $${have:-nothing}."; \
 		exit 1; \
 	fi
+endef
+
+site-check:
+	go run ./cmd/sitegen -check
+	$(require-zola)
 	zola --root $(SITE_DIR) check --skip-external-links
 
 site-build: site-generate
-	@have=$$(zola --version 2>/dev/null); \
-	want="zola $(ZOLA_VERSION)"; \
-	if [ "$$have" != "$$want" ]; then \
-		echo "$$want required, found $${have:-nothing}."; \
-		exit 1; \
-	fi
+	$(require-zola)
 	zola --root $(SITE_DIR) build --force --minify --output-dir $(abspath $(SITE_OUTPUT_DIR))
 	./scripts/build-site-sitemap.sh $(SITE_OUTPUT_DIR)/sitemap.xml
 	./scripts/build-llm-docs.sh $(SITE_OUTPUT_DIR)
@@ -254,16 +246,11 @@ site-build: site-generate
 site-test:
 	go run ./cmd/sitegen -check
 	go test -count=1 ./cmd/sitegen
-	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/compare-targets.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js $(SITE_DIR)/static/assets/scripts/hook-flow.test.js
+	node --test $(SITE_DIR)/static/assets/scripts/*.test.js
 	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
 site-serve: site-generate
-	@have=$$(zola --version 2>/dev/null); \
-	want="zola $(ZOLA_VERSION)"; \
-	if [ "$$have" != "$$want" ]; then \
-		echo "$$want required, found $${have:-nothing}."; \
-		exit 1; \
-	fi
+	$(require-zola)
 	$(MAKE) playground-build
 	@# Production copies the playground into /playground/ after the site
 	@# build; a link that lives only while serving gives the same URL.
