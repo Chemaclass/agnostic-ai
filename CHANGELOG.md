@@ -13,6 +13,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).
 - Authority notes and opt-in links point directly to the reference pages that explain their settings (#3553).
 - A conversation request that names an unknown tool now gets an error that lists all four accepted tools: claude, codex, cursor and chatgpt (#3622).
+- `hook run` checks a command inside escaped backticks or an escaped `$()` within backticks, as bash runs it, for a Claude Code `if: "Bash(...)"` rule, and runs the hook when an escaped backtick leaves a substitution open (#3681).
 
 - Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
 - `agnostic-ai import` with several sources, or `all`, prints its next steps once at the end and no longer suggests importing a tool the same run imported. `import kimi` and `import vibe` now print them too (#3619).
