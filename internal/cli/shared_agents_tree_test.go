@@ -206,3 +206,32 @@ func TestRunSyncOnce_SharedAgentsTreeNoteSuppressedWhenUnchanged(t *testing.T) {
 		t.Errorf("a plain sync after -vv should collapse the note again:\n%s%s", log.String(), notes.String())
 	}
 }
+
+func TestRunSyncOnce_SharedAgentsTreeNoteSurvivesUnrelatedPreferSpec(t *testing.T) {
+	cases := []struct {
+		name   string
+		config string
+		want   bool
+	}{
+		{"one target sets prefer-spec", "outputs:\n  cursor:\n    collision-policy: prefer-spec\n", true},
+		{"every target accepts prefer-spec", "sync:\n  collision-policy: prefer-spec\n", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+				"version: 1\ntargets: [goose, windsurf, cursor]\n"+c.config)
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+				"---\nname: reviewer\ndescription: Reviews code.\ntarget: goose\n---\n\nBody.\n")
+			silence(t)
+			notes := captureNotes(t)
+
+			if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.Contains(notes.String(), "also read by Devin"); got != c.want {
+				t.Errorf("Devin note shown = %v, want %v:\n%s", got, c.want, notes.String())
+			}
+		})
+	}
+}

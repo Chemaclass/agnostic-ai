@@ -191,8 +191,13 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 				promptKeys[k] = true
 			}
 		}
-		ts = slices.Sorted(slices.Values(ts))
-		line := fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", "))
+		// Name the run's writers and any target outside the run that
+		// made the policy strict.
+		listed := slices.DeleteFunc(slices.Clone(ts), func(t string) bool {
+			return !slices.Contains(targets, t) && collisionPolicyRank(cfg.EffectiveCollisionPolicy(t)) != collisionPolicyRank(pathPolicy)
+		})
+		slices.Sort(listed)
+		line := fmt.Sprintf("  %s ← %s", path, strings.Join(listed, ", "))
 		if !slices.Equal(keys, []string{"sync.collision-policy"}) {
 			line += fmt.Sprintf(" (%s: %s)", strings.Join(keys, ", "), pathPolicy)
 		}
@@ -240,13 +245,13 @@ func collisionPolicy(cfg *config.Config, targets []string) string {
 }
 
 // collisionPolicyKeys names the settings that give the targets the given
-// policy: each outputs.<target>.collision-policy set to it, and
+// policy, or one of the same strictness: each outputs.<target>.collision-policy set to it, and
 // sync.collision-policy for a target that inherits it.
 func collisionPolicyKeys(cfg *config.Config, targets []string, policy string) []string {
 	var keys []string
 	inherits := false
 	for _, t := range targets {
-		if cfg.EffectiveCollisionPolicy(t) != policy {
+		if collisionPolicyRank(cfg.EffectiveCollisionPolicy(t)) != collisionPolicyRank(policy) {
 			continue
 		}
 		if o, ok := cfg.Outputs[t]; ok && o.CollisionPolicy != "" {
@@ -274,22 +279,23 @@ func runOwners(owners map[string][]string, targets []string) map[string][]string
 	return out
 }
 
-// stricterCollisionPolicy ranks fail over prompt over prefer-spec. An
-// unknown value acts as prompt, the default.
 func stricterCollisionPolicy(a, b string) string {
-	rank := func(p string) int {
-		switch p {
-		case "fail":
-			return 2
-		case "prefer-spec":
-			return 0
-		}
-		return 1
-	}
-	if rank(b) > rank(a) {
+	if collisionPolicyRank(b) > collisionPolicyRank(a) {
 		return b
 	}
 	return a
+}
+
+// collisionPolicyRank ranks fail over prompt over prefer-spec. An
+// unknown value acts as prompt, the default.
+func collisionPolicyRank(policy string) int {
+	switch policy {
+	case "fail":
+		return 2
+	case "prefer-spec":
+		return 0
+	}
+	return 1
 }
 
 // replacedRulesFileWinners maps each kept shared rules-file to the
