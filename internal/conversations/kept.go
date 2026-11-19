@@ -130,8 +130,24 @@ func (s *Scanner) claudeFiles() []string {
 // so a caller that asks on a timer can compare it first and skip the
 // scan while it holds.
 func (s *Scanner) Stamp() string {
+	return s.TakeStamp().Tag
+}
+
+// StoreStamp is a Stamp with the store files it stamped. Handed to
+// ScanStamped, it spares a search the second glob and stat of every
+// store file.
+type StoreStamp struct {
+	// Tag is what Stamp returns.
+	Tag    string
+	files  []string
+	stores string
+}
+
+// TakeStamp is Stamp, keeping the files it stamped for ScanStamped.
+func (s *Scanner) TakeStamp() StoreStamp {
 	files := s.storeFiles()
-	return s.stampOf(files, fileStamp(files...))
+	stores := fileStamp(files...)
+	return StoreStamp{Tag: s.stampOf(files, stores), files: files, stores: stores}
 }
 
 // storeFiles are the files of the three tools' stores a read depends on.

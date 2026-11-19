@@ -67,20 +67,6 @@ func hookHandlers(h spec.Entry) []map[string]any {
 	return handlers
 }
 
-// hookSourceCommands returns each handler's command before the path
-// rewrite, so the script lookup still sees the tool that owns the stash.
-func hookSourceCommands(h spec.Entry) []string {
-	native, _ := h.Meta["x-gemini"].(map[string]any)
-	if raw, exists := native["hooks"]; exists {
-		var commands []string
-		for _, meta := range emit.HookCommandEntries(raw) {
-			commands = append(commands, meta["command"].(string))
-		}
-		return commands
-	}
-	return emit.HookCommands(emit.ResolveMeta(h.Meta, target)["command"])
-}
-
 func nativeHookHandlers(h spec.Entry, raw any) []map[string]any {
 	var handlers []map[string]any
 	for _, meta := range emit.HookCommandEntries(raw) {

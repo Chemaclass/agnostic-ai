@@ -101,7 +101,9 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 			return err
 		}
 	}
-	return materializeHookScripts(sess, hooks, dryRun)
+	// Cline's discovery ignores any stem that is not an event name, so a
+	// copied helper script is never mistaken for an event.
+	return sess.MaterializeHookScripts(hooks, target, dryRun)
 }
 
 func GlobalHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
@@ -308,30 +310,3 @@ if [ "$aai_status" -eq 2 ]; then
 fi
 [ "$aai_status" -eq 0 ] || exit "$aai_status"
 `
-
-// materializeHookScripts copies each hook's stashed script body from
-// `.agnostic-ai/scripts/` into `.cline/hooks/`. The lookup keys off the
-// spec's original `command:` path, so a script imported via claude still
-// materializes when the same hook syncs out to cline. A command that is
-// a free-form shell expression carries no stashed body and skips.
-//
-// The copies are invisible to Cline's own discovery:
-// `toHookConfigFileName` returns undefined for any stem that is not one
-// of the ten event names, so a helper script is never mistaken for an
-// event.
-func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
-	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
-		return err
-	}
-	for _, h := range hooks {
-		for _, raw := range emit.HookCommands(h.Meta["command"]) {
-			raw = emit.RewriteNeutralHookPath(raw, ".")
-			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
-			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}

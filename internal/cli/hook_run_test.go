@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -320,6 +322,50 @@ func TestHookRun_CodexShutdownUsesEffectiveHandlerTimeout(t *testing.T) {
 			out, err := runHookRun(t, "guard", "--target", "codex", "--payload", "payload.json", "--json")
 			if err == nil || !strings.Contains(out, `"timed_out": true`) {
 				t.Errorf("expected native timeout, err=%v: %s", err, out)
+			}
+		})
+	}
+}
+
+func TestHookRunEvent_PerTarget(t *testing.T) {
+	for name, tc := range map[string]struct {
+		target, event, wantEvent, reason string
+	}{
+		"known event":           {"claude", "PreToolUse", "PreToolUse", ""},
+		"unknown event":         {"claude", "Bogus", "Bogus", "claude has no Bogus event"},
+		"crush canonical event": {"crush", "pretooluse", "PreToolUse", ""},
+		"crush other event":     {"crush", "SessionStart", "SessionStart", "hook run builds only Crush's PreToolUse payload"},
+		"crush unknown event":   {"crush", "Bogus", "Bogus", "crush has no Bogus event"},
+		"augment prompt submit": {"augment", "UserPromptSubmit", "UserPromptSubmit", augment.UserPromptSubmitHint},
+	} {
+		t.Run(name, func(t *testing.T) {
+			hook := spec.Entry{Meta: map[string]any{"event": tc.event, "matcher": "Bash"}}
+			event, matcher, reason := hookRunEvent(tc.target, hook)
+			if event != tc.wantEvent || matcher != "Bash" || reason != tc.reason {
+				t.Errorf("= %q, %q, %q; want %q, %q, %q", event, matcher, reason, tc.wantEvent, "Bash", tc.reason)
+			}
+		})
+	}
+}
+
+func TestHookRunsAsync_PerTarget(t *testing.T) {
+	async := map[string]any{"async": true}
+	for name, tc := range map[string]struct {
+		target, event        string
+		meta                 map[string]any
+		async, fireAndForget bool
+	}{
+		"claude async":           {"claude", "PreToolUse", async, true, false},
+		"claude waits":           {"claude", "PreToolUse", nil, false, false},
+		"codex SessionEnd waits": {"codex", "SessionEnd", async, false, false},
+		"codex async":            {"codex", "Stop", async, true, false},
+		"cursor fire and forget": {"cursor", "sessionStart", nil, true, true},
+		"cursor ignores async":   {"cursor", "preToolUse", async, false, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			gotAsync, gotFire := hookRunsAsync(tc.target, tc.event, tc.meta)
+			if gotAsync != tc.async || gotFire != tc.fireAndForget {
+				t.Errorf("= %v, %v; want %v, %v", gotAsync, gotFire, tc.async, tc.fireAndForget)
 			}
 		})
 	}

@@ -275,7 +275,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err := sess.MergeJSONFileOrdered(path, keys, []string{"hooks"}, []string{"version", "hooks"}, dryRun); err != nil {
 		return fmt.Errorf("cursor hooks: %w", err)
 	}
-	return materializeHookScripts(sess, hooks, dryRun)
+	return sess.MaterializeHookScripts(hooks, target, dryRun)
 }
 
 // buildHooks groups hook specs by their `event` frontmatter into Cursor's
@@ -340,27 +340,6 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 		out[k] = v
 	}
 	return out
-}
-
-// materializeHookScripts copies each hook's stashed script body from
-// `.agnostic-ai/scripts/` into `.cursor/hooks/` so the emitted
-// hooks.json references a script that exists. Hooks whose command is a
-// free-form shell expression carry no stashed body and skip silently.
-func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
-	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
-		return err
-	}
-	for _, h := range hooks {
-		for _, raw := range emit.HookCommands(h.Meta["command"]) {
-			raw = emit.RewriteNeutralHookPath(raw, ".")
-			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
-			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 // rewriteHookPath maps a shared script path to Cursor's hook directory.
@@ -531,7 +510,7 @@ func mdc(e spec.Entry) string {
 	// to the Claude spelling (`paths`, a list, comma-joined), mirroring
 	// the globs->paths translation on the claude side.
 	if globs == "" && !always {
-		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
+		globs = strings.Join(emit.PathList(m["paths"]), ",")
 	}
 	// cursor.com/docs/rules defines an explicit alwaysApply/description/
 	// globs matrix: alwaysApply:false with a description and no globs is
@@ -561,31 +540,6 @@ func mdc(e spec.Entry) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
-}
-
-// pathsToGlobs normalizes a `paths` value (the Claude spelling: a
-// scalar string or a list) into a slice of glob strings. Returns nil
-// when the key is absent or carries no usable value.
-func pathsToGlobs(paths any) []string {
-	switch v := paths.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []string:
-		return v
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 // UserMCPServers renders mcps as the `mcpServers` map of ~/.cursor/mcp.json,

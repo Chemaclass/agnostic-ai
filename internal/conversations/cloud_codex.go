@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -143,6 +142,8 @@ type codexCloudList struct {
 	Data *[]codexCloudRow `json:"data"`
 }
 
+func (l codexCloudList) rows() *[]codexCloudRow { return l.Data }
+
 type codexCloudRow struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
@@ -176,55 +177,11 @@ func (c *CodexCloud) List(ctx context.Context) ([]Conversation, error) {
 	req.Header.Set("X-OpenAI-Product-Sku", "codex")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "agnostic-ai")
-	resp, err := c.Client.Do(req)
+	body, err := cloudGet(c.Client, req, ToolCodex, "thread")
 	if err != nil {
-		return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreachable, Cause: err}
+		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, codexRefusal(resp)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxCloudReplyBytes+1))
-	if err != nil {
-		return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreachable, Cause: err}
-	}
-	if len(body) > maxCloudReplyBytes {
-		return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreadable, Cause: fmt.Errorf("the thread list is larger than %d bytes", maxCloudReplyBytes)}
-	}
-	return codexCloudConversations(body)
-}
-
-// codexRefusal turns an answer other than 200 into a CloudError that
-// keeps the start of the provider's text as its cause. Only 401 says
-// something about the sign-in.
-func codexRefusal(resp *http.Response) error {
-	reason, known := cloudRefusals[resp.StatusCode]
-	if !known {
-		reason = CloudRefused
-	}
-	said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
-	return &CloudError{Tool: ToolCodex, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
-}
-
-// codexCloudConversations reads the list answer. A row this version
-// cannot read fails the whole answer rather than drop out of sight.
-func codexCloudConversations(body []byte) ([]Conversation, error) {
-	var list codexCloudList
-	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreadable, Cause: fmt.Errorf("thread list: %w", err)}
-	}
-	if list.Data == nil {
-		return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreadable, Cause: errors.New("thread list has no data field")}
-	}
-	conversations := make([]Conversation, 0, len(*list.Data))
-	for i, row := range *list.Data {
-		c, err := codexCloudConversation(row)
-		if err != nil {
-			return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreadable, Cause: fmt.Errorf("thread list row %d: %w", i, err)}
-		}
-		conversations = append(conversations, c)
-	}
-	return conversations, nil
+	return decodeCloudList[codexCloudList](ToolCodex, "thread", body, codexCloudConversation)
 }
 
 // codexCloudConversation turns one row into a list row. A row's folder

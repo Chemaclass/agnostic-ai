@@ -293,7 +293,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitExecPolicies(sess, cfg, policies, dryRun); err != nil {
 		return err
 	}
-	if err := materializeHookScripts(sess, hooks, dryRun); err != nil {
+	if err := sess.MaterializeHookScripts(hooks, target, dryRun); err != nil {
 		return err
 	}
 	return sess.RestoreHelperFiles(helperOverlays, dryRun)
@@ -335,27 +335,6 @@ func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir stri
 	// and commands concurrently, so removing the parent races with their
 	// directory creation. RemoveGeneratedTree already removes the
 	// target-owned `.agents/agents` subtree completely.
-	return nil
-}
-
-// materializeHookScripts copies each hook's stashed script body from
-// `.agnostic-ai/scripts/` into `.codex/hooks/` so the emitted
-// config.toml has the actual script alongside the path it references.
-func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
-	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
-		return err
-	}
-	for _, h := range hooks {
-		cmds := emit.HookCommands(h.Meta["command"])
-		for _, raw := range cmds {
-			raw = emit.RewriteNeutralHookPath(raw, ".")
-			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
-			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 

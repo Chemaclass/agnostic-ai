@@ -349,7 +349,7 @@ func activationFrontmatter(e spec.Entry) string {
 	globs := spec.JoinGlobs(m["globs"])
 	always := alwaysApplies(m)
 	if globs == "" && !always {
-		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
+		globs = strings.Join(emit.PathList(m["paths"]), ",")
 	}
 	var b strings.Builder
 	b.WriteString("---\n")
@@ -359,7 +359,7 @@ func activationFrontmatter(e spec.Entry) string {
 		b.WriteString("description:\n")
 	}
 	if globs != "" {
-		b.WriteString("globs: " + yamlScalar(globs) + "\n")
+		b.WriteString("globs: " + emit.YAMLScalar(globs) + "\n")
 	}
 	fmt.Fprintf(&b, "alwaysApply: %t\n", always)
 	writeCustomTraeLines(&b, e.Meta)
@@ -377,7 +377,7 @@ func writeCustomTraeLines(b *strings.Builder, meta map[string]any) {
 	custom, keys := emit.CustomTargetMeta(meta, target, "description", "globs", "alwaysApply")
 	for _, k := range keys {
 		if s, ok := custom[k].(string); ok {
-			b.WriteString(k + ": " + yamlScalar(s) + "\n")
+			b.WriteString(k + ": " + emit.YAMLScalar(s) + "\n")
 			continue
 		}
 		out, err := yaml.Marshal(map[string]any{k: custom[k]})
@@ -386,46 +386,6 @@ func writeCustomTraeLines(b *strings.Builder, meta map[string]any) {
 		}
 		b.WriteString(strings.TrimRight(string(out), "\n") + "\n")
 	}
-}
-
-// pathsToGlobs normalizes a `paths` value (the Claude spelling: a
-// scalar string or a list) into a slice of glob strings. Returns nil
-// when the key is absent or carries no usable value. Mirrors cursor's
-// helper of the same name; kept as its own copy per the
-// no-cross-adapter-imports rule rather than shared, since both are
-// small and target-specific.
-func pathsToGlobs(paths any) []string {
-	switch v := paths.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []string:
-		return v
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
-}
-
-// yamlScalar renders s as a YAML scalar with minimal quoting: a plain
-// value like `apps/foo/**` stays unquoted, while a value YAML cannot
-// represent plainly (a leading `*`, a colon, ...) is quoted just enough
-// to stay valid.
-func yamlScalar(s string) string {
-	out, err := yaml.Marshal(s)
-	if err != nil {
-		return fmt.Sprintf("%q", s)
-	}
-	return strings.TrimRight(string(out), "\n")
 }
 
 // AgentCoverage names the agent fields this target writes.
