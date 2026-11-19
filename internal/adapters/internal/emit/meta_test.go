@@ -419,3 +419,44 @@ func TestResolveMeta_NonScalarUnderTargetFallsThrough(t *testing.T) {
 		}
 	}
 }
+
+func TestPathList(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		in   any
+		want []string
+	}{
+		{"absent", nil, nil},
+		{"empty string", "", nil},
+		{"string", "src/**", []string{"src/**"}},
+		{"string slice", []string{"a", ""}, []string{"a", ""}},
+		{"any slice", []any{"a", "", 3, "b"}, []string{"a", "b"}},
+		{"other type", 7, nil},
+	}
+	for _, c := range cases {
+		if got := PathList(c.in); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: PathList(%v) = %q, want %q", c.name, c.in, got, c.want)
+		}
+	}
+}
+
+func TestTargetMetaSets(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		meta map[string]any
+		want bool
+	}{
+		{"no block", map[string]any{"tools": []any{"Read"}}, false},
+		{"other target", map[string]any{"x-kiro": map[string]any{"tools": "x"}}, false},
+		{"set", map[string]any{"x-gemini": map[string]any{"tools": []any{"*"}}}, true},
+		{"nil is a delete marker", map[string]any{"x-gemini": map[string]any{"tools": nil}}, false},
+		{"other key", map[string]any{"x-gemini": map[string]any{"model": "m"}}, false},
+	}
+	for _, c := range cases {
+		if got := TargetMetaSets(c.meta, "gemini", "tools"); got != c.want {
+			t.Errorf("%s: TargetMetaSets = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

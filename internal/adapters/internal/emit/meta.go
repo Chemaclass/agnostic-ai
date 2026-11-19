@@ -53,6 +53,32 @@ func StringSlice(v any) []string {
 	return out
 }
 
+// PathList reads a `paths` value (the Claude spelling: a scalar string
+// or a list) as a list of globs. It returns nil when the value is
+// absent, empty, or of another type, and drops non-string or empty list
+// items.
+func PathList(v any) []string {
+	switch v := v.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
 // StringMap coerces a `map[string]any` of string values (YAML's default
 // for a string-keyed string-valued map) into `map[string]string`.
 // Non-string values are dropped; a non-map input returns nil. Adapters
@@ -87,6 +113,14 @@ func IntField(meta map[string]any, key string) (int, bool) {
 		return int(v), true
 	}
 	return 0, false
+}
+
+// TargetMetaSets reports whether `x-<target>` sets key to a non-nil
+// value. A nil value is a delete marker, so it does not count.
+func TargetMetaSets(meta map[string]any, target, key string) bool {
+	x, _ := CustomTargetMeta(meta, target)
+	_, ok := x[key]
+	return ok
 }
 
 // CustomTargetMeta returns the entries under `x-<target>` that an adapter
