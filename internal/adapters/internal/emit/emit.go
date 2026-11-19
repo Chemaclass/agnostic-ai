@@ -1925,15 +1925,14 @@ func FrontmatterStyled(meta map[string]any, keys []string, styles map[string]yam
 
 // encodeMetaValues encodes every value of meta into a YAML node. Each
 // yaml.v3 Node.Encode builds an encoder and a parser, so the whole map
-// goes through one of each, and only a key the parsed document cannot
-// name exactly falls back to its own Encode.
+// goes through one of each. A key the parsed document cannot name
+// exactly falls back to its own Encode, as does every key when the
+// document does not parse back (yaml.v3 writes some keys, such as one
+// starting with a tab and spanning lines, in a form it cannot read).
 func encodeMetaValues(meta map[string]any) (map[string]*yaml.Node, error) {
 	var doc yaml.Node
-	if err := doc.Encode(meta); err != nil {
-		return nil, err
-	}
 	values := make(map[string]*yaml.Node, len(meta))
-	if doc.Kind == yaml.MappingNode {
+	if doc.Encode(meta) == nil && doc.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(doc.Content); i += 2 {
 			key := doc.Content[i]
 			if key.Kind != yaml.ScalarNode || key.ShortTag() != "!!str" {

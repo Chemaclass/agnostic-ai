@@ -149,7 +149,7 @@ func TestFrontmatterStyledMatchesReferenceOnEdgeValues(t *testing.T) {
 		assertFrontmatterMatches(t, "edge value "+k, map[string]any{k: v}, nil, styles)
 	}
 	assertFrontmatterMatches(t, "odd keys", map[string]any{
-		"true": 1, "1.0": 2, "null": 3, "*star": 4, "[x]": 5, "#hash": 6, "a b": 7, "": 8, "multi\nline": 9,
+		"true": 1, "1.0": 2, "null": 3, "*star": 4, "[x]": 5, "#hash": 6, "a b": 7, "": 8, "multi\nline": 9, "\tfoo\nbar": 10,
 	}, []string{"null", "absent", "true"}, nil)
 	assertFrontmatterMatches(t, "invalid utf-8 key", map[string]any{"bad\xffkey": "v", "good": "w"}, nil, nil)
 	assertFrontmatterMatches(t, "invalid utf-8 value", map[string]any{"k": "bad\xffvalue"}, nil, nil)
