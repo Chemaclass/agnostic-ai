@@ -759,8 +759,7 @@ func filesNaming(t *testing.T, dir, text string) []string {
 	return found
 }
 
-func testContextListMemory(t *testing.T, project func(*testing.T, []byte) string, run func(*testing.T, string, ...string) string, file, targets string) {
-	t.Helper()
+func testContextListMemory(t *testing.T, project func(*testing.T, []byte) string, run func(*testing.T, string, ...string) string, file, targets string) { //nolint:thelper // subtest body, not a helper
 	dir := project(t, []byte("version: 1\ntargets: ["+targets+"]\nbuiltins: [memory]\n"))
 	config := filepath.Join(dir, file)
 	if err := os.WriteFile(config, []byte(`{"instructions": ["CONTRIBUTING.md"]}`), 0o644); err != nil {
