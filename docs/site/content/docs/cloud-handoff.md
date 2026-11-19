@@ -62,7 +62,7 @@ The cloud session starts from the pushed branch. A Claude Code session puts its 
 
 ## Limits
 
-- Claude Code cloud sessions are listed on macOS only, since the companion reads the claude.ai sign-in from the macOS keychain. On Linux and Windows the handoff still works (on Windows you run the Claude Code command yourself), and the list stays empty without a message.
+- Claude Code cloud sessions are listed on macOS only, since the companion reads the claude.ai sign-in from the macOS keychain. On Linux and Windows the handoff still works (on Windows you run the Claude Code command yourself), and no Claude Code row shows, without a message.
 - Claude Code names the session itself. The prompt's first line can shape that title, but does not set it.
 - A Codex task runs on the repository its environment names, not on this checkout's remote. Pick an environment for this repository.
 - The prompt holds no chat history: only what the agent writes in it.
