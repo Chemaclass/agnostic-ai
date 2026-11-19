@@ -715,12 +715,11 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 	if !strings.Contains(blocks[1], macLaunch) {
 		t.Fatalf("launch block lacks %q:\n%s", macLaunch, blocks[1])
 	}
-	linuxStart := strings.Index(string(body), "On Linux, start it with `")
-	if linuxStart < 0 {
+	_, linuxTail, found := strings.Cut(string(body), "On Linux, start it with `")
+	linuxLaunch, _, closed := strings.Cut(linuxTail, "`")
+	if !found || !closed {
 		t.Fatal("skill has no Linux launch line")
 	}
-	linuxLaunch := string(body)[linuxStart+len("On Linux, start it with `"):]
-	linuxLaunch = linuxLaunch[:strings.Index(linuxLaunch, "`")]
 	forms := map[string]string{
 		"macos": blocks[1],
 		"linux": strings.Replace(blocks[1], macLaunch, linuxLaunch, 1),
