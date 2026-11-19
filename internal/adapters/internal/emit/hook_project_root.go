@@ -193,8 +193,8 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 		for _, meta := range metadata {
 			if windows, _ := meta["commandWindows"].(string); windows != "" {
 				refs, reason := hookRootReferences(windows)
-				used := len(refs) > 0 || reason != ""
-				if used && !(target == "codex" && !global && reason == "" && root() != "") {
+				translated := func() bool { return target == "codex" && !global && reason == "" && root() != "" }
+				if (len(refs) > 0 || reason != "") && !translated() {
 					if err := reportHookRoot(target, hook, mode, "commandWindows", "Windows root references require a target-specific project root"); err != nil {
 						return err
 					}
