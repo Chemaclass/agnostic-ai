@@ -544,11 +544,19 @@ func copyMarkdownFile(src, dst string) error {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", dst, err)
 	}
-	out = scopeNewImportedModel(existing, dst, out)
+	if out, err = scopeCopiedModel(existing, dst, out); err != nil {
+		return fmt.Errorf("scope model in %s: %w", dst, err)
+	}
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := importWriteMarkdown(dst, out, 0o644); err != nil {
+	write := func() error { return importWriteMarkdown(dst, out, 0o644) }
+	if existing != nil && addsOnlyOwnModelEntries(existing, out, importModelTargets(importScopeTarget)) {
+		err = withImportMerge(write)
+	} else {
+		err = write()
+	}
+	if err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil

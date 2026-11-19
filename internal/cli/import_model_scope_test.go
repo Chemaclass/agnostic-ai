@@ -29,7 +29,7 @@ func TestScopeNewImportedModel(t *testing.T) {
 			priorTarget, priorCfg := importScopeTarget, importHookConfig
 			t.Cleanup(func() { importScopeTarget, importHookConfig = priorTarget, priorCfg })
 			importScopeTarget = c.source
-			importHookConfig = &config.Config{Models: map[string]config.ModelTier{"fast": {}}}
+			importHookConfig = &config.Config{Targets: []string{"goose", "openhands", "copilot"}, Models: map[string]config.ModelTier{"fast": {}}}
 			var existing []byte
 			if c.existing != "" {
 				existing = []byte(c.existing)
@@ -108,4 +108,98 @@ func TestImportGoose_SharedAgentFileSyncsWithOpenHands(t *testing.T) {
 	if got := readFile(t, filepath.Join(dir, ".agents", "agents", "reviewer.md")); !strings.Contains(got, "model: gpt-5.5") {
 		t.Errorf("shared agent file lost its model:\n%s", got)
 	}
+}
+
+func TestImportGoose_ReimportOfAnEditedSharedAgentModelSyncs(t *testing.T) {
+	for name, edited := range map[string]string{
+		"changed": "model: gpt-6\n",
+		"deleted": "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose, openhands]\n")
+			native := filepath.Join(dir, ".agents", "agents", "reviewer.md")
+			writeFile(t, native, "---\nname: reviewer\ndescription: Reviews diffs.\nmodel: gpt-5.5\n---\n\nReview.\n")
+			execCLI(t, "import", "goose")
+			execCLI(t, "sync")
+
+			writeFile(t, native, strings.Replace(readFile(t, native), "model: gpt-5.5\n", edited, 1))
+			execCLI(t, "import", "goose")
+			execCLI(t, "sync")
+			execCLI(t, "sync", "--check")
+
+			got := readFile(t, native)
+			if edited == "" && strings.Contains(got, "model:") || edited != "" && !strings.Contains(got, edited) {
+				t.Errorf("shared agent file did not follow the edit:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestImportOpenCode_ReimportOfAnEditedCommandModelStaysScoped(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode, claude]\n")
+	native := filepath.Join(dir, ".opencode", "commands", "check.md")
+	writeFile(t, native, "---\ndescription: Check.\nmodel: gpt-4.1\n---\n\nCheck.\n")
+	execCLI(t, "import", "opencode")
+	execCLI(t, "sync")
+
+	writeFile(t, native, strings.Replace(readFile(t, native), "gpt-4.1", "gpt-5", 1))
+	execCLI(t, "import", "opencode")
+	execCLI(t, "sync")
+
+	if got := readFile(t, filepath.Join(dir, ".claude", "commands", "check.md")); strings.Contains(got, "model") {
+		t.Errorf("claude got OpenCode's model:\n%s", got)
+	}
+	if got := readFile(t, native); !strings.Contains(got, "gpt-5") {
+		t.Errorf("opencode lost its edited model:\n%s", got)
+	}
+}
+
+func TestImport_CommandModelsFromTwoToolsStayPerTool(t *testing.T) {
+	for _, sources := range [][]string{{"claude", "opencode"}, {"opencode", "junie"}} {
+		t.Run(strings.Join(sources, "+"), func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(sources, ", ")+"]\n")
+			native := map[string]string{
+				"claude":   ".claude/commands/check.md",
+				"opencode": ".opencode/commands/check.md",
+				"junie":    ".junie/commands/check.md",
+			}
+			model := map[string]string{"claude": "sonnet", "opencode": "gpt-5", "junie": "junie-model"}
+			for _, s := range sources {
+				writeFile(t, filepath.Join(dir, native[s]), "---\ndescription: Check.\nmodel: "+model[s]+"\n---\n\nCheck.\n")
+			}
+			execCLI(t, append([]string{"import"}, sources...)...)
+			execCLI(t, "sync")
+
+			for _, s := range sources {
+				got := readFile(t, filepath.Join(dir, native[s]))
+				if !strings.Contains(got, "model: "+model[s]) {
+					t.Errorf("%s lost its own model:\n%s", s, got)
+				}
+				for _, other := range sources {
+					if other != s && strings.Contains(got, model[other]) {
+						t.Errorf("%s got %s's model:\n%s", s, other, got)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestImport_SecondToolWithTheSameAgentModelImportsCleanly(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot, cursor]\n")
+	writeFile(t, filepath.Join(dir, ".github", "agents", "reviewer.agent.md"), "---\nname: reviewer\ndescription: Reviews diffs.\nmodel: gpt-5\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\nmodel: gpt-5\n---\n\nReview.\n")
+
+	execCLI(t, "import", "copilot")
+	execCLI(t, "import", "cursor")
+	execCLI(t, "sync")
+	execCLI(t, "sync", "--check")
 }

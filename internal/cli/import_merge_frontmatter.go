@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -64,7 +66,7 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	}
 	for _, key := range []string{"effort", "model"} {
 		shown := fields.expresses(key) || key == "model" && importedHasKey(data, key)
-		if data, err = reconcileTargetMap(existing, data, key, importScopeTarget, shown); err != nil {
+		if data, err = reconcileTargetMap(existing, data, key, importModelTargets(importScopeTarget), shown); err != nil {
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
@@ -73,7 +75,11 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 		return err
 	}
 	flushKeptNote(path, data)
-	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
+	data = keepEqualMarkdown(existing, data)
+	if addsOnlyOwnModelEntries(existing, data, importModelTargets(importScopeTarget)) {
+		return withImportMerge(func() error { return importWriteFile(path, data, mode) })
+	}
+	return importWriteFile(path, data, mode)
 }
 
 // importWriteMarkdown writes an imported markdown spec whose frontmatter
@@ -249,8 +255,8 @@ func detachImportOverride(node *yaml.Node) *yaml.Node {
 // writes the same native agent file. A model scoped to only one of them
 // would make the shared file differ between them.
 var sharedAgentFileTargets = map[string][]string{
-	"goose":     {"goose", "openhands"},
-	"openhands": {"goose", "openhands"},
+	"goose":     {"openhands"},
+	"openhands": {"goose"},
 }
 
 // scopeNewImportedModel scopes the model of an imported agent or command
@@ -272,19 +278,100 @@ func scopeNewImportedModel(existing []byte, path string, data []byte) []byte {
 			}
 		}
 	}
-	targets := sharedAgentFileTargets[source]
-	if targets == nil {
-		targets = []string{source}
+	return []byte(scopeTopLevelModel(string(data), importModelTargets(source), scopableModel))
+}
+
+// importModelTargets lists the targets an import from source sets a
+// per-target value for: source itself, plus each configured target that
+// writes the same native file.
+func importModelTargets(source string) []string {
+	targets := []string{source}
+	for _, other := range sharedAgentFileTargets[source] {
+		if other != source && importHookConfig != nil && slices.Contains(importHookConfig.Targets, other) {
+			targets = append(targets, other)
+		}
 	}
-	return []byte(scopeTopLevelModel(string(data), targets, func(model string) bool {
-		if model == "inherit" {
+	return targets
+}
+
+// scopableModel reports whether an imported model is a vendor name.
+// `inherit` and a tier name are portable.
+func scopableModel(model string) bool {
+	if model == "inherit" {
+		return false
+	}
+	if importHookConfig != nil {
+		if _, tier := importHookConfig.Models[model]; tier {
 			return false
 		}
-		if importHookConfig != nil {
-			if _, tier := importHookConfig.Models[model]; tier {
-				return false
-			}
+	}
+	return true
+}
+
+// scopeCopiedModel is scopeNewImportedModel for a spec an importer
+// replaces whole, such as a command copied from markdown. When the spec
+// already holds a per-target model, only the source's entries change. A
+// shared scalar that differs from the imported model becomes the map's
+// `default`, so the tools that read it keep it.
+func scopeCopiedModel(existing []byte, path string, data []byte) ([]byte, error) {
+	source := importScopeTarget
+	if existing == nil || source == "" || source == "claude" || filepath.Base(path) == "SKILL.md" {
+		return scopeNewImportedModel(existing, path, data), nil
+	}
+	existingMap, _, ok := frontmatterNode(existing)
+	if !ok || mappingValue(existingMap, "model") == nil {
+		return scopeNewImportedModel(existing, path, data), nil
+	}
+	current := mappingValue(existingMap, "model")
+	if current.Kind == yaml.MappingNode {
+		return reconcileTargetMap(existing, data, "model", importModelTargets(source), true)
+	}
+	importedMap, rest, ok := frontmatterNode(data)
+	if !ok {
+		return data, nil
+	}
+	imported := mappingValue(importedMap, "model")
+	if current.Kind != yaml.ScalarNode || imported == nil || imported.Kind != yaml.ScalarNode ||
+		imported.Value == current.Value || !scopableModel(imported.Value) {
+		return data, nil
+	}
+	perTarget := &yaml.Node{Kind: yaml.MappingNode, Style: yaml.FlowStyle}
+	perTarget.Content = append(perTarget.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "default"}, current)
+	for _, target := range importModelTargets(source) {
+		perTarget.Content = append(perTarget.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: target}, imported)
+	}
+	setOrDropKey(importedMap, "model", perTarget)
+	return encodeFrontmatter(importedMap, rest, source)
+}
+
+// addsOnlyOwnModelEntries reports whether data differs from existing only
+// in the per-target model entries of targets, which layers the import onto
+// the spec instead of replacing what it holds for other tools.
+func addsOnlyOwnModelEntries(existing, data []byte, targets []string) bool {
+	_, oldEnd, oldMeta := claudeFrontmatter(string(existing))
+	newRest, newEnd, newMeta := claudeFrontmatter(string(data))
+	oldRest, _, _ := claudeFrontmatter(string(existing))
+	if oldMeta == nil || newMeta == nil || oldRest[oldEnd:] != newRest[newEnd:] {
+		return false
+	}
+	oldModel, newModel := oldMeta["model"], newMeta["model"]
+	oldMap, oldIsMap := oldModel.(map[string]any)
+	newMap, newIsMap := newModel.(map[string]any)
+	if !newIsMap || oldModel != nil && !oldIsMap {
+		return false
+	}
+	for k, v := range oldMap {
+		if !slices.Contains(targets, k) && !reflect.DeepEqual(newMap[k], v) {
+			return false
 		}
-		return true
-	}))
+	}
+	for k, v := range newMap {
+		if !slices.Contains(targets, k) && !reflect.DeepEqual(oldMap[k], v) {
+			return false
+		}
+	}
+	oldOther, newOther := maps.Clone(oldMeta), maps.Clone(newMeta)
+	delete(oldOther, "model")
+	delete(newOther, "model")
+	return reflect.DeepEqual(oldOther, newOther)
 }
