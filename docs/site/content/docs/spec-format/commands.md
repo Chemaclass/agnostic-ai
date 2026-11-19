@@ -51,7 +51,7 @@ Other frontmatter is kept. Put keys for one tool under `x-<target>`, like `x-cla
 Each target page lists the exact directory.
 
 - Gemini writes each command as a `.toml` file named after `name`.
-- A `group:name` command, such as `git:commit` from `import gemini`, keeps its namespace only in Gemini CLI and Qwen Code, which write `git/commit`. Every other tool gets `git-commit`, as a file or a skill name, because a colon breaks filenames on Windows. A command already named `git-commit` keeps that name.
+- A `group:name` command, such as `git:commit` from `import gemini`, keeps its namespace only in Gemini CLI and Qwen Code, which write `git/commit`. Every other tool gets `git-commit`, as a file or a skill name, because a colon breaks filenames on Windows. When a command is already named `git-commit`, the other one becomes `git-commit-2`.
 - Codex without `outputs.codex.commands-dir`, Copilot, Zed, Windsurf, and Crush get each command as a skill ([below](#tools-without-commands)).
 - Other tools without command support skip it with a note.
 

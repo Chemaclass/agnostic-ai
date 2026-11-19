@@ -63,3 +63,20 @@ func TestEmit_NamespacedCommandKeepsGeminiSubfolder(t *testing.T) {
 		t.Errorf("gemini lost its namespace folder: %v", err)
 	}
 }
+
+func TestFlatCommandNames_TakesAFreeNameWhenTheDashFormIsTaken(t *testing.T) {
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindCommand, Name: "git-commit", Meta: map[string]any{}},
+		{Kind: spec.KindCommand, Name: "git:commit", Meta: map[string]any{"name": "git:commit"}},
+	})
+	got := FlatCommandNames(b, "claude").Commands
+	if got[0].Name != "git-commit" || got[1].Name != "git-commit-2" || got[1].Meta["name"] != "git-commit-2" {
+		t.Errorf("names = %q, %q (meta %v)", got[0].Name, got[1].Name, got[1].Meta["name"])
+	}
+	if b.Commands[1].Meta["name"] != "git:commit" {
+		t.Errorf("the source bundle changed: %v", b.Commands[1].Meta)
+	}
+	if kept := FlatCommandNames(b, "gemini").Commands[1].Name; kept != "git:commit" {
+		t.Errorf("gemini name = %q, want git:commit", kept)
+	}
+}

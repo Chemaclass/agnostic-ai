@@ -10,6 +10,11 @@ import (
 // as `use` runs the next steps itself. Sequential use only.
 var importNextStepsOff bool
 
+// importReportsNoChange lets the import command replace the sync steps
+// with a no-change line. Init and use write other files first, so sync
+// stays their next step.
+var importReportsNoChange bool
+
 // printImportNextSteps emits the post-import guidance block. It always
 // suggests the sync workflow first, then surfaces up to three other
 // detected CLIs as `import <name>` hints so users discover the rest of
@@ -20,8 +25,8 @@ func printImportNextSteps(root string, justImported ...string) {
 		return
 	}
 	summaryf("\n")
-	if importSandbox == "" && importTxn != nil && !importChanged {
-		summaryf("nothing changed: the specs already match what import read\n")
+	if importReportsNoChange && importSandbox == "" && !importChanged {
+		summaryf("no spec changed, so sync has nothing new to write\n")
 	} else {
 		summaryf("next steps:\n")
 		summaryf("  agnostic-ai sync --plan    # preview what changes\n")

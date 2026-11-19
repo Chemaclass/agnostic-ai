@@ -331,11 +331,8 @@ func noteWindsurfLegacyRules(root, rulesDir string, scopes []string, cfg *config
 		filepath.Clean(rulesDir) != windsurfRulesDirs[1] {
 		return nil
 	}
-	dirs := []string{rulesDir}
-	for _, scope := range scopes {
-		dirs = append(dirs, filepath.Join(scope, rulesDir))
-	}
-	for _, dir := range dirs {
+	for _, scope := range append([]string{""}, scopes...) {
+		dir, dest := filepath.Join(scope, rulesDir), filepath.Join(scope, windsurfRulesDirs[0])
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
 				return err
@@ -352,7 +349,7 @@ func noteWindsurfLegacyRules(root, rulesDir string, scopes []string, cfg *config
 				return fmt.Errorf("resolve %s: %w", path, err)
 			}
 			summaryf("  ! delete %s after the next sync: sync writes it to %s, and Devin loads both folders\n",
-				filepath.ToSlash(rel), filepath.ToSlash(windsurfRulesDirs[0])+"/")
+				filepath.ToSlash(rel), filepath.ToSlash(dest)+"/")
 			return nil
 		})
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {

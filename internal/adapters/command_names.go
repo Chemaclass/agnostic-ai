@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"fmt"
 	"maps"
 	"strings"
 
@@ -16,10 +17,11 @@ type commandNamespacer interface {
 	NamespacedCommands() bool
 }
 
-// withFlatCommandNames renames each `group:name` command to `group-name`
-// for a target without command namespaces. A command already named
-// `group-name` keeps that name, and the namespaced one stays as it is.
-func withFlatCommandNames(b spec.Bundle, target string) spec.Bundle {
+// FlatCommandNames renames each `group:name` command to `group-name` for
+// a target without command namespaces, the name sync writes it under. A
+// name another command already holds gets the first free `-2`, `-3`
+// suffix.
+func FlatCommandNames(b spec.Bundle, target string) spec.Bundle {
 	if n, ok := registry[target].(commandNamespacer); ok && n.NamespacedCommands() {
 		return b
 	}
@@ -29,9 +31,13 @@ func withFlatCommandNames(b spec.Bundle, target string) spec.Bundle {
 	}
 	var commands []spec.Entry
 	for i, c := range b.Commands {
-		flat := strings.ReplaceAll(c.Name, ":", "-")
-		if flat == c.Name || taken[flat] {
+		if !strings.Contains(c.Name, ":") {
 			continue
+		}
+		base := strings.ReplaceAll(c.Name, ":", "-")
+		flat := base
+		for n := 2; taken[flat]; n++ {
+			flat = fmt.Sprintf("%s-%d", base, n)
 		}
 		if commands == nil {
 			commands = append([]spec.Entry{}, b.Commands...)

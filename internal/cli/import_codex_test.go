@@ -1900,3 +1900,17 @@ func TestImportFromCodex_SkipNoteNamesTheSourceFile(t *testing.T) {
 		t.Errorf("missing %q in:\n%s", want, out)
 	}
 }
+
+func TestImportFromCodex_SyncedScopedRuleDoesNotTakeAScopePathName(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "rules", "api.md"), "---\nname: api\nscope: services/api\n---\n\nAPI code must return typed errors.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "API code must return typed errors, always.\n")
+
+	captureSummary(t)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "services-api.md")); err == nil {
+		t.Error("the rule's own spec covers that scope, so no second spec is expected")
+	}
+}

@@ -161,7 +161,7 @@ func TestImport_RerunAfterSyncSaysNothingChanged(t *testing.T) {
 		t.Fatalf("import: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "nothing changed") || strings.Contains(out, "next steps:") {
+	if !strings.Contains(out, "no spec changed") || strings.Contains(out, "next steps:") {
 		t.Errorf("a re-import that writes nothing must say so:\n%s", out)
 	}
 }

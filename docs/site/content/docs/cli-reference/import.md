@@ -28,7 +28,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 ### Import behavior
 
-`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. An import that changes no file says `nothing changed` instead of the sync steps. `import --global [targets]` reads your user config instead.
+`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. An `import` that changes no spec says so instead of listing the sync steps. `import --global [targets]` reads your user config instead.
 
 {% <details summary="import all, entry files, and what global import reads"> %}
 

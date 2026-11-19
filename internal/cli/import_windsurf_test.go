@@ -877,3 +877,18 @@ func TestImportFromWindsurf_NoDeleteNoteWithoutTheTarget(t *testing.T) {
 		t.Errorf("no note expected when sync does not write Windsurf:\n%s", out)
 	}
 }
+
+func TestImportFromWindsurf_DeleteNoteNamesTheScopedDestination(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "naming.md"), "Use clear names.\n")
+	writeFile(t, filepath.Join(dir, "pkg", ".windsurf", "rules", "api.md"), "Return typed errors.\n")
+
+	out := captureSummary(t)
+	if err := importFromWindsurf(dir, rootSources(), &config.Config{Targets: []string{"windsurf"}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "  ! delete pkg/.windsurf/rules/api.md after the next sync: sync writes it to pkg/.devin/rules/, and Devin loads both folders\n"
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("missing %q in:\n%s", want, out)
+	}
+}

@@ -126,6 +126,8 @@ func newImportCmd() *cobra.Command {
 // replaces an existing spec with different content, unless overwrite is
 // set (see runGuardedImport).
 func runImportArgs(args []string, overwrite bool) error {
+	importReportsNoChange = true
+	defer func() { importReportsNoChange = false }()
 	return runGuardedImport(overwrite, func([]string) string { return importOverwriteRemedy(args) }, func() error {
 		return importArgs(args)
 	})

@@ -485,7 +485,8 @@ func writeCodexRule(dstDir, name, description, globs, body, source string) error
 		}
 		scope := strings.TrimSuffix(globs, "/**")
 		_, _, meta := claudeFrontmatter(string(existing))
-		if scopeName := slugify(scope); globs != "" && meta["globs"] != globs && name == slugify(filepath.Base(filepath.FromSlash(scope))) && scopeName != name {
+		sameScope := meta["globs"] == globs || meta["scope"] == scope
+		if scopeName := slugify(scope); globs != "" && !sameScope && name == slugify(filepath.Base(filepath.FromSlash(scope))) && scopeName != name {
 			return writeCodexRule(dstDir, scopeName, description, globs, body, source)
 		}
 		summaryf("  ! skipped %s: already exists (likely from a prior import); review %s for unique content to merge by hand\n", path, filepath.ToSlash(source))
