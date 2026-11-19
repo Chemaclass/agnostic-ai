@@ -23,8 +23,9 @@ type MergedKey struct {
 	// Releasing the file takes out only these.
 	Items []string `json:"items,omitempty"`
 	// Within names, by content sum, the items sync added to a list it
-	// claims whole. Once the user edits the list it stays theirs, and
-	// releasing it takes out only these, each while unchanged.
+	// claims whole, as older versions recorded it. Once the user edits the
+	// list it stays theirs, and releasing it takes out only these, each
+	// while unchanged.
 	Within []string `json:"within,omitempty"`
 	// Follows, when set, is the sum of the value this write replaced. The
 	// key is claimed only if an earlier sync's claim still has that sum;

@@ -236,8 +236,8 @@ const (
 
 // AgentsStartMarker and AgentsEndMarker mirror the emit-layer sentinels
 // so callers outside the internal emit tree (the junie importer today)
-// can detect and extract the agents appendix block junie.go writes into
-// `.junie/AGENTS.md`.
+// can detect and extract the agents appendix block older junie adapter
+// versions wrote into `.junie/AGENTS.md`.
 const (
 	AgentsStartMarker = emit.AgentsStartMarker
 	AgentsEndMarker   = emit.AgentsEndMarker
