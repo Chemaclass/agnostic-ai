@@ -84,13 +84,17 @@ function waitingIn(conversations) {
   return new Set(conversations.filter((row) => NEEDS_PERSON[row.state]).map((row) => `${row.tool}:${row.id}`))
 }
 
-function viewOf(state, conversations, query) {
-  const view = { conversations, needsYou: conversations.filter((row) => NEEDS_PERSON[row.state]).length }
+/** A page of the list; like the server, needsYou counts every chat, not only the search's matches. */
+function viewOf(state, conversations, query, all = conversations) {
+  const view = { conversations, needsYou: all.filter((row) => NEEDS_PERSON[row.state]).length }
   if (query !== undefined) view.matches = conversations.length
   if (state.fixture.cloudNote) view.cloudNote = state.fixture.cloudNote
   if (state.fixture.marksNote) view.marksNote = state.fixture.marksNote
   return view
 }
+
+/** A time as the server writes and reads it: RFC 3339. */
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
 
 function matches(row, words) {
   const text = [row.title, row.folder, row.branch].join(' ').toLowerCase()
@@ -189,6 +193,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
 
   async function inbox(request, response, url) {
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
+    const before = url.searchParams.get('before')
+    if (before !== null && !RFC3339.test(before)) return sendJSON(response, 400, { error: 'before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page' })
     const query = url.searchParams.get('q')
     const note = state.fixture.note
     const version = state.version
@@ -203,11 +209,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     // The page gave this search up; a fixture chosen meanwhile answers with its own rows.
     if (response.destroyed) return
     const rows = state === asked ? read : state.conversations.filter((row) => matches(row, words))
-    if (!paged) return sendJSON(response, 200, { view: viewOf(state, rows, query), note, version })
-    // Like the server's weeks: before is where the previous page stopped, and matches counts every page.
-    const start = Number(url.searchParams.get('before') ?? 0)
-    const view = { ...viewOf(state, rows.slice(start, start + paged.size), query), matches: rows.length }
-    if (start + paged.size < rows.length) view.next = String(start + paged.size)
+    if (!paged) return sendJSON(response, 200, { view: viewOf(state, rows, query, state.conversations), note, version })
+    // Like the server's weeks: before is the time the previous page stopped at, newest first, and matches counts every page.
+    const older = rows.filter((row) => before === null || Date.parse(row.updatedAt) < Date.parse(before)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    const page = older.slice(0, paged.size)
+    const view = { ...viewOf(state, page, query, state.conversations), matches: rows.length }
+    if (older.length > page.length) view.next = page.at(-1).updatedAt.replace(/\.\d+Z$/, 'Z')
     sendJSON(response, 200, { view, note, version })
   }
 

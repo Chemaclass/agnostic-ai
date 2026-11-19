@@ -98,10 +98,11 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if err != nil {
 		return err
 	}
-	version, ok := stableReleaseVersion(version)
+	release, ok := stableReleaseVersion(version)
 	if !ok {
-		return fmt.Errorf("update %s: expected a stable release version", app)
+		return fmt.Errorf("update %s: version %q is not a stable release; use X.Y.Z, such as 1.4.0", app, version)
 	}
+	version = release
 	staging, err := os.MkdirTemp(filepath.Dir(app), ".companion-update-")
 	if err != nil {
 		return fmt.Errorf("%s: stage update: %w", app, err)
@@ -216,7 +217,7 @@ func runCompanionAppTool(ctx context.Context, name string, args ...string) error
 
 func companionAppCommands(tools companionTools) []*cobra.Command {
 	var installApp, updateApp, version string
-	install := &cobra.Command{Use: "install-command", Short: "Link the app's bundled command into PATH.", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	install := &cobra.Command{Use: "install-command", Short: "Link the app's bundled command into PATH.", Example: `  agnostic-ai companion install-command --app "/Applications/agnostic-ai companion.app"`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if runtime.GOOS != "darwin" {
 			return fmt.Errorf("install command from %s: supported on macOS only", installApp)
 		}
@@ -232,16 +233,26 @@ func companionAppCommands(tools companionTools) []*cobra.Command {
 	}}
 	install.Flags().StringVar(&installApp, "app", "", "Absolute path of the companion app.")
 	_ = install.MarkFlagRequired("app")
-	update := &cobra.Command{Use: "update-app", Short: "Download and replace the companion app and its bundled command.", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		if runtime.GOOS != "darwin" {
-			return fmt.Errorf("update %s: supported on macOS only", updateApp)
-		}
-		ctx, cancel := context.WithTimeout(cmd.Context(), companionDownloadWait)
-		defer cancel()
-		return updateCompanionApp(ctx, cmd.OutOrStdout(), updateApp, version, tools, companionAppDeps{prepare: prepareCompanionApp, start: func(app string) error { return runCompanionAppTool(context.Background(), "open", "-a", app) }})
-	}}
+	update := &cobra.Command{
+		Use:   "update-app",
+		Short: "Download and replace the companion app and its bundled command.",
+		Long: `Download and replace the companion app and its bundled command.
+
+The release is checked before anything changes. Then update-app quits the running companion,
+replaces the app, and starts it again.`,
+		Example: `  agnostic-ai companion update-app --app "/Applications/agnostic-ai companion.app" --version 1.4.0`,
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if runtime.GOOS != "darwin" {
+				return fmt.Errorf("update %s: supported on macOS only", updateApp)
+			}
+			ctx, cancel := context.WithTimeout(cmd.Context(), companionDownloadWait)
+			defer cancel()
+			return updateCompanionApp(ctx, cmd.OutOrStdout(), updateApp, version, tools, companionAppDeps{prepare: prepareCompanionApp, start: func(app string) error { return runCompanionAppTool(context.Background(), "open", "-a", app) }})
+		},
+	}
 	update.Flags().StringVar(&updateApp, "app", "", "Absolute path of the companion app.")
-	update.Flags().StringVar(&version, "version", "", "Stable release to install.")
+	update.Flags().StringVar(&version, "version", "", "Stable release to install, as X.Y.Z.")
 	_ = update.MarkFlagRequired("app")
 	_ = update.MarkFlagRequired("version")
 	return []*cobra.Command{install, update}

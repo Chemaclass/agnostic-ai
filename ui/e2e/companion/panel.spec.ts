@@ -898,8 +898,8 @@ test('folders with the same name show their parent, and the full path on hover',
   await expect(row(page, 'Add rate limits')).toContainText(' · shop/api · ')
   await expect(row(page, 'Split the user routes')).toContainText(' · billing/api · ')
   await expect(row(page, 'Fix the health check')).toContainText(' · Work/api · ')
-  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Open in Terminal\n/Users/you/Code/shop/api')
-  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Open in Terminal /Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Resume in Terminal\n/Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Resume in Terminal /Users/you/Code/shop/api')
 })
 
 test('a folder name no other row shares stays short', async ({ page }) => {

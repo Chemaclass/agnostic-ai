@@ -395,5 +395,4 @@ make companion-test   # Go vet, Go tests and the page logic tests
 make companion-e2e    # the list's search, open, rename, mark as read and failure flows, its ⋯ menu, the quit question, and the hidden and dimmed circle, in headless Chromium
 ```
 
-CI runs the page tests and the browser tests. It does not run the Go tests yet,
-so run `make companion-test` before you push a change to Go code here.
+CI runs Go vet, the Go tests, the page tests and the browser tests.

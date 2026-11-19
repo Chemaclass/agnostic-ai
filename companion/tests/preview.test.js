@@ -5,6 +5,7 @@ import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { FIXTURES } from '../dev/fixtures.mjs'
 import { startPreview } from '../dev/preview.mjs'
 
 const frontend = fileURLToPath(new URL('../frontend/', import.meta.url))
@@ -119,6 +120,53 @@ test('searches the fixture rows', async (t) => {
   const found = await inbox(preview.url, 'login')
   assert.deepEqual(found.body.view.conversations.map((row) => row.id), ['active-1'])
   assert.equal(found.body.view.matches, 1)
+})
+
+test('every fixture row opens the way the server reopens it', () => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  for (const [name, fixture] of Object.entries(FIXTURES)) {
+    for (const row of fixture.conversations(now)) {
+      const where = `${name} ${row.id}`
+      if (row.app === 'cloud') {
+        assert.equal(row.open.kind, 'link', where)
+        assert.equal(row.open.label, row.tool === 'codex' ? 'Open in Codex app' : 'Open on claude.ai', where)
+        assert.ok(row.open.link, where)
+        continue
+      }
+      assert.equal(row.open.kind, row.live ? 'focus' : 'terminal', where)
+      if (!row.live) assert.equal(row.open.label, 'Resume in Terminal', where)
+      assert.match(row.open.command, new RegExp(`^cd '/Users/you/[^']+' && \\S.* ${row.id}$`), where)
+    }
+  }
+})
+
+test('a search counts every chat that needs the person, not only its matches', async (t) => {
+  const preview = await startPreview({ port: 0 })
+  t.after(preview.close)
+  const all = await inbox(preview.url)
+  const found = await inbox(preview.url, 'login')
+  assert.ok(all.body.view.needsYou > 0)
+  assert.equal(found.body.view.needsYou, all.body.view.needsYou)
+})
+
+test('pages a search by time, newest first, and refuses a before that is not one, as serve does', async (t) => {
+  const preview = await startPreview({ port: 0, fixture: 'paged-search' })
+  t.after(preview.close)
+  const ids = []
+  let next
+  do {
+    const response = await fetch(preview.url + '/api/inbox?q=the' + (next ? '&before=' + encodeURIComponent(next) : ''))
+    const { view } = await response.json()
+    ids.push(...view.conversations.map((row) => row.id))
+    next = view.next
+    if (next) assert.match(next, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+  } while (next)
+  const found = await inbox(preview.url, 'the')
+  assert.equal(ids.length, found.body.view.matches)
+  assert.equal(new Set(ids).size, ids.length)
+  const refused = await fetch(preview.url + '/api/inbox?q=the&before=2')
+  assert.equal(refused.status, 400)
+  assert.match((await refused.json()).error, /^before must be a time/)
 })
 
 test('refuses a request that names another host', async (t) => {
