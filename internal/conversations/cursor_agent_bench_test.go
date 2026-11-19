@@ -149,3 +149,41 @@ func BenchmarkStamp_CursorAgentChats(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkSearchFirstPage_CursorAgentChats times one first-page search
+// request over that many chats, as the server answers it: a Stamp for
+// the list tag, then a Scan that stamps the stores again (status quo),
+// the same with the tag's stamp handed to the scan (proposed), and the
+// Scan alone with no tag (direct), the floor of any stamp sharing. A
+// new Scanner per request reads every store cold, which
+// BenchmarkScan_CursorAgentChats/uncached already times.
+func BenchmarkSearchFirstPage_CursorAgentChats(b *testing.B) {
+	stores := benchCursorAgentStores(b)
+	opts := ScanOptions{Query: "safari"}
+	// A fixed clock: a new freshSpan mid-run would read the stores again.
+	now := time.Now()
+	scanner := &Scanner{Stores: stores, SQLite: benchCursorAgentSQLite, Processes: fakeProcesses{}, Now: func() time.Time { return now }}
+	check := func(b *testing.B, view View) {
+		if len(view.Conversations) == 0 {
+			b.Fatal("the search found nothing")
+		}
+	}
+	check(b, scanner.Scan(context.Background(), opts))
+	b.Run("status_quo", func(b *testing.B) {
+		for b.Loop() {
+			_ = scanner.Stamp()
+			check(b, scanner.Scan(context.Background(), opts))
+		}
+	})
+	b.Run("proposed", func(b *testing.B) {
+		for b.Loop() {
+			stamp := scanner.TakeStamp()
+			check(b, scanner.ScanStamped(context.Background(), opts, stamp))
+		}
+	})
+	b.Run("direct", func(b *testing.B) {
+		for b.Loop() {
+			check(b, scanner.Scan(context.Background(), opts))
+		}
+	})
+}

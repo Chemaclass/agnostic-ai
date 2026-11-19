@@ -1346,6 +1346,40 @@ func TestScan_ASearchReadsTheStoresOnceForItsPages(t *testing.T) {
 	}
 }
 
+func TestScanStamped_ASearchKeysItsReadOnTheHandedStamp(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	session := func(id, stamp, prompt string) {
+		write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", id+".jsonl"), lines(
+			obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": stamp, "message": obj{"role": "user", "content": prompt}}))
+	}
+	session(idSafari, "2026-11-06T10:00:00.000Z", "Fix the Safari login")
+	session(idCache, "2026-08-01T10:00:00.000Z", "Tune the cache eviction for Safari")
+	stamp := scanner.TakeStamp()
+	if stamp.Tag != scanner.Stamp() {
+		t.Fatalf("TakeStamp must tag what Stamp does: %q, %q", stamp.Tag, scanner.Stamp())
+	}
+	first := scanner.ScanStamped(context.Background(), ScanOptions{Query: "safari"}, stamp)
+	before, err := time.Parse(time.RFC3339, first.Next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	later := ScanOptions{Query: "safari", Before: before}
+
+	reads := scanner.beganReads()
+	if older := scanner.ScanStamped(context.Background(), later, scanner.TakeStamp()); scanner.beganReads() != reads || len(older.Conversations) != 1 {
+		t.Errorf("a later page with a fresh stamp must take the rows its first page read: %d reads, %s", scanner.beganReads()-reads, asJSON(t, older))
+	}
+	stale := scanner.TakeStamp()
+	session(idCache, "2026-08-01T10:00:00.000Z", "Tune the cache eviction for Safari and Chrome")
+	// Its rows are as old as its tag, which the caller's next request no longer matches.
+	if older := scanner.ScanStamped(context.Background(), later, stale); scanner.beganReads() != reads || older.Conversations[0].Title != "Tune the cache eviction for Safari" {
+		t.Errorf("a stamp taken before a change must answer what it names: %d reads, %s", scanner.beganReads()-reads, asJSON(t, older))
+	}
+	if older := scanner.ScanStamped(context.Background(), later, scanner.TakeStamp()); scanner.beganReads() != reads+1 || older.Conversations[0].Title != "Tune the cache eviction for Safari and Chrome" {
+		t.Errorf("a stamp taken after a change must read the stores again: %d reads, %s", scanner.beganReads()-reads, asJSON(t, older))
+	}
+}
+
 func TestScan_ASearchWhoseReadWritesTheMarksKeepsItForTheNextPage(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")

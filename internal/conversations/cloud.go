@@ -2,6 +2,12 @@ package conversations
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -90,6 +96,72 @@ func cloudNote(tool Tool, err error) string {
 		return cloudNotePrefixes[tool] + "an unknown problem."
 	}
 	return cloudNotePrefixes[tool] + cloudErr.Error()
+}
+
+// cloudGet runs a list request once and returns its body, read up to
+// maxCloudReplyBytes. noun names a row of tool's list in error causes.
+func cloudGet(client *http.Client, req *http.Request, tool Tool, noun string) ([]byte, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, &CloudError{Tool: tool, Reason: CloudUnreachable, Cause: err}
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, cloudRefusal(tool, resp)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxCloudReplyBytes+1))
+	if err != nil {
+		return nil, &CloudError{Tool: tool, Reason: CloudUnreachable, Cause: err}
+	}
+	if len(body) > maxCloudReplyBytes {
+		return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: fmt.Errorf("the %s list is larger than %d bytes", noun, maxCloudReplyBytes)}
+	}
+	return body, nil
+}
+
+// cloudRefusals maps the statuses that say something about the sign-in.
+// Any other status is a refusal.
+var cloudRefusals = map[int]CloudReason{
+	http.StatusUnauthorized: CloudSignedOut,
+}
+
+// cloudRefusal turns an answer other than 200 into a CloudError that
+// keeps the start of the provider's text as its cause.
+func cloudRefusal(tool Tool, resp *http.Response) error {
+	reason, known := cloudRefusals[resp.StatusCode]
+	if !known {
+		reason = CloudRefused
+	}
+	said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
+	return &CloudError{Tool: tool, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
+}
+
+// cloudList is a list answer whose rows sit under "data". Each tool
+// keeps its own named type, which JSON errors name.
+type cloudList[R any] interface {
+	rows() *[]R
+}
+
+// decodeCloudList reads a list answer. A row this version cannot read
+// fails the whole answer rather than drop out of sight.
+func decodeCloudList[L cloudList[R], R any](tool Tool, noun string, body []byte, convert func(R) (Conversation, error)) ([]Conversation, error) {
+	var list L
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: fmt.Errorf("%s list: %w", noun, err)}
+	}
+	data := list.rows()
+	if data == nil {
+		return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: errors.New(noun + " list has no data field")}
+	}
+	conversations := make([]Conversation, 0, len(*data))
+	for i, row := range *data {
+		c, err := convert(row)
+		if err != nil {
+			return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: fmt.Errorf("%s list row %d: %w", noun, i, err)}
+		}
+		conversations = append(conversations, c)
+	}
+	return conversations, nil
 }
 
 // keptCloud is the last cloud read and when it ran, and the last read
