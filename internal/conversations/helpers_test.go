@@ -545,3 +545,23 @@ func TestClaudeHelpers_CarryTheSubagentsLatestMessageAsItsReply(t *testing.T) {
 		t.Errorf("each subagent's latest message, withheld when it may hold a credential, none before it wrote one: %v", replies)
 	}
 }
+
+func TestClaudeAgentReply_KeepsItsLineThroughALaterMessageAndRereadsOnlyAChangedFile(t *testing.T) {
+	scanner, _ := testScanner(t, nil, fakeProcesses{})
+	path := filepath.Join(t.TempDir(), "agent-a.jsonl")
+	own := func(line obj) obj { line["isSidechain"] = true; return line }
+	teammate := own(typedPrompt("<teammate-message teammate_id=\"lead\">Also check the docs.</teammate-message>"))
+	write(t, path, lines(own(typedPrompt("Find the call sites")), own(agentLine(textPart("Twelve so far."))), teammate))
+
+	if got := scanner.claudeAgentReplyOf(path); got != "Twelve so far." {
+		t.Errorf("a message to the subagent keeps its latest line, actual %q", got)
+	}
+	scanner.claudeAgentReplies[path] = cached[string]{stamp: fileStamp(path), value: "kept"}
+	if got := scanner.claudeAgentReplyOf(path); got != "kept" {
+		t.Errorf("an unchanged transcript is not read again, actual %q", got)
+	}
+	write(t, path, lines(own(agentLine(textPart("Done: fourteen.")))))
+	if got := scanner.claudeAgentReplyOf(path); got != "Done: fourteen." {
+		t.Errorf("a changed transcript is read again, actual %q", got)
+	}
+}

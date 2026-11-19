@@ -24,7 +24,8 @@ type helper struct {
 	// gives one.
 	Kind string `json:"kind,omitempty"`
 	// Reply is a Claude Code subagent's latest message, as a row's
-	// reply; empty before it wrote one or when it may hold a credential.
+	// reply; empty before it wrote one, when it may hold a credential, or
+	// when it is further back than claudeReplyWindow.
 	Reply     string      `json:"reply,omitempty"`
 	State     helperState `json:"state"`
 	UpdatedAt string      `json:"updatedAt"`

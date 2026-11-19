@@ -914,7 +914,7 @@ export interface ConversationHelper {
   title: string
   /** The agent type the tool gives, such as `Explore`, when it gives one. */
   kind?: string
-  /** A Claude Code subagent's latest message, as one line, like a conversation's `reply`. Omitted before it wrote one, or when it may hold a credential. */
+  /** A Claude Code subagent's latest message, as one line, like a conversation's `reply`. Read from the last 256 KB of its transcript; omitted before it wrote one, when it may hold a credential, or when its latest message is further back. */
   reply?: string
   /** Always `working`: a helper that finished is not listed. */
   state: 'working'

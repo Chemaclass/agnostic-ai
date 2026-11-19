@@ -103,7 +103,8 @@ type claudeReplies struct {
 	// pending are the tool calls with no result yet, oldest first.
 	pending []toolCall
 	// subagent reads a subagent's own transcript, whose lines are all
-	// sidechain lines.
+	// sidechain lines. Only its own messages count there: a later message
+	// to it, such as a teammate's, keeps what it said last shown.
 	subagent bool
 }
 
@@ -180,6 +181,9 @@ func (r *claudeReplies) visit(line claudeLine) {
 			r.message, r.known = strings.Join(parts, "\n"), true
 		}
 	case "user":
+		if r.subagent {
+			return
+		}
 		r.answered(line.Message.Content)
 		if line.fromPerson() && len(r.pending) > 0 {
 			// A new prompt starts a new turn: no call of an older one waits.

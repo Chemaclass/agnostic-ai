@@ -424,11 +424,11 @@ func (s *Scanner) claudeAgentReplyOf(path string) string {
 	return reply
 }
 
-// toolResultToken marks a line that holds a tool result. Quotes inside
-// a JSON string are escaped, so only the structure itself holds it. A
-// tool result never changes the reply, and a large one is the costly
-// part of a subagent transcript to decode.
-var toolResultToken = []byte(`"tool_result"`)
+// toolResultToken marks a line that holds a tool result, as Claude Code
+// writes it. Quotes inside a JSON string are escaped, so only the
+// structure itself holds it. A tool result never changes the reply, and
+// a large one is the costly part of a subagent transcript to decode.
+var toolResultToken = []byte(`"type":"tool_result"`)
 
 // readClaudeAgentReply reads the last claudeWindow bytes of a subagent
 // transcript, and the last claudeReplyWindow when those hold neither a
