@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -111,10 +112,35 @@ func importFromFactory(root string, src config.Sources) error {
 
 // importFactoryDroids writes one agent spec per `.factory/droids/*.md`.
 func importFactoryDroids(srcDir, dstDir string) (int, error) {
-	return importFlatMarkdownFilesWith(srcDir, dstDir, factoryAgentFields, func(data []byte) ([]byte, error) {
-		meta, body := splitMdcFrontmatter(data)
-		return writeFrontmatter(factoryDroidSpecMeta(meta), body)
-	})
+	entries, err := os.ReadDir(srcDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", srcDir, err)
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		src := filepath.Join(srcDir, e.Name())
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", src, err)
+		}
+		meta, body := splitMdcFrontmatter([]byte(header.Strip(string(data))))
+		out, err := writeFrontmatter(factoryDroidSpecMeta(meta), body)
+		if err != nil {
+			return count, fmt.Errorf("render %s: %w", src, err)
+		}
+		dst := filepath.Join(dstDir, e.Name())
+		if err := importWriteSpecMarkdown(dst, out, 0o644, factoryAgentFields); err != nil {
+			return count, fmt.Errorf("write %s: %w", dst, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 // Native tool lists stay intact when any entry has no exact neutral form.
