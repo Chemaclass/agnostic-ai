@@ -206,7 +206,7 @@ func parseGeminiCommandTOML(s string) (description string, extra map[string]any,
 // `x-gemini` so the keys reach the same TOML on sync.
 func writeGeminiCommandMD(path, name, description string, extra map[string]any, body string) error {
 	if len(extra) == 0 {
-		return writeAgentMD(path, name, description, nil, body)
+		return writeAgentMD(path, name, description, body)
 	}
 	front := map[string]any{"name": name, "x-gemini": extra}
 	if description != "" {

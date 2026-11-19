@@ -261,6 +261,8 @@ func TestSiteDocs_ComparePageRendersDefaultPair(t *testing.T) {
 // syncCompareSample syncs one target in a fresh directory holding the fixture's
 // instructions file and, when kindDir is set, that kind's sample spec. It
 // returns every file sync wrote outside the source tree, keyed by slash path.
+//
+//nolint:usetesting // restores the directory before returning, since the caller syncs one sample per target and feature
 func syncCompareSample(t *testing.T, fixture, target, kindDir string) map[string]string {
 	t.Helper()
 	dir := t.TempDir()

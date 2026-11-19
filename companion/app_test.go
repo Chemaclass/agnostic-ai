@@ -26,7 +26,7 @@ func TestFindBinary_UsesBundledCommandAfterOtherLocations(t *testing.T) {
 		usualFolders, usualSystemFolders = previousFolders, previousSystem
 	})
 	usualFolders, usualSystemFolders = nil, nil
-	_, command := fakeBundledCommand(t)
+	command := fakeBundledCommand(t)
 	found, err := findBinary()
 	if err != nil || found != command {
 		t.Errorf("findBinary() = %q, %v; want bundled %q", found, err, command)
@@ -85,7 +85,7 @@ func TestLatestCompanionRelease_ReportsFailedChecks(t *testing.T) {
 	}
 }
 
-func fakeBundledCommand(t *testing.T) (string, string) {
+func fakeBundledCommand(t *testing.T) string {
 	t.Helper()
 	app := filepath.Join(t.TempDir(), "Applications", "agnostic-ai companion.app")
 	command := filepath.Join(app, "Contents", "Resources", binaryName)
@@ -109,11 +109,11 @@ func fakeBundledCommand(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return app, command
+	return command
 }
 
 func TestAppMenu_OffersInstallAndUpdatesForBundledCommand(t *testing.T) {
-	_, command := fakeBundledCommand(t)
+	command := fakeBundledCommand(t)
 	menu := application.NewMenu()
 	controls := (&shell{}).addAppMenu(menu)
 	if controls == nil || controls.command != command {

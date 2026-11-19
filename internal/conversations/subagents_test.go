@@ -51,7 +51,7 @@ func TestClaudeWorkingSubagents_FollowsLaunchCompletionStopAndResume(t *testing.
 	session := liveSession{startedAt: started.Add(-time.Minute).UnixMilli()}
 	check := func(want int) {
 		t.Helper()
-		count, _ := scanner.claudeWorkingSubagents(file, session)
+		count := scanner.claudeWorkingSubagents(file, session)
 		if count == nil || *count != want {
 			t.Fatalf("working = %v, want %d", count, want)
 		}
@@ -87,24 +87,24 @@ func TestClaudeWorkingSubagents_UnknownAndTruncatedLogsDoNotInventWorkers(t *tes
 	file := filepath.Join(stores.ClaudeDir, "projects", "demo", idSafari+".jsonl")
 	write(t, file, "")
 	started, _ := time.Parse(time.RFC3339, workerTime)
-	if count, _ := scanner.claudeWorkingSubagents(file, liveSession{}); count != nil {
+	if count := scanner.claudeWorkingSubagents(file, liveSession{}); count != nil {
 		t.Fatal("missing process start time became a known count")
 	}
 	session := liveSession{startedAt: started.Add(-time.Minute).UnixMilli()}
 	appendWorkerEvent(t, file, workerDispatch("unfinished"))
-	count, _ := scanner.claudeWorkingSubagents(file, session)
+	count := scanner.claudeWorkingSubagents(file, session)
 	if count == nil || *count != 1 {
 		t.Fatal("dispatch was not counted")
 	}
 	write(t, file, "not-json\n")
-	if count, _ := scanner.claudeWorkingSubagents(file, session); count != nil {
+	if count := scanner.claudeWorkingSubagents(file, session); count != nil {
 		t.Fatal("unreadable events became a known count")
 	}
-	if count, _ := scanner.claudeWorkingSubagents(file, session); count != nil {
+	if count := scanner.claudeWorkingSubagents(file, session); count != nil {
 		t.Fatal("retrying unreadable events became a known count")
 	}
 	write(t, file, "")
-	if count, _ := scanner.claudeWorkingSubagents(file, session); count == nil || *count != 0 {
+	if count := scanner.claudeWorkingSubagents(file, session); count == nil || *count != 0 {
 		t.Fatal("truncated history retained a worker")
 	}
 }
@@ -260,7 +260,7 @@ func TestClaudeWorkingSubagents_AParentCanStopAndResumeANestedWorker(t *testing.
 	}
 	check := func(want int) {
 		t.Helper()
-		count, _ := scanner.claudeWorkingSubagents(file, session)
+		count := scanner.claudeWorkingSubagents(file, session)
 		if count == nil {
 			t.Fatal("working count is unknown")
 		}
@@ -327,7 +327,7 @@ func TestClaudeWorkingSubagents_ReadsSubagentsThatStartOrStopOtherAgents(t *test
 	check := func(want int) {
 		t.Helper()
 		touch(child)
-		count, _ := scanner.claudeWorkingSubagents(file, session)
+		count := scanner.claudeWorkingSubagents(file, session)
 		if count == nil {
 			t.Fatal("working count is unknown")
 		}
@@ -393,7 +393,7 @@ func TestClaudeWorkingSubagents_UnreadableSubagentResultsKeepTheCountUnknown(t *
 			if err := os.Chtimes(child, started, started); err != nil {
 				t.Fatal(err)
 			}
-			if count, _ := scanner.claudeWorkingSubagents(file, session); count != nil {
+			if count := scanner.claudeWorkingSubagents(file, session); count != nil {
 				t.Fatalf("working = %d, want unknown", *count)
 			}
 		})

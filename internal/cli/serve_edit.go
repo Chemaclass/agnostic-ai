@@ -529,22 +529,22 @@ func overviewDisplay(root, path string) string {
 	return filepath.ToSlash(path)
 }
 
-// yamlDocument parses data into a document whose root is a mapping; an
-// empty file becomes an empty mapping.
-func yamlDocument(data []byte) (*yaml.Node, *yaml.Node, error) {
+// yamlDocument parses data into a document whose root is a mapping and
+// returns that mapping; an empty file becomes an empty mapping.
+func yamlDocument(data []byte) (*yaml.Node, error) {
 	var doc yaml.Node
 	if len(bytes.TrimSpace(data)) > 0 {
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, nil, fmt.Errorf("parse: %w", err)
+			return nil, fmt.Errorf("parse: %w", err)
 		}
 	}
 	if doc.Kind == 0 {
 		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}}
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 || doc.Content[0].Kind != yaml.MappingNode {
-		return nil, nil, errors.New("the file is not a YAML mapping")
+		return nil, errors.New("the file is not a YAML mapping")
 	}
-	return &doc, doc.Content[0], nil
+	return doc.Content[0], nil
 }
 
 func encodeYAML(doc *yaml.Node) ([]byte, error) {
@@ -570,7 +570,7 @@ func yamlMapValue(m *yaml.Node, key string) (int, *yaml.Node) {
 }
 
 func yamlHasKey(data []byte, key string) bool {
-	_, m, err := yamlDocument(data)
+	m, err := yamlDocument(data)
 	if err != nil {
 		return false
 	}

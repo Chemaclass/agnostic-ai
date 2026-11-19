@@ -23,7 +23,7 @@ func removeCompanionRunValue() (bool, error) {
 	return removeRunValue(registry.CURRENT_USER, companionRunKey, companionName)
 }
 
-func removeRunValue(root registry.Key, path, name string) (bool, error) {
+func removeRunValue(root registry.Key, path, name string) (bool, error) { //nolint:unparam // the registry hive stays explicit beside the key path it opens
 	key, err := registry.OpenKey(root, path, registry.SET_VALUE)
 	if errors.Is(err, registry.ErrNotExist) {
 		return false, nil

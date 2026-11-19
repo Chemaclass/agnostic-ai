@@ -149,7 +149,7 @@ func (in *inbox) readLocked(ctx context.Context) {
 	in.mu.Lock()
 	held := in.tag
 	in.mu.Unlock()
-	answer, err := in.server.call(ctx, http.MethodGet, serverListPath, nil, held)
+	answer, err := in.server.get(ctx, serverListPath, held)
 	if ctx.Err() != nil {
 		return
 	}
@@ -242,7 +242,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 		if before := r.URL.Query().Get("before"); before != "" {
 			asked.Set("before", before)
 		}
-		answer, err := in.server.call(r.Context(), http.MethodGet, serverListPath+"?"+asked.Encode(), nil, "")
+		answer, err := in.server.get(r.Context(), serverListPath+"?"+asked.Encode(), "")
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 			return

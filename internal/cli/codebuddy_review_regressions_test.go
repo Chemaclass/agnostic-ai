@@ -194,7 +194,7 @@ func TestCodebuddy_ControlledRootRejectsEffectiveContributionsBeforeWrites(t *te
 				cfg.Outputs = map[string]config.Output{"codex": {File: "CODEBUDDY.md"}}
 			}
 			before, beforeErr := os.ReadFile(".agnostic-ai/AGNOSTIC_AI.md")
-			if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets, false); err == nil {
+			if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets); err == nil {
 				t.Fatalf("expected policy conflict, got %v", err)
 			}
 			after, afterErr := os.ReadFile(".agnostic-ai/AGNOSTIC_AI.md")

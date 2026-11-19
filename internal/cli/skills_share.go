@@ -397,9 +397,9 @@ func (st *sharedSkillsState) capturedDiffersUnder(p string) bool {
 func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillLink {
 	var applied []skillLink
 	warned := false
-	warnf := func(format string, a ...any) {
+	warn := func(err error) {
 		if !warned {
-			fmt.Fprintf(os.Stderr, "! shared-skills: "+format+"; keeping per-target copies\n", a...)
+			fmt.Fprintf(os.Stderr, "! shared-skills: %v; keeping per-target copies\n", err)
 			warned = true
 		}
 	}
@@ -407,7 +407,7 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 	for _, l := range st.links {
 		rel, err := filepath.Rel(filepath.Dir(l.path), l.canonical)
 		if err != nil {
-			warnf("%v", err)
+			warn(err)
 			continue
 		}
 		if cur, err := os.Readlink(l.path); err == nil && cur == rel {
@@ -425,7 +425,7 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			continue
 		}
 		if err := config.CheckProjectLinks(".", l.path, "write", false); err != nil {
-			warnf("%v", err)
+			warn(err)
 			continue
 		}
 		tmp := l.path + ".agnostic-link"
@@ -435,12 +435,12 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			_ = os.Remove(tmp)
 		}
 		if err := os.Symlink(rel, tmp); err != nil {
-			warnf("%v", err)
+			warn(err)
 			continue
 		}
 		if err := sess.ReplaceFolderWithLink(l.path, func() error { return swapInLink(l.path, tmp) }); err != nil {
 			_ = os.Remove(tmp)
-			warnf("%v", err)
+			warn(err)
 			continue
 		}
 		l.changed = true

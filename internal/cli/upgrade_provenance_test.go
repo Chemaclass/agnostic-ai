@@ -25,6 +25,7 @@ func clearVerifyAttestation(t *testing.T) {
 }
 
 func provenanceNotCalled(t *testing.T) provenanceCheck {
+	t.Helper()
 	return func(string, string) error {
 		t.Error("checked build provenance where it must be skipped")
 		return nil

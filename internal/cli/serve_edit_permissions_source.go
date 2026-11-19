@@ -85,7 +85,7 @@ func permissionEditRest(data, original []byte, clearing bool) []byte {
 		return nil
 	}
 	var name string
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err == nil && len(mapping.Content) == 2 && mapping.Content[0].Value == "name" {
 		name = mapping.Content[1].Value
 	}

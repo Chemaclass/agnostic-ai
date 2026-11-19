@@ -206,6 +206,7 @@ func TestImportOpenhands_AgentsSkillsWinOverLegacy(t *testing.T) {
 
 func TestImportOpenhands_DryRunMatchesRealImport(t *testing.T) {
 	assertDryRunMatchesRealImport(t, "openhands", func(t *testing.T, dir string) {
+		t.Helper()
 		seedOpenhandsBundle(t, dir)
 		execCLI(t, "sync", "-t", "openhands")
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {

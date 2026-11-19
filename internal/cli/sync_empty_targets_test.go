@@ -243,6 +243,7 @@ func TestWatch_PinnedResyncKeepsFilesWhenTargetsBecomeEmpty(t *testing.T) {
 }
 
 func testWatchFirstPassKeepsFiles(t *testing.T, pinned []string) {
+	t.Helper()
 	syncedEmptyTargetsProject(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\n")
 	buf := captureWatchOutput(t)

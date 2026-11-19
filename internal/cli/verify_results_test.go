@@ -16,7 +16,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func setupRecordedVerifier(t *testing.T, mode string) string {
+func setupRecordedVerifier(t *testing.T, mode string) {
 	t.Helper()
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -36,7 +36,6 @@ func setupRecordedVerifier(t *testing.T, mode string) string {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	return dir
 }
 
 func TestVerifyResultProcess(t *testing.T) {

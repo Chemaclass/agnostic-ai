@@ -180,7 +180,7 @@ func TestServer_ReplacesAServerThatAnswersNeitherReadsNorHealth(t *testing.T) {
 	s, input := lateServer(t, stalledLists(false))
 
 	for i := range maxLateReads {
-		if _, err := s.call(context.Background(), http.MethodGet, serverListPath, nil, ""); !timedOut(err) {
+		if _, err := s.get(context.Background(), serverListPath, ""); !timedOut(err) {
 			t.Fatalf("read %d = %v; want a timeout", i+1, err)
 		}
 		if i < maxLateReads-1 && s.base == "" {
@@ -198,7 +198,7 @@ func TestServer_KeepsAServerBusyWithALongScan(t *testing.T) {
 	base := s.base
 
 	for range 2 * maxLateReads {
-		_, _ = s.call(context.Background(), http.MethodGet, serverListPath+"?q=parser", nil, "")
+		_, _ = s.get(context.Background(), serverListPath+"?q=parser", "")
 	}
 
 	if s.base != base || input.closed {
@@ -222,7 +222,7 @@ func TestServer_ReplacesAServerWhoseScanIsStuck(t *testing.T) {
 	s, input := lateServer(t, scanSince(time.Now().Add(-stuckScanAfter-time.Minute)))
 
 	for range maxLateReads {
-		_, _ = s.call(context.Background(), http.MethodGet, serverListPath, nil, "")
+		_, _ = s.get(context.Background(), serverListPath, "")
 	}
 
 	if s.base != "" || !input.closed {
@@ -235,7 +235,7 @@ func TestServer_KeepsAServerWhoseScanIsRecent(t *testing.T) {
 	base := s.base
 
 	for range 2 * maxLateReads {
-		_, _ = s.call(context.Background(), http.MethodGet, serverListPath, nil, "")
+		_, _ = s.get(context.Background(), serverListPath, "")
 	}
 
 	if s.base != base || input.closed {
@@ -263,7 +263,7 @@ func TestServer_KeepsAServerThatAnswersBetweenLateReads(t *testing.T) {
 	base := s.base
 	s.lateReads = maxLateReads - 1
 
-	if _, err := s.call(context.Background(), http.MethodGet, serverListPath, nil, ""); err != nil {
+	if _, err := s.get(context.Background(), serverListPath, ""); err != nil {
 		t.Fatal(err)
 	}
 

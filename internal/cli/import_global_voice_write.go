@@ -180,7 +180,7 @@ func appendImportedGlobalVoice(path string, existing []byte, staged map[string]a
 			}
 		}
 	}
-	_, root, err := yamlDocument(existing)
+	root, err := yamlDocument(existing)
 	if err != nil {
 		return nil, false, nil
 	}

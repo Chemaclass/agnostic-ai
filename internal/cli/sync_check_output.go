@@ -310,7 +310,7 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 				_, _ = fmt.Fprintf(out, "%s: %v\n", f.Path, err)
 				continue
 			}
-			_, _ = fmt.Fprint(out, unifiedDiff(f.Path, string(disk), f.Content, diffBodyMax))
+			_, _ = fmt.Fprint(out, unifiedDiff(f.Path, string(disk), f.Content))
 		}
 	}
 }
@@ -332,12 +332,12 @@ func printDriftRemovals(cmd *cobra.Command, reports []driftReport) {
 // unifiedDiff renders a minimal unified diff between the on-disk content
 // (have) and what sync would write (want), keyed by path. It trims the shared
 // leading and trailing lines and prints the differing middle as one hunk:
-// on-disk lines with `-`, would-write lines with `+`. Output past maxLines is
+// on-disk lines with `-`, would-write lines with `+`. Output past diffBodyMax is
 // dropped with a summary so CI logs stay lean. A display helper over line
 // slices, not a general diff engine.
-func unifiedDiff(path, have, want string, maxLines int) string {
+func unifiedDiff(path, have, want string) string {
 	slash := filepath.ToSlash(path)
-	return previewDiff(path, slash+" (on disk)", slash+" (agnostic-ai sync)", have, want, false, maxLines)
+	return previewDiff(path, slash+" (on disk)", slash+" (agnostic-ai sync)", have, want, false, diffBodyMax)
 }
 
 func previewDiff(path, haveLabel, wantLabel, have, want string, create bool, maxLines int) string {

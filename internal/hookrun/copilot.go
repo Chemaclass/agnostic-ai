@@ -231,8 +231,8 @@ func buildCopilot(event, matcher, root string, in Input) (Payload, error) {
 }
 
 // copilotReply is the hook output: stdout without its progress lines,
-// parsed as one JSON document. ok is false for no output.
-func copilotReply(stdout string) (map[string]any, bool) {
+// parsed as one JSON document. It is nil for no output.
+func copilotReply(stdout string) map[string]any {
 	var kept []string
 	for _, line := range strings.Split(stdout, "\n") {
 		var progress struct {
@@ -247,9 +247,9 @@ func copilotReply(stdout string) (map[string]any, bool) {
 	var reply map[string]any
 	out := strings.TrimSpace(strings.Join(kept, "\n"))
 	if out == "" || json.Unmarshal([]byte(out), &reply) != nil || reply == nil {
-		return nil, false
+		return nil
 	}
-	return reply, true
+	return reply
 }
 
 // decideCopilot follows the exit code table and decision controls. A
@@ -273,7 +273,7 @@ func decideCopilot(event string, r Result) Decision {
 	case failed:
 		return Error
 	}
-	reply, _ := copilotReply(r.Stdout)
+	reply := copilotReply(r.Stdout)
 	switch event {
 	case "preToolUse":
 		if d := reply["permissionDecision"]; d == "deny" || d == "ask" {
@@ -312,7 +312,7 @@ func CopilotMergedBlocks(event string, results []Result) (blocks, ok bool) {
 		if r.TimedOut || r.StartErr != nil || r.Exit != 0 && r.Exit != 2 {
 			continue
 		}
-		reply, _ := copilotReply(r.Stdout)
+		reply := copilotReply(r.Stdout)
 		if b, set := reply["behavior"]; set {
 			behavior = b
 		}
@@ -326,7 +326,7 @@ func CopilotMergedBlocks(event string, results []Result) (blocks, ok bool) {
 // CopilotAsks reports whether a preToolUse hook replied ask, which
 // Copilot CLI enforces by asking the user.
 func CopilotAsks(event string, r Result) bool {
-	reply, _ := copilotReply(r.Stdout)
+	reply := copilotReply(r.Stdout)
 	return copilotEvent(event) == "preToolUse" && !r.TimedOut && r.StartErr == nil && r.Exit == 0 && reply["permissionDecision"] == "ask"
 }
 
@@ -345,7 +345,7 @@ func copilotAddsContext(event string, r Result) bool {
 	}
 	switch event {
 	case "sessionStart", "postToolUse", "postToolUseFailure", "subagentStart", "notification":
-		reply, _ := copilotReply(r.Stdout)
+		reply := copilotReply(r.Stdout)
 		text, _ := reply["additionalContext"].(string)
 		return strings.TrimSpace(text) != ""
 	}

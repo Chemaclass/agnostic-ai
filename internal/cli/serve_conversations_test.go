@@ -586,16 +586,16 @@ func TestConversationsHandler_SearchesAndFiltersByTool(t *testing.T) {
 	}
 }
 
-func stateOfListed(t *testing.T, h http.Handler, id string) (conversations.Conversation, int) {
+func stateOfListed(t *testing.T, h http.Handler, id string) conversations.Conversation {
 	t.Helper()
 	view := listConversations(t, h)
 	for _, c := range view.Conversations {
 		if c.ID == id {
-			return c, view.NeedsYou
+			return c
 		}
 	}
 	t.Fatalf("no conversation %s listed", id)
-	return conversations.Conversation{}, 0
+	return conversations.Conversation{}
 }
 
 func TestConversationsHandler_MarksAConversationCompletedThenOpenAgain(t *testing.T) {
@@ -605,17 +605,17 @@ func TestConversationsHandler_MarksAConversationCompletedThenOpenAgain(t *testin
 	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"completed"}`, nil); rec.Code != http.StatusNoContent || rec.Body.Len() != 0 {
 		t.Fatalf("mark completed = %d %s", rec.Code, rec.Body)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.State != conversations.StateCompleted || c.CompletedAt != "2026-11-07T12:00:00Z" || c.SeenAt != "2026-11-07T12:00:00Z" {
+	if c := stateOfListed(t, h, inProject); c.State != conversations.StateCompleted || c.CompletedAt != "2026-11-07T12:00:00Z" || c.SeenAt != "2026-11-07T12:00:00Z" {
 		t.Errorf("after completing: state %s, completedAt %q, seenAt %q", c.State, c.CompletedAt, c.SeenAt)
 	}
-	if c, _ := stateOfListed(t, h, inWorktree); c.State != conversations.StateActive || c.CompletedAt != "" {
+	if c := stateOfListed(t, h, inWorktree); c.State != conversations.StateActive || c.CompletedAt != "" {
 		t.Errorf("an unmarked conversation: state %s, completedAt %q", c.State, c.CompletedAt)
 	}
 
 	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"open"}`, nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("mark open = %d %s", rec.Code, rec.Body)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.State != conversations.StateActive || c.CompletedAt != "" {
+	if c := stateOfListed(t, h, inProject); c.State != conversations.StateActive || c.CompletedAt != "" {
 		t.Errorf("after reopening: state %s, completedAt %q", c.State, c.CompletedAt)
 	}
 }
@@ -627,10 +627,10 @@ func TestConversationsHandler_OpeningAConversationMarksItSeen(t *testing.T) {
 	if rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`","editor":"cursor"}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("open = %d %s", rec.Code, rec.Body)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.SeenAt != "2026-11-07T12:00:00Z" {
+	if c := stateOfListed(t, h, inProject); c.SeenAt != "2026-11-07T12:00:00Z" {
 		t.Errorf("seenAt after opening = %q", c.SeenAt)
 	}
-	if c, _ := stateOfListed(t, h, inWorktree); c.SeenAt != "" {
+	if c := stateOfListed(t, h, inWorktree); c.SeenAt != "" {
 		t.Errorf("seenAt of a conversation nobody opened = %q", c.SeenAt)
 	}
 }
@@ -660,7 +660,7 @@ func TestConversationsHandler_RefusesAMarkItCannotKeep(t *testing.T) {
 	if foreign.Code != http.StatusForbidden {
 		t.Errorf("a foreign page = %d %s", foreign.Code, foreign.Body)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.State != conversations.StateActive || c.SeenAt != "" {
+	if c := stateOfListed(t, h, inProject); c.State != conversations.StateActive || c.SeenAt != "" {
 		t.Errorf("a refused mark was kept: state %s, seenAt %q", c.State, c.SeenAt)
 	}
 }
@@ -773,10 +773,10 @@ func TestConversationsHandler_RenamesAConversation(t *testing.T) {
 	if rec := postEdit(t, h, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"  Parser   fix "}`, nil); rec.Code != http.StatusNoContent || rec.Body.Len() != 0 {
 		t.Fatalf("rename = %d %s", rec.Code, rec.Body)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.Title != "Parser fix" || c.State != conversations.StateActive || c.SeenAt != "" {
+	if c := stateOfListed(t, h, inProject); c.Title != "Parser fix" || c.State != conversations.StateActive || c.SeenAt != "" {
 		t.Errorf("after renaming: title %q, state %s, seenAt %q", c.Title, c.State, c.SeenAt)
 	}
-	if c, _ := stateOfListed(t, h, inWorktree); c.Title != "Review the branch" {
+	if c := stateOfListed(t, h, inWorktree); c.Title != "Review the branch" {
 		t.Errorf("another conversation's title = %q", c.Title)
 	}
 }
@@ -789,7 +789,7 @@ func TestConversationsHandler_SavesTheNameOnlyOnceTheToolHasIt(t *testing.T) {
 	}
 	var got []asked
 	h.renameInTool = func(_ context.Context, c conversations.Conversation, title string) error {
-		saved, _ := stateOfListed(t, h, c.ID)
+		saved := stateOfListed(t, h, c.ID)
 		got = append(got, asked{c.ID, title, saved.Title})
 		return nil
 	}
@@ -803,7 +803,7 @@ func TestConversationsHandler_SavesTheNameOnlyOnceTheToolHasIt(t *testing.T) {
 	if want := []asked{{inProject, "Parser fix", "Fix the parser"}}; !slices.Equal(got, want) {
 		t.Errorf("the tool was asked for %+v\nwant %+v", got, want)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.Title != "Parser fix" {
+	if c := stateOfListed(t, h, inProject); c.Title != "Parser fix" {
 		t.Errorf("the saved name = %q", c.Title)
 	}
 }
@@ -879,7 +879,7 @@ func TestConversationsHandler_KeepsTheOldNameAndSaysWhyWhenTheToolRefuses(t *tes
 			if got := logged.String(); got != tc.wantLog {
 				t.Errorf("logged %q\nwant   %q", got, tc.wantLog)
 			}
-			if c, _ := stateOfListed(t, h, inProject); c.Title != "Fix the parser" {
+			if c := stateOfListed(t, h, inProject); c.Title != "Fix the parser" {
 				t.Errorf("a name the tool did not take was saved: %q", c.Title)
 			}
 		})
@@ -913,7 +913,7 @@ func TestConversationsHandler_RefusesARenameItCannotKeep(t *testing.T) {
 	if foreign.Code != http.StatusForbidden {
 		t.Errorf("a foreign page = %d %s", foreign.Code, foreign.Body)
 	}
-	if c, _ := stateOfListed(t, h, inProject); c.Title != "Fix the parser" {
+	if c := stateOfListed(t, h, inProject); c.Title != "Fix the parser" {
 		t.Errorf("a refused rename was kept: title %q", c.Title)
 	}
 }
@@ -926,7 +926,7 @@ func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
 	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
 		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,
 	}, worktrees: companion.worktrees}
-	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "Fix the parser" {
+	if c := stateOfListed(t, dashboard, inProject); c.Title != "Fix the parser" {
 		t.Fatalf("before the rename the dashboard shows %q", c.Title)
 	}
 
@@ -934,7 +934,7 @@ func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
 		t.Fatalf("rename = %d %s", rec.Code, rec.Body)
 	}
 
-	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "Release notes" {
+	if c := stateOfListed(t, dashboard, inProject); c.Title != "Release notes" {
 		t.Errorf("the dashboard shows %q", c.Title)
 	}
 	rec := httptest.NewRecorder()
@@ -993,7 +993,7 @@ func TestConversationsHandler_RefusesASecondRenameOfAConversationWhileTheFirstRu
 	if want := []string{"Other", "First"}; !slices.Equal(inTool, want) {
 		t.Errorf("the tool took %q, want %q", inTool, want)
 	}
-	if c, _ := stateOfListed(t, dashboard, inProject); c.Title != "First" {
+	if c := stateOfListed(t, dashboard, inProject); c.Title != "First" {
 		t.Errorf("the list shows %q, while the tool has First", c.Title)
 	}
 	if third := postEdit(t, dashboard, conversationRenamePath, `{"tool":"claude","id":"`+inProject+`","title":"Third"}`, nil); third.Code != http.StatusNoContent {
@@ -1058,10 +1058,10 @@ func TestConversationsHandler_AnArchivedConversationThatWorksShowsWorkingOnEvery
 	}
 
 	writeSession("idle")
-	if c, _ := stateOfListed(t, dashboard, inProject); c.State != conversations.StateActive || c.CompletedAt != "" {
+	if c := stateOfListed(t, dashboard, inProject); c.State != conversations.StateActive || c.CompletedAt != "" {
 		t.Errorf("after the work ends the dashboard shows: state %s, completedAt %q", c.State, c.CompletedAt)
 	}
-	if c, _ := stateOfListed(t, dashboard, inWorktree); c.State != conversations.StateCompleted {
+	if c := stateOfListed(t, dashboard, inWorktree); c.State != conversations.StateCompleted {
 		t.Errorf("the other archived conversation on the dashboard: state %s", c.State)
 	}
 }
@@ -1266,6 +1266,7 @@ func TestConversationsHandler_RefusesADeleteItCannotMake(t *testing.T) {
 			reply: `{"error":"Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.","reason":"not-archived"}`},
 		"running": {body: `{"tool":"claude","id":"` + inProject + `"}`, status: http.StatusConflict,
 			prepare: func(t *testing.T, h *conversationsHandler) {
+				t.Helper()
 				sessions := filepath.Join(h.scanner.Stores.ClaudeDir, "sessions")
 				if err := os.MkdirAll(sessions, 0o700); err != nil {
 					t.Fatal(err)

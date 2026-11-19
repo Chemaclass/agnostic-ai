@@ -337,6 +337,7 @@ func BenchmarkExplainFile(b *testing.B) {
 // benchExplainBaselines adds the full-render and single-rule floors for
 // target at n specs.
 func benchExplainBaselines(b *testing.B, n int, target string) {
+	b.Helper()
 	b.Run(fmt.Sprintf("baseline/full-render/%s/specs=%d", target, n), func(b *testing.B) {
 		cfg, bundle := benchSyncedProject(b, n)
 		adapter := benchAdapter(b, target)
@@ -740,14 +741,7 @@ func writeBenchFile(tb testing.TB, path, content string) {
 // paths relative to the working directory.
 func benchChdir(b *testing.B, dir string) {
 	b.Helper()
-	cwd, err := os.Getwd()
-	if err != nil {
-		b.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		b.Fatalf("chdir %s: %v", dir, err)
-	}
-	b.Cleanup(func() { _ = os.Chdir(cwd) })
+	b.Chdir(dir)
 }
 
 // benchQuiet silences the CLI log sink and capability warner so benchmark

@@ -399,7 +399,7 @@ func setProtectedBlock(data []byte, write *protectedWrite) ([]byte, error) {
 // replaceYAMLPair writes key: value at the top level, in place of the
 // key's current lines when it is set, so comments around it stay put.
 func replaceYAMLPair(data []byte, key string, value any) ([]byte, error) {
-	_, root, err := yamlDocument(data)
+	root, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,7 @@ func TestReadFileWaitsForSharedWrite(t *testing.T) {
 }
 
 func testReadFileWaitsForSharedWrite(t *testing.T, alias string) {
+	t.Helper()
 	root := t.TempDir()
 	if alias == "relative" || alias == "other-output" {
 		testutil.Chdir(t, root)

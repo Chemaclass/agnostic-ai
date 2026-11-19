@@ -175,10 +175,12 @@ func TestScan_SaysWhyTheClaudeAppsChatsCouldNotBeRead(t *testing.T) {
 		note  string
 	}{
 		"a log in a shape the reader does not know": {func(t *testing.T, dir string) {
+			t.Helper()
 			// One log record of an unknown type, 9.
 			write(t, filepath.Join(dir, "000003.log"), "\x00\x00\x00\x00\x01\x00\x09x")
 		}, claudeAppNoteUnreadable},
 		"a store with no chat list": {func(t *testing.T, dir string) {
+			t.Helper()
 			chromeidbtest.WriteRecord(t, dir, "keyval-store", "keyval", "something-else", obj{})
 		}, claudeAppNoteMissing},
 	} {

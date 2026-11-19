@@ -27,20 +27,25 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 		allowed string
 	}{
 		{name: "local settings linked to the team settings", setup: func(t *testing.T, _ string) {
+			t.Helper()
 			link(t, "../settings", ".agnostic-ai/local/settings")
 		}, path: editFieldPath, body: field, guarded: ".agnostic-ai/settings/defaults.yaml"},
 		{name: "local folder linked to a configured source", setup: func(t *testing.T, _ string) {
+			t.Helper()
 			mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\nsources:\n  settings: shared/settings\n")
 			mustWrite(t, "shared/settings/defaults.yaml", "name: defaults\ndescription: Team defaults.\nmodel: sonnet\n")
 			link(t, "../shared", ".agnostic-ai/local")
 		}, path: editFieldPath, body: `{"audience":"personal","path":"shared/settings/defaults.yaml","key":"model","value":"opus"}`, guarded: "shared/settings/defaults.yaml"},
 		{name: "personal config linked to the team config", setup: func(t *testing.T, _ string) {
+			t.Helper()
 			link(t, "agnostic-ai.yaml", "agnostic-ai.local.yaml")
 		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
 		{name: "global local folder linked to the source", global: true, setup: func(t *testing.T, root string) {
+			t.Helper()
 			link(t, ".", filepath.Join(root, "local"))
 		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
 		{name: "tracked personal file", setup: func(t *testing.T, root string) {
+			t.Helper()
 			isolateGit(t)
 			mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nmodel: haiku\n")
 			git(t, root, "init", "-q")
@@ -48,6 +53,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 			git(t, root, "commit", "-qm", "tracked")
 		}, path: editFieldPath, body: field, guarded: ".agnostic-ai/local/settings/defaults.yaml"},
 		{name: "tracked personal targets file", setup: func(t *testing.T, root string) {
+			t.Helper()
 			isolateGit(t)
 			mustWrite(t, "agnostic-ai.local.yaml", "targets: [claude]\n")
 			git(t, root, "init", "-q")
@@ -55,6 +61,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 			git(t, root, "commit", "-qm", "tracked")
 		}, path: editTargetsPath, body: `{"audience":"personal","name":"codex","enabled":true,"expected":false}`, guarded: "agnostic-ai.local.yaml"},
 		{name: "local folder linked outside the project", setup: func(t *testing.T, _ string) {
+			t.Helper()
 			link(t, t.TempDir(), ".agnostic-ai/local")
 		}, path: editFieldPath, body: field, allowed: ".agnostic-ai/local/settings/defaults.yaml"},
 	} {
