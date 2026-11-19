@@ -146,7 +146,7 @@ func newRevertCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("claude: %w", err)
 				}
-				tally.add(action)
+				tally.addRestore(action)
 			}
 			if len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				for _, p := range missingRecordedBackups(cfg) {
@@ -157,7 +157,7 @@ func newRevertCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("recorded backup: %w", err)
 					}
-					tally.add(action)
+					tally.addRestore(action)
 				}
 			}
 			tally.report(dryRun)
@@ -194,6 +194,14 @@ func (t *revertTally) add(action string) {
 		t.removed++
 	case "preserve":
 		t.preserved++
+	}
+}
+
+// addRestore counts only a restore, for files revert never deletes, so
+// --force does not report them as kept for lack of --force.
+func (t *revertTally) addRestore(action string) {
+	if action == "restore" {
+		t.restored++
 	}
 }
 
@@ -290,6 +298,9 @@ func revertOne(path string, dryRun, force bool) (string, error) {
 	}
 
 	if dryRun {
+		if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
+			return "skip", nil
+		}
 		verbosef("    remove:  %s\n", path)
 		return "remove", nil
 	}

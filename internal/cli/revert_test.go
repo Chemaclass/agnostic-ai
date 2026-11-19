@@ -427,16 +427,24 @@ func TestRevertCmd_ReportsRestoredAndRemovedCounts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	buf := captureLog(t)
-	root = NewRootCmd("test")
-	root.SetArgs([]string{"revert", "-t", "claude", "--force"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	for _, want := range []string{"1 file(s) removed", "1 file(s) restored from .bak"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("revert output lacks %q:\n%s", want, out)
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--dry-run"}, "← revert claude\n    1 file(s) would be removed\n← revert entry-points\n    1 file(s) would be restored from .bak\n"},
+		{nil, "← revert claude\n    1 file(s) removed\n← revert entry-points\n    1 file(s) restored from .bak\n"},
+		// The restored CLAUDE.md has no .bak left, so --force removes it.
+		{nil, "← revert claude\n← revert entry-points\n    1 file(s) removed\n"},
+		{[]string{"--dry-run"}, "← revert claude\n← revert entry-points\n"},
+	} {
+		buf := captureLog(t)
+		root = NewRootCmd("test")
+		root.SetArgs(append([]string{"revert", "-t", "claude", "--force"}, tc.args...))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if got := buf.String(); got != tc.want {
+			t.Errorf("revert --force %v printed:\n%s\nwant:\n%s", tc.args, got, tc.want)
 		}
 	}
 }
