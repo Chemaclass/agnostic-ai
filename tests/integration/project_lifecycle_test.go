@@ -55,7 +55,7 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "installs.log")); !os.IsNotExist(err) {
 		t.Error("check installed packages")
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if out, err := run("project", "--bootstrap"); err != nil {
 			t.Fatalf("bootstrap: %v %s", err, out)
 		}

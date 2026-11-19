@@ -68,12 +68,7 @@ const gitExcludeFile = ".git/info/exclude"
 
 // inGitDir reports whether any segment of p names the Git folder.
 func inGitDir(p string) bool {
-	for _, seg := range strings.Split(path.Clean(filepath.ToSlash(p)), "/") {
-		if GitDirName(seg) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(strings.Split(path.Clean(filepath.ToSlash(p)), "/"), GitDirName)
 }
 
 // GitDirName reports whether one path segment names the Git folder on

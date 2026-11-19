@@ -186,7 +186,7 @@ func newDoctorConfigCmd() *cobra.Command {
 			}
 			if cfg.Version < 1 {
 				cmd.PrintErrln("config: version field missing or zero")
-				return fmt.Errorf("config invalid")
+				return errors.New("config invalid")
 			}
 			cmd.Printf("✓ config valid (version %d, %d target(s))\n", cfg.Version, len(cfg.Targets))
 			return nil

@@ -2,6 +2,7 @@ package pi
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -23,9 +24,7 @@ func emitPiMCPTimeout(t *testing.T, extra map[string]any) (server map[string]any
 	t.Cleanup(emit.ResetCoverageNotes)
 
 	meta := map[string]any{"type": "http", "url": "https://example.com/mcp"}
-	for k, v := range extra {
-		meta[k] = v
-	}
+	maps.Copy(meta, extra)
 	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindMCP, Name: "slow", Meta: meta}})
 	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
 		t.Fatal(err)

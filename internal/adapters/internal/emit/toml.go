@@ -250,7 +250,7 @@ func EscapeTOMLSingleLine(s string) string {
 
 func escapeTOML(s string, singleLine bool) string {
 	var b strings.Builder
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		c := s[i]
 		switch {
 		case c == '\\':

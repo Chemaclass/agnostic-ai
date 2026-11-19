@@ -56,9 +56,7 @@ func StripCursorGuard(command string) string {
 // spec set already wins, so an author can pin or override it.
 func WithHookTarget[V any](env map[string]V, target V) map[string]V {
 	out := make(map[string]V)
-	for k, v := range env {
-		out[k] = v
-	}
+	maps.Copy(out, env)
 	if _, ok := out[HookTargetEnv]; !ok {
 		out[HookTargetEnv] = target
 	}
@@ -138,9 +136,11 @@ func ExecFormCommand(command string, args []string) string {
 	if strings.IndexFunc(command, func(r rune) bool { return !isShellWordRune(r) }) >= 0 {
 		command = ShellQuote(command)
 	}
+	var commandSb141 strings.Builder
 	for _, arg := range args {
-		command += " " + ShellQuote(arg)
+		commandSb141.WriteString(" " + ShellQuote(arg))
 	}
+	command += commandSb141.String()
 	return command
 }
 

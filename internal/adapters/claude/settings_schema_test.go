@@ -14,10 +14,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func intPtr(v int) *int          { return &v }
-func boolPtr(v bool) *bool       { return &v }
-func stringPtr(v string) *string { return &v }
-
 func TestEmit_FirstClassObjectsPreserveUserEntriesAndReleaseOwnEntries(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -35,7 +31,7 @@ func TestEmit_FirstClassObjectsPreserveUserEntriesAndReleaseOwnEntries(t *testin
 	t.Cleanup(func() { emit.Warner = oldWarner; emit.PriorMergedKeys = nil })
 	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Settings: &config.ClaudeSettings{
 		Model: "model", Env: map[string]string{"FOO": "new"}, EnabledPlugins: map[string]bool{"ours": true},
-		Attribution: &config.ClaudeAttribution{Commit: stringPtr("ours")}, StatusLine: &config.ClaudeStatusLine{Command: "ours"},
+		Attribution: &config.ClaudeAttribution{Commit: new("ours")}, StatusLine: &config.ClaudeStatusLine{Command: "ours"},
 	}}}}
 	sess := emit.NewSession()
 	sess.StartDetailedRecording()
@@ -106,23 +102,23 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 					Model:               "claude-opus-4-7",
 					OutputStyle:         "verbose",
 					APIKeyHelper:        "./bin/keyhelper.sh",
-					CleanupPeriodDays:   intPtr(30),
-					IncludeCoAuthoredBy: boolPtr(false),
-					BashOutputMaxChars:  intPtr(64000),
-					TaskOutputMaxChars:  intPtr(128000),
+					CleanupPeriodDays:   new(30),
+					IncludeCoAuthoredBy: new(false),
+					BashOutputMaxChars:  new(64000),
+					TaskOutputMaxChars:  new(128000),
 					Attribution: &config.ClaudeAttribution{
-						Commit:     stringPtr("Co-Authored-By: Team Bot <bot@example.com>"),
-						PR:         stringPtr(""),
-						SessionURL: boolPtr(false),
+						Commit:     new("Co-Authored-By: Team Bot <bot@example.com>"),
+						PR:         new(""),
+						SessionURL: new(false),
 					},
 					EnabledPlugins: map[string]bool{"plugin-a@marketplace": true, "plugin-b@marketplace": true},
 					Env:            map[string]string{"FOO": "bar", "BAZ": "qux"},
 					StatusLine: &config.ClaudeStatusLine{
 						Type:                 "command",
 						Command:              "echo status",
-						Padding:              intPtr(2),
-						RefreshInterval:      intPtr(5),
-						HideVimModeIndicator: boolPtr(true),
+						Padding:              new(2),
+						RefreshInterval:      new(5),
+						HideVimModeIndicator: new(true),
 					},
 					Permissions: &config.ClaudePermissions{
 						Allow: []string{"Read(*)"},

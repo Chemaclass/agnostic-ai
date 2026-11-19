@@ -164,12 +164,15 @@ test('pages a search by time, newest first, and refuses a before that is not one
   const found = await inbox(preview.url, 'the')
   assert.equal(ids.length, found.body.view.matches)
   assert.equal(new Set(ids).size, ids.length)
-  for (const before of ['2', '2026-13-45T99:99:99Z']) {
+  for (const before of ['2', '2026-13-45T99:99:99Z', '2026-02-30T00:00:00Z', '2026-11-31T00:00:00Z', '2026-11-01T24:00:00Z', '2026-11-01T12:00:00+24:00']) {
     const refused = await fetch(preview.url + '/api/inbox?q=the&before=' + before)
     assert.equal(refused.status, 400, before)
     assert.match((await refused.json()).error, /^before must be a time/)
   }
   assert.equal((await fetch(preview.url + '/api/inbox?q=the&before=')).status, 200)
+  for (const before of ['2028-02-29T00:00:00Z', '2026-11-01T12:00:00.5+02:00', '2026-11-30T23:59:59-05:30']) {
+    assert.equal((await fetch(preview.url + '/api/inbox?q=the&before=' + encodeURIComponent(before))).status, 200, before)
+  }
 })
 
 test('refuses a search longer than serve takes, as serve does', async (t) => {

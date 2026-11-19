@@ -164,9 +164,7 @@ func loadGlobalModels(source string, skipBroken io.Writer) (map[string]config.Mo
 			}
 			continue
 		}
-		for name, tier := range layer {
-			tiers[name] = tier
-		}
+		maps.Copy(tiers, layer)
 	}
 	return tiers, unloaded, nil
 }

@@ -1,6 +1,9 @@
 package spec
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"slices"
+)
 
 // HookAssetDir keeps an inherited command tied to its bundled script source.
 func (e Entry) HookAssetDir(command, target string) string {
@@ -34,10 +37,8 @@ func hookCommandContains(raw any, command string) bool {
 	case string:
 		return value == command
 	case []string:
-		for _, item := range value {
-			if item == command {
-				return true
-			}
+		if slices.Contains(value, command) {
+			return true
 		}
 	case []any:
 		for _, item := range value {

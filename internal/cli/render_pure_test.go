@@ -30,9 +30,11 @@ func TestRender_LeavesTheBundleAsItFound(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 			writeBenchProject(t, root, 2)
 			settings := tc.shared
+			var settingsSb33 strings.Builder
 			for _, name := range names {
-				settings += "x-" + name + ":\n  permissions:\n    deny: [\"Bash(rm *)\"]\n"
+				settingsSb33.WriteString("x-" + name + ":\n  permissions:\n    deny: [\"Bash(rm *)\"]\n")
 			}
+			settings += settingsSb33.String()
 			mustWriteFile(t, filepath.Join(root, ".agnostic-ai", "settings", "team.yaml"), settings)
 			mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(names, ", ")+"]\nsync:\n  collision-policy: prefer-spec\n")
 			cfg, b, err := loadProject(".")

@@ -230,8 +230,7 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 		_, _ = fmt.Fprintln(out, "✓ Stopped the running companion")
 	}
 	err = whileHeld(tools, place)
-	var aside companionKeptAside
-	if errors.As(err, &aside) {
+	if _, ok := errors.AsType[companionKeptAside](err); ok {
 		keepStaging = true
 	}
 	if err != nil {

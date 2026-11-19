@@ -97,7 +97,16 @@ function viewOf(state, conversations, query, all = conversations) {
 const MAX_QUERY = 200
 
 /** A time as the server writes and reads it: RFC 3339. */
-const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/
+
+/** Whether text is a time Go's time.Parse(time.RFC3339) takes: Date.parse rolls 2026-02-30 over to March instead of refusing it. */
+function isRFC3339(text) {
+  const parts = RFC3339.exec(text)
+  if (!parts) return false
+  const [year, month, day, hour, minute, second, , offsetHour, offsetMinute] = parts.slice(1).map((part) => Number(part ?? 0))
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return month >= 1 && month <= 12 && day >= 1 && day <= days && hour < 24 && minute < 60 && second < 60 && offsetHour < 24 && offsetMinute < 60
+}
 
 function matches(row, words) {
   const text = [row.title, row.folder, row.branch].join(' ').toLowerCase()
@@ -198,7 +207,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
     // Like serve, an empty before asks for the first page.
     const before = url.searchParams.get('before') || undefined
-    if (before !== undefined && (!RFC3339.test(before) || Number.isNaN(Date.parse(before)))) return sendJSON(response, 400, { error: 'before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page' })
+    if (before !== undefined && !isRFC3339(before)) return sendJSON(response, 400, { error: 'before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page' })
     const query = url.searchParams.get('q')
     if (query && [...query].length > MAX_QUERY) return sendJSON(response, 400, { error: `the search is longer than ${MAX_QUERY} characters` })
     const note = state.fixture.note

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -257,7 +258,7 @@ func isSourceFile(rel string, b spec.Bundle) bool {
 // `why` traces from emitter output regardless.
 func normalizeInputPath(input, projectRoot string) (absolute, relative string, err error) {
 	if input == "" {
-		return "", "", fmt.Errorf("why: missing file argument")
+		return "", "", errors.New("why: missing file argument")
 	}
 	abs, err := filepath.Abs(input)
 	if err != nil {
@@ -285,8 +286,8 @@ func resolveSymlinks(p string) string {
 	var tail []string
 	for dir := p; ; dir = filepath.Dir(dir) {
 		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
-			for i := len(tail) - 1; i >= 0; i-- {
-				resolved = filepath.Join(resolved, tail[i])
+			for _, t := range slices.Backward(tail) {
+				resolved = filepath.Join(resolved, t)
 			}
 			return resolved
 		}
@@ -426,12 +427,12 @@ func outputKeysUsed(cfg *config.Config, target string, hit adapters.CapturedFile
 	pathSlash := filepath.ToSlash(hit.Path)
 	v := reflect.ValueOf(o)
 	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		f := v.Field(i)
 		if !f.CanInterface() {
 			continue
 		}
-		val, ok := f.Interface().(string)
+		val, ok := reflect.TypeAssert[string](f)
 		if !ok || val == "" {
 			continue
 		}
@@ -440,7 +441,7 @@ func outputKeysUsed(cfg *config.Config, target string, hit adapters.CapturedFile
 			continue
 		}
 		tag := t.Field(i).Tag.Get("yaml")
-		key := strings.Split(tag, ",")[0]
+		key, _, _ := strings.Cut(tag, ",")
 		if key == "" {
 			key = t.Field(i).Name
 		}

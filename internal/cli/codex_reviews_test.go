@@ -136,7 +136,7 @@ func TestImportCodex_ReviewOnlyScopeRoundTripIsStable(t *testing.T) {
 	silence(t)
 	before := specTree(t, dir)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if err := runSync(t); err != nil {
 			t.Fatal(err)
 		}

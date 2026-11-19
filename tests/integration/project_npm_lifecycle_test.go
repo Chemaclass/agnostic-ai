@@ -127,7 +127,7 @@ execFileSync(process.execPath, [path.join('node_modules', 'agnostic-ai', 'bin', 
 			t.Fatalf("read-only check created %s: %v", name, err)
 		}
 	}
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if out, err := run("project", "--bootstrap"); err != nil {
 			t.Fatalf("bootstrap %d: %v\n%s", i+1, err, out)
 		}

@@ -125,8 +125,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return err
 	}
 	err = replaceCompanionApp(tools.rename, built, app, staging)
-	var aside companionKeptAside
-	if errors.As(err, &aside) {
+	if _, ok := errors.AsType[companionKeptAside](err); ok {
 		keep = true
 		return err
 	}
