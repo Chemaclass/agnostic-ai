@@ -46,6 +46,22 @@ func TestClaudeIfRuns_BashRules(t *testing.T) {
 		{"Bash(git *)", "npm test &&", true},
 		{"Bash", "anything at all", true},
 		{"Bash(*)", "anything at all", true},
+		{"Bash(git *)", `echo "git push"`, false},
+		{"Bash(git *)", `echo "a; git push"`, false},
+		{"Bash(git *)", `echo "$(git push)"`, true},
+		{"Bash(git *)", `echo $(echo "(" ; git push)`, true},
+		{"Bash(git *)", `echo $(echo ')' ; git push)`, true},
+		{"Bash(git *)", `echo $(echo $(git push))`, true},
+		{"Bash(git *)", `echo $(echo "(" ; ls)`, false},
+		{"Bash(git *)", `echo $(echo ')' ; ls)`, false},
+		{"Bash(git *)", `echo $(echo $(ls))`, false},
+		{"Bash(git *)", "echo `echo \\` ; ls`", false},
+		// Bash rejects this command (the escaped backtick leaves one
+		// open); splitBash reads it as two commands and runs the hook.
+		{"Bash(git *)", "echo `echo \\` ; git push`", true},
+		// Bash runs git push here, but the escaped inner backticks are
+		// not split out, so the hook does not run (#3681).
+		{"Bash(git *)", "echo `echo \\`git push\\``", false},
 	} {
 		got, err := ClaudeIfRuns(tc.rule, "PreToolUse", toolBody(t, "Bash", map[string]any{"command": tc.command}), "/p")
 		if err != nil {
@@ -89,6 +105,81 @@ func TestClaudeIfRuns_FileRules(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%s on %s %s = %v, want %v", tc.rule, tc.tool, tc.file, got, tc.want)
 		}
+	}
+}
+
+// A command splitBash cannot parse runs the hook, whatever the rule.
+func TestClaudeIfRuns_BashRuleRunsOnACommandItCannotParse(t *testing.T) {
+	t.Parallel()
+	for _, command := range []string{
+		"echo `git push",
+		"echo $(git push",
+		"echo `npm test &&`",
+		"echo $(npm test &&)",
+	} {
+		got, err := ClaudeIfRuns("Bash(rm *)", "PreToolUse", toolBody(t, "Bash", map[string]any{"command": command}), "/p")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got {
+			t.Errorf("Bash(rm *) on %q = false, want true", command)
+		}
+	}
+}
+
+func TestClaudeIfRuns_FileRulesOutsideTheAnchorAndOnOtherTools(t *testing.T) {
+	t.Parallel()
+	root := filepath.FromSlash("/p")
+	for _, tc := range []struct {
+		name, rule, tool string
+		input            map[string]any
+		want             bool
+	}{
+		{"a file outside the project root", "Edit(/src/**)", "Edit", map[string]any{"file_path": filepath.FromSlash("/elsewhere/src/a.ts")}, false},
+		{"a bare name on a file outside the project root", "Edit(*.ts)", "Edit", map[string]any{"file_path": filepath.FromSlash("/elsewhere/a.ts")}, false},
+		{"a notebook edit with only notebook_path", "Edit(*.ipynb)", "NotebookEdit", map[string]any{"notebook_path": filepath.FromSlash("/p/nb/a.ipynb")}, true},
+		{"a spec on a tool without spec rules", "Grep(foo)", "Grep", map[string]any{"pattern": "foo"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ClaudeIfRuns(tc.rule, "PreToolUse", toolBody(t, tc.tool, tc.input), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("%s on %s %v = %v, want %v", tc.rule, tc.tool, tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+// Sets HOME, so it cannot run in parallel.
+func TestClaudeIfRuns_HomeAnchoredFileRule(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	for _, tc := range []struct {
+		name, rule, file string
+		want             bool
+	}{
+		{"a file under home", "Read(~/notes/**)", filepath.Join(home, "notes", "a.md"), true},
+		{"a file outside home", "Read(~/notes/**)", filepath.Join(t.TempDir(), "notes", "a.md"), false},
+		{"no home folder", "Read(~/**)", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file := tc.file
+			if file == "" {
+				file = filepath.Join(home, "notes", "a.md")
+				t.Setenv("HOME", "")
+				t.Setenv("USERPROFILE", "")
+			}
+			got, err := ClaudeIfRuns(tc.rule, "PreToolUse", toolBody(t, "Read", map[string]any{"file_path": file}), "/p")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("%s on %s = %v, want %v", tc.rule, file, got, tc.want)
+			}
+		})
 	}
 }
 
