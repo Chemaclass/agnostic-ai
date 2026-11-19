@@ -206,7 +206,7 @@ func splitBash(command string) (subs []string, ok bool) {
 			if end < 0 {
 				return nil, false
 			}
-			inner, innerOK := splitBash(string(runes[i+1 : end]))
+			inner, innerOK := splitBash(unescapeBackticks(runes[i+1:end], quote == '"'))
 			if !innerOK {
 				return nil, false
 			}
@@ -262,6 +262,24 @@ func indexRune(runes []rune, from int, want rune) int {
 		}
 	}
 	return -1
+}
+
+// unescapeBackticks drops the backslash before `, \, and $, and before
+// " when the substitution sits in double quotes, as bash does before it
+// runs the text, so an escaped backtick opens a nested substitution.
+func unescapeBackticks(runes []rune, inDoubleQuotes bool) string {
+	escaped := "`\\$"
+	if inDoubleQuotes {
+		escaped += `"`
+	}
+	var b strings.Builder
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == '\\' && i+1 < len(runes) && strings.ContainsRune(escaped, runes[i+1]) {
+			i++
+		}
+		b.WriteRune(runes[i])
+	}
+	return b.String()
 }
 
 func closingParen(runes []rune, from int) int {
