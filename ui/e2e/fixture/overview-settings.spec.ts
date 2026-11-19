@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { MOCK, openApp, saveScreenshot, selectTab } from '../helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const builtinCount = fixture.sections.find((s: { id: string }) => s.id === 'settings').items.filter((it: { kind: string }) => it.kind === 'builtin').length
 
 async function sourceOnly(page: import('@playwright/test').Page) {
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
@@ -176,7 +177,7 @@ test.describe('overview', () => {
     await openApp(page, '?view=settings')
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
     const builtins = page.locator('.item-row', { has: page.locator('.switch') })
-    await expect(builtins).toHaveCount(8)
+    await expect(builtins).toHaveCount(builtinCount)
     await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
     await selectTab(page, 'Config files')
     const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })
@@ -250,7 +251,7 @@ test.describe('overview', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'false')
     await expect(page.getByText('Saves source files.')).toHaveCount(1)
     await expect(page.getByText('agnostic-ai sync --global', { exact: true })).toBeVisible()
-    await expect(page.getByRole('switch')).toHaveCount(8)
+    await expect(page.getByRole('switch')).toHaveCount(builtinCount)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(posted).toEqual([{ audience: 'shared', name: 'memory', enabled: true, expected: false }])
