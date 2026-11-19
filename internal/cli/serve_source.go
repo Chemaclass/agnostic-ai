@@ -50,9 +50,7 @@ var errSourceNotFound = editError{Error: "path is not a file of the loaded confi
 // listed file whose symlinks lead outside the configuration's folders.
 func newSourceHandler(global bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: r.Method + " is not supported here; use GET"})
+		if !allowGetOnly(w, r) {
 			return
 		}
 		switch requestOriginStatus(r) {

@@ -226,7 +226,7 @@ func TestServeMux_SwitchKeepsTheOriginGuard(t *testing.T) {
 	}
 	h := newSwitchHandler(nil, nil, probeViewServer, nil)
 	defer h.close()
-	srv := httptest.NewServer(newServeMuxWithSwitch(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}, true, h))
+	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}, serveMuxOptions{compareInstalled: true, switches: h}))
 	defer srv.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+switchPath, strings.NewReader("{}"))

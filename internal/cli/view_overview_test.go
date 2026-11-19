@@ -507,7 +507,7 @@ func TestProbeViewServer_ReadsTheRealHealthEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer src.close()
-	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, UIFiles: webui.Files()}))
+	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, UIFiles: webui.Files()}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	got := probeViewServer(strings.TrimPrefix(srv.URL, "http://"), time.Second)
 	if got == nil || got.Global || !got.UI || !sameProjectRoot(got.Root, project) {

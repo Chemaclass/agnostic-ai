@@ -26,7 +26,7 @@ func sourceProject(t *testing.T) (string, *httptest.Server) {
 	}
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Code style.\nglobs: ['**/*.go', '**/*.ts']\n---\nKeep functions small.\n")
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	t.Cleanup(srv.Close)
 	return dir, srv
 }
@@ -260,7 +260,7 @@ func TestServeSource_ServesGlobalAndLocalFilesInTheGlobalView(t *testing.T) {
 	mustWriteFile(t, filepath.Join(home, "AGNOSTIC_AI.md"), "Global guidance.\n")
 	mustWriteFile(t, filepath.Join(home, "local", "AGNOSTIC_AI.md"), "Local guidance.\n")
 	mustWriteFile(t, filepath.Join(home, "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home, Global: true}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home, Global: true}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getSource(t, srv, absSlash(t, filepath.Join(home, "local", "rules", "mine.md")), http.StatusOK); view.Kind != "rule" || view.Body != "Local rule.\n" {
 		t.Errorf("local rule: %+v", view)

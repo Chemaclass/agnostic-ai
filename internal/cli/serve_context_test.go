@@ -16,7 +16,7 @@ func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, claude]\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n"+duplicatedPassage+"\n")
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 
 	view := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK)
@@ -51,7 +51,7 @@ func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 func TestServeContext_ReportsTheConfiguredWordBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 300\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Keep functions small.\n")
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK); view.StartupWordBudget != 300 {
 		t.Errorf("budget: %d", view.StartupWordBudget)
@@ -60,7 +60,7 @@ func TestServeContext_ReportsTheConfiguredWordBudget(t *testing.T) {
 
 func TestServeContext_ExplainsThatGlobalScopeHasNoProjectContext(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Global: true}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Global: true}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath, http.StatusOK); view.Supported || view.Reason == "" || view.Report != nil || view.Targets == nil {
 		t.Errorf("global view: %+v", view)
@@ -88,7 +88,7 @@ func TestServeContext_CountsScopedRulesForTheGivenFile(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, copilot]\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude&file=src/main.go", http.StatusOK); view.Report.File != "src/main.go" || view.Report.FileScope.Words != 40 || strings.Join(view.FileTargets, ",") != "claude" {
 		t.Errorf("file scope: %+v", view.Report)

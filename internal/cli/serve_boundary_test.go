@@ -16,7 +16,7 @@ import (
 
 func TestServeMux_RefusesForeignHostsOnAllRoutes(t *testing.T) {
 	loads := 0
-	h := newServeMux(func() (*config.Config, spec.Bundle, error) { loads++; return nil, spec.Bundle{}, nil }, authority.HandlerOptions{})
+	h := newServeMux(func() (*config.Config, spec.Bundle, error) { loads++; return nil, spec.Bundle{}, nil }, authority.HandlerOptions{}, serveMuxOptions{compareInstalled: true})
 	for _, path := range []string{"/", "/api/health", "/api/views/authority", "/api/views/authority/schema", "/api/views/authority/impact", "/api/views/overview", editBuiltinPath, editValuePath} {
 		req := httptest.NewRequest(http.MethodGet, "http://attacker.example"+path, nil)
 		rec := httptest.NewRecorder()
@@ -31,7 +31,7 @@ func TestServeMux_RefusesForeignHostsOnAllRoutes(t *testing.T) {
 }
 
 func TestServeMux_StalledBodyDoesNotHoldAPILock(t *testing.T) {
-	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{})
+	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{}, serveMuxOptions{compareInstalled: true})
 	reader, writer := io.Pipe()
 	started := make(chan struct{})
 	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/views/authority/impact", &bodyReadNotice{Reader: reader, started: started})
@@ -96,7 +96,7 @@ func (b *bodyReadNotice) Read(data []byte) (int, error) {
 }
 
 func TestServeMux_UsesOneOriginPolicyForReadsWritesAndPreflights(t *testing.T) {
-	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{AllowedOrigins: []string{"http://localhost:5173"}})
+	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{AllowedOrigins: []string{"http://localhost:5173"}}, serveMuxOptions{compareInstalled: true})
 	for _, path := range []string{"/", "/api/health", "/api/views/authority/schema", "/api/views/authority/impact", "/api/views/overview", editBuiltinPath, editValuePath} {
 		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodOptions} {
 			req := httptest.NewRequest(method, "http://127.0.0.1:4310"+path, strings.NewReader("{}"))

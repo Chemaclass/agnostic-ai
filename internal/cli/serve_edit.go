@@ -87,6 +87,19 @@ func writeEditJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// editPlan is what an edit endpoint asks ServeHTTP to apply: the file,
+// the change to its bytes, a check that its sources did not move, and
+// who the file is for.
+type editPlan struct {
+	file        string
+	edit        func([]byte) ([]byte, error)
+	sourceGuard func() error
+	audience    editAudience
+}
+
+// fileEdit builds the edit of one file.
+type fileEdit func() (string, func([]byte) ([]byte, error), error)
+
 func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if status, msg := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: msg})
@@ -97,10 +110,8 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "read request: " + err.Error()})
 		return
 	}
-	var file string
-	var edit func([]byte) ([]byte, error)
-	var sourceGuard func() error
-	var audience editAudience
+	var plan editPlan
+	var ok bool
 	switch r.URL.Path {
 	case editPermissionsPath:
 		h.servePermissions(w, body)
@@ -115,232 +126,265 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveHook(w, body)
 		return
 	case editBuiltinPath:
-		var req struct {
-			audienceFields
-			Target   string          `json:"target"`
-			Name     string          `json:"name"`
-			Enabled  *bool           `json:"enabled"`
-			Reset    bool            `json:"reset"`
-			Expected json.RawMessage `json:"expected"`
-		}
-		if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a built-in name and enabled, or reset alone"})
-			return
-		}
-		if newFieldAddress("", req.Target).target != "" {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "built-ins apply to every tool; send target all or leave it out"})
-			return
-		}
-		if !req.Reset && !slices.Contains(builtins.Names(), req.Name) {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(builtins.Names(), ", "))})
-			return
-		}
-		if !req.Reset && req.Enabled == nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
-			return
-		}
-		audience, err = req.audience()
-		if err == nil && len(req.Expected) > 0 {
-			err = h.checkBuiltinExpected(req.Name, req.Reset, req.Expected)
-		}
-		if err == nil {
-			file, edit, err = h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
-		}
-		if err == nil && len(req.Expected) > 0 {
-			team, local := h.builtinsConfigFiles()
-			sourceGuard, err = watchEditSources([]string{team, local}, file, req.Name)
-		}
-		if err == nil && len(req.Expected) > 0 {
-			edit = func(data []byte) ([]byte, error) {
-				if err := h.checkBuiltinExpected(req.Name, req.Reset, req.Expected); err != nil {
-					return nil, err
-				}
-				currentFile, next, err := h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
-				if err != nil {
-					return nil, err
-				}
-				if currentFile != file {
-					return nil, staleToggleError{req.Name}
-				}
-				return next(data)
-			}
-		}
-		if err != nil {
-			writeExpectedError(w, err)
-			return
-		}
+		plan, ok = h.serveBuiltinToggle(w, body)
 	case editTargetsPath:
-		var req struct {
-			audienceFields
-			Name     string          `json:"name"`
-			Enabled  *bool           `json:"enabled"`
-			Reset    bool            `json:"reset"`
-			Expected json.RawMessage `json:"expected"`
-		}
-		if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a coding tool name and enabled, or reset alone"})
-			return
-		}
-		if !req.Reset && !slices.Contains(h.supportedTargetNames(), req.Name) {
-			if h.global && slices.Contains(adapters.Names(), req.Name) {
-				writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --global cannot write %s; change it in a project", req.Name)})
-				return
-			}
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(h.supportedTargetNames(), ", "))})
-			return
-		}
-		if !req.Reset && req.Enabled == nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
-			return
-		}
-		audience, err = req.audience()
-		if err == nil && len(req.Expected) > 0 {
-			err = h.checkTargetsExpected(req.Name, req.Reset, req.Expected)
-		}
-		change := targetsRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset}
-		if err == nil {
-			file, edit, err = h.targetsEdit(audience, change)
-		}
-		if err == nil && len(req.Expected) > 0 {
-			team, local := h.builtinsConfigFiles()
-			sourceGuard, err = watchEditSources([]string{team, local}, file, cmp.Or(req.Name, "coding tools"))
-		}
-		if err == nil && len(req.Expected) > 0 {
-			edit = func(data []byte) ([]byte, error) {
-				if err := h.checkTargetsExpected(req.Name, req.Reset, req.Expected); err != nil {
-					return nil, err
-				}
-				currentFile, next, err := h.targetsEdit(audience, change)
-				if err != nil {
-					return nil, err
-				}
-				if currentFile != file {
-					return nil, staleToggleError{cmp.Or(req.Name, "coding tools")}
-				}
-				return next(data)
-			}
-		}
-		if err != nil {
-			writeExpectedError(w, err)
-			return
-		}
+		plan, ok = h.serveTargetsToggle(w, body)
 	case editValuePath:
-		var req struct {
-			audienceFields
-			Target   string          `json:"target"`
-			Path     string          `json:"path"`
-			Key      string          `json:"key"`
-			Value    json.RawMessage `json:"value"`
-			Expected json.RawMessage `json:"expected"`
-		}
-		var value *bool
-		if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" || len(req.Value) == 0 || json.Unmarshal(req.Value, &value) != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean or null value are required"})
-			return
-		}
-		if newFieldAddress(req.Key, req.Target).target != "" {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "the key names the tool already; send target all or leave it out"})
-			return
-		}
-		audience, err = req.audience()
-		if err == nil && len(req.Expected) > 0 {
-			err = h.checkBooleanExpected(req.Path, req.Key, req.Expected)
-		}
-		if err == nil {
-			file, edit, err = h.settingsEdit(audience, req.Path, req.Key, value)
-		}
-		if err == nil && len(req.Expected) > 0 {
-			var paths []string
-			paths, err = h.booleanSourcePaths(req.Path)
-			if err == nil {
-				sourceGuard, err = watchEditSources(paths, file, req.Key)
-			}
-		}
-		if err == nil && len(req.Expected) > 0 {
-			edit = func(data []byte) ([]byte, error) {
-				if err := h.checkBooleanExpected(req.Path, req.Key, req.Expected); err != nil {
-					return nil, err
-				}
-				currentFile, next, err := h.settingsEdit(audience, req.Path, req.Key, value)
-				if err != nil {
-					return nil, err
-				}
-				if currentFile != file {
-					return nil, staleToggleError{req.Key}
-				}
-				return next(data)
-			}
-		}
-		if err != nil {
-			writeExpectedError(w, err)
-			return
-		}
+		plan, ok = h.serveValue(w, body)
 	case editFieldPath:
-		var req struct {
-			audienceFields
-			Target   string          `json:"target"`
-			Path     string          `json:"path"`
-			Key      string          `json:"key"`
-			Value    json.RawMessage `json:"value"`
-			Expected json.RawMessage `json:"expected"`
-		}
-		if err := json.Unmarshal(body, &req); err != nil || req.Key == "" || len(req.Value) == 0 {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "key and value are required (null clears the field)"})
-			return
-		}
-		var expected *string
-		if len(req.Expected) > 0 && json.Unmarshal(req.Expected, &expected) != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "expected must be the value the page showed, as text, or null when it was not set"})
-			return
-		}
-		var chosen spec.Entry
-		addr := newFieldAddress(req.Key, req.Target)
-		audience, err = req.audience()
-		if err == nil {
-			file, edit, err = h.fieldEdit(audience, req.Path, addr, req.Value, &chosen)
-		}
-		var source fieldSourceError
-		var nothing noPersonalValueError
-		var tier tierEffortError
-		var shadowed shadowedFieldError
-		switch {
-		case errors.As(err, &shadowed):
-			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
-			return
-		case errors.As(err, &tier):
-			writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
-			return
-		case err != nil && len(req.Expected) > 0 && errors.As(err, &source):
-			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error() + ". This changed after the page loaded; reload to review it"})
-			return
-		case err != nil && len(req.Expected) > 0 && errors.As(err, &nothing):
-			writeEditJSON(w, http.StatusOK, map[string]any{"ok": true})
-			return
-		case err != nil:
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
-			return
-		}
-		if len(req.Expected) > 0 {
-			edit = expectFieldValue(addr, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(audience, chosen, file, addr), edit)
-		}
+		plan, ok = h.serveField(w, body)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
 	}
+	if ok {
+		h.applyPlan(w, plan)
+	}
+}
+
+// recheckedEdit runs the edit only while what the page showed still
+// holds: it checks expected again, rebuilds the edit, and fails with
+// staleToggleError when the edit now lands in another file.
+func recheckedEdit(file, label string, recheck func() error, rebuild fileEdit) func([]byte) ([]byte, error) {
+	return func(data []byte) ([]byte, error) {
+		if err := recheck(); err != nil {
+			return nil, err
+		}
+		currentFile, next, err := rebuild()
+		if err != nil {
+			return nil, err
+		}
+		if currentFile != file {
+			return nil, staleToggleError{label}
+		}
+		return next(data)
+	}
+}
+
+func (h *editHandler) serveBuiltinToggle(w http.ResponseWriter, body []byte) (editPlan, bool) {
+	var req struct {
+		audienceFields
+		Target   string          `json:"target"`
+		Name     string          `json:"name"`
+		Enabled  *bool           `json:"enabled"`
+		Reset    bool            `json:"reset"`
+		Expected json.RawMessage `json:"expected"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a built-in name and enabled, or reset alone"})
+		return editPlan{}, false
+	}
+	if newFieldAddress("", req.Target).target != "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "built-ins apply to every tool; send target all or leave it out"})
+		return editPlan{}, false
+	}
+	if !req.Reset && !slices.Contains(builtins.Names(), req.Name) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(builtins.Names(), ", "))})
+		return editPlan{}, false
+	}
+	if !req.Reset && req.Enabled == nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
+		return editPlan{}, false
+	}
+	var plan editPlan
+	var err error
+	plan.audience, err = req.audience()
+	audience, expected := plan.audience, len(req.Expected) > 0
+	recheck := func() error { return h.checkBuiltinExpected(req.Name, req.Reset, req.Expected) }
+	rebuild := func() (string, func([]byte) ([]byte, error), error) {
+		return h.builtinsEdit(audience, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+	}
+	if err == nil && expected {
+		err = recheck()
+	}
+	if err == nil {
+		plan.file, plan.edit, err = rebuild()
+	}
+	if err == nil && expected {
+		team, local := h.builtinsConfigFiles()
+		plan.sourceGuard, err = watchEditSources([]string{team, local}, plan.file, req.Name)
+	}
+	if err != nil {
+		writeExpectedError(w, err)
+		return editPlan{}, false
+	}
+	if expected {
+		plan.edit = recheckedEdit(plan.file, req.Name, recheck, rebuild)
+	}
+	return plan, true
+}
+
+func (h *editHandler) serveTargetsToggle(w http.ResponseWriter, body []byte) (editPlan, bool) {
+	var req struct {
+		audienceFields
+		Name     string          `json:"name"`
+		Enabled  *bool           `json:"enabled"`
+		Reset    bool            `json:"reset"`
+		Expected json.RawMessage `json:"expected"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a coding tool name and enabled, or reset alone"})
+		return editPlan{}, false
+	}
+	if !req.Reset && !slices.Contains(h.supportedTargetNames(), req.Name) {
+		if h.global && slices.Contains(adapters.Names(), req.Name) {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --global cannot write %s; change it in a project", req.Name)})
+			return editPlan{}, false
+		}
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(h.supportedTargetNames(), ", "))})
+		return editPlan{}, false
+	}
+	if !req.Reset && req.Enabled == nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
+		return editPlan{}, false
+	}
+	var plan editPlan
+	var err error
+	plan.audience, err = req.audience()
+	audience, expected, label := plan.audience, len(req.Expected) > 0, cmp.Or(req.Name, "coding tools")
+	change := targetsRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset}
+	recheck := func() error { return h.checkTargetsExpected(req.Name, req.Reset, req.Expected) }
+	rebuild := func() (string, func([]byte) ([]byte, error), error) { return h.targetsEdit(audience, change) }
+	if err == nil && expected {
+		err = recheck()
+	}
+	if err == nil {
+		plan.file, plan.edit, err = rebuild()
+	}
+	if err == nil && expected {
+		team, local := h.builtinsConfigFiles()
+		plan.sourceGuard, err = watchEditSources([]string{team, local}, plan.file, label)
+	}
+	if err != nil {
+		writeExpectedError(w, err)
+		return editPlan{}, false
+	}
+	if expected {
+		plan.edit = recheckedEdit(plan.file, label, recheck, rebuild)
+	}
+	return plan, true
+}
+
+func (h *editHandler) serveValue(w http.ResponseWriter, body []byte) (editPlan, bool) {
+	var req struct {
+		audienceFields
+		Target   string          `json:"target"`
+		Path     string          `json:"path"`
+		Key      string          `json:"key"`
+		Value    json.RawMessage `json:"value"`
+		Expected json.RawMessage `json:"expected"`
+	}
+	var value *bool
+	if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" || len(req.Value) == 0 || json.Unmarshal(req.Value, &value) != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean or null value are required"})
+		return editPlan{}, false
+	}
+	if newFieldAddress(req.Key, req.Target).target != "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "the key names the tool already; send target all or leave it out"})
+		return editPlan{}, false
+	}
+	var plan editPlan
+	var err error
+	plan.audience, err = req.audience()
+	audience, expected := plan.audience, len(req.Expected) > 0
+	recheck := func() error { return h.checkBooleanExpected(req.Path, req.Key, req.Expected) }
+	rebuild := func() (string, func([]byte) ([]byte, error), error) {
+		return h.settingsEdit(audience, req.Path, req.Key, value)
+	}
+	if err == nil && expected {
+		err = recheck()
+	}
+	if err == nil {
+		plan.file, plan.edit, err = rebuild()
+	}
+	if err == nil && expected {
+		var paths []string
+		paths, err = h.booleanSourcePaths(req.Path)
+		if err == nil {
+			plan.sourceGuard, err = watchEditSources(paths, plan.file, req.Key)
+		}
+	}
+	if err != nil {
+		writeExpectedError(w, err)
+		return editPlan{}, false
+	}
+	if expected {
+		plan.edit = recheckedEdit(plan.file, req.Key, recheck, rebuild)
+	}
+	return plan, true
+}
+
+func (h *editHandler) serveField(w http.ResponseWriter, body []byte) (editPlan, bool) {
+	var req struct {
+		audienceFields
+		Target   string          `json:"target"`
+		Path     string          `json:"path"`
+		Key      string          `json:"key"`
+		Value    json.RawMessage `json:"value"`
+		Expected json.RawMessage `json:"expected"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil || req.Key == "" || len(req.Value) == 0 {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "key and value are required (null clears the field)"})
+		return editPlan{}, false
+	}
+	var expected *string
+	if len(req.Expected) > 0 && json.Unmarshal(req.Expected, &expected) != nil {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "expected must be the value the page showed, as text, or null when it was not set"})
+		return editPlan{}, false
+	}
+	var plan editPlan
+	var chosen spec.Entry
+	addr := newFieldAddress(req.Key, req.Target)
+	var err error
+	plan.audience, err = req.audience()
+	if err == nil {
+		plan.file, plan.edit, err = h.fieldEdit(plan.audience, req.Path, addr, req.Value, &chosen)
+	}
+	var source fieldSourceError
+	var nothing noPersonalValueError
+	var tier tierEffortError
+	var shadowed shadowedFieldError
+	switch {
+	case errors.As(err, &shadowed):
+		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
+		return editPlan{}, false
+	case errors.As(err, &tier):
+		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
+		return editPlan{}, false
+	case err != nil && len(req.Expected) > 0 && errors.As(err, &source):
+		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error() + ". This changed after the page loaded; reload to review it"})
+		return editPlan{}, false
+	case err != nil && len(req.Expected) > 0 && errors.As(err, &nothing):
+		writeEditJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return editPlan{}, false
+	case err != nil:
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+		return editPlan{}, false
+	}
+	if len(req.Expected) > 0 {
+		plan.edit = expectFieldValue(addr, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(plan.audience, chosen, plan.file, addr), plan.edit)
+	}
+	return plan, true
+}
+
+// applyPlan writes the planned edit, keeping it only when the
+// configuration still validates, and answers with the outcome.
+func (h *editHandler) applyPlan(w http.ResponseWriter, plan editPlan) {
 	var prepare func() (func(bool) error, error)
-	if audience == audiencePersonal {
+	if plan.audience == audiencePersonal {
 		prepare = func() (func(bool) error, error) {
-			finish, err := h.preparePersonalOutOfGit(file)
+			finish, err := h.preparePersonalOutOfGit(plan.file)
 			if err != nil {
 				return nil, personalGitError{err}
 			}
 			return finish, nil
 		}
 	}
+	sourceGuard := plan.sourceGuard
 	if sourceGuard == nil {
 		sourceGuard = func() error { return nil }
 	}
-	if problems, err := h.applyValidatedWithPrepare(file, edit, prepare, sourceGuard); err != nil {
+	if problems, err := h.applyValidatedWithPrepare(plan.file, plan.edit, prepare, sourceGuard); err != nil {
 		var protection personalGitError
 		if errors.As(err, &protection) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
@@ -353,7 +397,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &stale) {
-			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, file) + ": " + stale.Error()})
+			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, plan.file) + ": " + stale.Error()})
 			return
 		}
 		if errors.Is(err, errLastTarget) {
@@ -363,7 +407,18 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error(), Problems: problems})
 		return
 	}
-	writeEditJSON(w, http.StatusOK, map[string]any{"ok": true, "file": overviewDisplay(h.root, file)})
+	writeEditJSON(w, http.StatusOK, map[string]any{"ok": true, "file": overviewDisplay(h.root, plan.file)})
+}
+
+// allowGetOnly answers 405 and is false for a request that is not a GET
+// or a HEAD.
+func allowGetOnly(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	w.Header().Set("Allow", "GET, HEAD")
+	writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: r.Method + " is not supported here; use GET"})
+	return false
 }
 
 // Origin checks also honor origins explicitly allowed by the outer server.
