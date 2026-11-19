@@ -19,7 +19,8 @@ import (
 )
 
 // detectCollisions checks whether two or more targets emit to the same
-// output path and applies cfg.Sync.CollisionPolicy to decide what to do:
+// output path and applies the collision policy of the targets that write
+// it, the strictest one when they disagree (see collisionPolicy):
 //
 //   - prompt (default): error with a resolution hint. On non-interactive
 //     stdin an extra CI hint is appended.
@@ -81,14 +82,13 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 	if len(conflicts) > 0 {
 		return found, errs.Coded(errs.CodeOutputCollision, "output collision: %s", strings.Join(conflicts, "\n"))
 	}
-	policy := cfg.Sync.CollisionPolicy
-	if policy == "" {
-		policy = "prompt"
-	}
 	// The winner must not depend on which targets one run selects, so
 	// prefer-spec renders every configured target.
+	preferSpec := slices.ContainsFunc(cfg.Targets, func(t string) bool {
+		return cfg.EffectiveCollisionPolicy(t) == "prefer-spec"
+	})
 	writers := targets
-	if policy == "prefer-spec" {
+	if preferSpec {
 		writers = cfg.Targets
 	}
 
@@ -105,7 +105,7 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		render := renders.capture(adapter, cfg)
 		if err := render.err; err != nil {
 			// The target's own emit reports the error, after the others write.
-			if policy == "prefer-spec" {
+			if preferSpec && (cfg.EffectiveCollisionPolicy(t) == "prefer-spec" || !slices.Contains(targets, t)) {
 				continue
 			}
 			return found, fmt.Errorf("%s: %w", t, err)
@@ -148,35 +148,51 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 	if err != nil {
 		return found, err
 	}
-	if policy == "prefer-spec" {
-		for path, variants := range contents {
-			if len(variants) > 1 {
-				if found.winners == nil {
-					found.winners = map[string]string{}
-				}
-				found.winners[filepath.Clean(path)] = last[path]
-			}
-		}
-		noteCollisionWinners(writers, contents, lastOwner, written)
-		found.winners = withWinners(found.winners, replaced)
-		return found, nil
+	if !preferSpec {
+		warnSharedAgentsTreeReaders(owners, targets)
 	}
-	warnSharedAgentsTreeReaders(owners, targets)
 
+	resolved := map[string]map[string]bool{}
 	var lines []string
+	policy := "prefer-spec"
 	for path, ts := range owners {
 		// Byte-identical writes from several targets dedupe into one
 		// file; only divergent content is a real conflict.
 		if len(ts) < 2 || len(contents[path]) < 2 {
 			continue
 		}
-		sort.Strings(ts)
-		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", ")))
+		pathPolicy := collisionPolicy(cfg, ts)
+		if pathPolicy == "prefer-spec" {
+			resolved[path] = contents[path]
+			if found.winners == nil {
+				found.winners = map[string]string{}
+			}
+			found.winners[filepath.Clean(path)] = last[path]
+			continue
+		}
+		// Only a target the run selects can clash on a path no
+		// prefer-spec settles.
+		var runOwners []string
+		runContents := map[string]bool{}
+		for _, t := range ts {
+			if slices.Contains(targets, t) {
+				runOwners = append(runOwners, t)
+				runContents[written[path][t]] = true
+			}
+		}
+		if len(runContents) < 2 {
+			continue
+		}
+		policy = stricterCollisionPolicy(policy, pathPolicy)
+		sort.Strings(runOwners)
+		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(runOwners, ", ")))
 	}
 	if len(lines) == 0 {
-		found.winners = replaced
+		noteCollisionWinners(writers, resolved, lastOwner, written)
+		found.winners = withWinners(found.winners, replaced)
 		return found, nil
 	}
+	found.winners = nil
 	sort.Strings(lines)
 
 	if policy == "fail" {
@@ -193,6 +209,36 @@ func findRenderedCollisions(renders *targetRenders, cfg *config.Config, targets 
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}
 	return found, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
+}
+
+// collisionPolicy is the policy for a path the given targets write:
+// each target's outputs.<target>.collision-policy, else
+// sync.collision-policy, and the strictest of those when they disagree,
+// so one target cannot loosen another's rule.
+func collisionPolicy(cfg *config.Config, targets []string) string {
+	policy := "prefer-spec"
+	for _, t := range targets {
+		policy = stricterCollisionPolicy(policy, cfg.EffectiveCollisionPolicy(t))
+	}
+	return policy
+}
+
+// stricterCollisionPolicy ranks fail over prompt over prefer-spec. An
+// unknown value acts as prompt, the default.
+func stricterCollisionPolicy(a, b string) string {
+	rank := func(p string) int {
+		switch p {
+		case "fail":
+			return 2
+		case "prefer-spec":
+			return 0
+		}
+		return 1
+	}
+	if rank(b) > rank(a) {
+		return b
+	}
+	return a
 }
 
 // replacedRulesFileWinners maps each kept shared rules-file to the
