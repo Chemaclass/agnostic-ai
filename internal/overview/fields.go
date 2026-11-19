@@ -40,6 +40,9 @@ var settingsFields = map[string][]fieldDef{
 	},
 }
 
+// voiceGlobalOnlyReason explains why a project cannot edit voice fields.
+const voiceGlobalOnlyReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
+
 // buildFields lists every field of section with the values each settings
 // spec in items gives it.
 func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, root string, global bool) []SettingField {
@@ -53,188 +56,257 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 	}
 	fields := make([]SettingField, 0, len(defs))
 	for _, d := range defs {
-		f := SettingField{Key: d.key, Label: d.label, Description: d.description, Set: []FieldSource{}}
-		for _, it := range items {
-			if it.Kind != string(spec.KindSettings) {
-				continue
-			}
-			if _, ok := byName[it.Name]; !ok {
-				continue
-			}
-			e := byName[it.Name]
-			values := d.values(it.Values)
-			cleared := ""
-			if strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e) {
-				cleared = "permissions"
-			} else if strings.HasPrefix(d.key, "voice.") && personalFieldCleared(e, "voice") {
-				cleared = "voice"
-			} else if d.key == ProtectedKey && personalFieldCleared(e, ProtectedKey) {
-				cleared = ProtectedKey
-			}
-			if e.Base == nil {
-				if cleared != "" {
-					values = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
-				}
-				if len(values) > 0 {
-					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
-				}
-				continue
-			}
-			own := d.values(specValues(e.LocalMeta))
-			if cleared != "" {
-				own = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
-			}
-			team := SpecPath(root, *e.Base)
-			if !d.prefix && len(own) == 0 {
-				if len(values) > 0 {
-					f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: values})
-				}
-				continue
-			}
-			if len(own) > 0 {
-				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: own, Local: true})
-			}
-			if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
-				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: shared})
-			}
-		}
-		if section == SectionAuthority && PermissionListField(d.key) {
-			f.Editable = PermissionFieldEdit(entries, cfg, root, global)
-		}
-		if section == SectionAuthority && d.key == PermissionModeKey {
-			f.Editable = PermissionFieldEdit(entries, cfg, root, global)
-			f.Editable.Kind = "text"
-			f.Editable.Allowed = slices.Clone(spec.PermissionModes)
-			if !global {
-				f.Editable.DisabledReason = PermissionModeProjectReason
-			}
-		}
-		if section == SectionAuthority && d.key == ProtectedKey {
-			f.Editable = protectedFieldEdit(entries, cfg, root, global)
+		f := SettingField{Key: d.key, Label: d.label, Description: d.description, Set: fieldSources(d, items, byName, root)}
+		if section == SectionAuthority {
+			f.Editable = authorityFieldEdit(d, entries, cfg, root, global)
 		}
 		if section == SectionSettings && !d.prefix && cfg != nil {
-			edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
-			if global {
-				edit.SyncCommand = "agnostic-ai sync --global"
-			}
-			if d.key == "session-retention-days" {
-				edit.Kind = "number"
-				if !global {
-					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
-				}
-			}
-			if strings.HasPrefix(d.key, "voice.") {
-				if d.key == "voice.enabled" {
-					edit.Kind = "boolean"
-				}
-				if d.key == "voice.mode" {
-					edit.Allowed = slices.Clone(spec.VoiceModes)
-				}
-				if !global {
-					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
-				}
-			}
-			if d.key == "effort" {
-				for _, target := range cfg.Targets {
-					adapter, err := adapters.Resolve(target)
-					if err != nil {
-						continue
-					}
-					accepter, ok := adapter.(adapters.SettingsEffortAccepter)
-					if !ok {
-						continue
-					}
-					if edit.ToolAllowed == nil {
-						edit.ToolAllowed = map[string][]string{}
-					}
-					edit.ToolAllowed[target] = slices.Sorted(slices.Values(accepter.SettingsEffortLevels()))
-					if edit.ToolAllowed[target] == nil {
-						edit.ToolAllowed[target] = []string{}
-					}
-					for _, level := range accepter.SettingsEffortLevels() {
-						if !slices.Contains(edit.Allowed, level) {
-							edit.Allowed = append(edit.Allowed, level)
-						}
-					}
-				}
-				slices.Sort(edit.Allowed)
-			}
-			paths := map[string]string{}
-			for _, it := range items {
-				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
-					paths[it.Name] = SettingsTeamPath(root, e)
-					edit.Paths = append(edit.Paths, paths[it.Name])
-					if strings.HasPrefix(d.key, "voice.") {
-						localPath := SettingsOverlayPath(global, e.Name)
-						if LocalLayer(e) {
-							localPath = SpecPath(root, e)
-						}
-						edit.Sources = append(edit.Sources, FieldEditSource{Path: paths[it.Name], Spec: e.Name, LocalPath: localPath, DisabledReason: VoiceEditDisabledReason(e, root)})
-					}
-				}
-			}
-			defaultPath := "settings/defaults.yaml"
-			if !global {
-				defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
-			}
-			inEffect := SettingsInEffect(entries, d.key, cfg.Targets, global)
-			if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
-				edit.Path = paths[entries[target].Name]
-			} else if inEffect >= 0 || len(edit.Paths) == 0 {
-				if taken, ok := byName["defaults"]; ok {
-					edit.DisabledReason = SpecPath(root, taken) + " is already the settings spec named defaults; add the field to an editable settings spec."
-					if inEffect >= 0 {
-						edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
-					}
-				} else {
-					edit.Path = defaultPath
-					if len(edit.Paths) > 0 {
-						edit.Paths = append(edit.Paths, defaultPath)
-					}
-				}
-			} else if len(edit.Paths) == 1 {
-				edit.Path = edit.Paths[0]
-			}
-			if at := slices.IndexFunc(entries, func(e spec.Entry) bool { return edit.Path != "" && SettingsTeamPath(root, e) == edit.Path }); at >= 0 {
-				edit.LocalPath = SettingsOverlayPath(global, entries[at].Name)
-				if LocalLayer(entries[at]) {
-					edit.LocalPath = SpecPath(root, entries[at])
-				}
-			} else if edit.Path == defaultPath {
-				edit.LocalPath = SettingsOverlayPath(global, "defaults")
-			}
-			for _, source := range f.Set {
-				for _, value := range source.Values {
-					if strings.HasPrefix(d.key, "voice.") && source.Local && value.Key == "voice" && personalFieldCleared(byName[source.Spec], "voice") {
-						continue
-					}
-					if !d.editableValue(value) {
-						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
-					}
-				}
-			}
-			if d.key == "model" && slices.ContainsFunc(entries, func(e spec.Entry) bool {
-				return e.ModelTier != "" && slices.ContainsFunc(f.Set, func(s FieldSource) bool { return s.Spec == e.Name })
-			}) {
-				edit.DisabledReason = "This model names a tier from models: in the config; edit the spec directly."
-			}
-			if strings.HasPrefix(d.key, "voice.") {
-				if !global {
-					edit.DisabledReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
-				} else if len(edit.Paths) <= 1 {
-					for _, e := range entries {
-						if reason := VoiceEditDisabledReason(e, root); reason != "" && (edit.Path == "" || SettingsTeamPath(root, e) == edit.Path) {
-							edit.DisabledReason = reason
-							break
-						}
-					}
-				}
-			}
-			f.Editable = edit
+			f.Editable = settingsFieldEdit(d, f.Set, items, entries, byName, cfg, root, global)
 		}
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// fieldSources lists the settings specs in items that set d, with a
+// personal file and the team spec it extends as separate sources.
+func fieldSources(d fieldDef, items []SectionItem, byName map[string]spec.Entry, root string) []FieldSource {
+	set := []FieldSource{}
+	for _, it := range items {
+		if it.Kind != string(spec.KindSettings) {
+			continue
+		}
+		e, ok := byName[it.Name]
+		if !ok {
+			continue
+		}
+		values := d.values(it.Values)
+		cleared := clearedGroup(d, e)
+		if e.Base == nil {
+			if cleared != "" {
+				values = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
+			}
+			if len(values) > 0 {
+				set = append(set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: LocalLayer(e)})
+			}
+			continue
+		}
+		own := d.values(specValues(e.LocalMeta))
+		if cleared != "" {
+			own = []Value{{Key: cleared, Type: ValueText, Value: "null"}}
+		}
+		team := SpecPath(root, *e.Base)
+		if !d.prefix && len(own) == 0 {
+			if len(values) > 0 {
+				set = append(set, FieldSource{Spec: it.Name, Path: team, Values: values})
+			}
+			continue
+		}
+		if len(own) > 0 {
+			set = append(set, FieldSource{Spec: it.Name, Path: it.Path, Values: own, Local: true})
+		}
+		if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
+			set = append(set, FieldSource{Spec: it.Name, Path: team, Values: shared})
+		}
+	}
+	return set
+}
+
+// clearedGroup is the settings group a personal file clears with
+// key: null that covers d, or "".
+func clearedGroup(d fieldDef, e spec.Entry) string {
+	switch {
+	case strings.HasPrefix(d.key, "permissions.") && personalPermissionsCleared(e):
+		return "permissions"
+	case d.voice() && personalFieldCleared(e, "voice"):
+		return "voice"
+	case d.key == ProtectedKey && personalFieldCleared(e, ProtectedKey):
+		return ProtectedKey
+	}
+	return ""
+}
+
+// authorityFieldEdit is the editor of an Authority field, or nil for a
+// key that has none.
+func authorityFieldEdit(d fieldDef, entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
+	switch {
+	case d.key == PermissionModeKey:
+		edit := PermissionFieldEdit(entries, cfg, root, global)
+		edit.Kind = "text"
+		edit.Allowed = slices.Clone(spec.PermissionModes)
+		if !global {
+			edit.DisabledReason = PermissionModeProjectReason
+		}
+		return edit
+	case d.key == ProtectedKey:
+		return protectedFieldEdit(entries, cfg, root, global)
+	case PermissionListField(d.key):
+		return PermissionFieldEdit(entries, cfg, root, global)
+	}
+	return nil
+}
+
+// settingsFieldEdit is the editor of a Settings field. Its disabled
+// reasons are applied in order, and a later rule replaces an earlier one.
+func settingsFieldEdit(d fieldDef, set []FieldSource, items []SectionItem, entries []spec.Entry, byName map[string]spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
+	edit := settingsFieldKind(d, cfg.Targets, global)
+	paths := settingsEditPaths(d, edit, items, byName, root, global)
+	settingsEditTarget(d, edit, paths, entries, byName, cfg, root, global)
+	settingsDisabledReason(d, edit, set, entries, byName, root, global)
+	return edit
+}
+
+// settingsFieldKind starts the editor of d with its value kind, the
+// values it allows, and the rule that limits it to sync --global.
+func settingsFieldKind(d fieldDef, targets []string, global bool) *FieldEdit {
+	edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
+	if global {
+		edit.SyncCommand = "agnostic-ai sync --global"
+	}
+	switch {
+	case d.key == "session-retention-days":
+		edit.Kind = "number"
+		if !global {
+			edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
+		}
+	case d.voice():
+		if d.key == "voice.enabled" {
+			edit.Kind = "boolean"
+		}
+		if d.key == "voice.mode" {
+			edit.Allowed = slices.Clone(spec.VoiceModes)
+		}
+		if !global {
+			edit.DisabledReason = voiceGlobalOnlyReason
+		}
+	case d.key == "effort":
+		addEffortLevels(edit, targets)
+	}
+	return edit
+}
+
+// addEffortLevels sets the effort levels each target accepts, sorted,
+// and their sorted union.
+func addEffortLevels(edit *FieldEdit, targets []string) {
+	for _, target := range targets {
+		adapter, err := adapters.Resolve(target)
+		if err != nil {
+			continue
+		}
+		accepter, ok := adapter.(adapters.SettingsEffortAccepter)
+		if !ok {
+			continue
+		}
+		levels := accepter.SettingsEffortLevels()
+		if edit.ToolAllowed == nil {
+			edit.ToolAllowed = map[string][]string{}
+		}
+		edit.ToolAllowed[target] = slices.Sorted(slices.Values(levels))
+		if edit.ToolAllowed[target] == nil {
+			edit.ToolAllowed[target] = []string{}
+		}
+		for _, level := range levels {
+			if !slices.Contains(edit.Allowed, level) {
+				edit.Allowed = append(edit.Allowed, level)
+			}
+		}
+	}
+	slices.Sort(edit.Allowed)
+}
+
+// settingsEditPaths adds the team path of every settings spec that can
+// take d, and returns those paths by spec name.
+func settingsEditPaths(d fieldDef, edit *FieldEdit, items []SectionItem, byName map[string]spec.Entry, root string, global bool) map[string]string {
+	paths := map[string]string{}
+	for _, it := range items {
+		e, ok := byName[it.Name]
+		if !ok || it.Kind != string(spec.KindSettings) || !SettingsEditCandidate(e, d.key) {
+			continue
+		}
+		paths[it.Name] = SettingsTeamPath(root, e)
+		edit.Paths = append(edit.Paths, paths[it.Name])
+		if d.voice() {
+			edit.Sources = append(edit.Sources, FieldEditSource{Path: paths[it.Name], Spec: e.Name, LocalPath: localEditPath(root, e, global), DisabledReason: VoiceEditDisabledReason(e, root)})
+		}
+	}
+	return paths
+}
+
+// settingsEditTarget picks the file an edit of d writes, or the reason
+// none can, and the personal file beside it.
+func settingsEditTarget(d fieldDef, edit *FieldEdit, paths map[string]string, entries []spec.Entry, byName map[string]spec.Entry, cfg *config.Config, root string, global bool) {
+	defaultPath := "settings/defaults.yaml"
+	if !global {
+		defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
+	}
+	inEffect := SettingsInEffect(entries, d.key, cfg.Targets, global)
+	if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
+		edit.Path = paths[entries[target].Name]
+	} else if inEffect >= 0 || len(edit.Paths) == 0 {
+		if taken, ok := byName["defaults"]; ok {
+			edit.DisabledReason = SpecPath(root, taken) + " is already the settings spec named defaults; add the field to an editable settings spec."
+			if inEffect >= 0 {
+				edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
+			}
+		} else {
+			edit.Path = defaultPath
+			if len(edit.Paths) > 0 {
+				edit.Paths = append(edit.Paths, defaultPath)
+			}
+		}
+	} else if len(edit.Paths) == 1 {
+		edit.Path = edit.Paths[0]
+	}
+	if at := slices.IndexFunc(entries, func(e spec.Entry) bool { return edit.Path != "" && SettingsTeamPath(root, e) == edit.Path }); at >= 0 {
+		edit.LocalPath = localEditPath(root, entries[at], global)
+	} else if edit.Path == defaultPath {
+		edit.LocalPath = SettingsOverlayPath(global, "defaults")
+	}
+}
+
+// settingsDisabledReason applies the rules that disable an edit of d, in
+// order: a non-scalar value, a model tier, then the voice rules.
+func settingsDisabledReason(d fieldDef, edit *FieldEdit, set []FieldSource, entries []spec.Entry, byName map[string]spec.Entry, root string, global bool) {
+	for _, source := range set {
+		for _, value := range source.Values {
+			if d.voice() && source.Local && value.Key == "voice" && personalFieldCleared(byName[source.Spec], "voice") {
+				continue
+			}
+			if !d.editableValue(value) {
+				edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
+			}
+		}
+	}
+	if d.key == "model" && slices.ContainsFunc(entries, func(e spec.Entry) bool {
+		return e.ModelTier != "" && slices.ContainsFunc(set, func(s FieldSource) bool { return s.Spec == e.Name })
+	}) {
+		edit.DisabledReason = "This model names a tier from models: in the config; edit the spec directly."
+	}
+	if !d.voice() {
+		return
+	}
+	if !global {
+		edit.DisabledReason = voiceGlobalOnlyReason
+		return
+	}
+	if len(edit.Paths) > 1 {
+		return
+	}
+	for _, e := range entries {
+		if reason := VoiceEditDisabledReason(e, root); reason != "" && (edit.Path == "" || SettingsTeamPath(root, e) == edit.Path) {
+			edit.DisabledReason = reason
+			return
+		}
+	}
+}
+
+// localEditPath is the personal file an edit of e writes: e itself when
+// it is a local file, its overlay file otherwise.
+func localEditPath(root string, e spec.Entry, global bool) string {
+	if LocalLayer(e) {
+		return SpecPath(root, e)
+	}
+	return SettingsOverlayPath(global, e.Name)
 }
 
 // PermissionModeKey is the settings field that holds the default
@@ -315,12 +387,8 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 		if PermissionEditCandidate(e) && (cfg == nil || len(cfg.Targets) == 0 || slices.ContainsFunc(cfg.Targets, e.EmitsTo)) {
 			candidates = append(candidates, e)
 			path := SettingsTeamPath(root, e)
-			localPath := SettingsOverlayPath(global, e.Name)
-			if LocalLayer(e) {
-				localPath = SpecPath(root, e)
-			}
 			edit.Paths = append(edit.Paths, path)
-			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localPath, DisabledReason: PermissionEditDisabledReason(e, root)})
+			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localEditPath(root, e, global), DisabledReason: PermissionEditDisabledReason(e, root)})
 		}
 	}
 	if len(candidates) == 1 {
@@ -425,6 +493,10 @@ func SettingsOverlayPath(global bool, name string) string {
 		dir = "local/settings"
 	}
 	return dir + "/" + name + ".yaml"
+}
+
+func (d fieldDef) voice() bool {
+	return strings.HasPrefix(d.key, "voice.")
 }
 
 func (d fieldDef) matches(key string) bool {

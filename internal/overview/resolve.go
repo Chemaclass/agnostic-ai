@@ -40,41 +40,11 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 				}
 				continue
 			}
-			origin := ValueOrigin{Spec: e.Name, Path: SettingsTeamPath(root, e), Value: settingsValueFor(e, key, target)}
-			if key == "model" {
-				origin.Tier = e.ModelTier
-			} else if e.ModelTier != "" && tierEffort(e, target, in.Cfg.Models) == origin.Value && origin.Value != "" {
-				origin.Tier = e.ModelTier
+			origin, overridden := specOrigin(in, e, key, target, base)
+			if overridden != nil {
+				tv.Others = append(tv.Others, *overridden)
 			}
-			fromTier := key == "effort" && origin.Tier != ""
-			if LocalSets(e, key) && !fromTier || e.Base == nil && LocalLayer(e) {
-				if e.Base == nil || base != origin.Value {
-					origin.Path, origin.Local = SpecPath(root, e), true
-				}
-				if base != "" && base != origin.Value {
-					tv.Others = append(tv.Others, ValueOrigin{Spec: e.Name, Path: SettingsTeamPath(root, e), Value: base,
-						Reason: "Your local file " + origin.Path + " overrides it."})
-				}
-			}
-			origin.PerTool = !fromTier && perToolValue(e, key, target, origin.Local, in.Cfg.Models)
-			foreign := key == "model" && !in.Global && foreignClaudeModel(e, target)
-			if foreign {
-				origin.Value = settingsValueFor(withoutSharedModel(e), key, target)
-			}
-			switch {
-			case !e.EmitsTo(target):
-				origin.Reason = "This spec does not apply to " + label + "."
-				tv.Others = append(tv.Others, origin)
-			case origin.Value == "" && foreign:
-				origin.Value = settingsValueFor(e, key, target)
-				origin.Reason = "It is a Claude model name, which " + label + " cannot load, so sync leaves it out."
-				tv.Others = append(tv.Others, origin)
-			case origin.Value == "":
-				origin.Reason = "Its per-tool map has no value for " + label + " and no default."
-				tv.Others = append(tv.Others, origin)
-			default:
-				winners = append(winners, origin)
-			}
+			winners = placeOrigin(&tv, winners, origin, e, in.foreignModel(e, key, target))
 		}
 		if len(winners) > 0 {
 			won := winners[len(winners)-1]
@@ -88,23 +58,86 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 				tv.Alias = aliasOf(in.Bundle.Settings, won, target)
 			}
 		}
-		if path, value := configOverride(in.Cfg, key, target); value != "" {
-			if tv.From != nil {
-				lost := *tv.From
-				lost.Reason = path + " in the config replaces it."
-				tv.Others = append(tv.Others, lost)
-			}
-			tv.From = &ValueOrigin{Path: path, Value: value}
-			tv.Value, tv.Tier, tv.Alias = value, "", ""
-		} else if tv.From != nil {
-			tv.Dropped = in.droppedReason(target, key)
-			if kinds, known := caps[target]; known && !slices.Contains(kinds, spec.KindSettings) {
-				tv.Dropped = label + " does not take settings specs"
-			}
-		}
+		applyConfigOverride(&tv, in, key, caps)
 		out = append(out, tv)
 	}
 	return out
+}
+
+// specOrigin is the value settings spec e gives target for key, and the
+// team value its local file overrides, if any.
+func specOrigin(in Inputs, e spec.Entry, key, target, base string) (ValueOrigin, *ValueOrigin) {
+	root := in.Snapshot.Project.Root
+	origin := ValueOrigin{Spec: e.Name, Path: SettingsTeamPath(root, e), Value: settingsValueFor(e, key, target)}
+	if key == "model" {
+		origin.Tier = e.ModelTier
+	} else if e.ModelTier != "" && tierEffort(e, target, in.Cfg.Models) == origin.Value && origin.Value != "" {
+		origin.Tier = e.ModelTier
+	}
+	fromTier := key == "effort" && origin.Tier != ""
+	var overridden *ValueOrigin
+	if LocalSets(e, key) && !fromTier || e.Base == nil && LocalLayer(e) {
+		if e.Base == nil || base != origin.Value {
+			origin.Path, origin.Local = SpecPath(root, e), true
+		}
+		if base != "" && base != origin.Value {
+			overridden = &ValueOrigin{Spec: e.Name, Path: SettingsTeamPath(root, e), Value: base,
+				Reason: "Your local file " + origin.Path + " overrides it."}
+		}
+	}
+	origin.PerTool = !fromTier && perToolValue(e, key, target, origin.Local, in.Cfg.Models)
+	if in.foreignModel(e, key, target) {
+		origin.Value = settingsValueFor(withoutSharedModel(e), key, target)
+	}
+	return origin, overridden
+}
+
+// foreignModel reports whether project sync drops e's shared model for
+// target as a Claude model name target cannot load.
+func (in Inputs) foreignModel(e spec.Entry, key, target string) bool {
+	return key == "model" && !in.Global && foreignClaudeModel(e, target)
+}
+
+// placeOrigin adds origin to the candidate winners, or to tv.Others with
+// the reason it cannot win.
+func placeOrigin(tv *TargetValue, winners []ValueOrigin, origin ValueOrigin, e spec.Entry, foreign bool) []ValueOrigin {
+	switch {
+	case !e.EmitsTo(tv.Target):
+		origin.Reason = "This spec does not apply to " + tv.Label + "."
+		tv.Others = append(tv.Others, origin)
+	case origin.Value == "" && foreign:
+		origin.Value = settingsValueFor(e, "model", tv.Target)
+		origin.Reason = "It is a Claude model name, which " + tv.Label + " cannot load, so sync leaves it out."
+		tv.Others = append(tv.Others, origin)
+	case origin.Value == "":
+		origin.Reason = "Its per-tool map has no value for " + tv.Label + " and no default."
+		tv.Others = append(tv.Others, origin)
+	default:
+		winners = append(winners, origin)
+	}
+	return winners
+}
+
+// applyConfigOverride lets an agnostic-ai.yaml key replace the winning
+// value, or explains why sync drops the value it keeps.
+func applyConfigOverride(tv *TargetValue, in Inputs, key string, caps map[string][]spec.Kind) {
+	if path, value := configOverride(in.Cfg, key, tv.Target); value != "" {
+		if tv.From != nil {
+			lost := *tv.From
+			lost.Reason = path + " in the config replaces it."
+			tv.Others = append(tv.Others, lost)
+		}
+		tv.From = &ValueOrigin{Path: path, Value: value}
+		tv.Value, tv.Tier, tv.Alias = value, "", ""
+		return
+	}
+	if tv.From == nil {
+		return
+	}
+	tv.Dropped = in.droppedReason(tv.Target, key)
+	if kinds, known := caps[tv.Target]; known && !slices.Contains(kinds, spec.KindSettings) {
+		tv.Dropped = tv.Label + " does not take settings specs"
+	}
 }
 
 // perToolValue reports whether e gives target its value for key from

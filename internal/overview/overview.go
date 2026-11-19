@@ -389,7 +389,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			case kindConfig:
 				items = configItems(in.Cfg, in.Snapshot.Project.Root, in.Snapshot.ConfigFiles)
 			default:
-				items = specItems(in, r, def.id)
+				items = specItems(in, r)
 			}
 			if r.optional && len(items) == 0 {
 				continue
@@ -415,34 +415,41 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 				s.Support = append(s.Support, kindSupport(r.kind, r.title(), targets, caps))
 			}
 		}
-		if def.id == SectionLifecycle {
-			s.Stages = buildStages(s.Items, targets, newLabeler())
-		}
-		fieldItems := s.Items
-		if def.id == SectionSettings {
-			for _, prev := range sections {
-				if prev.ID == SectionAuthority {
-					fieldItems = append(slices.Clone(s.Items), prev.Items...)
-				}
-			}
-		}
-		s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.Global)
-		if def.id == SectionSettings {
-			labels := newLabeler()
-			for i := range s.Fields {
-				s.Fields[i].Resolved = resolveTargets(in, s.Fields[i].Key, labels, caps)
-			}
-		}
-		if def.id == SectionTools {
-			attachTools(s.Items, in)
-			s.Native = nativeServers(in, newLabeler())
-		}
+		finishSection(&s, def, in, caps, sections, targets)
 		sections = append(sections, s)
 	}
 	return sections
 }
 
-func specItems(in Inputs, r row, section string) []SectionItem {
+// finishSection adds what one section shows beyond its items: lifecycle
+// stages, settings fields with their resolved values, and native tools.
+// sections are the ones built before s.
+func finishSection(s *Section, def sectionDef, in Inputs, caps map[string][]spec.Kind, sections []Section, targets []string) {
+	if def.id == SectionLifecycle {
+		s.Stages = buildStages(s.Items, targets, newLabeler())
+	}
+	fieldItems := s.Items
+	if def.id == SectionSettings {
+		for _, prev := range sections {
+			if prev.ID == SectionAuthority {
+				fieldItems = append(slices.Clone(s.Items), prev.Items...)
+			}
+		}
+	}
+	s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.Global)
+	if def.id == SectionSettings {
+		labels := newLabeler()
+		for i := range s.Fields {
+			s.Fields[i].Resolved = resolveTargets(in, s.Fields[i].Key, labels, caps)
+		}
+	}
+	if def.id == SectionTools {
+		attachTools(s.Items, in)
+		s.Native = nativeServers(in, newLabeler())
+	}
+}
+
+func specItems(in Inputs, r row) []SectionItem {
 	entries := entriesOf(in.Bundle, r.kind)
 	if r.keep != nil {
 		entries = slices.DeleteFunc(slices.Clone(entries), func(e spec.Entry) bool { return !r.keep(e) })
@@ -491,7 +498,7 @@ func SourceFiles(in Inputs) map[string]string {
 			case kindInstructions:
 				items = instructionItems(in.Instructions)
 			case "":
-				items = specItems(in, r, def.id)
+				items = specItems(in, r)
 			}
 			for _, item := range items {
 				if item.OpenPath != "" {
