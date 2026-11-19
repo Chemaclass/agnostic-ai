@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -617,8 +618,12 @@ func intersection(agent, base string) ([]string, bool) {
 // one character, and a trailing ` *` also matches the bare command
 // ("This allows "ls *" to match both "ls" and "ls -la"").
 func wildcardMatch(input, pattern string) bool {
-	input = strings.ReplaceAll(input, "\\", "/")
-	pattern = strings.ReplaceAll(pattern, "\\", "/")
+	match := wildcardPatterns.matcher(strings.ReplaceAll(pattern, "\\", "/"))
+	return match != nil && match(strings.ReplaceAll(input, "\\", "/"))
+}
+
+// compileWildcard returns nil when the pattern cannot compile.
+func compileWildcard(pattern string) func(string) bool {
 	var expr strings.Builder
 	body, optionalTail := strings.CutSuffix(pattern, " *")
 	for _, r := range body {
@@ -635,7 +640,48 @@ func wildcardMatch(input, pattern string) bool {
 		expr.WriteString("( .*)?")
 	}
 	re, err := regexp.Compile("(?s)^" + expr.String() + "$")
-	return err == nil && re.MatchString(input)
+	if err != nil {
+		return nil
+	}
+	return re.MatchString
+}
+
+// The permission merge compares every rule pair, so each pattern would
+// otherwise compile thousands of times per sync. The server and watch
+// mode keep one process alive across configs, so the cache empties
+// itself once it holds wildcardCacheLimit patterns.
+const wildcardCacheLimit = 4096
+
+var wildcardPatterns = &wildcardCache{compile: compileWildcard, limit: wildcardCacheLimit}
+
+type wildcardCache struct {
+	compile  func(pattern string) func(string) bool
+	limit    int
+	mu       sync.RWMutex
+	matchers map[string]func(string) bool
+}
+
+func (c *wildcardCache) matcher(pattern string) func(string) bool {
+	c.mu.RLock()
+	match, ok := c.matchers[pattern]
+	c.mu.RUnlock()
+	if ok {
+		return match
+	}
+	match = c.compile(pattern)
+	if c.limit <= 0 {
+		return match
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.matchers) >= c.limit {
+		c.matchers = nil
+	}
+	if c.matchers == nil {
+		c.matchers = map[string]func(string) bool{}
+	}
+	c.matchers[pattern] = match
+	return match
 }
 
 // yamlString is a string scalar the encoder quotes when a YAML 1.1
