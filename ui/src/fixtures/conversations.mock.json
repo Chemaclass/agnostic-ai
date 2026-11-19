@@ -50,6 +50,25 @@
       "reply": "Should the dry run list the files it would remove, or only the ones it writes?",
       "live": true,
       "activity": "waiting",
+      "workingSubagents": 2,
+      "helpers": [
+        {
+          "tool": "claude",
+          "id": "a4f1c2e9b7d3",
+          "title": "Find every caller of writeGlobal",
+          "kind": "Explore",
+          "state": "working",
+          "updatedAt": "2026-11-07T14:52:00Z"
+        },
+        {
+          "tool": "claude",
+          "id": "b81d5e07c6a2",
+          "title": "Draft the dry run tests",
+          "kind": "general-purpose",
+          "state": "working",
+          "updatedAt": "2026-11-07T14:57:00Z"
+        }
+      ],
       "open": {
         "kind": "focus",
         "label": "Open in Terminal",

@@ -380,6 +380,64 @@ test.describe('conversations', () => {
     expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: 'e8a91c3f-2d47-4b6e-a0c5-71f2d9b3e864', editor: 'zed' }])
   })
 
+  test('lists the working subagents under their chat, newest first, and opens the chat naming the one picked', async ({ page }) => {
+    const message = "Switched to the Terminal tab that runs it. Its subagent is 'Find every caller of writeGlobal'. Use the agent rows below the prompt to switch to it."
+    const mocks = await mockServer(page, () => ({ json: { opened: true, message } }))
+    await page.goto('/')
+    const plan = row(page, 'Plan the sync --global dry run')
+    const subagents = plan.getByRole('list', { name: 'Working subagents' }).getByRole('listitem')
+    await expect(subagents).toHaveCount(2)
+    await expect(subagents.locator('.conversation-helper-title')).toHaveText(['Draft the dry run tests', 'Find every caller of writeGlobal'])
+    await expect(subagents.locator('.conversation-helper-meta')).toHaveText(['Claude Code · 33 min ago', 'Claude Code · Explore · 38 min ago'])
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    await expect(row(page, 'Add a Conversations page to the local UI').getByRole('list', { name: 'Working subagents' })).toHaveCount(0)
+
+    const explore = plan.getByRole('button', { name: /^Find every caller of writeGlobal/ })
+    await expect(explore).toHaveAttribute('title', 'Open the chat it runs in, and show how to reach this subagent')
+    await explore.click()
+    await expect(plan.getByRole('status')).toHaveText(message)
+    expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: 'c3b8e0d2-61f4-4a9e-8d27-5e0f9a1b7c64', editor: 'cursor', helper: 'a4f1c2e9b7d3' }])
+  })
+
+  test('opens a Codex subagent as its own thread', async ({ page }) => {
+    const codex = structuredClone(conversations)
+    codex.conversations[0].helpers = [{ tool: 'codex', id: '0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37', title: '', state: 'working', updatedAt: '2026-11-07T15:28:00Z' }]
+    const mocks = await mockServer(page, opened, () => ({ json: codex }))
+    await page.goto('/')
+    const working = row(page, 'Add a Conversations page to the local UI')
+    const thread = working.getByRole('button', { name: /^Untitled subagent/ })
+    await expect(thread).toHaveAttribute('title', 'Open this Codex thread')
+    await expect(thread.locator('.conversation-helper-meta')).toHaveText('Codex · 2 min ago')
+    await thread.click()
+    await expect(working.getByRole('status')).toHaveText('Switched to the Terminal tab that runs it.')
+    expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'codex', id: '0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37', editor: 'cursor' }])
+  })
+
+  test('names the Codex subagent on the command the server suggests for it', async ({ page }) => {
+    const codex = structuredClone(conversations)
+    codex.conversations[0].helpers = [{ tool: 'codex', id: '0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37', title: 'Review the parser', state: 'working', updatedAt: '2026-11-07T15:28:00Z' }]
+    await mockServer(page, () => ({ json: { opened: false, message: 'Resume it in a terminal.', command: 'codex resume 0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37' } }), () => ({ json: codex }))
+    await page.goto('/')
+    const working = row(page, 'Add a Conversations page to the local UI')
+    await working.getByRole('button', { name: /^Review the parser/ }).click()
+    await expect(working.getByRole('button', { name: 'Copy the command the server suggests for Review the parser' })).toBeVisible()
+  })
+
+  test('shows five subagents and a button for the rest', async ({ page }) => {
+    const many = structuredClone(conversations)
+    many.conversations[1].helpers = Array.from({ length: 7 }, (_, index) => ({ tool: 'claude', id: `agent${index}`, title: `Subagent ${index}`, state: 'working', updatedAt: `2026-11-07T14:5${index}:00Z` }))
+    await mockServer(page, opened, () => ({ json: many }))
+    await page.goto('/')
+    const plan = row(page, 'Plan the sync --global dry run')
+    const subagents = plan.getByRole('list', { name: 'Working subagents' }).getByRole('listitem')
+    await expect(subagents.locator('.conversation-helper-title')).toHaveText(['Subagent 6', 'Subagent 5', 'Subagent 4', 'Subagent 3', 'Subagent 2'])
+    await plan.getByRole('button', { name: 'Show 2 more subagents' }).click()
+    await expect(subagents).toHaveCount(7)
+    await expect(plan.getByRole('button', { name: /^Show \d+ more/ })).toHaveCount(0)
+    // Its button went away, so the focus moves to the first subagent it showed.
+    await expect(plan.getByRole('button', { name: /^Subagent 1/ })).toBeFocused()
+  })
+
   test('shows a failed request in the status line', async ({ page }) => {
     await mockServer(page, () => ({ status: 500, json: { error: 'scan failed' } }))
     await page.goto('/?view=conversations')

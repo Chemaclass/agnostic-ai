@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationRoute, ConversationSource, ConversationsView, ConversationTool, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationHelper, ConversationRoute, ConversationSource, ConversationsView, ConversationTool, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -214,6 +214,18 @@ function parentOf(value: unknown): Conversation['parent'] {
   return isTool(parent.tool) && typeof parent.id === 'string' && parent.id !== '' ? { tool: parent.tool, id: parent.id } : undefined
 }
 
+// A subagent that does not name a known tool and an id is left out.
+function helpersOf(value: unknown): Conversation['helpers'] {
+  const helpers = arr<unknown>(value).map(obj).filter((helper) => isTool(helper.tool) && typeof helper.id === 'string' && helper.id !== '')
+  if (helpers.length === 0) return undefined
+  return helpers.map((helper) => ({
+    ...(helper as unknown as ConversationHelper),
+    title: text(helper.title),
+    kind: typeof helper.kind === 'string' && helper.kind !== '' ? helper.kind : undefined,
+    updatedAt: text(helper.updatedAt),
+  }))
+}
+
 // An activity this client does not know is left out, so the row shows Open now.
 function normalizeConversation(raw: unknown): Conversation {
   const c = obj(raw)
@@ -232,6 +244,7 @@ function normalizeConversation(raw: unknown): Conversation {
     withheld: arr<unknown>(c.withheld).filter(isWithheldField),
     live: c.live === true,
     parent: parentOf(c.parent),
+    helpers: helpersOf(c.helpers),
     open: { ...(route as unknown as ConversationRoute), label: text(route.label) },
   }
 }
