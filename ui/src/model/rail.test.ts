@@ -50,7 +50,8 @@ describe('health tone', () => {
 
 describe('health row', () => {
   it('counts findings to fix and features to add', () => {
-    expect(healthRow({ errors: 1, warnings: 3 }, 12)).toEqual({ status: 'Needs attention', summary: '4 to fix, 12 you could add' })
+    expect(healthRow({ errors: 1, warnings: 3 }, 12)).toEqual({ status: 'Needs attention', summary: '1 to fix, 3 worth a look, 12 you could add' })
+    expect(healthRow({ errors: 0, warnings: 6 }, 0)).toEqual({ status: 'Needs attention', summary: '6 worth a look' })
     expect(healthRow({ errors: 0, warnings: 0 }, 2)).toEqual({ status: 'All clear', summary: 'Nothing to fix, 2 you could add' })
     expect(healthRow({ errors: 0, warnings: 0 }, 0)).toEqual({ status: 'All clear', summary: 'Nothing to fix' })
   })

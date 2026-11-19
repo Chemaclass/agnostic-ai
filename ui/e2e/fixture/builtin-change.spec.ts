@@ -468,3 +468,16 @@ test('previews an effort change with pending source changes and shows a stale va
   await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toBeDisabled()
   await expect(page.getByRole('heading', { name: /^Built-ins/ }).locator('..').getByRole('alert')).toHaveCount(0)
 })
+
+test('after undo, notes stay grouped and bounded without the pending-source line or redacted notes', async ({ page }) => {
+  const notes = Array.from({ length: 21 }, (_, index) => `claude: undo note ${index + 1}`)
+  await session(page, { findings: ['This preview also applies pending source changes.', '<redacted>', ...notes] })
+  await apply(page, 'handoff')
+  await page.getByRole('button', { name: 'Undo last change' }).click()
+  await expect(page.getByText('Previous files restored.')).toBeVisible()
+  const summary = page.getByText(`Review notes (${notes.length})`, { exact: true })
+  await expect(summary).toBeVisible()
+  await expect(page.getByText(notes[0], { exact: true })).not.toBeVisible()
+  await expect(page.getByText('This preview also applies pending source changes.')).toHaveCount(0)
+  await expect(page.getByText('<redacted>', { exact: true })).toHaveCount(0)
+})

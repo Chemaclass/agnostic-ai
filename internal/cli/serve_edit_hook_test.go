@@ -279,8 +279,8 @@ func TestServeEditHook_RefusesAnApplyWithoutAMatchingPreview(t *testing.T) {
 	h := newEditHandler(project, false)
 	request := hookEditBody("format-on-save", "after-edit", "npm run format")
 	request["action"] = "apply"
-	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusConflict {
-		t.Errorf("apply without preview = %d %s, want 409", rec.Code, rec.Body)
+	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "send action preview first") {
+		t.Errorf("apply without preview = %d %s, want 400", rec.Code, rec.Body)
 	}
 	request["action"] = "preview"
 	preview := hookEditPreview(t, h, request)

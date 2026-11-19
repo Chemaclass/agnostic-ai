@@ -79,7 +79,11 @@ func (h *editHandler) serveHook(w http.ResponseWriter, body []byte) {
 		writeEditJSON(w, http.StatusOK, proposed)
 		return
 	}
-	if req.Expected == "" || req.Expected != proposed.Expected {
+	if req.Expected == "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: errApplyWithoutPreview})
+		return
+	}
+	if req.Expected != proposed.Expected {
 		writeEditJSON(w, http.StatusConflict, editError{Error: "The hook or its destination changed; review a fresh preview before applying"})
 		return
 	}

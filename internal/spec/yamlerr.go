@@ -21,7 +21,7 @@ func formatYAMLError(path string, err error, lineOffset int) error {
 	if err == nil {
 		return nil
 	}
-	msgs := yamlErrorMessages(err)
+	msgs := yamlErrorMessages(errs.YAMLLine(err))
 	if len(msgs) == 0 {
 		return errs.Coded(errs.CodeSpecParse, "%s: %s", path, err.Error())
 	}
