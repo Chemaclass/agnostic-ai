@@ -1,8 +1,8 @@
 package emit
 
 import (
-	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,43 +49,33 @@ func TestFrontmatterStyledMatchesReferenceOnRepoSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Tracked files only: ignored folders hold generated output and
+	// personal notes that differ between machines.
+	listed, err := exec.Command("git", "-C", root, "ls-files", "-z", "--", "*.md", "*.mdc", "*.yaml", "*.yml").Output()
+	if err != nil {
+		t.Skipf("git ls-files: %v", err)
+	}
 	inputs := 0
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	for _, rel := range strings.Split(strings.TrimRight(string(listed), "\x00"), "\x00") {
+		data, err := os.ReadFile(filepath.Join(root, rel))
 		if err != nil {
-			return err
+			t.Fatal(err)
 		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "node_modules", "public", "dist", "vendor":
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(root, path)
-		switch filepath.Ext(path) {
-		case ".md", ".mdc":
-			entry, err := spec.ParseMarkdownBytes(spec.KindSkill, data)
-			if err != nil || len(entry.Meta) == 0 {
-				return nil
-			}
-			inputs++
-			assertFrontmatterMatches(t, rel, entry.Meta, entry.MetaKeys, entry.MetaStyles)
-		case ".yaml", ".yml":
+		if ext := filepath.Ext(rel); ext == ".yaml" || ext == ".yml" {
 			var meta map[string]any
 			if yaml.Unmarshal(data, &meta) != nil || len(meta) == 0 {
-				return nil
+				continue
 			}
 			inputs++
 			assertFrontmatterMatches(t, rel, meta, nil, nil)
+			continue
 		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+		entry, err := spec.ParseMarkdownBytes(spec.KindSkill, data)
+		if err != nil || len(entry.Meta) == 0 {
+			continue
+		}
+		inputs++
+		assertFrontmatterMatches(t, rel, entry.Meta, entry.MetaKeys, entry.MetaStyles)
 	}
 	if inputs < 500 {
 		t.Fatalf("compared %d inputs; the walk should reach the repo's specs and adapter testdata", inputs)
