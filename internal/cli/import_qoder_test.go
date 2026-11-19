@@ -128,10 +128,7 @@ func TestImportQoder_AgentWithoutToolsRoundTrips(t *testing.T) {
 	}
 }
 
-// TestImportQoder_KnownSourceWiredIn guards the wiring: qoder moved off
-// the generic rulesDirImporters map onto its own dedicated importer
-// (so it can also reconstruct `.qoder/agents/`) and must stay a known
-// source.
+// qoder must stay a known import source.
 func TestImportQoder_KnownSourceWiredIn(t *testing.T) {
 	if !isKnownImportSource("qoder") {
 		t.Error("qoder should be a known import source")
