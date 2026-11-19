@@ -565,3 +565,29 @@ func TestClaudeAgentReply_KeepsItsLineThroughALaterMessageAndRereadsOnlyAChanged
 		t.Errorf("a changed transcript is read again, actual %q", got)
 	}
 }
+
+func TestReadClaudeAgentReply_ReadsBackPastALargeToolResultWithinItsBound(t *testing.T) {
+	own := func(line obj) obj { line["isSidechain"] = true; return line }
+	big := func(kb int) obj {
+		return own(obj{"type": "user", "message": obj{"role": "user", "content": []obj{{"type": "tool_result", "tool_use_id": "t", "content": strings.Repeat("x", kb<<10)}}}})
+	}
+	for name, tc := range map[string]struct {
+		transcript []any
+		want       string
+	}{
+		"a tool result past the first window": {[]any{own(agentLine(textPart("Twelve so far."))), big(100)}, "Twelve so far."},
+		"a message past the bound":            {[]any{own(agentLine(textPart("Twelve so far."))), big(300)}, ""},
+		"a tool call whose input holds a tool result shape": {[]any{
+			own(agentLine(textPart("old"))),
+			own(agentLine(textPart("new"), obj{"type": "tool_use", "id": "t", "name": "Write", "input": obj{"block": obj{"type": "tool_result"}}})),
+		}, "new"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "agent-a.jsonl")
+			write(t, path, lines(tc.transcript...))
+			if got := readClaudeAgentReply(path); got != tc.want {
+				t.Errorf("reply = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

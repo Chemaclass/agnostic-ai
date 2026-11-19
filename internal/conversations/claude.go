@@ -480,11 +480,11 @@ func eachClaudeLine(data []byte, visit func(claudeLine)) {
 	eachClaudeLineWithout(data, nil, visit)
 }
 
-// eachClaudeLineWithout visits the lines that do not hold skip, which
-// are never decoded.
-func eachClaudeLineWithout(data, skip []byte, visit func(claudeLine)) {
+// eachClaudeLineWithout visits the lines that do not hold every token
+// of skip, which are never decoded.
+func eachClaudeLineWithout(data []byte, skip [][]byte, visit func(claudeLine)) {
 	for _, raw := range bytes.Split(data, []byte("\n")) {
-		if len(bytes.TrimSpace(raw)) == 0 || (skip != nil && bytes.Contains(raw, skip)) {
+		if len(bytes.TrimSpace(raw)) == 0 || holdsEvery(raw, skip) {
 			continue
 		}
 		var line claudeLine
@@ -494,6 +494,16 @@ func eachClaudeLineWithout(data, skip []byte, visit func(claudeLine)) {
 		}
 		visit(line)
 	}
+}
+
+// holdsEvery reports whether raw holds each of tokens; false for none.
+func holdsEvery(raw []byte, tokens [][]byte) bool {
+	for _, token := range tokens {
+		if !bytes.Contains(raw, token) {
+			return false
+		}
+	}
+	return len(tokens) > 0
 }
 
 // parseClaudeSession reads a session's head and tail. replyKnown is
