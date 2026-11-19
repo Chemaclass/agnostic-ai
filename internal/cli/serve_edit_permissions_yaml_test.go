@@ -15,6 +15,11 @@ func TestSetPermissionList_KeepsTheListStyle(t *testing.T) {
 			"permissions:\n  allow:\n  - read(src/**)\n  - 'shell(git status: *)'\nmodel: sonnet\n",
 		},
 		{
+			"windows line endings",
+			"permissions:\r\n  allow:\r\n    - read(src/**)\r\n",
+			"permissions:\r\n  allow:\r\n    - read(src/**)\r\n    - 'shell(git status: *)'\r\n",
+		},
+		{
 			"flow",
 			"permissions:\n  allow: [read(src/**)]\n",
 			"permissions:\n  allow: [\"read(src/**)\",\"shell(git status: *)\"]\n",

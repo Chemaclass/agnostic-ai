@@ -406,3 +406,16 @@ func TestServeEditHook_LeavesOutTheToolsAStageLacks(t *testing.T) {
 		t.Errorf("bad tool name = %d %s, want 400", rec.Code, rec.Body)
 	}
 }
+
+func TestServeEditHook_ChecksTheToolsItLeavesOut(t *testing.T) {
+	scopeProject(t)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	h := newEditHandler(".", false)
+	for _, exclude := range [][]string{{"cursor", "bogus"}, {"cursor", "cursor"}, {"claude", "cursor"}} {
+		request := hookEditBody("format-on-save", "after-edit", "npm run format")
+		request["targetsExclude"] = exclude
+		if rec := hookEditRequest(t, h, request); rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("exclude %v = %d %s, want 422", exclude, rec.Code, rec.Body)
+		}
+	}
+}

@@ -70,21 +70,33 @@ func pureArgument(value string) bool {
 	return ok && PureReference(strings.TrimSpace(rest))
 }
 
-// powerShellAssignment is a `$name = value` or `$env:NAME = value`
-// statement; value stops at the end of its quotes or at `;`.
-var powerShellAssignment = regexp.MustCompile(`\$(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("[^"]*"|'[^']*'|[^\s;]+)`)
+// powerShellAssignment is a `name = value` in any PowerShell spelling: a
+// variable with an optional scope such as `$env:` or `${env:NAME}`, a
+// hashtable key, quoted or not, and `+=`. value stops at its closing quote
+// or at a space, `;`, or `}`.
+var powerShellAssignment = regexp.MustCompile(`(?i)(?:\$\{?(?:[a-z]+:)?|["']?)([A-Za-z_][A-Za-z0-9_-]*)["'}]?\s*\+?=\s*("[^"]*"|'[^']*'|[^\s;}]+)`)
+
+// powerShellFlag is a `-Name:value` or `-Name value` parameter.
+var powerShellFlag = regexp.MustCompile(`(?:^|\s)-([A-Za-z][A-Za-z0-9_-]*)(?::|\s+)("[^"]*"|'[^']*'|[^\s;}]+)`)
 
 // sensitivePowerShell reads a Windows hook command, which is PowerShell:
 // a shell parser fails on its `if (...) { }` blocks, so the shell fallback
-// would hide every command with an `=` in it. It hides a credential the
-// text detectors find, or a literal assigned to a credential name.
+// would hide every command with an `=` in it. It hides what the shell
+// reading finds when the text parses as shell, a credential the text
+// detectors find, or a literal given to a credential name as an
+// assignment, hashtable key, or parameter.
 func sensitivePowerShell(body string) bool {
+	if file, err := syntax.NewParser().Parse(strings.NewReader(body), ""); err == nil && sensitiveShellTree(file) {
+		return true
+	}
 	if CredentialDetected(body) {
 		return true
 	}
-	for _, m := range powerShellAssignment.FindAllStringSubmatch(body, -1) {
-		if CredentialKey(m[1]) && SecretValue(m[2], false, WeakCredential) {
-			return true
+	for _, pattern := range []*regexp.Regexp{powerShellAssignment, powerShellFlag} {
+		for _, m := range pattern.FindAllStringSubmatch(body, -1) {
+			if CredentialKey(m[1]) && SecretValue(m[2], false, WeakCredential) {
+				return true
+			}
 		}
 	}
 	return false

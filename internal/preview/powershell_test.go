@@ -1,6 +1,9 @@
 package preview
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDisplay_ReadsAPowerShellCommandAsPowerShell(t *testing.T) {
 	for _, c := range []struct {
@@ -16,6 +19,25 @@ func TestDisplay_ReadsAPowerShellCommandAsPowerShell(t *testing.T) {
 	} {
 		if got := Display("hook.yaml", c.body); got.Hidden != c.hidden {
 			t.Errorf("hidden = %v, want %v for %q", got.Hidden, c.hidden, c.body)
+		}
+	}
+}
+
+func TestDisplay_HidesPowerShellCredentialsInEverySpelling(t *testing.T) {
+	for _, command := range []string{
+		`curl -H "X-Api-Key: abc123def456" https://x.test`,
+		`mysql -phunter2hunter2 db`,
+		`tool -Token:hunter2hunter2`,
+		`Invoke-RestMethod -Headers @{ apikey = "hunter2hunter2" } -Uri https://x.test`,
+		`$h = @{ "X-Api-Key" = "hunter2hunter2" }; if (x) { exit 1 }`,
+		`$Env:API_TOKEN = "hunter2hunter2"; if (x) { exit 1 }`,
+		`${env:API_TOKEN} = "hunter2hunter2"; if (x) { exit 1 }`,
+		`$global:token = "hunter2hunter2"; if (x) { exit 1 }`,
+		`$env:API_TOKEN += "hunter2hunter2"; if (x) { exit 1 }`,
+	} {
+		body := "name: a\ncommandWindows: '" + strings.ReplaceAll(command, "'", "''") + "'\n"
+		if !Display("hook.yaml", body).Hidden {
+			t.Errorf("shown: %s", command)
 		}
 	}
 }

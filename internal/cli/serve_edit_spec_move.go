@@ -494,10 +494,9 @@ func scriptsDirOf(root string, global bool) string {
 // the source lacks, or one the destination holds with other content,
 // stops the move, since sync would then run the wrong file or none.
 func hookMoveScripts(hook spec.Entry, srcDir, dstDir string) ([]specMoveFile, error) {
-	literal := len(stringSliceFromAny(hook.Meta["args"])) > 0
 	var names []string
 	for _, command := range hookMoveCommands(hook.Meta) {
-		for _, name := range adapters.NeutralHookScriptNames(command, literal) {
+		for _, name := range adapters.NeutralHookScriptNames(command.value, command.literal) {
 			if !slices.Contains(names, name) {
 				names = append(names, name)
 			}
@@ -550,20 +549,29 @@ func hookMoveScripts(hook spec.Entry, srcDir, dstDir string) ([]specMoveFile, er
 	return scripts, nil
 }
 
-// hookMoveCommands are a hook's commands, per-tool overrides included.
-func hookMoveCommands(meta map[string]any) []string {
-	var commands []string
-	add := func(m map[string]any) {
-		for _, key := range []string{"command", "commandWindows"} {
-			if command, ok := m[key].(string); ok {
-				commands = append(commands, command)
-			}
+// hookMoveCommand is one command a hook runs, and whether sync reads its
+// script path literally (a hook with args).
+type hookMoveCommand struct {
+	value   string
+	literal bool
+}
+
+// hookMoveCommands are a hook's commands, per-tool overrides included. A
+// Windows command is read as sync reads it for most tools: not literally.
+func hookMoveCommands(meta map[string]any) []hookMoveCommand {
+	var commands []hookMoveCommand
+	add := func(m map[string]any, literal bool) {
+		for _, command := range globalHookCommands(m["command"]) {
+			commands = append(commands, hookMoveCommand{command, literal})
+		}
+		if windows, ok := m["commandWindows"].(string); ok && windows != "" {
+			commands = append(commands, hookMoveCommand{windows, false})
 		}
 	}
-	add(meta)
+	add(meta, len(stringSliceFromAny(meta["args"])) > 0)
 	for key, value := range meta {
 		if override, ok := value.(map[string]any); ok && strings.HasPrefix(key, "x-") {
-			add(override)
+			add(override, len(stringSliceFromAny(override["args"])) > 0 || len(stringSliceFromAny(meta["args"])) > 0)
 		}
 	}
 	return commands

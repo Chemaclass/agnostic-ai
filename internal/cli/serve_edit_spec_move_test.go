@@ -503,3 +503,22 @@ func TestSpecMove_RefusesAHookWhoseScriptDiffersOrIsMissing(t *testing.T) {
 		t.Errorf("refusal changed the global script: %q", got)
 	}
 }
+
+func TestSpecMove_ReadsEveryCommandFormOfAHook(t *testing.T) {
+	project, global := moveProject(t)
+	mustWrite(t, ".agnostic-ai/hooks/pair.yaml", "name: pair\non: session-start\ncommand: [.agnostic-ai/scripts/a.sh, .agnostic-ai/scripts/b.sh]\n")
+	mustWrite(t, ".agnostic-ai/hooks/flagged.yaml", "name: flagged\non: session-start\ncommand: .agnostic-ai/scripts/c.sh\nargs: [x]\ncommandWindows: powershell -File .agnostic-ai/scripts/c.ps1 -Flag\n")
+	for _, name := range []string{"a.sh", "b.sh", "c.sh", "c.ps1"} {
+		mustWrite(t, ".agnostic-ai/scripts/"+name, "exit 0\n")
+	}
+	h := projectMoveHandler(project, global)
+	for name, want := range map[string][]string{
+		"pair":    {"~/source/scripts/a.sh", "~/source/scripts/b.sh"},
+		"flagged": {"~/source/scripts/c.ps1", "~/source/scripts/c.sh"},
+	} {
+		code, reply := postSpecMove(t, h, moveBody("hook", name, "project", "global", "copy"))
+		if code != http.StatusOK || !slices.Equal(reply.Scripts, want) {
+			t.Errorf("%s = %d %+v, want scripts %v", name, code, reply, want)
+		}
+	}
+}

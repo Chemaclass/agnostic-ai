@@ -95,7 +95,7 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 			if e != nil {
 				return nil, e
 			}
-			encoded, e := permissionListText(value, node)
+			encoded, e := permissionListText(value, node, lineEnding(data))
 			if e != nil {
 				return nil, e
 			}
@@ -139,7 +139,7 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 // permissionListText writes rules in the style of the list it replaces: a
 // block list keeps one `- rule` line per rule at the list's indent, and
 // anything else, or an empty list, is a one-line flow list.
-func permissionListText(value any, node *yaml.Node) (string, error) {
+func permissionListText(value any, node *yaml.Node, newline string) (string, error) {
 	rules, _ := value.([]string)
 	if node.Kind != yaml.SequenceNode || node.Style&yaml.FlowStyle != 0 || len(node.Content) == 0 || len(rules) == 0 {
 		encoded, err := json.Marshal(value)
@@ -153,5 +153,13 @@ func permissionListText(value any, node *yaml.Node) (string, error) {
 		}
 		lines[i] = "- " + strings.TrimSpace(string(encoded))
 	}
-	return strings.Join(lines, "\n"+strings.Repeat(" ", node.Column-1)), nil
+	return strings.Join(lines, newline+strings.Repeat(" ", node.Column-1)), nil
+}
+
+// lineEnding is CRLF when data uses it, else LF.
+func lineEnding(data []byte) string {
+	if strings.Contains(string(data), "\r\n") {
+		return "\r\n"
+	}
+	return "\n"
 }

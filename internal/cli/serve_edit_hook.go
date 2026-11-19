@@ -175,6 +175,23 @@ func writeHookError(w http.ResponseWriter, err error) {
 // hookSpecYAML writes the fields in the order the hook reference lists them.
 // The command keeps every byte, since trailing spaces and backslashes can
 // change what the shell runs; the first style that reads back unchanged wins.
+// checkTargetsExclude refuses a tool the setup does not configure, a
+// repeat, and a list that leaves the hook no tool to run on.
+func checkTargetsExclude(exclude, targets []string) error {
+	for i, target := range exclude {
+		if !slices.Contains(targets, target) {
+			return hookSpecProblems{fmt.Sprintf("targetsExclude: %s is not a configured tool that writes hooks", target)}
+		}
+		if slices.Contains(exclude[:i], target) {
+			return hookSpecProblems{fmt.Sprintf("targetsExclude: %s is listed twice", target)}
+		}
+	}
+	if len(exclude) > 0 && !slices.ContainsFunc(targets, func(target string) bool { return !slices.Contains(exclude, target) }) {
+		return hookSpecProblems{"targetsExclude leaves the hook no tool to run on"}
+	}
+	return nil
+}
+
 func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
 	styles := []yaml.Style{0, yaml.DoubleQuotedStyle}
 	if strings.Contains(req.Command, "\n") {
@@ -226,6 +243,9 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 		if strings.EqualFold(e.Name, req.Name) || e.Path != "" && strings.EqualFold(stem, req.Name) {
 			return hookSpecPreview{}, "", hookEditConflict{hookExists(req.Name)}
 		}
+	}
+	if err := checkTargetsExclude(req.TargetsExclude, scope.hookTargets); err != nil {
+		return hookSpecPreview{}, "", err
 	}
 	dir := filepath.Join(h.root, "hooks")
 	if !h.global {
