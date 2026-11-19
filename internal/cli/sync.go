@@ -440,7 +440,7 @@ func (r syncRun) dispatch() error {
 	if f.watch {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(f.targets, f.only, f.except, r.effective), f.dryRun, f.backup, f.gitignoreFlag, f.watchPoll, f.jobs)
+		return watchSync(ctx, 200*time.Millisecond, ".", watchTargets(f.targets, f.only, f.except, r.effective), watchOptions{dryRun: f.dryRun, backup: f.backup, gitignoreFlag: f.gitignoreFlag, jobs: f.jobs}, f.watchPoll)
 	}
 	if f.dryRun && f.diff {
 		reports, _, notesErr, err := r.preview(previewOptions{removals: r.withEmptyTargetsRemovals})

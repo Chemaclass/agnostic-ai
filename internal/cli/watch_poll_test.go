@@ -87,7 +87,7 @@ func startPausedPollWatch(t *testing.T) (waitPaused, resume func()) {
 		}
 	})
 	go func() {
-		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", true, 1)
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, watchOptions{gitignoreFlag: "off", jobs: 1}, true)
 	}()
 	waitForOutput(t, buf, "watching", 10*time.Second)
 	return func() {
