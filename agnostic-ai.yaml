@@ -8,7 +8,7 @@
 
 version: 1
 requires: ">=0.95.0"
-builtins: [cloud-handoff, handoff, memory]
+builtins: [handoff, memory]
 
 # Use default source directories under .agnostic-ai/.
 # Dogfood the registered targets; Grok needs an explicit policy below.
