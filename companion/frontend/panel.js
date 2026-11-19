@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -1586,23 +1586,31 @@ document.addEventListener('keydown', (event) => {
     if (shortcut === undefined) return
     const save = SAVE_SHORTCUT[settings.recording]
     settings.recording = undefined
+    const refused = refusedShortcutOf(shortcut, isMac)
+    if (refused) {
+      settings.refusal = refused
+      drawSettings()
+      return
+    }
     change('preferences', () => save(shortcut))
     return
   }
+  // The list hides behind the open settings menu, so it takes no keys.
+  if (!menu.hidden) return
   const step = KEY_STEPS[event.key]
   if (step !== undefined) {
     event.preventDefault()
     moveActive(step)
     return
   }
-  // A focused notice, group header, row button, subagent control or settings menu button takes Enter as its own click.
-  if (event.target.closest('#notice button, #pick button, .group-head button, .action, .helpers-toggle, .helper-row, .helpers-more, #menu')) return
+  // A focused button takes Enter as its own click.
+  if (event.target.closest('button')) return
   if (event.key === 'Enter') {
     // The selected row answers the last search, not the one on its way.
     if (state.pick && state.searching) return
     const conversation = activeConversation()
     if (conversation) chooseRow(conversation)
-  } else if (startsRename(event) && menu.hidden) {
+  } else if (startsRename(event)) {
     const conversation = activeConversation()
     if (!conversation) return
     event.preventDefault()

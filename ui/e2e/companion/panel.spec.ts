@@ -105,6 +105,52 @@ test('Enter on the focused pencil starts the rename and opens nothing', async ({
   expect(calls).not.toContain('/api/panel/hide')
 })
 
+test('Enter on a focused header or footer button runs only that button, with a row selected', async ({ page }) => {
+  for (const button of [
+    page.getByRole('button', { name: 'Settings', exact: true }),
+    page.getByRole('button', { name: 'Open the dashboard' }),
+    page.getByRole('button', { name: 'Local', exact: true }),
+  ]) {
+    await openPanel(page)
+    await page.keyboard.press('ArrowDown')
+    await expect(selected(page)).toHaveCount(1)
+    await button.press('Enter')
+    expect(await calledPaths(page)).not.toContain('/api/open')
+  }
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+  await openPanel(page)
+  await page.getByLabel('Search every conversation').fill('login')
+  await page.keyboard.press('ArrowDown')
+  await page.getByRole('button', { name: 'Clear the search' }).press('Enter')
+  await expect(page.getByLabel('Search every conversation')).toHaveValue('')
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('the keys leave the list alone while the settings menu is open', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('ArrowDown')
+  const before = await selected(page).textContent()
+  await page.getByRole('button', { name: 'Settings', exact: true }).press('Enter')
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible()
+
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toHaveText(before ?? '')
+  await page.getByRole('button', { name: 'Settings', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('the search takes at most 200 characters and keeps the rows', async ({ page }) => {
+  await openPanel(page)
+  const search = page.getByLabel('Search every conversation')
+  await search.focus()
+  await page.keyboard.insertText('login '.repeat(50))
+  expect((await search.inputValue()).length).toBe(200)
+  await expect(row(page, 'Fix the login redirect')).toBeVisible()
+})
+
 test('F2 renames the selected row and Enter saves the name', async ({ page }) => {
   await openPanel(page)
   await page.getByLabel('Search every conversation').fill('sync dry run')

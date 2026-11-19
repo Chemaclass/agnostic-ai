@@ -372,6 +372,26 @@ test('Send copied text in the right-click menu opens the menu on the send shortc
   await expect(send).not.toHaveClass(/is-recording/)
 })
 
+test('keys every app uses are refused and the old shortcut stays', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const posts = sent(page, '/api/preferences/shortcut')
+  const open = settingsMenu(page).getByRole('button', { name: 'Open from anywhere' })
+
+  for (const [keys, spelled] of [['Meta+KeyQ', 'Cmd+Q'], ['Meta+KeyC', 'Cmd+C'], ['Control+Tab', 'Ctrl+Tab']]) {
+    await open.click()
+    await page.keyboard.press(keys)
+    await expect(settingsMenu(page)).toContainText(`${spelled} is a shortcut every app uses; choose other keys`)
+    await expect(open).toHaveText('⌃⌥Space')
+  }
+  expect(posts).toEqual([])
+
+  await open.click()
+  await page.keyboard.press('Control+Alt+KeyK')
+  await expect(open).toHaveText('⌃⌥K')
+  await expect(settingsMenu(page)).not.toContainText('every app uses')
+})
+
 test('the send shortcut changes on its own, and the open shortcut\'s keys are refused', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
