@@ -56,7 +56,7 @@ func TestImportClaudeHooks_LeavesOutCredentialHooks(t *testing.T) {
 	var all strings.Builder
 	entries, _ := os.ReadDir(dst)
 	for _, e := range entries {
-		all.WriteString(readFileString(t, filepath.Join(dst, e.Name())))
+		all.WriteString(readFile(t, filepath.Join(dst, e.Name())))
 	}
 	for _, secret := range []string{"HOOKCMDSECRET123", "HOOKARGSECRET4567", "HOOKURLSECRET890", "HOOKHDRSECRET246", "SLACKSECRET42", "MCPINPUTSECRET", "STATUSSECRET", "go vet"} {
 		if strings.Contains(all.String(), secret) {

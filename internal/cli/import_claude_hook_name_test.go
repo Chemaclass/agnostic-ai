@@ -26,7 +26,7 @@ func TestImportClaudeHooks_KeepsASpecAtTheReadableName(t *testing.T) {
 		}
 	}
 
-	if got := readFileString(t, filepath.Join(dst, "notification-notify-sh.yaml")); got != own {
+	if got := readFile(t, filepath.Join(dst, "notification-notify-sh.yaml")); got != own {
 		t.Errorf("hand-written spec changed:\n%s", got)
 	}
 	entries, err := os.ReadDir(dst)
@@ -42,7 +42,7 @@ func TestImportClaudeHooks_KeepsASpecAtTheReadableName(t *testing.T) {
 	if len(imported) != 1 || !strings.HasPrefix(imported[0], "notification-notify-sh-") {
 		t.Fatalf("imported specs = %v, want one notification-notify-sh-<hash>.yaml", imported)
 	}
-	if !strings.Contains(readFileString(t, filepath.Join(dst, imported[0])), "notify.sh") {
+	if !strings.Contains(readFile(t, filepath.Join(dst, imported[0])), "notify.sh") {
 		t.Errorf("%s does not hold the imported hook", imported[0])
 	}
 }
@@ -102,7 +102,7 @@ func TestImportClaudeHooks_RerunUpdatesItsPortableSpec(t *testing.T) {
 	if strings.Join(names, ",") != "pretooluse-bash-guard-sh.yaml" {
 		t.Errorf("specs after rerun = %v, want only pretooluse-bash-guard-sh.yaml", names)
 	}
-	if got := readFileString(t, filepath.Join(dst, "pretooluse-bash-guard-sh.yaml")); !strings.Contains(got, "on: before-tool\n") {
+	if got := readFile(t, filepath.Join(dst, "pretooluse-bash-guard-sh.yaml")); !strings.Contains(got, "on: before-tool\n") {
 		t.Errorf("want the portable form:\n%s", got)
 	}
 }

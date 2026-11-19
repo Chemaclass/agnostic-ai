@@ -31,19 +31,19 @@ func TestSync_ResolvesModelTierPerTarget(t *testing.T) {
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
+	claude := readFile(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
 	for _, want := range []string{"model: opus\n", "effort: xhigh\n"} {
 		if !strings.Contains(claude, want) {
 			t.Errorf("claude agent lacks %q:\n%s", want, claude)
 		}
 	}
-	codex := readFileString(t, filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
+	codex := readFile(t, filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
 	for _, want := range []string{`model = "gpt-5.5"`, `model_reasoning_effort = "high"`} {
 		if !strings.Contains(codex, want) {
 			t.Errorf("codex agent lacks %q:\n%s", want, codex)
 		}
 	}
-	if literal := readFileString(t, filepath.Join(dir, ".codex", "agents", "literal.toml")); !strings.Contains(literal, `model = "gpt-5.4"`) {
+	if literal := readFile(t, filepath.Join(dir, ".codex", "agents", "literal.toml")); !strings.Contains(literal, `model = "gpt-5.4"`) {
 		t.Errorf("a model that names no tier must stay literal:\n%s", literal)
 	}
 }
@@ -195,7 +195,7 @@ func TestImportFromClaude_KeepsBracketedAliasesValidYAML(t *testing.T) {
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
-	spec := readFileString(t, filepath.Join(dir, "agents", "reviewer.md"))
+	spec := readFile(t, filepath.Join(dir, "agents", "reviewer.md"))
 	if !strings.Contains(spec, "model:\n  claude: opus[1m]\n") {
 		t.Errorf("opus[1m] should import scoped to claude:\n%s", spec)
 	}
@@ -230,10 +230,10 @@ func TestSync_DropsASharedClaudeModelWhereTheNoteSaysItHasNoEffect(t *testing.T)
 			t.Errorf("%s must not carry the Claude model the note drops:\n%s", path, got)
 		}
 	}
-	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "reviewer.md")); !strings.Contains(claude, "model: sonnet\n") {
+	if claude := readFile(t, filepath.Join(dir, ".claude", "agents", "reviewer.md")); !strings.Contains(claude, "model: sonnet\n") {
 		t.Errorf("claude keeps its own model:\n%s", claude)
 	}
-	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "architect.md")); !strings.Contains(claude, "model: opus\n") {
+	if claude := readFile(t, filepath.Join(dir, ".claude", "agents", "architect.md")); !strings.Contains(claude, "model: opus\n") {
 		t.Errorf("claude keeps its map entry:\n%s", claude)
 	}
 }
@@ -246,13 +246,13 @@ func TestSyncAndExplain_ResolveACodexModelAlias(t *testing.T) {
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	if codex := readFileString(t, filepath.Join(dir, ".codex", "agents", "architect.toml")); !strings.Contains(codex, `model = "gpt-6.1-sol"`) {
+	if codex := readFile(t, filepath.Join(dir, ".codex", "agents", "architect.toml")); !strings.Contains(codex, `model = "gpt-6.1-sol"`) {
 		t.Errorf("codex: sol must resolve to the current sol:\n%s", codex)
 	}
-	if config := readFileString(t, filepath.Join(dir, ".codex", "config.toml")); !strings.Contains(config, `model = "gpt-6-luna"`) {
+	if config := readFile(t, filepath.Join(dir, ".codex", "config.toml")); !strings.Contains(config, `model = "gpt-6-luna"`) {
 		t.Errorf("a settings alias must resolve too:\n%s", config)
 	}
-	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "architect.md")); !strings.Contains(claude, "model: opus\n") {
+	if claude := readFile(t, filepath.Join(dir, ".claude", "agents", "architect.md")); !strings.Contains(claude, "model: opus\n") {
 		t.Errorf("claude keeps its own alias:\n%s", claude)
 	}
 
@@ -288,14 +288,14 @@ func TestSyncAndExplain_ResolveCodexTerraAlias(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	for _, path := range []string{".codex/agents/reviewer.toml", ".codex/config.toml"} {
-		if got := readFileString(t, filepath.Join(dir, filepath.FromSlash(path))); !strings.Contains(got, `model = "gpt-6.1-terra"`) {
+		if got := readFile(t, filepath.Join(dir, filepath.FromSlash(path))); !strings.Contains(got, `model = "gpt-6.1-terra"`) {
 			t.Errorf("%s lacks the exact terra model:\n%s", path, got)
 		}
 	}
-	if got := readFileString(t, filepath.Join(dir, ".codex", "agents", "exact.toml")); !strings.Contains(got, `model = "gpt-5.6-terra"`) {
+	if got := readFile(t, filepath.Join(dir, ".codex", "agents", "exact.toml")); !strings.Contains(got, `model = "gpt-5.6-terra"`) {
 		t.Errorf("an exact older model must stay unchanged:\n%s", got)
 	}
-	if got := readFileString(t, filepath.Join(dir, ".codex", "agents", "literal.toml")); !strings.Contains(got, `model = "terra"`) {
+	if got := readFile(t, filepath.Join(dir, ".codex", "agents", "literal.toml")); !strings.Contains(got, `model = "terra"`) {
 		t.Errorf("x-codex.model must stay literal:\n%s", got)
 	}
 

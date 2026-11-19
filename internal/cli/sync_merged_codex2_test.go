@@ -65,8 +65,8 @@ func TestSync_ProtectCleanupKeepsClaimOnGeneratedHooks(t *testing.T) {
 	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 	removeSpecs(t, geminiFmtHookSpec)
 	runSyncOK(t)
-	if strings.Contains(readFileString(t, settings), "agnostic-ai-protect") {
-		t.Fatalf("protect hook stayed after its block left:\n%s", readFileString(t, settings))
+	if strings.Contains(readFile(t, settings), "agnostic-ai-protect") {
+		t.Fatalf("protect hook stayed after its block left:\n%s", readFile(t, settings))
 	}
 	removeSpecs(t, ".agnostic-ai/settings/model.yaml")
 	runSyncOK(t)
@@ -97,7 +97,7 @@ func TestSync_ProtectCleanupKeepsAHandWrittenHook(t *testing.T) {
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/settings/model.yaml")
 	runSyncOK(t)
-	body := readFileString(t, settings)
+	body := readFile(t, settings)
 	if !strings.Contains(body, "./mine.sh") || strings.Contains(body, "agnostic-ai-protect") {
 		t.Errorf("want the hand-written hook kept and the protect hook gone:\n%s", body)
 	}

@@ -33,7 +33,7 @@ func TestSync_ListsDescribedTiersInEveryInstructionsFile(t *testing.T) {
 	syncProjectOK(t)
 
 	for _, path := range []string{"AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md", ".rules", ".junie/AGENTS.md"} {
-		got := readFileString(t, filepath.Join(dir, path))
+		got := readFile(t, filepath.Join(dir, path))
 		if strings.Count(got, describedTiersLine) != 1 {
 			t.Errorf("%s should list the described tiers once:\n%s", path, got)
 		}
@@ -41,7 +41,7 @@ func TestSync_ListsDescribedTiersInEveryInstructionsFile(t *testing.T) {
 			t.Errorf("%s lists a tier without a description:\n%s", path, got)
 		}
 	}
-	claude := readFileString(t, filepath.Join(dir, "CLAUDE.md"))
+	claude := readFile(t, filepath.Join(dir, "CLAUDE.md"))
 	if !strings.Contains(claude, "@AGENTS.md") || strings.Contains(claude, "Model tiers") {
 		t.Errorf("CLAUDE.md should import AGENTS.md, which carries the tiers:\n%s", claude)
 	}
@@ -91,7 +91,7 @@ func syncedInstructions(t *testing.T, models string) map[string]string {
 	syncProjectOK(t)
 	out := map[string]string{}
 	for _, path := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md"} {
-		out[path] = readFileString(t, filepath.Join(dir, path))
+		out[path] = readFile(t, filepath.Join(dir, path))
 	}
 	return out
 }
@@ -116,7 +116,7 @@ func TestSync_LocalTierReplacesItsDescription(t *testing.T) {
 
 			syncProjectOK(t)
 
-			agents := readFileString(t, filepath.Join(dir, "AGENTS.md"))
+			agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
 			if !strings.Contains(agents, tc.want) || strings.Contains(agents, tc.absent) {
 				t.Errorf("AGENTS.md should read %q:\n%s", tc.want, agents)
 			}
@@ -146,7 +146,7 @@ func TestImport_DropsTheModelTiersBlock(t *testing.T) {
 				t.Fatalf("import: %v\n%s", err, out)
 			}
 
-			if got := readFileString(t, source); strings.Contains(got, "Model tiers") || strings.Contains(got, "agnostic-ai:models") {
+			if got := readFile(t, source); strings.Contains(got, "Model tiers") || strings.Contains(got, "agnostic-ai:models") {
 				t.Errorf("import copied the tiers into AGNOSTIC_AI.md:\n%s", got)
 			}
 			if out, err := runCLI(t, "sync", "--check"); err != nil {
@@ -234,7 +234,7 @@ func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
 
 	syncProjectOK(t)
 
-	agents := readFileString(t, filepath.Join(dir, "AGENTS.md"))
+	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
 	if strings.Count(agents, describedTiersLine) != 1 || !strings.Contains(agents, "Keep it short.") {
 		t.Errorf("AGENTS.md should hold the rules and the tiers once:\n%s", agents)
 	}
@@ -249,7 +249,7 @@ func TestSync_RulesFileBesideTheEntryPointGetsNoTiers(t *testing.T) {
 
 	syncProjectOK(t)
 
-	if got := readFileString(t, filepath.Join(dir, "CODEX_RULES.md")); strings.Contains(got, "Model tiers") {
+	if got := readFile(t, filepath.Join(dir, "CODEX_RULES.md")); strings.Contains(got, "Model tiers") {
 		t.Errorf("a rules file that is not the entry point should not list the tiers:\n%s", got)
 	}
 }
@@ -285,7 +285,7 @@ func TestSync_AdapterWrittenRulesFileListsTheTiers(t *testing.T) {
 
 				syncProjectOK(t)
 
-				got := readFileString(t, filepath.Join(dir, path))
+				got := readFile(t, filepath.Join(dir, path))
 				if strings.Count(got, describedTiersLine) != 1 {
 					t.Errorf("%s should list the tiers once:\n%s", path, got)
 				}
@@ -310,7 +310,7 @@ func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
 			}
 			syncProjectOK(t)
 
-			if got := readFileString(t, filepath.Join(dir, path)); strings.Count(got, "Model tiers:") != 1 {
+			if got := readFile(t, filepath.Join(dir, path)); strings.Count(got, "Model tiers:") != 1 {
 				t.Errorf("%s should list the tiers once:\n%s", path, got)
 			}
 			rules, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", "rules"))
@@ -318,7 +318,7 @@ func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, rule := range rules {
-				if body := readFileString(t, filepath.Join(dir, ".agnostic-ai", "rules", rule.Name())); strings.Contains(body, "agnostic-ai:models") {
+				if body := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", rule.Name())); strings.Contains(body, "agnostic-ai:models") {
 					t.Errorf("rule %s holds the tiers block:\n%s", rule.Name(), body)
 				}
 			}

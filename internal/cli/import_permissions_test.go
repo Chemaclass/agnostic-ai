@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,7 +31,7 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("imported %d specs, want 1", n)
 	}
-	got := readFileString(t, filepath.Join(dst, "permissions.yaml"))
+	got := readFile(t, filepath.Join(dst, "permissions.yaml"))
 	for _, want := range []string{
 		"read(src/**)",
 		// Devin's Exec is a prefix matcher, so the portable spelling
@@ -86,7 +85,7 @@ func TestImportAugmentPermissions_SkipsWhatCannotRoundTrip(t *testing.T) {
 	if _, err := importAugmentPermissions(root, dst); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
+	got := readFile(t, filepath.Join(dst, "permissions-augment.yaml"))
 	if !strings.Contains(got, "- read\n") || !strings.Contains(got, "- write\n") {
 		t.Errorf("spec missing the mappable rules:\n%s", got)
 	}
@@ -114,7 +113,7 @@ func TestImportAugmentPermissions_AcceptsJSONC(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("import: got (%d, %v), want (1, nil)", n, err)
 	}
-	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
+	got := readFile(t, filepath.Join(dst, "permissions-augment.yaml"))
 	if !strings.Contains(got, "- read\n") || !strings.Contains(got, "augment: sonnet-4") {
 		t.Errorf("spec missing the commented file's content:\n%s", got)
 	}
@@ -234,19 +233,10 @@ func TestImportAugmentPermissions_KeepsTheFirstRuleForATool(t *testing.T) {
 	if _, err := importAugmentPermissions(root, dst); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
+	got := readFile(t, filepath.Join(dst, "permissions-augment.yaml"))
 	if !strings.Contains(got, "ask:") || strings.Contains(got, "allow:") {
 		t.Errorf("spec = %q, want only the first rule", got)
 	}
-}
-
-func readFileString(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return string(data)
 }
 
 // Sync's own Write grant for a store names one machine, so it stays out
@@ -261,7 +251,7 @@ func TestImportWindsurfPermissions_DropsTheSyncGrantedStores(t *testing.T) {
 	if _, err := importWindsurfPermissions(root, dst, adapters.GrantedRoots{Dirs: []string{"/home/me/store"}}); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	got := readFileString(t, filepath.Join(dst, "permissions.yaml"))
+	got := readFile(t, filepath.Join(dst, "permissions.yaml"))
 	if strings.Contains(got, "/home/me/store") {
 		t.Errorf("spec names the sync-granted store:\n%s", got)
 	}

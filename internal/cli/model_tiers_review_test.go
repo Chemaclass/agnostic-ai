@@ -50,11 +50,11 @@ func TestImportFromClaude_KeepsATierThatMatches(t *testing.T) {
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
-	reviewer := readFileString(t, filepath.Join(dir, "agents", "reviewer.md"))
+	reviewer := readFile(t, filepath.Join(dir, "agents", "reviewer.md"))
 	if !strings.Contains(reviewer, "model: strong\n") || strings.Contains(reviewer, "effort") {
 		t.Errorf("a Claude model the tier gives must keep the tier:\n%s", reviewer)
 	}
-	if scout := readFileString(t, filepath.Join(dir, "agents", "scout.md")); !strings.Contains(scout, "model: {claude: haiku}") {
+	if scout := readFile(t, filepath.Join(dir, "agents", "scout.md")); !strings.Contains(scout, "model: {claude: haiku}") {
 		t.Errorf("a Claude model that differs from the tier must import:\n%s", scout)
 	}
 }
@@ -98,10 +98,10 @@ func TestSync_TierEffortSkipsTargetsWhoseModelTheSpecSets(t *testing.T) {
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "reviewer.md")); !strings.Contains(claude, "effort: high\n") {
+	if claude := readFile(t, filepath.Join(dir, ".claude", "agents", "reviewer.md")); !strings.Contains(claude, "effort: high\n") {
 		t.Errorf("claude takes the tier's model and effort:\n%s", claude)
 	}
-	codex := readFileString(t, filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
+	codex := readFile(t, filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
 	if !strings.Contains(codex, `model = "o4-mini"`) || strings.Contains(codex, "model_reasoning_effort") {
 		t.Errorf("codex's own model must not take the tier effort:\n%s", codex)
 	}
