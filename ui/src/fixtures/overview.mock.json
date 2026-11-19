@@ -749,6 +749,25 @@
         },
         {
           "kind": "builtin",
+          "name": "cloud-handoff",
+          "label": "Cloud handoff",
+          "description": "Pushes the current task and continues it in a cloud session.",
+          "path": "builtin:cloud-handoff",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "about": {
+            "summary": "Adds the cloud-handoff skill, which sends the current task to a cloud session that goes on without this computer.",
+            "points": [
+              "Say \"send this to a remote agent\" or \"run it in the cloud\". The agent commits and pushes the work to a branch, writes the goal and the next step as the cloud prompt, and starts the cloud session.",
+              "Claude Code needs a claude.ai sign-in and, from inside a session, the script command of macOS or Linux. Codex needs a cloud environment id, which the agent asks you for.",
+              "It never pushes to the default branch, never force-pushes, and leaves out .env and other secret-looking files. It runs only when you ask."
+            ]
+          },
+          "findings": []
+        },
+        {
+          "kind": "builtin",
           "name": "handoff",
           "label": "Handoff",
           "description": "Saves a task so the next session, in this or another tool, can resume it.",
