@@ -366,6 +366,17 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeEditJSON(w, http.StatusOK, map[string]any{"ok": true, "file": overviewDisplay(h.root, file)})
 }
 
+// allowGetOnly answers 405 and is false for a request that is not a GET
+// or a HEAD.
+func allowGetOnly(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	w.Header().Set("Allow", "GET, HEAD")
+	writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: r.Method + " is not supported here; use GET"})
+	return false
+}
+
 // Origin checks also honor origins explicitly allowed by the outer server.
 func editRequestGuard(r *http.Request) (int, string) {
 	if r.Method != http.MethodPost {

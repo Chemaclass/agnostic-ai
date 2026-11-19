@@ -461,7 +461,7 @@ func TestConversationsHandler_RefusesWhatItDidNotList(t *testing.T) {
 		reply             string
 	}{
 		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `"}`, "application/json", http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `"}`, "application/json", http.StatusBadRequest, `{"error":"tool must be claude, codex or cursor"}`},
+		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `"}`, "application/json", http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
 		"a command field":     {`{"tool":"claude","id":"` + inProject + `","command":"rm -rf ~"}`, "application/json", http.StatusBadRequest, `{"error":"send {tool, id, editor}"}`},
 		"two objects":         {`{"tool":"claude","id":"x"}{}`, "application/json", http.StatusBadRequest, `{"error":"send one JSON object"}`},
 		"form post":           {`tool=claude`, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType, `{"error":"send Content-Type: application/json"}`},
@@ -577,7 +577,7 @@ func TestConversationsHandler_SearchesAndFiltersByTool(t *testing.T) {
 		t.Errorf("search = %d %s", rec.Code, rec.Body)
 	}
 	for query, reply := range map[string]string{
-		"?tool=gemini":                   `{"error":"tool must be claude, codex or cursor"}`,
+		"?tool=gemini":                   `{"error":"tool must be claude, codex, cursor or chatgpt"}`,
 		"?q=" + strings.Repeat("a", 201): `{"error":"q is longer than 200 characters"}`,
 	} {
 		if rec := get(query); rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != reply {
@@ -644,7 +644,7 @@ func TestConversationsHandler_RefusesAMarkItCannotKeep(t *testing.T) {
 		reply  string
 	}{
 		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `","as":"seen"}`, http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","as":"seen"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex or cursor"}`},
+		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","as":"seen"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
 		"unknown mark":        {`{"tool":"claude","id":"` + inProject + `","as":"deleted"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open or hidden"}`},
 		"no mark":             {`{"tool":"claude","id":"` + inProject + `"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open or hidden"}`},
 		"an extra field":      {`{"tool":"claude","id":"` + inProject + `","as":"seen","at":"2030-01-01T00:00:00Z"}`, http.StatusBadRequest, `{"error":"send {tool, id, as}"}`},
@@ -731,6 +731,38 @@ func TestConversationsHandler_AnswersNotModifiedWhileTheListHolds(t *testing.T) 
 			t.Errorf("after %s = %d, ETag unchanged: %t", name, rec.Code, rec.Header().Get("ETag") == tag)
 		}
 		tag = rec.Header().Get("ETag")
+	}
+}
+
+func TestConversationsHandler_NotModifiedSkipsTheWorktreeLookup(t *testing.T) {
+	h, _, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	lookups := 0
+	worktrees := h.worktrees
+	h.worktrees = func(root string) []string {
+		lookups++
+		return worktrees(root)
+	}
+	get := func(tag string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath, nil)
+		if tag != "" {
+			req.Header.Set("If-None-Match", tag)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	// The first scan begins the marks file, which is itself a change.
+	get("")
+	tag := get("").Header().Get("ETag")
+	before := lookups
+
+	if rec := get(tag); rec.Code != http.StatusNotModified {
+		t.Fatalf("an unchanged list = %d %s", rec.Code, rec.Body)
+	}
+	if lookups != before {
+		t.Errorf("a 304 ran the worktree lookup %d times, want none", lookups-before)
 	}
 }
 
@@ -863,7 +895,7 @@ func TestConversationsHandler_RefusesARenameItCannotKeep(t *testing.T) {
 		reply  string
 	}{
 		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `","title":"Parser fix"}`, http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","title":"Parser fix"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex or cursor"}`},
+		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","title":"Parser fix"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
 		"an empty name":       {`{"tool":"claude","id":"` + inProject + `","title":"   "}`, http.StatusBadRequest, `{"error":"the name is empty"}`},
 		"no name":             {`{"tool":"claude","id":"` + inProject + `"}`, http.StatusBadRequest, `{"error":"the name is empty"}`},
 		"a long name":         {`{"tool":"claude","id":"` + inProject + `","title":"` + strings.Repeat("a", 121) + `"}`, http.StatusBadRequest, `{"error":"the name is longer than 120 characters"}`},
@@ -1227,7 +1259,7 @@ func TestConversationsHandler_RefusesADeleteItCannotMake(t *testing.T) {
 		reply   string
 	}{
 		"outside the project": {body: `{"tool":"claude","id":"` + elsewhere + `"}`, status: http.StatusNotFound, reply: `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":        {body: `{"tool":"gemini","id":"` + inProject + `"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex or cursor"}`},
+		"unknown tool":        {body: `{"tool":"gemini","id":"` + inProject + `"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
 		"an extra field":      {body: `{"tool":"claude","id":"` + inProject + `","path":"/"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id}"}`},
 		"two objects":         {body: `{"tool":"claude","id":"` + inProject + `"}{}`, status: http.StatusBadRequest, reply: `{"error":"send one JSON object"}`},
 		"not archived": {body: `{"tool":"claude","id":"` + inWorktree + `"}`, status: http.StatusConflict,
@@ -1390,7 +1422,7 @@ func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
 		reply  string
 	}{
 		"outside the project":      {body: `{"tool":"claude","id":"` + elsewhere + `","text":"hi"}`, status: http.StatusNotFound, reply: `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":             {body: `{"tool":"gemini","id":"` + inProject + `","text":"hi"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex or cursor"}`},
+		"unknown tool":             {body: `{"tool":"gemini","id":"` + inProject + `","text":"hi"}`, status: http.StatusBadRequest, reply: `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
 		"a field it does not take": {body: `{"tool":"claude","id":"` + inProject + `","text":"hi","tty":"/dev/ttys001"}`, status: http.StatusBadRequest, reply: `{"error":"send {tool, id, text, html?}"}`},
 		"two objects":              {body: `{"tool":"claude","id":"x","text":"hi"}{}`, status: http.StatusBadRequest, reply: `{"error":"send one JSON object"}`},
 		"GET":                      {body: `{}`, mutate: func(r *http.Request) { r.Method = http.MethodGet }, status: http.StatusMethodNotAllowed, reply: `{"error":"use POST"}`},

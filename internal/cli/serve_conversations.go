@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -31,10 +30,17 @@ const (
 // maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
 const maxConversationOpenBytes = 4 << 10
 
+// conversationRef names one conversation in a request body.
+type conversationRef struct {
+	Tool conversations.Tool `json:"tool"`
+	ID   string             `json:"id"`
+}
+
+func (ref conversationRef) tool() conversations.Tool { return ref.Tool }
+
 type conversationOpenRequest struct {
-	Tool   conversations.Tool `json:"tool"`
-	ID     string             `json:"id"`
-	Editor string             `json:"editor"`
+	conversationRef
+	Editor string `json:"editor"`
 }
 
 // maxConversationSendBytes is the API body limit bufferAPIBody sets: JSON
@@ -42,15 +48,13 @@ type conversationOpenRequest struct {
 const maxConversationSendBytes = 1 << 20
 
 type conversationSendRequest struct {
-	Tool conversations.Tool `json:"tool"`
-	ID   string             `json:"id"`
-	Text string             `json:"text"`
-	HTML string             `json:"html"`
+	conversationRef
+	Text string `json:"text"`
+	HTML string `json:"html"`
 }
 
 type conversationMarkRequest struct {
-	Tool conversations.Tool `json:"tool"`
-	ID   string             `json:"id"`
+	conversationRef
 	// As is seen, completed, open (which takes a completion back) or
 	// hidden (out of every list until something new is written or the
 	// conversation starts working).
@@ -58,14 +62,12 @@ type conversationMarkRequest struct {
 }
 
 type conversationRenameRequest struct {
-	Tool  conversations.Tool `json:"tool"`
-	ID    string             `json:"id"`
-	Title string             `json:"title"`
+	conversationRef
+	Title string `json:"title"`
 }
 
 type conversationDeleteRequest struct {
-	Tool conversations.Tool `json:"tool"`
-	ID   string             `json:"id"`
+	conversationRef
 }
 
 // conversationDeleteRefusal is a refused delete: error is a complete
@@ -147,31 +149,27 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
-		writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: r.Method + " is not supported here; use GET"})
+	if !allowGetOnly(w, r) {
 		return
 	}
-	opts := h.scanOptions(r.URL.Query().Get("editor"))
-	if before := r.URL.Query().Get("before"); before != "" {
-		at, err := time.Parse(time.RFC3339, before)
+	query := r.URL.Query()
+	var before time.Time
+	if text := query.Get("before"); text != "" {
+		at, err := time.Parse(time.RFC3339, text)
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "before must be a time such as 2026-11-01T12:00:00Z, the next value of the previous page"})
 			return
 		}
-		opts.Before = at
+		before = at
 	}
-	opts.Query = r.URL.Query().Get("q")
-	if len([]rune(opts.Query)) > maxConversationQuery {
+	search := query.Get("q")
+	if len([]rune(search)) > maxConversationQuery {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "q is longer than 200 characters"})
 		return
 	}
-	if tool := r.URL.Query().Get("tool"); tool != "" {
-		if !knownConversationTool(conversations.Tool(tool)) {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
-			return
-		}
-		opts.Tool = conversations.Tool(tool)
+	tool := conversations.Tool(query.Get("tool"))
+	if tool != "" && !checkConversationTool(w, tool) {
+		return
 	}
 	// The tag is taken before the scan. A scan that itself writes the
 	// marks then changes the stamp, and the caller's next question gets
@@ -182,6 +180,9 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
+	// The worktree lookup starts git, so a 304 skips it.
+	opts := h.scanOptions(query.Get("editor"))
+	opts.Before, opts.Query, opts.Tool = before, search, tool
 	writeEditJSON(w, http.StatusOK, h.scanner.Scan(r.Context(), opts))
 }
 
@@ -201,6 +202,43 @@ func knownConversationTool(tool conversations.Tool) bool {
 	return tool == conversations.ToolClaude || tool == conversations.ToolCodex || tool == conversations.ToolCursor || tool == conversations.ToolChatGPT
 }
 
+// checkConversationTool answers 400 for a tool the conversations list
+// does not know.
+func checkConversationTool(w http.ResponseWriter, tool conversations.Tool) bool {
+	if knownConversationTool(tool) {
+		return true
+	}
+	writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex, cursor or chatgpt"})
+	return false
+}
+
+// readConversationRequest decodes one conversation request of at most
+// limit bytes, answering 400 with usage for a body it cannot read.
+func readConversationRequest[T interface{ tool() conversations.Tool }](w http.ResponseWriter, r *http.Request, limit int64, usage string) (T, bool) {
+	req, err := decodeOneJSON[T](w, r, limit)
+	return req, conversationRequestOK(w, req, err, usage)
+}
+
+// conversationRequestOK answers 400 and is false when a decoded request
+// failed or names an unknown tool.
+func conversationRequestOK(w http.ResponseWriter, req interface{ tool() conversations.Tool }, err error, usage string) bool {
+	switch {
+	case errors.Is(err, errExtraJSONValue):
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
+		return false
+	case err != nil:
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: usage})
+		return false
+	}
+	return checkConversationTool(w, req.tool())
+}
+
+// writeConversationGone answers 404 for a conversation the server no
+// longer lists.
+func writeConversationGone(w http.ResponseWriter) {
+	writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+}
+
 func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
@@ -208,19 +246,8 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	}
 	deadline := time.Now().Add(h.openReplyWait)
 	_ = http.NewResponseController(w).SetWriteDeadline(deadline)
-	var req conversationOpenRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, editor}"})
-		return
-	}
-	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
-		return
-	}
-	if !knownConversationTool(req.Tool) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+	req, ok := readConversationRequest[conversationOpenRequest](w, r, maxConversationOpenBytes, "send {tool, id, editor}")
+	if !ok {
 		return
 	}
 	// The route comes from the server's own scan; the request only names
@@ -232,7 +259,7 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 		h.logLateOpen(req.Tool, reply, found)
 	}
 	if !found {
-		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		writeConversationGone(w)
 		return
 	}
 	writeEditJSON(w, http.StatusOK, reply)
@@ -261,24 +288,13 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	tooLarge := func(size string) {
 		writeEditJSON(w, http.StatusRequestEntityTooLarge, editError{Error: fmt.Sprintf("The text is %s the %d KB a send takes, so nothing was typed.", size, conversations.MaxSendBytes>>10)})
 	}
-	var req conversationSendRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationSendBytes))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		var overLimit *http.MaxBytesError
-		if errors.As(err, &overLimit) {
-			tooLarge("over")
-			return
-		}
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, text, html?}"})
+	req, err := decodeOneJSON[conversationSendRequest](w, r, maxConversationSendBytes)
+	var overLimit *http.MaxBytesError
+	if errors.As(err, &overLimit) {
+		tooLarge("over")
 		return
 	}
-	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
-		return
-	}
-	if !knownConversationTool(req.Tool) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+	if !conversationRequestOK(w, req, err, "send {tool, id, text, html?}") {
 		return
 	}
 	if len(req.Text) > conversations.MaxSendBytes {
@@ -289,7 +305,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	// names which one.
 	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
 	if !ok {
-		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		writeConversationGone(w)
 		return
 	}
 	text, asMarkdown := req.sendable()
@@ -317,19 +333,8 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	var req conversationMarkRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, as}"})
-		return
-	}
-	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
-		return
-	}
-	if !knownConversationTool(req.Tool) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+	req, ok := readConversationRequest[conversationMarkRequest](w, r, maxConversationOpenBytes, "send {tool, id, as}")
+	if !ok {
 		return
 	}
 	if !conversations.KnownMark(req.As) {
@@ -339,7 +344,7 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 	// Only a conversation the server lists gets a mark, so the file
 	// never holds an id a request made up.
 	if _, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions("")); !ok {
-		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		writeConversationGone(w)
 		return
 	}
 	if err := h.scanner.Mark(req.Tool, req.ID, req.As); err != nil {
@@ -357,19 +362,8 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	var req conversationRenameRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id, title}"})
-		return
-	}
-	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
-		return
-	}
-	if !knownConversationTool(req.Tool) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+	req, ok := readConversationRequest[conversationRenameRequest](w, r, maxConversationOpenBytes, "send {tool, id, title}")
+	if !ok {
 		return
 	}
 	title, err := conversations.CleanTitle(req.Title)
@@ -392,7 +386,7 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 	defer release()
 	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
 	if !ok {
-		writeEditJSON(w, http.StatusNotFound, editError{Error: "That conversation is not in this list any more. Refresh the page."})
+		writeConversationGone(w)
 		return
 	}
 	// The tool takes the name first, so the list never shows a name the
@@ -463,19 +457,8 @@ func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	var req conversationDeleteRequest
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxConversationOpenBytes))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send {tool, id}"})
-		return
-	}
-	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send one JSON object"})
-		return
-	}
-	if !knownConversationTool(req.Tool) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "tool must be claude, codex or cursor"})
+	req, ok := readConversationRequest[conversationDeleteRequest](w, r, maxConversationOpenBytes, "send {tool, id}")
+	if !ok {
 		return
 	}
 	reply, err := h.scanner.Delete(r.Context(), req.Tool, req.ID, h.scanOptions(""))

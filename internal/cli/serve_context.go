@@ -28,9 +28,7 @@ type contextView struct {
 // It reads the project on every request, so a refresh sees edited specs.
 func newContextHandler(root string, global bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: r.Method + " is not supported here; use GET"})
+		if !allowGetOnly(w, r) {
 			return
 		}
 		view := contextView{SchemaVersion: "1", Targets: []string{}, FileTargets: []string{}}
