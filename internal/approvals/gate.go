@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
 
+	"github.com/chemaclass/agnostic-ai/internal/applypatch"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -40,6 +42,7 @@ const (
 	RuleProtectedPath  = "protected-path"
 	RulePolicy         = "approvals-policy"
 	RuleAlwaysAsk      = "always-ask"
+	RuleUnknownCommand = "unknown-command"
 )
 
 // ModeYolo is the only mode in which the gate approves.
@@ -130,7 +133,7 @@ func Decide(r Request, policy Policy) Decision {
 	switch {
 	case shellCalls[r.Call]:
 		command, isText := r.Input["command"].(string)
-		if !isText || strings.TrimSpace(command) == "" {
+		if !isText || strings.TrimSpace(command) == "" || !onlyKeys(r.Input, shellInputKeys) {
 			return asked(RuleInput)
 		}
 		rule = g.shell(command)
@@ -145,6 +148,20 @@ func Decide(r Request, policy Policy) Decision {
 		return asked(rule)
 	}
 	return approved
+}
+
+// shellInputKeys are the shell input fields the gate understands. Any
+// other, such as a working folder or a sandbox switch, changes what the
+// command does, so it asks.
+var shellInputKeys = []string{"command", "description", "timeout", "run_in_background"}
+
+func onlyKeys(input map[string]any, keys []string) bool {
+	for key := range input {
+		if !slices.Contains(keys, key) {
+			return false
+		}
+	}
+	return true
 }
 
 func isMCP(call string) bool {
@@ -229,13 +246,33 @@ func (g *gate) path(p, cwd string) (string, bool) {
 	case p == "~":
 		return g.home, true
 	case strings.HasPrefix(p, "~/"):
-		return filepath.Join(g.home, p[2:]), true
+		return g.join(g.home, p[2:]), true
 	case strings.HasPrefix(p, "~"):
 		return "", false
 	case filepath.IsAbs(p):
-		return filepath.Clean(p), true
+		return g.join(string(filepath.Separator), p), true
 	}
-	return filepath.Join(cwd, p), true
+	return g.join(cwd, p), true
+}
+
+// join walks rel from base. When the policy resolves links, a ".."
+// steps up from where the path so far really is, as the system does:
+// with vendor linked elsewhere, vendor/.. is not the project root.
+func (g *gate) join(base, rel string) string {
+	if g.policy.Resolve == nil || !slices.Contains(strings.Split(filepath.ToSlash(rel), "/"), "..") {
+		return filepath.Join(base, rel)
+	}
+	cur := filepath.Clean(base)
+	for _, segment := range strings.Split(filepath.ToSlash(rel), "/") {
+		switch segment {
+		case "", ".":
+		case "..":
+			cur = filepath.Dir(filepath.Clean(g.policy.Resolve(cur)))
+		default:
+			cur = filepath.Join(cur, segment)
+		}
+	}
+	return cur
 }
 
 func isWindowsPath(p string) bool {
@@ -357,6 +394,16 @@ func (g *gate) readCall(call string, input map[string]any) string {
 			return RuleInput
 		}
 	}
+	if glob, ok := input["glob"].(string); ok && glob != "" {
+		if rule := g.globRule(glob, g.cwd); rule != "" {
+			return rule
+		}
+		for segment := range strings.SplitSeq(glob, "/") {
+			if secretName(segment) || strings.HasPrefix(segment, ".") {
+				return RuleSecret
+			}
+		}
+	}
 	for _, p := range paths {
 		if rule := g.readRule(p, g.cwd); rule != "" {
 			return rule
@@ -383,7 +430,8 @@ func globBase(pattern string) string {
 }
 
 // patch reads an apply_patch body: each file it adds, updates or moves
-// to must pass as an edit; a deleted file asks.
+// to must pass as an edit; a deleted file asks. A header line the gate
+// does not read exactly, such as an indented one, asks.
 func (g *gate) patch(input map[string]any) string {
 	var body string
 	for _, field := range []string{"patch", "input", "command"} {
@@ -395,16 +443,30 @@ func (g *gate) patch(input map[string]any) string {
 	if !strings.Contains(body, "*** Begin Patch") {
 		return RuleInput
 	}
+	known := []string{"*** Begin Patch", "*** End Patch", "*** End of File", "*** Add File: ", "*** Update File: ", "*** Delete File: ", "*** Move to: "}
 	for line := range strings.SplitSeq(body, "\n") {
-		line = strings.TrimRight(line, "\r")
-		if strings.HasPrefix(line, "*** Delete File:") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "***") {
+			continue
+		}
+		if trimmed != strings.TrimRightFunc(line, unicode.IsSpace) || !slices.ContainsFunc(known, func(h string) bool { return strings.HasPrefix(trimmed, h) }) {
+			return RuleInput
+		}
+	}
+	ops := applypatch.Parse(body)
+	if len(ops) == 0 {
+		return RuleInput
+	}
+	for _, op := range ops {
+		if op.Kind == applypatch.Delete {
 			return RuleDelete
 		}
-		for _, prefix := range []string{"*** Add File:", "*** Update File:", "*** Move to:"} {
-			if file, ok := strings.CutPrefix(line, prefix); ok {
-				if rule := g.targetRule(strings.TrimSpace(file), g.cwd, RuleOutsideProject); rule != "" {
-					return rule
-				}
+		for _, file := range []string{op.Path, op.MoveTo} {
+			if file == "" {
+				continue
+			}
+			if rule := g.targetRule(file, g.cwd, RuleOutsideProject); rule != "" {
+				return rule
 			}
 		}
 	}

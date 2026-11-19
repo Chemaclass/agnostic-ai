@@ -15,13 +15,13 @@ type shellWord struct {
 	text string
 	// quoted is set when any part of the word was quoted or escaped.
 	quoted bool
-	// glob is set when the word holds an unquoted *, ? or [.
+	// glob is set when the word holds an unquoted pattern character.
 	glob bool
 	// tilde is set when the word starts with an unquoted ~.
 	tilde bool
 }
 
-// redirect is one redirection of a command: its operator and target.
+// redirect is one redirection of a command: its direction and target.
 // A duplication such as 2>&1 has no target.
 type redirect struct {
 	output bool
@@ -29,20 +29,32 @@ type redirect struct {
 	dup    bool
 }
 
+// Separators that end a command in a list.
+const (
+	sepAnd  = "&&"
+	sepOr   = "||"
+	sepSeq  = ";"
+	sepPipe = "|"
+	sepBg   = "&"
+)
+
 // simpleCommand is one command of a list: its leading assignments,
-// words and redirections, and whether it reads a pipe.
+// words and redirections, whether it reads a pipe, and the separator
+// after it ("" for the last command).
 type simpleCommand struct {
 	assigns   []shellWord
 	words     []shellWord
 	redirects []redirect
 	piped     bool
+	sep       string
 }
 
 // parseShell reads command as a list of simple commands joined by
 // &&, ||, ;, |, & or newlines. It refuses any text whose words it
 // cannot know without running the shell: expansions, substitutions,
 // here-documents, comments, subshells, groups, brace expansion, line
-// continuations and control characters.
+// continuations, zsh's clobber redirections and control characters.
+// It reads bash and zsh alike only where they agree.
 func parseShell(command string) ([]simpleCommand, error) {
 	p := shellParser{runes: []rune(command)}
 	return p.parse()
@@ -66,22 +78,26 @@ func unreadable(reason string) error {
 	return fmt.Errorf("%w: %s", errUnreadable, reason)
 }
 
+func isControl(r rune) bool {
+	return r == 0 || unicode.IsControl(r) && r != '\t' && r != '\n'
+}
+
 func (p *shellParser) parse() ([]simpleCommand, error) {
 	for p.pos < len(p.runes) {
 		r := p.runes[p.pos]
-		if r == 0 || (unicode.IsControl(r) && r != '\t' && r != '\n') {
+		if isControl(r) {
 			return nil, unreadable("control character")
 		}
 		var err error
 		switch {
 		case r == ' ' || r == '\t':
-			err = p.endWord()
+			p.endWord()
 			p.pos++
 		case r == '\n' || r == ';':
 			if r == ';' && p.peek(1) == ';' {
 				return nil, unreadable("case syntax")
 			}
-			err = p.endCommand(false, r == ';')
+			err = p.separator(sepSeq, false, true)
 			p.pos++
 		case r == '&':
 			err = p.ampersand()
@@ -102,17 +118,18 @@ func (p *shellParser) parse() ([]simpleCommand, error) {
 		case r == '#' && !p.inWord:
 			return nil, unreadable("comment")
 		case r == '~' && !p.inWord:
-			p.startWord()
+			p.inWord = true
 			p.w.tilde = true
 			p.word.WriteRune(r)
 			p.pos++
-		case r == '*' || r == '?' || r == '[':
-			p.startWord()
+		case strings.ContainsRune("*?[^#", r):
+			// ^ and # are patterns under zsh's extended globbing.
+			p.inWord = true
 			p.w.glob = true
 			p.word.WriteRune(r)
 			p.pos++
 		default:
-			p.startWord()
+			p.inWord = true
 			p.word.WriteRune(r)
 			p.pos++
 		}
@@ -120,7 +137,7 @@ func (p *shellParser) parse() ([]simpleCommand, error) {
 			return nil, err
 		}
 	}
-	if err := p.endCommand(true, false); err != nil {
+	if err := p.finish(); err != nil {
 		return nil, err
 	}
 	return p.commands, nil
@@ -133,13 +150,9 @@ func (p *shellParser) peek(offset int) rune {
 	return 0
 }
 
-func (p *shellParser) startWord() {
-	p.inWord = true
-}
-
-func (p *shellParser) endWord() error {
+func (p *shellParser) endWord() {
 	if !p.inWord {
-		return nil
+		return
 	}
 	w := p.w
 	w.text = p.word.String()
@@ -150,61 +163,59 @@ func (p *shellParser) endWord() error {
 	p.word.Reset()
 	p.inWord = false
 	p.w = shellWord{}
-	if p.pendingRedirect != nil {
+	switch {
+	case p.pendingRedirect != nil:
 		r := *p.pendingRedirect
 		r.target = w
 		p.cur.redirects = append(p.cur.redirects, r)
 		p.pendingRedirect = nil
-		return nil
-	}
-	if len(p.cur.words) == 0 && isAssignment(w) {
+	case len(p.cur.words) == 0 && isAssignment(w):
 		p.cur.assigns = append(p.cur.assigns, w)
-		return nil
+	default:
+		p.cur.words = append(p.cur.words, w)
 	}
-	p.cur.words = append(p.cur.words, w)
-	return nil
 }
 
-// endCommand closes the current command. last is set at the end of
-// the text; optional says an empty command is fine there, as after a
-// trailing ; or between blank lines.
-func (p *shellParser) endCommand(last, optional bool) error {
-	if err := p.endWord(); err != nil {
-		return err
-	}
+func (p *shellParser) curEmpty() bool {
+	return len(p.cur.words) == 0 && len(p.cur.assigns) == 0 && len(p.cur.redirects) == 0
+}
+
+// separator ends the current command with sep. An empty command is an
+// error after an operator that wants one; optional allows it otherwise,
+// as for a trailing ; or blank lines.
+func (p *shellParser) separator(sep string, piped, optional bool) error {
+	p.endWord()
 	if p.pendingRedirect != nil {
 		return unreadable("redirection without a target")
 	}
-	empty := len(p.cur.words) == 0 && len(p.cur.assigns) == 0 && len(p.cur.redirects) == 0
-	if empty {
+	if p.curEmpty() {
+		if p.needCommand || !optional {
+			return unreadable("operator without a command")
+		}
+		return nil
+	}
+	p.cur.sep = sep
+	p.commands = append(p.commands, p.cur)
+	p.cur = simpleCommand{piped: piped}
+	p.needCommand = sep == sepAnd || sep == sepOr || sep == sepPipe
+	return nil
+}
+
+func (p *shellParser) finish() error {
+	p.endWord()
+	if p.pendingRedirect != nil {
+		return unreadable("redirection without a target")
+	}
+	if p.curEmpty() {
 		if p.needCommand {
 			return unreadable("operator without a command after it")
 		}
-		if !last && !optional && p.cur.piped {
-			return unreadable("pipe without a command after it")
+		if n := len(p.commands); n > 0 && p.commands[n-1].sep == sepSeq {
+			p.commands[n-1].sep = ""
 		}
 		return nil
 	}
 	p.commands = append(p.commands, p.cur)
-	p.cur = simpleCommand{}
-	p.needCommand = false
-	return nil
-}
-
-// operator closes the current command, which must not be empty, and
-// expects one after it.
-func (p *shellParser) operator(piped bool) error {
-	if err := p.endWord(); err != nil {
-		return err
-	}
-	if len(p.cur.words) == 0 && len(p.cur.assigns) == 0 && len(p.cur.redirects) == 0 {
-		return unreadable("operator without a command before it")
-	}
-	if err := p.endCommand(false, false); err != nil {
-		return err
-	}
-	p.cur.piped = piped
-	p.needCommand = true
 	return nil
 }
 
@@ -212,38 +223,40 @@ func (p *shellParser) ampersand() error {
 	switch p.peek(1) {
 	case '&':
 		p.pos += 2
-		return p.operator(false)
+		return p.separator(sepAnd, false, false)
 	case '>':
-		if err := p.endWord(); err != nil {
-			return err
+		p.endWord()
+		if p.pendingRedirect != nil {
+			return unreadable("redirection without a target")
 		}
 		p.pos += 2
 		if p.peek(0) == '>' {
 			p.pos++
 		}
+		if p.peek(0) == '!' || p.peek(0) == '|' {
+			return unreadable("clobber redirection")
+		}
 		p.pendingRedirect = &redirect{output: true}
 		return nil
+	case '|', '!':
+		return unreadable("zsh background operator")
 	}
 	// A lone & runs the command in the background; the next one starts.
 	p.pos++
-	if err := p.operator(false); err != nil {
-		return err
-	}
-	p.needCommand = false
-	return nil
+	return p.separator(sepBg, false, false)
 }
 
 func (p *shellParser) pipe() error {
 	switch p.peek(1) {
 	case '|':
 		p.pos += 2
-		return p.operator(false)
+		return p.separator(sepOr, false, false)
 	case '&':
 		p.pos += 2
-		return p.operator(true)
+		return p.separator(sepPipe, true, false)
 	}
 	p.pos++
-	return p.operator(true)
+	return p.separator(sepPipe, true, false)
 }
 
 func (p *shellParser) redirection(r rune) error {
@@ -252,8 +265,8 @@ func (p *shellParser) redirection(r rune) error {
 		p.word.Reset()
 		p.inWord = false
 		p.w = shellWord{}
-	} else if err := p.endWord(); err != nil {
-		return err
+	} else {
+		p.endWord()
 	}
 	if p.pendingRedirect != nil {
 		return unreadable("redirection without a target")
@@ -268,14 +281,16 @@ func (p *shellParser) redirection(r rune) error {
 		p.pos += 2
 		if p.peek(0) == '-' {
 			p.pos++
-			p.cur.redirects = append(p.cur.redirects, redirect{output: r == '>', dup: true})
-			return nil
+		} else {
+			start := p.pos
+			for p.pos < len(p.runes) && unicode.IsDigit(p.runes[p.pos]) {
+				p.pos++
+			}
+			if p.pos == start {
+				return unreadable("descriptor duplication onto a word")
+			}
 		}
-		start := p.pos
-		for p.pos < len(p.runes) && unicode.IsDigit(p.runes[p.pos]) {
-			p.pos++
-		}
-		if p.pos == start || !p.atWordEnd() {
+		if !p.atWordEnd() {
 			return unreadable("descriptor duplication onto a word")
 		}
 		p.cur.redirects = append(p.cur.redirects, redirect{output: r == '>', dup: true})
@@ -284,6 +299,9 @@ func (p *shellParser) redirection(r rune) error {
 		p.pos += 2
 	default:
 		p.pos++
+	}
+	if r == '>' && (p.peek(0) == '!' || p.peek(0) == '|') {
+		return unreadable("clobber redirection")
 	}
 	p.pendingRedirect = &redirect{output: r == '>'}
 	return nil
@@ -307,10 +325,10 @@ func (p *shellParser) singleQuote() error {
 	if end < 0 {
 		return unreadable("open quote")
 	}
-	p.startWord()
+	p.inWord = true
 	p.w.quoted = true
 	for _, r := range p.runes[p.pos+1 : end] {
-		if r == 0 || (unicode.IsControl(r) && r != '\t' && r != '\n') {
+		if isControl(r) {
 			return unreadable("control character")
 		}
 		p.word.WriteRune(r)
@@ -320,7 +338,7 @@ func (p *shellParser) singleQuote() error {
 }
 
 func (p *shellParser) doubleQuote() error {
-	p.startWord()
+	p.inWord = true
 	p.w.quoted = true
 	for i := p.pos + 1; i < len(p.runes); i++ {
 		r := p.runes[i]
@@ -330,7 +348,7 @@ func (p *shellParser) doubleQuote() error {
 			return nil
 		case r == '$' || r == '`':
 			return unreadable("expansion or substitution in double quotes")
-		case r == 0 || (unicode.IsControl(r) && r != '\t' && r != '\n'):
+		case isControl(r):
 			return unreadable("control character")
 		case r == '\\' && i+1 < len(p.runes):
 			next := p.runes[i+1]
@@ -355,10 +373,10 @@ func (p *shellParser) escape() error {
 	if next == 0 || next == '\n' {
 		return unreadable("line continuation or trailing backslash")
 	}
-	if unicode.IsControl(next) && next != '\t' {
+	if isControl(next) {
 		return unreadable("control character")
 	}
-	p.startWord()
+	p.inWord = true
 	p.w.quoted = true
 	p.word.WriteRune(next)
 	p.pos += 2
@@ -377,19 +395,23 @@ func allDigits(s string) bool {
 	return true
 }
 
-// isAssignment reports NAME=value, where NAME is unquoted.
+// isAssignment reports NAME=value or NAME+=value.
 func isAssignment(w shellWord) bool {
 	name, _, ok := strings.Cut(w.text, "=")
+	name = strings.TrimSuffix(name, "+")
 	if !ok || name == "" || w.glob || w.tilde {
 		return false
 	}
 	for i, r := range name {
-		if r != '_' && !unicode.IsLetter(r) && (i == 0 || !unicode.IsDigit(r)) {
-			return false
-		}
-		if r > unicode.MaxASCII {
+		if r > unicode.MaxASCII || r != '_' && !unicode.IsLetter(r) && (i == 0 || !unicode.IsDigit(r)) {
 			return false
 		}
 	}
-	return !strings.ContainsAny(name, `'"\`)
+	return true
+}
+
+// assignmentName is the variable an assignment word sets.
+func assignmentName(w shellWord) string {
+	name, _, _ := strings.Cut(w.text, "=")
+	return strings.TrimSuffix(name, "+")
 }

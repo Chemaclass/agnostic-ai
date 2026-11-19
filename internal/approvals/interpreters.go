@@ -6,111 +6,74 @@ import (
 )
 
 // shellInterpreter allows only a shell that runs a script file named on
-// the line: inline code, stdin and interactive shells ask.
+// the line, with trace and error options: inline code, stdin and
+// interactive shells ask.
 func shellInterpreter(args []shellWord, c simpleCommand) string {
 	if c.piped || readsInput(c) {
 		return RuleShellSyntax
 	}
 	for _, a := range args {
 		text := a.text
-		if text == "--" || !strings.HasPrefix(text, "-") && !strings.HasPrefix(text, "+") {
-			if text == "--" || a.glob {
+		if !strings.HasPrefix(text, "-") {
+			if a.glob {
 				return RuleShellSyntax
 			}
 			return ""
 		}
-		if text == "-" || strings.HasPrefix(text, "--") && text != "--norc" && text != "--noprofile" && text != "--posix" {
-			return RuleShellSyntax
-		}
-		if strings.ContainsAny(strings.TrimLeft(text, "-+"), "csiOo") {
+		if !setFlags.MatchString(text) || strings.HasPrefix(text, "+") {
 			return RuleShellSyntax
 		}
 	}
 	return RuleShellSyntax
 }
 
-// inlineFlags are the options with which an interpreter runs code from
-// the line instead of a file.
-var inlineFlags = map[string]string{
-	"python": "c", "pypy": "c", "node": "epr", "nodejs": "epr", "deno": "", "bun": "e", "ruby": "erI",
-	"irb": "", "perl": "eEMIx", "php": "rRBEfa", "lua": "el", "luajit": "elj", "rscript": "e", "r": "e",
-	"julia": "eEL", "osascript": "e", "pwsh": "cCeE", "powershell": "cCeE", "elixir": "erS",
-}
+// pythonFlags and nodeFlags are the options that run no code from the
+// line and take no value, so the next word is still read correctly.
+var (
+	pythonFlags = []string{"-u", "-B", "-O", "-OO", "-E", "-s", "-S", "-I", "-q", "-b", "-bb", "-v", "-P"}
+	nodeFlags   = []string{"--test", "--enable-source-maps", "--trace-warnings", "--no-warnings", "--trace-uncaught", "--throw-deprecation", "--pending-deprecation"}
 
-var inlineLongFlags = []string{"--eval", "--print", "--command", "--import", "--require", "--loader", "--experimental-loader", "--expr", "-command", "-encodedcommand", "-c", "--inspect"}
+	// pythonModules are the modules python -m may run: test runners and
+	// linters that read the project and fetch nothing.
+	pythonModules = []string{"pytest", "unittest", "mypy", "black", "ruff", "pylint", "flake8", "isort", "coverage", "json.tool", "compileall", "py_compile", "doctest", "venv"}
+)
 
+// interpreter allows python or node only as `prog [known options]
+// script [args]`, or python -m with a listed module. Everything after
+// the script belongs to it. Any other option asks: it may run code from
+// the line or take a value the gate would read as the script.
 func interpreter(name string, args []shellWord, c simpleCommand) string {
 	if c.piped || readsInput(c) {
 		return RuleShellSyntax
 	}
-	base := strings.TrimRight(name, "0123456789.")
-	flags, known := inlineFlags[base]
-	if !known {
-		flags = "ce"
+	flags := nodeFlags
+	if name != "node" {
+		flags = pythonFlags
 	}
 	for i, a := range args {
-		text := strings.ToLower(a.text)
-		if a.glob {
+		text := a.text
+		switch {
+		case a.glob:
 			return RuleShellSyntax
-		}
-		if text == "-" || text == "--" {
+		case name != "node" && text == "-m":
+			if i+1 < len(args) && slices.Contains(pythonModules, args[i+1].text) {
+				return ""
+			}
+			if i+1 < len(args) && slices.Contains([]string{"pip", "pip3", "ensurepip", "http.server", "twine", "build"}, args[i+1].text) {
+				return RuleNetwork
+			}
 			return RuleShellSyntax
-		}
-		if strings.HasPrefix(text, "--") || base == "pwsh" || base == "powershell" {
-			flag, _, _ := strings.Cut(text, "=")
-			if slices.Contains(inlineLongFlags, flag) {
+		case strings.HasPrefix(text, "-"):
+			if !slices.Contains(flags, text) {
 				return RuleShellSyntax
 			}
-			continue
-		}
-		if strings.HasPrefix(text, "-") {
-			if base == "python" || base == "pypy" {
-				if text == "-m" {
-					return pythonModule(args[i+1:])
-				}
-			}
-			if strings.ContainsAny(strings.TrimPrefix(text, "-"), flags) {
-				return RuleShellSyntax
-			}
-			continue
-		}
-		if strings.Contains(text, "://") {
+		case strings.Contains(text, "://"):
 			return RuleNetwork
+		default:
+			return ""
 		}
-		if base == "deno" || base == "bun" {
-			return denoBunRule(args[i:])
-		}
-		return ""
 	}
 	return RuleShellSyntax
-}
-
-func pythonModule(rest []shellWord) string {
-	if len(rest) == 0 {
-		return RuleShellSyntax
-	}
-	switch strings.ToLower(rest[0].text) {
-	case "pip", "pip3", "ensurepip", "http.server", "smtpd", "ftplib", "venv", "pipx", "uv", "twine", "poetry":
-		return RuleNetwork
-	}
-	return ""
-}
-
-func denoBunRule(rest []shellWord) string {
-	switch rest[0].text {
-	case "eval", "repl", "jupyter":
-		return RuleShellSyntax
-	case "x", "add", "install", "i", "upgrade", "update", "create", "init", "remove", "rm", "link", "outdated":
-		return RuleNetwork
-	case "publish", "deploy":
-		return RulePublish
-	}
-	for _, a := range rest {
-		if strings.Contains(a.text, "://") || strings.HasPrefix(a.text, "npm:") || strings.HasPrefix(a.text, "jsr:") {
-			return RuleNetwork
-		}
-	}
-	return ""
 }
 
 func readsInput(c simpleCommand) bool {
@@ -122,30 +85,86 @@ func readsInput(c simpleCommand) bool {
 	return false
 }
 
-// awkRule asks for a program that runs commands, reads other files, or
-// writes files; a program in a file is not read, so it asks too.
-func awkRule(args []shellWord) string {
-	for i, a := range args {
-		text := a.text
-		switch {
-		case text == "-f" || strings.HasPrefix(text, "--file") || text == "-i" || strings.HasPrefix(text, "--include") || text == "-E" || text == "--exec":
+func findRule(args []shellWord) string {
+	for _, a := range args {
+		switch a.text {
+		case "-exec", "-execdir", "-ok", "-okdir":
 			return RuleShellSyntax
-		case text == "-v" || text == "-F":
-			// Their value is the next word.
-			continue
-		case i > 0 && (args[i-1].text == "-v" || args[i-1].text == "-F"):
-			continue
-		case strings.HasPrefix(text, "-"):
-			continue
-		}
-		if strings.Contains(text, "system") || strings.ContainsAny(text, "|>") || strings.Contains(text, "getline") || strings.Contains(text, "ENVIRON") {
+		case "-delete":
+			return RuleDelete
+		case "-fprint", "-fprint0", "-fprintf", "-fls":
 			return RuleShellSyntax
 		}
-		return ""
 	}
-	return RuleShellSyntax
+	return ""
 }
 
+// awkRule allows only programs given on the line, with -F and -v, that
+// run no command, read no file or variable they were not given, and
+// write nothing. Any other option asks.
+func awkRule(args []shellWord) string {
+	var programs []string
+	for i := 0; i < len(args); i++ {
+		text := args[i].text
+		switch {
+		case text == "-F" || text == "-v":
+			i++
+		case strings.HasPrefix(text, "-F") || strings.HasPrefix(text, "-v"):
+		case text == "--":
+		case strings.HasPrefix(text, "-"):
+			return RuleShellSyntax
+		default:
+			programs = append(programs, text)
+			i = len(args)
+		}
+	}
+	if len(programs) == 0 {
+		return RuleShellSyntax
+	}
+	for _, p := range programs {
+		for _, risky := range []string{"system", "getline", "|", ">", "ENVIRON", "ARGV", "ARGC", "PROCINFO", "@", "close", "fflush", "printf -"} {
+			if strings.Contains(p, risky) {
+				return RuleShellSyntax
+			}
+		}
+	}
+	return ""
+}
+
+// jqRule asks for a filter that reads the environment, or for options
+// that read other files or set the filter from a file.
+func jqRule(args []shellWord) string {
+	text := map[int]bool{}
+	markPattern(text, args, "", nil, []string{"--from-file"})
+	for i, a := range args {
+		if text[i] && (strings.Contains(strings.ToLower(a.text), "env") || strings.Contains(a.text, "$__loc__") || strings.Contains(a.text, "input_filename")) {
+			return RuleSecret
+		}
+	}
+	if flagged(args, []string{"--from-file", "--rawfile", "--slurpfile", "--library-path"}, "fL") {
+		return RuleShellSyntax
+	}
+	return ""
+}
+
+// tarRule asks for options that run a command or write outside the
+// paths the archive names, in any form tar accepts: long, abbreviated,
+// bundled with a dash, or bundled without one as the first word.
+func tarRule(args []shellWord) string {
+	if flagged(args, []string{"--to-command", "--use-compress-program", "--checkpoint-action", "--info-script",
+		"--new-volume-script", "--absolute-names", "--unlink-first", "--recursive-unlink", "--remove-files", "--rsh-command"}, "PIFU") {
+		return RuleShellSyntax
+	}
+	if len(args) > 0 && !strings.HasPrefix(args[0].text, "-") && strings.ContainsAny(args[0].text, "PIFU") {
+		return RuleShellSyntax
+	}
+	return ""
+}
+
+// sedRule reads the script strictly: only commands that print, delete
+// or substitute pass; e, w, r and anything not read ask. In-place
+// edits check their files as targets. Any option outside the plain
+// ones asks, since GNU sed reads abbreviated long options.
 func (g *gate) sedRule(args []shellWord, cwd string) string {
 	var scripts []string
 	var files []shellWord
@@ -164,18 +183,19 @@ func (g *gate) sedRule(args []shellWord, cwd string) string {
 		case strings.HasPrefix(text, "--expression="):
 			scripts = append(scripts, strings.TrimPrefix(text, "--expression="))
 			explicit = true
-		case text == "-f" || strings.HasPrefix(text, "--file"):
-			return RuleShellSyntax
 		case text == "-i" || text == "-I":
 			inPlace = true
 			// BSD sed reads the next word as the backup suffix.
 			if i+1 < len(args) && (args[i+1].text == "" || strings.HasPrefix(args[i+1].text, ".")) {
 				i++
 			}
-		case strings.HasPrefix(text, "-i") || strings.HasPrefix(text, "--in-place"):
+		case strings.HasPrefix(text, "-i") && !strings.ContainsAny(text[2:], "/~") || text == "--in-place" || strings.HasPrefix(text, "--in-place="):
 			inPlace = true
+		case slices.Contains([]string{"--quiet", "--silent", "--regexp-extended", "--null-data", "--separate", "--posix", "--sandbox", "--debug", "--unbuffered"}, text):
+		case strings.HasPrefix(text, "--"):
+			return RuleShellSyntax
 		case strings.HasPrefix(text, "-") && text != "-":
-			if strings.ContainsAny(strings.TrimPrefix(text, "-"), "if") {
+			if strings.Trim(text[1:], "nErsuz") != "" {
 				return RuleShellSyntax
 			}
 		case !explicit && len(scripts) == 0:
@@ -226,7 +246,7 @@ func sedScriptReadable(script string) bool {
 		return false
 	}
 	address := func() bool {
-		for k := 0; k < 2; k++ {
+		for k := range 2 {
 			skipSpace()
 			switch {
 			case i < len(runes) && runes[i] >= '0' && runes[i] <= '9':

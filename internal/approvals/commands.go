@@ -18,21 +18,31 @@ func (g *gate) shell(command string) string {
 		return RuleInput
 	}
 	cwd := g.cwd
+	// andChain stays true while every command so far ran only after the
+	// one before it succeeded, so a cd in it surely took effect.
+	andChain := true
 	for _, c := range commands {
-		if rule := g.command(c, &cwd); rule != "" {
+		if rule := g.command(c, &cwd, andChain); rule != "" {
 			return rule
 		}
+		andChain = andChain && !c.piped && c.sep == sepAnd
 	}
 	return ""
 }
 
-// riskyAssignment matches variables that change which program runs or
-// what it loads.
-var riskyAssignment = regexp.MustCompile(`^(PATH|IFS|ENV|BASH_ENV|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|LD_.*|DYLD_.*|GIT_.*|NODE_OPTIONS|NODE_PATH|PYTHONPATH|PYTHONSTARTUP|PYTHONHOME|PERL5OPT|PERL5LIB|PERLLIB|RUBYOPT|RUBYLIB|GOFLAGS|EDITOR|VISUAL|PAGER|GIT_PAGER|SSH_ASKPASS|SUDO_ASKPASS|HOME|CDPATH|GLOBIGNORE|BASH_.*|PWD|OLDPWD|TMPDIR|XDG_.*|ZDOTDIR)=`)
+// safeAssignment matches variables a command may set on its line: they
+// change no program that runs and no file it reads.
+var safeAssignment = regexp.MustCompile(`^(CGO_ENABLED|GOOS|GOARCH|GOAMD64|GOARM|GOARM64|GOEXPERIMENT|GOMAXPROCS|GODEBUG|GOGC|GOMEMLIMIT|NODE_ENV|CI|DEBUG|VERBOSE|NO_COLOR|FORCE_COLOR|CLICOLOR|CLICOLOR_FORCE|TERM|COLUMNS|LINES|TZ|LANG|LANGUAGE|LC_[A-Z]+|RUST_LOG|RUST_BACKTRACE|PYTHONUNBUFFERED|PYTHONDONTWRITEBYTECODE|PYTHONHASHSEED|UPDATE|UPDATE_[A-Z0-9_]+|[A-Z0-9_]+_UPDATE|GOLDEN|TEST_[A-Z0-9_]+)$`)
 
-func (g *gate) command(c simpleCommand, cwd *string) string {
+var (
+	negativeNice = regexp.MustCompile(`^-[0-9]+$`)
+	duration     = regexp.MustCompile(`^[0-9.]+[smhd]?$`)
+	setFlags     = regexp.MustCompile(`^[-+][euxv]+$`)
+)
+
+func (g *gate) command(c simpleCommand, cwd *string, andChain bool) string {
 	for _, a := range c.assigns {
-		if riskyAssignment.MatchString(strings.ToUpper(a.text)) {
+		if !safeAssignment.MatchString(assignmentName(a)) {
 			return RuleShellSyntax
 		}
 	}
@@ -43,26 +53,22 @@ func (g *gate) command(c simpleCommand, cwd *string) string {
 		if r.target.glob {
 			return RuleShellSyntax
 		}
-		target := r.target.text
-		if r.target.tilde && !strings.HasPrefix(target, "~") {
-			return RuleShellSyntax
-		}
 		var rule string
 		if r.output {
-			rule = g.targetRule(target, *cwd, RuleDelete)
+			rule = g.targetRule(r.target.text, *cwd, RuleDelete)
 		} else {
-			rule = g.readRule(target, *cwd)
+			rule = g.readRule(r.target.text, *cwd)
 		}
 		if rule != "" {
 			return rule
 		}
 	}
-	return g.program(c.words, c, cwd)
+	return g.program(c.words, c, cwd, andChain)
 }
 
 // program checks one program and its arguments, after the wrappers
 // that only change how it runs.
-func (g *gate) program(words []shellWord, c simpleCommand, cwd *string) string {
+func (g *gate) program(words []shellWord, c simpleCommand, cwd *string, andChain bool) string {
 	words, rule := stripWrappers(words)
 	if rule != "" {
 		return rule
@@ -70,61 +76,40 @@ func (g *gate) program(words []shellWord, c simpleCommand, cwd *string) string {
 	if len(words) == 0 {
 		return ""
 	}
-	if words[0].glob {
+	if words[0].glob || words[0].text == "" {
 		return RuleShellSyntax
+	}
+	if namesPolicyWords(words) {
+		return RulePolicy
 	}
 	name := g.commandName(words[0].text, *cwd)
 	args := words[1:]
-	if rule := g.commandRule(name, args, c, cwd); rule != "" {
+	if name == "cd" {
+		if !andChain || c.piped || c.sep != sepAnd && c.sep != "" {
+			return RuleShellSyntax
+		}
+		return g.changeDir(args, cwd)
+	}
+	if rule := g.commandRule(name, words[0], args, c, *cwd); rule != "" {
 		return rule
 	}
 	if rule := g.argsRule(name, args, *cwd); rule != "" {
 		return rule
 	}
 	if rest, runs := runsProgram(name, args); runs {
-		return g.anyProgram(rest, c, *cwd)
+		return g.program(rest, c, cwd, false)
 	}
 	return ""
 }
 
-// anyProgram checks words whose program the gate cannot place, because
-// options before it may take values: each word that is no option is
-// tried as the program, and any that asks makes the whole ask.
-func (g *gate) anyProgram(words []shellWord, c simpleCommand, cwd string) string {
+// namesPolicyWords reports a command that names the approvals policy
+// once the shell has removed its quoting.
+func namesPolicyWords(words []shellWord) bool {
+	texts := make([]string, len(words))
 	for i, w := range words {
-		if strings.HasPrefix(w.text, "-") {
-			continue
-		}
-		dir := cwd
-		if rule := g.program(words[i:], c, &dir); rule != "" {
-			return rule
-		}
+		texts[i] = w.text
 	}
-	return ""
-}
-
-// runsProgram reports the words after a subcommand that runs another
-// program, as in uv run, bundle exec or mise exec.
-func runsProgram(name string, args []shellWord) ([]shellWord, bool) {
-	v := verbs(args)
-	if len(v) == 0 {
-		return nil, false
-	}
-	runVerbs := map[string][]string{
-		"uv": {"run"}, "poetry": {"run"}, "pdm": {"run"}, "pipenv": {"run"}, "hatch": {"run"}, "rye": {"run"},
-		"pixi": {"run", "exec"}, "conda": {"run"}, "mamba": {"run"}, "micromamba": {"run"},
-		"bundle": {"exec"}, "bundler": {"exec"}, "pnpm": {"exec"}, "yarn": {"exec", "run"}, "mise": {"exec", "x"},
-		"asdf": {"exec"}, "direnv": {"exec"}, "rtx": {"exec", "x"}, "devbox": {"run"}, "flox": {"activate"},
-	}
-	if !slices.Contains(runVerbs[name], v[0]) {
-		return nil, false
-	}
-	for i, a := range args {
-		if a.text == v[0] {
-			return args[i+1:], true
-		}
-	}
-	return nil, false
+	return namesPolicy(strings.Join(texts, " "))
 }
 
 // commandName is the lower-case base name of the program, after the
@@ -139,100 +124,139 @@ func (g *gate) commandName(word, cwd string) string {
 	return strings.ToLower(filepath.Base(word))
 }
 
-// wrappers run the rest of the line as a command; their options are
-// skipped so the command after them is checked.
+// stripWrappers drops the programs that only change how the next one
+// runs, with the options the gate knows for them. Any other option
+// asks, so the program after it is never misplaced.
 func stripWrappers(words []shellWord) ([]shellWord, string) {
 	for len(words) > 0 {
 		name := strings.ToLower(filepath.Base(words[0].text))
 		rest := words[1:]
+		var ok bool
 		switch name {
-		case "!", "nohup", "builtin", "busybox", "toybox":
-			words = rest
+		case "!", "nohup":
+			words, ok = rest, true
 		case "time":
-			words = skipFlags(rest, nil)
+			words, ok = knownFlags(rest, []string{"-p"}, nil)
 		case "command":
 			if len(rest) > 0 && (rest[0].text == "-v" || rest[0].text == "-V") {
 				return nil, ""
 			}
-			words = skipFlags(rest, nil)
+			words, ok = knownFlags(rest, []string{"-p"}, nil)
 		case "nice":
-			words = skipFlags(rest, []string{"-n"})
-		case "arch", "setsid", "valgrind", "xcrun", "chronic", "unbuffer", "fakeroot", "linux32", "linux64", "catchsegv", "entr", "ifne", "pv":
-			words = skipFlags(rest, []string{"-arch", "-sdk", "--sdk", "--toolchain", "-s", "-d"})
-		case "stdbuf":
-			words = skipFlags(rest, []string{"-i", "-o", "-e"})
-		case "timeout":
-			words = skipFlags(rest, []string{"-s", "-k"})
-			if len(words) == 0 {
-				return nil, RuleInput
+			if len(rest) > 0 && negativeNice.MatchString(rest[0].text) {
+				rest = rest[1:]
 			}
-			words = words[1:]
+			words, ok = knownFlags(rest, nil, []string{"-n"})
+		case "timeout":
+			words, ok = knownFlags(rest, []string{"-v", "--verbose", "--preserve-status", "--foreground"}, []string{"-s", "-k"})
+			if ok {
+				if len(words) == 0 || !duration.MatchString(words[0].text) {
+					return nil, RuleShellSyntax
+				}
+				words = words[1:]
+			}
 		default:
 			return words, ""
+		}
+		if !ok {
+			return nil, RuleShellSyntax
 		}
 	}
 	return words, ""
 }
 
-// skipFlags drops leading options; those in withValue take the next word.
-func skipFlags(words []shellWord, withValue []string) []shellWord {
+// knownFlags drops leading options that are in plain or, with their
+// next word, in withValue. ok is false at any other option.
+func knownFlags(words []shellWord, plain, withValue []string) ([]shellWord, bool) {
 	for len(words) > 0 && strings.HasPrefix(words[0].text, "-") && words[0].text != "-" {
-		if words[0].text == "--" {
-			return words[1:]
-		}
-		if slices.Contains(withValue, words[0].text) && len(words) > 1 {
+		text := words[0].text
+		switch {
+		case text == "--":
+			return words[1:], true
+		case slices.Contains(plain, text):
+			words = words[1:]
+		case slices.Contains(withValue, text) && len(words) > 1:
 			words = words[2:]
-			continue
+		default:
+			return nil, false
 		}
-		words = words[1:]
 	}
-	return words
+	return words, true
+}
+
+// runsProgram reports the words after a subcommand that runs another
+// program, as in uv run or bundle exec. An option before the program
+// asks, since it may take a value the gate would read as the program.
+func runsProgram(name string, args []shellWord) ([]shellWord, bool) {
+	runVerbs := map[string]string{
+		"uv": "run", "poetry": "run", "pdm": "run", "pipenv": "run", "bundle": "exec", "bundler": "exec",
+	}
+	verb, ok := runVerbs[name]
+	if !ok || len(args) < 2 || args[0].text != verb {
+		return nil, false
+	}
+	if strings.HasPrefix(args[1].text, "-") {
+		return []shellWord{{text: "-", glob: true}}, true
+	}
+	return args[1:], true
 }
 
 var (
-	deleteCommands = set("rm", "rmdir", "shred", "dd", "truncate", "unlink", "wipefs", "srm", "fdisk", "sfdisk", "parted")
+	deleteCommands = set("rm", "rmdir", "shred", "dd", "truncate", "unlink", "wipefs", "srm", "fdisk", "sfdisk",
+		"parted", "trash", "grm", "grmdir", "gshred", "gdd", "gtruncate", "gunlink")
 
-	privilegeCommands = set("sudo", "su", "doas", "pkexec", "runuser", "chown", "chgrp", "kill", "pkill", "killall",
-		"launchctl", "systemctl", "service", "crontab", "at", "batch", "shutdown", "reboot", "halt", "poweroff",
-		"mount", "umount", "diskutil", "csrutil", "spctl", "xattr", "chflags", "defaults", "chroot", "unshare",
-		"nsenter", "setfacl", "visudo", "passwd", "dscl", "usermod", "useradd", "userdel", "groupadd", "sysctl",
-		"chrt", "ionice", "taskset", "caffeinate")
+	privilegeCommands = set("sudo", "sudoedit", "su", "doas", "pkexec", "runuser", "chown", "chgrp", "kill", "pkill",
+		"killall", "launchctl", "systemctl", "service", "crontab", "at", "batch", "shutdown", "reboot", "halt",
+		"poweroff", "mount", "umount", "diskutil", "csrutil", "spctl", "xattr", "chflags", "defaults", "chroot",
+		"unshare", "nsenter", "setfacl", "visudo", "passwd", "dscl", "usermod", "useradd", "userdel", "groupadd",
+		"sysctl", "gchown", "gchgrp")
 
-	secretCommands = set("aws-vault", "dotenv", "envchain", "security", "pass", "gopass", "op", "env", "printenv", "ssh-add", "ssh-agent", "keychain",
-		"gpg", "gpg2", "secret-tool", "vault", "bw", "lpass", "doppler", "chamber", "sops", "age")
+	secretCommands = set("aws-vault", "dotenv", "envchain", "security", "pass", "gopass", "op", "env", "genv",
+		"printenv", "gprintenv", "ssh-add", "ssh-agent", "keychain", "gpg", "gpg2", "secret-tool", "vault", "bw",
+		"lpass", "doppler", "chamber", "sops", "age", "ps")
 
-	networkCommands = set("torsocks", "proxychains", "proxychains4", "curl", "wget", "ssh", "scp", "sftp", "nc", "ncat", "netcat", "telnet", "ftp", "tftp",
-		"socat", "http", "https", "xh", "aria2c", "lynx", "w3m", "links", "mosh", "open", "xdg-open", "npx", "bunx",
-		"uvx", "ngrok", "tailscale", "cloudflared", "nmap", "dig", "nslookup", "host", "whois", "ping", "traceroute",
-		"apt", "apt-get", "yum", "dnf", "pacman", "apk", "zypper", "port", "choco", "winget", "scoop", "nix-env",
-		"snap", "flatpak", "sdk", "asdf", "mise", "rustup", "nvm", "pyenv", "rbenv")
+	networkCommands = set("torsocks", "proxychains", "proxychains4", "curl", "wget", "ssh", "scp", "sftp", "nc",
+		"ncat", "netcat", "telnet", "ftp", "tftp", "lftp", "socat", "http", "https", "xh", "aria2c", "lynx", "w3m",
+		"links", "mosh", "open", "xdg-open", "npx", "pnpx", "bunx", "uvx", "pipx", "ngrok", "tailscale",
+		"cloudflared", "rclone", "nmap", "apt", "apt-get", "yum", "dnf", "pacman", "apk", "zypper", "port", "choco",
+		"winget", "scoop", "nix-env", "snap", "flatpak", "brew", "rustup", "pip", "pip3")
 
-	publishCommands = set("twine", "aws", "gcloud", "gsutil", "az", "fly", "flyctl", "vercel", "netlify", "heroku",
-		"firebase", "wrangler", "doctl", "eksctl", "ansible", "ansible-playbook", "serverless", "sls", "cdk", "sam",
-		"gh-release", "release-it", "semantic-release", "changeset", "lerna", "np")
-
-	shellSyntaxCommands = set("eval", "exec", "source", ".", "alias", "unalias", "function", "trap", "xargs",
-		"parallel", "watch", "script", "expect", "flock", "tmux", "screen", "osascript", "hash", "shopt", "enable",
-		"readonly", "declare", "typeset", "local", "unset", "coproc", "fc", "history", "cmd", "pwsh", "powershell",
-		"vi", "vim", "nvim", "ex", "ed", "emacs", "nano", "gdb", "lldb", "strace", "dtrace", "ltrace", "patch",
-		"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac", "select", "[[", "]]",
-		"popd", "pushd", "let", "mapfile", "readarray", "complete", "bind", "ulimit", "umask", "jobs", "fg", "bg",
-		"disown", "wait", "suspend", "logout", "exit", "return", "break", "continue", "shift", "getopts", "read",
-		"firejail", "bwrap", "sandbox-exec", "nix-shell", "nix", "hyperfine", "watchexec", "nodemon", "concurrently",
-		"npm-run-all", "run-p", "run-s", "sg", "newgrp", "chpst", "daemonize", "start-stop-daemon", "systemd-run")
-
-	shells = set("sh", "bash", "zsh", "dash", "ksh", "mksh", "fish", "csh", "tcsh", "ash", "yash", "rbash", "nu", "elvish", "xonsh")
+	publishCommands = set("twine", "aws", "gcloud", "gsutil", "az", "fly", "flyctl", "vercel", "netlify",
+		"heroku", "firebase", "wrangler", "doctl", "eksctl", "ansible", "ansible-playbook", "serverless", "sls",
+		"cdk", "sam", "release-it", "semantic-release", "changeset", "lerna", "np", "glab", "hg", "svn", "goreleaser")
 
 	// readOnlyCommands read the paths they are given and write nothing,
 	// so naming a protected path is fine for them.
-	readOnlyCommands = set("cat", "less", "more", "head", "tail", "grep", "egrep", "fgrep", "rg", "ag", "ls", "wc",
-		"diff", "stat", "bat", "jq", "cmp", "cut", "tr", "column", "nl", "od",
-		"hexdump", "strings", "md5", "md5sum", "sha1sum", "sha256sum", "shasum", "basename", "dirname", "realpath",
-		"readlink", "test", "[", "echo", "printf", "true", "false", "pwd", "which", "type", "whereis", "du", "df")
+	readOnlyCommands = set("cat", "head", "tail", "grep", "egrep", "fgrep", "rg", "ag", "ls", "wc", "diff", "stat",
+		"bat", "jq", "cmp", "cut", "tr", "column", "nl", "od", "hexdump", "strings", "md5", "md5sum", "sha1sum",
+		"sha256sum", "sha512sum", "shasum", "basename", "dirname", "realpath", "readlink", "test", "[", "echo",
+		"printf", "true", "false", ":", "pwd", "which", "type", "du", "df")
+
+	// plainPrograms run with any arguments; the gate still checks every
+	// argument that may name a path.
+	plainPrograms = set("date", "sleep", "seq", "uname", "whoami", "id", "base64", "gzip", "gunzip", "zcat",
+		"bzip2", "bunzip2", "xz", "unxz", "unzip", "gofmt", "goimports", "golangci-lint", "staticcheck",
+		"shellcheck", "shfmt", "prettier", "eslint", "tsc", "jest", "vitest", "mocha", "pytest", "ruff", "black",
+		"mypy", "pylint", "flake8", "isort", "rustfmt", "zola", "hugo", "actionlint", "yamllint", "markdownlint",
+		"markdownlint-cli2", "hadolint", "typos", "codespell", "gotestsum", "javac", "clang", "clang++", "gcc",
+		"g++", "cc", "cmake", "ninja", "protoc", "buf", "rustc", "rspec", "rubocop")
+
+	// shellSyntaxCommands run text as shell code, change the shell, or
+	// run another program the gate cannot place.
+	shellSyntaxCommands = set("eval", "exec", "source", ".", "alias", "unalias", "function", "trap", "xargs",
+		"parallel", "watch", "builtin", "noglob", "nocorrect", "repeat", "-", "unset", "declare", "typeset",
+		"local", "readonly", "shopt", "setopt", "unsetopt", "hash", "enable", "disable", "autoload", "zmodload",
+		"emulate", "if", "then", "else", "elif", "fi", "for", "foreach", "while", "until", "do", "done", "case",
+		"esac", "select", "coproc", "[[", "]]", "pushd", "popd", "let", "read", "mapfile", "readarray", "fc",
+		"history", "ulimit", "umask", "exit", "return", "xcrun", "arch", "setsid", "script", "flock")
 
 	releaseWord = regexp.MustCompile(`(?i)release|publish|deploy`)
 
-	runners = set("make", "gmake", "just", "task", "mage", "rake", "mvn", "mvnw", "gradle", "gradlew", "ant", "bazel", "bazelisk", "earthly", "nx", "turbo")
+	runners = set("make", "gmake", "just", "task", "mage", "rake", "mvn", "mvnw", "gradle", "gradlew")
+
+	// interpreterName matches programs that run code; only python, node
+	// and the common shells have a checked form, every other one asks.
+	interpreterName = regexp.MustCompile(`^(python[0-9]*\.[0-9.]+|pypy[0-9.]*|node[0-9]+|nodejs|ruby[0-9.]*|irb|perl[0-9.]*|php[0-9.]*|lua[0-9.]*|luajit|rscript|r|julia|tclsh|wish|groovy|scala|kotlin|jshell|swift|ghci|runghc|elixir|iex|erl|escript|guile|racket|sbcl|clisp|ocaml|pwsh|powershell|osascript|jjs|qjs|sqlite3|m4|dc|bc|expect|fish|csh|tcsh|ksh|mksh|ash|yash|nu|elvish|xonsh|busybox|toybox)$`)
 )
 
 func set(names ...string) map[string]bool {
@@ -243,11 +267,10 @@ func set(names ...string) map[string]bool {
 	return m
 }
 
-// interpreterName matches programs that run code given inline, from
-// stdin, or from a file named on the line.
-var interpreterName = regexp.MustCompile(`^(python[0-9.]*|pypy[0-9.]*|node[0-9]*|nodejs|deno|bun|ruby[0-9.]*|irb|perl[0-9.]*|php[0-9.]*|lua[0-9.]*|luajit|rscript|r|julia|tclsh|wish|groovy|scala|kotlin|jshell|swift|ghci|runghc|elixir|iex|erl|escript|guile|racket|sbcl|clisp|ocaml|pwsh|powershell|osascript|jjs|qjs)$`)
-
-func (g *gate) commandRule(name string, args []shellWord, c simpleCommand, cwd *string) string {
+// commandRule checks a program the gate knows. A program it does not
+// know asks, unless it is a file inside the project: running the
+// project's own scripts is what the gate cannot judge.
+func (g *gate) commandRule(name string, program shellWord, args []shellWord, c simpleCommand, cwd string) string {
 	switch {
 	case deleteCommands[name] || strings.HasPrefix(name, "mkfs"):
 		return RuleDelete
@@ -259,119 +282,148 @@ func (g *gate) commandRule(name string, args []shellWord, c simpleCommand, cwd *
 		return RuleNetwork
 	case publishCommands[name] || releaseWord.MatchString(name):
 		return RulePublish
-	case shellSyntaxCommands[name]:
+	case interpreterName.MatchString(name) || shellSyntaxCommands[name]:
 		return RuleShellSyntax
-	case shells[name]:
-		return shellInterpreter(args, c)
-	case interpreterName.MatchString(name):
-		return interpreter(name, args, c)
 	}
+	if rule, known := g.knownProgram(name, args, c, cwd); known {
+		return rule
+	}
+	if readOnlyCommands[name] || plainPrograms[name] {
+		return ""
+	}
+	if g.projectProgram(program, cwd) {
+		return ""
+	}
+	return RuleUnknownCommand
+}
+
+// projectProgram reports a program named by a path to a file inside
+// the project, such as ./scripts/check.sh.
+func (g *gate) projectProgram(program shellWord, cwd string) bool {
+	if !strings.Contains(program.text, "/") {
+		return false
+	}
+	abs, ok := g.path(program.text, cwd)
+	return ok && g.inside(abs) && !g.protected(abs)
+}
+
+// knownProgram runs the rule of a program with one; known is false for
+// any other.
+func (g *gate) knownProgram(name string, args []shellWord, c simpleCommand, cwd string) (rule string, known bool) {
 	switch name {
-	case "cd":
-		return g.changeDir(args, cwd)
-	case "export":
-		if len(args) == 0 || args[0].text == "-p" {
-			return RuleSecret
-		}
-		return RuleShellSyntax
+	case "sh", "bash", "zsh", "dash":
+		rule = shellInterpreter(args, c)
+	case "python", "python3", "node":
+		rule = interpreter(name, args, c)
 	case "set":
-		return setBuiltin(args)
-	case "chmod":
-		if slices.ContainsFunc(args, func(w shellWord) bool {
-			return w.text == "--recursive" || strings.HasPrefix(w.text, "-") && !strings.HasPrefix(w.text, "--") && strings.Contains(w.text, "R")
-		}) {
-			return RulePrivilege
+		rule = setBuiltin(args)
+	case "export":
+		rule = RuleShellSyntax
+		if len(args) == 0 || args[0].text == "-p" {
+			rule = RuleSecret
 		}
-		return g.targets(args, *cwd, RuleOutsideProject)
-	case "mv", "cp", "install", "rsync", "ditto":
-		if name == "rsync" {
-			if rule := rsyncRule(args); rule != "" {
-				return rule
-			}
+	case "chmod", "gchmod":
+		rule = g.targets(args, cwd, RuleOutsideProject)
+		if flagged(args, []string{"--recursive"}, "R") {
+			rule = RulePrivilege
 		}
-		return g.targets(args, *cwd, RuleDelete)
-	case "ln", "touch", "mkdir", "tee", "mkfifo", "split", "csplit":
-		return g.targets(args, *cwd, RuleOutsideProject)
-	case "find":
-		return findRule(args)
+	case "mv", "cp", "install", "ditto", "gmv", "gcp", "ginstall":
+		rule = g.targets(args, cwd, RuleDelete)
+	case "rsync":
+		rule = rsyncRule(args)
+		if rule == "" {
+			rule = g.targets(args, cwd, RuleDelete)
+		}
+	case "ln", "touch", "mkdir", "tee", "gln", "gtouch", "gmkdir", "gtee":
+		rule = g.targets(args, cwd, RuleOutsideProject)
+	case "find", "gfind":
+		rule = findRule(args)
+	case "awk", "gawk", "mawk", "nawk":
+		rule = awkRule(args)
+	case "sed", "gsed":
+		rule = g.sedRule(args, cwd)
+	case "jq":
+		rule = jqRule(args)
+	case "tar", "gtar", "bsdtar":
+		rule = tarRule(args)
+	case "zip":
+		if flagged(args, []string{"--unzip-command"}, "") || slices.ContainsFunc(args, func(w shellWord) bool { return strings.HasPrefix(w.text, "-TT") }) {
+			rule = RuleShellSyntax
+		}
+	case "sort", "gsort":
+		if flagged(args, []string{"--compress-program", "--output", "--files0-from"}, "o") {
+			rule = RuleShellSyntax
+		}
+	case "tree":
+		if flagged(args, nil, "o") {
+			rule = RuleShellSyntax
+		}
 	case "fd", "fdfind":
-		if hasOption(args, "-x", "-X", "--exec", "--exec-batch") {
-			return RuleShellSyntax
+		if flagged(args, []string{"--exec", "--exec-batch"}, "xX") {
+			rule = RuleShellSyntax
 		}
 	case "rg":
-		if hasOption(args, "--pre", "--hostname-bin", "--search-zip", "-z") {
-			return RuleShellSyntax
+		if flagged(args, []string{"--pre", "--hostname-bin", "--search-zip"}, "z") {
+			rule = RuleShellSyntax
 		}
-	case "tar", "gtar", "bsdtar":
-		if hasOption(args, "--to-command", "--use-compress-program", "-I", "--checkpoint-action", "--info-script", "-F",
-			"--new-volume-script", "-P", "--absolute-names", "--unlink-first", "--recursive-unlink", "--remove-files") {
-			return RuleShellSyntax
-		}
-		// Bundled short options, with or without a dash: -xPf, xPf.
-		for i, a := range args {
-			bundle := strings.HasPrefix(a.text, "-") && !strings.HasPrefix(a.text, "--") || i == 0
-			if bundle && strings.ContainsAny(a.text, "PIF") {
-				return RuleShellSyntax
-			}
-		}
-	case "zip":
-		if hasOption(args, "-TT", "--unzip-command") {
-			return RuleShellSyntax
-		}
-	case "sort":
-		if hasOption(args, "--compress-program") {
-			return RuleShellSyntax
-		}
-	case "man":
-		if hasOption(args, "-P", "--pager", "-H", "--html") {
-			return RuleShellSyntax
-		}
-	case "awk", "gawk", "mawk", "nawk":
-		return awkRule(args)
-	case "sed", "gsed":
-		return g.sedRule(args, *cwd)
 	case "git":
-		return gitRule(args)
+		rule = gitRule(args)
 	case "gh":
-		return ghRule(args)
-	case "docker", "podman", "nerdctl":
-		return dockerRule(args)
-	case "kubectl", "oc", "k":
-		return allowVerbs(args, "get", "describe", "logs", "explain", "version", "top", "api-resources", "api-versions", "cluster-info", "diff")
+		rule = ghRule(args)
+	case "docker", "podman":
+		rule = dockerRule(args)
+	case "kubectl", "oc":
+		rule = allowVerbs(args, "get", "describe", "logs", "explain", "version", "top", "api-resources", "api-versions", "cluster-info", "diff")
 	case "helm":
-		return allowVerbs(args, "list", "ls", "status", "get", "show", "template", "lint", "version", "search", "history", "dependency")
-	case "terraform", "tofu", "terragrunt":
-		return allowVerbs(args, "fmt", "validate", "plan", "show", "version", "providers", "graph")
-	case "pulumi":
-		return allowVerbs(args, "preview", "version", "about")
-	case "goreleaser":
-		return allowVerbs(args, "check", "healthcheck", "build")
+		rule = allowVerbs(args, "list", "ls", "status", "get", "show", "template", "lint", "version", "search", "history")
+	case "terraform", "tofu":
+		rule = allowVerbs(args, "fmt", "validate", "plan", "show", "version", "providers", "graph")
 	case "npm", "pnpm", "yarn", "bun":
-		return packageRule(name, args)
-	case "pip", "pip3", "pipx", "uv", "poetry", "pdm", "conda", "mamba", "micromamba", "hatch", "flit", "rye", "pixi":
-		return pythonPackageRule(args)
+		rule = packageRule(name, args)
+	case "deno":
+		rule = denoRule(args)
+	case "uv", "poetry", "pdm", "pipenv", "bundle", "bundler":
+		rule = runOnlyRule(args)
 	case "go":
-		return goRule(args)
+		rule = goRule(args)
 	case "cargo":
-		return cargoRule(args)
-	case "gem", "bundle", "bundler", "composer", "mix", "dotnet", "nuget", "brew":
-		return toolchainRule(name, args)
+		rule = cargoRule(args)
+	case "dotnet":
+		rule = allowVerbs(args, "build", "test", "format")
 	case "agnostic-ai":
-		if slices.ContainsFunc(args, func(w shellWord) bool { return w.text == "--global" || w.text == "-g" }) {
-			return RuleProtectedPath
+		rule = agnosticRule(args)
+	default:
+		if !runners[name] {
+			return "", false
+		}
+		rule = runnerRule(args, c)
+	}
+	return rule, true
+}
+
+func runnerRule(args []shellWord, c simpleCommand) string {
+	if (c.piped || readsInput(c)) && slices.ContainsFunc(args, func(w shellWord) bool {
+		return w.text == "-" || w.text == "/dev/stdin" || strings.HasPrefix(w.text, "/dev/fd/")
+	}) {
+		return RuleShellSyntax
+	}
+	if flagged(args, []string{"--print-data-base", "--eval"}, "pE") {
+		return RuleSecret
+	}
+	for _, a := range args {
+		if !strings.HasPrefix(a.text, "-") && releaseWord.MatchString(a.text) {
+			return RulePublish
 		}
 	}
-	if runners[name] {
-		if (c.piped || readsInput(c)) && slices.ContainsFunc(args, func(w shellWord) bool {
-			return w.text == "-" || w.text == "/dev/stdin" || strings.HasPrefix(w.text, "/dev/fd/")
-		}) {
-			return RuleShellSyntax
-		}
-		for _, a := range args {
-			if !strings.HasPrefix(a.text, "-") && releaseWord.MatchString(a.text) {
-				return RulePublish
-			}
-		}
+	return ""
+}
+
+func agnosticRule(args []shellWord) string {
+	if len(args) > 0 && args[0].text == "hook" {
+		return RulePolicy
+	}
+	if slices.ContainsFunc(args, func(w shellWord) bool { return w.text == "--global" || w.text == "-g" }) {
+		return RuleProtectedPath
 	}
 	return ""
 }
@@ -405,45 +457,17 @@ func (g *gate) argsRule(name string, args []shellWord, cwd string) string {
 // a commit message.
 func textArgs(name string, args []shellWord) map[int]bool {
 	text := map[int]bool{}
-	// firstOperand marks the pattern or program: the value of a text
-	// flag, or else the first operand. A file flag means the program
-	// comes from that file, which stays a path to check.
-	firstOperand := func(textFlags, fileFlags []string) {
-		explicit := false
-		for i := 0; i < len(args); i++ {
-			switch {
-			case slices.Contains(textFlags, args[i].text):
-				text[i+1] = true
-				explicit = true
-				i++
-			case slices.Contains(fileFlags, args[i].text):
-				explicit = true
-				i++
-			}
-		}
-		if explicit {
-			return
-		}
-		for i, a := range args {
-			if !strings.HasPrefix(a.text, "-") {
-				text[i] = true
-				return
-			}
-		}
-	}
 	switch name {
 	case "echo", "printf":
 		for i := range args {
 			text[i] = true
 		}
-	case "grep", "egrep", "fgrep", "rg", "ag":
-		firstOperand([]string{"-e", "--regexp"}, []string{"-f", "--file"})
-	case "sed", "gsed":
-		firstOperand([]string{"-e", "--expression"}, []string{"-f", "--file"})
+	case "grep", "egrep", "fgrep", "rg", "ag", "sed", "gsed":
+		markPattern(text, args, "e", []string{"--regexp", "--expression"}, []string{"--file"})
 	case "awk", "gawk", "mawk", "nawk":
-		firstOperand(nil, []string{"-f", "--file"})
+		markPattern(text, args, "", nil, []string{"--file"})
 	case "jq":
-		firstOperand(nil, []string{"-f", "--from-file"})
+		markPattern(text, args, "", nil, []string{"--from-file"})
 	case "git":
 		for i, a := range args {
 			if (a.text == "-m" || a.text == "--message") && i+1 < len(args) {
@@ -454,8 +478,52 @@ func textArgs(name string, args []shellWord) map[int]bool {
 	return text
 }
 
-// argValues are the parts of a word that may name a path: the word, or
-// the value of a --name=value option. Other options name none.
+// markPattern marks a command's pattern or program as text: the value
+// of its pattern option, or else its first operand. A pattern option in
+// any form, or a file option, means no operand is the pattern, so every
+// operand stays a path to check.
+func markPattern(text map[int]bool, args []shellWord, patternShort string, patternLong, fileLong []string) {
+	const fileShort = "f"
+	explicit := false
+	for i, a := range args {
+		w := a.text
+		switch {
+		case strings.HasPrefix(w, "--"):
+			name, _, hasValue := strings.Cut(w, "=")
+			if optionPrefixOf(name, patternLong) {
+				explicit = true
+				if !hasValue && i+1 < len(args) {
+					text[i+1] = true
+				}
+			} else if optionPrefixOf(name, fileLong) {
+				explicit = true
+			}
+		case strings.HasPrefix(w, "-") && len(w) > 1:
+			letters := w[1:]
+			if patternShort != "" && strings.Contains(letters, patternShort) {
+				explicit = true
+				if strings.HasSuffix(letters, patternShort) && i+1 < len(args) {
+					text[i+1] = true
+				}
+			}
+			if strings.Contains(letters, fileShort) {
+				explicit = true
+			}
+		}
+	}
+	if explicit {
+		return
+	}
+	for i, a := range args {
+		if !strings.HasPrefix(a.text, "-") {
+			text[i] = true
+			return
+		}
+	}
+}
+
+// argValues are the parts of a word that may name a path: the word, the
+// value of a --name=value option, or a value glued to a short option.
 func argValues(a shellWord) []string {
 	text := a.text
 	if text == "" || text == "-" || text == "--" {
@@ -533,11 +601,10 @@ func (g *gate) targets(args []shellWord, cwd, outsideRule string) string {
 }
 
 func (g *gate) changeDir(args []shellWord, cwd *string) string {
-	words := skipFlags(args, nil)
-	if len(words) != 1 || words[0].glob || words[0].text == "-" {
+	if len(args) != 1 || args[0].glob || strings.HasPrefix(args[0].text, "-") {
 		return RuleOutsideProject
 	}
-	abs, ok := g.path(words[0].text, *cwd)
+	abs, ok := g.path(args[0].text, *cwd)
 	if !ok || !g.inside(abs) {
 		return RuleOutsideProject
 	}
@@ -552,9 +619,12 @@ func setBuiltin(args []shellWord) string {
 	for i := 0; i < len(args); i++ {
 		text := args[i].text
 		switch {
-		case (strings.HasPrefix(text, "-") || strings.HasPrefix(text, "+")) && strings.HasSuffix(text, "o"):
+		case (strings.HasPrefix(text, "-") || strings.HasPrefix(text, "+")) && strings.HasSuffix(text, "o") && setFlags.MatchString(strings.TrimSuffix(text, "o")+"e"):
+			if i+1 >= len(args) || args[i+1].text != "pipefail" {
+				return RuleShellSyntax
+			}
 			i++
-		case strings.HasPrefix(text, "-") || strings.HasPrefix(text, "+"):
+		case setFlags.MatchString(text):
 		default:
 			return RuleShellSyntax
 		}
@@ -562,20 +632,39 @@ func setBuiltin(args []shellWord) string {
 	return ""
 }
 
-// hasOption reports whether args hold one of the options, alone or as
-// --name=value.
-func hasOption(args []shellWord, options ...string) bool {
-	return slices.ContainsFunc(args, func(w shellWord) bool {
-		name, _, _ := strings.Cut(w.text, "=")
-		if slices.Contains(options, name) {
-			return true
-		}
-		// A short option may carry its value: -Icmd.
-		for _, o := range options {
-			if len(o) == 2 && o[0] == '-' && o != "-z" && o != "-P" && o != "-H" && strings.HasPrefix(w.text, o) && !strings.HasPrefix(w.text, "--") {
+// flagged reports whether args hold one of the long options, alone, as
+// --name=value or as a prefix GNU tools accept, or a short option
+// letter, alone or in a bundle such as -xvf.
+func flagged(args []shellWord, longs []string, shorts string) bool {
+	for _, a := range args {
+		w := a.text
+		switch {
+		case w == "--":
+			return false
+		case strings.HasPrefix(w, "--"):
+			name, _, _ := strings.Cut(w, "=")
+			if optionPrefixOf(name, longs) {
+				return true
+			}
+		case strings.HasPrefix(w, "-") && len(w) > 1 && shorts != "":
+			if strings.ContainsAny(w[1:], shorts) {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+// optionPrefixOf reports whether name is one of longs or a prefix of
+// one long enough to be read as it.
+func optionPrefixOf(name string, longs []string) bool {
+	if len(name) < 4 {
 		return false
-	})
+	}
+	for _, long := range longs {
+		if strings.HasPrefix(long, name) {
+			return true
+		}
+	}
+	return false
 }

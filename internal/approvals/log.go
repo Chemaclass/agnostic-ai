@@ -64,6 +64,11 @@ func (l Log) Append(e Entry) error {
 	if err := os.MkdirAll(filepath.Dir(l.Path), 0o700); err != nil {
 		return fmt.Errorf("create approvals log folder: %w", err)
 	}
+	release, err := lockLog(l.Path)
+	if err != nil {
+		return err
+	}
+	defer release()
 	limit := l.MaxBytes
 	if limit <= 0 {
 		limit = MaxLogBytes
@@ -85,4 +90,29 @@ func (l Log) Append(e Entry) error {
 		return fmt.Errorf("close approvals log: %w", err)
 	}
 	return nil
+}
+
+// logLockWait bounds how long a decision waits for another hook's
+// write; each holds the lock for one stat, rename and append.
+const logLockWait = 2 * time.Second
+
+// lockLog holds a lock file beside the log, so two hooks that find the
+// log full do not both roll it over and lose the older file.
+func lockLog(path string) (release func(), err error) {
+	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("lock approvals log: %w", err)
+	}
+	deadline := time.Now().Add(logLockWait)
+	for {
+		err := tryLockFile(lock)
+		if err == nil {
+			return func() { _ = lock.Close() }, nil
+		}
+		if !lockHeldElsewhere(err) || time.Now().After(deadline) {
+			_ = lock.Close()
+			return nil, fmt.Errorf("lock approvals log: %w", err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }

@@ -5,30 +5,15 @@ import (
 	"strings"
 )
 
-func findRule(args []shellWord) string {
-	for _, a := range args {
-		switch a.text {
-		case "-exec", "-execdir", "-ok", "-okdir":
-			return RuleShellSyntax
-		case "-delete":
-			return RuleDelete
-		case "-fprint", "-fprint0", "-fprintf", "-fls":
-			return RuleShellSyntax
-		}
-	}
-	return ""
-}
-
 func rsyncRule(args []shellWord) string {
+	if flagged(args, []string{"--delete", "--delete-before", "--delete-during", "--delete-delay", "--delete-after", "--delete-excluded", "--remove-source-files"}, "") {
+		return RuleDelete
+	}
+	if flagged(args, []string{"--rsh", "--rsync-path"}, "e") {
+		return RuleNetwork
+	}
 	for _, a := range args {
-		text := a.text
-		switch {
-		case strings.HasPrefix(text, "--delete") || strings.HasPrefix(text, "--remove-source-files"):
-			return RuleDelete
-		case text == "-e" || strings.HasPrefix(text, "--rsh"):
-			return RuleNetwork
-		case strings.HasPrefix(text, "-"):
-		case strings.Contains(text, "://") || hostPath(text):
+		if !strings.HasPrefix(a.text, "-") && (strings.Contains(a.text, "://") || hostPath(a.text)) {
 			return RuleNetwork
 		}
 	}
@@ -45,185 +30,199 @@ func hostPath(word string) bool {
 	return slash < 0 || colon < slash
 }
 
-// verbs are the non-option words of args, in order.
-func verbs(args []shellWord) []string {
-	var out []string
-	for _, a := range args {
-		if !strings.HasPrefix(a.text, "-") {
-			out = append(out, a.text)
-		}
+// subcommand is a tool's first word when it names a subcommand. A tool
+// option before it may take a value the gate would read as the
+// subcommand, so ok is false then.
+func subcommand(args []shellWord) (verb string, rest []shellWord, ok bool) {
+	if len(args) == 0 || strings.HasPrefix(args[0].text, "-") || strings.HasPrefix(args[0].text, "+") {
+		return "", nil, false
 	}
-	return out
+	return args[0].text, args[1:], true
 }
 
+// isVersionOrHelp is a tool run only to print its version or help.
+func isVersionOrHelp(args []shellWord) bool {
+	return len(args) == 1 && slices.Contains([]string{"--version", "-v", "-V", "version", "--help", "-h", "help"}, args[0].text)
+}
+
+// allowVerbs allows the listed subcommands only; anything else asks as
+// a publish, the usual harm of a write through these tools.
 func allowVerbs(args []shellWord, allowed ...string) string {
-	v := verbs(args)
-	if len(v) == 0 {
-		if len(args) == 0 {
-			return ""
-		}
-		if slices.ContainsFunc(args, func(w shellWord) bool {
-			return w.text == "--version" || w.text == "--help" || w.text == "-h" || w.text == "version"
-		}) {
-			return ""
-		}
+	if isVersionOrHelp(args) {
+		return ""
+	}
+	verb, rest, ok := subcommand(args)
+	if !ok {
 		return RulePublish
 	}
-	if slices.Contains(allowed, v[0]) {
+	if slices.Contains(allowed, verb) {
 		return ""
 	}
-	if v[0] == "config" && len(v) > 1 && slices.Contains([]string{"view", "get-contexts", "current-context"}, v[1]) {
+	next, _, _ := subcommand(rest)
+	if verb == "config" && slices.Contains([]string{"view", "get-contexts", "current-context"}, next) {
 		return ""
 	}
-	if v[0] == "auth" && len(v) > 1 && v[1] == "can-i" {
+	if verb == "auth" && next == "can-i" {
 		return ""
 	}
 	return RulePublish
 }
 
-var gitSubcommands = set("add", "am", "annotate", "apply", "archive", "bisect", "blame", "branch", "bundle",
-	"cat-file", "check-attr", "check-ignore", "checkout", "cherry", "cherry-pick", "clean", "clone", "commit",
-	"config", "count-objects", "credential", "describe", "diff", "diff-tree", "diff-index", "diff-files",
-	"difftool", "fetch", "filter-branch", "for-each-ref", "format-patch", "fsck", "gc", "grep", "hash-object",
-	"help", "hook", "init", "lfs", "log", "ls-files", "ls-remote", "ls-tree", "maintenance", "merge", "merge-base",
-	"mergetool", "mv", "name-rev", "notes", "pull", "push", "range-diff", "rebase", "reflog", "remote", "repack",
-	"replace", "reset", "restore", "rev-list", "rev-parse", "revert", "rm", "send-email", "shortlog", "show",
-	"show-branch", "show-ref", "sparse-checkout", "stash", "status", "submodule", "switch", "symbolic-ref", "tag",
-	"update-index", "update-ref", "var", "verify-commit", "verify-tag", "version", "whatchanged", "worktree",
-	"daemon", "filter-repo", "svn", "instaweb", "request-pull", "citool", "gui", "gitk")
+// gitGlobalFlags are the git options before a subcommand the gate
+// reads; -C takes a folder, which the argument check reads as a path.
+var gitGlobalFlags = []string{"--no-pager", "-P", "--no-optional-locks", "--no-replace-objects", "--literal-pathspecs"}
 
-// gitRule reads git's own options, then its subcommand. An unknown
-// subcommand may be an alias that runs a shell command, so it asks.
+// gitRules are the subcommands git may run, with the long options and
+// short letters that make each one ask, and the rule they ask under.
+type gitCheck struct {
+	longs  []string
+	shorts string
+	rule   string
+}
+
+var gitRules = map[string][]gitCheck{
+	"status": nil, "diff": nil, "log": nil, "show": nil, "blame": nil, "shortlog": nil, "describe": nil,
+	"rev-parse": nil, "rev-list": nil, "ls-files": nil, "ls-tree": nil, "cat-file": nil, "show-ref": nil,
+	"for-each-ref": nil, "merge-base": nil, "check-ignore": nil, "range-diff": nil, "whatchanged": nil,
+	"version": nil, "help": nil, "add": nil,
+	"init": {{longs: []string{"--template", "--separate-git-dir"}, rule: RuleShellSyntax}}, "mv": nil, "merge": nil, "cherry-pick": nil,
+	"revert": nil, "format-patch": nil, "name-rev": nil,
+	"grep":   {{longs: []string{"--open-files-in-pager"}, shorts: "O", rule: RuleShellSyntax}},
+	"commit": {{longs: []string{"--amend"}, rule: RulePublish}},
+	"fetch":  {{longs: []string{"--upload-pack"}, rule: RuleShellSyntax}},
+	"pull":   {{longs: []string{"--upload-pack"}, rule: RuleShellSyntax}},
+	"reset":  {{longs: []string{"--hard", "--merge", "--keep"}, rule: RuleDelete}},
+	"switch": {{longs: []string{"--discard-changes", "--force", "--force-create"}, shorts: "fC", rule: RuleDelete}},
+	"branch": {{longs: []string{"--delete", "--move", "--copy", "--force", "--edit-description"}, shorts: "dDmMcCf", rule: RuleDelete}},
+	"tag":    {{longs: []string{"--delete", "--force"}, shorts: "df", rule: RuleDelete}},
+	"rebase": {{longs: []string{"--exec", "--interactive", "--edit-todo"}, shorts: "xi", rule: RuleShellSyntax}},
+	"stash":  nil,
+	"bisect": nil,
+}
+
+// gitRule reads git's options, then a subcommand from gitRules. An
+// unknown subcommand may be an alias that runs a shell command, so it
+// asks. Long options are matched by prefix and short letters inside
+// bundles, as git reads them.
 func gitRule(args []shellWord) string {
-	i := 0
-	for i < len(args) {
-		text := args[i].text
+	for len(args) > 0 && strings.HasPrefix(args[0].text, "-") {
 		switch {
-		case text == "-C":
-			i += 2
-			continue
-		case text == "-c" || strings.HasPrefix(text, "--config-env") || strings.HasPrefix(text, "--exec-path") ||
-			strings.HasPrefix(text, "--git-dir") || strings.HasPrefix(text, "--work-tree") || strings.HasPrefix(text, "--namespace") ||
-			strings.HasPrefix(text, "--super-prefix") || text == "--list-cmds":
+		case args[0].text == "-C" && len(args) > 1:
+			args = args[2:]
+		case slices.Contains(gitGlobalFlags, args[0].text):
+			args = args[1:]
+		default:
 			return RuleShellSyntax
-		case strings.HasPrefix(text, "-"):
-			i++
-			continue
 		}
-		break
 	}
-	if i >= len(args) {
+	if isVersionOrHelp(args) || len(args) == 0 {
 		return ""
 	}
-	sub := args[i].text
-	rest := args[i+1:]
-	has := func(flags ...string) bool {
-		return slices.ContainsFunc(rest, func(w shellWord) bool {
-			for _, f := range flags {
-				if w.text == f || strings.HasPrefix(f, "--") && strings.HasPrefix(w.text, f+"=") {
-					return true
-				}
-			}
-			return false
-		})
-	}
-	shortHas := func(letter string) bool {
-		return slices.ContainsFunc(rest, func(w shellWord) bool {
-			return strings.HasPrefix(w.text, "-") && !strings.HasPrefix(w.text, "--") && strings.Contains(w.text, letter)
-		})
-	}
-	restVerbs := verbs(rest)
-	if !gitSubcommands[sub] {
-		return RuleShellSyntax
+	sub, rest := args[0].text, args[1:]
+	for _, a := range rest {
+		if strings.Contains(a.text, "ext::") || strings.HasPrefix(a.text, "fd::") {
+			return RuleShellSyntax
+		}
 	}
 	switch sub {
-	case "push", "send-email", "request-pull", "svn":
+	case "push", "send-email", "request-pull", "svn", "p4":
 		return RulePublish
-	case "daemon", "instaweb":
-		return RuleNetwork
-	case "credential":
+	case "clean", "rm", "filter-branch", "filter-repo", "replace", "update-ref", "symbolic-ref", "gc", "prune":
+		return RuleDelete
+	case "credential", "credential-cache", "credential-store":
 		return RuleSecret
+	case "daemon", "instaweb", "clone", "ls-remote", "archive":
+		return RuleNetwork
+	case "checkout":
+		return gitCheckout(rest)
+	case "restore":
+		if flagged(rest, []string{"--staged"}, "S") && !flagged(rest, []string{"--worktree", "--source", "--patch"}, "Wsp") {
+			return ""
+		}
+		return RuleDelete
+	case "stash":
+		verb, _, _ := subcommand(rest)
+		if slices.Contains([]string{"drop", "clear"}, verb) {
+			return RuleDelete
+		}
+		return ""
+	case "bisect":
+		if verb, _, _ := subcommand(rest); verb == "run" {
+			return RuleShellSyntax
+		}
+		return ""
+	case "worktree":
+		if verb, _, _ := subcommand(rest); verb == "list" || verb == "add" && !flagged(rest, []string{"--force"}, "fB") {
+			return ""
+		}
+		return RuleDelete
 	case "remote":
-		if len(restVerbs) == 0 || slices.Contains([]string{"show", "get-url"}, restVerbs[0]) {
+		if len(rest) == 0 || isVersionOrHelp(rest) || rest[0].text == "-v" || rest[0].text == "show" || rest[0].text == "get-url" {
 			return ""
 		}
 		return RulePublish
-	case "archive":
-		if has("--remote", "--exec") {
-			return RuleNetwork
-		}
-	case "commit":
-		if has("--amend") {
-			return RulePublish
-		}
-	case "tag":
-		if has("-d", "--delete") {
-			return RuleDelete
-		}
-	case "reset":
-		if has("--hard", "--merge", "--keep") {
-			return RuleDelete
-		}
-	case "clean", "rm", "filter-branch", "filter-repo", "replace", "update-ref", "symbolic-ref":
-		return RuleDelete
-	case "checkout":
-		if has("--", ".", "-f", "--force", "--ours", "--theirs", "-p", "--patch", "--pathspec-from-file") || shortHas("f") {
-			return RuleDelete
-		}
-	case "restore":
-		if has("--staged", "-S") && !has("--worktree", "-W") {
+	case "config":
+		return gitConfig(rest)
+	case "reflog":
+		if verb, _, _ := subcommand(rest); len(rest) == 0 || verb == "show" {
 			return ""
 		}
 		return RuleDelete
-	case "switch":
-		if has("--discard-changes", "-f", "--force", "-C", "--force-create") {
+	}
+	checks, known := gitRules[sub]
+	if !known {
+		return RuleShellSyntax
+	}
+	for _, check := range checks {
+		if flagged(rest, check.longs, check.shorts) {
+			return check.rule
+		}
+	}
+	return ""
+}
+
+// gitCheckout allows only creating a branch with -b or -c: any other
+// form may overwrite files with a branch's or commit's version.
+func gitCheckout(rest []shellWord) string {
+	if len(rest) == 0 || rest[0].text != "-b" && rest[0].text != "-c" {
+		return RuleDelete
+	}
+	if flagged(rest, []string{"--force", "--ours", "--theirs", "--patch", "--pathspec-from-file", "--merge", "--overwrite-ignore"}, "fpmB") {
+		return RuleDelete
+	}
+	operands := 0
+	for _, a := range rest[1:] {
+		if a.text == "--" {
 			return RuleDelete
 		}
-	case "branch":
-		if has("-D", "-M", "-C") || has("-d", "--delete", "-m", "--move", "-c", "--copy") && has("-f", "--force") {
-			return RuleDelete
+		if !strings.HasPrefix(a.text, "-") {
+			operands++
 		}
-	case "stash":
-		if len(restVerbs) > 0 && slices.Contains([]string{"drop", "clear"}, restVerbs[0]) {
-			return RuleDelete
-		}
-	case "worktree":
-		if len(restVerbs) > 0 && slices.Contains([]string{"remove", "prune"}, restVerbs[0]) {
-			return RuleDelete
-		}
-	case "gc":
-		if has("--prune", "--aggressive") {
-			return RuleDelete
-		}
-	case "reflog":
-		if len(restVerbs) > 0 && slices.Contains([]string{"expire", "delete", "drop"}, restVerbs[0]) {
-			return RuleDelete
-		}
-	case "config":
-		readFlags := []string{"--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l", "--show-origin", "--show-scope", "--name-only", "--null", "-z", "--global", "--local", "--system", "--worktree", "--type", "--bool", "--int", "--path"}
-		isRead := has("--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l") ||
-			len(restVerbs) > 0 && slices.Contains([]string{"get", "list"}, restVerbs[0])
-		for _, w := range rest {
-			if strings.HasPrefix(w.text, "-") && !slices.Contains(readFlags, strings.SplitN(w.text, "=", 2)[0]) {
-				return RuleShellSyntax
-			}
-		}
-		if !isRead {
+	}
+	if operands < 1 || operands > 2 {
+		return RuleDelete
+	}
+	return ""
+}
+
+// gitConfig allows reading a value only; any write may make git run a
+// command.
+func gitConfig(rest []shellWord) string {
+	read := false
+	for _, a := range rest {
+		text := a.text
+		switch {
+		case optionPrefixOf(strings.SplitN(text, "=", 2)[0], []string{"--get", "--get-all", "--get-regexp", "--list"}) || text == "-l":
+			read = true
+		case slices.Contains([]string{"--global", "--local", "--system", "--worktree", "--show-origin", "--show-scope", "--name-only", "--null", "-z", "--bool", "--int", "--path"}, text):
+		case strings.HasPrefix(text, "-"):
 			return RuleShellSyntax
 		}
-	case "submodule":
-		if len(restVerbs) > 0 && restVerbs[0] == "foreach" {
-			return RuleShellSyntax
-		}
-	case "bisect":
-		if len(restVerbs) > 0 && restVerbs[0] == "run" {
-			return RuleShellSyntax
-		}
-	case "rebase":
-		if has("--exec", "-x", "-i", "--interactive") || shortHas("x") || shortHas("i") {
-			return RuleShellSyntax
-		}
-	case "difftool", "mergetool", "hook", "citool", "gui", "gitk", "apply", "am":
+	}
+	if len(rest) > 0 && (rest[0].text == "get" || rest[0].text == "list") {
+		read = true
+	}
+	if !read {
 		return RuleShellSyntax
 	}
 	return ""
@@ -232,170 +231,206 @@ func gitRule(args []shellWord) string {
 // ghRule allows the gh commands that only read; any other asks as a
 // publish, and auth commands ask as secrets.
 func ghRule(args []shellWord) string {
-	v := verbs(args)
-	if len(v) == 0 {
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	switch v[0] {
-	case "auth", "secret", "ssh-key", "gpg-key", "token":
+	group, rest, ok := subcommand(args)
+	if !ok {
+		return RulePublish
+	}
+	switch group {
+	case "auth", "secret", "ssh-key", "gpg-key", "variable":
 		return RuleSecret
-	case "status", "search", "version", "help":
+	case "status", "search":
 		return ""
 	case "api":
-		for i, a := range args {
-			text := a.text
-			switch {
-			case text == "-X" || text == "--method":
-				if i+1 >= len(args) || !strings.EqualFold(args[i+1].text, "GET") {
-					return RulePublish
-				}
-			case strings.HasPrefix(text, "--method=") && !strings.EqualFold(strings.TrimPrefix(text, "--method="), "GET"),
-				strings.HasPrefix(text, "-X") && len(text) > 2 && !strings.EqualFold(text[2:], "GET"),
-				text == "-f", text == "-F", strings.HasPrefix(text, "--field"), strings.HasPrefix(text, "--raw-field"),
-				strings.HasPrefix(text, "--input"), strings.HasPrefix(text, "-f"), strings.HasPrefix(text, "-F"):
-				return RulePublish
-			}
+		if flagged(rest, []string{"--method", "--field", "--raw-field", "--input"}, "XfF") {
+			return RulePublish
 		}
 		return ""
+	case "codespace", "cs", "extension", "ext", "alias", "config", "browse":
+		return RulePublish
 	}
-	if len(v) > 1 && slices.Contains([]string{"view", "list", "ls", "status", "diff", "checks", "watch"}, v[1]) &&
-		!slices.Contains([]string{"codespace", "extension", "alias", "config", "cs"}, v[0]) {
-		if slices.ContainsFunc(args, func(w shellWord) bool { return w.text == "--web" || w.text == "-w" }) {
-			return RuleNetwork
-		}
-		return ""
+	verb, _, ok := subcommand(rest)
+	if !ok || !slices.Contains([]string{"view", "list", "ls", "status", "diff", "checks", "watch"}, verb) {
+		return RulePublish
 	}
-	return RulePublish
+	if flagged(rest, []string{"--web"}, "w") {
+		return RuleNetwork
+	}
+	return ""
 }
 
 func dockerRule(args []shellWord) string {
-	v := verbs(args)
-	if len(v) == 0 {
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	switch v[0] {
-	case "build", "images", "ps", "logs", "inspect", "version", "info", "history":
+	verb, rest, ok := subcommand(args)
+	if !ok {
+		return RulePrivilege
+	}
+	switch verb {
+	case "build", "images", "ps", "logs", "inspect", "info", "history":
 		return ""
 	case "pull", "search", "login":
 		return RuleNetwork
 	case "push":
 		return RulePublish
 	case "compose":
-		if len(v) > 1 && slices.Contains([]string{"ps", "logs", "config", "ls", "version", "images"}, v[1]) {
+		if next, _, ok := subcommand(rest); ok && slices.Contains([]string{"ps", "logs", "config", "ls", "version", "images"}, next) {
 			return ""
 		}
 	}
 	return RulePrivilege
 }
 
+// packageRule allows a package manager to run tests, scripts and read
+// commands. A script named like a release, or the env script, asks;
+// installs ask as network and anything else as a publish.
 func packageRule(name string, args []shellWord) string {
-	v := verbs(args)
-	if len(v) == 0 {
-		if name == "yarn" {
-			return RuleNetwork
-		}
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	switch v[0] {
-	case "publish", "unpublish", "deprecate", "dist-tag", "owner", "access", "team", "star", "unstar", "pack":
-		return RulePublish
-	case "install", "i", "in", "ins", "inst", "add", "ci", "update", "up", "upgrade", "dlx", "exec", "x", "create", "init", "link", "ln", "rebuild", "dedupe", "audit", "outdated", "remove", "rm", "uninstall", "un", "unlink", "r", "patch", "global":
+	verb, rest, ok := subcommand(args)
+	if !ok {
+		if len(args) == 0 && name != "yarn" && name != "bun" {
+			return ""
+		}
 		return RuleNetwork
-	case "login", "adduser", "add-user", "logout", "token", "whoami", "config", "set", "get", "profile":
-		return RuleSecret
-	case "ls", "list", "ll", "la", "view", "info", "show", "explain", "why", "help", "bin", "root", "prefix", "fund", "query":
-		return ""
-	case "run", "run-script", "rum", "urn", "test", "t", "tst", "start", "stop", "restart", "build", "lint", "format", "fmt", "typecheck", "check":
-		for _, w := range v {
-			if releaseWord.MatchString(w) {
-				return RulePublish
-			}
-		}
-		return ""
 	}
-	if name == "yarn" || name == "bun" || name == "pnpm" {
-		// yarn <script> runs a package script by name.
-		if releaseWord.MatchString(v[0]) {
-			return RulePublish
+	switch verb {
+	case "test", "t", "tst", "lint", "build", "typecheck", "format", "fmt", "check", "start":
+		return scriptRule(verb)
+	case "run", "run-script":
+		script, _, ok := subcommand(rest)
+		if !ok {
+			return RuleShellSyntax
 		}
+		return scriptRule(script)
+	case "ls", "list", "ll", "la", "view", "info", "show", "explain", "why", "outdated":
 		return ""
+	case "install", "i", "in", "ins", "inst", "add", "ci", "update", "up", "upgrade", "dlx", "exec", "x", "create",
+		"init", "link", "ln", "rebuild", "dedupe", "audit", "remove", "rm", "uninstall", "un", "unlink", "patch":
+		return RuleNetwork
+	case "login", "adduser", "logout", "token", "whoami", "config", "set", "get", "profile", "npm":
+		return RuleSecret
 	}
 	return RulePublish
 }
 
-func pythonPackageRule(args []shellWord) string {
-	v := verbs(args)
-	if len(v) == 0 {
+func scriptRule(script string) string {
+	switch {
+	case releaseWord.MatchString(script):
+		return RulePublish
+	case script == "env":
+		return RuleSecret
+	}
+	return ""
+}
+
+func denoRule(args []shellWord) string {
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	if slices.Contains([]string{"publish", "upload"}, v[0]) {
+	verb, rest, ok := subcommand(args)
+	if !ok {
+		return RuleShellSyntax
+	}
+	switch verb {
+	case "test", "fmt", "lint", "check":
+		if flagged(rest, []string{"--allow-all", "--allow-run", "--allow-net", "--allow-env", "--allow-write", "--allow-read"}, "A") {
+			return RuleShellSyntax
+		}
+		return ""
+	case "task":
+		script, _, ok := subcommand(rest)
+		if !ok {
+			return RuleShellSyntax
+		}
+		return scriptRule(script)
+	case "publish":
 		return RulePublish
 	}
-	if v[0] == "run" && len(v) > 1 && !strings.Contains(v[1], "://") {
+	return RuleShellSyntax
+}
+
+// runOnlyRule allows uv, poetry, pdm, pipenv and bundle only to run a
+// program, which the gate then checks; anything else may install.
+func runOnlyRule(args []shellWord) string {
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	if slices.Contains([]string{"list", "show", "freeze", "check", "--version", "version", "lock", "tree", "env", "info", "search"}, v[0]) && len(v) == 1 {
+	verb, _, ok := subcommand(args)
+	if ok && (verb == "run" || verb == "exec") {
 		return ""
+	}
+	if ok && slices.Contains([]string{"publish", "upload"}, verb) {
+		return RulePublish
 	}
 	return RuleNetwork
 }
 
 func goRule(args []shellWord) string {
-	if hasOption(args, "-exec", "-toolexec", "-vettool", "--exec", "--toolexec", "--vettool") {
-		return RuleShellSyntax
-	}
-	v := verbs(args)
-	if len(v) == 0 {
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	switch v[0] {
-	case "install", "get":
-		return RuleNetwork
-	case "run", "tool":
-		for _, w := range v[1:] {
-			if strings.Contains(w, "@") {
+	verb, rest, ok := subcommand(args)
+	if !ok {
+		return RuleShellSyntax
+	}
+	if flagged(rest, []string{"-exec", "-toolexec", "-vettool", "--exec", "--toolexec", "--vettool"}, "") ||
+		slices.ContainsFunc(rest, func(w shellWord) bool {
+			name, _, _ := strings.Cut(w.text, "=")
+			return slices.Contains([]string{"-exec", "-toolexec", "-vettool", "-overlay", "-modfile", "-C"}, name)
+		}) {
+		return RuleShellSyntax
+	}
+	switch verb {
+	case "build", "test", "vet", "fmt", "list", "doc", "version", "help", "generate", "mod", "work", "clean", "bug":
+		if verb == "mod" || verb == "work" {
+			if next, _, _ := subcommand(rest); next == "download" || next == "get" {
 				return RuleNetwork
 			}
 		}
+		return ""
+	case "run", "tool":
+		for _, w := range rest {
+			if strings.Contains(w.text, "@") {
+				return RuleNetwork
+			}
+		}
+		return ""
 	case "env":
-		if slices.ContainsFunc(args, func(w shellWord) bool { return w.text == "-w" || w.text == "-u" }) {
+		if flagged(rest, nil, "wu") {
 			return RuleShellSyntax
 		}
+		return ""
+	case "install", "get":
+		return RuleNetwork
 	}
-	return ""
+	return RuleShellSyntax
 }
 
 func cargoRule(args []shellWord) string {
-	v := verbs(args)
-	if len(v) == 0 {
+	if isVersionOrHelp(args) {
 		return ""
 	}
-	switch v[0] {
-	case "install", "add", "uninstall", "remove":
+	verb, rest, ok := subcommand(args)
+	if !ok {
+		return RuleShellSyntax
+	}
+	if flagged(rest, []string{"--config"}, "Z") {
+		return RuleShellSyntax
+	}
+	switch verb {
+	case "build", "b", "check", "c", "test", "t", "fmt", "clippy", "doc", "d", "run", "r", "bench", "tree", "metadata", "clean":
+		return ""
+	case "install", "add", "uninstall", "remove", "update", "fetch":
 		return RuleNetwork
 	case "publish", "yank", "owner", "release":
 		return RulePublish
 	case "login", "logout":
 		return RuleSecret
 	}
-	return ""
-}
-
-func toolchainRule(name string, args []shellWord) string {
-	v := verbs(args)
-	if len(v) == 0 {
-		return ""
-	}
-	switch v[0] {
-	case "push", "publish", "release", "owner", "yank", "hex.publish":
-		return RulePublish
-	case "signin", "signout", "login", "logout":
-		return RuleSecret
-	case "install", "update", "upgrade", "add", "require", "reinstall", "tap", "uninstall", "remove", "get", "deps.get", "restore", "tool", "fetch", "outdated", "lock":
-		return RuleNetwork
-	}
-	if name == "brew" && !slices.Contains([]string{"list", "info", "search", "doctor", "config", "deps", "leaves", "uses", "desc", "--version", "--prefix", "--cellar", "--repository"}, v[0]) {
-		return RuleNetwork
-	}
-	return ""
+	return RuleShellSyntax
 }

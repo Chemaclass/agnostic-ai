@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -97,7 +99,35 @@ func TestLog_RollsOverToOneOlderFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 2 {
-		t.Fatalf("got %d files, want the log and one older file", len(files))
+	var names []string
+	for _, f := range files {
+		names = append(names, f.Name())
+	}
+	if strings.Join(names, ",") != "decisions.jsonl,decisions.jsonl.1,decisions.jsonl.lock" {
+		t.Fatalf("files = %v, want the log, one older file and the lock", names)
+	}
+}
+
+func TestLog_ConcurrentRollOverKeepsEveryLine(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "decisions.jsonl")
+	line, err := json.Marshal(NewEntry("claude", "s", ModeYolo, bash("go test ./..."), approved, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each file holds four lines, so 8 lines fill the log and its older
+	// file exactly; a lost roll over would drop lines.
+	log := Log{Path: path, MaxBytes: int64(4 * (len(line) + 1))}
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			if err := log.Append(NewEntry("claude", "s", ModeYolo, bash("go test ./..."), approved, time.Now())); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	wg.Wait()
+	if got := len(readEntries(t, path)) + len(readEntries(t, path+".1")); got != 8 {
+		t.Fatalf("kept %d lines, want 8", got)
 	}
 }

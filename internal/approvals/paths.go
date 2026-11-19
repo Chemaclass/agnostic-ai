@@ -84,7 +84,7 @@ func (g *gate) globRule(word, cwd string) string {
 		}
 	}
 	secrets := []string{".env", ".env.local", "id_rsa", "x.pem", "x.key", "x.p12", ".netrc", ".npmrc", "credentials", ".ssh", ".aws", ".gnupg"}
-	protected := []string{"agnostic-ai.yaml", "agnostic-ai.local.yaml", "jenkinsfile", "azure-pipelines.yml", "lefthook.yml"}
+	protected := []string{"agnostic-ai.yaml", "agnostic-ai.local.yaml", "jenkinsfile", "azure-pipelines.yml", "lefthook.yml", "lefthook.yaml", "mise.toml"}
 	segments := strings.Split(word, "/")
 	for i, segment := range segments {
 		if !strings.ContainsAny(segment, "*?[") {
@@ -121,10 +121,15 @@ var fixedProtected = spec.ProtectGroup{Paths: []string{
 	"**/.git",
 	".github/workflows", ".github/hooks", ".gitlab-ci.yml", ".circleci", ".buildkite",
 	"azure-pipelines.yml", "Jenkinsfile",
-	".husky", ".githooks", ".pre-commit-config.yaml", "lefthook.yml", ".lefthook.yml",
-	"**/.claude", "**/.codex", "**/.gemini", "**/.cursor", "**/.kiro", "**/.qwen",
+	".github/actions", ".gitmodules", ".gitattributes",
+	".husky", ".githooks", ".pre-commit-config.yaml", "lefthook.yml", "lefthook.yaml", ".lefthook.yml",
+	".lefthook.yaml", "lefthook-local.yml", "lefthook-local.yaml", ".lefthook-local.yml", ".lefthook-local.yaml",
+	".devcontainer", "mise.toml", ".mise.toml", ".config/mise",
+	"**/.claude", "**/.codex", "**/.gemini", "**/.cursor", "**/.kiro", "**/.qwen", "**/.qoder", "**/.codebuddy",
+	"**/.kimi", "**/.kilocode", "**/.augment", "**/.factory", "**/.devin", "**/.openhands", "**/.continue",
+	"**/.junie", "**/.trae", "**/.goose", "**/.opencode", "**/.zed", "**/.idea", "**/.amp", "**/.roo",
 	"**/.windsurf", "**/.crush", "**/.crush.json", "**/crush.json", "**/.mcp.json",
-	"**/.vscode/settings.json", "**/opencode.json",
+	"**/.vscode", "**/opencode.json", "**/opencode.jsonc",
 	".agnostic-ai/hooks", ".agnostic-ai/settings",
 	"**/agnostic-ai.yaml", "**/agnostic-ai.local.yaml",
 	"**/.bashrc", "**/.bash_profile", "**/.bash_login", "**/.bash_logout", "**/.profile",
