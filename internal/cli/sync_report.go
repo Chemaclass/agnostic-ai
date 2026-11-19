@@ -22,6 +22,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/term"
 )
@@ -585,8 +586,14 @@ func runGit(root string, args ...string) (string, bool) {
 	return runGitWithin(root, 2*time.Second, args...)
 }
 
-// runGitWithin is runGit with its own time limit.
+// runGitWithin is runGit with its own time limit. Outside a repository it
+// starts no Git, unless the environment points Git at one.
 func runGitWithin(root string, timeout time.Duration, args ...string) (string, bool) {
+	if !gitEnvNamesRepository() {
+		if _, err := gitquery.LayoutAt(root); err != nil {
+			return "", false
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", append([]string{"--no-optional-locks", "--literal-pathspecs"}, args...)...)
@@ -596,4 +603,16 @@ func runGitWithin(root string, timeout time.Duration, args ...string) (string, b
 		return "", false
 	}
 	return string(out), true
+}
+
+// gitEnvNamesRepository reports whether the environment points Git at a
+// repository. gitquery drops these variables, so its layout would not
+// describe the repository this Git process reads.
+func gitEnvNamesRepository() bool {
+	for _, name := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"} {
+		if _, set := os.LookupEnv(name); set {
+			return true
+		}
+	}
+	return false
 }

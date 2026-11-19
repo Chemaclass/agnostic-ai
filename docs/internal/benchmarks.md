@@ -110,6 +110,9 @@ make test-shell
 | --- | --- |
 | `BenchmarkSyncEmit` | Select every target and render its specs without writing files. Measures the main computation in `sync`. |
 | `BenchmarkSyncFull` | Run `sync` completely: write changed files, distribute entry points, update the generated-file record, and save state. Measures a repeat sync. |
+| `BenchmarkSyncOutsideRepository` | `BenchmarkSyncFull` at 10 specs, serial, in a folder outside any Git repository. Measures the Git questions sync skips there. |
+| `BenchmarkSyncInsideRepository` | The same sync after `git init` in that folder. Shows that a repository pays nothing extra for the skip. |
+| `BenchmarkLayoutAtFresh` | Read the repository layout around a folder (`internal/gitquery`) in a work tree, a bare repository and a folder outside any repository. See [Git outside a repository](#git-outside-a-repository). |
 | `BenchmarkSyncCheck` | Run `--check` by rendering and comparing output with files that already match. |
 | `BenchmarkLoadProject` | Load the project once: parse the config, resolve the spec layers, and load every spec. One `sync` invocation loads the project once. |
 | `BenchmarkLoad` | Load one project config with `config.Load` (`internal/config`), for a base file alone and with `agnostic-ai.local.yaml`: read, shape checks, decode, and every validation. |
@@ -157,6 +160,21 @@ numbers are comparable across runs on the same machine.
   concatenates every entry into one buffer before hashing. It sets the lower bound for comparison.
 
 Before changing frequently run production code, add a `proposed` sub-benchmark beside these two. Run all three to find when the proposed version becomes faster. Keep the benchmark after the proposal closes so later runtime or compiler changes can be measured against it.
+
+## Git outside a repository
+
+`BenchmarkLayoutAtFresh` in `internal/gitquery/gitquery_bench_test.go` compares three ways to read the repository layout:
+
+- `status-quo`: the earlier read, kept in the test file. It asks for the top level first, so a bare repository or a folder outside any repository fails and starts a second Git process.
+- `proposed`: `LayoutAtFresh`, which asks for the top level last. A bare repository still prints the other answers before Git fails, so one process answers every case.
+- `baseline`: one `rev-parse` whose output is thrown away, the cost of a single Git process.
+
+Each process costs about 8 to 10 ms on an Apple M4 Pro with Git 2.54.0, so `outside` and `bare` drop by about half and `worktree` stays the same. `BenchmarkSyncOutsideRepository` gains less because the rest of sync dominates; `BenchmarkSyncInsideRepository` shows no change.
+
+```bash
+go test -run '^$' -bench 'BenchmarkLayoutAtFresh' -benchmem -count=6 ./internal/gitquery
+go test -run '^$' -bench 'BenchmarkSync(Outside|Inside)Repository' -benchmem -count=6 ./internal/cli
+```
 
 ## Profiling a slow sync
 

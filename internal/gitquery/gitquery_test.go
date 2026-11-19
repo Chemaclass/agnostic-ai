@@ -45,6 +45,19 @@ func TestLayoutAt_BareRepositoryHasNoToplevel(t *testing.T) {
 	}
 }
 
+func TestLayoutAt_InsideGitDirHasNoToplevel(t *testing.T) {
+	Reset()
+	dir := t.TempDir()
+	git(t, dir, "init", "-q")
+	l, err := LayoutAt(filepath.Join(dir, ".git", "objects"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.HasToplevel || l.Toplevel != "" || filepath.Base(l.GitDir) != ".git" || filepath.Base(l.CommonDir) != ".git" {
+		t.Errorf("layout = %+v", l)
+	}
+}
+
 func TestLayoutAt_OutsideGitFails(t *testing.T) {
 	Reset()
 	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(t.TempDir()))
