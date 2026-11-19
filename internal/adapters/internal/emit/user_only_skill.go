@@ -22,7 +22,7 @@ func (u UserOnlySkill) Markdown(s spec.Entry) string {
 		return SkillMarkdown(s, u.Target)
 	}
 	custom, _ := s.Meta[XPrefix+u.Target].(map[string]any)
-	merged := make(map[string]any, len(custom)+len(u.Keys))
+	merged := make(map[string]any, len(custom))
 	for k, v := range custom {
 		merged[k] = v
 	}
