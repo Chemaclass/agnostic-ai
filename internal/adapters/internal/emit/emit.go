@@ -1894,14 +1894,14 @@ func FrontmatterStyled(meta map[string]any, keys []string, styles map[string]yam
 	if len(meta) == 0 {
 		return ""
 	}
-	ordered := orderedMetaKeys(meta, keys)
+	values, err := encodeMetaValues(meta)
+	if err != nil {
+		return ""
+	}
 	root := &yaml.Node{Kind: yaml.MappingNode}
-	for _, k := range ordered {
+	for _, k := range orderedMetaKeys(meta, keys) {
 		keyNode := &yaml.Node{Kind: yaml.ScalarNode, Value: k}
-		valNode := &yaml.Node{}
-		if err := valNode.Encode(meta[k]); err != nil {
-			return ""
-		}
+		valNode := values[k]
 		applySourceStyle(valNode, styles[k])
 		preferDoubleQuotes(valNode)
 		root.Content = append(root.Content, keyNode, valNode)
@@ -1921,6 +1921,42 @@ func FrontmatterStyled(meta map[string]any, keys []string, styles map[string]yam
 	out.WriteString(buf.String())
 	out.WriteString("---\n")
 	return out.String()
+}
+
+// encodeMetaValues encodes every value of meta into a YAML node. Each
+// yaml.v3 Node.Encode builds an encoder and a parser, so the whole map
+// goes through one of each, and only a key the parsed document cannot
+// name exactly falls back to its own Encode.
+func encodeMetaValues(meta map[string]any) (map[string]*yaml.Node, error) {
+	var doc yaml.Node
+	if err := doc.Encode(meta); err != nil {
+		return nil, err
+	}
+	values := make(map[string]*yaml.Node, len(meta))
+	if doc.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(doc.Content); i += 2 {
+			key := doc.Content[i]
+			if key.Kind != yaml.ScalarNode || key.ShortTag() != "!!str" {
+				continue
+			}
+			if _, inMeta := meta[key.Value]; !inMeta || values[key.Value] != nil {
+				clear(values)
+				break
+			}
+			values[key.Value] = doc.Content[i+1]
+		}
+	}
+	for k, v := range meta {
+		if _, ok := values[k]; ok {
+			continue
+		}
+		node := &yaml.Node{}
+		if err := node.Encode(v); err != nil {
+			return nil, err
+		}
+		values[k] = node
+	}
+	return values, nil
 }
 
 // applySourceStyle stamps a non-zero source style onto a scalar leaf so

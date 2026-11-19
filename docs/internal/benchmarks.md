@@ -112,6 +112,10 @@ make test-shell
 | `BenchmarkExplain` | `explain` for one rule against a synced tree: every target rendered with and without it. |
 | `BenchmarkLint` | The full project `lint` report, the source-spec checks `doctor` also runs. |
 | `BenchmarkCompareToDisk` | Compare rendered output with files: the current full read versus checking size first with `CompareToDisk`, across scenarios and file sizes. |
+| `BenchmarkAgentPermission` | Build one Kilo agent permission map: compiling each wildcard pattern on every comparison versus the per-pattern cache, cold and warm, and a matcher with no regular expression, across narrow and wide tool lists with and without project rules. |
+| `BenchmarkFrontmatter` | Render one frontmatter block: encoding each value alone versus encoding the whole map once with `FrontmatterStyled`, and plain `yaml.Marshal`, for agent, skill, and styled metadata. |
+| `BenchmarkRewriteHookRoot` | Rewrite one hook command below a Git root: finding the root before reading the command versus finding it only when needed with `RewriteHookRoot`, and a root found once, for commands with no reference, a native variable, and a Git root. |
+| `BenchmarkNoteDroppedSkillFields` | Check 100 skills for dropped fields with `NoteDroppedSkillFields`, which renders and parses each skill, versus the render alone. |
 
 ## Read the output
 

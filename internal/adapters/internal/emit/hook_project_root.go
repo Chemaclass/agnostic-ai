@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -137,14 +138,24 @@ func projectHookRootEscaped(escape *strings.Replacer) string {
 
 // RewriteHookProjectRoot translates shell-form root references; args are literal argv.
 func RewriteHookProjectRoot(command, target, root string, args []string) string {
+	return rewriteHookProjectRoot(command, target, func() string { return root }, args)
+}
+
+// rewriteHookProjectRoot asks for the root only when the command needs
+// it: finding it reads the working folder and walks up to `.git`.
+func rewriteHookProjectRoot(command, target string, projectRoot func() string, args []string) string {
 	if nativeHookRoots[target] == claudeProjectDir || len(args) > 0 {
 		return command
 	}
-	if variable := nativeHookRoots[target]; variable != "" {
-		root = "${" + variable + "}"
-	}
 	references, reason := hookRootReferences(command)
-	if root == "" || reason != "" || len(references) == 0 {
+	if reason != "" || len(references) == 0 {
+		return command
+	}
+	root := "${" + nativeHookRoots[target] + "}"
+	if nativeHookRoots[target] == "" {
+		root = projectRoot()
+	}
+	if root == "" {
 		return command
 	}
 	var out strings.Builder
@@ -167,9 +178,9 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 	if mode == OnUnsupportedSilent || target == "claude" {
 		return nil
 	}
-	root := projectHookRoot()
+	root := sync.OnceValue(projectHookRoot)
 	if global {
-		root = gitHookRoot
+		root = func() string { return gitHookRoot }
 	}
 	for _, hook := range hooks {
 		metadata := []map[string]any{ResolveMeta(hook.Meta, target)}
@@ -182,8 +193,8 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 		for _, meta := range metadata {
 			if windows, _ := meta["commandWindows"].(string); windows != "" {
 				refs, reason := hookRootReferences(windows)
-				translated := target == "codex" && !global && reason == "" && root != ""
-				if !translated && (len(refs) > 0 || reason != "") {
+				used := len(refs) > 0 || reason != ""
+				if used && !(target == "codex" && !global && reason == "" && root() != "") {
 					if err := reportHookRoot(target, hook, mode, "commandWindows", "Windows root references require a target-specific project root"); err != nil {
 						return err
 					}
@@ -211,7 +222,7 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 				case reason != "":
 				case !hookPOSIXShell(meta):
 					reason = "a POSIX shell is required to translate the root reference"
-				case nativeHookRoots[target] == "" && root == "":
+				case nativeHookRoots[target] == "" && root() == "":
 					reason = "the project has no Git worktree root to resolve at runtime"
 				default:
 					continue
@@ -256,14 +267,14 @@ func RewriteHookRoot(command, target string, metadata ...map[string]any) string 
 	if !hookPOSIXShell(meta) {
 		return command
 	}
-	return RewriteHookProjectRoot(command, target, projectHookRoot(), StringSlice(meta["args"]))
+	return rewriteHookProjectRoot(command, target, projectHookRoot, StringSlice(meta["args"]))
 }
 
 // RewriteWindowsHookRoot translates root references in Codex's
 // commandWindows, which PowerShell runs. `$(...)` is a subexpression there
 // too, so the root resolves as in the POSIX command.
 func RewriteWindowsHookRoot(command, target string) string {
-	return RewriteHookProjectRoot(command, target, projectHookRootEscaped(powershellRootEscape), nil)
+	return rewriteHookProjectRoot(command, target, func() string { return projectHookRootEscaped(powershellRootEscape) }, nil)
 }
 
 func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {
