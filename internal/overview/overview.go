@@ -590,7 +590,7 @@ var builtinAbouts = map[string]BuiltinAbout{
 		Points: []string{
 			`Say "send this to a remote agent" or "run it in the cloud". The agent commits and pushes the work to a branch, writes the goal and the next step as the cloud prompt, and starts the cloud session.`,
 			"Claude Code needs a claude.ai sign-in and, from inside a session, the script command of macOS or Linux. Codex needs a cloud environment id, which the agent asks you for.",
-			"It never pushes to the default branch, never force-pushes, and leaves out .env and other secret-looking files. It runs only when you ask.",
+			"It never pushes to the default branch, never force-pushes, and leaves out .env and other secret-looking files. It runs only when you ask, or agree after the agent offers.",
 		},
 	},
 	"side-conversation": {
