@@ -356,3 +356,20 @@ func TestHandler_HealthNamesTheServingVersion(t *testing.T) {
 		t.Errorf("health without a version = %v", bare)
 	}
 }
+
+func TestHandler_HealthNamesWhenTheRunningScanBegan(t *testing.T) {
+	began := time.Date(2026, 11, 19, 9, 30, 0, 0, time.UTC)
+	var health struct {
+		ScanningSince string `json:"scanningSince"`
+	}
+	getJSON(t, demoServer(t, HandlerOptions{ScanningSince: func() time.Time { return began }}).URL+"/api/health", &health)
+	if health.ScanningSince != "2026-11-19T09:30:00Z" {
+		t.Errorf("health scanningSince = %q, want 2026-11-19T09:30:00Z", health.ScanningSince)
+	}
+
+	var idle map[string]any
+	getJSON(t, demoServer(t, HandlerOptions{ScanningSince: func() time.Time { return time.Time{} }}).URL+"/api/health", &idle)
+	if _, ok := idle["scanningSince"]; ok {
+		t.Errorf("health with no scan running = %v", idle)
+	}
+}
