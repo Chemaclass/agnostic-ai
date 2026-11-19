@@ -28,9 +28,13 @@ interface Controller {
 const BuiltinChanges = createContext<Controller | null>(null)
 const pendingSourceFinding = 'This preview also applies pending source changes.'
 
-/** The notes worth listing: not the pending-source line, shown on its own, nor a note the server redacted whole. */
+/** The notes worth listing: not the pending-source line, shown on its own, nor a note the server redacted whole, nor an undo's cleanup failure, which stays in view. */
 function reviewNotes(findings: string[]): string[] {
-  return findings.filter((finding) => finding !== pendingSourceFinding && finding.trim() !== '<redacted>')
+  return findings.filter((finding) => finding !== pendingSourceFinding && finding.trim() !== '<redacted>' && !cleanupNote(finding))
+}
+
+function cleanupNote(finding: string): boolean {
+  return finding.startsWith('Files restored; directory cleanup:')
 }
 
 function useBuiltinChanges(): Controller {
@@ -191,6 +195,7 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
       {!pending && !error && !notice && change?.status === 'undone' && 'Previous files restored.'}
     </div>
     {error && <ChangeError />}
+    {!proposal && !error && change?.status === 'undone' && change.findings.filter(cleanupNote).map((finding) => <Notice key={finding} tone="warning" title={finding} />)}
     {!proposal && !error && change?.status === 'undone' && reviewNotes(change.findings).length > 0 && <PreviewNotes findings={reviewNotes(change.findings)} targets={change.targets} />}
   </div>
 }

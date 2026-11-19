@@ -204,7 +204,7 @@ test.describe('setup health', () => {
 
   test('works from data with no server, without Recheck', async ({ page }) => {
     await openApp(page, '?view=health&mock=1')
-    await expect(healthRow(page, '1 to fix')).toBeVisible()
+    await expect(healthRow(page, '1 worth a look')).toBeVisible()
     const finding = page.locator('.health-group .finding', { hasText: 'LINT038' })
     await expect(finding).toBeVisible()
     const details = await findingDetails(finding)

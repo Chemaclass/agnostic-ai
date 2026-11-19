@@ -11,7 +11,8 @@ import (
 // inside an open context, such as an unclosed `[`. For these the library
 // names a 0-based line: where the context starts or, when that is the
 // first line, where the problem was found. Scanner errors name the right
-// line.
+// line. A context still open at the end of the file names the line after
+// the last one.
 var contextParserProblems = []string{
 	"did not find expected <document start>",
 	"did not find expected key",
@@ -20,6 +21,9 @@ var contextParserProblems = []string{
 	"did not find expected ',' or ']'",
 	"did not find expected ',' or '}'",
 	"found undefined tag handle",
+	"found duplicate %YAML directive",
+	"found incompatible YAML document",
+	"found duplicate %TAG directive",
 }
 
 var yamlLinePrefix = regexp.MustCompile(`^yaml: line (\d+): (.+)$`)

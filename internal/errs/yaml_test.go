@@ -12,6 +12,7 @@ func TestYAMLLine_NamesTheLineAnOpenContextStartsOn(t *testing.T) {
 		{"version: 1\nmodel: {a: b\n", "yaml: line 2: did not find expected ',' or '}'"},
 		{"version: 1\ntargets: \"claude\n", "yaml: line 2: found unexpected end of stream"},
 		{"a: b\n  c: d\n", "yaml: line 2: mapping values are not allowed in this context"},
+		{"# c\n%YAML 1.1\n%YAML 1.1\n---\na: 1\n", "yaml: line 3: found duplicate %YAML directive"},
 	} {
 		var out any
 		err := YAMLLine(yaml.Unmarshal([]byte(tc.doc), &out))

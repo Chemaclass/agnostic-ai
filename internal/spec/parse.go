@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // ParseMarkdownBytes parses an in-memory spec document and returns the
@@ -42,7 +44,7 @@ func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
 func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
 	e, err := decodeYAMLEntry(data)
 	if err != nil {
-		return Entry{}, err
+		return Entry{}, errs.YAMLLine(err)
 	}
 	e.Kind = kind
 	return e, nil
