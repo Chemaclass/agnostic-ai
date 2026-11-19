@@ -244,23 +244,9 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			add(run)
 			continue
 		}
-		event, _ := hook.Meta["event"].(string)
-		matcher, _ := hook.Meta["matcher"].(string)
-		if target == "crush" {
-			if canonical := crush.CanonicalHookEvent(event); canonical != "" {
-				event = canonical
-			}
-		}
-		if _, ok := hookEventsByTarget[target][event]; !ok {
-			run.Reason = fmt.Sprintf("%s has no %s event", target, event)
-			if target == "augment" && event == "UserPromptSubmit" {
-				run.Reason = augment.UserPromptSubmitHint
-			}
-			add(run)
-			continue
-		}
-		if target == "crush" && event != "PreToolUse" {
-			run.Reason = "hook run builds only Crush's PreToolUse payload"
+		event, matcher, reason := hookRunEvent(target, hook)
+		if reason != "" {
+			run.Reason = reason
 			add(run)
 			continue
 		}
@@ -315,119 +301,149 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 				continue
 			}
 		}
-		run.Async = hookRunAsync(target, hook.Meta)
-		if target == "codex" && event == "SessionEnd" {
-			run.Async = false
-		}
-		if hookrun.FireAndForget(target, event) {
-			run.Async, run.fireAndForget = true, true
-		}
-		if target == "cline" {
-			// A portable match kind is a tool name check in the script.
-			dropped := matcher
-			if hook.FilteredTools(target) != nil {
-				dropped = ""
-			}
-			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, dropped, specTimeout(hook.Meta), payload.Trigger)...)
-			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, spec.Bundle{Hooks: hooks}.HooksFor(target), hook)); reason != "" && !run.Async {
-				run.uncounted, run.sharedScript = reason, true
-				run.Notes = append(run.Notes, "not counted: "+reason)
-			}
-		}
-		var crushResults []hookrun.Result
-		if target == "crush" {
-			handlers = hookrun.CrushDedupe(handlers)
-			env := hookRunEnv(target, root, hookEnvContext{}, hookrun.Handler{})
-			crushResults = hookrun.RunCrushHooks(handlers, root, hookrun.CrushEnv(env, root, payload.Body), payload.Body, hookTimeout(target, hook.Meta), runtime.GOOS)
-		}
-		for i, h := range handlers {
-			timeout := h.Timeout
-			if timeout <= 0 {
-				timeout = hookTimeout(target, hook.Meta)
-			}
-			timeout = hookrun.CommandTimeout(target, event, timeout)
-			shown := shownHookCommand(h)
-			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
-			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), prompt: hookrun.PayloadPrompt(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
-			var unmodeled string
-			if target == "augment" {
-				h, unmodeled = hookrun.AugmentExpand(h, env)
-			}
-			dir := root
-			if target == "copilot" {
-				dir = hookrun.CopilotDir(root, h)
-				h = hookrun.CopilotExec(root, h)
-			}
-			var r hookrun.Result
-			if target == "crush" {
-				r = crushResults[i]
-				run.Assumptions = mergeAssumptions(run.Assumptions, hookrun.CrushAssumptions(r))
-			} else {
-				r = hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), dir, env, payload.Body, timeout)
-			}
-			d := hookrun.DecideHandler(target, event, h, r)
-			if target == "qoder" && d == hookrun.Block && hookrun.QoderPolicyChange(event, payload.Body) {
-				d = hookrun.Error
-				run.Notes = append(run.Notes, "Qoder enforces a policy_settings change; the hook runs for audit and cannot block it")
-			}
-			if target == "cursor" && hookrun.CursorAsks(event, r) {
-				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
-			}
-			if target == "crush" && hookrun.CrushHalts(r) {
-				run.Notes = append(run.Notes, "halt: Crush ends the whole turn, not only this tool call")
-			}
-			if target == "factory" && d == hookrun.Allow && hookrun.FactoryAsks(event, r) {
-				run.Notes = append(run.Notes, "replied ask: Factory's normal permissions decide, so a call they allow runs without a prompt; read as allow")
-			}
-			// uncounted is why this command's result is not counted, "" when
-			// the target documents it.
-			var note, uncounted string
-			switch target {
-			case "antigravity":
-				note, uncounted = hookrun.AntigravityNote(event, r), hookrun.AntigravityUncounted(event, r)
-			case "kiro":
-				note, uncounted = hookrun.KiroNote(event, r), hookrun.KiroUncounted(event, r)
-			case "windsurf":
-				note, uncounted = hookrun.WindsurfNote(event, r), hookrun.WindsurfUncounted(event, r)
-			case "augment":
-				note, uncounted = hookrun.AugmentNote(event, r), unmodeled
-			case "cline":
-				run.Notes = append(run.Notes, hookrun.ClineNotes(event, r)...)
-			}
-			if note != "" {
-				run.Notes = append(run.Notes, note)
-			}
-			if uncounted != "" && run.uncounted == "" {
-				run.uncounted = uncounted
-				run.Notes = append(run.Notes, "not counted: "+uncounted)
-			}
-			if target == "qoder" && hookrun.QoderAsks(event, r) {
-				run.Notes = append(run.Notes, "replied ask: Qoder asks the user before the tool runs; read as block")
-			}
-			if target == "copilot" && hookrun.CopilotAsks(event, r) {
-				run.Notes = append(run.Notes, "replied ask: Copilot CLI asks the user before the tool runs, and cloud agent denies it; read as block")
-			}
-			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, (target != "openhands" || !run.Async) && hookrun.AddsContext(target, event, r)))
-			run.Decision = strongerDecision(run.Decision, d)
-			if (d == hookrun.Timeout || d == hookrun.Error) && uncounted == "" {
-				run.failed = append(run.failed, d)
-			}
-			if target == "copilot" && hookrun.CopilotErrored(event, r) {
-				run.failed = append(run.failed, hookrun.Error)
-				run.Notes = append(run.Notes, "the hook failed, and Copilot denies a preToolUse hook that fails; read as block")
-			}
-		}
-		if target == "copilot" {
-			copilotMergeDecision(&run, event)
-		}
-		if adapters.JudgesHooks(target) {
-			if reason := adapters.AcceptsHook(target, hook.Meta); reason != "" {
-				run.Notes = append(run.Notes, reason)
-			}
-		}
+		run.runCommands(hookCall{cfg: cfg, target: target, event: event, root: root, payload: payload, meta: hook.Meta}, hook, hooks, matcher, handlers)
 		add(run)
 	}
 	return runs, nil
+}
+
+// runCommands runs each command handler of hook and adds the results
+// to run. hooks is every hook spec in the project.
+func (run *hookTargetRun) runCommands(c hookCall, hook spec.Entry, hooks []spec.Entry, matcher string, handlers []hookrun.Handler) {
+	run.Async, run.fireAndForget = hookRunsAsync(c.target, c.event, hook.Meta)
+	if c.target == "cline" {
+		// A portable match kind is a tool name check in the script.
+		dropped := matcher
+		if hook.FilteredTools(c.target) != nil {
+			dropped = ""
+		}
+		run.Notes = append(run.Notes, hookrun.ClineRunNotes(c.event, dropped, specTimeout(hook.Meta), c.payload.Trigger)...)
+		if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(c.cfg, c.target, spec.Bundle{Hooks: hooks}.HooksFor(c.target), hook)); reason != "" && !run.Async {
+			run.uncounted, run.sharedScript = reason, true
+			run.Notes = append(run.Notes, "not counted: "+reason)
+		}
+	}
+	var crushResults []hookrun.Result
+	if c.target == "crush" {
+		handlers = hookrun.CrushDedupe(handlers)
+		env := hookRunEnv(c.target, c.root, hookEnvContext{}, hookrun.Handler{})
+		crushResults = hookrun.RunCrushHooks(handlers, c.root, hookrun.CrushEnv(env, c.root, c.payload.Body), c.payload.Body, hookTimeout(c.target, hook.Meta), runtime.GOOS)
+	}
+	for i, h := range handlers {
+		var precomputed *hookrun.Result
+		if crushResults != nil {
+			precomputed = &crushResults[i]
+		}
+		run.runHandler(c, h, precomputed)
+	}
+	if c.target == "copilot" {
+		copilotMergeDecision(run, c.event)
+	}
+	if adapters.JudgesHooks(c.target) {
+		if reason := adapters.AcceptsHook(c.target, hook.Meta); reason != "" {
+			run.Notes = append(run.Notes, reason)
+		}
+	}
+}
+
+// hookRunEvent is the event and matcher hook runs for target, or why it
+// runs none.
+func hookRunEvent(target string, hook spec.Entry) (event, matcher, reason string) {
+	event, _ = hook.Meta["event"].(string)
+	matcher, _ = hook.Meta["matcher"].(string)
+	_, known := hookEventsByTarget[target][event]
+	switch target {
+	case "crush":
+		if canonical := crush.CanonicalHookEvent(event); canonical != "" {
+			event = canonical
+		}
+		_, known = hookEventsByTarget[target][event]
+		if known && event != "PreToolUse" {
+			return event, matcher, "hook run builds only Crush's PreToolUse payload"
+		}
+	case "augment":
+		if !known && event == "UserPromptSubmit" {
+			return event, matcher, augment.UserPromptSubmitHint
+		}
+	}
+	if !known {
+		return event, matcher, fmt.Sprintf("%s has no %s event", target, event)
+	}
+	return event, matcher, ""
+}
+
+// hookRunsAsync reports whether target runs the hook without waiting,
+// and whether it never waits on event, whatever the spec's async says.
+func hookRunsAsync(target, event string, meta map[string]any) (async, fireAndForget bool) {
+	if hookrun.FireAndForget(target, event) {
+		return true, true
+	}
+	if target == "codex" && event == "SessionEnd" {
+		return false, false
+	}
+	return hookRunAsync(target, meta), false
+}
+
+// hookCall is one target's run of a hook, shared by each of its
+// commands.
+type hookCall struct {
+	cfg     *config.Config
+	target  string
+	event   string
+	root    string
+	payload hookrun.Payload
+	meta    map[string]any
+}
+
+// runHandler runs one command of the hook and adds its result to run.
+// precomputed is the command's result when the target runs every
+// command together, as Crush does.
+func (run *hookTargetRun) runHandler(c hookCall, h hookrun.Handler, precomputed *hookrun.Result) {
+	timeout := h.Timeout
+	if timeout <= 0 {
+		timeout = hookTimeout(c.target, c.meta)
+	}
+	timeout = hookrun.CommandTimeout(c.target, c.event, timeout)
+	shown := shownHookCommand(h)
+	h.Command = hookrun.ExpandCommand(c.target, runtime.GOOS, h.Command, c.root)
+	env := hookRunEnv(c.target, c.root, hookEnvContext{event: c.event, tool: hookrun.PayloadTool(c.payload.Body), prompt: hookrun.PayloadPrompt(c.payload.Body), pluginRoot: adapters.HookPluginRoot(c.cfg, c.target)}, h)
+	var unmodeled string
+	dir := c.root
+	switch c.target {
+	case "augment":
+		h, unmodeled = hookrun.AugmentExpand(h, env)
+	case "copilot":
+		dir = hookrun.CopilotDir(c.root, h)
+		h = hookrun.CopilotExec(c.root, h)
+	}
+	var r hookrun.Result
+	if precomputed != nil {
+		r = *precomputed
+		run.Assumptions = mergeAssumptions(run.Assumptions, hookrun.CrushAssumptions(r))
+	} else {
+		r = hookrun.Run(hookrun.Argv(c.target, runtime.GOOS, h), dir, env, c.payload.Body, timeout)
+	}
+	d, notes, failed := hookrun.AdjustDecision(c.target, c.event, c.payload.Body, hookrun.DecideHandler(c.target, c.event, h, r), r)
+	run.Notes = append(run.Notes, notes...)
+	// uncounted is why this command's result is not counted, "" when the
+	// target documents it.
+	notes, uncounted := hookrun.ResultNotes(c.target, c.event, r)
+	if uncounted == "" {
+		uncounted = unmodeled
+	}
+	run.Notes = append(run.Notes, notes...)
+	if uncounted != "" && run.uncounted == "" {
+		run.uncounted = uncounted
+		run.Notes = append(run.Notes, "not counted: "+uncounted)
+	}
+	run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, (c.target != "openhands" || !run.Async) && hookrun.AddsContext(c.target, c.event, r)))
+	run.Decision = strongerDecision(run.Decision, d)
+	if (d == hookrun.Timeout || d == hookrun.Error) && uncounted == "" {
+		run.failed = append(run.failed, d)
+	}
+	if failed {
+		run.failed = append(run.failed, hookrun.Error)
+	}
 }
 
 func newHookCommandRun(command string, d hookrun.Decision, r hookrun.Result, addsContext bool) hookCommandRun {
