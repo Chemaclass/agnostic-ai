@@ -57,7 +57,7 @@ func TestDoctorFix_RemovesImportedNestedClaudeMDSoSyncPasses(t *testing.T) {
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync after doctor --fix: %v\n%s", err, out)
 	}
-	if got := mustRead(t, filepath.Join(dir, "src", "a", "AGENTS.md")); !strings.Contains(got, "Run make test.") {
+	if got := readFile(t, filepath.Join(dir, "src", "a", "AGENTS.md")); !strings.Contains(got, "Run make test.") {
 		t.Errorf("src/a/AGENTS.md should hold the rule text, got %q", got)
 	}
 }

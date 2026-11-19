@@ -26,10 +26,10 @@ func TestImportFromClaude_PointsNativePathsAtSources(t *testing.T) {
 	}
 
 	want := "# Project\n\nRead `skills/style/SKILL.md`.\n\nSee ./.claude/skills/gone/SKILL.md.\n"
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != want {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != want {
 		t.Errorf("AGNOSTIC_AI.md = %q, want %q", got, want)
 	}
-	if got := mustRead(t, filepath.Join(dir, "skills", "style", "SKILL.md")); !strings.Contains(got, "Pair with rules/tone.md.") {
+	if got := readFile(t, filepath.Join(dir, "skills", "style", "SKILL.md")); !strings.Contains(got, "Pair with rules/tone.md.") {
 		t.Errorf("skill should point at the rule source, got:\n%s", got)
 	}
 	if !strings.Contains(buf.String(), "names .claude/skills/gone/SKILL.md, which no imported spec replaces") {
@@ -49,7 +49,7 @@ func TestImportFromClaude_KeepsImportOfRuleItDidNotWrite(t *testing.T) {
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); !strings.Contains(got, "@.claude/rules/tone.md") {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); !strings.Contains(got, "@.claude/rules/tone.md") {
 		t.Errorf("the @ line should stay, got:\n%s", got)
 	}
 }

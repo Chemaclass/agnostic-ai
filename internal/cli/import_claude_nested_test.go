@@ -22,7 +22,7 @@ func TestImportFromClaude_NestedCLAUDEmdBecomesOneScopedRule(t *testing.T) {
 	}
 
 	want := "---\nname: a\nglobs: src/a/**\nscope: src/a\n---\n\n# Module A\n\nA facts.\n\n## Tests\n\nRun make test.\n"
-	if got := mustRead(t, filepath.Join(dir, "rules", "a.md")); got != want {
+	if got := readFile(t, filepath.Join(dir, "rules", "a.md")); got != want {
 		t.Errorf("rules/a.md = %q, want %q", got, want)
 	}
 	if entries := mustReadDir(t, filepath.Join(dir, "rules")); len(entries) != 1 {
@@ -43,7 +43,7 @@ func TestImportFromClaude_HandWrittenRootCLAUDEmdFeedsOnlyAgnosticMain(t *testin
 		t.Fatalf("import: %v", err)
 	}
 
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); !strings.Contains(got, "root text") {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); !strings.Contains(got, "root text") {
 		t.Errorf("AGNOSTIC_AI.md should hold the root text, got %q", got)
 	}
 	if entries := mustReadDir(t, filepath.Join(dir, "rules")); len(entries) != 0 {
@@ -66,7 +66,7 @@ func TestImportFromClaude_NestedCompanionImportsItsAgentsMD(t *testing.T) {
 	}
 
 	want := "---\nname: api\nglobs: services/api/**\nscope: services/api\n---\n\n# API\n\nUse integer minor units.\n"
-	if got := mustRead(t, filepath.Join(dir, "rules", "api.md")); got != want {
+	if got := readFile(t, filepath.Join(dir, "rules", "api.md")); got != want {
 		t.Errorf("rules/api.md = %q, want %q", got, want)
 	}
 }
@@ -83,7 +83,7 @@ func TestImportFromClaude_NestedCompanionFencesItsClaudeText(t *testing.T) {
 	}
 
 	want := "---\nname: api\nglobs: services/api/**\nscope: services/api\n---\n\n# API\n\nUse integer minor units.\n\n::target claude\nUse the API launch config.\n::end\n"
-	if got := mustRead(t, filepath.Join(dir, "rules", "api.md")); got != want {
+	if got := readFile(t, filepath.Join(dir, "rules", "api.md")); got != want {
 		t.Errorf("rules/api.md = %q, want %q", got, want)
 	}
 }
@@ -109,7 +109,7 @@ func TestImportFromClaude_NestedCompanionLeavesAgentsMDToCodex(t *testing.T) {
 		t.Fatalf("want only rules/web-claude.md, got %v", entries)
 	}
 	want := "---\nname: web-claude\nglobs: services/web/**\nscope: services/web\n---\n\n::target claude\nUse the web launch config.\n::end\n"
-	if got := mustRead(t, filepath.Join(dir, "rules", "web-claude.md")); got != want {
+	if got := readFile(t, filepath.Join(dir, "rules", "web-claude.md")); got != want {
 		t.Errorf("rules/web-claude.md = %q, want %q", got, want)
 	}
 }

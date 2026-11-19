@@ -124,7 +124,7 @@ func TestImportFromClaude_CompanionOfAgentsMDFencesClaudeText(t *testing.T) {
 	}
 
 	want := "# Project\n\nRoot guidance.\n\n::target claude\n## Claude Code specifics\n\n- Use the Dashboard launch config.\n::end\n"
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != want {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != want {
 		t.Errorf("AGNOSTIC_AI.md = %q, want %q", got, want)
 	}
 	if entries, _ := os.ReadDir(filepath.Join(dir, rootSources().Rules)); len(entries) != 0 {
@@ -195,7 +195,7 @@ func TestImportFromClaude_NoWarnRightAfterSyncWithFencedClaudeBlock(t *testing.T
 			if !strings.Contains(out, "AGNOSTIC_AI.md unchanged (it already holds what AGENTS.md and CLAUDE.md say)") {
 				t.Errorf("expected the unchanged line, got:\n%s", out)
 			}
-			if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+			if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != source {
 				t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 			}
 		})
@@ -215,7 +215,7 @@ func TestImportFromClaude_NoWarnRightAfterSyncWhenAgentsMDCarriesARule(t *testin
 	if err := runSync(t); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
-	if strings.Contains(mustRead(t, filepath.Join(dir, "CLAUDE.md")), "@AGENTS.md") {
+	if strings.Contains(readFile(t, filepath.Join(dir, "CLAUDE.md")), "@AGENTS.md") {
 		t.Fatal("CLAUDE.md is the companion; the test needs the full copy")
 	}
 	buf.Reset()
@@ -227,7 +227,7 @@ func TestImportFromClaude_NoWarnRightAfterSyncWhenAgentsMDCarriesARule(t *testin
 	if out := buf.String(); strings.Contains(out, companionSyncWarning) {
 		t.Errorf("clean sync must not warn, got:\n%s", out)
 	}
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != source {
 		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
 }
@@ -236,7 +236,7 @@ func TestImportFromClaude_WarnsWhenCompanionClaudeTextEdited(t *testing.T) {
 	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
 	dir, buf := syncFencedClaudeBlock(t, source)
 	claudePath := filepath.Join(dir, "CLAUDE.md")
-	original := mustRead(t, claudePath)
+	original := readFile(t, claudePath)
 	edited := strings.Replace(original, "- Claude only line.", "- Claude only line, edited.", 1)
 	if edited == original {
 		t.Fatal("CLAUDE.md does not hold the claude-only line")
@@ -253,7 +253,7 @@ func TestImportFromClaude_WarnsWhenCompanionClaudeTextEdited(t *testing.T) {
 	if !strings.Contains(buf.String(), "! CLAUDE.md differs") || strings.Contains(buf.String(), "AGENTS.md") {
 		t.Errorf("expected the warning to name only CLAUDE.md, got:\n%s", buf.String())
 	}
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != source {
 		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
 }
@@ -262,7 +262,7 @@ func TestImportFromClaude_WarningNamesAgentsMDWhenOnlyItWasEdited(t *testing.T) 
 	source := "Root text.\n\n::target claude\n\n## Claude specifics\n\n- Claude only line.\n\n::end\n"
 	dir, buf := syncFencedClaudeBlock(t, source)
 	agentsPath := filepath.Join(dir, "AGENTS.md")
-	writeFile(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
+	writeFile(t, agentsPath, readFile(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -271,7 +271,7 @@ func TestImportFromClaude_WarningNamesAgentsMDWhenOnlyItWasEdited(t *testing.T) 
 	if !strings.Contains(buf.String(), "! AGENTS.md differs from what sync renders") || strings.Contains(buf.String(), "! CLAUDE.md differs") {
 		t.Errorf("expected the warning to name AGENTS.md, got:\n%s", buf.String())
 	}
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != source {
 		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
 }
@@ -281,8 +281,8 @@ func TestImportFromClaude_WarningNamesBothWhenBothEdited(t *testing.T) {
 	dir, buf := syncFencedClaudeBlock(t, source)
 	agentsPath := filepath.Join(dir, "AGENTS.md")
 	claudePath := filepath.Join(dir, "CLAUDE.md")
-	writeFile(t, agentsPath, mustRead(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
-	writeFile(t, claudePath, strings.Replace(mustRead(t, claudePath), "- Claude only line.", "- Claude only line, edited.", 1))
+	writeFile(t, agentsPath, readFile(t, agentsPath)+"\n## Testing\n\nRun the tests first.\n")
+	writeFile(t, claudePath, strings.Replace(readFile(t, claudePath), "- Claude only line.", "- Claude only line, edited.", 1))
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatalf("import: %v", err)
@@ -291,7 +291,7 @@ func TestImportFromClaude_WarningNamesBothWhenBothEdited(t *testing.T) {
 	if !strings.Contains(buf.String(), "! AGENTS.md and CLAUDE.md differs") {
 		t.Errorf("expected the warning to name both files, got:\n%s", buf.String())
 	}
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != source {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != source {
 		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
 }

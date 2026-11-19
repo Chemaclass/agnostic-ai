@@ -201,7 +201,7 @@ func TestInitFromAll_FoldsRootAgentsMainFile(t *testing.T) {
 		t.Fatalf("init --from all: %v", err)
 	}
 
-	got := mustRead(t, filepath.Join(dir, agnosticMainFile))
+	got := readFile(t, filepath.Join(dir, agnosticMainFile))
 	want := "# Project\n\nUse make test.\n\n# Repository Guidelines\n\nRun make lint before pushing.\n"
 	if got != want {
 		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, want)
@@ -231,7 +231,7 @@ func TestImportAll_FoldsOnlyTheUniqueSectionsOfRootAgentsMainFile(t *testing.T) 
 		t.Fatalf("import all: %v", err)
 	}
 
-	if got, want := mustRead(t, filepath.Join(dir, agnosticMainFile)), shared+extra; got != want {
+	if got, want := readFile(t, filepath.Join(dir, agnosticMainFile)), shared+extra; got != want {
 		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, want)
 	}
 	if !strings.Contains(buf.String(), `merged 2 sections from AGENTS.md into .agnostic-ai/AGNOSTIC_AI.md: "Linting", "Review"`) {
@@ -254,7 +254,7 @@ func TestImportAll_LeavesAMatchingRootAgentsMainFileAlone(t *testing.T) {
 		t.Fatalf("import all: %v", err)
 	}
 
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != body {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != body {
 		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, body)
 	}
 	if strings.Contains(buf.String(), "merged") {
@@ -279,7 +279,7 @@ func TestImportAll_SeedsFromARootAgentsMainFileAlone(t *testing.T) {
 		t.Fatalf("import all: %v", err)
 	}
 
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != body {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != body {
 		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, body)
 	}
 	if strings.Contains(out, "no importable") {
@@ -305,7 +305,7 @@ func TestInitFromAll_SeedsFromARootAgentsMainFileAlone(t *testing.T) {
 		t.Fatalf("init --from all: %v", err)
 	}
 
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != body {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); got != body {
 		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, body)
 	}
 	if !strings.Contains(buf.String(), ".agnostic-ai/AGNOSTIC_AI.md seeded from AGENTS.md") {
@@ -333,7 +333,7 @@ func TestImportAll_LeavesAGeneratedRootAgentsMainFileAlone(t *testing.T) {
 	if _, statErr := os.Stat(filepath.Join(dir, agnosticMainFile)); statErr == nil {
 		t.Errorf("a generated AGENTS.md must not seed %s", agnosticMainFile)
 	}
-	if got := mustRead(t, filepath.Join(dir, "AGENTS.md")); got != generated {
+	if got := readFile(t, filepath.Join(dir, "AGENTS.md")); got != generated {
 		t.Errorf("AGENTS.md changed\ngot  %q\nwant %q", got, generated)
 	}
 	if !strings.Contains(out, "no importable AI CLI configs detected") {
@@ -355,7 +355,7 @@ func TestImportClaude_StillWarnsAboutRootAgentsMainFile(t *testing.T) {
 		t.Fatalf("import claude: %v", err)
 	}
 
-	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); strings.Contains(got, "make lint") {
+	if got := readFile(t, filepath.Join(dir, agnosticMainFile)); strings.Contains(got, "make lint") {
 		t.Errorf("a named import must not fold AGENTS.md, got:\n%s", got)
 	}
 	if !strings.Contains(buf.String(), "AGENTS.md has unique content") {
