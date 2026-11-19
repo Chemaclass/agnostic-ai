@@ -172,7 +172,7 @@ Add the sessions that run in the cloud to the list.
 2. Claude Code sessions from claude.ai/code and Codex cloud threads join the conversations, with `app` `cloud`.
 3. They take the same states and marks as the others.
 
-A project server lists none, because a cloud session names no folder. Both endpoints are undocumented and can change with any release of either tool.
+A project server lists none, because a cloud session names no folder. To send the current task to one from a session, use a [cloud handoff](@/docs/cloud-handoff.md). Both endpoints are undocumented and can change with any release of either tool.
 
 | | Claude Code cloud | Codex cloud |
 |---|---|---|

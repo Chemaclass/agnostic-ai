@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Session handoffs
 
-The built-in `handoff` skill saves a task note so another coding tool on the same machine can resume, after checking the note against Git. For a summary for people, use a [wrap-up](@/docs/wrap-up.md). For a parallel task, use a [side conversation](@/docs/side-conversation.md).
+The built-in `handoff` skill saves a task note so another coding tool on the same machine can resume, after checking the note against Git. For a summary for people, use a [wrap-up](@/docs/wrap-up.md). For a parallel task, use a [side conversation](@/docs/side-conversation.md). To continue in a cloud session after you close your laptop, use a [cloud handoff](@/docs/cloud-handoff.md).
 
 ## Enable the skill
 
