@@ -104,7 +104,7 @@ Add a field to `config.Output` only when existing fields cannot express the outp
 
 Use the `sess` passed to `Emit` for file writes, migrations, and capture checks.
 
-- `emit.GroupRulesByScope(rules)` + `emit.RouteScope(r)`: write rules to the correct `<scope>/AGENTS.md` / `<scope>/GEMINI.md` files for each folder.
+- `emit.RouteScope(r)`: write rules to the correct `<scope>/AGENTS.md` / `<scope>/GEMINI.md` files for each folder.
 - `emit.WriteSection(sb, heading, e)`: include the body under `### heading`. `emit.WriteReference(sb, e, sourcePath)` links to a definition stored elsewhere.
 - `emit.WriteTOMLString` / `WriteTOMLMultiline` / `WriteTOMLStringArray` / `EscapeTOMLBasic`: write TOML values.
 - `emit.Frontmatter(meta)`: write the YAML fields at the start of a Markdown file (frontmatter).

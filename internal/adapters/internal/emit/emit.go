@@ -97,7 +97,7 @@ type WrittenFile struct {
 }
 
 // Session holds the mutable mode flags for one emission pass: capture,
-// recording, counting, detailed recording, backup, and transaction
+// recording, detailed recording, backup, and transaction
 // buffers, plus the user-owned path set from sync.unmanaged. Each sync
 // run owns its own Session (see NewSession) so two runs in the same
 // process — concurrent library use, parallel wasm renders — never share
@@ -120,8 +120,6 @@ type Session struct {
 	backup      bool
 	recording   bool
 	recorded    []string
-	counting    bool
-	counted     int
 	detailing   bool
 	detailed    []WrittenFile
 	transacting bool
@@ -617,28 +615,9 @@ func (s *Session) StopRecording() []string {
 	return out
 }
 
-// StartCounting begins tracking the number of files written to disk.
-// Does not affect IO.
-func (s *Session) StartCounting() {
-	s.mu.Lock()
-	s.counting = true
-	s.counted = 0
-	s.mu.Unlock()
-}
-
-// StopCounting returns the count of files written since StartCounting
-// and disables counting mode.
-func (s *Session) StopCounting() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.counting = false
-	n := s.counted
-	return n
-}
-
 // StartDetailedRecording begins collecting per-file write results alongside
-// real writes. Unlike capture mode this does not suppress IO. Unlike counting
-// and recording modes it also determines the action ("create", "update", or
+// real writes. Unlike capture mode this does not suppress IO. Unlike recording
+// mode it also determines the action ("create", "update", or
 // "skip") by comparing the new content against what is on disk before writing.
 // Files whose content is unchanged are not rewritten and are recorded with
 // action "skip".
@@ -980,9 +959,6 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	}
 	if recording {
 		s.recorded = append(s.recorded, path)
-	}
-	if s.counting && !capturing && !dryRun {
-		s.counted++
 	}
 	if _, watched := s.planned[path]; watched {
 		s.planned[path] = &content

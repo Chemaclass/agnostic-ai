@@ -114,9 +114,6 @@ func TestPropagateSkillAssets_LinkedSourceRootCopiesRegularAssets(t *testing.T) 
 	alias := filepath.Join(root, "skills-alias")
 	testutil.DirectoryAlias(t, source, alias)
 	sk := spec.Entry{Kind: spec.KindSkill, Name: "shared", Path: filepath.Join(alias, "SKILL.md")}
-	if !SkillHasBundledAssets(sk, SkipSKILLMd) {
-		t.Error("linked skill root hides bundled assets")
-	}
 	dst := filepath.Join(root, "out")
 	if err := NewSession().PropagateSkillAssets(sk, dst, SkipSKILLMd, false); err != nil {
 		t.Fatal(err)
@@ -134,49 +131,6 @@ func TestPropagateSkillAssets_LinkedSourceRootCopiesRegularAssets(t *testing.T) 
 		if _, err := os.Stat(filepath.Join(dst, rel)); !os.IsNotExist(err) {
 			t.Errorf("unexpected copied file %s: %v", rel, err)
 		}
-	}
-}
-
-func TestSkillHasBundledAssets(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-
-	withAssets := filepath.Join(dir, "skills", "alpha")
-	if err := os.MkdirAll(filepath.Join(withAssets, "scripts"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(withAssets, "SKILL.md"), []byte("body"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(withAssets, "scripts", "run.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	lone := filepath.Join(dir, "skills", "beta")
-	if err := os.MkdirAll(lone, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(lone, "SKILL.md"), []byte("body"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	cases := []struct {
-		name string
-		path string
-		want bool
-	}{
-		{"folder skill with sibling asset", filepath.Join(withAssets, "SKILL.md"), true},
-		{"folder skill with only SKILL.md", filepath.Join(lone, "SKILL.md"), false},
-		{"flat-file skill", filepath.Join(dir, "skills", "beta.md"), false},
-		{"in-memory spec", "", false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			s := spec.Entry{Kind: spec.KindSkill, Name: "x", Path: tc.path}
-			if got := SkillHasBundledAssets(s, SkipSKILLMd); got != tc.want {
-				t.Errorf("SkillHasBundledAssets = %v, want %v", got, tc.want)
-			}
-		})
 	}
 }
 

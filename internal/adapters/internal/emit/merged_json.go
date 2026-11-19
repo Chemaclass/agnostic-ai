@@ -141,14 +141,7 @@ func ClaimedJSONEntries(value any, entries []string) any {
 // edited the value and it stays theirs.
 type claimedWithin struct {
 	value   any
-	items   []string
 	entries [][]string
-}
-
-// ClaimedJSONWithItems, as a list value in a merge, claims the list whole
-// and records items, the entries sync added to it (MergedKey.Within).
-func ClaimedJSONWithItems(value any, items []string) any {
-	return claimedWithin{value: value, items: slices.Clone(items)}
 }
 
 // ClaimedJSONWithEntries, as an object value in a merge, claims the

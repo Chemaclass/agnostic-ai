@@ -156,10 +156,6 @@ func RewriteHookPath(cmd, target string, metadata ...map[string]any) string {
 	return emit.RewriteHookPath(cmd, target, metadata...)
 }
 
-func RewriteHookDirectories(command, target string) string {
-	return emit.RewriteHookDirectories(command, target)
-}
-
 func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
 	return emit.RewriteGlobalWindowsHookPath(command, scriptsDir)
 }
@@ -805,12 +801,6 @@ func StripBuiltinSkills(body string) string {
 // layer).
 func SupportsFileImports(target string) bool {
 	return emit.SupportsFileImports(target)
-}
-
-// ApplyImportMode rewrites `@path` file-import lines in body per mode for
-// a target that cannot resolve them (re-exported from the emit layer).
-func ApplyImportMode(body, mode string) (string, error) {
-	return emit.ApplyImportMode(body, mode)
 }
 
 // Adapter is the contract every target implementation satisfies.

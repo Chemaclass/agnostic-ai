@@ -2,7 +2,6 @@ package emit
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -55,37 +54,6 @@ func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(r
 // re-rendered SKILL.md and copies everything else verbatim. Adapters that
 // need extra exclusions (e.g. codex-only assets) pass their own predicate.
 func SkipSKILLMd(rel string) bool { return rel == "SKILL.md" }
-
-// SkillHasBundledAssets reports whether a folder-based skill carries
-// sibling files beyond the ones the adapter re-renders itself (those
-// matched by skip, typically SKILL.md). Flat-file skills and in-memory
-// specs (empty Path) never have bundled assets.
-//
-// Adapters that flatten a skill to a single file (e.g. Cursor emits one
-// `.mdc` rule per skill) cannot represent attached payloads, so they call
-// this to surface a coverage note instead of dropping the files silently.
-func SkillHasBundledAssets(s spec.Entry, skip func(rel string) bool) bool {
-	if !FolderBasedSkill(s) {
-		return false
-	}
-	root := s.SkillAssetDir()
-	found := false
-	_ = spec.WalkSourceRoot(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !d.Type().IsRegular() {
-			return nil
-		}
-		rel, relErr := filepath.Rel(root, path)
-		if relErr != nil {
-			return nil
-		}
-		if skip != nil && skip(filepath.ToSlash(rel)) {
-			return nil
-		}
-		found = true
-		return filepath.SkipAll
-	})
-	return found
-}
 
 // RelinkBundledAssets rewrites the relative links in a skill body that
 // point at a file the skill bundles, so they resolve from fromDir (where
