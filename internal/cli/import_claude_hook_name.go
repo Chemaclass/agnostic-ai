@@ -121,7 +121,7 @@ func hookFieldValue(v any) any {
 // pipeline or list counts.
 func hookRunLabel(command string) string {
 	var words []string
-	for field := range strings.FieldsSeq(command) {
+	for _, field := range strings.Fields(command) {
 		if field == "|" || field == "&&" || field == "||" || field == ";" {
 			break
 		}

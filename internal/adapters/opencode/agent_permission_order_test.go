@@ -33,7 +33,7 @@ func TestEmit_AgentPreservesNativePermissionOrder(t *testing.T) {
 			if tc.override {
 				front += "permission: allow\nx-opencode:\n  custom: keep\n"
 				var frontSb35 strings.Builder
-				for line := range strings.SplitSeq(strings.TrimSuffix(native, "\n"), "\n") {
+				for _, line := range strings.Split(strings.TrimSuffix(native, "\n"), "\n") {
 					frontSb35.WriteString("  " + line + "\n")
 				}
 				front += frontSb35.String()

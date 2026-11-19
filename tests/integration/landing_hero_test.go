@@ -109,7 +109,7 @@ func isOneLine(text string) bool {
 }
 
 func hasLine(body, want string) bool {
-	for line := range strings.SplitSeq(body, "\n") {
+	for _, line := range strings.Split(body, "\n") {
 		if strings.TrimRight(line, "\r") == want {
 			return true
 		}

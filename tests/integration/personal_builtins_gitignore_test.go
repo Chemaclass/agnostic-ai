@@ -137,7 +137,7 @@ func TestSync_PersonalBuiltinsLeaveCommittedIgnoresAlone(t *testing.T) {
 		skill := ".claude/skills/handoff/SKILL.md"
 		out := run(t, worktree, "sync")
 		warned := false
-		for line := range strings.SplitSeq(out, "\n") {
+		for _, line := range strings.Split(out, "\n") {
 			warned = warned || strings.Contains(line, "untracked") && strings.Contains(line, skill)
 		}
 		if !warned {

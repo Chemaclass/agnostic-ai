@@ -11,7 +11,7 @@ import (
 
 func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun bool) error {
 	for _, c := range commands {
-		for segment := range strings.SplitSeq(c.Name, ":") {
+		for _, segment := range strings.Split(c.Name, ":") {
 			if segment == "" || segment == "." || segment == ".." {
 				return fmt.Errorf("qwen command %s: invalid namespace segment", c.Name)
 			}

@@ -47,7 +47,7 @@ func readOutputManifest() map[string]string {
 		return nil
 	}
 	out := map[string]string{}
-	for line := range strings.SplitSeq(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		if line = strings.TrimSpace(line); line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}

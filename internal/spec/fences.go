@@ -77,7 +77,7 @@ func SplitReaderOnly(body, reader string, others []string) (rest, only string) {
 	}
 	var restB, onlyB strings.Builder
 	inOnly := false
-	for line := range strings.SplitSeq(body, "\n") {
+	for _, line := range strings.Split(body, "\n") {
 		marker, allow := parseFenceMarker(line)
 		switch marker {
 		case fenceTargetOpen:
@@ -113,7 +113,7 @@ func leadingNewlines(s string) int {
 func FenceTargets(body string) []string {
 	var out []string
 	seen := map[string]bool{}
-	for line := range strings.SplitSeq(body, "\n") {
+	for _, line := range strings.Split(body, "\n") {
 		marker, allow := parseFenceMarker(line)
 		if marker != fenceTargetOpen {
 			continue

@@ -385,7 +385,7 @@ func yamlMappingChild(path string, mapping *yaml.Node, key string, kind yaml.Kin
 // yamlIndentOf is the indent width the first indented line of data
 // uses, or the width yaml.Marshal writes.
 func yamlIndentOf(data []byte) int {
-	for line := range strings.SplitSeq(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		trimmed := strings.TrimLeft(line, " ")
 		if n := len(line) - len(trimmed); n > 0 && trimmed != "" && !strings.HasPrefix(trimmed, "- ") {
 			return n

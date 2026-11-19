@@ -118,7 +118,7 @@ func (a app) commentSource(baseline, path string) ([]byte, []byte, error) {
 
 func (a app) commentPaths(baseline string, paths []byte) string {
 	var out strings.Builder
-	for path := range strings.SplitSeq(string(paths), "\x00") {
+	for _, path := range strings.Split(string(paths), "\x00") {
 		if path == "" {
 			continue
 		}

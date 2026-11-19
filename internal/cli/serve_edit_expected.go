@@ -52,7 +52,7 @@ func (h *editHandler) checkBooleanExpected(path, key string, raw json.RawMessage
 			continue
 		}
 		var current any = e.Meta
-		for part := range strings.SplitSeq(key, ".") {
+		for _, part := range strings.Split(key, ".") {
 			m, ok := current.(map[string]any)
 			if !ok {
 				return staleToggleError{key}

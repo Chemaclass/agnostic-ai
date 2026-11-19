@@ -33,7 +33,7 @@ func (b hookBlock) text() string {
 }
 
 func (b hookBlock) installedIn(content string) bool {
-	for line := range strings.SplitSeq(content, "\n") {
+	for _, line := range strings.Split(content, "\n") {
 		line = strings.TrimSpace(line)
 		if line == b.sentinel || (b.legacy != "" && line == b.legacy) {
 			return true
@@ -282,7 +282,7 @@ func parseConfigOrigin(line string) (string, string) {
 // hasProjectCheck reports a project sync --check line, which has no
 // place in the global home's hook.
 func hasProjectCheck(content string) bool {
-	for line := range strings.SplitSeq(content, "\n") {
+	for _, line := range strings.Split(content, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) || strings.HasPrefix(strings.TrimSpace(line), "agnostic-ai project --check") || strings.HasPrefix(strings.TrimSpace(line), `"$agnostic_ai_bin" project --check`) {
 			return true
 		}

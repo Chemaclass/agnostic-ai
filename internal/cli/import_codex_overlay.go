@@ -509,7 +509,7 @@ func collapseBlankLineRuns(s string) string {
 	var out strings.Builder
 	out.Grow(len(s))
 	blank := 0
-	for line := range strings.SplitSeq(s, "\n") {
+	for _, line := range strings.Split(s, "\n") {
 		if strings.TrimSpace(line) == "" {
 			blank++
 			if blank > 1 {

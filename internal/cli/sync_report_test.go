@@ -217,7 +217,7 @@ func TestGitRepo_DoesNotStartAutomaticMaintenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Git trace: %v", err)
 	}
-	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
 			Event string   `json:"event"`
 			Argv  []string `json:"argv"`

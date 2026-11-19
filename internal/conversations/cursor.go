@@ -610,7 +610,7 @@ func (s *Scanner) cursorAgentTranscript(id string, seen map[string]bool) (texts,
 // cursorAgentLines returns the prompts in data and the agent's latest
 // message after the last of them.
 func cursorAgentLines(data []byte) (prompts []string, message string) {
-	for raw := range bytes.SplitSeq(data, []byte("\n")) {
+	for _, raw := range bytes.Split(data, []byte("\n")) {
 		var line cursorAgentLine
 		if json.Unmarshal(raw, &line) != nil {
 			continue

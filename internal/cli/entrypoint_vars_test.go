@@ -31,7 +31,7 @@ func syncNotes(t *testing.T, args ...string) []string {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	var notes []string
-	for line := range strings.SplitSeq(warned.String(), "\n") {
+	for _, line := range strings.Split(warned.String(), "\n") {
 		if strings.Contains(line, "note:") {
 			notes = append(notes, line)
 		}

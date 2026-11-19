@@ -42,7 +42,7 @@ func awaitWorktreeSetupGroup(group int) error {
 			return fmt.Errorf("check setup process group %d: %w", group, err)
 		}
 		alive := false
-		for line := range strings.SplitSeq(string(out), "\n") {
+		for _, line := range strings.Split(string(out), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) != 2 {
 				continue

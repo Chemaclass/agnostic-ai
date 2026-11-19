@@ -175,7 +175,7 @@ func TestHookMemory_CutsALongIndexAtAWholeLine(t *testing.T) {
 	if !strings.Contains(got, "More facts are in .agnostic-ai/local/memory/MEMORY.md and .agnostic-ai/memory/MEMORY.md") {
 		t.Errorf("no note naming the cut index:\n%s", got[len(got)-200:])
 	}
-	for l := range strings.SplitSeq(strings.TrimSpace(got), "\n") {
+	for _, l := range strings.Split(strings.TrimSpace(got), "\n") {
 		if strings.HasPrefix(l, "- [Fact]") && l != strings.TrimSuffix(line, "\n") {
 			t.Fatalf("a line was cut in half: %q", l)
 		}

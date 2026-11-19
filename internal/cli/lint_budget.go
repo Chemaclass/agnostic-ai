@@ -268,7 +268,7 @@ func globalSessionLoads(source string, targets []string, tiers map[string]config
 }
 
 func importsAgents(content string) bool {
-	for line := range strings.SplitSeq(withoutCodeFences(content), "\n") {
+	for _, line := range strings.Split(withoutCodeFences(content), "\n") {
 		if strings.TrimSpace(line) == "@AGENTS.md" {
 			return true
 		}

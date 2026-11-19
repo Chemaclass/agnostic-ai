@@ -582,7 +582,7 @@ func settingsLookup(values map[string]any, key, format string) (any, bool) {
 		return v, ok
 	}
 	var current any = values
-	for part := range strings.SplitSeq(key, ".") {
+	for _, part := range strings.Split(key, ".") {
 		object, ok := current.(map[string]any)
 		if !ok {
 			return nil, false

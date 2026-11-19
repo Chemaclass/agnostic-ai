@@ -98,7 +98,7 @@ gamma body
 	}
 	noKey := func(rel, key string) {
 		t.Helper()
-		for l := range strings.SplitSeq(read(rel), "\n") {
+		for _, l := range strings.Split(read(rel), "\n") {
 			if strings.HasPrefix(strings.TrimSpace(l), key+":") {
 				t.Errorf("%s: expected no %s line, got %q", rel, key, l)
 			}

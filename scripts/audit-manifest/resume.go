@@ -198,7 +198,7 @@ func copyArtifact(m, prior *manifest, entry artifact) (artifact, error) {
 	}
 	path := filepath.Join("resumed", prior.RunID, clean)
 	parent := m.Directory
-	for component := range strings.SplitSeq(filepath.Dir(path), string(filepath.Separator)) {
+	for _, component := range strings.Split(filepath.Dir(path), string(filepath.Separator)) {
 		parent = filepath.Join(parent, component)
 		info, statErr := os.Lstat(parent)
 		if errors.Is(statErr, os.ErrNotExist) {

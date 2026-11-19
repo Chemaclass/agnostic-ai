@@ -37,7 +37,7 @@ func TestDisableGitBackgroundWork_CommitStartsNoBackgroundGit(t *testing.T) {
 		t.Fatalf("read Git trace: %v", err)
 	}
 	sawCommit := false
-	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
 			Event string   `json:"event"`
 			Name  string   `json:"name"`

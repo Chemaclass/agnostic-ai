@@ -30,7 +30,7 @@ func (a app) commentReviews(m *manifest, capture bool) ([]commentReview, error) 
 		return nil, err
 	}
 	byID := map[string]*commentReview{}
-	for row := range strings.SplitSeq(rows, "\n") {
+	for _, row := range strings.Split(rows, "\n") {
 		fields := strings.Split(row, "\t")
 		if len(fields) != 6 || fields[1] != "comment-only" {
 			continue

@@ -48,7 +48,7 @@ func TestEmitWithProvenance_NotesAdvisoryProtectedPaths(t *testing.T) {
 			t.Errorf("no protected note for %s:\n%s", target, out)
 		}
 	}
-	for line := range strings.SplitSeq(out, "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, "protected") && slices.ContainsFunc([]string{"claude", "codex", "gemini"}, func(t string) bool { return strings.Contains(line, t+":") }) {
 			t.Errorf("enforcing target noted as advisory: %s", line)
 		}

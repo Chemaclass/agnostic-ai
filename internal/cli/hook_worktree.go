@@ -92,7 +92,7 @@ func removeHookWorktree(repo, allowedRoot, candidate string) (string, error) {
 	}
 	path := root
 	missing := false
-	for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
 		path = filepath.Join(path, part)
 		info, err := os.Lstat(path)
 		if os.IsNotExist(err) {
@@ -157,7 +157,7 @@ func removeHookWorktree(repo, allowedRoot, candidate string) (string, error) {
 		return "", err
 	}
 	// These index flags can hide changed content from both status and removal.
-	for entry := range strings.SplitSeq(string(index), "\x00") {
+	for _, entry := range strings.Split(string(index), "\x00") {
 		if entry != "" && (entry[0] == 'S' || entry[0] >= 'a' && entry[0] <= 'z') {
 			return "", fmt.Errorf("%s: worktree index contains assume-unchanged or skip-worktree entries", path)
 		}

@@ -25,7 +25,7 @@ func TestDocs_CapabilityTablesHaveNoDuplicateRows(t *testing.T) {
 			seen := map[key]int{}
 			table := 0
 			inTable := false
-			for line := range strings.SplitSeq(string(data), "\n") {
+			for _, line := range strings.Split(string(data), "\n") {
 				trimmed := strings.TrimSpace(line)
 				if !strings.HasPrefix(trimmed, "|") {
 					inTable = false

@@ -26,7 +26,7 @@ func words(n int) string {
 
 func findingLines(out, code string) []string {
 	var lines []string
-	for line := range strings.SplitSeq(out, "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		if strings.HasPrefix(line, code+" ") {
 			lines = append(lines, line)
 		}

@@ -94,7 +94,7 @@ func duplicatedStartupPassages(target string, contributions []contextContributio
 
 func contextParagraphs(text string) []string {
 	var paragraphs []string
-	for block := range strings.SplitSeq(strings.ReplaceAll(text, "\r\n", "\n"), "\n\n") {
+	for _, block := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n\n") {
 		lines := strings.Split(block, "\n")
 		for i, line := range lines {
 			lines[i] = strings.TrimRight(line, " \t")

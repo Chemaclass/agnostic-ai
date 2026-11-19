@@ -469,7 +469,7 @@ func (h *editHandler) settingsEdit(where editAudience, shown, key string, value 
 			}
 		}
 		var current any = e.Meta
-		for part := range strings.SplitSeq(key, ".") {
+		for _, part := range strings.Split(key, ".") {
 			m, ok := current.(map[string]any)
 			if !ok {
 				return "", nil, fmt.Errorf("%s is not a boolean", key)

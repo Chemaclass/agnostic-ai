@@ -228,7 +228,7 @@ func writeGeminiCommandMD(path, name, description string, extra map[string]any, 
 // them. The key boundary is enforced so a search for `description`
 // does not match `description-extra`.
 func extractTOMLString(s, key string) string {
-	for line := range strings.SplitSeq(s, "\n") {
+	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, key) {
 			continue

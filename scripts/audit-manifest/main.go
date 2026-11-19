@@ -148,7 +148,7 @@ func (a app) inventory() ([]source, []string, error) {
 	}
 	var result []source
 	seen := map[string]bool{}
-	for line := range strings.SplitSeq(rows, "\n") {
+	for _, line := range strings.Split(rows, "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) != 3 || !slices.Contains(targets, f[0]) || !slices.Contains([]string{"docs", "changelog", "schema", "code"}, f[1]) || (!strings.HasPrefix(f[2], "https://") && !strings.HasPrefix(f[2], "http://")) {
 			return nil, nil, fmt.Errorf("invalid source inventory row %q", line)
@@ -184,7 +184,7 @@ func (a app) context() (string, string, error) {
 		return "", "", err
 	}
 	set := map[string]bool{}
-	for path := range strings.SplitSeq(paths, "\x00") {
+	for _, path := range strings.Split(paths, "\x00") {
 		if path != "" {
 			set[path] = true
 		}
@@ -601,7 +601,7 @@ func (a app) capture(m *manifest) error {
 		return fmt.Errorf("docfetch.tsv: %w", err)
 	}
 	rows := map[string][]string{}
-	for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
+	for _, line := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) != 10 || !slices.Contains([]string{"new", "changed", "unchanged", "failed"}, f[7]) {
 			return fmt.Errorf("invalid fetch row %q", line)
@@ -683,7 +683,7 @@ func (a app) builtinDeep(m *manifest) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	for line := range strings.SplitSeq(text, "\n") {
+	for _, line := range strings.Split(text, "\n") {
 		if after, ok := strings.CutPrefix(line, "builtin-deep:"); ok {
 			return strings.Fields(after), nil
 		}
@@ -757,7 +757,7 @@ func (a app) validateEvidence(m *manifest, expectedLock string) error {
 		return fmt.Errorf("docfetch.tsv: %w", err)
 	}
 	fetchedRows := map[string]string{}
-	for line := range strings.SplitSeq(strings.TrimSuffix(string(rowBytes), "\n"), "\n") {
+	for _, line := range strings.Split(strings.TrimSuffix(string(rowBytes), "\n"), "\n") {
 		fields := strings.Split(line, "\t")
 		if len(fields) != 10 {
 			return errors.New("malformed captured fetch row")
@@ -874,7 +874,7 @@ func (a app) finalize(m *manifest) (string, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("%s: %w", a.lock, err)
 	}
-	for line := range strings.SplitSeq(string(b), "\n") {
+	for _, line := range strings.Split(string(b), "\n") {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}

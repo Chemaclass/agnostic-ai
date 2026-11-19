@@ -1265,7 +1265,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			run(t, dir, "import", target)
 			out := run(t, dir, "list")
 			builtinCount := 0
-			for line := range strings.SplitSeq(out, "\n") {
+			for _, line := range strings.Split(out, "\n") {
 				fields := strings.Split(line, "\t")
 				if len(fields) >= 3 && fields[2] == "builtin" {
 					builtinCount++

@@ -451,7 +451,7 @@ func LocalSets(e spec.Entry, key string) bool {
 	if e.Base == nil {
 		current = e.Meta
 	}
-	for part := range strings.SplitSeq(key, ".") {
+	for _, part := range strings.Split(key, ".") {
 		m, ok := current.(map[string]any)
 		if !ok {
 			return false
@@ -602,7 +602,7 @@ func coversTargets(e spec.Entry, targets []string) bool {
 // SettingsFieldValue reads a portable field, including its nested members.
 func SettingsFieldValue(meta map[string]any, key string) (any, bool) {
 	var value any = meta
-	for part := range strings.SplitSeq(key, ".") {
+	for _, part := range strings.Split(key, ".") {
 		mapping, ok := value.(map[string]any)
 		if !ok {
 			return nil, false

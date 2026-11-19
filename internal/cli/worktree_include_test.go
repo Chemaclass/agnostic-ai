@@ -48,7 +48,7 @@ func TestSync_WorktreeIncludeMirrorsTheManagedBlock(t *testing.T) {
 	if strings.Contains(string(data), ".sync-state") || strings.Contains(string(data), projectLockName) || strings.Contains(string(data), "Not committed") {
 		t.Errorf(".worktreeinclude carries runtime state or the gitignore hint:\n%s", data)
 	}
-	for line := range strings.SplitSeq(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "/") && !strings.Contains(string(gitignore), line+"\n") {
 			t.Errorf("%s is not in the .gitignore block", line)
 		}
@@ -167,7 +167,7 @@ func TestSync_ReportsIgnoredTrackedWorktreeIncludeWithoutCommitHint(t *testing.T
 	if !strings.Contains(out.String(), "git rm --cached .worktreeinclude") {
 		t.Errorf("missing tracked-and-ignored guidance: %s", out)
 	}
-	for line := range strings.SplitSeq(out.String(), "\n") {
+	for _, line := range strings.Split(out.String(), "\n") {
 		if strings.Contains(line, "to commit:") && strings.Contains(line, worktreeIncludeFile) {
 			t.Errorf("tracked ignored file appears in commit hint: %s", line)
 		}

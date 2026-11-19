@@ -158,7 +158,7 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 	field := regexp.MustCompile("`([A-Za-z][A-Za-z0-9_-]*)`")
 	skip := map[string]bool{"## Target-specific extensions: `x-<target>` namespace": true}
 	section, header := "", ""
-	for line := range strings.SplitSeq(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "## ") {
 			section = line
 		}

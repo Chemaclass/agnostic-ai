@@ -331,7 +331,7 @@ func importOpenhandsHooks(src, dstDir string) (int, error) {
 // in PascalCase passes through.
 func pascalHookEvent(key string) string {
 	var sb strings.Builder
-	for part := range strings.SplitSeq(key, "_") {
+	for _, part := range strings.Split(key, "_") {
 		if part == "" {
 			continue
 		}

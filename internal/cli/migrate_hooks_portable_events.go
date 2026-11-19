@@ -286,7 +286,7 @@ func widerEditNote(target, matcher string) string {
 	}
 	names := strings.Split(edit, "|")
 	var extra []string
-	for name := range strings.SplitSeq(matcher, "|") {
+	for _, name := range strings.Split(matcher, "|") {
 		if !slices.Contains(names, name) {
 			return ""
 		}

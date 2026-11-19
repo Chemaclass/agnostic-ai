@@ -140,7 +140,7 @@ func downloadReleaseAssetContext(ctx context.Context, client *http.Client, asset
 }
 
 func releaseChecksum(data []byte, asset string) ([sha256.Size]byte, error) {
-	for line := range strings.SplitSeq(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) != 2 || fields[1] != asset {
 			continue

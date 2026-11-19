@@ -135,7 +135,7 @@ func cutTopLevelKeys(raw string, keys []string) string {
 	inTable, skipping := false, false
 	depth := 0
 	multiline := ""
-	for line := range strings.SplitSeq(raw, "\n") {
+	for _, line := range strings.Split(raw, "\n") {
 		if depth > 0 {
 			depth = max(depth+bracketDepth(line), 0)
 			continue

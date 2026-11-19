@@ -159,7 +159,7 @@ func ensureLocalIgnored(path string) bool {
 	if err != nil {
 		return false
 	}
-	for line := range strings.SplitSeq(string(data), "\n") {
+	for _, line := range strings.Split(string(data), "\n") {
 		switch strings.TrimSpace(line) {
 		case "/local/", "/local", "local/", "local":
 			return false

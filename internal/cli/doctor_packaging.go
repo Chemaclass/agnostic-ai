@@ -145,7 +145,7 @@ func parsePackagingIgnore(format, text string) ([]packagingIgnoreRule, error) {
 		if strings.ContainsAny(line, "{}") || strings.Contains(line, "[!") || strings.Contains(line, "[:") || strings.Contains(line, "\\") || strings.ContainsAny(line, "()") {
 			return nil, fmt.Errorf("line %d uses unsupported pattern %q", index+1, line)
 		}
-		for part := range strings.SplitSeq(line, "/") {
+		for _, part := range strings.Split(line, "/") {
 			if format == ".dockerignore" && strings.Contains(part, "**") && part != "**" {
 				return nil, fmt.Errorf("line %d uses unsupported pattern %q", index+1, line)
 			}

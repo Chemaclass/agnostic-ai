@@ -64,6 +64,9 @@ linters:
       disable:
         # omitzero would change JSON output.
         - omitzero
+        # stringsseq turns each split loop into a range-over-func body and
+        # grows the release binary past its size budget.
+        - stringsseq
     govet:
       enable-all: true
       disable:

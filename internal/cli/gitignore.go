@@ -449,7 +449,7 @@ func managedBlockLines(content string) []string {
 		return nil
 	}
 	var out []string
-	for line := range strings.SplitSeq(body, "\n") {
+	for _, line := range strings.Split(body, "\n") {
 		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
 			out = append(out, line)
 		}

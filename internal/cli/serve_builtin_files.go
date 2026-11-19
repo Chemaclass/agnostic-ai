@@ -122,7 +122,7 @@ func builtinSafeParents(root, path string) error {
 		return fmt.Errorf("%s: outside the project", path)
 	}
 	current := root
-	for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
 		current = filepath.Join(current, part)
 		info, err := os.Lstat(current)
 		if errors.Is(err, os.ErrNotExist) {

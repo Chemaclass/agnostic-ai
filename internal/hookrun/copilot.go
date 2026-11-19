@@ -84,7 +84,7 @@ func copilotClaudeMatches(matcher, claudeName string) (bool, error) {
 		return true, nil
 	}
 	if copilotClaudeAlternation.MatchString(matcher) {
-		for token := range strings.SplitSeq(matcher, "|") {
+		for _, token := range strings.Split(matcher, "|") {
 			if token == claudeName || copilotClaudeNames[token] == claudeName || token == "Task" && claudeName == "Agent" {
 				return true, nil
 			}
@@ -234,7 +234,7 @@ func buildCopilot(event, matcher, root string, in Input) (Payload, error) {
 // parsed as one JSON document. It is nil for no output.
 func copilotReply(stdout string) map[string]any {
 	var kept []string
-	for line := range strings.SplitSeq(stdout, "\n") {
+	for _, line := range strings.Split(stdout, "\n") {
 		var progress struct {
 			Type string `json:"type"`
 		}

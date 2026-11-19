@@ -197,7 +197,7 @@ func EmitPluginHooks(sess *Session, host PluginHookHost, hooks []spec.Entry, dir
 // with a Claude tool name, so `Edit|Write`, `(?:Edit)` and `Bash.*` are
 // caught as well as `Bash`.
 func hasClaudeToolName(matcher string) bool {
-	for alt := range strings.SplitSeq(matcher, "|") {
+	for _, alt := range strings.Split(matcher, "|") {
 		alt = strings.TrimLeft(alt, "(?:^ ")
 		end := strings.IndexFunc(alt, func(r rune) bool { return !unicode.IsLetter(r) })
 		if end < 0 {

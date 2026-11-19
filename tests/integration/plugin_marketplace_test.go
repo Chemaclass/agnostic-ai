@@ -166,7 +166,7 @@ func skillFrontmatter(t *testing.T, body, path string) (name, description string
 	if end < 0 {
 		t.Fatalf("%s has an unterminated frontmatter block", path)
 	}
-	for line := range strings.SplitSeq(body[4:4+end], "\n") {
+	for _, line := range strings.Split(body[4:4+end], "\n") {
 		key, value, found := strings.Cut(line, ":")
 		if !found {
 			continue

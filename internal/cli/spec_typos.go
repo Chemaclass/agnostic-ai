@@ -297,7 +297,7 @@ func agentSkills(v any) []string {
 	switch v := v.(type) {
 	case string:
 		var out []string
-		for s := range strings.SplitSeq(v, ",") {
+		for _, s := range strings.Split(v, ",") {
 			if s = strings.TrimSpace(s); s != "" {
 				out = append(out, s)
 			}

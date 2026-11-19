@@ -822,7 +822,7 @@ func assertLifecycleOutputs(t *testing.T, root string, want map[string][]byte) {
 
 func assertLifecycleIntentionalStatus(t *testing.T, status string) {
 	t.Helper()
-	for line := range strings.SplitSeq(strings.TrimSuffix(status, "\n"), "\n") {
+	for _, line := range strings.Split(strings.TrimSuffix(status, "\n"), "\n") {
 		if len(line) < 4 {
 			t.Errorf("unexpected status line: %q", line)
 			continue

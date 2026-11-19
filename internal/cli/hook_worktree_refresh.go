@@ -123,7 +123,7 @@ func registeredRefreshWorktree(repo, worktree string) error {
 		return err
 	}
 	first, registered := true, false
-	for entry := range strings.SplitSeq(string(raw), "\x00") {
+	for _, entry := range strings.Split(string(raw), "\x00") {
 		path, ok := strings.CutPrefix(entry, "worktree ")
 		if !ok {
 			continue

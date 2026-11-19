@@ -239,7 +239,7 @@ var markdownHeadingRe = regexp.MustCompile(`^#{1,6}[ \t]+\S`)
 var commentedKeyRe = regexp.MustCompile(`^#\s*[\w-]+\s*:`)
 
 func hasMarkdownHeading(block []byte) bool {
-	for line := range strings.SplitSeq(string(block), "\n") {
+	for _, line := range strings.Split(string(block), "\n") {
 		if markdownHeadingRe.MatchString(line) && !commentedKeyRe.MatchString(line) {
 			return true
 		}

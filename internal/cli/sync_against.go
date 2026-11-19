@@ -127,7 +127,7 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 // files, the tool folders, and the root dotfiles.
 func (t *againstTree) exportInputs(entries string) error {
 	var paths []string
-	for rec := range strings.SplitSeq(entries, "\x00") {
+	for _, rec := range strings.Split(entries, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if !ok {
 			continue
@@ -593,7 +593,7 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 	isInput := func(p string) bool { return underRoots(p, t.inputs) }
 	var paths []string
 	inputs := 0
-	for rec := range strings.SplitSeq(listed, "\x00") {
+	for _, rec := range strings.Split(listed, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if !ok {
 			continue
@@ -664,7 +664,7 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	}
 	var files, specs []string
 	linkedSpec := false
-	for rec := range strings.SplitSeq(listed, "\x00") {
+	for _, rec := range strings.Split(listed, "\x00") {
 		meta, f, ok := strings.Cut(rec, "\t")
 		rel, inProject := strings.CutPrefix(f, prefix)
 		if !ok || !inProject {
@@ -853,7 +853,7 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 			return nil, fmt.Errorf("git check-ignore: %w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 	}
-	for p := range strings.SplitSeq(stdout.String(), "\x00") {
+	for _, p := range strings.Split(stdout.String(), "\x00") {
 		if p != "" && !t.isTrackedPath(t.prefix+p) {
 			out[p] = true
 		}
@@ -964,7 +964,7 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 		}
 	}
 	ignored := map[string]bool{}
-	for p := range strings.SplitSeq(stdout.String(), "\x00") {
+	for _, p := range strings.Split(stdout.String(), "\x00") {
 		ignored[p] = true
 	}
 	var out []unmanagedFinding

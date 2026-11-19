@@ -104,7 +104,7 @@ func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 // that starts a pattern line, so no pattern can close the block early.
 func ignoreSpecFence(patterns string) string {
 	longest := 2
-	for line := range strings.SplitSeq(patterns, "\n") {
+	for _, line := range strings.Split(patterns, "\n") {
 		trimmed := strings.TrimLeft(line, " ")
 		if n := len(trimmed) - len(strings.TrimLeft(trimmed, "`")); n > longest {
 			longest = n

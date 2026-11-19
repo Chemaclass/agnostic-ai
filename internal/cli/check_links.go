@@ -86,7 +86,7 @@ func trackedLinks() []string {
 		return nil
 	}
 	var links []string
-	for rec := range strings.SplitSeq(out, "\x00") {
+	for _, rec := range strings.Split(out, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if ok && strings.HasPrefix(meta, "120000 ") {
 			links = append(links, p)

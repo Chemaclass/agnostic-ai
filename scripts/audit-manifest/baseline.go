@@ -18,7 +18,7 @@ func (a app) builtinBaseline(value string, registered []string) (string, error) 
 	}
 	var resolved []string
 	seen := map[string]bool{}
-	for pair := range strings.SplitSeq(value, ",") {
+	for _, pair := range strings.Split(value, ",") {
 		target, rev, ok := strings.Cut(pair, "=")
 		if !ok || rev == "" || !slices.Contains(registered, target) || seen[target] {
 			return "", fmt.Errorf("invalid built-in baseline entry %q: want unique <target>=<rev>", pair)

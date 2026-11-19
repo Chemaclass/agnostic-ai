@@ -125,7 +125,7 @@ func oneLine(text string) string {
 // openingOf is the first non-empty lines of a prompt.
 func openingOf(prompt string) []string {
 	var lines []string
-	for line := range strings.SplitSeq(prompt, "\n") {
+	for _, line := range strings.Split(prompt, "\n") {
 		if line == "" {
 			continue
 		}

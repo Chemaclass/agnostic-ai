@@ -509,7 +509,7 @@ func memoryPaths(t *testing.T) map[string]string {
 		t.Fatalf("memory path: %v\n%s", err, out)
 	}
 	paths := map[string]string{}
-	for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		scope, dir, ok := strings.Cut(line, " ")
 		if !ok {
 			t.Fatalf("line %q in:\n%s", line, out)

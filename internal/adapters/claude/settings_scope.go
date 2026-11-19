@@ -170,7 +170,7 @@ func UserIgnoredSetting(key string) (field, reason string, ok bool) {
 
 func settingAt(m map[string]any, path string) (any, bool) {
 	var v any = m
-	for part := range strings.SplitSeq(path, ".") {
+	for _, part := range strings.Split(path, ".") {
 		obj, ok := v.(map[string]any)
 		if !ok {
 			return nil, false

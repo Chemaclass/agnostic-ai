@@ -32,7 +32,7 @@ var memoryGrantConsequence = map[string]string{
 // that ends in /**. An OpenCode instructions entry names the folder too,
 // as a literal file path, and is not a grant.
 func grantsPath(content, home string) bool {
-	for line := range strings.SplitSeq(content, "\n") {
+	for _, line := range strings.Split(content, "\n") {
 		if strings.Contains(line, home) && strings.Contains(line, "/**") {
 			return true
 		}

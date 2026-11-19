@@ -200,7 +200,7 @@ func lintFileArgs(stdin io.Reader, args []string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read stdin: %w", err)
 		}
-		for line := range strings.SplitSeq(string(raw), "\n") {
+		for _, line := range strings.Split(string(raw), "\n") {
 			if line = strings.TrimRight(line, "\r"); line != "" {
 				files = append(files, line)
 			}

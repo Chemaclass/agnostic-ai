@@ -248,7 +248,7 @@ func projectPackageManager(source string) (packageManager, bool) {
 		return packageManager{}, false
 	}
 	project := exe[:i]
-	for s := range strings.SplitSeq(source, " + ") {
+	for _, s := range strings.Split(source, " + ") {
 		if within(project, s) {
 			return lockfileManager(project), true
 		}

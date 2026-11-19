@@ -21,7 +21,7 @@ func RouteScope(r spec.Entry) string {
 		return ""
 	}
 	var prefix []string
-	for p := range strings.SplitSeq(g, "/") {
+	for _, p := range strings.Split(g, "/") {
 		if strings.ContainsAny(p, "*?[") {
 			break
 		}

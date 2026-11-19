@@ -942,7 +942,7 @@ func TestScaffold_SeededSuggestsSyncNotImport(t *testing.T) {
 		t.Errorf("seeded scaffold should not show import <target>:\n%s", out)
 	}
 	var preview string
-	for line := range strings.SplitSeq(out, "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, "# preview") {
 			preview = strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
 			break

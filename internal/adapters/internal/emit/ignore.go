@@ -182,7 +182,7 @@ func ignoreOverwriteRisk(existing, body string) string {
 // or treating an indented hash or exclamation mark as a prefix.
 func ignorePatterns(text string) []string {
 	var out []string
-	for line := range strings.SplitSeq(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
+	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
 		if strings.Trim(line, " ") == "" || strings.HasPrefix(line, "#") {
 			continue
 		}

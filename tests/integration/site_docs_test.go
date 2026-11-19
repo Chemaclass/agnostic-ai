@@ -913,7 +913,7 @@ func cssAnimationRules(sheet string) ([]string, map[string]bool) {
 			}
 			for _, match := range cssAnimationRE.FindAllStringSubmatch(body, -1) {
 				none := strings.HasPrefix(strings.TrimSpace(match[1]), "none")
-				for selector := range strings.SplitSeq(head, ",") {
+				for _, selector := range strings.Split(head, ",") {
 					selector = strings.Join(strings.Fields(selector), " ")
 					if selector == "" {
 						continue

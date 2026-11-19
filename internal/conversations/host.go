@@ -34,7 +34,7 @@ const lstartLayout = "Mon Jan _2 15:04:05 2006"
 // lstart is five fields, and comm, last, may hold spaces.
 func parseProcessTable(out string) []ProcessInfo {
 	var table []ProcessInfo
-	for line := range strings.SplitSeq(out, "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 10 {
 			continue

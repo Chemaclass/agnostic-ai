@@ -786,7 +786,7 @@ func TestLint_SuggestsThePortableFormExactlyWhereMigrateRewrites(t *testing.T) {
 				t.Fatalf("migrate --dry-run: %v\n%s", err, plan)
 			}
 			var rewritten []string
-			for line := range strings.SplitSeq(plan, "\n") {
+			for _, line := range strings.Split(plan, "\n") {
 				if path, ok := strings.CutPrefix(line, "  would rewrite .agnostic-ai/hooks/"); ok {
 					rewritten = append(rewritten, strings.TrimSuffix(path, ".yaml"))
 				}

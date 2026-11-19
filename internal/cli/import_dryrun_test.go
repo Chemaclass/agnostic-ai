@@ -253,7 +253,7 @@ func assertDryRunMatchesRealImport(t *testing.T, source string, seed func(t *tes
 		}
 	})
 	listed := map[string]bool{}
-	for line := range strings.SplitSeq(out, "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		if p, ok := strings.CutPrefix(strings.TrimSpace(line), "would write "); ok {
 			listed[filepath.ToSlash(p)] = true
 		}

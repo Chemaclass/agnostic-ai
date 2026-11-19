@@ -80,8 +80,8 @@ func TestUnmanaged_GitignoreKeepsPreciseEntries(t *testing.T) {
 	runCmd(t, "sync")
 
 	gitignore := readString(t, ".gitignore")
-	lines := strings.SplitSeq(gitignore, "\n")
-	for l := range lines {
+	lines := strings.Split(gitignore, "\n")
+	for _, l := range lines {
 		if l == "/.claude/agents/" || strings.Contains(l, "sample-agent.md") {
 			t.Errorf(".gitignore hides the user-owned agent with %q:\n%s", l, gitignore)
 		}

@@ -422,7 +422,7 @@ func yamlComments(yamlBytes []byte) []yamlComment {
 	var walk func(n *yaml.Node, key string)
 	walk = func(n *yaml.Node, key string) {
 		for _, c := range []string{n.HeadComment, n.LineComment, n.FootComment} {
-			for line := range strings.SplitSeq(c, "\n") {
+			for _, line := range strings.Split(c, "\n") {
 				if line = strings.TrimSpace(line); line != "" {
 					out = append(out, yamlComment{text: line, key: key})
 				}

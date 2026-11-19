@@ -115,7 +115,7 @@ func normalizeProtectPath(path string) (string, error) {
 	if strings.HasSuffix(p, "/") {
 		p += "**"
 	}
-	for segment := range strings.SplitSeq(p, "/") {
+	for _, segment := range strings.Split(p, "/") {
 		if segment == ".." || segment == "." || segment == "" {
 			return "", fmt.Errorf("path %q must be a plain path inside the project", path)
 		}
