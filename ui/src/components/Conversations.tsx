@@ -8,9 +8,9 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
-import type { Conversation, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
+import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -371,7 +371,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
   const route = conversation.open
   const command = opened ? undefined : rowCommand(route)
 
-  const open = async (id = conversation.id) => {
+  const open = async (request: ConversationOpenRequest = { tool: conversation.tool, id: conversation.id, editor }, ownRow = true) => {
     if (pending) return
     if (!canOpen) {
       setStatus({ tone: 'not-opened', message: MOCK_OPEN_MESSAGE })
@@ -379,13 +379,13 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
     }
     setPending(true)
     setStatus(undefined)
-    const outcome = await openConversation({ tool: conversation.tool, id, editor })
+    const outcome = await openConversation(request)
     setStatus(openStatus(outcome, route))
     setPending(false)
     if (outcome.kind === 'reply' && outcome.reply.opened) {
       // The command it hides may hold the focus.
       if (actions.current?.contains(document.activeElement) && document.activeElement !== openButton.current) openButton.current?.focus()
-      onOpened()
+      if (ownRow) onOpened()
     }
   }
 
@@ -418,7 +418,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
           {route.label}
         </button>
         {conversation.cloud && (
-          <button type="button" className="button conversation-open" aria-disabled={pending || undefined} aria-label={`Open on claude.ai: ${title.text}`} onClick={() => open(conversation.cloud?.id)}>
+          <button type="button" className="button conversation-open" aria-disabled={pending || undefined} aria-label={`Open on claude.ai: ${title.text}`} onClick={() => conversation.cloud && open({ tool: conversation.tool, id: conversation.cloud.id, editor })}>
             Open on claude.ai
           </button>
         )}
@@ -428,11 +428,53 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
           </RowActions>
         )}
       </div>
+      <Helpers conversation={conversation} now={now} pending={pending} onOpen={(helper) => {
+        const request = helperOpenRequest(conversation, helper, editor)
+        // A Codex subagent opens its own thread, which is not this row.
+        open(request, request.id === conversation.id)
+      }} />
       <div className="conversation-result">
         <p className={`conversation-status${status ? ` is-${status.tone}` : ''}`} role="status">{pending ? 'Opening…' : status?.message ?? ''}</p>
         {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${title.text}`} />}
       </div>
     </li>
+  )
+}
+
+// Working subagents sit under their chat, newest first. Showing the rest
+// moves the focus to the first one it shows, as its button goes away.
+function Helpers({ conversation, now, pending, onOpen }: { conversation: Conversation; now: Date; pending: boolean; onOpen: (helper: ConversationHelper) => void }) {
+  const [showAll, setShowAll] = useState(false)
+  const firstShown = useRef<HTMLButtonElement>(null)
+  const focusShown = useRef(false)
+  const { rows, more } = helperRows(conversation, showAll)
+  useEffect(() => {
+    if (!focusShown.current) return
+    focusShown.current = false
+    firstShown.current?.focus()
+  }, [showAll])
+  if (rows.length === 0) return null
+  return (
+    <div className="conversation-helpers">
+      <ul aria-label="Working subagents">
+        {rows.map((helper, index) => (
+          <li key={`${helper.tool}:${helper.id}`}>
+            <button ref={index === HELPERS_SHOWN ? firstShown : undefined} type="button" className="conversation-helper" title={helperTooltip(helper)} aria-disabled={pending || undefined} onClick={() => onOpen(helper)}>
+              <span className="conversation-helper-title">{helperTitle(helper)}</span>
+              <span className="conversation-helper-meta">{helperDetails(helper, now)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {more > 0 && (
+        <button type="button" className="button conversation-helpers-more" onClick={() => {
+          focusShown.current = true
+          setShowAll(true)
+        }}>
+          Show {more} more {more === 1 ? 'subagent' : 'subagents'}
+        </button>
+      )}
+    </div>
   )
 }
 

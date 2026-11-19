@@ -192,6 +192,65 @@
   cursor: progress;
 }
 
+/* Working subagents sit under their chat on a guide line, one quiet row each. */
+
+.conversation-helpers {
+  grid-column: 2 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.conversation-helpers > ul {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 0 12px;
+  border-inline-start: 2px solid var(--line);
+  list-style: none;
+}
+
+.conversation-helper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.conversation-helper:hover {
+  background: var(--canvas);
+}
+
+.conversation-helper:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.conversation-helper[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.conversation-helper-title {
+  overflow-wrap: anywhere;
+}
+
+.conversation-helper-meta {
+  color: var(--text-muted);
+}
+
 .conversation-result {
   grid-column: 2 / -1;
   display: flex;
@@ -354,7 +413,9 @@
   .conversation-tools button,
   .conversations-skeleton-tool,
   .conversation-actions .button,
-  .conversation-result .button {
+  .conversation-result .button,
+  .conversation-helpers .button,
+  .conversation-helper {
     min-height: 44px;
   }
 }

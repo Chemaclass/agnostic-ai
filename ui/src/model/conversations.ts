@@ -3,7 +3,7 @@
 // shows as. The server sends the rows newest first; these helpers keep
 // that order.
 
-import type { Conversation, ConversationActivity, ConversationApp, ConversationOpenReply, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView } from '../contract'
+import type { Conversation, ConversationActivity, ConversationApp, ConversationHelper, ConversationOpenReply, ConversationOpenRequest, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView } from '../contract'
 import { plural } from './format'
 
 const APP_LABELS = {
@@ -82,12 +82,12 @@ function conversationKey(conversation: Conversation): string {
 }
 
 // A time that does not parse sorts last, as it groups under Earlier.
-function writtenAt(conversation: Conversation): number {
-  const time = Date.parse(conversation.updatedAt)
+function writtenAt(row: Pick<Conversation, 'updatedAt'>): number {
+  const time = Date.parse(row.updatedAt)
   return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time
 }
 
-function newestFirst(a: Conversation, b: Conversation): number {
+function newestFirst(a: Pick<Conversation, 'updatedAt'>, b: Pick<Conversation, 'updatedAt'>): number {
   const first = writtenAt(a)
   const second = writtenAt(b)
   if (first === second) return 0
@@ -384,4 +384,50 @@ export function conversationsVerdict(conversations: Conversation[], now: Date, o
     return /ago$|^just now$/.test(when) ? `Your last chat was ${when}.` : `Your last chat was on ${when}.`
   }
   return olderWeeks ? 'No chat in the past week.' : 'No chats to show.'
+}
+
+/** How many subagents show under a chat before "Show N more". */
+export const HELPERS_SHOWN = 5
+
+const TOOL_LABELS = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  cursor: 'Cursor',
+  chatgpt: 'ChatGPT',
+} satisfies Record<ConversationTool, string>
+
+/** Agent types that say nothing beyond "a subagent", so the details leave them out. */
+const PLAIN_KINDS = new Set(['general-purpose', 'default'])
+
+/** The working subagents a chat shows, newest first, and how many more a "Show N more" button hides: HELPERS_SHOWN at most, or every one once the person asked for all. */
+export function helperRows(conversation: Conversation, showAll: boolean): { rows: ConversationHelper[]; more: number } {
+  const ordered = (conversation.helpers ?? []).filter((helper) => helper.state === 'working').sort(newestFirst)
+  if (showAll || ordered.length <= HELPERS_SHOWN) return { rows: ordered, more: 0 }
+  return { rows: ordered.slice(0, HELPERS_SHOWN), more: ordered.length - HELPERS_SHOWN }
+}
+
+/** A subagent's title; one whose tool gave none, or whose title may hold a credential, gets a neutral label. */
+export function helperTitle(helper: ConversationHelper): string {
+  return helper.title === '' ? 'Untitled subagent' : helper.title
+}
+
+/** "Claude Code · Explore · 12 min ago": the subagent's tool, its agent type when that says something, and its age. */
+export function helperDetails(helper: ConversationHelper, now: Date): string {
+  const parts = [TOOL_LABELS[helper.tool]]
+  if (helper.kind && !PLAIN_KINDS.has(helper.kind)) parts.push(helper.kind)
+  parts.push(relativeTime(helper.updatedAt, now))
+  return parts.join(' · ')
+}
+
+/**
+ * What a click on a subagent opens: a Codex thread opens itself, as a Codex chat does.
+ * A Claude Code subagent runs inside its chat and has no place of its own, so its chat opens, naming the subagent.
+ */
+export function helperOpenRequest(parent: Conversation, helper: ConversationHelper, editor: string): ConversationOpenRequest {
+  if (helper.tool === 'codex') return { tool: 'codex', id: helper.id, editor }
+  return { tool: parent.tool, id: parent.id, editor, helper: helper.id }
+}
+
+export function helperTooltip(helper: ConversationHelper): string {
+  return helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in, and show how to reach this subagent'
 }

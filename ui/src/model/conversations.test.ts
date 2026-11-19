@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Conversation, ConversationSource, ConversationsView } from '../contract'
+import type { Conversation, ConversationHelper, ConversationSource, ConversationsView } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -409,5 +409,42 @@ describe('conversations verdict', () => {
     expect(conversationsVerdict([conversation({ updatedAt: older })], NOW, false)).toBe(`Your last chat was on ${relativeTime(older, NOW)}.`)
     expect(conversationsVerdict([], NOW, true)).toBe('No chat in the past week.')
     expect(conversationsVerdict([], NOW, false)).toBe('No chats to show.')
+  })
+})
+
+describe('subagents', () => {
+  const minutesAgo = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString()
+  const helper = (over: Partial<ConversationHelper>): ConversationHelper => ({ tool: 'claude', id: 'agent1', title: 'Find the loader', state: 'working', updatedAt: minutesAgo(1), ...over })
+
+  it('lists working subagents newest first, a time that does not parse last, and hides those past the first five', () => {
+    const helpers = [helper({ id: 'old', updatedAt: minutesAgo(9) }), helper({ id: 'odd', updatedAt: 'not a time' }), helper({ id: 'new', updatedAt: minutesAgo(1) }), { ...helper({ id: 'done' }), state: 'finished' as 'working' }]
+    expect(helperRows(conversation({ helpers }), false).rows.map((row) => row.id)).toEqual(['new', 'old', 'odd'])
+    expect(helperRows(conversation({}), false)).toEqual({ rows: [], more: 0 })
+    const many = Array.from({ length: HELPERS_SHOWN + 2 }, (_, index) => helper({ id: `a${index}`, updatedAt: minutesAgo(index) }))
+    expect(helperRows(conversation({ helpers: many }), false)).toMatchObject({ more: 2 })
+    expect(helperRows(conversation({ helpers: many }), false).rows.map((row) => row.id)).toEqual(['a0', 'a1', 'a2', 'a3', 'a4'])
+    expect(helperRows(conversation({ helpers: many }), true)).toMatchObject({ more: 0, rows: { length: HELPERS_SHOWN + 2 } })
+  })
+
+  it('names a subagent with no title and leaves plain agent types out of its details', () => {
+    expect(helperTitle(helper({ title: '' }))).toBe('Untitled subagent')
+    expect(helperTitle(helper({}))).toBe('Find the loader')
+    expect(helperDetails(helper({ kind: 'Explore', updatedAt: minutesAgo(12) }), NOW)).toBe('Claude Code · Explore · 12 min ago')
+    expect(helperDetails(helper({ kind: 'general-purpose' }), NOW)).toBe('Claude Code · 1 min ago')
+    expect(helperDetails(helper({ kind: 'default', tool: 'codex' }), NOW)).toBe('Codex · 1 min ago')
+  })
+
+  it('opens a Claude Code subagent through its chat, naming it, and a Codex one as its own thread', () => {
+    const parent = conversation({ id: 'parent' })
+    expect(helperOpenRequest(parent, helper({ id: 'agent1' }), 'zed')).toEqual({ tool: 'claude', id: 'parent', editor: 'zed', helper: 'agent1' })
+    expect(helperOpenRequest(parent, helper({ tool: 'codex', id: 'thread' }), 'zed')).toEqual({ tool: 'codex', id: 'thread', editor: 'zed' })
+    expect(helperTooltip(helper({}))).toBe('Open the chat it runs in, and show how to reach this subagent')
+    expect(helperTooltip(helper({ tool: 'codex' }))).toBe('Open this Codex thread')
+  })
+
+  it('keeps only subagents that name a known tool and an id', () => {
+    const view = normalizeConversationsView({ conversations: [{ tool: 'claude', app: 'cli', id: 'x', updatedAt: NOW.toISOString(), open: {}, helpers: [{ tool: 'claude', id: 'a', state: 'working', updatedAt: NOW.toISOString() }, { tool: 'gemini', id: 'b' }, { tool: 'codex', id: '' }, 'nope'] }, { tool: 'claude', app: 'cli', id: 'y', updatedAt: NOW.toISOString(), open: {}, helpers: 'nope' }] })
+    expect(view.conversations[0].helpers).toEqual([{ tool: 'claude', id: 'a', title: '', state: 'working', updatedAt: NOW.toISOString() }])
+    expect(view.conversations[1].helpers).toBeUndefined()
   })
 })
