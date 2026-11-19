@@ -137,6 +137,13 @@ func NewCodexCloud() *CodexCloud {
 	return &CodexCloud{BaseURL: codexCloudBase, Client: newCloudClient(), Credentials: NewCodexAuthFile()}
 }
 
+// codexCloudList is the list answer, with the fields the rows need.
+type codexCloudList struct {
+	Data *[]codexCloudRow `json:"data"`
+}
+
+func (l codexCloudList) rows() *[]codexCloudRow { return l.Data }
+
 type codexCloudRow struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
@@ -174,7 +181,7 @@ func (c *CodexCloud) List(ctx context.Context) ([]Conversation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return decodeCloudList(ToolCodex, "thread", body, codexCloudConversation)
+	return decodeCloudList[codexCloudList](ToolCodex, "thread", body, codexCloudConversation)
 }
 
 // codexCloudConversation turns one row into a list row. A row's folder

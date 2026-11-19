@@ -185,6 +185,13 @@ func newCloudClient() *http.Client {
 	}
 }
 
+// claudeCloudList is the list answer, with the fields the rows need.
+type claudeCloudList struct {
+	Data *[]claudeCloudRow `json:"data"`
+}
+
+func (l claudeCloudList) rows() *[]claudeCloudRow { return l.Data }
+
 type claudeCloudRow struct {
 	ID           string `json:"id"`
 	Title        string `json:"title"`
@@ -268,7 +275,7 @@ func (c *ClaudeCloud) List(ctx context.Context) ([]Conversation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return decodeCloudList(ToolClaude, "session", body, cloudConversation)
+	return decodeCloudList[claudeCloudList](ToolClaude, "session", body, cloudConversation)
 }
 
 // newRequest builds a request to the sessions API with the headers it expects.

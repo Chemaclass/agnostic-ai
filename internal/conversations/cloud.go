@@ -136,21 +136,25 @@ func cloudRefusal(tool Tool, resp *http.Response) error {
 	return &CloudError{Tool: tool, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
 }
 
-// decodeCloudList reads a list answer whose rows sit under "data". A
-// row this version cannot read fails the whole answer rather than drop
-// out of sight.
-func decodeCloudList[R any](tool Tool, noun string, body []byte, convert func(R) (Conversation, error)) ([]Conversation, error) {
-	var list struct {
-		Data *[]R `json:"data"`
-	}
+// cloudList is a list answer whose rows sit under "data". Each tool
+// keeps its own named type, which JSON errors name.
+type cloudList[R any] interface {
+	rows() *[]R
+}
+
+// decodeCloudList reads a list answer. A row this version cannot read
+// fails the whole answer rather than drop out of sight.
+func decodeCloudList[L cloudList[R], R any](tool Tool, noun string, body []byte, convert func(R) (Conversation, error)) ([]Conversation, error) {
+	var list L
 	if err := json.Unmarshal(body, &list); err != nil {
 		return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: fmt.Errorf("%s list: %w", noun, err)}
 	}
-	if list.Data == nil {
+	data := list.rows()
+	if data == nil {
 		return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: errors.New(noun + " list has no data field")}
 	}
-	conversations := make([]Conversation, 0, len(*list.Data))
-	for i, row := range *list.Data {
+	conversations := make([]Conversation, 0, len(*data))
+	for i, row := range *data {
 		c, err := convert(row)
 		if err != nil {
 			return nil, &CloudError{Tool: tool, Reason: CloudUnreadable, Cause: fmt.Errorf("%s list row %d: %w", noun, i, err)}
