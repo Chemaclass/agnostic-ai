@@ -245,9 +245,11 @@ func TestMark_OnASharedRowAlsoMarksItsCloudRow(t *testing.T) {
 	for name, end := range map[string]func(t *testing.T, scanner *Scanner, stores Stores) *Scanner{
 		// The server that saw them shared keeps them one row; a new one lists both.
 		"the session ends and the server restarts": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			t.Helper()
 			return restartedScanner(scanner, stores)
 		},
 		"Remote Control is turned off": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			t.Helper()
 			writeBridgedSession(t, stores, 71, idSafari, "idle", "")
 			return scanner
 		},
@@ -445,6 +447,7 @@ func TestScan_APhoneReplyInsideTheWindowIsUnreadOnlyOnTheTwinOnceApart(t *testin
 			return &Scanner{Stores: stores, SQLite: noSQLite, Processes: fakeProcesses{}, Now: scanner.Now, MarksPath: scanner.MarksPath, Cloud: oneCloudList(phone)}
 		},
 		"after a resume without Remote Control": func(t *testing.T, scanner *Scanner, stores Stores) *Scanner {
+			t.Helper()
 			scanner.Processes = fakeProcesses{alive: map[int]bool{71: true}}
 			writeBridgedSession(t, stores, 71, idSafari, "idle", "")
 			return scanner
@@ -599,6 +602,7 @@ func TestScan_AFailedReadKeepsTheTwinLink(t *testing.T) {
 func TestScan_DropsATwinLinkOnceEitherRowIsGone(t *testing.T) {
 	for name, gone := range map[string]func(t *testing.T, scanner *Scanner, stores Stores){
 		"the local session is gone": func(t *testing.T, _ *Scanner, stores Stores) {
+			t.Helper()
 			if err := os.Remove(filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")); err != nil {
 				t.Fatal(err)
 			}

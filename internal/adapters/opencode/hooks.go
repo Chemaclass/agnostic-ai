@@ -49,12 +49,12 @@ func prepareHooks(hooks []spec.Entry) (hookPlan, error) {
 	return plan, nil
 }
 
-func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
+func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string) error {
 	plan, err := prepareHooks(hooks)
 	if err != nil {
 		return err
 	}
-	return plan.emit(sess, dir, dryRun)
+	return plan.emit(sess, dir, false)
 }
 
 func (plan hookPlan) emit(sess *emit.Session, dir string, dryRun bool) error {

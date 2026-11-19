@@ -500,7 +500,7 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 	switch kind {
 	case "agents":
 		out := filepath.Join(importSourcePath(root, src.Agents), name+".md")
-		if err := writeAgentMD(out, name, "", nil, body); err != nil {
+		if err := writeAgentMD(out, name, "", body); err != nil {
 			return err
 		}
 		c.agents++
@@ -510,7 +510,7 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
 		desc, _ := meta["description"].(string)
-		if err := writeAgentMD(out, name, desc, nil, body); err != nil {
+		if err := writeAgentMD(out, name, desc, body); err != nil {
 			return err
 		}
 		c.skills++

@@ -619,6 +619,11 @@ export function helperTitleOf(helper) {
   return helper.title === '' ? 'Untitled subagent' : helper.title
 }
 
+/** A subagent's latest message, the line under its title; empty before it wrote one. */
+export function helperReplyOf(helper) {
+  return replyOf(helper)
+}
+
 /** "Claude Code · Explore · 1m": the subagent's tool, its agent type when that says something, and its age. */
 export function helperDetailsOf(helper, now) {
   const parts = [TOOL_LABELS[helper.tool]]

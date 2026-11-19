@@ -29,7 +29,7 @@ func runSyncJSONArgs(t *testing.T, args ...string) jsonOutput {
 	return out
 }
 
-func syncClaudeFixture(t *testing.T) string {
+func syncClaudeFixture(t *testing.T) {
 	t.Helper()
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
@@ -39,7 +39,6 @@ func syncClaudeFixture(t *testing.T) string {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	return dir
 }
 
 func recordFor(records []fileRecord, path string) (fileRecord, bool) {

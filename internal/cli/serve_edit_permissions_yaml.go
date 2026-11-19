@@ -49,7 +49,7 @@ func setPermissionList(data []byte, key string, rules []string) ([]byte, error) 
 // setPermissionValue writes one member of the permissions mapping: a rule
 // list, or the default mode name.
 func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
-	_, root, err := yamlDocument(data)
+	root, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}

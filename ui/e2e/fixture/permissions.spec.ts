@@ -43,6 +43,13 @@ async function setup(page: Page, override = false) {
 }
 
 
+/** The edit request a click sends. The route records it only after the click returns, so the request is awaited. */
+async function editSentBy(page: Page, click: () => Promise<void>) {
+  const sent = page.waitForRequest('**/api/edit/*')
+  await click()
+  return (await sent).postDataJSON() as Record<string, unknown>
+}
+
 const ask = (page: Page) => page.getByRole('group', { name: 'Ask first', exact: true })
 
 async function addRule(page: Page, list = 'Ask first') {
@@ -137,8 +144,7 @@ test('shows personal replacement, compares values, and previews resetting one li
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('shell(git push *)')
   await expect(row).toContainText('Starts with the project rules.')
   await row.getByRole('textbox', { name: 'Ask first rules' }).fill('shell(git push origin release)')
-  await row.getByRole('button', { name: 'Preview', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ audience: 'personal', before: null, rules: ['shell(git push origin release)'] })
+  expect(await editSentBy(page, () => row.getByRole('button', { name: 'Preview', exact: true }).click())).toMatchObject({ audience: 'personal', before: null, rules: ['shell(git push origin release)'] })
 })
 
 test('waits for the refreshed rules before offering the next change', async ({ page }) => {
@@ -188,8 +194,7 @@ test('keeps a draft through a conflict and discards previews when the scope chan
   await row.getByRole('button', { name: 'Reload', exact: true }).click()
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('shell(git push *)')
   await expect(row.getByRole('status')).toContainText('Your draft is kept')
-  await row.getByRole('button', { name: 'Preview', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ before: ['read(private/**)'] })
+  expect(await editSentBy(page, () => row.getByRole('button', { name: 'Preview', exact: true }).click())).toMatchObject({ before: ['read(private/**)'] })
   await expect(row.getByRole('region', { name: 'Ask first change preview' })).toBeVisible()
   await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
   await expect(row.getByRole('region', { name: 'Ask first change preview' })).toHaveCount(0)
@@ -308,7 +313,7 @@ test('removing the last personal rule clears the list for you, not the shared fa
 })
 
 test('keeps a personal null clear empty and offers a reset to shared rules', async ({ page }) => {
-  const { authority, requests } = await setup(page, true)
+  const { authority } = await setup(page, true)
   const field = authority.fields!.find((field) => field.key === 'permissions.ask')!
   field.set.find((source) => source.local)!.values = [{ key: field.key, type: 'text', value: 'null' }]
   await page.reload()
@@ -319,14 +324,13 @@ test('keeps a personal null clear empty and offers a reset to shared rules', asy
   await addRule(page)
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('')
   await row.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await row.getByRole('button', { name: 'Reset to the project rules', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'personal', before: null, rules: null })
+  expect(await editSentBy(page, () => row.getByRole('button', { name: 'Reset to the project rules', exact: true }).click())).toMatchObject({ action: 'preview', audience: 'personal', before: null, rules: null })
   await row.getByRole('button', { name: 'Apply', exact: true }).click()
   await expect(row.locator('.authority-rule')).toHaveText([/shell\(git push \*\)\??Ask first\s*Project/])
 })
 
 test('requires selecting a source when more than one settings file is editable', async ({ page }) => {
-  const { authority, requests } = await setup(page)
+  const { authority } = await setup(page)
   authority.fields!.find((field) => field.key === 'permissions.ask')!.editable = { kind: 'permission-list', paths: [shared, '.agnostic-ai/settings/other.yaml'] }
   await page.reload()
   const row = ask(page)
@@ -336,12 +340,11 @@ test('requires selecting a source when more than one settings file is editable',
   await row.getByLabel('Settings file for Ask first').selectOption('.agnostic-ai/settings/other.yaml')
   await addRule(page)
   await row.getByRole('textbox', { name: 'Ask first rules' }).fill('read(private/**)')
-  await row.getByRole('button', { name: 'Preview', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ path: '.agnostic-ai/settings/other.yaml' })
+  expect(await editSentBy(page, () => row.getByRole('button', { name: 'Preview', exact: true }).click())).toMatchObject({ path: '.agnostic-ai/settings/other.yaml' })
 })
 
 test('edits a personal-only list in the selected spec when multiple shared files are available', async ({ page }) => {
-  const { authority, requests } = await setup(page, true)
+  const { authority } = await setup(page, true)
   const field = authority.fields!.find((field) => field.key === 'permissions.ask')!
   field.set = field.set.filter((source) => source.local)
   field.set[0].spec = 'declared-name'
@@ -357,8 +360,7 @@ test('edits a personal-only list in the selected spec when multiple shared files
   await row.getByRole('button', { name: 'Edit rule shell(git push origin main)' }).click()
   await expect(row.getByRole('textbox', { name: 'Ask first rules' })).toHaveValue('shell(git push origin main)')
   await row.getByRole('textbox', { name: 'Ask first rules' }).fill('shell(git push origin release)')
-  await row.getByRole('button', { name: 'Preview', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ path: shared, before: ['shell(git push origin main)'], audience: 'personal' })
+  expect(await editSentBy(page, () => row.getByRole('button', { name: 'Preview', exact: true }).click())).toMatchObject({ path: shared, before: ['shell(git push origin main)'], audience: 'personal' })
 })
 
 test('shows a local protected: null as protection turned off and resets it to the project paths', async ({ page }) => {
@@ -369,10 +371,8 @@ test('shows a local protected: null as protection turned off and resets it to th
     { spec: 'permissions', path: personal, local: true, values: [{ key: 'protected', type: 'text', value: 'null' }] },
     { spec: 'permissions', path: shared, values: [{ key: 'protected.paths', type: 'list', list: ['.github/**'] }, { key: 'protected.decision', type: 'text', value: 'deny' }] },
   ]
-  const requests: Record<string, unknown>[] = []
   await page.route('**/api/edit/protected', (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>
-    requests.push(body)
     if (body.action === 'apply') field.set = field.set.filter((source) => !source.local)
     return route.fulfill({ json: {
       schemaVersion: 'protected-edit/v1', file: personal, audience: 'personal', before: null, protected: null, cleared: true,
@@ -386,13 +386,11 @@ test('shows a local protected: null as protection turned off and resets it to th
   await row.getByRole('button', { name: 'View local settings' }).click()
   await expect(row).toContainText('so sync does not protect the project paths for you')
   await expect(row.locator('.authority-also-value')).toHaveText('Off for you')
-  await row.getByRole('button', { name: 'Reset to project paths', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ action: 'preview', audience: 'personal', path: shared, protected: null, before: null })
+  expect(await editSentBy(page, () => row.getByRole('button', { name: 'Reset to project paths', exact: true }).click())).toMatchObject({ action: 'preview', audience: 'personal', path: shared, protected: null, before: null })
   const preview = row.getByRole('region', { name: 'Protected paths change preview' })
   await expect(preview).toContainText('Use project paths')
   await expect(preview).toContainText('-protected: null')
-  await preview.getByRole('button', { name: 'Apply', exact: true }).click()
-  expect(requests.at(-1)).toMatchObject({ action: 'apply', expected: 'preview-token' })
+  expect(await editSentBy(page, () => preview.getByRole('button', { name: 'Apply', exact: true }).click())).toMatchObject({ action: 'apply', expected: 'preview-token' })
   await expect(row).not.toContainText('so sync does not protect')
   await expect(row.getByRole('button', { name: 'Reset to project paths', exact: true })).toHaveCount(0)
 })

@@ -124,6 +124,7 @@ func TestScan_AFailedReadOfTheClaudeAppInfersNoArchive(t *testing.T) {
 func TestScan_AClaudeAppReadWithoutTheSidebarInfersNoArchive(t *testing.T) {
 	for name, without := range map[string]func(t *testing.T, stores Stores){
 		"a sidebar list that does not decode": func(t *testing.T, stores Stores) {
+			t.Helper()
 			writeClaudeApp(t, stores, obj{
 				"queryKey": []any{"chat_conversation_list", obj{"orgUuid": "o"}, "infinite", obj{"limit": 30, "starred": nil, "archived": false}},
 				"state":    obj{"data": "not pages"},

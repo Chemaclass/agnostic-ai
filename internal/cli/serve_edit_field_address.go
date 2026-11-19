@@ -131,7 +131,7 @@ func (a fieldAddress) next(own any, ownSet bool, base, value any) (next any, kee
 // setFieldAt writes value at addr through byte splices, keeping every
 // other line. base is the team value a personal file merges over.
 func setFieldAt(data []byte, addr fieldAddress, value, base any) ([]byte, error) {
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func setYAMLMapEntries(data []byte, key string, from, to map[string]any) ([]byte
 		if old, ok := from[entry]; ok && reflect.DeepEqual(old, to[entry]) {
 			continue
 		}
-		_, mapping, err := yamlDocument(data)
+		mapping, err := yamlDocument(data)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +325,7 @@ func collapseYAMLField(data []byte, key string, own map[string]any, v any) (out 
 	if data, err = setYAMLMapEntries(data, key, own, only); err != nil {
 		return nil, nil, err
 	}
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, nil, err
 	}

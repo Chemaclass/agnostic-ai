@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -367,7 +367,10 @@ function helperList(conversation, key, now) {
     const row = element('button', 'helper-row')
     row.type = 'button'
     const text = element('span', 'text')
-    text.append(element('span', 'title', helperTitleOf(helper)), element('span', 'meta', helperDetailsOf(helper, now)))
+    text.append(element('span', 'title', helperTitleOf(helper)))
+    const reply = helperReplyOf(helper)
+    if (reply) text.append(element('span', 'reply', reply))
+    text.append(element('span', 'meta', helperDetailsOf(helper, now)))
     if (state.pick) row.title = 'Paste the copied text into the chat it runs in'
     else row.title = helperTooltipOf(helper)
     row.append(helperMark(), text)
@@ -732,8 +735,10 @@ async function openRow(conversation) {
   await hidePanel().catch(() => {})
   let failure
   let note
+  let pending = false
   try {
     const reply = await openConversation(conversation)
+    pending = reply.pending === true
     failure = reply.pending ? undefined : openFailureOf(reply)
     note = reply.pending ? undefined : subagentNoticeOf(reply)
   } catch (error) {
@@ -742,6 +747,8 @@ async function openRow(conversation) {
   } finally {
     opensOnTheirWay -= 1
   }
+  // A late failure may have landed while this answer was on its way, when the panel skipped it.
+  if (pending) showLateOpenFailure()
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (thisOpen !== latestOpen) return
   // The terminal keeps the front; the note waits in the panel for its next showing, unless a failure replaces it.

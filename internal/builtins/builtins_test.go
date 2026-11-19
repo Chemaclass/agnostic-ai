@@ -684,6 +684,31 @@ func TestHandoffAndWrapUp_PointToSideConversation(t *testing.T) {
 	}
 }
 
+func TestSessionSkills_PointToCloudHandoff(t *testing.T) {
+	cacheForTest(t)
+	for name, pointer := range map[string]string{
+		"handoff":           "`cloud-handoff` skill",
+		"wrap-up":           "`cloud-handoff` skill",
+		"side-conversation": "`cloud-handoff` skill",
+		"cloud-handoff":     "`handoff` skill",
+	} {
+		root, cleanup, err := builtins.Materialize(name)
+		if err != nil {
+			t.Fatalf("materialize %s: %v", name, err)
+		}
+		body, err := os.ReadFile(filepath.Join(root, "skills", name, "SKILL.md"))
+		if cerr := cleanup(); cerr != nil {
+			t.Errorf("cleanup %s: %v", root, cerr)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), pointer) {
+			t.Errorf("%s skill does not point to the %s", name, pointer)
+		}
+	}
+}
+
 func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the snippet is for macOS and Linux shells")

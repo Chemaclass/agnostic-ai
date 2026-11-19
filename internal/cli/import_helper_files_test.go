@@ -90,11 +90,7 @@ func TestImportClaudeNestedThenSync_PropagatesToCodex(t *testing.T) {
 	}
 	writeMinimalConfig(t, dir, ".agnostic-ai")
 
-	prevDir, _ := os.Getwd()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(prevDir) })
+	t.Chdir(dir)
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "-t", "claude,codex"})
@@ -152,11 +148,7 @@ func TestImportClaudeThenSync_HelperFilesRoundTrip(t *testing.T) {
 	}
 
 	writeMinimalConfig(t, dir, ".agnostic-ai")
-	prevDir, _ := os.Getwd()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(prevDir) })
+	t.Chdir(dir)
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "-t", "claude"})

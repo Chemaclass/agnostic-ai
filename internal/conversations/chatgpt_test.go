@@ -18,6 +18,7 @@ const (
 // chatGPTCatalog answers the chat-list query with rows, as sqlite3
 // would, and fails any other query.
 func chatGPTCatalog(t *testing.T, rows string) SQLiteQuery {
+	t.Helper()
 	return fakeStores(t, map[string]string{"codex.db|local_thread_catalog": rows})
 }
 

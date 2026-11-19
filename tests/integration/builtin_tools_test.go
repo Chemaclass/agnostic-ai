@@ -15,7 +15,7 @@ func TestBuiltinTools_EnableAndRemoveIndependently(t *testing.T) {
 	binary := builtBinary(t)
 	dir := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	run := func(args ...string) string {
+	run := func(args ...string) {
 		t.Helper()
 		command := exec.Command(binary, args...)
 		command.Dir = dir
@@ -23,7 +23,6 @@ func TestBuiltinTools_EnableAndRemoveIndependently(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
-		return string(out)
 	}
 	run("init", "--all", "--gitignore=off")
 	data, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))

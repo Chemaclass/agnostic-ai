@@ -16,7 +16,7 @@ import (
 // path into nested objects, such as "model.name"; a missing parent is
 // created with it and removed again once empty. A new member goes after
 // the last one, and removing it undoes that exactly.
-func editJSONRoot(path string, data []byte, order []string, set map[string]any, remove []string) ([]byte, error) {
+func editJSONRoot(path string, data []byte, order []string, set map[string]any, remove []string) ([]byte, error) { //nolint:unparam // path names the file in error messages
 	return editJSONRootIndent(path, data, "", order, set, remove)
 }
 

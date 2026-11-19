@@ -130,6 +130,7 @@ func fakeStdioServer() {
 }
 
 func ctx(t *testing.T) context.Context {
+	t.Helper()
 	c, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
 	return c

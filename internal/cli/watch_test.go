@@ -1390,6 +1390,7 @@ func TestWatchSync_StaysOnFsnotifyWhenNewDirIsGoneBeforeItsWatch(t *testing.T) {
 // marker once the returned switch is on, the way an exhausted inotify
 // limit fails partway through a session.
 func failWatchAdd(t *testing.T, marker string) *atomic.Bool {
+	t.Helper()
 	return failWatchAddWith(t, marker, errors.New("no space left on device"))
 }
 

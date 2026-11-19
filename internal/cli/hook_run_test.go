@@ -81,7 +81,7 @@ func TestHookRun_ExpectFailsOnAnotherDecision(t *testing.T) {
 
 func TestHookRun_GivesEachTargetTheEnvSyncGivesIt(t *testing.T) {
 	skipWithoutPOSIXShell(t)
-	dir := hookRunProject(t, "name: guard\nevent: UserPromptSubmit\n"+
+	hookRunProject(t, "name: guard\nevent: UserPromptSubmit\n"+
 		`command: 'test -f agnostic-ai.yaml && printf "target=%s root=%s\n" "$AGNOSTIC_AI_TARGET" "${CLAUDE_PROJECT_DIR:-none}"'`+"\n")
 	// A parent session's values must not leak into the run.
 	t.Setenv("AGNOSTIC_AI_TARGET", "claude")
@@ -91,11 +91,11 @@ func TestHookRun_GivesEachTargetTheEnvSyncGivesIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
-	real, err := filepath.EvalSymlinks(dir)
+	root, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"target=claude root=" + real, "target=codex root=none"} {
+	for _, want := range []string{"target=claude root=" + root, "target=codex root=none"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}

@@ -91,11 +91,12 @@ func TestDoctorFix_ReportsMergedLeftoverItKept(t *testing.T) {
 		edit func(t *testing.T)
 	}{
 		{"edited value", func(t *testing.T) {
+			t.Helper()
 			doc := readJSONMap(t, settings)
 			doc["hooks"] = map[string]any{"Mine": []any{}}
 			writeJSONFile(t, settings, doc)
 		}},
-		{"malformed", func(t *testing.T) { mustWriteFile(t, settings, "{\"hooks\":") }},
+		{"malformed", func(t *testing.T) { t.Helper(); mustWriteFile(t, settings, "{\"hooks\":") }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			syncedGeminiWithHook(t, userSettings)

@@ -31,7 +31,7 @@ func TestWriteAgnosticEntryPoints_OpencodeAloneWritesRootAgentsMD(t *testing.T) 
 	writeAgnosticFile(t, "# Pointer body\n")
 
 	cfg := &config.Config{Targets: []string{"opencode"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, opencodeRuleBundle(), cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, opencodeRuleBundle(), cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 
@@ -76,7 +76,7 @@ func TestWriteAgnosticEntryPoints_OpencodeSharesOneAgentsMDWithCodex(t *testing.
 	if _, err := detectCollisions(cfg, b, cfg.Targets); err != nil {
 		t.Fatalf("opencode+codex sharing AGENTS.md must not collide: %v", err)
 	}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))

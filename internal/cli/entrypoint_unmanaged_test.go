@@ -23,7 +23,7 @@ func TestWriteAgnosticEntryPoints_UnmanagedFileKeptAndNoWarning(t *testing.T) {
 	sess := adapters.NewSession()
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 
-	if err := writeAgnosticEntryPoints(sess, cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(sess, cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 

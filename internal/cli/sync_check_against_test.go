@@ -69,7 +69,7 @@ func TestSyncCheckAgainstIndex_FailsWhenSpecIsStagedWithoutItsOutput(t *testing.
 	if !strings.Contains(stdout, ".claude/rules/r1.md") {
 		t.Errorf("the report should name the rule output, got:\n%s", stdout)
 	}
-	if _, _, err := runCheckPlain(t); err != nil {
+	if _, err := runCheckPlain(t); err != nil {
 		t.Errorf("the working tree is in sync, so plain --check should pass: %v", err)
 	}
 
@@ -96,7 +96,7 @@ func TestSyncCheckAgainstHEAD_FailsOnStaleCommitEvenWhenWorkingTreeIsSynced(t *t
 	if !strings.Contains(stdout, ".claude/rules/r1.md") {
 		t.Errorf("the report should name the rule output, got:\n%s", stdout)
 	}
-	if _, _, err := runCheckPlain(t); err != nil {
+	if _, err := runCheckPlain(t); err != nil {
 		t.Errorf("the working tree is in sync, so plain --check should pass: %v", err)
 	}
 
@@ -164,7 +164,7 @@ func TestSyncCheckAgainst_NeedsAGitWorkTree(t *testing.T) {
 	}
 }
 
-func runCheckPlain(t *testing.T) (string, string, error) {
+func runCheckPlain(t *testing.T) (string, error) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	root := NewRootCmd("test")
@@ -172,7 +172,7 @@ func runCheckPlain(t *testing.T) (string, string, error) {
 	root.SetErr(&stderr)
 	root.SetArgs([]string{"sync", "--check"})
 	err := root.Execute()
-	return stdout.String(), stderr.String(), err
+	return stderr.String(), err
 }
 
 // A generated output that stays tracked after its spec is gone is a
@@ -457,12 +457,14 @@ func TestAgainstTreeSameInputs_OnlyWhenSpecsAndDirectoriesMatch(t *testing.T) {
 		stage func(t *testing.T, dir string)
 		want  bool
 	}{
-		{"unchanged", func(t *testing.T, dir string) {}, true},
+		{"unchanged", func(t *testing.T, dir string) { t.Helper() }, true},
 		{"a source file changed", func(t *testing.T, dir string) {
+			t.Helper()
 			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n")
 		}, true},
-		{"a spec changed", func(t *testing.T, dir string) { editRuleSpec(t, dir, "Changed rule.\n") }, false},
+		{"a spec changed", func(t *testing.T, dir string) { t.Helper(); editRuleSpec(t, dir, "Changed rule.\n") }, false},
 		{"a source directory was added", func(t *testing.T, dir string) {
+			t.Helper()
 			mustWriteFile(t, filepath.Join(dir, "src", "app", "main.go"), "package main\n")
 		}, true},
 	}
@@ -767,7 +769,7 @@ func TestSyncCheckAgainstIndex_MatchesFullCheckWithAFencedImportLine(t *testing.
 	if strings.Contains(inputs.String(), "docs/guide.md") {
 		t.Errorf("a fenced @path is not an input:\n%s", inputs.String())
 	}
-	if _, stderr, err := runCheckPlain(t); err != nil {
+	if stderr, err := runCheckPlain(t); err != nil {
 		t.Fatalf("sync --check: %v\n%s", err, stderr)
 	}
 

@@ -192,12 +192,15 @@ func TestDetectExistingTargets_GooseWithoutHintsFile(t *testing.T) {
 		create func(t *testing.T, dir string)
 	}{
 		{"review file", func(t *testing.T, dir string) {
+			t.Helper()
 			mustWriteFile(t, filepath.Join(dir, ".agents", "REVIEW.md"), "# review\n")
 		}},
 		{"hints file", func(t *testing.T, dir string) {
+			t.Helper()
 			mustWriteFile(t, filepath.Join(dir, ".goosehints"), "# hints\n")
 		}},
 		{"plugin hooks", func(t *testing.T, dir string) {
+			t.Helper()
 			plugin := filepath.Join(dir, ".agents", "plugins", "agnostic-ai")
 			mustWriteFile(t, filepath.Join(plugin, "hooks", "hooks.json"), "{}\n")
 		}},

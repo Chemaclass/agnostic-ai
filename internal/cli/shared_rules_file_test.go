@@ -555,17 +555,21 @@ func TestSync_RulesFileStuckOnABackupOfTheSameBytes_Heals(t *testing.T) {
 func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
 	for name, plant := range map[string]func(t *testing.T, dir string){
 		"older backup": func(t *testing.T, dir string) {
+			t.Helper()
 			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "EARLIER-EDIT\n")
 		},
 		"same bytes, not saved by sync": func(t *testing.T, dir string) {
+			t.Helper()
 			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "HAND-EDIT\n")
 		},
 		"hard link": func(t *testing.T, dir string) {
+			t.Helper()
 			if err := os.Link(filepath.Join(dir, "AGENTS.md"), filepath.Join(dir, "AGENTS.md.bak")); err != nil {
 				t.Skip(err)
 			}
 		},
 		"symlink": func(t *testing.T, dir string) {
+			t.Helper()
 			if err := os.Symlink("AGENTS.md", filepath.Join(dir, "AGENTS.md.bak")); err != nil {
 				t.Skip(err)
 			}

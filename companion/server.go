@@ -326,13 +326,13 @@ func timedOut(err error) bool {
 	return errors.As(err, &failed) && failed.timedOut
 }
 
-// call sends one request to the server. body is JSON or nil; ifNoneMatch
-// is the tag of the list the caller already holds, or empty.
-func (s *server) call(ctx context.Context, method, path string, body []byte, ifNoneMatch string) (reply, error) {
-	return s.callWithin(ctx, s.callWait, method, path, body, ifNoneMatch)
+// get sends one GET request to the server. ifNoneMatch is the tag of the
+// list the caller already holds, or empty.
+func (s *server) get(ctx context.Context, path, ifNoneMatch string) (reply, error) {
+	return s.callWithin(ctx, s.callWait, http.MethodGet, path, nil, ifNoneMatch)
 }
 
-// callWithin is call that waits up to wait for the whole answer.
+// callWithin sends one request and waits up to wait for the whole answer.
 func (s *server) callWithin(ctx context.Context, wait time.Duration, method, path string, body []byte, ifNoneMatch string) (reply, error) {
 	base, err := s.address()
 	if err != nil {

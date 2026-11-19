@@ -22,7 +22,11 @@ type helper struct {
 	Title string `json:"title"`
 	// Kind is the agent type the tool gives, such as Explore, when it
 	// gives one.
-	Kind      string      `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	// Reply is a Claude Code subagent's latest message, as a row's
+	// reply; empty before it wrote one, when it may hold a credential, or
+	// when it is further back than claudeReplyWindow.
+	Reply     string      `json:"reply,omitempty"`
 	State     helperState `json:"state"`
 	UpdatedAt string      `json:"updatedAt"`
 }

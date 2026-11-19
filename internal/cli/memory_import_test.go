@@ -536,7 +536,7 @@ func TestSync_NamesTheSeedCountAndSource(t *testing.T) {
 
 // repoStoreWithFacts writes facts into the repository store of the
 // project in the working directory, then leaves repo mode.
-func repoStoreWithFacts(t *testing.T, files map[string]string) string {
+func repoStoreWithFacts(t *testing.T, files map[string]string) {
 	t.Helper()
 	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
 	repo := filepath.FromSlash(memoryPaths(t)["personal"])
@@ -544,7 +544,6 @@ func repoStoreWithFacts(t *testing.T, files map[string]string) string {
 	if err := os.Remove("agnostic-ai.local.yaml"); err != nil {
 		t.Fatal(err)
 	}
-	return repo
 }
 
 func TestMemoryImport_CopiesTheRepoStoreIntoTheCheckout(t *testing.T) {
@@ -1084,21 +1083,25 @@ func TestMemoryImport_DeclinesFromCheckoutRepoAndPath(t *testing.T) {
 		lints bool
 	}{
 		{"claude", func(t *testing.T) []string {
+			t.Helper()
 			claudeStoreToDecline(t)
 			return []string{"--from", "claude"}
 		}, true},
 		{"checkout", func(t *testing.T) []string {
+			t.Helper()
 			importProject(t)
 			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
 			writeStore(t, personalStore, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})
 			return []string{"--from", "checkout"}
 		}, true},
 		{"repo", func(t *testing.T) []string {
+			t.Helper()
 			importProject(t)
 			repoStoreWithFacts(t, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})
 			return []string{"--from", "repo"}
 		}, true},
 		{"path", func(t *testing.T) []string {
+			t.Helper()
 			importProject(t)
 			other := filepath.Join(t.TempDir(), "gemini-memory")
 			writeStore(t, other, map[string]string{"tabs.md": tabsFact, "old.md": oldFact})

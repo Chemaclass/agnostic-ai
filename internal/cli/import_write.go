@@ -213,7 +213,7 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 
 // importMkdirAll creates dir and its parents, unless a dry-run is active
 // and dir resolves outside its sandbox.
-func importMkdirAll(dir string, perm fs.FileMode) error {
+func importMkdirAll(dir string, perm fs.FileMode) error { //nolint:unparam // perm names the mode at each call, like os.MkdirAll
 	if importTxn != nil {
 		importTxn.mu.Lock()
 		defer importTxn.mu.Unlock()

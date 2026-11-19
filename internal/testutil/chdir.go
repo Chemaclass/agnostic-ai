@@ -2,7 +2,6 @@
 package testutil
 
 import (
-	"os"
 	"testing"
 )
 
@@ -11,14 +10,7 @@ import (
 // must not call t.Parallel().
 func Chdir(t *testing.T, dir string) {
 	t.Helper()
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("chdir %s: %v", dir, err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	t.Chdir(dir)
 }
 
 // TempCwd creates a fresh t.TempDir(), chdirs into it, and returns the

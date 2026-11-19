@@ -181,54 +181,51 @@ func buildVerifyContext(cfg *config.Config, b spec.Bundle, target string) (verif
 }
 
 func configuredModel(cfg *config.Config, target string, files []adapters.CapturedFile) string {
-	model, _ := emittedConfiguredModel(cfg, target, files)
+	model := emittedConfiguredModel(cfg, target, files)
 	return model
 }
 
 // emittedConfiguredModel reads model identity from the exact config bytes the
 // adapter captured. It describes configured emission only, never runtime
 // identity. Parse failures are non-fatal because configured_model is optional.
-func emittedConfiguredModel(cfg *config.Config, target string, files []adapters.CapturedFile) (string, bool) {
+func emittedConfiguredModel(cfg *config.Config, target string, files []adapters.CapturedFile) string {
 	path, format := emittedModelFile(cfg, target)
 	if path == "" {
-		return "", false
+		return ""
 	}
 	content, ok := capturedContent(files, path)
 	if !ok {
-		return "", false
+		return ""
 	}
 	switch format {
 	case "toml":
 		doc := map[string]any{}
 		if _, err := toml.Decode(header.Strip(content), &doc); err == nil {
-			model, found := doc["model"]
-			value, _ := model.(string)
-			return value, found
+			value, _ := doc["model"].(string)
+			return value
 		}
 	case "yaml":
 		doc := map[string]any{}
 		if err := yaml.Unmarshal([]byte(header.Strip(content)), &doc); err == nil {
-			model, found := doc["model"]
-			value, _ := model.(string)
-			return value, found
+			value, _ := doc["model"].(string)
+			return value
 		}
 	case "json":
 		doc := map[string]any{}
 		strictJSON, _ := adapters.StripJSONC([]byte(content))
 		if err := json.Unmarshal(strictJSON, &doc); err != nil {
-			return "", false
+			return ""
 		}
-		model, found := doc["model"]
-		switch model := model.(type) {
+		switch model := doc["model"].(type) {
 		case string:
-			return model, true
+			return model
 		case map[string]any:
 			name, _ := model["name"].(string)
-			return name, true
+			return name
 		}
-		return "", found
+		return ""
 	}
-	return "", false
+	return ""
 }
 
 func emittedModelFile(cfg *config.Config, target string) (string, string) {

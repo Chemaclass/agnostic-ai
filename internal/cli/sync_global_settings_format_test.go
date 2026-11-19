@@ -254,6 +254,7 @@ func TestSyncGlobal_HookAddThenRemoveKeepsUserContainers(t *testing.T) {
 func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) {
 	const spec = "event: SessionStart\ncommand: echo hi\n"
 	created := func(t *testing.T, target, file string) string {
+		t.Helper()
 		home, source := globalAgentTestHome(t)
 		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), spec)
 		if _, _, err := runGlobalAgentTest("--only", target); err != nil {

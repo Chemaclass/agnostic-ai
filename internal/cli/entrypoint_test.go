@@ -32,7 +32,7 @@ func TestWriteAgnosticEntryPoints_WarnsBeforeOverwritingHandAuthored(t *testing.
 	defer func() { logOut = prev }()
 
 	cfg := &config.Config{Targets: []string{"claude"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "CLAUDE.md appears hand-authored") {
@@ -56,7 +56,7 @@ func TestWriteAgnosticEntryPoints_NoWarnWhenGeneratedHeaderPresent(t *testing.T)
 	defer func() { logOut = prev }()
 
 	cfg := &config.Config{Targets: []string{"claude"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), "appears hand-authored") {
@@ -93,7 +93,7 @@ func TestWriteAgnosticEntryPoints_SeededTemplateKeepsRootFilesGenerated(t *testi
 	dir := testutil.TempCwd(t)
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -114,7 +114,7 @@ func TestWriteAgnosticEntryPoints_LeavesOldDefaultBodyAlone(t *testing.T) {
 	writeAgnosticFile(t, old)
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(adapters.AgnosticEntryPointPath)
@@ -170,7 +170,7 @@ func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
 	writeAgnosticFile(t, custom)
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude", "codex"}, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude", "codex"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
@@ -191,7 +191,7 @@ func TestWriteAgnosticEntryPoints_ClaudeImportsAgentsAndKeepsItsOwnBlock(t *test
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Project\n\nShared.\n\n::target claude\nClaude only.\n::end\n")
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -210,7 +210,7 @@ func TestWriteAgnosticEntryPoints_KeepsAFullCopyWhenTheViewsDiffer(t *testing.T)
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "Shared.\n\n::target codex\nCodex only.\n::end\n")
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -224,7 +224,7 @@ func TestWriteAgnosticEntryPoints_AgnosticFileNotOverwrittenWhenExists(t *testin
 	custom := "# My instructions\n"
 	writeAgnosticFile(t, custom)
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), &config.Config{}, spec.Bundle{}, nil, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), &config.Config{}, spec.Bundle{}, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
@@ -247,7 +247,7 @@ func TestWriteAgnosticEntryPoints_ImportModeWiresRulesIntoClaude(t *testing.T) {
 		{Kind: spec.KindRule, Name: "style", Path: "rules/style.md", Body: "style body"},
 	}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -274,7 +274,7 @@ func TestWriteAgnosticEntryPoints_DefaultClaudeOmitsRulesBlock(t *testing.T) {
 		{Kind: spec.KindRule, Name: "style", Path: "rules/style.md", Body: "style body"},
 	}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -294,7 +294,7 @@ func TestWriteAgnosticEntryPoints_StripImportsForNonResolvingTargets(t *testing.
 		Sync:    config.SyncConfig{ResolveImports: "strip"},
 	}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -322,7 +322,7 @@ func TestWriteAgnosticEntryPoints_InlineImportsForNonResolvingTargets(t *testing
 		Sync:    config.SyncConfig{ResolveImports: "inline"},
 	}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -340,7 +340,7 @@ func TestWriteAgnosticEntryPoints_DefaultPassesImportsThrough(t *testing.T) {
 	writeAgnosticFile(t, "# Project\n\n@docs/architecture.md\n")
 	cfg := &config.Config{Targets: []string{"codex"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if body := readFile(t, filepath.Join(dir, "AGENTS.md")); !strings.Contains(body, "@docs/architecture.md") {
@@ -371,7 +371,7 @@ func TestWriteAgnosticEntryPoints_CodexAndClineShareAGENTSMd(t *testing.T) {
 	})
 
 	cfg := &config.Config{Targets: []string{"codex", "cline"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"codex", "cline"}, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"codex", "cline"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
@@ -397,7 +397,7 @@ func TestWriteAgnosticEntryPoints_ZedRulesOutrankCopilotInstructions(t *testing.
 	})
 
 	cfg := &config.Config{Targets: []string{"zed", "copilot"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"zed", "copilot"}, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"zed", "copilot"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".rules"))
@@ -423,7 +423,7 @@ func TestWriteAgnosticEntryPoints_ClineAloneNoInlineRules(t *testing.T) {
 	})
 
 	cfg := &config.Config{Targets: []string{"cline"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"cline"}, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, []string{"cline"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
