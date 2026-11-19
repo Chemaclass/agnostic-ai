@@ -61,6 +61,9 @@ type Entry struct {
 	// outside the layered loader (legacy path).
 	Layer     string
 	bodyLayer string
+	// ShadowedBy is the path of the same-layer spec with this name that
+	// the loader kept instead of this one. Set only on Bundle.Shadowed.
+	ShadowedBy string
 	// Base is the lower-layer spec a local layer entry extends, and
 	// LocalMeta the keys the local file itself writes. Both are nil
 	// unless the entry extends one.
