@@ -1562,7 +1562,10 @@ document.addEventListener('keydown', (event) => {
       'delete-confirm': closeDeleteConfirm,
       'row-menu': closeRowMenu,
       rename: escapeRename,
-      settings: closeMenu,
+      settings: () => {
+        closeMenu()
+        queryInput.focus()
+      },
       pick: () => {
         leavePick()
         queryInput.focus()

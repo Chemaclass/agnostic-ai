@@ -137,9 +137,13 @@ test('the keys leave the list alone while the settings menu is open', async ({ p
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowDown')
   await expect(selected(page)).toHaveText(before ?? '')
-  await page.getByRole('button', { name: 'Settings', exact: true }).focus()
+  await page.getByLabel('Search every conversation').focus()
   await page.keyboard.press('Enter')
   expect(await calledPaths(page)).not.toContain('/api/open')
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeHidden()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
 })
 
 test('the search takes at most 200 characters and keeps the rows', async ({ page }) => {
