@@ -120,7 +120,7 @@ func newInitCmd() *cobra.Command {
 			targets := allTargetNames()
 			if !all {
 				defaults, kind := initDefaultTargets(".")
-				picked, err := selectTargetsForSync(cmd.InOrStdin(), cmd.ErrOrStderr(), defaults)
+				picked, err := selectTargetsForSync(cmd.InOrStdin(), defaults)
 				if err != nil {
 					return err
 				}

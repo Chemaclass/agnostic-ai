@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -169,6 +166,10 @@ type memoryImportPick struct {
 
 func (p memoryImportPick) declines() bool { return len(p.skip) > 0 || p.skipRest }
 
+func (p memoryImportPick) declinesFile(file string) bool {
+	return p.skipRest || slices.Contains(p.skip, file)
+}
+
 // memoryCopy is one fact file import writes, with the index line it gets.
 type memoryCopy struct {
 	file   string
@@ -288,7 +289,16 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 		_, err := os.Lstat(filepath.Join(target, file))
 		return err == nil || handled[label+"/"+record]
 	}
-	declines := func(file string) bool { return pick.skipRest || slices.Contains(pick.skip, file) }
+	facts, unread := plan.readSourceFacts(entries, pick, declined, isImported)
+	facts, err = plan.indexAndSelectFacts(facts, unread, pick)
+	if err != nil {
+		return plan, err
+	}
+	err = plan.classifyFacts(facts, pick, declined, isImported)
+	return plan, err
+}
+
+func (p *memoryImportPlan) readSourceFacts(entries []os.DirEntry, pick memoryImportPick, declined map[string]string, isImported func(string, string) bool) ([]memoryCopy, []string) {
 	var facts []memoryCopy
 	var unread []string
 	for _, e := range entries {
@@ -298,7 +308,7 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 		}
 		reason := "not a regular file"
 		if e.Type().IsRegular() {
-			body, err := readMemoryFact(filepath.Join(source, name))
+			body, err := readMemoryFact(filepath.Join(p.source, name))
 			if err == nil {
 				facts = append(facts, memoryCopy{file: name, body: body})
 				continue
@@ -306,20 +316,25 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 			reason = err.Error()
 		}
 		unread = append(unread, name)
-		switch sum, ok := declined[label+"/"+name]; {
+		switch sum, ok := declined[p.label+"/"+name]; {
 		case slices.Contains(pick.only, name) || isImported(name, name):
-		case declines(name):
+		case pick.declinesFile(name):
 			if !ok || sum != "" {
-				plan.toDecline = append(plan.toDecline, memoryDecline{file: name, record: name})
+				p.toDecline = append(p.toDecline, memoryDecline{file: name, record: name})
 			}
 			continue
 		case ok && sum == "":
-			plan.declined = append(plan.declined, name)
+			p.declined = append(p.declined, name)
 			continue
 		}
-		plan.skipped = append(plan.skipped, memorySkip{name, reason})
+		p.skipped = append(p.skipped, memorySkip{name, reason})
 	}
-	lines := sourceIndexLines(source)
+	return facts, unread
+}
+
+func (p *memoryImportPlan) indexAndSelectFacts(facts []memoryCopy, unread []string, pick memoryImportPick) ([]memoryCopy, error) {
+	index := sourceIndex(p.source)
+	lines := sourceIndexLines(index)
 	for i, f := range facts {
 		if line, ok := lines[f.file]; ok {
 			facts[i].line = line
@@ -327,75 +342,88 @@ func planMemoryImport(source, target, label string, pick memoryImportPick) (memo
 			facts[i].line = parseMemoryTopic(f.file, string(f.body)).indexLine()
 		}
 	}
-	if notes := sourceIndexNotes(source); len(notes) > 0 {
-		fact, err := uniqueMemoryNotesFact(source, target, label, notes)
+	if notes := sourceIndexNotes(index); len(notes) > 0 {
+		fact, err := uniqueMemoryNotesFact(p.source, p.target, p.label, notes)
 		if err != nil {
-			return plan, err
+			return nil, err
 		}
 		facts = append(facts, fact)
 	}
 	for _, name := range pick.only {
 		if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) {
-			return plan, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(source))
+			return nil, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(p.source))
 		}
 	}
 	for _, name := range pick.skip {
 		if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) && !slices.Contains(unread, name) {
-			return plan, fmt.Errorf("--skip %s: %s has no such fact file", name, filepath.ToSlash(source))
+			return nil, fmt.Errorf("--skip %s: %s has no such fact file", name, filepath.ToSlash(p.source))
 		}
 	}
+	return facts, nil
+}
+
+func (p *memoryImportPlan) classifyFacts(facts []memoryCopy, pick memoryImportPick, declined map[string]string, isImported func(string, string) bool) error {
 	for _, f := range facts {
 		record := f.recordName()
 		imported := isImported(f.file, record)
 		sum := memoryFactSum(f.body)
-		was, wasDeclined := declined[label+"/"+record]
+		was, wasDeclined := declined[p.label+"/"+record]
 		stillDeclined := wasDeclined && !imported && (was == "" || was == sum)
 		if wasDeclined && !imported && !stillDeclined {
-			plan.changed = append(plan.changed, f.file)
+			p.changed = append(p.changed, f.file)
 		}
 		if !slices.Contains(pick.only, f.file) {
 			if len(pick.only) > 0 || pick.declines() {
 				switch {
 				case imported:
-					plan.imported = append(plan.imported, f.file)
+					p.imported = append(p.imported, f.file)
 					if slices.Contains(pick.skip, f.file) {
-						plan.skipImported = append(plan.skipImported, f.file)
+						p.skipImported = append(p.skipImported, f.file)
 					}
-				case declines(f.file) && was != sum:
-					plan.toDecline = append(plan.toDecline, memoryDecline{file: f.file, record: record, sum: sum})
+				case pick.declinesFile(f.file) && was != sum:
+					p.toDecline = append(p.toDecline, memoryDecline{file: f.file, record: record, sum: sum})
 				case stillDeclined:
-					plan.declined = append(plan.declined, f.file)
+					p.declined = append(p.declined, f.file)
 				default:
-					plan.pending = append(plan.pending, f.file)
+					p.pending = append(p.pending, f.file)
 				}
 				continue
 			}
 			if stillDeclined {
-				plan.declined = append(plan.declined, f.file)
+				p.declined = append(p.declined, f.file)
 				continue
 			}
 		}
-		if line := memorySecretLine(string(f.body)); line > 0 {
-			plan.skipped = append(plan.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
-			continue
-		}
-		if memorySecretIn(f.line) {
-			f.line = parseMemoryTopic(f.file, string(f.body)).indexLine()
-			plan.relined = append(plan.relined, f.file)
-		}
-		existing, err := os.ReadFile(filepath.Join(target, f.file))
-		switch {
-		case err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(f.body)):
-			plan.present = append(plan.present, f)
-		case err == nil:
-			plan.kept = append(plan.kept, f.file)
-		case errors.Is(err, fs.ErrNotExist):
-			plan.copies = append(plan.copies, f)
-		default:
-			return plan, fmt.Errorf("%s: %w", filepath.Join(target, f.file), err)
+		if err := p.placeFact(f); err != nil {
+			return err
 		}
 	}
-	return plan, nil
+	return nil
+}
+
+// placeFact sorts a fact import may copy: skipped for a secret, otherwise
+// present, kept or copied by what the target holds.
+func (p *memoryImportPlan) placeFact(f memoryCopy) error {
+	if line := memorySecretLine(string(f.body)); line > 0 {
+		p.skipped = append(p.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
+		return nil
+	}
+	if memorySecretIn(f.line) {
+		f.line = parseMemoryTopic(f.file, string(f.body)).indexLine()
+		p.relined = append(p.relined, f.file)
+	}
+	existing, err := os.ReadFile(filepath.Join(p.target, f.file))
+	switch {
+	case err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(f.body)):
+		p.present = append(p.present, f)
+	case err == nil:
+		p.kept = append(p.kept, f.file)
+	case errors.Is(err, fs.ErrNotExist):
+		p.copies = append(p.copies, f)
+	default:
+		return fmt.Errorf("%s: %w", filepath.Join(p.target, f.file), err)
+	}
+	return nil
 }
 
 // memoryFactSum fingerprints a fact's content, so a declined fact that
@@ -455,11 +483,11 @@ func sourceIndex(dir string) []string {
 	return strings.Split(strings.TrimRight(string(normalizeNewlines(body)), "\n"), "\n")
 }
 
-// sourceIndexLines returns, for each fact file the index in dir links,
+// sourceIndexLines returns, for each fact file the index links,
 // the first index line that links it.
-func sourceIndexLines(dir string) map[string]string {
+func sourceIndexLines(index []string) map[string]string {
 	out := map[string]string{}
-	for _, e := range memoryIndexEntries(sourceIndex(dir)) {
+	for _, e := range memoryIndexEntries(index) {
 		if _, seen := out[e.target]; !seen {
 			out[e.target] = e.text
 		}
@@ -467,10 +495,9 @@ func sourceIndexLines(dir string) map[string]string {
 	return out
 }
 
-// sourceIndexNotes returns the lines of the index in dir that link no
+// sourceIndexNotes returns the lines of the index that link no
 // fact and are not blank, or nil when headings are all there is.
-func sourceIndexNotes(dir string) []string {
-	index := sourceIndex(dir)
+func sourceIndexNotes(index []string) []string {
 	linked := map[int]bool{}
 	for _, e := range memoryIndexEntries(index) {
 		linked[e.line] = true
@@ -799,95 +826,6 @@ func appendMemoryIndexLines(target string, facts []memoryCopy) error {
 	return nil
 }
 
-// guardStoreFromGit keeps facts that were private to a tool out of Git. It
-// refuses a store with files Git tracks, and adds the store to
-// info/exclude when Git would track new files there, if the store is in
-// the working directory's repository. A store outside any repository
-// needs nothing.
-func guardStoreFromGit(store string) error {
-	var err error
-	store, err = effectiveMemoryPath(store)
-	if err != nil {
-		return err
-	}
-	repo := existingAncestor(store)
-	if out, err := exec.Command("git", "-C", repo, "ls-files", "--", store).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
-		return fmt.Errorf("%s holds files Git tracks, so imported facts would reach a commit; untrack them with `git rm -r --cached %s`", filepath.ToSlash(store), filepath.ToSlash(store))
-	}
-	// Import writes facts, the index, its record, its lock, and temporary
-	// files; a rule that ignores only Markdown leaves the rest committable.
-	probes := []string{memoryIndexFile, memoryImportRecord, memoryDeclineRecord, ".lock", ".fact.md.0.tmp"}
-	trackable := func() bool {
-		for _, name := range probes {
-			if gitWouldTrack(repo, filepath.Join(store, name)) {
-				return true
-			}
-		}
-		return false
-	}
-	if !trackable() {
-		return nil
-	}
-	top, err := exec.Command("git", "-C", repo, "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return fmt.Errorf("%s: %w", repo, err)
-	}
-	here, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err != nil || canonicalDir(strings.TrimSpace(string(here))) != canonicalDir(strings.TrimSpace(string(top))) {
-		return fmt.Errorf("%s: the Git repository in %s would track it; ignore the folder there first", filepath.ToSlash(store), strings.TrimSpace(string(top)))
-	}
-	rel, err := filepath.Rel(canonicalDir(strings.TrimSpace(string(top))), canonicalDir(store))
-	if err != nil {
-		return fmt.Errorf("%s: %w", store, err)
-	}
-	if err := adapters.ExcludeFromGit("/" + filepath.ToSlash(rel) + "/"); err != nil {
-		return err
-	}
-	if trackable() {
-		return fmt.Errorf("%s: Git would still track it; ignore the folder in .gitignore", filepath.ToSlash(store))
-	}
-	return nil
-}
-
-// Resolve existing parents too, since a new store may live below a symlink.
-func effectiveMemoryPath(path string) (string, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", path, err)
-	}
-	ancestor := abs
-	var tail []string
-	for {
-		if _, err := os.Lstat(ancestor); err == nil {
-			resolved, err := filepath.EvalSymlinks(ancestor)
-			if err != nil {
-				return "", fmt.Errorf("%s: %w", ancestor, err)
-			}
-			for i := len(tail) - 1; i >= 0; i-- {
-				resolved = filepath.Join(resolved, tail[i])
-			}
-			return resolved, nil
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("%s: %w", ancestor, err)
-		}
-		parent := filepath.Dir(ancestor)
-		if parent == ancestor {
-			return "", fmt.Errorf("%s: no existing parent", path)
-		}
-		tail = append(tail, filepath.Base(ancestor))
-		ancestor = parent
-	}
-}
-
-// gitWouldTrack reports whether the repository holding dir would track a
-// new file at path: Git reports the path as not ignored. Outside a
-// repository it reports false.
-func gitWouldTrack(dir, path string) bool {
-	err := exec.Command("git", "-C", dir, "check-ignore", "-q", path).Run()
-	var exit *exec.ExitError
-	return errors.As(err, &exit) && exit.ExitCode() == 1
-}
-
 // existingAncestor returns path, or its nearest parent that exists.
 func existingAncestor(path string) string {
 	for {
@@ -899,32 +837,6 @@ func existingAncestor(path string) string {
 			return path
 		}
 		path = parent
-	}
-}
-
-// memoryStoreLockWait bounds how long import waits for another import
-// into the same store.
-const memoryStoreLockWait = 5 * time.Second
-
-// lockMemoryStore holds the lock file inside store until the returned
-// func runs, so two imports never append index lines at once.
-func lockMemoryStore(store string) (func(), error) {
-	path := filepath.Join(store, ".lock")
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	deadline := time.Now().Add(memoryStoreLockWait)
-	for {
-		err := tryLockProjectFile(file)
-		if err == nil {
-			return func() { _ = file.Close() }, nil
-		}
-		if !projectLockContended(err) || time.Now().After(deadline) {
-			_ = file.Close()
-			return nil, fmt.Errorf("lock %s: %w", path, err)
-		}
-		time.Sleep(50 * time.Millisecond)
 	}
 }
 
@@ -1016,183 +928,4 @@ func printMemoryFacts(w io.Writer, names []string, header string) {
 	for _, name := range names {
 		_, _ = fmt.Fprintf(w, "  %s\n", name)
 	}
-}
-
-// runMemorySeeds copies, for each seed an adapter queued this sync, the
-// source facts into its personal store when that store holds no Markdown
-// file yet, and notes the result.
-func runMemorySeeds() {
-	for _, seed := range adapters.TakeMemorySeeds() {
-		if info, err := os.Stat(seed.From); err != nil || !info.IsDir() {
-			continue
-		}
-		plan, done, err := importMemory(seed.From, seed.To, seed.Target, memoryImportPick{}, true)
-		from := filepath.ToSlash(seed.From)
-		if err != nil {
-			adapters.NoteProject(fmt.Sprintf("%s: could not copy the facts in %s into personal memory: %v; run `agnostic-ai memory import --from %s`", seed.Target, from, err, seed.Target))
-			continue
-		}
-		if done && len(plan.copies) > 0 {
-			adapters.NoteProject(fmt.Sprintf("%s: copied %d fact(s) from %s into personal memory, which was empty; every tool reads them now, so review them with `agnostic-ai memory list`; the source is unchanged", seed.Target, len(plan.copies), from))
-		}
-		if done && len(plan.skipped) > 0 {
-			adapters.NoteProject(fmt.Sprintf("%s: skipped %d fact(s) in %s; `agnostic-ai memory import --from %s --dry-run` says why", seed.Target, len(plan.skipped), from, seed.Target))
-		}
-	}
-}
-
-// hasMarkdownFile reports whether dir holds any Markdown file, the index
-// included.
-func hasMarkdownFile(dir string) bool {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return false
-	}
-	return slices.ContainsFunc(entries, func(e fs.DirEntry) bool {
-		return !e.IsDir() && filepath.Ext(e.Name()) == ".md"
-	})
-}
-
-// lintMemoryDarkStores reports each memory store whose facts no tool reads
-// any longer, and that the personal store lacks by file name (LINT043):
-// Claude Code's own store once sync points Claude at personal memory, and
-// the personal store of the other memory.personal mode. It counts facts by
-// file name, and notes kept in a store's index as one more, leaves out the
-// facts declined with the same content, and never prints what a fact says.
-func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, error) {
-	if readers.cfg == nil {
-		return nil, nil
-	}
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", root, err)
-	}
-	stores, err := memoryStoresAt(root)
-	if err != nil {
-		return nil, err
-	}
-	personal := stores[1].dir
-	if !filepath.IsAbs(personal) {
-		personal = filepath.Join(root, personal)
-	}
-	have, err := adapters.MemoryFactFiles(personal)
-	if err != nil {
-		return nil, err
-	}
-	handled := importedFacts(personal)
-	declined := declinedFacts(personal)
-	type darkStore struct{ dir, from, why string }
-	var candidates []darkStore
-	if slices.Contains(readers.cfg.Targets, memorySourceClaude) && claudeReadsPersonalMemory(readers.cfg, root, personal) {
-		if native, ok, err := adapters.NativeMemoryDir(memorySourceClaude, root); err == nil && ok {
-			candidates = append(candidates, darkStore{native, memorySourceClaude, "Claude Code saved them before sync pointed it at personal memory"})
-		}
-	}
-	if readers.cfg.RepoPersonalMemory() {
-		candidates = append(candidates, darkStore{filepath.Join(root, defaultMemoryStores[1].dir), memorySourceCheckout, "they are in the checkout store, and memory.personal is repo"})
-	} else if repo, err := adapters.PersonalMemoryDir(&config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}, root); err == nil {
-		candidates = append(candidates, darkStore{repo, memorySourceRepo, "they are in the repository store, and memory.personal is checkout"})
-	}
-	var out []lintFinding
-	for _, c := range candidates {
-		if canonicalDir(c.dir) == canonicalDir(personal) {
-			continue
-		}
-		facts, err := adapters.MemoryFactFiles(c.dir)
-		if err != nil {
-			return nil, err
-		}
-		isDeclined := func(record string, body func() ([]byte, error)) bool {
-			sum, ok := declined[c.from+"/"+record]
-			if !ok || sum == "" {
-				return ok
-			}
-			b, err := body()
-			return err == nil && memoryFactSum(b) == sum
-		}
-		missing, declinedHere := 0, 0
-		if notes := sourceIndexNotes(c.dir); len(notes) > 0 {
-			fact, err := uniqueMemoryNotesFact(c.dir, personal, c.from, notes)
-			if err != nil {
-				return nil, err
-			}
-			switch {
-			case handled[c.from+"/"+fact.record]:
-			case isDeclined(fact.record, func() ([]byte, error) { return fact.body, nil }):
-				declinedHere++
-			default:
-				missing++
-			}
-		}
-		for _, f := range facts {
-			switch {
-			case slices.Contains(have, f) || handled[c.from+"/"+f]:
-			case isDeclined(f, func() ([]byte, error) { return readMemoryFact(filepath.Join(c.dir, f)) }):
-				declinedHere++
-			default:
-				missing++
-			}
-		}
-		if missing == 0 {
-			continue
-		}
-		message := fmt.Sprintf("%d fact(s) here no longer load: %s; copy them into personal memory with `agnostic-ai memory import --from %s`, or decline them with --skip <file> or --skip-rest", missing, c.why, c.from)
-		if declinedHere > 0 {
-			message += fmt.Sprintf("; %d declined", declinedHere)
-		}
-		out = append(out, lintFinding{
-			Code:     "LINT043",
-			Severity: lintWarn,
-			Path:     c.dir,
-			Message:  message,
-		})
-	}
-	return out, nil
-}
-
-// claudeReadsPersonalMemory reports whether the Claude Code settings sync
-// writes point auto memory at the personal store, so Claude no longer
-// reads its own default store. A value the user set elsewhere keeps it.
-func claudeReadsPersonalMemory(cfg *config.Config, root, personal string) bool {
-	path := filepath.Join(root, claudeLayoutFor(cfg).dir, "settings.local.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	var doc map[string]any
-	if json.Unmarshal(data, &doc) != nil {
-		return false
-	}
-	dir, _ := doc["autoMemoryDirectory"].(string)
-	return dir != "" && canonicalDir(filepath.FromSlash(dir)) == canonicalDir(personal)
-}
-
-func preparePersonalMemorySync(root string, cfg *config.Config) {
-	if !slices.Contains(cfg.Builtins, "memory") {
-		return
-	}
-	if !cfg.RepoPersonalMemory() {
-		if raw, err := exec.Command("git", "-C", root, "worktree", "list", "--porcelain").Output(); err == nil {
-			count := 0
-			for _, entry := range strings.Split(strings.TrimSpace(string(raw)), "\n\n") {
-				lines := strings.Split(entry, "\n")
-				if !slices.Contains(lines, "bare") && !slices.ContainsFunc(lines, func(line string) bool { return line == "prunable" || strings.HasPrefix(line, "prunable ") }) {
-					count++
-				}
-			}
-			if count > 1 {
-				adapters.NoteProject("Personal memory is separate in each checkout; set memory.personal: repo in agnostic-ai.local.yaml to share it across worktrees")
-			}
-		}
-	}
-	repo, err := adapters.PersonalMemoryDir(&config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}, root)
-	if err != nil {
-		return
-	}
-	checkout := filepath.Join(root, defaultMemoryStores[1].dir)
-	from, to, label := repo, checkout, memorySourceRepo
-	if cfg.RepoPersonalMemory() {
-		from, to, label = checkout, repo, memorySourceCheckout
-	}
-	adapters.RequestMemorySeed(adapters.MemorySeed{Target: label, From: from, To: to})
 }

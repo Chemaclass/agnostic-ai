@@ -170,7 +170,7 @@ func lateServer(t *testing.T, fake *fakeAgnosticAI) (*server, *closer) {
 	t.Helper()
 	in, _ := connected(t, fake)
 	s := in.server
-	s.callWait, s.healthWait = 20*time.Millisecond, 20*time.Millisecond
+	s.callWait, s.healthWait = 20*time.Millisecond, time.Second
 	input := &closer{}
 	s.input = input
 	return s, input
@@ -203,6 +203,43 @@ func TestServer_KeepsAServerBusyWithALongScan(t *testing.T) {
 
 	if s.base != base || input.closed {
 		t.Errorf("base %q, input closed %v; want a server that answers its health kept", s.base, input.closed)
+	}
+}
+
+// scanSince is an agnostic-ai whose list reads never answer while its
+// health answers that the running scan began at since.
+func scanSince(since time.Time) *fakeAgnosticAI {
+	return &fakeAgnosticAI{hold: make(chan struct{}), list: func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/health" {
+			_, _ = w.Write([]byte(`{"version":"1.2.3","scanningSince":"` + since.UTC().Format(time.RFC3339) + `"}`))
+			return
+		}
+		<-r.Context().Done()
+	}}
+}
+
+func TestServer_ReplacesAServerWhoseScanIsStuck(t *testing.T) {
+	s, input := lateServer(t, scanSince(time.Now().Add(-stuckScanAfter-time.Minute)))
+
+	for range maxLateReads {
+		_, _ = s.call(context.Background(), http.MethodGet, serverListPath, nil, "")
+	}
+
+	if s.base != "" || !input.closed {
+		t.Errorf("base %q, input closed %v; want a server whose scan outlasted %s stopped", s.base, input.closed, stuckScanAfter)
+	}
+}
+
+func TestServer_KeepsAServerWhoseScanIsRecent(t *testing.T) {
+	s, input := lateServer(t, scanSince(time.Now().Add(-time.Minute)))
+	base := s.base
+
+	for range 2 * maxLateReads {
+		_, _ = s.call(context.Background(), http.MethodGet, serverListPath, nil, "")
+	}
+
+	if s.base != base || input.closed {
+		t.Errorf("base %q, input closed %v; want a server whose scan began a minute ago kept", s.base, input.closed)
 	}
 }
 

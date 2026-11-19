@@ -71,11 +71,6 @@ func importOriginalSourcePath(path string) string {
 	return path
 }
 
-func pathBelow(base, path string) (string, bool) {
-	rel, err := filepath.Rel(base, path)
-	return rel, err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
 func copyImportAbsoluteSources(project, shadow, previewRoot string, copied previewCopy) ([]importSourceCopy, error) {
 	if copied.files == nil {
 		copied.files = map[previewFileKey][]previewCopiedFile{}

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -153,6 +154,10 @@ type Scanner struct {
 	// betweenReads runs between the two reads Delete makes of a session's
 	// files, where a resumed session can write; nil runs nothing.
 	betweenReads func()
+
+	// scanningSince is when the holder of mu took it, in Unix
+	// nanoseconds; zero while none holds it. It is read without mu.
+	scanningSince atomic.Int64
 }
 
 // NewScanner reads the current user's stores with the system sqlite3
@@ -197,9 +202,35 @@ func (s *Scanner) ScanStamped(ctx context.Context, opts ScanOptions, stamp Store
 	return s.scan(ctx, opts, &stamp)
 }
 
-func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp) View {
+// ScanningSince is when the running scan, or the open, mark or delete
+// that reads the stores, began; zero while none runs. Each waits for
+// the one before, so one that never ends holds every later scan, and
+// this time only grows older.
+func (s *Scanner) ScanningSince() time.Time {
+	if at := s.scanningSince.Load(); at != 0 {
+		return time.Unix(0, at)
+	}
+	return time.Time{}
+}
+
+// lock takes mu and notes when, for ScanningSince.
+func (s *Scanner) lock() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.held()
+}
+
+// held notes that mu was taken now.
+func (s *Scanner) held() { s.scanningSince.Store(time.Now().UnixNano()) }
+
+// unlock releases mu taken with lock or noted with held.
+func (s *Scanner) unlock() {
+	s.scanningSince.Store(0)
+	s.mu.Unlock()
+}
+
+func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp) View {
+	s.lock()
+	defer s.unlock()
 	words := queryWords(opts.Query)
 	first := opts.Before.IsZero()
 	read, kept := s.searchRead(ctx, opts, words, first, stamp)
@@ -321,8 +352,8 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 }
 
 func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, opening bool) (Conversation, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.lock()
+	defer s.unlock()
 	results, _ := s.readAll(ctx, opts)
 	return rowIn(results, tool, id, opening)
 }
@@ -358,7 +389,8 @@ func (s *Scanner) findToOpen(ctx context.Context, tool Tool, id string, opts Sca
 			return rowIn(results, tool, id, true)
 		}
 	}
-	defer s.mu.Unlock()
+	s.held()
+	defer s.unlock()
 	results, _ := s.readAll(ctx, opts)
 	return rowIn(results, tool, id, true)
 }

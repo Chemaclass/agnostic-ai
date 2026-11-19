@@ -67,8 +67,8 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if s.MarksPath == "" {
 		return DeleteReply{}, refuse(DeleteNotArchived, "This server keeps no conversation marks, so nothing is archived.")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.lock()
+	defer s.unlock()
 	// A Codex or Cursor list kept from the last minute may miss a write since.
 	delete(s.keptSources, tool)
 	results, _ := s.readAll(ctx, opts)
