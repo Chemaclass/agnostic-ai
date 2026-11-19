@@ -174,7 +174,7 @@ func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any, 
 		fm["description"] = d
 	}
 	if m, _ := doc["model"].(string); m != "" {
-		fm["model"] = m
+		fm["model"] = targetModel("codex", m)
 	}
 	if scope != "" {
 		fm["target"] = scope

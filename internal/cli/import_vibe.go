@@ -157,8 +157,8 @@ func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
 			return err
 		}
 		meta := map[string]any{"x-vibe": doc}
-		if m, ok := doc["active_model"]; ok {
-			meta["model"] = m
+		if m, ok := doc["active_model"].(string); ok && m != "" {
+			meta["model"] = targetModel("vibe", m)
 			delete(doc, "active_model")
 		}
 		if err := writeSettingsSpec(importSourcePath(root, src.Settings), "vibe.yaml", meta); err != nil {

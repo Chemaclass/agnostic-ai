@@ -75,7 +75,7 @@ func TestImportQoder_RoundTripFixedPoint(t *testing.T) {
 	if !strings.Contains(agent, "agent body") {
 		t.Errorf("agent body not reconstructed:\n%s", agent)
 	}
-	if !strings.Contains(agent, "model: sonnet") {
+	if !strings.Contains(agent, "qoder: sonnet") {
 		t.Errorf("agent model not reconstructed:\n%s", agent)
 	}
 	// The critical assertion: the reconstructed *source* spec must carry

@@ -44,7 +44,7 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		importPendingKeptNote, importNativeSource = "", ""
-		return importWriteFile(path, data, mode)
+		return importWriteFile(path, scopeImportedModel(data), mode)
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
@@ -241,4 +241,26 @@ func detachImportOverride(node *yaml.Node) *yaml.Node {
 		detached.Content[i] = detachImportOverride(child)
 	}
 	return &detached
+}
+
+// scopeImportedModel scopes the model of a newly imported spec to the
+// tool it came from, so other targets keep their own default instead of
+// a model name from another vendor. `inherit` and a tier name are
+// portable and stay as written. Claude's importer scopes its own names.
+func scopeImportedModel(data []byte) []byte {
+	target := importScopeTarget
+	if target == "" || target == "claude" {
+		return data
+	}
+	return []byte(scopeTopLevelModel(string(data), target, func(model string) bool {
+		if model == "inherit" {
+			return false
+		}
+		if importHookConfig != nil {
+			if _, tier := importHookConfig.Models[model]; tier {
+				return false
+			}
+		}
+		return true
+	}))
 }

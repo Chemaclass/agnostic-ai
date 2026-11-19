@@ -286,7 +286,7 @@ review code carefully.
 	for _, want := range []string{
 		"name: reviewer",
 		"description: code reviewer",
-		"model: gpt-5",
+		"codex: gpt-5",
 		"sandbox_mode: read-only",
 		"review code carefully.",
 	} {

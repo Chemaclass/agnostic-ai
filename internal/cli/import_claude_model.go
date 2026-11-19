@@ -20,17 +20,23 @@ var topLevelModelLineRE = regexp.MustCompile(`^((?:model|'model'|"model")[ \t]*:
 
 // scopeClaudeModel rewrites a top-level `model:` holding a Claude model
 // name as `model: {claude: <name>}`, so every other target falls back to
-// its own default model instead of loading one it cannot run. Every other
-// line stays as written. The document comes back unchanged when the model
-// is not a Claude name or the edit does not parse to the same data.
+// its own default model instead of loading one it cannot run.
 func scopeClaudeModel(doc string) string {
+	return scopeTopLevelModel(doc, "claude", adapters.ClaudeModel)
+}
+
+// scopeTopLevelModel rewrites a top-level `model:` that scope accepts as
+// `model: {<target>: <name>}`. Every other line stays as written. The
+// document comes back unchanged when scope rejects the model or the edit
+// does not parse to the same data.
+func scopeTopLevelModel(doc, target string, scope func(model string) bool) string {
 	rest, end, before := claudeFrontmatter(doc)
 	model, _ := before["model"].(string)
-	if !adapters.ClaudeModel(model) {
+	if model == "" || !scope(model) {
 		return doc
 	}
 	want := maps.Clone(before)
-	want["model"] = map[string]any{"claude": model}
+	want["model"] = map[string]any{target: model}
 
 	lines := strings.Split(rest[:end], "\n")
 	for i, line := range lines {
@@ -40,8 +46,8 @@ func scopeClaudeModel(doc string) string {
 		}
 		key, value, comment := m[1], m[2], m[3]
 		for _, scoped := range []string{
-			key + " {claude: " + value + "}" + comment,
-			key + "\n  claude: " + value + comment,
+			key + " {" + target + ": " + value + "}" + comment,
+			key + "\n  " + target + ": " + value + comment,
 		} {
 			edited := append(append(append([]string{}, lines[:i]...), scoped), lines[i+1:]...)
 			front := strings.Join(edited, "\n")

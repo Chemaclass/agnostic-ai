@@ -54,11 +54,11 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 	if shape.nestedModel {
 		if model, ok := native["model"].(map[string]any); ok {
 			if name, _ := model["name"].(string); name != "" {
-				doc["model"] = name
+				doc["model"] = targetModel(shape.target, name)
 			}
 		}
 	} else if model, _ := native["model"].(string); model != "" {
-		doc["model"] = model
+		doc["model"] = targetModel(shape.target, model)
 	}
 	if shape.permissions {
 		if value, ok := native["permissions"].(map[string]any); ok {
@@ -107,6 +107,13 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 		return 0, fmt.Errorf("write %s: %w", dst, err)
 	}
 	return 1, nil
+}
+
+// targetModel scopes an imported model name to the tool it came from, so
+// every other target keeps its own default instead of loading a model
+// from another vendor.
+func targetModel(target, name string) map[string]any {
+	return map[string]any{target: name}
 }
 
 // importSettingsHatch copies shape.hatchKeys from native into the

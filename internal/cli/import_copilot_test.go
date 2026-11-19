@@ -216,7 +216,7 @@ func TestImportFromCopilot_ImportsProjectModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "settings", "copilot.yaml"))
-	if !strings.Contains(got, "model: gpt-5.4") {
+	if !strings.Contains(got, "copilot: gpt-5.4") {
 		t.Errorf("project model not imported:\n%s", got)
 	}
 }
