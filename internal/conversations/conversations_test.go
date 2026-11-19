@@ -1549,36 +1549,47 @@ func TestSystemProcesses_AliveAmongKeepsThePidsPsListsWhenAnotherIsGone(t *testi
 	}
 }
 
-func TestScan_SkipsNonregularClaudeTranscripts(t *testing.T) {
+func TestScan_SkipsNonregularClaudeFiles(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows has no filesystem named pipes")
 	}
-	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
-	writeClaudeSessions(t, stores)
-	pipe := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", "55555555-5555-4555-8555-555555555555.jsonl")
-	if out, err := exec.Command("mkfifo", pipe).CombinedOutput(); err != nil {
-		t.Fatalf("mkfifo: %v: %s", err, out)
-	}
-	writer, err := os.OpenFile(pipe, os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = writer.Close() }()
-	done := make(chan View, 1)
-	go func() { done <- scanner.Scan(context.Background(), ScanOptions{}) }()
-	select {
-	case view := <-done:
-		if len(view.Conversations) == 0 {
-			t.Error("regular transcripts were not listed")
-		}
-	case <-time.After(time.Second):
-		_ = os.Remove(pipe)
-		_ = writer.Close()
-		select {
-		case <-done:
-		case <-time.After(time.Second):
-			t.Error("scan stayed blocked after the pipe was removed")
-		}
-		t.Error("a named pipe blocked the conversation scan")
+	for _, path := range []string{
+		"projects/-tmp-app/55555555-5555-4555-8555-555555555555.jsonl",
+		"sessions/12345.json",
+		"jobs/12345678/state.json",
+	} {
+		t.Run(path, func(t *testing.T) {
+			scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+			writeClaudeSessions(t, stores)
+			pipe := filepath.Join(stores.ClaudeDir, path)
+			if err := os.MkdirAll(filepath.Dir(pipe), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if out, err := exec.Command("mkfifo", pipe).CombinedOutput(); err != nil {
+				t.Fatalf("mkfifo: %v: %s", err, out)
+			}
+			writer, err := os.OpenFile(pipe, os.O_RDWR, 0600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = writer.Close() }()
+			done := make(chan View, 1)
+			go func() { done <- scanner.Scan(context.Background(), ScanOptions{}) }()
+			select {
+			case view := <-done:
+				if len(view.Conversations) == 0 {
+					t.Error("regular transcripts were not listed")
+				}
+			case <-time.After(time.Second):
+				_ = os.Remove(pipe)
+				_ = writer.Close()
+				select {
+				case <-done:
+				case <-time.After(time.Second):
+					t.Error("scan stayed blocked after the pipe was removed")
+				}
+				t.Error("a named pipe blocked the conversation scan")
+			}
+		})
 	}
 }
