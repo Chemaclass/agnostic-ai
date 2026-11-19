@@ -203,6 +203,15 @@ func TestServeEditHook_RefusesInvalidRequests(t *testing.T) {
 		{"negative timeout", func(r map[string]any) { r["timeout"] = -5 }, "timeout must be a whole number of seconds above zero"},
 		{"fractional timeout", func(r map[string]any) { r["timeout"] = 1.5 }, "send action preview or apply"},
 		{"bad audience", func(r map[string]any) { r["audience"] = "team" }, "audience"},
+		{"bearer token in command", func(r map[string]any) {
+			r["command"] = `curl -H "Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz0123456789" https://example.com`
+		}, "command contains a credential"},
+		{"token assignment in command", func(r map[string]any) {
+			r["command"] = "GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789 ./notify.sh"
+		}, "command contains a credential"},
+		{"token in description", func(r map[string]any) {
+			r["description"] = "uses ghp_abcdefghijklmnopqrstuvwxyz0123456789"
+		}, "description contains a credential"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := hookEditBody("format-on-save", "after-edit", "npm run format")
@@ -383,5 +392,14 @@ func TestServeEditHook_RefusesMatchAny(t *testing.T) {
 	rec := hookEditRequest(t, newEditHandler(project, false), request)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "match must be one of shell, edit, read, web") {
 		t.Errorf("match any = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestServeEditHook_KeepsACommandThatReadsTheCredentialFromTheEnvironment(t *testing.T) {
+	h := newEditHandler(scopeProject(t), false)
+	command := `curl -H "Authorization: Bearer $GITHUB_TOKEN" https://example.com`
+	got := hookEditPreview(t, h, hookEditBody("notify", "session-start", command))
+	if !strings.Contains(got.Spec, "$GITHUB_TOKEN") {
+		t.Errorf("spec = %q, want the environment reference kept", got.Spec)
 	}
 }

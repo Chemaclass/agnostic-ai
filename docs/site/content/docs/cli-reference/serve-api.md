@@ -161,6 +161,7 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 - `on` is a [portable event](@/docs/spec-format/hook-reference.md#portable-events).
 - `match` (`shell`, `edit`, `read`, or `web`) goes only with `before-tool` and `after-tool`.
 - `timeout` is a whole number of seconds above zero.
+- A `command` or `description` that holds a literal credential returns 400. Read the secret from an environment variable, such as `$GITHUB_TOKEN`.
 - `action: "preview"` returns `file`, `spec`, `syncCommand`, and `expected`. It answers 422 with `problems` when `validate` would report the hook.
 - `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`.
 - An existing hook name returns 409. So does a changed preview.

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -124,6 +125,12 @@ func (req hookSpecRequest) check() error {
 	}
 	if strings.TrimSpace(req.Command) == "" {
 		return errors.New("command is required")
+	}
+	if preview.CommandCredentialDetected(req.Command) {
+		return errors.New("command contains a credential; read it from an environment variable such as $GITHUB_TOKEN")
+	}
+	if preview.CredentialDetected(req.Description) {
+		return errors.New("description contains a credential; leave it out")
 	}
 	if req.Match != "" {
 		if req.On != "before-tool" && req.On != "after-tool" {
