@@ -65,7 +65,7 @@ func skillPath(root string) string {
 }
 
 func TestNames_ReturnsValidNamesWithoutSharingTheList(t *testing.T) {
-	want := []string{"caveman", "handoff", "handoff-hook", "memory", "rtk", "side-conversation", "wrap-up"}
+	want := []string{"caveman", "cloud-handoff", "handoff", "handoff-hook", "memory", "rtk", "side-conversation", "wrap-up"}
 	if got := builtins.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() = %v, want %v", got, want)
 	}
@@ -510,6 +510,83 @@ func TestMaterialize_LoadsWrapUpAsOneSkill(t *testing.T) {
 		}
 	}
 	for _, banned := range []string{"hooks/", "/wrap-up", "Claude", "Codex", "Cursor", "\u2013", "\u2014"} {
+		if strings.Contains(skill.Body, banned) {
+			t.Errorf("skill contains %q", banned)
+		}
+	}
+}
+
+func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("cloud-handoff")
+	if err != nil {
+		t.Fatalf("materialize cloud-handoff: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Errorf("cleanup %s: %v", root, err)
+		}
+	})
+	var files []string
+	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Name() == ".complete" {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		files = append(files, filepath.ToSlash(rel))
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(files, []string{"skills/cloud-handoff/SKILL.md"}) {
+		t.Errorf("materialized files = %v, want only the skill", files)
+	}
+	bundle, err := spec.LoadLayered([]spec.Layer{{
+		Name: "builtin", Root: root, Sources: config.Sources{Skills: "skills", Hooks: "hooks"},
+	}})
+	if err != nil {
+		t.Fatalf("load builtin layer: %v", err)
+	}
+	if len(bundle.All()) != 1 || len(bundle.Skills) != 1 || len(bundle.Hooks) != 0 {
+		t.Fatalf("builtin entries = %v, want one skill", bundle.All())
+	}
+	skill := bundle.Skills[0]
+	if skill.Name != "cloud-handoff" || skill.Layer != "builtin" {
+		t.Errorf("skill identity = %q layer %q", skill.Name, skill.Layer)
+	}
+	if skill.Description() != `Push the current task to a branch and continue it in a cloud session. Use when asked to "send this to a remote agent", to "run it in the cloud", or when the user is "closing my laptop".` {
+		t.Errorf("description = %q", skill.Description())
+	}
+	for _, rule := range []string{
+		// when
+		"Only when the user asks", "Never at session start",
+		// preflight
+		"git rev-parse --is-inside-work-tree", "git remote get-url origin", "command -v",
+		// branch, commit, push
+		"default branch", "detached HEAD", "git status --short", "`.env`", "looks like a secret",
+		"commit hook fails", "Never force-push", "git push -u origin <branch>",
+		// prompt
+		"## Done", "## Next step", "## Branch", "## Verify", "under 60 lines", "quoted heredoc",
+		// launch table and its exact lines from decision 021
+		"## Launch", "| Tool | Launch | Needs |",
+		"script -q /dev/null claude --cloud \"$CLOUD_PROMPT\"",
+		"script -q -c 'claude --cloud \"$CLOUD_PROMPT\"' /dev/null",
+		"codex cloud exec --env <id> --branch <branch> -",
+		"View: ", "kill", "requires an interactive terminal",
+		"Cloud sessions need a claude.ai sign-in", "Not signed in.",
+		"no cloud environments are available for this workspace", "not found; run `codex cloud`",
+		"chatgpt.com/codex/settings/environments",
+		// after
+		"Sent to the cloud: ", "claude --teleport", "codex cloud apply", "within about a minute",
+		// refusals and fallback
+		"Do not work around it", "ask the user for it and stop", "`handoff` skill",
+	} {
+		if !strings.Contains(skill.Body, rule) {
+			t.Errorf("skill is missing rule %q", rule)
+		}
+	}
+	for _, banned := range []string{"hooks/", "--force", "\u2013", "\u2014"} {
 		if strings.Contains(skill.Body, banned) {
 			t.Errorf("skill contains %q", banned)
 		}
