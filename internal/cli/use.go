@@ -393,7 +393,7 @@ func hasOwnConfig(cfg *config.Config, target string) bool {
 func importToolConfig(cfg *config.Config, tools []string) (failed []string, err error) {
 	var sources []string
 	for _, t := range tools {
-		if _, rulesDir := rulesDirImporters[t]; rulesDir || slices.Contains(importSourceNames, t) {
+		if slices.Contains(importSourceNames, t) {
 			sources = append(sources, t)
 		}
 	}

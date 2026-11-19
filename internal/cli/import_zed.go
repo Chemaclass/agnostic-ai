@@ -46,7 +46,6 @@ func importFromZed(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d skills, %d hooks, %d mcps\n", rules, skills, hooks, mcps)
-	printImportNextSteps(root, "zed")
 	return nil
 }
 

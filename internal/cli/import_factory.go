@@ -107,7 +107,6 @@ func importFromFactory(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d hooks, %d settings\n",
 		rules, agents, skills, commands, mcps, hooks, settings)
-	printImportNextSteps(root, "factory")
 	return nil
 }
 

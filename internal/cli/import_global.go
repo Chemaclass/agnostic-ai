@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -88,7 +89,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err := stageGlobalPermissions(home, stage, targets, bundle.Settings, state, warn); err != nil {
 		return err
 	}
-	if err := stageGlobalTOMLArrays(home, stage, targets, bundle, state, warn); err != nil {
+	if err := stageGlobalTOMLArrays(home, stage, targets, bundle, state); err != nil {
 		return err
 	}
 	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, state, warn); err != nil {
@@ -374,7 +375,6 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 		var native map[string]any
 		switch g.mcp.format {
 		case "toml-array":
-			var err error
 			homeRecords, err := adapters.UserMCPArrayRecords(target, have)
 			if err != nil {
 				return err
@@ -384,104 +384,11 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				return err
 			}
 		case "toml":
-			_, servers, err := readCodexConfigTOMLFile(path)
-			if err != nil {
-				return err
-			}
-			for name := range servers {
-				if covered[strings.ToLower(spec.MCPFileName(name))] {
-					delete(servers, name)
-				}
-			}
-			docs := codexMCPDocs(servers)
-			if target == "codex" {
-				for _, note := range droppedCodexEnvironmentNotes(servers) {
-					if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
-						return err
-					}
-				}
-			}
-			if target == "grok" {
-				native, _, err := readGrokConfig(path)
-				if err != nil {
-					return err
-				}
-				for name := range native {
-					if covered[strings.ToLower(spec.MCPFileName(name))] {
-						delete(native, name)
-					}
-				}
-				for _, note := range droppedGrokMCPDescriptionNotes(native) {
-					if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
-						return err
-					}
-				}
-				docs = grokMCPDocs(native)
-			}
-			if err := withoutMCPCredentials(target, docs, skip); err != nil {
-				return err
-			}
-			if err := withoutDataStreamMCPNames(target, path, dir, docs, skip); err != nil {
-				return err
-			}
-			if _, err := writeMCPSpecs(docs, dir); err != nil {
-				return err
-			}
-			data, err := os.ReadFile(path)
-			if err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("read %s: %w", path, err)
-			}
-			if native, err = tomlTableValues(path, g.mcp.key, data); err != nil {
+			if native, err = stageGlobalMCPTOML(path, g.mcp.key, target, dir, covered, skip, warn); err != nil {
 				return err
 			}
 		default:
-			var servers map[string]any
-			var err error
-			var orders mcpSpecOrderHints
-			var piNative map[string]any
-			switch target {
-			case "pi":
-				servers, orders, piNative, err = readPiMCPMap(path)
-			case "codebuddy":
-				servers, err = readCodebuddyMCPMap(path)
-			case "augment":
-				servers, err = readJSONCMapAt(path, g.mcp.key)
-			default:
-				servers, err = readJSONMapAt(path, g.mcp.key)
-			}
-			if err != nil {
-				return err
-			}
-			native = map[string]any{}
-			for name, server := range servers {
-				if covered[strings.ToLower(spec.MCPFileName(name))] {
-					delete(servers, name)
-					continue
-				}
-				if target == "gemini" {
-					record, _ := server.(map[string]any)
-					if field := geminiOAuthCredential(record["oauth"]); field != "" {
-						delete(servers, name)
-						if err := skip(target, name, "left out; "+field+" holds a literal credential; keep it in user configuration or write a reference"); err != nil {
-							return fmt.Errorf("write import warning: %w", err)
-						}
-						continue
-					}
-				}
-				if target == "pi" {
-					native[name] = piNative[name]
-				} else {
-					native[name] = jsonRoundTrip(server)
-				}
-			}
-			normalizeImportedMCP(target, servers)
-			if err := withoutMCPCredentials(target, servers, skip); err != nil {
-				return err
-			}
-			if err := withoutDataStreamMCPNames(target, path, dir, servers, skip); err != nil {
-				return err
-			}
-			if _, err := writeMCPSpecs(servers, dir, orders); err != nil {
+			if native, err = stageGlobalMCPJSON(path, g.mcp.key, target, dir, covered, skip); err != nil {
 				return err
 			}
 		}
@@ -573,6 +480,128 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 		}
 	}
 	return nil
+}
+
+// stageGlobalMCPTOML stages the servers of a TOML MCP file whose
+// servers are tables under key, leaving out covered names, and returns
+// the native value of each table for the write-back check.
+func stageGlobalMCPTOML(path, key, target, dir string, covered map[string]bool, skip func(string, string, string) error, warn io.Writer) (map[string]any, error) {
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var docs, native map[string]any
+	if target == "grok" {
+		doc, err := parseGrokConfig(path, data)
+		if err != nil {
+			return nil, err
+		}
+		native = map[string]any{}
+		tables, _ := doc[key].(map[string]any)
+		for name, value := range tables {
+			native[name] = jsonRoundTrip(value)
+		}
+		servers, _ := doc["mcp_servers"].(map[string]any)
+		for name := range servers {
+			if covered[strings.ToLower(spec.MCPFileName(name))] {
+				delete(servers, name)
+			}
+		}
+		for _, note := range droppedGrokMCPDescriptionNotes(servers) {
+			if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
+				return nil, err
+			}
+		}
+		docs = grokMCPDocs(servers)
+	} else {
+		var doc codexConfigDoc
+		if _, err := toml.Decode(string(data), &doc); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		servers := doc.MCPServers
+		for name := range servers {
+			if covered[strings.ToLower(spec.MCPFileName(name))] {
+				delete(servers, name)
+			}
+		}
+		docs = codexMCPDocs(servers)
+		if target == "codex" {
+			for _, note := range droppedCodexEnvironmentNotes(servers) {
+				if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if native, err = tomlTableValues(path, key, data); err != nil {
+			return nil, err
+		}
+	}
+	if err := withoutMCPCredentials(target, docs, skip); err != nil {
+		return nil, err
+	}
+	if err := withoutDataStreamMCPNames(target, path, dir, docs, skip); err != nil {
+		return nil, err
+	}
+	if _, err := writeMCPSpecs(docs, dir); err != nil {
+		return nil, err
+	}
+	return native, nil
+}
+
+// stageGlobalMCPJSON stages the servers of a JSON or JSONC MCP file
+// whose servers sit under key, leaving out covered names, and returns
+// the native value of each staged server for the write-back check.
+func stageGlobalMCPJSON(path, key, target, dir string, covered map[string]bool, skip func(string, string, string) error) (map[string]any, error) {
+	var servers map[string]any
+	var err error
+	var orders mcpSpecOrderHints
+	var piNative map[string]any
+	switch target {
+	case "pi":
+		servers, orders, piNative, err = readPiMCPMap(path)
+	case "codebuddy":
+		servers, err = readCodebuddyMCPMap(path)
+	case "augment":
+		servers, err = readJSONCMapAt(path, key)
+	default:
+		servers, err = readJSONMapAt(path, key)
+	}
+	if err != nil {
+		return nil, err
+	}
+	native := map[string]any{}
+	for name, server := range servers {
+		if covered[strings.ToLower(spec.MCPFileName(name))] {
+			delete(servers, name)
+			continue
+		}
+		if target == "gemini" {
+			record, _ := server.(map[string]any)
+			if field := geminiOAuthCredential(record["oauth"]); field != "" {
+				delete(servers, name)
+				if err := skip(target, name, "left out; "+field+" holds a literal credential; keep it in user configuration or write a reference"); err != nil {
+					return nil, fmt.Errorf("write import warning: %w", err)
+				}
+				continue
+			}
+		}
+		if target == "pi" {
+			native[name] = piNative[name]
+		} else {
+			native[name] = jsonRoundTrip(server)
+		}
+	}
+	normalizeImportedMCP(target, servers)
+	if err := withoutMCPCredentials(target, servers, skip); err != nil {
+		return nil, err
+	}
+	if err := withoutDataStreamMCPNames(target, path, dir, servers, skip); err != nil {
+		return nil, err
+	}
+	if _, err := writeMCPSpecs(servers, dir, orders); err != nil {
+		return nil, err
+	}
+	return native, nil
 }
 
 // withoutMCPCredentials leaves out each server with a literal

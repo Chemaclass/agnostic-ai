@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
-	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -68,7 +67,6 @@ func importFromQoder(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d settings (from qoder)\n", c.rules, agents, skills, commands, mcps, settings)
-	printImportNextSteps(root, "qoder")
 	return nil
 }
 
@@ -76,11 +74,7 @@ func importFromQoder(root string, src config.Sources) error {
 // the commands source dir. Each command file becomes one command spec.
 // A missing directory imports nothing.
 func importQoderCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, qoderCommandsDir)
-	if !dirExists(src) {
-		return 0, nil
-	}
-	return copyMarkdownDir(src, dstDir)
+	return copyMarkdownDir(filepath.Join(root, qoderCommandsDir), dstDir)
 }
 
 // importQoderAgents copies every `.qoder/agents/<name>.md` file into
@@ -95,37 +89,13 @@ func importQoderCommands(root, dstDir string) (int, error) {
 // a single string everywhere, not just qoder, silently breaking every
 // other target's generic tools passthrough on the very next sync.
 func importQoderAgents(root, dstDir string) (int, error) {
-	src := filepath.Join(root, qoderAgentsDir)
-	entries, err := os.ReadDir(src)
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", src, err)
-	}
-	count := 0
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-		srcPath := filepath.Join(src, e.Name())
-		data, err := os.ReadFile(srcPath)
+	return importFlatMarkdownFilesAt(filepath.Join(root, qoderAgentsDir), dstDir, qoderAgentFields, func(data []byte, dst string) ([]byte, error) {
+		scoped, err := importScopedTargetKeys(data, dst, "qoder")
 		if err != nil {
-			return count, fmt.Errorf("read %s: %w", srcPath, err)
+			return nil, err
 		}
-		importReadingNative(srcPath)
-		dst := filepath.Join(dstDir, e.Name())
-		scoped, err := importScopedTargetKeys([]byte(header.Strip(string(data))), dst, "qoder")
-		if err != nil {
-			return count, err
-		}
-		out := rewriteQoderAgentTools(string(scoped))
-		if err := importWriteSpecMarkdown(dst, []byte(out), 0o644, qoderAgentFields); err != nil {
-			return count, fmt.Errorf("write %s: %w", dst, err)
-		}
-		count++
-	}
-	return count, nil
+		return []byte(rewriteQoderAgentTools(string(scoped))), nil
+	})
 }
 
 // rewriteQoderAgentTools rewrites the `tools:` line in body's leading

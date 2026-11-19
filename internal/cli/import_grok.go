@@ -106,11 +106,10 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 		return fmt.Errorf("%s: %w", hooksDir, err)
 	}
 	for _, path := range files {
-		if _, err := importGrokHookFile(path, importSourcePath(root, src.Hooks), scriptsDir); err != nil {
+		if err := importGrokHookFile(path, importSourcePath(root, src.Hooks), scriptsDir); err != nil {
 			return err
 		}
 	}
-	printImportNextSteps(root, "grok")
 	return nil
 }
 
@@ -147,20 +146,24 @@ func readGrokConfigDocument(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	return parseGrokConfig(path, data)
+}
+
+// parseGrokConfig parses data, the Grok settings file at path.
+func parseGrokConfig(path string, data []byte) (map[string]any, error) {
 	var doc map[string]any
 	if _, err := toml.Decode(string(data), &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: invalid Grok settings", path)
 	}
 	return doc, nil
 }
-func readGrokConfig(path string) (map[string]any, map[string]any, error) {
+func readGrokConfig(path string) (map[string]any, error) {
 	doc, err := readGrokConfigDocument(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	servers, _ := doc["mcp_servers"].(map[string]any)
-	permissions, _ := doc["permission"].(map[string]any)
-	return servers, permissions, nil
+	return servers, nil
 }
 func grokMCPDocs(servers map[string]any) map[string]any {
 	out := map[string]any{}
@@ -199,29 +202,29 @@ func droppedGrokMCPDescriptionNotes(servers map[string]any) []string {
 	return notes
 }
 
-func importGrokHookFile(path, dst string, scriptDirs ...string) (int, error) {
+func importGrokHookFile(path, dst string, scriptDirs ...string) error {
 	name := strings.TrimSuffix(filepath.Base(path), ".json")
 	if err := spec.ValidateName(spec.KindHook, name); err != nil {
-		return 0, fmt.Errorf("%s: %w", path, err)
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", path, err)
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return 0, fmt.Errorf("parse %s: %w", path, err)
+		return fmt.Errorf("parse %s: %w", path, err)
 	}
 	probe, err := grokHookEnvironment(path)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	if err := validateGrokHookCredentials(probe); err != nil {
-		return 0, fmt.Errorf("%s: %w", path, err)
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	hooks, ok := doc["hooks"].(map[string]any)
 	if !ok || len(hooks) == 0 {
-		return 0, nil
+		return nil
 	}
 	if len(scriptDirs) > 0 {
 		for _, raw := range hooks {
@@ -241,13 +244,13 @@ func importGrokHookFile(path, dst string, scriptDirs ...string) (int, error) {
 	events := slices.Sorted(maps.Keys(hooks))
 	meta := map[string]any{"name": name, "event": events[0], "target": "grok", "x-grok": map[string]any{"hooks": hooks}}
 	if _, err := grok.HookFile(spec.Entry{Kind: spec.KindHook, Name: name, Meta: meta}); err != nil {
-		return 0, err
+		return err
 	}
 	if err := importMkdirAll(dst, 0755); err != nil {
-		return 0, fmt.Errorf("%s: %w", dst, err)
+		return fmt.Errorf("%s: %w", dst, err)
 	}
 	if err := writeHookSpecFile(dst, name, meta); err != nil {
-		return 0, err
+		return err
 	}
-	return 1, nil
+	return nil
 }

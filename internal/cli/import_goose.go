@@ -96,7 +96,6 @@ func importFromGoose(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d reviews\n",
 		rules, agents, skills+pluginSkills, hooks, reviews)
-	printImportNextSteps(root, "goose")
 	return nil
 }
 

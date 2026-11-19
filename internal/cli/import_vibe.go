@@ -322,6 +322,29 @@ func validateImportedVibeMCPNames(path string, records []map[string]any) error {
 	}
 	return nil
 }
+
+// validateVibeImport refuses, before anything is written, Vibe MCP
+// servers and hooks whose names the import cannot keep.
+func validateVibeImport(root string, cfg *config.Config) error {
+	if err := validateVibeMCPImport(root, cfg); err != nil {
+		return err
+	}
+	hooks := cfg.Outputs["vibe"].HooksFile
+	if hooks == "" {
+		hooks = ".vibe/hooks.toml"
+	}
+	path := filepath.Join(root, hooks)
+	doc, err := readVibeTOML(path)
+	if err != nil {
+		return err
+	}
+	records, err := nativeTOMLRecords(path, "hooks", doc["hooks"])
+	if err != nil {
+		return err
+	}
+	return validateImportedVibeHookNames(path, records)
+}
+
 func validateVibeMCPImport(root string, cfg *config.Config) error {
 	conf, mcp := ".vibe/config.toml", ""
 	if cfg != nil {

@@ -83,9 +83,7 @@ func TestImportCline_LegacyFlatSkillStillImports(t *testing.T) {
 	}
 }
 
-// TestImportCline_KnownSourceWiredIn guards the wiring: cline moved off
-// the generic rulesDirImporters map onto its own dedicated importer and
-// must stay a known source.
+// cline must stay a known import source.
 func TestImportCline_KnownSourceWiredIn(t *testing.T) {
 	if !isKnownImportSource("cline") {
 		t.Error("cline should be a known import source")

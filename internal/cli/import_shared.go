@@ -1,5 +1,11 @@
 package cli
 
+import (
+	"maps"
+	"slices"
+	"strconv"
+)
+
 // importNextStepsOff hides the post-import guidance while a command such
 // as `use` runs the next steps itself. Sequential use only.
 var importNextStepsOff bool
@@ -7,12 +13,9 @@ var importNextStepsOff bool
 // printImportNextSteps emits the post-import guidance block. It always
 // suggests the sync workflow first, then surfaces up to three other
 // detected CLIs as `import <name>` hints so users discover the rest of
-// the migration path without rereading the docs.
-//
-// justImported is the source name the caller passed to runImport; it
-// is filtered out of the suggested list so users do not see their own
-// CLI echoed back.
-func printImportNextSteps(root, justImported string) {
+// the migration path without rereading the docs. Sources in
+// justImported, the ones this run imported, are never suggested.
+func printImportNextSteps(root string, justImported ...string) {
 	if importNextStepsOff {
 		return
 	}
@@ -24,7 +27,7 @@ func printImportNextSteps(root, justImported string) {
 	detected, _ := detectImportSources(root)
 	hints := make([]string, 0, len(detected))
 	for _, d := range detected {
-		if d == justImported {
+		if slices.Contains(justImported, d) {
 			continue
 		}
 		hints = append(hints, d)
@@ -61,4 +64,34 @@ func stringSliceFromAny(v any) []string {
 		}
 	}
 	return out
+}
+
+// nonStringKeyPath names the first field of value, in sorted key order,
+// that holds a map with non-string keys, or rootLabel when value itself
+// is one. It returns "" when every key is a string.
+func nonStringKeyPath(value any, path, rootLabel string) string {
+	switch value := value.(type) {
+	case map[any]any:
+		if path == "" {
+			return rootLabel
+		}
+		return path
+	case map[string]any:
+		for _, key := range slices.Sorted(maps.Keys(value)) {
+			next := key
+			if path != "" {
+				next = path + "." + key
+			}
+			if field := nonStringKeyPath(value[key], next, rootLabel); field != "" {
+				return field
+			}
+		}
+	case []any:
+		for i, item := range value {
+			if field := nonStringKeyPath(item, path+"["+strconv.Itoa(i)+"]", rootLabel); field != "" {
+				return field
+			}
+		}
+	}
+	return ""
 }

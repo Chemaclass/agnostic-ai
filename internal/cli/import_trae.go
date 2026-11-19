@@ -91,18 +91,13 @@ func importFromTrae(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d hooks, %d mcps, %d ignores (from trae)\n", c.rules, c.agents, c.skills, commands, hooks, mcps, ignores)
-	printImportNextSteps(root, "trae")
 	return nil
 }
 
 // importTraeCommands copies `.trae/commands/*.md` byte-for-byte into the
 // commands source dir. Each command file becomes one command spec.
 func importTraeCommands(root, dstDir string) (int, error) {
-	src := filepath.Join(root, traeCommandsDir)
-	if !dirExists(src) {
-		return 0, nil
-	}
-	return copyMarkdownDir(src, dstDir)
+	return copyMarkdownDir(filepath.Join(root, traeCommandsDir), dstDir)
 }
 
 // importTraeMCP reads `.trae/mcp.json` and writes one yaml per

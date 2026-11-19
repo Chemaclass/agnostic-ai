@@ -222,9 +222,7 @@ func TestImportJunie_LegacyFlatSkillStillImports(t *testing.T) {
 	}
 }
 
-// TestImportJunie_KnownSourceWiredIn guards the wiring: junie moved off
-// the generic rulesDirImporters map onto its own dedicated importer and
-// must stay a known source.
+// junie must stay a known import source.
 func TestImportJunie_KnownSourceWiredIn(t *testing.T) {
 	if !isKnownImportSource("junie") {
 		t.Error("junie should be a known import source")

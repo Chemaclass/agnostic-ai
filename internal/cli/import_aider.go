@@ -25,6 +25,5 @@ func importFromAider(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d ignores\n", n, ignores)
-	printImportNextSteps(root, "aider")
 	return nil
 }

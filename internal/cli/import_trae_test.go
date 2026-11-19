@@ -148,9 +148,7 @@ func TestImportTrae_LegacyFlatSkillStillImports(t *testing.T) {
 	}
 }
 
-// TestImportTrae_KnownSourceWiredIn guards the wiring: trae moved off
-// the generic rulesDirImporters map onto its own dedicated importer and
-// must stay a known source.
+// trae must stay a known import source.
 func TestImportTrae_KnownSourceWiredIn(t *testing.T) {
 	if !isKnownImportSource("trae") {
 		t.Error("trae should be a known import source")

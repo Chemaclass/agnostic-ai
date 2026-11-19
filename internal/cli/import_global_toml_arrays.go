@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -12,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func stageGlobalTOMLArrays(home, stage string, targets []string, b spec.Bundle, state globalState, warn io.Writer) error {
+func stageGlobalTOMLArrays(home, stage string, targets []string, b spec.Bundle, state globalState) error {
 	for _, target := range targets {
 		g := globalTargets[target]
 		if target == "kimi" {

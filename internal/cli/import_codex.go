@@ -139,7 +139,6 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 		summaryf("  → %s seeded from .codex/%s\n",
 			filepath.Join(agnosticOverlayDir, "codex", h), h)
 	}
-	printImportNextSteps(root, "codex")
 	return nil
 }
 

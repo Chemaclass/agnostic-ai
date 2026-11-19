@@ -321,19 +321,3 @@ func stripLeadingHeading(content string) string {
 	}
 	return strings.TrimLeft(content[nl+1:], "\n")
 }
-
-// importFromRulesDir reads an existing rules directory (cline/windsurf/
-// continue) and writes specs into the configured source directories.
-func importFromRulesDir(root, target, srcDir string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills); err != nil {
-		return err
-	}
-	c, err := importRulesDirectory(root, srcDir, src)
-	if err != nil {
-		return err
-	}
-	summaryf("imported %d rules, %d agents, %d skills (from %s)\n",
-		c.rules, c.agents, c.skills, target)
-	printImportNextSteps(root, target)
-	return nil
-}

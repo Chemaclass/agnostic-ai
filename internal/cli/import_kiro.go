@@ -116,7 +116,6 @@ func importFromKiro(root string, cfg *config.Config) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d ignores\n",
 		c.rules, c.agents+agents, c.skills+skills, hooks, mcps, commands, ignores)
-	printImportNextSteps(root, "kiro")
 	return nil
 }
 

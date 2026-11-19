@@ -89,7 +89,7 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		if problem := launchConfigurationProblem(c); problem != "" {
 			return leave(fmt.Sprintf("configuration %q %s", name, problem))
 		}
-		argv, _ := launchArgv(c)
+		argv := launchArgv(c)
 		cmd := yaml.Node{Kind: yaml.MappingNode}
 		addYAMLField(&cmd, "name", name)
 		if len(argv) > 0 {
@@ -213,7 +213,7 @@ func launchConfigurationProblem(c map[string]any) string {
 		return "has no name"
 	}
 	url, _ := c["url"].(string)
-	if argv, _ := launchArgv(c); len(argv) == 0 && url == "" {
+	if argv := launchArgv(c); len(argv) == 0 && url == "" {
 		return "has no command to start or url to open"
 	}
 	return ""
@@ -221,31 +221,31 @@ func launchConfigurationProblem(c map[string]any) string {
 
 // launchArgv reads the command a launch.json configuration starts:
 // runtimeExecutable (`node` when only program is set), its runtimeArgs,
-// then program and its args. It reports false when an argument is not a
+// then program and its args. It returns nil when an argument is not a
 // string, since the command could not be kept whole.
-func launchArgv(c map[string]any) ([]string, bool) {
+func launchArgv(c map[string]any) []string {
 	exe, _ := c["runtimeExecutable"].(string)
 	program, _ := c["program"].(string)
 	if exe == "" && program != "" {
 		exe = "node"
 	}
 	if exe == "" {
-		return nil, true
+		return nil
 	}
 	argv := []string{exe}
 	runtimeArgs, ok := jsonStrings(c["runtimeArgs"])
 	if !ok {
-		return nil, false
+		return nil
 	}
 	argv = append(argv, runtimeArgs...)
 	if program != "" {
 		args, ok := jsonStrings(c["args"])
 		if !ok {
-			return nil, false
+			return nil
 		}
 		argv = append(append(argv, program), args...)
 	}
-	return argv, true
+	return argv
 }
 
 // devCommandValue writes argv as the spec's command in the shortest form

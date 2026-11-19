@@ -3,9 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/preview"
@@ -91,37 +88,10 @@ func importGrokAgentMetadata(data []byte) ([]byte, error) {
 }
 
 func validateGrokMetadataKeys(value any) error {
-	if field := grokNonStringKeyPath(value, ""); field != "" {
+	if field := nonStringKeyPath(value, "", "metadata"); field != "" {
 		return fmt.Errorf("%s has non-string YAML keys; quote the keys before importing", field)
 	}
 	return nil
-}
-
-func grokNonStringKeyPath(value any, path string) string {
-	switch value := value.(type) {
-	case map[any]any:
-		if path == "" {
-			return "metadata"
-		}
-		return path
-	case map[string]any:
-		for _, key := range slices.Sorted(maps.Keys(value)) {
-			next := key
-			if path != "" {
-				next = path + "." + key
-			}
-			if field := grokNonStringKeyPath(value[key], next); field != "" {
-				return field
-			}
-		}
-	case []any:
-		for i, item := range value {
-			if field := grokNonStringKeyPath(item, path+"["+strconv.Itoa(i)+"]"); field != "" {
-				return field
-			}
-		}
-	}
-	return ""
 }
 
 func validateRetainedCredentials(entries map[string]any) error {

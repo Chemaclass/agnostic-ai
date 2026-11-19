@@ -328,7 +328,6 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d mcps\n",
 		c.rules+rulesFileCount, c.agents, c.skills, mcps)
-	printImportNextSteps(root, "antigravity")
 	return nil
 }
 

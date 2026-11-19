@@ -25,6 +25,5 @@ func importFromAugment(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d agents, %d ignores, %d settings (other Augment configuration is not imported)\n", agents, ignores, settings)
-	printImportNextSteps(root, "augment")
 	return nil
 }

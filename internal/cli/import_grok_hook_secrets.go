@@ -49,7 +49,7 @@ func validateGlobalGrokImport(home string, targets []string) error {
 			continue
 		}
 		g := globalTargets[target]
-		servers, _, err := readGrokConfig(g.mcpPath(home))
+		servers, err := readGrokConfig(g.mcpPath(home))
 		if err != nil {
 			return err
 		}

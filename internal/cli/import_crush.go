@@ -63,7 +63,6 @@ func importFromCrush(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d skills, %d hooks, %d mcps, %d ignores\n", rules, skills, hooks, mcps, ignores)
-	printImportNextSteps(root, "crush")
 	return nil
 }
 

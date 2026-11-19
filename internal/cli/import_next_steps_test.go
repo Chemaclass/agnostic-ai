@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestPrintImportNextSteps_PrintsSyncBlock(t *testing.T) {
@@ -88,5 +90,57 @@ func TestPrintImportNextSteps_AntigravityPluginProjectHintsNoGoose(t *testing.T)
 	printImportNextSteps(dir, "antigravity")
 	if out := buf.String(); strings.Contains(out, "goose") {
 		t.Errorf("antigravity plugin project got a goose hint:\n%s", out)
+	}
+}
+
+func runImportForNextSteps(t *testing.T, config string, files map[string]string, args ...string) string {
+	t.Helper()
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", config)
+	for path, body := range files {
+		writeFile(t, path, body)
+	}
+	buf := captureSummary(t)
+	root := NewRootCmd("test")
+	root.SetArgs(append([]string{"import"}, args...))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("import %v: %v", args, err)
+	}
+	return buf.String()
+}
+
+func TestImport_MultiSourceRunPrintsNextStepsOnce(t *testing.T) {
+	files := map[string]string{
+		".claude/rules/style.md":    "Use tabs.\n",
+		".cursor/rules/review.mdc":  "---\ndescription: Review\n---\nReview the diff.\n",
+		".windsurf/rules/naming.md": "Name things well.\n",
+	}
+	for name, args := range map[string][]string{
+		"all":   {"all"},
+		"named": {"claude", "cursor", "windsurf"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out := runImportForNextSteps(t, "version: 1\n", files, args...)
+			if got := strings.Count(out, "next steps:"); got != 1 {
+				t.Errorf("want one next steps block, got %d:\n%s", got, out)
+			}
+			for _, imported := range []string{"claude", "cursor", "windsurf"} {
+				if strings.Contains(out, "also detected "+imported+"/") {
+					t.Errorf("suggests %s, which this run imported:\n%s", imported, out)
+				}
+			}
+		})
+	}
+}
+
+func TestImport_KimiAndVibePrintNextSteps(t *testing.T) {
+	for _, source := range []string{"kimi", "vibe"} {
+		t.Run(source, func(t *testing.T) {
+			out := runImportForNextSteps(t, "version: 1\ntargets: ["+source+"]\n", nil, source)
+			if got := strings.Count(out, "next steps:"); got != 1 {
+				t.Errorf("want one next steps block, got %d:\n%s", got, out)
+			}
+		})
 	}
 }
