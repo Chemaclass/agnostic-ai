@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -204,4 +205,22 @@ func TestStatus_JSONLayerPathsUseSlashes(t *testing.T) {
 	if len(got.Layers) != 1 || got.Layers[0].Path != "team/.agnostic-ai/" {
 		t.Errorf("layer path: want team/.agnostic-ai/, got %+v", got.Layers)
 	}
+}
+
+func TestBuildLayerInfos_ShowsASourceUnderADotDotFolderRelative(t *testing.T) {
+	root := t.TempDir()
+	cfg := &config.Config{Sources: config.Sources{Agents: "..data/agents"}}
+	infos, err := buildLayerInfos(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, info := range infos {
+		if info.Name == layerNameProject {
+			if want := "..data/"; info.Path != want {
+				t.Errorf("project layer path = %q, want %q", info.Path, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("no project layer in %v", infos)
 }

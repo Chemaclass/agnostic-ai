@@ -93,13 +93,15 @@ type Scanner struct {
 	// Nil reads none.
 	CodexCloud CloudSessions
 
-	mu                sync.Mutex
-	claude            map[string]claudeCacheEntry
-	claudeWorkers     map[string]*claudeWorkerCache
-	claudeAgentMetas  map[string]cached[claudeAgentMeta]
-	codexWorkers      map[string]*nativeLog[codexWorkerTurn]
-	cursorAgents      map[string]cached[cursorAgentMeta]
-	cursorTranscripts map[string]cached[texts]
+	mu               sync.Mutex
+	claude           map[string]claudeCacheEntry
+	claudeWorkers    map[string]*claudeWorkerCache
+	claudeAgentMetas map[string]cached[claudeAgentMeta]
+	// claudeAgentReplies are subagents' latest messages, by transcript.
+	claudeAgentReplies map[string]cached[string]
+	codexWorkers       map[string]*nativeLog[codexWorkerTurn]
+	cursorAgents       map[string]cached[cursorAgentMeta]
+	cursorTranscripts  map[string]cached[texts]
 	// cursorSlugs caches the folders each cursor-agent project slug
 	// gives, since finding them reads folders from the root down.
 	cursorSlugs   map[string][]string

@@ -299,8 +299,11 @@ const LATE_RESUME = "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2"
 async function openSlowly(page: Page) {
   await openArchived(page, 'late-open-failure')
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  // The panel asks once for a late failure after it handled the answer, so later reads are its own.
+  const handled = page.waitForResponse((response) => response.url().endsWith('/api/open/late'))
   await row(page, 'Tidy the old branches').click()
   expect((await answer).status()).toBe(202)
+  await handled
 }
 
 /** Ends the open answered as still opening, with the fixture's late failure. */
@@ -389,6 +392,44 @@ test('a notice shown and dismissed while an open was still opening does not drop
   await expect(noticeCard(page)).toBeHidden()
 
   await settleLateOpen(page)
+  await expectLateFailure(page)
+})
+
+type HeldOpens = Window & { releaseOpens: () => void; inboxesHandled: number }
+
+/** Holds the page's view of each /api/open answer until releaseOpens, and counts the inbox events the page handled. */
+function holdOpenAnswers() {
+  const held: (() => void)[] = []
+  const page = window as unknown as HeldOpens
+  page.releaseOpens = () => held.splice(0).forEach((release) => release())
+  page.inboxesHandled = 0
+  const fetchFirst = window.fetch
+  window.fetch = async (input, init) => {
+    const response = await fetchFirst(input, init)
+    if (String(input).endsWith('/api/open')) await new Promise<void>((resolve) => held.push(resolve))
+    return response
+  }
+  const listen = EventSource.prototype.addEventListener
+  EventSource.prototype.addEventListener = function (this: EventSource, type: string, listener: EventListener, options?: boolean | AddEventListenerOptions) {
+    if (type !== 'message') return listen.call(this, type, listener, options)
+    listen.call(this, type, (event: Event) => {
+      listener.call(this, event)
+      if (JSON.parse((event as MessageEvent).data).name === 'inbox') page.inboxesHandled += 1
+    }, options)
+  } as typeof listen
+}
+
+test('a late open failure that lands before the panel read its open\'s answer still shows', async ({ page }) => {
+  await page.addInitScript(holdOpenAnswers)
+  await openArchived(page, 'late-open-failure')
+  const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await row(page, 'Tidy the old branches').click()
+  expect((await answer).status()).toBe(202)
+  const handled = await page.evaluate(() => (window as unknown as HeldOpens).inboxesHandled)
+
+  await settleLateOpen(page)
+  await page.waitForFunction((before) => (window as unknown as HeldOpens).inboxesHandled > before, handled)
+  await page.evaluate(() => (window as unknown as HeldOpens).releaseOpens())
   await expectLateFailure(page)
 })
 
@@ -1135,6 +1176,10 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   await expect(helpers).toHaveCount(5)
   await expect(helpers.locator('.title')).toHaveText(['Find rename call sites', 'Size budget check', 'Review #3511: local app chats', 'Review #3512: rename in each app', 'Helper rows design'])
   await expect(helpers.locator('.meta')).toHaveText(['Claude Code · Explore · 1m', 'Claude Code · 1m', 'Codex · 2m', 'Codex · 4m', 'Claude Code · Plan · 6m'])
+  // A subagent's latest message sits between its title and its details; one that wrote none has no line.
+  await expect(helpers.first().locator('.text > *')).toHaveClass(['title', 'reply', 'meta'])
+  await expect(helpers.first().locator('.reply')).toHaveText('Twelve call sites so far, most in internal/cli.')
+  await expect(helpers.locator('.reply')).toHaveCount(1)
   await expect(helpers.locator('.state.is-working > .work-system')).toHaveCount(5)
   // Subagents never become rows of their own.
   await expect(page.getByRole('option')).toHaveCount(2)
@@ -1148,9 +1193,14 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511', title: 'Review #3511: local app chats' })
   await page.goto('/panel.html')
   await parent.getByRole('button', { name: '▸ 7 subagents' }).click()
+  await expect(helpers.filter({ hasText: 'Review #3511' })).toHaveAttribute('title', 'Open this Codex thread')
+  const explore = helpers.filter({ hasText: 'Find rename call sites' })
+  await expect(explore).toHaveAttribute('title', 'Open the chat it runs in, and show how to reach this subagent')
   const claude = page.waitForRequest((request) => request.url().endsWith('/api/open'))
-  await helpers.filter({ hasText: 'Find rename call sites' }).click()
-  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats' })
+  await explore.click()
+  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats', helper: 'agent-explore' })
+  await expectInfoNotice(page, 'How to reach the subagent')
+  await expect(noticeCard(page)).toContainText("Its subagent is 'Find rename call sites'. Use the agent rows below the prompt to switch to it.")
 })
 
 test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {

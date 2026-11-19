@@ -26,7 +26,7 @@ func captureLogOut(t *testing.T) *bytes.Buffer {
 
 // syncThenEditRule syncs claude, then overwrites the emitted r1 rule with
 // hand-edited content so the next --check sees one stale file.
-func syncThenEditRule(t *testing.T, dir string) string {
+func syncThenEditRule(t *testing.T, dir string) {
 	t.Helper()
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "-t", "claude"})
@@ -37,7 +37,6 @@ func syncThenEditRule(t *testing.T, dir string) string {
 	if err := os.WriteFile(rule, []byte("hand-edited\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return rule
 }
 
 func TestSyncCheck_Diff_ShowsChangedLines(t *testing.T) {

@@ -26,7 +26,7 @@ func TestWriteAgnosticEntryPoints_ClaudeImportsTheProjectMemoryAlone(t *testing.
 	writeAgnosticFile(t, "# Project\n")
 	cfg := &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -37,16 +37,19 @@ func TestWriteAgnosticEntryPoints_ClaudeImportsTheProjectMemoryAlone(t *testing.
 
 func TestWriteAgnosticEntryPoints_ClaudeImportsPersonalMemoryWhenAutoMemoryMissesIt(t *testing.T) {
 	for name, setup := range map[string]func(t *testing.T){
-		"off in the environment": func(t *testing.T) { t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1") },
+		"off in the environment": func(t *testing.T) { t.Helper(); t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1") },
 		"off in local settings": func(t *testing.T) {
+			t.Helper()
 			writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"autoMemoryEnabled": false}`)
 		},
 		"off in user settings": func(t *testing.T) {
+			t.Helper()
 			user := t.TempDir()
 			t.Setenv("CLAUDE_CONFIG_DIR", user)
 			writeFile(t, filepath.Join(user, "settings.json"), `{"autoMemoryEnabled": false}`)
 		},
 		"a folder the user set elsewhere": func(t *testing.T) {
+			t.Helper()
 			writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"autoMemoryDirectory": "~/notes"}`)
 		},
 	} {
@@ -56,7 +59,7 @@ func TestWriteAgnosticEntryPoints_ClaudeImportsPersonalMemoryWhenAutoMemoryMisse
 			setup(t)
 			cfg := &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}
 
-			if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+			if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 				t.Fatal(err)
 			}
 			claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -72,7 +75,7 @@ func TestWriteAgnosticEntryPoints_NoMemoryImportWithoutTheBuiltin(t *testing.T) 
 	writeAgnosticFile(t, "# Project\n")
 	cfg := &config.Config{Targets: []string{"claude"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -90,7 +93,7 @@ func TestWriteAgnosticEntryPoints_MemoryBlockAloneKeepsTheClaudeCompanion(t *tes
 	writeAgnosticFile(t, "# Project\n\nShared.\n")
 	cfg := &config.Config{Targets: []string{"claude", "codex"}, Builtins: []string{"memory"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
@@ -117,7 +120,7 @@ func TestWriteAgnosticEntryPoints_ClaudeWritesAgentsWithTheMemoryRule(t *testing
 	rule := spec.Entry{Kind: spec.KindRule, Name: "shared-memory-policy", Layer: "builtin", Body: "Save facts.", Meta: map[string]any{"alwaysApply": true}}
 	cfg := &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}
 
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{Rules: []spec.Entry{rule}}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{Rules: []spec.Entry{rule}}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))

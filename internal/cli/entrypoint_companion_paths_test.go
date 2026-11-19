@@ -13,6 +13,7 @@ import (
 
 func TestEntryPointPaths_ClaudeCompanionAgents(t *testing.T) {
 	setup := func(t *testing.T, claudeMD string) {
+		t.Helper()
 		dir := testutil.TempCwd(t)
 		t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 		mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), claudeMD)

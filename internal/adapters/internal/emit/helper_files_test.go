@@ -79,12 +79,5 @@ func TestRestoreHelperFiles_PreservesMode(t *testing.T) {
 
 func chdirHelper(t *testing.T, dir string) {
 	t.Helper()
-	prev, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(prev) })
+	t.Chdir(dir)
 }

@@ -303,7 +303,7 @@ func TestImportGoose_SameCommandDifferentSettingsKeepsBoth(t *testing.T) {
 	}
 }
 
-func importWithLog(t *testing.T, dir string) string {
+func importWithLog(t *testing.T) string {
 	t.Helper()
 	var out strings.Builder
 	prev := logOut
@@ -331,7 +331,7 @@ func TestImportGoose_WarnsOnPluginRoot(t *testing.T) {
 {"type":"prompt","command":"${PLUGIN_ROOT}/scripts/skipped.sh"}]}]}}`)
 	writeGoosePlugin(t, dir, "mine", gooseGuardHooks("${PLUGIN_ROOT}/scripts/own.sh"))
 
-	got := importWithLog(t, dir)
+	got := importWithLog(t)
 
 	for _, want := range []string{"a.sh", "b.sh", "into .agents/plugins/mine"} {
 		if !strings.Contains(got, want) {
@@ -352,10 +352,12 @@ func TestImportGoose_WarnsOnPluginRoot(t *testing.T) {
 func TestImportGoose_SplitNamesSurviveSyncMerge(t *testing.T) {
 	cases := map[string]func(t *testing.T, dir string){
 		"two plugins": func(t *testing.T, dir string) {
+			t.Helper()
 			writeGoosePlugin(t, dir, "a", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"x","timeout":5}]}]}}`)
 			writeGoosePlugin(t, dir, "b", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"y","timeout":10}]}]}}`)
 		},
 		"unwritten entry": func(t *testing.T, dir string) {
+			t.Helper()
 			writeGoosePlugin(t, dir, "a", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"x"},{"type":"prompt","command":"p","timeout":5}]}]}}`)
 		},
 	}

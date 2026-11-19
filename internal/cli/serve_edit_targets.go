@@ -111,7 +111,7 @@ func (h *editHandler) targetsEdit(where editAudience, req targetsRequest) (strin
 				if slices.Contains(defaults, req.name) == req.enabled {
 					return data, nil
 				}
-				_, mapping, err := yamlDocument(data)
+				mapping, err := yamlDocument(data)
 				if err != nil {
 					return nil, err
 				}

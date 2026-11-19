@@ -1206,11 +1206,13 @@ func TestBuiltinChanges_UnsyncedProjectRefusesUnsafeLock(t *testing.T) {
 		setup func(t *testing.T, root string)
 	}{
 		{"lock is a directory", func(t *testing.T, root string) {
+			t.Helper()
 			if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai", projectLockName), 0o755); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"symlinked parent", func(t *testing.T, root string) {
+			t.Helper()
 			if err := os.Symlink(t.TempDir(), filepath.Join(root, ".agnostic-ai")); err != nil {
 				t.Skip(err)
 			}

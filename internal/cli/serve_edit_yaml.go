@@ -253,7 +253,7 @@ func boolAtYAML(node *yaml.Node, parts []string) (*yaml.Node, error) {
 }
 
 func setBool(data []byte, key string, value bool) ([]byte, error) {
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func setBool(data []byte, key string, value bool) ([]byte, error) {
 }
 
 func setBoolOverride(data []byte, key string, value bool) ([]byte, error) {
-	_, node, err := yamlDocument(data)
+	node, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +338,7 @@ func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
 }
 
 func setListMember(data []byte, key, name string, enabled bool) ([]byte, error) {
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}

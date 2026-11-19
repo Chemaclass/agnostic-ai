@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
 - Import notes show project-relative paths for folders whose names begin with two dots (#3621).
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).
 - Authority notes and opt-in links point directly to the reference pages that explain their settings (#3553).
@@ -16,6 +17,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
 - `agnostic-ai import` with several sources, or `all`, prints its next steps once at the end and no longer suggests importing a tool the same run imported. `import kimi` and `import vibe` now print them too (#3619).
 - `import` scans project directories fewer times, and `explain --context` and `explain --file` run faster in projects with many rules (#3663).
+- The Conversations page lists the working subagents of each chat under it, newest first, five before a "Show more" button. A click opens the chat a Claude Code subagent runs in and names the subagent; a Codex subagent opens its own thread (#3667).
 
 #### Companion
 
@@ -23,6 +25,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Claude Code conversations skip named pipes posing as transcripts, which could freeze the companion list (#3601).
 - macOS disk images include the CLI; the app offers updates and can install the command line tool without replacing an existing install (#3516).
 - The companion list skips named pipes where Claude Code stores live session and background job details (#3601).
+- A click on a Claude Code subagent row still opens the chat it runs in, and now leaves a notice that names the subagent and says how to reach it. `POST /api/conversations/open` takes an optional `helper`, the subagent's id (#3667).
+- Each Claude Code subagent row shows the subagent's latest message under its title. `helpers` entries carry it as `reply` (#3667).
 - The companion replaces an `agnostic-ai serve` whose conversation list read has run for over two minutes, even when the server still answers its health check. `GET /api/health` now reports `scanningSince`, when the running read began (#3601).
 
 - On Windows, `agnostic-ai companion uninstall` deletes the companion's start at login value from the registry, even when the program is gone, and its browser data, which the companion now keeps in its own folder. After this upgrade the Windows companion starts with an empty browser data folder, so the list forgets its last chosen place once and opens on All. On Linux, `stop` and `uninstall` from a shell without a D-Bus session bus, such as an SSH login, say so: `stop` stops nothing, and `uninstall` still deletes the files. (#3221, #3222)
@@ -74,6 +78,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Clicking a running chat while the list is being read no longer waits for that read, nor reads the list again. A Claude Code session of the desktop app or an editor still waits, since it may run in a terminal since. A chat that ended waits for that read and then reads the list once more, so a session that started again in the meantime is not resumed a second time. (#3530)
 - A chat that takes long to open no longer brings the companion list back with an error although the terminal opened. The companion waits up to 60 seconds for an open, and after that keeps the list hidden. A real failure, such as a missing Automation permission, still shows its reason. (#3530)
 - A chat that fails to open after the companion stopped waiting now shows why, with its name and its command to copy, as soon as the list shows, even with a search typed, after a reload, or when the list opens to send copied text. It stays until you dismiss it or open a chat; another message on screen comes first. An open that gets no answer at all says the chat may still have opened. Opening the same chat twice while it opens, or opening a Claude Code session from the desktop app or an editor while the list refreshes, no longer starts a second copy. (#3537)
+- A chat that fails to open shortly after the companion stopped waiting for it now shows why. Before, the companion could miss that failure until the list showed again. (#3685)
 - The companion list no longer comes back over the chat you just opened from it. Hiding the list could hand the focus to the circle for a moment, which showed the list again. (#3548)
 - When the companion cannot reach `agnostic-ai`, or gets no answer in time, it says so in plain words instead of showing a Go error with a local address. (#3530)
 - A send that gets no answer within 60 seconds now says the text may have been typed, so check the chat before you send again. So does a send whose server stops answering. The server keeps a slow send's answer as long as a slow open's. (#3591)

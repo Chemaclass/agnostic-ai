@@ -26,7 +26,7 @@ func TestWriteAgentMD_QuotesDescriptionSoSpecParses(t *testing.T) {
 
 	for i, desc := range trickyDescriptions {
 		path := filepath.Join(dir, "agent.md")
-		if err := writeAgentMD(path, "example", desc, nil, "body"); err != nil {
+		if err := writeAgentMD(path, "example", desc, "body"); err != nil {
 			t.Fatalf("case %d: writeAgentMD: %v", i, err)
 		}
 		data, err := os.ReadFile(path)

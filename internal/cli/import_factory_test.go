@@ -160,6 +160,7 @@ func TestImportFactory_ReadsLegacyHooksFile(t *testing.T) {
 
 func TestImportFactory_DryRunMatchesRealImport(t *testing.T) {
 	assertDryRunMatchesRealImport(t, "factory", func(t *testing.T, dir string) {
+		t.Helper()
 		seedFactoryBundle(t, dir)
 		execCLI(t, "sync", "-t", "factory")
 		if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {

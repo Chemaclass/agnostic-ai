@@ -35,7 +35,7 @@ func TestOverview_ModelAndEffortMatchWhatSyncWrites(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		model, _ := emittedConfiguredModel(cfg, target, files)
+		model := emittedConfiguredModel(cfg, target, files)
 		if got := resolved["model"][target]; got.Value != model || got.Dropped != "" {
 			t.Errorf("%s model = %+v, sync writes %q", target, got, model)
 		}
@@ -94,7 +94,7 @@ func TestOverview_CodexSkipsALaterClaudeModelAsSyncDoes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	model, _ := emittedConfiguredModel(cfg, "codex", files)
+	model := emittedConfiguredModel(cfg, "codex", files)
 	got := resolvedByTarget(t, overview.Build(in))["model"]["codex"]
 	if model != "gpt-5.5" || got.Value != model || got.Dropped != "" || !hasOther(got.Others, ".agnostic-ai/settings/b.yaml", "sonnet", "cannot load") {
 		t.Errorf("codex model = %+v, sync writes %q", got, model)

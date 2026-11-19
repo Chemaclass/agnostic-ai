@@ -248,7 +248,7 @@ func TestCapturePhases_ReuseLoadedLedgerForActualCallbacks(t *testing.T) {
 					targets = []string{"claude"}
 				}
 				var reports []driftReport
-				reports, err = collectLoadedDrift(cfg, b, targets, nil, "")
+				reports, err = collectLoadedDrift(cfg, b, targets, "")
 				if mode == "partial-orphans" {
 					for _, rep := range reports {
 						if slices.Contains(rep.Orphaned, orphan) {
@@ -299,7 +299,7 @@ func TestCapturePhases_KeepNativeBodyReadsFresh(t *testing.T) {
 		if drift == 0 {
 			t.Error("status hid native edit")
 		}
-		reports, err := collectLoadedDrift(cfg, b, nil, nil, "")
+		reports, err := collectLoadedDrift(cfg, b, nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -320,7 +320,7 @@ func TestCapturePhases_KeepNativeBodyReadsFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustWriteFile(t, stateFilePath("."), string(encoded))
-	reports, err := collectLoadedDrift(cfg, b, nil, nil, "")
+	reports, err := collectLoadedDrift(cfg, b, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +378,7 @@ func TestCapturePhases_ReleaseBeforeDeferredHistory(t *testing.T) {
 			if mode == "status" {
 				_, _, err = captureAllAndDiff(cfg.Targets, cfg, b)
 			} else {
-				_, err = collectLoadedDrift(cfg, b, nil, nil, "")
+				_, err = collectLoadedDrift(cfg, b, nil, "")
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -414,7 +414,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			if mode == "status" {
 				_, _, err = captureAllAndDiff(cfg.Targets, cfg, b)
 			} else {
-				_, err = collectLoadedDrift(cfg, b, nil, nil, "")
+				_, err = collectLoadedDrift(cfg, b, nil, "")
 			}
 			if err == nil {
 				t.Error("invalid native settings did not fail capture")
@@ -431,7 +431,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			if mode == "status" {
 				_, _, err = captureAllAndDiff(cfg.Targets, cfg, b)
 			} else {
-				_, err = collectLoadedDrift(cfg, b, nil, nil, "")
+				_, err = collectLoadedDrift(cfg, b, nil, "")
 			}
 			if err == nil || !strings.Contains(filepath.ToSlash(err.Error()), "read native-agents/"+fixtureAgentName(0)+".md") {
 				t.Errorf("native comparison failure=%v", err)

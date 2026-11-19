@@ -533,6 +533,7 @@ var builtinDescriptions = map[string]string{
 	"handoff-hook":      "Offers a saved handoff when a session starts.",
 	"rtk":               "Routes shell commands through rtk to cut output tokens.",
 	"caveman":           "Terse replies to cut output tokens.",
+	"cloud-handoff":     "Pushes the current task and continues it in a cloud session.",
 	"side-conversation": "Starts a second task in a new terminal tab, linked to this session.",
 	"wrap-up":           "Ends a session with a short summary to share with people.",
 }
@@ -584,6 +585,14 @@ var builtinAbouts = map[string]BuiltinAbout{
 		DocsURL:   "https://github.com/JuliusBrussee/caveman",
 		DocsLabel: "Caveman on GitHub",
 	},
+	"cloud-handoff": {
+		Summary: "Adds the cloud-handoff skill, which sends the current task to a cloud session that goes on without this computer.",
+		Points: []string{
+			`Say "send this to a remote agent" or "run it in the cloud". The agent commits and pushes the work to a branch, writes the goal and the next step as the cloud prompt, and starts the cloud session.`,
+			"Claude Code needs a claude.ai sign-in and, from inside a session, the script command of macOS or Linux. Codex needs a cloud environment id, which the agent asks you for.",
+			"It never pushes to the default branch, never force-pushes, and leaves out .env and other secret-looking files. It runs only when you ask.",
+		},
+	},
 	"side-conversation": {
 		Summary: "Adds the side-conversation skill, which starts a second task in its own conversation while this one goes on.",
 		Points: []string{
@@ -618,6 +627,7 @@ var builtinLabels = map[string]string{
 	"handoff-hook":      "Handoff on start",
 	"rtk":               "RTK",
 	"caveman":           "Caveman",
+	"cloud-handoff":     "Cloud handoff",
 	"side-conversation": "Side conversation",
 	"wrap-up":           "Wrap-up",
 }

@@ -122,7 +122,7 @@ func TestCollectLoadedDrift_LeavesTheLoadedConfigUnchanged(t *testing.T) {
 	}
 	before := cfg.Gitignore
 
-	if _, err := collectLoadedDrift(cfg, b, nil, nil, "off"); err != nil {
+	if _, err := collectLoadedDrift(cfg, b, nil, "off"); err != nil {
 		t.Fatal(err)
 	}
 

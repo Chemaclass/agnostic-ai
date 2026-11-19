@@ -547,17 +547,28 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 // second open of the same chat while one runs starts nothing: it waits
 // for the first and gets its reply.
 func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
+	return s.ReopenHelper(ctx, tool, id, "", opts, launcher)
+}
+
+// ReopenHelper reopens the chat a Claude Code subagent runs in, as
+// Reopen does, and names that subagent in the reply. A subagent the
+// chat does not list opens nothing. An empty subagent is Reopen. Opens
+// of one chat share one open, whichever subagents they name.
+func (s *Scanner) ReopenHelper(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
 	key := markKey(tool, id)
 	s.openingMu.Lock()
 	if running, ok := s.opening[key]; ok {
 		s.openingMu.Unlock()
 		<-running.done
-		return running.reply, running.found
+		if !running.outcome.ran {
+			return s.ReopenHelper(ctx, tool, id, subagent, opts, launcher)
+		}
+		return running.outcome.replyFor(subagent)
 	}
 	if s.opening == nil {
 		s.opening = map[string]*sharedOpen{}
 	}
-	this := &sharedOpen{done: make(chan struct{}), reply: OpenReply{Message: "The conversation could not be opened. Try again."}, found: true}
+	this := &sharedOpen{done: make(chan struct{}), outcome: openOutcome{reply: OpenReply{Message: "The conversation could not be opened. Try again."}, found: true, ran: true}}
 	s.opening[key] = this
 	s.openingMu.Unlock()
 	defer func() {
@@ -566,26 +577,64 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 		s.openingMu.Unlock()
 		close(this.done)
 	}()
-	this.reply, this.found = s.reopen(ctx, tool, id, opts, launcher)
-	return this.reply, this.found
+	this.outcome = s.reopen(ctx, tool, id, subagent, opts, launcher)
+	return this.outcome.replyFor(subagent)
 }
 
-// sharedOpen is one open in progress; done closes once reply and found
-// hold its answer.
+// sharedOpen is one open in progress; done closes once outcome holds
+// its answer.
 type sharedOpen struct {
-	done  chan struct{}
+	done    chan struct{}
+	outcome openOutcome
+}
+
+// openOutcome is how one open of a chat ended, which each caller that
+// asked for it reads with the subagent it named.
+type openOutcome struct {
 	reply OpenReply
 	found bool
+	// ran is false when the open stopped at a subagent the chat does not
+	// list, before anything opened.
+	ran bool
+	// chat is the conversation the open found.
+	chat Conversation
+	// unmarked is why the opened chat could not be marked seen.
+	unmarked string
 }
 
-func (s *Scanner) reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
-	conversation, found := s.findToOpen(ctx, tool, id, opts)
-	if !found {
+func (o openOutcome) replyFor(subagent string) (OpenReply, bool) {
+	if !o.found {
 		return OpenReply{}, false
 	}
-	reply = Open(ctx, conversation, s.Processes, launcher)
-	if !reply.Opened || s.MarksPath == "" {
-		return reply, true
+	reply := o.reply
+	if subagent != "" {
+		picked, listed := subagentIn(o.chat.Helpers, subagent)
+		if !listed {
+			return OpenReply{Message: subagentGone}, true
+		}
+		if reply.Opened {
+			reply = subagentReply(reply, o.chat, picked)
+		}
+	}
+	if o.unmarked != "" {
+		reply.Message += " It could not be marked as seen: " + o.unmarked
+	}
+	return reply, true
+}
+
+func (s *Scanner) reopen(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) openOutcome {
+	conversation, found := s.findToOpen(ctx, tool, id, opts)
+	if !found {
+		return openOutcome{ran: true}
+	}
+	out := openOutcome{found: true, chat: conversation}
+	if _, listed := subagentIn(conversation.Helpers, subagent); subagent != "" && !listed {
+		return out
+	}
+	out.ran = true
+	out.reply = Open(ctx, conversation, s.Processes, launcher)
+	if !out.reply.Opened || s.MarksPath == "" {
+		return out
 	}
 	// A shared row's cloud id gets the same marks, and so does the local
 	// row that holds a cloud row opened on its own, so each says the same
@@ -599,7 +648,7 @@ func (s *Scanner) reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 	}
 	reopened := func(entry *markEntry, now string) { entry.SeenAt, entry.CompletedAt = now, "" }
 	if err := s.changeMarks(keys, reopened); err != nil {
-		reply.Message += " It could not be marked as seen: " + err.Error()
+		out.unmarked = err.Error()
 	}
-	return reply, true
+	return out
 }

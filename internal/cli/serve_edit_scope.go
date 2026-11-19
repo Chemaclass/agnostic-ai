@@ -223,7 +223,7 @@ func seedPersonalList(data []byte, key string, teamList []string, inherited stri
 	if len(bytes.TrimSpace(data)) == 0 && inherited != "" {
 		data = []byte("memory:\n  personal: " + inherited + "\n")
 	}
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
@@ -337,11 +337,11 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 	refuse := func(why string) error {
 		return fmt.Errorf("%s %s; local files must stay in %s", overviewDisplay(h.root, file), why, overviewDisplay(h.root, localRoot))
 	}
-	if !withinDir(target, resolvedAbs(localRoot)) {
+	if _, inside := pathBelow(resolvedAbs(localRoot), target); !inside {
 		return refuse("resolves outside the local folder")
 	}
 	for _, path := range team {
-		if withinDir(target, resolvedAbs(path)) {
+		if _, inside := pathBelow(resolvedAbs(path), target); inside {
 			return refuse("resolves to the " + h.level() + " source " + overviewDisplay(h.root, path))
 		}
 	}
@@ -522,11 +522,6 @@ func gitTracks(path string) bool {
 	return exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", ":(icase,literal)"+path).Run() == nil
 }
 
-func withinDir(path, dir string) bool {
-	rel, err := filepath.Rel(dir, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
 func settingsOverlayScaffold(name string) string {
 	out, err := yaml.Marshal(map[string]string{"name": name})
 	if err != nil {
@@ -545,7 +540,7 @@ func (h *editHandler) matchesShownSpec(e spec.Entry, shown string) bool {
 // and the parent keys it leaves empty, then checks that nothing else
 // changed.
 func removeYAMLPath(data []byte, key string) ([]byte, error) {
-	_, parent, err := yamlDocument(data)
+	parent, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}

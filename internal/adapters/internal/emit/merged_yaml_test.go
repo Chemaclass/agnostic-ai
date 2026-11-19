@@ -53,6 +53,7 @@ func TestReleaseMergedYAML(t *testing.T) {
 			name: "keeps the user's keys, comments, and flow list",
 			seed: HeaderBlock(FormatYAML) + "# mine\nzebra: 1 # z\nread: [NOTES.md, CONVENTIONS.md]\nmodel: x\nalpha: 2\n",
 			keys: func(t *testing.T) []MergedKey {
+				t.Helper()
 				return []MergedKey{{Path: []string{"model"}, Sum: sumOf(t, "x")}, {Path: []string{"read"}, Items: []string{ContentSum("CONVENTIONS.md")}}}
 			},
 			want:   "# mine\nzebra: 1 # z\nread: [NOTES.md]\nalpha: 2\n",
@@ -62,6 +63,7 @@ func TestReleaseMergedYAML(t *testing.T) {
 			name: "drops a scalar entry and an emptied mapping",
 			seed: "read: CONVENTIONS.md\nnested:\n  model: x\nkeep: true\n",
 			keys: func(t *testing.T) []MergedKey {
+				t.Helper()
 				return []MergedKey{{Path: []string{"nested", "model"}, Sum: sumOf(t, "x")}, {Path: []string{"read"}, Items: []string{ContentSum("CONVENTIONS.md")}}}
 			},
 			want:   "keep: true\n",
@@ -71,6 +73,7 @@ func TestReleaseMergedYAML(t *testing.T) {
 			name: "keeps an edited value",
 			seed: "model: mine\n",
 			keys: func(t *testing.T) []MergedKey {
+				t.Helper()
 				return []MergedKey{{Path: []string{"model"}, Sum: sumOf(t, "x")}}
 			},
 			want:   "model: mine\n",
@@ -80,6 +83,7 @@ func TestReleaseMergedYAML(t *testing.T) {
 			name: "removes a file sync created",
 			seed: HeaderBlock(FormatYAML) + "model: x\n",
 			keys: func(t *testing.T) []MergedKey {
+				t.Helper()
 				return []MergedKey{{Path: []string{"model"}, Sum: sumOf(t, "x")}}
 			},
 			created: true,
@@ -89,6 +93,7 @@ func TestReleaseMergedYAML(t *testing.T) {
 			name: "keeps a value the user anchored",
 			seed: "model: &m x\nweak-model: *m\nread: [&r CONVENTIONS.md, *r]\n",
 			keys: func(t *testing.T) []MergedKey {
+				t.Helper()
 				return []MergedKey{{Path: []string{"model"}, Sum: sumOf(t, "x")}, {Path: []string{"read"}, Items: []string{ContentSum("CONVENTIONS.md")}}}
 			},
 			want:   "model: &m x\nweak-model: *m\nread: [&r CONVENTIONS.md, *r]\n",

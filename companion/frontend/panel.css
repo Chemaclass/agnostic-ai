@@ -1284,6 +1284,7 @@ button:focus-visible {
 }
 
 .helper-row .title,
+.helper-row .reply,
 .helper-row .meta {
   display: block;
 }
@@ -1293,6 +1294,7 @@ button:focus-visible {
   line-height: 16px;
 }
 
+.helper-row .reply,
 .helper-row .meta {
   font-size: 11px;
   line-height: 14px;

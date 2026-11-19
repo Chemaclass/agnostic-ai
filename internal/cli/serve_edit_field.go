@@ -483,7 +483,7 @@ func editableEffortLevels(targets []string) []string {
 // setScalarField changes a top-level scalar through byte splices. Unsupported
 // YAML shapes are refused rather than round-tripped through an encoder.
 func setScalarField(data []byte, key string, value any) ([]byte, error) {
-	_, mapping, err := yamlDocument(data)
+	mapping, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}

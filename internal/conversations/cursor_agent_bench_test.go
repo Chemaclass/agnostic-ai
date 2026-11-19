@@ -71,6 +71,7 @@ func benchCursorAgentSQLite(_ context.Context, path, query string) ([]json.RawMe
 func BenchmarkScan_CursorAgentChats(b *testing.B) {
 	stores := benchCursorAgentStores(b)
 	scan := func(b *testing.B, scanner *Scanner) {
+		b.Helper()
 		view := scanner.Scan(context.Background(), ScanOptions{Within: []string{"/tmp/app"}})
 		if len(view.Tools) < 3 || view.Tools[2].Count != benchCursorAgentChats {
 			b.Fatalf("Cursor source = %+v", view.Tools)
@@ -164,6 +165,7 @@ func BenchmarkSearchFirstPage_CursorAgentChats(b *testing.B) {
 	now := time.Now()
 	scanner := &Scanner{Stores: stores, SQLite: benchCursorAgentSQLite, Processes: fakeProcesses{}, Now: func() time.Time { return now }}
 	check := func(b *testing.B, view View) {
+		b.Helper()
 		if len(view.Conversations) == 0 {
 			b.Fatal("the search found nothing")
 		}

@@ -914,6 +914,8 @@ export interface ConversationHelper {
   title: string
   /** The agent type the tool gives, such as `Explore`, when it gives one. */
   kind?: string
+  /** A Claude Code subagent's latest message, as one line, like a conversation's `reply`. Read from the last 256 KB of its transcript; omitted before it wrote one, when it may hold a credential, or when its latest message is further back. */
+  reply?: string
   /** Always `working`: a helper that finished is not listed. */
   state: 'working'
   updatedAt: string
@@ -993,6 +995,8 @@ export interface ConversationOpenRequest {
   id: string
   /** The editor chosen in Settings, so editor links use its scheme. */
   editor?: string
+  /** The `id` of a Claude Code subagent this conversation lists in `helpers`. Its conversation opens, and the reply names the subagent. One the conversation does not list opens nothing. */
+  helper?: string
 }
 
 /** A mark on one conversation, kept in a file on this machine: `seen` (read up to now), `completed` (done until something new is written or it starts working; also marks it seen), `open` (takes a completion back) or `hidden` (out of every list and search until something new is written or it starts working; also marks it seen). */
@@ -1042,6 +1046,8 @@ export interface ConversationOpenReply {
   opened: boolean
   message: string
   command?: string
+  /** The Claude Code subagent the request named, set once its conversation opened. */
+  helper?: ConversationHelper
 }
 
 // HTTP API served by `agnostic-ai serve`.

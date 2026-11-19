@@ -22,7 +22,11 @@ type helper struct {
 	Title string `json:"title"`
 	// Kind is the agent type the tool gives, such as Explore, when it
 	// gives one.
-	Kind      string      `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	// Reply is a Claude Code subagent's latest message, as a row's
+	// reply; empty before it wrote one, when it may hold a credential, or
+	// when it is further back than claudeReplyWindow.
+	Reply     string      `json:"reply,omitempty"`
 	State     helperState `json:"state"`
 	UpdatedAt string      `json:"updatedAt"`
 }
@@ -85,6 +89,28 @@ func listsHelper(results []sourceResult, tool Tool, id string) bool {
 		}
 	}
 	return false
+}
+
+// ValidAgentID reports whether id can name a Claude Code subagent: 1 to
+// 128 letters, digits, hyphens or underscores, so it never reaches
+// outside the subagents folder.
+func ValidAgentID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	return strings.IndexFunc(id, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_'
+	}) < 0
+}
+
+// subagentIn finds the Claude Code subagent id among helpers.
+func subagentIn(helpers []helper, id string) (helper, bool) {
+	for _, h := range helpers {
+		if h.Tool == ToolClaude && h.ID == id {
+			return h, true
+		}
+	}
+	return helper{}, false
 }
 
 // sortedHelpers orders helpers newest first, then by tool and id, so a

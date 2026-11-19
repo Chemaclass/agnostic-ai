@@ -149,7 +149,7 @@ func (in *inbox) readLocked(ctx context.Context) {
 	in.mu.Lock()
 	held := in.tag
 	in.mu.Unlock()
-	answer, err := in.server.call(ctx, http.MethodGet, serverListPath, nil, held)
+	answer, err := in.server.get(ctx, serverListPath, held)
 	if ctx.Err() != nil {
 		return
 	}
@@ -242,7 +242,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 		if before := r.URL.Query().Get("before"); before != "" {
 			asked.Set("before", before)
 		}
-		answer, err := in.server.call(r.Context(), http.MethodGet, serverListPath+"?"+asked.Encode(), nil, "")
+		answer, err := in.server.get(r.Context(), serverListPath+"?"+asked.Encode(), "")
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, apiError{Error: err.Error()})
 			return
@@ -373,7 +373,11 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	}
 	settled := make(chan outcome, 1)
 	go func() {
-		answer, err := in.server.callWithin(context.WithoutCancel(r.Context()), in.server.openLateWait, http.MethodPost, serverOpenPath, body, "")
+		ctx := context.WithoutCancel(r.Context())
+		answer, err := in.server.callWithin(ctx, in.server.openLateWait, http.MethodPost, serverOpenPath, body, "")
+		if plain, named := withoutField(body, "helper"); named && err == nil && refusesHelper(answer) {
+			answer, err = in.server.callWithin(ctx, in.server.openLateWait, http.MethodPost, serverOpenPath, plain, "")
+		}
 		settled <- outcome{answer, err}
 	}()
 	waited := time.NewTimer(in.server.openWait)
@@ -545,4 +549,28 @@ func withoutTitle(body []byte) ([]byte, string) {
 		title = string(runes[:maxSentTitle])
 	}
 	return rest, title
+}
+
+// refusesHelper reports whether the server is a release from before an
+// open took a helper: it refuses the field with this exact error.
+func refusesHelper(answer reply) bool {
+	return answer.status == http.StatusBadRequest && errorOf(answer) == "send {tool, id, editor}"
+}
+
+// withoutField is body without the named field; named is false when
+// body has no such field.
+func withoutField(body []byte, name string) (rest []byte, named bool) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return body, false
+	}
+	if _, named = fields[name]; !named {
+		return body, false
+	}
+	delete(fields, name)
+	rest, err := json.Marshal(fields)
+	if err != nil {
+		return body, false
+	}
+	return rest, true
 }

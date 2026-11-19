@@ -35,8 +35,8 @@ import (
 // triggers a one-line warning before the overwrite so the user knows
 // their content is about to be replaced. This is the same heuristic
 // the importer uses to skip files it did not write.
-func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) error {
-	_, err := writeEntryPointFiles(sess, cfg, b, targets, dryRun)
+func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string) error {
+	_, err := writeEntryPointFiles(sess, cfg, b, targets, false)
 	return err
 }
 

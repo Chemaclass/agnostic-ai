@@ -86,7 +86,7 @@ func TestCredentialPreview_GlobalDiffHidesSecretOnlyChange(t *testing.T) {
 func TestCredentialPreview_DiffsHideBothSidesAndKeepChangeSignal(t *testing.T) {
 	old := "{\"env\":{\"OPAQUE\":\"PREVIEW_SECRET_2021_OLD\"}}\n"
 	next := "{\"env\":{\"OPAQUE\":\"PREVIEW_SECRET_2021_NEW\"}}\n"
-	diff := unifiedDiff("custom.txt", old, next, diffBodyMax)
+	diff := unifiedDiff("custom.txt", old, next)
 	if strings.Contains(diff, "PREVIEW_SECRET_2021_") {
 		t.Error("sync diff leaked an old or new credential")
 	}
@@ -125,7 +125,7 @@ func TestCredentialPreview_UnclosedMarkdownDiskDiffHidesCredentials(t *testing.T
 		"---\npassword: PREVIEW_SECRET_2021_A\n",
 		"# Setup\n```json\n{\"password\":\"PREVIEW_SECRET_2021_A\"}",
 	} {
-		if strings.Contains(unifiedDiff("agent.md", old, "# Updated\n", diffBodyMax), "PREVIEW_SECRET_2021_") {
+		if strings.Contains(unifiedDiff("agent.md", old, "# Updated\n"), "PREVIEW_SECRET_2021_") {
 			t.Error("disk Markdown diff exposed a known structured credential")
 		}
 	}

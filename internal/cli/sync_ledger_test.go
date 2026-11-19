@@ -314,14 +314,7 @@ func TestSweepLedgerOrphans_PartialRunDoesNotDeleteOtherTargets(t *testing.T) {
 // relative paths from the temp dir without picking up the host repo.
 func chdir(t *testing.T, dir string) {
 	t.Helper()
-	prev, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(prev) })
+	t.Chdir(dir)
 }
 
 func TestSweepLedgerOrphans_KeepsUnmanagedPath(t *testing.T) {

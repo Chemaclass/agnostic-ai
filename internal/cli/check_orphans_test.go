@@ -30,7 +30,7 @@ func syncedWithKeptOrphan(t *testing.T) *config.Config {
 	testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Pointer body\n")
 	cfg := &config.Config{Targets: []string{"claude"}}
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	mustWriteFile(t, keptReference, "edited\n")
@@ -676,7 +676,7 @@ func danglingImportProject(t *testing.T) *config.Config {
 	t.Helper()
 	cfg := syncedWithKeptOrphan(t)
 	writeAgnosticFile(t, "# Pointer body\n\n@docs/missing.md\n")
-	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  resolve-imports: inline\n")

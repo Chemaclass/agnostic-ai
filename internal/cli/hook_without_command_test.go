@@ -54,13 +54,12 @@ func TestHookCommandIssues_FlagsAHookWithNothingToRun(t *testing.T) {
 	}
 }
 
-func hookWithoutCommandProject(t *testing.T) string {
+func hookWithoutCommandProject(t *testing.T) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
-	return dir
 }
 
 func TestValidate_FailsOnAHookWithoutCommand(t *testing.T) {

@@ -31,7 +31,7 @@ const (
 // mux mounts each one and serializeAPI leaves each out of its lock.
 var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath}
 
-// maxConversationOpenBytes bounds an open request: a tool, an id and an editor.
+// maxConversationOpenBytes bounds an open request: a tool, an id, an editor and a helper.
 const maxConversationOpenBytes = 4 << 10
 
 // conversationRef names one conversation in a request body.
@@ -45,6 +45,9 @@ func (ref conversationRef) tool() conversations.Tool { return ref.Tool }
 type conversationOpenRequest struct {
 	conversationRef
 	Editor string `json:"editor"`
+	// Helper names a Claude Code subagent of the conversation: the open
+	// reaches the chat it runs in and the reply names it.
+	Helper string `json:"helper"`
 }
 
 // maxConversationSendBytes is the API body limit bufferAPIBody sets: JSON
@@ -218,10 +221,10 @@ func checkConversationTool(w http.ResponseWriter, tool conversations.Tool) bool 
 }
 
 // readConversationRequest decodes one conversation request of at most
-// limit bytes into req, answering 400 with usage for a body it cannot
-// read.
-func readConversationRequest(w http.ResponseWriter, r *http.Request, limit int64, usage string, req interface{ tool() conversations.Tool }) bool {
-	return conversationRequestOK(w, req, decodeOneJSON(w, r, limit, req), usage)
+// maxConversationOpenBytes into req, answering 400 with usage for a body
+// it cannot read.
+func readConversationRequest(w http.ResponseWriter, r *http.Request, usage string, req interface{ tool() conversations.Tool }) bool {
+	return conversationRequestOK(w, req, decodeOneJSON(w, r, maxConversationOpenBytes, req), usage)
 }
 
 // conversationRequestOK answers 400 and is false when a decoded request
@@ -252,14 +255,18 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	deadline := time.Now().Add(h.openReplyWait)
 	_ = http.NewResponseController(w).SetWriteDeadline(deadline)
 	var req conversationOpenRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, editor}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id, editor, helper}", &req) {
+		return
+	}
+	if req.Helper != "" && !conversations.ValidAgentID(req.Helper) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "helper must be an agent id"})
 		return
 	}
 	// The route comes from the server's own scan; the request only names
 	// which conversation. A caller that stops waiting does not stop the
 	// open: a terminal script cut short may leave a tab half opened, and
 	// the caller cannot tell whether it opened.
-	reply, found := h.scanner.Reopen(context.WithoutCancel(r.Context()), req.Tool, req.ID, h.scanOptions(req.Editor), h.launcher)
+	reply, found := h.scanner.ReopenHelper(context.WithoutCancel(r.Context()), req.Tool, req.ID, req.Helper, h.scanOptions(req.Editor), h.launcher)
 	if r.Context().Err() != nil || !time.Now().Before(deadline) {
 		h.logLateOpen(req.Tool, reply, found)
 	}
@@ -340,7 +347,7 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req conversationMarkRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, as}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id, as}", &req) {
 		return
 	}
 	if !conversations.KnownMark(req.As) {
@@ -369,7 +376,7 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req conversationRenameRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id, title}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id, title}", &req) {
 		return
 	}
 	title, err := conversations.CleanTitle(req.Title)
@@ -464,7 +471,7 @@ func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req conversationDeleteRequest
-	if !readConversationRequest(w, r, maxConversationOpenBytes, "send {tool, id}", &req) {
+	if !readConversationRequest(w, r, "send {tool, id}", &req) {
 		return
 	}
 	reply, err := h.scanner.Delete(r.Context(), req.Tool, req.ID, h.scanOptions(""))

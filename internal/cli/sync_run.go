@@ -1003,7 +1003,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 		mainSess.StartRecording()
 	}
 	mainSess.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(mainSess, cfg, b, effectiveTargets, false); err != nil {
+	if err := writeAgnosticEntryPoints(mainSess, cfg, b, effectiveTargets); err != nil {
 		mainSess.StopDetailedRecording()
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 	} else {

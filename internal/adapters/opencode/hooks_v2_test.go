@@ -134,11 +134,11 @@ process.stdin.on("end", () => {
 func TestEmit_HookV1SelectionKeepsDefaultBytes(t *testing.T) {
 	testutil.TempCwd(t)
 	hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "bash", "command": "echo guard"}}
-	if err := emitHooks(emit.NewSession(), []spec.Entry{hook}, "default", false); err != nil {
+	if err := emitHooks(emit.NewSession(), []spec.Entry{hook}, "default"); err != nil {
 		t.Fatal(err)
 	}
 	hook.Meta["x-opencode"] = map[string]any{"plugin-api": "v1"}
-	if err := emitHooks(emit.NewSession(), []spec.Entry{hook}, "explicit", false); err != nil {
+	if err := emitHooks(emit.NewSession(), []spec.Entry{hook}, "explicit"); err != nil {
 		t.Fatal(err)
 	}
 	if want, got := readFile(t, "default/guard.ts"), readFile(t, "explicit/guard.ts"); want != got {
@@ -181,7 +181,7 @@ func TestEmit_HookV2RefusesInvalidBatchBeforeWritingPlugins(t *testing.T) {
 		{Kind: spec.KindHook, Name: "legacy", Meta: map[string]any{"event": "PreToolUse", "command": "echo guard"}},
 		{Kind: spec.KindHook, Name: "unsupported", Path: "hooks/unsupported.yaml", Meta: map[string]any{"event": "session.idle", "command": "echo guard", "x-opencode": map[string]any{"plugin-api": "v2"}}},
 	}
-	if err := emitHooks(emit.NewSession(), hooks, ".opencode/plugins", false); err == nil {
+	if err := emitHooks(emit.NewSession(), hooks, ".opencode/plugins"); err == nil {
 		t.Fatal("unsupported V2 event accepted")
 	}
 	if _, err := os.Stat(".opencode/plugins"); !os.IsNotExist(err) {
@@ -256,7 +256,7 @@ func TestEmit_HookV2RejectsNULProcessFieldsBeforeWritingPlugins(t *testing.T) {
 			valid := spec.Entry{Kind: spec.KindHook, Name: "valid-first", Meta: map[string]any{
 				"event": "PreToolUse", "command": "echo guard", "x-opencode": map[string]any{"plugin-api": "v2"},
 			}}
-			err := emitHooks(emit.NewSession(), []spec.Entry{valid, hook}, ".opencode/plugins", false)
+			err := emitHooks(emit.NewSession(), []spec.Entry{valid, hook}, ".opencode/plugins")
 			if err == nil || !strings.Contains(err.Error(), hook.Path) || !strings.Contains(err.Error(), "NUL") {
 				t.Errorf("expected source-specific NUL %s refusal, got %v", tt.name, err)
 			}
@@ -275,7 +275,7 @@ func TestEmit_HookV2RejectsInvalidEnvironmentNamesBeforeWritingPlugins(t *testin
 				"event": "PreToolUse", "command": "echo guard",
 				"x-opencode": map[string]any{"plugin-api": "v2", "env": map[string]any{key: "value"}},
 			}}
-			err := emitHooks(emit.NewSession(), []spec.Entry{hook}, ".opencode/plugins", false)
+			err := emitHooks(emit.NewSession(), []spec.Entry{hook}, ".opencode/plugins")
 			if err == nil || !strings.Contains(err.Error(), hook.Path) || !strings.Contains(err.Error(), "environment name") {
 				t.Errorf("expected source-specific invalid environment name refusal, got %v", err)
 			}
@@ -303,7 +303,7 @@ func TestEmit_HookV2RejectsNULEnvironmentBeforeWritingPlugins(t *testing.T) {
 			valid := spec.Entry{Kind: spec.KindHook, Name: "valid-first", Meta: map[string]any{
 				"event": "PreToolUse", "command": "echo guard", "x-opencode": map[string]any{"plugin-api": "v2"},
 			}}
-			err := emitHooks(emit.NewSession(), []spec.Entry{valid, hook}, ".opencode/plugins", false)
+			err := emitHooks(emit.NewSession(), []spec.Entry{valid, hook}, ".opencode/plugins")
 			if err == nil || !strings.Contains(err.Error(), hook.Path) || !strings.Contains(err.Error(), "NUL") {
 				t.Errorf("expected source-specific NUL %s refusal, got %v", tt.name, err)
 			}
@@ -329,7 +329,7 @@ func TestEmit_HookV2RejectsMalformedProcessOptions(t *testing.T) {
 			testutil.TempCwd(t)
 			override := map[string]any{"plugin-api": "v2", tt.key: tt.value}
 			hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml", Meta: map[string]any{"event": "PreToolUse", "command": "echo guard", "x-opencode": override}}
-			if err := emitHooks(emit.NewSession(), []spec.Entry{hook}, ".opencode/plugins", false); err == nil || !strings.Contains(err.Error(), hook.Path) {
+			if err := emitHooks(emit.NewSession(), []spec.Entry{hook}, ".opencode/plugins"); err == nil || !strings.Contains(err.Error(), hook.Path) {
 				t.Errorf("malformed %s accepted or missing path: %v", tt.key, err)
 			}
 		})
