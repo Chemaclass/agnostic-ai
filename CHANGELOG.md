@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
 - New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
 - Import notes show project-relative paths for folders whose names begin with two dots (#3621).
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).

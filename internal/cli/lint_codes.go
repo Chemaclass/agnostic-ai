@@ -59,6 +59,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "`outputs.<target>.rules-file` names a file that sync also writes as another enabled target's instructions file. Sync writes that file after the merged one, so the merged file never survives. The target still reads the file, and the other target's version carries every rule the merged file would hold, so nothing is lost.",
 		Fix:      "Remove the key, or point it at another path.",
 	},
+	"LINT064": {
+		Severity: lintError,
+		Title:    "Project file loosens approvals",
+		Cause:    "`agnostic-ai.yaml` or `agnostic-ai.local.yaml` in a project sets an `approvals` key other than `mode: ask`. A cloned repository, a pull request, or the agent itself can write those files, so `review`, `yolo`, `tools`, `projects` and `always-ask` are read only from the home config. Approvals ignore the key.",
+		Fix:      "Move the setting to `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` or its `local/` file. A project file may keep `approvals.mode: ask` to turn approvals off for the repository.",
+	},
 	"LINT062": {
 		Severity: lintWarn,
 		Title:    "rules-file on a target that writes none",

@@ -3,6 +3,42 @@
   "$id": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json",
   "$ref": "#/$defs/Config",
   "$defs": {
+    "ApprovalsConfig": {
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "review",
+            "yolo"
+          ],
+          "description": "What happens when a tool wants permission: ask (default) shows the tool's prompt; review lets the tool's own reviewer model decide; yolo approves one call at a time unless a fixed always-ask rule matches. review and yolo are read only from $AGNOSTIC_AI_HOME/agnostic-ai.yaml or its local/ file; a project file may set ask only."
+        },
+        "tools": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Mode per tool, by target name. Replaces mode. Home config only."
+        },
+        "projects": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Mode per project folder; ~ means the home folder. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."
+        },
+        "always-ask": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Extra patterns that always show the prompt, added to the fixed list. Home config only."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CheckReferencesConfig": {
       "properties": {
         "ignore": {
@@ -351,6 +387,9 @@
         },
         "memory": {
           "$ref": "#/$defs/MemoryConfig"
+        },
+        "approvals": {
+          "$ref": "#/$defs/ApprovalsConfig"
         }
       },
       "additionalProperties": false,

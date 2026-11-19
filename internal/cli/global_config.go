@@ -44,7 +44,7 @@ func readGlobalConfig(path string) (map[string]yaml.Node, error) {
 
 // loadGlobalTargets reads the targets the home configs select. It
 // returns nil when neither file sets targets. Global mode reads only
-// targets, builtins, requires, lint, on-unsupported, and models.
+// targets, builtins, requires, lint, on-unsupported, models, and approvals.
 func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 	var targets []string
 	for _, path := range globalConfigPaths(source) {
@@ -55,13 +55,13 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		var ignored []string
 		for key := range doc {
 			// Every agnostic-ai.yaml carries version, so it is not a surprise.
-			if key != "targets" && key != "builtins" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "models" && key != "version" {
+			if key != "targets" && key != "builtins" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "models" && key != "approvals" && key != "version" {
 				ignored = append(ignored, key)
 			}
 		}
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
-			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, and models; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, models, and approvals; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
 				return nil, fmt.Errorf("write global config warning: %w", err)
 			}
 		}
