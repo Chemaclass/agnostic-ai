@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -264,8 +266,12 @@ func enclosingProject(dir string) (string, bool) {
 		dir = resolved
 	}
 	top := ""
-	if root, err := gitRevParse(dir, "--show-toplevel"); err == nil {
-		top, _ = filepath.EvalSymlinks(root)
+	// A git hook or rebase --exec sets GIT_DIR and GIT_WORK_TREE; the walk
+	// needs the repository around dir, not the one they name.
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel")
+	cmd.Env = gitquery.IsolatedEnv(os.Environ())
+	if out, err := cmd.Output(); err == nil {
+		top, _ = filepath.EvalSymlinks(strings.TrimSpace(string(out)))
 	}
 	var home os.FileInfo
 	if source, err := globalSourceRoot(); err == nil {

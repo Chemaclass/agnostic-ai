@@ -225,6 +225,11 @@ func newDoctorInstallCmd() *cobra.Command {
 }
 
 // doctorConfigOK reports whether agnostic-ai.yaml or the legacy agnostic.config.yaml exists.
+func doctorConfigOK() bool {
+	_, _, err := config.ResolveConfigPath(".")
+	return err == nil
+}
+
 // enclosingWorkingProject returns the project folder above the working
 // directory, if any.
 func enclosingWorkingProject() (string, bool) {
@@ -233,9 +238,4 @@ func enclosingWorkingProject() (string, bool) {
 		return "", false
 	}
 	return enclosingProject(cwd)
-}
-
-func doctorConfigOK() bool {
-	_, _, err := config.ResolveConfigPath(".")
-	return err == nil
 }

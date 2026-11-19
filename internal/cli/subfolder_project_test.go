@@ -124,8 +124,10 @@ func TestErrorText_MissingConfigInAnotherFolderKeepsTheRegistryFix(t *testing.T)
 	}
 }
 
-func TestInit_IgnoresAGlobalHomeAboveTheWorkingDirectory(t *testing.T) {
+func TestInit_StartsAProjectUnderAGlobalHomeThatIsTheUserHome(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	mustWriteFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\n")
 	work := filepath.Join(home, "code", "new")
@@ -134,7 +136,45 @@ func TestInit_IgnoresAGlobalHomeAboveTheWorkingDirectory(t *testing.T) {
 	}
 	testutil.Chdir(t, work)
 
-	if _, ok := enclosingProject(work); ok {
-		t.Error("the global home counted as an enclosing project")
+	cmd := NewRootCmd("test")
+	cmd.SetIn(strings.NewReader("claude\n"))
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"init"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("init under the global home: %v\n%s", err, out.String())
+	}
+	if _, err := os.Stat("agnostic-ai.yaml"); err != nil {
+		t.Errorf("init wrote no config: %v", err)
+	}
+}
+
+func TestEnclosingProject_IgnoresGitLocationVariables(t *testing.T) {
+	root := projectWithSubfolder(t)
+	gitInit(t, root)
+	t.Setenv("GIT_DIR", filepath.Join(root, ".git"))
+	t.Setenv("GIT_WORK_TREE", filepath.Join(root, "sub", "deep"))
+
+	if dir, ok := enclosingProject("."); !ok || dir != root {
+		t.Errorf("enclosingProject under a git hook's variables = %q, %v; want %s", dir, ok, root)
+	}
+}
+
+func TestImport_FromASubfolderFailsWithoutWritingThere(t *testing.T) {
+	root := projectWithSubfolder(t)
+
+	out, err := runCLI(t, "import", "claude")
+	if err == nil {
+		t.Fatalf("import passed in a folder with no config:\n%s", out)
+	}
+	text := ErrorText(err)
+	if !strings.Contains(text, root) || strings.Contains(text, "agnostic-ai init") {
+		t.Errorf("import error should name %s and not suggest init:\n%s", root, text)
+	}
+	for _, path := range []string{".agnostic-ai", ".gitignore"} {
+		if _, statErr := os.Lstat(path); !os.IsNotExist(statErr) {
+			t.Errorf("import left %s in the subfolder", path)
+		}
 	}
 }
