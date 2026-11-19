@@ -8,6 +8,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- A `group:name` command, such as `git:commit` from `import gemini`, syncs as `git-commit` to every tool except Gemini CLI and Qwen Code, so no file or skill name holds a colon (#3704).
+- `import windsurf` from `.windsurf/rules/` names each hand-written rule to delete after the next sync, since Devin would load it twice (#3704).
+- `import codex` keeps a nested `AGENTS.md` whose name another import took under its scope path, such as `services-api`, and a skip note names the real source file (#3704).
+- An import that changes no file says `nothing changed` instead of pointing at sync (#3704).
 - New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
 - Import notes show project-relative paths for folders whose names begin with two dots (#3621).
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).

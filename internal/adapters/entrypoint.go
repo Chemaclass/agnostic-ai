@@ -192,7 +192,7 @@ func RefuseSpecs(name string, b spec.Bundle, cfg *config.Config) error {
 
 // targetSkills adds the agents and commands target writes as skills.
 func targetSkills(b spec.Bundle, cfg *config.Config, target string) (spec.Bundle, error) {
-	own, err := withAgentsAsSkills(b, cfg, target)
+	own, err := withAgentsAsSkills(withFlatCommandNames(b, target), cfg, target)
 	if err != nil {
 		return spec.Bundle{}, err
 	}

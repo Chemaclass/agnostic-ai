@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -196,6 +197,10 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
+		origin, err := filepath.Rel(root, f.path)
+		if err != nil {
+			origin = f.path
+		}
 		source := adapters.StripReviewSection(string(raw))
 		if header.Has(source) && strings.TrimSpace(header.Strip(source)) == "" {
 			// A generated AGENTS.md holding only a review section.
@@ -211,7 +216,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 		}
 		data := []byte(text)
 		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(source, adapters.RulesStartMarker) {
-			if err := writeCodexRule(dstDir, dedupSlug(used, name), desc, f.globs, body); err != nil {
+			if err := writeCodexRule(dstDir, dedupSlug(used, name), desc, f.globs, body, origin); err != nil {
 				return count, err
 			}
 			count++
@@ -227,7 +232,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 				continue
 			}
 			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, body, origin); err != nil {
 				return count, err
 			}
 			count++
@@ -240,7 +245,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 				continue
 			}
 			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, body, origin); err != nil {
 				return count, err
 			}
 			count++
@@ -248,14 +253,14 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 		}
 		if preamble := sectionsPreamble(string(data)); preamble != "" {
 			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeCodexRule(dstDir, name, "", f.globs, preamble); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, preamble, origin); err != nil {
 				return count, err
 			}
 			count++
 		}
 		for _, s := range sections {
 			name := dedupSlug(used, sectionRuleName(wholeFileNames, f.globs, s.slug))
-			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body); err != nil {
+			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body, origin); err != nil {
 				return count, err
 			}
 			count++
@@ -438,7 +443,7 @@ func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error
 		}
 		for _, child := range unwrapH3(sec.body) {
 			name := dedupSlug(used, child.slug)
-			if err := writeCodexRule(dstDir, name, child.description, "", child.body); err != nil {
+			if err := writeCodexRule(dstDir, name, child.description, "", child.body, opts.RulesFile); err != nil {
 				return count, err
 			}
 			count++
@@ -447,18 +452,14 @@ func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error
 	return count, nil
 }
 
-func writeCodexRule(dstDir, name, description, globs, body string) error {
+// writeCodexRule writes one rule read from source. A spec that already
+// holds the same text is left alone. When a spec from another import
+// holds the name and source is a nested file, the rule takes its whole
+// scope path as its name (`services-api`), as nested GEMINI.md files do.
+// Otherwise the existing spec wins and a note names source.
+func writeCodexRule(dstDir, name, description, globs, body, source string) error {
 	path := filepath.Join(dstDir, name+".md")
 	if importLocal.leaves(path) {
-		return nil
-	}
-
-	// A claude-imported rule already at this slug owns the canonical
-	// content; emit a one-line skip notice and keep the existing spec
-	// rather than blindly overwriting it with the AGENTS.md slice. The
-	// user can merge by hand if codex's body has unique content.
-	if existing, err := os.ReadFile(path); err == nil && len(existing) > 0 {
-		summaryf("  ! skipped %s — already exists (likely from a prior import); review codex AGENTS.md for unique content to merge by hand\n", path)
 		return nil
 	}
 
@@ -476,8 +477,22 @@ func writeCodexRule(dstDir, name, description, globs, body string) error {
 	fm.WriteString("---\n\n")
 	fm.WriteString(strings.TrimRight(body, "\n"))
 	fm.WriteString("\n")
+	content := []byte(fm.String())
 
-	if err := importWriteFile(path, []byte(fm.String()), 0o644); err != nil {
+	if existing, err := os.ReadFile(path); err == nil && len(existing) > 0 {
+		if bytes.Equal(existing, content) {
+			return nil
+		}
+		scope := strings.TrimSuffix(globs, "/**")
+		_, _, meta := claudeFrontmatter(string(existing))
+		if scopeName := slugify(scope); globs != "" && meta["globs"] != globs && name == slugify(filepath.Base(filepath.FromSlash(scope))) && scopeName != name {
+			return writeCodexRule(dstDir, scopeName, description, globs, body, source)
+		}
+		summaryf("  ! skipped %s: already exists (likely from a prior import); review %s for unique content to merge by hand\n", path, filepath.ToSlash(source))
+		return nil
+	}
+
+	if err := importWriteFile(path, content, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

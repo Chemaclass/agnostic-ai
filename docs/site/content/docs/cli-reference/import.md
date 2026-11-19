@@ -28,7 +28,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 ### Import behavior
 
-`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. `import --global [targets]` reads your user config instead.
+`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. An import that changes no file says `nothing changed` instead of the sync steps. `import --global [targets]` reads your user config instead.
 
 {% <details summary="import all, entry files, and what global import reads"> %}
 
@@ -87,7 +87,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - The search for nested config skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
 - Each source copies its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays when the entry point matches what sync would write from it. Otherwise import overwrites it and warns.
 - If another entry point holds different hand-written content (an `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first. `import all` merges a root `AGENTS.md` itself.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, `ellipsis`, plus `all`. `jules` supports sync but not import.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, `ellipsis`, `codebuddy`, `grok`, `kimi`, `pi`, `qwen`, `vibe`, plus `all`. `jules` supports sync but not import.
 
 </details>
 
@@ -95,7 +95,7 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads.
 
 ### Filename prefix reclassification {#filename-prefix-reclassification}
 
-`import cline`, `import windsurf`, `import trae`, `import qoder`, and `import continue` reclassify each file in their rules directory by name:
+`import cline`, `import windsurf`, `import trae`, `import qoder`, and `import continue` reclassify each file in their rules directory by name. The `agent-` and `skill-` prefixes count only in a file an older sync wrote, with the generated header or an `# Agent:` or `# Skill:` title. A hand-written `agent-<name>.md` stays a rule.
 
 | Source filename | Becomes |
 |-----------------|---------|

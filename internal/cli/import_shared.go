@@ -20,9 +20,13 @@ func printImportNextSteps(root string, justImported ...string) {
 		return
 	}
 	summaryf("\n")
-	summaryf("next steps:\n")
-	summaryf("  agnostic-ai sync --plan    # preview what changes\n")
-	summaryf("  agnostic-ai sync           # write to configured targets\n")
+	if importSandbox == "" && importTxn != nil && !importChanged {
+		summaryf("nothing changed: the specs already match what import read\n")
+	} else {
+		summaryf("next steps:\n")
+		summaryf("  agnostic-ai sync --plan    # preview what changes\n")
+		summaryf("  agnostic-ai sync           # write to configured targets\n")
+	}
 
 	detected, _ := detectImportSources(root)
 	hints := make([]string, 0, len(detected))

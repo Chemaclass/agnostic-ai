@@ -439,7 +439,7 @@ func runGuardedImport(overwrite bool, remedy func(sources []string) string, run 
 	specDirs := importSpecDirs(".")
 	sums := readStateFile(".").SpecFileSums
 	return withHeldOutput(func() (bool, error) {
-		importRecording, importTxn = rec, txn
+		importRecording, importTxn, importChanged = rec, txn, false
 		defer func() { importRecording, importTxn = nil, nil }()
 		stopOnSignal := txn.rollbackOnSignal()
 		defer stopOnSignal()
