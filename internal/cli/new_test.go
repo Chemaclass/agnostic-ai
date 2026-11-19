@@ -387,7 +387,7 @@ func TestNew_AddedKindsKeepSafeDefaultsAndPlaceholderLint(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range strings.Split(rendered.String(), "\n") {
+	for line := range strings.SplitSeq(rendered.String(), "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" && !strings.HasPrefix(line, "#") {
 			t.Errorf("ignore scaffold excludes a path by default: %q", line)

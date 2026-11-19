@@ -687,7 +687,7 @@ func orderedConfigKeys(m map[string]any) []string {
 	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy,bashOutputMaxChars"
 	out := make([]string, 0, len(m))
 	seen := make(map[string]bool, len(m))
-	for _, k := range strings.Split(canonical, ",") {
+	for k := range strings.SplitSeq(canonical, ",") {
 		if _, ok := m[k]; ok && !seen[k] {
 			out = append(out, k)
 			seen[k] = true

@@ -101,7 +101,7 @@ const maxProseWords = 350
 func TestAuditSources_SectionsStayShort(t *testing.T) {
 	for name, body := range sourceSections(t) {
 		n := 0
-		for _, line := range strings.Split(body, "\n") {
+		for line := range strings.SplitSeq(body, "\n") {
 			if strings.HasPrefix(line, "- docs:") || strings.HasPrefix(line, "- changelog:") || strings.HasPrefix(line, "- schema:") || strings.HasPrefix(line, "- code:") {
 				continue
 			}

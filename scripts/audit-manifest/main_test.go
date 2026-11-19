@@ -354,7 +354,7 @@ func TestSharedURLConflictRejectsWithoutChangingLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rows []string
-	for _, line := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
 		f := strings.Split(line, "\t")
 		if f[0] == "beta" && f[1] == "docs" {
 			f[5] = digest(body)
@@ -418,7 +418,7 @@ func TestFailedHTTPFetchWithoutBodySavesFailureEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rows []string
-	for _, line := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
 		f := strings.Split(line, "\t")
 		if f[0] == "beta" && f[1] == "code" {
 			f[3] = "503"
@@ -454,7 +454,7 @@ func TestSharedOwnerOutsideRequestedScopeRetainsPriorHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rows []string
-	for _, line := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
 		f := strings.Split(line, "\t")
 		if f[0] != "alpha" {
 			continue

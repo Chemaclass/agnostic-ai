@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -31,7 +32,7 @@ var memoryGrantConsequence = map[string]string{
 // that ends in /**. An OpenCode instructions entry names the folder too,
 // as a literal file path, and is not a grant.
 func grantsPath(content, home string) bool {
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		if strings.Contains(line, home) && strings.Contains(line, "/**") {
 			return true
 		}
@@ -116,7 +117,7 @@ func TestMemoryGrant_OpenCodeKeepsBracketsAndBracesLiteral(t *testing.T) {
 	}
 	binary := builtBinary(t)
 	for i, name := range []string{"home[1]", "home{a,b}"} {
-		t.Run(fmt.Sprint(i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			memoryGrantHome(t, name)
 			project := memoryGrantProject(t, "opencode")
 			output := memoryGrantSync(t, binary, project)

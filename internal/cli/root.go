@@ -69,7 +69,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		v, _ := cmd.Flags().GetCount("verbose")
 		if quiet && v > 0 {
-			return fmt.Errorf("--quiet and --verbose are mutually exclusive")
+			return errors.New("--quiet and --verbose are mutually exclusive")
 		}
 		requiresWarnOut, requiresWarned = cmd.ErrOrStderr(), map[string]bool{}
 		gitquery.Reset()

@@ -185,7 +185,7 @@ func clineControl(stdout string) (any, error) {
 		return nil, nil
 	}
 	candidate := trimmed
-	for _, line := range strings.Split(trimmed, "\n") {
+	for line := range strings.SplitSeq(trimmed, "\n") {
 		if line = strings.TrimSpace(line); strings.HasPrefix(line, clineControlPrefix) {
 			candidate = strings.TrimPrefix(line, clineControlPrefix)
 		}

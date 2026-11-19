@@ -82,7 +82,7 @@ func handoffWorktrees(root string) []handoffWorktree {
 	}
 	var out []handoffWorktree
 	current := handoffWorktree{}
-	for _, field := range strings.Split(raw, "\x00") {
+	for field := range strings.SplitSeq(raw, "\x00") {
 		if field == "" {
 			if current.path != "" {
 				out = append(out, current)

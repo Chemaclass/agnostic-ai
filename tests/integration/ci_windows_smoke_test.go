@@ -41,7 +41,7 @@ func TestWindowsSmoke_PiCoverageStaysBounded(t *testing.T) {
 		"./tests/integration": {"TestPiRoundTrip_NativeProject"},
 	} {
 		var pattern string
-		for _, line := range strings.Split(step.Run, "\n") {
+		for line := range strings.SplitSeq(step.Run, "\n") {
 			if strings.Contains(line, path) {
 				match := regexp.MustCompile(`-run '([^']+)'`).FindStringSubmatch(line)
 				if len(match) == 2 {

@@ -319,7 +319,7 @@ func ValidateName(kind Kind, name string) error {
 }
 
 func hasDotPathSegment(name string) bool {
-	for _, segment := range strings.Split(name, "/") {
+	for segment := range strings.SplitSeq(name, "/") {
 		if segment == "." || segment == ".." {
 			return true
 		}

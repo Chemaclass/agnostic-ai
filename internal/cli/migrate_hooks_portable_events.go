@@ -286,7 +286,7 @@ func widerEditNote(target, matcher string) string {
 	}
 	names := strings.Split(edit, "|")
 	var extra []string
-	for _, name := range strings.Split(matcher, "|") {
+	for name := range strings.SplitSeq(matcher, "|") {
 		if !slices.Contains(names, name) {
 			return ""
 		}
@@ -296,5 +296,5 @@ func widerEditNote(target, matcher string) string {
 			extra = append(extra, name)
 		}
 	}
-	return fmt.Sprintf("; match: edit there also covers %s", strings.Join(extra, " and "))
+	return "; match: edit there also covers " + strings.Join(extra, " and ")
 }

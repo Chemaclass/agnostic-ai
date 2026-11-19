@@ -271,7 +271,7 @@ func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, e
 			return nil, fmt.Errorf("kimi %s %s requires a nonempty description", kind, name)
 		}
 		description = "No description provided."
-		for _, line := range strings.Split(body, "\n") {
+		for line := range strings.SplitSeq(body, "\n") {
 			if line = strings.TrimSpace(line); line != "" {
 				runes := []rune(line)
 				if len(runes) > 240 {

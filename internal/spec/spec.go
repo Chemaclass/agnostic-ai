@@ -9,6 +9,7 @@ package spec
 import (
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -195,10 +196,8 @@ func evalIncludeTargets(meta map[string]any, target string) (bool, bool) {
 	if !present || len(names) == 0 {
 		return false, false
 	}
-	for _, s := range names {
-		if s == target {
-			return true, true
-		}
+	if slices.Contains(names, target) {
+		return true, true
 	}
 	return true, false
 }
@@ -211,12 +210,7 @@ func metaContainsTarget(meta map[string]any, singleKey, listKey, target string) 
 		return true
 	}
 	names, _ := stringListField(meta, listKey)
-	for _, s := range names {
-		if s == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(names, target)
 }
 
 // stringListField reads a YAML list of strings from meta[key]. Accepts

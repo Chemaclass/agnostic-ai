@@ -51,7 +51,19 @@ linters:
     - unparam
     - thelper
     - usetesting
+    - modernize
+    - perfsprint
+    - intrange
+    - whitespace
+    - canonicalheader
+    - copyloopvar
+    - unconvert
+    - usestdlibvars
   settings:
+    modernize:
+      disable:
+        # omitzero would change JSON output.
+        - omitzero
     govet:
       enable-all: true
       disable:

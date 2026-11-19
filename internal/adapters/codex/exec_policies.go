@@ -162,7 +162,7 @@ func validateExecPolicy(p config.CodexExecPolicy, index int) error {
 func renderExecPoliciesSkylark(policies []config.CodexExecPolicy, header string) string {
 	var b strings.Builder
 	if header != "" {
-		for _, line := range strings.Split(strings.TrimRight(header, "\n"), "\n") {
+		for line := range strings.SplitSeq(strings.TrimRight(header, "\n"), "\n") {
 			if line == "" {
 				b.WriteString("#\n")
 				continue

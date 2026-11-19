@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -434,9 +435,9 @@ func finishDoctorText(cmd *cobra.Command, opts doctorOptions, cfg *config.Config
 				return fmt.Errorf("drift detected. delete %s", manualRemovalAdvice(manualFiles))
 			}
 			if f.drift.copiesOnly {
-				return fmt.Errorf("drift detected. run `agnostic-ai doctor --fix`")
+				return errors.New("drift detected. run `agnostic-ai doctor --fix`")
 			}
-			return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
+			return errors.New("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
 		}
 		fixed, err := fixDrift(reports, opts.backup)
 		if err != nil {
@@ -530,7 +531,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, gate doctorGateF
 		return fmt.Errorf("%d rule(s) have a glob matching no files and will never load", len(*gate.globs))
 	}
 	if len(out.Writes) > 0 || len(out.NestedCopies) > 0 || len(out.HookScriptDrift) > 0 {
-		return fmt.Errorf("drift detected")
+		return errors.New("drift detected")
 	}
 	if len(refs) > 0 {
 		return fmt.Errorf("%d broken skill reference(s)", len(refs))

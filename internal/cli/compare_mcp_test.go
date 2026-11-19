@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -315,7 +316,7 @@ url: https://agnostic-ai-compare.invalid/mcp
 type privateMCPValue struct{}
 
 func (privateMCPValue) MarshalJSON() ([]byte, error) {
-	return nil, fmt.Errorf("PRIVATE_ERROR_VALUE")
+	return nil, errors.New("PRIVATE_ERROR_VALUE")
 }
 
 func TestCompare_MCPEffectiveNativeOverrideOutlivesPortableOmissionNote(t *testing.T) {

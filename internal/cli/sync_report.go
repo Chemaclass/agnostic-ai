@@ -178,7 +178,6 @@ func (r *syncReport) renderDetails(w io.Writer, verbose bool) {
 	if n := len(r.trackedIgnored); n > 0 {
 		_, _ = fmt.Fprintf(w, "  %s %d file%s tracked despite being ignored: git rm --cached %s\n", term.Bang(w), n, plural(n), strings.Join(r.trackedIgnored, " "))
 	}
-
 }
 
 func (r *syncReport) renderSummary(w io.Writer, targets int, elapsed time.Duration) {
@@ -466,7 +465,7 @@ func gitTrackedAndIgnored(root string, candidates []string) []string {
 		if !ok {
 			return nil
 		}
-		for _, p := range strings.Split(strings.TrimRight(got, "\x00"), "\x00") {
+		for p := range strings.SplitSeq(strings.TrimRight(got, "\x00"), "\x00") {
 			if p != "" && underCandidate(norm.NFC.String(p), want) {
 				out = append(out, p)
 			}
@@ -545,7 +544,7 @@ func trackedFiles(root string) ([]string, bool) {
 		return nil, false
 	}
 	var files []string
-	for _, p := range strings.Split(out, "\x00") {
+	for p := range strings.SplitSeq(out, "\x00") {
 		if p != "" {
 			files = append(files, filepath.FromSlash(p))
 		}

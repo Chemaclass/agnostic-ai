@@ -32,7 +32,7 @@ func TestReportInstalledCLIs_ListsToolsInNameOrder(t *testing.T) {
 		reportInstalledCLIs(cmd)
 
 		var listed []string
-		for _, line := range strings.Split(out.String(), "\n") {
+		for line := range strings.SplitSeq(out.String(), "\n") {
 			if name, _, ok := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "✓ "), " →"); ok {
 				listed = append(listed, name)
 			}
@@ -64,7 +64,7 @@ func TestDoctorInstall_ListsToolsInNameOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 		var lines []string
-		for _, line := range strings.Split(out.String(), "\n") {
+		for line := range strings.SplitSeq(out.String(), "\n") {
 			if strings.HasPrefix(line, "  ") {
 				lines = append(lines, strings.TrimSpace(line))
 			}

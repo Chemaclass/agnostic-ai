@@ -1,6 +1,9 @@
 package spec
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // FilterFences materializes body for readers, processing
 // `::target <name>` / `::targets <a> <b>` / `::end` fences:
@@ -74,7 +77,7 @@ func SplitReaderOnly(body, reader string, others []string) (rest, only string) {
 	}
 	var restB, onlyB strings.Builder
 	inOnly := false
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		marker, allow := parseFenceMarker(line)
 		switch marker {
 		case fenceTargetOpen:
@@ -110,7 +113,7 @@ func leadingNewlines(s string) int {
 func FenceTargets(body string) []string {
 	var out []string
 	seen := map[string]bool{}
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		marker, allow := parseFenceMarker(line)
 		if marker != fenceTargetOpen {
 			continue
@@ -170,12 +173,7 @@ func parseFenceMarker(line string) (int, []string) {
 // inAllowList reports whether target appears in names. An empty list
 // means "no target allowed" so a degenerate fence drops its body.
 func inAllowList(names []string, target string) bool {
-	for _, n := range names {
-		if n == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(names, target)
 }
 
 // anyInAllowList reports whether any reader appears in names.

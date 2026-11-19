@@ -51,7 +51,7 @@ func (h *historyRenderer) inspectDefaultOutputAbsence(commit string) bool {
 		return false
 	}
 	canonicalConfig := false
-	for _, record := range strings.Split(tree, "\x00") {
+	for record := range strings.SplitSeq(tree, "\x00") {
 		if record == "" {
 			continue
 		}
@@ -139,7 +139,7 @@ func historyUnambiguousPath(s string) bool {
 	if strings.ContainsAny(s, "\\:~") {
 		return false
 	}
-	for _, part := range strings.Split(s, "/") {
+	for part := range strings.SplitSeq(s, "/") {
 		if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
 			return false
 		}

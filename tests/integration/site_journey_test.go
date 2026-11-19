@@ -99,7 +99,6 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 	if output, err := behavior.CombinedOutput(); err != nil {
 		t.Fatalf("check rendered fragment behavior: %v\n%s", err, output)
 	}
-
 }
 
 // assertFirstSyncProof checks the hero renders landing.toml as written.

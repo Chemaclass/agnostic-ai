@@ -91,5 +91,4 @@ outputs:
 	if out, err := run("lint", "--strict"); err == nil || !strings.Contains(out, "LINT021") || !strings.Contains(out, "Bash(git diff:*) has no matching prefix") {
 		t.Errorf("empty explicit policy should report missing prefix: %v\n%s", err, out)
 	}
-
 }

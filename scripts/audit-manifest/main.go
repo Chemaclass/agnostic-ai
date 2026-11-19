@@ -148,7 +148,7 @@ func (a app) inventory() ([]source, []string, error) {
 	}
 	var result []source
 	seen := map[string]bool{}
-	for _, line := range strings.Split(rows, "\n") {
+	for line := range strings.SplitSeq(rows, "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) != 3 || !slices.Contains(targets, f[0]) || !slices.Contains([]string{"docs", "changelog", "schema", "code"}, f[1]) || (!strings.HasPrefix(f[2], "https://") && !strings.HasPrefix(f[2], "http://")) {
 			return nil, nil, fmt.Errorf("invalid source inventory row %q", line)
@@ -184,7 +184,7 @@ func (a app) context() (string, string, error) {
 		return "", "", err
 	}
 	set := map[string]bool{}
-	for _, path := range strings.Split(paths, "\x00") {
+	for path := range strings.SplitSeq(paths, "\x00") {
 		if path != "" {
 			set[path] = true
 		}
@@ -566,8 +566,8 @@ func comparisonValid(dir string, row []string) error {
 		return nil
 	}
 	path := row[9]
-	if strings.HasSuffix(path, ".body") {
-		extracted := strings.TrimSuffix(path, ".body") + ".txt"
+	if before, ok := strings.CutSuffix(path, ".body"); ok {
+		extracted := before + ".txt"
 		if _, err := os.Stat(filepath.Join(dir, extracted)); err == nil {
 			path = extracted
 		}
@@ -601,7 +601,7 @@ func (a app) capture(m *manifest) error {
 		return fmt.Errorf("docfetch.tsv: %w", err)
 	}
 	rows := map[string][]string{}
-	for _, line := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(string(b), "\n"), "\n") {
 		f := strings.Split(line, "\t")
 		if len(f) != 10 || !slices.Contains([]string{"new", "changed", "unchanged", "failed"}, f[7]) {
 			return fmt.Errorf("invalid fetch row %q", line)
@@ -683,9 +683,9 @@ func (a app) builtinDeep(m *manifest) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(line, "builtin-deep:") {
-			return strings.Fields(strings.TrimPrefix(line, "builtin-deep:")), nil
+	for line := range strings.SplitSeq(text, "\n") {
+		if after, ok := strings.CutPrefix(line, "builtin-deep:"); ok {
+			return strings.Fields(after), nil
 		}
 	}
 	return nil, nil
@@ -757,7 +757,7 @@ func (a app) validateEvidence(m *manifest, expectedLock string) error {
 		return fmt.Errorf("docfetch.tsv: %w", err)
 	}
 	fetchedRows := map[string]string{}
-	for _, line := range strings.Split(strings.TrimSuffix(string(rowBytes), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(string(rowBytes), "\n"), "\n") {
 		fields := strings.Split(line, "\t")
 		if len(fields) != 10 {
 			return errors.New("malformed captured fetch row")
@@ -874,7 +874,7 @@ func (a app) finalize(m *manifest) (string, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("%s: %w", a.lock, err)
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -955,7 +955,6 @@ func (a app) finalize(m *manifest) (string, error) {
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
 		return "", errors.New("usage: isolate|start|capture|comment-paths|comment-reviews|review-comment|resume|checkpoint|checkpoints|schedule|dispatch|release|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
-
 	}
 	switch args[0] {
 	case "comment-paths":

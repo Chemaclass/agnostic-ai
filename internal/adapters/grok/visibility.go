@@ -144,7 +144,7 @@ func resolveVisibilityPath(path string) (string, error) {
 func withoutManagedIgnore(data []byte) []byte {
 	var out []string
 	managed := false
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if line == "# >>> agnostic-ai (managed) >>>" {
 			managed = true
 			continue

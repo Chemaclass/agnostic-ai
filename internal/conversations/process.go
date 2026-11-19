@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -154,7 +155,7 @@ func answered(err error) bool {
 // time, on each line.
 func psStartTimes(out string) map[int]string {
 	started := map[int]string{}
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		pidText, start, ok := strings.Cut(strings.TrimSpace(line), " ")
 		if !ok {
 			continue
@@ -193,7 +194,7 @@ func (SystemProcesses) Args(pids []int) map[int]string {
 	if err != nil {
 		return args
 	}
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		pidText, command, ok := strings.Cut(strings.TrimSpace(line), " ")
 		if pid, err := strconv.Atoi(pidText); ok && err == nil {
 			args[pid] = strings.TrimSpace(command)
@@ -212,7 +213,7 @@ func (SystemProcesses) Cwds(pids []int) map[int]string {
 	defer cancel()
 	out, _ := exec.CommandContext(ctx, "lsof", "-a", "-d", "cwd", "-Fn", "-p", pidList(pids)).Output()
 	pid := 0
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if field, ok := strings.CutPrefix(line, "p"); ok {
 			pid, _ = strconv.Atoi(field)
 		} else if folder, ok := strings.CutPrefix(line, "n"); ok && pid > 0 {
@@ -239,9 +240,7 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 			count++
 		}
 		open, err := readHolders(paths[:count])
-		for path, pid := range open {
-			held[path] = pid
-		}
+		maps.Copy(held, open)
 		readErr = errors.Join(readErr, err)
 		paths = paths[count:]
 	}
@@ -318,7 +317,7 @@ func parseHoldersNamed(out string, name func(open string) (string, bool)) map[st
 	held := map[string]int{}
 	byAgent := map[string]bool{}
 	pid, command := 0, ""
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if field, ok := strings.CutPrefix(line, "p"); ok {
 			pid, _ = strconv.Atoi(field)
 			command = ""
@@ -349,7 +348,7 @@ func (SystemProcesses) AppRunning(name string) bool {
 		return false
 	}
 	bundled := "/" + name + ".app/Contents/MacOS/" + name
-	for _, command := range strings.Split(commands, "\n") {
+	for command := range strings.SplitSeq(commands, "\n") {
 		command = strings.TrimSpace(command)
 		if strings.HasSuffix(command, bundled) || strings.EqualFold(filepath.Base(command), name) {
 			return true

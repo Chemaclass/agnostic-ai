@@ -697,7 +697,7 @@ func declinedFacts(store string) map[string]string {
 	if err != nil {
 		return out
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		key, sum, _ := strings.Cut(strings.TrimSpace(line), "\t")
 		if key != "" {
 			out[key] = sum
@@ -713,7 +713,7 @@ func importedFacts(store string) map[string]bool {
 	if err != nil {
 		return out
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if line = strings.TrimSpace(line); line != "" {
 			out[line] = true
 		}

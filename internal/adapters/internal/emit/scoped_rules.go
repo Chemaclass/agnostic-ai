@@ -365,12 +365,7 @@ func emptySelectorList(value any) bool {
 }
 
 func containsKey(keys []string, key string) bool {
-	for _, k := range keys {
-		if k == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(keys, key)
 }
 
 func unsupportedScope(cfg *config.Config, target string, r spec.Entry, reason string) error {
@@ -430,10 +425,8 @@ func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 			if strings.HasPrefix(p, "/") || strings.HasPrefix(p, "!") || strings.ContainsAny(p, "\\:\r\n\x00") {
 				return nil, fmt.Errorf("cannot combine %s %q with scope: use positive project-relative patterns", key, p)
 			}
-			for _, part := range strings.Split(p, "/") {
-				if part == ".." {
-					return nil, fmt.Errorf("cannot combine %s %q with scope: parent traversal is not allowed", key, p)
-				}
+			if slices.Contains(strings.Split(p, "/"), "..") {
+				return nil, fmt.Errorf("cannot combine %s %q with scope: parent traversal is not allowed", key, p)
 			}
 			p = path.Clean(p)
 			if p == "**/*" {
@@ -666,11 +659,8 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 					if err != nil {
 						return fmt.Errorf("%s: shared instructions cannot preserve %s's file filters; use compatible selectors or separate worktrees", path, target)
 					}
-					for _, directory := range directories {
-						if directory == scope {
-							expected = append(expected, r)
-							break
-						}
+					if slices.Contains(directories, scope) {
+						expected = append(expected, r)
 					}
 				}
 				section := reviews[scope]

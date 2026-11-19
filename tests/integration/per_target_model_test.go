@@ -95,7 +95,7 @@ gamma body
 	}
 	noModel := func(rel string) {
 		t.Helper()
-		for _, line := range strings.Split(read(rel), "\n") {
+		for line := range strings.SplitSeq(read(rel), "\n") {
 			trimmed := strings.TrimSpace(line)
 			if strings.HasPrefix(trimmed, "model:") || strings.HasPrefix(trimmed, "model =") {
 				t.Errorf("%s: expected no model line, got %q", rel, trimmed)

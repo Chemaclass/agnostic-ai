@@ -127,7 +127,7 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 // files, the tool folders, and the root dotfiles.
 func (t *againstTree) exportInputs(entries string) error {
 	var paths []string
-	for _, rec := range strings.Split(entries, "\x00") {
+	for rec := range strings.SplitSeq(entries, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if !ok {
 			continue
@@ -382,7 +382,7 @@ func (t *againstTree) diagnoseSkillLinks(cfg *config.Config, reports []driftRepo
 	sort.Strings(paths)
 	failures := make([]againstSkillLinkFailure, 0, len(paths))
 	for _, link := range paths {
-		message := fmt.Sprintf("%s: Git exported this shared skill link as a plain file because core.symlinks=false; where link creation is supported, run git config --local core.symlinks true and rerun the check; otherwise set sync.shared-skills: false, run agnostic-ai sync, and stage the config and real skill copies", link)
+		message := link + ": Git exported this shared skill link as a plain file because core.symlinks=false; where link creation is supported, run git config --local core.symlinks true and rerun the check; otherwise set sync.shared-skills: false, run agnostic-ai sync, and stage the config and real skill copies"
 		if t.ref == againstHEAD {
 			message += "; commit the repair before checking HEAD"
 		}
@@ -593,7 +593,7 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 	isInput := func(p string) bool { return underRoots(p, t.inputs) }
 	var paths []string
 	inputs := 0
-	for _, rec := range strings.Split(listed, "\x00") {
+	for rec := range strings.SplitSeq(listed, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if !ok {
 			continue
@@ -664,7 +664,7 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	}
 	var files, specs []string
 	linkedSpec := false
-	for _, rec := range strings.Split(listed, "\x00") {
+	for rec := range strings.SplitSeq(listed, "\x00") {
 		meta, f, ok := strings.Cut(rec, "\t")
 		rel, inProject := strings.CutPrefix(f, prefix)
 		if !ok || !inProject {
@@ -694,8 +694,8 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	}
 	var includes []string
 	for _, r := range roots {
-		if strings.HasSuffix(r, "/") {
-			refs, err := reviewIncludes(filepath.FromSlash(strings.TrimSuffix(r, "/")))
+		if before, ok := strings.CutSuffix(r, "/"); ok {
+			refs, err := reviewIncludes(filepath.FromSlash(before))
 			if err != nil {
 				return nil, err
 			}
@@ -853,7 +853,7 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 			return nil, fmt.Errorf("git check-ignore: %w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 	}
-	for _, p := range strings.Split(stdout.String(), "\x00") {
+	for p := range strings.SplitSeq(stdout.String(), "\x00") {
 		if p != "" && !t.isTrackedPath(t.prefix+p) {
 			out[p] = true
 		}
@@ -964,7 +964,7 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 		}
 	}
 	ignored := map[string]bool{}
-	for _, p := range strings.Split(stdout.String(), "\x00") {
+	for p := range strings.SplitSeq(stdout.String(), "\x00") {
 		ignored[p] = true
 	}
 	var out []unmanagedFinding

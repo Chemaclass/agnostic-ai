@@ -55,7 +55,7 @@ func preparePersonalMemorySync(root string, cfg *config.Config) {
 	if !cfg.RepoPersonalMemory() {
 		if raw, err := exec.Command("git", "-C", root, "worktree", "list", "--porcelain").Output(); err == nil {
 			count := 0
-			for _, entry := range strings.Split(strings.TrimSpace(string(raw)), "\n\n") {
+			for entry := range strings.SplitSeq(strings.TrimSpace(string(raw)), "\n\n") {
 				lines := strings.Split(entry, "\n")
 				if !slices.Contains(lines, "bare") && !slices.ContainsFunc(lines, func(line string) bool { return line == "prunable" || strings.HasPrefix(line, "prunable ") }) {
 					count++

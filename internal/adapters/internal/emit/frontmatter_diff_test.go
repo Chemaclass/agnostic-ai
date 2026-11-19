@@ -56,7 +56,7 @@ func TestFrontmatterStyledMatchesReferenceOnRepoSources(t *testing.T) {
 		t.Skipf("git ls-files: %v", err)
 	}
 	inputs := 0
-	for _, rel := range strings.Split(strings.TrimRight(string(listed), "\x00"), "\x00") {
+	for rel := range strings.SplitSeq(strings.TrimRight(string(listed), "\x00"), "\x00") {
 		data, err := os.ReadFile(filepath.Join(root, rel))
 		if err != nil {
 			t.Fatal(err)

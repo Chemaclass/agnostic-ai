@@ -124,7 +124,7 @@ func downloadReleaseAssetContext(ctx context.Context, client *http.Client, asset
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, releaseAssetMissing{fmt.Sprintf("download: %s", resp.Status)}
+		return nil, releaseAssetMissing{"download: " + resp.Status}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("download: %s", resp.Status)
@@ -140,7 +140,7 @@ func downloadReleaseAssetContext(ctx context.Context, client *http.Client, asset
 }
 
 func releaseChecksum(data []byte, asset string) ([sha256.Size]byte, error) {
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) != 2 || fields[1] != asset {
 			continue

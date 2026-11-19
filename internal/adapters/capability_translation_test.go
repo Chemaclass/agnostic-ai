@@ -1,7 +1,7 @@
 package adapters_test
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -60,7 +60,7 @@ func TestPermissionTranslation_LastNativeToolOverrideWins(t *testing.T) {
 		{"kilo", false},
 		{"opencode", false},
 	} {
-		t.Run(tc.target+fmt.Sprint(tc.ownOverride), func(t *testing.T) {
+		t.Run(tc.target+strconv.FormatBool(tc.ownOverride), func(t *testing.T) {
 			entry := spec.Entry{Kind: spec.KindSettings, Path: "settings/a.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"read"}}}}
 			native := func(path, action string) spec.Entry {
 				return spec.Entry{Kind: spec.KindSettings, Path: path, Meta: map[string]any{"x-" + tc.target: map[string]any{"permission": map[string]any{"read": action}}}}

@@ -81,7 +81,7 @@ func emittedFrontmatterKeys(t *testing.T, data []byte) []string {
 		return nil
 	}
 	var keys []string
-	for _, line := range strings.Split(string(yamlBytes), "\n") {
+	for line := range strings.SplitSeq(string(yamlBytes), "\n") {
 		if line == "" || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "-") || strings.HasPrefix(line, "#") {
 			continue
 		}

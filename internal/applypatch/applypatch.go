@@ -43,7 +43,7 @@ const (
 func Parse(patch string) []Op {
 	var ops []Op
 	afterUpdate := false
-	for _, line := range strings.Split(patch, "\n") {
+	for line := range strings.SplitSeq(patch, "\n") {
 		line = strings.TrimRightFunc(line, unicode.IsSpace)
 		if path, ok := strings.CutPrefix(line, moveHeader); ok && afterUpdate && path != "" {
 			ops[len(ops)-1].MoveTo = path

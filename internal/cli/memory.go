@@ -481,7 +481,7 @@ func memorySecretIn(line string) bool {
 	if preview.TokenIn(text) || memoryBearerIn(text) {
 		return true
 	}
-	for _, word := range strings.Fields(text) {
+	for word := range strings.FieldsSeq(text) {
 		if strings.Contains(word, "://") && preview.URLCredentialIn(word) {
 			return true
 		}

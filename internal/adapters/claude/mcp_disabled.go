@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -40,7 +41,7 @@ func readMCPRejections(entries []spec.Entry, dir string, cfg *config.Config) (mc
 	}
 	slices.Sort(p.disabled)
 	if len(p.disabled) > 0 && filepath.Clean(emit.OutputMCPFile(cfg, target, defaultMCPFile)) != defaultMCPFile {
-		return p, fmt.Errorf("claude: disabled MCP servers require project .mcp.json; remove outputs.claude.mcp-file override")
+		return p, errors.New("claude: disabled MCP servers require project .mcp.json; remove outputs.claude.mcp-file override")
 	}
 	raw, err := os.ReadFile(p.path)
 	if err != nil && !emit.IsAbsent(err) {

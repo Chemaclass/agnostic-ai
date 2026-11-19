@@ -164,7 +164,7 @@ func TestSyncCheck_NamesCoreSymlinksForASpecLinkCheckedOutAsAPlainFile(t *testin
 // holds CRLF line endings.
 func crlfCheckout(t *testing.T, dir string) {
 	t.Helper()
-	for _, p := range strings.Split(git(t, dir, "ls-files"), "\n") {
+	for p := range strings.SplitSeq(git(t, dir, "ls-files"), "\n") {
 		if err := os.Remove(filepath.Join(dir, filepath.FromSlash(p))); err != nil {
 			t.Fatal(err)
 		}

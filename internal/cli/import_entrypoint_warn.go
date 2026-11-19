@@ -156,7 +156,7 @@ func foldText(captured, heldText, body string) (string, []string, []string) {
 func withoutCodeFences(text string) string {
 	var kept []string
 	inFence := false
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		if fenceRE.MatchString(line) {
 			inFence = !inFence
 			continue
@@ -202,7 +202,7 @@ func markdownH2Sections(body string) []string {
 		current = nil
 	}
 	inFence := false
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if fenceRE.MatchString(line) {
 			inFence = !inFence
 		} else if !inFence && h2HeadingRE.MatchString(line) {

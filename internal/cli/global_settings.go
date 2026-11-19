@@ -582,7 +582,7 @@ func settingsLookup(values map[string]any, key, format string) (any, bool) {
 		return v, ok
 	}
 	var current any = values
-	for _, part := range strings.Split(key, ".") {
+	for part := range strings.SplitSeq(key, ".") {
 		object, ok := current.(map[string]any)
 		if !ok {
 			return nil, false
@@ -614,8 +614,8 @@ func settingsKeepHint(s globalSetting, have any) string {
 func settingsValueText(key string, v any) string {
 	parts := strings.Split(key, ".")
 	value := v
-	for i := len(parts) - 1; i >= 0; i-- {
-		value = map[string]any{parts[i]: value}
+	for _, part := range slices.Backward(parts) {
+		value = map[string]any{part: value}
 	}
 	data, err := json.Marshal(value)
 	if err != nil {

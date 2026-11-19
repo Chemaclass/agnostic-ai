@@ -1265,7 +1265,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			run(t, dir, "import", target)
 			out := run(t, dir, "list")
 			builtinCount := 0
-			for _, line := range strings.Split(out, "\n") {
+			for line := range strings.SplitSeq(out, "\n") {
 				fields := strings.Split(line, "\t")
 				if len(fields) >= 3 && fields[2] == "builtin" {
 					builtinCount++
@@ -1336,9 +1336,7 @@ func handoffReadHandlersFor(t *testing.T, dir, target string) map[string]handoff
 		if h.Env == nil {
 			h.Env = map[string]string{}
 		}
-		for k, v := range doc.Env {
-			h.Env[k] = v
-		}
+		maps.Copy(h.Env, doc.Env)
 		if target == "claude" {
 			h.Env["CLAUDE_PROJECT_DIR"] = dir
 		}

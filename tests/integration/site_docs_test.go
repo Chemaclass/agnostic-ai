@@ -3,6 +3,7 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -912,7 +913,7 @@ func cssAnimationRules(sheet string) ([]string, map[string]bool) {
 			}
 			for _, match := range cssAnimationRE.FindAllStringSubmatch(body, -1) {
 				none := strings.HasPrefix(strings.TrimSpace(match[1]), "none")
-				for _, selector := range strings.Split(head, ",") {
+				for selector := range strings.SplitSeq(head, ",") {
 					selector = strings.Join(strings.Fields(selector), " ")
 					if selector == "" {
 						continue
@@ -994,9 +995,7 @@ func landingProse(value any, path string) map[string]string {
 		prose[path] = typed
 	case []any:
 		for index, item := range typed {
-			for key, copy := range landingProse(item, fmt.Sprintf("%s[%d]", path, index)) {
-				prose[key] = copy
-			}
+			maps.Copy(prose, landingProse(item, fmt.Sprintf("%s[%d]", path, index)))
 		}
 	case map[string]any:
 		for name, item := range typed {
@@ -1004,9 +1003,7 @@ func landingProse(value any, path string) map[string]string {
 			if path != "" {
 				child = path + "." + name
 			}
-			for key, copy := range landingProse(item, child) {
-				prose[key] = copy
-			}
+			maps.Copy(prose, landingProse(item, child))
 		}
 	}
 	return prose

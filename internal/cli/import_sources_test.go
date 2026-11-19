@@ -15,7 +15,7 @@ import (
 // which is what the help text and the unknown-source error both show.
 func advertisedImportSources() []string {
 	var out []string
-	for _, name := range strings.Split(importSources(), ", ") {
+	for name := range strings.SplitSeq(importSources(), ", ") {
 		if name != "" {
 			out = append(out, name)
 		}

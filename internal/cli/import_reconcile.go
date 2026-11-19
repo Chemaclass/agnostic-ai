@@ -206,7 +206,7 @@ func reconciliationTree(revision, dir string, skillsOnly bool) (map[string]strin
 	}
 	files := map[string]string{}
 	skills := map[string]bool{}
-	for _, record := range bytes.Split(data, []byte{0}) {
+	for record := range bytes.SplitSeq(data, []byte{0}) {
 		if len(record) == 0 {
 			continue
 		}

@@ -181,7 +181,7 @@ func requirePreviewMatchesRun(t *testing.T, args ...string) []string {
 		t.Errorf("--dry-run --json deletes %v, the real run removed %v", deletes, removed)
 	}
 	for _, out := range outs {
-		for _, line := range strings.Split(out, "\n") {
+		for line := range strings.SplitSeq(out, "\n") {
 			if p, ok := strings.CutPrefix(line, "would remove "); ok && !slices.Contains(removed, p) {
 				t.Errorf("preview names %s, which the real run keeps", p)
 			}

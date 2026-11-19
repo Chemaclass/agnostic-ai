@@ -141,8 +141,8 @@ func splitZedTaskLabel(label string, index int) (name, description string) {
 	if label == "" {
 		return fmt.Sprintf("task-%d", index+1), ""
 	}
-	if i := strings.Index(label, " — "); i >= 0 {
-		return slugify(label[:i]), strings.TrimSpace(label[i+len(" — "):])
+	if before, after, ok := strings.Cut(label, " — "); ok {
+		return slugify(before), strings.TrimSpace(after)
 	}
 	return slugify(label), ""
 }

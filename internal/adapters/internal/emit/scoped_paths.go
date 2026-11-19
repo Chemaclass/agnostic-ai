@@ -127,10 +127,10 @@ func CheckScopedDestination(path, content string, replaced map[string]bool) erro
 // a `*description*` import rendered as `_description_` still matches.
 func lineMissingFrom(have, want string) (string, bool) {
 	lines := map[string]bool{}
-	for _, l := range strings.Split(want, "\n") {
+	for l := range strings.SplitSeq(want, "\n") {
 		lines[comparableLine(l)] = true
 	}
-	for _, l := range strings.Split(have, "\n") {
+	for l := range strings.SplitSeq(have, "\n") {
 		c := comparableLine(l)
 		if c == "" || isHeading(c) {
 			continue

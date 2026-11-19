@@ -73,7 +73,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	const scopedPrefix = "---\nname: api\ndescription: API conventions.\nscope: services/api\n---\n"
 	mustWrite(t, filepath.Join(source, scopedSource), scopedPrefix+scopedBody)
 	mustWrite(t, filepath.Join(source, "services/api/main.go"), "package api\n")
-	for i := 0; i < 495; i++ {
+	for i := range 495 {
 		skill := fmt.Sprintf("catalog-%04d", i)
 		mustWrite(t, filepath.Join(source, ".agnostic-ai/skills", skill, "SKILL.md"),
 			fmt.Sprintf("---\nname: %s\ndescription: Read catalog guidance %d.\n---\nRead the catalog guidance.\n", skill, i))
@@ -126,7 +126,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	git(clone, "commit", "-qm", "adopt and commit selected outputs")
 	status(clone, "")
 	for _, skillsDir := range []string{".claude/skills", ".agents/skills", ".cursor/skills"} {
-		for i := 0; i < 495; i++ {
+		for i := range 495 {
 			skill := fmt.Sprintf("catalog-%04d", i)
 			path := filepath.Join(clone, skillsDir, skill, "SKILL.md")
 			info, err := os.Stat(path)
@@ -147,7 +147,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	if string(initial[assetOutput]) != asset {
 		t.Errorf("copied asset = %q, want %q", initial[assetOutput], asset)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		cli(clone, "sync")
 		assertLifecycleOutputs(t, clone, initial)
 		status(clone, "")
@@ -375,7 +375,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 				}
 			})
 			installs(dir, "")
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				unchanged(dir, func() { bootstrap(dir) })
 				installs(dir, "99.1.0 install --frozen-lockfile marker=1\n")
 			}
@@ -403,7 +403,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 				}
 			})
 			installs(dir, "99.1.0 install --frozen-lockfile marker=1\n")
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				unchanged(dir, func() { bootstrap(dir) })
 				installs(dir, "99.1.0 install --frozen-lockfile marker=1\n99.2.0 install --frozen-lockfile marker=1\n")
 				unchanged(dir, func() { cli(dir, "project", "--check") })
@@ -822,7 +822,7 @@ func assertLifecycleOutputs(t *testing.T, root string, want map[string][]byte) {
 
 func assertLifecycleIntentionalStatus(t *testing.T, status string) {
 	t.Helper()
-	for _, line := range strings.Split(strings.TrimSuffix(status, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(status, "\n"), "\n") {
 		if len(line) < 4 {
 			t.Errorf("unexpected status line: %q", line)
 			continue
@@ -926,7 +926,6 @@ func TestProjectLifecycleInstallerProcess(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		writeLifecycleNodeLauncher(t, filepath.Join("node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), "fixture.exe")
 	}
-
 }
 
 // Keep draining each pipe after its diagnostic output reaches the limit.

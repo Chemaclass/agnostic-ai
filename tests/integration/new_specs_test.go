@@ -66,7 +66,7 @@ func TestNewSpecs_LoadAndRenderAddedKinds(t *testing.T) {
 				t.Errorf("created spec did not load with its marked placeholder: %s", lint)
 			}
 			var edited []string
-			for _, line := range strings.Split(string(body), "\n") {
+			for line := range strings.SplitSeq(string(body), "\n") {
 				switch {
 				case strings.HasPrefix(line, "description: TODO"):
 					line = "description: Project configuration example."
@@ -145,5 +145,4 @@ func TestNewSpecs_LoadAndRenderAddedKinds(t *testing.T) {
 			t.Error("copied render hint changed project files")
 		}
 	})
-
 }

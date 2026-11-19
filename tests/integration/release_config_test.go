@@ -201,7 +201,7 @@ const quarantineStrip = `run "/usr/bin/xattr", args: ["-dr", "com.apple.quaranti
 // does not count.
 func quarantineStripProblem(steps string) string {
 	var code []string
-	for _, line := range strings.Split(steps, "\n") {
+	for line := range strings.SplitSeq(steps, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

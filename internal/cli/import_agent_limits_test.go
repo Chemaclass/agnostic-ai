@@ -54,7 +54,7 @@ func TestImport_AgentTurnLimitAndBackgroundRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, line := range strings.Split(strings.TrimSpace(tc.native), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSpace(tc.native), "\n") {
 				if !strings.Contains(string(synced), line) {
 					t.Errorf("sync lost %q:\n%s", line, synced)
 				}

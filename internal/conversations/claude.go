@@ -483,7 +483,7 @@ func eachClaudeLine(data []byte, visit func(claudeLine)) {
 // eachClaudeLineWithout visits the lines that do not hold every token
 // of skip, which are never decoded.
 func eachClaudeLineWithout(data []byte, skip [][]byte, visit func(claudeLine)) {
-	for _, raw := range bytes.Split(data, []byte("\n")) {
+	for raw := range bytes.SplitSeq(data, []byte("\n")) {
 		if len(bytes.TrimSpace(raw)) == 0 || holdsEvery(raw, skip) {
 			continue
 		}

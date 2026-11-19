@@ -379,7 +379,7 @@ func TestHandoffList_PreservesPipesInBranchesAndWorktreeHeaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.HasPrefix(line, "detached-"+head+" ") && strings.Contains(line, linked) {
 			found = true
 		}
@@ -430,7 +430,7 @@ func TestHandoffList_PreservesMetadataLabelsInsideWorktreePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.HasPrefix(line, "detached-"+head+" ") && strings.Contains(line, linked) {
 			found = true
 		}

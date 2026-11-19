@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -204,7 +205,7 @@ func TestInstallPack_RestoresPreviousPackWhenRecordingFails(t *testing.T) {
 	err := installPack(dest, func(staged string) (string, error) {
 		mustWrite(t, filepath.Join(staged, "rule.md"), "new")
 		return "new", nil
-	}, func(string) error { return fmt.Errorf("cannot write lock") })
+	}, func(string) error { return errors.New("cannot write lock") })
 	if err == nil || !strings.Contains(err.Error(), "cannot write lock") {
 		t.Errorf("error = %v, want lock error", err)
 	}

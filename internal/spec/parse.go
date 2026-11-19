@@ -59,8 +59,7 @@ func parseMarkdown(path string) (Entry, error) {
 		// Frontmatter starts at line 2 (line 1 is the opening `---`). Decode
 		// errors come from the parsed nodes, whose lines already match the file.
 		offset := 1
-		var typeErr *yaml.TypeError
-		if errors.As(err, &typeErr) {
+		if _, ok := errors.AsType[*yaml.TypeError](err); ok {
 			offset = 0
 		}
 		return Entry{}, formatYAMLError(path, err, offset)
@@ -240,7 +239,7 @@ var markdownHeadingRe = regexp.MustCompile(`^#{1,6}[ \t]+\S`)
 var commentedKeyRe = regexp.MustCompile(`^#\s*[\w-]+\s*:`)
 
 func hasMarkdownHeading(block []byte) bool {
-	for _, line := range strings.Split(string(block), "\n") {
+	for line := range strings.SplitSeq(string(block), "\n") {
 		if markdownHeadingRe.MatchString(line) && !commentedKeyRe.MatchString(line) {
 			return true
 		}
@@ -262,12 +261,12 @@ func splitFrontmatter(data []byte) (decodedMapping, string, error) {
 		return empty, string(data), nil
 	}
 	rest := data[len(delim):]
-	idx := bytes.Index(rest, []byte("\n"+delim))
-	if idx < 0 {
+	before, after, ok := bytes.Cut(rest, []byte("\n"+delim))
+	if !ok {
 		return empty, string(data), nil
 	}
-	yamlPart := rest[:idx]
-	body := bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n")
+	yamlPart := before
+	body := bytes.TrimLeft(after, "\n")
 
 	front, err := decodeYAMLOrdered(yamlPart)
 	if err != nil {

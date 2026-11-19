@@ -134,7 +134,7 @@ func TestRender_ClineShowsTheAGENTSMdSectionForAnInlinedRule(t *testing.T) {
 		t.Fatalf("render: %v\n%s", err, out)
 	}
 	var header string
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.HasPrefix(line, "# target: cline") {
 			header = line
 		}
@@ -526,7 +526,7 @@ func TestExplainContext_CountsEachAlwaysOnRuleOnce(t *testing.T) {
 				t.Fatalf("explain --context: %v\n%s", err, out)
 			}
 			var startup []string
-			for _, line := range strings.Split(out, "\n") {
+			for line := range strings.SplitSeq(out, "\n") {
 				if strings.Contains(line, "[startup]") && strings.Contains(line, "rules/always.md") {
 					startup = append(startup, line)
 				}

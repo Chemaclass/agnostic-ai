@@ -118,7 +118,7 @@ func TestRunCrush_BackgroundJobCannotStartAfterCleanupBegins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range strings.Fields(string(raw)) {
+	for field := range strings.FieldsSeq(string(raw)) {
 		pid, err := strconv.Atoi(field)
 		if err != nil {
 			t.Fatal(err)

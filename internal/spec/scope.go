@@ -15,7 +15,7 @@ func NormalizeScope(scope string) (string, error) {
 	if strings.TrimSpace(scope) != scope || strings.ContainsAny(scope, "\\:*?[]{}!,()\r\n\x00") || strings.HasPrefix(scope, "/") {
 		return "", fmt.Errorf("invalid scope %q: use a project-relative directory", scope)
 	}
-	for _, part := range strings.Split(scope, "/") {
+	for part := range strings.SplitSeq(scope, "/") {
 		if part == ".." {
 			return "", fmt.Errorf("invalid scope %q: parent traversal is not allowed", scope)
 		}

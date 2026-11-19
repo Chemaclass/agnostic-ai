@@ -2,6 +2,7 @@ package overview
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -1032,9 +1033,7 @@ type labeler map[string]string
 
 func newLabeler() labeler {
 	l := make(labeler, len(targetLabels))
-	for name, label := range targetLabels {
-		l[name] = label
-	}
+	maps.Copy(l, targetLabels)
 	return l
 }
 

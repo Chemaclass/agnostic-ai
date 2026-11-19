@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -549,9 +550,7 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 		}
 	}
 	expected := map[string]any{}
-	for k, v := range old {
-		expected[k] = v
-	}
+	maps.Copy(expected, old)
 	if value == nil {
 		delete(expected, key)
 	} else {

@@ -164,7 +164,7 @@ func TestExplainFile_CodexHelpListsSupportedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if strings.Contains(line, "--target string") {
 			if !strings.Contains(line, "codex") {
 				t.Errorf("target flag help omits Codex: %s", line)

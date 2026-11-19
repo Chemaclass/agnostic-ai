@@ -179,7 +179,7 @@ func (h *editHandler) serveBuiltinToggle(w http.ResponseWriter, body []byte) (ed
 		return editPlan{}, false
 	}
 	if !req.Reset && !slices.Contains(builtins.Names(), req.Name) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(builtins.Names(), ", "))})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "name must be one of " + strings.Join(builtins.Names(), ", ")})
 		return editPlan{}, false
 	}
 	if !req.Reset && req.Enabled == nil {
@@ -231,7 +231,7 @@ func (h *editHandler) serveTargetsToggle(w http.ResponseWriter, body []byte) (ed
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --global cannot write %s; change it in a project", req.Name)})
 			return editPlan{}, false
 		}
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(h.supportedTargetNames(), ", "))})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "name must be one of " + strings.Join(h.supportedTargetNames(), ", ")})
 		return editPlan{}, false
 	}
 	if !req.Reset && req.Enabled == nil {
@@ -385,18 +385,15 @@ func (h *editHandler) applyPlan(w http.ResponseWriter, plan editPlan) {
 		sourceGuard = func() error { return nil }
 	}
 	if problems, err := h.applyValidatedWithPrepare(plan.file, plan.edit, prepare, sourceGuard); err != nil {
-		var protection personalGitError
-		if errors.As(err, &protection) {
+		if _, ok := errors.AsType[personalGitError](err); ok {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}
-		var stale staleFieldError
-		var staleValue staleToggleError
-		if errors.As(err, &staleValue) {
+		if _, ok := errors.AsType[staleToggleError](err); ok {
 			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 			return
 		}
-		if errors.As(err, &stale) {
+		if stale, ok := errors.AsType[staleFieldError](err); ok {
 			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, plan.file) + ": " + stale.Error()})
 			return
 		}
@@ -472,7 +469,7 @@ func (h *editHandler) settingsEdit(where editAudience, shown, key string, value 
 			}
 		}
 		var current any = e.Meta
-		for _, part := range strings.Split(key, ".") {
+		for part := range strings.SplitSeq(key, ".") {
 			m, ok := current.(map[string]any)
 			if !ok {
 				return "", nil, fmt.Errorf("%s is not a boolean", key)

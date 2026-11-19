@@ -471,7 +471,7 @@ func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir string, dryR
 // (geminicli.com/docs/cli/custom-commands). Windows cannot store a colon
 // in a file name.
 func commandPath(dir, name string) (string, error) {
-	for _, segment := range strings.Split(name, ":") {
+	for segment := range strings.SplitSeq(name, ":") {
 		if segment == "" || segment == "." || segment == ".." {
 			return "", fmt.Errorf("gemini command %s: invalid namespace segment", name)
 		}

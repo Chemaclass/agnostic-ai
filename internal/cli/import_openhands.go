@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -330,7 +331,7 @@ func importOpenhandsHooks(src, dstDir string) (int, error) {
 // in PascalCase passes through.
 func pascalHookEvent(key string) string {
 	var sb strings.Builder
-	for _, part := range strings.Split(key, "_") {
+	for part := range strings.SplitSeq(key, "_") {
 		if part == "" {
 			continue
 		}
@@ -401,9 +402,7 @@ func openhandsRemoteEntry(el any) map[string]any {
 		return map[string]any{"url": v}
 	case map[string]any:
 		entry := map[string]any{}
-		for k, val := range v {
-			entry[k] = val
-		}
+		maps.Copy(entry, v)
 		return entry
 	}
 	return map[string]any{}

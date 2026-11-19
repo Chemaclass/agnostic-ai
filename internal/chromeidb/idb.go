@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 )
@@ -322,7 +323,7 @@ func (f *Folder) blob(databaseID, storeID uint64, key string, reference []byte) 
 	if err != nil {
 		return nil, err
 	}
-	path := filepath.Join(f.blobDir, fmt.Sprintf("%x", databaseID), fmt.Sprintf("%02x", number>>8&0xFF), fmt.Sprintf("%x", number))
+	path := filepath.Join(f.blobDir, strconv.FormatUint(databaseID, 16), fmt.Sprintf("%02x", number>>8&0xFF), strconv.FormatUint(number, 16))
 	// The size is checked before the read too, so a damaged or swapped
 	// file is not read whole.
 	info, err := os.Stat(path)
