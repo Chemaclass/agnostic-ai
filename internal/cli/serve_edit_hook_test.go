@@ -385,3 +385,24 @@ func TestServeEditHook_RefusesMatchAny(t *testing.T) {
 		t.Errorf("match any = %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestServeEditHook_LeavesOutTheToolsAStageLacks(t *testing.T) {
+	project := scopeProject(t)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	h := newEditHandler(project, false)
+	if rec := hookEditRequest(t, h, hookEditBody("format-on-save", "after-edit", "npm run format")); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("without exclusion = %d %s, want 422", rec.Code, rec.Body)
+	}
+	request := hookEditBody("format-on-save", "after-edit", "npm run format")
+	request["targetsExclude"] = []string{"cursor"}
+	got := hookEditPreview(t, h, request)
+	if !strings.Contains(got.Spec, "targets-exclude:\n  - cursor\n") {
+		t.Errorf("spec = %q", got.Spec)
+	}
+	hookEditApply(t, h, request, got)
+	request = hookEditBody("other", "after-edit", "npm run format")
+	request["targetsExclude"] = []string{"../x"}
+	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusBadRequest {
+		t.Errorf("bad tool name = %d %s, want 400", rec.Code, rec.Body)
+	}
+}

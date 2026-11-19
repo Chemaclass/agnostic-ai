@@ -219,6 +219,7 @@ Lists hooks by stage. **Show all stages** adds stages with no hooks. **Add hook*
 - Each stage starts closed, with its timing and hook count. **Add hook** sits at the end of the toolbar. **Expand all** and **Collapse all** control the visible stages.
 - The preview holds only the fields you filled. **Command** shows `match` or `matcher`, `type`, `timeout` and `disabled`.
 - Project and Global saves use the project's configured hook source folder (`.agnostic-ai/hooks/` by default), or `hooks/` in the global home. Local saves use `.agnostic-ai/local/hooks/`, or `local/hooks/` in the home, with the same Git-ignore check as other local saves.
+- A stage some configured tools lack, such as **After a file edit** for Cursor, names them under the field; the hook gets `targets-exclude` for them.
 - The save stops when the name is taken, in any layer and in any letter case. It also stops for a hook that `validate` would report, such as a tool match a configured tool lacks.
 - The form cannot edit or delete hooks, or write a tool's own event name. Snapshots and the mock have no **Add hook** action.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links.
@@ -316,6 +317,7 @@ Move or copy a spec between the project and the global setup.
   - In a global view started inside a project, the action is **Copy to project**.
   - After a move, run `agnostic-ai sync` and `agnostic-ai sync --global`.
   - A skill goes with its whole folder.
+  - A hook goes with the shared scripts it runs. A move leaves them in place too, since other hooks may run them. A script the destination holds with other content stops the copy.
   - When a spec is already there, both stay off until you tick **Replace it**, which replaces the whole spec.
   - Built-ins, pack specs, and local specs have no such action. Commands, review instructions, and settings stay too, since the global setup does not read them as specs.
   - A rule with a scope, paths, or a target condition cannot go to the global setup, where rules apply to every file.

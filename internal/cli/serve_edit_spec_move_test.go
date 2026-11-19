@@ -19,6 +19,7 @@ type specMoveTestReply struct {
 	Destination  string   `json:"destination"`
 	Exists       bool     `json:"exists"`
 	Files        []string `json:"files"`
+	Scripts      []string `json:"scripts"`
 	SyncCommands []string `json:"syncCommands"`
 	Expected     string   `json:"expected"`
 	Error        string   `json:"error"`
@@ -449,5 +450,56 @@ func TestSpecMove_KeepsTheOldSkillWhenRollbackFails(t *testing.T) {
 	kept, err := filepath.Glob(filepath.Join(global, ".agnostic-ai-move-*", "old", "SKILL.md"))
 	if err != nil || len(kept) != 1 || !strings.Contains(readOptional(t, kept[0]), "Old.") {
 		t.Errorf("the old skill is gone: %v %v", kept, err)
+	}
+}
+
+func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
+	project, global := moveProject(t)
+	mustWrite(t, ".agnostic-ai/hooks/guard-push.yaml", "name: guard-push\non: before-tool\nmatch: shell\ncommand: .agnostic-ai/scripts/guard-push.sh\ncommandWindows: powershell -File .agnostic-ai/scripts/guard-push.ps1\n")
+	mustWrite(t, ".agnostic-ai/scripts/guard-push.sh", "#!/bin/sh\nexit 0\n")
+	mustWrite(t, ".agnostic-ai/scripts/claude/guard-push.sh", "#!/bin/sh\necho claude\n")
+	mustWrite(t, ".agnostic-ai/scripts/guard-push.ps1", "exit 0\n")
+	mustWrite(t, ".agnostic-ai/scripts/other.sh", "#!/bin/sh\n")
+	if err := os.Chmod(filepath.Join(project, ".agnostic-ai", "scripts", "guard-push.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	preview, code, applied := previewThenApply(t, projectMoveHandler(project, global), moveBody("hook", "guard-push", "project", "global", "move"))
+	want := []string{"~/source/scripts/claude/guard-push.sh", "~/source/scripts/guard-push.ps1", "~/source/scripts/guard-push.sh"}
+	if !slices.Equal(preview.Scripts, want) {
+		t.Errorf("scripts = %v, want %v", preview.Scripts, want)
+	}
+	if code != http.StatusOK || !applied.OK {
+		t.Fatalf("apply = %d %+v", code, applied)
+	}
+	if got := readOptional(t, filepath.Join(global, "scripts", "claude", "guard-push.sh")); got != "#!/bin/sh\necho claude\n" {
+		t.Errorf("target script = %q", got)
+	}
+	info, err := os.Stat(filepath.Join(global, "scripts", "guard-push.sh"))
+	if err != nil || info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("script lost its run bit: %v %v", info, err)
+	}
+	if _, err := os.Stat(filepath.Join(global, "scripts", "other.sh")); !os.IsNotExist(err) {
+		t.Errorf("copied a script the hook does not run: %v", err)
+	}
+	if readOptional(t, filepath.Join(project, ".agnostic-ai", "scripts", "guard-push.sh")) == "" {
+		t.Error("a move removed the project script, which other hooks may run")
+	}
+}
+
+func TestSpecMove_RefusesAHookWhoseScriptDiffersOrIsMissing(t *testing.T) {
+	project, global := moveProject(t)
+	mustWrite(t, ".agnostic-ai/hooks/guard-push.yaml", "name: guard-push\non: session-start\ncommand: .agnostic-ai/scripts/guard-push.sh\n")
+	mustWrite(t, ".agnostic-ai/hooks/lost.yaml", "name: lost\non: session-start\ncommand: .agnostic-ai/scripts/lost.sh\n")
+	mustWrite(t, ".agnostic-ai/scripts/guard-push.sh", "#!/bin/sh\nexit 0\n")
+	mustWriteGlobalTest(t, filepath.Join(global, "scripts", "guard-push.sh"), "#!/bin/sh\nexit 1\n")
+	h := projectMoveHandler(project, global)
+	if code, reply := postSpecMove(t, h, moveBody("hook", "guard-push", "project", "global", "copy")); code != http.StatusConflict || !strings.Contains(reply.Error, "guard-push.sh") {
+		t.Errorf("different script = %d %+v, want 409", code, reply)
+	}
+	if code, reply := postSpecMove(t, h, moveBody("hook", "lost", "project", "global", "copy")); code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "lost.sh") {
+		t.Errorf("missing script = %d %+v, want 422", code, reply)
+	}
+	if got := readOptional(t, filepath.Join(global, "scripts", "guard-push.sh")); got != "#!/bin/sh\nexit 1\n" {
+		t.Errorf("refusal changed the global script: %q", got)
 	}
 }

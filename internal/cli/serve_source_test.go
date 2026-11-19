@@ -689,3 +689,17 @@ func TestServeSource_RefusesABuiltinHook(t *testing.T) {
 		t.Fatal("memory built-in loaded no hook")
 	}
 }
+
+func TestServeSource_ShowsTheDemoHookWithItsWindowsCommand(t *testing.T) {
+	dir, srv := sourceProject(t)
+	data, err := demoFS.ReadFile("initdata/hooks/no-force-push.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "no-force-push.yaml")
+	mustWriteFile(t, hook, string(data))
+	view := getSource(t, srv, absSlash(t, hook), http.StatusOK)
+	if view.Withheld || len(view.Frontmatter) == 0 {
+		t.Errorf("demo hook withheld %v, fields %d", view.Withheld, len(view.Frontmatter))
+	}
+}

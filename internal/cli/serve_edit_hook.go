@@ -34,7 +34,10 @@ type hookSpecRequest struct {
 	Command     string `json:"command"`
 	Timeout     *int   `json:"timeout,omitempty"`
 	Description string `json:"description,omitempty"`
-	Expected    string `json:"expected,omitempty"`
+	// TargetsExclude names the configured tools that have no event for
+	// the stage, so the hook leaves them out instead of failing validate.
+	TargetsExclude []string `json:"targetsExclude,omitempty"`
+	Expected       string   `json:"expected,omitempty"`
 }
 
 type hookSpecPreview struct {
@@ -133,6 +136,11 @@ func (req hookSpecRequest) check() error {
 			return fmt.Errorf("match must be one of %s, or left out for every tool", strings.Join(hookFormMatches, ", "))
 		}
 	}
+	for _, target := range req.TargetsExclude {
+		if !slugRe.MatchString(target) {
+			return fmt.Errorf("targetsExclude: %q is not a tool name", target)
+		}
+	}
 	if req.Timeout != nil && *req.Timeout <= 0 {
 		return errors.New("timeout must be a whole number of seconds above zero")
 	}
@@ -188,6 +196,13 @@ func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
 		add("command", req.Command, style, "!!str")
 		if req.Timeout != nil {
 			add("timeout", strconv.Itoa(*req.Timeout), 0, "!!int")
+		}
+		if len(req.TargetsExclude) > 0 {
+			list := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+			for _, target := range req.TargetsExclude {
+				list.Content = append(list.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: target})
+			}
+			m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "targets-exclude"}, list)
 		}
 		data, err := encodeYAML(&yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{m}})
 		if err != nil {

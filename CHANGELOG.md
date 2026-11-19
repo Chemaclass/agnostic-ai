@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, copying a hook to the global setup or the project brings the shared scripts it runs, a permission save keeps a block list as a block list, **Add hook** leaves out tools that lack the chosen stage, and the source view shows hooks whose Windows command has an `=` (#3719).
 - New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
 - Import notes show project-relative paths for folders whose names begin with two dots (#3621).
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).

@@ -95,11 +95,11 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 			if e != nil {
 				return nil, e
 			}
-			encoded, e := json.Marshal(value)
+			encoded, e := permissionListText(value, node)
 			if e != nil {
 				return nil, e
 			}
-			out = spliceEditYAML(data, start, end, string(encoded))
+			out = spliceEditYAML(data, start, end, encoded)
 		}
 	}
 	if err != nil {
@@ -134,4 +134,24 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 		return nil, fmt.Errorf("%s: the edit changes other YAML values", key)
 	}
 	return out, nil
+}
+
+// permissionListText writes rules in the style of the list it replaces: a
+// block list keeps one `- rule` line per rule at the list's indent, and
+// anything else, or an empty list, is a one-line flow list.
+func permissionListText(value any, node *yaml.Node) (string, error) {
+	rules, _ := value.([]string)
+	if node.Kind != yaml.SequenceNode || node.Style&yaml.FlowStyle != 0 || len(node.Content) == 0 || len(rules) == 0 {
+		encoded, err := json.Marshal(value)
+		return string(encoded), err
+	}
+	lines := make([]string, len(rules))
+	for i, rule := range rules {
+		encoded, err := yaml.Marshal(rule)
+		if err != nil {
+			return "", err
+		}
+		lines[i] = "- " + strings.TrimSpace(string(encoded))
+	}
+	return strings.Join(lines, "\n"+strings.Repeat(" ", node.Column-1)), nil
 }

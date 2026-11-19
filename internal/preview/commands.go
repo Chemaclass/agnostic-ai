@@ -70,6 +70,26 @@ func pureArgument(value string) bool {
 	return ok && PureReference(strings.TrimSpace(rest))
 }
 
+// powerShellAssignment is a `$name = value` or `$env:NAME = value`
+// statement; value stops at the end of its quotes or at `;`.
+var powerShellAssignment = regexp.MustCompile(`\$(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("[^"]*"|'[^']*'|[^\s;]+)`)
+
+// sensitivePowerShell reads a Windows hook command, which is PowerShell:
+// a shell parser fails on its `if (...) { }` blocks, so the shell fallback
+// would hide every command with an `=` in it. It hides a credential the
+// text detectors find, or a literal assigned to a credential name.
+func sensitivePowerShell(body string) bool {
+	if CredentialDetected(body) {
+		return true
+	}
+	for _, m := range powerShellAssignment.FindAllStringSubmatch(body, -1) {
+		if CredentialKey(m[1]) && SecretValue(m[2], false, WeakCredential) {
+			return true
+		}
+	}
+	return false
+}
+
 func sensitiveShell(body string) bool {
 	file, err := syntax.NewParser().Parse(strings.NewReader(body), "")
 	if err != nil {

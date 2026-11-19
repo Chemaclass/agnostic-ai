@@ -161,6 +161,7 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 - `on` is a [portable event](@/docs/spec-format/hook-reference.md#portable-events).
 - `match` (`shell`, `edit`, `read`, or `web`) goes only with `before-tool` and `after-tool`.
 - `timeout` is a whole number of seconds above zero.
+- `targetsExclude` lists tools to leave out, written as `targets-exclude`. The page sends the configured tools that have no event for `on`.
 - `action: "preview"` returns `file`, `spec`, `syncCommand`, and `expected`. It answers 422 with `problems` when `validate` would report the hook.
 - `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`.
 - An existing hook name returns 409. So does a changed preview.
@@ -174,7 +175,8 @@ Body: `{action, kind, name, from, to, mode, overwrite?, expected?}`. Copies or m
 - `from` is the level this server reads and `to` is the other.
 - `mode` is `copy` or `move`.
 - A skill folder moves whole.
-- `action: "preview"` returns `source`, `destination`, `exists`, `files`, `syncCommands`, and `expected`.
+- A hook brings the shared scripts its commands run under `.agnostic-ai/scripts/`, with any per-tool copy in a subfolder. `scripts` lists those the destination lacks. A move keeps them in the source, since other hooks may run them.
+- `action: "preview"` returns `source`, `destination`, `exists`, `files`, `scripts` when there are any, `syncCommands`, and `expected`.
 - `action: "apply"` requires that `expected`, which holds for either `mode` and `overwrite`. It writes the destination, removes the source for `move`, and returns those fields with `ok: true`, plus `warning` when a leftover folder needs deleting by hand.
 
 These return 409:
@@ -183,6 +185,7 @@ These return 409:
 - A spec of that name at another path.
 - A changed preview.
 - A destination that is the source itself (one setup's folder links to the other's).
+- A hook script the destination already holds with other content.
 - A skill the destination would read differently (under another skill's folder, or over a folder of other skills).
 - A project server whose global setup does not exist yet. The reply carries `missing: true` and `root`.
 - A global server that knows no project.
@@ -190,6 +193,7 @@ These return 409:
 These return 422:
 
 - A built-in, a pack spec, a local spec, a `SKILL.md` directly in the skills folder, or a destination folder that links outside its setup.
+- A hook that runs a shared script that does not exist.
 - A rule sent to the global setup with a scope, paths, or target condition, including one under an `x-<target>` key for a target the global setup selects.
 
 ## `POST /api/edit/permissions`
