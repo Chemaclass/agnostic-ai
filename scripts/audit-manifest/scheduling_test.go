@@ -11,6 +11,7 @@ import (
 )
 
 func TestScheduleRefillsWorkerBeforeOtherTargetFinishes(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "2", "alpha", "beta")
@@ -37,6 +38,7 @@ func TestScheduleRefillsWorkerBeforeOtherTargetFinishes(t *testing.T) {
 }
 
 func TestScheduleRequiresConfirmedStopBeforeRetry(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "1", "alpha", "beta")
@@ -61,6 +63,7 @@ func TestScheduleRequiresConfirmedStopBeforeRetry(t *testing.T) {
 }
 
 func TestSchedulePrioritizesRecoveryAndRefillsCapacity(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "failed")
 	call(t, a, "schedule", run, "1", "alpha", "beta")
@@ -75,6 +78,7 @@ func TestSchedulePrioritizesRecoveryAndRefillsCapacity(t *testing.T) {
 }
 
 func TestScheduleRejectsCompletedAndDuplicateTargets(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	for _, args := range [][]string{{"schedule", run, "0", "alpha"}, {"schedule", run, "2", "alpha", "alpha"}, {"schedule", run, "2", "unknown"}} {
@@ -94,6 +98,7 @@ func TestScheduleRejectsCompletedAndDuplicateTargets(t *testing.T) {
 }
 
 func TestDispatchPreservesOutsideOwnership(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "1", "alpha")
@@ -111,6 +116,7 @@ func TestDispatchPreservesOutsideOwnership(t *testing.T) {
 }
 
 func TestScheduleFakeWorkersRefillWhileSlowReviewContinues(t *testing.T) {
+	t.Parallel()
 	a, run := fixtureFor(t, "alpha", "beta", "gamma", "delta")
 	m, err := load(run)
 	if err != nil {
@@ -149,6 +155,7 @@ func TestScheduleFakeWorkersRefillWhileSlowReviewContinues(t *testing.T) {
 }
 
 func TestScheduleIngestsCompletedTargetsBeforeRefilling(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "1", "alpha", "beta")
@@ -181,6 +188,7 @@ func TestScheduleIngestsCompletedTargetsBeforeRefilling(t *testing.T) {
 }
 
 func TestFinalIngestionClosesScheduledAttemptWithoutDispatch(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "1", "alpha", "beta")
@@ -215,6 +223,7 @@ func TestFinalIngestionClosesScheduledAttemptWithoutDispatch(t *testing.T) {
 }
 
 func TestStaleCompletedAttemptRequiresConfirmedStop(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "2", "alpha", "beta")
@@ -233,6 +242,7 @@ func TestStaleCompletedAttemptRequiresConfirmedStop(t *testing.T) {
 }
 
 func TestRetryCannotReuseOldCheckpointAfterRestoringBytes(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "1", "alpha", "beta")
@@ -262,6 +272,7 @@ func scheduledCheckpoint(t *testing.T, a app, run, target string) {
 }
 
 func TestScheduledCheckpointRejectsPreviousAttempt(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	call(t, a, "schedule", run, "1", "alpha")

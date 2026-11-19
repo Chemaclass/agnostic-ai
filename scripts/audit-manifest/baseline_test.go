@@ -6,6 +6,7 @@ import (
 )
 
 func TestStartResolvesAPerTargetBuiltinBaseline(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	head := call(t, a, "start", "--out", filepath.Join(t.TempDir(), "probe"), "--builtins-since", "HEAD", "alpha")
 	m, err := load(head)
@@ -25,6 +26,7 @@ func TestStartResolvesAPerTargetBuiltinBaseline(t *testing.T) {
 }
 
 func TestStartRejectsAnInvalidPerTargetBuiltinBaseline(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	for _, baseline := range []string{"gamma=HEAD", "alpha=no-such-rev", "alpha=HEAD,alpha=HEAD", "alpha=", "alpha=HEAD,"} {
 		if _, err := a.run([]string{"start", "--out", filepath.Join(t.TempDir(), "run"), "--builtins-since", baseline, "alpha", "beta"}); err == nil {

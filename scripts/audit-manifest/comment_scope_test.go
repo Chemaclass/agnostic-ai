@@ -7,6 +7,7 @@ import (
 )
 
 func TestCommentOnlyKeepsRuntimeTokensAndLinePositions(t *testing.T) {
+	t.Parallel()
 	before := []byte("package cli\n// Keep in sync with docs/check.md.\nfunc enabled() bool { return true }\n")
 	after := []byte("package cli\n// Keep in sync with docs/lint-codes.md.\nfunc enabled() bool { return true }\n")
 	if !commentOnly(before, after) {
@@ -25,6 +26,7 @@ func TestCommentOnlyKeepsRuntimeTokensAndLinePositions(t *testing.T) {
 }
 
 func TestCommentOnlyKeepsCgoAndExistingDirectivesConservative(t *testing.T) {
+	t.Parallel()
 	for _, header := range []string{"//go:build linux\n\npackage cli\n", "package cli\nimport \"C\"\n", "// +build linux\n\npackage cli\n", "//line generated.go:4\npackage cli\n"} {
 		if commentOnly([]byte(header+"// before\nvar value = true\n"), []byte(header+"// after\nvar value = true\n")) {
 			t.Errorf("accepted directive/cgo %q", header)
@@ -33,6 +35,7 @@ func TestCommentOnlyKeepsCgoAndExistingDirectivesConservative(t *testing.T) {
 }
 
 func TestHistoricalCommentEditKeepsRuntimeProofSeparateFromProse(t *testing.T) {
+	t.Parallel()
 	before, err := os.ReadFile("testdata/comment-scope/lint_codes.go")
 	if err != nil {
 		t.Fatal(err)

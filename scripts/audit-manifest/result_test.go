@@ -42,6 +42,7 @@ func writeResult(t *testing.T, run string, r map[string]any) string {
 	return p
 }
 func TestIngestCompletesTargetAndRetriesWithoutChangingManifest(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	for _, target := range []string{"alpha", "beta"} {
@@ -59,6 +60,7 @@ func TestIngestCompletesTargetAndRetriesWithoutChangingManifest(t *testing.T) {
 	call(t, a, "finalize", run)
 }
 func TestIngestRejectsIncompleteResultAtomically(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	r := resultFixture(t, a, run, "alpha")
@@ -76,6 +78,7 @@ func TestIngestRejectsIncompleteResultAtomically(t *testing.T) {
 }
 
 func TestIngestRejectsInvalidResultsWithoutRecordingCoverage(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		change func(map[string]any)
@@ -109,6 +112,7 @@ func TestIngestRejectsInvalidResultsWithoutRecordingCoverage(t *testing.T) {
 	}
 }
 func TestIngestRejectsChangedCheckpointAndConflictingRetry(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	r := resultFixture(t, a, run, "alpha")
@@ -124,6 +128,7 @@ func TestIngestRejectsChangedCheckpointAndConflictingRetry(t *testing.T) {
 	}
 }
 func TestIngestMatchesManualCoverageAndLock(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	for _, target := range []string{"alpha", "beta"} {
@@ -148,6 +153,7 @@ func TestIngestMatchesManualCoverageAndLock(t *testing.T) {
 	}
 }
 func TestIngestFailedFetchRequiresResearchLimit(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "failed")
 	r := resultFixture(t, a, run, "beta")
@@ -165,6 +171,7 @@ func TestIngestFailedFetchRequiresResearchLimit(t *testing.T) {
 }
 
 func TestResultTemplateDoesNotAssumeCoverage(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	resultFixture(t, a, run, "alpha")
@@ -188,6 +195,7 @@ func TestResultTemplateDoesNotAssumeCoverage(t *testing.T) {
 }
 
 func TestIngestedCoverageRemainsReusable(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	r := resultFixture(t, a, run, "alpha")
@@ -209,6 +217,7 @@ func TestIngestedCoverageRemainsReusable(t *testing.T) {
 }
 
 func TestStoredResultsRejectConflictingCoverageEverywhere(t *testing.T) {
+	t.Parallel()
 	a, run := fixture(t)
 	fetched(t, a, run, "changed")
 	for _, target := range []string{"alpha", "beta"} {
@@ -242,6 +251,7 @@ func TestStoredResultsRejectConflictingCoverageEverywhere(t *testing.T) {
 }
 
 func TestStoredResultsRejectMalformedRecords(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		change func(map[string]any)

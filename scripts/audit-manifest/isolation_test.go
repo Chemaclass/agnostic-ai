@@ -9,6 +9,7 @@ import (
 )
 
 func TestIsolatedAuditSurvivesSourceCheckoutChanges(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	out := filepath.Join(t.TempDir(), "audit-worktree")
 	call(t, a, "isolate", "--out", out)
@@ -41,6 +42,7 @@ func TestIsolatedAuditSurvivesSourceCheckoutChanges(t *testing.T) {
 }
 
 func TestIsolateRequiresExplicitCommitForDirtyInputs(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	if err := os.WriteFile(filepath.Join(a.root, "untracked"), []byte("work"), 0o644); err != nil {
 		t.Fatal(err)
@@ -56,6 +58,7 @@ func TestIsolateRequiresExplicitCommitForDirtyInputs(t *testing.T) {
 }
 
 func TestIsolatedAuditRejectsChangedResearchInputs(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	out := filepath.Join(t.TempDir(), "audit-worktree")
 	call(t, a, "isolate", "--out", out)
@@ -83,6 +86,7 @@ func TestIsolatedAuditRejectsChangedResearchInputs(t *testing.T) {
 }
 
 func TestIsolatedAuditKeepsEvidenceAfterWorktreeRemoval(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	out := filepath.Join(t.TempDir(), "audit-worktree")
 	call(t, a, "isolate", "--out", out)
@@ -111,6 +115,7 @@ func TestIsolatedAuditKeepsEvidenceAfterWorktreeRemoval(t *testing.T) {
 }
 
 func TestIsolateRejectsImplicitlyDroppingIgnoredBuiltins(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	ignored := filepath.Join(a.root, "internal/builtins/data/ignored.bin")
 	if err := os.WriteFile(filepath.Join(a.root, ".git/info/exclude"), []byte("ignored.bin\n"), 0o644); err != nil {
@@ -125,6 +130,7 @@ func TestIsolateRejectsImplicitlyDroppingIgnoredBuiltins(t *testing.T) {
 }
 
 func TestIsolatedAuditResumesWithinSameWorktree(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	out := filepath.Join(t.TempDir(), "audit")
 	call(t, a, "isolate", "--out", out)
@@ -139,6 +145,7 @@ func TestIsolatedAuditResumesWithinSameWorktree(t *testing.T) {
 }
 
 func TestStartKeepsSavedGoEvidenceOutOfTheCheckoutModule(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	for name, body := range map[string]string{"go.mod": "module example.test/checkout\n\ngo 1.21\n", "main.go": "package main\n\nfunc main() {}\n"} {
 		if err := os.WriteFile(filepath.Join(a.root, name), []byte(body), 0o644); err != nil {
@@ -168,6 +175,7 @@ func TestStartKeepsSavedGoEvidenceOutOfTheCheckoutModule(t *testing.T) {
 }
 
 func TestStartKeepsAnExistingEvidenceGoMod(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	path := filepath.Join(a.root, "local/target-audit/go.mod")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -188,6 +196,7 @@ func TestStartKeepsAnExistingEvidenceGoMod(t *testing.T) {
 }
 
 func TestStartWritesTheEvidenceGoModForAnExplicitRunInsideIt(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	call(t, a, "start", "--builtins-since", "HEAD", "--out", filepath.Join(a.root, "local/target-audit/named-run"))
 	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit/go.mod")); err != nil {
@@ -196,6 +205,7 @@ func TestStartWritesTheEvidenceGoModForAnExplicitRunInsideIt(t *testing.T) {
 }
 
 func TestStartLeavesTheEvidenceFolderAloneForARunOutsideIt(t *testing.T) {
+	t.Parallel()
 	a, _ := fixture(t)
 	call(t, a, "start", "--builtins-since", "HEAD", "--out", filepath.Join(t.TempDir(), "run"))
 	if _, err := os.Stat(filepath.Join(a.root, "local/target-audit")); !os.IsNotExist(err) {
