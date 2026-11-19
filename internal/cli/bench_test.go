@@ -291,7 +291,8 @@ func BenchmarkLint(b *testing.B) {
 	}
 }
 
-// BenchmarkWatchResync measures one `sync --watch` event: a saved rule.
+// BenchmarkWatchResync measures one `sync --watch` event for a rule saved
+// without changes, so the pass writes nothing and the loads weigh the most.
 // status-quo is what the loop runs today: resyncForChanges loads the
 // project to pick the affected targets, the pass loads it again, and the
 // loop parses the config once more to refresh the watch list. proposed
