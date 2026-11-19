@@ -81,7 +81,7 @@ linters:
       # root today, so the value is always ".".
       - linters:
           - unparam
-        text: '(root|projectRoot) always receives "\."'
+        text: ' - (root|projectRoot) always receives "\."'
       # goos is runtime.GOOS, so it looks constant only on Linux; a nolint
       # there would be unused on the other systems.
       - path: internal/cli/companion_stop\.go
