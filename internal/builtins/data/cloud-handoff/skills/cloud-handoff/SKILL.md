@@ -20,12 +20,13 @@ Check each of these before you change anything. If one fails, stop and say which
 2. `git remote get-url origin` prints a URL. Without a remote the cloud cannot clone the work.
 3. `command -v` finds the launch command of the row you will use in the Launch table below.
 4. The row's other needs are met: a terminal wrapper for the cloud launch, or an environment id.
+5. The push and the launch need network access. In a sandbox without it, ask the user to allow it, or give them the lines to run, and stop.
 
 ## Branch, commit, push
 
 1. Never push to the default branch (the one `git symbolic-ref --short refs/remotes/origin/HEAD` names, else `main` or `master`). On the default branch or a detached HEAD, create a new branch first, such as `cloud/<short-task-slug>`, and name it in your reply.
 2. Show `git status --short`. Stage only the files of this task, by path. Never stage a `.env` file, a key or certificate file, or anything else that looks like a secret; leave it out and say so.
-3. Commit with a short message that names the task. If a commit hook fails, stop and show its output. Do not skip the hook.
+3. Commit with a short message that names the task. If the commit fails, for example a hook or signing fails, stop and show its output. Do not skip the hook. Do not change Git settings, such as signing, to get the commit through.
 4. `git push -u origin <branch>`. If it fails, stop and show the error. Never force-push.
 
 ## Write the prompt
@@ -47,7 +48,7 @@ The prompt is all the cloud session knows. Write it like this:
 - **Branch**: the pushed branch, and that the work is committed on it.
 - **Verify**: the checks to run before calling it done.
 - Keep it under 60 lines. Never write secrets, tokens, or `.env` values.
-- Write it to a file through a quoted heredoc, so the shell expands nothing in it, then read the file into a variable. Keep the heredoc outside `$( )`: an older bash, such as macOS `/bin/bash` and `/bin/sh`, breaks on quotes and parentheses there. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt.
+- Write it to a file through a quoted heredoc, so the shell expands nothing in it, then read the file into a variable. Keep the heredoc outside `$( )`: an older bash, such as macOS `/bin/bash` and `/bin/sh`, breaks on quotes and parentheses there. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt. The file stays in the temp folder, which the system clears.
 
 ```bash
 f=$(mktemp)
@@ -57,7 +58,7 @@ Finish the parser error messages. [cloud/parser-errors]
 ## Done
 ...
 PROMPT
-CLOUD_PROMPT=$(cat "$f"); rm -f "$f"
+CLOUD_PROMPT=$(cat "$f")
 export CLOUD_PROMPT
 [ -n "$CLOUD_PROMPT" ] || exit 1
 ```
