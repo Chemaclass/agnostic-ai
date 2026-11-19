@@ -87,6 +87,28 @@ func listsHelper(results []sourceResult, tool Tool, id string) bool {
 	return false
 }
 
+// ValidAgentID reports whether id can name a Claude Code subagent: 1 to
+// 128 letters, digits, hyphens or underscores, so it never reaches
+// outside the subagents folder.
+func ValidAgentID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	return strings.IndexFunc(id, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_'
+	}) < 0
+}
+
+// subagentIn finds the Claude Code subagent id among helpers.
+func subagentIn(helpers []helper, id string) (helper, bool) {
+	for _, h := range helpers {
+		if h.Tool == ToolClaude && h.ID == id {
+			return h, true
+		}
+	}
+	return helper{}, false
+}
+
 // sortedHelpers orders helpers newest first, then by tool and id, so a
 // list that did not change keeps its order.
 func sortedHelpers(helpers []helper) []helper {

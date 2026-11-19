@@ -423,8 +423,9 @@ func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]b
 	}
 	var helpers []helper
 	for _, entry := range entries {
+		// Only an id an open request can name is listed.
 		id, ok := claudeAgentID(entry)
-		if !ok {
+		if !ok || !ValidAgentID(id) {
 			continue
 		}
 		info, err := entry.Info()

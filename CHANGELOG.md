@@ -23,6 +23,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Claude Code conversations skip named pipes posing as transcripts, which could freeze the companion list (#3601).
 - macOS disk images include the CLI; the app offers updates and can install the command line tool without replacing an existing install (#3516).
 - The companion list skips named pipes where Claude Code stores live session and background job details (#3601).
+- A click on a Claude Code subagent row still opens the chat it runs in, and now leaves a notice that names the subagent and says how to reach it. `POST /api/conversations/open` takes an optional `helper`, the subagent's id (#3667).
 - The companion replaces an `agnostic-ai serve` whose conversation list read has run for over two minutes, even when the server still answers its health check. `GET /api/health` now reports `scanningSince`, when the running read began (#3601).
 
 - On Windows, `agnostic-ai companion uninstall` deletes the companion's start at login value from the registry, even when the program is gone, and its browser data, which the companion now keeps in its own folder. After this upgrade the Windows companion starts with an empty browser data folder, so the list forgets its last chosen place once and opens on All. On Linux, `stop` and `uninstall` from a shell without a D-Bus session bus, such as an SSH login, say so: `stop` stops nothing, and `uninstall` still deletes the files. (#3221, #3222)
