@@ -173,7 +173,7 @@ func mergeGlobalStringLists(path string, data []byte, want, previous map[string]
 		holds := func(rule string) bool {
 			return slices.ContainsFunc(native, func(item any) bool { return item == rule })
 		}
-		next := make([]any, 0, len(native)+len(want[list]))
+		next := make([]any, 0, len(native))
 		edited := false
 		for _, item := range native {
 			if rule, ok := item.(string); ok && slices.Contains(previous[list], rule) && !slices.Contains(want[list], rule) {
