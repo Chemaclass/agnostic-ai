@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 )
 
 type app struct {
@@ -272,28 +274,7 @@ func canonicalPath(path string) (string, error) {
 }
 
 func atomicWrite(path string, b []byte) error {
-	f, err := os.CreateTemp(filepath.Dir(path), ".audit-*")
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	defer func() { _ = os.Remove(f.Name()) }()
-	if _, err = f.Write(b); err == nil {
-		err = f.Sync()
-	}
-	closeErr := f.Close()
-	if err == nil {
-		err = closeErr
-	}
-	if err == nil {
-		err = os.Chmod(f.Name(), 0o644)
-	}
-	if err == nil {
-		err = os.Rename(f.Name(), path)
-	}
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	return nil
+	return atomicfile.Replace(path, b, 0o644)
 }
 
 func save(m *manifest) error {

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 )
 
 type upgradeCheckCache struct {
@@ -56,20 +58,9 @@ func writeUpgradeCache(path string, cache upgradeCheckCache) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), "update-check-*")
+	data, err := json.Marshal(cache)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	defer func() { _ = os.Remove(f.Name()) }()
-	if err := json.NewEncoder(f).Encode(cache); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := os.Rename(f.Name(), path); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	return nil
+	return atomicfile.Replace(path, append(data, '\n'), 0o600)
 }

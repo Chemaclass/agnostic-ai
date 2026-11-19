@@ -17,15 +17,24 @@ import (
 )
 
 func isolateGitCommand(cmd *exec.Cmd) *exec.Cmd {
-	for _, value := range os.Environ() {
+	cmd.Env = append(cmd.Env, IsolatedEnv(os.Environ())...)
+	return cmd
+}
+
+// IsolatedEnv drops the variables that point Git at another repository,
+// so Git finds the repository from its working folder. The result is never
+// nil, so an exec.Cmd given it does not fall back to the parent's variables.
+func IsolatedEnv(environ []string) []string {
+	env := make([]string, 0, len(environ))
+	for _, value := range environ {
 		key, _, _ := strings.Cut(value, "=")
 		switch strings.ToUpper(key) {
 		case "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR":
 			continue
 		}
-		cmd.Env = append(cmd.Env, value)
+		env = append(env, value)
 	}
-	return cmd
+	return env
 }
 
 // Layout is what Git reports about the repository around one folder.
