@@ -16,7 +16,7 @@ import (
 func projectWithSubfolder(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	deep := filepath.Join(dir, "sub", "deep")
 	if err := os.MkdirAll(deep, 0o755); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestInit_StartsAProjectUnderAGlobalHomeThatIsTheUserHome(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", home)
-	mustWriteFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\n")
 	work := filepath.Join(home, "code", "new")
 	if err := os.MkdirAll(work, 0o755); err != nil {
 		t.Fatal(err)
