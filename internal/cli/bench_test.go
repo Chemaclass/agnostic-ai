@@ -10,6 +10,10 @@ package cli
 //     target (capture mode, no disk), the core of `sync`.
 //   - BenchmarkSyncFull:          the full end-to-end `sync` including
 //     disk compare, ledger, and state write (steady-state re-sync).
+//   - BenchmarkSyncOutsideRepository: BenchmarkSyncFull at specs=10,
+//     serial, in a folder outside any Git repository, status-quo
+//     (Git started for every question) and proposed (skipped).
+//   - BenchmarkSyncInsideRepository:  the same after git init.
 //   - BenchmarkSyncCheck:         the `--check` capture-compare pass.
 //   - BenchmarkLoadProject:       one config and spec load, which a
 //     `sync` invocation pays once.
@@ -36,6 +40,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -130,6 +135,62 @@ func BenchmarkSyncFull(b *testing.B) {
 					}
 				}
 			})
+		}
+	}
+}
+
+// BenchmarkSyncOutsideRepository is BenchmarkSyncFull at specs=10, serial,
+// in a folder outside any Git repository, where every Git question fails.
+// status-quo turns off the skip in runGitWithin, so the sync helpers start
+// Git as they did before; proposed keeps it on.
+func BenchmarkSyncOutsideRepository(b *testing.B) {
+	benchSyncGitSubjects(b, false)
+}
+
+// BenchmarkSyncInsideRepository is BenchmarkSyncOutsideRepository after
+// git init in the project folder: a repository must pay nothing extra.
+func BenchmarkSyncInsideRepository(b *testing.B) {
+	benchSyncGitSubjects(b, true)
+}
+
+func benchSyncGitSubjects(b *testing.B, initRepository bool) {
+	b.Helper()
+	for _, subject := range []struct {
+		name string
+		skip bool
+	}{
+		{"status-quo", false},
+		{"proposed", true},
+	} {
+		b.Run(subject.name, func(b *testing.B) {
+			prev := skipGitOutsideRepository
+			skipGitOutsideRepository = subject.skip
+			b.Cleanup(func() { skipGitOutsideRepository = prev })
+			benchSyncGitRepository(b, initRepository)
+		})
+	}
+}
+
+func benchSyncGitRepository(b *testing.B, initRepository bool) {
+	b.Helper()
+	root := benchProject(b, 10)
+	b.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(root))
+	if initRepository {
+		if out, err := exec.Command("git", "-C", root, "init", "-q").CombinedOutput(); err != nil {
+			b.Fatalf("git init: %v: %s", err, out)
+		}
+	}
+	benchQuiet(b)
+	benchChdir(b, root)
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		b.Fatal(err)
+	}
+	resetBenchBuffers()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+			b.Fatal(err)
 		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 const (
@@ -68,6 +69,8 @@ func newBuiltinChangeHandler(root string, global bool) *builtinChangeHandler {
 }
 
 func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// serve outlives one run, so a repository made since the last request must be seen.
+	gitquery.Reset()
 	if r.URL.Path == builtinStatusPath && r.Method == http.MethodGet {
 		if !authority.RequestAllowed(r) {
 			writeEditJSON(w, http.StatusForbidden, editError{Error: "changes are served on loopback only"})
