@@ -92,6 +92,9 @@ function viewOf(state, conversations, query) {
   return view
 }
 
+/** The longest search serve takes, in characters. */
+const MAX_QUERY = 200
+
 function matches(row, words) {
   const text = [row.title, row.folder, row.branch].join(' ').toLowerCase()
   return words.every((word) => text.includes(word))
@@ -190,6 +193,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   async function inbox(request, response, url) {
     if (state.fixture.listProblem) return sendJSON(response, 502, { error: state.fixture.listProblem })
     const query = url.searchParams.get('q')
+    if (query && [...query].length > MAX_QUERY) return sendJSON(response, 400, { error: `the search is longer than ${MAX_QUERY} characters` })
     const note = state.fixture.note
     const version = state.version
     if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note, version })

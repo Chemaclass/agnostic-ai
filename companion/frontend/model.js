@@ -804,6 +804,19 @@ export function shortcutOf(press, isMac) {
   return [...parts, key].join('+')
 }
 
+/** Shortcuts that copy, paste, undo, quit, close, interrupt a terminal or switch apps and tabs: taken globally, every app loses them. */
+const SHARED_SHORTCUTS = ['Ctrl+C', 'Ctrl+D', 'Ctrl+Z', 'Ctrl+Tab', 'Ctrl+Shift+Tab']
+const SYSTEM_SHORTCUTS = {
+  mac: new Set([...SHARED_SHORTCUTS, 'Cmd+Q', 'Cmd+W', 'Cmd+A', 'Cmd+C', 'Cmd+V', 'Cmd+X', 'Cmd+Z', 'Cmd+Shift+Z', 'Cmd+H', 'Cmd+M', 'Cmd+Space', 'Ctrl+Space', 'Cmd+Tab', 'Cmd+Shift+Tab']),
+  other: new Set([...SHARED_SHORTCUTS, 'Ctrl+Q', 'Ctrl+W', 'Ctrl+A', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Y', 'Ctrl+Shift+Z', 'Alt+Tab', 'Alt+Shift+Tab', 'Alt+F4', 'Ctrl+Alt+Delete', 'Ctrl+Alt+Backspace', 'Super+L']),
+}
+
+/** Why a shortcut cannot be chosen, or undefined when it can. */
+export function refusedShortcutOf(shortcut, isMac) {
+  if (!SYSTEM_SHORTCUTS[isMac ? 'mac' : 'other'].has(shortcut)) return undefined
+  return `${shortcut} is a shortcut every app uses; choose other keys`
+}
+
 /** How each part of a shortcut reads on a Mac, where the modifiers have symbols. */
 const MAC_KEYCAPS = { Ctrl: '⌃', Alt: '⌥', Shift: '⇧', Cmd: '⌘', Super: '⌘' }
 
