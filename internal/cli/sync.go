@@ -8,12 +8,15 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func newSyncCmd() *cobra.Command {
@@ -155,15 +158,24 @@ func newSyncCmd() *cobra.Command {
 					return fmt.Errorf("ignore project lock: %w", err)
 				}
 			}
-			firstLoadOut := logOut
-			if verbosity == levelVerbose && !check && !plan && !dryRun && !jsonOut {
-				logOut = io.Discard
+			// Under -v the write pass prints its load lines after its
+			// report, so they wait for it.
+			holdLoadLines := verbosity == levelVerbose && !check && !plan && !dryRun && !jsonOut
+			load := func() (projectLoad, error) {
+				var held strings.Builder
+				out := logOut
+				if holdLoadLines {
+					logOut = &held
+				}
+				defer func() { logOut = out }()
+				cfg, bundle, err := loadProject(".")
+				return projectLoad{cfg: cfg, bundle: bundle, log: held.String()}, err
 			}
-			cfg, bundle, err := loadProject(".")
-			logOut = firstLoadOut
+			project, err := load()
 			if err != nil {
 				return err
 			}
+			cfg, bundle := project.cfg, project.bundle
 			if noTargetsKept(cfg) && !allowEmptyTargets && !watch {
 				kept := false
 				if check {
@@ -254,6 +266,10 @@ func newSyncCmd() *cobra.Command {
 					}
 					if len(picked) > 0 {
 						base = picked
+						// The picker saved the targets to the config.
+						if project, err = load(); err != nil {
+							return err
+						}
 					}
 				}
 			}
@@ -276,18 +292,10 @@ func newSyncCmd() *cobra.Command {
 				warnBareCapabilitiesTo(cmd.ErrOrStderr(), cfg, bundle, effective)
 			}
 			if plan {
-				resetDrops()
-				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
-					return err
-				}
-				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				reports, drops, notesErr, err := previewDrift(cfg, bundle, effective, backup, gitignoreFlag, ledger(), previewOptions{})
 				if err != nil {
 					return err
 				}
-				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
-					return err
-				}
-				drops, notesErr := checkCoverageNotes(cfg, effective)
 				// With --check the plan still gates, so a CI step that
 				// asks for the short report does not pass on drift.
 				var driftErr error
@@ -308,28 +316,10 @@ func newSyncCmd() *cobra.Command {
 				return errors.Join(notesErr, driftErr)
 			}
 			if check {
-				resetDrops()
-				// --against compares what Git holds, not these files.
-				if tree == nil {
-					if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
-						return err
-					}
-				}
-				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				reports, drops, notesErr, err := previewDrift(cfg, bundle, effective, backup, gitignoreFlag, ledger(), previewOptions{tree: tree})
 				if err != nil {
 					return err
 				}
-				if tree == nil {
-					if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
-						return err
-					}
-				}
-				if tree != nil {
-					if reports, err = tree.recollect(reports, effective, gitignoreFlag); err != nil {
-						return err
-					}
-				}
-				drops, notesErr := checkCoverageNotes(cfg, effective)
 				// --against compares what Git holds, and Git does not hold the
 				// ledger, so a hook gating a commit only hears about it.
 				if tree == nil {
@@ -417,54 +407,32 @@ func newSyncCmd() *cobra.Command {
 				return append(reports, emptyTargetsRemovals(cfg, ledger(), reports, links, keepEdits)), nil
 			}
 			if dryRun && diff {
-				resetDrops()
-				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
-					return err
-				}
-				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				reports, _, notesErr, err := previewDrift(cfg, bundle, effective, backup, gitignoreFlag, ledger(), previewOptions{removals: withEmptyTargetsRemovals})
 				if err != nil {
 					return err
 				}
-				if reports, err = withEmptyTargetsRemovals(reports); err != nil {
-					return err
-				}
-				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, false); err != nil {
-					return err
-				}
-				_, notesErr := checkCoverageNotes(cfg, effective)
 				printDriftDiffs(cmd, reports)
 				printDriftRemovals(cmd, reports)
 				return notesErr
 			}
 			if jsonOut && dryRun {
-				resetDrops()
-				if err := checkHandWrittenInstructions(effective, backup, ledger().state.Outputs); err != nil {
-					return err
-				}
-				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				reports, drops, notesErr, err := previewDrift(cfg, bundle, effective, backup, gitignoreFlag, ledger(), previewOptions{removals: withEmptyTargetsRemovals, keepEdits: keepEdits})
 				if err != nil {
 					return err
 				}
-				if reports, err = withEmptyTargetsRemovals(reports); err != nil {
-					return err
-				}
-				if reports, err = previewMergedLeftovers(reports, ledger().state, cfg.Sync.Unmanaged, keepEdits); err != nil {
-					return err
-				}
-				drops, notesErr := checkCoverageNotes(cfg, effective)
 				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, drops, notesErr)
 			}
 			if jsonOut {
-				return runSyncJSON(cmd, ".", ledger(), effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
+				return runSyncJSON(cmd, ".", ledger(), project, effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
 			}
 			if dryRun && allowEmptyTargets && noTargetsKept(cfg) {
-				if err := runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs); err != nil {
+				if err := runSyncPassWith(".", ledger(), &project, effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs); err != nil {
 					return err
 				}
 				// The pass skips the orphan sweep, so it names no file the
 				// sweep would remove.
 				resetDrops()
-				reports, err := collectDriftWithLedger(effective, nil, gitignoreFlag, ledger())
+				reports, err := collectLoadedDriftWith(ledger(), cfg, bundle, effective, nil, gitignoreFlag)
 				resetDrops()
 				if err != nil {
 					return err
@@ -479,7 +447,7 @@ func newSyncCmd() *cobra.Command {
 				printDriftRemovals(cmd, removals)
 				return nil
 			}
-			return runSyncPassWith(".", ledger(), effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+			return runSyncPassWith(".", ledger(), &project, effective, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
@@ -504,4 +472,48 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&global, "global", false, "Sync user-level instructions, rules, hooks, skills, and native agents")
 	registerTargetCompletion(cmd)
 	return cmd
+}
+
+// previewOptions are what the sync previews do differently. tree is set
+// under --against, which compares what Git holds, not these files.
+// removals adds the files an empty targets list removes. keepEdits leaves
+// edited merged files out of the leftovers, as the sync would.
+type previewOptions struct {
+	tree      *againstTree
+	removals  func([]driftReport) ([]driftReport, error)
+	keepEdits bool
+}
+
+// previewDrift runs the steps every sync preview shares, in order: reset
+// the drops, check hand-written instructions, capture the drift, add the
+// merged leftovers, and read the coverage notes of this capture.
+func previewDrift(cfg *config.Config, bundle spec.Bundle, targets []string, backup bool, gitignoreFlag string, ledger ledgerSnapshot, opts previewOptions) ([]driftReport, syncDrops, error, error) {
+	resetDrops()
+	if opts.tree == nil {
+		readers := targets
+		if len(readers) == 0 {
+			readers = cfg.Targets
+		}
+		if err := keepHandWrittenInstructions(cfg, bundle, readers, ledger.state.Outputs, backup, false); err != nil {
+			return nil, syncDrops{}, nil, err
+		}
+	}
+	reports, err := collectLoadedDriftWith(ledger, cfg, bundle, targets, nil, gitignoreFlag)
+	if err != nil {
+		return nil, syncDrops{}, nil, err
+	}
+	if opts.removals != nil {
+		if reports, err = opts.removals(reports); err != nil {
+			return nil, syncDrops{}, nil, err
+		}
+	}
+	if opts.tree == nil {
+		if reports, err = previewMergedLeftovers(reports, ledger.state, cfg.Sync.Unmanaged, opts.keepEdits); err != nil {
+			return nil, syncDrops{}, nil, err
+		}
+	} else if reports, err = opts.tree.recollect(reports, targets, gitignoreFlag); err != nil {
+		return nil, syncDrops{}, nil, err
+	}
+	drops, notesErr := checkCoverageNotes(cfg, targets)
+	return reports, drops, notesErr, nil
 }

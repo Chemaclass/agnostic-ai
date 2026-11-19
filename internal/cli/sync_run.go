@@ -734,12 +734,28 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 // untrack, a generated path git both tracks and ignores is removed from
 // the index (not the working tree) after the sweep.
 func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
-	return runSyncPassWith(root, readLedger(root), targets, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+	return runSyncPassWith(root, readLedger(root), nil, targets, dryRun, backup, keepEdits, untrack, gitignoreFlag, jobs)
+}
+
+// projectLoad is a project the caller loaded under root. log holds the
+// verbose lines the load printed while the caller held them back.
+type projectLoad struct {
+	cfg    *config.Config
+	bundle spec.Bundle
+	log    string
+}
+
+// view returns the project with a config the pass can change without
+// changing the caller's.
+func (p projectLoad) view() (*config.Config, spec.Bundle) {
+	cfg := *p.cfg
+	return &cfg, p.bundle
 }
 
 // runSyncPassWith is runSyncPass with the state file the caller read
-// under root. Nothing writes the state file before the pass ends.
-func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
+// under root, and the project it loaded, or nil to load it here.
+// Nothing writes the state file before the pass ends.
+func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
 	if err := prior.refuseNewer(); err != nil {
 		return err
 	}
@@ -754,9 +770,16 @@ func runSyncPassWith(root string, prior ledgerSnapshot, targets []string, dryRun
 		}()
 	}
 	resetSyncBuffers()
-	cfg, b, err := loadProject(root)
-	if err != nil {
-		return err
+	var cfg *config.Config
+	var b spec.Bundle
+	if project == nil {
+		var err error
+		if cfg, b, err = loadProject(root); err != nil {
+			return err
+		}
+	} else {
+		_, _ = fmt.Fprint(logOut, project.log)
+		cfg, b = project.view()
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
 	prev := prior.state
@@ -1473,17 +1496,14 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target. prior is the state file
-// the caller read under root.
-func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
+// the caller read under root, and project the project it loaded there.
+func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project projectLoad, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
 	if err := prior.refuseNewer(); err != nil {
 		return err
 	}
 	resetSyncBuffers()
 	defer resetSyncBuffers()
-	cfg, b, err := loadProject(root)
-	if err != nil {
-		return err
-	}
+	cfg, b := project.view()
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
 	prev := prior.state
 	release := holdPriorState(root, prev)
