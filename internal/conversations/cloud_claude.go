@@ -185,11 +185,6 @@ func newCloudClient() *http.Client {
 	}
 }
 
-// claudeCloudList is the list answer, with the fields the rows need.
-type claudeCloudList struct {
-	Data *[]claudeCloudRow `json:"data"`
-}
-
 type claudeCloudRow struct {
 	ID           string `json:"id"`
 	Title        string `json:"title"`
@@ -233,15 +228,10 @@ func (c *ClaudeCloud) SetTitle(ctx context.Context, sessionID, title string) err
 	if err != nil {
 		return &RenameError{Tool: ToolClaude, Reason: RenameUnexpected, Cause: err}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.BaseURL+claudeCloudSessionPath+sessionID, bytes.NewReader(body))
+	req, err := c.newRequest(ctx, http.MethodPut, claudeCloudSessionPath+sessionID, token, bytes.NewReader(body))
 	if err != nil {
 		return &RenameError{Tool: ToolClaude, Reason: RenameUnreachable, Cause: err}
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("anthropic-client-platform", runtime.GOOS)
-	req.Header.Set("User-Agent", "agnostic-ai")
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return &RenameError{Tool: ToolClaude, Reason: RenameUnreachable, Cause: err}
@@ -270,69 +260,29 @@ func (c *ClaudeCloud) List(ctx context.Context) ([]Conversation, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+claudeCloudSessionsPath, nil)
+	req, err := c.newRequest(ctx, http.MethodGet, claudeCloudSessionsPath, token, nil)
 	if err != nil {
 		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: err}
+	}
+	body, err := cloudGet(c.Client, req, ToolClaude, "session")
+	if err != nil {
+		return nil, err
+	}
+	return decodeCloudList(ToolClaude, "session", body, cloudConversation)
+}
+
+// newRequest builds a request to the sessions API with the headers it expects.
+func (c *ClaudeCloud) newRequest(ctx context.Context, method, path, token string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("anthropic-client-platform", runtime.GOOS)
 	req.Header.Set("User-Agent", "agnostic-ai")
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: err}
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, refusal(resp)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxCloudReplyBytes+1))
-	if err != nil {
-		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreachable, Cause: err}
-	}
-	if len(body) > maxCloudReplyBytes {
-		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: fmt.Errorf("the session list is larger than %d bytes", maxCloudReplyBytes)}
-	}
-	return cloudConversations(body)
-}
-
-// cloudRefusals maps the statuses that say something about the sign-in.
-// Any other status is a refusal.
-var cloudRefusals = map[int]CloudReason{
-	http.StatusUnauthorized: CloudSignedOut,
-}
-
-// refusal turns an answer other than 200 into a CloudError that keeps
-// the start of the provider's text as its cause.
-func refusal(resp *http.Response) error {
-	reason, known := cloudRefusals[resp.StatusCode]
-	if !known {
-		reason = CloudRefused
-	}
-	said, _ := io.ReadAll(io.LimitReader(resp.Body, maxCloudCauseBytes))
-	return &CloudError{Tool: ToolClaude, Reason: reason, Cause: fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(said)))}
-}
-
-// cloudConversations reads the list answer. A row this version cannot
-// read fails the whole answer rather than drop out of sight.
-func cloudConversations(body []byte) ([]Conversation, error) {
-	var list claudeCloudList
-	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: fmt.Errorf("session list: %w", err)}
-	}
-	if list.Data == nil {
-		return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: errors.New("session list has no data field")}
-	}
-	conversations := make([]Conversation, 0, len(*list.Data))
-	for i, row := range *list.Data {
-		c, err := cloudConversation(row)
-		if err != nil {
-			return nil, &CloudError{Tool: ToolClaude, Reason: CloudUnreadable, Cause: fmt.Errorf("session list row %d: %w", i, err)}
-		}
-		conversations = append(conversations, c)
-	}
-	return conversations, nil
+	return req, nil
 }
 
 // cloudConversation turns one row into a list row. The row names no
