@@ -53,9 +53,17 @@ export function readInbox(query, before, signal) {
   return call('/api/inbox?' + asked, { signal })
 }
 
-/** Opens a row. Its title goes along, so a failure that comes after the companion stopped waiting can name it. */
+/**
+ * Opens a row, or with `helper` the chat that Claude Code subagent runs in. Its title goes along, so a failure that
+ * comes after the companion stopped waiting can name it.
+ */
 export function openConversation(conversation) {
-  return post('/api/open', { tool: conversation.tool, id: conversation.id, ...(conversation.title ? { title: conversation.title } : {}) })
+  return post('/api/open', {
+    tool: conversation.tool,
+    id: conversation.id,
+    ...(conversation.title ? { title: conversation.title } : {}),
+    ...(conversation.helper ? { helper: conversation.helper } : {}),
+  })
 }
 
 /**

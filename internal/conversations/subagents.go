@@ -376,7 +376,8 @@ func claudeAgentID(entry os.DirEntry) (string, bool) {
 	if entry.IsDir() || !strings.HasPrefix(name, "agent-") || !strings.HasSuffix(name, ".jsonl") {
 		return "", false
 	}
-	return strings.TrimSuffix(strings.TrimPrefix(name, "agent-"), ".jsonl"), true
+	id := strings.TrimSuffix(strings.TrimPrefix(name, "agent-"), ".jsonl")
+	return id, ValidAgentID(id)
 }
 
 // claudeAgentMeta is what Claude Code writes beside a subagent's

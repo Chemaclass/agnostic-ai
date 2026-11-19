@@ -191,6 +191,27 @@ func Open(ctx context.Context, c Conversation, processes Processes, launcher Lau
 	}
 }
 
+// subagentGone is the reply for a subagent its chat no longer lists:
+// it finished, or it was never there.
+const subagentGone = "That subagent no longer works in this chat, so nothing was opened. Refresh the list."
+
+// subagentReply says which subagent was asked for once the chat it runs
+// in opened. The tool takes no command that shows a subagent, so the
+// person switches to it in the chat.
+func subagentReply(reply OpenReply, picked helper) OpenReply {
+	reply.Helper = &picked
+	name := picked.Title
+	if name == "" {
+		name = picked.Kind
+	}
+	if name == "" {
+		reply.Message = "Opened the chat it runs in. Use the agent rows below the prompt to switch to its subagent."
+		return reply
+	}
+	reply.Message = fmt.Sprintf("Opened the chat it runs in. Its subagent is '%s'. Use the agent rows below the prompt to switch to it.", name)
+	return reply
+}
+
 // heldNow checks a cursor-agent chat's store again before it is resumed:
 // the chat may have started after the scan, or be older than the scan
 // checks, and a resume would start a second copy of it.

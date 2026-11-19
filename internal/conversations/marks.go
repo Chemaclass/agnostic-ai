@@ -547,7 +547,14 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 // second open of the same chat while one runs starts nothing: it waits
 // for the first and gets its reply.
 func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
-	key := markKey(tool, id)
+	return s.ReopenHelper(ctx, tool, id, "", opts, launcher)
+}
+
+// ReopenHelper reopens the chat a Claude Code subagent runs in, as
+// Reopen does, and names that subagent in the reply. A subagent the
+// chat does not list opens nothing. An empty subagent is Reopen.
+func (s *Scanner) ReopenHelper(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
+	key := markKey(tool, id) + "\x00" + subagent
 	s.openingMu.Lock()
 	if running, ok := s.opening[key]; ok {
 		s.openingMu.Unlock()
@@ -566,7 +573,7 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 		s.openingMu.Unlock()
 		close(this.done)
 	}()
-	this.reply, this.found = s.reopen(ctx, tool, id, opts, launcher)
+	this.reply, this.found = s.reopen(ctx, tool, id, subagent, opts, launcher)
 	return this.reply, this.found
 }
 
@@ -578,12 +585,21 @@ type sharedOpen struct {
 	found bool
 }
 
-func (s *Scanner) reopen(ctx context.Context, tool Tool, id string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
+func (s *Scanner) reopen(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) (reply OpenReply, found bool) {
 	conversation, found := s.findToOpen(ctx, tool, id, opts)
 	if !found {
 		return OpenReply{}, false
 	}
+	var picked helper
+	if subagent != "" {
+		if picked, found = conversation.subagentOf(subagent); !found {
+			return OpenReply{Message: subagentGone}, true
+		}
+	}
 	reply = Open(ctx, conversation, s.Processes, launcher)
+	if subagent != "" && reply.Opened {
+		reply = subagentReply(reply, picked)
+	}
 	if !reply.Opened || s.MarksPath == "" {
 		return reply, true
 	}

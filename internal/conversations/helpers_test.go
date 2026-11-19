@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -368,4 +369,72 @@ func compactJSON(t *testing.T, value string) string {
 func helpersJSON(t *testing.T, helpers []helper) string {
 	t.Helper()
 	return compactJSON(t, asJSON(t, helpers))
+}
+
+// liveSubagentScanner lists the live Claude Code session idSafari, run
+// by process 77 in a Terminal tab, with one working Explore subagent.
+func liveSubagentScanner(t *testing.T) *Scanner {
+	t.Helper()
+	table := append([]ProcessInfo{{PID: 22657, PPID: 1, Stat: "S", Started: "Mon Nov 16 09:00:00 2026", Command: terminalAppPath}},
+		terminalAttach("/dev/ttys004", runPID, "Mon Nov 16 16:43:20 2026")...)
+	scanner, stores := testScanner(t, nil, fakeProcesses{alive: map[int]bool{runPID: true}, table: table})
+	file := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	write(t, file, lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": workerTime, "message": obj{"role": "user", "content": "Review the stack"}},
+	))
+	write(t, filepath.Join(claudeSubagentsDir(file), "agent-explore.jsonl"), "")
+	write(t, filepath.Join(claudeSubagentsDir(file), "agent-explore.meta.json"), `{"agentType":"Explore","description":"Find call sites","toolUseId":"call-explore"}`)
+	appendWorkerEvent(t, file, workerDispatch("call-explore"))
+	started, _ := time.Parse(time.RFC3339, workerTime)
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "77.json"),
+		`{"pid":77,"sessionId":"`+idSafari+`","procStart":"","status":"busy","startedAt":`+asJSON(t, started.Add(-time.Minute).UnixMilli())+`}`)
+	return scanner
+}
+
+func TestReopenHelper_FocusesTheParentAndNamesTheSubagent(t *testing.T) {
+	scanner := liveSubagentScanner(t)
+	launcher := &fakeLauncher{focusOK: true}
+
+	reply, found := scanner.ReopenHelper(context.Background(), ToolClaude, idSafari, "explore", ScanOptions{}, launcher)
+
+	if !found || !reply.Opened {
+		t.Fatalf("a subagent its chat lists opens that chat, actual %+v found %v, calls %v", reply, found, launcher.calls)
+	}
+	if !slices.ContainsFunc(launcher.calls, func(call string) bool { return strings.HasPrefix(call, "focus ") }) {
+		t.Errorf("the parent's tab must come to the front, actual calls %v", launcher.calls)
+	}
+	want := "Opened the chat it runs in. Its subagent is 'Find call sites'. Use the agent rows below the prompt to switch to it."
+	if reply.Message != want {
+		t.Errorf("reply = %q", reply.Message)
+	}
+	if reply.Helper == nil || reply.Helper.ID != "explore" || reply.Helper.Title != "Find call sites" {
+		t.Errorf("the reply names the subagent that was meant, actual %s", asJSON(t, reply.Helper))
+	}
+}
+
+func TestReopenHelper_RefusesASubagentTheParentDoesNotList(t *testing.T) {
+	scanner := liveSubagentScanner(t)
+	launcher := &fakeLauncher{}
+
+	reply, found := scanner.ReopenHelper(context.Background(), ToolClaude, idSafari, "finished", ScanOptions{}, launcher)
+
+	if !found || reply.Opened || reply.Helper != nil {
+		t.Errorf("an unknown subagent is refused, actual %+v found %v", reply, found)
+	}
+	if len(launcher.calls) != 0 {
+		t.Errorf("a refused subagent focuses nothing, actual calls %v", launcher.calls)
+	}
+}
+
+func TestValidAgentID(t *testing.T) {
+	for _, id := range []string{"explore", "a00045583c3432f5c", "aside_question-1"} {
+		if !ValidAgentID(id) {
+			t.Errorf("%q is an agent id", id)
+		}
+	}
+	for _, id := range []string{"", "../x", "a b", "x/y", strings.Repeat("a", 129)} {
+		if ValidAgentID(id) {
+			t.Errorf("%q is not an agent id", id)
+		}
+	}
 }
