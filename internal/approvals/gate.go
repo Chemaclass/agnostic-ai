@@ -1,5 +1,11 @@
 // Package approvals decides whether a tool call a coding tool is about
 // to prompt for may be approved without the person.
+//
+// The gate approves a shell command only from a short table of
+// programs, verbs and options, and asks for anything else. It is a seat
+// belt, not a sandbox: a recursive search such as grep -r or rg can
+// print a credential file inside the project, and a project's own
+// tests, Makefile targets and package scripts run whatever they hold.
 package approvals
 
 import (

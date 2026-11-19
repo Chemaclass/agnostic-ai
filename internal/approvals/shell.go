@@ -34,6 +34,8 @@ type redirect struct {
 	output bool
 	target shellWord
 	dup    bool
+	// raw is the source text of a duplication, such as 2>&1.
+	raw string
 }
 
 // Separators that end a command in a list.
@@ -270,8 +272,7 @@ func (p *shellParser) pipe() error {
 		p.pos += 2
 		return p.separator(sepOr, false, false)
 	case '&':
-		p.pos += 2
-		return p.separator(sepPipe, true, false)
+		return unreadable("pipe of both output streams")
 	}
 	p.pos++
 	return p.separator(sepPipe, true, false)
@@ -279,7 +280,9 @@ func (p *shellParser) pipe() error {
 
 func (p *shellParser) redirection(r rune) error {
 	// Unquoted digits right before the operator name the descriptor.
+	fd := ""
 	if p.inWord && !p.w.quoted && !p.w.tilde && allDigits(p.word.String()) {
+		fd = p.word.String()
 		p.word.Reset()
 		p.inWord = false
 		p.w = shellWord{}
@@ -296,22 +299,23 @@ func (p *shellParser) redirection(r rune) error {
 	case r == '>' && next == '(':
 		return unreadable("process substitution")
 	case next == '&':
+		start := p.pos
 		p.pos += 2
 		if p.peek(0) == '-' {
 			p.pos++
 		} else {
-			start := p.pos
+			digits := p.pos
 			for p.pos < len(p.runes) && unicode.IsDigit(p.runes[p.pos]) {
 				p.pos++
 			}
-			if p.pos == start {
+			if p.pos == digits {
 				return unreadable("descriptor duplication onto a word")
 			}
 		}
 		if !p.atWordEnd() {
 			return unreadable("descriptor duplication onto a word")
 		}
-		p.cur.redirects = append(p.cur.redirects, redirect{output: r == '>', dup: true})
+		p.cur.redirects = append(p.cur.redirects, redirect{output: r == '>', dup: true, raw: fd + string(p.runes[start:p.pos])})
 		return nil
 	case r == '>' && (next == '>' || next == '|'):
 		p.pos += 2
@@ -426,12 +430,6 @@ func isAssignment(w shellWord) bool {
 		}
 	}
 	return true
-}
-
-// assignmentName is the variable an assignment word sets.
-func assignmentName(w shellWord) string {
-	name, _, _ := strings.Cut(w.text, "=")
-	return strings.TrimSuffix(name, "+")
 }
 
 // revisionSuffix reports a rune that may follow ^ in a git revision.

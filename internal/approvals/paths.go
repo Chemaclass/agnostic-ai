@@ -71,9 +71,12 @@ func secretName(name string) bool {
 // ripgrep let *, ? and [ match a leading dot, so the glob is matched
 // that way against sample names, segment by segment and as a whole.
 func (g *gate) searchGlobRule(glob, cwd string) string {
-	glob = strings.TrimPrefix(glob, "!")
 	if glob == "" {
 		return ""
+	}
+	if strings.HasPrefix(glob, "!") {
+		// A negated glob searches every other file.
+		return RuleSecret
 	}
 	if pathLike(glob) {
 		return RuleOutsideProject
@@ -89,8 +92,15 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 		return RuleSecret
 	}
 	samples := []string{".env", ".env.local", ".envrc", "id_rsa", "id_ed25519", "x.pem", "x.key", "x.p12", "x.pfx", ".netrc", ".npmrc", ".pypirc", ".git-credentials", "credentials", "credentials.json"}
+	// The last segment names the file; matched alone, a glob such as
+	// src/.e* or **/id_* is caught whatever folders come before it.
+	segments := strings.Split(strings.ToLower(glob), "/")
+	last, err := dotGlobRegexp(segments[len(segments)-1])
+	if err != nil {
+		return RuleSecret
+	}
 	for _, sample := range samples {
-		if re.MatchString(sample) || re.MatchString("dir/"+sample) {
+		if re.MatchString(sample) || re.MatchString("dir/"+sample) || last.MatchString(sample) {
 			return RuleSecret
 		}
 	}
