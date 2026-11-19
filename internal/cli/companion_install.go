@@ -117,17 +117,9 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 			return fmt.Errorf("the companion needs macOS %d or later, and this Mac runs macOS %s", companionMinMacOS, version)
 		}
 	}
-	if err := removeBuildFolders(dir, time.Now().Add(-companionBuildAge)); err != nil {
-		return fmt.Errorf("install the companion: %w", err)
-	}
-	// The program is written in a folder of its own and moved into place
-	// at the end, so a failure leaves the installed one alone.
-	if err := os.MkdirAll(companionFolder(dir), 0o700); err != nil {
-		return fmt.Errorf("install the companion: %w", err)
-	}
-	staging, err := os.MkdirTemp(dir, companionBuildPrefix+"*")
+	staging, err := stageCompanion(dir)
 	if err != nil {
-		return fmt.Errorf("install the companion: %w", err)
+		return err
 	}
 	keepStaging := false
 	defer func() {
@@ -140,26 +132,9 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		return fmt.Errorf("install the companion: %w", err)
 	}
 
-	built := ""
-	if tools.download != nil && build.downloads() {
-		_, _ = fmt.Fprintf(out, "Downloading the companion for agnostic-ai %s.\n", build.version)
-		built, err = tools.download(ctx, out, build.version, build.into)
-		switch {
-		case errors.Is(err, errNoPrebuiltCompanion):
-			_, _ = fmt.Fprintln(out, "! This release ships no built companion for this Mac, so it is built here.")
-		case errors.Is(err, errProvenanceFailed) && os.Getenv(verifyAttestationEnv) != "1":
-			return fmt.Errorf("download the companion: %w. If gh failed rather than the archive, %s=0 installs it on the checksum alone", err, verifyAttestationEnv)
-		case err != nil:
-			// A download that does not verify is never replaced by a build.
-			return fmt.Errorf("download the companion: %w", err)
-		default:
-			_, _ = fmt.Fprintln(out, "✓ Downloaded and verified the companion")
-		}
-	}
-	if built == "" {
-		if built, err = buildCompanion(ctx, out, live, tools, build); err != nil {
-			return err
-		}
+	built, err := obtainCompanion(ctx, out, live, tools, build)
+	if err != nil {
+		return err
 	}
 	target := companionFile(dir, build.goos)
 	place := func() error { return tools.rename(built, target) }
@@ -192,14 +167,63 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		_, _ = fmt.Fprintln(out, "Start it with: agnostic-ai companion")
 		return nil
 	}
+	keepStaging, err = replaceInstalledCompanion(ctx, out, tools, dir, build, installed, target, place, loginEntries)
+	return err
+}
 
+// stageCompanion clears old build folders and makes the staging folder
+// a new program is written to. The program is moved into place at the
+// end, so a failure leaves the installed one alone.
+func stageCompanion(dir string) (staging string, err error) {
+	if err := removeBuildFolders(dir, time.Now().Add(-companionBuildAge)); err != nil {
+		return "", fmt.Errorf("install the companion: %w", err)
+	}
+	if err := os.MkdirAll(companionFolder(dir), 0o700); err != nil {
+		return "", fmt.Errorf("install the companion: %w", err)
+	}
+	staging, err = os.MkdirTemp(dir, companionBuildPrefix+"*")
+	if err != nil {
+		return "", fmt.Errorf("install the companion: %w", err)
+	}
+	return staging, nil
+}
+
+// obtainCompanion downloads the released companion when build can be
+// one, and builds it otherwise.
+func obtainCompanion(ctx context.Context, out io.Writer, live bool, tools companionTools, build companionBuild) (built string, err error) {
+	if tools.download != nil && build.downloads() {
+		_, _ = fmt.Fprintf(out, "Downloading the companion for agnostic-ai %s.\n", build.version)
+		built, err = tools.download(ctx, out, build.version, build.into)
+		switch {
+		case errors.Is(err, errNoPrebuiltCompanion):
+			_, _ = fmt.Fprintln(out, "! This release ships no built companion for this Mac, so it is built here.")
+		case errors.Is(err, errProvenanceFailed) && os.Getenv(verifyAttestationEnv) != "1":
+			return "", fmt.Errorf("download the companion: %w. If gh failed rather than the archive, %s=0 installs it on the checksum alone", err, verifyAttestationEnv)
+		case err != nil:
+			// A download that does not verify is never replaced by a build.
+			return "", fmt.Errorf("download the companion: %w", err)
+		default:
+			_, _ = fmt.Fprintln(out, "✓ Downloaded and verified the companion")
+		}
+	}
+	if built == "" {
+		return buildCompanion(ctx, out, live, tools, build)
+	}
+	return built, nil
+}
+
+// replaceInstalledCompanion puts the new companion over the installed
+// one: it stops a running one, places the new one, and starts it again.
+// keepStaging reports that the staging folder holds the only copy of the
+// app place could not put back.
+func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools companionTools, dir string, build companionBuild, installed, target string, place func() error, loginEntries []string) (keepStaging bool, err error) {
 	// Windows does not replace the file of a program that runs.
 	ran, err := endCompanion(ctx, tools, installed)
 	alone := err == nil
 	switch {
 	case err != nil && ran:
 		// It still runs. A start now would only open its list.
-		return err
+		return false, err
 	case err != nil:
 		_, _ = fmt.Fprintf(out, "! Could not tell whether a companion runs (%v). If one does, end it and start it again.\n", err)
 	case ran:
@@ -226,17 +250,17 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		if err == nil {
 			_, _ = fmt.Fprintln(out, "Start it with: agnostic-ai companion")
 		}
-		return err
+		return keepStaging, err
 	}
 	// A companion that ran is started again whatever happened since: the
 	// one that is installed now, old or new.
 	if startErr := startInstalledCompanion(tools, installed); startErr != nil {
-		return errors.Join(err, startErr)
+		return keepStaging, errors.Join(err, startErr)
 	}
 	if err == nil {
 		_, _ = fmt.Fprintln(out, "✓ Started it again")
 	}
-	return err
+	return keepStaging, err
 }
 
 // buildCompanion builds the companion into build.into and returns the program.
