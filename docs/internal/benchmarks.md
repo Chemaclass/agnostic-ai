@@ -45,7 +45,8 @@ scripts/bench-commands.sh --specs 100 --runs 5
 ```
 
 It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
-`import all` runs last among the synced rows because it writes specs; the
+`import all` runs last among the synced rows because it writes specs; with
+`--runs` above 1, the later runs re-import a tree that already matches. The
 script resets the project from Git before the rows without `.sync-state`.
 The final three rows measure `status`, `doctor`, and `sync --dry-run`
 without `.sync-state`, as in a fresh checkout. A tracked hand-written

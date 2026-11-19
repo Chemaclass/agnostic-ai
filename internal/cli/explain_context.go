@@ -169,14 +169,13 @@ func explainContext(cfg *config.Config, b spec.Bundle, target, file string) (exp
 			startupRules[c.Source] = true
 		}
 	}
-	renders := ruleRenders{}
-	outputs, err := contextRuleOutputs(cfg, b, target, startupRules, renders)
+	outputs, err := contextRuleOutputs(cfg, b, target, startupRules)
 	if err != nil {
 		return explainContextOutput{}, err
 	}
 	var scope explainFileOutput
 	if file != "" {
-		scope, err = explainFileWith(file, target, cfg, b, ".", renders)
+		scope, err = explainFile(file, target, cfg, b, ".")
 		if err != nil {
 			return explainContextOutput{}, err
 		}
@@ -254,6 +253,8 @@ func runExplainContext(cmd *cobra.Command, target, file string, jsonOut bool) er
 	if err != nil {
 		return err
 	}
+	// Every rule renders alone, and each render reads the state file
+	// through the prior-state hooks unless it is held.
 	defer holdStateFile(".")()
 	report, err := explainContext(cfg, b, target, file)
 	if err != nil {

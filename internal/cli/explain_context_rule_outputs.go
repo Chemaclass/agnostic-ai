@@ -10,33 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// ruleRenders keeps each rule's files rendered alone for one target, so
-// the reports of one command render a rule once. Keyed by source path;
-// a nil map renders every time.
-type ruleRenders map[string]ruleRender
-
-type ruleRender struct {
-	name, body string
-	files      []adapters.CapturedFile
-}
-
-// of returns the files adapter writes for rule alone.
-func (r ruleRenders) of(adapter adapters.Adapter, rule spec.Entry, cfg *config.Config) ([]adapters.CapturedFile, error) {
-	source := adapters.EntrySourcePath(rule)
-	if got, ok := r[source]; ok && got.name == rule.Name && got.body == rule.Body {
-		return got.files, nil
-	}
-	files, err := captureEmit(adapter, singleEntryBundle(rule), cfg)
-	if err != nil {
-		return nil, err
-	}
-	if r != nil {
-		r[source] = ruleRender{name: rule.Name, body: rule.Body, files: files}
-	}
-	return files, nil
-}
-
-func contextRuleOutputs(cfg *config.Config, b spec.Bundle, target string, startup map[string]bool, renders ruleRenders) (map[string][]string, error) {
+func contextRuleOutputs(cfg *config.Config, b spec.Bundle, target string, startup map[string]bool) (map[string][]string, error) {
 	outputs := map[string][]string{}
 	adapter, err := adapters.Resolve(target)
 	if err != nil {
@@ -65,7 +39,7 @@ func contextRuleOutputs(cfg *config.Config, b spec.Bundle, target string, startu
 		if startup[source] {
 			continue
 		}
-		files, err := renders.of(adapter, rule, cfg)
+		files, err := captureEmit(adapter, singleEntryBundle(rule), cfg)
 		if err != nil {
 			return nil, fmt.Errorf("%s rule %s: %w", target, source, err)
 		}
