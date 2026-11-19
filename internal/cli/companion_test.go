@@ -14,6 +14,28 @@ import (
 	"time"
 )
 
+func TestCompanionLaunch_OpensTheMacAppInANewInstance(t *testing.T) {
+	t.Parallel()
+	bundle := filepath.Join(t.TempDir(), "companion", "agnostic-ai companion.app")
+	program := filepath.Join(bundle, "Contents", "MacOS", companionName)
+
+	command, wait := companionLaunchCommand(program, "darwin")
+	want := []string{"/usr/bin/open", "-g", "-n", "-a", bundle}
+	if !wait || !slices.Equal(command.Args, want) {
+		t.Errorf("launch arguments = %q, wait = %t, want %q and wait", command.Args, wait, want)
+	}
+}
+
+func TestCompanionLaunch_KeepsStartingABareMacExecutableDirectly(t *testing.T) {
+	t.Parallel()
+	program := bareCompanionFile(t.TempDir())
+
+	command, wait := companionLaunchCommand(program, "darwin")
+	if wait || !slices.Equal(command.Args, []string{program}) {
+		t.Errorf("launch arguments = %q, wait = %t, want %q and detach", command.Args, wait, []string{program})
+	}
+}
+
 // builtTools are tools on a machine that has what the build needs. The
 // build writes the program where the Go command would.
 func builtTools(t *testing.T, lines ...string) companionTools {
