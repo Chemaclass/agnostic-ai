@@ -229,6 +229,7 @@ export const NOTICES = {
   cannotDelete: { label: 'Why it cannot be deleted', tone: 'error' },
   notDeleted: { label: 'Why it was not deleted', tone: 'error' },
   notTidied: { label: 'What was not tidied', tone: 'info' },
+  subagent: { label: 'How to reach the subagent', tone: 'info' },
 }
 
 /** How a screen reader takes a message of this tone: an error at once, anything else when it is free. */
@@ -628,10 +629,28 @@ export function helperDetailsOf(helper, now) {
 
 /**
  * What a click on a subagent opens: a Codex thread opens itself, as a Codex chat does.
- * A Claude Code subagent runs inside its chat and has no place of its own, so its chat opens.
+ * A Claude Code subagent runs inside its chat and has no place of its own, so its chat opens, naming the subagent.
  */
 export function helperOpenOf(parent, helper) {
-  return helper.tool === 'codex' ? { tool: 'codex', id: helper.id, title: helperTitleOf(helper) } : parent
+  if (helper.tool === 'codex') return { tool: 'codex', id: helper.id, title: helperTitleOf(helper) }
+  return { tool: parent.tool, id: parent.id, ...(parent.title ? { title: parent.title } : {}), helper: helper.id }
+}
+
+export function helperTooltipOf(helper) {
+  return helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in, and show how to reach this subagent'
+}
+
+/**
+ * The notice an opened Claude Code subagent leaves: which one it was and how to reach it; undefined for any other
+ * open. It is a `hint`: any failure that comes after it takes its place.
+ */
+export function subagentNoticeOf(reply) {
+  return reply.opened && reply.helper ? { message: reply.message, hint: true } : undefined
+}
+
+/** Whether a late open failure may take the notice's place: none shows, or only a hint does. */
+export function lateFailureReplaces(shown) {
+  return !shown || shown.hint === true
 }
 
 /** A folder as its names with the separators between them kept: ["Users", "/", "me", "/", "api"]. */

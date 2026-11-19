@@ -337,11 +337,11 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 	refuse := func(why string) error {
 		return fmt.Errorf("%s %s; local files must stay in %s", overviewDisplay(h.root, file), why, overviewDisplay(h.root, localRoot))
 	}
-	if !withinDir(target, resolvedAbs(localRoot)) {
+	if _, inside := pathBelow(resolvedAbs(localRoot), target); !inside {
 		return refuse("resolves outside the local folder")
 	}
 	for _, path := range team {
-		if withinDir(target, resolvedAbs(path)) {
+		if _, inside := pathBelow(resolvedAbs(path), target); inside {
 			return refuse("resolves to the " + h.level() + " source " + overviewDisplay(h.root, path))
 		}
 	}
@@ -520,11 +520,6 @@ func gitTracks(path string) bool {
 		}
 	}
 	return exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", ":(icase,literal)"+path).Run() == nil
-}
-
-func withinDir(path, dir string) bool {
-	rel, err := filepath.Rel(dir, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func settingsOverlayScaffold(name string) string {

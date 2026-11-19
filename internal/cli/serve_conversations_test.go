@@ -460,11 +460,13 @@ func TestConversationsHandler_RefusesWhatItDidNotList(t *testing.T) {
 		status            int
 		reply             string
 	}{
-		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `"}`, "application/json", http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `"}`, "application/json", http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
-		"a command field":     {`{"tool":"claude","id":"` + inProject + `","command":"rm -rf ~"}`, "application/json", http.StatusBadRequest, `{"error":"send {tool, id, editor}"}`},
-		"two objects":         {`{"tool":"claude","id":"x"}{}`, "application/json", http.StatusBadRequest, `{"error":"send one JSON object"}`},
-		"form post":           {`tool=claude`, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType, `{"error":"send Content-Type: application/json"}`},
+		"outside the project":             {`{"tool":"claude","id":"` + elsewhere + `"}`, "application/json", http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
+		"unknown tool":                    {`{"tool":"gemini","id":"` + inProject + `"}`, "application/json", http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
+		"a command field":                 {`{"tool":"claude","id":"` + inProject + `","command":"rm -rf ~"}`, "application/json", http.StatusBadRequest, `{"error":"send {tool, id, editor, helper}"}`},
+		"a helper that is no agent id":    {`{"tool":"claude","id":"` + inProject + `","helper":"../x"}`, "application/json", http.StatusBadRequest, `{"error":"helper must be an agent id"}`},
+		"a helper the chat does not list": {`{"tool":"claude","id":"` + inProject + `","helper":"explore"}`, "application/json", http.StatusOK, `{"opened":false,"message":"That subagent no longer works in this chat, so nothing was opened. Refresh the list."}`},
+		"two objects":                     {`{"tool":"claude","id":"x"}{}`, "application/json", http.StatusBadRequest, `{"error":"send one JSON object"}`},
+		"form post":                       {`tool=claude`, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType, `{"error":"send Content-Type: application/json"}`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			rec := postEdit(t, h, conversationOpenPath, tc.body, func(r *http.Request) { r.Header.Set("Content-Type", tc.contentType) })

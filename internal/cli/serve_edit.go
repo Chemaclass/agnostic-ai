@@ -523,7 +523,7 @@ func (h *editHandler) validationProblems() ([]string, error) {
 }
 
 func overviewDisplay(root, path string) string {
-	if rel, err := filepath.Rel(root, path); err == nil && !strings.HasPrefix(rel, "..") {
+	if rel, inside := pathBelow(root, path); inside {
 		return filepath.ToSlash(rel)
 	}
 	return filepath.ToSlash(path)

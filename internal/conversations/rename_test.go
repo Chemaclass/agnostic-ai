@@ -270,7 +270,11 @@ func TestFakeCodexAppServer(t *testing.T) {
 			if err := child.Start(); err != nil {
 				os.Exit(4)
 			}
-			_ = os.WriteFile(os.Getenv("FAKE_CODEX_LOG")+".child", []byte(strconv.Itoa(child.Process.Pid)), 0o600)
+			// Renamed into place, so a reader never sees the file empty.
+			pidFile := os.Getenv("FAKE_CODEX_LOG") + ".child"
+			if os.WriteFile(pidFile+".tmp", []byte(strconv.Itoa(child.Process.Pid)), 0o600) != nil || os.Rename(pidFile+".tmp", pidFile) != nil {
+				os.Exit(5)
+			}
 			select {}
 		case req.Method == "initialize" && mode == "init-without-result":
 			fmt.Printf(`{"id":%d}`+"\n", req.ID)
@@ -368,17 +372,17 @@ func TestRename_CodexStopsAtTheDeadlineWhenAProgramItStartedKeepsTheOutputOpen(t
 		t.Skip("the fake starts sleep, and Windows has no process group to kill")
 	}
 	server, log := fakeCodexAppServer(t, "hang")
-	// The deadline must outlast starting the fake and its child, which a
-	// busy runner under -race can stretch past 200ms.
-	const deadline = 2 * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), deadline)
-	defer cancel()
-	started := time.Now()
+	ctx := deadlineOnceFileExists(t, log+".child")
 
 	err := (&Renamer{codex: server}).Rename(ctx, Conversation{Tool: ToolCodex, App: AppCLI, ID: renamedCodexThread}, "Release notes")
 
-	if took := time.Since(started); took > deadline+3*time.Second {
-		t.Errorf("the rename took %s past a %s deadline", took, deadline)
+	select {
+	case <-ctx.Done():
+		if took := time.Since(ctx.passed); took > 3*time.Second {
+			t.Errorf("the rename returned %s after its deadline", took)
+		}
+	default:
+		t.Error("the rename returned before its deadline")
 	}
 	if got, want := renameError(err), "Codex did not answer in time (unreachable): context deadline exceeded"; got != want {
 		t.Errorf("got  %s\nwant %s", got, want)
@@ -399,6 +403,53 @@ func TestRename_CodexStopsAtTheDeadlineWhenAProgramItStartedKeepsTheOutputOpen(t
 		_ = exec.Command("kill", "-9", string(pid)).Run()
 		t.Errorf("the program the app-server started (pid %d) still runs", child)
 	}
+}
+
+// fileDeadline is a context whose deadline passes once a file exists, so
+// a slow start of the program that writes the file cannot pass it early.
+type fileDeadline struct {
+	context.Context
+	done   chan struct{}
+	passed time.Time
+}
+
+func (c *fileDeadline) Done() <-chan struct{} { return c.done }
+
+func (c *fileDeadline) Err() error {
+	select {
+	case <-c.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
+func deadlineOnceFileExists(t *testing.T, path string) *fileDeadline {
+	t.Helper()
+	ctx := &fileDeadline{Context: context.Background(), done: make(chan struct{})}
+	stop, stopped := make(chan struct{}), make(chan struct{})
+	t.Cleanup(func() { close(stop); <-stopped })
+	go func() {
+		defer close(stopped)
+		defer func() { ctx.passed = time.Now(); close(ctx.done) }()
+		poll := time.NewTicker(10 * time.Millisecond)
+		defer poll.Stop()
+		giveUp := time.After(10 * time.Second)
+		for {
+			if _, err := os.Stat(path); err == nil {
+				return
+			}
+			select {
+			case <-stop:
+				return
+			case <-giveUp:
+				t.Errorf("%s did not appear within 10s", path)
+				return
+			case <-poll.C:
+			}
+		}
+	}()
+	return ctx
 }
 
 func needSQLite(t *testing.T) {

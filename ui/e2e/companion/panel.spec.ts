@@ -1148,9 +1148,14 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   expect((await codex).postDataJSON()).toEqual({ tool: 'codex', id: 'run-3511', title: 'Review #3511: local app chats' })
   await page.goto('/panel.html')
   await parent.getByRole('button', { name: '▸ 7 subagents' }).click()
+  await expect(helpers.filter({ hasText: 'Review #3511' })).toHaveAttribute('title', 'Open this Codex thread')
+  const explore = helpers.filter({ hasText: 'Find rename call sites' })
+  await expect(explore).toHaveAttribute('title', 'Open the chat it runs in, and show how to reach this subagent')
   const claude = page.waitForRequest((request) => request.url().endsWith('/api/open'))
-  await helpers.filter({ hasText: 'Find rename call sites' }).click()
-  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats' })
+  await explore.click()
+  expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats', helper: 'agent-explore' })
+  await expectInfoNotice(page, 'How to reach the subagent')
+  await expect(noticeCard(page)).toContainText("Its subagent is 'Find rename call sites'. Use the agent rows below the prompt to switch to it.")
 })
 
 test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {

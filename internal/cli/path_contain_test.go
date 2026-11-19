@@ -34,3 +34,30 @@ func TestPathBelow(t *testing.T) {
 		}
 	}
 }
+
+func TestPathUnder(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "hooks")
+	outside := filepath.Join(t.TempDir(), "x.yaml")
+	for _, tc := range []struct {
+		name, input string
+		inside      bool
+	}{
+		{"file name", "format.yaml", true},
+		{"dot-dot prefix", "..format.yaml", true},
+		{"nested", filepath.Join("a", "b.yaml"), true},
+		{"parent", filepath.Join("..", "x.yaml"), false},
+		{"climbs out", filepath.Join("a", "..", "..", "x.yaml"), false},
+		{"absolute", outside, false},
+		{"empty", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, inside := pathUnder(dir, tc.input)
+			if inside != tc.inside {
+				t.Fatalf("pathUnder(%q, %q) inside = %v, want %v", dir, tc.input, inside, tc.inside)
+			}
+			if inside && got != filepath.Join(dir, tc.input) {
+				t.Errorf("pathUnder(%q, %q) = %q", dir, tc.input, got)
+			}
+		})
+	}
+}

@@ -83,7 +83,7 @@ Conversation fields:
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
 - `workingSubagents` is an optional native task count for local Claude Code and Codex. Zero means none; omission means unavailable. Claude uses task dispatch, launch, completion, stop and resume events from the current live process; Codex uses native parent relationships, live writer locks and unfinished turn events, including nested workers. It does not count linked child conversations or cloud workers. An unfinished native task may be waiting on a tool. Native logs that cannot be read leave the count unavailable. Worker event writes invalidate the cached list; process exits can take up to a minute to show. Positive counts keep an otherwise idle parent in `working`, while a parent's unread question still takes priority.
 - `helpers` lists the agents this conversation started that are no rows of their own and still work, each `{tool, id, title, kind?, state, updatedAt}`. They are its native Claude Code or Codex subagents, and the `codex exec` runs a local Claude Code session started. A helper that finished is not listed. `state` is always `working`. `kind` is the agent type the tool gives, such as `Explore`. `title` is empty when the tool gave none or it may hold a credential. Omitted when none works, or when the states cannot be read.
-  - A Claude Code subagent comes from the session's `subagents` folder and the meta file Claude Code writes beside each one. It is listed while the live process's task events say it works. A session no process runs lists none. It has no route of its own: open its conversation.
+  - A Claude Code subagent comes from the session's `subagents` folder and the meta file Claude Code writes beside each one. It is listed while the live process's task events say it works. A session no process runs lists none. It has no route of its own: open its conversation, with its `id` as `helper`.
   - A Codex subagent is a direct child of a Codex thread. It is listed while a process holds its thread and its rollout says a turn runs. Open it with `POST /api/conversations/open` and its own `tool` and `id`. One in a terminal switches to the process that runs it, never a second `codex resume`.
   - A `codex exec` run is linked to its Claude Code session only from the running `codex` process: the process holds the run's writer lock, and its environment holds `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CHILD_SESSION=1`, which Claude Code's Bash tool sets. The server reads the environment the kernel keeps for the process (`kern.procargs2` on macOS, `/proc/<pid>/environ` on Linux), keeps only those two variables, and links nothing when either is missing or set twice. Every scan reads the link again; nothing is saved, so a run that ended is listed nowhere. Titles, folders and times are never used to guess. When process environments cannot be read, the Codex tool's `note` says so.
   - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
@@ -158,9 +158,10 @@ Cloud sessions and refresh:
 
 ## `POST /api/conversations/open`
 
-Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the server's own origin.
+Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from the server's own origin.
 
-- Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?}`.
+- Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?, helper?}`.
+- `helper` is the `id` of a Claude Code subagent the conversation lists in `helpers`. Its conversation opens as without it. When it opened, `message` keeps what the open says and adds the subagent's name; for a terminal tab it also says to switch to it in the agent rows below the prompt. The reply's `helper` is that subagent. A subagent the conversation does not list, such as one that finished, opens nothing: `opened` is false and `message` says so. A companion sends an open without `helper` again once to a server that refuses the field. A Codex subagent opens with its own `tool` and `id` instead.
 
 {% <details summary="Open details, results and status codes"> %}
 
@@ -177,9 +178,9 @@ Body: `{tool, id, editor?}` with `Content-Type: application/json`, from the serv
 
 | Status | Meaning |
 |--------|---------|
-| 200 | `{opened, message, command?}`. `opened` says whether the chat came to the front. |
+| 200 | `{opened, message, command?, helper?}`. `opened` says whether the chat came to the front. |
 | 404 | A conversation outside the list. |
-| 400 | Any other field. |
+| 400 | Any other field, or a `helper` that is not an agent id: 1 to 128 letters, digits, `-` or `_`. |
 {% </details> %}
 
 ## `POST /api/conversations/send`
