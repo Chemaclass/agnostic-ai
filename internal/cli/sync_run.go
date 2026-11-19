@@ -1133,7 +1133,7 @@ func fingerprintSet(records []string) map[string]bool {
 }
 
 func mergePartialDropRecords(previous, current, emitted []string) []string {
-	out := make([]string, 0, len(previous)+len(current))
+	out := make([]string, 0, len(current))
 	for _, record := range previous {
 		target, _, tagged := strings.Cut(record, "\x00")
 		if tagged && target != "agnostic-ai" && !slices.Contains(emitted, target) {
