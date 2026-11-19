@@ -234,6 +234,9 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 	if err != nil {
 		return err
 	}
+	for _, issue := range shadowedSpecIssues(project.bundle) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s: %s\n", issue.Path, issue.Message)
+	}
 	cfg := project.cfg
 	if noTargetsKept(cfg) && !f.allowEmptyTargets && !f.watch {
 		return runEmptyTargets(cmd, f, cfg, tree)

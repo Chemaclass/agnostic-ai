@@ -99,7 +99,8 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	if len(entries) == 0 {
 		return scopeIssues
 	}
-	issues := lintEntries(entries)
+	issues := shadowedSpecIssues(b)
+	issues = append(issues, lintEntries(entries)...)
 	issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
 	issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
 	if !scope.global {
@@ -183,7 +184,32 @@ func reportIssues(cmd *cobra.Command, issues []validationIssue) {
 		}
 		cmd.Printf("  %s %s: %s\n", marker, i.Path, i.Message)
 	}
-	cmd.Printf("(* = autofixable; rerun with --fix)\n")
+	if slices.ContainsFunc(issues, validationIssue.Autofixable) {
+		cmd.Printf("(* = autofixable; rerun with --fix)\n")
+	}
+}
+
+// shadowedSpecIssues reports each spec a same-named peer in its layer
+// replaced: the loader keeps the last one, so the other reaches no tool.
+func shadowedSpecIssues(b spec.Bundle) []validationIssue {
+	all := b.All()
+	var out []validationIssue
+	for _, e := range b.Shadowed {
+		if e.Layer == layerNameBuiltin {
+			continue
+		}
+		winner := ""
+		if i := slices.IndexFunc(all, func(w spec.Entry) bool { return w.Kind == e.Kind && w.Name == e.Name }); i >= 0 {
+			winner = filepath.ToSlash(all[i].Path)
+		}
+		out = append(out, validationIssue{
+			Path:    filepath.ToSlash(e.Path),
+			Field:   "name",
+			Message: fmt.Sprintf("duplicate %s name %q; %s wins and this spec reaches no tool", e.Kind, e.Name, winner),
+			entry:   e,
+		})
+	}
+	return out
 }
 
 // reportNotes prints findings that do not fail the run to stderr, so

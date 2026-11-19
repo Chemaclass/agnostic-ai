@@ -120,6 +120,10 @@ func newNewCmd() *cobra.Command {
 			if kind == string(spec.KindMCP) {
 				summaryf("→ real servers to copy: https://agnostic-ai.org/docs/spec-format/mcp-recipes/\n")
 			}
+			support := projectKindSupport(cfg)
+			if readers := support[spec.Kind(kind)]; len(readers) > 0 && len(cfg.Targets) > 0 && !anyTargetSupports(spec.Kind(kind), setOf(cfg.Targets...), support) {
+				summaryf("→ no enabled target reads %s specs; enable one of: %s\n", kind, commaList(sortedKeys(readers)))
+			}
 			return nil
 		},
 	}
