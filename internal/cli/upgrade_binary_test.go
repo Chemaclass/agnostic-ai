@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func testReleaseArchive(t *testing.T, binary []byte) []byte {
@@ -122,5 +125,25 @@ func TestInstallReleaseBinary_LeavesOriginalOnVerificationFailure(t *testing.T) 
 				t.Errorf("installed binary changed after failed verification")
 			}
 		})
+	}
+}
+
+func TestVerifyReleaseBinary_StopsWhenTheContextIsCanceled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake binary is a shell script")
+	}
+	path := filepath.Join(t.TempDir(), binaryName)
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nsleep 10\nprintf 'agnostic-ai version 0.58.0\\n'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	err := verifyReleaseBinary(ctx, path, "0.58.0")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("verifyReleaseBinary error = %v, want context.Canceled", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("verifyReleaseBinary waited %s after the context was canceled", elapsed)
 	}
 }
