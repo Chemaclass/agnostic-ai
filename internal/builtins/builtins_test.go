@@ -587,7 +587,7 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"Use another row only when the user names that tool", "Stage only the files of this task",
 		"name it in your reply", "in brackets", "Never write secrets", "stop and show the error",
 		"stays theirs", "no cloud launch", "sleep 150 | script", " | codex cloud exec",
-		"Set it and launch in one shell command", "cat >\"$f\" <<'PROMPT'", "pkill -P $$ -x sleep", "[ -n \"$CLOUD_PROMPT\" ] || exit 1",
+		"Set it and launch in one shell command", "cat >\"$f\" <<'PROMPT'", "pkill -P $$ -f '^sleep 150$'", "top level of the shell command", "[ -n \"$CLOUD_PROMPT\" ] || exit 1",
 	} {
 		if !strings.Contains(skill.Body, rule) {
 			t.Errorf("skill is missing rule %q", rule)
@@ -711,10 +711,19 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 		t.Fatalf("prompt block has no quoted PROMPT heredoc:\n%s", blocks[0])
 	}
 	setPrompt := blocks[0][:start+len("<<'PROMPT'\n")] + prompt + blocks[0][end:]
-	// A unique sleep length lets the test find a leftover input process.
-	launch := strings.Replace(blocks[1], "sleep 150 |", "sleep 157 |", 1)
-	if launch == blocks[1] {
-		t.Fatalf("launch block does not feed the input from sleep 150:\n%s", blocks[1])
+	const macLaunch = "sleep 150 | script -q /dev/null claude --cloud \"$CLOUD_PROMPT\" >\"$log\" 2>&1 &"
+	if !strings.Contains(blocks[1], macLaunch) {
+		t.Fatalf("launch block lacks %q:\n%s", macLaunch, blocks[1])
+	}
+	linuxStart := strings.Index(string(body), "On Linux, start it with `")
+	if linuxStart < 0 {
+		t.Fatal("skill has no Linux launch line")
+	}
+	linuxLaunch := string(body)[linuxStart+len("On Linux, start it with `"):]
+	linuxLaunch = linuxLaunch[:strings.Index(linuxLaunch, "`")]
+	forms := map[string]string{
+		"macos": blocks[1],
+		"linux": strings.Replace(blocks[1], macLaunch, linuxLaunch, 1),
 	}
 
 	stubs := t.TempDir()
@@ -728,39 +737,47 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 	writeStub("claude", "#!/bin/sh\n[ \"$1\" = --cloud ] || exit 9\nprintf '%s' \"$2\" >\"$PROMPT_OUT\"\necho 'View: https://claude.ai/code/session_test'\nexec sleep 30\n")
 	writeStub("script", "#!/bin/sh\n[ \"$1\" = -q ] || exit 9\nif [ \"$2\" = -c ]; then exec sh -c \"$3\"; fi\nshift 2\nexec \"$@\"\n")
 
+	run := 0
 	for _, shell := range []string{"/bin/bash", "/bin/sh", "zsh"} {
 		path, err := exec.LookPath(shell)
 		if err != nil {
 			continue
 		}
-		t.Run(filepath.Base(shell), func(t *testing.T) {
-			_ = os.Remove(got)
-			cmd := exec.Command(path, "-c", setPrompt+launch)
-			cmd.Env = append(os.Environ(), "PATH="+stubs+":/usr/bin:/bin", "PROMPT_OUT="+got)
-			var buf bytes.Buffer
-			cmd.Stdout, cmd.Stderr = &buf, &buf
-			// A process left behind by the snippet holds its output open.
-			cmd.WaitDelay = 5 * time.Second
-			err := cmd.Run()
-			out := buf.Bytes()
-			if left, _ := exec.Command("pgrep", "-f", "^sleep 157$").Output(); len(left) > 0 {
-				_ = exec.Command("pkill", "-f", "^sleep 157$").Run()
-				t.Fatalf("the input sleep is still running after the snippet: %s", left)
-			}
-			if err != nil {
-				t.Fatalf("snippet failed: %v\n%s", err, out)
-			}
-			if !strings.Contains(string(out), "View: https://claude.ai/code/session_test") {
-				t.Errorf("snippet output lacks the View line:\n%s", out)
-			}
-			sent, err := os.ReadFile(got)
-			if err != nil {
-				t.Fatalf("the stand-in claude never ran: %v\n%s", err, out)
-			}
-			if string(sent) != prompt {
-				t.Errorf("prompt arrived as\n%q\nwant\n%q", sent, prompt)
-			}
-		})
+		for _, form := range []string{"macos", "linux"} {
+			run++
+			// A sleep length unique to this run lets the test find its own
+			// leftover input process, even beside a parallel run.
+			input := fmt.Sprintf("sleep %d", 1000+(os.Getpid()%5000)*10+run)
+			launch := strings.ReplaceAll(forms[form], "sleep 150", input)
+			t.Run(filepath.Base(shell)+"/"+form, func(t *testing.T) {
+				_ = os.Remove(got)
+				cmd := exec.Command(path, "-c", setPrompt+launch)
+				cmd.Env = append(os.Environ(), "PATH="+stubs+":/usr/bin:/bin", "PROMPT_OUT="+got)
+				var buf bytes.Buffer
+				cmd.Stdout, cmd.Stderr = &buf, &buf
+				// A process left behind by the snippet holds its output open.
+				cmd.WaitDelay = 5 * time.Second
+				err := cmd.Run()
+				out := buf.Bytes()
+				if left, _ := exec.Command("pgrep", "-f", "^"+input+"$").Output(); len(left) > 0 {
+					_ = exec.Command("pkill", "-f", "^"+input+"$").Run()
+					t.Fatalf("the input sleep is still running after the snippet: %s", left)
+				}
+				if err != nil {
+					t.Fatalf("snippet failed: %v\n%s", err, out)
+				}
+				if !strings.Contains(string(out), "View: https://claude.ai/code/session_test") {
+					t.Errorf("snippet output lacks the View line:\n%s", out)
+				}
+				sent, err := os.ReadFile(got)
+				if err != nil {
+					t.Fatalf("the stand-in claude never ran: %v\n%s", err, out)
+				}
+				if string(sent) != prompt {
+					t.Errorf("prompt arrived as\n%q\nwant\n%q", sent, prompt)
+				}
+			})
+		}
 	}
 }
 

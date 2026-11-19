@@ -83,9 +83,11 @@ log=$(mktemp)
 sleep 150 | script -q /dev/null claude --cloud "$CLOUD_PROMPT" >"$log" 2>&1 &
 pid=$!
 for _ in $(seq 60); do grep -qE 'View: |Error' "$log" && break; sleep 2; done
-sleep 2; kill "$pid" 2>/dev/null; pkill -P $$ -x sleep
+sleep 2; kill "$pid" 2>/dev/null; pkill -P $$ -f '^sleep 150$'
 cat "$log"
 ```
+
+Run these lines at the top level of the shell command, not inside `( )`: the last line stops the input `sleep` through this shell's process id.
 
 On Linux, start it with `sleep 150 | script -q -c 'claude --cloud "$CLOUD_PROMPT"' /dev/null >"$log" 2>&1 &` instead; the rest is the same. It reads the exported variable.
 
