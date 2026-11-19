@@ -68,7 +68,7 @@ var (
 
 // BenchmarkSyncEmit measures the emission loop: resolve every target and
 // render the whole bundle for it, in capture mode so no bytes touch disk.
-// This is the CPU core of `sync` (sync_run.go emitTarget loop) and the
+// This is the CPU core of `sync` (sync_emit.go emitTarget loop) and the
 // subject a future parallel-emission change would optimize.
 func BenchmarkSyncEmit(b *testing.B) {
 	for _, n := range benchSpecCounts {
