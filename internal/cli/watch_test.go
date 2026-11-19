@@ -1852,3 +1852,16 @@ func waitForGone(t *testing.T, path string, timeout time.Duration) {
 	}
 	t.Fatalf("timed out waiting for %s to be removed", path)
 }
+
+func TestPrintWatchEvent_ShowsAPathUnderADotDotFolderRelative(t *testing.T) {
+	testutil.TempCwd(t)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	logs := captureLogOut(t)
+	printWatchEvent(filepath.Join(cwd, "..data", "a.md"))
+	if want := "change · " + filepath.Join("..data", "a.md"); !strings.Contains(logs.String(), want) {
+		t.Errorf("watch event = %q, want %q", logs, want)
+	}
+}

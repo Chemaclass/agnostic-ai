@@ -350,12 +350,14 @@ interface OpenStatus {
   message: string
   /** A command to resume it by hand that the row does not already offer. */
   command?: string
+  /** What the command resumes: the row, or a Codex subagent that opens on its own. */
+  subject: string
 }
 
-function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute): OpenStatus {
-  if (outcome.kind === 'failed') return { tone: 'failed', message: outcome.message }
+function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute, subject: string): OpenStatus {
+  if (outcome.kind === 'failed') return { tone: 'failed', message: outcome.message, subject }
   const { reply } = outcome
-  return { tone: reply.opened ? 'opened' : 'not-opened', message: reply.message, command: replyCommand(reply, route) }
+  return { tone: reply.opened ? 'opened' : 'not-opened', message: reply.message, command: replyCommand(reply, route), subject }
 }
 
 const rowKey = (conversation: Conversation) => `${conversation.tool}:${conversation.id}`
@@ -371,16 +373,16 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
   const route = conversation.open
   const command = opened ? undefined : rowCommand(route)
 
-  const open = async (request: ConversationOpenRequest = { tool: conversation.tool, id: conversation.id, editor }, ownRow = true) => {
+  const open = async (request: ConversationOpenRequest = { tool: conversation.tool, id: conversation.id, editor }, ownRow = true, subject = title.text) => {
     if (pending) return
     if (!canOpen) {
-      setStatus({ tone: 'not-opened', message: MOCK_OPEN_MESSAGE })
+      setStatus({ tone: 'not-opened', message: MOCK_OPEN_MESSAGE, subject })
       return
     }
     setPending(true)
     setStatus(undefined)
     const outcome = await openConversation(request)
-    setStatus(openStatus(outcome, route))
+    setStatus(openStatus(outcome, route, subject))
     setPending(false)
     if (outcome.kind === 'reply' && outcome.reply.opened) {
       // The command it hides may hold the focus.
@@ -430,12 +432,13 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
       </div>
       <Helpers conversation={conversation} now={now} pending={pending} onOpen={(helper) => {
         const request = helperOpenRequest(conversation, helper, editor)
+        const ownRow = request.id === conversation.id
         // A Codex subagent opens its own thread, which is not this row.
-        open(request, request.id === conversation.id)
+        open(request, ownRow, ownRow ? title.text : helperTitle(helper))
       }} />
       <div className="conversation-result">
         <p className={`conversation-status${status ? ` is-${status.tone}` : ''}`} role="status">{pending ? 'Opening…' : status?.message ?? ''}</p>
-        {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${title.text}`} />}
+        {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${status.subject}`} />}
       </div>
     </li>
   )

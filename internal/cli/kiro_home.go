@@ -14,7 +14,7 @@ func (g globalTarget) overrideRoot(home string) string {
 		return ""
 	}
 	root = filepath.Clean(root)
-	if filepath.Dir(root) == root || withinDir(home, root) {
+	if _, inside := pathBelow(root, home); filepath.Dir(root) == root || inside {
 		return ""
 	}
 	return root

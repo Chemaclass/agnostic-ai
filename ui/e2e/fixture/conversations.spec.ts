@@ -413,6 +413,16 @@ test.describe('conversations', () => {
     expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'codex', id: '0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37', editor: 'cursor' }])
   })
 
+  test('names the Codex subagent on the command the server suggests for it', async ({ page }) => {
+    const codex = structuredClone(conversations)
+    codex.conversations[0].helpers = [{ tool: 'codex', id: '0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37', title: 'Review the parser', state: 'working', updatedAt: '2026-11-07T15:28:00Z' }]
+    await mockServer(page, () => ({ json: { opened: false, message: 'Resume it in a terminal.', command: 'codex resume 0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37' } }), () => ({ json: codex }))
+    await page.goto('/')
+    const working = row(page, 'Add a Conversations page to the local UI')
+    await working.getByRole('button', { name: /^Review the parser/ }).click()
+    await expect(working.getByRole('button', { name: 'Copy the command the server suggests for Review the parser' })).toBeVisible()
+  })
+
   test('shows five subagents and a button for the rest', async ({ page }) => {
     const many = structuredClone(conversations)
     many.conversations[1].helpers = Array.from({ length: 7 }, (_, index) => ({ tool: 'claude', id: `agent${index}`, title: `Subagent ${index}`, state: 'working', updatedAt: `2026-11-07T14:5${index}:00Z` }))

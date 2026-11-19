@@ -330,7 +330,7 @@ func printWatchEvent(path string) {
 	stamp := time.Now().Format("15:04:05")
 	rel := path
 	if cwd, err := os.Getwd(); err == nil {
-		if r, err := filepath.Rel(cwd, path); err == nil && !strings.HasPrefix(r, "..") {
+		if r, inside := pathBelow(cwd, path); inside {
 			rel = r
 		}
 	}
