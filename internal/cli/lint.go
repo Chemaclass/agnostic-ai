@@ -93,7 +93,7 @@ func newLintCmd() *cobra.Command {
   agnostic-ai lint --files .agnostic-ai/skills/review/SKILL.md`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && !onlyFiles {
-				return fmt.Errorf("lint takes paths only with --files")
+				return errors.New("lint takes paths only with --files")
 			}
 			if onlyFiles && global {
 				return errs.Coded(errs.CodeFlagConflict, "--files cannot be combined with --global")
@@ -230,7 +230,7 @@ func printLintJSON(cmd *cobra.Command, command string, findings []lintFinding, s
 // lintExitErr fails on any error finding, and on a warning with strict.
 func lintExitErr(findings []lintFinding, strict bool) error {
 	if countSeverity(findings, lintError) > 0 || (strict && countSeverity(findings, lintWarn) > 0) {
-		return fmt.Errorf("lint failed")
+		return errors.New("lint failed")
 	}
 	return nil
 }

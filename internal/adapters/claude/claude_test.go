@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1985,9 +1986,7 @@ func TestEmit_AgentReadonlyMapsToDisallowedTools(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			meta := map[string]any{"name": "reviewer", "description": "Reviews code."}
-			for k, v := range tc.meta {
-				meta[k] = v
-			}
+			maps.Copy(meta, tc.meta)
 			entry := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Body: "Review code.\n", Meta: meta}
 			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
 				t.Fatal(err)

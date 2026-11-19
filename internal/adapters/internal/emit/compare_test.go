@@ -37,7 +37,7 @@ func TestCompareToDisk_MatchesFullCompareOracle(t *testing.T) {
 	r := rand.New(rand.NewPCG(0x9e3779b9, 0x7f4a7c15))
 	dir := t.TempDir()
 	const iters = 3000
-	for i := 0; i < iters; i++ {
+	for i := range iters {
 		disk := randBytes(r, 64)
 		cand := mutate(r, disk)
 		// One file in five is left absent so the missing verdict is exercised.
@@ -201,7 +201,7 @@ func BenchmarkCompareToDisk(b *testing.B) {
 					}
 					b.ReportAllocs()
 					b.ResetTimer()
-					for i := 0; i < b.N; i++ {
+					for range b.N {
 						st, err := sub.cmp(path, cand)
 						if err != nil {
 							b.Fatalf("compare: %v", err)

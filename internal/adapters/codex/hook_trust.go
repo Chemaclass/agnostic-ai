@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -134,7 +135,7 @@ type trustHandlers []map[string]any
 
 func (handlers *trustHandlers) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
-		return fmt.Errorf("hooks must be an array")
+		return errors.New("hooks must be an array")
 	}
 	type entries trustHandlers
 	var next entries
@@ -280,7 +281,7 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 	if value := raw["timeout"]; value != nil {
 		number, ok := value.(json.Number)
 		if !ok {
-			return nil, "", fmt.Errorf("timeout must be a nonnegative integer")
+			return nil, "", errors.New("timeout must be a nonnegative integer")
 		}
 		parsed, err := strconv.ParseUint(string(number), 10, 64)
 		if err != nil {
@@ -292,12 +293,12 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 		timeout = min(timeout, 3)
 	}
 	if timeout > math.MaxInt64 {
-		return nil, "", fmt.Errorf("timeout cannot be represented in Codex hook identity")
+		return nil, "", errors.New("timeout cannot be represented in Codex hook identity")
 	}
 	normalized["timeout"] = timeout
 	if value := raw["statusMessage"]; value != nil {
 		if _, ok := value.(string); !ok {
-			return nil, "", fmt.Errorf("statusMessage must be a string")
+			return nil, "", errors.New("statusMessage must be a string")
 		}
 		normalized["statusMessage"] = value
 	}
@@ -308,7 +309,7 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 		server, _ := raw["server"].(string)
 		tool, _ := raw["tool"].(string)
 		if strings.TrimSpace(server) == "" || strings.TrimSpace(tool) == "" {
-			return nil, "", fmt.Errorf("server and tool must be nonempty strings")
+			return nil, "", errors.New("server and tool must be nonempty strings")
 		}
 		normalized["server"], normalized["tool"] = server, tool
 		input := map[string]any{}
@@ -316,7 +317,7 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 			var ok bool
 			input, ok = value.(map[string]any)
 			if !ok {
-				return nil, "", fmt.Errorf("input must be an object")
+				return nil, "", errors.New("input must be an object")
 			}
 			if err := validateTrustInput(input); err != nil {
 				return nil, "", err
@@ -327,7 +328,7 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 	}
 	command, ok := raw["command"].(string)
 	if !ok {
-		return nil, "", fmt.Errorf("command must be a string")
+		return nil, "", errors.New("command must be a string")
 	}
 	windows := raw["commandWindows"]
 	if windows == nil {
@@ -336,14 +337,14 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 	if windows != nil {
 		alternate, ok := windows.(string)
 		if !ok {
-			return nil, "", fmt.Errorf("commandWindows must be a string")
+			return nil, "", errors.New("commandWindows must be a string")
 		}
 		if platform == "windows" {
 			command = alternate
 		}
 	}
 	if strings.TrimSpace(command) == "" {
-		return nil, "", fmt.Errorf("command must be nonempty")
+		return nil, "", errors.New("command must be nonempty")
 	}
 	normalized["command"] = command
 	async := false
@@ -351,14 +352,14 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 		var ok bool
 		async, ok = value.(bool)
 		if !ok {
-			return nil, "", fmt.Errorf("async must be a boolean")
+			return nil, "", errors.New("async must be a boolean")
 		}
 	}
 	normalized["async"] = async
 	if value := raw["additionalContextLimit"]; value != nil {
 		number, ok := value.(json.Number)
 		if !ok {
-			return nil, "", fmt.Errorf("additionalContextLimit must be a nonnegative integer")
+			return nil, "", errors.New("additionalContextLimit must be a nonnegative integer")
 		}
 		limit, err := strconv.ParseUint(string(number), 10, 64)
 		if err != nil {
@@ -366,7 +367,7 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 		}
 		if limit != 2500 && slices.Contains([]string{"PreToolUse", "PostToolUse", "SessionStart", "UserPromptSubmit", "SubagentStart"}, event) {
 			if limit > math.MaxInt64 {
-				return nil, "", fmt.Errorf("additionalContextLimit cannot be represented in Codex hook identity")
+				return nil, "", errors.New("additionalContextLimit cannot be represented in Codex hook identity")
 			}
 			normalized["additionalContextLimit"] = limit
 		}
@@ -377,7 +378,7 @@ func normalizeTrustHandler(event string, raw map[string]any, platform string) (m
 func validateTrustInput(value any) error {
 	switch v := value.(type) {
 	case nil:
-		return fmt.Errorf("input cannot contain null")
+		return errors.New("input cannot contain null")
 	case map[string]any:
 		for _, child := range v {
 			if err := validateTrustInput(child); err != nil {

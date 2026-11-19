@@ -60,7 +60,7 @@ func TestSyncVerboseFull_ListsEveryChangedPathAndAcceptedNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n"+acceptCodexTools)
 	mustWriteFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: Reviews code.\ntools: [Read, Grep]\n---\nReview.\n")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", fmt.Sprintf("rule%d.md", i)), fmt.Sprintf("---\nname: rule%d\n---\nRule.\n", i))
 	}
 	silence(t)
@@ -69,7 +69,7 @@ func TestSyncVerboseFull_ListsEveryChangedPathAndAcceptedNote(t *testing.T) {
 	if _, err := runCLI(t, "sync", "-vv"); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		path := fmt.Sprintf(".claude/rules/rule%d.md", i)
 		if !strings.Contains(log.String(), path) {
 			t.Errorf("full output omitted %s:\n%s", path, log.String())

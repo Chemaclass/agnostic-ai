@@ -2,6 +2,7 @@ package factory
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -307,9 +308,7 @@ func TestEmit_Hooks_NotesWhereFactoryIgnoresTheFailureSettings(t *testing.T) {
 			testutil.TempCwd(t)
 			buf := swapFactoryNoteWarner(t)
 			meta := map[string]any{"command": "./guard.sh"}
-			for k, v := range tc.meta {
-				meta[k] = v
-			}
+			maps.Copy(meta, tc.meta)
 			entry := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: meta}
 			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
 				t.Fatal(err)

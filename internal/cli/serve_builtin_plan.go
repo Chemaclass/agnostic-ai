@@ -131,7 +131,7 @@ func (p *builtinPlanner) loadBaseline() error {
 		return err
 	}
 	if cfg.Sync.SharedSkills {
-		return fmt.Errorf("sync.shared-skills: web changes do not replace linked skill folders; use the CLI to change built-ins")
+		return errors.New("sync.shared-skills: web changes do not replace linked skill folders; use the CLI to change built-ins")
 	}
 	if p.change.setting == nil && !req.reset && slices.Contains(cfg.Builtins, req.name) == req.enabled {
 		return fmt.Errorf("%s already has the requested value; refresh the overview", req.name)
@@ -140,7 +140,7 @@ func (p *builtinPlanner) loadBaseline() error {
 		return err
 	}
 	if p.previous.Version == 0 && initial.files[filepath.ToSlash(stateFilePath("."))].info != nil {
-		return fmt.Errorf("run agnostic-ai sync before previewing a web change")
+		return errors.New("run agnostic-ai sync before previewing a web change")
 	}
 	return p.snapshotInputs(cfg)
 }
@@ -165,7 +165,7 @@ func (p *builtinPlanner) snapshotInputs(cfg *config.Config) error {
 		return err
 	}
 	if !slices.Equal(inputRoots, freshInputs) {
-		return fmt.Errorf("source references changed while preparing preview; preview again")
+		return errors.New("source references changed while preparing preview; preview again")
 	}
 	if p.cfg, p.bundle, err = loadProject("."); err != nil {
 		return err
@@ -197,8 +197,7 @@ func (p *builtinPlanner) editSource() error {
 		return err
 	}
 	edited, err := edit(original.data)
-	var stale staleFieldError
-	if errors.As(err, &stale) {
+	if _, ok := errors.AsType[staleFieldError](err); ok {
 		return builtinChanged(fmt.Errorf("%s: %w", p.configPath, err))
 	}
 	if err != nil {

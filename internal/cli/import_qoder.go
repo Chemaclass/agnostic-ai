@@ -109,12 +109,12 @@ func rewriteQoderAgentTools(body string) string {
 		return body
 	}
 	rest := body[len("---\n"):]
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
+	before, after, ok := strings.Cut(rest, "\n---")
+	if !ok {
 		return body
 	}
-	front := rest[:end]
-	afterMarker := rest[end+len("\n---"):]
+	front := before
+	afterMarker := after
 	lines := strings.Split(front, "\n")
 	changed := false
 	for i, line := range lines {

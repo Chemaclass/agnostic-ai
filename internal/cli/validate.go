@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -498,7 +499,7 @@ func injectFrontmatterName(data []byte, name string) ([]byte, error) {
 		node = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
 	}
 	if node.Kind != yaml.DocumentNode || len(node.Content) == 0 || node.Content[0].Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("frontmatter root must be a mapping")
+		return nil, errors.New("frontmatter root must be a mapping")
 	}
 	mapping := node.Content[0]
 
@@ -544,12 +545,12 @@ func splitFrontmatter(data []byte) (yamlBytes []byte, body string, hadFrontmatte
 		return nil, string(data), false
 	}
 	rest := data[len(delim):]
-	idx := bytes.Index(rest, []byte("\n"+delim))
-	if idx < 0 {
+	before, after, ok := bytes.Cut(rest, []byte("\n"+delim))
+	if !ok {
 		return nil, string(data), false
 	}
-	yamlBytes = rest[:idx]
-	body = string(bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n"))
+	yamlBytes = before
+	body = string(bytes.TrimLeft(after, "\n"))
 	return yamlBytes, body, true
 }
 

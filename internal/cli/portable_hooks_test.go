@@ -80,7 +80,6 @@ func TestSync_PortableBeforeToolHookReachesClaudeCodexAndKiro(t *testing.T) {
 	if strings.Contains(notes.String(), "on: has no kiro mapping") {
 		t.Errorf("before-tool must not report a missing Kiro mapping: %s", notes.String())
 	}
-
 }
 
 // Cursor and Copilot read a block from a JSON reply, so sync wraps a

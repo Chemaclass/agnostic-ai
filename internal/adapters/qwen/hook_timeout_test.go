@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"testing"
 
@@ -36,9 +37,7 @@ func emitQwenHooks(t *testing.T, hooks ...spec.Entry) []map[string]any {
 
 func sessionStartHook(name string, extra map[string]any) spec.Entry {
 	meta := map[string]any{"event": "SessionStart"}
-	for k, v := range extra {
-		meta[k] = v
-	}
+	maps.Copy(meta, extra)
 	return spec.Entry{Kind: spec.KindHook, Name: name, Meta: meta}
 }
 

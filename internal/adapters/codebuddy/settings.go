@@ -2,6 +2,7 @@ package codebuddy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -48,7 +49,7 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, cfg *config
 	}
 	emit.MergeSettingsCustomKeys(keys, settings, target)
 	if _, ok := keys["autoMode"]; ok {
-		return fmt.Errorf("codebuddy: project settings cannot provide autoMode; keep this policy in user settings")
+		return errors.New("codebuddy: project settings cannot provide autoMode; keep this policy in user settings")
 	}
 	if p, ok := keys["permissions"].(map[string]any); ok {
 		if v, exists := p["defaultMode"]; exists && !slices.Contains([]string{"default", "acceptEdits", "auto", "dontAsk", "plan", "bypassPermissions"}, fmt.Sprint(v)) {
@@ -56,7 +57,7 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, cfg *config
 		}
 	}
 	if p, ok := keys["permissions"].(map[string]any); ok && p["defaultMode"] == "auto" {
-		return fmt.Errorf("codebuddy: project settings cannot grant permissions.defaultMode auto; choose it in user settings")
+		return errors.New("codebuddy: project settings cannot grant permissions.defaultMode auto; choose it in user settings")
 	}
 	events := map[string]any{}
 	for _, h := range hooks {

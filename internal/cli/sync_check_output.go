@@ -141,7 +141,7 @@ func validateCheckFormat(format string) error {
 // `agnostic-ai doctor` so a bare CI line still points at the full diagnosis;
 // the reconcile command prints separately as a stderr hint.
 func errDriftDetected() error {
-	return fmt.Errorf("drift detected; run `agnostic-ai doctor` for a full diagnosis")
+	return errors.New("drift detected; run `agnostic-ai doctor` for a full diagnosis")
 }
 
 // reportCheckDrift renders a `sync --check` result in the requested text

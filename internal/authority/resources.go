@@ -221,7 +221,6 @@ func mcpResources(m *mcpInfo, d discovery, ids map[string]bool, domains []string
 	actions := mcpActions(m, d)
 	var out []*resourceInfo
 	for _, root := range m.fileRoots() {
-		root := root
 		r := &resourceInfo{kind: kindMCP, mcp: m, root: &root, actions: actions}
 		r.res = Resource{
 			ID:            uniqueID(ids, m.id+"-root-"+strconv.Itoa(root.index)),

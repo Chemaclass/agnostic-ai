@@ -202,12 +202,9 @@ func snapshotCodexEmit(t *testing.T, root string) map[string]string {
 func unifiedDiffLines(a, b string) string {
 	la := strings.Split(a, "\n")
 	lb := strings.Split(b, "\n")
-	n := len(la)
-	if len(lb) > n {
-		n = len(lb)
-	}
+	n := max(len(lb), len(la))
 	var sb strings.Builder
-	for i := 0; i < n; i++ {
+	for i := range n {
 		var x, y string
 		if i < len(la) {
 			x = la[i]

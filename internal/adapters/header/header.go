@@ -220,18 +220,18 @@ func Strip(content string) string {
 func stripHeaderLine(s string) string {
 	trimmed := strings.TrimLeft(s, "\n")
 	leading := len(s) - len(trimmed)
-	nl := strings.IndexByte(trimmed, '\n')
-	if nl < 0 {
+	before, after, ok := strings.Cut(trimmed, "\n")
+	if !ok {
 		return s
 	}
-	first := trimmed[:nl]
+	first := before
 	if !strings.Contains(first, Marker) {
 		return s
 	}
 	if !looksLikeHeaderLine(first) {
 		return s
 	}
-	rest := strings.TrimLeft(trimmed[nl+1:], "\n")
+	rest := strings.TrimLeft(after, "\n")
 	if leading > 0 {
 		return s[:leading] + rest
 	}

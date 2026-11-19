@@ -3,11 +3,13 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,7 +31,7 @@ func newHookWorktreeRemoveCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(repo) == "" || strings.TrimSpace(allowedRoot) == "" {
-				return fmt.Errorf("worktree removal requires nonempty --repo and --allowed-root")
+				return errors.New("worktree removal requires nonempty --repo and --allowed-root")
 			}
 			var payload struct {
 				Event string `json:"hook_event_name"`
@@ -49,10 +51,10 @@ func newHookWorktreeRemoveCmd() *cobra.Command {
 			}
 			var extra any
 			if err := dec.Decode(&extra); err != io.EOF {
-				return fmt.Errorf("worktree removal payload must be one JSON object")
+				return errors.New("worktree removal payload must be one JSON object")
 			}
 			if payload.Event != "WorktreeRemove" || !filepath.IsAbs(payload.Path) || strings.ContainsRune(payload.Path, 0) {
-				return fmt.Errorf("worktree removal requires a WorktreeRemove event and an absolute worktree_path")
+				return errors.New("worktree removal requires a WorktreeRemove event and an absolute worktree_path")
 			}
 			state, err := removeHookWorktree(repo, allowedRoot, payload.Path)
 			if err != nil {
@@ -70,10 +72,8 @@ func newHookWorktreeRemoveCmd() *cobra.Command {
 }
 
 func removeHookWorktree(repo, allowedRoot, candidate string) (string, error) {
-	for _, part := range strings.FieldsFunc(candidate, func(r rune) bool { return r == '/' || r == filepath.Separator }) {
-		if part == ".." {
-			return "", fmt.Errorf("%s: worktree path contains traversal", candidate)
-		}
+	if slices.Contains(strings.FieldsFunc(candidate, func(r rune) bool { return r == '/' || r == filepath.Separator }), "..") {
+		return "", fmt.Errorf("%s: worktree path contains traversal", candidate)
 	}
 	root, err := filepath.Abs(allowedRoot)
 	if err != nil {
@@ -123,8 +123,8 @@ func removeHookWorktree(repo, allowedRoot, candidate string) (string, error) {
 	locked := false
 	selected := false
 	for _, entry := range entries {
-		if strings.HasPrefix(entry, "worktree ") {
-			listed := strings.TrimPrefix(entry, "worktree ")
+		if after, ok := strings.CutPrefix(entry, "worktree "); ok {
+			listed := after
 			if resolved, err := filepath.EvalSymlinks(listed); err == nil {
 				listed = resolved
 			}

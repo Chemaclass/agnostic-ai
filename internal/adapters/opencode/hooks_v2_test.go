@@ -126,7 +126,6 @@ process.stdin.on("end", () => {
 			if err := os.WriteFile(filepath.Join(output, tt.name+".ts"), body, 0o644); err != nil {
 				t.Fatal(err)
 			}
-
 		})
 	}
 }
