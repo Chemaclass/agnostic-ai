@@ -75,11 +75,11 @@ func TestImportFromOpencode_ReadsSingularFolders(t *testing.T) {
 
 func TestFindUnmanagedConfig_FlagsNativeFilesImportUsedToSkip(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "mcp.json"), handWrittenCursorMCP)
-	mustWriteFile(t, filepath.Join(dir, ".cursorrules"), "Legacy rule.\n")
-	mustWriteFile(t, filepath.Join(dir, ".github", "prompts", "plan.prompt.md"), "Plan.\n")
-	mustWriteFile(t, filepath.Join(dir, ".opencode", "agent", "planner.md"), "Plan.\n")
-	mustWriteFile(t, filepath.Join(dir, ".opencode", "command", "test.md"), "Test.\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "mcp.json"), handWrittenCursorMCP)
+	writeFile(t, filepath.Join(dir, ".cursorrules"), "Legacy rule.\n")
+	writeFile(t, filepath.Join(dir, ".github", "prompts", "plan.prompt.md"), "Plan.\n")
+	writeFile(t, filepath.Join(dir, ".opencode", "agent", "planner.md"), "Plan.\n")
+	writeFile(t, filepath.Join(dir, ".opencode", "command", "test.md"), "Test.\n")
 
 	got, err := findUnmanagedConfig(dir, &config.Config{})
 	if err != nil {
@@ -105,8 +105,8 @@ func TestFindUnmanagedConfig_FlagsNativeFilesImportUsedToSkip(t *testing.T) {
 // Once import holds every server, the MCP file is not reported.
 func TestFindUnmanagedConfig_SkipsAnMCPFileWhoseServersHaveSpecs(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "mcp.json"), handWrittenCursorMCP)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"), "name: linear\nurl: https://mcp.linear.app/sse\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "mcp.json"), handWrittenCursorMCP)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"), "name: linear\nurl: https://mcp.linear.app/sse\n")
 
 	got, err := findUnmanagedConfig(dir, &config.Config{Sources: config.Sources{MCPs: ".agnostic-ai/mcps"}})
 	if err != nil {
@@ -123,8 +123,8 @@ func TestFindUnmanagedConfig_SkipsAnMCPFileWhoseServersHaveSpecs(t *testing.T) {
 // replaced the entry import had just read.
 func TestImportThenSync_OpencodeKeepsEnabledMCP(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\n")
-	mustWriteFile(t, "opencode.json", `{"mcp": {"everything": {"type": "local", "command": ["npx", "server"], "enabled": true}}}`+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\n")
+	writeFile(t, "opencode.json", `{"mcp": {"everything": {"type": "local", "command": ["npx", "server"], "enabled": true}}}`+"\n")
 	if out, err := runCLI(t, "import", "opencode"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}

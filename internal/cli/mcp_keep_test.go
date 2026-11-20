@@ -14,10 +14,10 @@ const handWrittenCursorMCP = `{"mcpServers": {"linear": {"url": "https://mcp.lin
 func setUpCursorMCPProject(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/foo.yaml", "name: foo\ncommand: foo-mcp\n")
-	mustWriteFile(t, ".cursor/mcp.json", handWrittenCursorMCP)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
+	writeFile(t, ".agnostic-ai/mcps/foo.yaml", "name: foo\ncommand: foo-mcp\n")
+	writeFile(t, ".cursor/mcp.json", handWrittenCursorMCP)
 }
 
 // A sync replaced a hand-written .cursor/mcp.json it never wrote and
@@ -75,7 +75,7 @@ func TestSync_BackupReplacesAHandWrittenMCPFileAndKeepsIt(t *testing.T) {
 // A file whose servers all have specs loses nothing, so sync writes it.
 func TestSync_WritesAnMCPFileWhoseServersAllHaveSpecs(t *testing.T) {
 	setUpCursorMCPProject(t)
-	mustWriteFile(t, ".cursor/mcp.json", `{"mcpServers": {"foo": {"command": "old"}}}`+"\n")
+	writeFile(t, ".cursor/mcp.json", `{"mcpServers": {"foo": {"command": "old"}}}`+"\n")
 
 	runSyncOK(t)
 
@@ -92,7 +92,7 @@ func TestSync_KeepsWritingAnMCPFileItWrote(t *testing.T) {
 		t.Fatal(err)
 	}
 	runSyncOK(t)
-	mustWriteFile(t, ".agnostic-ai/mcps/bar.yaml", "name: bar\ncommand: bar-mcp\n")
+	writeFile(t, ".agnostic-ai/mcps/bar.yaml", "name: bar\ncommand: bar-mcp\n")
 	if err := os.Remove(".agnostic-ai/mcps/foo.yaml"); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestSync_TakenBackupLeavesAnImportedMCPFileUnledgered(t *testing.T) {
 	if out, err := runCLI(t, "import", "cursor"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
-	mustWriteFile(t, ".cursor/mcp.json.bak", "older\n")
+	writeFile(t, ".cursor/mcp.json.bak", "older\n")
 
 	runSyncOK(t)
 
@@ -147,10 +147,10 @@ func TestSync_TakenBackupLeavesAnImportedMCPFileUnledgered(t *testing.T) {
 func TestSync_KeepsAHandWrittenClaudeMCPFile(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	const mine = `{"mcpServers": {"mine": {"command": "mine-mcp"}}}` + "\n"
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/fs.yaml", "name: fs\ncommand: fs-mcp\n")
-	mustWriteFile(t, ".mcp.json", mine)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
+	writeFile(t, ".agnostic-ai/mcps/fs.yaml", "name: fs\ncommand: fs-mcp\n")
+	writeFile(t, ".mcp.json", mine)
 
 	_, err := runCLI(t, "sync")
 	if err == nil || !strings.Contains(err.Error(), "server mine") || !strings.Contains(err.Error(), "agnostic-ai import claude") {
