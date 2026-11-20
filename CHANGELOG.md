@@ -8,11 +8,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Highlights
 
-- New `approvals` setting: ask you, let each tool's own reviewer decide, or approve safe calls from a hook (#3700).
-- The companion lists Claude app chats, Cowork tasks and ChatGPT desktop chats beside your coding sessions, read from this computer.
-- Send copied text into a chat from any app with Ctrl+Alt+V, as Markdown when it came from a web page (#3517, #3550).
-- On macOS, `companion install` downloads the app the release built and verified, so it no longer needs Go or Xcode tools.
-- `sync` stops instead of deleting files when a locked pack is missing or an output path points into the source folder (#3712, #3740).
+- New `approvals` setting: ask you, let each tool's own reviewer decide, or approve safe calls from a Claude Code or Codex hook (#3700).
+- The companion lists Claude app chats, Cowork tasks and ChatGPT desktop chats beside your coding sessions, read from this computer (#3511).
+- Send copied text to a chat from any app with Ctrl+Alt+V; on macOS it is typed into Terminal or Ghostty chats, as Markdown from a web page (#3517, #3550).
+- On macOS, `companion install` downloads the app the release built and checks it, so a released CLI no longer needs Go or Xcode tools (#3516).
+- `sync` stops when a locked pack is missing, instead of deleting its files, and refuses an output path that points into the source folder (#3712, #3740).
 
 ### General
 
@@ -27,7 +27,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Sync safety
 
 - `sync` names a pack that `agnostic.packs.lock` lists but `.agnostic-ai/packs/` lacks, instead of deleting its files. Run `agnostic-ai packs update` (#3712).
-- `sync`, `status` and `validate` refuse an `outputs` path that resolves into `.agnostic-ai/` or a spec folder (#3740).
+- `sync`, `status` and `validate` refuse an `outputs` path that resolves into `.agnostic-ai/` or a spec folder, instead of overwriting the source (#3740).
 - `sync` and `doctor --fix` back up a hand edit to a symlinked output, and `doctor` flags a hand-written file that blocks `sync` (#3707, #3736, #3749).
 - `revert --force` keeps `.agnostic-ai/AGNOSTIC_AI.md` and other source files, and `revert` prints what it restored and removed (#3701).
 - `sync` honors `outputs.<target>.collision-policy`; when targets disagree, the strictest value wins (#3631).
@@ -62,7 +62,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion app
 
-- On macOS, `companion install` downloads the release's app for Apple silicon or Intel and checks its checksums and build provenance.
+- On macOS, `companion install` downloads the release's app for Apple silicon or Intel and checks its checksums and build provenance (#3516).
 - The macOS disk image bundles the CLI and offers updates, and the companion runs as its own app for macOS permissions (#3516, #3601).
 - Install, uninstall and upgrade handle old macOS, wrong-processor builds, interrupted installs and releases not yet on Homebrew or npm (#3591).
 - The companion replaces a stuck `serve`, recovers from a damaged `companion.json`, and names the fix for a CLI version mismatch (#3591, #3601).
@@ -70,7 +70,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Chat list
 
-- Claude app chats, Cowork tasks and ChatGPT desktop chats show with no network call, and count under Needs you once answered.
+- Claude app chats, Cowork tasks and ChatGPT desktop chats show with no network call, and count under Needs you once answered (#3511).
 - Renaming a chat renames it in its own tool first, and the companion says why when the tool refuses.
 - A chat with working subagents shows "▸ 3 subagents", each with its latest message, and a click opens its chat (#3667).
 - A chat waiting for a permission shows what it asks, sorts first under Needs you, and turns the circle's count orange (#3526, #3533).
@@ -88,7 +88,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Ctrl+Alt+V in any app, or Cmd+Shift+V in the list, puts copied text in a live Terminal or Ghostty chat's input without submitting it (#3517).
 - Other chats come to the front with a note to paste with Cmd+V; ended, busy Codex and waiting chats never get typed text (#3517).
-- Text copied from a web page goes as Markdown when it holds links, tables, code blocks, headings or lists (#3517).
+- On macOS, text copied from a web page goes as Markdown when it holds links, tables, code blocks, headings or lists (#3517).
 - The picker hides archived chats, says what Enter does, and a subagent row sends to its parent chat (#3550, #3591).
 - A send with no answer in 60 seconds says the text may have been typed, so check the chat before you send again (#3591).
 
