@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -14,8 +15,8 @@ var (
 )
 
 // StopSessionReply says how a running Claude Code session ended.
-// Forced: it ignored the request to stop and was killed. StillRunning:
-// even that did not end it.
+// Forced means a force-stop signal was sent. StillRunning means the
+// same process was still running at the last check.
 type StopSessionReply struct {
 	Forced       bool `json:"forced,omitempty"`
 	StillRunning bool `json:"stillRunning,omitempty"`
@@ -23,11 +24,10 @@ type StopSessionReply struct {
 
 const sessionGracePeriod = 5 * time.Second
 
-// StopSession ends the process of a live Claude Code session that runs in
-// a terminal on this machine. It asks first and kills only a process that
-// is still the same one after the grace period.
+// StopSession ends the confirmed Claude Code process in its terminal.
 func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target ProcessRef, opts ScanOptions) (StopSessionReply, error) {
-	if !canStopShells() || tool != ToolClaude || !sessionIDPattern.MatchString(id) || target.PID <= 1 || target.ProcStart == "" {
+	if !canStopShells() || tool != ToolClaude || !sessionIDPattern.MatchString(id) ||
+		target.PID < 2 || target.PID == os.Getpid() || strings.TrimSpace(target.ProcStart) == "" {
 		return StopSessionReply{}, ErrSessionRefused
 	}
 	if _, stopping := s.stoppingSessions.LoadOrStore(id, struct{}{}); stopping {
@@ -35,7 +35,10 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target 
 	}
 	defer s.stoppingSessions.Delete(id)
 
-	process, found := s.sessionToStop(ctx, id, target, opts)
+	found, err := s.sessionToStop(ctx, id, target, opts)
+	if err != nil {
+		return StopSessionReply{}, fmt.Errorf("check running chat: %w", err)
+	}
 	if !found {
 		return StopSessionReply{}, ErrSessionRefused
 	}
@@ -43,7 +46,8 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target 
 	if err != nil {
 		return StopSessionReply{}, fmt.Errorf("check running chat: %w", err)
 	}
-	if !runningAs(table, process) || !s.holdsShellSession(id, process) || holdsServer(table, process.PID) {
+	process, running := sessionProcessAs(table, target)
+	if !running || process.TTY == "" || !s.holdsShellSession(id, liveProcess(target)) || serverProcessIDs(table)[target.PID] {
 		return StopSessionReply{}, ErrSessionRefused
 	}
 	if err := ctx.Err(); err != nil {
@@ -53,7 +57,7 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target 
 	if signal == nil {
 		signal = signalSession
 	}
-	if err := signal(process.PID, false); err != nil {
+	if err := signal(target.PID, false); err != nil {
 		return StopSessionReply{}, fmt.Errorf("stop chat: %w", err)
 	}
 	s.shellStops.Add(1)
@@ -69,10 +73,14 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target 
 	if table, err = s.Processes.Table(); err != nil {
 		return StopSessionReply{}, fmt.Errorf("check chat after stopping: %w", err)
 	}
-	if !runningAs(table, process) {
+	current, running := sessionProcessAs(table, target)
+	if !running {
 		return StopSessionReply{}, nil
 	}
-	if err := signal(process.PID, true); err != nil {
+	if current.TTY != process.TTY || serverProcessIDs(table)[target.PID] {
+		return StopSessionReply{StillRunning: true}, nil
+	}
+	if err := signal(target.PID, true); err != nil {
 		return StopSessionReply{}, fmt.Errorf("force stop chat: %w", err)
 	}
 	s.shellStops.Add(1)
@@ -82,42 +90,76 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target 
 	if table, err = s.Processes.Table(); err != nil {
 		return StopSessionReply{Forced: true}, fmt.Errorf("check chat after force stopping: %w", err)
 	}
-	return StopSessionReply{Forced: true, StillRunning: runningAs(table, process)}, nil
+	_, running = sessionProcessAs(table, target)
+	return StopSessionReply{Forced: true, StillRunning: running}, nil
 }
 
-// sessionToStop finds the row as a scan lists it, so the endpoint stops
-// only what the list offers to stop, and only the process the person saw.
-func (s *Scanner) sessionToStop(ctx context.Context, id string, target ProcessRef, opts ScanOptions) (liveProcess, bool) {
+func (s *Scanner) sessionToStop(ctx context.Context, id string, target ProcessRef, opts ScanOptions) (bool, error) {
 	s.lock()
 	defer s.unlock()
-	for _, c := range s.scanClaude(ctx, opts).conversations {
-		if c.ID == id && c.Stoppable != nil && *c.Stoppable == target && c.process != nil && c.process.PID > 1 && c.process.PID != os.Getpid() {
-			return *c.process, true
+	result, err := s.scanClaude(ctx, opts)
+	if err != nil {
+		return false, err
+	}
+	for _, c := range result.conversations {
+		if confirmed, ok := terminalSessionCandidate(c); c.ID == id && ok && confirmed == target {
+			return true, nil
 		}
 	}
-	return liveProcess{}, false
+	return false, nil
 }
 
-func runningAs(table []ProcessInfo, process liveProcess) bool {
+func terminalSessionCandidate(c Conversation) (ProcessRef, bool) {
+	if c.Tool != ToolClaude || c.App != AppCLI || !c.Live || c.process == nil || c.process.PID < 2 || c.process.PID == os.Getpid() {
+		return ProcessRef{}, false
+	}
+	target := ProcessRef{PID: c.process.PID, ProcStart: c.process.ProcStart}
+	return target, strings.TrimSpace(target.ProcStart) != ""
+}
+
+func showStoppableSessions(rows []Conversation, readTable func() ([]ProcessInfo, error)) {
+	if !canStopShells() {
+		return
+	}
+	var table []ProcessInfo
+	var serverPIDs map[int]bool
+	for i := range rows {
+		target, ok := terminalSessionCandidate(rows[i])
+		if !ok {
+			continue
+		}
+		if table == nil {
+			var err error
+			table, err = readTable()
+			if err != nil || len(table) == 0 {
+				return
+			}
+			serverPIDs = serverProcessIDs(table)
+		}
+		if process, running := sessionProcessAs(table, target); running && process.TTY != "" && !serverPIDs[target.PID] {
+			rows[i].Stoppable = &target
+		}
+	}
+}
+
+func sessionProcessAs(table []ProcessInfo, target ProcessRef) (ProcessInfo, bool) {
 	for _, info := range table {
-		if info.PID == process.PID {
-			return sameShellSession(info, process)
+		if info.PID == target.PID {
+			return info, sameShellSession(info, liveProcess(target))
 		}
 	}
-	return false
+	return ProcessInfo{}, false
 }
 
-// holdsServer: pid is this server or one of its ancestors, such as a chat
-// that started the companion from its shell. Ending it would end the server.
-func holdsServer(table []ProcessInfo, pid int) bool {
+// serverProcessIDs includes the server and ancestors that must stay alive.
+func serverProcessIDs(table []ProcessInfo) map[int]bool {
 	parents := make(map[int]int, len(table))
 	for _, info := range table {
 		parents[info.PID] = info.PPID
 	}
-	for at, steps := os.Getpid(), 0; at > 1 && steps < len(table)+1; at, steps = parents[at], steps+1 {
-		if at == pid {
-			return true
-		}
+	serverPIDs := map[int]bool{}
+	for at := os.Getpid(); at > 1 && !serverPIDs[at]; at = parents[at] {
+		serverPIDs[at] = true
 	}
-	return false
+	return serverPIDs
 }

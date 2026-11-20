@@ -80,7 +80,7 @@ func (s *Scanner) StopShell(ctx context.Context, tool Tool, id string, target Pr
 func (s *Scanner) shellToStop(ctx context.Context, id string, target ProcessRef, opts ScanOptions) (liveProcess, bool) {
 	s.lock()
 	defer s.unlock()
-	result := s.scanClaude(ctx, opts)
+	result, _ := s.scanClaude(ctx, opts)
 	for _, c := range result.conversations {
 		if c.ID != id || !c.Live || c.shellSession == nil {
 			continue

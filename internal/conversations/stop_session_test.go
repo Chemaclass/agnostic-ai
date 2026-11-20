@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+func stopSessionScanner(t *testing.T) (*Scanner, *fakeProcesses) {
+	t.Helper()
+	scanner, processes, _, _ := forgottenShellScanner(t)
+	processes.table[0].TTY = "/dev/ttys004"
+	return scanner, processes
+}
+
 func sessionRef(processes *fakeProcesses) ProcessRef {
 	return ProcessRef{PID: 4242, ProcStart: processes.table[0].Started}
 }
@@ -27,7 +34,7 @@ func TestStopSession_AsksTheProcessToEndFirst(t *testing.T) {
 	if !canStopShells() {
 		t.Skip("requires signals")
 	}
-	scanner, processes, _, _ := forgottenShellScanner(t)
+	scanner, processes := stopSessionScanner(t)
 	signals := recordSessionSignals(scanner)
 	var waited []time.Duration
 	scanner.shellWait = func(_ context.Context, duration time.Duration) error {
@@ -58,7 +65,7 @@ func TestStopSession_KillsTheSameProcessWhenItKeepsRunning(t *testing.T) {
 	if !canStopShells() {
 		t.Skip("requires signals")
 	}
-	scanner, processes, _, _ := forgottenShellScanner(t)
+	scanner, processes := stopSessionScanner(t)
 	signals := recordSessionSignals(scanner)
 	scanner.shellWait = func(context.Context, time.Duration) error { return nil }
 	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{})
@@ -77,7 +84,7 @@ func TestStopSession_DoesNotKillAProcessThatReusedThePID(t *testing.T) {
 	if !canStopShells() {
 		t.Skip("requires signals")
 	}
-	scanner, processes, _, _ := forgottenShellScanner(t)
+	scanner, processes := stopSessionScanner(t)
 	signals := recordSessionSignals(scanner)
 	scanner.shellWait = func(context.Context, time.Duration) error {
 		processes.table[0].Started = "reused"
@@ -105,6 +112,9 @@ func TestStopSession_RefusesBeforeSignaling(t *testing.T) {
 		"process restarted": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
 			processes.table[0].Started = "reused"
 		},
+		"no terminal": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
+			processes.table[0].TTY = ""
+		},
 		"table unreadable": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
 			processes.tableFails = true
 		},
@@ -129,7 +139,7 @@ func TestStopSession_RefusesBeforeSignaling(t *testing.T) {
 	}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
-			scanner, processes, _, _ := forgottenShellScanner(t)
+			scanner, processes := stopSessionScanner(t)
 			signals := recordSessionSignals(scanner)
 			tool, id, target := ToolClaude, idSafari, sessionRef(processes)
 			change(scanner, processes, &tool, &id, &target)
@@ -141,15 +151,73 @@ func TestStopSession_RefusesBeforeSignaling(t *testing.T) {
 	}
 }
 
-func TestScan_MarksALiveClaudeSessionStoppable(t *testing.T) {
-	scanner, processes, _, _ := forgottenShellScanner(t)
+func TestScan_OffersStopOnlyForAConfirmedTerminalProcess(t *testing.T) {
+	scanner, processes := stopSessionScanner(t)
 	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari)
-	if want := sessionRef(processes); canStopShells() && (c.Stoppable == nil || *c.Stoppable != want) {
-		t.Errorf("live row stoppable = %+v, want %+v", c.Stoppable, want)
+	if canStopShells() {
+		if want := sessionRef(processes); c.Stoppable == nil || *c.Stoppable != want {
+			t.Errorf("live row stoppable = %+v, want %+v", c.Stoppable, want)
+		}
+	} else if c.Stoppable != nil {
+		t.Errorf("unsupported system showed a stop target: %+v", c.Stoppable)
 	}
+
+	tty := processes.table[0].TTY
+	processes.table[0].TTY = ""
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Stoppable != nil {
+		t.Error("row without a terminal offered stop")
+	}
+	processes.table[0].TTY = tty
+	processes.tableFails = true
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Stoppable != nil {
+		t.Error("row with an unreadable process table offered stop")
+	}
+	processes.tableFails = false
 	processes.alive = map[int]bool{}
 	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Stoppable != nil {
 		t.Error("ended row is stoppable")
+	}
+}
+
+func TestStopSession_ReportsTheInitialProcessReadError(t *testing.T) {
+	if !canStopShells() {
+		t.Skip("requires signals")
+	}
+	scanner, processes := stopSessionScanner(t)
+	signals := recordSessionSignals(scanner)
+	processes.readFails = true
+	_, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{})
+	if !errors.Is(err, errProcessRead) || len(*signals) != 0 {
+		t.Errorf("stop err = %v, signals = %+v; want the initial read error", err, *signals)
+	}
+}
+
+func TestStopSession_DoesNotForceStopWhenEligibilityChanges(t *testing.T) {
+	if !canStopShells() {
+		t.Skip("requires signals")
+	}
+	for name, change := range map[string]func(*fakeProcesses){
+		"left terminal":    func(processes *fakeProcesses) { processes.table[0].TTY = "" },
+		"changed terminal": func(processes *fakeProcesses) { processes.table[0].TTY = "/dev/ttys005" },
+		"needed by server": func(processes *fakeProcesses) {
+			processes.table = append(processes.table, ProcessInfo{PID: os.Getpid(), PPID: 4242})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scanner, processes := stopSessionScanner(t)
+			signals := recordSessionSignals(scanner)
+			scanner.shellWait = func(context.Context, time.Duration) error {
+				change(processes)
+				return nil
+			}
+			reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{})
+			if err != nil || reply != (StopSessionReply{StillRunning: true}) {
+				t.Errorf("stop reply = %+v, err = %v; want still running without force", reply, err)
+			}
+			if want := []shellTestSignal{{group: 4242}}; !reflect.DeepEqual(*signals, want) {
+				t.Errorf("signals = %+v, want %+v", *signals, want)
+			}
+		})
 	}
 }
 
@@ -157,7 +225,7 @@ func TestStopSession_SaysSoWhenItCannotTellTheChatEnded(t *testing.T) {
 	if !canStopShells() {
 		t.Skip("requires signals")
 	}
-	scanner, processes, _, _ := forgottenShellScanner(t)
+	scanner, processes := stopSessionScanner(t)
 	signals := recordSessionSignals(scanner)
 	scanner.shellWait = func(context.Context, time.Duration) error {
 		processes.tableFails = true

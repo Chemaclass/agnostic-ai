@@ -1580,7 +1580,7 @@ stopShellGo.addEventListener('click', async () => {
 const stopSessionConfirm = document.getElementById('stop-session-confirm')
 const stopSessionCancel = document.getElementById('stop-session-cancel')
 const stopSessionGo = document.getElementById('stop-session-go')
-/** The conversation the question asks about; undefined while none shows. */
+/** Each question has its own identity while a stop reply is on its way. */
 let stopSessionFor
 
 menuItems['stop-session'].addEventListener('click', () => {
@@ -1591,7 +1591,7 @@ menuItems['stop-session'].addEventListener('click', () => {
     return
   }
   const { title, body } = stopSessionConfirmOf(conversation)
-  stopSessionFor = conversation
+  stopSessionFor = { conversation }
   document.getElementById('stop-session-title').textContent = title
   document.getElementById('stop-session-body').textContent = body
   stopSessionGo.disabled = false
@@ -1610,9 +1610,10 @@ const sameProcess = (a, b) => a?.pid === b?.pid && a?.procStart === b?.procStart
 /** A new list where the chat no longer runs here, or runs in another process, closes the question. */
 function keepStopSessionCurrent() {
   if (stopSessionConfirm.hidden || !stopSessionFor || stopSessionGo.disabled) return
-  const key = keyOf(stopSessionFor)
+  const { conversation } = stopSessionFor
+  const key = keyOf(conversation)
   const current = shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
-  if (current && rowMenuOf(current).includes('stop-session') && sameProcess(current.stoppable, stopSessionFor.stoppable)) return
+  if (current?.live && current.stoppable && sameProcess(current.stoppable, conversation.stoppable)) return
   closeStopSession()
 }
 
@@ -1622,23 +1623,24 @@ document.addEventListener('mousedown', (event) => {
 })
 holdTab(stopSessionConfirm)
 stopSessionGo.addEventListener('click', async () => {
-  const conversation = stopSessionFor
-  if (!conversation || stopSessionGo.disabled) return
+  keepStopSessionCurrent()
+  const confirmation = stopSessionFor
+  if (!confirmation || stopSessionGo.disabled) return
+  const { conversation } = confirmation
   stopSessionGo.disabled = true
-  let reply
+  let result
   let version
   try {
-    // The question named this process: a chat that moved to another one since is refused, not stopped.
-    ({ body: reply, version } = await stopSession(conversation, conversation.stoppable))
+    const response = await stopSession(conversation, conversation.stoppable)
+    result = stoppedSessionOf(response.body ?? {})
+    version = response.version
   } catch (error) {
     if (!(error instanceof CallError)) throw error
-    closeStopSession()
-    showOpenFailure({ message: error.message }, NOTICES.sessionNotStopped)
-    await afterChange()
-    return
+    result = { message: error.message, problem: true }
+  } finally {
+    if (stopSessionFor === confirmation) closeStopSession()
   }
-  closeStopSession()
-  const { message, problem } = stoppedSessionOf(reply ?? {})
+  const { message, problem } = result
   if (problem) showOpenFailure({ message }, NOTICES.sessionNotStopped)
   else say(message)
   await afterChange(version)
@@ -1940,6 +1942,8 @@ function opened(from) {
   deleteFor = undefined
   stopShellDialog.hidden = true
   stopShellFor = undefined
+  stopSessionConfirm.hidden = true
+  stopSessionFor = undefined
   quitConfirm.hidden = true
   state.renaming = undefined
   if (!state.returning) {

@@ -1082,7 +1082,7 @@ export interface ConversationStopSessionRequest extends ConversationProcessRef {
   id: string
 }
 
-/** forced: the session ignored the request to stop and was killed. stillRunning: even that did not end it. */
+/** forced: the server sent a force stop. stillRunning: the same process still runs. */
 export interface ConversationStopSessionReply {
   forced?: boolean
   stillRunning?: boolean
