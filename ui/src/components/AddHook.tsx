@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { addHookSpec, EditError } from '../api'
 import type { HookSpecPreview, Stage } from '../contract'
 import { audienceDescription, type EditAudience } from '../model/edit-audience'
-import { emptyHookDraft, HOOK_MATCHES, hookDraftProblem, hookRequest, takesMatch, type HookDraft } from '../model/hook-form'
+import { emptyHookDraft, HOOK_MATCHES, hookDraftProblem, hookRequest, stageExcludes, takesMatch, type HookDraft } from '../model/hook-form'
 import { useApp } from './app-context'
 import { useGlobalLevel } from './EditAudience'
 import { Notice } from './Banner'
@@ -54,6 +54,8 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
     if (preview) previewRegion.current?.focus()
     else nameField.current?.focus()
   }, [preview])
+  const excluded = stageExcludes(stages, draft.on)
+  const excludedLabels = excluded.map((tool) => stages.flatMap((stage) => stage.targets).find((entry) => entry.target === tool)?.label ?? tool)
   const change = (patch: Partial<HookDraft>) => {
     setDraft((current) => ({ ...current, ...patch }))
     setError(undefined)
@@ -69,7 +71,7 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
     setPending(action)
     setError(undefined)
     try {
-      const reply = await addHookSpec(hookRequest(draft, audience, action, action === 'apply' ? preview?.expected : undefined))
+      const reply = await addHookSpec(hookRequest(draft, audience, action, action === 'apply' ? preview?.expected : undefined, excluded))
       if (action === 'apply') onSaved({ file: reply.file, syncCommand: reply.syncCommand })
       else setPreview(reply)
     } catch (failure) {
@@ -110,6 +112,7 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
         {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}
       </Select>
     </label>
+    {excluded.length > 0 && <p className="muted hook-form-hint">{excludedLabels.join(', ')} {excluded.length === 1 ? 'has' : 'have'} no such stage, so the hook leaves {excluded.length === 1 ? 'it' : 'them'} out.</p>}
     {takesMatch(draft.on) && <label>Tool match
       <Select value={draft.match} onChange={(event) => change({ match: event.target.value })}>
         {HOOK_MATCHES.map((match) => <option key={match.value} value={match.value}>{match.label}</option>)}
