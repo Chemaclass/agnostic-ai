@@ -195,6 +195,20 @@ agnostic-ai hook memory --target codex
 - It finds the project as the `shared-memory` skill does.
 {% </details> %}
 
+## hook approve
+
+Answer a permission prompt from inside a `PermissionRequest` hook. The [`approvals` built-in](@/docs/approvals.md) sets this up for Claude Code and Codex through `sync --global`.
+
+```bash
+command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook approve --target claude
+```
+
+When the approvals mode for the tool and the session's folder is `yolo` and [no always-ask rule](@/docs/approvals.md#what-always-asks) matches, it prints `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`, which allows that one call. In every other case it prints nothing and the tool shows its prompt. It always exits 0, never denies, and writes nothing to stderr. In `yolo` it adds a line per request to the [decision log](@/docs/approvals.md#the-decision-log); when that write fails, it asks.
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Tool that runs the hook: `claude` or `codex`. Defaults to `AGNOSTIC_AI_TARGET`. |
+
 ## hook worktree-refresh
 
 Rerun Claude Code's configured environment setup in one registered linked worktree.

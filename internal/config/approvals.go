@@ -27,6 +27,10 @@ const (
 // ApprovalModes are the values an approvals mode accepts.
 var ApprovalModes = []string{ApprovalsAsk, ApprovalsReview, ApprovalsYolo}
 
+// ApprovalsBuiltin is the built-in that installs the approvals hooks.
+// Only sync --global writes it: a project sync skips it.
+const ApprovalsBuiltin = "approvals"
+
 // EnvApprovals names the variable that turns approvals off for one
 // session. Only ask is honored: the environment cannot loosen.
 const EnvApprovals = "AGNOSTIC_AI_APPROVALS"
@@ -233,6 +237,12 @@ func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
 // approvalsNode is the value of the top-level approvals key in path, or
 // nil when the file or the key is missing.
 func approvalsNode(path string) (*yaml.Node, error) {
+	return topLevelNode(path, "approvals")
+}
+
+// topLevelNode is the value of the top-level key in path, or nil when
+// the file or the key is missing.
+func topLevelNode(path, key string) (*yaml.Node, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -244,7 +254,7 @@ func approvalsNode(path string) (*yaml.Node, error) {
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
 	}
-	node, ok := doc["approvals"]
+	node, ok := doc[key]
 	if !ok {
 		return nil, nil
 	}
@@ -328,6 +338,17 @@ func ProjectApprovalsIssues(root string) ([]ApprovalsIssue, error) {
 	var issues []ApprovalsIssue
 	for _, name := range projectConfigNames {
 		path := filepath.Join(root, name)
+		builtins, err := topLevelNode(path, "builtins")
+		if err != nil {
+			return nil, err
+		}
+		if builtins != nil && builtins.Kind == yaml.SequenceNode {
+			for _, item := range builtins.Content {
+				if item.Value == ApprovalsBuiltin {
+					issues = append(issues, ApprovalsIssue{path, item.Line, "builtins: approvals is read only from the home config, where sync --global writes its hooks; a project sync skips it"})
+				}
+			}
+		}
 		node, err := approvalsNode(path)
 		if err != nil {
 			return nil, err

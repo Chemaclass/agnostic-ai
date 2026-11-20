@@ -158,11 +158,12 @@ func TestProjectApprovalsIssues(t *testing.T) {
 		shared, local string
 		want          []string
 	}{
-		"no approvals":       {"version: 1\n", "", nil},
-		"ask is allowed":     {"version: 1\napprovals:\n  mode: ask\n", "approvals:\n  mode: ask\n", nil},
-		"yolo in shared":     {"version: 1\napprovals:\n  mode: yolo\n", "", []string{ConfigFileName + ": approvals.mode: yolo"}},
-		"review in local":    {"version: 1\n", "approvals:\n  mode: review\n", []string{LocalOverrideFileName + ": approvals.mode: review"}},
-		"tools in a project": {"version: 1\napprovals:\n  tools:\n    codex: ask\n", "", []string{ConfigFileName + ": approvals.tools"}},
+		"no approvals":         {"version: 1\n", "", nil},
+		"ask is allowed":       {"version: 1\napprovals:\n  mode: ask\n", "approvals:\n  mode: ask\n", nil},
+		"yolo in shared":       {"version: 1\napprovals:\n  mode: yolo\n", "", []string{ConfigFileName + ": approvals.mode: yolo"}},
+		"review in local":      {"version: 1\n", "approvals:\n  mode: review\n", []string{LocalOverrideFileName + ": approvals.mode: review"}},
+		"tools in a project":   {"version: 1\napprovals:\n  tools:\n    codex: ask\n", "", []string{ConfigFileName + ": approvals.tools"}},
+		"builtin in a project": {"version: 1\nbuiltins: [memory, approvals]\n", "", []string{ConfigFileName + ": builtins: approvals is read only from the home config"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

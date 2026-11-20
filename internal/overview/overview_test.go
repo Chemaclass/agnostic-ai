@@ -109,8 +109,9 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 			}
 		}
 		if id == SectionSettings {
-			// Built-ins lists every shipped built-in and counts the enabled one.
-			total += len(builtins.Names()) - 1
+			// Built-ins lists every shipped built-in but approvals, which a
+			// project cannot turn on, and counts the enabled one.
+			total += len(builtins.Names()) - 2
 		}
 		if len(s.Items) != total {
 			t.Errorf("%s items = %d, want %d: %+v", id, len(s.Items), total, s.Items)

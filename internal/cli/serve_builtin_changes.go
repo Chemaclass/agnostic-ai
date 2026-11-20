@@ -18,6 +18,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
@@ -123,6 +124,10 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	switch r.URL.Path {
 	case builtinPreviewPath:
+		if request.Name == config.ApprovalsBuiltin && request.Enabled != nil && *request.Enabled {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "approvals is read only from the home config; add it to builtins there and run sync --global"})
+			return
+		}
 		toggle := slices.Contains(builtins.Names(), request.Name) && request.Enabled != nil && !request.Reset && request.Setting == nil
 		reset := request.Reset && request.Name == "" && request.Enabled == nil && request.Setting == nil
 		setting := request.Setting != nil && request.Name == "" && request.Enabled == nil && !request.Reset
