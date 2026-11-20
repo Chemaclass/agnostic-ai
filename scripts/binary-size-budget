@@ -985,4 +985,7 @@
 # bytes, rounded up to a 4096-byte page.
 # Main at a4439281b measures 27213984 bytes after the QA fix round
 # (#3726 to #3748). Allow 8192 bytes, rounded up to a 4096-byte page.
-27226112
+# #3753 measured 27226272 bytes on CI: import keeps a spec's escaped
+# MCP `$${NAME}` values when it rewrites the spec from a tool file.
+# Allow 8192 bytes, rounded up to a 4096-byte page.
+27238400
