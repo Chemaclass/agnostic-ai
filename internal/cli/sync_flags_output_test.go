@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -16,6 +17,9 @@ func TestSync_RejectsANegativeJobCount(t *testing.T) {
 	out, err := runCLI(t, "sync", "--jobs", "-1", "--gitignore=off")
 	if err == nil || !strings.Contains(err.Error(), "--jobs") {
 		t.Errorf("sync --jobs -1: %v\n%s", err, out)
+	}
+	if got := errs.CodeOf(err); got != errs.CodeFlagConflict {
+		t.Errorf("sync --jobs -1 code = %v, want %v", got, errs.CodeFlagConflict)
 	}
 }
 

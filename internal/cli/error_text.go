@@ -16,7 +16,7 @@ func ErrorText(err error) string {
 		return text
 	}
 	if dir, ok := projectAboveMissingConfig(err); ok {
-		return text + "\n  fix: this directory is inside the agnostic-ai project at " + dir + "; run the command from that folder."
+		return text + "\n  fix: " + insideProjectHint(dir, "") + "."
 	}
 	if entry, ok := errs.Lookup(errs.CodeOf(err)); ok && entry.Fix != "" {
 		text += "\n  fix: " + entry.Fix
