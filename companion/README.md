@@ -179,7 +179,7 @@ five-dot fractal. A number beside an agent icon shows the count; its tooltip
 and accessible label say how many sub-agents are working.
 An idle parent stays under Working while its sub-agents work, with its own
 plain, still dot. A parent that needs your answer stays under Needs you with
-the ordinary orange dot and no orbiting bulbs of its own. Working satellites
+the orange lock dot and no orbiting bulbs of its own. Working satellites
 keep their blue cores and animation independently of the parent. An unavailable
 count adds no markers. Cloud and other tools' native sub-agents are not tracked.
 With animation off or your system's Reduce Motion enabled, the whole indicator
