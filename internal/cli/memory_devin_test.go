@@ -80,7 +80,7 @@ func TestSync_DevinMemoryLauncherRunsInTheNamedProject(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	root, command := devinMemoryHandler(t)
 	bin := filepath.Join(root, "node_modules", ".bin", "agnostic-ai")
-	mustWriteFile(t, bin, "#!/bin/sh\nif [ \"$1 $2\" = 'project --help' ]; then exit 0; fi\n[ \"$*\" = 'project -- hook memory --target windsurf' ] || exit 2\n[ \"$PWD\" = \"$DEVIN_PROJECT_DIR\" ] || exit 3\nprintf 'PROJECT_ROOT_SELECTED\\n'\n")
+	writeFile(t, bin, "#!/bin/sh\nif [ \"$1 $2\" = 'project --help' ]; then exit 0; fi\n[ \"$*\" = 'project -- hook memory --target windsurf' ] || exit 2\n[ \"$PWD\" = \"$DEVIN_PROJECT_DIR\" ] || exit 3\nprintf 'PROJECT_ROOT_SELECTED\\n'\n")
 	if err := os.Chmod(bin, 0o755); err != nil {
 		t.Fatal(err)
 	}

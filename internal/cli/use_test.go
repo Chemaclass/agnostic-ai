@@ -13,8 +13,8 @@ import (
 func claudeOnlyProject(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "CLAUDE.md", "# My project\n\n## Conventions\n\nUse pnpm. Never touch prod.\n")
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview carefully.\n")
+	writeFile(t, "CLAUDE.md", "# My project\n\n## Conventions\n\nUse pnpm. Never touch prod.\n")
+	writeFile(t, ".claude/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview carefully.\n")
 }
 
 // One command takes a Claude-only repository to Claude plus Codex from
@@ -73,10 +73,10 @@ func TestUse_AgainChangesNothing(t *testing.T) {
 // before the sync would write over it.
 func TestUse_AddsAToolToAnExistingProjectAndKeepsItsConfig(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "# My project\n\nUse pnpm.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "# My project\n\nUse pnpm.\n")
 	runSyncOK(t)
-	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+	writeFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
 
 	if out, err := runCLI(t, "use", "codex"); err != nil {
 		t.Fatalf("use codex: %v\n%s", err, out)
@@ -105,8 +105,8 @@ func TestUse_RejectsAMistypedTool(t *testing.T) {
 // the tool is already in targets.
 func TestUse_ARetryImportsWhatAnEarlierRunLeft(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
 
 	if out, err := runCLI(t, "use", "codex"); err != nil {
 		t.Fatalf("use codex: %v\n%s", err, out)
@@ -120,7 +120,7 @@ func TestUse_ARetryImportsWhatAnEarlierRunLeft(t *testing.T) {
 // jules has no importer; its AGENTS.md is folded in as root instructions.
 func TestUse_AToolWithoutAnImporterKeepsItsInstructions(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+	writeFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
 
 	if out, err := runCLI(t, "use", "jules"); err != nil {
 		t.Fatalf("use jules: %v\n%s", err, out)
@@ -134,10 +134,10 @@ func TestUse_AToolWithoutAnImporterKeepsItsInstructions(t *testing.T) {
 // Text with no ## headings is one section, so it is kept too.
 func TestUse_KeepsFlatInstructionsBesideAnExistingBody(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "# P\n\nUse pnpm.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "# P\n\nUse pnpm.\n")
 	runSyncOK(t)
-	mustWriteFile(t, "AGENTS.md", "Keep PRs small.\nNever touch prod.\n")
+	writeFile(t, "AGENTS.md", "Keep PRs small.\nNever touch prod.\n")
 
 	if out, err := runCLI(t, "use", "jules"); err != nil {
 		t.Logf("use jules: %v\n%s", err, out)
@@ -151,7 +151,7 @@ func TestUse_KeepsFlatInstructionsBesideAnExistingBody(t *testing.T) {
 // A Codex setup is often just AGENTS.md; switching to Claude keeps it.
 func TestUse_KeepsAHandWrittenAgentsMdWhenSwitchingAway(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+	writeFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
 
 	if out, err := runCLI(t, "use", "claude"); err != nil {
 		t.Fatalf("use claude: %v\n%s", err, out)
@@ -169,8 +169,8 @@ func TestUse_RefusesWhenTheLocalFileSetsTargets(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, "agnostic-ai.local.yaml", local)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, "agnostic-ai.local.yaml", local)
 
 			_, err := runCLI(t, "use", "codex")
 
@@ -189,8 +189,8 @@ func TestUse_RefusesToStartAProjectInsideAnother(t *testing.T) {
 	testutil.Chdir(t, root)
 	isolateGit(t)
 	gitInit(t, root)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "web/README.md", "web\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "web/README.md", "web\n")
 	testutil.Chdir(t, "web")
 
 	_, err := runCLI(t, "use", "codex")
@@ -206,7 +206,7 @@ func TestUse_RefusesToStartAProjectInsideAnother(t *testing.T) {
 func TestUse_RefusesToStartWhenTheLocalFileSetsTargets(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "targets: [cursor]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "targets: [cursor]\n")
 
 	_, err := runCLI(t, "use", "codex")
 
@@ -221,8 +221,8 @@ func TestUse_RefusesToStartWhenTheLocalFileSetsTargets(t *testing.T) {
 func TestUse_RefusesToStartAProjectInsideAnotherOutsideGit(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "web/README.md", "web\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "web/README.md", "web\n")
 	testutil.Chdir(t, "web")
 
 	_, err := runCLI(t, "use", "codex")
@@ -238,8 +238,8 @@ func TestUse_RefusesToStartAProjectInsideAnotherOutsideGit(t *testing.T) {
 func TestUse_LeavesAnUnmanagedInstructionsFileToItsTool(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [CLAUDE.md]\n")
-	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [CLAUDE.md]\n")
+	writeFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
 
 	if out, err := runCLI(t, "use", "codex"); err != nil {
 		t.Fatalf("use codex: %v\n%s", err, out)
@@ -262,7 +262,7 @@ func TestUse_AgainKeepsSpecEdits(t *testing.T) {
 		t.Fatalf("use codex: %v\n%s", err, out)
 	}
 	spec := ".agnostic-ai/skills/review/SKILL.md"
-	mustWriteFile(t, spec, strings.Replace(readFile(t, spec), "Review carefully.", "Review twice.", 1))
+	writeFile(t, spec, strings.Replace(readFile(t, spec), "Review carefully.", "Review twice.", 1))
 
 	if out, err := runCLI(t, "use", "claude"); err != nil {
 		t.Fatalf("use claude: %v\n%s", err, out)
@@ -276,8 +276,8 @@ func TestUse_AgainKeepsSpecEdits(t *testing.T) {
 func TestUse_LeavesAnUnmanagedAgentsMdOutOfSharedInstructions(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [AGENTS.md]\n")
-	mustWriteFile(t, "AGENTS.md", "# Mine\n\nSecret codex note.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [AGENTS.md]\n")
+	writeFile(t, "AGENTS.md", "# Mine\n\nSecret codex note.\n")
 
 	if out, err := runCLI(t, "use", "gemini"); err != nil {
 		t.Fatalf("use gemini: %v\n%s", err, out)
@@ -293,10 +293,10 @@ func TestUse_LeavesAnUnmanagedAgentsMdOutOfSharedInstructions(t *testing.T) {
 func TestUse_FinishesAnImportAnInterruptedRunLeft(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
-	mustWriteFile(t, ".agnostic-ai/.sync-state", `{"pending_imports":["claude"]}`)
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
-	mustWriteFile(t, ".claude/settings.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
+	writeFile(t, ".agnostic-ai/.sync-state", `{"pending_imports":["claude"]}`)
+	writeFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
+	writeFile(t, ".claude/settings.json", "{}\n")
 
 	for _, args := range [][]string{{"sync"}, {"sync", "--json"}, {"sync", "--check"}, {"sync", "--plan"}, {"sync", "--dry-run", "--json"}} {
 		if _, err := runCLI(t, args...); err == nil || !strings.Contains(err.Error(), "run agnostic-ai use claude before syncing") {
@@ -321,8 +321,8 @@ func TestUse_FinishesAnImportAnInterruptedRunLeft(t *testing.T) {
 func TestUse_SyncIgnoresAPendingToolNoLongerInTargets(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/.sync-state", `{"pending_imports":["cursor"]}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/.sync-state", `{"pending_imports":["cursor"]}`)
 
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
@@ -333,9 +333,9 @@ func TestUse_SyncIgnoresAPendingToolNoLongerInTargets(t *testing.T) {
 func TestUse_AFailedImportOfAnEarlierToolLeavesNothingPending(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nUse pnpm.\n")
-	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "CLAUDE.md", "# Mine\n\nUse pnpm.\n")
+	writeFile(t, ".claude/settings.json", "{bad\n")
 
 	if _, err := runCLI(t, "use", "codex"); err == nil {
 		t.Fatal("use codex should report the failed claude import")
@@ -349,9 +349,9 @@ func TestUse_AFailedImportOfAnEarlierToolLeavesNothingPending(t *testing.T) {
 func TestUse_RefusesToStartWithAnUnmanagedDetectedTool(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged: [CLAUDE.md]\n")
-	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
+	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged: [CLAUDE.md]\n")
+	writeFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
 
 	_, err := runCLI(t, "use", "codex")
 
@@ -375,10 +375,10 @@ func TestUse_RefusesAToolWhoseInstructionsAreUnmanaged(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
 	cfg := "version: 1\ntargets: [codex]\nsync:\n  unmanaged: [CLAUDE.md]\n"
-	mustWriteFile(t, "agnostic-ai.yaml", cfg)
-	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
-	mustWriteFile(t, ".claude/settings.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", cfg)
+	writeFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
+	writeFile(t, ".claude/settings.json", "{}\n")
 
 	_, err := runCLI(t, "use", "claude")
 
@@ -398,7 +398,7 @@ func TestUse_RefusesAToolWhoseInstructionsAreUnmanaged(t *testing.T) {
 func TestUse_AFailedStartLeavesTheFailedToolOut(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+	writeFile(t, ".claude/settings.json", "{bad\n")
 
 	_, err := runCLI(t, "use", "codex")
 
@@ -414,7 +414,7 @@ func TestUse_AFailedStartLeavesTheFailedToolOut(t *testing.T) {
 func TestUse_AFailedStartWithNothingImportedLeavesNoProject(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+	writeFile(t, ".claude/settings.json", "{bad\n")
 
 	_, err := runCLI(t, "use", "claude")
 
@@ -431,8 +431,8 @@ func TestUse_AFailedStartWithNothingImportedLeavesNoProject(t *testing.T) {
 func TestUse_AFailedImportLeavesTheToolOut(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".claude/settings.json", "{bad\n")
 
 	_, err := runCLI(t, "use", "claude")
 
@@ -464,7 +464,7 @@ func TestStillConfigured(t *testing.T) {
 	if got := stillConfigured([]string{"claude"}); got != nil {
 		t.Errorf("without a config = %v, want none", got)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
 	if got := stillConfigured([]string{"claude", "cursor"}); !slices.Equal(got, []string{"claude"}) {
 		t.Errorf("got %v, want [claude]", got)
 	}

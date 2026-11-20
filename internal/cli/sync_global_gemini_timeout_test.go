@@ -18,7 +18,7 @@ func geminiGlobalTimeout(t *testing.T, home string) any {
 // Gemini reads a hook timeout in milliseconds; a spec states seconds.
 func TestSyncGlobal_GeminiTimeoutIsMilliseconds(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
 	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
 		t.Fatal(err)
 	}
@@ -30,8 +30,8 @@ func TestSyncGlobal_GeminiTimeoutIsMilliseconds(t *testing.T) {
 func TestSyncGlobal_HandWrittenGeminiHookInMillisecondsIsAdopted(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".gemini", "settings.json")
-	mustWriteGlobalTest(t, settings, `{"hooks":{"BeforeTool":[{"matcher":"","hooks":[{"type":"command","command":"guard.sh","timeout":30000}]}]}}`)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+	writeFile(t, settings, `{"hooks":{"BeforeTool":[{"matcher":"","hooks":[{"type":"command","command":"guard.sh","timeout":30000}]}]}}`)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
 	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSyncGlobal_HandWrittenGeminiHookInMillisecondsIsAdopted(t *testing.T) {
 func TestSyncGlobal_GeminiTimeoutRecordedInSecondsIsReplaced(t *testing.T) {
 	for _, fixedByHand := range []bool{false, true} {
 		home, source := globalAgentTestHome(t)
-		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+		writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
 		if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
 			t.Fatal(err)
 		}
@@ -82,7 +82,7 @@ func TestSyncGlobal_GeminiTimeoutRecordedInSecondsIsReplaced(t *testing.T) {
 // the timeout by hand is accepted, and the entry gains the target env.
 func TestSyncGlobal_UnsignalledGeminiHookFixedByHandIsAccepted(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
 	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestSyncGlobal_UnsignalledGeminiHookFixedByHandIsAccepted(t *testing.T) {
 // edit, not an older version's output.
 func TestSyncGlobal_RemovingTheTargetEnvFromAManagedHookStops(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
 	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
 		t.Fatal(err)
 	}

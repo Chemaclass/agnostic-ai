@@ -62,13 +62,13 @@ func TestSync_DryRunDiffIsSilentWhenInSync(t *testing.T) {
 
 func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".claude", "CLAUDE.md")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one, revised.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one, revised.\n")
+	writeFile(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	before := snapshotTree(t, home)
 
 	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
@@ -100,7 +100,7 @@ func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 
 func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path, strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
+	writeFile(t, path, strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
 	before := snapshotTree(t, home)
 
 	_, _, err = runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
@@ -131,7 +131,7 @@ func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
 func TestSyncGlobal_DryRunDiffNamesARemoval(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
-	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -134,9 +135,7 @@ func yamlFields(t reflect.Type) (fields map[string]reflect.Type, open bool) {
 				continue
 			}
 			inner, innerOpen := yamlFields(ft)
-			for k, v := range inner {
-				fields[k] = v
-			}
+			maps.Copy(fields, inner)
 			open = open || innerOpen
 			continue
 		}

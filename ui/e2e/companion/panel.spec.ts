@@ -910,9 +910,9 @@ test('a search started again while older weeks load keeps the rows already shown
   const startedAgain = page.waitForResponse((response) => response.url().includes('q=the') && !response.url().includes('before='))
   await page.getByRole('menuitem', { name: 'Mark as read' }).click()
   await startedAgain
-  // Its first page is in; a draw of that page alone would have dropped the second week by now.
+  // Its first page is in; a draw of that page alone would have dropped the second week, which holds this row, by now.
   await page.waitForTimeout(300)
-  expect(await row(page, 'Refactor the search index').count()).toBe(1)
+  expect(await row(page, 'Draft the release notes').count()).toBe(1)
 
   await expect(row(page, 'Write the onboarding guide')).toBeVisible()
   await expect(page.locator('#summary')).toHaveText('8 conversations match')
@@ -948,8 +948,8 @@ test('folders with the same name show their parent, and the full path on hover',
   await expect(row(page, 'Add rate limits')).toContainText(' · shop/api · ')
   await expect(row(page, 'Split the user routes')).toContainText(' · billing/api · ')
   await expect(row(page, 'Fix the health check')).toContainText(' · Work/api · ')
-  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Open in Terminal\n/Users/you/Code/shop/api')
-  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Open in Terminal /Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Resume in Terminal\n/Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Resume in Terminal /Users/you/Code/shop/api')
 })
 
 test('a folder name no other row shares stays short', async ({ page }) => {

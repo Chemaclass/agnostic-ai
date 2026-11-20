@@ -12,7 +12,7 @@ import (
 func TestOverviewTools_ReadsSharedPersonalAndDefaultLists(t *testing.T) {
 	root := t.TempDir()
 	testutil.Chdir(t, root)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\n")
 	tools := overviewTools(".", false)
 	if tools.Source != "default" || len(tools.Items) != len(adapters.Names()) {
 		t.Fatalf("default catalog = %+v", tools)
@@ -29,7 +29,7 @@ func TestOverviewTools_ReadsSharedPersonalAndDefaultLists(t *testing.T) {
 	if !find("claude").Enabled || find("amp").Enabled || find("claude").Description != "Claude Code (Anthropic)" {
 		t.Errorf("defaults: %+v %+v", find("claude"), find("amp"))
 	}
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
 	if err := os.MkdirAll(".cursor", 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestOverviewTools_ReadsSharedPersonalAndDefaultLists(t *testing.T) {
 	if tools.Source != "shared" || !find("cursor").Enabled || !find("cursor").Detected || find("claude").Enabled {
 		t.Errorf("shared: %+v %+v", find("cursor"), find("claude"))
 	}
-	mustWrite(t, "agnostic-ai.local.yaml", "targets: [cursor, codex]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "targets: [cursor, codex]\n")
 	tools = overviewTools(".", false)
 	if tools.Source != "personal" || !find("codex").Enabled || !find("codex").Local || find("cursor").Local {
 		t.Errorf("personal: %+v %+v", find("codex"), find("cursor"))

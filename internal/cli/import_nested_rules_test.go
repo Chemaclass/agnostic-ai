@@ -15,8 +15,8 @@ func TestImportFromClaude_WalksNestedRuleSubdirectories(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	mustWrite(t, filepath.Join(dir, ".claude/rules/backend/api/auth.md"), "---\nname: auth\n---\n\nbackend rule\n")
-	mustWrite(t, filepath.Join(dir, ".claude/rules/top.md"), "---\nname: top\n---\n\ntop rule\n")
+	writeFile(t, filepath.Join(dir, ".claude/rules/backend/api/auth.md"), "---\nname: auth\n---\n\nbackend rule\n")
+	writeFile(t, filepath.Join(dir, ".claude/rules/top.md"), "---\nname: top\n---\n\ntop rule\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
@@ -36,8 +36,8 @@ func TestImportFromCopilot_WalksNestedInstructionSubdirectories(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	mustWrite(t, filepath.Join(dir, ".github/instructions/backend/auth.instructions.md"), "---\nname: auth\n---\n\nbackend rule\n")
-	mustWrite(t, filepath.Join(dir, ".github/instructions/top.instructions.md"), "---\nname: top\n---\n\ntop rule\n")
+	writeFile(t, filepath.Join(dir, ".github/instructions/backend/auth.instructions.md"), "---\nname: auth\n---\n\nbackend rule\n")
+	writeFile(t, filepath.Join(dir, ".github/instructions/top.instructions.md"), "---\nname: top\n---\n\ntop rule\n")
 
 	if err := importFromCopilot(dir, rootSources()); err != nil {
 		t.Fatal(err)

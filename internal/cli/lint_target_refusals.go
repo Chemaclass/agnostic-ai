@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -25,8 +24,7 @@ func lintTargetRefusals(cfg *config.Config, targets []string, b spec.Bundle, con
 			continue
 		}
 		path, reason := configPath, err
-		var refusal *adapters.Refusal
-		if errors.As(err, &refusal) {
+		if refusal, ok := errors.AsType[*adapters.Refusal](err); ok {
 			reason = refusal.Err
 			if refusal.Path != "" {
 				path = refusal.Path
@@ -38,7 +36,7 @@ func lintTargetRefusals(cfg *config.Config, targets []string, b spec.Bundle, con
 		}
 		out = append(out, lintFinding{
 			Code: "LINT053", Severity: lintError, Path: path,
-			Message: fmt.Sprintf("%s; sync stops for every tool until this is fixed", message),
+			Message: message + "; sync stops for every tool until this is fixed",
 		})
 	}
 	return out

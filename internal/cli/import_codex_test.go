@@ -1642,7 +1642,7 @@ func TestImportFromCodex_DefaultKeepsHandWrittenNestedFileWhole(t *testing.T) {
 	if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{}); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "rules", "src.md"))
+	got := readFile(t, filepath.Join(dir, "rules", "src.md"))
 	if !strings.Contains(got, body) {
 		t.Errorf("src.md should hold the whole file:\n%s", got)
 	}

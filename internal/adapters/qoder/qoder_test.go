@@ -1,6 +1,7 @@
 package qoder
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -825,9 +826,7 @@ func TestEmit_RuleActivationMetadata(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := map[string]any{"description": "Portable description"}
-			for k, v := range tc.meta {
-				want[k] = v
-			}
+			maps.Copy(want, tc.meta)
 			if !reflect.DeepEqual(got.Meta, want) {
 				t.Errorf("activation = %#v, want %#v", got.Meta, want)
 			}

@@ -38,7 +38,7 @@ func TestExplain_SkillShowsLocalOverride(t *testing.T) {
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
 	want := "claude overrides:\n  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)\n"
 	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
 		t.Errorf("block:\n%s\nwant:\n%s", got, want)
@@ -50,7 +50,7 @@ func TestExplain_SkillWithoutOverridesPrintsNoBlock(t *testing.T) {
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy", "other")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"other":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"other":"off"}}`)
 	if out := runExplain(t, deploySkill); strings.Contains(out, "claude overrides:") {
 		t.Errorf("unexpected block:\n%s", out)
 	}
@@ -63,9 +63,9 @@ func TestExplain_SkillOverridesMatchTheNameClaudeSees(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	skillOverrideHome(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(".agnostic-ai", "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\nx-claude:\n  name: claude-deploy\n---\n\nBody.\n")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Claude-Deploy":"off","deploy":"name-only"}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\nx-claude:\n  name: claude-deploy\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Claude-Deploy":"off","deploy":"name-only"}}`)
 	want := "claude overrides:\n  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)\n"
 	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
 		t.Errorf("block:\n%s\nwant:\n%s", got, want)
@@ -77,9 +77,9 @@ func TestExplain_SkillOverridesListEveryFileInPrecedenceOrder(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"user-invocable-only"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"user-invocable-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)\n" +
 		"  .claude/settings.json: user-invocable-only (not applied: a higher file sets it)\n" +
@@ -139,7 +139,7 @@ func TestExplain_SkillOverridesNameEachScope(t *testing.T) {
 				if path == "user" {
 					path = filepath.Join(home, ".claude", "settings.json")
 				}
-				mustWrite(t, filepath.FromSlash(path), body)
+				writeFile(t, filepath.FromSlash(path), body)
 			}
 			got := explainOverridesBlock(runExplain(t, deploySkill))
 			if !strings.HasPrefix(got, "claude overrides:\n"+c.want) {
@@ -154,8 +154,8 @@ func TestExplain_SkillOverridesJSON(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
 	out := runExplain(t, deploySkill, "--json")
 	var got explainOutput
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
@@ -181,7 +181,7 @@ func TestExplain_SkillOverridesJSONProblemHasNoValue(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":`)
 	out := runExplain(t, deploySkill, "--json")
 	var raw struct {
 		Overrides []map[string]any `json:"overrides"`
@@ -219,13 +219,13 @@ func TestExplain_SkillOverridesSkipped(t *testing.T) {
 			writeSkillOverrideProject(t, c.config, "other")
 			switch {
 			case c.skill == "":
-				mustWrite(t, filepath.FromSlash(c.spec), "---\nname: deploy\ndescription: Deploy rule.\n---\n\nBody.\n")
+				writeFile(t, filepath.FromSlash(c.spec), "---\nname: deploy\ndescription: Deploy rule.\n---\n\nBody.\n")
 			case strings.HasPrefix(c.skill, "---"):
-				mustWrite(t, filepath.FromSlash(c.spec), c.skill)
+				writeFile(t, filepath.FromSlash(c.spec), c.skill)
 			default:
 				writeSkillOverrideProject(t, c.config, c.skill, "other")
 			}
-			mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+			writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
 			if out := runExplain(t, c.spec); strings.Contains(out, "claude overrides:") {
 				t.Errorf("unexpected block:\n%s", out)
 			}
@@ -235,7 +235,7 @@ func TestExplain_SkillOverridesSkipped(t *testing.T) {
 
 func TestExplain_SkillOverridesNameTheGitRootLocalFile(t *testing.T) {
 	root := skillOverrideGitRepo(t)
-	mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
 	testutil.Chdir(t, mustMkdir(t, filepath.Join(root, "sub")))
 	silence(t)
 	skillOverrideHome(t)
@@ -251,8 +251,8 @@ func TestExplain_SkillOverridesTreatSettingsAsStrictJSON(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), "{\n  // mine\n  \"skillOverrides\": {\"deploy\": \"off\"}\n}\n")
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), "{\n  // mine\n  \"skillOverrides\": {\"deploy\": \"off\"}\n}\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
 	got := explainOverridesBlock(runExplain(t, deploySkill))
 	for _, want := range []string{
 		"  .claude/settings.local.json: Claude Code skips this file (invalid character '/'",
@@ -276,8 +276,8 @@ func TestExplain_SkillOverridesRejectedValueOverrulesNothing(t *testing.T) {
 			silence(t)
 			home := skillOverrideHome(t)
 			writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-			mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":`+c.value+`}}`)
-			mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+			writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":`+c.value+`}}`)
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
 			want := "claude overrides:\n" +
 				"  .claude/settings.local.json: " + c.shown + " (rejected by Claude Code, which may skip the whole file; change it in /skills)\n" +
 				"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n"
@@ -292,10 +292,10 @@ func TestExplain_SkillOverridesNeedThisSkillWrittenForClaude(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	skillOverrideHome(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
-	mustWrite(t, filepath.FromSlash(deploySkill), "---\nname: deploy\ndescription: Deploys.\ntargets: [cursor]\n---\n\nBody.\n")
-	mustWrite(t, filepath.Join(".agnostic-ai", "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\nx-claude:\n  name: Deploy\n---\n\nBody.\n")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, filepath.FromSlash(deploySkill), "---\nname: deploy\ndescription: Deploys.\ntargets: [cursor]\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\nx-claude:\n  name: Deploy\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
 	if out := runExplain(t, deploySkill); strings.Contains(out, "claude overrides:") {
 		t.Errorf("unexpected block for a skill not written for claude:\n%s", out)
 	}
@@ -309,7 +309,7 @@ func TestExplain_SkillOverridesSecondKeyInOneFileIsNotApplied(t *testing.T) {
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off","Deploy":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off","Deploy":"off"}}`)
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)\n" +
 		"  .claude/settings.local.json: off (not applied: another key in this file names the skill)\n"
@@ -323,8 +323,8 @@ func TestExplain_SkillOverridesMarksConflictingKeysInOneFile(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"off"}}`)
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"off"}}`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: on (conflicts with another key in this file)\n" +
 		"  .claude/settings.local.json: off (conflicts with another key in this file)\n" +
@@ -346,8 +346,8 @@ func TestExplain_SkillOverridesFileWithRejectedValueIsUncertain(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off","mine":"Off"}}`)
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off","mine":"Off"}}`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: off (Claude Code refuses to run it; this file has a rejected value, so Claude Code may skip it)\n" +
 		"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n"
@@ -368,8 +368,8 @@ func TestExplain_SkillOverridesConflictingKeysStillOverruleLowerFiles(t *testing
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: on (conflicts with another key in this file)\n" +
 		"  .claude/settings.local.json: name-only (conflicts with another key in this file)\n" +

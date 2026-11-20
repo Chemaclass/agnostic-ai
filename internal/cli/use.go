@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -111,7 +113,7 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 		if !errors.Is(err, os.ErrNotExist) && errs.CodeOf(err) != errs.CodeConfigMissing {
 			return nil, err
 		}
-		if err := refuseNestedProject(); err != nil {
+		if err := refuseNestedProject("run agnostic-ai use there"); err != nil {
 			return nil, err
 		}
 		return tools, startProject(cmd, tools)
@@ -239,26 +241,54 @@ func localSetsTargets() bool {
 	return ok
 }
 
-// refuseNestedProject stops `use` from starting a second project inside
-// one an enclosing directory already holds, up to the Git root, or up to
-// the filesystem root outside Git.
-func refuseNestedProject() error {
+// refuseNestedProject stops a command from starting a second project
+// inside one an enclosing directory already holds. remedy says what to
+// do instead.
+func refuseNestedProject(remedy string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	dir, _ := filepath.EvalSymlinks(cwd)
+	if dir, ok := enclosingProject(cwd); ok {
+		return fmt.Errorf("this directory is inside the agnostic-ai project at %s; %s", dir, remedy)
+	}
+	return nil
+}
+
+// enclosingProject returns the nearest directory above dir that holds an
+// agnostic-ai config, other than the global home, up to the Git root, or
+// up to the filesystem root outside Git.
+func enclosingProject(dir string) (string, bool) {
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
 	top := ""
-	if root, err := gitRevParse(cwd, "--show-toplevel"); err == nil {
-		top, _ = filepath.EvalSymlinks(root)
+	// A git hook or rebase --exec sets GIT_DIR and GIT_WORK_TREE; the walk
+	// needs the repository around dir, not the one they name.
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel")
+	cmd.Env = gitquery.IsolatedEnv(os.Environ())
+	if out, err := cmd.Output(); err == nil {
+		top, _ = filepath.EvalSymlinks(strings.TrimSpace(string(out)))
+	}
+	var home os.FileInfo
+	if source, err := globalSourceRoot(); err == nil {
+		home, _ = os.Stat(source)
 	}
 	for dir != top && filepath.Dir(dir) != dir {
 		dir = filepath.Dir(dir)
-		if _, _, err := config.ResolveConfigPath(dir); err == nil {
-			return fmt.Errorf("this directory is inside the agnostic-ai project at %s; run agnostic-ai use there", dir)
+		if _, _, err := config.ResolveConfigPath(dir); err != nil {
+			continue
 		}
+		// The global home holds a config too, but it is no project.
+		if info, err := os.Stat(dir); err == nil && home != nil && os.SameFile(info, home) {
+			continue
+		}
+		return dir, true
 	}
-	return nil
+	return "", false
 }
 
 // startProject writes agnostic-ai.yaml for the detected tools plus

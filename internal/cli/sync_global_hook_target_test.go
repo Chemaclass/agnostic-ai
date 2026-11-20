@@ -46,8 +46,8 @@ func TestSyncGlobal_HooksCarryTheTarget(t *testing.T) {
 	}
 	shared := filepath.Join(home, "source", "hooks", "guard.yaml")
 	cursorHook := filepath.Join(home, "source", "hooks", "cursor-guard.yaml")
-	mustWriteGlobalTest(t, shared, "name: guard\nevent: SessionStart\ncommand: guard.sh\ntargets: [claude, codex, gemini, qoder]\n")
-	mustWriteGlobalTest(t, cursorHook, "name: cursor-guard\nevent: beforeShellExecution\ncommand: guard.sh\ntarget: cursor\n")
+	writeFile(t, shared, "name: guard\nevent: SessionStart\ncommand: guard.sh\ntargets: [claude, codex, gemini, qoder]\n")
+	writeFile(t, cursorHook, "name: cursor-guard\nevent: beforeShellExecution\ncommand: guard.sh\ntarget: cursor\n")
 	only := []string{"sync", "--global", "--only", "claude,codex,cursor,gemini,qoder"}
 
 	root := NewRootCmd("test")
@@ -116,8 +116,8 @@ func TestSyncGlobal_HooksCarryTheTarget(t *testing.T) {
 func TestSyncGlobal_ClaudeTargetEnvKeepsTheUsersKeyOrder(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, settings, `{"env": {"ZED": "1", "ALPHA": "2"}}`+"\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "stop.yaml"), "name: stop\nevent: Stop\ncommand: done.sh\ntarget: claude\n")
+	writeFile(t, settings, `{"env": {"ZED": "1", "ALPHA": "2"}}`+"\n")
+	writeFile(t, filepath.Join(source, "hooks", "stop.yaml"), "name: stop\nevent: Stop\ncommand: done.sh\ntarget: claude\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}

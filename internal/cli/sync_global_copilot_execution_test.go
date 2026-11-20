@@ -18,8 +18,8 @@ func TestSyncGlobal_CopilotPortableHookExecutesFromHomeWithSpaces(t *testing.T) 
 	native := filepath.Join(home, "copilot native home with spaces")
 	receipt := filepath.Join(home, "hook receipt")
 	t.Setenv("COPILOT_HOME", native)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "receipt.yaml"), "name: receipt\ntarget: copilot\non: before-tool\ncommand: |\n  printf '%s\\n' \"$AGNOSTIC_AI_TARGET\" > \"$AGNOSTIC_RECEIPT\"\nenv:\n  AGNOSTIC_RECEIPT: '"+filepath.ToSlash(receipt)+"'\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+	writeFile(t, filepath.Join(source, "hooks", "receipt.yaml"), "name: receipt\ntarget: copilot\non: before-tool\ncommand: |\n  printf '%s\\n' \"$AGNOSTIC_AI_TARGET\" > \"$AGNOSTIC_RECEIPT\"\nenv:\n  AGNOSTIC_RECEIPT: '"+filepath.ToSlash(receipt)+"'\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -64,10 +64,10 @@ func TestSyncGlobal_CopilotWindowsRootedScriptUsesOnlyNativePath(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	native := filepath.Join(home, "copilot native home with spaces")
 	t.Setenv("COPILOT_HOME", native)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
 	const body = "Write-Output checked\n"
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.ps1"), body)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\nevent: SessionStart\ncommand: echo checked\ncommandWindows: '& \"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.ps1\"'\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.ps1"), body)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\nevent: SessionStart\ncommand: echo checked\ncommandWindows: '& \"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.ps1\"'\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -82,7 +82,7 @@ func TestSyncGlobal_CopilotWindowsRootedScriptUsesOnlyNativePath(t *testing.T) {
 	if windows != want {
 		t.Errorf("Windows rooted script command = %q, want %q", windows, want)
 	}
-	if raw := readGlobalTest(t, copied); raw != body {
+	if raw := readFile(t, copied); raw != body {
 		t.Errorf("copied native script changed: %s", raw)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {

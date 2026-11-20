@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -210,10 +211,8 @@ func containsBuiltinJSON(value any) bool {
 			}
 		}
 	case []any:
-		for _, child := range v {
-			if containsBuiltinJSON(child) {
-				return true
-			}
+		if slices.ContainsFunc(v, containsBuiltinJSON) {
+			return true
 		}
 	}
 	return false

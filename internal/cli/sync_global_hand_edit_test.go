@@ -11,7 +11,7 @@ import (
 func syncedClaudeInstructions(t *testing.T) (home, source, path string) {
 	t.Helper()
 	home, source = globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func editGlobalFile(t *testing.T, path, from, to string) string {
 	if edited == string(data) {
 		t.Fatalf("%s has no %q to edit:\n%s", path, from, data)
 	}
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	return edited
 }
 
@@ -36,7 +36,7 @@ func TestSyncGlobal_HandEditedBlockStopsTheRun(t *testing.T) {
 	home, _, path := syncedClaudeInstructions(t)
 	edited := editGlobalFile(t, path, "- Rule one.", "- Rule one, edited by hand.")
 	skill := filepath.Join(home, ".claude", "skills", "new", "SKILL.md")
-	mustWriteGlobalTest(t, filepath.Join(os.Getenv("AGNOSTIC_AI_HOME"), "skills", "new", "SKILL.md"), "---\nname: new\ndescription: New\n---\nNew.\n")
+	writeFile(t, filepath.Join(os.Getenv("AGNOSTIC_AI_HOME"), "skills", "new", "SKILL.md"), "---\nname: new\ndescription: New\n---\nNew.\n")
 
 	_, _, err := runGlobalAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "--backup") {
@@ -83,8 +83,8 @@ func TestSyncGlobal_TextOutsideBlockAndSourceChangesSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path, "My own notes.\n\n"+string(data))
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule two.\n")
+	writeFile(t, path, "My own notes.\n\n"+string(data))
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule two.\n")
 
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("user text outside the block and a source change are not hand edits: %v", err)
@@ -101,7 +101,7 @@ func TestSyncGlobal_TextOutsideBlockAndSourceChangesSync(t *testing.T) {
 func TestSyncGlobal_HandEditedRemovedSkillStopsTheRun(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
-	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestSyncGlobal_StateWithoutSumsDoesNotStop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, statePath, string(older))
+	writeFile(t, statePath, string(older))
 	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
 		t.Errorf("an older state holding the same ownership is not drift: %v", err)
 	}

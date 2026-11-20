@@ -20,7 +20,7 @@ func TestGuidedUpgrade_ReconcileFailureReportsInstalledVersionAndRecovery(t *tes
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	const original = "{version: 1, requires: 0.81.0, targets: [claude]}\n"
-	mustWriteFile(t, "agnostic-ai.yaml", original)
+	writeFile(t, "agnostic-ai.yaml", original)
 	if _, err := config.Load(root); err != nil {
 		t.Fatalf("flow-style config is valid: %v", err)
 	}

@@ -12,8 +12,8 @@ import (
 
 func TestValidate_AllowsMissingNameForMarkdownSpecs(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "no-name.md"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "no-name.md"),
 		"---\ndescription: a rule\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -34,9 +34,9 @@ func TestValidate_AllowsMissingNameForMarkdownSpecs(t *testing.T) {
 
 func TestValidate_FixLeavesOptionalNameOmitted(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	specPath := filepath.Join(dir, ".agnostic-ai", "rules", "no-name.md")
-	mustWriteFile(t, specPath, "---\ndescription: a rule\n---\nbody\n")
+	writeFile(t, specPath, "---\ndescription: a rule\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
 	root := NewRootCmd("test")
@@ -69,9 +69,9 @@ func TestValidate_FixLeavesOptionalNameOmitted(t *testing.T) {
 
 func TestValidate_AllowsNestedSkillMissingName(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	skillPath := filepath.Join(dir, ".agnostic-ai", "skills", "validator", "SKILL.md")
-	mustWriteFile(t, skillPath, "---\ndescription: a skill\n---\nbody\n")
+	writeFile(t, skillPath, "---\ndescription: a skill\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
 	root := NewRootCmd("test")
@@ -93,8 +93,8 @@ func TestValidate_AllowsNestedSkillMissingName(t *testing.T) {
 
 func TestValidate_NoIssuesWhenNamePresent(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "good.md"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "good.md"),
 		"---\nname: good\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -142,15 +142,5 @@ func TestInjectFrontmatterName_CreatesBlockIfMissing(t *testing.T) {
 	}
 	if !strings.HasSuffix(string(got), "body only\n") {
 		t.Errorf("body lost: %q", got)
-	}
-}
-
-func mustWriteFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
 	}
 }

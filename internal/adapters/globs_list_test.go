@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"maps"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,9 +18,7 @@ func globRule(globs any, meta map[string]any) spec.Entry {
 	if globs != nil {
 		m["globs"] = globs
 	}
-	for k, v := range meta {
-		m[k] = v
-	}
+	maps.Copy(m, meta)
 	return spec.Entry{Kind: spec.KindRule, Name: "go", Path: "rules/go.md", Meta: m, Body: "Go body."}
 }
 

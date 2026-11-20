@@ -71,8 +71,7 @@ func restoreTOMLTables(data []byte, table string, originals []tomlPersonalTable)
 			}
 		}
 	}
-	for i := len(sections) - 1; i >= 0; i-- {
-		section := sections[i]
+	for _, section := range slices.Backward(sections) {
 		data = append(append([]byte(nil), data[:section.start]...), data[section.end:]...)
 	}
 	for _, original := range originals {

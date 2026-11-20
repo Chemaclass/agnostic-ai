@@ -73,7 +73,7 @@ func TestEditJSONRoot_ReplacesValueInPlace(t *testing.T) {
 
 func TestLintGlobal_FlagsSettingsEffortATargetRejects(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), "effort:\n  claude: max\n  codex: max\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "effort:\n  claude: max\n  codex: max\n")
 
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
@@ -94,8 +94,8 @@ func TestLintGlobal_FlagsSettingsEffortATargetRejects(t *testing.T) {
 
 func TestExplainGlobal_NamesFileAndKeyPerTarget(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "machine.yaml"), "model:\n  codex: gpt-6-mini\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), globalDefaultsSettings)
+	writeFile(t, filepath.Join(source, "local", "settings", "machine.yaml"), "model:\n  codex: gpt-6-mini\n")
 
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
@@ -184,11 +184,11 @@ func TestEditTOMLRoot_KeepsBOMAndMixedLineEndings(t *testing.T) {
 
 func TestExplainGlobal_NamesEveryKindsUserPath(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, augment]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\ntargets: [claude]\n---\nReview.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\ncommand: gofmt -l .\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, augment]\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\ntargets: [claude]\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\ncommand: gofmt -l .\n")
 
 	explain := func(arg string) string {
 		t.Helper()
@@ -366,8 +366,8 @@ func TestGlobalSettings_PermissionModeValidation(t *testing.T) {
 
 func TestExplainGlobal_PermissionModeNamesWinningSource(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), "permissions:\n  default-mode: default\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "machine.yaml"), "permissions:\n  default-mode: plan\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "permissions:\n  default-mode: default\n")
+	writeFile(t, filepath.Join(source, "local", "settings", "machine.yaml"), "permissions:\n  default-mode: plan\n")
 	for _, file := range []string{"settings/defaults.yaml", "local/settings/machine.yaml"} {
 		var out bytes.Buffer
 		cmd := NewRootCmd("test")

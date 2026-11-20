@@ -474,8 +474,7 @@ func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced ma
 	}
 	if err != nil {
 		// The label already names the file, so drop the path the error repeats.
-		var pathErr *fs.PathError
-		if errors.As(err, &pathErr) {
+		if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 			err = pathErr.Err
 		}
 		report.problem = fmt.Sprintf("cannot read %s: %v", report.label(), err)
@@ -504,7 +503,7 @@ func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced ma
 	}
 	var overrides map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &overrides); err != nil || overrides == nil {
-		report.problem = fmt.Sprintf(`%s: skillOverrides is not an object, so it was not checked; Claude Code expects {"<skill>": "off"}`, report.label())
+		report.problem = report.label() + ": skillOverrides is not an object, so it was not checked; Claude Code expects {\"<skill>\": \"off\"}"
 		return report
 	}
 	for key, rawValue := range overrides {

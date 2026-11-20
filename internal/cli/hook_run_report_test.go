@@ -111,7 +111,7 @@ func TestHookRun_WarnsWhenTheSyncedCommandDiffersFromTheSpec(t *testing.T) {
 		t.Errorf("a fresh sync warns:\n%s", out)
 	}
 
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: UserPromptSubmit\ncommand: 'echo edited'\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: UserPromptSubmit\ncommand: 'echo edited'\n")
 	out, err = runHookRun(t, "guard", "--prompt", "hi")
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
@@ -129,8 +129,8 @@ func TestHookRun_WarnsWhenTheSyncedCommandDiffersFromTheSpec(t *testing.T) {
 func TestHookRun_WarnsWhenTheNativeFileIsMissingOrBroken(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: BeforeAgent\ncommand: 'exit 0'\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: BeforeAgent\ncommand: 'exit 0'\n")
 
 	out, err := runHookRun(t, "guard", "--prompt", "hi", "--format", "json")
 	if err != nil {
@@ -144,7 +144,7 @@ func TestHookRun_WarnsWhenTheNativeFileIsMissingOrBroken(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, ".gemini"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".gemini", "settings.json"), "{")
+	writeFile(t, filepath.Join(dir, ".gemini", "settings.json"), "{")
 	out, _ = runHookRun(t, "guard", "--prompt", "hi")
 	if !strings.Contains(out, "warning: .gemini/settings.json: ") {
 		t.Errorf("output misses the parse warning:\n%s", out)

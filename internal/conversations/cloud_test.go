@@ -32,7 +32,7 @@ func cloudAPI(t *testing.T, answer func(w http.ResponseWriter, r *http.Request))
 			http.Error(w, "unexpected path "+r.URL.String(), http.StatusTeapot)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("anthropic-version") != "2023-06-01" {
+		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("Anthropic-Version") != "2023-06-01" {
 			http.Error(w, "missing the sign-in headers", http.StatusTeapot)
 			return
 		}

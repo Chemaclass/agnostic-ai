@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -65,9 +66,7 @@ func (e Entry) PathsAsGlobs() Entry {
 		return e
 	}
 	meta := make(map[string]any, len(e.Meta)+1)
-	for k, v := range e.Meta {
-		meta[k] = v
-	}
+	maps.Copy(meta, e.Meta)
 	meta["globs"] = paths
 	e.Meta, e.globsFromPaths = meta, true
 	return e

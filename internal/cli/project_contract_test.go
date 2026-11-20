@@ -21,7 +21,7 @@ func projectContractBinary(t *testing.T, root, version string) string {
 		t.Skip("POSIX binary fixture; generated launchers have portable integration coverage")
 	}
 	local := filepath.Join(root, "node_modules", ".bin", "agnostic-ai")
-	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai "+version+"'; else exit 0; fi\n")
+	writeFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai "+version+"'; else exit 0; fi\n")
 	if err := os.Chmod(local, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -49,10 +49,10 @@ func TestProjectContract_ExactPackagePin(t *testing.T) {
 func TestProjectContract_PinOnlyChangeBootstraps(t *testing.T) {
 	root := budgetProject(t, "requires: '>=0.80.0'\ntargets: [codex]\n")
 	local := projectContractBinary(t, root, "0.81.0")
-	mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0"}`)
-	mustWriteFile(t, filepath.Join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n")
+	writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0"}`)
+	writeFile(t, filepath.Join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n")
 	installer := filepath.Join(t.TempDir(), "pnpm")
-	mustWriteFile(t, installer, "#!/bin/sh\necho installed > '"+filepath.Join(root, "install.log")+"'\nprintf '#!/bin/sh\\nif [ \"$1\" = --version ]; then echo agnostic-ai 0.82.0; else exit 0; fi\\n' > '"+local+"'\n")
+	writeFile(t, installer, "#!/bin/sh\necho installed > '"+filepath.Join(root, "install.log")+"'\nprintf '#!/bin/sh\\nif [ \"$1\" = --version ]; then echo agnostic-ai 0.82.0; else exit 0; fi\\n' > '"+local+"'\n")
 	if err := os.Chmod(installer, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -77,12 +77,12 @@ func TestProjectContract_AgainstUsesRequestedConfig(t *testing.T) {
 			t.Run(ref+unstaged, func(t *testing.T) {
 				root := setupGitRepo(t)
 				projectContractBinary(t, root, "0.82.0")
-				mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nrequires: '0.82.0'\ntargets: [codex]\n")
-				mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
+				writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nrequires: '0.82.0'\ntargets: [codex]\n")
+				writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
 				git(t, root, "add", "agnostic-ai.yaml", "package.json")
 				git(t, root, "commit", "-qm", "fixture")
-				mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), unstaged)
-				mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.83.0"}}`)
+				writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), unstaged)
+				writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.83.0"}}`)
 				testutil.Chdir(t, root)
 				if _, err := runCLI(t, "project", "--check", "--against", ref); err != nil {
 					t.Errorf("unstaged config blocked %s: %v", ref, err)
@@ -95,7 +95,7 @@ func TestProjectContract_AgainstUsesRequestedConfig(t *testing.T) {
 func TestProjectContract_ConflictingRequiresNeverInstalls(t *testing.T) {
 	root := budgetProject(t, "requires: '0.83.0'\ntargets: [codex]\n")
 	projectContractBinary(t, root, "0.82.0")
-	mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
+	writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
 	_, err := runCLI(t, "project", "--bootstrap")
 	if err == nil || !strings.Contains(err.Error(), "conflicts") || !strings.Contains(err.Error(), "explicitly") {
 		t.Errorf("incompatible declarations attempted bootstrap: %v", err)
@@ -105,11 +105,11 @@ func TestProjectContract_ConflictingRequiresNeverInstalls(t *testing.T) {
 func TestProjectContract_UnsupportedLocalNeverInstalls(t *testing.T) {
 	root := budgetProject(t, "requires: '0.82.0'\ntargets: [codex]\n")
 	local := projectContractBinary(t, root, "0.82.0")
-	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo agnostic-ai 0.82.0; else exit 2; fi\n")
-	mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0"}`)
-	mustWriteFile(t, filepath.Join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n")
+	writeFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo agnostic-ai 0.82.0; else exit 2; fi\n")
+	writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0"}`)
+	writeFile(t, filepath.Join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n")
 	installer := filepath.Join(t.TempDir(), "pnpm")
-	mustWriteFile(t, installer, "#!/bin/sh\necho installed > '"+filepath.Join(root, "install.log")+"'\n")
+	writeFile(t, installer, "#!/bin/sh\necho installed > '"+filepath.Join(root, "install.log")+"'\n")
 	if err := os.Chmod(installer, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -128,11 +128,11 @@ func TestProjectContract_AgainstFindsRemovedNestedConfig(t *testing.T) {
 		t.Run(ref, func(t *testing.T) {
 			outer := setupGitRepo(t)
 			projectContractBinary(t, outer, "0.81.0")
-			mustWriteFile(t, filepath.Join(outer, "agnostic-ai.yaml"), "version: 1\nrequires: '0.83.0'\ntargets: [codex]\n")
+			writeFile(t, filepath.Join(outer, "agnostic-ai.yaml"), "version: 1\nrequires: '0.83.0'\ntargets: [codex]\n")
 			root := filepath.Join(outer, "nested")
 			projectContractBinary(t, root, "0.82.0")
-			mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nrequires: '0.82.0'\ntargets: [codex]\n")
-			mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nrequires: '0.82.0'\ntargets: [codex]\n")
+			writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
 			git(t, outer, "add", "agnostic-ai.yaml", "nested/agnostic-ai.yaml", "nested/package.json")
 			git(t, outer, "commit", "-qm", "fixture")
 			if err := os.Remove(filepath.Join(root, "agnostic-ai.yaml")); err != nil {
@@ -148,14 +148,14 @@ func TestProjectContract_AgainstFindsRemovedNestedConfig(t *testing.T) {
 
 func TestProjectContract_AgainstChecksNestedPackage(t *testing.T) {
 	outer := setupGitRepo(t)
-	mustWriteFile(t, filepath.Join(outer, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(outer, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	root := filepath.Join(outer, "nested")
 	projectContractBinary(t, root, "0.81.0")
-	mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nrequires: '>=0.80.0'\ntargets: [codex]\n")
-	mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nrequires: '>=0.80.0'\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
 	git(t, outer, "add", "agnostic-ai.yaml", "nested/agnostic-ai.yaml", "nested/package.json")
 	git(t, outer, "commit", "-qm", "fixture")
-	mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.81.0"}}`)
+	writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.81.0"}}`)
 	testutil.Chdir(t, root)
 	for _, ref := range []string{"index", "HEAD"} {
 		_, err := runCLI(t, "project", "--check", "--against", ref)
@@ -245,7 +245,7 @@ func TestProjectProbe_ReportsFailedCommandError(t *testing.T) {
 				local = filepath.Join(root, "node_modules", "agnostic-ai", "bin", "agnostic-ai.js")
 				script = fmt.Sprintf("const version = process.argv[2] === '--version';\nconsole.error(version ? %q : %q);\nif (process.argv[2] === %q) process.exit(1);\nif (version) console.log('agnostic-ai 0.82.0');\n", tc.versionError, tc.commandError, tc.failOn)
 			}
-			mustWriteFile(t, local, script)
+			writeFile(t, local, script)
 			if err := os.Chmod(local, 0o755); err != nil {
 				t.Fatal(err)
 			}

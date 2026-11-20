@@ -493,8 +493,8 @@ func simMatch(input, pattern string, fold bool) bool {
 	escaped := regexp.QuoteMeta(pattern)
 	escaped = strings.ReplaceAll(escaped, `\*`, ".*")
 	escaped = strings.ReplaceAll(escaped, `\?`, ".")
-	if strings.HasSuffix(escaped, " .*") {
-		escaped = strings.TrimSuffix(escaped, " .*") + "( .*)?"
+	if before, ok := strings.CutSuffix(escaped, " .*"); ok {
+		escaped = before + "( .*)?"
 	}
 	flags := "(?s)"
 	if fold {

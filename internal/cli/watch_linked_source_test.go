@@ -19,11 +19,11 @@ func TestCollectMtimes_LinkedSourceKeepsLexicalFiles(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	physical := t.TempDir()
 	asset := filepath.Join(physical, "demo", "references", "guide.txt")
-	writeTestFile(t, asset, "Guide.\n")
+	writeFile(t, asset, "Guide.\n")
 	alias := filepath.Join(dir, "skills-link")
 	testutil.DirectoryAlias(t, physical, alias)
 	instructions := filepath.Join(dir, "AGNOSTIC_AI.md")
-	writeTestFile(t, instructions, "Instructions.\n")
+	writeFile(t, instructions, "Instructions.\n")
 
 	got := collectMtimes([]string{alias, instructions})
 	lexical := filepath.Join(alias, "demo", "references", "guide.txt")
@@ -44,7 +44,7 @@ func TestCollectMtimes_LinkedSourceKeepsLexicalFiles(t *testing.T) {
 func TestAddWatchPaths_LinkedSourceRegistersNestedDirectories(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	physical := t.TempDir()
-	writeTestFile(t, filepath.Join(physical, "demo", "references", "guide.txt"), "Guide.\n")
+	writeFile(t, filepath.Join(physical, "demo", "references", "guide.txt"), "Guide.\n")
 	alias := filepath.Join(dir, "skills-link")
 	testutil.DirectoryAlias(t, physical, alias)
 	w, err := fsnotify.NewWatcher()
@@ -77,15 +77,15 @@ func assertWatchLinkedSourceAssets(t *testing.T, forcePoll bool) {
 	silence(t)
 	physical := t.TempDir()
 	asset := filepath.Join(physical, "demo", "references", "guide.txt")
-	writeTestFile(t, filepath.Join(physical, "demo", "SKILL.md"), skillSpec("demo", ""))
-	writeTestFile(t, asset, "Initial linked asset.\n")
+	writeFile(t, filepath.Join(physical, "demo", "SKILL.md"), skillSpec("demo", ""))
+	writeFile(t, asset, "Initial linked asset.\n")
 	alias := filepath.Join(dir, "skills-link")
 	testutil.DirectoryAlias(t, physical, alias)
 	source := alias
 	if forcePoll {
 		source = "skills-link"
 	}
-	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+	writeFile(t, config.ConfigFileName, fmt.Sprintf(
 		"version: 1\nsources:\n  skills: %q\ntargets: [claude]\n", filepath.ToSlash(source)))
 	reloadedAlias := filepath.Join(dir, "reloaded-skills-link")
 	var reloadedWatch <-chan struct{}
@@ -118,9 +118,9 @@ func assertWatchLinkedSourceAssets(t *testing.T, forcePoll bool) {
 	waitForOutput(t, buf, "skill change · re-syncing 1 target: claude", 5*time.Second)
 
 	reloaded := t.TempDir()
-	writeTestFile(t, filepath.Join(reloaded, "demo", "SKILL.md"), skillSpec("demo", ""))
+	writeFile(t, filepath.Join(reloaded, "demo", "SKILL.md"), skillSpec("demo", ""))
 	reloadedAsset := filepath.Join(reloaded, "demo", "references", "guide.txt")
-	writeTestFile(t, reloadedAsset, "Reloaded linked asset.\n")
+	writeFile(t, reloadedAsset, "Reloaded linked asset.\n")
 	testutil.DirectoryAlias(t, reloaded, reloadedAlias)
 	if forcePoll {
 		reloadedAlias = "reloaded-skills-link"

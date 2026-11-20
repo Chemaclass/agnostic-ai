@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ var benchReply = strings.Repeat("The cookie was dropped because the redirect set
 func benchTexts() []texts {
 	list := make([]texts, benchSessions)
 	for i := range list {
-		list[i] = texts{title: fmt.Sprintf("Session %d", i), firstPrompt: benchPrompt + fmt.Sprint(i), lastPrompt: fmt.Sprint(i) + benchPrompt, reply: fmt.Sprint(i) + benchReply}
+		list[i] = texts{title: fmt.Sprintf("Session %d", i), firstPrompt: benchPrompt + strconv.Itoa(i), lastPrompt: strconv.Itoa(i) + benchPrompt, reply: strconv.Itoa(i) + benchReply}
 	}
 	return list
 }
@@ -79,7 +80,7 @@ func BenchmarkScan_OneChanged(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		line, _ := json.Marshal(benchAgentLine(fmt.Sprint(i) + benchReply))
+		line, _ := json.Marshal(benchAgentLine(strconv.Itoa(i) + benchReply))
 		if _, err := f.Write(append(line, '\n')); err != nil {
 			b.Fatal(err)
 		}
@@ -119,7 +120,7 @@ func benchClaudeStoreApart(b *testing.B, apart time.Duration) (*Scanner, []strin
 		var lines []string
 		for _, line := range []map[string]any{
 			{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": now.Add(-time.Duration(i) * apart).Format(time.RFC3339), "message": map[string]any{"role": "user", "content": t.firstPrompt}},
-			benchAgentLine(fmt.Sprint(i) + benchReply),
+			benchAgentLine(strconv.Itoa(i) + benchReply),
 			{"type": "last-prompt", "lastPrompt": t.lastPrompt},
 		} {
 			data, _ := json.Marshal(line)

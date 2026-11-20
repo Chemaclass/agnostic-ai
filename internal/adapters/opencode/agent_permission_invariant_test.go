@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,16 +51,16 @@ func simMatch(input, pattern string, windows bool) bool {
 	escaped := regexp.MustCompile(`[.+^${}()|\[\]\\]`).ReplaceAllString(pattern, `\$0`)
 	escaped = strings.ReplaceAll(escaped, "*", ".*")
 	escaped = strings.ReplaceAll(escaped, "?", ".")
-	if strings.HasSuffix(escaped, " .*") {
-		escaped = strings.TrimSuffix(escaped, " .*") + "( .*)?"
+	if before, ok := strings.CutSuffix(escaped, " .*"); ok {
+		escaped = before + "( .*)?"
 	}
 	return regexp.MustCompile(flags + "^" + escaped + "$").MatchString(input)
 }
 
 func simEvaluate(rules []simRule, key, input string, windows bool) string {
-	for i := len(rules) - 1; i >= 0; i-- {
-		if simMatch(key, rules[i].key, windows) && simMatch(input, rules[i].pattern, windows) {
-			return rules[i].action
+	for _, rule := range slices.Backward(rules) {
+		if simMatch(key, rule.key, windows) && simMatch(input, rule.pattern, windows) {
+			return rule.action
 		}
 	}
 	return "ask"

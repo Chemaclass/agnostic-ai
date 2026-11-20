@@ -594,7 +594,7 @@ const maxUntrackedBackupAttempts = 1000
 // component, so both the race and the escape are closed at the same
 // time, and no separate Lstat pre-check is needed to get there.
 func (s *Session) claimUntrackedBackupPath(legacyPath, content string, dryRun bool) (string, error) {
-	for i := 0; i < maxUntrackedBackupAttempts; i++ {
+	for i := range maxUntrackedBackupAttempts {
 		candidate := legacyPath + ".bak"
 		if i > 0 {
 			candidate = fmt.Sprintf("%s.%d", candidate, i)

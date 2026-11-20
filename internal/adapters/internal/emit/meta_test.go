@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"maps"
 	"reflect"
 	"testing"
 )
@@ -24,7 +25,7 @@ func TestResolveMetaOrdered_DeterministicKeyOrder(t *testing.T) {
 	hint := []string{"name"}
 
 	_, first := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		_, got := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
 		if !reflect.DeepEqual(got, first) {
 			t.Fatalf("non-deterministic key order:\n run0 = %v\n run%d = %v", first, i+1, got)
@@ -38,9 +39,7 @@ func TestResolveMetaOrdered_DeterministicKeyOrder(t *testing.T) {
 
 func cloneMeta(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }
 

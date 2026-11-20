@@ -11,9 +11,9 @@ func TestSyncGlobal_KiroHookDirectory(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".kiro", "hooks", "guard.json")
 	manual := filepath.Join(home, ".kiro", "hooks", "manual.json")
-	mustWriteGlobalTest(t, manual, `{"version":"v1","hooks":[]}`)
+	writeFile(t, manual, `{"version":"v1","hooks":[]}`)
 	specPath := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, specPath, "name: guard\nevent: PreToolUse\ncommand: [first, second]\ntimeout: 0\ndisabled: true\n")
+	writeFile(t, specPath, "name: guard\nevent: PreToolUse\ncommand: [first, second]\ntimeout: 0\ndisabled: true\n")
 	out, _, err := runGlobalAgentTest("--only", "kiro", "--dry-run")
 	if err != nil {
 		t.Fatal(err)
@@ -69,8 +69,8 @@ func TestSyncGlobal_KiroHookRootAndConflicts(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("KIRO_HOME", root)
 	path := filepath.Join(root, "hooks", "guard.json")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: Stop\nx-kiro:\n  action:\n    type: agent\n    prompt: Check the work.\n")
-	mustWriteGlobalTest(t, path, `{"version":"v1","hooks":[]}`)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: Stop\nx-kiro:\n  action:\n    type: agent\n    prompt: Check the work.\n")
+	writeFile(t, path, `{"version":"v1","hooks":[]}`)
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err == nil {
 		t.Fatal("unmanaged collision accepted")
 	}
@@ -80,7 +80,7 @@ func TestSyncGlobal_KiroHookRootAndConflicts(t *testing.T) {
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path, `{"version":"v1","hooks":[]}`)
+	writeFile(t, path, `{"version":"v1","hooks":[]}`)
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err == nil {
 		t.Fatal("managed edit overwritten")
 	}
@@ -94,9 +94,9 @@ func TestSyncGlobal_KiroHookRootAndConflicts(t *testing.T) {
 
 func TestSyncGlobal_KiroSharedScriptStaysOutsideHooks(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\nargs: [checked]\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\nargs: [checked]\n")
 	script := filepath.Join(source, "scripts", "guard.sh")
-	mustWriteGlobalTest(t, script, "#!/bin/sh\nexit 0\n")
+	writeFile(t, script, "#!/bin/sh\nexit 0\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -124,8 +124,8 @@ func TestSyncGlobal_KiroSharedScriptStaysOutsideHooks(t *testing.T) {
 func TestSyncGlobal_KiroRootMoveRemovesObsoleteHooksAndScripts(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	specPath := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, specPath, "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nexit 0\n")
+	writeFile(t, specPath, "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nexit 0\n")
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatal(err)
 	}
@@ -174,13 +174,13 @@ func TestSyncGlobal_KiroRootMoveRemovesObsoleteHooksAndScripts(t *testing.T) {
 
 func TestSyncGlobal_KiroRootMoveKeepsEditedOldHook(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: guard.sh\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: guard.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".kiro", "hooks", "guard.json")
 	edited := `{"version":"v1","hooks":[{"name":"guard","trigger":"PreToolUse","action":{"type":"command","command":"manual.sh"}}]}`
-	mustWriteGlobalTest(t, path, edited)
+	writeFile(t, path, edited)
 	moved := filepath.Join(home, "kiro-moved")
 	t.Setenv("KIRO_HOME", moved)
 	if _, _, err := runGlobalAgentTest("--only", "kiro"); err == nil {

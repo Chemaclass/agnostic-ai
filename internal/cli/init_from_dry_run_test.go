@@ -25,7 +25,7 @@ func runInitCapturingStdout(t *testing.T, args ...string) (string, error) {
 func TestInitFromDryRun_ListsWhatTheImportWouldWrite(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	captureLogOut(t)
-	writeScopedFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n")
+	writeFile(t, ".claude/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n")
 
 	out, err := runInitCapturingStdout(t, "--from", "claude", "--dry-run")
 	if err != nil {

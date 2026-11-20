@@ -39,9 +39,9 @@ func TestLeftoverReport_FallsBackToTrackedFilesWithoutLedger(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"codex"}}
 
 	generated := filepath.Join("services", "api", "AGENTS.md")
-	mustWriteFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
+	writeFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
 	handAuthored := "README.md"
-	mustWriteFile(t, handAuthored, "hand-authored, no header\n")
+	writeFile(t, handAuthored, "hand-authored, no header\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	// No .sync-state at all: readStateFile(".") returns the zero value.
@@ -60,7 +60,7 @@ func TestLeftoverReport_WithoutLedgerSkipsEmittedFiles(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"codex"}}
 
 	generated := filepath.Join("services", "api", "AGENTS.md")
-	mustWriteFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
+	writeFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
@@ -76,7 +76,7 @@ func TestLeftoverReport_WithoutLedgerSkipsUnmanagedFiles(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	generated := filepath.Join("services", "api", "AGENTS.md")
-	mustWriteFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
+	writeFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	cfg := &config.Config{Targets: []string{"codex"}, Sync: config.SyncConfig{Unmanaged: []string{filepath.ToSlash(generated)}}}
@@ -95,9 +95,9 @@ func TestCollectDrift_ReportsLeftoverWithoutLedger(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "api.md")
-	mustWriteFile(t, rule, "---\nname: api\nscope: services/api\n---\napi body\n")
+	writeFile(t, rule, "---\nname: api\nscope: services/api\n---\napi body\n")
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestLeftoverReport_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 	notOutputs := map[string]string{
 		"internal/adapters/header/header.go":        "// Package header\npackage header\n\nconst Marker = \"" + header.Marker + "\"\n",
 		"docs/site/content/docs/targets/cx.md":      "---\ntitle: Codex\n---\n\nEach file opens with `" + strings.TrimSpace(header.Line(header.FormatMarkdown)) + "`.\n",
@@ -147,7 +147,7 @@ func TestLeftoverReport_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) {
 		"tests/fixtures/codex/.codex/agents/a.toml": header.With("name = \"a\"\n", header.FormatTOML),
 	}
 	for p, body := range notOutputs {
-		mustWriteFile(t, filepath.FromSlash(p), body)
+		writeFile(t, filepath.FromSlash(p), body)
 	}
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
@@ -171,8 +171,8 @@ func TestLeftoverReport_EmptyLedgerDoesNotFallBack(t *testing.T) {
 	testutil.Chdir(t, dir)
 	cfg := &config.Config{Targets: []string{"codex"}}
 	generated := filepath.Join("services", "api", "AGENTS.md")
-	mustWriteFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
-	mustWriteFile(t, stateFilePath("."), "{\"version\":4,\"synced_at\":\"2026-01-01T00:00:00Z\",\"outputs\":[]}\n")
+	writeFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
+	writeFile(t, stateFilePath("."), "{\"version\":4,\"synced_at\":\"2026-01-01T00:00:00Z\",\"outputs\":[]}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
@@ -188,9 +188,9 @@ func TestFixDrift_WithoutLedgerKeepsFileWithoutLeadingHeader(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
 	mention := filepath.Join("internal", "adapters", "header", "header.go")
-	mustWriteFile(t, mention, "// Package header\npackage header\n\nconst Marker = \""+header.Marker+"\"\n")
+	writeFile(t, mention, "// Package header\npackage header\n\nconst Marker = \""+header.Marker+"\"\n")
 	generated := filepath.Join(".codex", "agents", "old.toml")
-	mustWriteFile(t, generated, header.With("name = \"old\"\n", header.FormatTOML))
+	writeFile(t, generated, header.With("name = \"old\"\n", header.FormatTOML))
 
 	if _, err := fixDrift([]driftReport{{Target: ledgerReport, Leftover: []string{mention, generated}}}, false); err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestLeftoverReport_WithoutLedgerReportsToolDirLeftover(t *testing.T) {
 	testutil.Chdir(t, dir)
 	cfg := &config.Config{Targets: []string{"codex"}}
 	generated := filepath.Join(".codex", "agents", "old.toml")
-	mustWriteFile(t, generated, header.With("name = \"old\"\n", header.FormatTOML))
+	writeFile(t, generated, header.With("name = \"old\"\n", header.FormatTOML))
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
@@ -270,9 +270,9 @@ func TestReportCheckDrift_NamesDoctorFixForLeftoverWithoutLedger(t *testing.T) {
 func TestDoctorFix_WithoutLedgerLeavesScopedDocumentForManualRemoval(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 	copied := filepath.Join("docs", "guide", "AGENTS.md")
-	mustWriteFile(t, copied, header.With("copied from a generated file\n", header.FormatMarkdown))
+	writeFile(t, copied, header.With("copied from a generated file\n", header.FormatMarkdown))
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	var out bytes.Buffer
@@ -304,13 +304,13 @@ func TestDoctorFix_WithoutLedgerLeavesScopedDocumentForManualRemoval(t *testing.
 func TestDoctor_UnledgeredScopeDocumentAdvisesManualRemoval(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 	syncProject(t)
 	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
 		t.Fatal(err)
 	}
 	copied := filepath.Join("docs", "guide", "AGENTS.md")
-	mustWriteFile(t, copied, header.With("copied from a generated file\n", header.FormatMarkdown))
+	writeFile(t, copied, header.With("copied from a generated file\n", header.FormatMarkdown))
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
@@ -387,8 +387,8 @@ func TestReportCheckDrift_FooterMatchesUnledgeredFindings(t *testing.T) {
 func TestDoctor_NamesHeaderlessOutputTheLastCommitRendered(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
 	syncProject(t)
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
@@ -414,8 +414,8 @@ func TestDoctor_NamesHeaderlessOutputTheLastCommitRendered(t *testing.T) {
 func TestDoctor_NamesCommittedHeaderlessLeftoverItsLastCommitRendered(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
 	syncProject(t)
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
@@ -443,11 +443,11 @@ func TestDoctor_NamesCommittedHeaderlessLeftoverItsLastCommitRendered(t *testing
 func TestDoctor_LeavesHandWrittenLaunchFileAlone(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
 	syncProject(t)
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(".claude", "launch.json"), "{\n  \"configurations\": [\n    {\n      \"name\": \"web\",\n      \"runtimeExecutable\": \"npm\"\n    }\n  ],\n  \"version\": \"0.0.1\"\n}\n")
+	writeFile(t, filepath.Join(".claude", "launch.json"), "{\n  \"configurations\": [\n    {\n      \"name\": \"web\",\n      \"runtimeExecutable\": \"npm\"\n    }\n  ],\n  \"version\": \"0.0.1\"\n}\n")
 	git("add", ".claude/launch.json")
 	git("commit", "-q", "-m", "add a preview server")
 	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
@@ -468,9 +468,9 @@ func TestDoctor_LeavesHandWrittenLaunchFileAlone(t *testing.T) {
 func TestDoctor_LeavesHandWrittenLaunchFileFromTheAdoptionCommitAlone(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
 	syncProject(t)
-	mustWriteFile(t, filepath.Join(".claude", "launch.json"), "{\n  \"configurations\": [\n    {\n      \"name\": \"web\",\n      \"runtimeExecutable\": \"npm\"\n    }\n  ],\n  \"version\": \"0.0.1\"\n}\n")
+	writeFile(t, filepath.Join(".claude", "launch.json"), "{\n  \"configurations\": [\n    {\n      \"name\": \"web\",\n      \"runtimeExecutable\": \"npm\"\n    }\n  ],\n  \"version\": \"0.0.1\"\n}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "adopt agnostic-ai")
 	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
@@ -491,8 +491,8 @@ func TestDoctor_LeavesHandWrittenLaunchFileFromTheAdoptionCommitAlone(t *testing
 func TestDoctor_OutputManifestProvesHeaderlessLeftover(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsync:\n  output-manifest: true\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsync:\n  output-manifest: true\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
 	syncProject(t)
 	manifest, err := os.ReadFile(outputManifestPath)
 	if err != nil || !strings.Contains(string(manifest), "  .claude/launch.json\n") {
@@ -527,12 +527,12 @@ func TestDoctor_OutputManifestProvesHeaderlessLeftover(t *testing.T) {
 func TestDoctor_OutputManifestLeavesEditedFileAlone(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsync:\n  output-manifest: true\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsync:\n  output-manifest: true\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
 	syncProject(t)
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(".claude", "launch.json"), "{\"version\": \"0.0.1\", \"configurations\": [], \"note\": \"mine\"}\n")
+	writeFile(t, filepath.Join(".claude", "launch.json"), "{\"version\": \"0.0.1\", \"configurations\": [], \"note\": \"mine\"}\n")
 	git("rm", "-q", ".agnostic-ai/environments/dev.yaml")
 	git("add", "-A")
 	git("commit", "-q", "-m", "drop the spec, keep an edited launch.json")

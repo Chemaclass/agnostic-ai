@@ -22,8 +22,8 @@ import (
 // the bare read capability, which LINT038 reports.
 func writeBareReadProject(t *testing.T, dir string) {
 	t.Helper()
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read]\n")
 }
 
 func driftByPath(t *testing.T, findings []overview.Finding) map[string]string {
@@ -82,10 +82,10 @@ func TestRunOverviewChecks_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing
 
 func TestRunOverviewChecks_LeavesNoWarningOrNoteBuffered(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	// Claude Code reads no review spec, so rendering it raises a
 	// capability warning.
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "reviews", "checklist.md"), "---\nname: checklist\ndescription: Check the diff.\n---\n\nCheck the diff against the intent.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "checklist.md"), "---\nname: checklist\ndescription: Check the diff.\n---\n\nCheck the diff against the intent.\n")
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestRunOverviewChecks_ReportsAHandEditedFileAsStale(t *testing.T) {
 	if drift := driftByPath(t, runOverviewChecks(".", cfg, b).findings); len(drift) != 0 {
 		t.Fatalf("drift right after sync = %v", drift)
 	}
-	mustWrite(t, filepath.Join(dir, ".claude", "settings.json"), "{}\n")
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), "{}\n")
 
 	drift := driftByPath(t, runOverviewChecks(".", cfg, b).findings)
 	if len(drift) != 1 || drift[".claude/settings.json"] != driftStale {
@@ -160,7 +160,7 @@ func TestOverviewInputs_BuildsTheSnapshotFromTheProject(t *testing.T) {
 	if again.Snapshot.Revision != snap.Revision {
 		t.Errorf("revision changed with nothing edited: %s, %s", snap.Revision, again.Snapshot.Revision)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read(src/**)]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read(src/**)]\n")
 	edited, err := overviewInputs(".")
 	if err != nil {
 		t.Fatal(err)
@@ -227,7 +227,7 @@ func itemWithFinding(v overview.View, code string) string {
 
 func TestCompareInstalled_PresentBesideMissingIsNotInSync(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWrite(t, "a.txt", "same\n")
+	writeFile(t, "a.txt", "same\n")
 	state, err := compareInstalled([]adapters.CapturedFile{{Path: "a.txt", Content: "same\n"}, {Path: "b.txt", Content: "missing\n"}})
 	if err != nil {
 		t.Fatal(err)
@@ -267,9 +267,9 @@ func TestRunOverviewChecks_GivesAFindingOnAFileItsAbsolutePath(t *testing.T) {
 
 func TestFindingOpenPath_NamesOnlyAFileOnDiskInsideTheConfiguration(t *testing.T) {
 	base := t.TempDir()
-	mustWrite(t, filepath.Join(base, "rules with spaces", "ågent#1.md"), "x\n")
+	writeFile(t, filepath.Join(base, "rules with spaces", "ågent#1.md"), "x\n")
 	outside := filepath.Join(t.TempDir(), "outside.md")
-	mustWrite(t, outside, "x\n")
+	writeFile(t, outside, "x\n")
 
 	for _, c := range []struct{ path, want string }{
 		{"rules with spaces/ågent#1.md", filepath.ToSlash(filepath.Join(base, "rules with spaces", "ågent#1.md"))},
@@ -287,7 +287,7 @@ func TestFindingOpenPath_NamesOnlyAFileOnDiskInsideTheConfiguration(t *testing.T
 
 func TestOverviewScopeLintFindings_MarksALintRunThatStopped(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "lint: [not, a, map]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "lint: [not, a, map]\n")
 
 	got := overviewScopeLintFindings(checkScope{global: true, source: dir}, "agnostic-ai.yaml", filepath.ToSlash)
 

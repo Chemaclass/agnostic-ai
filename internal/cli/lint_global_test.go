@@ -19,8 +19,8 @@ func runGlobalCheck(args ...string) (string, string, error) {
 
 func TestLintGlobal_CleanHomeExitsZeroOutsideProject(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
+	writeFile(t, filepath.Join(source, "local", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	out, _, err := runGlobalCheck("lint", "--strict")
 	if err != nil {
@@ -34,7 +34,7 @@ func TestLintGlobal_CleanHomeExitsZeroOutsideProject(t *testing.T) {
 func TestLintGlobal_ReportsMistypedKeyInSharedLayer(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	agent := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, agent, "---\nname: reviewer\ndescription: Review code\nmodl: opus\n---\nReview it.\n")
+	writeFile(t, agent, "---\nname: reviewer\ndescription: Review code\nmodl: opus\n---\nReview it.\n")
 
 	out, _, err := runGlobalCheck("lint")
 	if err != nil {
@@ -50,9 +50,9 @@ func TestLintGlobal_ReportsMistypedKeyInSharedLayer(t *testing.T) {
 
 func TestLintGlobal_BrokenLocalOverrideExitsOne(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\n---\nShared.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\n---\nShared.\n")
 	override := filepath.Join(source, "local", "agents", "helper.md")
-	mustWriteGlobalTest(t, override, "---\nname: helper\ndescription: Help\nLocal body with no closing delimiter.\n")
+	writeFile(t, override, "---\nname: helper\ndescription: Help\nLocal body with no closing delimiter.\n")
 
 	out, _, err := runGlobalCheck("lint")
 	if err == nil {
@@ -65,8 +65,8 @@ func TestLintGlobal_BrokenLocalOverrideExitsOne(t *testing.T) {
 
 func TestValidateGlobal_CleanHomeExitsZeroOutsideProject(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "name: start\nevent: SessionStart\ncommand: echo hi\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "hooks", "start.yaml"), "name: start\nevent: SessionStart\ncommand: echo hi\n")
+	writeFile(t, filepath.Join(source, "local", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	out, _, err := runGlobalCheck("validate")
 	if err != nil {
@@ -80,9 +80,9 @@ func TestValidateGlobal_CleanHomeExitsZeroOutsideProject(t *testing.T) {
 func TestValidateGlobal_ReportsUnknownHookEventAndScopedLocalRule(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "start.yaml")
-	mustWriteGlobalTest(t, hook, "name: start\nevent: OnBoot\ncommand: echo hi\n")
+	writeFile(t, hook, "name: start\nevent: OnBoot\ncommand: echo hi\n")
 	rule := filepath.Join(source, "local", "rules", "go.md")
-	mustWriteGlobalTest(t, rule, "---\nname: go\nglobs: \"**/*.go\"\n---\nGo rule.\n")
+	writeFile(t, rule, "---\nname: go\nglobs: \"**/*.go\"\n---\nGo rule.\n")
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
@@ -99,7 +99,7 @@ func TestValidateGlobal_ReportsUnknownHookEventAndScopedLocalRule(t *testing.T) 
 func TestValidateGlobal_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "save.yaml")
-	mustWriteGlobalTest(t, hook, "name: save\nevent: PostCompaction\ncommand: echo saved\n")
+	writeFile(t, hook, "name: save\nevent: PostCompaction\ncommand: echo saved\n")
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
@@ -113,7 +113,7 @@ func TestValidateGlobal_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
 func TestLintGlobal_ScopedRuleExitsOne(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	rule := filepath.Join(source, "rules", "backend", "x.md")
-	mustWriteGlobalTest(t, rule, "---\nname: x\nglobs: \"**/*.go\"\n---\nGo rule.\n")
+	writeFile(t, rule, "---\nname: x\nglobs: \"**/*.go\"\n---\nGo rule.\n")
 
 	out, _, err := runGlobalCheck("lint")
 	if err == nil {

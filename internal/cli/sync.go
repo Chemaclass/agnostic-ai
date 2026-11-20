@@ -436,7 +436,7 @@ func (r syncRun) dispatch() error {
 		return r.checkDrift()
 	}
 	if f.watchPoll && !f.watch {
-		return fmt.Errorf("--watch-poll requires --watch")
+		return errors.New("--watch-poll requires --watch")
 	}
 	if f.watch {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

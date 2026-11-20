@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 )
@@ -44,7 +45,7 @@ func builtBinaryWithLDFlags(t *testing.T, ldflags string) string {
 	builtCLIMu.Lock()
 	cli, ok := builtCLIs[ldflags]
 	if !ok {
-		cli = &builtCLI{dir: filepath.Join(builtCLIRoot, fmt.Sprint(len(builtCLIs)))}
+		cli = &builtCLI{dir: filepath.Join(builtCLIRoot, strconv.Itoa(len(builtCLIs)))}
 		builtCLIs[ldflags] = cli
 	}
 	builtCLIMu.Unlock()

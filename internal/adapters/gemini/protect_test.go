@@ -321,7 +321,7 @@ func TestProtectHook_ReadsALargeWriteQuickly(t *testing.T) {
 	}
 	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
 	var content strings.Builder
-	for i := 0; i < 200000; i++ {
+	for i := range 200000 {
 		fmt.Fprintf(&content, "line %d with a \"quote\", a \\ backslash, and a tab\t.\n", i)
 	}
 

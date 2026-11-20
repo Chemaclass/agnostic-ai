@@ -457,12 +457,12 @@ func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
 		return "", "", false
 	}
 	rest := doc[len("---\n"):]
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
+	before, after, ok := strings.Cut(rest, "\n---")
+	if !ok {
 		return "", "", false
 	}
-	front := rest[:end]
-	body := rest[end+len("\n---"):]
+	front := before
+	body := after
 	body = strings.TrimPrefix(body, "\n")
 	body = strings.TrimPrefix(body, "\n")
 	return front, body, true
@@ -606,7 +606,7 @@ func codexOnlyTopLevelEntries(src, dst string) ([]string, error) {
 		if rel == "SKILL.md" {
 			return nil
 		}
-		name := strings.Split(filepath.ToSlash(rel), "/")[0]
+		name, _, _ := strings.Cut(filepath.ToSlash(rel), "/")
 		if seen[name] {
 			return nil
 		}

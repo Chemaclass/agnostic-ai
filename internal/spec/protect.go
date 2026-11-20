@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -55,7 +56,7 @@ func ProtectedPaths(settings []Entry) ([]ProtectGroup, error) {
 func ParseProtectGroup(raw any) (ProtectGroup, error) {
 	fields, ok := raw.(map[string]any)
 	if !ok {
-		return ProtectGroup{}, fmt.Errorf("want a mapping with paths, decision, and reason")
+		return ProtectGroup{}, errors.New("want a mapping with paths, decision, and reason")
 	}
 	for key := range fields {
 		if !slices.Contains(protectKeys, key) {
@@ -65,7 +66,7 @@ func ParseProtectGroup(raw any) (ProtectGroup, error) {
 	group := ProtectGroup{Decision: ProtectAsk}
 	list, _ := fields["paths"].([]any)
 	if len(list) == 0 {
-		return ProtectGroup{}, fmt.Errorf("paths must list at least one path")
+		return ProtectGroup{}, errors.New("paths must list at least one path")
 	}
 	for _, item := range list {
 		path, ok := item.(string)

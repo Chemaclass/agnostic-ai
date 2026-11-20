@@ -64,7 +64,7 @@ func TestInitCmd_StarterNoteForEveryLayout(t *testing.T) {
 func TestInitCmd_KeepsAnExistingNote(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	writeScopedFile(t, adapters.AgnosticEntryPointPath, "Mine.\n")
+	writeFile(t, adapters.AgnosticEntryPointPath, "Mine.\n")
 
 	if err := runInitPiped(t, "claude\n"); err != nil {
 		t.Fatalf("init: %v", err)
@@ -77,7 +77,7 @@ func TestInitCmd_KeepsAnExistingNote(t *testing.T) {
 func TestInitCmd_FromKeepsImportedInstructions(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	writeScopedFile(t, "CLAUDE.md", "# Team\n\nUse tabs.\n")
+	writeFile(t, "CLAUDE.md", "# Team\n\nUse tabs.\n")
 
 	if err := runInitPiped(t, "claude\n", "--from", "claude"); err != nil {
 		t.Fatalf("init --from claude: %v", err)
@@ -107,7 +107,7 @@ func TestInitCmd_DryRunListsStarterNote(t *testing.T) {
 func TestInitCmd_DryRunSkipsAnExistingNote(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	captureLogOut(t)
-	writeScopedFile(t, adapters.AgnosticEntryPointPath, "Mine.\n")
+	writeFile(t, adapters.AgnosticEntryPointPath, "Mine.\n")
 
 	out, err := runInitCapturingStdout(t, "--all", "--dry-run")
 	if err != nil {
@@ -123,7 +123,7 @@ func TestImportAll_ReplacesTheStarterNoteWithARootAgentsMainFile(t *testing.T) {
 	silence(t)
 	captureSummary(t)
 	body := "# Repository Guidelines\n\nRun make lint before pushing.\n"
-	writeScopedFile(t, "AGENTS.md", body)
+	writeFile(t, "AGENTS.md", body)
 	if err := runInitPiped(t, "claude\n"); err != nil {
 		t.Fatalf("init: %v", err)
 	}

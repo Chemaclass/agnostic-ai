@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -193,10 +194,8 @@ func (l *outputLocations) addDir(dir string) {
 	if dir == "" || dir == "." || dir == defaultBaseDir {
 		return
 	}
-	for _, d := range l.dirs {
-		if d == dir {
-			return
-		}
+	if slices.Contains(l.dirs, dir) {
+		return
 	}
 	l.dirs = append(l.dirs, dir)
 }
@@ -209,10 +208,8 @@ func (l *outputLocations) holds(p string) outputLocation {
 	if strings.HasPrefix(p, defaultBaseDir+"/") || p == config.ConfigFileName || p == config.LegacyConfigFileName {
 		return noLocation
 	}
-	for _, seg := range strings.Split(path.Dir(p), "/") {
-		if seg == "testdata" {
-			return noLocation
-		}
+	if slices.Contains(strings.Split(path.Dir(p), "/"), "testdata") {
+		return noLocation
 	}
 	if l.inNestedProject(p) {
 		return noLocation

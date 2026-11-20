@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -25,7 +26,6 @@ func readVibeTOML(path string) (map[string]any, error) {
 	return decodeTOMLDocument(path, data)
 }
 func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
-
 	agents := ".vibe/agents"
 	skills := ".vibe/skills"
 	conf := ".vibe/config.toml"
@@ -215,7 +215,7 @@ func vibeMCPDocs(records []map[string]any) (map[string]any, error) {
 	for _, r := range records {
 		name, _ := r["name"].(string)
 		if name == "" {
-			return nil, fmt.Errorf("vibe MCP import: missing server name")
+			return nil, errors.New("vibe MCP import: missing server name")
 		}
 		rest := maps.Clone(r)
 		delete(rest, "name")

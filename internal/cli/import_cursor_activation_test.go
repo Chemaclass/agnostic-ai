@@ -27,8 +27,8 @@ func TestImportCursor_RuleWithoutActivationStaysOffAcrossSync(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-			mustWriteFile(t, ".cursor/rules/manual.mdc", tc.native)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+			writeFile(t, ".cursor/rules/manual.mdc", tc.native)
 
 			if out, err := runCLI(t, "import", "cursor"); err != nil {
 				t.Fatalf("import: %v\n%s", err, out)
@@ -69,13 +69,13 @@ func TestImportCursor_ScopedRuleWithoutActivationGetsNoFlag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
 			if tc.projectDir {
 				if err := os.MkdirAll("backend", 0o755); err != nil {
 					t.Fatal(err)
 				}
 			}
-			mustWriteFile(t, tc.native, "---\ndescription: Manual only\n"+tc.scope+"---\nBody here.\n")
+			writeFile(t, tc.native, "---\ndescription: Manual only\n"+tc.scope+"---\nBody here.\n")
 
 			if out, err := runCLI(t, "import", "cursor"); err != nil {
 				t.Fatalf("import: %v\n%s", err, out)

@@ -17,7 +17,7 @@ func TestImportFromCursor_ReadsWorktreeSetup(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "worktree.yaml"))
 	want := "name: worktree\nsetup: bash scripts/setup-worktree.bash\nsetup-windows:\n    - npm ci\n    - copy .env.example .env\n"
 	if got != want {
 		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)
@@ -35,7 +35,7 @@ func TestImportFromCursor_WorktreeSetupForEveryOS(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "worktree.yaml"))
 	want := "name: worktree\nsetup: npm ci\nsetup-windows: npm ci --no-audit\n"
 	if got != want {
 		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)
@@ -53,7 +53,7 @@ func TestImportFromCursor_KeepsWorktreeScriptPathsForCursor(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "worktree.yaml"))
 	want := "name: worktree\nsetup-windows: npm ci\nx-cursor:\n    setup-worktree-unix: setup-worktree-unix.sh\n"
 	if got != want {
 		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)
@@ -69,7 +69,7 @@ func TestImportFromCursor_SkipsSyncedWorktreesAndExistingSpec(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	if got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml")); got != own {
+	if got := readFile(t, filepath.Join(dir, "environments", "worktree.yaml")); got != own {
 		t.Errorf("existing spec changed:\n%s", got)
 	}
 
@@ -92,7 +92,7 @@ func TestImportFromCursor_KeepsAUnixOnlyListForCursor(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "worktree.yaml"))
 	want := "name: worktree\nx-cursor:\n    setup-worktree-unix:\n        - make setup\n"
 	if got != want {
 		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)

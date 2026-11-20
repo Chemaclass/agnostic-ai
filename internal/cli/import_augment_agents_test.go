@@ -10,8 +10,8 @@ import (
 func TestImportAugment_AgentThinkingBecomesEffort(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\nmodel: sonnet\nthinking: high\ncolor: blue\nmax_turns: 5\n---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\nmodel: sonnet\nthinking: high\ncolor: blue\nmax_turns: 5\n---\n\nbody\n")
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)
@@ -35,8 +35,8 @@ func TestImportAugment_AgentThinkingBecomesEffort(t *testing.T) {
 func TestImportAugment_AgentThinkingOutsideLevelsStaysNative(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\nthinking: ultra\n---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\nthinking: ultra\n---\n\nbody\n")
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)

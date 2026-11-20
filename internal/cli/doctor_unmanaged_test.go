@@ -15,10 +15,10 @@ import (
 func TestFindUnmanagedConfig_FlagsOnlyUnmarkedFiles(t *testing.T) {
 	dir := t.TempDir()
 	// Hand-authored: no marker -> unmanaged.
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "# My project\n\nHand-written instructions.\n")
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "rules", "legacy.mdc"), "---\ndescription: x\n---\n\nold rule\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# My project\n\nHand-written instructions.\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "legacy.mdc"), "---\ndescription: x\n---\n\nold rule\n")
 	// Generated: carries the marker -> managed, must not be flagged.
-	mustWriteFile(t, filepath.Join(dir, "GEMINI.md"), "<!-- "+header.Marker+" -->\npointer body\n")
+	writeFile(t, filepath.Join(dir, "GEMINI.md"), "<!-- "+header.Marker+" -->\npointer body\n")
 
 	got, err := findUnmanagedConfig(dir, &config.Config{})
 	if err != nil {
@@ -46,10 +46,10 @@ func TestFindUnmanagedConfig_FlagsOnlyUnmarkedFiles(t *testing.T) {
 // the nested files too, and skips a generated one.
 func TestFindUnmanagedConfig_FlagsNestedBugbotFiles(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "BUGBOT.md"), "root review\n")
-	mustWriteFile(t, filepath.Join(dir, "api", ".cursor", "BUGBOT.md"), "api review\n")
-	mustWriteFile(t, filepath.Join(dir, "web", "ui", ".cursor", "BUGBOT.md"), "ui review\n")
-	mustWriteFile(t, filepath.Join(dir, "docs", ".cursor", "BUGBOT.md"), "<!-- "+header.Marker+" -->\ngenerated\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "BUGBOT.md"), "root review\n")
+	writeFile(t, filepath.Join(dir, "api", ".cursor", "BUGBOT.md"), "api review\n")
+	writeFile(t, filepath.Join(dir, "web", "ui", ".cursor", "BUGBOT.md"), "ui review\n")
+	writeFile(t, filepath.Join(dir, "docs", ".cursor", "BUGBOT.md"), "<!-- "+header.Marker+" -->\ngenerated\n")
 
 	got, err := findUnmanagedConfig(dir, &config.Config{})
 	if err != nil {
@@ -68,8 +68,8 @@ func TestFindUnmanagedConfig_FlagsNestedBugbotFiles(t *testing.T) {
 // Qwen reads .qwen/rules/ at every depth, so doctor lists nested files too.
 func TestFindUnmanagedConfig_FlagsNestedQwenRules(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, ".qwen", "rules", "top.md"), "top\n")
-	mustWriteFile(t, filepath.Join(dir, ".qwen", "rules", "web", "ui", "react.md"), "---\npaths: [src/**]\n---\nreact\n")
+	writeFile(t, filepath.Join(dir, ".qwen", "rules", "top.md"), "top\n")
+	writeFile(t, filepath.Join(dir, ".qwen", "rules", "web", "ui", "react.md"), "---\npaths: [src/**]\n---\nreact\n")
 	if err := os.MkdirAll(filepath.Join(dir, ".qwen", "rules", "folder.md"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -89,11 +89,11 @@ func TestFindUnmanagedConfig_FlagsNestedQwenRules(t *testing.T) {
 
 func TestFindUnmanagedConfig_FlagsNestedGeminiCommands(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "deploy.toml"), "prompt = \"Ship\"\n")
-	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "git", "commit.toml"), "prompt = \"Commit\"\n")
-	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "git", "push.toml"), "# "+header.Marker+"\nprompt = \"Push\"\n")
-	mustWriteFile(t, filepath.Join(dir, ".gemini", "commands", "a", "b", "c.toml"), "prompt = \"Deep\"\n")
-	mustWriteFile(t, filepath.Join(dir, ".qwen", "commands", "a", "b", "c.md"), "Deep\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "commands", "deploy.toml"), "prompt = \"Ship\"\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "commands", "git", "commit.toml"), "prompt = \"Commit\"\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "commands", "git", "push.toml"), "# "+header.Marker+"\nprompt = \"Push\"\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "commands", "a", "b", "c.toml"), "prompt = \"Deep\"\n")
+	writeFile(t, filepath.Join(dir, ".qwen", "commands", "a", "b", "c.md"), "Deep\n")
 
 	got, err := findUnmanagedConfig(dir, &config.Config{})
 	if err != nil {
