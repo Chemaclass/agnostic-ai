@@ -1035,6 +1035,40 @@ test('under Needs you, permission waits come before a question', async ({ page }
 const deleteItem = (page: Page) => page.getByRole('menuitem', { name: 'Delete permanently…' })
 const deleteDialog = (page: Page) => page.getByRole('alertdialog')
 
+test('warns about forgotten shells and only stops the shell confirmed in the row menu', async ({ page }) => {
+  await openPanel(page, 'stuck-shells')
+  await expect(row(page, 'Preview the reporting changes')).toContainText('Faramir left a shell running for 15h: bash scripts/run-preview.bash')
+  await expect(row(page, 'Preview the reporting changes')).toHaveClass(/needs-you/)
+  const working = row(page, 'Refactor the search index')
+  await expect(working.locator('.shell-warning')).toHaveText(['Shell running for 1h: npm run dev', 'Shell running for 45m: npm run watch'])
+
+  const dialog = page.getByRole('alertdialog', { name: 'Stop shell?' })
+  const stop = dialog.getByRole('button', { name: 'Stop shell' })
+  const chooseShell = async () => {
+    await working.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Stop shell…' }).click()
+    await expect(stop).toBeDisabled()
+    await dialog.getByRole('combobox', { name: 'Choose a shell' }).selectOption({ label: 'Shell running for 1h: npm run dev (PID 840)' })
+    await expect(dialog.locator('code')).toHaveText('npm run dev')
+    await expect(dialog).toContainText('Running for 1h. This stops 3 processes.')
+  }
+
+  await chooseShell()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  expect(await calledPaths(page)).not.toContain('/api/stop-shell')
+  await expect(working.locator('.shell-warning')).toHaveCount(2)
+
+  await chooseShell()
+  const request = page.waitForRequest((request) => request.url().endsWith('/api/stop-shell'))
+  await stop.click()
+  expect((await request).postDataJSON()).toEqual({ tool: 'claude', id: 'shells-working', pid: 840, procStart: '2026-11-07T14:00:00.000Z' })
+  await expect(dialog).toBeHidden()
+  await expect(working.locator('.shell-warning')).toHaveText(['Shell running for 45m: npm run watch'])
+  await expectInfoNotice(page, 'Processes still running')
+  await expect(noticeCard(page)).toContainText('Processes still running (PIDs 841).')
+})
+
 async function openArchived(page: Page, fixture = 'archived') {
   await openPanel(page, fixture)
   await groupTitle(page, 'Archived').click()

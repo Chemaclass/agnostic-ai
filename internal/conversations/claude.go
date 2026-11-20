@@ -256,6 +256,7 @@ type liveSession struct {
 	startedAt  int64
 	process    liveProcess
 	activity   Activity
+	status     string
 	entrypoint string
 	bridge     string
 	waitingFor string
@@ -306,6 +307,10 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		session, isLive := live[id]
 		c.Live = isLive
 		c.Activity = session.activity
+		if canStopShells() && (session.status == "shell" || session.status == "busy") && opts.shellAfter() > 0 {
+			c.shellSession = &session.process
+			c.mainWorking = meta.pending != nil || session.status == "busy"
+		}
 		if isLive && session.activity == ActivityWaiting {
 			c.Waiting = claudeWaiting(session.waitingFor, meta.pending)
 			if c.Waiting != nil {
@@ -320,6 +325,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 			if work != nil {
 				count := work.count()
 				c.WorkingSubagents = &count
+				c.mainWorking = c.mainWorking || work.mainWorking
 			}
 			c.Helpers = s.claudeHelpers(file, work, seenMetas)
 		}
@@ -628,7 +634,7 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			if json.Unmarshal(entry.StatusUpdatedAt, &statusAt) == nil && statusAt > 0 {
 				statusSince = time.UnixMilli(statusAt)
 			}
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor, statusSince: statusSince}
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], status: entry.Status, entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor, statusSince: statusSince}
 		}
 	}
 	return live, err == nil && entriesErr == nil, note

@@ -79,10 +79,14 @@ func cursorUserDir(home string) string {
 // Code file and cursor-agent chat until the file changes, so a refresh
 // rereads only new chats.
 type Scanner struct {
-	Stores    Stores
-	SQLite    SQLiteQuery
-	Processes Processes
-	Now       func() time.Time
+	Stores         Stores
+	SQLite         SQLiteQuery
+	Processes      Processes
+	Now            func() time.Time
+	shellStops     atomic.Uint64
+	stoppingShells sync.Map
+	shellSignal    func(int, bool) error
+	shellWait      func(context.Context, time.Duration) error
 	// MarksPath is the file that keeps the person's seen and completed
 	// marks. Empty keeps none.
 	MarksPath string
@@ -170,6 +174,8 @@ func NewScanner() *Scanner {
 
 // ScanOptions narrow and shape one scan.
 type ScanOptions struct {
+	// StuckShellAfter is the age at which a Claude Code shell needs attention. Nil uses the default and zero disables it.
+	StuckShellAfter *time.Duration
 	// Editor is the editor chosen in Settings; extension links use its scheme.
 	Editor string
 	// Within keeps only conversations whose folder is inside one of
@@ -455,7 +461,7 @@ type keptRead struct {
 
 // shapeOf is the part of the options a reader's rows depend on.
 func shapeOf(opts ScanOptions) string {
-	return opts.Editor + "\x00" + strings.Join(opts.Within, "\x00")
+	return opts.Editor + "\x00" + strings.Join(opts.Within, "\x00") + "\x00" + opts.shellAfter().String()
 }
 
 // beginRead counts a read that begins and returns its number.
@@ -513,6 +519,7 @@ func (s *Scanner) readSince(opts ScanOptions, span time.Duration) ([]sourceResul
 // readAll reads every store. A tool's cloud conversations count among
 // its own; cloudNote says why they are missing, when they are.
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
+	readTable := sync.OnceValues(s.Processes.Table)
 	number := s.beginRead()
 	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
@@ -552,7 +559,8 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 		results = append(results, s.kept(ctx, ToolChatGPT, opts, s.chatGPTFiles(), func() sourceResult { return s.scanChatGPT(ctx, opts) }))
 	}
 	attachRuns(results)
-	s.placeLive(results)
+	s.showStuckShells(results[0].conversations, opts.shellAfter(), readTable)
+	s.placeLive(results, readTable)
 	s.followAppArchives(results)
 	// A canceled read stopped early, so its rows have gaps.
 	if ctx.Err() == nil {

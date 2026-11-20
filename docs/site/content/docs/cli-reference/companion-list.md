@@ -213,6 +213,16 @@ A Codex subagent opens its own thread, or switches to its terminal. A Claude Cod
 - With animation off, or the system's Reduce Motion on, the indicator stays still with its heading and worker count visible. See [Animate companion](@/docs/cli-reference/companion.md#menus).
 {% </details> %}
 
+## Stop a forgotten shell {#stop-a-forgotten-shell}
+
+On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the command, how long it has run, and the subagent that started it when known. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
+
+1. Right-click the row and choose **Stop shell…**. If there is more than one shell, choose which one to stop.
+2. Review the command, run time and number of processes in its group. Choose **Stop shell** to stop that group. The Claude Code session stays open.
+3. If the shell changed, choose it again from the refreshed list. If processes left the group and are still running, the result names their process IDs.
+
+Warnings start after 30 minutes by default. To change the time or turn off the warnings and action, set [`conversations.stuckShellAfter`](@/docs/global-configuration-reference.md#global-conversations).
+
 ## Archived chats {#archived-chats}
 
 A chat moves to Archived when it is closed.
@@ -259,7 +269,7 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 
 ## What a chat waits for {#waiting}
 
-A row that waits for you carries [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) when its tool says what for: `{for, tool?, detail?}`. `for` is `permission` (approve a tool call) or `answer` (a question). It is omitted when unknown.
+A row that waits for you can carry [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) with `{for, tool?, detail?}`. `for` is `permission` (approve a tool call), `answer` (a question), or `shell` (a [forgotten shell](#stop-a-forgotten-shell) is the only work left). It is omitted when unknown.
 
 | Tool | Where the wait comes from |
 |------|---------------------------|

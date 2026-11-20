@@ -113,6 +113,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   click outside the question keeps the chat. Only local Claude
   Code chats can be deleted for now; the others say why. See
   [what is removed and what stays](../docs/site/content/docs/cli-reference/companion-list.md#delete-an-archived-chat).
+- In a live Claude Code chat, use **Stop shell…** from the row menu when it
+  warns about a background shell. See how to
+  [stop a forgotten shell](../docs/site/content/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
 - An archived chat comes back when you open it, when something new is
   written in it, or when it starts working. A hidden chat leaves every list
   and search in agnostic-ai and comes back with a new message or when it
