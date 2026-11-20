@@ -112,6 +112,9 @@ func newDoctorCmd() *cobra.Command {
 				if err := readLedger(".").refuseNewer(); err != nil {
 					return err
 				}
+				if err := stopOnMissingPacks("."); err != nil {
+					return err
+				}
 			} else {
 				readLedger(".").warnNewer()
 			}

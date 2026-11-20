@@ -922,3 +922,116 @@ func TestPacksAdd_RefusesGitSourcesUpdateRefuses(t *testing.T) {
 		}
 	}
 }
+
+// syncedPackProject adds a local pack from src, syncs, and returns the
+// pack rule's generated path.
+func syncedPackProject(t *testing.T, root, src string) string {
+	t.Helper()
+	mustWrite(t, filepath.Join(root, config.ConfigFileName), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(src, "rules", "team-style.md"), "---\nname: team-style\ndescription: Team style.\nalwaysApply: true\n---\nTeam style rule.\n")
+	if err := runPacksAdd(root, src, "team", &bytes.Buffer{}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if err := runSync(t); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	output := filepath.Join(root, ".claude", "rules", "team-style.md")
+	if _, err := os.Stat(output); err != nil {
+		t.Fatalf("pack rule not generated: %v", err)
+	}
+	return output
+}
+
+func TestSync_StopsWhenALockedPackIsMissing(t *testing.T) {
+	root := testutil.TempCwd(t)
+	silence(t)
+	output := syncedPackProject(t, root, filepath.Join(root, "shared", "team"))
+
+	if err := os.RemoveAll(filepath.Join(root, packsDir)); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, args := range [][]string{nil, {"--check"}, {"--plan"}, {"--dry-run"}} {
+		err := runSync(t, args...)
+		if err == nil {
+			t.Fatalf("sync %v: want an error for the missing pack", args)
+		}
+		for _, want := range []string{`"team"`, packsLockfile, "agnostic-ai packs update"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("sync %v error %q lacks %q", args, err, want)
+			}
+		}
+		if _, statErr := os.Stat(output); statErr != nil {
+			t.Fatalf("sync %v removed the pack output: %v", args, statErr)
+		}
+	}
+
+	cfgBefore, _ := os.ReadFile(filepath.Join(root, config.ConfigFileName))
+	for _, args := range [][]string{{"doctor", "--fix"}, {"use", "codex"}} {
+		cmd := NewRootCmd("test")
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "agnostic-ai packs update") {
+			t.Errorf("%v: want the missing pack error, got %v", args, err)
+		}
+	}
+	if cfgAfter, _ := os.ReadFile(filepath.Join(root, config.ConfigFileName)); string(cfgAfter) != string(cfgBefore) {
+		t.Errorf("use changed the config before refusing:\n%s", cfgAfter)
+	}
+	if err := runSyncPass(root, nil, syncRunOptions{}); err == nil || !strings.Contains(err.Error(), "agnostic-ai packs update") {
+		t.Errorf("sync pass: want the missing pack error, got %v", err)
+	}
+	if _, err := os.Stat(output); err != nil {
+		t.Fatalf("a refused command removed the pack output: %v", err)
+	}
+
+	if err := runPacksUpdate(root, "", false, &bytes.Buffer{}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Fatalf("check after packs update: %v", err)
+	}
+}
+
+func TestSync_KeepsPackOutputsWhenTheLockfileIsBroken(t *testing.T) {
+	cases := map[string]struct {
+		breakIt func(t *testing.T, root string)
+		want    string
+	}{
+		"unreadable lockfile": {
+			breakIt: func(t *testing.T, root string) {
+				mustWrite(t, filepath.Join(root, packsLockfile), "<<<<<<< HEAD\nversion: 1\n")
+			},
+			want: packsLockfile,
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			silence(t)
+			output := syncedPackProject(t, root, filepath.Join(root, "shared", "team"))
+			tc.breakIt(t, root)
+			if err := runSync(t); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("sync: want an error naming %q, got %v", tc.want, err)
+			}
+			if _, err := os.Stat(output); err != nil {
+				t.Fatalf("sync removed the pack output: %v", err)
+			}
+		})
+	}
+}
+
+func TestSync_MissingPackFromOutsideTheProjectNamesPacksAdd(t *testing.T) {
+	root := testutil.TempCwd(t)
+	silence(t)
+	syncedPackProject(t, root, filepath.Join(t.TempDir(), "team"))
+	if err := os.RemoveAll(filepath.Join(root, packsDir)); err != nil {
+		t.Fatal(err)
+	}
+	err := runSync(t)
+	if err == nil || !strings.Contains(err.Error(), "agnostic-ai packs add") {
+		t.Fatalf("sync: want the packs add command for an outside local pack, got %v", err)
+	}
+	if strings.Contains(err.Error(), "packs update") {
+		t.Errorf("sync: packs update skips an outside local pack, so the error must not suggest it: %v", err)
+	}
+}
