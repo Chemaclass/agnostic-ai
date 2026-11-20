@@ -283,6 +283,10 @@ function PermissionForm({ field, files, decision, shows, path, select }: Permiss
           </div>
         </div>
         <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
+        {!!preview.dropped?.length && <div>
+          <p>This local list leaves out these {level} rules from this spec.</p>
+          <ul>{preview.dropped.map((rule, index) => <li key={index}><Code>{rule}</Code></li>)}</ul>
+        </div>}
         <FileDiff label={`${field.label} file changes`} diff={preview.diff} />
         <p className="muted">Apply saves this file. Then run <Code>{preview.syncCommand}</Code> to update your tools. Tool support varies; see Tool support at the top of the page.</p>
       </section>}

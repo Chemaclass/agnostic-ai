@@ -31,5 +31,7 @@ export function parsePermissionPreview(value: unknown): PermissionEditPreview {
     || !('diff' in value) || typeof value.diff !== 'string'
     || !('expected' in value) || typeof value.expected !== 'string' || !value.expected.trim()
     || !('syncCommand' in value) || typeof value.syncCommand !== 'string' || !value.syncCommand.trim()) throw invalid()
-  return { schemaVersion: value.schemaVersion, file: value.file, key: value.key, audience: value.audience, before: value.before, rules: value.rules, diff: value.diff, expected: value.expected, syncCommand: value.syncCommand }
+  const omitted = 'dropped' in value ? value.dropped : undefined
+  if (omitted !== undefined && (omitted === null || !list(omitted))) throw invalid()
+  return { schemaVersion: value.schemaVersion, file: value.file, key: value.key, audience: value.audience, before: value.before, rules: value.rules, diff: value.diff, expected: value.expected, syncCommand: value.syncCommand, ...(omitted && { dropped: omitted }) }
 }

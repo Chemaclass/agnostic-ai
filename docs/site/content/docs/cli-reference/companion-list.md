@@ -126,6 +126,17 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 - On failure the row keeps its old name. The server logs what the tool said on its standard error, with the tool and the conversation id.
 {% </details> %}
 
+## Archive, hide or stop a chat from the row menu {#row-menu}
+
+Right-click a row to reach what its buttons do, and a little more:
+
+- **Mark complete** moves an unmarked chat from Active or Needs you to Archived. A chat waiting only on a forgotten shell stays in Needs you until the shell stops.
+- **Undo complete** clears the mark you set. The [usual rules for Archived](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) still apply.
+- **Hide from agnostic-ai**: takes an archived chat out of every list and search. The tool keeps the chat.
+- **Stop chat…** in the macOS companion asks before ending a live Claude Code terminal session. You can resume from its transcript. Separate shell processes may keep running. The [Stop chat API](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-session) is available on macOS and Linux.
+
+A new message, or the tool starting work, brings a completed or hidden chat back.
+
 ## Mark chats as read {#mark-as-read}
 
 Clear a chat that needs you without opening it.
@@ -204,7 +215,7 @@ A Codex subagent opens its own thread, or switches to its terminal. A Claude Cod
 - A number and agent icon show the count, with a tooltip and accessible label. Unavailable counts add none.
 - Working is named once, in the blue section header.
 - Working subagents keep an idle parent in Working, with its own still dot.
-- A parent that asks you a question stays in Needs you with a plain orange dot and no orbiting bulbs of its own. Its working satellites keep their blue cores and animation.
+- A parent that asks you a question stays in Needs you with the orange lock dot and no orbiting bulbs of its own. Its working satellites keep their blue cores and animation.
 - Cloud sessions and other tools' subagents are not tracked.
 - When the server counts working subagents but cannot list them, the count sits on the subagents line instead.
 - The list starts folded. Which chats are unfolded is kept until the companion quits.
@@ -268,6 +279,8 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 {% </details> %}
 
 ## What a chat waits for {#waiting}
+
+In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. An unread reply has a plain orange dot, and so does a wait you already read while its subagents still work under Working.
 
 A row that waits for you can carry [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) with `{for, tool?, detail?}`. `for` is `permission` (approve a tool call), `answer` (a question), or `shell` (a [forgotten shell](#stop-a-forgotten-shell) is the only work left). It is omitted when unknown.
 

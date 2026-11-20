@@ -19,18 +19,19 @@ import (
 )
 
 const (
-	conversationsViewPath     = "/api/views/conversations"
-	conversationOpenPath      = "/api/conversations/open"
-	conversationMarkPath      = "/api/conversations/mark"
-	conversationRenamePath    = "/api/conversations/rename"
-	conversationDeletePath    = "/api/conversations/delete"
-	conversationStopShellPath = "/api/conversations/stop-shell"
-	conversationSendPath      = "/api/conversations/send"
+	conversationsViewPath       = "/api/views/conversations"
+	conversationOpenPath        = "/api/conversations/open"
+	conversationMarkPath        = "/api/conversations/mark"
+	conversationRenamePath      = "/api/conversations/rename"
+	conversationDeletePath      = "/api/conversations/delete"
+	conversationStopShellPath   = "/api/conversations/stop-shell"
+	conversationStopSessionPath = "/api/conversations/stop-session"
+	conversationSendPath        = "/api/conversations/send"
 )
 
 // conversationPaths are the endpoints conversationsHandler serves. The
 // mux mounts each one and serializeAPI leaves each out of its lock.
-var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath, conversationStopShellPath}
+var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath, conversationStopShellPath, conversationStopSessionPath}
 
 // maxConversationOpenBytes bounds an open request: a tool, an id, an editor and a helper.
 const maxConversationOpenBytes = 4 << 10
@@ -158,6 +159,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.send(w, r)
 	case conversationStopShellPath:
 		h.stopShell(w, r)
+	case conversationStopSessionPath:
+		h.stopSession(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -205,7 +208,11 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	opts.Before, opts.Query, opts.Tool = before, search, tool
 	view := h.scanner.ScanStamped(r.Context(), opts, stamp)
 	if h.approvals != nil {
-		h.approvals.decorate(&view, r.URL.RawQuery)
+		folder := ""
+		if len(opts.Within) > 0 {
+			folder = opts.Within[0]
+		}
+		h.approvals.decorate(&view, folder, r.URL.RawQuery)
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }

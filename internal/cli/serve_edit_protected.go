@@ -193,7 +193,7 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 	if err != nil {
 		return protectedEditView{}, none, err
 	}
-	file, scaffold, paths, err := h.permissionSource(where, req.Path, protectedKey)
+	file, scaffold, paths, _, err := h.permissionSource(where, req.Path, protectedKey)
 	if err != nil {
 		return protectedEditView{}, none, err
 	}

@@ -226,14 +226,14 @@ func dropClaudeIdentityFallback(doc string, existing map[string]any) string {
 }
 
 // importClaudeSkills copies each `.claude/skills/<name>/` directory tree
-// into `<dstDir>/<name>/`. SKILL.md must exist for the
-// skill to be considered; once present, every sibling file (and nested
+// into `<dstDir>/<name>/`, or updates a flat spec of the same name.
+// Once SKILL.md is present, every sibling file (and nested
 // subdirectories such as `scripts/`, `assets/`, helper Python/JS
 // modules, fixtures, etc.) is mirrored verbatim so a roundtrip
 // preserves the full skill payload. SKILL.md gains `target: claude`
 // frontmatter when the project has a codex tree but no matching codex
 // skill (auto-scoping per #299).
-func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
+func importClaudeSkills(root, dstDir string, layout claudeLayout, skillRefs map[string]string) (int, error) {
 	src := filepath.Join(root, layout.skills)
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -241,6 +241,10 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 	}
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	portableSkills, err := claudePortableSkillPaths(dstDir)
+	if err != nil {
+		return 0, err
 	}
 	codexPresent := codexTreeExists(root)
 	count := 0
@@ -254,11 +258,22 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 		} else if err != nil {
 			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 		}
-		skillDst := filepath.Join(dstDir, e.Name())
-		if err := copyDirTree(skillSrc, skillDst); err != nil {
+		skillPath := filepath.Join(dstDir, e.Name(), "SKILL.md")
+		var flatRef string
+		if !fileExists(skillPath) {
+			matches := portableSkills[e.Name()]
+			hasFlat := slices.ContainsFunc(matches, func(path string) bool { return filepath.Base(path) != "SKILL.md" })
+			if hasFlat {
+				if len(matches) > 1 {
+					return count, fmt.Errorf("skill %q matches several portable specs in %s: %s; rename one before importing", e.Name(), dstDir, strings.Join(matches, ", "))
+				}
+				skillPath = filepath.Join(dstDir, matches[0])
+				flatRef = filepath.ToSlash(matches[0])
+			}
+		}
+		if err := copyDirTree(skillSrc, skillPath); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
-		skillPath := filepath.Join(skillDst, "SKILL.md")
 		skillData, err := os.ReadFile(skillPath)
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", skillPath, err)
@@ -269,12 +284,59 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 				return count, err
 			}
 		}
-		if codexPresent && !codexHasSkill(root, e.Name()) {
-			if err := injectTargetInSkillMD(filepath.Join(skillDst, "SKILL.md"), "claude"); err != nil {
+		if filepath.Base(skillPath) == "SKILL.md" && codexPresent && !codexHasSkill(root, e.Name()) {
+			if err := injectTargetInSkillMD(skillPath, "claude"); err != nil {
 				return count, fmt.Errorf("scope skill %s: %w", e.Name(), err)
 			}
+		}
+		if flatRef != "" {
+			skillRefs[e.Name()] = flatRef
 		}
 		count++
 	}
 	return count, nil
+}
+
+func claudePortableSkillPaths(dstDir string) (map[string][]string, error) {
+	paths := map[string][]string{}
+	bundled := map[string]bool{}
+	err := spec.WalkSourceRoot(dstDir, func(path string, file fs.DirEntry, err error) error {
+		if err != nil {
+			if path == dstDir && errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		parent := filepath.Dir(path)
+		if file.IsDir() {
+			bundled[path] = bundled[parent] || fileExists(filepath.Join(path, "SKILL.md"))
+			return nil
+		}
+		folderSpec := file.Name() == "SKILL.md"
+		if !file.Type().IsRegular() || filepath.Ext(file.Name()) != ".md" || (!folderSpec && bundled[parent]) {
+			return nil
+		}
+		rel, inside := pathBelow(dstDir, path)
+		if !inside || !filepath.IsLocal(rel) {
+			return fmt.Errorf("%s is outside the portable skills directory %s", path, dstDir)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		entry, err := spec.ParseMarkdownBytes(spec.KindSkill, data)
+		if err != nil {
+			return nil
+		}
+		name := entry.Name
+		if name == "" {
+			name = strings.TrimSuffix(file.Name(), ".md")
+			if folderSpec {
+				name = filepath.Base(parent)
+			}
+		}
+		paths[name] = append(paths[name], rel)
+		return nil
+	})
+	return paths, err
 }

@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // LogPath is the decision log in the agnostic-ai home folder.
@@ -54,6 +56,9 @@ func readLogFile(path string) ([]Entry, error) {
 		}
 		var e Entry
 		if len(line) > 0 && json.Unmarshal(line, &e) == nil && e.Decision != "" {
+			if preview.ProseSensitive(e.Detail) {
+				e.Detail = ""
+			}
 			out = append(out, e)
 		}
 		switch {

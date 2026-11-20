@@ -651,6 +651,8 @@ export interface PermissionEditPreview {
   before: string[] | null
   rules: string[] | null
   diff: string
+  /** Shared ask or deny rules left out of this spec’s personal list. */
+  dropped?: string[]
   expected: string
   syncCommand: string
 }
@@ -969,6 +971,8 @@ export interface Conversation {
   /** The agents this conversation started that are no rows of their own and still work: its native subagents, and the Codex runs a local Claude Code session started with `codex exec`. Omitted when none works or their states are unknown. */
   helpers?: ConversationHelper[]
   stuckShells?: StuckShell[]
+  /** The process of a live Claude Code session in a terminal on this computer, which POST /api/conversations/stop-session can end. */
+  stoppable?: ConversationProcessRef
   /** Absent from a server older than the marks. */
   state?: ConversationState
   /** Set only on an `active` row whose latest write the person has not seen: a terminal session resumed by hand after it closed with a reply, until the person opens or marks it. It does not count toward `needsYou`. An archived row is never `unread`. */
@@ -1073,6 +1077,17 @@ export interface ConversationStopShellReply {
   stillRunning?: ConversationProcessRef[]
 }
 
+export interface ConversationStopSessionRequest extends ConversationProcessRef {
+  tool: ConversationTool
+  id: string
+}
+
+/** forced: the server sent a force stop. stillRunning: the same process still runs. */
+export interface ConversationStopSessionReply {
+  forced?: boolean
+  stillRunning?: boolean
+}
+
 export interface ConversationSendRequest {
   tool: ConversationTool
   id: string
@@ -1106,6 +1121,7 @@ export interface ConversationOpenReply {
 //   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations; the reply's ETag sent back as If-None-Match answers 304 while the list holds
 //   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen and its completion taken back
 //   POST /api/conversations/stop-shell                   → ConversationStopShellReply (body: ConversationStopShellRequest); 409 if refused
+//   POST /api/conversations/stop-session                 → ConversationStopSessionReply (body: ConversationStopSessionRequest); 409 if it no longer runs here
 //   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 404 when not listed, 413 over 256 KB
 //   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
 //   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
@@ -1132,6 +1148,7 @@ export const API = {
   conversations: '/api/views/conversations',
   conversationOpen: '/api/conversations/open',
   conversationStopShell: '/api/conversations/stop-shell',
+  conversationStopSession: '/api/conversations/stop-session',
   health: '/api/health',
   switch: '/api/switch',
   globalCreate: '/api/global/create',

@@ -436,6 +436,7 @@ The support table names which tools accept permissions.
 
 A local edit starts with the project rules and replaces only the selected list for that spec. Other settings keep inheriting.
 
+- **Preview** lists the ask and deny rules from this spec that the local list leaves out.
 - A changed local list offers **Compare project and local**.
 - **Reset to the project rules** previews removing the override.
 - An empty list is an explicit override with no rules. Resetting removes it and inherits Project again.

@@ -1,7 +1,7 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopShell } from '/api.js'
+import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -212,6 +212,11 @@ function stateMark(conversation) {
   if (parentState === 'working') {
     mark.append(workSystem())
   }
+  // The circle's lock, on the chats the circle counts as waiting: apart from unread replies.
+  if (conversation.state === 'blocked') {
+    mark.classList.add('has-lock')
+    mark.append(icon('lock', '0 0 16 16'))
+  }
   if (conversation.workingSubagents > 0) {
     const workers = element('span', 'work-workers')
     for (let worker = 0; worker < conversation.workingSubagents; worker++) {
@@ -278,7 +283,7 @@ function rowOf(conversation, order, folderNames, under) {
     line.title = warning
     text.append(line)
   }
-  const approved = approvedLine(conversation, key)
+  const approved = approvedLine(conversation, key, now)
   if (approved) text.append(approved)
 
   const actions = element('div', 'actions')
@@ -350,15 +355,17 @@ function helpersToggle(conversation, key) {
   toggle.addEventListener('click', (event) => {
     // The toggle sits inside the row, which opens on a click.
     event.stopPropagation()
+    const focused = document.activeElement === toggle
     if (open) state.helpersOpen.delete(key)
     else state.helpersOpen.add(key)
     draw({ force: true })
+    if (focused) refocus(`.helpers-toggle[aria-controls="${helpersId(key)}"]`)
   })
   return toggle
 }
 
 /** The "▸ 3 approved for you" line under a chat's meta line: it folds out the requests approvals approved, and back. */
-function approvedLine(conversation, key) {
+function approvedLine(conversation, key, now) {
   const open = state.approvedOpen.has(key)
   const label = approvedToggleOf(conversation, open)
   if (label === undefined) return undefined
@@ -369,13 +376,22 @@ function approvedLine(conversation, key) {
   toggle.addEventListener('click', (event) => {
     // The toggle sits inside the row, which opens on a click.
     event.stopPropagation()
+    const focused = document.activeElement === toggle
     if (open) state.approvedOpen.delete(key)
     else state.approvedOpen.add(key)
     draw({ force: true })
+    if (focused) refocus(`.approved-toggle[aria-controls="${approvedId(key)}"]`)
   })
   const line = element('div', 'approved')
   line.append(toggle)
+  // The list folds out inside the row, so it reads as part of it.
+  if (open) line.append(approvedList(conversation, key, now))
   return line
+}
+
+/** Gives the keys back to the control a redraw replaced, as the person left them on it. */
+function refocus(selector) {
+  document.querySelector(selector)?.focus()
 }
 
 /** The requests approvals approved for a chat, newest first, folded out under it. */
@@ -383,6 +399,8 @@ function approvedList(conversation, key, now) {
   const box = element('ul', 'approved-list')
   box.id = approvedId(key)
   box.setAttribute('aria-label', 'Approved for you')
+  // The list only tells; a click on it does not open the chat.
+  box.addEventListener('click', (event) => event.stopPropagation())
   for (const call of approvedCallsOf(conversation)) {
     const item = element('li', 'approved-call', call.text)
     item.title = `${call.text}, ${ago(call.time, now)}`
@@ -487,9 +505,12 @@ function groupHead(group) {
   const unread = unreadLabelOf(group.rows)
   if (unread) title.append(element('span', 'unread-count', unread))
   title.firstChild.classList.add('chevron')
+  title.dataset.group = group.id
   title.addEventListener('click', () => {
+    const focused = document.activeElement === title
     state.folded.set(group.id, !folded)
     draw({ force: true })
+    if (focused) refocus(`.group-title[data-group="${group.id}"]`)
   })
   const head = element('div', 'group-head')
   head.append(title)
@@ -525,14 +546,14 @@ function cloudAside(view) {
   return shownPlace() === 'local' ? undefined : view.cloudNote
 }
 
-/** The approvals line over the list while approvals answer routine prompts, with Ask me to turn them off. */
+/** The active approvals mode and the Ask me button above the list. */
 function drawApprovals(view) {
   const header = approvalsHeaderOf(view)
   approvalsBar.hidden = header === undefined
   if (header) approvalsMode.textContent = header.label
 }
 
-/** Ask me: every prompt reaches the person again, from the next request on, with no sync. */
+/** Ask me sets the home approvals policy to ask. */
 async function askAgain() {
   approvalsAsk.disabled = true
   let version
@@ -544,7 +565,7 @@ async function askAgain() {
   } finally {
     approvalsAsk.disabled = false
   }
-  say('Approvals off: every permission prompt reaches you again.')
+  say('Approvals set to ask. Your tool may still use its own reviewer.')
   await afterChange(version)
 }
 
@@ -609,9 +630,6 @@ function draw({ force } = { force: false }) {
       order += 1
       if (workingHelpersOf(conversation).length > 0 && state.helpersOpen.has(keyOf(conversation))) {
         list.append(helperList(conversation, keyOf(conversation), now))
-      }
-      if (approvedToggleOf(conversation, true) && state.approvedOpen.has(keyOf(conversation))) {
-        list.append(approvedList(conversation, keyOf(conversation), now))
       }
     }
   }
@@ -777,6 +795,7 @@ function show(reply, problem) {
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
+  keepStopSessionCurrent()
   keepStopShellCurrent()
 }
 
@@ -1174,9 +1193,13 @@ const renameItem = document.getElementById('rename')
 const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
+  complete: document.getElementById('complete'),
+  reopen: document.getElementById('reopen'),
+  hide: document.getElementById('hide'),
   delete: document.getElementById('delete'),
   web: document.getElementById('open-web'),
   'stop-shell': document.getElementById('stop-shell'),
+  'stop-session': document.getElementById('stop-session'),
 }
 /** The conversation the row menu was opened on. */
 let rowMenuFor
@@ -1300,6 +1323,25 @@ menuItems.read.addEventListener('click', () => {
   // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
   markRow(conversation, 'seen')
 })
+menuItems.complete.addEventListener('click', () => {
+  const conversation = rowMenuTarget('complete')
+  closeRowMenu()
+  queryInput.focus()
+  if (!conversation) return
+  // The row's own tick shows the mark, as if it was pressed.
+  const row = list.querySelector(`.row[data-key="${CSS.escape(keyOf(conversation))}"]`)
+  const tick = row?.querySelector('.action[aria-label^="Mark complete"]')
+  if (row && tick) completeRow(conversation, row, tick)
+  else markRow(conversation, 'completed')
+})
+for (const [item, mark] of [['reopen', 'open'], ['hide', 'hidden']]) {
+  menuItems[item].addEventListener('click', () => {
+    const conversation = rowMenuTarget(item)
+    closeRowMenu()
+    queryInput.focus()
+    if (conversation) markRow(conversation, mark)
+  })
+}
 menuItems.web.addEventListener('click', () => {
   const conversation = rowMenuTarget('web')
   closeRowMenu()
@@ -1538,6 +1580,77 @@ stopShellGo.addEventListener('click', async () => {
   await afterChange(result?.version)
 })
 
+// Stop chat ends a live local Claude Code chat's process, after a question.
+
+const stopSessionConfirm = document.getElementById('stop-session-confirm')
+const stopSessionCancel = document.getElementById('stop-session-cancel')
+const stopSessionGo = document.getElementById('stop-session-go')
+/** Each question has its own identity while a stop reply is on its way. */
+let stopSessionFor
+
+menuItems['stop-session'].addEventListener('click', () => {
+  const conversation = rowMenuTarget('stop-session')
+  closeRowMenu()
+  if (!conversation) {
+    queryInput.focus()
+    return
+  }
+  const { title, body } = stopSessionConfirmOf(conversation)
+  stopSessionFor = { conversation }
+  document.getElementById('stop-session-title').textContent = title
+  document.getElementById('stop-session-body').textContent = body
+  stopSessionGo.disabled = false
+  stopSessionConfirm.hidden = false
+  stopSessionCancel.focus()
+})
+
+function closeStopSession() {
+  stopSessionConfirm.hidden = true
+  stopSessionFor = undefined
+  queryInput.focus()
+}
+
+const sameProcess = (a, b) => a?.pid === b?.pid && a?.procStart === b?.procStart
+
+/** A new list where the chat no longer runs here, or runs in another process, closes the question. */
+function keepStopSessionCurrent() {
+  if (stopSessionConfirm.hidden || !stopSessionFor || stopSessionGo.disabled) return
+  const { conversation } = stopSessionFor
+  const key = keyOf(conversation)
+  const current = shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
+  if (current?.live && current.stoppable && sameProcess(current.stoppable, conversation.stoppable)) return
+  closeStopSession()
+}
+
+stopSessionCancel.addEventListener('click', closeStopSession)
+document.addEventListener('mousedown', (event) => {
+  if (!stopSessionConfirm.hidden && !stopSessionConfirm.contains(event.target)) closeStopSession()
+})
+holdTab(stopSessionConfirm)
+stopSessionGo.addEventListener('click', async () => {
+  keepStopSessionCurrent()
+  const confirmation = stopSessionFor
+  if (!confirmation || stopSessionGo.disabled) return
+  const { conversation } = confirmation
+  stopSessionGo.disabled = true
+  let result
+  let version
+  try {
+    const response = await stopSession(conversation, conversation.stoppable)
+    result = stoppedSessionOf(response.body ?? {})
+    version = response.version
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    result = { message: error.message, problem: true }
+  } finally {
+    if (stopSessionFor === confirmation) closeStopSession()
+  }
+  const { message, problem } = result
+  if (problem) showOpenFailure({ message }, NOTICES.sessionNotStopped)
+  else say(message)
+  await afterChange(version)
+})
+
 /** A Mark all run is on its way, so another press does nothing. Each mark redraws the list, so the button cannot hold this. */
 let markingAll = false
 
@@ -1756,6 +1869,7 @@ document.addEventListener('keydown', (event) => {
       'quit-confirm': closeQuitConfirm,
       'delete-confirm': closeDeleteConfirm,
       'stop-shell': closeStopShell,
+      'stop-session': closeStopSession,
       'row-menu': closeRowMenu,
       rename: escapeRename,
       settings: () => {
@@ -1768,11 +1882,11 @@ document.addEventListener('keydown', (event) => {
       },
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined })]()
+    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined })]()
     return
   }
   // Menus and confirmations handle Enter and Space on their own controls.
-  if (!rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !quitConfirm.hidden || state.renaming) return
+  if (!rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !stopSessionConfirm.hidden || !quitConfirm.hidden || state.renaming) return
   if (togglesPick(event, isMac) && settings.recording === undefined) {
     event.preventDefault()
     togglePick()
@@ -1833,6 +1947,8 @@ function opened(from) {
   deleteFor = undefined
   stopShellDialog.hidden = true
   stopShellFor = undefined
+  stopSessionConfirm.hidden = true
+  stopSessionFor = undefined
   quitConfirm.hidden = true
   state.renaming = undefined
   if (!state.returning) {
