@@ -641,3 +641,42 @@ func TestSync_KeepsAHandEditTheUserCopiedToABackup(t *testing.T) {
 		t.Error("the ledger must not record the user's copy as a backup sync saved")
 	}
 }
+
+// linkHandEditOutput turns path into a link to a copy inside the project,
+// then edits that copy by hand.
+func linkHandEditOutput(t *testing.T, path string) (generated, edited string) {
+	t.Helper()
+	generated = readFile(t, path)
+	edited = generated + "my local tweak\n"
+	writeFile(t, "notes/linked.md", edited)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	target, err := filepath.Rel(filepath.Dir(path), "notes/linked.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	return generated, edited
+}
+
+// An edit made through a symlinked output was overwritten with no .bak (#3736).
+func TestSync_KeepsAHandEditMadeThroughASymlinkedOutput(t *testing.T) {
+	handEditProject(t, "claude")
+	generated, edited := linkHandEditOutput(t, handEditSkill)
+	log := captureLog(t)
+
+	runSyncOK(t)
+
+	if got := readFile(t, handEditSkill+".bak"); got != edited {
+		t.Errorf(".bak = %q, want the hand edit", got)
+	}
+	if got := readFile(t, "notes/linked.md"); got != generated {
+		t.Errorf("link target = %q, want the spec's version", got)
+	}
+	if want := "overwrote a hand edit to " + handEditSkill + " (saved as " + handEditSkill + ".bak)"; !strings.Contains(log.String(), want) {
+		t.Errorf("sync output does not say %q:\n%s", want, log.String())
+	}
+}

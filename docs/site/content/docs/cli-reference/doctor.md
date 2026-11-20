@@ -46,7 +46,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 - Without a terminal, `--fix` keeps them and explains why. It exits non-zero while any orphan remains.
 - `--backup` also covers removing a confirmed orphan or confirmed skill overrides.
 - A hand-edited file whose `<path>.bak` already holds an earlier edit is kept, and `--fix` fails until you move both into `.agnostic-ai/` and delete the `.bak`.
-- An edit made through a symlinked output is overwritten with no `.bak`, as `sync` does today.
+- An edit made through a symlinked output is handled as `sync` handles it. See [hand edits](@/docs/cli-reference/sync.md#hand-edits).
 - With `--scope project`, Codex hook trust shows `SKIPPED` in text. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and an empty `hook_trust`.
 - `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 - When sync removes unchanged managed keys from a shared settings file but keeps your keys and edits, doctor reports the file as out of date. JSON reports its action as `stale`.

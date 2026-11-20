@@ -131,3 +131,28 @@ func TestDoctorFix_SaysItSavedARemovedHandEdit(t *testing.T) {
 		t.Errorf("doctor --fix did not say it saved the removed edit:\n%s", logged.String())
 	}
 }
+
+// doctor --fix shares sync's edit guard, so an edit made through a
+// symlinked output is saved too (#3736).
+func TestDoctorFix_SavesAHandEditMadeThroughASymlinkedOutput(t *testing.T) {
+	handEditProject(t, "claude")
+	generated, edited := linkHandEditOutput(t, handEditSkill)
+	var logged bytes.Buffer
+	previous := logOut
+	logOut = &logged
+	t.Cleanup(func() { logOut = previous })
+
+	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err != nil {
+		t.Fatalf("doctor --fix: %v\n%s", err, out)
+	}
+
+	if got, _ := os.ReadFile(handEditSkill + ".bak"); string(got) != edited {
+		t.Errorf(".bak = %q, want the hand edit", got)
+	}
+	if got, _ := os.ReadFile("notes/linked.md"); string(got) != generated {
+		t.Errorf("link target = %q, want the spec's version", got)
+	}
+	if want := "overwrote a hand edit to " + handEditSkill + " (saved as " + handEditSkill + ".bak)"; !strings.Contains(logged.String(), want) {
+		t.Errorf("doctor --fix output does not say %q:\n%s", want, logged.String())
+	}
+}

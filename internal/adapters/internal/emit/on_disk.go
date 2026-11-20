@@ -67,3 +67,9 @@ func (f *onDisk) hasPerm(mode fs.FileMode) bool {
 	info, err := f.stat()
 	return err == nil && info.Mode().Perm() == mode.Perm()
 }
+
+// isLink reports whether path itself is a symlink.
+func (f *onDisk) isLink() bool {
+	info, err := f.lstat()
+	return err == nil && info.Mode()&fs.ModeSymlink != 0
+}
