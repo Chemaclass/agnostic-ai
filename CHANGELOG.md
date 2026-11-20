@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `approvals` set to `review` turns on the tool's own reviewer through `sync --global`: `permissions.defaultMode: "auto"` in `~/.claude/settings.json` (Claude Code auto mode) and `approvals_reviewer = "auto_review"` in `~/.codex/config.toml` (Codex Auto-review). A settings spec or a hand-set value wins. `approvals status` names the reviewer and notes when the key is missing, when Codex `approval_policy = "never"` keeps it from running, or when it stays on where the mode asks (#3700).
 - New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
 - A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
 - `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `sync --jobs -1` fails with AAI-302, `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).

@@ -21,7 +21,10 @@ import (
 
 // approvalRoutes names how each tool carries out a loosening mode. A
 // tool or mode missing here has no safe route and falls back to ask.
-var approvalRoutes = map[string]map[string]string{}
+var approvalRoutes = map[string]map[string]string{
+	"claude": {config.ApprovalsReview: nativeReviewers["claude"].name},
+	"codex":  {config.ApprovalsReview: nativeReviewers["codex"].name},
+}
 
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
@@ -35,6 +38,8 @@ type approvalsToolStatus struct {
 	Effective string `json:"effective"`
 	From      string `json:"from"`
 	Route     string `json:"route,omitempty"`
+	// Notes name what keeps the tool's native reviewer from matching Mode.
+	Notes []string `json:"notes,omitempty"`
 }
 
 func newApprovalsCmd() *cobra.Command {
@@ -96,7 +101,7 @@ func newApprovalsAskCmd() *cobra.Command {
 			}
 			cmd.Printf("approvals: ask for every tool and project. Wrote %s.\n", path)
 			if slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
-				cmd.Println("A running session in a native reviewer mode keeps it until you switch modes in the tool (Shift+Tab in Claude Code).")
+				cmd.Println("Run sync --global to remove the native reviewer keys from the tools' user settings. A running session keeps its mode until you switch modes in the tool (Shift+Tab in Claude Code).")
 			}
 			return nil
 		},
@@ -146,6 +151,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 		if route := approvalRoutes[tool][decision.Mode]; route != "" {
 			status.Effective, status.Route = decision.Mode, route
 		}
+		status.Notes = reviewerNotes(tool, decision, home, userHome)
 		out.Tools = append(out.Tools, status)
 	}
 	return out, nil
@@ -166,6 +172,9 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 			line += "; no route for " + s.Mode + ", falls back to ask"
 		}
 		cmd.Println(line)
+		for _, note := range s.Notes {
+			cmd.Println("    note: " + note)
+		}
 	}
 }
 
