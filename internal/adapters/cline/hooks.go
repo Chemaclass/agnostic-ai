@@ -70,6 +70,12 @@ var clineHookEventByKey = func() map[string]string {
 // the event up.
 var clineInertHookEvents = map[string]bool{"PreCompact": true}
 
+// clineCLIOnlyHookEvents are names the SDK runtime runs (the Cline CLI
+// sets CLINE_HOOK_AGENT_RESUME on resume; afterRun fires agent_error
+// and session_shutdown) but the VS Code extension's hooks-adapter.ts
+// lists as "Deferred hooks (NOT wired here)" (v4.1.26).
+var clineCLIOnlyHookEvents = map[string]bool{"TaskResume": true, "TaskError": true, "SessionShutdown": true}
+
 // emitHooks writes one executable script per hook event under the hooks
 // directory. Every spec whose `event:` folds onto one of Cline's ten
 // file names contributes its commands to that event's script, in spec
@@ -127,7 +133,7 @@ func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
 func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScript {
 	commands := map[string][]hookCommand{}
 	var order []string
-	var unmapped, matchers, timeouts, inert int
+	var unmapped, matchers, timeouts, inert, cliOnly int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -152,6 +158,9 @@ func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScr
 		if clineInertHookEvents[canonical] {
 			inert++
 		}
+		if clineCLIOnlyHookEvents[canonical] && globalScriptsDir == "" {
+			cliOnly++
+		}
 		if _, seen := commands[canonical]; !seen {
 			order = append(order, canonical)
 		}
@@ -175,6 +184,8 @@ func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScr
 		"Cline times hook subprocesses out on its own runtime setting, with nothing per hook file to set")
 	emit.NoteSurfaceGap(target, spec.KindHook, inert, "the Cline hook runtime",
 		"PreCompact is a file name Cline lists but maps to no runtime event today, so the script is discovered and never run")
+	emit.NoteSurfaceGap(target, spec.KindHook, cliOnly, "the Cline VS Code extension",
+		"TaskResume, TaskError and SessionShutdown run in the Cline CLI only; the VS Code extension does not run them")
 
 	var files []emit.HookScript
 	for _, event := range order {
