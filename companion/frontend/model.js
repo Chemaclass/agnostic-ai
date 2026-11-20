@@ -97,10 +97,11 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, rowMenuOpen, renaming, settingsOpen, picking }) {
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking }) {
   if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (stopShellOpen) return 'stop-shell'
+  if (stopSessionOpen) return 'stop-session'
   if (rowMenuOpen) return 'row-menu'
   if (renaming) return 'rename'
   if (settingsOpen) return 'settings'
@@ -231,6 +232,7 @@ export const NOTICES = {
   notTidied: { label: 'What was not tidied', tone: 'info' },
   shellNotStopped: { label: 'Why the shell could not be stopped', tone: 'error' },
   shellProcessesLeft: { label: 'Processes still running', tone: 'info' },
+  sessionNotStopped: { label: 'Why the chat could not be stopped', tone: 'error' },
   subagent: { label: 'How to reach the subagent', tone: 'info' },
 }
 
@@ -557,7 +559,22 @@ export function rowMenuOf(conversation) {
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')
+  if (conversation.live && conversation.stoppable) offered.push('stop-session')
   return offered
+}
+
+/** The question before Stop session ends a running chat's process. */
+export function stopSessionConfirmOf(conversation) {
+  return {
+    title: `Stop "${titleOf(conversation)}"?`,
+    body: 'This ends its Claude Code process on this computer, and any work it is doing now. The transcript stays, so you can resume the chat later.',
+  }
+}
+
+/** What the toast says once a chat's process was asked to end. */
+export function stoppedSessionOf({ forced = false, stillRunning = false }) {
+  if (stillRunning) return { message: 'It did not stop, even when forced. End it in its terminal.', problem: true }
+  return { message: forced ? 'Stopped. It did not end when asked, so it was forced to.' : 'Stopped.' }
 }
 
 export function stuckShellsOf(conversation) {

@@ -71,7 +71,7 @@ Codex and Cursor stores are read with the `sqlite3` command.
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, deleteUnsupported?, parent?, cloud?, approvals?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, open}`.
 - `approvalsMode` is `review` or `yolo`, the loosest approvals mode the home config sets; absent in `ask`.
 
 Conversation fields:
@@ -91,6 +91,7 @@ Conversation fields:
   - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
   - `workingSubagents` stays as it was and does not count `codex exec` runs.
 - [`stuckShells`](@/docs/cli-reference/conversations-shell-api.md#stuck-shells) lists forgotten shells.
+- `stoppable` is `true` on a live local Claude Code session whose process this server can end, on macOS and Linux. See [stop a chat](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-session).
 - `unread` is `true` only on an `active` row whose latest write you have not seen: a terminal session resumed by hand after it closed with a reply. It stays until you open the chat or mark it read. It does not count toward `needsYou`. An archived row is never `unread`.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.

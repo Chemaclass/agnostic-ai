@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
-import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf } from '../frontend/model.js'
+import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -550,6 +550,7 @@ test('a notice is an error when what was asked did not happen, and info when it 
       notTidied: 'info',
       shellNotStopped: 'error',
       shellProcessesLeft: 'info',
+      sessionNotStopped: 'error',
       subagent: 'info',
     },
   )
@@ -796,6 +797,18 @@ test('the tooltip of a permission row names why approvals left it to the person'
 
 const shell = { pid: 42, procStart: 'shell-start', command: 'npm run dev', since: '2026-11-09T10:30:00Z', processCount: 3 }
 const shellNow = Date.parse('2026-11-09T12:00:00Z')
+
+test('offers Stop chat only on a live chat the server can stop, and says how it ended', () => {
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable: true })), ['rename', 'stop-session'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable: true })), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename'])
+  assert.deepEqual(stopSessionConfirmOf(row('a', 'working', { title: 'Fix the build' })).title, 'Stop "Fix the build"?')
+  assert.match(stopSessionConfirmOf(row('a', 'working')).body, /transcript stays/)
+  assert.deepEqual(stoppedSessionOf({}), { message: 'Stopped.' })
+  assert.deepEqual(stoppedSessionOf({ forced: true }), { message: 'Stopped. It did not end when asked, so it was forced to.' })
+  assert.equal(stoppedSessionOf({ forced: true, stillRunning: true }).problem, true)
+  assert.equal(escapeTarget({ stopSessionOpen: true, rowMenuOpen: true }), 'stop-session')
+})
 
 test('warns about each shell with its age, command and owner when known', () => {
   const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })

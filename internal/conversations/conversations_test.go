@@ -254,6 +254,10 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
 ]` {
 		t.Errorf("tools =\n%s", actual)
 	}
+	stoppable := ""
+	if canStopShells() {
+		stoppable = "\n  \"stoppable\": true,"
+	}
 	if actual := asJSON(t, byID(t, view, idSafari)); actual != `{
   "tool": "claude",
   "app": "cli",
@@ -269,7 +273,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
     "See the logs"
   ],
   "prompt": "Now add a test for it",
-  "live": true,
+  "live": true,`+stoppable+`
   "state": "active",
   "open": {
     "kind": "focus",

@@ -91,6 +91,11 @@ export function deleteConversation(conversation) {
   return change('/api/delete', { tool: conversation.tool, id: conversation.id })
 }
 
+/** Ends a live local Claude Code chat's process; answers {body: {forced?, stillRunning?}, version}. */
+export function stopSession(conversation) {
+  return change('/api/stop-session', { tool: conversation.tool, id: conversation.id })
+}
+
 export function stopShell(conversation, shell) {
   return change('/api/stop-shell', { tool: conversation.tool, id: conversation.id, pid: shell.pid, procStart: shell.procStart })
 }

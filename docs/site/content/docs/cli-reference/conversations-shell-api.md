@@ -1,6 +1,6 @@
 +++
 title = "Conversations shell API"
-description = "Fields for forgotten Claude Code background shells and the local API route that stops them."
+description = "Fields for forgotten Claude Code background shells, and the local API routes that stop a shell or a whole Claude Code chat."
 weight = 46
 
 [extra]
@@ -24,4 +24,17 @@ On macOS and Linux, the server scans again before it signals the shell's process
 | 200 | The stop request completed. The body is `{stillRunning?: [{pid, procStart}]}`. |
 | 400 | The request body or a field is invalid. |
 | 409 | The server refused the target, for example because the session closed or the process identity changed. |
+| 500 | The server could not complete the stop. |
+
+## `POST /api/conversations/stop-session` {#post-api-conversations-stop-session}
+
+Send `{tool, id}` as JSON from the server's own origin. Use a row whose `stoppable` is `true`.
+
+On macOS and Linux, the server reads Claude Code's session files again and checks that the session's process still runs, with the start time its session file names. It sends SIGTERM to that process alone. If the same process still runs after five seconds, it sends SIGKILL. The transcript stays, so the chat can be resumed. Shells the session started in their own process groups get no signal from the server and may keep running.
+
+| Status | Meaning |
+|--------|---------|
+| 200 | The stop request completed. The body is `{forced?, stillRunning?}`: `forced` when the process ignored SIGTERM and got SIGKILL, `stillRunning` when even that did not end it. |
+| 400 | The request body or a field is invalid. |
+| 409 | The server refused, for example because the session is not live here, its process changed, or a stop of it is already running. |
 | 500 | The server could not complete the stop. |

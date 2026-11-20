@@ -300,6 +300,18 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
   }
 
+  async function stopSession(request, response) {
+    const body = await bodyOf(request)
+    logCall('/api/stop-session', body)
+    const row = find(body)
+    if (!row?.live || !row.stoppable) return sendJSON(response, 409, { error: 'this chat no longer runs here' })
+    for (const key of ['live', 'stoppable', 'activity', 'waiting', 'stuckShells']) delete row[key]
+    if (row.state === 'working' || row.state === 'blocked') row.state = 'active'
+    listChanged()
+    response.setHeader('List-Version', state.version)
+    sendJSON(response, 200, {})
+  }
+
   async function stopShell(request, response) {
     const body = await bodyOf(request)
     logCall('/api/stop-shell', body)
@@ -431,6 +443,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/rename': rename,
     'POST /api/delete': remove,
     'POST /api/stop-shell': stopShell,
+    'POST /api/stop-session': stopSession,
     'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard)),
     'POST /api/send': send,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },

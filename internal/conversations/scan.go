@@ -87,6 +87,10 @@ type Scanner struct {
 	stoppingShells sync.Map
 	shellSignal    func(int, bool) error
 	shellWait      func(context.Context, time.Duration) error
+	// stoppingSessions and sessionSignal serve StopSession as the shell
+	// fields serve StopShell.
+	stoppingSessions sync.Map
+	sessionSignal    func(int, bool) error
 	// MarksPath is the file that keeps the person's seen and completed
 	// marks. Empty keeps none.
 	MarksPath string

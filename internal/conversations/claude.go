@@ -306,6 +306,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		s.fill(&c, texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt, reply: meta.reply, question: meta.question})
 		session, isLive := live[id]
 		c.Live = isLive
+		c.Stoppable = isLive && canStopShells()
 		c.Activity = session.activity
 		if canStopShells() && (session.status == "shell" || session.status == "busy") && opts.shellAfter() > 0 {
 			c.shellSession = &session.process

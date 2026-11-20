@@ -635,6 +635,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/rename", in.pass(serverRenamePath))
 	mux.HandleFunc("POST /api/delete", in.pass(serverDeletePath))
 	mux.HandleFunc("POST /api/stop-shell", in.pass(serverStopShellPath))
+	mux.HandleFunc("POST /api/stop-session", in.pass(serverStopSessionPath))
 	mux.HandleFunc("POST /api/approvals/ask", in.pass(serverApprovalsAskPath))
 	mux.HandleFunc("GET /api/clipboard", in.clipboard)
 	mux.HandleFunc("POST /api/send", in.send)

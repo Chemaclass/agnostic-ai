@@ -107,6 +107,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   you until the shell stops. A chat you marked complete also offers **Undo
   complete**. It goes back to Active, unless it is closed or has been quiet
   for a while.
+- On macOS and Linux, **Stop chat…** in the same menu ends a live Claude
+  Code chat that runs on this computer, after a question. The transcript
+  stays, so the chat can be resumed. Chats with no process here, such as
+  claude.ai chats, have no Stop chat.
 - **Mark all as read** beside Needs you does the same for every chat that
   group shows, after the search and the All, Local or Cloud choice. It shows
   only while the group is unfolded. A chat

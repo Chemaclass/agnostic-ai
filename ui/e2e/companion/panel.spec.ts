@@ -1955,16 +1955,66 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   const read = page.getByRole('menuitem', { name: 'Mark as read' })
   const rename = page.getByRole('menuitem', { name: 'Rename…' })
   const complete = page.getByRole('menuitem', { name: 'Mark complete' })
+  const stop = page.getByRole('menuitem', { name: 'Stop chat…' })
   await expect(read).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(rename).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(complete).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(read).toBeFocused()
+  for (const item of [rename, complete, stop, read]) {
+    await page.keyboard.press('ArrowDown')
+    await expect(item).toBeFocused()
+  }
   await page.keyboard.press('ArrowUp')
-  await expect(complete).toBeFocused()
+  await expect(stop).toBeFocused()
   await expect(selected(page)).toContainText('Approve the database migration')
+})
+
+const stopChatDialog = (page: Page) => page.getByRole('alertdialog', { name: /^Stop "/ })
+
+function stopsSent(page: Page) {
+  const sent: unknown[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/stop-session') sent.push(request.postDataJSON())
+  })
+  return sent
+}
+
+test('Stop chat shows only on a chat that runs on this computer, and asks first', async ({ page }) => {
+  await openPanel(page)
+  const sent = stopsSent(page)
+  await row(page, 'Fix the login redirect').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
+  await page.keyboard.press('Escape')
+
+  await row(page, 'Approve the database migration').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
+  await expect(stopChatDialog(page)).toContainText('Stop "Approve the database migration"?')
+  await expect(stopChatDialog(page)).toContainText('The transcript stays')
+  await expect(stopChatDialog(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(stopChatDialog(page)).toBeHidden()
+  expect(sent).toEqual([])
+})
+
+test('confirming Stop chat ends it and says so', async ({ page }) => {
+  await openPanel(page)
+  const sent = stopsSent(page)
+  await row(page, 'Approve the database migration').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
+  await stopChatDialog(page).getByRole('button', { name: 'Stop chat' }).click()
+
+  await expect(page.getByRole('status').filter({ hasText: 'Stopped.' })).toBeVisible()
+  await expect(stopChatDialog(page)).toBeHidden()
+  expect(sent).toEqual([{ tool: 'claude', id: 'waits-1' }])
+  await row(page, 'Approve the database migration').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
+})
+
+test('a refused Stop chat says why', async ({ page }) => {
+  await openPanel(page)
+  await page.route('**/api/stop-session', (route) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'this chat no longer runs here' }) }))
+  await row(page, 'Approve the database migration').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
+  await stopChatDialog(page).getByRole('button', { name: 'Stop chat' }).click()
+
+  await expect(page.getByText('this chat no longer runs here')).toBeVisible()
 })
 
 test('the delete question keeps Tab on its buttons and closes on a click outside it', async ({ page }) => {

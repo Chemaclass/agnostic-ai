@@ -28,6 +28,8 @@ function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/a
     ...(reply ? { reply } : {}),
     ...(parent ? { parent } : {}),
     ...(live ? { live: true } : {}),
+    // Like the server: a live Claude Code session that runs on this computer can be stopped.
+    ...(live && tool === 'claude' && app !== 'cloud' ? { stoppable: true } : {}),
     ...(shared ? { cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
     tool,
     app,

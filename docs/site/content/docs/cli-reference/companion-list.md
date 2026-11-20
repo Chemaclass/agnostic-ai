@@ -126,13 +126,14 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 - On failure the row keeps its old name. The server logs what the tool said on its standard error, with the tool and the conversation id.
 {% </details> %}
 
-## Archive or hide a chat from the row menu {#row-menu}
+## Archive, hide or stop a chat from the row menu {#row-menu}
 
 Right-click a row to reach what its buttons do, and a little more:
 
 - **Mark complete**: moves an active chat, or one that needs you, to Archived. A working chat has no Mark complete. A chat that needs you only because of a forgotten shell stays in Needs you until the shell stops.
 - **Undo complete**: takes the mark back from a chat you marked complete. It goes back to Active, unless it is closed or has been quiet for a while.
 - **Hide from agnostic-ai**: takes an archived chat out of every list and search. The tool keeps the chat.
+- **Stop chat…**: on macOS and Linux, ends a live Claude Code chat that runs on this computer, after a question. It stops any work in progress. The transcript stays, so you can resume the chat later. A claude.ai chat, a Cowork task or a cloud session has no process here, so it has no Stop chat.
 
 A new message, or the tool starting work, brings a completed or hidden chat back.
 
