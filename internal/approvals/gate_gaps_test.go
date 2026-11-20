@@ -18,8 +18,88 @@ func TestDecide_PathAskRulesCoverShellCommands(t *testing.T) {
 	p.AlwaysAsk = []string{"Write(src/**)"}
 	wantDecision(t, Decide(bash("go test ./..."), p), RuleAlwaysAsk)
 
-	p.AlwaysAsk = []string{"Read(*)", "Edit", "Bash(make deploy*)"}
+	p.AlwaysAsk = []string{"Bash(make deploy*)"}
 	wantDecision(t, Decide(bash("go test ./..."), p), "")
+}
+
+func TestDecide_WholeToolAskRulesCoverShellAndSearch(t *testing.T) {
+	t.Parallel()
+	for _, rule := range []string{"Read", "Read(*)", "Edit", "Edit(*)", "Write"} {
+		p := testPolicy()
+		p.AlwaysAsk = []string{rule}
+		wantDecision(t, Decide(bash("cat private/x"), p), RuleAlwaysAsk)
+	}
+	for _, rule := range []string{"Read", "Read(*)"} {
+		p := testPolicy()
+		p.AlwaysAsk = []string{rule}
+		wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "path": "private"}), p), RuleAlwaysAsk)
+	}
+}
+
+func TestDecide_AnchoredRulesThroughALink(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	if real, err := filepath.EvalSymlinks(base); err == nil {
+		base = real
+	}
+	real := filepath.Join(base, "realhome")
+	if err := os.MkdirAll(filepath.Join(real, "proj", "secret"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "home")
+	mustSymlink(t, real, link)
+	cwd := filepath.Join(real, "proj")
+	for _, rule := range []string{"Edit(~/proj/secret/**)", "Edit(/" + filepath.ToSlash(link) + "/proj/secret/**)"} {
+		p := testPolicy()
+		p.Home = link
+		p.AgnosticHome = filepath.Join(link, ".agnostic-ai")
+		p.ProjectRoot = cwd
+		p.Resolve = ResolveLinks
+		p.AlwaysAsk = []string{rule}
+		r := call("Write", map[string]any{"file_path": "secret/x"})
+		r.Cwd = cwd
+		wantDecision(t, Decide(r, p), RuleAlwaysAsk)
+	}
+}
+
+func TestDecide_StarOnlyGitGlobsAsk(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	for _, glob := range []string{"*/*/*/*/config", "*/*/*/*/*/config", "*/HEAD", "*/index", "*/*/*/*/*/*"} {
+		if got := Decide(call("Grep", map[string]any{"pattern": "x", "glob": glob}), p); got.Outcome != Asked {
+			t.Errorf("%q: got %+v, want asked", glob, got)
+		}
+	}
+}
+
+func TestDecide_WorktreesExemptionOnlyForToolFolders(t *testing.T) {
+	t.Parallel()
+	for _, file := range []string{testHome + "/.git/worktrees/a/config", testHome + "/bin/worktrees/a/x"} {
+		p := testPolicy()
+		p.ProjectRoot = filepath.Dir(file)
+		r := call("Write", map[string]any{"file_path": file})
+		r.Cwd = p.ProjectRoot
+		if got := Decide(r, p); got.Outcome != Asked {
+			t.Errorf("%s: got %+v, want asked", file, got)
+		}
+	}
+}
+
+func TestQwenDotEnvMovesPolicy_FollowsALinkedCwd(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(base, "repo", "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "repo", ".env"), []byte("AGNOSTIC_AI_HOME=/evil\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "link")
+	mustSymlink(t, filepath.Join(base, "repo", "sub"), link)
+	moved, err := QwenDotEnvMovesPolicy(link)
+	if err != nil || !moved {
+		t.Fatalf("got %v, %v; want true", moved, err)
+	}
 }
 
 func TestDecide_RtkPrefixKeepsBashAskRules(t *testing.T) {

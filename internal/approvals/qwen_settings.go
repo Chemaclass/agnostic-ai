@@ -42,11 +42,8 @@ func QwenSettingsFiles(userDir, cwd, goos string, getenv func(string) string) ([
 	files = append(files, filepath.Join(userDir, "settings.json"))
 	if filepath.IsAbs(cwd) {
 		var project []string
-		for dir := filepath.Clean(cwd); ; dir = filepath.Dir(dir) {
+		for _, dir := range parentsAsWrittenAndReal(cwd) {
 			project = append(project, filepath.Join(dir, ".qwen", "settings.json"))
-			if filepath.Dir(dir) == dir {
-				break
-			}
 		}
 		slices.Reverse(project)
 		files = append(files, project...)
@@ -129,7 +126,7 @@ func QwenDotEnvMovesPolicy(cwd string) (bool, error) {
 	if !filepath.IsAbs(cwd) {
 		return false, fmt.Errorf("%s is not an absolute path", cwd)
 	}
-	for dir := filepath.Clean(cwd); ; dir = filepath.Dir(dir) {
+	for _, dir := range parentsAsWrittenAndReal(cwd) {
 		for _, file := range []string{filepath.Join(dir, ".env"), filepath.Join(dir, ".qwen", ".env")} {
 			data, err := os.ReadFile(file)
 			if errors.Is(err, fs.ErrNotExist) {
@@ -142,10 +139,29 @@ func QwenDotEnvMovesPolicy(cwd string) (bool, error) {
 				return true, nil
 			}
 		}
-		if filepath.Dir(dir) == dir {
-			return false, nil
+	}
+	return false, nil
+}
+
+// parentsAsWrittenAndReal is cwd and each folder above it, then the
+// same for where cwd really is: Qwen Code walks up from the real path.
+func parentsAsWrittenAndReal(cwd string) []string {
+	var dirs []string
+	starts := []string{filepath.Clean(cwd)}
+	if real := ResolveLinks(cwd); real != starts[0] {
+		starts = append(starts, real)
+	}
+	for _, start := range starts {
+		for dir := start; ; dir = filepath.Dir(dir) {
+			if !slices.Contains(dirs, dir) {
+				dirs = append(dirs, dir)
+			}
+			if filepath.Dir(dir) == dir {
+				break
+			}
 		}
 	}
+	return dirs
 }
 
 // dotEnvLine is the line grammar of the dotenv package Qwen Code

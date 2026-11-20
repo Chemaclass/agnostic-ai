@@ -128,6 +128,9 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 
 // gitGlob reports a search glob that may match a Git folder or config
 // file, read the way the search tool reads it.
+var gitSamples = []string{".git/config", ".git/head", ".git/index", ".git/hooks/x", ".git/fetch_head", ".git/packed-refs",
+	".git/modules/x/config", ".git/worktrees/x/config.worktree", ".gitconfig", ".config/git/config"}
+
 func gitGlob(glob string) bool {
 	lower := strings.ToLower(glob)
 	for segment := range strings.SplitSeq(lower, "/") {
@@ -139,9 +142,15 @@ func gitGlob(glob string) bool {
 	if err != nil {
 		return true
 	}
-	if slices.ContainsFunc([]string{".git/config", ".git/hooks/x", ".git/fetch_head", ".git/packed-refs", ".git/modules/x/config",
-		".git/worktrees/x/config.worktree", ".gitconfig", ".config/git/config", "dir/.git/config"}, re.MatchString) {
-		return true
+	// Each sample is tried at every depth the glob reaches, since a
+	// segment of stars alone matches any folder above it.
+	depth := strings.Count(lower, "/") + 1
+	for _, sample := range gitSamples {
+		for prefix := ""; strings.Count(prefix, "/") <= depth; prefix += "d/" {
+			if re.MatchString(prefix + sample) {
+				return true
+			}
+		}
 	}
 	// Each segment on its own: a wildcard one deeper in the glob, such
 	// as sub/.gi?/FETCH_HEAD, may still name a Git folder. A segment of
@@ -361,7 +370,8 @@ func (g *gate) protectedFromHome(abs string) bool {
 				continue
 			}
 			rel = filepath.ToSlash(rel)
-			if segments := strings.Split(rel, "/"); len(segments) > 2 && segments[1] == "worktrees" {
+			if segments := strings.Split(rel, "/"); len(segments) > 2 && segments[1] == "worktrees" &&
+				strings.HasPrefix(segments[0], ".") && segments[0] != ".git" {
 				// A tool's own worktrees, such as ~/.codex/worktrees, hold
 				// checkouts, not the tool's settings.
 				continue

@@ -245,12 +245,12 @@ func (g *gate) alwaysAsk(r Request) string {
 	if len(g.policy.AlwaysAsk) == 0 {
 		return ""
 	}
-	if searchCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isReadPathRule) {
+	if searchCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isReadRule) {
 		return RuleAlwaysAsk
 	}
 	// A shell command can read or write any file, and the gate cannot
-	// list them all, so any Read or Edit rule with a path asks.
-	if shellCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isFilePathRule) {
+	// list them all, so any Read or Edit rule asks.
+	if shellCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isFileRule) {
 		return RuleAlwaysAsk
 	}
 	forms, ok := g.ruleCalls(r)
@@ -272,22 +272,64 @@ func (g *gate) alwaysAsk(r Request) string {
 			}
 		}
 	}
-	for _, rule := range g.policy.AlwaysAsk {
-		rule = asEditRule(rule)
-		for _, form := range forms {
-			for _, root := range roots {
-				formRule, formRoot := rule, root
-				if form.fold {
-					formRule, formRoot = g.foldRule(rule), strings.ToLower(root)
-				}
-				runs, err := hookrun.ClaudeIfRuns(formRule, "PermissionRequest", form.body, formRoot)
-				if err != nil || runs {
-					return RuleAlwaysAsk
+	for _, written := range g.policy.AlwaysAsk {
+		for _, rule := range g.anchoredRules(asEditRule(written)) {
+			for _, form := range forms {
+				for _, root := range roots {
+					formRule, formRoot := rule, root
+					if form.fold {
+						formRule, formRoot = g.foldRule(rule), strings.ToLower(root)
+					}
+					runs, err := hookrun.ClaudeIfRuns(formRule, "PermissionRequest", form.body, formRoot)
+					if err != nil || runs {
+						return RuleAlwaysAsk
+					}
 				}
 			}
 		}
 	}
 	return ""
+}
+
+// anchoredRules is rule and, for a ~/ or // pattern, the same rule
+// anchored where its folder really is, since the matcher anchors those
+// patterns at the path as written and a tool may report the real path.
+func (g *gate) anchoredRules(rule string) []string {
+	rules := []string{rule}
+	tool, pattern, ok := strings.Cut(rule, "(")
+	if !ok {
+		return rules
+	}
+	pattern = strings.TrimSpace(pattern)
+	add := func(anchored string) {
+		if !slices.Contains(rules, anchored) {
+			rules = append(rules, anchored)
+		}
+	}
+	if rest, ok := strings.CutPrefix(pattern, "~/"); ok {
+		for _, home := range g.homes() {
+			add(tool + "(//" + strings.TrimPrefix(filepath.ToSlash(home), "/") + "/" + rest)
+		}
+		return rules
+	}
+	rest, ok := strings.CutPrefix(pattern, "//")
+	if !ok || g.policy.Resolve == nil {
+		return rules
+	}
+	segments := strings.Split(rest, "/")
+	literal := 0
+	for literal < len(segments)-1 && !strings.ContainsAny(segments[literal], "*?[{)") {
+		literal++
+	}
+	if literal == 0 {
+		return rules
+	}
+	prefix := "/" + strings.Join(segments[:literal], "/")
+	real := filepath.ToSlash(filepath.Clean(g.policy.Resolve(filepath.FromSlash(prefix))))
+	if real != prefix {
+		add(tool + "(//" + strings.TrimPrefix(real, "/") + "/" + strings.Join(segments[literal:], "/"))
+	}
+	return rules
 }
 
 // ruleForm is one form of a request a permission rule is matched
@@ -412,19 +454,22 @@ var rtkPrefix = regexp.MustCompile(`(^\s*|[;&|(]\s*)rtk\s+(` + strings.Join(rtkP
 // path may cover any of them.
 var searchCalls = map[string]bool{"Glob": true, "Grep": true, "LS": true}
 
-func isReadPathRule(rule string) bool {
-	rest, ok := strings.CutPrefix(strings.TrimSpace(rule), "Read(")
-	return ok && strings.TrimSpace(strings.TrimSuffix(rest, ")")) != "*"
+func isReadRule(rule string) bool {
+	return ruleTool(rule) == "Read"
 }
 
-// isFilePathRule reports a Read rule, or a rule of any file edit tool,
-// with a path.
-func isFilePathRule(rule string) bool {
-	if isReadPathRule(rule) {
+// isFileRule reports a rule of the Read tool or of any file edit tool.
+func isFileRule(rule string) bool {
+	switch ruleTool(rule) {
+	case "Read", "Edit", "Write", "MultiEdit", "NotebookEdit":
 		return true
 	}
-	rest, ok := strings.CutPrefix(asEditRule(strings.TrimSpace(rule)), "Edit(")
-	return ok && strings.TrimSpace(strings.TrimSuffix(rest, ")")) != "*"
+	return false
+}
+
+func ruleTool(rule string) string {
+	tool, _, _ := strings.Cut(strings.TrimSpace(rule), "(")
+	return strings.TrimSpace(tool)
 }
 
 // asEditRule reads a Write, MultiEdit or NotebookEdit rule with a path
