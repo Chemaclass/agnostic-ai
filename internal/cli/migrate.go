@@ -447,7 +447,8 @@ func printMigrationList(out io.Writer, selected []specMigration, pending []pendi
 	for _, m := range selected {
 		state := "does not apply"
 		if p, ok := applies[m.ID]; ok {
-			state = fmt.Sprintf("%d to rewrite, %d skipped", len(p.changes), len(p.skips))
+			_, skips := keptInRewrites(p.changes, p.skips)
+			state = fmt.Sprintf("%d to rewrite, %d skipped", len(p.changes), len(skips))
 			if packs := skippedPacks(p.skips); len(packs) > 0 {
 				state += fmt.Sprintf("; update %s %s", migrationWord(len(packs), "pack", "packs"), strings.Join(packs, ", "))
 			}
@@ -481,8 +482,14 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 			_, _ = fmt.Fprintf(out, "%s: cannot plan: %s\n", p.ID, planErrorText(p.planErr))
 			continue
 		}
+		kept, skips := keptInRewrites(p.changes, p.skips)
 		if quiet {
-			for _, s := range p.skips {
+			for _, c := range p.changes {
+				for _, reason := range kept[c.Path] {
+					_, _ = fmt.Fprintf(out, "%s: %s %s, %s\n", p.ID, verb, filepath.ToSlash(c.target()), migrationLine(reason))
+				}
+			}
+			for _, s := range skips {
 				_, _ = fmt.Fprintf(out, "%s: skipped %s: %s\n", p.ID, filepath.ToSlash(s.Path), migrationLine(s.Reason))
 			}
 			continue
@@ -496,19 +503,44 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 				_, _ = fmt.Fprintf(out, "  %s %s -> %s\n", rename, filepath.ToSlash(c.Path), filepath.ToSlash(c.NewPath))
 			default:
 				_, _ = fmt.Fprintf(out, "  %s %s\n", verb, filepath.ToSlash(c.target()))
+				for _, reason := range kept[c.Path] {
+					_, _ = fmt.Fprintf(out, "    %s\n", migrationLine(reason))
+				}
 				if dryRun {
 					_, _ = fmt.Fprint(out, indent(labeledDiff(filepath.ToSlash(c.Path), filepath.ToSlash(c.target()),
 						redactMigrationLines(splitLines(c.Before)), redactMigrationLines(splitLines(c.After)), 200)))
 				}
 			}
 		}
-		for _, s := range p.skips {
+		for _, s := range skips {
 			_, _ = fmt.Fprintf(out, "  skipped %s: %s\n", filepath.ToSlash(s.Path), migrationLine(s.Reason))
 		}
 		if p.note != "" {
 			_, _ = fmt.Fprintf(out, "  note: %s\n", p.note)
 		}
 	}
+}
+
+// keptInRewrites splits off the notes on a file the migration also
+// rewrites, such as an alias it keeps, so the report names that file
+// once, as rewritten, instead of also as skipped.
+func keptInRewrites(changes []migrationChange, skips []migrationSkip) (map[string][]string, []migrationSkip) {
+	rewritten := map[string]bool{}
+	for _, c := range changes {
+		if !c.Remove {
+			rewritten[c.Path] = true
+		}
+	}
+	kept := map[string][]string{}
+	var rest []migrationSkip
+	for _, s := range skips {
+		if rewritten[s.Path] && !s.Actionable {
+			kept[s.Path] = append(kept[s.Path], s.Reason)
+			continue
+		}
+		rest = append(rest, s)
+	}
+	return kept, rest
 }
 
 func (c migrationChange) target() string {

@@ -72,6 +72,8 @@ One [OpenCode plugin](https://docs.opencode.ai/docs/plugins/) module per hook sp
 - `timeout` keeps its name and uses milliseconds for MCP requests, including tool calls. OpenCode defaults to `30000` ms when connecting and fetching tools.
 - `disabled: true` writes `"enabled": false` ([MCP docs](https://docs.opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key.
 - Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`. The web editor's **Import** action uses the same nesting, including `oauth: false`.
+- `disabled: true` writes `"enabled": false` ([MCP docs](https://docs.opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key, unless the spec sets `x-opencode.enabled: true`, which import writes for a server that had `"enabled": true`.
+- Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`. The web editor's **Add to your setup** action uses the same nesting, including `oauth: false`.
 - Sync changes only `$schema` and `mcp`. `theme`, `model`, and other keys stay. They never show as drift in `sync --check` or `doctor`, and `doctor --fix` keeps them.
 
 ### Settings
@@ -185,7 +187,7 @@ With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows 
 `agnostic-ai import opencode` reads:
 
 - **Instructions and rules**: root `AGENTS.md`, falling back to legacy `.opencode/AGENTS.md` when the root file is absent. The shared body becomes `.agnostic-ai/AGNOSTIC_AI.md`. Rule sections that sync wrote become rule specs. Hand-written instructions stay whole.
-- **Agents and commands**: top-level Markdown files in `.opencode/agents/` and `.opencode/commands/`.
+- **Agents and commands**: top-level Markdown files in `.opencode/agents/` and `.opencode/commands/`, and in the legacy singular `.opencode/agent/` and `.opencode/command/`, which OpenCode still reads. The plural folder wins a name both hold. Import leaves the singular files in place; delete them once sync has written the plural copies.
 - **Skills**: `.opencode/skills/`, `.agents/skills/`, then `.claude/skills/` (first wins within a scope), with scoped paths and bundled files. This preserves the [OpenCode V2 source priority](https://opencode.ai/docs/skills.md#precedence) for duplicate compatibility skills.
 - **MCP servers**: the `mcp` map in `opencode.json`.
 - **Settings and permissions**: the default `model` becomes `settings/opencode.yaml`; portable entries in the `permission` map become `settings/permissions-opencode.yaml`. Namespaced MCP permission keys have no portable spelling and stay in the file.

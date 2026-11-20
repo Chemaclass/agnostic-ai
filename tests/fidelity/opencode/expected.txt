@@ -1,0 +1,10 @@
+added	.opencode/agents/duplicate-pr.md
+added	.opencode/agents/triage.md
+added	.opencode/commands/ai-deps.md
+added	.opencode/commands/changelog.md
+added	.opencode/commands/commit.md
+added	.opencode/commands/issues.md
+added	.opencode/commands/learn.md
+added	.opencode/commands/rmslop.md
+added	.opencode/commands/spellcheck.md
+added	.opencode/commands/translate.md

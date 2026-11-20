@@ -26,6 +26,9 @@ func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, writte
 	for _, w := range writes {
 		switch w.Action {
 		case "create", "update", "skip", "edited":
+			if w.Sum == unledgeredMCPSum {
+				continue
+			}
 			*session = append(*session, w.Path)
 			written[w.Path] = w.Sum
 		}
