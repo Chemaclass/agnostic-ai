@@ -136,6 +136,7 @@ func kitSinkBundle() spec.Bundle {
 				"type": "http", "url": "https://example.test/mcp",
 				"oauth": map[string]any{
 					"clientId":    "client-abc",
+					"mode":        "browser",
 					"redirectUri": "http://localhost:7778/oauth/callback",
 					"oauthScopes": []any{"files:read"},
 				},

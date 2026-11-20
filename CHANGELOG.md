@@ -178,6 +178,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Skill descriptions allow up to 1024 Unicode characters instead of limiting UTF-8 bytes.
 
+#### Kiro
+
+- Preserve a remote MCP server's OAuth sign-in mode through import and sync (#3767).
+
 #### Cline
 
 - Sync notes that `TaskResume`, `TaskError` and `SessionShutdown` hooks run in the Cline CLI only, not in the VS Code extension. The note is left out when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3723, #3749).
