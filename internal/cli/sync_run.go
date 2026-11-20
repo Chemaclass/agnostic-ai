@@ -65,6 +65,9 @@ type syncRunOptions struct {
 	dryRun, backup, keepEdits, untrack bool
 	gitignoreFlag                      string
 	jobs                               int
+	// quietWhenClean drops the report of a pass that changed nothing,
+	// such as the watch's reconcile pass right after its first sync.
+	quietWhenClean bool
 }
 
 // runSyncPass is one sync pass. With keepEdits, an output edited since the
@@ -215,6 +218,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	// output below is byte-identical regardless of --jobs.
 	adapters.OrderBufferedDropsByTarget(effectiveTargets)
 	drops := newPassDrops(cfg, prev, accepted)
+	drops.quietUnchanged = opts.quietWhenClean
 	if verbosity != levelVerbose {
 		drops.flush()
 	}
@@ -243,7 +247,9 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		if verbosity == levelVerbose {
 			drops.flush()
 		}
-		summaryf("%s would sync %d target%s · %s\n", tick(), len(w.emitted), plural(len(w.emitted)), shortDuration(time.Since(start)))
+		if !opts.quietWhenClean {
+			summaryf("%s would sync %d target%s · %s\n", tick(), len(w.emitted), plural(len(w.emitted)), shortDuration(time.Since(start)))
+		}
 		return nil
 	}
 	// Every write this sync makes is done; an --untrack failure below
@@ -284,10 +290,10 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	if stateErr != nil {
 		stateErr = fmt.Errorf("sync wrote files but could not record them: %w", stateErr)
 	}
-	if verbosity >= levelDefault {
-		if verbosity == levelVerbose {
-			logOut = originalLog
-		}
+	if verbosity == levelVerbose {
+		logOut = originalLog
+	}
+	if verbosity >= levelDefault && !(opts.quietWhenClean && w.report.filesChanged() == 0 && len(toList) == 0) {
 		w.render(cfg, b, toList, time.Since(start))
 	}
 	if verbosity == levelVerbose {
@@ -523,6 +529,9 @@ type passDrops struct {
 	digest, notesDigest               string
 	warningRecords, noteRecords       []string
 	warningsUnchanged, notesUnchanged bool
+	// quietUnchanged drops the count of unchanged drops, which a watch's
+	// reconcile pass would repeat from the pass before it.
+	quietUnchanged bool
 }
 
 func newPassDrops(cfg *config.Config, prev syncStateFile, accepted []adapters.AcceptedNote) passDrops {
@@ -570,7 +579,7 @@ func (d passDrops) flush() {
 	}
 	adapters.FlushCapabilityWarnings()
 	adapters.FlushCoverageNotes()
-	if len(hidden) > 0 {
+	if len(hidden) > 0 && !d.quietUnchanged {
 		summaryf("  (%s unchanged since last sync; -vv shows them)\n", strings.Join(hidden, " and "))
 	}
 	if verbosity > levelVerbose {
