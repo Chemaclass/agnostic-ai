@@ -571,6 +571,7 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"If the commit fails", "Do not change Git settings", "need network access", "Never force-push", "git push -u origin <branch>",
 		// prompt
 		"## Done", "## Next step", "## Branch", "## Verify", "under 60 lines", "quoted heredoc",
+		"any pull request targets this branch, not the default branch",
 		// launch table and its exact lines from decision 021
 		"## Launch", "| Tool | Launch | Needs |",
 		"script -q /dev/null claude --cloud \"$CLOUD_PROMPT\"",
