@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -217,7 +218,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 		} else {
 			cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
 		}
-		doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
+		doctorNextStep(cmd, false, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
 		return errDoctorNoConfig
 	}
 	if err := resolveRequestedTargets(opts.targets); err != nil {
@@ -227,7 +228,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	scope, err := loadCheckScope(false)
 	if err != nil {
 		cmd.Printf("  ✗ %v\n", err)
-		doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, err, 0, 0)
+		doctorNextStep(cmd, false, false, false, false, nil, 0, 0, 0, err, 0, 0)
 		return err
 	}
 	cfg := scope.cfg
@@ -366,6 +367,9 @@ type doctorDrift struct {
 	reports       []driftReport
 	hasDrift      bool
 	copiesOnly    bool
+	// handWritten means sync's guard stops on a file it did not write,
+	// so neither sync nor doctor --fix reconciles until the user acts.
+	handWritten bool
 }
 
 // reportDoctorDrift prints the drift section. With --fix it first removes
@@ -392,9 +396,18 @@ func reportDoctorDrift(cmd *cobra.Command, opts doctorOptions, cfg *config.Confi
 			return doctorDrift{}, err
 		}
 	}
-	reports, err := collectLoadedDrift(cfg, bundle, opts.targets, "")
+	reports, handWritten, err := collectDoctorDrift(cfg, bundle, opts)
 	if err != nil {
 		return doctorDrift{}, err
+	}
+	if handWritten != nil {
+		// Earlier --fix steps may have written, so the stop leaves out
+		// sync's "nothing was written".
+		handWritten = withoutNothingWritten(handWritten)
+		if opts.fix {
+			return doctorDrift{}, handWritten
+		}
+		cmd.Printf("  ✗ %s\n", strings.ReplaceAll(handWritten.Error(), "\n", "\n  "))
 	}
 	displayReports, err := doctorPreviewDrift(reports, cfg)
 	if err != nil {
@@ -411,9 +424,31 @@ func reportDoctorDrift(cmd *cobra.Command, opts doctorOptions, cfg *config.Confi
 		copies:        copies,
 		removedCopies: removedCopies,
 		reports:       reports,
-		hasDrift:      hasDrift,
-		copiesOnly:    !hasDrift && len(copies) > 0,
+		hasDrift:      hasDrift || handWritten != nil,
+		copiesOnly:    !hasDrift && handWritten == nil && len(copies) > 0,
+		handWritten:   handWritten != nil,
 	}, nil
+}
+
+// collectDoctorDrift collects the drift and runs sync's hand-written
+// file guards on it. It returns their stop apart, so doctor reports it
+// and doctor --fix stops on it as sync does.
+func collectDoctorDrift(cfg *config.Config, bundle spec.Bundle, opts doctorOptions) ([]driftReport, error, error) {
+	ledger := readLedger(".")
+	var handWritten error
+	guard := func(renders *targetRenders, readerCfg *config.Config) error {
+		readers := opts.targets
+		if len(readers) == 0 {
+			readers = readerCfg.Targets
+		}
+		handWritten = keepHandWrittenInstructions(cfg, bundle, readers, ledger.state.Outputs, opts.backup, false)
+		if handWritten == nil {
+			handWritten = keepHandWrittenMCPFiles(renders, readerCfg, readers, ledger.state.Outputs, opts.backup, false)
+		}
+		return nil
+	}
+	reports, err := collectGuardedDrift(ledger, cfg, bundle, opts.targets, nil, "", guard)
+	return reports, handWritten, err
 }
 
 // finishDoctorText suggests the next step, then decides the exit: the
@@ -423,8 +458,8 @@ func finishDoctorText(cmd *cobra.Command, opts doctorOptions, cfg *config.Config
 	reports := f.drift.reports
 	manualFiles, manualOnly := manualOnlyDrift(reports)
 	// Hook script divergence is drift a scope document does not explain.
-	manualOnly = manualOnly && !f.scriptDrift && len(f.drift.copies) == 0
-	doctorNextStep(cmd, f.drift.hasDrift, manualOnly, f.drift.copiesOnly, manualFiles, len(f.lint), len(f.hookTrust), f.unmanaged, nil, len(f.packaging), f.mergedHooks)
+	manualOnly = manualOnly && !f.scriptDrift && len(f.drift.copies) == 0 && !f.drift.handWritten
+	doctorNextStep(cmd, f.drift.hasDrift, manualOnly, f.drift.copiesOnly, f.drift.handWritten, manualFiles, len(f.lint), len(f.hookTrust), f.unmanaged, nil, len(f.packaging), f.mergedHooks)
 
 	// A rule whose globs match nothing never loads, so it
 	// silently does not exist. Reported before, but exit 0 meant
@@ -438,6 +473,9 @@ func finishDoctorText(cmd *cobra.Command, opts doctorOptions, cfg *config.Config
 	hookTrust := f.hookTrust
 	if f.drift.hasDrift {
 		if !opts.fix {
+			if f.drift.handWritten {
+				return errors.New("drift detected. keep or replace the hand-written file named above")
+			}
 			if manualOnly {
 				return fmt.Errorf("drift detected. delete %s", manualRemovalAdvice(manualFiles))
 			}

@@ -160,3 +160,51 @@ func TestSync_KeepsAHandWrittenClaudeMCPFile(t *testing.T) {
 		t.Errorf(".mcp.json changed:\n%s", got)
 	}
 }
+
+// doctor --fix replaced a hand-written .cursor/mcp.json with no stop and
+// no backup, and doctor suggested that command under the drift.
+func TestDoctor_KeepsAHandWrittenMCPFileItHasNotImported(t *testing.T) {
+	setUpCursorMCPProject(t)
+
+	out, err := runCLI(t, "doctor")
+	if err == nil {
+		t.Fatalf("doctor passed with a hand-written MCP file:\n%s", out)
+	}
+	if !strings.Contains(out, ".cursor/mcp.json holds MCP config") || !strings.Contains(out, "agnostic-ai import cursor") {
+		t.Errorf("doctor did not name the hand-written file and the import step:\n%s", out)
+	}
+	if strings.Contains(out, "doctor --fix") || strings.Contains(err.Error(), "doctor --fix") {
+		t.Errorf("doctor suggested --fix, which the guard stops:\n%s\n%v", out, err)
+	}
+
+	_, err = runCLI(t, "doctor", "--fix")
+	if err == nil || !strings.Contains(err.Error(), ".cursor/mcp.json") {
+		t.Errorf("doctor --fix: err = %v, want a stop naming the file", err)
+	}
+	if got := readFile(t, ".cursor/mcp.json"); got != handWrittenCursorMCP {
+		t.Errorf("doctor --fix changed .cursor/mcp.json:\n%s", got)
+	}
+}
+
+func TestDoctorFix_BackupReplacesAHandWrittenMCPFileAndKeepsIt(t *testing.T) {
+	setUpCursorMCPProject(t)
+
+	if out, err := runCLI(t, "doctor", "--fix", "--backup"); err != nil {
+		t.Fatalf("doctor --fix --backup: %v\n%s", err, out)
+	}
+	if got := readFile(t, ".cursor/mcp.json.bak"); got != handWrittenCursorMCP {
+		t.Errorf(".cursor/mcp.json.bak = %q, want the hand-written file", got)
+	}
+}
+
+// A run that writes nothing said "nothing was written" under the stop.
+func TestSync_PreviewStopOnAHandWrittenMCPFileOmitsNothingWritten(t *testing.T) {
+	setUpCursorMCPProject(t)
+
+	for _, args := range [][]string{{"sync", "--check"}, {"sync", "--plan"}} {
+		_, err := runCLI(t, args...)
+		if err == nil || strings.Contains(err.Error(), "nothing was written") {
+			t.Errorf("%s: err = %v, want the stop without \"nothing was written\"", strings.Join(args, " "), err)
+		}
+	}
+}

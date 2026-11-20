@@ -73,7 +73,25 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 	if len(lines) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+	return handWrittenStop(lines)
+}
+
+// handWrittenStop is a stop on files holding config agnostic-ai did not
+// write: one entry per file, each with its keep and replace steps.
+type handWrittenStop []string
+
+func (s handWrittenStop) Error() string {
+	return strings.Join(s, "\n") + "\nnothing was written"
+}
+
+// withoutNothingWritten drops the "nothing was written" line from a
+// hand-written stop, for a run that never writes.
+func withoutNothingWritten(err error) error {
+	var stop handWrittenStop
+	if errors.As(err, &stop) {
+		return errors.New(strings.Join(stop, "\n"))
+	}
+	return err
 }
 
 // heldInstructions is captured, the AGNOSTIC_AI.md body, plus the local
