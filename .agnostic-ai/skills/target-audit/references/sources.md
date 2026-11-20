@@ -382,6 +382,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - note: the public Rust snapshot currently declares 1.0.45, while the stable binary is 1.0.70; no verified current-release source mapping is available. Use current docs for native behavior, not the old directory index.
 - watch: Gitignored project rule discovery, project config scope, native agent tool names and effort values, skill invocation fields, hook shell and exit semantics, MCP transport and enabled fields, GROK_HOME paths, model table ownership.
 - trap: project rules must be visible to Git. Keep this target explicit and require gitignore.commit instructions, without changing a user's ignore or trust policy.
+- trap: the hooks page Events table omits `StopCancelled`, but the source snapshot declares it (`crates/codegen/xai-grok-hooks/src/event.rs`) and `changelogs/1.0.4.md` added it. Keep it in `HookEvents` (#3721).
 
 ## qwen
 
