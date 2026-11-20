@@ -97,7 +97,7 @@ Claude Code `ask` rules come from `~/.claude/settings.json` (or `$CLAUDE_CONFIG_
 
 ## What you see in the companion
 
-Each chat row shows how many calls the hook approved, as the [companion page](@/docs/cli-reference/companion.md#approvals) explains. Codex shows no prompt for an approved call. Claude Code draws its prompt while the hook runs and closes it when the hook approves, so a session can show as waiting for a moment. A call the gate sends to you shows as "Needs permission", as in `ask`.
+Once the hook approves a call in a chat, its row shows how many, as the [companion page](@/docs/cli-reference/companion.md#approvals) explains. Codex shows no prompt for an approved call. Claude Code draws its prompt while the hook runs and closes it when the hook approves, so a session can show as waiting for a moment. A call the gate sends to you shows as "Needs permission", as in `ask`.
 
 ## Turn it off fast
 
