@@ -127,6 +127,7 @@ make test-shell
 | `BenchmarkExplainFile` | `explain --file` for Claude and Codex against a synced tree, with the same baselines as `BenchmarkExplainContext`. |
 | `BenchmarkImportWalks` | Import in a project of 1,000 and 8,000 directories: the OpenCode skill import and `import` over codex, cursor, warp, opencode, and factory in one run, against one bare directory walk. `walks/op` counts the whole-project walks one run made. |
 | `BenchmarkLint` | The full project `lint` report, the source-spec checks `doctor` also runs. |
+| `BenchmarkValidate` | Every issue `validate` reports (`validate`), and the cost of rendering every target, which its case-only collision check adds when outputs can clash by case (`render`). |
 | `BenchmarkCompareToDisk` | Compare rendered output with files: the current full read versus checking size first with `CompareToDisk`, across scenarios and file sizes. |
 | `BenchmarkAgentPermission` | Build one Kilo agent permission map: compiling each wildcard pattern on every comparison versus the per-pattern cache, cold and warm, and a matcher with no regular expression, across narrow and wide tool lists with and without project rules. |
 | `BenchmarkFrontmatter` | Render one frontmatter block: encoding each value alone versus encoding the whole map once with `FrontmatterStyled`, and plain `yaml.Marshal`, for agent, skill, and styled metadata. |

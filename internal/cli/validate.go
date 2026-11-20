@@ -94,7 +94,13 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 		}
 		cfg := scope.cfg.WithAdditionalTargets(scope.targets...)
 		entryFiles, _ := renderEntryPointFiles(cfg, b, cfg.Targets, "")
-		if err := outputPathCollisions(".", cfg, nil, entryFiles, nil); err != nil {
+		var owners map[string][]string
+		// Rendering every target costs about twenty times the rest of
+		// validate, so it runs only when outputs can clash by case.
+		if outputsMayDifferOnlyInCase(cfg, entries) && caseInsensitiveFS(".") {
+			owners = renderedOwners(cfg, newTargetRenders(cfg, b), cfg.Targets)
+		}
+		if err := outputPathCollisions(".", cfg, owners, entryFiles, nil); err != nil {
 			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "outputs", Message: err.Error()})
 		}
 	}
@@ -110,6 +116,32 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 		issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
 	}
 	return append(issues, scopeIssues...)
+}
+
+// outputsMayDifferOnlyInCase reports whether rendered outputs can
+// differ only in letter case: two specs whose names or scopes do, or a
+// configured output path, which may meet another target's own path.
+func outputsMayDifferOnlyInCase(cfg *config.Config, entries []spec.Entry) bool {
+	if len(cfg.ConfiguredOutputPaths()) > 0 {
+		return true
+	}
+	return differOnlyInCase(entries, func(e spec.Entry) string { return e.Name }) ||
+		differOnlyInCase(entries, spec.Entry.EffectiveScope)
+}
+
+// differOnlyInCase reports whether two entries have values that differ
+// only in letter case.
+func differOnlyInCase(entries []spec.Entry, value func(spec.Entry) string) bool {
+	seen := map[string]string{}
+	for _, e := range entries {
+		v := value(e)
+		key := strings.ToLower(v)
+		if prior, ok := seen[key]; ok && prior != v {
+			return true
+		}
+		seen[key] = v
+	}
+	return false
 }
 
 // lintEntries scans loaded specs for validation problems that are specific

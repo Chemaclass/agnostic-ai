@@ -28,6 +28,8 @@ package cli
 //   - BenchmarkExplainContext:    `explain --context`, one emit per rule.
 //   - BenchmarkExplainFile:       `explain --file`, one emit per rule.
 //   - BenchmarkLint:              the full project `lint` report.
+//   - BenchmarkValidate:          `validate`, and the render its case
+//     collision check adds when outputs can clash by case.
 //   - BenchmarkWatchResync:       one `sync --watch` event, three subjects.
 //
 // Fixtures are deterministic (content fixed per index) so numbers stay
@@ -471,6 +473,34 @@ func BenchmarkLint(b *testing.B) {
 				}
 				benchIntSink = len(findings)
 			}
+		})
+	}
+}
+
+// BenchmarkValidate measures `validate` (#3733). validate is every issue
+// it reports for a project whose outputs cannot clash by case, which
+// skips the render. render is the cost that check adds when they can:
+// every target rendered to find the paths it writes.
+func BenchmarkValidate(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			benchSyncedProject(b, n)
+			scope, err := loadCheckScope(false)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.Run("validate", func(b *testing.B) {
+				b.ReportAllocs()
+				for range b.N {
+					benchIntSink = len(scopeValidationIssues(scope))
+				}
+			})
+			b.Run("render", func(b *testing.B) {
+				b.ReportAllocs()
+				for range b.N {
+					benchIntSink = len(renderedOwners(scope.cfg, newTargetRenders(scope.cfg, scope.bundle), scope.cfg.Targets))
+				}
+			})
 		})
 	}
 }
