@@ -965,7 +965,23 @@ export interface Conversation {
   parent?: { tool: ConversationTool; id: string }
   /** Set on a live local Claude Code session that Remote Control also shows on claude.ai: that cloud session's id and its page. Its cloud row is not listed apart. Open its page with `POST /api/conversations/open` and the cloud id. */
   cloud?: { id: string; link: string }
+  /** What the approvals hook decided for this session. Absent when it decided nothing and has nothing to say about a wait. */
+  approvals?: ConversationApprovals
   open: ConversationRoute
+}
+
+/** One request the approvals hook approved. `detail` is absent when it may hold a credential. */
+export interface ApprovedCall {
+  time: string
+  call: string
+  detail?: string
+}
+
+/** A row's approvals: how many requests the hook approved for the session, the latest of them newest first, and why a permission wait reached the person (an always-ask rule, or why approvals did not answer). A wait the hook approved or may still answer shows as `working` and does not count toward `needsYou`. */
+export interface ConversationApprovals {
+  approved?: number
+  recent?: ApprovedCall[]
+  reason?: string
 }
 
 /** One page of the list. The first page holds every open conversation, every blocked or unread one, and the past week; each later page, asked for with `before`, the week before it, reaching past weeks with no conversation. */
@@ -985,6 +1001,8 @@ export interface ConversationsView {
   marksNote?: string
   /** Why a tool's cloud conversations are missing, on a server started with --cloud-sessions; rows then hold none of them. */
   cloudNote?: string
+  /** The loosest approvals mode the home config sets, `review` or `yolo`; absent when every prompt reaches the person. */
+  approvalsMode?: 'review' | 'yolo'
   /** count is every conversation the tool holds; shown is how many this page holds. */
   tools: ConversationSource[]
   conversations: Conversation[]

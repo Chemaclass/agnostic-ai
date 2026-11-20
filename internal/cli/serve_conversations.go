@@ -115,6 +115,9 @@ type conversationsHandler struct {
 	// openReplyWait is how long an open or a send may take to answer;
 	// tests shorten it.
 	openReplyWait time.Duration
+	// approvals adds what the approvals hook decided to the list; nil
+	// leaves the list as the tools report it.
+	approvals *approvalsReader
 }
 
 // conversationOpenReplyTimeout outlasts the companion's openTimeout and
@@ -133,6 +136,7 @@ func newConversationsHandler(root string, global bool) *conversationsHandler {
 		renameInTool:  conversations.NewRenamer(scanner.Stores, scanner.Processes).Rename,
 		logOut:        os.Stderr,
 		openReplyWait: conversationOpenReplyTimeout,
+		approvals:     newApprovalsReader(),
 	}
 }
 
@@ -182,7 +186,11 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// marks then changes the stamp, and the caller's next question gets
 	// one more scan instead of a list that missed a write made meanwhile.
 	stamp := h.scanner.TakeStamp()
-	tag := listTag(stamp.Tag, r)
+	tagged := stamp.Tag
+	if h.approvals != nil {
+		tagged += "\x00" + h.approvals.stamp()
+	}
+	tag := listTag(tagged, r)
 	w.Header().Set("ETag", tag)
 	if r.Header.Get("If-None-Match") == tag {
 		w.WriteHeader(http.StatusNotModified)
@@ -191,7 +199,11 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// The worktree lookup starts git, so a 304 skips it.
 	opts := h.scanOptions(query.Get("editor"))
 	opts.Before, opts.Query, opts.Tool = before, search, tool
-	writeEditJSON(w, http.StatusOK, h.scanner.ScanStamped(r.Context(), opts, stamp))
+	view := h.scanner.ScanStamped(r.Context(), opts, stamp)
+	if h.approvals != nil {
+		h.approvals.decorate(&view)
+	}
+	writeEditJSON(w, http.StatusOK, view)
 }
 
 // listTag names what a list request would answer: it changes when a

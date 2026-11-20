@@ -255,6 +255,30 @@ Body: `{id}` from the change state.
 - Cancel discards that preview without writing files and keeps the last undo.
 - Cancel answers 409 when that preview was already replaced or closed.
 
+## `GET /api/views/approvals`
+
+Takes no input. Returns the [approvals](@/docs/cli-reference/companion.md#approvals) mode and what the decision log holds.
+
+- `mode` is the loosest mode the home config sets: `ask`, `review` or `yolo`. `AGNOSTIC_AI_APPROVALS` in the server's environment makes it `ask`.
+- `tools` is what `agnostic-ai approvals status --json` prints in its `tools`, for the folder the server runs in.
+- `sessions` holds each session in `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file, latest decision first: `{tool, session, approved, asked, decisions}`. `decisions` are its latest 20 log lines, newest first.
+- `problem` says why the settings could not be read; `tools` is then empty.
+
+```json
+{"mode": "yolo", "tools": [{"tool": "claude", "mode": "yolo", "effective": "ask", "from": "approvals.mode"}],
+ "sessions": [{"tool": "claude", "session": "4f3c…", "approved": 3, "asked": 1, "decisions": [{"time": "2026-11-20T10:00:00Z", "tool": "claude", "session": "4f3c…", "cwd": "/Users/you/Code/shop", "call": "Bash", "detail": "git push", "mode": "yolo", "decision": "asked", "rule": "publish"}]}]}
+```
+
+## `POST /api/approvals/ask`
+
+Body: `{"mode": "ask"}` with `Content-Type: application/json`. It is the only write approvals have here: no request loosens them.
+
+- Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. That block replaces the shared one, so no tool or project keeps `review` or `yolo`. Its `always-ask` patterns stay.
+- It works from the next request, with no sync and no restart.
+- Replies `{"mode": "ask", "path": "<the file it wrote>"}`.
+- Any other mode, any other field, or a body that is not JSON is a 400. A request from another origin is a 403.
+- A file it cannot edit safely, such as one with two YAML documents or an anchor on `approvals`, is a 409 that says to set it by hand.
+
 ## When `path` is omitted
 
 Omit `path` only when at most one editable settings spec exists. With none, a field save creates `settings/defaults.yaml`, or a permission save creates `settings/permissions.yaml`, for the selected audience. The response names the edited file.
