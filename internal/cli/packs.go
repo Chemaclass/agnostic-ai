@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -808,6 +809,12 @@ func stopOnMissingPacks(projectRoot string) error {
 	if err != nil {
 		return fmt.Errorf("%w; fix it before syncing so pack outputs are not removed", err)
 	}
+	return missingPacks(projectRoot, lock)
+}
+
+// missingPacks names the locked packs not installed under projectRoot,
+// and how to install them. It returns nil when every pack is installed.
+func missingPacks(projectRoot string, lock *packsLock) error {
 	var missing, outside []string
 	updatable := false
 	for _, p := range lock.Packs {
@@ -835,6 +842,27 @@ func stopOnMissingPacks(projectRoot string) error {
 	return errors.New(msg)
 }
 
+// warnedMissingPacks holds each project root whose missing packs were
+// already warned about, since one command reads the layers many times.
+var warnedMissingPacks sync.Map
+
+// warnMissingPacks warns once per process about the locked packs not
+// installed under projectRoot.
+func warnMissingPacks(projectRoot string, lock *packsLock) {
+	err := missingPacks(projectRoot, lock)
+	if err == nil {
+		return
+	}
+	key, absErr := filepath.Abs(projectRoot)
+	if absErr != nil {
+		key = projectRoot
+	}
+	if _, warned := warnedMissingPacks.LoadOrStore(key+"\x00"+err.Error(), true); warned {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "! %v\n", err)
+}
+
 // resolvePacksLayers returns one spec.Layer per installed pack, in
 // alphabetical order so emit output stays deterministic across runs.
 // Each pack is named "pack:<name>" so list/validate output is
@@ -849,6 +877,7 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 		return nil
 	}
 	out := make([]spec.Layer, 0, len(lock.Packs))
+	missing := false
 	for _, p := range lock.Packs {
 		if err := validatePackName(p.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "! %v in %s; skipped\n", err, packsLockfile)
@@ -856,7 +885,7 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 		}
 		root := filepath.Join(projectRoot, packsDir, p.Name)
 		if !dirExists(root) {
-			fmt.Fprintf(os.Stderr, "! pack %q listed in %s but missing on disk; run `agnostic-ai packs update`\n", p.Name, packsLockfile)
+			missing = true
 			continue
 		}
 		out = append(out, spec.Layer{
@@ -865,6 +894,9 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 			Sources:  defaultLayerSources(),
 			RuleRoot: projectRoot,
 		})
+	}
+	if missing {
+		warnMissingPacks(projectRoot, lock)
 	}
 	return out
 }

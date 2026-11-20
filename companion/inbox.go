@@ -33,6 +33,9 @@ const (
 	serverMarkPath   = "/api/conversations/mark"
 	serverRenamePath = "/api/conversations/rename"
 	serverDeletePath = "/api/conversations/delete"
+	// serverApprovalsAskPath turns automatic approvals off; the server
+	// takes no other mode.
+	serverApprovalsAskPath = "/api/approvals/ask"
 )
 
 // inbox keeps the latest list of conversations for the pages. It holds

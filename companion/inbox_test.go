@@ -339,6 +339,25 @@ func TestInbox_PassesARenameToTheServerAndItsAnswerBack(t *testing.T) {
 	}
 }
 
+func TestInbox_PassesAskMeToTheServerAndReadsTheListItChanged(t *testing.T) {
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverApprovalsAskPath: {http.StatusOK, `{"mode":"ask","path":"/home/local/agnostic-ai.yaml"}`}}}
+	fake.list = listOfPosts(fake)
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+	routes := (&shell{}).routes(in, fstest.MapFS{})
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/approvals/ask", strings.NewReader(`{"mode":"ask"}`)))
+
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"mode":"ask"`) {
+		t.Errorf("Ask me = %d %s", rec.Code, rec.Body)
+	}
+	if sent := fake.posts[serverApprovalsAskPath]; len(sent) != 1 || sent[0] != `application/json {"mode":"ask"}` {
+		t.Errorf("the server received %q", sent)
+	}
+	heldAfter(t, in, "Ask me", `{"posts":1}`)
+}
+
 // fakeCommand writes a program that stands in for agnostic-ai and
 // points AGNOSTIC_AI_BIN at it.
 func fakeCommand(t *testing.T, script string) {

@@ -1027,3 +1027,27 @@ func TestSync_MissingPackFromOutsideTheProjectNamesPacksAdd(t *testing.T) {
 		t.Errorf("sync: packs update skips an outside local pack, so the error must not suggest it: %v", err)
 	}
 }
+
+// doctor warned "missing on disk" once per layer read, eight times in
+// one run, in other words than the stop sync prints.
+func TestDoctor_WarnsOnceAboutAMissingPackInTheStopWording(t *testing.T) {
+	root := testutil.TempCwd(t)
+	silence(t)
+	syncedPackProject(t, root, filepath.Join(root, "shared", "team"))
+	if err := os.RemoveAll(filepath.Join(root, packsDir)); err != nil {
+		t.Fatal(err)
+	}
+	stop := stopOnMissingPacks(root)
+	if stop == nil {
+		t.Fatal("stopOnMissingPacks: want an error for the missing pack")
+	}
+
+	stderr := captureStderr(t, func() { _, _ = runCLI(t, "doctor") })
+
+	if n := strings.Count(stderr, stop.Error()); n != 1 {
+		t.Errorf("doctor printed the missing pack sentence %d times, want 1:\n%s", n, stderr)
+	}
+	if strings.Contains(stderr, "missing on disk") {
+		t.Errorf("doctor used a second wording for the missing pack:\n%s", stderr)
+	}
+}

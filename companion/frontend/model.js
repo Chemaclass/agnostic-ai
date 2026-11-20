@@ -451,8 +451,60 @@ export function approvalOf(conversation) {
 }
 
 /**
+ * What a row says about the requests the approvals hook approved for it: "3 approved for you".
+ * Undefined when it approved none. The server counts them from its decision log.
+ */
+export function approvedLabelOf(conversation) {
+  const count = conversation.approvals?.approved ?? 0
+  return count > 0 ? `${count} approved for you` : undefined
+}
+
+/**
+ * Why a permission wait reached the person, such as "Always asks: publishing" or "Approvals not supported for
+ * Cursor". The server words it from the always-ask rule or the reason approvals did not answer, never from
+ * what the session wrote. Undefined on a row that does not wait for a permission.
+ */
+export function approvalReasonOf(conversation) {
+  const reason = conversation.approvals?.reason
+  if (typeof reason !== 'string' || reason === '' || conversation.waiting?.for !== 'permission') return undefined
+  return reason
+}
+
+/**
+ * The approved requests a row folds out, newest first: `{ text, time }`, where text is "Bash go test ./..."
+ * or the call alone when its detail was left out.
+ */
+export function approvedCallsOf(conversation) {
+  return (conversation.approvals?.recent ?? []).map((call) => ({
+    text: call.detail ? `${call.call} ${call.detail}` : call.call,
+    time: call.time,
+  }))
+}
+
+/** The toggle that folds a row's approved requests out: "▸ 3 approved for you", "▾ …" while unfolded. */
+export function approvedToggleOf(conversation, open) {
+  const label = approvedLabelOf(conversation)
+  return label === undefined ? undefined : `${open ? '▾' : '▸'} ${label}`
+}
+
+/** The approvals modes the header names, as the person set them in the home config. */
+const APPROVALS_MODE_LABELS = {
+  review: 'Approvals: your tools\' reviewers answer routine prompts',
+  yolo: 'Approvals: routine prompts are approved for you',
+}
+
+/**
+ * The header line while approvals answer prompts: `{ mode, label }`. Undefined when every prompt reaches
+ * the person, as in ask. The Ask me button beside it turns approvals off.
+ */
+export function approvalsHeaderOf(view) {
+  const label = APPROVALS_MODE_LABELS[view?.approvalsMode]
+  return label === undefined ? undefined : { mode: view.approvalsMode, label }
+}
+
+/**
  * The row's tooltip, one fact a line: how it opens, its folder, how long a silent chat has said nothing,
- * and the agent's reply when an approval pill takes the reply line's place.
+ * the agent's reply when an approval pill takes the reply line's place, and why approvals left the wait to the person.
  */
 export function rowTooltipOf(conversation, now) {
   const lines = [conversation.open.label]
@@ -461,6 +513,8 @@ export function rowTooltipOf(conversation, now) {
   if (quiet) lines.push(quiet)
   const reply = replyOf(conversation)
   if (reply && approvalOf(conversation)) lines.push(reply)
+  const reason = approvalReasonOf(conversation)
+  if (reason) lines.push(reason)
   if (unreadMarkOf(conversation)) lines.push(RESUMED_UNREAD)
   return lines.join('\n')
 }

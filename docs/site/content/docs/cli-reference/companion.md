@@ -103,7 +103,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
-- The circle's count turns solid orange, with a lock and a halo, while a chat waits for a permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread".
+- The circle's count turns solid orange, with a lock and a halo, while a chat waits for a permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
 - The circle and the list's ⋯ menu hold the same items in the same order.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
@@ -137,6 +137,29 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 - Quit ends the companion and its server, as `companion stop` does. Start at login stays as you set it.
 - `stop`, `install`, `upgrade`, `uninstall` and logging out never ask.
 - Your AI tool running `agnostic-ai companion` also starts it again.
+{% </details> %}
+
+## Approvals {#approvals}
+
+With approvals set to `review` or `yolo` in the home config, routine permission prompts stop reaching you on each tool with a route; `agnostic-ai approvals status` names them. The list shows what was decided for you, and one button turns approvals off.
+
+| Mode | Routine request | Request the gate sends to you | Tool with no route |
+|---|---|---|---|
+| `ask` | "Needs permission" under Needs you, counted on the circle | Same | Same |
+| `review`, `yolo` | No row under Needs you, not counted. The row shows "▸ 3 approved for you" | Under Needs you and counted, with the reason, such as "Always asks: publishing" | Under Needs you and counted, with "Approvals not supported for Cursor" |
+
+- **N approved for you** folds out the latest approved requests under the row, newest first. It opens nothing.
+- The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
+- The header names the mode while it is not `ask`. **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. It works from the next request, with no sync. Nothing in the companion can turn approvals on.
+
+{% <details summary="Details: the brief Claude Code prompt, counts, limits"> %}
+- Claude Code shows its prompt while the approvals hook runs, and records the wait. So the companion lists a Claude Code permission wait only once the decision log says `asked` for that session, or once 10 seconds (the hook timeout) passed with no decision. Until then the row shows as working.
+- An `approved` line holds the wait for 10 seconds after it. A prompt still open after that reaches you, with "Still waits after the approvals hook approved a request".
+- A wait with no decision after 10 seconds reaches you with "No answer from the approvals hook", or in `review` with "The tool's reviewer left this to you".
+- Codex waits for the hook before it prompts, so a Codex wait is never held.
+- A cloud session runs no local hook. Its wait says "Approvals do not reach cloud sessions".
+- The count comes from `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file. A native reviewer writes nothing there, so in `review` the count shows only what the hook logged.
+- The mode is resolved per row from its tool and folder, by the order `approvals status` uses. A session started with `AGNOSTIC_AI_APPROVALS=ask` in its own environment is not known to the companion: its prompt shows after the 10 seconds.
 {% </details> %}
 
 ## How it reads conversations {#how-it-reads}

@@ -122,6 +122,7 @@ func importFromOpencode(root string, src config.Sources) error {
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d settings\n", rules, agents, skills, commands, mcps, settings)
+	noteImportedOnceDuplicates(root, "opencode", importHookConfig)
 	return nil
 }
 

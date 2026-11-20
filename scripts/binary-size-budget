@@ -993,4 +993,9 @@
 # Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
 # Merged branch growth of 61440 bytes over its base, on top of main's 27336704.
 # Merged branch growth of 28672 bytes over its base, on top of main's 27398144.
-27426816
+# Merged branch growth of 102400 bytes over its base, on top of main's 27426816.
+# #3750 measured 27578528 bytes locally (make size-check) on main
+# 688018e29: doctor runs sync's hand-written file guards, and import
+# names duplicate originals. Allow 8192 bytes, rounded up to a 4096-byte
+# page.
+27590656

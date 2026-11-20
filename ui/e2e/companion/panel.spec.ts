@@ -981,6 +981,52 @@ test('a chat waiting for the person gives the circle a solid badge with a lock; 
   await expect(badge).toHaveText('1')
 })
 
+test('in yolo an approved chat works on outside Needs you and the circle counts only what the gate left to the person', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'auto-approvals' } })
+  await page.goto('/')
+  await expect(page.locator('#badge')).toHaveText('2')
+  await expect(page.getByRole('button', { name: 'Conversations: 2 waiting for you' })).toBeVisible()
+
+  await openPanel(page, 'auto-approvals')
+  await expect(page.locator('.row.needs-you .title')).toHaveText(['Ship the parser fix', 'Rename the config keys'])
+  const working = row(page, 'Fix the flaky login test')
+  await expect(working).not.toHaveClass(/\bneeds-you\b/)
+  await expect(working.locator('.approval')).toHaveCount(0)
+  await expect(working.locator('.approved-toggle')).toHaveText('▸ 3 approved for you')
+})
+
+test('a permission the gate left to the person names why, and a tool approvals do not reach says so', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  const push = row(page, 'Ship the parser fix')
+  await expect(push.locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'approval-reason', 'meta', 'approved'])
+  await expect(push.locator('.approval-reason')).toHaveText('Always asks: publishing')
+  await expect(push).toHaveAttribute('title', /Always asks: publishing/)
+  await expect(row(page, 'Rename the config keys').locator('.approval-reason')).toHaveText('Approvals not supported for Cursor')
+})
+
+test('"N approved for you" folds out the approved requests, newest first, and opens nothing', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  await row(page, 'Fix the flaky login test').getByRole('button', { name: '▸ 3 approved for you' }).click()
+  const list = page.getByRole('list', { name: 'Approved for you' })
+  await expect(list.locator('.approved-call')).toHaveText(['Bash go test ./internal/auth/...', 'Bash make lint', 'Bash'])
+  await expect(row(page, 'Fix the flaky login test').getByRole('button', { name: '▾ 3 approved for you' })).toHaveAttribute('aria-expanded', 'true')
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('the header names the approvals mode, and Ask me turns approvals off', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  const bar = page.getByRole('region', { name: 'Approvals' })
+  await expect(bar).toContainText('Approvals: routine prompts are approved for you')
+  const asked = page.waitForRequest((request) => request.url().endsWith('/api/approvals/ask'))
+  await bar.getByRole('button', { name: 'Ask me' }).click()
+  expect((await asked).postDataJSON()).toEqual({ mode: 'ask' })
+  await expect(bar).toBeHidden()
+  await expect(page.locator('#toast-text')).toHaveText('Approvals off: every permission prompt reaches you again.')
+
+  await openPanel(page, 'mixed')
+  await expect(page.getByRole('region', { name: 'Approvals' })).toBeHidden()
+})
+
 test('under Needs you, permission waits come before a question', async ({ page }) => {
   await openPanel(page, 'approvals')
   await expect(page.locator('.row.needs-you .title')).toHaveText(['Refactor PRs', 'Webhooks v2 dashboard', 'Rider lifecycle gaps in Notion', 'Release notes draft', 'SFTP write: discussion'])
