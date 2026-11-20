@@ -21,12 +21,14 @@ agnostic-ai approvals ask             # show every prompt again
 
 ## approvals status
 
-Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line says so. No tool has a route yet, so every tool shows its prompt.
+Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line says so. Claude Code and Codex have a route for `review`: their own reviewer, which [`sync --global` turns on](@/docs/global-configuration-reference.md#global-approvals-review). No tool has a route for `yolo` yet.
 
-`--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, and `route` when one exists.
+A `note:` line under a tool says what keeps its reviewer from matching the mode: the key is missing or set to another value in the user settings file (then `effective` is `ask`), Codex `approval_policy = "never"` stops Auto-review from running, or the reviewer stays on where the mode is not `review`, because `sync --global` wrote the key or, for Codex, it was set by hand.
+
+`--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, `route` when one exists, and `notes` when there are any.
 
 ## approvals ask
 
 Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`. That block replaces the shared one, so no tool or project keeps `review` or `yolo`. Its `always-ask` patterns stay, and so do the file's other keys and comments. It refuses a file with more than one YAML document, or an `approvals` block that carries a YAML anchor. The next request reads it; no sync or restart is needed.
 
-A running session that a tool's own reviewer handles, such as Claude Code auto mode, keeps that mode until you switch it in the tool (Shift+Tab in Claude Code). The command says so when a tool was in `review`.
+A reviewer key that `sync --global` wrote, such as Claude Code auto mode, stays in the tool's user settings until the next `sync --global` removes it, and the command says so. A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code).
