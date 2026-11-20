@@ -497,6 +497,9 @@ func entryPointOverwrites(cfg *config.Config, files []entryPointFile, owners map
 // letter case, two outputs whose paths differ only in case. Backup paths
 // match without regard to case on every filesystem.
 func outputPathCollisions(root string, cfg *config.Config, owners map[string][]string, entryFiles []entryPointFile, backups map[string]string) error {
+	if err := outputsInSourceTree(cfg); err != nil {
+		return err
+	}
 	names := map[string][]string{}
 	add := func(path, name string) {
 		key := filepath.Clean(filepath.FromSlash(path))
@@ -583,6 +586,27 @@ func caseAliasLines(root string, spellings map[string][]string, label func(strin
 	}
 	sort.Strings(lines)
 	return lines
+}
+
+// outputsInSourceTree refuses a configured output path that resolves
+// into .agnostic-ai or a spec folder, where sync would write over the
+// files the user writes. It uses the check revert keeps them with.
+func outputsInSourceTree(cfg *config.Config) error {
+	inSource := sourceTree(cfg)
+	var lines []string
+	paths := cfg.ConfiguredOutputPaths()
+	for _, key := range slices.Sorted(maps.Keys(paths)) {
+		path := paths[key]
+		if inSource(filepath.FromSlash(path)) {
+			lines = append(lines, fmt.Sprintf("  %s: %s", key, path))
+		}
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	return errs.Coded(errs.CodeOutputCollision,
+		"output collision: an output path points into %s or a spec folder, where sync would overwrite your source files\n%s\n"+
+			"point it outside the source folders", config.SourceBaseDir+"/", strings.Join(lines, "\n"))
 }
 
 // directorySetting reports whether an outputs.<target>.<key> names a

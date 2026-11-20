@@ -141,6 +141,7 @@ Two or more enabled targets would write different content to the same path, so s
 - An output sits on a `.bak` that sync saved earlier and that still exists. `sync`, `sync --check` and `status` report it; `validate` does not read the sync ledger.
 - Case is ignored for `.bak` matches, since some filesystems store `rules.md.BAK` and `RULES.md.bak` as one file. Folder settings such as `skills-dir` get no `.bak`.
 - On filesystems that ignore case (macOS and Windows by default), two outputs that differ only in case also stop `sync`, `status` and `validate`, such as `outputs.codex.rules-file: agents.md` next to Amp's `AGENTS.md`.
+- An `outputs.<target>` path that resolves into `.agnostic-ai/` or a configured `sources.*` folder, through letter case, a `..` segment, or a link, such as `outputs.codex.file: .agnostic-ai/agnostic_ai.md`. Sync would overwrite your source files, so `sync`, `sync --check`, `status` and `validate` stop and name the setting.
 - Paths are compared as written, case ignored. A path reached through a symlinked folder or another Unicode spelling is not caught.
 
 Fixes:
@@ -148,6 +149,7 @@ Fixes:
 - Shared instructions file: point the `rules-file` elsewhere, remove it, or set `outputs.<target>.file` for the other tool.
 - Saved `.bak`: keep what you need from it, then move or delete it, or point the output elsewhere.
 - Outputs that differ only in case: spell both paths the same way.
+- Output in the source folders: point the setting outside `.agnostic-ai/` and the `sources.*` folders.
 
 </details>
 
