@@ -176,8 +176,8 @@ func TestBackUpEdits_SavesAnEditMadeThroughALinkInsideTheProject(t *testing.T) {
 	}
 }
 
-// An edit made through a link to a file outside the project stays in
-// place, since sync never copies such a target in (#3736). A project
+// An edit made through a link to a file outside the project is refused
+// and stays in place, since sync never copies such a target in (#3736). A project
 // path linking out is refused earlier, so this covers an absolute path.
 func TestBackUpEdits_KeepsAnEditMadeThroughALinkOutsideTheProject(t *testing.T) {
 	outside := filepath.Join(t.TempDir(), "SKILL.md")
@@ -192,8 +192,8 @@ func TestBackUpEdits_KeepsAnEditMadeThroughALinkOutsideTheProject(t *testing.T) 
 	s := NewSession()
 	s.BackUpEditsSince(map[string]string{path: ContentSum("generated\n")})
 
-	if err := s.WriteFile(path, "generated twice\n", false); err != nil {
-		t.Fatal(err)
+	if err := s.WriteFile(path, "generated twice\n", false); err == nil {
+		t.Error("sync wrote through a link to an edited file outside the project")
 	}
 
 	if data, _ := os.ReadFile(outside); string(data) != "hand edit\n" {
@@ -201,9 +201,6 @@ func TestBackUpEdits_KeepsAnEditMadeThroughALinkOutsideTheProject(t *testing.T) 
 	}
 	if _, err := os.Lstat(path + ".bak"); err == nil {
 		t.Error("sync copied a link target from outside the project into a backup")
-	}
-	if got := s.KeptEdits(); len(got) != 1 || got[0] != path {
-		t.Errorf("KeptEdits = %v, want [%s]", got, path)
 	}
 }
 

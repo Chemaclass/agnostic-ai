@@ -278,10 +278,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if editBackup && cur.isLink() {
 		if _, err := projectLinkTarget(path); err != nil {
 			// Never copy a link target from outside the project into it.
-			s.mu.Lock()
-			s.noteKeptEditLocked(&s.kept, WrittenFile{Path: path, Bytes: len(content), Sum: s.priorChecksum(path, s.backupSums)}, detailing)
-			s.mu.Unlock()
-			return nil
+			return fmt.Errorf("refusing to write %s: it links outside the project and holds a hand edit", path)
 		}
 	}
 	var backupPath string
