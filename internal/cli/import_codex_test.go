@@ -1856,3 +1856,90 @@ func TestImportCodex_EnvironmentIDRoundTripsThroughSync(t *testing.T) {
 		t.Errorf("lint: %v\n%s", err, out)
 	}
 }
+
+func TestImportFromCodex_NestedRuleTakesItsScopePathWhenTheNameIsTaken(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "rules", "api.md"), "---\nname: api\npaths: src/api/**\n---\n\nClaude API rule.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "API code must return typed errors.\n")
+
+	out := captureSummary(t)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, "rules", "api.md")); !strings.Contains(got, "Claude API rule.") {
+		t.Errorf("the existing rule must stay:\n%s", got)
+	}
+	got := readFile(t, filepath.Join(dir, "rules", "services-api.md"))
+	if !strings.Contains(got, "API code must return typed errors.") || !strings.Contains(got, "globs: services/api/**") {
+		t.Errorf("nested rule not kept under its scope path:\n%s", got)
+	}
+	if strings.Contains(out.String(), "skipped") {
+		t.Errorf("no skip expected:\n%s", out)
+	}
+
+	out.Reset()
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "skipped") {
+		t.Errorf("re-import must not report the rule it already wrote:\n%s", out)
+	}
+}
+
+func TestImportFromCodex_SkipNoteNamesTheSourceFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "rules", "services-api.md"), "---\nname: services-api\n---\n\nHand-written.\n")
+	writeFile(t, filepath.Join(dir, "rules", "api.md"), "---\nname: api\n---\n\nOther.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "API code must return typed errors.\n")
+
+	out := captureSummary(t)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if want := "review services/api/AGENTS.md for unique content"; !strings.Contains(out.String(), want) {
+		t.Errorf("missing %q in:\n%s", want, out)
+	}
+}
+
+func TestImportFromCodex_SyncedScopedRuleDoesNotTakeAScopePathName(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "rules", "api.md"), "---\nname: api\nscope: services/api\n---\n\nAPI code must return typed errors.\n")
+	writeFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"), "API code must return typed errors, always.\n")
+
+	captureSummary(t)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "services-api.md")); err == nil {
+		t.Error("the rule's own spec covers that scope, so no second spec is expected")
+	}
+}
+
+func TestWriteCodexRule_KeepsASpecThatCoversTheScope(t *testing.T) {
+	for name, existing := range map[string]string{
+		"paths string": "---\nname: api\npaths: src/api/**\n---\n\nOther text.\n",
+		"paths list":   "---\nname: api\npaths:\n  - src/api/**\n---\n\nOther text.\n",
+		"globs list":   "---\nname: api\nglobs: [src/api/**]\n---\n\nOther text.\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "api.md"), existing)
+			captureSummary(t)
+			if err := writeCodexRule(dir, "api", "", "src/api/**", "Return typed errors.", "src/api/AGENTS.md", true); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "src-api.md")); err == nil {
+				t.Error("a spec covering the scope must not get a second copy")
+			}
+		})
+	}
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "api.md"), "---\nname: api\n---\n\nOther.\n")
+	captureSummary(t)
+	if err := writeCodexRule(dir, "api", "", "src/api/**", "Return typed errors.", "src/api/AGENTS.md", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "src-api.md")); err == nil {
+		t.Error("a generated AGENTS.md must not be renamed")
+	}
+}

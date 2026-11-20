@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -844,5 +845,52 @@ func TestImportWindsurf_AgentScopedKeysDropOneAtATime(t *testing.T) {
 	got = resync("---\nname: planner\ndescription: Plan work\n---\n\nPlan work.\n")
 	if strings.Contains(got, "max-nesting") || strings.Contains(got, "custom_tool") {
 		t.Errorf("removing every native key must drop them all: %s", got)
+	}
+}
+
+func TestImportFromWindsurf_TellsToDeleteLegacyRulesSyncRewrites(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "naming.md"), "---\ntrigger: always_on\n---\nUse clear names.\n")
+	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "old.md"), header.With("# old\n\nOld rule.\n", header.FormatMarkdown))
+	cfg := &config.Config{Targets: []string{"windsurf"}}
+
+	out := captureSummary(t)
+	if err := importFromWindsurf(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	want := "  ! delete .windsurf/rules/naming.md after the next sync: sync writes it to .devin/rules/, and Devin loads both folders\n"
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("missing %q in:\n%s", want, out)
+	}
+	if strings.Contains(out.String(), "old.md") {
+		t.Errorf("a generated rule needs no note:\n%s", out)
+	}
+}
+
+func TestImportFromWindsurf_NoDeleteNoteWithoutTheTarget(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "naming.md"), "Use clear names.\n")
+
+	out := captureSummary(t)
+	if err := importFromWindsurf(dir, rootSources(), &config.Config{Targets: []string{"claude"}}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "delete") {
+		t.Errorf("no note expected when sync does not write Windsurf:\n%s", out)
+	}
+}
+
+func TestImportFromWindsurf_DeleteNoteNamesTheScopedDestination(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".windsurf", "rules", "naming.md"), "Use clear names.\n")
+	writeFile(t, filepath.Join(dir, "pkg", ".windsurf", "rules", "api.md"), "Return typed errors.\n")
+
+	out := captureSummary(t)
+	if err := importFromWindsurf(dir, rootSources(), &config.Config{Targets: []string{"windsurf"}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "  ! delete pkg/.windsurf/rules/api.md after the next sync: sync writes it to pkg/.devin/rules/, and Devin loads both folders\n"
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("missing %q in:\n%s", want, out)
 	}
 }

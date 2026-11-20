@@ -151,6 +151,10 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 
 		importReadingNative(path)
 		kind, baseName := classifyRulesDirFile(rel, data)
+		if kind != "rules" && fileExists(filepath.Join(importSourcePath(root, src.Rules), opts.ScopePrefix, filepath.FromSlash(strings.TrimSuffix(rel, ".md"))+".md")) {
+			// A rule spec of that name is where sync wrote this file from.
+			kind, baseName = "rules", strings.TrimSuffix(filepath.Base(rel), ".md")
+		}
 		dstDir := pickKindDir(kind, src)
 		meta, rest := splitMdcFrontmatter([]byte(header.Strip(string(data))))
 		if opts.NormalizeMeta != nil {
