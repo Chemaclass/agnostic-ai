@@ -121,6 +121,10 @@ type View struct {
 	// NeedsYou counts the blocked and unread conversations of every age
 	// and tool this server lists, whatever the page or the search.
 	NeedsYou int `json:"needsYou"`
+	// PermissionWaits are the live rows NeedsYou counts that wait on a
+	// permission prompt, on this page or not, for the server to recount
+	// the waits approvals may still answer.
+	PermissionWaits []Conversation `json:"-"`
 	// MarksNote says why the marks file could not be read or written;
 	// rows then show no marks.
 	MarksNote string `json:"marksNote,omitempty"`

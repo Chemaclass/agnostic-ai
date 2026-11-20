@@ -56,3 +56,36 @@ func TestHandler_RejectsForeignHostsOnEveryRouteBeforeLoading(t *testing.T) {
 		t.Errorf("loaded %d times for refused requests", loads)
 	}
 }
+
+// A link on another site opens the client page; nothing else crosses
+// sites (#3799).
+func TestCORS_LetsACrossSiteLinkOpenOnlyTheClientPage(t *testing.T) {
+	for _, tc := range []struct {
+		name, method, path, mode, dest, origin string
+		want                                   int
+	}{
+		{"link to the page", http.MethodGet, "/", "navigate", "document", "", http.StatusOK},
+		{"link to a client route", http.MethodGet, "/conversations", "navigate", "document", "", http.StatusOK},
+		{"link to the API", http.MethodGet, "/api/views/overview", "navigate", "document", "", http.StatusForbidden},
+		{"link to /api", http.MethodGet, "/api", "navigate", "document", "", http.StatusForbidden},
+		{"page in a frame", http.MethodGet, "/", "navigate", "iframe", "", http.StatusForbidden},
+		{"script fetch", http.MethodGet, "/", "cors", "empty", "", http.StatusForbidden},
+		{"form post", http.MethodPost, "/", "navigate", "document", "https://example.com", http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := CORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))
+			req := httptest.NewRequest(tc.method, "http://127.0.0.1:4310"+tc.path, nil)
+			req.Header.Set("Sec-Fetch-Site", "cross-site")
+			req.Header.Set("Sec-Fetch-Mode", tc.mode)
+			req.Header.Set("Sec-Fetch-Dest", tc.dest)
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Errorf("status %d, want %d", rec.Code, tc.want)
+			}
+		})
+	}
+}

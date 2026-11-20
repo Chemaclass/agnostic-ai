@@ -651,6 +651,8 @@ export interface PermissionEditPreview {
   before: string[] | null
   rules: string[] | null
   diff: string
+  /** Project deny or ask rules a personal list stops applying. */
+  dropped?: string[]
   expected: string
   syncCommand: string
 }

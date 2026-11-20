@@ -26,6 +26,8 @@ type approvalsFixture struct {
 	home    string
 	now     time.Time
 	routed  bool
+	// reviewerOff turns the tools' own reviewers off in their settings.
+	reviewerOff bool
 }
 
 func newApprovalsFixture(t *testing.T, mode string, routed bool) *approvalsFixture {
@@ -41,11 +43,12 @@ func newApprovalsFixture(t *testing.T, mode string, routed bool) *approvalsFixtu
 	}
 	userHome := t.TempDir()
 	h.approvals = &approvalsReader{
-		source: func() (string, error) { return f.home, nil },
-		home:   func() (string, error) { return userHome, nil },
-		env:    func() string { return "" },
-		now:    func() time.Time { return f.now },
-		routed: func(string, string) bool { return f.routed },
+		source:     func() (string, error) { return f.home, nil },
+		home:       func() (string, error) { return userHome, nil },
+		env:        func() string { return "" },
+		now:        func() time.Time { return f.now },
+		routed:     func(string, string) bool { return f.routed },
+		reviewerOn: func(string, string) bool { return !f.reviewerOff },
 	}
 	return f
 }
@@ -157,10 +160,10 @@ func TestApprovals_AskShowsEveryWaitAsToday(t *testing.T) {
 	}
 }
 
-// review and yolo, routine request: no row under Needs you, no lock
-// count, and "N approved for you" on the row.
+// yolo, routine request: no row under Needs you, no lock count, and
+// "N approved for you" on the row. The hook decides nothing in review.
 func TestApprovals_ApprovedRequestNeverNeedsYou(t *testing.T) {
-	for _, mode := range []string{config.ApprovalsReview, config.ApprovalsYolo} {
+	for _, mode := range []string{config.ApprovalsYolo} {
 		t.Run(mode, func(t *testing.T) {
 			f := newApprovalsFixture(t, mode, true)
 			since := f.now.Add(-200 * time.Millisecond)
@@ -185,10 +188,10 @@ func TestApprovals_ApprovedRequestNeverNeedsYou(t *testing.T) {
 	}
 }
 
-// review and yolo, request the gate sends to the person: a permission
-// row that counts, with the rule as its reason.
+// yolo, request the gate sends to the person: a permission row that
+// counts, with the rule as its reason.
 func TestApprovals_RequestTheGateAsksAboutShowsWithItsReason(t *testing.T) {
-	for _, mode := range []string{config.ApprovalsReview, config.ApprovalsYolo} {
+	for _, mode := range []string{config.ApprovalsYolo} {
 		t.Run(mode, func(t *testing.T) {
 			f := newApprovalsFixture(t, mode, true)
 			since := f.now.Add(-200 * time.Millisecond)
@@ -249,6 +252,49 @@ func TestApprovals_WaitWithNoDecisionShowsAfterTheHookTimeout(t *testing.T) {
 	}
 	if reason := reasonOf(c); reason != approvalsReasonNoAnswer {
 		t.Errorf("reason %q", reason)
+	}
+}
+
+// The reviewer decides before the tool shows a prompt, so a review
+// wait is the person's at once (issue #3799).
+func TestApprovals_ReviewWaitShowsAtOnce(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsReview, true)
+	f.wait(t, f.now.Add(-200*time.Millisecond))
+
+	view, c := f.list(t)
+
+	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != approvalsReasonReviewer {
+		t.Errorf("state %s, needsYou %d, reason %q", c.State, view.NeedsYou, reasonOf(c))
+	}
+}
+
+// Review with the tool's reviewer off asks, as approvals status says.
+func TestApprovals_ReviewWithTheReviewerOffShowsAsAsk(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsReview, true)
+	f.reviewerOff = true
+	f.wait(t, f.now.Add(-approvalsHookWait-time.Second))
+
+	view, c := f.list(t)
+
+	if !needsPermission(c) || reasonOf(c) != "" || view.ApprovalsMode != "" {
+		t.Errorf("state %s, reason %q, approvalsMode %q", c.State, reasonOf(c), view.ApprovalsMode)
+	}
+}
+
+// A search that leaves the held row out still does not count it.
+func TestApprovals_SearchDoesNotCountAHeldWaitItLeavesOut(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
+	f.wait(t, f.now.Add(-2*time.Second))
+
+	rec := httptest.NewRecorder()
+	f.h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+"?editor=cursor&q=zzzznomatch", nil))
+	var view conversations.View
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); rec.Code != http.StatusOK || err != nil {
+		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
+	}
+
+	if len(view.Conversations) != 0 || view.NeedsYou != 0 {
+		t.Errorf("rows %s, needsYou %d; a held wait must not count", ids(view), view.NeedsYou)
 	}
 }
 
@@ -394,9 +440,32 @@ func TestApprovalsSnapshot_HeaderModeIsTheLoosestSetting(t *testing.T) {
 		{config.ApprovalsConfig{Projects: map[string]string{"/tmp/sandbox": config.ApprovalsYolo}}, "", config.ApprovalsYolo},
 		{config.ApprovalsConfig{Mode: config.ApprovalsYolo}, "ask", config.ApprovalsAsk},
 	} {
-		snap := approvalsSnapshot{policy: config.ApprovalsPolicy{Home: tc.home, Env: tc.env}, policyOK: true}
+		snap := approvalsSnapshot{policy: config.ApprovalsPolicy{Home: tc.home, Env: tc.env}, policyOK: true, routed: func(string, string) bool { return true }}
 		if got := snap.headerMode(); got != tc.want {
 			t.Errorf("headerMode(%+v, env %q) = %q, want %q", tc.home, tc.env, got, tc.want)
+		}
+	}
+}
+
+// The header names only a mode some listed tool carries out (#3799).
+func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
+	home := config.ApprovalsConfig{Mode: config.ApprovalsReview, Tools: map[string]string{"cursor": config.ApprovalsYolo}}
+	for _, tc := range []struct {
+		name       string
+		routed     func(tool, mode string) bool
+		reviewerOn bool
+		want       string
+	}{
+		{"cursor has no yolo route", func(tool, mode string) bool { return mode == config.ApprovalsReview }, true, config.ApprovalsReview},
+		{"every reviewer is off", func(tool, mode string) bool { return mode == config.ApprovalsReview }, false, config.ApprovalsAsk},
+		{"no route at all", func(string, string) bool { return false }, true, config.ApprovalsAsk},
+	} {
+		snap := approvalsSnapshot{
+			policy: config.ApprovalsPolicy{Home: home}, policyOK: true, routed: tc.routed,
+			reviewerOn: func(string) bool { return tc.reviewerOn }, reviewers: map[string]bool{},
+		}
+		if got := snap.headerMode(); got != tc.want {
+			t.Errorf("%s: headerMode = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }
@@ -564,5 +633,27 @@ func TestApprovals_AProjectFileThatDoesNotParseAsks(t *testing.T) {
 
 	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != "" {
 		t.Errorf("state %s, needsYou %d, reason %q; a broken project file must not loosen", c.State, view.NeedsYou, reasonOf(c))
+	}
+}
+
+// A log line the hook did not write may hold a credential in its
+// detail; neither the approvals read nor a row shows it (#3799).
+func TestApprovalSessionsOf_DropsADetailThatMayHoldACredential(t *testing.T) {
+	at := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	secret := "curl -H 'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz0123456789' x"
+	sessions := approvalSessionsOf([]approvals.Entry{
+		{Time: at, Tool: "claude", Session: "a", Call: "Bash", Detail: secret, Decision: approvals.Approved},
+		{Time: at.Add(time.Second), Tool: "claude", Session: "a", Call: "Bash", Detail: "go test ./...", Decision: approvals.Approved},
+	})
+
+	s := sessions[approvalSessionKey("claude", "a")]
+	if s == nil || len(s.Decisions) != 2 || len(s.recent) != 2 {
+		t.Fatalf("sessions %+v", sessions)
+	}
+	if s.Decisions[1].Detail != "" || s.recent[1].Detail != "" {
+		t.Errorf("a credential detail was kept: %q, %q", s.Decisions[1].Detail, s.recent[1].Detail)
+	}
+	if s.Decisions[0].Detail != "go test ./..." {
+		t.Errorf("a plain detail was dropped: %q", s.Decisions[0].Detail)
 	}
 }

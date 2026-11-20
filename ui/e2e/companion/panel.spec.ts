@@ -1013,6 +1013,27 @@ test('"N approved for you" folds out the approved requests, newest first, and op
   expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
+test('the approved list folds out inside its row, and the keys stay on the toggle', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  const working = row(page, 'Fix the flaky login test')
+  await working.getByRole('button', { name: '▸ 3 approved for you' }).focus()
+  await page.keyboard.press('Space')
+  const open = working.getByRole('button', { name: '▾ 3 approved for you' })
+  await expect(open).toBeFocused()
+  await expect(working.getByRole('list', { name: 'Approved for you' })).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(working.getByRole('button', { name: '▸ 3 approved for you' })).toBeFocused()
+  await expect(page.getByRole('list', { name: 'Approved for you' })).toHaveCount(0)
+})
+
+test('folding a group by key keeps the keys on its title', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  await groupTitle(page, 'Needs you').focus()
+  await page.keyboard.press('Enter')
+  await expect(groupTitle(page, 'Needs you')).toBeFocused()
+  await expect(groupTitle(page, 'Needs you')).toHaveAttribute('aria-expanded', 'false')
+})
+
 test('the header names the approvals mode, and Ask me turns approvals off', async ({ page }) => {
   await openPanel(page, 'auto-approvals')
   const bar = page.getByRole('region', { name: 'Approvals' })

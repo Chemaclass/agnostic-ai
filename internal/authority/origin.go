@@ -80,6 +80,18 @@ func RequestAllowed(r *http.Request, allowedOrigins ...string) bool {
 	return slices.Contains(allowedOrigins, normalized)
 }
 
+// pageNavigation reports whether r opens a page of the static client
+// in a browser tab, as a link on another site does. The page holds no
+// local data, and the requests it then makes are same-origin. A frame,
+// a script fetch, and any /api path stay refused.
+func pageNavigation(r *http.Request) bool {
+	return (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
+		r.Header.Get("Origin") == "" &&
+		strings.EqualFold(r.Header.Get("Sec-Fetch-Mode"), "navigate") &&
+		strings.EqualFold(r.Header.Get("Sec-Fetch-Dest"), "document") &&
+		r.URL.Path != "/api" && !strings.HasPrefix(r.URL.Path, "/api/")
+}
+
 // CORS rejects foreign hosts and origins before any route reads local data.
 func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +100,7 @@ func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 			writeError(w, http.StatusMisdirectedRequest, errors.New("request Host must name a loopback address"))
 			return
 		}
-		if !RequestAllowed(r, allowedOrigins...) {
+		if !RequestAllowed(r, allowedOrigins...) && !pageNavigation(r) {
 			writeError(w, http.StatusForbidden, errors.New("request host or origin is not allowed"))
 			return
 		}

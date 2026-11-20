@@ -400,6 +400,9 @@ func TestApprovalsAskYAML(t *testing.T) {
 		"two documents":  {in: "targets: [claude]\n---\nother: 1\n", err: "more than one YAML document"},
 		"an anchor":      {in: "approvals: &a {mode: yolo}\nmodels: {x: *a}\n", err: "anchor"},
 		"a list":         {in: "- a\n", err: "not a mapping"},
+		"a merge key":    {in: "base: &b\n  mode: yolo\n  always-ask: [\"Bash(make deploy*)\"]\napprovals:\n  <<: *b\n", err: "merge key"},
+		"an alias":       {in: "base: &b\n  mode: yolo\napprovals: *b\n", err: "alias"},
+		"a root merge":   {in: "base: &b\n  approvals: {mode: yolo}\n<<: *b\n", err: "merge key"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

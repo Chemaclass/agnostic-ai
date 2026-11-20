@@ -205,6 +205,7 @@ Body: `{action, audience, path?, key, rules, before?, expected?}`.
 - `rules` is a string list, or `null` to remove that list.
 - `before` is the selected audience's own list as shown, or `null` when absent. A mismatch returns 409.
 - Preview returns `schemaVersion: "permission-edit/v1"`, `file`, `key`, `audience`, `before`, `rules`, `diff`, `expected`, and `syncCommand`.
+- A personal `permissions.deny` or `permissions.ask` list replaces the project list. Its preview adds `dropped`: the project rules that stop applying.
 - Apply requires the preview's `expected`, rechecks its inputs, saves only the source file, and returns the preview fields with `ok: true`.
 - Personal saves use the Git-ignore check.
 
@@ -263,7 +264,8 @@ Body: `{id}` from the change state.
 
 Takes no input. Returns the [approvals](@/docs/cli-reference/companion.md#approvals) mode and what the decision log holds.
 
-- `mode` is the loosest mode the home config sets: `ask`, `review` or `yolo`. `AGNOSTIC_AI_APPROVALS` in the server's environment makes it `ask`.
+- `mode` is the loosest mode the home config sets that a listed tool carries out: `ask`, `review` or `yolo`. A tool carries out `yolo` or `review` when it has a route for it, and `review` only while its reviewer is on. `AGNOSTIC_AI_APPROVALS` in the server's environment makes it `ask`.
+- A decision `detail` that may hold a credential is left out.
 - `tools` is what `agnostic-ai approvals status --json` prints in its `tools`, for the folder the server runs in.
 - `sessions` holds each session in `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file, latest decision first: `{tool, session, approved, asked, decisions}`. `decisions` are its latest 20 log lines, newest first.
 - `problem` says why the settings could not be read; `tools` is then empty.

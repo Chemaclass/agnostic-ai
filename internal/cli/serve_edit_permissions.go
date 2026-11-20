@@ -36,9 +36,12 @@ type permissionEditView struct {
 	Before        []string `json:"before"`
 	Rules         []string `json:"rules"`
 	Diff          string   `json:"diff"`
-	Expected      string   `json:"expected"`
-	SyncCommand   string   `json:"syncCommand"`
-	OK            bool     `json:"ok,omitempty"`
+	// Dropped are the project rules of a deny or ask list that a
+	// personal list stops applying, since it replaces the project list.
+	Dropped     []string `json:"dropped,omitempty"`
+	Expected    string   `json:"expected"`
+	SyncCommand string   `json:"syncCommand"`
+	OK          bool     `json:"ok,omitempty"`
 }
 
 type permissionEditPlan struct {
@@ -177,7 +180,7 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 	if err != nil {
 		return nil, err
 	}
-	file, scaffold, paths, err := h.permissionSource(where, req.Path, req.Key)
+	file, scaffold, paths, shared, err := h.permissionSource(where, req.Path, req.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +221,9 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 		view.SyncCommand += " --global"
 	}
 	view.Diff = previewDiff(view.File, view.File+" (before)", view.File+" (proposed)", string(original.data), string(after), original.info == nil, 2048)
+	if where == audiencePersonal && shared != nil && rules != nil && (req.Key == "permissions.deny" || req.Key == "permissions.ask") {
+		view.Dropped = droppedProjectRules(shared.Meta, req.Key, rules)
+	}
 	hash := sha256.New()
 	fingerprint, err := json.Marshal(struct {
 		File, Key, Audience string
@@ -234,6 +240,20 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 	}
 	view.Expected = hex.EncodeToString(hash.Sum(nil))
 	return &permissionEditPlan{view: view, file: file, before: original, after: after}, nil
+}
+
+// droppedProjectRules are the rules of the project's key list in meta
+// that rules leaves out.
+func droppedProjectRules(meta map[string]any, key string, rules []string) []string {
+	value, _ := overview.SettingsFieldValue(meta, key)
+	project, _ := value.([]any)
+	var dropped []string
+	for _, rule := range project {
+		if text, ok := rule.(string); ok && !slices.Contains(rules, text) {
+			dropped = append(dropped, text)
+		}
+	}
+	return dropped
 }
 
 // hashEditSources adds the current content of every file an edit reads
