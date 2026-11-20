@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -212,8 +213,33 @@ func approvalHookProblem(tool string) string {
 		return notSynced
 	}
 	body, err := os.ReadFile(path)
-	if err != nil || !bytes.Contains(body, []byte(approvalHookCommand)) {
+	if err != nil {
 		return notSynced
+	}
+	var file struct {
+		DisableAllHooks bool `json:"disableAllHooks"`
+		Hooks           struct {
+			PermissionRequest []struct {
+				Hooks []struct {
+					Command string `json:"command"`
+				} `json:"hooks"`
+			} `json:"PermissionRequest"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(body, &file); err != nil {
+		return fmt.Sprintf("%s does not parse: %v", path, err)
+	}
+	installed := false
+	for _, group := range file.Hooks.PermissionRequest {
+		for _, handler := range group.Hooks {
+			installed = installed || strings.Contains(handler.Command, approvalHookCommand)
+		}
+	}
+	if !installed {
+		return notSynced
+	}
+	if file.DisableAllHooks {
+		return path + " sets disableAllHooks"
 	}
 	if tool != "codex" {
 		return ""

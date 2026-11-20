@@ -181,6 +181,28 @@ func TestApprovalsStatus_ClaudeHookInstalled(t *testing.T) {
 	}
 }
 
+func TestApprovalsStatus_ClaudeHookOffOrElsewhere(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	for name, body := range map[string]string{
+		"all hooks off":         `{"disableAllHooks":true,"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target claude"}]}]}}`,
+		"under another event":   `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target claude"}]}]}}`,
+		"settings do not parse": `{"hooks":`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
+			t.Setenv("CLAUDE_CONFIG_DIR", "")
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".claude", "settings.json"), body)
+			claude := toolStatus(t, approvalsStatusJSON(t), "claude")
+			if claude.Effective != config.ApprovalsAsk || claude.Reason == "" {
+				t.Errorf("claude: %+v", claude)
+			}
+		})
+	}
+}
+
 func TestApprovalsStatus_CodexHookNotTrusted(t *testing.T) {
 	approvalsHome(t, "version: 1\ntargets: [codex]\napprovals:\n  mode: yolo\n")
 	codexHome := t.TempDir()

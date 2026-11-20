@@ -52,6 +52,8 @@ func newHookApproveCmd() *cobra.Command {
 			return nil
 		},
 	}
+	// A flag that does not parse must not reach stderr: leave the prompt.
+	cmd.SetFlagErrorFunc(func(*cobra.Command, error) error { return nil })
 	cmd.Flags().StringVarP(&target, "target", "t", "", "Tool that runs the hook: claude or codex (default $"+adapters.HookTargetEnv+")")
 	return cmd
 }
@@ -111,13 +113,15 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	}
 	request := approvals.Request{Call: p.Call, Input: p.Input, PermissionMode: p.PermissionMode, Cwd: p.Cwd}
 	decision := approvals.Decision{Outcome: approvals.Asked, Rule: approvals.RuleToolSettings}
-	if alwaysAsk, ok := approveAlwaysAsk(target, p.Cwd, home.AlwaysAsk); ok {
+	if settings, ok := approveToolSettings(target, p.Cwd); ok {
+		projectDir := os.Getenv("CLAUDE_PROJECT_DIR")
 		decision = approvals.Decide(request, approvals.Policy{
 			Mode:         mode,
 			ProjectRoot:  approveProjectRoot(p.Cwd),
 			Home:         userHome,
 			AgnosticHome: source,
-			AlwaysAsk:    alwaysAsk,
+			AlwaysAsk:    append(append([]string(nil), home.AlwaysAsk...), settings.Ask...),
+			RuleRoots:    append([]string{p.Cwd, projectDir}, settings.RuleRoots...),
 			Resolve:      approvals.ResolveLinks,
 		})
 	}
@@ -132,21 +136,21 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	return allow
 }
 
-// approveAlwaysAsk is the person's always-ask list plus, for Claude
-// Code, the ask rules of its settings files: a hook allow would answer
-// them (decision 022). ok is false when a settings file does not read.
-func approveAlwaysAsk(target, cwd string, home []string) ([]string, bool) {
-	rules := append([]string(nil), home...)
+// approveToolSettings reads, for Claude Code, the ask rules of its
+// settings files: a hook allow would answer them (decision 022). ok is
+// false when a settings file does not read, or a project file's env
+// block moves the folders the hook reads its policy from.
+func approveToolSettings(target, cwd string) (approvals.ClaudeSettings, bool) {
 	if target != "claude" {
-		return rules, true
+		return approvals.ClaudeSettings{}, true
 	}
 	user, _ := claudeUserSettingsPath()
 	files := approvals.ClaudeSettingsFiles(cwd, os.Getenv("CLAUDE_PROJECT_DIR"), user, claudeManagedDir)
-	ask, err := approvals.ClaudeAskRules(files)
-	if err != nil {
-		return nil, false
+	settings, err := approvals.ReadClaudeSettings(files)
+	if err != nil || len(settings.MovedEnv) > 0 {
+		return approvals.ClaudeSettings{}, false
 	}
-	return append(rules, ask...), true
+	return settings, true
 }
 
 // approveProjectRoot is the root of the Git checkout that holds cwd, or

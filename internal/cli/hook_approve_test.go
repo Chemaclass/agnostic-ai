@@ -233,6 +233,60 @@ func TestHookApprove_TargetFromEnvironment(t *testing.T) {
 	}
 }
 
+func TestHookApprove_BadFlagStaysSilent(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	for _, args := range [][]string{{"--target"}, {"-t"}, {"--target", "claude", "--verbose=x"}} {
+		var stdout, stderr bytes.Buffer
+		root := NewRootCmd("test")
+		root.SetOut(&stdout)
+		root.SetErr(&stderr)
+		root.SetIn(strings.NewReader(recordedPayload(t, "claude", project, "go test ./...")))
+		root.SetArgs(append([]string{"hook", "approve"}, args...))
+		if err := root.Execute(); err != nil || stderr.Len() > 0 || stdout.Len() > 0 {
+			t.Errorf("%v: err %v, stdout %q, stderr %q; want exit 0 and nothing", args, err, stdout.String(), stderr.String())
+		}
+	}
+}
+
+func TestHookApprove_ClaudeRulesFromASubfolderSession(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	pkg := filepath.Join(project, "pkg")
+	writeFile(t, filepath.Join(pkg, ".claude", "settings.json"), `{"permissions":{"ask":["Write(/src/**)"]}}`)
+	t.Setenv("CLAUDE_PROJECT_DIR", pkg)
+	payload := `{"hook_event_name":"PermissionRequest","session_id":"s","cwd":` + strconvQuote(pkg) + `,"permission_mode":"default","tool_name":"Write","tool_input":{"file_path":` + strconvQuote(filepath.Join(pkg, "src", "a.go")) + `,"content":"x"}}`
+	if got := runApprove(t, "claude", payload); got != "" {
+		t.Fatalf("reply = %q, want nothing: the rule is anchored at the folder of its settings file", got)
+	}
+	other := strings.Replace(payload, filepath.Join(pkg, "src", "a.go"), filepath.Join(pkg, "docs", "a.md"), 1)
+	if got := runApprove(t, "claude", other); got != approveAllowReply {
+		t.Fatalf("reply = %q, want the allow reply for a path no rule names", got)
+	}
+}
+
+func TestHookApprove_ClaudeRulesThroughASymlinkedFolder(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	writeFile(t, filepath.Join(project, ".claude", "settings.json"), `{"permissions":{"ask":["Bash(go test*)"]}}`)
+	writeFile(t, filepath.Join(project, "pkg", "a.go"), "package a\n")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(filepath.Join(project, "pkg"), link); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	if got := runApprove(t, "claude", recordedPayload(t, "claude", link, "go test ./...")); got != "" {
+		t.Fatalf("reply = %q, want nothing", got)
+	}
+}
+
+func TestHookApprove_ProjectEnvThatMovesThePolicyAsks(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	writeFile(t, filepath.Join(project, ".claude", "settings.json"), `{"env":{"AGNOSTIC_AI_HOME":"/tmp/elsewhere"}}`)
+	if got := runApprove(t, "claude", recordedPayload(t, "claude", project, "go test ./...")); got != "" {
+		t.Fatalf("reply = %q, want nothing", got)
+	}
+	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Rule != approvals.RuleToolSettings {
+		t.Errorf("log = %+v, want one asked line with rule %s", entries, approvals.RuleToolSettings)
+	}
+}
+
 func TestHookApprove_UnknownFlagAndArgsStaySilent(t *testing.T) {
 	_, project := approveSetup(t, yoloHome)
 	var stdout, stderr bytes.Buffer

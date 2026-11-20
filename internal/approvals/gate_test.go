@@ -70,6 +70,10 @@ func TestDecide_GateRows(t *testing.T) {
 		{"auto mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "auto"}, RulePermissionMode},
 		{"plan mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "plan"}, RulePermissionMode},
 		{"default mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "default"}, ""},
+		{"accept edits mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "acceptEdits"}, ""},
+		{"dont ask mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "dontAsk"}, RulePermissionMode},
+		{"bypass mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "bypassPermissions"}, RulePermissionMode},
+		{"unknown mode", Request{Call: "Bash", Input: map[string]any{"command": "ls"}, Cwd: testRoot, PermissionMode: "something-new"}, RulePermissionMode},
 
 		{"command substitution", bash("echo $(rm -rf /)"), RuleShellSyntax},
 		{"backticks", bash("echo `whoami`"), RuleShellSyntax},
@@ -796,6 +800,38 @@ func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
 	// A pattern can never approve what a fixed rule asks for.
 	p.AlwaysAsk = []string{"Bash(nothing-matches)"}
 	wantDecision(t, Decide(bash("git push"), p), RulePublish)
+}
+
+func TestDecide_AskRulesCoverEveryEditAndReadTool(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.AlwaysAsk = []string{"Write(/src/**)", "Read(/notes/**)"}
+	wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/src/a.go"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/src/a.go"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("MultiEdit", map[string]any{"file_path": "src/b.go"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "path": testRoot + "/notes"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Glob", map[string]any{"pattern": "notes/**/*.md"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/notes/a.md"}), p), RuleAlwaysAsk)
+	patch := "*** Begin Patch\n*** Update File: src/c.go\n@@\n-a\n+b\n*** End Patch\n"
+	wantDecision(t, Decide(call("apply_patch", map[string]any{"command": patch}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/docs/a.md"}), p), "")
+	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/docs/a.md"}), p), "")
+	// A search reads a whole folder, so any Read rule with a path asks.
+	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "path": testRoot + "/docs"}), p), RuleAlwaysAsk)
+	p.AlwaysAsk = []string{"Write(/src/**)"}
+	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "path": testRoot + "/docs"}), p), "")
+}
+
+func TestDecide_AskRulesMatchFromEveryRuleRoot(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.AlwaysAsk = []string{"Edit(/src/**)", "Edit(src/gen/**)"}
+	edit := Request{Call: "Edit", Input: map[string]any{"file_path": testRoot + "/pkg/src/a.go"}, Cwd: testRoot + "/pkg"}
+	wantDecision(t, Decide(edit, p), "")
+	p.RuleRoots = []string{testRoot + "/pkg"}
+	wantDecision(t, Decide(edit, p), RuleAlwaysAsk)
+	gen := Request{Call: "Edit", Input: map[string]any{"file_path": testRoot + "/pkg/src/gen/a.go"}, Cwd: testRoot + "/pkg"}
+	wantDecision(t, Decide(gen, p), RuleAlwaysAsk)
 }
 
 func TestDecide_SymlinkedProjectRoot(t *testing.T) {

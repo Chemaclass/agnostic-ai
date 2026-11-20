@@ -86,11 +86,12 @@ Field details: [approvals reference](@/docs/global-configuration-reference.md#gl
 | An edit to `.git/`, `.github/workflows/`, shell profiles, tool settings and hook files, `agnostic-ai.yaml`, or anything under `$AGNOSTIC_AI_HOME` | Could turn the gate off |
 | A command that names `AGNOSTIC_AI_` settings | Could change the policy |
 | MCP tools, web fetch and search, questions to you such as `AskUserQuestion` | Not a call the gate reads |
-| A Claude Code session in auto or plan mode | The tool's reviewer or a rule already chose to ask you |
-| A Claude Code call that matches an `ask` rule in your user, project, local or managed settings | A hook allow would skip that rule |
+| A Claude Code session in any mode but manual or accept edits, such as auto or plan | In auto or plan the tool's reviewer or a rule already chose to ask you; other modes were not tested |
+| A Claude Code call that matches an `ask` rule in your user, project, local or managed settings. A search tool (Grep, Glob, LS) asks whenever a `Read` rule names a path | A hook allow would skip that rule |
+| A Claude Code project settings file whose `env` sets `AGNOSTIC_AI_HOME`, `HOME`, `CLAUDE_CONFIG_DIR` or `USERPROFILE` | It would move the files the hook reads |
 | A pattern in `always-ask` | Your own rule |
 
-`always-ask` only adds to this list; nothing removes a row. The tool's own deny rules still win: a denied call never reaches the hook.
+`always-ask` only adds to this list; nothing removes a row. The tool's own deny rules still win: a denied call never reaches the hook. A path in a settings spec's [`protected` block](@/docs/spec-format/settings.md#protected-paths) is held by each tool's own check that a project sync writes: Claude Code permission rules, which the hook reads as `ask` rules, and a Codex hook that blocks the edit.
 
 Claude Code `ask` rules come from `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR`), `.claude/settings.json` and `.claude/settings.local.json` in the session folder and every folder above it, the main checkout of a linked worktree, and the managed settings file and `managed-settings.d/` folder. A file there that does not parse makes every request ask. Rules passed on the command line with `--settings` or `--allowedTools`, and managed settings delivered by a device profile or the claude.ai console, cannot be read: put those patterns in `always-ask` too.
 
@@ -117,10 +118,11 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Question | Answer |
 |---|---|
 | Can text in a file or a web page make the hook approve a harmful command? | No. The hook reads only the tool name and its input, never the conversation. |
-| Can a repository turn on `yolo`? | No. Loosening is read only from the home config, and a project sync never writes the hook. |
+| Can a repository turn on `yolo`? | Not through agnostic-ai: loosening is read only from the home config, a project sync never writes the hook, and a project settings file that points the hook at another home makes it ask. A repository you trust in Claude Code can still ship its own hooks, approvals or not. |
 | Can the agent edit the policy or the log to approve itself? | Edits to those files and commands that name them ask. A script that writes them indirectly is not caught. |
 | What if the hook hangs or crashes? | It exits 0 and prints nothing on every failure, so the tool shows its prompt. Its timeout is 10 seconds; a hung hook costs a Codex user that wait before the prompt shows. |
 | Does the hook ever deny a call? | No. It approves or stays silent. |
+| Does it read Codex rules that ask? | No. Codex `prefix_rule` and other approval rules are not read, so a call one of them would ask for can be approved. Put those patterns in `always-ask`. |
 
 ## Per tool {#per-tool}
 

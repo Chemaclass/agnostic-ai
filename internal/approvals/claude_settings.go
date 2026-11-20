@@ -13,7 +13,8 @@ import (
 )
 
 // RuleToolSettings names the ask when a tool's own settings file, whose
-// ask rules a hook allow would skip, does not read.
+// ask rules a hook allow would skip, does not read, or when a project
+// settings file moves the folders the hook reads its policy from.
 const RuleToolSettings = "tool-settings"
 
 // ClaudeManagedDir is the folder of Claude Code's managed settings files
@@ -29,34 +30,47 @@ func ClaudeManagedDir(goos string) string {
 	return ""
 }
 
+// ClaudeSettingsFile is one settings file, or a folder of them, that
+// Claude Code may read. Project marks a file inside a checkout, which a
+// repository can ship.
+type ClaudeSettingsFile struct {
+	Path    string
+	Project bool
+}
+
 // ClaudeSettingsFiles lists the settings files whose ask rules may apply
 // to a session in cwd: the user file, the managed file and its drop-in
 // folder, and .claude/settings.json and settings.local.json in cwd, in
 // projectDir, in every folder above them, and at the main checkout of a
-// linked worktree. Claude Code reads fewer of these; reading more only
-// adds rules that ask.
-func ClaudeSettingsFiles(cwd, projectDir, userSettings, managedDir string) []string {
-	var files []string
-	add := func(path string) {
-		if path != "" && !slices.Contains(files, path) {
-			files = append(files, path)
+// linked worktree, each walked both as written and with links resolved.
+// Claude Code reads fewer of these; reading more only adds rules that ask.
+func ClaudeSettingsFiles(cwd, projectDir, userSettings, managedDir string) []ClaudeSettingsFile {
+	var files []ClaudeSettingsFile
+	add := func(path string, project bool) {
+		if path != "" && !slices.ContainsFunc(files, func(f ClaudeSettingsFile) bool { return f.Path == path }) {
+			files = append(files, ClaudeSettingsFile{Path: path, Project: project})
 		}
 	}
-	add(userSettings)
+	addProject := func(dir string) {
+		add(filepath.Join(dir, ".claude", "settings.json"), true)
+		add(filepath.Join(dir, ".claude", "settings.local.json"), true)
+	}
+	add(userSettings, false)
 	if managedDir != "" {
-		add(filepath.Join(managedDir, "managed-settings.json"))
-		add(filepath.Join(managedDir, "managed-settings.d"))
+		add(filepath.Join(managedDir, "managed-settings.json"), false)
+		add(filepath.Join(managedDir, "managed-settings.d"), false)
 	}
+	var starts []string
 	for _, start := range []string{cwd, projectDir} {
-		if !filepath.IsAbs(start) {
-			continue
+		if filepath.IsAbs(start) {
+			starts = append(starts, filepath.Clean(start), ResolveLinks(start))
 		}
-		for dir := filepath.Clean(start); ; dir = filepath.Dir(dir) {
-			add(filepath.Join(dir, ".claude", "settings.json"))
-			add(filepath.Join(dir, ".claude", "settings.local.json"))
+	}
+	for _, start := range starts {
+		for dir := start; ; dir = filepath.Dir(dir) {
+			addProject(dir)
 			if main := mainCheckout(dir); main != "" {
-				add(filepath.Join(main, ".claude", "settings.json"))
-				add(filepath.Join(main, ".claude", "settings.local.json"))
+				addProject(main)
 			}
 			if filepath.Dir(dir) == dir {
 				break
@@ -96,35 +110,62 @@ func mainCheckout(dir string) string {
 	return filepath.Dir(commonDir)
 }
 
-// ClaudeAskRules returns permissions.ask from each settings file in
-// paths. A path that is a folder adds every .json file in it. A missing
-// file adds nothing; one that exists but does not read or parse is an
-// error, so the caller asks rather than skip a rule it cannot see.
-func ClaudeAskRules(paths []string) ([]string, error) {
-	var rules []string
-	for _, path := range paths {
-		info, err := os.Stat(path)
+// ClaudeSettings is what the hook needs from Claude Code's settings.
+type ClaudeSettings struct {
+	// Ask are the permissions.ask rules of every file.
+	Ask []string
+	// RuleRoots are the folders that hold a project file with ask
+	// rules; a rule's path may be anchored there.
+	RuleRoots []string
+	// MovedEnv are the variables a project file's env block sets that
+	// change where the hook reads its policy or the person's settings.
+	MovedEnv []string
+}
+
+// policyEnv are the variables that choose the files the hook reads. A
+// repository's settings file must not point them elsewhere.
+var policyEnv = []string{"AGNOSTIC_AI_HOME", "HOME", "CLAUDE_CONFIG_DIR", "USERPROFILE"}
+
+// ReadClaudeSettings reads each file in files. A path that is a folder
+// adds every .json file in it. A missing file adds nothing; one that
+// exists but does not read or parse is an error, so the caller asks
+// rather than skip a rule it cannot see.
+func ReadClaudeSettings(files []ClaudeSettingsFile) (ClaudeSettings, error) {
+	var out ClaudeSettings
+	for _, file := range files {
+		info, err := os.Stat(file.Path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", path, err)
+			return ClaudeSettings{}, fmt.Errorf("read %s: %w", file.Path, err)
 		}
-		files := []string{path}
+		paths := []string{file.Path}
 		if info.IsDir() {
-			if files, err = jsonFiles(path); err != nil {
-				return nil, err
+			if paths, err = jsonFiles(file.Path); err != nil {
+				return ClaudeSettings{}, err
 			}
 		}
-		for _, file := range files {
-			ask, err := claudeAskRules(file)
+		for _, path := range paths {
+			settings, err := readClaudeSettingsFile(path)
 			if err != nil {
-				return nil, err
+				return ClaudeSettings{}, err
 			}
-			rules = append(rules, ask...)
+			out.Ask = append(out.Ask, settings.Permissions.Ask...)
+			if !file.Project {
+				continue
+			}
+			if root := filepath.Dir(filepath.Dir(path)); len(settings.Permissions.Ask) > 0 && !slices.Contains(out.RuleRoots, root) {
+				out.RuleRoots = append(out.RuleRoots, root)
+			}
+			for _, key := range policyEnv {
+				if _, set := settings.Env[key]; set && !slices.Contains(out.MovedEnv, key) {
+					out.MovedEnv = append(out.MovedEnv, key)
+				}
+			}
 		}
 	}
-	return rules, nil
+	return out, nil
 }
 
 func jsonFiles(dir string) ([]string, error) {
@@ -142,24 +183,24 @@ func jsonFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
-func claudeAskRules(path string) ([]string, error) {
+type claudeSettingsFile struct {
+	Permissions struct {
+		Ask []string `json:"ask"`
+	} `json:"permissions"`
+	Env map[string]any `json:"env"`
+}
+
+func readClaudeSettingsFile(path string) (claudeSettingsFile, error) {
+	var settings claudeSettingsFile
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return settings, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var settings struct {
-		Permissions *struct {
-			Ask []string `json:"ask"`
-		} `json:"permissions"`
+		return settings, fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := json.Unmarshal(data, &settings); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return settings, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if settings.Permissions == nil {
-		return nil, nil
-	}
-	return settings.Permissions.Ask, nil
+	return settings, nil
 }
