@@ -36,3 +36,18 @@ func TestSetPermissionList_KeepsTheListStyle(t *testing.T) {
 		})
 	}
 }
+
+func TestSetPermissionList_EmptiesABlockList(t *testing.T) {
+	for _, in := range []string{
+		"permissions:\n  allow:\n  - read(src/**)\nmodel: sonnet\n",
+		"permissions:\n  allow:\n    - read(src/**)\nmodel: sonnet\n",
+	} {
+		got, err := setPermissionList([]byte(in), "permissions.allow", []string{})
+		if err != nil {
+			t.Fatalf("%q: %v", in, err)
+		}
+		if want := "permissions:\n  allow: []\nmodel: sonnet\n"; string(got) != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	}
+}

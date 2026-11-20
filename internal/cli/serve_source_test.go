@@ -697,7 +697,7 @@ func TestServeSource_ShowsTheDemoHookWithItsWindowsCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "no-force-push.yaml")
-	mustWriteFile(t, hook, string(data))
+	writeFile(t, hook, string(data))
 	view := getSource(t, srv, absSlash(t, hook), http.StatusOK)
 	if view.Withheld || len(view.Frontmatter) == 0 {
 		t.Errorf("demo hook withheld %v, fields %d", view.Withheld, len(view.Frontmatter))

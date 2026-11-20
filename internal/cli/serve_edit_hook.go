@@ -169,26 +169,36 @@ func writeHookError(w http.ResponseWriter, err error) {
 	writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
 }
 
+// checkTargetsExclude refuses a tool the setup does not configure, a
+// repeat, and a list that leaves the hook no tool to run on. It returns
+// the list without the tools that write no hooks in this scope, which the
+// hook never reaches anyway.
+func checkTargetsExclude(exclude, configured, hookTargets []string) ([]string, error) {
+	writers := slices.DeleteFunc(slices.Clone(hookTargets), func(target string) bool {
+		_, ok := targetsSupportingKind[spec.KindHook][target]
+		return !ok
+	})
+	var kept []string
+	for i, target := range exclude {
+		if !slices.Contains(configured, target) {
+			return nil, hookSpecProblems{fmt.Sprintf("targetsExclude: %s is not a configured tool", target)}
+		}
+		if slices.Contains(exclude[:i], target) {
+			return nil, hookSpecProblems{fmt.Sprintf("targetsExclude: %s is listed twice", target)}
+		}
+		if slices.Contains(writers, target) {
+			kept = append(kept, target)
+		}
+	}
+	if len(kept) > 0 && !slices.ContainsFunc(writers, func(target string) bool { return !slices.Contains(kept, target) }) {
+		return nil, hookSpecProblems{"targetsExclude leaves the hook no tool to run on"}
+	}
+	return kept, nil
+}
+
 // hookSpecYAML writes the fields in the order the hook reference lists them.
 // The command keeps every byte, since trailing spaces and backslashes can
 // change what the shell runs; the first style that reads back unchanged wins.
-// checkTargetsExclude refuses a tool the setup does not configure, a
-// repeat, and a list that leaves the hook no tool to run on.
-func checkTargetsExclude(exclude, targets []string) error {
-	for i, target := range exclude {
-		if !slices.Contains(targets, target) {
-			return hookSpecProblems{fmt.Sprintf("targetsExclude: %s is not a configured tool that writes hooks", target)}
-		}
-		if slices.Contains(exclude[:i], target) {
-			return hookSpecProblems{fmt.Sprintf("targetsExclude: %s is listed twice", target)}
-		}
-	}
-	if len(exclude) > 0 && !slices.ContainsFunc(targets, func(target string) bool { return !slices.Contains(exclude, target) }) {
-		return hookSpecProblems{"targetsExclude leaves the hook no tool to run on"}
-	}
-	return nil
-}
-
 func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
 	styles := []yaml.Style{0, yaml.DoubleQuotedStyle}
 	if strings.Contains(req.Command, "\n") {
@@ -241,9 +251,11 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 			return hookSpecPreview{}, "", hookEditConflict{hookExists(req.Name)}
 		}
 	}
-	if err := checkTargetsExclude(req.TargetsExclude, scope.hookTargets); err != nil {
+	kept, err := checkTargetsExclude(req.TargetsExclude, scope.targets, scope.hookTargets)
+	if err != nil {
 		return hookSpecPreview{}, "", err
 	}
+	req.TargetsExclude = kept
 	dir := filepath.Join(h.root, "hooks")
 	if !h.global {
 		dir = config.ResolveSourcePath(h.root, scope.cfg.Sources.Hooks)

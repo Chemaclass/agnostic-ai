@@ -522,6 +522,9 @@ func hookMoveScripts(hook spec.Entry, srcDir, dstDir string) ([]specMoveFile, er
 			if _, err := os.Lstat(src); errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
+			if inside, err := insideRealRoot(srcDir, src); err != nil || !inside {
+				return nil, moveRefusal(http.StatusUnprocessableEntity, "%s runs %s, which a link leads outside the scripts folder; move it by hand", hook.Name, src)
+			}
 			files, err := readMoveUnit(src, false)
 			if err != nil {
 				return nil, err
@@ -569,8 +572,23 @@ func hookMoveCommands(meta map[string]any) []hookMoveCommand {
 	}
 	add(meta, len(stringSliceFromAny(meta["args"])) > 0)
 	for key, value := range meta {
-		if override, ok := value.(map[string]any); ok && strings.HasPrefix(key, "x-") {
-			add(override, len(stringSliceFromAny(override["args"])) > 0 || len(stringSliceFromAny(meta["args"])) > 0)
+		override, ok := value.(map[string]any)
+		if !ok || !strings.HasPrefix(key, "x-") {
+			continue
+		}
+		literal := len(stringSliceFromAny(override["args"])) > 0 || len(stringSliceFromAny(meta["args"])) > 0
+		add(override, literal)
+		// Kiro nests its command under action, Gemini and Qwen under a
+		// hooks list.
+		if action, ok := override["action"].(map[string]any); ok {
+			add(action, false)
+		}
+		if hooks, ok := override["hooks"].([]any); ok {
+			for _, item := range hooks {
+				if hook, ok := item.(map[string]any); ok {
+					add(hook, false)
+				}
+			}
 		}
 	}
 	return commands

@@ -99,6 +99,9 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 			if e != nil {
 				return nil, e
 			}
+			if node.Kind == yaml.SequenceNode && node.Style&yaml.FlowStyle == 0 && len(node.Content) > 0 && len(value.([]string)) == 0 {
+				start, encoded = keyLineEnd(data, start), " "+encoded
+			}
 			out = spliceEditYAML(data, start, end, encoded)
 		}
 	}
@@ -154,6 +157,21 @@ func permissionListText(value any, node *yaml.Node, newline string) (string, err
 		lines[i] = "- " + strings.TrimSpace(string(encoded))
 	}
 	return strings.Join(lines, newline+strings.Repeat(" ", node.Column-1)), nil
+}
+
+// keyLineEnd moves offset back over the spaces and line breaks after a
+// key's colon, so an emptied block list's `[]` lands on the key line, where
+// it parses whatever the list's indent was. With no colon there, offset
+// comes back unchanged.
+func keyLineEnd(data []byte, offset int) int {
+	i := offset
+	for i > 0 && strings.ContainsRune(" \t\r\n", rune(data[i-1])) {
+		i--
+	}
+	if i > 0 && data[i-1] == ':' {
+		return i
+	}
+	return offset
 }
 
 // lineEnding is CRLF when data uses it, else LF.
