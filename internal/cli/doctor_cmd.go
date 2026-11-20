@@ -275,6 +275,12 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	reportUserOwned(cmd, cfg)
 	reportLegacyDefaultInstructions(cmd)
 	reportGlobalNameClashes(cmd, scope.bundle, cfg)
+	// Stop on sync's hand-written file guards before the first --fix write.
+	if opts.fix {
+		if _, stop, err := collectDoctorDrift(cfg, scope.bundle, opts); err == nil && stop != nil {
+			return stop
+		}
+	}
 	if claudeSkillOverridesSelected(cfg, targets) {
 		overrides := collectClaudeSkillOverrides(cfg, scope.bundle, opts.scope == "project")
 		reportClaudeSkillOverrides(cmd, overrides)
@@ -401,12 +407,10 @@ func reportDoctorDrift(cmd *cobra.Command, opts doctorOptions, cfg *config.Confi
 		return doctorDrift{}, err
 	}
 	if handWritten != nil {
-		// Earlier --fix steps may have written, so the stop leaves out
-		// sync's "nothing was written".
-		handWritten = withoutNothingWritten(handWritten)
 		if opts.fix {
 			return doctorDrift{}, handWritten
 		}
+		handWritten = withoutNothingWritten(handWritten)
 		cmd.Printf("  ✗ %s\n", strings.ReplaceAll(handWritten.Error(), "\n", "\n  "))
 	}
 	displayReports, err := doctorPreviewDrift(reports, cfg)
@@ -432,18 +436,20 @@ func reportDoctorDrift(cmd *cobra.Command, opts doctorOptions, cfg *config.Confi
 
 // collectDoctorDrift collects the drift and runs sync's hand-written
 // file guards on it. It returns their stop apart, so doctor reports it
-// and doctor --fix stops on it as sync does.
+// and doctor --fix stops on it as sync does. Only --fix writes, so only
+// --fix --backup passes the guards.
 func collectDoctorDrift(cfg *config.Config, bundle spec.Bundle, opts doctorOptions) ([]driftReport, error, error) {
 	ledger := readLedger(".")
 	var handWritten error
+	backup := opts.fix && opts.backup
 	guard := func(renders *targetRenders, readerCfg *config.Config) error {
 		readers := opts.targets
 		if len(readers) == 0 {
 			readers = readerCfg.Targets
 		}
-		handWritten = keepHandWrittenInstructions(cfg, bundle, readers, ledger.state.Outputs, opts.backup, false)
+		handWritten = keepHandWrittenInstructions(cfg, bundle, readers, ledger.state.Outputs, backup, false)
 		if handWritten == nil {
-			handWritten = keepHandWrittenMCPFiles(renders, readerCfg, readers, ledger.state.Outputs, opts.backup, false)
+			handWritten = keepHandWrittenMCPFiles(renders, readerCfg, readers, ledger.state.Outputs, backup, false)
 		}
 		return nil
 	}

@@ -65,7 +65,7 @@ func keepHandWrittenMCPFiles(renders *targetRenders, cfg *config.Config, targets
 		}
 		lost, err := handWrittenMCPEntries(f.path, f.key, f.written)
 		if err != nil {
-			return fmt.Errorf("%w; nothing was written", err)
+			return nothingWritten{err}
 		}
 		if len(lost) == 0 {
 			continue

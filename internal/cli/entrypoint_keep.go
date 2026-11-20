@@ -53,7 +53,7 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		}
 		uncaptured, err := handWrittenUncaptured(f.Path, held)
 		if err != nil {
-			return fmt.Errorf("%w; nothing was written", err)
+			return nothingWritten{err}
 		}
 		if !uncaptured {
 			continue
@@ -84,12 +84,24 @@ func (s handWrittenStop) Error() string {
 	return strings.Join(s, "\n") + "\nnothing was written"
 }
 
-// withoutNothingWritten drops the "nothing was written" line from a
-// hand-written stop, for a run that never writes.
+// nothingWritten is an error a hand-written file guard hit before any
+// write.
+type nothingWritten struct{ err error }
+
+func (e nothingWritten) Error() string { return e.err.Error() + "; nothing was written" }
+
+func (e nothingWritten) Unwrap() error { return e.err }
+
+// withoutNothingWritten drops "nothing was written" from a hand-written
+// file guard's error, for a run that never writes.
 func withoutNothingWritten(err error) error {
 	var stop handWrittenStop
 	if errors.As(err, &stop) {
 		return errors.New(strings.Join(stop, "\n"))
+	}
+	var read nothingWritten
+	if errors.As(err, &read) {
+		return read.err
 	}
 	return err
 }

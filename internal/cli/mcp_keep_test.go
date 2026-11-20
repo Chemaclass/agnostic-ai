@@ -166,18 +166,21 @@ func TestSync_KeepsAHandWrittenClaudeMCPFile(t *testing.T) {
 func TestDoctor_KeepsAHandWrittenMCPFileItHasNotImported(t *testing.T) {
 	setUpCursorMCPProject(t)
 
-	out, err := runCLI(t, "doctor")
-	if err == nil {
-		t.Fatalf("doctor passed with a hand-written MCP file:\n%s", out)
-	}
-	if !strings.Contains(out, ".cursor/mcp.json holds MCP config") || !strings.Contains(out, "agnostic-ai import cursor") {
-		t.Errorf("doctor did not name the hand-written file and the import step:\n%s", out)
-	}
-	if strings.Contains(out, "doctor --fix") || strings.Contains(err.Error(), "doctor --fix") {
-		t.Errorf("doctor suggested --fix, which the guard stops:\n%s\n%v", out, err)
+	// --backup changes nothing without --fix, which alone writes.
+	for _, args := range [][]string{{"doctor"}, {"doctor", "--backup"}} {
+		out, err := runCLI(t, args...)
+		if err == nil {
+			t.Fatalf("%v passed with a hand-written MCP file:\n%s", args, out)
+		}
+		if !strings.Contains(out, ".cursor/mcp.json holds MCP config") || !strings.Contains(out, "agnostic-ai import cursor") {
+			t.Errorf("%v did not name the hand-written file and the import step:\n%s", args, out)
+		}
+		if strings.Contains(out, "doctor --fix") || strings.Contains(err.Error(), "doctor --fix") {
+			t.Errorf("%v suggested --fix, which the guard stops:\n%s\n%v", args, out, err)
+		}
 	}
 
-	_, err = runCLI(t, "doctor", "--fix")
+	_, err := runCLI(t, "doctor", "--fix")
 	if err == nil || !strings.Contains(err.Error(), ".cursor/mcp.json") {
 		t.Errorf("doctor --fix: err = %v, want a stop naming the file", err)
 	}
