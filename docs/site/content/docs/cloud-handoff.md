@@ -29,7 +29,7 @@ Say "send this to a remote agent", "run it in the cloud", or "I'm closing my lap
 
 1. Checks that the folder is a Git checkout with an `origin` remote and that the tool's command is installed.
 2. Commits the task's files and pushes them to a branch.
-3. Writes the cloud prompt: the goal on its first line, then what is done, the next step, the branch, and how to verify.
+3. Writes the cloud prompt: the goal on its first line, then what is done, the next step, the branch, and how to verify. It asks the cloud session to aim any pull request at that branch, not the default branch.
 4. Starts the cloud session and replies with its link, such as `Sent to the cloud: https://claude.ai/code/session_...`.
 
 It never runs on its own. Without the phrase, the session stays local.
