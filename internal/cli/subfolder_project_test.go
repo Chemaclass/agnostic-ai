@@ -184,8 +184,9 @@ func TestInsideAProject_EveryCommandUsesOneSentence(t *testing.T) {
 		args []string
 		run  string
 	}{
-		{[]string{"status"}, "agnostic-ai"},
-		{[]string{"init"}, "agnostic-ai"},
+		{[]string{"status"}, "the command"},
+		{[]string{"init"}, "the command"},
+		{[]string{"doctor", "--scope", "project"}, "agnostic-ai doctor"},
 		{[]string{"packs", "list"}, "agnostic-ai packs list"},
 		{[]string{"use", "codex"}, "agnostic-ai use"},
 	} {

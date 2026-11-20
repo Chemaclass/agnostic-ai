@@ -258,11 +258,12 @@ func refuseNestedProject(command string) error {
 }
 
 // insideProjectHint names the project that encloses the working
-// directory and the command to run there; an empty command means any.
+// directory and the command to run there; an empty command means the
+// one that failed.
 func insideProjectHint(dir, command string) string {
-	run := "agnostic-ai"
+	run := "the command"
 	if command != "" {
-		run += " " + command
+		run = "agnostic-ai " + command
 	}
 	return fmt.Sprintf("this directory is inside the agnostic-ai project at %s; run %s from there", dir, run)
 }

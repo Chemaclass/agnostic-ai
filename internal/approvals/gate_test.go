@@ -208,6 +208,8 @@ func TestDecide_GateRows(t *testing.T) {
 		{"edit pack mcp spec", call("Write", map[string]any{"file_path": testRoot + "/.agnostic-ai/packs/p/mcps/foo.yaml"}), RuleProtectedPath},
 		{"edit hook script", call("Write", map[string]any{"file_path": testRoot + "/.agnostic-ai/scripts/check.sh"}), RuleProtectedPath},
 		{"edit local hook script", call("Write", map[string]any{"file_path": testRoot + "/.agnostic-ai/local/scripts/check.sh"}), RuleProtectedPath},
+		{"edit pack skill", call("Write", map[string]any{"file_path": testRoot + "/.agnostic-ai/packs/p/skills/x/SKILL.md"}), RuleProtectedPath},
+		{"cd into pack", bash("cd .agnostic-ai/packs/p"), RuleProtectedPath},
 		{"edit shell profile", call("Edit", map[string]any{"file_path": testRoot + "/.zshrc"}), RuleProtectedPath},
 		{"edit husky", call("Edit", map[string]any{"file_path": testRoot + "/.husky/pre-commit"}), RuleProtectedPath},
 		{"edit skill spec", call("Edit", map[string]any{"file_path": testRoot + "/.agnostic-ai/skills/x/SKILL.md"}), ""},
