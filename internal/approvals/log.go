@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/applypatch"
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
@@ -34,17 +37,38 @@ func NewEntry(tool, session, mode string, r Request, d Decision, now time.Time) 
 	if err != nil {
 		input = nil
 	}
+	detail := conversations.CallDetail(r.Call, input)
+	if detail == "" && patchCalls[r.Call] {
+		detail = patchFiles(r.Input)
+	}
 	return Entry{
 		Time:     now.UTC(),
 		Tool:     tool,
 		Session:  session,
 		Cwd:      r.Cwd,
 		Call:     r.Call,
-		Detail:   conversations.CallDetail(r.Call, input),
+		Detail:   detail,
 		Mode:     mode,
 		Decision: d.Outcome,
 		Rule:     d.Rule,
 	}
+}
+
+// patchFiles lists the files an apply_patch body adds, updates, deletes
+// or moves to.
+func patchFiles(input map[string]any) string {
+	var files []string
+	for _, field := range []string{"patch", "input", "command"} {
+		body, _ := input[field].(string)
+		for _, op := range applypatch.Parse(body) {
+			for _, file := range []string{op.Path, op.MoveTo} {
+				if file != "" && !slices.Contains(files, file) {
+					files = append(files, file)
+				}
+			}
+		}
+	}
+	return strings.Join(files, ", ")
 }
 
 // Log appends decisions to a JSON Lines file, keeping it under

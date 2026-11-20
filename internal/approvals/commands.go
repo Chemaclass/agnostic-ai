@@ -375,7 +375,7 @@ var (
 	// wrappers run another program or shell text.
 	wrappers = set("env", "nohup", "nice", "timeout", "time", "rtk", "xargs", "command", "builtin", "exec",
 		"eval", "source", ".", "sh", "bash", "zsh", "dash", "fish", "ksh", "!", "watch", "parallel", "script",
-		"flock", "setsid", "stdbuf", "unbuffer", "caffeinate", "arch", "xcrun", "sudo")
+		"flock", "setsid", "stdbuf", "unbuffer", "caffeinate", "arch", "xcrun")
 
 	interpreterName = regexp.MustCompile(`^(python[0-9.]*|node|nodejs|ruby|perl|php|lua|deno|bun|osascript|awk|gawk|mawk|nawk|tclsh|Rscript|java|pwsh|powershell)$`)
 

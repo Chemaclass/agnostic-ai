@@ -30,8 +30,16 @@ var secretNames = []string{
 // real values.
 var secretSamples = []string{".env.example", ".env.sample", ".env.template", ".env.dist"}
 
-// secret reports whether abs names a credential file or folder.
+// secret reports whether abs names a credential file or folder, as
+// written or with its links resolved.
 func (g *gate) secret(abs string) bool {
+	if g.secretPath(abs) {
+		return true
+	}
+	return g.policy.Resolve != nil && g.secretPath(filepath.Clean(g.policy.Resolve(abs)))
+}
+
+func (g *gate) secretPath(abs string) bool {
 	if under(abs, g.home) {
 		rel, _ := filepath.Rel(g.home, abs)
 		rel = filepath.ToSlash(rel)
@@ -168,7 +176,7 @@ func dotGlobRegexp(glob string) (*regexp.Regexp, error) {
 // Agent specs are among them: an x-claude hooks or permissionMode field
 // in one becomes a hook or a permission mode after the next sync.
 var fixedProtected = spec.ProtectGroup{Paths: []string{
-	"**/.git",
+	"**/.git", "**/.gitconfig", "**/.config/git",
 	".github/workflows", ".github/hooks", ".gitlab-ci.yml", ".circleci", ".buildkite",
 	"azure-pipelines.yml", "Jenkinsfile",
 	".github/actions", ".gitmodules", ".gitattributes",

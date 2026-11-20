@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
@@ -66,6 +67,9 @@ type JSONSettings struct {
 	// DefaultPermissionMode is general.defaultPermissionMode from the
 	// last file that sets it.
 	DefaultPermissionMode string
+	// MovedEnv is set when a file's env block sets a variable that
+	// changes where the hook reads its policy.
+	MovedEnv bool
 }
 
 // ReadJSONSettings reads files, comments allowed, in precedence order. A
@@ -92,12 +96,18 @@ func ReadJSONSettings(files []string) (JSONSettings, error) {
 			General struct {
 				DefaultPermissionMode string `json:"defaultPermissionMode"`
 			} `json:"general"`
+			Env map[string]any `json:"env"`
 		}
 		if err := json.Unmarshal(data, &file); err != nil {
 			return JSONSettings{}, fmt.Errorf("parse %s: %w", path, err)
 		}
 		out.Ask = out.Ask || len(file.Permissions.Ask) > 0
 		out.HooksOff = out.HooksOff || file.DisableAllHooks
+		for _, key := range policyEnv {
+			if _, set := file.Env[key]; set {
+				out.MovedEnv = true
+			}
+		}
 		if file.Tools.ApprovalMode != "" {
 			out.ApprovalMode = file.Tools.ApprovalMode
 		}
@@ -106,4 +116,45 @@ func ReadJSONSettings(files []string) (JSONSettings, error) {
 		}
 	}
 	return out, nil
+}
+
+// QwenDotEnvMovesPolicy reports whether a .env or .qwen/.env file in cwd
+// or a folder above it sets a variable that changes where the hook
+// reads its policy. Qwen Code loads those files into its own
+// environment, which its hooks inherit, so a repository could point the
+// hook at a policy of its own. A file that exists but does not read is
+// an error.
+func QwenDotEnvMovesPolicy(cwd string) (bool, error) {
+	if !filepath.IsAbs(cwd) {
+		return false, fmt.Errorf("%s is not an absolute path", cwd)
+	}
+	for dir := filepath.Clean(cwd); ; dir = filepath.Dir(dir) {
+		for _, file := range []string{filepath.Join(dir, ".env"), filepath.Join(dir, ".qwen", ".env")} {
+			data, err := os.ReadFile(file)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return false, fmt.Errorf("read %s: %w", file, err)
+			}
+			if dotEnvSetsPolicy(string(data)) {
+				return true, nil
+			}
+		}
+		if filepath.Dir(dir) == dir {
+			return false, nil
+		}
+	}
+}
+
+func dotEnvSetsPolicy(text string) bool {
+	for line := range strings.SplitSeq(text, "\n") {
+		line = strings.TrimSpace(line)
+		line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		key, _, ok := strings.Cut(line, "=")
+		if ok && slices.Contains(policyEnv, strings.TrimSpace(key)) {
+			return true
+		}
+	}
+	return false
 }

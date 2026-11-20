@@ -48,6 +48,18 @@ type ApprovalsConfig struct {
 	AlwaysAsk []string          `yaml:"always-ask,omitempty" json:"always-ask,omitempty" jsonschema_description:"Extra patterns that always show the prompt, added to the fixed list. The patterns of both home files add up. Home config only."`
 }
 
+// Loosens reports whether any mode in the block is review or yolo.
+func (a ApprovalsConfig) Loosens() bool {
+	modes := []string{a.Mode}
+	for _, m := range a.Tools {
+		modes = append(modes, m)
+	}
+	for _, m := range a.Projects {
+		modes = append(modes, m)
+	}
+	return slices.ContainsFunc(modes, func(m string) bool { return m == ApprovalsReview || m == ApprovalsYolo })
+}
+
 // Validate rejects a mode outside ApprovalModes and a projects key that
 // is not an absolute path or one under ~.
 func (a ApprovalsConfig) Validate(source string) error {

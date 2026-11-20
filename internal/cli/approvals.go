@@ -67,7 +67,7 @@ func newApprovalsCmd() *cobra.Command {
 	}
 	cmd.Args = cobra.NoArgs
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
-	cmd.AddCommand(newApprovalsStatusCmd(), newApprovalsAskCmd())
+	cmd.AddCommand(newApprovalsStatusCmd(), newApprovalsAskCmd(), newApprovalsLogCmd())
 	return cmd
 }
 
@@ -178,7 +178,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			status.Notes = append(status.Notes, err.Error())
 		} else if native {
 			homeMode, _ := homeToolMode(home, tool)
-			status.Notes = rs.notes(tool, decision.Mode, homeMode)
+			status.Notes = append(status.Notes, rs.notes(tool, decision.Mode, homeMode)...)
 			if status.Effective == config.ApprovalsReview && !rs.on {
 				status.Effective, status.Route = config.ApprovalsAsk, ""
 				status.Reason = "the reviewer is not on in the tool's user settings"
@@ -214,8 +214,15 @@ func approvalsToolStatusFor(tool string, decision config.ApprovalDecision) appro
 		}
 	}
 	status.Effective, status.Route = decision.Mode, mechanism.Name
+	if tool == "claude" && decision.Mode == config.ApprovalsYolo {
+		status.Notes = append(status.Notes, claudeUnreadRulesNote)
+	}
 	return status
 }
+
+// claudeUnreadRulesNote names the Claude Code ask rules the hook cannot
+// see, whose prompt a hook allow would answer.
+const claudeUnreadRulesNote = "ask rules passed with --settings or --allowedTools are not read; put them in approvals.always-ask too"
 
 func approvalsMechanismName(m *approvals.Mechanism) string {
 	if m == nil {
@@ -415,6 +422,10 @@ func qwenAskProblem() string {
 		return "a Qwen Code settings file sets disableAllHooks"
 	case settings.Ask:
 		return "a Qwen Code settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
+	case settings.MovedEnv:
+		return "a Qwen Code settings file's env block sets HOME or AGNOSTIC_AI_HOME, which would move the policy the hook reads; the hook asks every time"
+	case qwenDotEnvMoves(cwd):
+		return "a .env or .qwen/.env file here or above sets HOME or AGNOSTIC_AI_HOME, which Qwen Code passes to its hooks; the hook asks every time"
 	case settings.ApprovalMode != "default" && settings.ApprovalMode != "auto_edit":
 		mode := settings.ApprovalMode
 		if mode == "" {
@@ -611,4 +622,11 @@ func lintProjectApprovals(root string) []lintFinding {
 		out = append(out, lintFinding{Code: "LINT064", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
+}
+
+// qwenDotEnvMoves reports a .env file that would move the policy, or
+// one that does not read.
+func qwenDotEnvMoves(cwd string) bool {
+	moved, err := approvals.QwenDotEnvMovesPolicy(cwd)
+	return err != nil || moved
 }

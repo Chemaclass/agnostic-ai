@@ -531,3 +531,58 @@ func TestHookApprove_MovedSpecFoldersAsk(t *testing.T) {
 		t.Errorf("logged rules = %v, want %v", rules, want)
 	}
 }
+
+func TestHookApprove_LogsAskedOutsideYolo(t *testing.T) {
+	cases := []struct {
+		name, home, env string
+		want            int
+	}{
+		{name: "review", home: "version: 1\napprovals:\n  mode: review\n", want: 1},
+		{name: "yolo for another tool", home: "version: 1\napprovals:\n  tools:\n    codex: yolo\n", want: 1},
+		{name: "env turns it off", home: yoloHome, env: "ask", want: 1},
+		{name: "ask everywhere", home: "version: 1\napprovals:\n  mode: ask\n", want: 0},
+		{name: "no approvals block", home: "version: 1\n", want: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			source, project := approveSetup(t, tc.home)
+			t.Setenv("AGNOSTIC_AI_APPROVALS", tc.env)
+			if got := runApprove(t, "claude", recordedPayload(t, "claude", project, "go test ./...")); got != "" {
+				t.Fatalf("reply = %q, want nothing", got)
+			}
+			entries := approveLog(t, source)
+			if len(entries) != tc.want {
+				t.Fatalf("log = %+v, want %d lines", entries, tc.want)
+			}
+			if tc.want == 1 && (entries[0].Decision != approvals.Asked || entries[0].Rule != approvals.RuleMode) {
+				t.Errorf("log = %+v, want asked by %s", entries[0], approvals.RuleMode)
+			}
+		})
+	}
+}
+
+func TestHookApprove_QwenProjectEnvMovingThePolicyAsks(t *testing.T) {
+	for name, file := range map[string]struct{ path, body string }{
+		".env":           {".env", "AGNOSTIC_AI_HOME=/tmp/evil\n"},
+		".qwen/.env":     {".qwen/.env", "export AGNOSTIC_AI_HOME='/tmp/evil'\n"},
+		"settings env":   {".qwen/settings.json", `{"env":{"AGNOSTIC_AI_HOME":"/tmp/evil"}}`},
+		"home in .env":   {".env", "# note\nHOME=/tmp/evil\n"},
+		"parent .env":    {"../.env", "AGNOSTIC_AI_HOME=/tmp/evil\n"},
+		"settings stays": {".qwen/settings.json", `{"env":{"FOO":"1"}}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, project := approveSetup(t, yoloHome)
+			writeFile(t, filepath.Join(project, file.path), file.body)
+			got := runApprove(t, "qwen", recordedPayload(t, "qwen", project, "go test ./..."))
+			if name == "settings stays" {
+				if got == "" {
+					t.Fatal("reply is empty, want the allow reply")
+				}
+				return
+			}
+			if got != "" {
+				t.Fatalf("reply = %q, want nothing", got)
+			}
+		})
+	}
+}
