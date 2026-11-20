@@ -22,6 +22,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `sync --plan` lists the `.gitignore` and `.worktreeinclude` changes sync makes, and `init --dry-run` lists the `.gitignore` init writes. `init` in an existing project fails before it picks targets (#3714).
 - `hook run` checks a command inside escaped backticks or an escaped `$()` within backticks, as bash runs it, for a Claude Code `if: "Bash(...)"` rule, and runs the hook when an escaped backtick leaves a substitution open (#3681).
 - `hook run` checks more commands for a Claude Code `if: "Bash(...)"` rule as bash runs them: a command name with a backslash or quotes (`\git push`), a line continuation, an empty substitution before the command, a redirection before it (`2>&1 git push`), substitutions in a here-document body, and commands after a quote inside a comment or here-document. `eval`, and a command name built by a substitution or variable, always run the hook (#3698).
+- `explain rules/tone.md` and `explain rules/tone.md --layers` find `.agnostic-ai/rules/tone.md`, as the help and docs show; `explain tone` suggests the file. An unknown error code links the public error page (#3709).
+- `sync --jobs` rejects a negative count, and `sync --watch` prints one summary at start instead of two (#3709).
+- After a first sync, the list of what each tool reads names where rules and skills land for tools such as Codex, Cursor, Cline and Kiro, where it showed a blank (#3709).
+- `migrate` lists aliases it keeps in a rewritten file under that file's rewrite line, and a re-run says nothing for a skill it already rewrote (#3709).
+- `memory lint` with `memory.personal: repo` names the personal folder it looked in (#3709).
+- `packs add` says `reinstalled` for an installed pack and names a missing folder once; `packs list` shows no `@HEAD` for a local folder (#3709).
+- Shell completion offers source names after `import`, and `completion` with an unknown shell exits non-zero (#3709).
 
 - Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
 - `agnostic-ai import` with several sources, or `all`, prints its next steps once at the end and no longer suggests importing a tool the same run imported. `import kimi` and `import vibe` now print them too (#3619).

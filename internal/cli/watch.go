@@ -17,6 +17,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -32,14 +33,19 @@ const agnosticOverlayDir = ".agnostic-ai/overlays"
 
 // watchOptions are the sync flags every pass of a watch reuses.
 type watchOptions struct {
-	dryRun        bool
-	backup        bool
-	gitignoreFlag string
-	jobs          int
+	dryRun         bool
+	backup         bool
+	gitignoreFlag  string
+	jobs           int
+	quietWhenClean bool
 }
 
 func (o watchOptions) sync(root string, targets []string) error {
-	return runSyncOnce(root, targets, o.dryRun, o.backup, o.gitignoreFlag, o.jobs)
+	if !o.quietWhenClean {
+		return runSyncOnce(root, targets, o.dryRun, o.backup, o.gitignoreFlag, o.jobs)
+	}
+	gitquery.Reset()
+	return runSyncPass(root, targets, syncRunOptions{dryRun: o.dryRun, backup: o.backup, gitignoreFlag: o.gitignoreFlag, jobs: o.jobs, quietWhenClean: true})
 }
 
 // watchSync runs an initial sync, then re-runs whenever a watched path
@@ -97,8 +103,12 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, opts 
 		return fmt.Errorf("watch local files %s: %w", root, err)
 	}
 	localSnapshot := collectMtimes([]string{localRoot})
-	// Reconcile edits made after the initial sync while watches were armed.
-	if err := watchPass(root, targets, opts); err != nil {
+	// Reconcile edits made after the initial sync while watches were
+	// armed. It reports only what it changed: the first pass already
+	// printed the summary.
+	reconcileOpts := opts
+	reconcileOpts.quietWhenClean = true
+	if err := watchPass(root, targets, reconcileOpts); err != nil {
 		fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 	}
 

@@ -169,6 +169,10 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	verb := "added"
+	if lock.has(name) {
+		verb = "reinstalled"
+	}
 	dest := filepath.Join(root, packsDir, name)
 	err = installPack(dest, func(staged string) (string, error) {
 		return fetchPack(src, ref, staged)
@@ -182,7 +186,7 @@ func runPacksAdd(root, source, nameOverride string, out io.Writer) error {
 	if err := ensureManagedGitignore(root); err != nil {
 		return fmt.Errorf("packs add: gitignore: %w", err)
 	}
-	_, _ = fmt.Fprintf(out, "✓ added %s\n", name)
+	_, _ = fmt.Fprintf(out, "✓ %s %s\n", verb, name)
 	return nil
 }
 
@@ -226,7 +230,11 @@ func runPacksList(root string, out io.Writer) error {
 		if ref == "" {
 			ref = "HEAD"
 		}
-		_, _ = fmt.Fprintf(out, "%s\t%s@%s", p.Name, p.Source, ref)
+		if isLocalSource(p.Source) {
+			_, _ = fmt.Fprintf(out, "%s\t%s", p.Name, p.Source)
+		} else {
+			_, _ = fmt.Fprintf(out, "%s\t%s@%s", p.Name, p.Source, ref)
+		}
 		if p.Sha != "" {
 			_, _ = fmt.Fprintf(out, " (%s)", short(p.Sha))
 		}
@@ -511,7 +519,7 @@ func localPath(s string) string {
 func copyTree(src, dst string) error {
 	info, err := os.Stat(src)
 	if err != nil {
-		return fmt.Errorf("stat %s: %w", src, err)
+		return err
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("%s: not a directory", src)
