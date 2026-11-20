@@ -18,9 +18,9 @@ func writeCavemanSourceSkill(t *testing.T, skills string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(skills, "caveman", "SKILL.md"), string(body))
-	mustWriteGlobalTest(t, filepath.Join(skills, "caveman", "LICENSE"), "Upstream license text.\n")
-	mustWriteGlobalTest(t, filepath.Join(skills, "caveman", "NOTICE"), "Upstream notice text.\n")
+	writeFile(t, filepath.Join(skills, "caveman", "SKILL.md"), string(body))
+	writeFile(t, filepath.Join(skills, "caveman", "LICENSE"), "Upstream license text.\n")
+	writeFile(t, filepath.Join(skills, "caveman", "NOTICE"), "Upstream notice text.\n")
 }
 
 var cavemanTestPackageDir = func() string {
@@ -74,7 +74,7 @@ func TestSyncBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	writeCavemanSourceSkill(t, filepath.Join(root, ".agnostic-ai", "skills"))
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: "+cavemanTestTargets+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: "+cavemanTestTargets+"\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -91,7 +91,7 @@ func TestSyncBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(root, ".agnostic-ai", "skills", "caveman")); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: "+cavemanTestTargets+"\nbuiltins: [caveman]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: "+cavemanTestTargets+"\nbuiltins: [caveman]\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync with the built-in: %v\n%s", err, out)
 	}
@@ -101,7 +101,7 @@ func TestSyncBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing.T) {
 	assertCavemanSkillOnly(t, before)
 
 	handWritten := filepath.Join(before[0], "LICENSE")
-	mustWriteGlobalTest(t, handWritten, "A license I wrote.\n")
+	writeFile(t, handWritten, "A license I wrote.\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync after a hand-written file: %v\n%s", err, out)
 	}
@@ -113,7 +113,7 @@ func TestSyncBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing.T) {
 func TestSyncGlobalBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	writeCavemanSourceSkill(t, filepath.Join(source, "skills"))
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: "+cavemanTestTargets+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: "+cavemanTestTargets+"\n")
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
 	}
@@ -130,7 +130,7 @@ func TestSyncGlobalBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing
 	if err := os.RemoveAll(filepath.Join(source, "skills", "caveman")); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: "+cavemanTestTargets+"\nbuiltins: [caveman]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: "+cavemanTestTargets+"\nbuiltins: [caveman]\n")
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("sync --global with the built-in: %v\n%s", err, warnings)
 	}
@@ -140,7 +140,7 @@ func TestSyncGlobalBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing
 	assertCavemanSkillOnly(t, before)
 
 	handWritten := filepath.Join(before[0], "NOTICE")
-	mustWriteGlobalTest(t, handWritten, "A notice I wrote.\n")
+	writeFile(t, handWritten, "A notice I wrote.\n")
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("sync --global after a hand-written file: %v\n%s", err, warnings)
 	}

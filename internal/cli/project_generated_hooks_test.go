@@ -21,7 +21,7 @@ func TestProjectGeneratedMemory_AncestorLocalAndUpgradeBoundary(t *testing.T) {
 				git(t, outer, "init", "-q")
 			}
 			root := filepath.Join(outer, "project with spaces")
-			mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\nbuiltins: [memory]\n")
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\nbuiltins: [memory]\n")
 			testutil.Chdir(t, root)
 			if _, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 				t.Fatal(err)
@@ -65,12 +65,12 @@ func TestProjectGeneratedMemory_AncestorLocalAndUpgradeBoundary(t *testing.T) {
 			if scenario == "missing" {
 				t.Setenv("PATH", missingAgnosticPath(t))
 			} else {
-				mustWriteFile(t, bin, body)
+				writeFile(t, bin, body)
 				if err := os.Chmod(bin, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				global := filepath.Join(t.TempDir(), oldName)
-				mustWriteFile(t, global, oldBody)
+				writeFile(t, global, oldBody)
 				if err := os.Chmod(global, 0o755); err != nil {
 					t.Fatal(err)
 				}
@@ -123,7 +123,7 @@ func missingAgnosticPath(t *testing.T) string {
 func TestProjectGeneratedGit_OldLocalReportsUpgrade(t *testing.T) {
 	root := setupGitRepo(t)
 	local := projectContractBinary(t, root, "0.82.0")
-	mustWriteFile(t, local, "#!/bin/sh\necho 'unknown command project' >&2\nexit 2\n")
+	writeFile(t, local, "#!/bin/sh\necho 'unknown command project' >&2\nexit 2\n")
 	testutil.Chdir(t, root)
 	if _, err := runCLI(t, "install-hook"); err != nil {
 		t.Fatal(err)
@@ -143,10 +143,10 @@ func TestProjectGeneratedGit_ColonPathUsesLocal(t *testing.T) {
 	isolateGit(t)
 	root := filepath.Join(t.TempDir(), "project:local")
 	local := projectContractBinary(t, root, "0.82.0")
-	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$2\" = --help ]; then exit 0; fi\necho local-git-marker\n")
+	writeFile(t, local, "#!/bin/sh\nif [ \"$2\" = --help ]; then exit 0; fi\necho local-git-marker\n")
 	git(t, root, "init", "-q")
 	global := filepath.Join(t.TempDir(), "agnostic-ai")
-	mustWriteFile(t, global, "#!/bin/sh\nif [ \"$2\" = --help ]; then exit 0; fi\necho old-global-marker\n")
+	writeFile(t, global, "#!/bin/sh\nif [ \"$2\" = --help ]; then exit 0; fi\necho old-global-marker\n")
 	if err := os.Chmod(global, 0o755); err != nil {
 		t.Fatal(err)
 	}

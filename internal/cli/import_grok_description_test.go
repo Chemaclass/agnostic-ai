@@ -12,7 +12,7 @@ func TestImportGlobal_GrokDescribedServerRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".grok", "config.toml")
 	native := "# Native notes stay here.\n[mcp_servers.docs]\ncommand = 'docs-mcp'\nargs = ['--stdio']\ndescription = 'Docs search' # ignored\n"
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	_, warnings, err := runImportGlobalTest("grok")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -20,14 +20,14 @@ func TestImportGlobal_GrokDescribedServerRoundTrips(t *testing.T) {
 	if !strings.Contains(warnings, "grok mcp docs: description has no effect on Grok, so import left it out") {
 		t.Errorf("missing import note:\n%s", warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"))
+	got := readFile(t, filepath.Join(source, "mcps", "docs.yaml"))
 	if strings.Contains(got, "description") {
 		t.Errorf("spec retains ignored description:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("sync changed native config:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {
@@ -84,7 +84,7 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 					filepath.Join(home, otherRel):            "{\"mcpServers\":{\"fs\":{\"command\":\"fs-mcp\",\"description\":\"Files\"}}}\n",
 				}
 				for path, native := range paths {
-					mustWriteGlobalTest(t, path, native)
+					writeFile(t, path, native)
 				}
 				_, warnings, err := runImportGlobalTest(targets...)
 				if err != nil {
@@ -93,14 +93,14 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 				if strings.Contains(warnings, "defines fs differently") {
 					t.Errorf("ignored description caused conflict:\n%s", warnings)
 				}
-				if got := readGlobalTest(t, filepath.Join(source, "mcps/fs.yaml")); !strings.Contains(got, "description: Files") {
+				if got := readFile(t, filepath.Join(source, "mcps/fs.yaml")); !strings.Contains(got, "description: Files") {
 					t.Errorf("lost supported description:\n%s", got)
 				}
 				if _, warnings, err := runGlobalAgentTest("--only", strings.Join(targets, ",")); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 				for path, native := range paths {
-					if got := readGlobalTest(t, path); got != native {
+					if got := readFile(t, path); got != native {
 						t.Errorf("sync changed %s:\n%s", path, got)
 					}
 				}
@@ -121,7 +121,7 @@ func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
 				paths[filepath.Join(home, ".claude.json")] = "{\"mcpServers\":{\"fs\":{\"command\":\"fs-mcp\",\"description\":\"Files\"}}}\n"
 			}
 			for path, native := range paths {
-				mustWriteGlobalTest(t, path, native)
+				writeFile(t, path, native)
 			}
 			_, warnings, err := runImportGlobalTest(targets...)
 			if err != nil {
@@ -130,7 +130,7 @@ func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
 			if strings.Contains(warnings, "defines fs differently") {
 				t.Errorf("ignored keys caused conflict:\n%s", warnings)
 			}
-			got := readGlobalTest(t, filepath.Join(source, "mcps/fs.yaml"))
+			got := readFile(t, filepath.Join(source, "mcps/fs.yaml"))
 			if strings.Contains(got, "file:///ignored") {
 				t.Errorf("retained ignored Codex roots:\n%s", got)
 			}
@@ -141,7 +141,7 @@ func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			for path, native := range paths {
-				if got := readGlobalTest(t, path); got != native {
+				if got := readFile(t, path); got != native {
 					t.Errorf("sync changed %s:\n%s", path, got)
 				}
 			}

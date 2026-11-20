@@ -41,7 +41,7 @@ func TestImportFromCodex_ReadsEnvironmentTOML(t *testing.T) {
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "codex.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "codex.yaml"))
 	want := `name: Acme
 setup: bash scripts/setup-worktree.bash
 cleanup: bash scripts/stop-preview.bash
@@ -73,7 +73,7 @@ script = "npm ci --no-audit"
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "codex.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "codex.yaml"))
 	want := "name: web\nsetup: npm ci\nsetup-windows: npm ci --no-audit\n"
 	if got != want {
 		t.Errorf("environments/codex.yaml:\n%s\nwant:\n%s", got, want)
@@ -142,7 +142,7 @@ func TestImportFromCodex_LeavesEnvironmentTOMLItCannotHold(t *testing.T) {
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	if got := readFileString(t, filepath.Join(dir, "environments", "codex.yaml")); got != own {
+	if got := readFile(t, filepath.Join(dir, "environments", "codex.yaml")); got != own {
 		t.Errorf("existing spec changed:\n%s", got)
 	}
 
@@ -192,7 +192,7 @@ npm run seed
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "codex.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "codex.yaml"))
 	want := `name: web
 dev-commands:
     - name: Docs

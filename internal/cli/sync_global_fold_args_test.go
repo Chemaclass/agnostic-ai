@@ -10,8 +10,8 @@ import (
 
 func TestSyncGlobal_GeminiAndCursorFoldExecFormArgs(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "gemini.yaml"), "name: gemini-guard\nevent: BeforeTool\ncommand: node\nargs: [guard.js]\ntarget: gemini\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "cursor.yaml"), "name: cursor-guard\nevent: beforeShellExecution\ncommand: node\nargs: [guard.js]\ntarget: cursor\n")
+	writeFile(t, filepath.Join(source, "hooks", "gemini.yaml"), "name: gemini-guard\nevent: BeforeTool\ncommand: node\nargs: [guard.js]\ntarget: gemini\n")
+	writeFile(t, filepath.Join(source, "hooks", "cursor.yaml"), "name: cursor-guard\nevent: beforeShellExecution\ncommand: node\nargs: [guard.js]\ntarget: cursor\n")
 	only := []string{"--only", "gemini,cursor"}
 	if _, _, err := runGlobalAgentTest(only...); err != nil {
 		t.Fatal(err)
@@ -66,8 +66,8 @@ func TestSyncGlobal_NotesCursorMayRunClaudeExecFormHooksWithoutArgs(t *testing.T
 		{"targets: [claude]\n", "claude", false},
 	} {
 		_, source := globalAgentTestHome(t)
-		mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), tc.config)
-		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: node\nargs: [guard.js]\ntarget: claude\n")
+		writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), tc.config)
+		writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: node\nargs: [guard.js]\ntarget: claude\n")
 		_, warnings, err := runGlobalAgentTest("--only", tc.only)
 		if err != nil {
 			t.Fatal(err)
@@ -82,7 +82,7 @@ func TestSyncGlobal_NotesCursorMayRunClaudeExecFormHooksWithoutArgs(t *testing.T
 func TestSyncGlobal_ClaudeHookFailClosedWritesOnFailureBlock(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, spec, "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: guard.sh\nfailClosed: true\n")
+	writeFile(t, spec, "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: guard.sh\nfailClosed: true\n")
 	only := []string{"--only", "claude,codex"}
 	if _, _, err := runGlobalAgentTest(only...); err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestSyncGlobal_ClaudeHookFailClosedWritesOnFailureBlock(t *testing.T) {
 		t.Errorf("codex hooks carry onFailure: %v", codex)
 	}
 
-	mustWriteGlobalTest(t, spec, "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: guard.sh\n")
+	writeFile(t, spec, "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: guard.sh\n")
 	if _, _, err := runGlobalAgentTest(only...); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestSyncGlobal_ClaudeFailClosedNotesIgnoredFailures(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: "+c.event+"\ncommand: guard.sh\nfailClosed: true\n"+c.flags)
+			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: "+c.event+"\ncommand: guard.sh\nfailClosed: true\n"+c.flags)
 			_, warnings, err := runGlobalAgentTest("--only", "claude")
 			if err != nil {
 				t.Fatal(err)

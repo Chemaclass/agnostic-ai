@@ -21,7 +21,7 @@ func globalFindings(findings []overview.Finding) []overview.Finding {
 func TestOverviewInputs_IncludesTheGlobalSetupsLintFindings(t *testing.T) {
 	home := globalOverviewHome(t)
 	source := filepath.Join(home, "source")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "helper.md"), "---\nname: helper\ndescription: Helps with chores\nmodl: opus\n---\nHelp with chores.\n")
+	writeFile(t, filepath.Join(source, "agents", "helper.md"), "---\nname: helper\ndescription: Helps with chores\nmodl: opus\n---\nHelp with chores.\n")
 	dir := testutil.TempCwd(t)
 	writeBareReadProject(t, dir)
 

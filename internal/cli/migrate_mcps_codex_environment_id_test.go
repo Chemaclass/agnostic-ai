@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ func TestMigrate_MCPsCodexEnvironmentIDRenamesLocalOnly(t *testing.T) {
 	captureLogOut(t)
 	before := map[string]string{}
 	for _, name := range []string{"remote-runner", "both"} {
-		before[name] = readTestFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml"))
+		before[name] = readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml"))
 	}
 
 	out, err := runCLI(t, "migrate", "--only", "mcps")
@@ -29,11 +28,11 @@ func TestMigrate_MCPsCodexEnvironmentIDRenamesLocalOnly(t *testing.T) {
 		"args: [\"-y\", \"@modelcontextprotocol/server-filesystem\", \".\"]\n" +
 		"environment_id:   \"local\"   # runs on this machine\n" +
 		"required: true\n"
-	if got := readTestFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "files.yaml")); got != want {
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "files.yaml")); got != want {
 		t.Errorf("files.yaml =\n%s\nwant:\n%s", got, want)
 	}
 	for name, body := range before {
-		if got := readTestFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml")); got != body {
+		if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml")); got != body {
 			t.Errorf("%s.yaml changed:\n%s", name, got)
 		}
 	}
@@ -42,13 +41,4 @@ func TestMigrate_MCPsCodexEnvironmentIDRenamesLocalOnly(t *testing.T) {
 			t.Errorf("output misses %q:\n%s", reason, out)
 		}
 	}
-}
-
-func readTestFile(t *testing.T, path string) string {
-	t.Helper()
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(b)
 }

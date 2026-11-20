@@ -27,7 +27,7 @@ func TestSync_ReportsStateWriteFailureAfterOutputs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			mustWriteFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nchanged rule body")
+			writeFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nchanged rule body")
 			stateDir := filepath.Join(dir, ".agnostic-ai")
 			if err := os.Chmod(stateDir, 0o555); err != nil {
 				t.Fatal(err)

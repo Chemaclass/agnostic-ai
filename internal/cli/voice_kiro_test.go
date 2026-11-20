@@ -16,15 +16,15 @@ func TestVoiceKiro_WriteCheckAndRestore(t *testing.T) {
 			t.Setenv("KIRO_HOME", root)
 			path := filepath.Join(root, "settings", "cli.json")
 			if original != "absent" {
-				mustWriteGlobalTest(t, path, original)
+				writeFile(t, path, original)
 			}
 			settings := filepath.Join(source, "settings", "voice.yaml")
-			mustWriteGlobalTest(t, settings, targetVoiceSpec)
+			writeFile(t, settings, targetVoiceSpec)
 			_, warnings, err := runGlobalAgentTest("--only", "kiro", "--backup")
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			data := readGlobalTest(t, path)
+			data := readFile(t, path)
 			var values map[string]any
 			if err := json.Unmarshal([]byte(data), &values); err != nil {
 				t.Fatal(err)
@@ -57,7 +57,7 @@ func TestVoiceKiro_WriteCheckAndRestore(t *testing.T) {
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
 					t.Errorf("created file remains: %v", err)
 				}
-			} else if got := readGlobalTest(t, path); got != original {
+			} else if got := readFile(t, path); got != original {
 				t.Errorf("restore = %q, want %q", got, original)
 			}
 		})
@@ -68,7 +68,7 @@ func TestVoiceKiro_ExplainLanguage(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, "kiro-profile")
 	t.Setenv("KIRO_HOME", root)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
+	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
 	out, err := runRoot(t, "explain", "--global", "settings/voice.yaml")
 	if err != nil {
 		t.Fatal(err)
@@ -83,12 +83,12 @@ func TestVoiceKiro_NativeOverrideAndRemovalKeepUserChoice(t *testing.T) {
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	path := filepath.Join(home, ".kiro", "settings", "cli.json")
 	original := `{ "voice.language": "en", "voice.autoSubmit": false }`
-	mustWriteGlobalTest(t, path, original)
-	mustWriteGlobalTest(t, settings, "voice:\n  language: es\nx-kiro:\n  voice.language: auto\n  voice: {language: nested}\n  hooks: {unsafe: true}\n")
+	writeFile(t, path, original)
+	writeFile(t, settings, "voice:\n  language: es\nx-kiro:\n  voice.language: auto\n  voice: {language: nested}\n  hooks: {unsafe: true}\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro", "--backup"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	data := readGlobalTest(t, path)
+	data := readFile(t, path)
 	var values map[string]any
 	if err := json.Unmarshal([]byte(data), &values); err != nil {
 		t.Fatal(err)
@@ -102,14 +102,14 @@ func TestVoiceKiro_NativeOverrideAndRemovalKeepUserChoice(t *testing.T) {
 	if values["hooks"] != nil {
 		t.Errorf("reserved hooks written: %s", data)
 	}
-	mustWriteGlobalTest(t, path, strings.Replace(data, `"auto"`, `"de"`, 1))
+	writeFile(t, path, strings.Replace(data, `"auto"`, `"de"`, 1))
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != strings.Replace(original, `"en"`, `"de"`, 1) {
+	if got := readFile(t, path); got != strings.Replace(original, `"en"`, `"de"`, 1) {
 		t.Errorf("user choice lost: %s", got)
 	}
 }
@@ -118,7 +118,7 @@ func TestVoiceKiro_ImportReadsOnlyLanguage(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".kiro", "settings", "cli.json")
 	native := `{ "voice.language": "auto", "voice.autoSubmit": false, "chat.defaultModel": "custom", "voice": {"language": "nested"} }`
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	if _, warnings, err := runImportGlobalTest("kiro"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -126,7 +126,7 @@ func TestVoiceKiro_ImportReadsOnlyLanguage(t *testing.T) {
 	if len(voice) != 1 || voice["language"] != "auto" {
 		t.Errorf("imported voice = %#v", voice)
 	}
-	if got := readGlobalTest(t, path); got != native {
+	if got := readFile(t, path); got != native {
 		t.Errorf("import changed native bytes: %s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro", "--check"); err != nil {
@@ -138,16 +138,16 @@ func TestVoiceKiro_RemovesLiteralParentWhileLanguageStays(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".kiro", "settings", "cli.json")
 	settings := filepath.Join(source, "settings", "voice.yaml")
-	mustWriteGlobalTest(t, settings, "voice:\n  language: es\nx-kiro:\n  voice: {}\n")
+	writeFile(t, settings, "voice:\n  language: es\nx-kiro:\n  voice: {}\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, settings, "voice:\n  language: es\n")
+	writeFile(t, settings, "voice:\n  language: es\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
 		t.Fatalf("drop literal voice object: %v\n%s", err, warnings)
 	}
 	var values map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &values); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &values); err != nil {
 		t.Fatal(err)
 	}
 	if _, present := values["voice"]; present {

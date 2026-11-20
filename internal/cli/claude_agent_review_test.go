@@ -121,8 +121,8 @@ func TestSync_NoNameClashForAnAgentClaudeLeavesOut(t *testing.T) {
 func TestDoctor_ExplainsAHandWrittenAgentSyncLeavesOut(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".claude", "agents", "idle.md"), "---\nname: idle\ndescription: Thinks.\ntools: []\n---\nThink.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".claude", "agents", "idle.md"), "---\nname: idle\ndescription: Thinks.\ntools: []\n---\nThink.\n")
 	execCLI(t, "import", "claude")
 	mustSync(t)
 	if _, err := os.Stat(filepath.Join(dir, ".claude", "agents", "idle.md")); err != nil {
@@ -141,8 +141,8 @@ func TestDoctor_ExplainsAHandWrittenAgentSyncLeavesOut(t *testing.T) {
 
 func TestCompare_GivesTheReasonForDeleteAndALeftOutAgent(t *testing.T) {
 	dir := setupCompareFixture(t)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "cleaner.md"), "---\nname: cleaner\ndescription: Cleans.\ncan: [read, delete]\n---\nClean.\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\nname: idle\ndescription: Thinks.\ncan: []\n---\nThink.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "cleaner.md"), "---\nname: cleaner\ndescription: Cleans.\ncan: [read, delete]\n---\nClean.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\nname: idle\ndescription: Thinks.\ncan: []\n---\nThink.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	out := compareJSON(t, "claude", "cursor")

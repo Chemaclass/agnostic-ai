@@ -15,10 +15,10 @@ func TestSyncGlobal_ClineHookDirectory(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".cline", "hooks", "PreToolUse")
 	manual := filepath.Join(home, ".cline", "hooks", "TaskStart")
-	mustWriteGlobalTest(t, manual, "#!/bin/sh\necho manual\n")
+	writeFile(t, manual, "#!/bin/sh\necho manual\n")
 	specPath := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, specPath, "name: guard\nevent: PreToolUse\ncommand: echo guard\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "second.yaml"), "name: second\nevent: pretooluse\ncommand: echo second\n")
+	writeFile(t, specPath, "name: guard\nevent: PreToolUse\ncommand: echo guard\n")
+	writeFile(t, filepath.Join(source, "hooks", "second.yaml"), "name: second\nevent: pretooluse\ncommand: echo second\n")
 	out, _, err := runGlobalAgentTest("--only", "cline", "--dry-run")
 	if err != nil {
 		t.Fatal(err)
@@ -75,8 +75,8 @@ func TestSyncGlobal_ClineHookHonorsRootAndNeutralScript(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, "custom cline")
 	t.Setenv("CLINE_DIR", root)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' 'blocked synthetic guard' >&2\nexit 2\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' 'blocked synthetic guard' >&2\nexit 2\n")
 	if err := os.Chmod(filepath.Join(source, "scripts", "guard.sh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -113,8 +113,8 @@ func TestSyncGlobal_ClineHookConflictKeepsNativeScript(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".cline", "hooks", "PreToolUse")
 	manual := "#!/bin/sh\necho user\n"
-	mustWriteGlobalTest(t, path, manual)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: echo guard\n")
+	writeFile(t, path, manual)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: echo guard\n")
 	if _, _, err := runGlobalAgentTest("--only", "cline"); err == nil {
 		t.Fatal("sync overwrote a conflicting native hook")
 	}

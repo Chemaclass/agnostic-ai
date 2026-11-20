@@ -19,8 +19,8 @@ func setupDoctorProjectScope(t *testing.T) (string, string) {
 	silence(t)
 	home := t.TempDir()
 	t.Setenv("CODEX_HOME", home)
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\n")
-	mustWriteGlobalTest(t, ".agnostic-ai/hooks/guard.yaml", "name: guard\ndescription: Check the project command.\non: before-tool\nmatch: shell\ncommand: echo project-guard\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\n")
+	writeFile(t, ".agnostic-ai/hooks/guard.yaml", "name: guard\ndescription: Check the project command.\non: before-tool\nmatch: shell\ncommand: echo project-guard\n")
 	syncProject(t)
 	return dir, home
 }
@@ -72,7 +72,7 @@ func TestDoctor_ProjectScopePassesWithoutLocalTrustAndReportsSkipped(t *testing.
 
 func TestDoctor_ProjectScopeStillFailsOnDriftAndRequestedReferences(t *testing.T) {
 	dir, _ := setupDoctorProjectScope(t)
-	mustWriteGlobalTest(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill.\n---\nRead [missing](missing.md).\n")
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill.\n---\nRead [missing](missing.md).\n")
 	syncProject(t)
 	for _, format := range [][]string{nil, {"--json"}} {
 		args := append([]string{"--scope", "project", "--check-references"}, format...)
@@ -81,7 +81,7 @@ func TestDoctor_ProjectScopeStillFailsOnDriftAndRequestedReferences(t *testing.T
 			t.Errorf("project scope must keep requested reference errors: %v\n%s", err, out)
 		}
 	}
-	mustWriteGlobalTest(t, filepath.Join(dir, ".cursor/hooks.json"), "{\"edited\":true}\n")
+	writeFile(t, filepath.Join(dir, ".cursor/hooks.json"), "{\"edited\":true}\n")
 	for _, format := range [][]string{nil, {"--json"}} {
 		args := append([]string{"--scope", "project"}, format...)
 		out, err := runDoctor(t, args...)
@@ -108,7 +108,7 @@ func TestDoctor_ProjectScopeFixRepairsDriftWithoutApprovingTrust(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path, "hand-edited rule\n")
+	writeFile(t, path, "hand-edited rule\n")
 	out, err := runDoctor(t, "--scope", "project", "--fix")
 	if err != nil || !strings.Contains(out, "SKIPPED") {
 		t.Errorf("project fix must repair drift and skip trust: %v\n%s", err, out)
@@ -135,7 +135,7 @@ func TestDoctor_ProjectScopeFixRepairsDriftWithoutApprovingTrust(t *testing.T) {
 
 func TestDoctor_ProjectScopeKeepsPackagingAdvisories(t *testing.T) {
 	setupDoctorProjectScope(t)
-	mustWriteGlobalTest(t, ".vscodeignore", ".claude/**\n.codex/**\n")
+	writeFile(t, ".vscodeignore", ".claude/**\n.codex/**\n")
 	for _, format := range [][]string{nil, {"--json"}} {
 		out, err := runDoctor(t, append([]string{"--scope", "project"}, format...)...)
 		if err != nil || !strings.Contains(out, ".vscodeignore") {
@@ -164,13 +164,13 @@ func TestDoctor_AllScopeKeepsStrictTrustClassification(t *testing.T) {
 			path := filepath.Join(home, "config.toml")
 			switch test.name {
 			case "modified":
-				mustWriteGlobalTest(t, path, fmt.Sprintf("[hooks.state.%q]\ntrusted_hash = \"sha256:changed\"\n", key))
+				writeFile(t, path, fmt.Sprintf("[hooks.state.%q]\ntrusted_hash = \"sha256:changed\"\n", key))
 			case "unreadable":
 				if err := os.Mkdir(path, 0o755); err != nil {
 					t.Fatal(err)
 				}
 			case "disabled":
-				mustWriteGlobalTest(t, path, fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key))
+				writeFile(t, path, fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key))
 			}
 			for _, scope := range [][]string{nil, {"--scope", "all"}} {
 				for _, format := range [][]string{nil, {"--json"}} {

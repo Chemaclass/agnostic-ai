@@ -16,7 +16,7 @@ import (
 func TestCollectEntryPointDrift_IgnoresUnmanaged(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeAgnosticFile(t, "# Pointer body\n")
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "hand-owned\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "hand-owned\n")
 	cfg := &config.Config{Targets: []string{"claude", "codex"}}
 	cfg.Sync.Unmanaged = []string{"CLAUDE.md"}
 
@@ -60,8 +60,8 @@ func TestDoctor_PrintsUserOwnedSection(t *testing.T) {
 
 func TestReportUnmanagedConfig_SkipsUserOwnedPaths(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "# Hand-written\n")
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "rules", "legacy.mdc"), "old rule\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Hand-written\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "rules", "legacy.mdc"), "old rule\n")
 	cfg := &config.Config{}
 	cfg.Sync.Unmanaged = []string{"CLAUDE.md"}
 	buf := &strings.Builder{}

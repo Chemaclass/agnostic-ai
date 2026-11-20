@@ -48,9 +48,9 @@ func syncedSharedSkillProject(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\n")
-	mustWriteFile(t, "apps/web/.keep", "")
-	mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", sharedSkill)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\n")
+	writeFile(t, "apps/web/.keep", "")
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", sharedSkill)
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -96,7 +96,7 @@ func TestImport_KeepsLinkedSkillSpecsAndStopsOnLossyEdits(t *testing.T) {
 			}
 			if edited {
 				native := sharedSkillNative["claude"]
-				mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+				writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 			}
 
 			for _, args := range [][]string{{"import", "claude", "--dry-run", "--diff"}, {"import", "claude"}} {
@@ -124,11 +124,11 @@ func TestImport_KeepsAliasedRuleSpecsAndStopsOnLossyEdits(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/%t", link, edited), func(t *testing.T) {
 				testutil.Chdir(t, t.TempDir())
 				silence(t)
-				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 				const rule = "---\ndescription: Shared rule.\n---\nShared body.\n\n::target codex\n\nCodex-only rule.\n\n::end\n"
 				const first = ".agnostic-ai/rules/a.md"
 				const second = ".agnostic-ai/rules/b.md"
-				mustWriteFile(t, first, rule)
+				writeFile(t, first, rule)
 				var err error
 				if link == "symlink" {
 					err = os.Symlink("a.md", second)
@@ -143,7 +143,7 @@ func TestImport_KeepsAliasedRuleSpecsAndStopsOnLossyEdits(t *testing.T) {
 				}
 				if edited {
 					for _, native := range []string{".claude/rules/a.md", ".claude/rules/b.md"} {
-						mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+						writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 					}
 				}
 
@@ -185,7 +185,7 @@ func TestImport_StopsWhenAToolEditWouldDropWhatOtherToolsNeed(t *testing.T) {
 		t.Run(source, func(t *testing.T) {
 			syncedSharedSkillProject(t)
 			native := sharedSkillNative[source]
-			mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+			writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 
 			_, err := runCLI(t, "import", source)
 
@@ -221,13 +221,13 @@ func TestImport_DryRunListsNoChangeForASpecTheToolShowsUnchanged(t *testing.T) {
 func TestImport_BringsBackAToolEditOfASpecItShowsWhole(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill. Use when testing.\n---\nShared body.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill. Use when testing.\n---\nShared body.\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	native := ".claude/skills/demo/SKILL.md"
-	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+	writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
@@ -241,14 +241,14 @@ func TestImport_BringsBackAToolEditOfASpecItShowsWhole(t *testing.T) {
 func TestImport_KeepsKeysTheToolDoesNotShowWhenBringingBackAnEdit(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
-	mustWriteFile(t, "apps/web/.keep", "")
-	mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill. Use when testing.\n# keep this comment\nworkspaces: [apps/web]\n---\nShared body.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, "apps/web/.keep", "")
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill. Use when testing.\n# keep this comment\nworkspaces: [apps/web]\n---\nShared body.\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	native := sharedSkillNative["claude"]
-	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+	writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
@@ -272,10 +272,10 @@ const (
 func TestImport_LeavesOverlaysAnOlderReleaseWrote(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/claude.settings.json", oldClaudeOverlay)
-	mustWriteFile(t, ".agnostic-ai/overlays/claude.settings.hook-events.json", oldClaudeHookEvents)
-	mustWriteFile(t, ".agnostic-ai/hooks/pre-tool-use.yaml", "event: PreToolUse\nmatcher: Bash\ncommand: echo pre\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/overlays/claude.settings.json", oldClaudeOverlay)
+	writeFile(t, ".agnostic-ai/overlays/claude.settings.hook-events.json", oldClaudeHookEvents)
+	writeFile(t, ".agnostic-ai/hooks/pre-tool-use.yaml", "event: PreToolUse\nmatcher: Bash\ncommand: echo pre\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -299,9 +299,9 @@ func TestImport_LeavesOverlaysAnOlderReleaseWrote(t *testing.T) {
 // A spec that does not load must not switch the check off for the rest.
 func TestImport_StopsOnAToolEditWhileAnotherSpecDoesNotLoad(t *testing.T) {
 	syncedSharedSkillProject(t)
-	mustWriteFile(t, ".agnostic-ai/rules/broken.md", "---\ndescription: [unclosed\n---\nBroken.\n")
+	writeFile(t, ".agnostic-ai/rules/broken.md", "---\ndescription: [unclosed\n---\nBroken.\n")
 	native := sharedSkillNative["claude"]
-	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+	writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -321,15 +321,15 @@ func TestImport_PreviewMatchesTheRealImportForAnAbsoluteSkillSource(t *testing.T
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
 			external := t.TempDir()
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n")
 			skill := filepath.Join(external, "demo", "SKILL.md")
-			mustWriteFile(t, skill, sharedSkill)
+			writeFile(t, skill, sharedSkill)
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 			if edited {
 				native := sharedSkillNative["claude"]
-				mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+				writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 			}
 
 			out, previewErr := runAbsoluteImportCLI(t, "import", "claude", "--dry-run", "--diff")
@@ -356,16 +356,16 @@ func TestImport_PreviewMatchesTheRealImportForAnAbsoluteSkillSource(t *testing.T
 func TestImport_BringsBackAnEditToAHookHelperScript(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/hooks/fmt.sh", "#!/bin/sh\n. \"$(dirname \"$0\")/common.sh\"\nfmt\n")
-	mustWriteFile(t, ".claude/hooks/common.sh", "fmt() { echo one; }\n")
-	mustWriteFile(t, ".claude/settings.json", `{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":".claude/hooks/fmt.sh"}]}]}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/hooks/fmt.sh", "#!/bin/sh\n. \"$(dirname \"$0\")/common.sh\"\nfmt\n")
+	writeFile(t, ".claude/hooks/common.sh", "fmt() { echo one; }\n")
+	writeFile(t, ".claude/settings.json", `{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":".claude/hooks/fmt.sh"}]}]}}`)
 	for _, args := range [][]string{{"import", "claude"}, {"sync"}} {
 		if out, err := runCLI(t, args...); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
 	}
-	mustWriteFile(t, ".claude/hooks/common.sh", "fmt() { echo two; }\n")
+	writeFile(t, ".claude/hooks/common.sh", "fmt() { echo two; }\n")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
@@ -386,8 +386,8 @@ func TestImport_LeavesARuleTheToolInlinesUnchanged(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini]\n")
-			mustWriteFile(t, ".agnostic-ai/rules/style.md", rule)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini]\n")
+			writeFile(t, ".agnostic-ai/rules/style.md", rule)
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
@@ -415,13 +415,13 @@ func TestImport_BringsBackARuleEditInAnInlinedInstructionsFile(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
-			mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\ndescription: Style.\n---\nRule text one.\n")
-			mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo. Use when testing.\n---\nSkill body.\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			writeFile(t, ".agnostic-ai/rules/style.md", "---\ndescription: Style.\n---\nRule text one.\n")
+			writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo. Use when testing.\n---\nSkill body.\n")
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
-			mustWriteFile(t, entry, strings.Replace(readFile(t, entry), "Rule text one.", "Rule text two.", 1))
+			writeFile(t, entry, strings.Replace(readFile(t, entry), "Rule text one.", "Rule text two.", 1))
 
 			if out, err := runCLI(t, "import", target); err != nil {
 				t.Fatalf("import %s: %v\n%s", target, err, out)
@@ -444,15 +444,15 @@ func TestImport_BringsBackARenameInAToolFile(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 			for _, name := range []string{"demo", "other"} {
-				mustWriteFile(t, fmt.Sprintf(files[0], name), "---\nname: "+name+"\ndescription: A "+name+". Use when testing.\n---\nBody of "+name+".\n")
+				writeFile(t, fmt.Sprintf(files[0], name), "---\nname: "+name+"\ndescription: A "+name+". Use when testing.\n---\nBody of "+name+".\n")
 			}
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 			native := strings.Replace(readFile(t, files[1]), "name: demo", "name: renamed", 1)
-			mustWriteFile(t, files[1], strings.Replace(native, "Body of demo.", "Edited body.", 1))
+			writeFile(t, files[1], strings.Replace(native, "Body of demo.", "Edited body.", 1))
 
 			if out, err := runCLI(t, "import", "claude"); err != nil {
 				t.Fatalf("import claude: %v\n%s", err, out)
@@ -473,14 +473,14 @@ func TestImport_BringsBackARenameInAToolFile(t *testing.T) {
 func TestImport_KeepsFrontmatterCommentsWhenBringingBackAnEdit(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	const agent = "---\nname: reviewer\n# Picked by hand.\ndescription: Review the diff. # read-only on purpose\nmodel: sonnet\n---\nReview what changed.\n"
-	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", agent)
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", agent)
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	native := ".claude/agents/reviewer.md"
-	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Review what changed.", "Review every change.", 1))
+	writeFile(t, native, strings.Replace(readFile(t, native), "Review what changed.", "Review every change.", 1))
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
@@ -497,7 +497,7 @@ func TestImport_KeepsFrontmatterCommentsWhenBringingBackAnEdit(t *testing.T) {
 func TestImport_OverwriteDropsWhatTheToolDoesNotShow(t *testing.T) {
 	syncedSharedSkillProject(t)
 	native := sharedSkillNative["claude"]
-	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+	writeFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
 
 	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
 		t.Fatalf("import --overwrite: %v\n%s", err, out)

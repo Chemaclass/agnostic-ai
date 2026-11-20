@@ -13,19 +13,19 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	cursor := filepath.Join(home, ".cursor", "mcp.json")
 	native := `{"mcpServers": {"app": {"command": "app-mcp", "env": {"API_KEY": "sk-live-abc", "NODE_ENV": "production"}}}}` + "\n"
-	mustWriteGlobalTest(t, cursor, native)
+	writeFile(t, cursor, native)
 
 	if _, warnings, err := runImportGlobalTest("cursor"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, "mcps", "app.yaml"))
+	got := readFile(t, filepath.Join(source, "mcps", "app.yaml"))
 	if !strings.Contains(got, "NODE_ENV: !literal production\n") || !strings.Contains(got, "API_KEY: sk-live-abc\n") {
 		t.Errorf("spec:\n%s\nwant NODE_ENV marked and API_KEY unmarked", got)
 	}
 	if _, w, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
-	if after := readGlobalTest(t, cursor); after != native {
+	if after := readFile(t, cursor); after != native {
 		t.Errorf("cursor file must round-trip unchanged:\n%s", after)
 	}
 	out, _ := runCLI(t, "lint", "--global")
@@ -38,7 +38,7 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 // must accept a comment and a trailing comma there.
 func TestImportGlobal_AugmentAcceptsJSONCSettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".augment", "settings.json"), `{
+	writeFile(t, filepath.Join(home, ".augment", "settings.json"), `{
   // personal servers
   "mcpServers": {"app": {"command": "app-mcp",},},
 }
@@ -47,7 +47,7 @@ func TestImportGlobal_AugmentAcceptsJSONCSettings(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("augment"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps", "app.yaml")); !strings.Contains(got, "app-mcp") {
+	if got := readFile(t, filepath.Join(source, "mcps", "app.yaml")); !strings.Contains(got, "app-mcp") {
 		t.Errorf("spec:\n%s\nwant the app server", got)
 	}
 }

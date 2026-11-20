@@ -21,8 +21,8 @@ func TestGuidedUpgrade_MigrateListRunsWithoutUpgradeSideEffects(t *testing.T) {
 			testutil.TempCwd(t)
 			const originalConfig = "version: 1\ntargets: [claude]\n"
 			const originalAgent = "---\nname: demo\ntools: [Read]\n---\nagent\n"
-			mustWriteFile(t, "agnostic-ai.yaml", originalConfig)
-			mustWriteFile(t, ".agnostic-ai/agents/demo.md", originalAgent)
+			writeFile(t, "agnostic-ai.yaml", originalConfig)
+			writeFile(t, ".agnostic-ai/agents/demo.md", originalAgent)
 			cmd := newMigrateCmd()
 			var out bytes.Buffer
 			input := &planUpgradeInput{reader: strings.NewReader("\n")}

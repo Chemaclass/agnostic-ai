@@ -14,8 +14,8 @@ func TestValidate_AbsoluteSourceNotesOnlyNameMissingDirectories(t *testing.T) {
 	external := t.TempDir()
 	rules := filepath.Join(external, "rules")
 	missing := filepath.Join(external, "hooks")
-	mustWriteFile(t, filepath.Join(rules, "demo.md"), "---\ndescription: demo\n---\nExternal rule.\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), fmt.Sprintf(
+	writeFile(t, filepath.Join(rules, "demo.md"), "---\ndescription: demo\n---\nExternal rule.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), fmt.Sprintf(
 		"version: 1\nsources:\n  rules: %q\n  hooks: %q\ntargets: [claude]\n",
 		filepath.ToSlash(rules), filepath.ToSlash(missing)))
 
@@ -38,10 +38,10 @@ func TestValidate_AbsoluteSourceNotesOnlyNameMissingDirectories(t *testing.T) {
 // source that exists, and an undeclared (defaulted) kind, are not.
 func TestMissingSourceNotes_FlagsDeclaredMissingDirs(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\nsources:\n  rules: .agnostic-ai/rules\n  skills: .agnostic-ai/skills\n")
 	// Only rules/ exists on disk.
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r.md"), "body\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r.md"), "body\n")
 
 	got := missingSourceNotes(dir)
 	if len(got) != 1 {
@@ -59,7 +59,7 @@ func TestMissingSourceNotes_FlagsDeclaredMissingDirs(t *testing.T) {
 // even though the convention dirs do not exist.
 func TestMissingSourceNotes_IgnoresUndeclaredDefaults(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets:\n  - claude\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets:\n  - claude\n")
 
 	if got := missingSourceNotes(dir); len(got) != 0 {
 		t.Errorf("expected no notes for undeclared sources, got %+v", got)
@@ -71,9 +71,9 @@ func TestMissingSourceNotes_IgnoresUndeclaredDefaults(t *testing.T) {
 // but still passes (#1491).
 func TestValidate_MissingSourceDirIsNoteNotFailure(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\nsources:\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "demo.md"), "---\ndescription: demo\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "demo.md"), "---\ndescription: demo\n---\nBody.\n")
 
 	out, err := runCLI(t, "validate")
 	if err != nil {
@@ -91,7 +91,7 @@ func TestValidate_MissingSourceDirIsNoteNotFailure(t *testing.T) {
 // not fail the run.
 func TestValidate_MissingSourceDirsWithNoSpecsPass(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\nsources:\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\n")
 
 	out, err := runCLI(t, "validate")

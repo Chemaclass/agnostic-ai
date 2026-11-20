@@ -58,8 +58,8 @@ func hookWithoutCommandProject(t *testing.T) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
 }
 
 func TestValidate_FailsOnAHookWithoutCommand(t *testing.T) {
@@ -94,8 +94,8 @@ func TestLint_ReportsAHookWithoutCommandAsAnErrorAndNotAsEmpty(t *testing.T) {
 func TestLint_ValidHookGetsNoNewFinding(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
 	log := captureLog(t)
 	out, err := runCLI(t, "lint")
 	if text := out + log.String(); err != nil || strings.Contains(text, "LINT052") || strings.Contains(text, "LINT001") {
@@ -120,7 +120,7 @@ func TestSync_SummaryLeavesOutAHookNoToolWrote(t *testing.T) {
 
 func TestExplainGlobal_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
 	out, err := runRoot(t, "explain", "--global", "hooks/fmt.yaml")
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestExplainGlobal_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
 	if !strings.Contains(out, "no target sync --global writes takes anything") {
 		t.Errorf("explain must list no output for a hook with nothing to run:\n%s", out)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")
 	if out, err = runRoot(t, "explain", "--global", "hooks/fmt.yaml"); err != nil || !strings.Contains(out, "settings.json") {
 		t.Errorf("a hook with a command still lists its outputs: %v\n%s", err, out)
 	}

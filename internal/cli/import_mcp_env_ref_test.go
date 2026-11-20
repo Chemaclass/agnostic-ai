@@ -139,12 +139,12 @@ func TestImportMCP_EnvRefsRoundTrip(t *testing.T) {
 func TestImportGlobal_CursorEnvRefsRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mcpDir := filepath.Join(source, "mcps")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nenv:\n  GITHUB_TOKEN: ${GITHUB_TOKEN}\n")
+	writeFile(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nenv:\n  GITHUB_TOKEN: ${GITHUB_TOKEN}\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
-	want := readGlobalTest(t, cursorPath)
+	want := readFile(t, cursorPath)
 	if !strings.Contains(want, `"GITHUB_TOKEN":"${env:GITHUB_TOKEN}"`) {
 		t.Fatalf("cursor reads ${env:NAME}:\n%s", want)
 	}
@@ -154,13 +154,13 @@ func TestImportGlobal_CursorEnvRefsRoundTrip(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest(); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "GITHUB_TOKEN: ${GITHUB_TOKEN}") {
+	if got := readFile(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "GITHUB_TOKEN: ${GITHUB_TOKEN}") {
 		t.Errorf("import must read ${env:NAME} back:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, cursorPath); got != want {
+	if got := readFile(t, cursorPath); got != want {
 		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, want)
 	}
 }

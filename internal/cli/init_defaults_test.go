@@ -125,7 +125,7 @@ func TestOfferExistingImport_TerminalSkipsOnNo(t *testing.T) {
 
 func TestOfferExistingImport_OffersARootAgentsFile(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Guidelines\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Guidelines\n")
 	var asked []string
 	if _, err := offerExistingImport(dir, true, func(sources []string) (bool, error) {
 		asked = sources
@@ -163,7 +163,7 @@ func TestInitCmd_NoTTY_DoesNotImportExistingConfig(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, ".claude", "agents", "helper.md"), "---\nname: helper\ndescription: Helps.\n---\n\nHelp.\n")
+	writeFile(t, filepath.Join(dir, ".claude", "agents", "helper.md"), "---\nname: helper\ndescription: Helps.\n---\n\nHelp.\n")
 
 	root := NewRootCmd("test")
 	root.SetIn(devNullStdin(t))

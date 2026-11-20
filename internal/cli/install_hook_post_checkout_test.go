@@ -310,7 +310,7 @@ func TestInstallHookPostMerge_SkipsMissingBinaryOrConfig(t *testing.T) {
 	if calls, _ := os.ReadFile(log); len(calls) != 0 {
 		t.Errorf("missing config ran sync: %s", calls)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\n")
 	realGit, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatal(err)

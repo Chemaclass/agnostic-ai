@@ -9,11 +9,11 @@ import (
 
 func TestSyncGlobal_ResolvesModelTiersFromHomeConfig(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [claude, codex]\nmodels:\n  strong: {claude: sonnet, codex: gpt-5.4}\n  fast: {claude: haiku}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"),
 		"version: 1\nmodels:\n  strong: {claude: opus, effort: {claude: xhigh}}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"),
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Review code\nmodel: strong\n---\nReview.\n")
 
 	_, errOut, err := runGlobalCheck("sync")
@@ -43,13 +43,13 @@ func TestSyncGlobal_ResolvesModelTiersFromHomeConfig(t *testing.T) {
 
 func TestSyncGlobal_TargetFlagSkipsOnlyTheBrokenTierFile(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [claude]\nmodels:\n  strong: {claude: opus}\n")
 	local := filepath.Join(source, "local", "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, local, "version: 1\nmodels:\n  fast: {claud: haiku}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"),
+	writeFile(t, local, "version: 1\nmodels:\n  fast: {claud: haiku}\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Review code\nmodel: strong\n---\nReview.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "scout.md"),
+	writeFile(t, filepath.Join(source, "agents", "scout.md"),
 		"---\nname: scout\ndescription: Scout code\nmodel: fast\n---\nScout.\n")
 
 	if _, _, err := runGlobalCheck("sync"); err == nil || !strings.Contains(err.Error(), `unknown target "claud"`) {
@@ -83,8 +83,8 @@ func TestSyncGlobal_TargetFlagSkipsOnlyTheBrokenTierFile(t *testing.T) {
 func TestLintGlobal_ChecksHomeModelTiers(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "version: 1\ntargets: [claude, codex]\nmodels:\n  balanced: {claude: sonnet}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"),
+	writeFile(t, config, "version: 1\ntargets: [claude, codex]\nmodels:\n  balanced: {claude: sonnet}\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Review code\nmodel: balanced\n---\nReview.\n")
 
 	out, _, _ := runGlobalCheck("lint")

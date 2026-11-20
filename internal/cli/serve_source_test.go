@@ -24,8 +24,8 @@ func sourceProject(t *testing.T) (string, *httptest.Server) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Code style.\nglobs: ['**/*.go', '**/*.ts']\n---\nKeep functions small.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\ndescription: Code style.\nglobs: ['**/*.go', '**/*.ts']\n---\nKeep functions small.\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	t.Cleanup(srv.Close)
 	return dir, srv
@@ -89,9 +89,9 @@ func TestServeSource_ReturnsARuleWithItsFrontmatterInFileOrder(t *testing.T) {
 func TestServeSource_RefusesPathsOutsideTheLoadedConfiguration(t *testing.T) {
 	dir, srv := sourceProject(t)
 	outside := filepath.Join(t.TempDir(), "secret.md")
-	mustWriteFile(t, outside, "---\nname: secret\n---\nOutside.\n")
-	mustWriteFile(t, filepath.Join(dir, "README.md"), "Readme.\n")
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "Generated.\n")
+	writeFile(t, outside, "---\nname: secret\n---\nOutside.\n")
+	writeFile(t, filepath.Join(dir, "README.md"), "Readme.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "Generated.\n")
 	rule := absSlash(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"))
 	for name, path := range map[string]string{
 		"no path":           "",
@@ -112,7 +112,7 @@ func TestServeSource_RefusesPathsOutsideTheLoadedConfiguration(t *testing.T) {
 func TestServeSource_RefusesASpecWhoseSymlinkLeadsOutside(t *testing.T) {
 	dir, srv := sourceProject(t)
 	outside := filepath.Join(t.TempDir(), "secret.md")
-	mustWriteFile(t, outside, "---\nname: linked\n---\nOutside.\n")
+	writeFile(t, outside, "---\nname: linked\n---\nOutside.\n")
 	link := filepath.Join(dir, ".agnostic-ai", "rules", "linked.md")
 	if err := os.Symlink(outside, link); err != nil {
 		t.Skip("symlinks unavailable:", err)
@@ -126,14 +126,14 @@ func TestServeSource_RefusesASpecWhoseSymlinkLeadsOutside(t *testing.T) {
 func TestServeSource_ServesRulesFromAnAbsoluteSourceOutsideTheProject(t *testing.T) {
 	dir, srv := sourceProject(t)
 	external := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(external)+"\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(external)+"\n")
 	rule := filepath.Join(external, "team.md")
-	mustWriteFile(t, rule, "---\nname: team\n---\nTeam rule.\n")
+	writeFile(t, rule, "---\nname: team\n---\nTeam rule.\n")
 	if view := getSource(t, srv, absSlash(t, rule), http.StatusOK); view.Kind != "rule" || view.Body != "Team rule.\n" {
 		t.Errorf("view: %+v", view)
 	}
 	outside := filepath.Join(t.TempDir(), "secret.md")
-	mustWriteFile(t, outside, "---\nname: linked\n---\nOutside.\n")
+	writeFile(t, outside, "---\nname: linked\n---\nOutside.\n")
 	link := filepath.Join(external, "linked.md")
 	if err := os.Symlink(outside, link); err != nil {
 		t.Skip("symlinks unavailable:", err)
@@ -145,7 +145,7 @@ func TestServeSource_ServesRulesFromALinkedSourceFolder(t *testing.T) {
 	dir, srv := sourceProject(t)
 	external := t.TempDir()
 	rule := filepath.Join(external, "team.md")
-	mustWriteFile(t, rule, "---\nname: team\n---\nTeam rule.\n")
+	writeFile(t, rule, "---\nname: team\n---\nTeam rule.\n")
 	rules := filepath.Join(dir, ".agnostic-ai", "rules")
 	if err := os.RemoveAll(rules); err != nil {
 		t.Fatal(err)
@@ -157,7 +157,7 @@ func TestServeSource_ServesRulesFromALinkedSourceFolder(t *testing.T) {
 		t.Errorf("view: %+v", view)
 	}
 	outside := filepath.Join(t.TempDir(), "secret.md")
-	mustWriteFile(t, outside, "---\nname: linked\n---\nOutside.\n")
+	writeFile(t, outside, "---\nname: linked\n---\nOutside.\n")
 	if err := os.Symlink(outside, filepath.Join(external, "linked.md")); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestServeSource_ServesRulesFromALinkedSourceFolder(t *testing.T) {
 
 func TestServeSource_RefusesABuiltinSpec(t *testing.T) {
 	dir, srv := sourceProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
 	_, b, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -241,7 +241,7 @@ func TestServeSource_CutsALargeBodyAndSaysSo(t *testing.T) {
 	dir, srv := sourceProject(t)
 	body := strings.Repeat("é", sourceBodyLimit/2+1000)
 	path := filepath.Join(dir, ".agnostic-ai", "rules", "large.md")
-	mustWriteFile(t, path, "---\nname: large\n---\n"+body)
+	writeFile(t, path, "---\nname: large\n---\n"+body)
 	view := getSource(t, srv, absSlash(t, path), http.StatusOK)
 	if !view.Truncated || len(view.Body) > sourceBodyLimit || !strings.HasPrefix(view.Body, "éé") || strings.ContainsRune(view.Body, '�') {
 		t.Errorf("truncated %v, body length %d", view.Truncated, len(view.Body))
@@ -256,10 +256,10 @@ func TestServeSource_ServesGlobalAndLocalFilesInTheGlobalView(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv(envUserGlobalRoot, home)
 	project := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(project, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nProject rule.\n")
-	mustWriteFile(t, filepath.Join(home, "AGNOSTIC_AI.md"), "Global guidance.\n")
-	mustWriteFile(t, filepath.Join(home, "local", "AGNOSTIC_AI.md"), "Local guidance.\n")
-	mustWriteFile(t, filepath.Join(home, "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
+	writeFile(t, filepath.Join(project, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nProject rule.\n")
+	writeFile(t, filepath.Join(home, "AGNOSTIC_AI.md"), "Global guidance.\n")
+	writeFile(t, filepath.Join(home, "local", "AGNOSTIC_AI.md"), "Local guidance.\n")
+	writeFile(t, filepath.Join(home, "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home, Global: true}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getSource(t, srv, absSlash(t, filepath.Join(home, "local", "rules", "mine.md")), http.StatusOK); view.Kind != "rule" || view.Body != "Local rule.\n" {
@@ -273,9 +273,9 @@ func TestServeSource_ServesGlobalAndLocalFilesInTheGlobalView(t *testing.T) {
 
 func TestServeSource_ServesEveryContextRowTheOverviewCanOpen(t *testing.T) {
 	dir, srv := sourceProject(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews.\ntools: [Read, Grep]\n---\nReview.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\n---\nDeploy.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews.\ntools: [Read, Grep]\n---\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
 	resp, err := http.Get(srv.URL + overview.OverviewPath)
 	if err != nil {
 		t.Fatal(err)
@@ -322,7 +322,7 @@ func TestServeSource_RefusesARawEncodedTraversal(t *testing.T) {
 func TestServeSource_RefusesASkillFolderLinkedOutside(t *testing.T) {
 	dir, srv := sourceProject(t)
 	outside := filepath.Join(t.TempDir(), "deploy")
-	mustWriteFile(t, filepath.Join(outside, "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\n---\nOutside.\n")
+	writeFile(t, filepath.Join(outside, "SKILL.md"), "---\nname: deploy\ndescription: Deploys.\n---\nOutside.\n")
 	link := filepath.Join(dir, ".agnostic-ai", "skills", "deploy")
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
@@ -337,12 +337,12 @@ func TestServeSource_HidesFrontmatterThatDoesNotParse(t *testing.T) {
 	dir, srv := sourceProject(t)
 	broken := "---\npassword: hunter2short\nbad: [\n---\nKeep functions small.\n"
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, broken)
+	writeFile(t, instructions, broken)
 	if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); strings.Contains(view.Body, "hunter2short") || len(view.Frontmatter) != 0 {
 		t.Errorf("instructions: %+v", view)
 	}
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
-	mustWriteFile(t, rule, broken)
+	writeFile(t, rule, broken)
 	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, rule)))
 	if err != nil {
 		t.Fatal(err)
@@ -357,7 +357,7 @@ func TestServeSource_HidesFrontmatterThatDoesNotParse(t *testing.T) {
 func TestServeSource_ShowsEachNestedFieldWithTheOverviewRedaction(t *testing.T) {
 	dir, srv := sourceProject(t)
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "nested.md")
-	mustWriteFile(t, rule, "---\nname: nested\nmetadata:\n  type: user\n  api_key: hunter2short\n---\nBody.\n")
+	writeFile(t, rule, "---\nname: nested\nmetadata:\n  type: user\n  api_key: hunter2short\n---\nBody.\n")
 	view := getSource(t, srv, absSlash(t, rule), http.StatusOK)
 	var got []string
 	for _, f := range view.Frontmatter {
@@ -388,13 +388,13 @@ func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.
 		return view, string(data)
 	}
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "big.md")
-	mustWriteFile(t, rule, "---\nname: big\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceBodyLimit+1024)+"\n---\nBody.\n")
+	writeFile(t, rule, "---\nname: big\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceBodyLimit+1024)+"\n---\nBody.\n")
 	view, raw := get(rule)
 	if strings.Contains(raw, "hunter2short") || !view.Withheld {
 		t.Errorf("closing past the body limit: truncated %v, body %q", view.Truncated, view.Body)
 	}
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, "---\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n---\nBody.\n")
+	writeFile(t, instructions, "---\napi_key: hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n---\nBody.\n")
 	view, raw = get(instructions)
 	if strings.Contains(raw, "hunter2short") || strings.Contains(view.Body, "api_key") || len(view.Frontmatter) != 0 || !view.Truncated {
 		t.Errorf("closing past the read limit: truncated %v, body length %d, frontmatter %d", view.Truncated, len(view.Body), len(view.Frontmatter))
@@ -404,7 +404,7 @@ func TestServeSource_NeverShowsFrontmatterThatClosesPastTheBodyLimit(t *testing.
 func TestServeSource_NeverShowsFrontmatterThatNeverCloses(t *testing.T) {
 	dir, srv := sourceProject(t)
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, "---\npassword: hunter2short\n")
+	writeFile(t, instructions, "---\npassword: hunter2short\n")
 	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 	if err != nil {
 		t.Fatal(err)
@@ -426,7 +426,7 @@ func TestServeSource_NeverShowsFrontmatterThatNeverCloses(t *testing.T) {
 func TestServeSource_HidesValuesNestedUnderACredentialKey(t *testing.T) {
 	dir, srv := sourceProject(t)
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, "---\ncredentials:\n  value: hunter2short\n---\nBody.\n")
+	writeFile(t, instructions, "---\ncredentials:\n  value: hunter2short\n---\nBody.\n")
 	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 	if err != nil {
 		t.Fatal(err)
@@ -441,7 +441,7 @@ func TestServeSource_HidesValuesNestedUnderACredentialKey(t *testing.T) {
 func TestServeSource_HidesCredentialsInsideListItems(t *testing.T) {
 	dir, srv := sourceProject(t)
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, "---\naccounts:\n  - credentials:\n      value: hunter2short\n    name: ci\n---\nBody.\n")
+	writeFile(t, instructions, "---\naccounts:\n  - credentials:\n      value: hunter2short\n    name: ci\n---\nBody.\n")
 	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 	if err != nil {
 		t.Fatal(err)
@@ -456,7 +456,7 @@ func TestServeSource_HidesCredentialsInsideListItems(t *testing.T) {
 func TestServeSource_HidesCredentialsUnderNonStringKeys(t *testing.T) {
 	dir, srv := sourceProject(t)
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, "---\nmetadata: {1: public, password: hunter2short}\naccounts:\n  - {2: x, token: hunter3short}\nwhen: 2026-11-06\n---\nBody.\n")
+	writeFile(t, instructions, "---\nmetadata: {1: public, password: hunter2short}\naccounts:\n  - {2: x, token: hunter3short}\nwhen: 2026-11-06\n---\nBody.\n")
 	resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 	if err != nil {
 		t.Fatal(err)
@@ -477,7 +477,7 @@ func TestServeSource_NeverShowsALeadingBlockAsBody(t *testing.T) {
 		"---\nhunter2short\n---\nBody.\n",
 		"--- \npassword: hunter2short\n---\nBody.\n",
 	} {
-		mustWriteFile(t, instructions, content)
+		writeFile(t, instructions, content)
 		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 		if err != nil {
 			t.Fatal(err)
@@ -506,7 +506,7 @@ func TestServeSource_NeverReturnsACredentialFromAnyPartOfTheFile(t *testing.T) {
 		"fenced block":       "Root.\n\n```yaml\npassword: |\n  hunter2short\n```\n",
 		"frontmatter repeat": "---\nurl: https://user:hunter2short@example.com/\nnote: hunter2short\n---\nBody.\n",
 	} {
-		mustWriteFile(t, instructions, content)
+		writeFile(t, instructions, content)
 		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, instructions)))
 		if err != nil {
 			t.Fatal(err)
@@ -549,14 +549,14 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 		"frontmatter repeat": "---\nurl: https://user:hunter2short@example.com/\nnote: hunter2short\n---\nBody.\n",
 		"indented end":       "---\nname: x\n  ---\n```yaml\nurl: https://user:hunter2short@example.com/\n```\n---\nhunter2short\n",
 	} {
-		mustWriteFile(t, instructions, content)
+		writeFile(t, instructions, content)
 		view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)
 		if !view.Withheld || strings.Contains(view.Body, "hunter2short") || strings.Contains(view.Body, "ghp_") {
 			t.Errorf("%s: withheld %v, body %q", name, view.Withheld, view.Body)
 		}
 	}
 	for _, text := range []string{"Root.\n\nKeep the token budget small.\n"} {
-		mustWriteFile(t, instructions, text)
+		writeFile(t, instructions, text)
 		if view := getSource(t, srv, absSlash(t, instructions), http.StatusOK); view.Withheld || view.Body != text {
 			t.Errorf("plain text must show: %+v", view)
 		}
@@ -566,7 +566,7 @@ func TestServeSource_WithholdsTheBodyOnAnyCredentialSign(t *testing.T) {
 func TestServeSource_WithholdsAFileTooLargeToCheckWhole(t *testing.T) {
 	dir, srv := sourceProject(t)
 	instructions := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-	mustWriteFile(t, instructions, "hunter2short\n"+strings.Repeat("plain text\n", (sourceFrontmatterLimit+sourceBodyLimit)/10)+"The password is hunter2short.\n")
+	writeFile(t, instructions, "hunter2short\n"+strings.Repeat("plain text\n", (sourceFrontmatterLimit+sourceBodyLimit)/10)+"The password is hunter2short.\n")
 	view := getSource(t, srv, absSlash(t, instructions), http.StatusOK)
 	if !view.Withheld || !view.Truncated || view.Body != "" || len(view.Frontmatter) != 0 {
 		t.Errorf("a file past the read limit is withheld: withheld %v, truncated %v, body length %d", view.Withheld, view.Truncated, len(view.Body))
@@ -576,7 +576,7 @@ func TestServeSource_WithholdsAFileTooLargeToCheckWhole(t *testing.T) {
 func TestServeSource_ShowsAHookAsFieldsAndNoRawText(t *testing.T) {
 	dir, srv := sourceProject(t)
 	hook := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
-	mustWriteFile(t, hook, "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\ntimeout: 10\n")
+	writeFile(t, hook, "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\ntimeout: 10\n")
 	view := getSource(t, srv, absSlash(t, hook), http.StatusOK)
 	var got []string
 	for _, f := range view.Frontmatter {
@@ -595,7 +595,7 @@ func TestServeSource_WithholdsAHookWithACredential(t *testing.T) {
 		"env":   "name: guard\non: before-tool\ncommand: ./guard.sh\nenv:\n  password: hunter2short\n",
 		"key":   "name: guard\non: before-tool\ncommand: ./deploy.sh hunter2short\napi_key: hunter2short\n",
 	} {
-		mustWriteFile(t, hook, content)
+		writeFile(t, hook, content)
 		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, hook)))
 		if err != nil {
 			t.Fatal(err)
@@ -618,9 +618,9 @@ func TestServeSource_WithholdsAHookWithACredential(t *testing.T) {
 func TestServeSource_HidesAHookThatDoesNotParseOrIsCut(t *testing.T) {
 	dir, srv := sourceProject(t)
 	broken := filepath.Join(dir, ".agnostic-ai", "hooks", "broken.yaml")
-	mustWriteFile(t, broken, "name: broken\non: stop\ncommand: echo hunter2short\nbad: [\n")
+	writeFile(t, broken, "name: broken\non: stop\ncommand: echo hunter2short\nbad: [\n")
 	large := filepath.Join(dir, ".agnostic-ai", "hooks", "large.yaml")
-	mustWriteFile(t, large, "name: large\non: stop\ncommand: echo hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n")
+	writeFile(t, large, "name: large\non: stop\ncommand: echo hunter2short\npad: "+strings.Repeat("a", sourceFrontmatterLimit+sourceBodyLimit)+"\n")
 	for _, path := range []string{broken, large} {
 		resp, err := http.Get(srv.URL + sourceViewPath + "?path=" + url.QueryEscape(absSlash(t, path)))
 		if err != nil {
@@ -632,7 +632,7 @@ func TestServeSource_HidesAHookThatDoesNotParseOrIsCut(t *testing.T) {
 			t.Errorf("%s: status %d leaked the command: %.200s", filepath.Base(path), resp.StatusCode, data)
 		}
 	}
-	mustWriteFile(t, broken, "name: broken\non: stop\ncommand: echo ok\n")
+	writeFile(t, broken, "name: broken\non: stop\ncommand: echo ok\n")
 	view := getSource(t, srv, absSlash(t, large), http.StatusOK)
 	if !view.Truncated || !view.Withheld || len(view.Frontmatter) != 0 || view.Body != "" {
 		t.Errorf("cut hook: truncated %v, withheld %v, fields %d, body length %d", view.Truncated, view.Withheld, len(view.Frontmatter), len(view.Body))
@@ -641,7 +641,7 @@ func TestServeSource_HidesAHookThatDoesNotParseOrIsCut(t *testing.T) {
 
 func TestServeSource_ServesEveryLifecycleRowTheOverviewCanOpen(t *testing.T) {
 	dir, srv := sourceProject(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
 	resp, err := http.Get(srv.URL + overview.OverviewPath)
 	if err != nil {
 		t.Fatal(err)
@@ -673,7 +673,7 @@ func TestServeSource_ServesEveryLifecycleRowTheOverviewCanOpen(t *testing.T) {
 
 func TestServeSource_RefusesABuiltinHook(t *testing.T) {
 	dir, srv := sourceProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
 	_, b, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)

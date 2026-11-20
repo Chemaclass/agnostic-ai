@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
@@ -19,11 +20,21 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		sess.SetBackup(true)
 		defer sess.SetBackup(false)
 	}
+	// Save hand edits as <path>.bak, as sync does, so --fix loses none.
+	// Merged files keep the user's keys by merging, so sync backs none of
+	// them up; they go through a session without the guard.
+	prior := readStateFile(".")
+	editGuardFor(false, prior).apply(sess)
+	merged := adapters.NewSession()
+	if backup {
+		merged.SetBackup(true)
+		defer merged.SetBackup(false)
+	}
 	fixed := map[string]string{}
 	releasedMerged := map[string]*mergedOutput{}
 	fixedMerged := map[string]mergedOutput{}
 	defer func() {
-		if err := errors.Join(recordOutputSums(".", fixed), recordMergedFixes(".", fixedMerged, fixed), recordMergedRelease(".", releasedMerged)); err != nil {
+		if err := errors.Join(recordOutputSums(".", fixed), recordBackups(".", syncBackups(prior.Backups, append(sess.Backups(), merged.Backups()...))), recordMergedFixes(".", fixedMerged, fixed), recordMergedRelease(".", releasedMerged)); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}()
@@ -40,8 +51,15 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		}
 		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.changed()...) {
 			created := !fileExists(f.Path)
-			if err := sess.WriteFile(f.Path, f.Content, false); err != nil {
+			writer := sess
+			if f.Merged {
+				writer = merged
+			}
+			if err := writer.WriteFile(f.Path, f.Content, false); err != nil {
 				return written, err
+			}
+			if slices.Contains(sess.BackupBlockedEdits(), f.Path) {
+				continue
 			}
 			fixed[f.Path] = adapters.ContentSum(f.Content)
 			if f.Merged {
@@ -109,5 +127,39 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			}
 		}
 	}
+	for _, p := range sess.RemovedEdits() {
+		summaryf("%s removed a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+	}
+	for _, p := range sess.OverwroteEdits() {
+		summaryf("%s overwrote a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+	}
+	if blocked := sess.BackupBlockedEdits(); len(blocked) > 0 {
+		for _, p := range blocked {
+			fmt.Fprintf(os.Stderr, "%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
+		}
+		return written, fmt.Errorf("kept %d hand-edited file(s) whose .bak already exists", len(blocked))
+	}
 	return written, nil
+}
+
+// recordBackups stores the backups in the state file, so import can tell
+// a backup doctor --fix made from a skill's own asset, as for sync.
+func recordBackups(projectRoot string, backups map[string]string) error {
+	if len(backups) == 0 {
+		return nil
+	}
+	p := stateFilePath(projectRoot)
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return nil
+	}
+	s, err := decodeLedger(projectRoot, p, data)
+	if newer := new(newerLedgerError); errors.As(err, &newer) {
+		return err
+	}
+	if err != nil {
+		return nil
+	}
+	s.Backups = backups
+	return replaceStateFile(projectRoot, s)
 }

@@ -21,13 +21,13 @@ esac
 func crushProject(t *testing.T, hook, script string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
 	path := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, path, script)
+	writeFile(t, path, script)
 	if err := os.Chmod(path, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
 	mustSync(t)
 }
 

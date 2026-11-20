@@ -90,7 +90,7 @@ func TestSettingChanges_PreviewApplyUndoEffortRestoresProject(t *testing.T) {
 
 func TestSettingChanges_StaleExpectedAndInterveningEditsAreConflicts(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\neffort: low\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\neffort: low\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestSettingChanges_StaleExpectedAndInterveningEditsAreConflicts(t *testing.
 	settingProposal(t, h, audienceShared, map[string]any{"key": "effort", "value": "high", "expected": "medium"}, http.StatusConflict)
 
 	proposal := settingProposal(t, h, audienceShared, map[string]any{"key": "effort", "value": "high", "expected": "low"}, http.StatusOK)
-	mustWriteFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\neffort: medium\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\neffort: medium\n")
 	if rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil); rec.Code != http.StatusConflict {
 		t.Fatalf("apply after an intervening edit: %d %s", rec.Code, rec.Body)
 	}
@@ -173,7 +173,7 @@ func TestSettingChanges_RequestBoundaries(t *testing.T) {
 
 func TestSettingChanges_PendingSourceEditsAreNamedAndWriteFailureRestores(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review changes.\n---\nReview one change.\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review changes.\n---\nReview one change.\n")
 	before, err := snapshotBuiltinProject(root, nil)
 	if err != nil {
 		t.Fatal(err)
