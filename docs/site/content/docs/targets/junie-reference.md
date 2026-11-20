@@ -46,7 +46,7 @@ A `## Rules` block follows the instructions that point to source specs, marked s
 
 Junie CLI and compatible Agent Client Protocol (ACP) clients use the same command files. In ACP sessions, `/commands` lists available commands and how to invoke them with `/name`. Create or edit commands through their Markdown files or the CLI's interactive `/commands` screen ([command docs](https://junie.jetbrains.com/docs/custom-slash-commands.html)).
 
-Custom agents can run as the main agent in an ACP session through `--agent <name>`; the client must pass that option when it launches Junie ([standalone agents](https://junie.jetbrains.com/docs/junie-cli-subagents.html#run-a-custom-agent-standalone)).
+On a Junie build that supports standalone agents, have the ACP client pass `--agent <name>` at launch. On macOS arm64, Junie EAP 26.11.3 (build 4171.3) accepts the flag. Stable 26.11.2 (build 4100.10) rejects it before the ACP session starts. Check `junie --help` on the binary your client launches. [Junie standalone agents](https://junie.jetbrains.com/docs/junie-cli-subagents.html#run-a-custom-agent-standalone)
 
 IDE AI Chat uses the CLI-backed integration, where command reuse depends on ACP support in the client. The [separate Junie tool window](https://junie.jetbrains.com/docs/junie-ide-plugin.html) is a different integration; its documentation does not describe custom command or subagent file support.
 

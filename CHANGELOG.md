@@ -184,6 +184,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- Document Claude Code's version requirement for fail-closed MCP-tool hooks and the current Kiro IDE Memories menu (#3770, #3773).
+- Restore OpenCode V1 reference links and describe the portable skill-name requirement (#3771, #3772).
+- Document Crush 0.102.0 prompt overrides in `crush.json` and qualify Junie ACP primary-agent selection by release channel (#3774, #3775).
 - Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
