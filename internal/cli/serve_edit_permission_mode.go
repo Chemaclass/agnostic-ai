@@ -32,7 +32,7 @@ func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr 
 		}
 		mode = &v
 	}
-	file, scaffold, _, err := h.permissionSource(where, shown, key)
+	file, scaffold, _, _, err := h.permissionSource(where, shown, key)
 	if err != nil {
 		return "", nil, err
 	}

@@ -16,6 +16,16 @@ ui-build:
 ui-check:
 	go test ./ui -run TestBundleMatchesSources -count=1
 
+ifeq ($(shell uname -s),Darwin)
+# Match the release minimum. Go's build cache keys on CGO_CFLAGS, so include it there too.
+MACOSX_DEPLOYMENT_TARGET ?= 13.0
+CGO_CFLAGS ?= -O2 -g
+CGO_LDFLAGS ?= -O2 -g
+companion companion-test: export MACOSX_DEPLOYMENT_TARGET := $(MACOSX_DEPLOYMENT_TARGET)
+companion companion-test: export CGO_CFLAGS := $(CGO_CFLAGS) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+companion companion-test: export CGO_LDFLAGS := $(CGO_LDFLAGS) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+endif
+
 # The floating companion is its own Go module (companion/go.mod), so
 # Wails stays out of the CLI's dependencies and its binary. It builds for
 # the system it runs on; see companion/README.md. Users get it with

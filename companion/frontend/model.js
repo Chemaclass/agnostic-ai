@@ -489,7 +489,7 @@ export function approvedToggleOf(conversation, open) {
   return label === undefined ? undefined : `${open ? '▾' : '▸'} ${label}`
 }
 
-/** The approvals modes the header names, as the person set them in the home config. */
+/** The active approvals modes the header names. */
 const APPROVALS_MODE_LABELS = {
   review: 'Approvals: your tools\' reviewers answer routine prompts',
   yolo: 'Approvals: routine prompts are approved for you',

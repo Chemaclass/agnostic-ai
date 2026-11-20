@@ -202,6 +202,7 @@ func TestServeEditHook_RefusesInvalidRequests(t *testing.T) {
 		{"zero timeout", func(r map[string]any) { r["timeout"] = 0 }, "timeout must be a whole number of seconds above zero"},
 		{"negative timeout", func(r map[string]any) { r["timeout"] = -5 }, "timeout must be a whole number of seconds above zero"},
 		{"fractional timeout", func(r map[string]any) { r["timeout"] = 1.5 }, "send action preview or apply"},
+		{"unknown field", func(r map[string]any) { r["bogus"] = 1 }, "send action preview or apply"},
 		{"bad audience", func(r map[string]any) { r["audience"] = "team" }, "audience"},
 		{"bearer token in command", func(r map[string]any) {
 			r["command"] = `curl -H "Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz0123456789" https://example.com`
