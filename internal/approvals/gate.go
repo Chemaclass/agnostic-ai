@@ -276,11 +276,11 @@ func (g *gate) alwaysAsk(r Request) string {
 		rule = asEditRule(rule)
 		for _, form := range forms {
 			for _, root := range roots {
-				rule, root := rule, root
+				formRule, formRoot := rule, root
 				if form.fold {
-					rule, root = g.foldRule(rule), strings.ToLower(root)
+					formRule, formRoot = g.foldRule(rule), strings.ToLower(root)
 				}
-				runs, err := hookrun.ClaudeIfRuns(rule, "PermissionRequest", form.body, root)
+				runs, err := hookrun.ClaudeIfRuns(formRule, "PermissionRequest", form.body, formRoot)
 				if err != nil || runs {
 					return RuleAlwaysAsk
 				}

@@ -139,11 +139,9 @@ func gitGlob(glob string) bool {
 	if err != nil {
 		return true
 	}
-	for _, sample := range []string{".git/config", ".git/hooks/x", ".git/fetch_head", ".git/packed-refs", ".git/modules/x/config",
-		".git/worktrees/x/config.worktree", ".gitconfig", ".config/git/config", "dir/.git/config"} {
-		if re.MatchString(sample) {
-			return true
-		}
+	if slices.ContainsFunc([]string{".git/config", ".git/hooks/x", ".git/fetch_head", ".git/packed-refs", ".git/modules/x/config",
+		".git/worktrees/x/config.worktree", ".gitconfig", ".config/git/config", "dir/.git/config"}, re.MatchString) {
+		return true
 	}
 	// Each segment on its own: a wildcard one deeper in the glob, such
 	// as sub/.gi?/FETCH_HEAD, may still name a Git folder. A segment of
