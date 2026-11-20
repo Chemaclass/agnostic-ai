@@ -65,14 +65,51 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{".agents/commands/*.md", "amp"},
 }
 
-// unmanagedImportedOnce lists config files a tool reads that sync never
-// writes, so import leaves them in place. One stays unmanaged until the
-// spec import writes from it exists.
-var unmanagedImportedOnce = []struct{ glob, target, kind, suffix string }{
-	{cursorLegacyRulesFile, "cursor", "rules", ""},
-	{".github/prompts/*" + copilotPromptSuffix, "copilot", "commands", copilotPromptSuffix},
-	{".opencode/agent/*.md", "opencode", "agents", ".md"},
-	{".opencode/command/*.md", "opencode", "commands", ".md"},
+// importedOnceFile is a config file a tool reads that sync never
+// writes, so import leaves it in place. dest, with %s for the name, is
+// the file sync writes from its spec under outputs dir out, which the
+// tool loads as well, and tool names that tool. A file whose dest is
+// empty has no such copy.
+type importedOnceFile struct{ glob, target, kind, suffix, dest, out, tool string }
+
+// unmanagedImportedOnce lists the imported-once files. One stays
+// unmanaged until the spec import writes from it exists, then while it
+// duplicates the file sync wrote from that spec.
+var unmanagedImportedOnce = []importedOnceFile{
+	{cursorLegacyRulesFile, "cursor", "rules", "", "", "", ""},
+	{".github/prompts/*" + copilotPromptSuffix, "copilot", "commands", copilotPromptSuffix, ".github/skills/%s/SKILL.md", "skills", "Copilot"},
+	{".opencode/agent/*.md", "opencode", "agents", ".md", ".opencode/agents/%s.md", "agents", "OpenCode"},
+	{".opencode/command/*.md", "opencode", "commands", ".md", ".opencode/commands/%s.md", "commands", "OpenCode"},
+}
+
+// nameOf returns the spec name of the imported-once file at path.
+func (f importedOnceFile) nameOf(path string) string {
+	return strings.TrimPrefix(strings.TrimSuffix(filepath.Base(path), f.suffix), ".")
+}
+
+// destFor returns the file sync writes from the spec named name, for an
+// enabled target with the default output folder. A `group:name` command
+// lands as `group-name`.
+func (f importedOnceFile) destFor(cfg *config.Config, name string) (string, bool) {
+	if f.dest == "" || cfg == nil || !slices.Contains(cfg.Targets, f.target) {
+		return "", false
+	}
+	o := cfg.Outputs[f.target]
+	if map[string]string{"agents": o.AgentsDir, "commands": o.CommandsDir, "skills": o.SkillsDir}[f.out] != "" {
+		return "", false
+	}
+	return fmt.Sprintf(f.dest, strings.ReplaceAll(name, ":", "-")), true
+}
+
+// duplicate returns the generated file under root that repeats the
+// imported-once file at path.
+func (f importedOnceFile) duplicate(root string, cfg *config.Config, path string) (string, bool) {
+	dest, ok := f.destFor(cfg, f.nameOf(path))
+	if !ok {
+		return "", false
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(dest)))
+	return dest, err == nil && header.Has(string(data))
 }
 
 // unmanagedMCPFiles lists MCP files sync replaces whole. JSON carries no
@@ -97,11 +134,58 @@ var unmanagedScopedFiles = []struct{ nativeDir, file, target string }{
 	{".cursor", cursorReviewFile, "cursor"},
 }
 
+// noteImportedOnceDuplicates names each imported-once file of target
+// whose spec sync writes for it, to delete after the next sync: the tool
+// loads both, and a later spec edit reaches only the copy. Import never
+// removes a file it did not write.
+func noteImportedOnceDuplicates(root, target string, cfg *config.Config) {
+	for _, c := range unmanagedImportedOnce {
+		if c.target != target {
+			continue
+		}
+		matches, _ := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
+		for _, m := range matches {
+			name := c.nameOf(m)
+			dest, ok := c.destFor(cfg, name)
+			if !ok || !c.specEmits(root, cfg, name) {
+				continue
+			}
+			if data, err := os.ReadFile(m); err != nil || header.Has(string(data)) {
+				continue
+			}
+			rel, err := filepath.Rel(root, m)
+			if err != nil {
+				rel = m
+			}
+			summaryf("  ! delete %s after the next sync: sync writes it to %s, and %s loads both\n", filepath.ToSlash(rel), dest, c.tool)
+		}
+	}
+}
+
+// specEmits reports whether the spec named name reaches the target of f,
+// and as the file dest names: Copilot gets a command as a skill only
+// when it writes commands as skills.
+func (f importedOnceFile) specEmits(root string, cfg *config.Config, name string) bool {
+	kind := map[string]spec.Kind{"agents": spec.KindAgent, "commands": spec.KindCommand}[f.kind]
+	data, err := os.ReadFile(filepath.Join(unmanagedSourceDir(root, cfg, f.kind), name+".md"))
+	if err != nil {
+		return false
+	}
+	e, err := spec.ParseMarkdownBytes(kind, data)
+	if err != nil || !e.EmitsTo(f.target) {
+		return false
+	}
+	return f.out != "skills" || adapters.WritesCommandsAsSkills(cfg, f.target)
+}
+
 // unmanagedFinding is one config file present on disk but not generated
 // from `.agnostic-ai/`.
 type unmanagedFinding struct {
 	Path   string
 	Target string
+	// Duplicate, when set, says the file repeats one sync writes and
+	// how to fix it; importing it again changes nothing.
+	Duplicate string
 }
 
 // findUnmanagedConfig scans root for known agentic config files that
@@ -113,10 +197,10 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 	var out []unmanagedFinding
 	headerless := headerlessEntryPoints(cfg)
 	sums := readStateFile(root).OutputSums
-	add := func(path, target string) {
+	add := func(path, target string) *unmanagedFinding {
 		data, err := os.ReadFile(path)
 		if err != nil || header.Has(string(data)) {
-			return
+			return nil
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
@@ -127,9 +211,10 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 		// managed when the sync record holds its bytes or sync writes it
 		// headerless; a fresh clone has no record.
 		if headerless[rel] || sums[rel] != "" && adapters.MatchesSum(data, sums[rel]) {
-			return
+			return nil
 		}
 		out = append(out, unmanagedFinding{Path: rel, Target: target})
+		return &out[len(out)-1]
 	}
 	for _, c := range claudeGlobsFor(cfg, unmanagedConfigGlobs) {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
@@ -147,9 +232,14 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 			return nil, err
 		}
 		for _, m := range matches {
-			name := strings.TrimPrefix(strings.TrimSuffix(filepath.Base(m), c.suffix), ".")
-			if !fileExists(filepath.Join(unmanagedSourceDir(root, cfg, c.kind), name+".md")) {
+			if !fileExists(filepath.Join(unmanagedSourceDir(root, cfg, c.kind), c.nameOf(m)+".md")) {
 				add(m, c.target)
+				continue
+			}
+			if dest, ok := c.duplicate(root, cfg, m); ok {
+				if f := add(m, c.target); f != nil {
+					f.Duplicate = fmt.Sprintf("delete it: sync writes %s from its spec, and %s loads both", dest, c.tool)
+				}
 			}
 		}
 	}
@@ -238,6 +328,10 @@ func printUnmanagedConfig(cmd *cobra.Command, cfg *config.Config, all []unmanage
 	byTarget := map[string][]string{}
 	var targetOrder []string
 	for _, f := range findings {
+		if f.Duplicate != "" {
+			cmd.Printf("  ✗ %s\n    → %s\n", f.Path, f.Duplicate)
+			continue
+		}
 		if _, seen := byTarget[f.Target]; !seen {
 			targetOrder = append(targetOrder, f.Target)
 		}

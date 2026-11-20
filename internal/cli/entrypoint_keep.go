@@ -53,7 +53,7 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		}
 		uncaptured, err := handWrittenUncaptured(f.Path, held)
 		if err != nil {
-			return fmt.Errorf("%w; nothing was written", err)
+			return nothingWritten{err}
 		}
 		if !uncaptured {
 			continue
@@ -73,7 +73,35 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 	if len(lines) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+	return handWrittenStop(lines)
+}
+
+// handWrittenStop is a stop on files holding config agnostic-ai did not
+// write: one entry per file, each with its keep and replace steps.
+type handWrittenStop []string
+
+func (s handWrittenStop) Error() string {
+	return strings.Join(s, "\n") + "\nnothing was written"
+}
+
+// nothingWritten is an error a hand-written file guard hit before any
+// write.
+type nothingWritten struct{ err error }
+
+func (e nothingWritten) Error() string { return e.err.Error() + "; nothing was written" }
+
+func (e nothingWritten) Unwrap() error { return e.err }
+
+// withoutNothingWritten drops "nothing was written" from a hand-written
+// file guard's error, for a run that never writes.
+func withoutNothingWritten(err error) error {
+	if stop, ok := errors.AsType[handWrittenStop](err); ok {
+		return errors.New(strings.Join(stop, "\n"))
+	}
+	if read, ok := errors.AsType[nothingWritten](err); ok {
+		return read.err
+	}
+	return err
 }
 
 // heldInstructions is captured, the AGNOSTIC_AI.md body, plus the local
