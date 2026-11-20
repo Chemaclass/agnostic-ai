@@ -39,7 +39,7 @@ Use this workflow when the user asks to publish a new version. A request to prep
    `CHANGELOG.md` keeps the current group of ten minor versions. When you
    release v0.81.0, v0.91.0, and so on, move every dated section older than
    v0.80.0, v0.90.0, and so on to the top of `docs/CHANGELOG-archive.md`.
-   Update the "Releases before" line at the end of `CHANGELOG.md` and at the
+   Update the "Releases before" line at the top of `CHANGELOG.md` and at the
    top of the archive. `scripts/release-notes.sh` and
    `scripts/signals-shipped.sh` read both files.
 
