@@ -76,7 +76,7 @@ func homeToolMode(home config.ApprovalsConfig, tool string) (mode, from string) 
 // reviewer key, with a warning: approvals then fall back to ask, and the
 // other surfaces still sync.
 func (p *globalPlan) loadPlanApprovals() error {
-	if !slices.ContainsFunc(p.targets, func(target string) bool { _, ok := nativeReviewers[target]; return ok }) {
+	if !slices.ContainsFunc(p.targets, func(target string) bool { _, ok := nativeReviewers[target]; return ok || target == "kiro" }) {
 		return nil
 	}
 	approvals, err := config.LoadHomeApprovals(p.source)

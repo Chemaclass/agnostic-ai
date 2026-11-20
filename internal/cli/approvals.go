@@ -185,6 +185,10 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			}
 			reviewerWritten = reviewerWritten || rs.written
 		}
+		if tool == "kiro" {
+			written := kiroReviewStatus(&status, userHome, decision.Mode, state)
+			reviewerWritten = reviewerWritten || written
+		}
 		out.Tools = append(out.Tools, status)
 	}
 	out.reviewerWritten = reviewerWritten

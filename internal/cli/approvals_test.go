@@ -442,6 +442,9 @@ func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
 func TestApprovalRoutes_ReviewMatchesNativeReviewers(t *testing.T) {
 	for _, r := range approvals.Routes() {
 		reviewer, ok := nativeReviewers[r.Target]
+		if r.Target == "kiro" {
+			reviewer, ok = nativeReviewer{name: kiroReviewerName}, true
+		}
 		if (r.Review != nil) != ok {
 			t.Errorf("%s: route table review %+v, native reviewer %v", r.Target, r.Review, ok)
 			continue
@@ -596,6 +599,41 @@ func TestApprovalsStatus_QoderHook(t *testing.T) {
 			qoder := toolStatus(t, approvalsStatusJSON(t), "qoder")
 			if tc.routed != (qoder.Effective == config.ApprovalsYolo) || !tc.routed && qoder.Reason == "" {
 				t.Errorf("qoder: %+v", qoder)
+			}
+		})
+	}
+}
+
+func TestApprovalsStatus_KiroReview(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	t.Setenv("KIRO_HOME", "")
+	for name, tc := range map[string]struct {
+		mode, rules string
+		on          bool
+		note        string
+	}{
+		"listed":           {mode: "review", rules: "policies:\n  - approve-for-me\n", on: true, note: "trust classifier"},
+		"not listed":       {mode: "review", rules: "policies:\n  - dev-shell\n", note: "not listed"},
+		"no file":          {mode: "review", note: "not listed"},
+		"listed under ask": {mode: "ask", rules: "policies:\n  - approve-for-me\n", note: "stays on"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [kiro]\napprovals:\n  mode: "+tc.mode+"\n")
+			home, _ := os.UserHomeDir()
+			if tc.rules != "" {
+				writeFile(t, filepath.Join(home, ".kiro", "settings", "permissions.yaml"), tc.rules)
+			}
+			kiro := toolStatus(t, approvalsStatusJSON(t), "kiro")
+			if tc.on != (kiro.Effective == config.ApprovalsReview) || kiro.Review != kiroReviewerName {
+				t.Errorf("kiro: %+v", kiro)
+			}
+			if tc.mode == "review" && kiro.MinVersion != "2.36.0" {
+				t.Errorf("kiro review minimum version = %q, want 2.36.0", kiro.MinVersion)
+			}
+			if !slices.ContainsFunc(kiro.Notes, func(n string) bool { return strings.Contains(n, tc.note) }) {
+				t.Errorf("notes %q miss %q", kiro.Notes, tc.note)
 			}
 		})
 	}

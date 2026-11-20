@@ -55,6 +55,10 @@ type globalState struct {
 	// live in, so a moved configuration root sweeps the old file.
 	SettingsPaths map[string]string `json:"settingsPaths,omitempty"`
 	MCPPaths      map[string]string `json:"mcpPaths,omitempty"`
+	// ReviewPolicies records, per target, the reviewer preset sync listed
+	// in a permissions file the user also writes, so a later sync takes
+	// out only that item.
+	ReviewPolicies map[string]globalReviewPolicy `json:"reviewPolicies,omitempty"`
 	// Created lists the user files sync created, which it removes once
 	// nothing is left in them. They also sit in Files, but a moved
 	// configuration root is expected for them, so they are not proof of
@@ -165,6 +169,12 @@ func loadGlobalStateUpTo(path string, version int) (globalState, error) {
 // by absolute path, so syncing on would sweep that home's files.
 func foreignGlobalPath(old globalState, home string) string {
 	roots := globalRoots(home)
+	for _, target := range slices.Sorted(maps.Keys(old.ReviewPolicies)) {
+		policy := old.ReviewPolicies[target]
+		if policy.Home != home || !filepath.IsAbs(policy.Path) {
+			return policy.Path
+		}
+	}
 	for _, path := range append(slices.Clone(old.Files), old.Created...) {
 		if !filepath.IsAbs(path) {
 			return path

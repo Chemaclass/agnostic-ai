@@ -129,10 +129,14 @@ var routes = []Route{
 	{Target: "junie", Reason: reasonSilentOK},
 	{Target: "kilo", Reason: reasonNoRoute},
 	{Target: "kimi", Reason: reasonNoRoute},
-	{Target: "kiro", MinVersion: "3.4.0", Reason: reasonNotBuilt, Yolo: &Mechanism{
+	{Target: "kiro", MinVersion: "3.4.0", Yolo: &Mechanism{
 		Name:     MechanismPermissionHook,
 		File:     "~/.kiro/hooks/",
 		Evidence: "https://kiro.dev/docs/hooks/types.md",
+	}, Review: &Mechanism{
+		Name:     "Kiro Approve for me",
+		File:     "~/.kiro/settings/permissions.yaml",
+		Evidence: "https://kiro.dev/docs/permissions/",
 	}},
 	{Target: "openhands", Reason: reasonNoRoute},
 	{Target: "opencode", Reason: reasonNoRoute},
