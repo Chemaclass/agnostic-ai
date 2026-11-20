@@ -188,7 +188,7 @@
 // outright for the tool keys it names (target-audit 2026-09-19, #890).
 // See permission.go.
 //
-// MCP entries preserve timeout in milliseconds, including zero, and remote
+// MCP entries preserve positive whole timeouts in milliseconds and remote
 // oauth:false, with x-kilo overrides. import kilo reads the ignore file, the
 // portable default model, and the `permission` map.
 package kilo
@@ -682,8 +682,12 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		out["enabled"] = false
 	}
-	if timeout, ok := emit.IntField(e.Meta, "timeout"); ok {
-		out["timeout"] = timeout
+	if raw := e.Meta["timeout"]; raw != nil {
+		if timeout, whole := emit.WholeNumber(raw); whole && timeout > 0 {
+			out["timeout"] = timeout
+		} else {
+			emit.NoteProject("kilo: MCP " + e.Name + " timeout must be a positive whole number of milliseconds, so sync leaves it out and Kilo uses its default")
+		}
 	}
 
 	return out
