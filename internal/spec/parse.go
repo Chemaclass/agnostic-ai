@@ -2,7 +2,6 @@ package spec
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -44,7 +43,7 @@ func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
 func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
 	e, err := decodeYAMLEntry(data)
 	if err != nil {
-		return Entry{}, errs.YAMLLine(err)
+		return Entry{}, errs.YAMLLine(err, data)
 	}
 	e.Kind = kind
 	return e, nil
@@ -58,13 +57,9 @@ func parseMarkdown(path string) (Entry, error) {
 	normalized := normalizeLineEndings(data)
 	front, body, err := splitFrontmatter(normalized)
 	if err != nil {
-		// Frontmatter starts at line 2 (line 1 is the opening `---`). Decode
-		// errors come from the parsed nodes, whose lines already match the file.
-		offset := 1
-		if _, ok := errors.AsType[*yaml.TypeError](err); ok {
-			offset = 0
-		}
-		return Entry{}, formatYAMLError(path, err, offset)
+		// The decoded text keeps the rest of the opening `---` line, so its
+		// lines already match the file.
+		return Entry{}, formatYAMLError(path, err, 0, frontmatterYAML(normalized))
 	}
 	name, _ := front.meta["name"].(string)
 	return Entry{
@@ -92,7 +87,7 @@ func parseYAML(path string) (Entry, error) {
 func parseYAMLData(path string, data []byte) (Entry, error) {
 	e, err := decodeYAMLEntry(data)
 	if err != nil {
-		return Entry{}, formatYAMLError(path, err, 0)
+		return Entry{}, formatYAMLError(path, err, 0, data)
 	}
 	e.Path = path
 	return e, nil
@@ -255,6 +250,13 @@ func hasMarkdownHeading(block []byte) bool {
 // is treated as body-only with empty meta. Malformed YAML inside a
 // fully delimited block is surfaced as an error rather than silently
 // swallowed.
+// frontmatterYAML is the text splitFrontmatter decodes: from after the
+// opening `---` to the line before the closing one.
+func frontmatterYAML(data []byte) []byte {
+	before, _, _ := bytes.Cut(bytes.TrimPrefix(data, []byte("---")), []byte("\n---"))
+	return before
+}
+
 func splitFrontmatter(data []byte) (decodedMapping, string, error) {
 	const delim = "---"
 	empty := decodedMapping{meta: map[string]any{}}

@@ -585,7 +585,7 @@ func TeamBuiltins(root string) ([]string, error) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := yaml.Unmarshal(data, &team); err != nil {
-		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, errs.YAMLLine(err))
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, errs.YAMLLine(err, data))
 	}
 	return team.Builtins, nil
 }
@@ -668,7 +668,7 @@ func (f *configFile) decode(v any) error {
 	if doc := f.document(); doc != nil {
 		return doc.Decode(v)
 	}
-	return errs.YAMLLine(yaml.Unmarshal(f.data, v))
+	return errs.YAMLLine(yaml.Unmarshal(f.data, v), f.data)
 }
 
 func (f *configFile) yamlMap() (map[string]any, error) {

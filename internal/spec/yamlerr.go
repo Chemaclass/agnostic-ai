@@ -17,11 +17,11 @@ import (
 // yaml block starts inside the source file (0 for pure YAML files; 1
 // for markdown frontmatter, where the `---` opener occupies line 1 and
 // yaml content begins on line 2).
-func formatYAMLError(path string, err error, lineOffset int) error {
+func formatYAMLError(path string, err error, lineOffset int, data []byte) error {
 	if err == nil {
 		return nil
 	}
-	msgs := yamlErrorMessages(errs.YAMLLine(err))
+	msgs := yamlErrorMessages(errs.YAMLLine(err, data))
 	if len(msgs) == 0 {
 		return errs.Coded(errs.CodeSpecParse, "%s: %s", path, err.Error())
 	}
