@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -12,9 +13,13 @@ import (
 // installation. A claude-only project must not gain `target: claude`
 // tags during import, since cross-emit would never have triggered
 // anyway. Goose, OpenHands and other tools share `.agents/agents/` and
-// `.agents/skills/`, so only `.codex/` or a TOML agent marks Codex.
+// `.agents/skills/`, so only `.codex/`, a TOML agent, or `.agents/skills/`
+// with Codex as a target marks Codex.
 func codexTreeExists(root string) bool {
 	if dirExists(filepath.Join(root, codexDir)) {
+		return true
+	}
+	if importHookConfig != nil && slices.Contains(importHookConfig.Targets, "codex") && dirExists(filepath.Join(root, codexSkillsDirs[0])) {
 		return true
 	}
 	for _, d := range codexAgentDirs {

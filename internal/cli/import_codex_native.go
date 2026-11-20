@@ -239,18 +239,26 @@ func mergeCodexAgentIntoExisting(existing, path, codexName string, doc map[strin
 	mergeDivergentMetaKey(fm, xcodex, doc, "description")
 	tierModel, tierEffort, named := tierModelFor(fm, tiers, "codex")
 	codexModel, _ := doc["model"].(string)
-	reconcileModel := !named || codexModel != tierModel
+	marker, scoped := xcodex["model"]
+	reconcileModel := false
 	switch {
-	case !reconcileModel:
+	case named && codexModel == tierModel:
 		doc = maps.Clone(doc)
 		delete(doc, "model")
 		if sameScalar(doc["model_reasoning_effort"], tierEffort) {
 			delete(doc, "model_reasoning_effort")
 		}
-	case codexModel == "":
-		delete(fm, "model")
+	// `x-codex.model` already says what Codex gets; a delete marker stays
+	// until the TOML shows a model again.
+	case scoped && (marker != nil || codexModel == ""):
 	default:
-		fm["model"] = codexModel
+		reconcileModel = true
+		delete(xcodex, "model")
+		if codexModel == "" {
+			delete(fm, "model")
+		} else {
+			fm["model"] = codexModel
+		}
 	}
 	for key, val := range doc {
 		if codexAgentTopLevel[key] {
@@ -289,7 +297,16 @@ func mergeCodexAgentIntoExisting(existing, path, codexName string, doc map[strin
 	if err != nil {
 		return "", fmt.Errorf("merge %s: %w", path, err)
 	}
-	return string(reconciled), nil
+	// Re-marshal so the model keeps its place and layout in the spec.
+	front, _, _ = splitCodexAgentFrontmatter(string(reconciled))
+	fm = map[string]any{}
+	if err := yaml.Unmarshal([]byte(front), &fm); err != nil {
+		return "", fmt.Errorf("parse reconciled frontmatter: %w", err)
+	}
+	if raw, err = marshalAgentFrontmatter(fm); err != nil {
+		return "", fmt.Errorf("re-marshal frontmatter: %w", err)
+	}
+	return "---\n" + string(raw) + "---\n\n" + mergedBody, nil
 }
 
 // mergeDivergentMetaKey records a per-target override for key when the

@@ -116,3 +116,30 @@ func parseAgentFrontmatter(t *testing.T, doc string) map[string]any {
 	}
 	return fm
 }
+
+func TestMergeCodexAgentIntoExisting_ScopedCodexModel(t *testing.T) {
+	cases := []struct {
+		name, existing string
+		doc            map[string]any
+		want           string
+	}{
+		{"a model shown again clears the delete marker", "x-codex:\n    model: null\n", map[string]any{"model": "gpt-5.5", "developer_instructions": "Review."}, "---\nname: reviewer\nmodel:\n    codex: gpt-5.5\n---\n\nReview.\n"},
+		{"a scoped model sync wrote stays the only one", "x-codex:\n    model: gpt-5.5\n", map[string]any{"model": "gpt-5.5", "developer_instructions": "Review."}, "---\nname: reviewer\nx-codex:\n    model: gpt-5.5\n---\n\nReview.\n"},
+		{"a TOML without a model keeps the model in place", "model: sonnet\ntarget: claude\n", map[string]any{"developer_instructions": "Review."}, "---\nname: reviewer\nmodel: sonnet\ntarget: claude\n---\n\nReview.\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			priorTarget, priorCfg := importScopeTarget, importHookConfig
+			t.Cleanup(func() { importScopeTarget, importHookConfig = priorTarget, priorCfg })
+			importScopeTarget, importHookConfig = "codex", &config.Config{Targets: []string{"claude", "codex"}}
+			existing := "---\nname: reviewer\n" + c.existing + "---\n\nReview.\n"
+			got, err := mergeCodexAgentIntoExisting(existing, filepath.Join(".agnostic-ai", "agents", "reviewer.md"), "reviewer", c.doc, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != c.want {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}

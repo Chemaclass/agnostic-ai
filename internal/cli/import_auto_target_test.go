@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // A claude-only project (no codex tree) must not gain a `target:` tag,
@@ -208,5 +210,23 @@ func TestImportFromClaude_LegacyCodexAgentTOML_AddsTargetClaude(t *testing.T) {
 	}
 	if got := readFile(t, filepath.Join(dir, "agents", "explorer.md")); !strings.Contains(got, "target: claude") {
 		t.Errorf("expected `target: claude` with a legacy Codex agent:\n%s", got)
+	}
+}
+
+// A Codex project may hold only `.agents/skills/`; with Codex as a
+// target, a Claude-only skill still gets pinned.
+func TestImportFromClaude_CodexTargetWithSharedSkillsFolder_AddsTargetClaude(t *testing.T) {
+	priorCfg := importHookConfig
+	t.Cleanup(func() { importHookConfig = priorCfg })
+	importHookConfig = &config.Config{Targets: []string{"claude", "codex"}}
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "skills", "validator", "SKILL.md"), "---\nname: validator\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agents", "skills", "other", "SKILL.md"), "---\nname: other\n---\nx\n")
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, "skills", "validator", "SKILL.md")); !strings.Contains(got, "target: claude") {
+		t.Errorf("expected `target: claude` with Codex as a target:\n%s", got)
 	}
 }

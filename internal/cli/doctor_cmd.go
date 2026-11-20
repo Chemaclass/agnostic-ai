@@ -459,10 +459,19 @@ func doctorHandWrittenGuard(cfg *config.Config, bundle spec.Bundle, opts doctorO
 		if len(readers) == 0 {
 			readers = readerCfg.Targets
 		}
-		if err := keepHandWrittenInstructions(cfg, bundle, readers, outputs, backup, false); err != nil {
-			return err
+		instructions := keepHandWrittenInstructions(cfg, bundle, readers, outputs, backup, false)
+		stop, isStop := errors.AsType[handWrittenStop](instructions)
+		if instructions != nil && !isStop {
+			return instructions
 		}
-		return keepHandWrittenMCPFiles(renders, readerCfg, readers, outputs, backup, false)
+		mcp := keepHandWrittenMCPFiles(renders, readerCfg, readers, outputs, backup, false)
+		if mcpStop, ok := errors.AsType[handWrittenStop](mcp); ok {
+			return append(stop, mcpStop...)
+		}
+		if mcp != nil {
+			return mcp
+		}
+		return stop.err()
 	}
 }
 

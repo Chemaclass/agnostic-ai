@@ -213,32 +213,42 @@ func TestSync_PreviewStopOnAHandWrittenMCPFileOmitsNothingWritten(t *testing.T) 
 	}
 }
 
-// doctor --json listed a hand-written MCP file as plain stale, without
-// the reason the text output names.
+// doctor --json listed a hand-written file that stops sync as plain
+// stale, without the reason the text output names.
 func TestDoctorJSON_CarriesTheHandWrittenGuardReason(t *testing.T) {
 	setUpCursorMCPProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, "CLAUDE.md", "# Mine\n\nHand-written notes.\n")
 
 	out, err := runCLI(t, "doctor", "--json")
 	if err == nil {
-		t.Fatalf("doctor --json passed with a hand-written MCP file:\n%s", out)
+		t.Fatalf("doctor --json passed with hand-written files:\n%s", out)
 	}
 	var report struct {
 		Writes []struct {
 			Path   string `json:"path"`
+			Action string `json:"action"`
 			Reason string `json:"reason"`
 		} `json:"writes"`
 	}
 	if jerr := json.Unmarshal([]byte(out), &report); jerr != nil {
 		t.Fatalf("parse: %v\n%s", jerr, out)
 	}
+	want := map[string]string{
+		".cursor/mcp.json": "agnostic-ai import cursor",
+		"CLAUDE.md":        "agnostic-ai import claude",
+	}
 	for _, w := range report.Writes {
-		if w.Path != ".cursor/mcp.json" {
+		step, ok := want[w.Path]
+		if !ok {
 			continue
 		}
-		if !strings.Contains(w.Reason, "holds MCP config agnostic-ai did not write") || !strings.Contains(w.Reason, "agnostic-ai import cursor") {
-			t.Errorf("reason = %q, want the guard reason and its keep step", w.Reason)
+		delete(want, w.Path)
+		if w.Action != "stale" || !strings.Contains(w.Reason, "agnostic-ai did not write") || !strings.Contains(w.Reason, step) {
+			t.Errorf("%s: action %q, reason %q; want stale with the guard reason and %q", w.Path, w.Action, w.Reason, step)
 		}
-		return
 	}
-	t.Fatalf("no write record for .cursor/mcp.json:\n%s", out)
+	if len(want) > 0 {
+		t.Errorf("no write record for %v:\n%s", want, out)
+	}
 }
