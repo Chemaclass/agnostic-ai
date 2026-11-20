@@ -63,7 +63,7 @@ func TestEmit_NativeSixKinds(t *testing.T) {
 	if _, err := toml.Decode(string(data), &hooks); err != nil {
 		t.Fatal(err)
 	}
-	if len(hooks.Hooks) != 5 || DeclaredHookCommand(hooks.Hooks[0].Command) != "echo '{}'" {
+	if len(hooks.Hooks) != 7 || DeclaredHookCommand(hooks.Hooks[0].Command) != "echo '{}'" {
 		t.Fatalf("native hook command or target wrapper changed: %s", data)
 	}
 }
@@ -112,13 +112,16 @@ func TestEmit_RejectsAgentNamedMainInAnyCase(t *testing.T) {
 	}
 }
 func TestUserHookRecords_NativeEventsAndStrict(t *testing.T) {
-	for _, event := range []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"} {
+	for event, allowsStrict := range map[string]bool{
+		"pre_tool": true, "post_tool": true, "pre_agent": true, "post_agent": false,
+		"notification": false, "session_start": false, "session_end": false,
+		"pre_llm": true, "post_llm": true,
+	} {
 		t.Run(event, func(t *testing.T) {
 			for _, strict := range []bool{false, true} {
 				h := spec.Entry{Kind: spec.KindHook, Name: "native", Meta: map[string]any{"event": event, "command": "echo done", "x-vibe": map[string]any{"strict": strict, "match": "main"}}}
 				records, err := (Adapter{}).UserHookRecordsForPlatform([]spec.Entry{h}, ".vibe/hooks", "linux")
-				allowed := !strict || event == "pre_tool" || event == "post_tool" || event == "pre_agent"
-				if !allowed {
+				if strict && !allowsStrict {
 					if err == nil || !strings.Contains(err.Error(), "cannot set strict") {
 						t.Errorf("strict on %s must fail: %v", event, err)
 					}
@@ -154,6 +157,8 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindHook, Name: "notification", Meta: map[string]any{"event": "notification", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": false}}},
 		{Kind: spec.KindHook, Name: "session-start", Meta: map[string]any{"event": "session_start", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": false}}},
 		{Kind: spec.KindHook, Name: "session-end", Meta: map[string]any{"event": "session_end", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": false}}},
+		{Kind: spec.KindHook, Name: "pre-llm", Meta: map[string]any{"event": "pre_llm", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": true}}},
+		{Kind: spec.KindHook, Name: "post-llm", Meta: map[string]any{"event": "post_llm", "matcher": "main", "command": "echo done", "x-vibe": map[string]any{"strict": true}}},
 	})
 }
 func TestKitSink_GoldenSnapshot(t *testing.T) {

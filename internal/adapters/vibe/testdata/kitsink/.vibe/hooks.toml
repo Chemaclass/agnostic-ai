@@ -33,3 +33,17 @@
   name = "session-end"
   strict = false
   type = "session_end"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "pre-llm"
+  strict = true
+  type = "pre_llm"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "post-llm"
+  strict = true
+  type = "post_llm"

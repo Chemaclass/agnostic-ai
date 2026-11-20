@@ -16,9 +16,23 @@
 [[hooks]]
   command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
   match = "main"
+  name = "vibe-post-llm"
+  strict = true
+  type = "post_llm"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
   name = "vibe-pre-agent"
   strict = true
   type = "pre_agent"
+
+[[hooks]]
+  command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
+  match = "main"
+  name = "vibe-pre-llm"
+  strict = true
+  type = "pre_llm"
 
 [[hooks]]
   command = "export AGNOSTIC_AI_TARGET=vibe; echo done"
