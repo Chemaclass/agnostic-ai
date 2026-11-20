@@ -49,7 +49,8 @@ func TestDecide_AnchoredRulesThroughALink(t *testing.T) {
 	link := filepath.Join(base, "home")
 	mustSymlink(t, real, link)
 	cwd := filepath.Join(real, "proj")
-	for _, rule := range []string{"Edit(~/proj/secret/**)", "Edit(/" + filepath.ToSlash(link) + "/proj/secret/**)"} {
+	for _, rule := range []string{"Edit(~/proj/secret/**)", "Edit(/" + filepath.ToSlash(link) + "/proj/secret/**)",
+		"Edit(/" + filepath.ToSlash(link) + ")"} {
 		p := testPolicy()
 		p.Home = link
 		p.AgnosticHome = filepath.Join(link, ".agnostic-ai")
@@ -65,7 +66,8 @@ func TestDecide_AnchoredRulesThroughALink(t *testing.T) {
 func TestDecide_StarOnlyGitGlobsAsk(t *testing.T) {
 	t.Parallel()
 	p := testPolicy()
-	for _, glob := range []string{"*/*/*/*/config", "*/*/*/*/*/config", "*/HEAD", "*/index", "*/*/*/*/*/*"} {
+	for _, glob := range []string{"*/*/*/*/config", "*/*/*/*/*/config", "*/HEAD", "*/index", "*/*/*/*/*/*",
+		"sub/*/HEAD", "vendor/*/config", "sub/*/*/config"} {
 		if got := Decide(call("Grep", map[string]any{"pattern": "x", "glob": glob}), p); got.Outcome != Asked {
 			t.Errorf("%q: got %+v, want asked", glob, got)
 		}
@@ -340,4 +342,37 @@ func TestDecide_GitGlobWildcardsAsk(t *testing.T) {
 		}
 	}
 	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "glob": "src/*.go"}), p), "")
+}
+
+func TestQwenSettingsFiles_RealPathWins(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	if real, err := filepath.EvalSymlinks(base); err == nil {
+		base = real
+	}
+	if err := os.MkdirAll(filepath.Join(base, "b", "repo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(base, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "a", "link")
+	mustSymlink(t, filepath.Join(base, "b", "repo"), link)
+	files, err := QwenSettingsFiles(filepath.Join(base, "user"), link, "linux", func(string) string { return "" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := func(dir string) int {
+		for i, f := range files {
+			if f == filepath.Join(dir, ".qwen", "settings.json") {
+				return i
+			}
+		}
+		t.Fatalf("%s not read: %v", dir, files)
+		return -1
+	}
+	if index(filepath.Join(base, "a")) > index(base) || index(base) > index(filepath.Join(base, "b")) ||
+		index(filepath.Join(base, "b")) > index(filepath.Join(base, "b", "repo")) {
+		t.Fatalf("wrong order: %v", files)
+	}
 }

@@ -316,9 +316,10 @@ func (g *gate) anchoredRules(rule string) []string {
 	if !ok || g.policy.Resolve == nil {
 		return rules
 	}
+	rest, closed := strings.CutSuffix(rest, ")")
 	segments := strings.Split(rest, "/")
 	literal := 0
-	for literal < len(segments)-1 && !strings.ContainsAny(segments[literal], "*?[{)") {
+	for literal < len(segments) && segments[literal] != "" && !strings.ContainsAny(segments[literal], "*?[{") {
 		literal++
 	}
 	if literal == 0 {
@@ -326,9 +327,17 @@ func (g *gate) anchoredRules(rule string) []string {
 	}
 	prefix := "/" + strings.Join(segments[:literal], "/")
 	real := filepath.ToSlash(filepath.Clean(g.policy.Resolve(filepath.FromSlash(prefix))))
-	if real != prefix {
-		add(tool + "(//" + strings.TrimPrefix(real, "/") + "/" + strings.Join(segments[literal:], "/"))
+	if real == prefix {
+		return rules
 	}
+	anchored := tool + "(//" + strings.TrimPrefix(real, "/")
+	if tail := segments[literal:]; len(tail) > 0 {
+		anchored += "/" + strings.Join(tail, "/")
+	}
+	if closed {
+		anchored += ")"
+	}
+	add(anchored)
 	return rules
 }
 

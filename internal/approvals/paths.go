@@ -142,13 +142,23 @@ func gitGlob(glob string) bool {
 	if err != nil {
 		return true
 	}
-	// Each sample is tried at every depth the glob reaches, since a
-	// segment of stars alone matches any folder above it.
+	// Each sample is tried at every depth the glob reaches, after the
+	// glob's own leading folders, since a segment of stars alone matches
+	// any folder.
 	depth := strings.Count(lower, "/") + 1
-	for _, sample := range gitSamples {
-		for prefix := ""; strings.Count(prefix, "/") <= depth; prefix += "d/" {
-			if re.MatchString(prefix + sample) {
-				return true
+	var lead strings.Builder
+	for _, segment := range strings.Split(lower, "/")[:depth-1] {
+		if strings.ContainsAny(segment, "*?[{") {
+			break
+		}
+		lead.WriteString(segment + "/")
+	}
+	for _, base := range []string{"", lead.String()} {
+		for _, sample := range gitSamples {
+			for prefix := base; strings.Count(prefix, "/") <= depth; prefix += "d/" {
+				if re.MatchString(prefix + sample) {
+					return true
+				}
 			}
 		}
 	}
