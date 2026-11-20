@@ -5,11 +5,28 @@ import (
 	"fmt"
 	"maps"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
+
+var hookAllowsStrict = map[string]bool{
+	"pre_tool":      true,
+	"post_tool":     true,
+	"pre_agent":     true,
+	"post_agent":    false,
+	"notification":  false,
+	"session_start": false,
+	"session_end":   false,
+	"pre_llm":       true,
+	"post_llm":      true,
+}
+
+func HookEvents() []string {
+	return slices.Sorted(maps.Keys(hookAllowsStrict))
+}
 
 func (Adapter) UserHookRecords(hooks []spec.Entry, scriptsDir string) ([]map[string]any, error) {
 	return (Adapter{}).UserHookRecordsForPlatform(hooks, scriptsDir, runtime.GOOS)
@@ -26,17 +43,16 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 			switch key {
 			case "name", "type", "command", "match", "timeout", "strict", "description", "event", "matcher", "args", "commandWindows":
 			default:
-				return nil, fmt.Errorf("vibe: hook %s native field %q is not supported by v3.1.1", h.Name, key)
+				return nil, fmt.Errorf("vibe: hook %s native field %q is not supported", h.Name, key)
 			}
 		}
 		event, _ := m["event"].(string)
 		if event == "" {
 			event, _ = m["type"].(string)
 		}
-		switch event {
-		case "pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end":
-		default:
-			emit.NoteFieldNoOp(target, spec.KindHook, "event", 1, "use native pre_tool, post_tool, pre_agent, post_agent, notification, session_start or session_end; portable exit decisions differ")
+		allowsStrict, supported := hookAllowsStrict[event]
+		if !supported {
+			emit.NoteFieldNoOp(target, spec.KindHook, "event", 1, "use native events ("+strings.Join(HookEvents(), ", ")+"). Portable exit decisions differ")
 			continue
 		}
 		if seen[h.Name] {
@@ -71,7 +87,7 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 		d["name"] = h.Name
 		d["type"] = event
 		d["command"] = command
-		if event != "pre_tool" && event != "post_tool" && event != "pre_agent" && d["strict"] == true {
+		if !allowsStrict && d["strict"] == true {
 			return nil, fmt.Errorf("vibe: %s hook %s cannot set strict", event, h.Name)
 		}
 		if strings.TrimSpace(h.Name) == "" {

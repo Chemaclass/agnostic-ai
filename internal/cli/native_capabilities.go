@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kimi"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qwen"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/vibe"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -45,7 +46,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	),
 	"codex": setOf(codex.HookEvents()...),
 	"kimi":  setOf(kimi.HookEvents()...),
-	"vibe":  setOf("pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"),
+	"vibe":  setOf(vibe.HookEvents()...),
 	"gemini": setOf(
 		"BeforeTool", "AfterTool",
 		"BeforeAgent", "AfterAgent",

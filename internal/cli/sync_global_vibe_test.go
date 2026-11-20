@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -213,22 +215,41 @@ func TestSyncGlobal_VibeNativeLifecycleEvents(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := filepath.Join(home, "vibe")
 	t.Setenv("VIBE_HOME", root)
-	events := []string{"pre_tool", "post_tool", "pre_agent", "post_agent", "notification", "session_start", "session_end"}
-	for _, event := range events {
+	strictByEvent := map[string]bool{
+		"pre_tool": false, "post_tool": false, "pre_agent": false, "post_agent": false,
+		"notification": false, "session_start": false, "session_end": false,
+		"pre_llm": true, "post_llm": true,
+	}
+	for event, strict := range strictByEvent {
 		name := strings.ReplaceAll(event, "_", "-")
-		writeFile(t, filepath.Join(source, "hooks", name+".yaml"), "name: "+name+"\ntarget: vibe\nevent: "+event+"\ncommand: echo done\nx-vibe:\n  match: main\n")
+		hook := "name: " + name + "\ntarget: vibe\nevent: " + event + "\ncommand: echo done\nx-vibe:\n  match: main\n"
+		if strict {
+			hook += "  strict: true\n"
+		}
+		writeFile(t, filepath.Join(source, "hooks", name+".yaml"), hook)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, warnings)
 	}
 	got := readFile(t, filepath.Join(root, "hooks.toml"))
-	for _, event := range events {
-		if !strings.Contains(got, `type = "`+event+`"`) {
-			t.Errorf("missing %s: %s", event, got)
+	var native struct {
+		Hooks []struct {
+			Type, Match string
+			Strict      bool
 		}
 	}
-	if strings.Count(got, `match = "main"`) != len(events) {
-		t.Errorf("native matches lost: %s", got)
+	if _, err := toml.Decode(got, &native); err != nil {
+		t.Fatal(err)
+	}
+	for _, hook := range native.Hooks {
+		strict, expected := strictByEvent[hook.Type]
+		if !expected || hook.Match != "main" || hook.Strict != strict {
+			t.Errorf("unexpected native hook: %+v", hook)
+		}
+		delete(strictByEvent, hook.Type)
+	}
+	if len(strictByEvent) > 0 {
+		t.Errorf("missing native hook types: %v", strictByEvent)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
 		t.Fatalf("check: %v %s", err, warnings)

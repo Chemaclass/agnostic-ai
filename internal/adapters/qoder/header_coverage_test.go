@@ -126,8 +126,9 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{
 				"type": "http", "url": "https://example.test/mcp",
-				"description":  "Remote MCP over HTTP",
-				"includeTools": []any{"read_file"}, "excludeTools": []any{"delete_file"},
+				"description":     "Remote MCP over HTTP",
+				"protocolVersion": "2025-11-25",
+				"includeTools":    []any{"read_file"}, "excludeTools": []any{"delete_file"},
 				"alwaysAllow": []any{"read_file"},
 			},
 		},

@@ -213,6 +213,13 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		out["oauth"] = oauth
 	}
 
+	// Older imports wrote the revision at the top level.
+	if revision, ok := e.Meta["protocolVersion"].(string); ok {
+		native, _ := e.Meta["x-qoder"].(map[string]any)
+		if _, overridden := native["protocolVersion"]; !overridden {
+			out["protocolVersion"] = revision
+		}
+	}
 	var keys []string
 	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target, mcpBuiltKeys...)
 
