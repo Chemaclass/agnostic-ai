@@ -80,7 +80,7 @@ func TestSyncGlobal_AgentWorksOutsideProject(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", "")
 				source = filepath.Join(home, ".agnostic-ai")
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
 			path := filepath.Join(home, ".claude", "agents", "reviewer.md")
 			state := filepath.Join(source, "state", "global.json")
 			out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run")
@@ -139,7 +139,7 @@ func TestSyncGlobal_AgentWorksOutsideProject(t *testing.T) {
 			if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
 				t.Fatal(err)
 			}
-			mustWriteGlobalTest(t, path, "changed\n")
+			writeFile(t, path, "changed\n")
 			if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err == nil || !strings.Contains(err.Error(), path) {
 				t.Errorf("want agent drift: %v", err)
 			}
@@ -160,10 +160,10 @@ func TestSyncGlobal_AgentWorksOutsideProject(t *testing.T) {
 
 func TestSyncGlobal_AgentCollisionStopsAllWrites(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "New instructions.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "New instructions.\n")
 	path := filepath.Join(home, ".claude", "agents", "reviewer.md")
-	mustWriteGlobalTest(t, path, "Personal agent.\n")
+	writeFile(t, path, "Personal agent.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "unmanaged") {
 		t.Fatalf("want collision: %v", err)
 	}
@@ -181,10 +181,10 @@ func TestSyncGlobal_AgentCollisionStopsAllWrites(t *testing.T) {
 func TestSyncGlobal_AgentCleanupHonorsSelectionAndOwnership(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	agentSource := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, agentSource, globalReviewer)
+	writeFile(t, agentSource, globalReviewer)
 	personal := filepath.Join(home, ".claude", "agents", "personal.md")
-	mustWriteGlobalTest(t, personal, "Personal agent.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n---\nReview.\n")
+	writeFile(t, personal, "Personal agent.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude,cursor"); err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestSyncGlobal_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 	for name, routing := range map[string]string{
 		"claude-only": "targets: [claude]", "excluded": "targets: [claude, amp]\ntarget-exclude: claude", "shared": "", "elsewhere": "target: gemini",
 	} {
-		mustWriteGlobalTest(t, filepath.Join(source, "agents", name+".md"), "---\nname: "+name+"\ndescription: Reviews.\n"+routing+"\n---\nReview.\n")
+		writeFile(t, filepath.Join(source, "agents", name+".md"), "---\nname: "+name+"\ndescription: Reviews.\n"+routing+"\n---\nReview.\n")
 	}
 	_, warnings, err := runGlobalAgentTest("--only", "claude,amp")
 	if err != nil {
@@ -271,16 +271,16 @@ func TestSyncGlobal_AgentsPreserveExistingStateAndNativeSettings(t *testing.T) {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			unselected := filepath.Join(home, ".cursor", "skills", "review", "SKILL.md")
-			mustWriteGlobalTest(t, unselected, "Existing skill.\n")
+			writeFile(t, unselected, "Existing skill.\n")
 			statePath := filepath.Join(source, "state", "global.json")
 			old, err := json.Marshal(globalState{Version: version, Files: []string{unselected}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			mustWriteGlobalTest(t, statePath, string(old))
+			writeFile(t, statePath, string(old))
 			settings := filepath.Join(home, ".claude", "settings.json")
-			mustWriteGlobalTest(t, settings, `{"model":"sonnet","hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"user-command"}]}]}}`)
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
+			writeFile(t, settings, `{"model":"sonnet","hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"user-command"}]}]}}`)
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
 			if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatal(err)
 			}
@@ -306,7 +306,7 @@ func TestSyncGlobal_AgentsPreserveExistingStateAndNativeSettings(t *testing.T) {
 
 func TestSyncGlobal_AgentReadonlyMaps(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview code.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview code.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "codex,cursor,claude")
 	if err != nil {
 		t.Fatal(err)

@@ -16,9 +16,9 @@ func editHome(t *testing.T) string {
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "# Global targets.\ntargets:\n  - claude\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "native.yaml"), "# Native keys.\nx-claude:\n  verbose: false\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "# Global targets.\ntargets:\n  - claude\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared\n")
+	writeFile(t, filepath.Join(source, "settings", "native.yaml"), "# Native keys.\nx-claude:\n  verbose: false\n")
 	return source
 }
 

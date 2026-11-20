@@ -22,23 +22,13 @@ func importNestedAgentsMD(t *testing.T) string {
 		t.Fatal(err)
 	}
 	nested := filepath.Join("services", "api", "AGENTS.md")
-	writeScopedFile(t, nested, "# API\n\nUse integer minor units.\n")
+	writeFile(t, nested, "# API\n\nUse integer minor units.\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"import", "codex"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("import codex: %v", err)
 	}
 	return nested
-}
-
-func writeScopedFile(t *testing.T, path, body string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestSync_AfterImportAdoptsTheNestedAgentsMDItCaptured(t *testing.T) {
@@ -58,7 +48,7 @@ func TestSync_AfterImportAdoptsTheNestedAgentsMDItCaptured(t *testing.T) {
 func TestSync_AfterImportNamesTextAddedSince(t *testing.T) {
 	nested := importNestedAgentsMD(t)
 	edited := readFile(t, nested) + "\nRound half to even.\n"
-	writeScopedFile(t, nested, edited)
+	writeFile(t, nested, edited)
 
 	for _, args := range [][]string{{"sync"}, {"sync", "--check"}} {
 		root := NewRootCmd("test")

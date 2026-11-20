@@ -119,22 +119,22 @@ func TestCodebuddy_SourceAuditThirdLegacyJSONCOwnershipRestoresBytes(t *testing.
 	home, source := globalAgentTestHome(t)
 	native := filepath.Join(home, ".codebuddy.json")
 	original := "{\n // account and project state\n \"nativeControl\": true,\n \"projects\": {\"/project\": {\"native\":true}},\n \"mcpServers\": {\"mine\": {\"command\":\"mine-server\",},},\n}\n"
-	mustWriteGlobalTest(t, native, original)
+	writeFile(t, native, original)
 	if err := os.Chmod(native, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, warnings, err := runImportGlobalTest("codebuddy"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps/mine.yaml")); !strings.Contains(got, "mine-server") {
+	if got := readFile(t, filepath.Join(source, "mcps/mine.yaml")); !strings.Contains(got, "mine-server") {
 		t.Fatal("third legacy server was not imported")
 	}
 	added := filepath.Join(source, "mcps/docs.yaml")
-	mustWriteGlobalTest(t, added, globalDocsMCP)
+	writeFile(t, added, globalDocsMCP)
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, native); !strings.Contains(got, "docs-mcp") || !strings.Contains(got, "account and project state") {
+	if got := readFile(t, native); !strings.Contains(got, "docs-mcp") || !strings.Contains(got, "account and project state") {
 		t.Fatal("server or comments lost")
 	}
 	for _, path := range []string{".codebuddy/.mcp.json", ".codebuddy/mcp.json"} {
@@ -151,7 +151,7 @@ func TestCodebuddy_SourceAuditThirdLegacyJSONCOwnershipRestoresBytes(t *testing.
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, native); got != original {
+	if got := readFile(t, native); got != original {
 		t.Fatalf("original bytes changed:\n%q\nwant:\n%q", got, original)
 	}
 	info, err := os.Stat(native)
@@ -172,7 +172,7 @@ func TestCodebuddy_SourceAuditMCPFirstExistingAndStaleProtection(t *testing.T) {
 			for _, path := range paths {
 				found = found || path == chosen
 				if found {
-					mustWriteGlobalTest(t, filepath.Join(home, path), "{\n // native\n \"mcpServers\": {}\n}\n")
+					writeFile(t, filepath.Join(home, path), "{\n // native\n \"mcpServers\": {}\n}\n")
 				}
 			}
 			native := filepath.Join(home, chosen)
@@ -185,11 +185,11 @@ func TestCodebuddy_SourceAuditMCPFirstExistingAndStaleProtection(t *testing.T) {
 				t.Fatal(err)
 			}
 			changed := "{\"mcpServers\":{},\"changedAfterRead\":true}\n"
-			mustWriteGlobalTest(t, native, changed)
+			writeFile(t, native, changed)
 			if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 				t.Fatalf("stale write accepted: %v", err)
 			}
-			if got := readGlobalTest(t, native); got != changed {
+			if got := readFile(t, native); got != changed {
 				t.Fatal("stale user edit overwritten")
 			}
 		})
@@ -230,12 +230,12 @@ func TestCodebuddy_SourceAuditRejectsInvalidNativeMCPWithoutWritingSpecs(t *test
 
 func TestCodebuddy_SourceAuditGlobalNativeFields(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents/reviewer.md"), "---\nname: reviewer\ndescription: Review\ncan: [read]\nx-codebuddy:\n  disable-model-invocation: true\n---\nReview.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps/docs.yaml"), "command: docs-server\ncwd: backend\ndescription: Native description\n")
+	writeFile(t, filepath.Join(source, "agents/reviewer.md"), "---\nname: reviewer\ndescription: Review\ncan: [read]\nx-codebuddy:\n  disable-model-invocation: true\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "command: docs-server\ncwd: backend\ndescription: Native description\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "codebuddy"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(home, ".codebuddy/agents/reviewer.md")); !strings.Contains(got, "disable-model-invocation: true") {
+	if got := readFile(t, filepath.Join(home, ".codebuddy/agents/reviewer.md")); !strings.Contains(got, "disable-model-invocation: true") {
 		t.Fatal("manual-only flag lost from global agent")
 	}
 	servers, err := readJSONMapAt(filepath.Join(home, ".codebuddy/.mcp.json"), "mcpServers")

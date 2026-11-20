@@ -33,7 +33,7 @@ func syncedWithKeptOrphan(t *testing.T) *config.Config {
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, keptReference, "edited\n")
+	writeFile(t, keptReference, "edited\n")
 	ledger := syncLedger{outputs: []string{keptReference}, orphans: []string{keptReference}}
 	if err := writeStateFile(".", 0, "", "", ledger); err != nil {
 		t.Fatal(err)
@@ -194,7 +194,7 @@ func TestDoctorFix_OffersOnlyRecordedManagedFiles(t *testing.T) {
 
 func TestDoctorFix_NoninteractiveKeepsRecordedOrphan(t *testing.T) {
 	syncedWithKeptOrphan(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	var out bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&out)
@@ -243,7 +243,7 @@ func TestDoctorFix_EditDuringConfirmationStays(t *testing.T) {
 	cfg := syncedWithKeptOrphan(t)
 	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
 	removed, err := offerOrphanRemoval(cfg, reports, false, func(string) (bool, error) {
-		mustWriteFile(t, keptReference, "new edit\n")
+		writeFile(t, keptReference, "new edit\n")
 		return true, nil
 	})
 	if err != nil {
@@ -261,7 +261,7 @@ func TestDoctorFix_RechecksPathAfterConfirmation(t *testing.T) {
 			cfg := syncedWithKeptOrphan(t)
 			outside := t.TempDir()
 			external := filepath.Join(outside, "a.md")
-			mustWriteFile(t, external, "edited\n")
+			writeFile(t, external, "edited\n")
 			probe := filepath.Join(outside, "probe")
 			if err := os.Symlink(external, probe); err != nil {
 				if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.ENOSYS) {
@@ -323,7 +323,7 @@ func TestDoctorFix_RechecksPathAfterConfirmation(t *testing.T) {
 func TestDoctorFix_RefusesSymlinkBackupDestination(t *testing.T) {
 	cfg := syncedWithKeptOrphan(t)
 	external := filepath.Join(t.TempDir(), "backup.md")
-	mustWriteFile(t, external, "outside data\n")
+	writeFile(t, external, "outside data\n")
 	if err := os.Symlink(external, keptReference+".bak"); err != nil {
 		if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.ENOSYS) {
 			t.Skipf("symlinks unavailable: %v", err)
@@ -348,20 +348,20 @@ func TestDoctorFix_RestoredSpecIsNotOfferedAsOrphan(t *testing.T) {
 	for _, state := range []string{"current", "stale", "missing"} {
 		t.Run(state, func(t *testing.T) {
 			testutil.TempCwd(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\n---\nRead references/a.md.\n")
-			mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\n---\nRead references/a.md.\n")
+			writeFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
 			silence(t)
 			syncProject(t)
 			const genuine = ".claude/skills/removed/reference.md"
-			mustWriteFile(t, genuine, "legacy\n")
+			writeFile(t, genuine, "legacy\n")
 			prev := readStateFile(".")
 			if err := writeStateFile(".", 0, "", "", syncLedger{outputs: append(prev.Outputs, genuine), orphans: []string{keptReference, genuine}}); err != nil {
 				t.Fatal(err)
 			}
 			switch state {
 			case "stale":
-				mustWriteFile(t, keptReference, "old\n")
+				writeFile(t, keptReference, "old\n")
 			case "missing":
 				if err := os.Remove(keptReference); err != nil {
 					t.Fatal(err)
@@ -416,15 +416,15 @@ func TestDoctorFix_RestoredSpecIsNotOfferedAsOrphan(t *testing.T) {
 
 func TestDoctorFix_PartialTargetKeepsOtherTargetRestoredOutput(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\ntarget: claude\n---\nRead references/a.md.\n")
-	mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\ntarget: claude\n---\nRead references/a.md.\n")
+	writeFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
 	silence(t)
 	syncProject(t)
 	const genuine = ".claude/skills/removed/reference.md"
 	const other = ".claude/skills/gone/SKILL.md"
-	mustWriteFile(t, other, "edited other target\n")
-	mustWriteFile(t, genuine, "legacy\n")
+	writeFile(t, other, "edited other target\n")
+	writeFile(t, genuine, "legacy\n")
 	prev := readStateFile(".")
 	if err := writeStateFile(".", 0, "", "", syncLedger{outputs: append(prev.Outputs, genuine), orphans: []string{keptReference, genuine}}); err != nil {
 		t.Fatal(err)
@@ -483,9 +483,9 @@ func TestDoctorFix_RestoredOutputPathAliasesAreNotOfferedAsOrphans(t *testing.T)
 	for _, alias := range []string{"./" + keptReference, ".claude//skills/gone/references/a.md", ".claude/skills/gone/references/./a.md"} {
 		t.Run(alias, func(t *testing.T) {
 			testutil.TempCwd(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\n---\nRead references/a.md.\n")
-			mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\n---\nRead references/a.md.\n")
+			writeFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
 			silence(t)
 			syncProject(t)
 			previous := readStateFile(".")
@@ -532,7 +532,7 @@ func failingAdapterOnPath(t *testing.T, target string) {
 	}
 	bin := t.TempDir()
 	script := filepath.Join(bin, "agnostic-ai-adapter-"+target)
-	mustWriteFile(t, script, "#!/bin/sh\necho adapter crashed >&2\nexit 1\n")
+	writeFile(t, script, "#!/bin/sh\necho adapter crashed >&2\nexit 1\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +556,7 @@ func TestOrphanCheck_SkipsTargetsItCannotLoad(t *testing.T) {
 			if tc.adapter != nil {
 				tc.adapter(t, tc.target)
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, "+tc.target+"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, "+tc.target+"]\n")
 			var logged bytes.Buffer
 			prev := logOut
 			logOut = &logged
@@ -584,13 +584,13 @@ func TestOrphanCheck_SkipsTargetsItCannotLoad(t *testing.T) {
 
 func TestCollectDrift_UnloadedTargetDoesNotHideOtherProducers(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [acme, claude, codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\ntarget: claude\n---\nRead references/a.md.\n")
-	mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [acme, claude, codex]\n")
+	writeFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\ntarget: claude\n---\nRead references/a.md.\n")
+	writeFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
 	silence(t)
 	syncProject(t)
 	const genuine = ".claude/skills/removed/reference.md"
-	mustWriteFile(t, genuine, "legacy\n")
+	writeFile(t, genuine, "legacy\n")
 	prev := readStateFile(".")
 	if err := writeStateFile(".", 0, "", "", syncLedger{outputs: append(prev.Outputs, genuine), orphans: []string{keptReference, genuine}}); err != nil {
 		t.Fatal(err)
@@ -634,7 +634,7 @@ func TestDoctorFix_KeepsOrphansWhileAProducerIsUnloaded(t *testing.T) {
 				failingAdapterOnPath(t, target)
 			}
 			cfg.Targets = append(cfg.Targets, unloaded...)
-			mustWriteFile(t, second, "edited\n")
+			writeFile(t, second, "edited\n")
 			ledger := syncLedger{outputs: []string{keptReference, second}, orphans: []string{keptReference, second}}
 			if err := writeStateFile(".", 0, "", "", ledger); err != nil {
 				t.Fatal(err)
@@ -679,7 +679,7 @@ func danglingImportProject(t *testing.T) *config.Config {
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  resolve-imports: inline\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  resolve-imports: inline\n")
 	cfg.Targets = []string{"claude", "codex"}
 	cfg.Sync.ResolveImports = "inline"
 	return cfg
@@ -727,7 +727,7 @@ func TestOrphanCheck_KeepsCheckingWhenAnUnrunEntryPointFailsToRender(t *testing.
 func TestOrphanCheck_WarnsOncePerUnloadedTarget(t *testing.T) {
 	danglingImportProject(t)
 	failingAdapterOnPath(t, "flaky")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, flaky]\nsync:\n  resolve-imports: inline\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, flaky]\nsync:\n  resolve-imports: inline\n")
 	var logged bytes.Buffer
 	prev := logOut
 	logOut = &logged

@@ -10,9 +10,9 @@ import (
 // resolves for all (#1326).
 func TestLint_WarnsOnNativePathToASourceSpec(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "style", "SKILL.md"), "---\nname: style\ndescription: Style guide.\n---\n\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "tone.md"), "---\nname: tone\n---\n\nBe plain.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "guide.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "style", "SKILL.md"), "---\nname: style\ndescription: Style guide.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "tone.md"), "---\nname: tone\n---\n\nBe plain.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "guide.md"),
 		"---\nname: guide\n---\n\nRead `.claude/skills/style/SKILL.md`, then .agents/skills/style/references/a.md and .claude/rules/tone.md.\nIgnore .claude/skills/gone/SKILL.md and .claude/settings.json.\n")
 
 	out, err := runCLI(t, "lint")

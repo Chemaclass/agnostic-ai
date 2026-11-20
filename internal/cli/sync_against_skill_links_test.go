@@ -40,9 +40,9 @@ func committedSharedSkillProject(t *testing.T) (string, bool) {
 	git(t, dir, "init", "-q")
 	git(t, dir, "config", "core.autocrlf", "false")
 	git(t, dir, "config", "core.symlinks", "true")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/skills/link-check/SKILL.md"), "---\nname: link-check\ndescription: Check a shared skill.\n---\nRead assets/example.txt.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/skills/link-check/assets/example.txt"), "Skill asset.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/skills/link-check/SKILL.md"), "---\nname: link-check\ndescription: Check a shared skill.\n---\nRead assets/example.txt.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/skills/link-check/assets/example.txt"), "Skill asset.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	if err := syncSharedSkillFixture(t); err != nil {
@@ -172,7 +172,7 @@ func TestSyncCheckAgainstSkillLinks_TruePolicyAndOptOutRepair(t *testing.T) {
 		t.Log("native link creation failed; synthetic Git link retains the false-policy controls")
 	}
 	git(t, dir, "config", "core.symlinks", "false")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: false\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: false\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
 	if err := syncSharedSkillFixture(t); err != nil {
 		t.Fatalf("turn off sharing: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestSyncCheckAgainstSkillLinks_TruePolicyAndOptOutRepair(t *testing.T) {
 
 func TestSyncCheckAgainstSkillLinks_DiagnosesForceAddedIgnoredSkills(t *testing.T) {
 	dir, nativeLink := committedSharedSkillProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions]\n")
 	if err := syncSharedSkillFixture(t); err != nil {
 		t.Fatalf("configure ignored skills: %v", err)
 	}

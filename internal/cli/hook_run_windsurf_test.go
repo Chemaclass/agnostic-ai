@@ -29,13 +29,13 @@ exit 0
 func windsurfProject(t *testing.T, hook, body string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, windsurf]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, windsurf]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "protect-files.sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "protect-files.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "protect-files.yaml"), hook)
 	mustSync(t)
 }
 
@@ -201,7 +201,7 @@ func TestHookRun_WindsurfRunsCompactionHooksFromAPayload(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			windsurfProject(t, "name: protect-files\nevent: "+event+"\nmatcher: auto\ncommand: .agnostic-ai/scripts/protect-files.sh\n", windsurfGuardScript)
 			payload := filepath.Join(dir, "compact.json")
-			mustWrite(t, payload, `{"hook_event_name":"`+event+`"}`)
+			writeFile(t, payload, `{"hook_event_name":"`+event+`"}`)
 
 			out, _ := runHookRun(t, "protect-files", "--target", "windsurf", "--payload", payload)
 			if !strings.Contains(out, "windsurf: allow (exit 0") || strings.Contains(out, "has no "+event+" event") {

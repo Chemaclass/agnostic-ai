@@ -51,7 +51,7 @@ func TestImport_AfterSyncInRepoModeWritesNoMachinePath(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, filepath.Join(".codex", "config.toml")))
+	store := repoStore(t, parent, readFile(t, filepath.Join(".codex", "config.toml")))
 
 	for _, source := range []string{"codex", "windsurf", "claude", "qoder", "opencode", "cursor"} {
 		if err := importArgs([]string{source}); err != nil {
@@ -75,13 +75,13 @@ func syncedCodexProject(t *testing.T) string {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	return repoStore(t, parent, readText(t, filepath.Join(".codex", "config.toml")))
+	return repoStore(t, parent, readFile(t, filepath.Join(".codex", "config.toml")))
 }
 
 func addCodexRoot(t *testing.T, store, root string) {
 	t.Helper()
 	configPath := filepath.Join(".codex", "config.toml")
-	text := readText(t, configPath)
+	text := readFile(t, configPath)
 	edited := strings.Replace(text, "writable_roots = [\""+store+"\"]", "writable_roots = [\""+root+"\", \""+store+"\"]", 1)
 	if edited == text {
 		t.Fatalf("config.toml has no writable_roots line:\n%s", text)
@@ -138,7 +138,7 @@ func TestImport_CodexKeepsAnotherProjectsHandoffFolder(t *testing.T) {
 	if err := importArgs([]string{"codex"}); err != nil {
 		t.Fatal(err)
 	}
-	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	overlay := readFile(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
 	if !strings.Contains(overlay, other) || strings.Contains(overlay, store) {
 		t.Errorf("overlay:\n%s", overlay)
 	}
@@ -152,7 +152,7 @@ func TestImport_CodexDropsTheStoreAfterLeavingRepoMode(t *testing.T) {
 	if err := importArgs([]string{"codex"}); err != nil {
 		t.Fatal(err)
 	}
-	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	overlay := readFile(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
 	if strings.Contains(overlay, store) || !strings.Contains(overlay, "/opt/shared") {
 		t.Errorf("overlay after leaving repo mode:\n%s", overlay)
 	}
@@ -173,10 +173,10 @@ func TestImport_CodexCleansAnOverlayThatNamesTheStore(t *testing.T) {
 
 			configPath := filepath.Join(".codex", "config.toml")
 			if edited {
-				writeFile(t, configPath, readText(t, configPath)+"# edited\n")
+				writeFile(t, configPath, readFile(t, configPath)+"# edited\n")
 			}
 			runLogged(t, "import", "codex", "--overwrite")
-			if overlay := readText(t, overlayPath); strings.Contains(overlay, store) {
+			if overlay := readFile(t, overlayPath); strings.Contains(overlay, store) {
 				t.Errorf("overlay still names the store:\n%s", overlay)
 			}
 			runLogged(t, "sync")
@@ -193,7 +193,7 @@ func TestImport_CodexSaysWhenItRewritesTheOverlayWithoutComments(t *testing.T) {
 	writeFile(t, configPath, "# my settings\nsandbox_workspace_write.writable_roots = [\"/opt/shared\", \""+store+"\"]\n")
 
 	printed := runLogged(t, "import", "codex")
-	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	overlay := readFile(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
 	if strings.Contains(overlay, store) || !strings.Contains(overlay, "/opt/shared") {
 		t.Errorf("overlay:\n%s", overlay)
 	}
@@ -208,19 +208,19 @@ func TestImport_CodexKeepsUserWritableRootsAndSyncKeepsTheStore(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, filepath.Join(".codex", "config.toml")))
+	store := repoStore(t, parent, readFile(t, filepath.Join(".codex", "config.toml")))
 	configPath := filepath.Join(".codex", "config.toml")
-	edited := strings.Replace(readText(t, configPath), "writable_roots = [\""+store+"\"]",
+	edited := strings.Replace(readFile(t, configPath), "writable_roots = [\""+store+"\"]",
 		"# shared scratch\nwritable_roots = [\"/opt/shared\", \""+store+"\"]\nnetwork_access = true", 1)
-	if edited == readText(t, configPath) {
-		t.Fatalf("config.toml has no writable_roots line:\n%s", readText(t, configPath))
+	if edited == readFile(t, configPath) {
+		t.Fatalf("config.toml has no writable_roots line:\n%s", readFile(t, configPath))
 	}
 	writeFile(t, configPath, edited)
 
 	if err := importArgs([]string{"codex"}); err != nil {
 		t.Fatal(err)
 	}
-	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	overlay := readFile(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
 	if strings.Contains(overlay, store) {
 		t.Errorf("overlay names the repo memory store:\n%s", overlay)
 	}
@@ -233,7 +233,7 @@ func TestImport_CodexKeepsUserWritableRootsAndSyncKeepsTheStore(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	synced := readText(t, configPath)
+	synced := readFile(t, configPath)
 	if !strings.Contains(synced, "\"/opt/shared\", \""+store+"\"") || strings.Count(synced, "[sandbox_workspace_write]") != 1 {
 		t.Errorf("sync dropped a root or split the table:\n%s", synced)
 	}
@@ -285,8 +285,8 @@ func TestImport_CodexDropsTheSharedHandoffStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := filepath.ToSlash(filepath.Join(main, ".agnostic-ai", "local", "handoffs"))
-	if !strings.Contains(readText(t, filepath.Join(".codex", "config.toml")), store) {
-		t.Fatalf("sync did not grant the handoff store %s:\n%s", store, readText(t, filepath.Join(".codex", "config.toml")))
+	if !strings.Contains(readFile(t, filepath.Join(".codex", "config.toml")), store) {
+		t.Fatalf("sync did not grant the handoff store %s:\n%s", store, readFile(t, filepath.Join(".codex", "config.toml")))
 	}
 	if err := importArgs([]string{"codex"}); err != nil {
 		t.Fatal(err)

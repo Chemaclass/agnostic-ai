@@ -54,11 +54,11 @@ env:
 func TestMigrate_SecretsTurnsCredentialsIntoReferencesAndNamesTheVariables(t *testing.T) {
 	dir := newProject(t)
 	captureLogOut(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	gh := filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml")
 	docs := filepath.Join(dir, ".agnostic-ai", "mcps", "docs.yaml")
-	mustWriteFile(t, gh, "name: gh\ncommand: gh-mcp\nenv:\n  GITHUB_TOKEN: ghp_AAAAbbbbCCCC1111\n  NODE_ENV: production\n")
-	mustWriteFile(t, docs, "name: docs\ntype: http\nurl: https://docs.example.com/mcp\nheaders:\n  Authorization: Bearer abc123def456\n")
+	writeFile(t, gh, "name: gh\ncommand: gh-mcp\nenv:\n  GITHUB_TOKEN: ghp_AAAAbbbbCCCC1111\n  NODE_ENV: production\n")
+	writeFile(t, docs, "name: docs\ntype: http\nurl: https://docs.example.com/mcp\nheaders:\n  Authorization: Bearer abc123def456\n")
 	secrets := []string{"ghp_AAAAbbbbCCCC1111", "abc123def456"}
 
 	dry, err := runCLI(t, "migrate", "--dry-run")
@@ -102,10 +102,10 @@ func TestMigrate_SecretsTurnsCredentialsIntoReferencesAndNamesTheVariables(t *te
 func TestMigrate_SecretsSkipsWhatItCannotDecide(t *testing.T) {
 	dir := newProject(t)
 	captureLogOut(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	path := filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml")
 	body := "name: api\ncommand: srv\nenv:\n  API_KEY: sk-live-abc\n  DB_URL: postgres://u:pw@${HOST}/db\n  MODE: fast\n"
-	mustWriteFile(t, path, body)
+	writeFile(t, path, body)
 
 	out, err := runCLI(t, "migrate", "--only", "secrets")
 	if err != nil {

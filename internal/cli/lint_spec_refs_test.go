@@ -8,9 +8,9 @@ import (
 
 func TestLint_FailsOnAReferenceToAnUnknownAgent(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "planner.md"), "---\nname: planner\ndescription: Plans work.\n---\n\nPlan.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "planner.md"), "---\nname: planner\ndescription: Plans work.\n---\n\nPlan.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"),
 		"---\nname: push\n---\n\nBefore pushing, run {{$AGENT:reviewer}}, then {{$AGENT:typo}} and {{$SKILL:commit}}.\n")
 
 	out, err := runCLI(t, "lint")
@@ -33,9 +33,9 @@ func TestLint_FailsOnAReferenceToAnUnknownAgent(t *testing.T) {
 
 func TestLint_FailsOnAReferenceToAnAgentScopedAwayFromATarget(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\ntarget: claude\n---\n\nReview.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nRun {{$AGENT:reviewer}}.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "claude-push.md"), "---\nname: claude-push\ntarget: claude\n---\n\nRun {{$AGENT:reviewer}} first.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\ntarget: claude\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nRun {{$AGENT:reviewer}}.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "claude-push.md"), "---\nname: claude-push\ntarget: claude\n---\n\nRun {{$AGENT:reviewer}} first.\n")
 
 	out, err := runCLI(t, "lint")
 	if err == nil {
@@ -50,8 +50,8 @@ func TestLint_FailsOnAReferenceToAnAgentScopedAwayFromATarget(t *testing.T) {
 // A reference fenced to one target only has to resolve there.
 func TestLint_AcceptsAFencedReferenceToAScopedAgent(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\ntarget: claude\n---\n\nReview.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nBefore pushing:\n\n::target claude\nRun {{$AGENT:reviewer}}.\n::end\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\ntarget: claude\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nBefore pushing:\n\n::target claude\nRun {{$AGENT:reviewer}}.\n::end\n")
 
 	out, _ := runCLI(t, "lint")
 	if lines := findingLines(out, "LINT033"); len(lines) != 0 {
@@ -63,8 +63,8 @@ func TestLint_AcceptsAFencedReferenceToAScopedAgent(t *testing.T) {
 // at nothing.
 func TestLint_FailsOnAReferenceToAKindATargetDoesNotSync(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, jules]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nRun {{$AGENT:reviewer}}.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nRun {{$AGENT:reviewer}}.\n")
 
 	out, err := runCLI(t, "lint")
 	if err == nil {

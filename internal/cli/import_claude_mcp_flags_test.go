@@ -13,7 +13,7 @@ import (
 
 func TestImportFromClaude_MCPBooleanFlagsRoundTrip(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 	const native = `{
   "mcpServers": {
     "deferred": {"command": "example-server", "description": "Deferred tools.", "alwaysLoad": false, "bareElicitationCapability": true},
@@ -21,7 +21,7 @@ func TestImportFromClaude_MCPBooleanFlagsRoundTrip(t *testing.T) {
     "default": {"command": "default-server", "description": "Default loading."}
   }
 }`
-	mustWriteFile(t, ".mcp.json", native)
+	writeFile(t, ".mcp.json", native)
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
@@ -50,9 +50,9 @@ func TestImportFromClaude_MCPBooleanFlagsRoundTrip(t *testing.T) {
 
 func TestSync_ClaudeMCPBooleanFlagsUseNamespacedOverrides(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/deferred.yaml", "name: deferred\ndescription: Deferred tools.\ncommand: example-server\nalwaysLoad: true\nbareElicitationCapability: false\nx-claude:\n  alwaysLoad: false\n  bareElicitationCapability: true\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/loaded.yaml", "name: loaded\ndescription: Loaded tools.\ntype: http\nurl: https://example.invalid/mcp\nalwaysLoad: false\nbareElicitationCapability: true\nx-claude:\n  alwaysLoad: true\n  bareElicitationCapability: false\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/mcps/deferred.yaml", "name: deferred\ndescription: Deferred tools.\ncommand: example-server\nalwaysLoad: true\nbareElicitationCapability: false\nx-claude:\n  alwaysLoad: false\n  bareElicitationCapability: true\n")
+	writeFile(t, ".agnostic-ai/mcps/loaded.yaml", "name: loaded\ndescription: Loaded tools.\ntype: http\nurl: https://example.invalid/mcp\nalwaysLoad: false\nbareElicitationCapability: true\nx-claude:\n  alwaysLoad: true\n  bareElicitationCapability: false\n")
 	runSyncOK(t)
 	servers, ok := readJSONMap(t, ".mcp.json")["mcpServers"].(map[string]any)
 	if !ok {

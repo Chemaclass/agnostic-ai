@@ -11,9 +11,9 @@ const duplicatedPassage = "Always run the full test suite before you push any br
 
 func TestExplainContext_FindsExactDuplicatedStartupPassages(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "## Testing\n\n"+duplicatedPassage+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n## Testing\n\n"+duplicatedPassage+"\n\nKeep functions small and name them after what they return.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "similar.md"), "---\nname: similar\n---\nAlways run the full test suite before you push a branch to the remote.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "## Testing\n\n"+duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n## Testing\n\n"+duplicatedPassage+"\n\nKeep functions small and name them after what they return.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "similar.md"), "---\nname: similar\n---\nAlways run the full test suite before you push a branch to the remote.\n")
 	report := contextJSON(t, "claude")
 	if len(report.Opportunities) != 1 {
 		t.Fatalf("opportunities: %+v", report.Opportunities)
@@ -58,7 +58,7 @@ func TestExplainContext_FindsExactDuplicatedStartupPassages(t *testing.T) {
 		}
 	}
 
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n## Testing\n\nKeep functions small and name them after what they return.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n## Testing\n\nKeep functions small and name them after what they return.\n")
 	after := contextJSON(t, "claude")
 	if len(after.Opportunities) != 0 {
 		t.Errorf("after removing a copy: %+v", after.Opportunities)
@@ -77,9 +77,9 @@ func TestExplainContext_FindsExactDuplicatedStartupPassages(t *testing.T) {
 
 func TestExplainContext_IgnoresDuplicatesOutsideStartup(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ship a branch.\n---\n"+duplicatedPassage+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ship a branch.\n---\n"+duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+duplicatedPassage+"\n")
 	if report := contextJSON(t, "claude"); len(report.Opportunities) != 0 {
 		t.Errorf("on-demand and scoped copies counted: %+v", report.Opportunities)
 	}
@@ -105,8 +105,8 @@ func contextJSON(t *testing.T, target string) explainContextOutput {
 // twice; that is a setting to change, not a copy to remove from the specs.
 func TestExplainContext_CountsCopiesPerSourceNotPerGeneratedFile(t *testing.T) {
 	dir := budgetProject(t, "targets: [copilot, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
-	mustWriteFile(t, filepath.Join(dir, vscodeSettings), "{\n  \"chat.useAgentsMdFile\": true\n}\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, vscodeSettings), "{\n  \"chat.useAgentsMdFile\": true\n}\n")
 	report := contextJSON(t, "copilot")
 	loaded := 0
 	for _, c := range report.Contributions {
@@ -121,7 +121,7 @@ func TestExplainContext_CountsCopiesPerSourceNotPerGeneratedFile(t *testing.T) {
 		t.Errorf("one source loaded twice reported as a copy: %+v", report.Opportunities)
 	}
 
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n\n"+duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n\n"+duplicatedPassage+"\n")
 	if report := contextJSON(t, "copilot"); len(report.Opportunities) != 1 || report.Opportunities[0].Copies != 2 {
 		t.Errorf("a passage written twice in one file: %+v", report.Opportunities)
 	}

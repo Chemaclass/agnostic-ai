@@ -14,8 +14,8 @@ const handWrittenClaude = "# My project\n\n## Conventions\n\nUse pnpm. Never tou
 // placeholder, which is what an agent setting agnostic-ai up runs (#1611).
 func TestSync_KeepsAHandWrittenInstructionsFileItHasNotImported(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 
 	for _, args := range [][]string{{"sync"}, {"sync", "--json"}, {"sync", "--dry-run"}} {
 		_, err := runCLI(t, args...)
@@ -33,8 +33,8 @@ func TestSync_KeepsAHandWrittenInstructionsFileItHasNotImported(t *testing.T) {
 
 func TestSync_WritesAnInstructionsFileOnceImported(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
@@ -49,8 +49,8 @@ func TestSync_WritesAnInstructionsFileOnceImported(t *testing.T) {
 // The previews stop the same way the sync they preview does.
 func TestSyncPreviews_StopOnAHandWrittenInstructionsFile(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 
 	for _, args := range [][]string{{"sync", "--check"}, {"sync", "--plan"}, {"sync", "--json", "--dry-run"}} {
 		if _, err := runCLI(t, args...); err == nil || !strings.Contains(err.Error(), "agnostic-ai import claude") {
@@ -63,10 +63,10 @@ func TestSyncPreviews_StopOnAHandWrittenInstructionsFile(t *testing.T) {
 // lost, and importing would copy it into the shared body.
 func TestSync_LocalLayerTextCountsAsHeld(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
-	mustWriteFile(t, ".agnostic-ai/local/AGNOSTIC_AI.md", "## Mine\n\nMy text.\n")
-	mustWriteFile(t, "CLAUDE.md", "## Shared\n\nShared text.\n\n## Mine\n\nMy text.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
+	writeFile(t, ".agnostic-ai/local/AGNOSTIC_AI.md", "## Mine\n\nMy text.\n")
+	writeFile(t, "CLAUDE.md", "## Shared\n\nShared text.\n\n## Mine\n\nMy text.\n")
 
 	runSyncOK(t)
 }
@@ -75,8 +75,8 @@ func TestSync_LocalLayerTextCountsAsHeld(t *testing.T) {
 // what import captured.
 func TestSync_BackupReplacesAHandWrittenFileAndKeepsIt(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 
 	runSyncOK(t, "--backup")
 
@@ -88,8 +88,8 @@ func TestSync_BackupReplacesAHandWrittenFileAndKeepsIt(t *testing.T) {
 // Previews with --backup agree with `sync --backup`, which proceeds.
 func TestSyncPreviews_WithBackupProceed(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 
 	if out, err := runCLI(t, "sync", "--json", "--dry-run", "--backup"); err != nil {
 		t.Errorf("sync --json --dry-run --backup: %v\n%s", err, out)
@@ -100,10 +100,10 @@ func TestSyncPreviews_WithBackupProceed(t *testing.T) {
 // body.
 func TestSync_NoWarningForTextTheLocalLayerHolds(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
-	mustWriteFile(t, ".agnostic-ai/local/AGNOSTIC_AI.md", "## Mine\n\nMy text.\n")
-	mustWriteFile(t, "CLAUDE.md", "## Shared\n\nShared text.\n\n## Mine\n\nMy text.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
+	writeFile(t, ".agnostic-ai/local/AGNOSTIC_AI.md", "## Mine\n\nMy text.\n")
+	writeFile(t, "CLAUDE.md", "## Shared\n\nShared text.\n\n## Mine\n\nMy text.\n")
 	log := captureLog(t)
 
 	runSyncOK(t)
@@ -116,9 +116,9 @@ func TestSync_NoWarningForTextTheLocalLayerHolds(t *testing.T) {
 // --backup must not replace an earlier backup of the same file.
 func TestSync_BackupStopsWhenTheBackupExists(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
-	mustWriteFile(t, "CLAUDE.md.bak", "an earlier backup\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "CLAUDE.md.bak", "an earlier backup\n")
 
 	if _, err := runCLI(t, "sync", "--backup"); err == nil || !strings.Contains(err.Error(), "CLAUDE.md.bak already exists") {
 		t.Errorf("err = %v, want a stop", err)
@@ -135,8 +135,8 @@ func TestSyncKeepEdits_StopsOnACommittedHandWrittenFile(t *testing.T) {
 	testutil.Chdir(t, dir)
 	isolateGit(t)
 	gitInit(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "CLAUDE.md", handWrittenClaude)
 	git(t, dir, "add", "-A")
 	git(t, dir, "commit", "-q", "-m", "base")
 

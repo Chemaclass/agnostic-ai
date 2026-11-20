@@ -16,9 +16,9 @@ func absoluteImportProject(t *testing.T) string {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	external := filepath.Join(t.TempDir(), "portable", "skills")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n")
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
-	mustWriteFile(t, ".claude/skills/review/examples.md", "An example.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n")
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/examples.md", "An example.\n")
 	return external
 }
 
@@ -43,7 +43,7 @@ func TestImport_WritesAbsoluteSourcesAndRecordsProvenance(t *testing.T) {
 	if rec.By != specSumByImport || strings.Join(rec.Sources, ",") != "claude" {
 		t.Errorf("provenance = %#v", rec)
 	}
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", strings.ReplaceAll(nativeSkill, "Native", "Edited"))
+	writeFile(t, ".claude/skills/review/SKILL.md", strings.ReplaceAll(nativeSkill, "Native", "Edited"))
 	if out, err := runAbsoluteImportCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("reimport: %v\n%s", err, out)
 	}
@@ -91,8 +91,8 @@ func TestImport_AbsoluteSourceConflictRollsBackThroughSymlink(t *testing.T) {
 		t.Skipf("symlinks unsupported: %v", err)
 	}
 	path := filepath.Join(external, "review", "SKILL.md")
-	mustWriteFile(t, path, handSkill)
-	mustWriteFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip\n")
+	writeFile(t, path, handSkill)
+	writeFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip\n")
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}, nil} {
 		out, err := runAbsoluteImportCLI(t, append([]string{"import", "claude"}, flags...)...)
 		if errs.CodeOf(err) != errs.CodeImportWouldReplace || !strings.Contains(err.Error(), filepath.ToSlash(path)) {
@@ -133,9 +133,9 @@ func TestImport_AbsoluteCustomSourceKinds(t *testing.T) {
 	external := t.TempDir()
 	rules := filepath.Join(external, "custom-guidance")
 	mcps := filepath.Join(external, "custom-servers")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n  mcps: "+filepath.ToSlash(mcps)+"\n")
-	mustWriteFile(t, ".claude/rules/style.md", "---\ndescription: Style.\n---\nUse plain words.\n")
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"example":{"command":"example"}}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n  mcps: "+filepath.ToSlash(mcps)+"\n")
+	writeFile(t, ".claude/rules/style.md", "---\ndescription: Style.\n---\nUse plain words.\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"example":{"command":"example"}}}`)
 	if out, err := runAbsoluteImportCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
@@ -160,7 +160,7 @@ func TestImport_SyncRendersAbsoluteSourcesAndRecordsProvenance(t *testing.T) {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 	path := filepath.Join(external, "review", "SKILL.md")
-	mustWriteFile(t, path, strings.ReplaceAll(nativeSkill, "Native", "Portable"))
+	writeFile(t, path, strings.ReplaceAll(nativeSkill, "Native", "Portable"))
 	if out, err := runAbsoluteImportCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -175,7 +175,7 @@ func TestImport_SyncRendersAbsoluteSourcesAndRecordsProvenance(t *testing.T) {
 	if rec := readStateFile(".").SpecFileSums[filepath.ToSlash(asset)]; rec.By != specSumBySync {
 		t.Errorf("sync asset provenance = %#v", rec)
 	}
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", strings.ReplaceAll(nativeSkill, "Native", "Edited"))
+	writeFile(t, ".claude/skills/review/SKILL.md", strings.ReplaceAll(nativeSkill, "Native", "Edited"))
 	if out, err := runAbsoluteImportCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import after sync: %v\n%s", err, out)
 	}
@@ -187,9 +187,9 @@ func TestImport_SyncRendersAbsoluteSourcesAndRecordsProvenance(t *testing.T) {
 func TestImport_AbsoluteSourcesPreviewReportsMultiSourceConflict(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	external := filepath.Join(t.TempDir(), "custom-rules")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\nsources:\n  rules: "+filepath.ToSlash(external)+"\n")
-	mustWriteFile(t, ".claude/rules/style.md", "Claude style.\n")
-	mustWriteFile(t, ".cursor/rules/style.mdc", "Cursor style.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\nsources:\n  rules: "+filepath.ToSlash(external)+"\n")
+	writeFile(t, ".claude/rules/style.md", "Claude style.\n")
+	writeFile(t, ".cursor/rules/style.mdc", "Cursor style.\n")
 	out, err := runAbsoluteImportCLI(t, "import", "claude", "cursor", "--dry-run", "--diff")
 	if err != nil {
 		t.Fatalf("preview: %v\n%s", err, out)
@@ -210,10 +210,10 @@ func TestImport_AbsoluteSourceInsideProjectPreviewKeepsOverwriteGuard(t *testing
 		t.Fatal(err)
 	}
 	source := filepath.Join(root, "portable", "skills")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(source)+"\n")
 	path := filepath.Join(source, "review", "SKILL.md")
-	mustWriteFile(t, path, handSkill)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, path, handSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 	out, err := runAbsoluteImportCLI(t, "import", "claude", "--dry-run", "--diff")
 	if errs.CodeOf(err) != errs.CodeImportWouldReplace || !strings.Contains(out, filepath.ToSlash(path)) {
 		t.Errorf("want absolute conflict: %v\n%s", err, out)
@@ -224,7 +224,7 @@ func TestImport_AbsoluteSourceInsideProjectPreviewKeepsOverwriteGuard(t *testing
 	if out, err := runAbsoluteImportCLI(t, "import", "claude", "--overwrite"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", strings.ReplaceAll(nativeSkill, "Native", "Edited"))
+	writeFile(t, ".claude/skills/review/SKILL.md", strings.ReplaceAll(nativeSkill, "Native", "Edited"))
 	if out, err := runAbsoluteImportCLI(t, "import", "claude", "--dry-run", "--diff"); err != nil {
 		t.Errorf("preview rejected recorded absolute source inside project: %v\n%s", err, out)
 	}
@@ -232,7 +232,7 @@ func TestImport_AbsoluteSourceInsideProjectPreviewKeepsOverwriteGuard(t *testing
 
 func TestImport_AbsoluteSourcesPreviewKeepsExternalFilesOutOfNativeWalk(t *testing.T) {
 	external := absoluteImportProject(t)
-	mustWriteFile(t, filepath.Join(external, "CLAUDE.md"), "## External\n\nStray native text.\n")
+	writeFile(t, filepath.Join(external, "CLAUDE.md"), "## External\n\nStray native text.\n")
 	out, err := runAbsoluteImportCLI(t, "import", "claude", "--dry-run", "--diff")
 	if err != nil {
 		t.Fatalf("preview: %v\n%s", err, out)
@@ -252,7 +252,7 @@ func TestImportPreviewKeepsAbsoluteSourceInsideProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := filepath.Join(root, "portable", "skills")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(source)+"\n")
 	keep := importPreviewKeeps(root)
 	found := false
 	for _, path := range keep.paths {
@@ -275,14 +275,14 @@ func TestImport_ClassifiedNativeFilesUseAbsoluteSources(t *testing.T) {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			external := t.TempDir()
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nsources:\n  rules: "+filepath.ToSlash(filepath.Join(external, "guidance"))+"\n  agents: "+filepath.ToSlash(filepath.Join(external, "workers"))+"\n  skills: "+filepath.ToSlash(filepath.Join(external, "tasks"))+"\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nsources:\n  rules: "+filepath.ToSlash(filepath.Join(external, "guidance"))+"\n  agents: "+filepath.ToSlash(filepath.Join(external, "workers"))+"\n  skills: "+filepath.ToSlash(filepath.Join(external, "tasks"))+"\n")
 			files := []struct{ native, dest, body string }{
 				{"style", "guidance/style.md", "# Style\n\nPlain rule.\n"},
 				{"agent-reviewer", "workers/reviewer.md", "# Agent: reviewer\n\nReview the diff.\n"},
 				{"skill-validator", "tasks/validator.md", "# Skill: validator\n\nValidate input.\n"},
 			}
 			for _, file := range files {
-				mustWriteFile(t, filepath.Join(tc.dir, file.native+tc.suffix), file.body)
+				writeFile(t, filepath.Join(tc.dir, file.native+tc.suffix), file.body)
 			}
 			out, err := runAbsoluteImportCLI(t, "import", tc.target, "--dry-run", "--diff")
 			if err != nil {
@@ -319,8 +319,8 @@ func TestCopyImportAbsoluteSources_ExcludesContainingPreviewRoot(t *testing.T) {
 	project := t.TempDir()
 	preview := filepath.Join(source, "preview")
 	shadow := filepath.Join(preview, "project")
-	mustWriteFile(t, filepath.Join(shadow, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
-	mustWriteFile(t, filepath.Join(source, "portable.md"), "Portable rule.\n")
+	writeFile(t, filepath.Join(shadow, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, filepath.Join(source, "portable.md"), "Portable rule.\n")
 	blocked := filepath.Join(preview, "000-blocked")
 	if err := os.Mkdir(blocked, 0); err != nil {
 		t.Fatal(err)
@@ -358,11 +358,11 @@ func TestImport_AbsoluteInternalSourcesAreSkippedByNativeScans(t *testing.T) {
 				t.Fatal(err)
 			}
 			source := filepath.Join(root, "portable", "rules")
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
-			mustWriteFile(t, filepath.Join(source, filepath.FromSlash(tc.native)), "Internal source context.\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
+			writeFile(t, filepath.Join(source, filepath.FromSlash(tc.native)), "Internal source context.\n")
 			wantEntries := 1
 			if tc.target == "windsurf" {
-				mustWriteFile(t, ".windsurf/rules/root.md", "Root native context.\n")
+				writeFile(t, ".windsurf/rules/root.md", "Root native context.\n")
 				wantEntries = 2
 			}
 			out, err := runAbsoluteImportCLI(t, "import", tc.target, "--dry-run", "--diff")
@@ -391,13 +391,13 @@ func TestImport_AbsoluteSourceAliasesSharePreviewWrites(t *testing.T) {
 	external := t.TempDir()
 	shared := filepath.Join(external, "shared")
 	alias := filepath.Join(external, "alias")
-	mustWriteFile(t, filepath.Join(shared, "foo.md"), "---\nname: foo\ndescription: Mine.\n---\nMine.\n")
+	writeFile(t, filepath.Join(shared, "foo.md"), "---\nname: foo\ndescription: Mine.\n---\nMine.\n")
 	if err := os.Symlink(shared, alias); err != nil {
 		t.Skipf("symlinks unsupported: %v", err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(shared)+"\n  agents: "+filepath.ToSlash(alias)+"\n")
-	mustWriteFile(t, ".claude/rules/foo.md", "Rule replacement.\n")
-	mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(shared)+"\n  agents: "+filepath.ToSlash(alias)+"\n")
+	writeFile(t, ".claude/rules/foo.md", "Rule replacement.\n")
+	writeFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
 	preview, err := planImportPreview([]string{"claude"})
 	if err != nil {
 		t.Fatal(err)
@@ -423,9 +423,9 @@ func TestImport_AbsoluteSourceAliasesSharePreviewWrites(t *testing.T) {
 func TestImport_AbsoluteSourcesResolveClaudeNativeReferences(t *testing.T) {
 	external := absoluteImportProject(t)
 	rules := filepath.Join(filepath.Dir(external), "rules")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n  rules: "+filepath.ToSlash(rules)+"\n")
-	mustWriteFile(t, "CLAUDE.md", "@.claude/rules/style.md\n\nRead ./.claude/skills/review/SKILL.md.\n")
-	mustWriteFile(t, ".claude/rules/style.md", "Plain rule.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n  rules: "+filepath.ToSlash(rules)+"\n")
+	writeFile(t, "CLAUDE.md", "@.claude/rules/style.md\n\nRead ./.claude/skills/review/SKILL.md.\n")
+	writeFile(t, ".claude/rules/style.md", "Plain rule.\n")
 	out, err := runAbsoluteImportCLI(t, "import", "claude", "--dry-run", "--diff")
 	if err != nil {
 		t.Fatalf("preview: %v\n%s", err, out)
@@ -471,16 +471,16 @@ func TestImport_AbsoluteHardLinkedSourcesSharePreviewWrites(t *testing.T) {
 			rulePath := filepath.Join(rules, "foo.md")
 			agentPath := filepath.Join(agents, "foo.md")
 			const mine = "---\nname: foo\ndescription: Mine.\n---\nMine.\n"
-			mustWriteFile(t, rulePath, mine)
+			writeFile(t, rulePath, mine)
 			if err := os.MkdirAll(agents, 0o755); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.Link(rulePath, agentPath); err != nil {
 				t.Fatal(err)
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n  agents: "+filepath.ToSlash(agents)+"\n")
-			mustWriteFile(t, ".claude/rules/foo.md", "Rule replacement.\n")
-			mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n  agents: "+filepath.ToSlash(agents)+"\n")
+			writeFile(t, ".claude/rules/foo.md", "Rule replacement.\n")
+			writeFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
 			preview, err := planImportPreview([]string{"claude"})
 			if err != nil {
 				t.Fatal(err)
@@ -514,8 +514,8 @@ func TestImport_AbsoluteHardLinkedSourcesSharePreviewWrites(t *testing.T) {
 func TestImport_KiloRecoversRulesIntoMissingAbsoluteSource(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	source := filepath.Join(t.TempDir(), "portable", "rules")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
-	mustWriteFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Recovered\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Recovered\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
 	path := filepath.Join(source, "recovered.md")
 	out, err := runAbsoluteImportCLI(t, "import", "kilo", "--dry-run", "--diff")
 	if err != nil {
@@ -534,7 +534,7 @@ func TestImport_KiloRecoversRulesIntoMissingAbsoluteSource(t *testing.T) {
 		t.Errorf("recovered rule = %q", got)
 	}
 	const mine = "---\nname: recovered\n---\nMy guidance.\n"
-	mustWriteFile(t, path, mine)
+	writeFile(t, path, mine)
 	if out, err := runAbsoluteImportCLI(t, "import", "kilo"); err != nil {
 		t.Fatalf("hand-written rule: %v\n%s", err, out)
 	}
@@ -550,9 +550,9 @@ func TestImport_AbsoluteSourceAncestorSharesMissingProjectDestination(t *testing
 		t.Fatal(err)
 	}
 	testutil.Chdir(t, project)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(parent)+"\n")
-	mustWriteFile(t, ".claude/rules/repo/.agnostic-ai/agents/foo.md", "Rule replacement.\n")
-	mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: "+filepath.ToSlash(parent)+"\n")
+	writeFile(t, ".claude/rules/repo/.agnostic-ai/agents/foo.md", "Rule replacement.\n")
+	writeFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nAgent replacement.\n")
 	path := filepath.Join(parent, "repo", ".agnostic-ai", "agents", "foo.md")
 	preview, err := planImportPreview([]string{"claude"})
 	if err != nil {
@@ -583,10 +583,10 @@ func TestImport_AbsoluteSourceAncestorSharesMissingProjectDestination(t *testing
 func TestImport_RecoveryReadsRuleNamesFromMappedAbsoluteSources(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	source := filepath.Join(t.TempDir(), "rules")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
-	mustWriteFile(t, "CLAUDE.md", "Shared main.\n")
-	mustWriteFile(t, ".claude/rules/foo.md", "---\nname: bar\n---\nNative foo named bar.\n")
-	mustWriteFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Bar\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, "CLAUDE.md", "Shared main.\n")
+	writeFile(t, ".claude/rules/foo.md", "---\nname: bar\n---\nNative foo named bar.\n")
+	writeFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Bar\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
 	preview, err := planImportPreview([]string{"claude", "kilo"})
 	if err != nil {
 		t.Fatal(err)
@@ -622,10 +622,10 @@ func TestImport_RecoveryReadsRuleNamesThroughAbsoluteSourceAlias(t *testing.T) {
 	if err := createImportSourceAlias(rules, agents); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n  agents: "+filepath.ToSlash(agents)+"\n")
-	mustWriteFile(t, "CLAUDE.md", "Shared main.\n")
-	mustWriteFile(t, ".claude/rules/foo.md", "---\nname: bar\n---\nNative foo named bar.\n")
-	mustWriteFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Bar\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n  agents: "+filepath.ToSlash(agents)+"\n")
+	writeFile(t, "CLAUDE.md", "Shared main.\n")
+	writeFile(t, ".claude/rules/foo.md", "---\nname: bar\n---\nNative foo named bar.\n")
+	writeFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Bar\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
 	preview, err := planImportPreview([]string{"claude", "kilo"})
 	if err != nil {
 		t.Fatal(err)
@@ -652,12 +652,12 @@ func TestImport_RecoveryReadsRuleNamesFromAbsoluteRuleAlias(t *testing.T) {
 	external := t.TempDir()
 	shared := filepath.Join(external, "z-shared")
 	rules := filepath.Join(external, "a-rules")
-	mustWriteFile(t, filepath.Join(shared, "foo.md"), "---\nname: bar\n---\nExisting guidance named bar.\n")
+	writeFile(t, filepath.Join(shared, "foo.md"), "---\nname: bar\n---\nExisting guidance named bar.\n")
 	if err := createImportSourceAlias(shared, rules); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n")
-	mustWriteFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Bar\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kilo, codex]\nsources:\n  rules: "+filepath.ToSlash(rules)+"\n")
+	writeFile(t, "AGENTS.md", "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### Bar\n\nRecovered guidance.\n\n<!-- agnostic-ai:rules:end -->\n")
 	preview, err := planImportPreview([]string{"kilo"})
 	if err != nil {
 		t.Fatal(err)
@@ -678,8 +678,8 @@ func TestImport_RecoveryReadsRuleNamesFromAbsoluteRuleAlias(t *testing.T) {
 
 func TestImport_PreviewSkipsUnusedSymlinkLoop(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-	mustWriteFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
 	if err := os.Symlink("loop", "loop"); err != nil {
 		t.Skipf("symlinks unsupported: %v", err)
 	}
@@ -719,9 +719,9 @@ func testImportSourceAliasesShareNewFiles(t *testing.T, cursorRule string) {
 	if err := createImportSourceAlias(external, absRules); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, claude]\nsources:\n  rules: .agnostic-ai/rules\n  agents: "+filepath.ToSlash(external)+"\n")
-	mustWriteFile(t, ".cursor/rules/foo.mdc", cursorRule)
-	mustWriteFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nClaude agent.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, claude]\nsources:\n  rules: .agnostic-ai/rules\n  agents: "+filepath.ToSlash(external)+"\n")
+	writeFile(t, ".cursor/rules/foo.mdc", cursorRule)
+	writeFile(t, ".claude/agents/foo.md", "---\nname: foo\ndescription: Agent.\n---\nClaude agent.\n")
 	preview, err := planImportPreview([]string{"cursor", "claude"})
 	if err != nil {
 		t.Fatal(err)
@@ -760,8 +760,8 @@ func TestImport_AbsoluteSourcePreviewSkipsUnreadableUnrelatedDirectory(t *testin
 	if _, err := os.ReadDir(blocked); err == nil {
 		t.Skip("requires directory permission enforcement")
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
-	mustWriteFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
 	if out, err := runAbsoluteImportCLI(t, "import", "cursor", "--dry-run", "--diff"); err != nil {
 		t.Errorf("preview opened unrelated unreadable directory: %v\n%s", err, out)
 	}
@@ -780,7 +780,7 @@ func TestImport_AbsoluteSourcePreviewReportsUnreadableDestination(t *testing.T) 
 	testutil.Chdir(t, t.TempDir())
 	source := t.TempDir()
 	path := filepath.Join(source, "foo.md")
-	mustWriteFile(t, path, "Mine.\n")
+	writeFile(t, path, "Mine.\n")
 	if err := os.Chmod(path, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -788,8 +788,8 @@ func TestImport_AbsoluteSourcePreviewReportsUnreadableDestination(t *testing.T) 
 	if _, err := os.ReadFile(path); err == nil {
 		t.Skip("requires file permission enforcement")
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
-	mustWriteFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nsources:\n  rules: "+filepath.ToSlash(source)+"\n")
+	writeFile(t, ".cursor/rules/foo.mdc", "Cursor rule.\n")
 	for _, flags := range [][]string{{"--dry-run", "--diff", "--overwrite"}, {"--overwrite"}} {
 		out, err := runAbsoluteImportCLI(t, append([]string{"import", "cursor"}, flags...)...)
 		if !errors.Is(err, fs.ErrPermission) {

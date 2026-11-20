@@ -15,7 +15,7 @@ import (
 func globalConfigTestHome(t *testing.T) (string, string) {
 	t.Helper()
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
 	return home, source
 }
 
@@ -34,7 +34,7 @@ func assertGlobalInstructions(t *testing.T, home string, want map[string]bool) {
 
 func TestSyncGlobal_HomeConfigLimitsSyncAndCheckToItsTargets(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, cursor]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, cursor]\n")
 
 	out, _, err := runGlobalCheck("sync")
 	if err != nil {
@@ -57,8 +57,8 @@ func TestSyncGlobal_HomeConfigLimitsSyncAndCheckToItsTargets(t *testing.T) {
 
 func TestSyncGlobal_LocalHomeConfigReplacesSharedTargets(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [cursor]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [cursor]\n")
 
 	if _, _, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("sync --global: %v", err)
@@ -72,7 +72,7 @@ func TestSyncGlobal_LocalHomeConfigReplacesSharedTargets(t *testing.T) {
 
 func TestSyncGlobal_FlagsWinOverHomeConfig(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, cursor]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, cursor]\n")
 
 	if _, _, err := runGlobalCheck("sync", "--only", "codex"); err != nil {
 		t.Fatalf("sync --global --only codex: %v", err)
@@ -96,7 +96,7 @@ func TestSyncGlobal_FlagsWinOverHomeConfig(t *testing.T) {
 func TestSyncGlobal_HomeConfigUnknownTargetSuggestsName(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "local", "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "targets: [claude, curser]\n")
+	writeFile(t, config, "targets: [claude, curser]\n")
 
 	_, _, err := runGlobalCheck("sync")
 	if err == nil || !strings.Contains(err.Error(), config) || !strings.Contains(err.Error(), `unsupported target "curser" (did you mean cursor?)`) {
@@ -112,7 +112,7 @@ func TestSyncGlobal_HomeConfigUnknownTargetSuggestsName(t *testing.T) {
 func TestSyncGlobal_HomeConfigWarnsOnKeysItIgnores(t *testing.T) {
 	_, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "version: 1\ntargets: [claude]\nsources:\n  rules: rules\n")
+	writeFile(t, config, "version: 1\ntargets: [claude]\nsources:\n  rules: rules\n")
 
 	_, errOut, err := runGlobalCheck("sync")
 	if err != nil {
@@ -140,12 +140,12 @@ func TestSyncGlobal_WithoutHomeConfigSyncsEveryTarget(t *testing.T) {
 func TestSyncGlobal_TargetDroppedFromHomeConfigKeepsItsFiles(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "targets: [claude, cursor]\n")
+	writeFile(t, config, "targets: [claude, cursor]\n")
 	if _, _, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("first sync --global: %v", err)
 	}
 
-	mustWriteGlobalTest(t, config, "targets: [claude]\n")
+	writeFile(t, config, "targets: [claude]\n")
 	if _, _, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("second sync --global: %v", err)
 	}
@@ -155,12 +155,12 @@ func TestSyncGlobal_TargetDroppedFromHomeConfigKeepsItsFiles(t *testing.T) {
 func TestValidateGlobal_ChecksHookEventsAgainstConfiguredTargets(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "tool.yaml")
-	mustWriteGlobalTest(t, hook, "name: tool\nevent: BeforeTool\ncommand: echo hi\n")
+	writeFile(t, hook, "name: tool\nevent: BeforeTool\ncommand: echo hi\n")
 	if out, _, err := runGlobalCheck("validate"); err != nil {
 		t.Fatalf("a gemini event is valid when gemini is a global target: %v\n%s", err, out)
 	}
 
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
 		t.Fatalf("validate --global must reject an event the configured targets never fire:\n%s", out)
@@ -181,8 +181,8 @@ func runProjectSync(args ...string) error {
 
 func TestSync_RefusesToRunInTheGlobalHome(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "rules", "mine.md"), "---\nname: mine\n---\nMine.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "local", "rules", "mine.md"), "---\nname: mine\n---\nMine.\n")
 	link := filepath.Join(home, "home-link")
 	if err := os.Symlink(source, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
@@ -245,9 +245,9 @@ func TestProjectWriters_RefuseToRunInTheGlobalHome(t *testing.T) {
 
 func TestSync_GlobalHomeGuardFollowsTheResolvedSourceRoot(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
 	unused := filepath.Join(home, ".agnostic-ai")
-	mustWriteGlobalTest(t, filepath.Join(unused, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(unused, "agnostic-ai.yaml"), "targets: [claude]\n")
 
 	testutil.Chdir(t, unused)
 	if err := runProjectSync(); err != nil {
@@ -267,7 +267,7 @@ func TestSync_GlobalHomeGuardFollowsTheResolvedSourceRoot(t *testing.T) {
 func TestSyncGlobal_HomeConfigSkipsTargetsWithoutAGlobalSurface(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "version: 1\ntargets: [claude, aider, continue]\n")
+	writeFile(t, config, "version: 1\ntargets: [claude, aider, continue]\n")
 
 	out, errOut, err := runGlobalCheck("sync")
 	if err != nil {
@@ -290,7 +290,7 @@ func TestSyncGlobal_HomeConfigSkipsTargetsWithoutAGlobalSurface(t *testing.T) {
 
 func TestSyncGlobal_DuplicateHomeConfigTargetSyncsOnce(t *testing.T) {
 	_, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, claude]\n")
 
 	out, _, err := runGlobalCheck("sync")
 	if err != nil {
@@ -303,7 +303,7 @@ func TestSyncGlobal_DuplicateHomeConfigTargetSyncsOnce(t *testing.T) {
 
 func TestSyncGlobal_TargetFlagBypassesHomeConfig(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [curser]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [curser]\n")
 
 	if _, _, err := runGlobalCheck("sync", "-t", "claude"); err != nil {
 		t.Fatalf("-t must not read the home config: %v", err)
@@ -339,10 +339,10 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 	}
 	_, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "start.yaml")
-	mustWriteGlobalTest(t, hook, "name: start\nevent: SessionStart\ncommand: echo hi\n")
+	writeFile(t, hook, "name: start\nevent: SessionStart\ncommand: echo hi\n")
 	agent := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, agent, "---\nname: reviewer\ndescription: Review code\n---\nReview it.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [windsurf, zed]\n")
+	writeFile(t, agent, "---\nname: reviewer\ndescription: Review code\n---\nReview it.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [windsurf, zed]\n")
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
@@ -366,9 +366,9 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 func TestSync_GlobalHomeAtUserHomeGuardsOnlyTheRoot(t *testing.T) {
 	home, _ := globalConfigTestHome(t)
 	t.Setenv("AGNOSTIC_AI_HOME", home)
-	mustWriteGlobalTest(t, filepath.Join(home, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "targets: [claude]\n")
 	project := filepath.Join(home, "proj")
-	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [claude]\n")
 
 	testutil.Chdir(t, home)
 	if err := runProjectSync("--check"); err == nil || !strings.Contains(err.Error(), home+" is the global home") {

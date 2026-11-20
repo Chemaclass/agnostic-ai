@@ -11,9 +11,9 @@ import (
 
 func TestValidate_FlagsUnknownHookEvent(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: BogusEvent\nmatcher: \"Edit\"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -41,9 +41,9 @@ func TestValidate_FlagsUnknownHookEvent(t *testing.T) {
 
 func TestValidate_AcceptsKnownHookEvent(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: \"Edit\"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -67,9 +67,9 @@ func TestValidate_HookEventGeminiSubsetUnknownToClaude(t *testing.T) {
 	// enabled, BeforeTool should validate as ok because the union
 	// covers it.
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n  - gemini\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "before.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "before.yaml"),
 		"name: before\nevent: BeforeTool\nmatcher: \"\"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -106,9 +106,9 @@ func TestValidate_AcceptsAllDocumentedGeminiHookEvents(t *testing.T) {
 	for _, event := range events {
 		t.Run(event, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 				"version: 1\ntargets:\n  - gemini\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
 				"name: h\nevent: "+event+"\nmatcher: \"\"\ncommand: \"true\"\n")
 			testutil.Chdir(t, dir)
 
@@ -130,9 +130,9 @@ func TestValidate_AcceptsAllDocumentedGeminiHookEvents(t *testing.T) {
 
 func TestValidate_AcceptsClaudeDirectoryAddedHookEvent(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
 		"name: h\nevent: DirectoryAdded\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
@@ -157,9 +157,9 @@ func TestValidate_AcceptsClaudeModelSwitchHookEvents(t *testing.T) {
 	for _, event := range []string{"PreModelSwitch", "PostModelSwitch"} {
 		t.Run(event, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 				"version: 1\ntargets:\n  - claude\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
 				"name: h\nevent: "+event+"\ncommand: \"true\"\n")
 			testutil.Chdir(t, dir)
 
@@ -184,9 +184,9 @@ func TestValidate_AcceptsClaudeModelSwitchHookEvents(t *testing.T) {
 // worked and validate flagged it as unknown by mistake (#660).
 func TestValidate_AcceptsCodexInterruptHookEvent(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - codex\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
 		"name: h\nevent: Interrupt\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
@@ -212,9 +212,9 @@ func TestValidate_AcceptsQoderTaskAndSetupHookEvents(t *testing.T) {
 	for _, event := range []string{"TaskCreated", "TaskCompleted", "TeammateIdle", "Setup"} {
 		t.Run(event, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 				"version: 1\ntargets:\n  - qoder\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
 				"name: h\nevent: "+event+"\ncommand: \"true\"\n")
 			testutil.Chdir(t, dir)
 
@@ -239,9 +239,9 @@ func TestValidate_OrphanHookKindWarning(t *testing.T) {
 	// native hooks support in #629 and cline in #889, so neither can
 	// stand in for a hook-less target here.)
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - aider\n  - warp\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: \"\"\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
@@ -275,9 +275,9 @@ func TestValidate_MCPNotOrphanedOnNewlySupportedTargets(t *testing.T) {
 	for _, target := range []string{"qoder", "factory", "openhands"} {
 		t.Run(target, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 				"version: 1\ntargets:\n  - "+target+"\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
 				"name: fs\ncommand: npx\n")
 			testutil.Chdir(t, dir)
 
@@ -299,9 +299,9 @@ func TestValidate_MCPNotOrphanedOnNewlySupportedTargets(t *testing.T) {
 
 func TestValidate_MissingHookEventField(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "broken.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "broken.yaml"),
 		"name: broken\nmatcher: \"\"\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
@@ -323,9 +323,9 @@ func TestValidate_MissingHookEventField(t *testing.T) {
 
 func TestDoctor_ReportsMCPCommandResolution(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
 		"name: fs\ncommand: this-binary-does-not-exist-please\nargs:\n  - hi\n")
 	testutil.Chdir(t, dir)
 
@@ -349,9 +349,9 @@ func TestDoctor_ReportsMCPCommandResolution(t *testing.T) {
 
 func TestDoctor_SkipsMCPBlockWhenNoMCPSpecs(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "x.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "x.md"),
 		"---\nname: x\n---\nbody\n")
 	testutil.Chdir(t, dir)
 
@@ -369,9 +369,9 @@ func TestDoctor_SkipsMCPBlockWhenNoMCPSpecs(t *testing.T) {
 
 func TestDoctor_HTTPMCPSkippedFromCommandResolution(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - claude\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "remote.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "remote.yaml"),
 		"name: remote\nurl: https://example.com/mcp\n")
 	testutil.Chdir(t, dir)
 
@@ -412,9 +412,9 @@ func TestInstallHint_KnownCommands(t *testing.T) {
 // (#888).
 func TestValidate_FlagsCopilotSubagentStartPascalCase(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - copilot\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
 		"name: spawn\nevent: SubagentStart\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -434,9 +434,9 @@ func TestValidate_FlagsCopilotSubagentStartPascalCase(t *testing.T) {
 // The camelCase spelling is the documented one and still validates.
 func TestValidate_AcceptsCopilotSubagentStartCamelCase(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - copilot\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "spawn.yaml"),
 		"name: spawn\nevent: subagentStart\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 
@@ -457,9 +457,9 @@ func TestValidate_AcceptsCopilotSubagentStartCamelCase(t *testing.T) {
 func validateKiroHookEvent(t *testing.T, event string) string {
 	t.Helper()
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets:\n  - kiro\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "h.yaml"),
 		"name: h\nevent: "+event+"\ncommand: \"echo hi\"\n")
 	testutil.Chdir(t, dir)
 

@@ -25,11 +25,11 @@ var globalAdoptCases = []globalAdoptCase{
 func syncedThenStateLost(t *testing.T, tc globalAdoptCase) (home, source string) {
 	t.Helper()
 	home, source = globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "references", "notes.md"), "Notes.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "targets: ["+tc.target+"]\nevent: "+tc.event+"\nmatcher: Bash\ncommand: guard-command\ntimeout: 30\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
+	writeFile(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, filepath.Join(source, "skills", "tidy", "references", "notes.md"), "Notes.\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "targets: ["+tc.target+"]\nevent: "+tc.event+"\nmatcher: Bash\ncommand: guard-command\ntimeout: 30\n")
 	if _, _, err := runGlobalAgentTest("--only", tc.target); err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestSyncGlobal_LostStateStillStopsOnADifferentFile(t *testing.T) {
 			}, "unmanaged global skill collision"},
 			{"extra skill file", func(t *testing.T, home string) {
 				t.Helper()
-				mustWriteGlobalTest(t, filepath.Join(home, tc.root, "skills", "tidy", "mine.md"), "Mine.\n")
+				writeFile(t, filepath.Join(home, tc.root, "skills", "tidy", "mine.md"), "Mine.\n")
 			}, "unmanaged global skill collision"},
 			{"hook", func(t *testing.T, home string) {
 				t.Helper()
@@ -123,7 +123,7 @@ func TestSyncGlobal_LostStateStillStopsOnADifferentFile(t *testing.T) {
 			t.Run(tc.target+"/"+edit.name, func(t *testing.T) {
 				home, source := syncedThenStateLost(t, tc)
 				edit.do(t, home)
-				mustWriteGlobalTest(t, filepath.Join(source, "skills", "fresh", "SKILL.md"), "---\nname: fresh\ndescription: Fresh\n---\nFresh.\n")
+				writeFile(t, filepath.Join(source, "skills", "fresh", "SKILL.md"), "---\nname: fresh\ndescription: Fresh\n---\nFresh.\n")
 
 				_, _, err := runGlobalAgentTest("--only", tc.target)
 				if err == nil || !strings.Contains(err.Error(), edit.want) {
@@ -162,9 +162,9 @@ func TestSyncGlobal_UserHookMatchingASpecStaysTheUsers(t *testing.T) {
 		t.Run(tc.target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			hooksFile := filepath.Join(home, filepath.FromSlash(tc.file))
-			mustWriteGlobalTest(t, hooksFile, tc.content)
+			writeFile(t, hooksFile, tc.content)
 			sourceHook := filepath.Join(source, "hooks", "guard.yaml")
-			mustWriteGlobalTest(t, sourceHook, "targets: ["+tc.target+"]\nevent: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
+			writeFile(t, sourceHook, "targets: ["+tc.target+"]\nevent: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
 			var want map[string]any
 			if err := json.Unmarshal([]byte(tc.content), &want); err != nil {
 				t.Fatal(err)
@@ -205,8 +205,8 @@ func TestSyncGlobal_UnrecordedGroupSharingASpecCommandStops(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".claude", "settings.json")
 	group := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"guard-command"},{"type":"command","command":"other-command"}]}]}}`
-	mustWriteGlobalTest(t, settings, group)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
+	writeFile(t, settings, group)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
 
 	_, _, err := runGlobalAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), "not recorded as managed") || !strings.Contains(err.Error(), "own entry") {

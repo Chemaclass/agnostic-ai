@@ -19,12 +19,12 @@ func TestSyncPluginManifest_UnownedStaysUnclaimed(t *testing.T) {
 			if target == "antigravity" {
 				output = "    mcp-file: .agents/plugins/team/mcp.json\n"
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\noutputs:\n  "+target+":\n"+output)
-			mustWriteFile(t, ".agnostic-ai/skills/probe/SKILL.md", "---\nname: probe\ndescription: Probe.\n---\nProbe.\n")
-			mustWriteFile(t, ".agnostic-ai/mcps/probe.yaml", "name: probe\ncommand: probe\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\noutputs:\n  "+target+":\n"+output)
+			writeFile(t, ".agnostic-ai/skills/probe/SKILL.md", "---\nname: probe\ndescription: Probe.\n---\nProbe.\n")
+			writeFile(t, ".agnostic-ai/mcps/probe.yaml", "name: probe\ncommand: probe\n")
 			path := filepath.FromSlash(".agents/plugins/team/plugin.json")
 			want := "{\n  \"name\": \"custom\", \"version\": \"2.0.0\"\n}\n"
-			mustWriteFile(t, path, want)
+			writeFile(t, path, want)
 			for range 2 {
 				runSyncOK(t)
 				if got := readFile(t, path); got != want {
@@ -43,8 +43,8 @@ func TestSyncPluginManifest_UnownedStaysUnclaimed(t *testing.T) {
 func TestSyncAntigravity_LegacyPluginManifestSurvivesNextSync(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: .agents/plugins/team/mcp_config.json\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/probe.yaml", "name: probe\ncommand: probe\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: .agents/plugins/team/mcp_config.json\n")
+	writeFile(t, ".agnostic-ai/mcps/probe.yaml", "name: probe\ncommand: probe\n")
 	path := filepath.FromSlash(".agents/plugins/team/plugin.json")
 	for range 2 {
 		runSyncOK(t)

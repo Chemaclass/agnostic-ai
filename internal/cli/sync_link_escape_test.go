@@ -17,7 +17,7 @@ func linkEscapeProject(t *testing.T) string {
 	}
 	globalAgentTestHome(t)
 	dir := setupFixture(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
@@ -57,11 +57,11 @@ func TestSync_RefusesAHookScriptThroughALinkIntoGitHooks(t *testing.T) {
 	}
 	mustSymlink(t, filepath.Join("..", ".git", "hooks"), filepath.Join(dir, ".claude", "hooks"))
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "post-commit")
-	mustWrite(t, script, "#!/bin/sh\necho ran\n")
+	writeFile(t, script, "#!/bin/sh\necho ran\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "run.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "run.yaml"),
 		"name: run\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/post-commit\n")
 
 	err := runProjectSync()
@@ -78,7 +78,7 @@ func TestSync_RefusesWritesThroughALinkedToolFolderOutsideTheProject(t *testing.
 	dir := linkEscapeProject(t)
 	outside := t.TempDir()
 	mustSymlink(t, outside, filepath.Join(dir, ".claude"))
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\ncommand: echo guard\n")
 	before := treeEntries(t, outside)
 
@@ -95,7 +95,7 @@ func TestSync_RefusesWritesThroughALinkedToolFolderOutsideTheProject(t *testing.
 func TestSync_WritesThroughALinkThatStaysInsideTheProject(t *testing.T) {
 	dir := linkEscapeProject(t)
 	mustSymlink(t, "AGENTS.md", filepath.Join(dir, "CLAUDE.md"))
-	mustWrite(t, filepath.Join(dir, "tools", "claude", ".keep"), "")
+	writeFile(t, filepath.Join(dir, "tools", "claude", ".keep"), "")
 	mustSymlink(t, filepath.Join("tools", "claude"), filepath.Join(dir, ".claude"))
 
 	if err := runProjectSync(); err != nil {
@@ -118,7 +118,7 @@ func TestSyncGlobal_WritesThroughALinkedToolFolder(t *testing.T) {
 		t.Skip("symlinks need privileges on Windows")
 	}
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
 	dotfiles := filepath.Join(t.TempDir(), "dotfiles", "claude")
 	if err := os.MkdirAll(dotfiles, 0o755); err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestSyncGlobal_WritesThroughALinkedToolFolder(t *testing.T) {
 func TestSync_RefusesALockFileLinkedIntoTheGitFolder(t *testing.T) {
 	dir := linkEscapeProject(t)
 	config := filepath.Join(dir, ".git", "config")
-	mustWrite(t, config, "[core]\n\tbare = false\n")
+	writeFile(t, config, "[core]\n\tbare = false\n")
 	mustSymlink(t, filepath.Join("..", ".git", "config"), filepath.Join(dir, ".agnostic-ai", ".command-lock"))
 
 	err := runProjectSync()
@@ -174,9 +174,9 @@ func TestSync_KeepsItsLedgerInALinkedSpecFolder(t *testing.T) {
 func TestSync_RefusesAMergedSettingsFileLinkedOutsideTheProject(t *testing.T) {
 	dir := linkEscapeProject(t)
 	settings := filepath.Join(t.TempDir(), "settings.json")
-	mustWrite(t, settings, "{\"theme\": \"dark\"}\n")
+	writeFile(t, settings, "{\"theme\": \"dark\"}\n")
 	mustSymlink(t, settings, filepath.Join(dir, ".claude", "settings.json"))
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\ncommand: echo guard\n")
 
 	for _, args := range [][]string{{}, {"--backup"}} {
@@ -199,8 +199,8 @@ func specLinkProject(t *testing.T, target, outputs string) string {
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, "specs", "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: specs/rules\n"+outputs)
+	writeFile(t, filepath.Join(dir, "specs", "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nsources:\n  rules: specs/rules\n"+outputs)
 	mustSymlink(t, target, filepath.Join(dir, ".agnostic-ai"))
 	return dir
 }
@@ -216,7 +216,7 @@ func mustNotExist(t *testing.T, paths ...string) {
 
 func TestSync_RefusesOutputsSpelledThroughALinkedSpecFolder(t *testing.T) {
 	victim := t.TempDir()
-	mustWrite(t, filepath.Join(victim, "AGNOSTIC_AI.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(victim, "AGNOSTIC_AI.md"), "Be brief.\n")
 	specLinkProject(t, victim, "outputs:\n  claude:\n    file: .agnostic-ai/new.sh\n    rules-dir: .agnostic-ai/planted\n")
 
 	if err := runProjectSync(); err == nil || !strings.Contains(err.Error(), "outside the project") {
@@ -262,7 +262,7 @@ func TestSync_RefusesASpecFolderLinkedIntoASiblingRepositorysGitFolder(t *testin
 
 func TestSync_RefusesASkillNamedGit(t *testing.T) {
 	dir := linkEscapeProject(t)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "skills", ".git", "SKILL.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", ".git", "SKILL.md"),
 		"---\nname: .git\ndescription: d\n---\nbody\n")
 
 	_ = runProjectSync()
@@ -286,7 +286,7 @@ func TestSync_SharedSkillsLeavesASkillFolderLinkedOutsideTheProject(t *testing.T
 		t.Fatal(err)
 	}
 	mustSymlink(t, outside, filepath.Join(dir, ".cursor", "skills"))
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
 
 	_ = runSync(t)
 
@@ -301,8 +301,8 @@ func TestSync_SharedSkillsLeavesASkillFolderLinkedOutsideTheProject(t *testing.T
 func TestSync_RefusesASpecFolderLinkedToAToolFolder(t *testing.T) {
 	dir := linkEscapeProject(t)
 	tool := filepath.Join(t.TempDir(), ".claude")
-	mustWrite(t, filepath.Join(tool, "agents", "a.md"), "---\nname: a\ndescription: d\n---\nbody\n")
-	mustWrite(t, filepath.Join(tool, "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
+	writeFile(t, filepath.Join(tool, "agents", "a.md"), "---\nname: a\ndescription: d\n---\nbody\n")
+	writeFile(t, filepath.Join(tool, "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
 		t.Fatal(err)
 	}

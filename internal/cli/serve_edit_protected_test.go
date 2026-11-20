@@ -109,7 +109,7 @@ func TestProtectedEdit_RejectsStaleAndInvalidSaves(t *testing.T) {
 	file := ".agnostic-ai/settings/defaults.yaml"
 	body := map[string]any{"audience": "shared", "protected": map[string]any{"paths": []string{"vendor"}, "decision": "ask", "reason": ""}}
 	preview := protectedPreview(t, h, body)
-	mustWrite(t, file, "name: defaults\nmodel: sonnet\n")
+	writeFile(t, file, "name: defaults\nmodel: sonnet\n")
 	if rec := protectedApply(t, h, body, preview); rec.Code != http.StatusConflict {
 		t.Fatalf("stale apply = %d %s", rec.Code, rec.Body)
 	}
@@ -184,7 +184,7 @@ func TestProtectedEdit_ComparesBeforeAsThePageShowsIt(t *testing.T) {
 	if rec := protectedApply(t, h, reset, protectedPreview(t, h, reset)); rec.Code != http.StatusOK {
 		t.Fatalf("reset after an empty local reason = %d %s", rec.Code, rec.Body)
 	}
-	mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nprotected:\n  decision: deny\n")
+	writeFile(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nprotected:\n  decision: deny\n")
 	partial := map[string]any{"audience": "personal", "protected": nil, "before": map[string]any{"paths": []string{}, "decision": "deny", "reason": ""}}
 	preview := protectedPreview(t, h, partial)
 	if before, _ := preview["before"].(map[string]any); before == nil || before["paths"] == nil {
@@ -209,7 +209,7 @@ func TestProtectedEdit_LocalPathsKeepTheProjectDenyThroughSync(t *testing.T) {
 	isolateGit(t)
 	git(t, h.root, "init", "-q")
 	local := ".agnostic-ai/local/settings/defaults.yaml"
-	mustWrite(t, local, "name: defaults\nprotected:\n  paths: [notes/]\n")
+	writeFile(t, local, "name: defaults\nprotected:\n  paths: [notes/]\n")
 	weaker := map[string]any{"action": "preview", "audience": "personal", "protected": map[string]any{"paths": []string{"notes/"}, "decision": "ask", "reason": "Mine."}}
 	if rec := protectedRequest(t, h, weaker); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "cannot lower that to ask") {
 		t.Fatalf("downgrade = %d %s", rec.Code, rec.Body)
@@ -260,7 +260,7 @@ func TestProtectedEdit_LocalDraftConflictsWhenTheProjectBlockChanges(t *testing.
 	isolateGit(t)
 	git(t, h.root, "init", "-q")
 	shown := map[string]any{"paths": []string{"vendor"}, "decision": "", "reason": ""}
-	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nprotected:\n  paths: [vendor, .github/**]\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nprotected:\n  paths: [vendor, .github/**]\n")
 	stale := map[string]any{"action": "preview", "audience": "personal", "protected": map[string]any{"paths": []string{"vendor"}, "decision": "ask", "reason": "Mine."}, "before": nil, "inherited": shown}
 	if rec := protectedRequest(t, h, stale); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "inherits changed") {
 		t.Fatalf("stale inherited = %d %s", rec.Code, rec.Body)
@@ -273,7 +273,7 @@ func TestProtectedEdit_LocalDraftConflictsWhenTheProjectBlockChanges(t *testing.
 	if block := protectedIn(t, local); len(block) != 1 || block["reason"] != "Mine." {
 		t.Fatalf("a reason-only edit wrote %v", block)
 	}
-	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nprotected:\n  paths: [vendor, .github/**, migrations/]\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nprotected:\n  paths: [vendor, .github/**, migrations/]\n")
 	if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -298,7 +298,7 @@ func TestProtectedEdit_ResetsALocalNullSoSyncProtectsAgain(t *testing.T) {
 	isolateGit(t)
 	git(t, h.root, "init", "-q")
 	local := ".agnostic-ai/local/settings/defaults.yaml"
-	mustWrite(t, local, "name: defaults\nmodel: haiku\nprotected: null\n")
+	writeFile(t, local, "name: defaults\nmodel: haiku\nprotected: null\n")
 	denies := func() bool {
 		t.Helper()
 		if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
@@ -337,7 +337,7 @@ func TestProtectedEdit_LocalSaveReplacesANull(t *testing.T) {
 	isolateGit(t)
 	git(t, h.root, "init", "-q")
 	local := ".agnostic-ai/local/settings/defaults.yaml"
-	mustWrite(t, local, "name: defaults\nprotected: null\n")
+	writeFile(t, local, "name: defaults\nprotected: null\n")
 	same := map[string]any{"audience": "personal", "protected": map[string]any{"paths": []string{".github/**"}, "decision": "deny", "reason": ""}, "before": nil}
 	if rec := protectedApply(t, h, same, protectedPreview(t, h, same)); rec.Code != http.StatusOK {
 		t.Fatalf("same as project = %d %s", rec.Code, rec.Body)

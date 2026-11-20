@@ -15,10 +15,10 @@ func TestSyncGlobal_PiRejectsNonObjectMCPWithoutWrites(t *testing.T) {
 			native := filepath.Join(home, ".pi/agent/mcp.json")
 			settings := filepath.Join(home, ".pi/agent/settings.json")
 			beforeSettings := "{\"theme\":\"light\"}\n"
-			mustWriteGlobalTest(t, native, document)
-			mustWriteGlobalTest(t, settings, beforeSettings)
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings/pi.yaml"), "model: model-a\n")
+			writeFile(t, native, document)
+			writeFile(t, settings, beforeSettings)
+			writeFile(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
+			writeFile(t, filepath.Join(source, "settings/pi.yaml"), "model: model-a\n")
 			var syncErr error
 			var panicValue any
 			func() { defer func() { panicValue = recover() }(); _, _, syncErr = runGlobalAgentTest("--only", "pi") }()
@@ -28,10 +28,10 @@ func TestSyncGlobal_PiRejectsNonObjectMCPWithoutWrites(t *testing.T) {
 			if syncErr == nil || !strings.Contains(syncErr.Error(), native) {
 				t.Errorf("expected native-path parse error, got %v", syncErr)
 			}
-			if got := readGlobalTest(t, native); got != document {
+			if got := readFile(t, native); got != document {
 				t.Errorf("native MCP changed: %s", got)
 			}
-			if got := readGlobalTest(t, settings); got != beforeSettings {
+			if got := readFile(t, settings); got != beforeSettings {
 				t.Errorf("pending settings write escaped: %s", got)
 			}
 			if _, err := os.Stat(filepath.Join(source, "state/global.json")); !os.IsNotExist(err) {
@@ -52,13 +52,13 @@ func TestSyncGlobal_PiAcceptsMissingOrEmptyMCPDocument(t *testing.T) {
 			t.Setenv("PI_CODING_AGENT_DIR", "")
 			native := filepath.Join(home, ".pi/agent/mcp.json")
 			if existing {
-				mustWriteGlobalTest(t, native, "")
+				writeFile(t, native, "")
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
+			writeFile(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
 			if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
 				t.Fatalf("sync: %v %s", err, warn)
 			}
-			requirePiOrder(t, readGlobalTest(t, native))
+			requirePiOrder(t, readFile(t, native))
 			if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
 				t.Fatal(err)
 			}

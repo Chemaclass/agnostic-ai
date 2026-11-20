@@ -268,7 +268,58 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			plain:   plain,
 		})
 	}
-	return importAgentsFromClaude(cfg, files, body, local)
+	agents, decide := agentsForClaudeImport(cfg, b, consumers, body)
+	if decide {
+		files = append(files, agents)
+	}
+	files, err = importAgentsFromClaude(cfg, files, body, local)
+	if err != nil || !decide {
+		return files, err
+	}
+	return slices.DeleteFunc(files, func(f entryPointFile) bool { return f.Path == agents.Path }), nil
+}
+
+// agentsForClaudeImport renders the root AGENTS.md another configured
+// target writes, for a run that writes CLAUDE.md but leaves that target
+// out. A full run makes CLAUDE.md import AGENTS.md, so the partial run
+// needs it to write the same CLAUDE.md. The run does not write AGENTS.md,
+// so CLAUDE.md imports it only while the file on disk is current; a
+// missing or stale one, a failed render, keep the full text. A user-owned
+// AGENTS.md is never written, so a full run's decision stands. Its notes
+// belong to the run that writes it.
+func agentsForClaudeImport(cfg *config.Config, b spec.Bundle, consumers map[string][]string, body string) (entryPointFile, bool) {
+	if _, ok := consumers["CLAUDE.md"]; !ok {
+		return entryPointFile{}, false
+	}
+	if _, ok := consumers["AGENTS.md"]; ok {
+		return entryPointFile{}, false
+	}
+	for _, t := range cfg.Targets {
+		if t == "claude" || adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) || adapters.EntryPointPath(cfg, t) != "AGENTS.md" {
+			continue
+		}
+		restore := adapters.SetAsideNotes()
+		files, err := renderEntryPointFiles(cfg, b, []string{t}, body)
+		restore()
+		if err != nil {
+			return entryPointFile{}, false
+		}
+		for _, f := range files {
+			if f.Path != "AGENTS.md" {
+				continue
+			}
+			if cfg.IsUnmanaged(f.Path) {
+				return f, true
+			}
+			disk, err := os.ReadFile(f.Path)
+			if err != nil || strings.ReplaceAll(string(disk), "\r\n", "\n") != f.Content {
+				return entryPointFile{}, false
+			}
+			return f, true
+		}
+		return entryPointFile{}, false
+	}
+	return entryPointFile{}, false
 }
 
 // withModelTiers appends the model tiers block to content and its layer
