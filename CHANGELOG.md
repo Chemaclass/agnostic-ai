@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - `doctor` reports a hand-written instructions or MCP file that stops `sync`, and `doctor --fix` stops on it before writing, where it replaced the file with no backup. `sync --check` and `--plan` no longer say "nothing was written" under that stop, and `doctor` warns once about a missing locked pack, in the words `sync` uses (#3749).
+- `import opencode` and `import copilot` name each original in `.opencode/agent/`, `.opencode/command/` or `.github/prompts/` to delete after the next sync, and `doctor` lists it while the tool loads it beside the generated copy. A re-import that changes nothing says so in a project with built-in specs (#3749).
 - A `group:name` command, such as `git:commit` from `import gemini`, syncs as `git-commit` to every tool except Gemini CLI and Qwen Code, so no file or skill name holds a colon (#3704).
 - `import windsurf` from `.windsurf/rules/` names each hand-written rule to delete after the next sync, since Devin would load it twice (#3704).
 - `import codex` keeps a nested `AGENTS.md` whose name another import took under its scope path, such as `services-api`, and a skip note names the real source file (#3704).

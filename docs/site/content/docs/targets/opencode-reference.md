@@ -185,7 +185,7 @@ With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows 
 `agnostic-ai import opencode` reads:
 
 - **Instructions and rules**: root `AGENTS.md`, falling back to legacy `.opencode/AGENTS.md` when the root file is absent. The shared body becomes `.agnostic-ai/AGNOSTIC_AI.md`. Rule sections that sync wrote become rule specs. Hand-written instructions stay whole.
-- **Agents and commands**: top-level Markdown files in `.opencode/agents/` and `.opencode/commands/`, and in the legacy singular `.opencode/agent/` and `.opencode/command/`, which OpenCode still reads. The plural folder wins a name both hold. Import leaves the singular files in place; delete them once sync has written the plural copies.
+- **Agents and commands**: top-level Markdown files in `.opencode/agents/` and `.opencode/commands/`, and in the legacy singular `.opencode/agent/` and `.opencode/command/`, which OpenCode still reads. The plural folder wins a name both hold. Import leaves the singular files in place and names each one; delete them once sync has written the plural copies. `doctor` lists one while its plural copy exists.
 - **Skills**: `.opencode/skills/`, `.agents/skills/`, then `.claude/skills/` (first wins within a scope), with scoped paths and bundled files. This preserves the [OpenCode V2 source priority](https://opencode.ai/docs/skills.md#precedence) for duplicate compatibility skills.
 - **MCP servers**: the `mcp` map in `opencode.json`.
 - **Settings and permissions**: the default `model` becomes `settings/opencode.yaml`; portable entries in the `permission` map become `settings/permissions-opencode.yaml`. Namespaced MCP permission keys have no portable spelling and stay in the file.

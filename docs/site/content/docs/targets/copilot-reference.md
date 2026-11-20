@@ -154,7 +154,7 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 | `.github/instructions/<name>.instructions.md` | `<rules>/<name>.md`. Files with an `agent-` or `skill-` prefix become agents and skills |
 | `.github/agents/<name>.agent.md` and `.github/chatmodes/<name>.chatmode.md` | `<agents>/<name>.md`, keeping the frontmatter keys Copilot output does not use |
 | `.github/skills/<name>/`, `.agents/skills/<name>/`, `.claude/skills/<name>/` | `<skills>/<name>/` |
-| `.github/prompts/<name>.prompt.md` | `<commands>/<name>.md`, unless that spec exists. `description`, `argument-hint` and `model` stay; other keys, such as `mode` and `tools`, move under `x-copilot`. Sync never writes prompt files, so the file stays and Copilot lists it next to the skill sync writes from it: delete it after import |
+| `.github/prompts/<name>.prompt.md` | `<commands>/<name>.md`, unless that spec exists. `description`, `argument-hint` and `model` stay; other keys, such as `mode` and `tools`, move under `x-copilot`. Sync never writes prompt files, so the file stays and Copilot lists it next to the skill sync writes from it: delete it after import. Import names each such file, and `doctor` lists it while the skill exists |
 | `.github/hooks/*.json` | one target-scoped hook spec per handler |
 | `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
 | `.github/copilot/settings.json` `model`, `effortLevel`, `enabledPlugins`, `extraKnownMarketplaces` | `<settings>/copilot.yaml`: `model`, `effort` as in [Settings](#settings), and the plugin keys under `x-copilot`, unless another settings spec for Copilot sets them |

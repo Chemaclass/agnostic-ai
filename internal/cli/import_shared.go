@@ -24,6 +24,10 @@ func printImportNextSteps(root string, justImported ...string) {
 	if importNextStepsOff {
 		return
 	}
+	if importLocal != nil {
+		importLocal.nextSteps = func() { printImportNextSteps(root, justImported...) }
+		return
+	}
 	summaryf("\n")
 	if importReportsNoChange && importSandbox == "" && importTxn != nil && !importTxn.changed() {
 		summaryf("no spec changed, so sync has nothing new to write\n")
