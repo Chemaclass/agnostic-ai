@@ -249,7 +249,7 @@ func stageGlobalSettings(home, source, stage string, targets []string, have []sp
 	for _, target := range targets {
 		g := globalTargets[target]
 		f := g.settings
-		if f.path == "" {
+		if f.path == "" || f.toolOwned {
 			continue
 		}
 		path := g.path(home, f.path)
