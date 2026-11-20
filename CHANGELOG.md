@@ -20,7 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - New `approvals` home setting: `ask`, `review` or `yolo`, per-tool overrides, and per-project overrides and `always-ask` patterns for `yolo` (#3700).
 - `review` turns on each tool's own reviewer on `sync --global`: Claude Code, Codex, cursor-agent, Devin, CodeBuddy, Vibe, Qoder and Qwen Code (#3700).
-- `yolo` with `builtins: [approvals]` adds a Claude Code and Codex hook that approves safe calls; deletes, publishing, network, secrets and agent-spec edits still ask (#3700).
+- `yolo` with `builtins: [approvals]` adds a Claude Code and Codex hook that approves safe calls; deletes, publishing, network, secrets and spec edits still ask (#3700).
 - `approvals status` shows each tool's route or why it asks; `approvals ask` brings every prompt back, after `sync --global` for `review` (#3700).
 - The companion shows how many requests `yolo` approved per chat and why one needs you; **Ask me** sets `ask` (#3700).
 
