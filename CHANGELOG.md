@@ -177,7 +177,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Mistral Vibe
 
 - Skill descriptions allow up to 1024 Unicode characters instead of limiting UTF-8 bytes.
-- Sync writes Vibe 3.1.3 `pre_llm` and `post_llm` hooks at project and user scope, including strict mode.
 
 #### Cline
 
