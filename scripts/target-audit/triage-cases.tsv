@@ -176,3 +176,10 @@ opencode-v231-prompt-disables-project	opencode	OPENCODE_DISABLE_CLAUDE_CODE_PROM
 junie-acp-command-reuse	junie	Junie slash commands are CLI only and unavailable in IDE clients.	(ACP only) you can reuse your own custom commands created via /commands in the CLI version of Junie	contradicts	3576
 augment-v1-memory-context-fallback	augment	Auggie CLI always injects SessionStart output into agent context.	SessionStart hooks run in the background; their output is not added to the agent's context.	contradicts	3577
 cline-vscode-nonzero-valid-json	cline	Cline VS Code does not read stdout after a nonzero hook exit.	If we have valid JSON, honor it regardless of exit code	contradicts	3578
+kilo-zero-mcp-timeout	kilo	Both transports keep timeout in milliseconds, including zero.	timeout: Schema.optional(PositiveInt)	contradicts	3765
+claude-mcp-tool-onfailure	claude	Only command and HTTP handlers support the portable failClosed setting.	On `mcp_tool` hooks, `onFailure` requires v2.1.328 or later.	contradicts	3770
+opencode-v1-reference-route	opencode	The versioned OpenCode plugin page documents OpenCode V1.	These are the docs for OpenCode V1.	supports	3771
+opencode-v1-skill-name-loader	opencode	OpenCode V1 skips skill folders whose names fail agnostic-ai's regular expression.	typeof data.name === "string"	says_nothing	3772
+kiro-memory-menu-location	kiro	Kiro IDE users set built-in memory through the Kiro Agent: Memory setting.	The **Kiro Agent: Memory** setting is deprecated and directs you to this menu.	contradicts	3773
+crush-json-prompt-configuration	crush	New Crush options only reach crushrc.	In `crush.json`, the same settings live under `options.prompts`.	contradicts	3774
+junie-acp-primary-agent-docs	junie	Junie's documentation describes standalone --agent sessions in ACP mode.	Standalone `--agent` sessions work in interactive TUI, headless (`--task` / positional task), and ACP modes.	supports	3775

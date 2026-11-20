@@ -179,7 +179,7 @@ var globalTargets = map[string]globalTarget{
 			reserved: map[string]string{
 				"mcp_servers":     "sync --global writes MCP entries from specs",
 				"trusted_folders": "trust remains with the user",
-				"default_agent":   "select the primary agent in Vibe",
+				"default_agent":   "select the primary agent in Vibe; approvals review sets it to smart-approve",
 			},
 		},
 	},

@@ -18,6 +18,9 @@ type fileRecord struct {
 	Bytes  int    `json:"bytes"`
 	// Backup is the `<path>.bak` holding a hand edit this write replaced.
 	Backup string `json:"backup,omitempty"`
+	// Reason is why sync stops on this file and the steps to go on, one
+	// per line, as doctor's text output names them.
+	Reason string `json:"reason,omitempty"`
 }
 
 // errorRecord reports a per-target error in a JSON command output.
