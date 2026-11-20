@@ -6,6 +6,8 @@ package hookrun
 var permissionAllowReplies = map[string]string{
 	"claude": `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`,
 	"codex":  `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`,
+	// Kiro's reply has no hookEventName (kiro.dev/docs/hooks/types.md).
+	"kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`,
 }
 
 // PermissionAllowReply is target's PermissionRequest reply that allows

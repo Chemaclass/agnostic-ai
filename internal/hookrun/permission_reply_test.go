@@ -13,6 +13,9 @@ func TestPermissionAllowReply(t *testing.T) {
 			t.Errorf("%s reply = %s, %v; want %s", target, reply, ok, want)
 		}
 	}
+	if reply, ok := PermissionAllowReply("kiro"); !ok || string(reply) != `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}` {
+		t.Errorf("kiro reply = %s, %v; want no hookEventName", reply, ok)
+	}
 	if _, ok := PermissionAllowReply("copilot"); ok {
 		t.Error("copilot has an allow reply; its hook skips deny rules")
 	}

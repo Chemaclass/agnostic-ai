@@ -1,6 +1,6 @@
 +++
 title = "Approvals"
-description = "Let a hook answer routine permission prompts in Claude Code and Codex, while risky calls still ask."
+description = "Let a hook answer routine permission prompts in Claude Code, Codex and Kiro, while risky calls still ask."
 weight = 73
 
 [extra]
@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Approvals
 
-With approvals in `yolo` mode, a hook answers routine permission prompts for you: it approves one tool call at a time, and leaves every risky call to you. Claude Code and Codex support it today.
+With approvals in `yolo` mode, a hook answers routine permission prompts for you: it approves one tool call at a time, and leaves every risky call to you. Claude Code, Codex and Kiro support it today.
 
 ## What the gate does not catch
 
@@ -37,12 +37,13 @@ agnostic-ai sync --global
 agnostic-ai approvals status
 ```
 
-`sync --global` writes a `PermissionRequest` hook to `~/.claude/settings.json` and `~/.codex/hooks.json`. A project sync never writes it, so a teammate never gets it from a committed file. Changing the mode later needs no sync: the hook reads the setting on each request.
+`sync --global` writes a `PermissionRequest` hook to `~/.claude/settings.json`, `~/.codex/hooks.json` and `~/.kiro/hooks/approve-permission-request.json`. A project sync never writes it, so a teammate never gets it from a committed file. Changing the mode later needs no sync: the hook reads the setting on each request.
 
 Two steps happen in the tools:
 
 - Codex stops at startup with "Hooks need review" when the hook is new or changed. Open `/hooks` and trust it. Until then the hook does not run and Codex shows its prompts. `approvals status` says when the hook is not trusted yet.
 - Claude Code runs no hook in a folder until you accept its workspace trust dialog.
+- Kiro runs the hook only in a Kiro CLI 3.4.0 or newer V3 session, or Kiro IDE 1.4.236 or newer. It approves shell commands (`execute_bash`) and file reads (`read_file`) only; writes, searches and every other Kiro tool ask. A rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, in `~/.kiro/settings/permissions.yaml`, in any workspace permissions file under `~/.kiro/workspace-roots/`, or in an agent profile turns the hook off: a hook allow could answer that rule's prompt, or the one Kiro's reviewer shows when it is unsure, and the hook cannot match Kiro's rules. `approvals status` says so. Kiro asks before every shell command in a workspace you have not trusted; whether the hook can answer that prompt is not documented, so trust only workspaces you would run `yolo` in.
 
 ## Modes
 
@@ -131,6 +132,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Claude Code (`claude`) | Claude Code auto mode | PermissionRequest hook | Claude Code 2.0.45 or newer; accept the workspace trust dialog |
 | CodeBuddy (`codebuddy`) | CodeBuddy auto mode | asks | Nothing extra |
 | Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
+| Kiro (`kiro`) | asks | PermissionRequest hook | Kiro CLI 3.4.0 or newer in a V3 session; no Kiro `ask` rule |
 | Cursor (`cursor`) | cursor-agent Auto-review | asks | `cursor-agent` only; a classifier-capable model and team permission; set Auto-review in the desktop app by hand |
 | Qoder (`qoder`) | Qoder auto mode | asks | Nothing extra |
 | Qwen Code (`qwen`) | Qwen Code auto mode | asks | Qwen Code already runs auto mode in a trusted folder when the key is unset |

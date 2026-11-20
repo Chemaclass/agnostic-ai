@@ -230,6 +230,9 @@ const approvalHookCommand = "agnostic-ai hook approve"
 // sync --global has not written it, or Codex has not trusted it.
 func approvalHookProblem(tool string) string {
 	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --global"
+	if tool == "kiro" {
+		return kiroHookProblem(notSynced)
+	}
 	var path string
 	switch tool {
 	case "claude":
@@ -280,6 +283,53 @@ func approvalHookProblem(tool string) string {
 		if f.Event == "PermissionRequest" && strings.Contains(f.Hook, approvalHookCommand) {
 			return "Codex has not trusted the hook; open /hooks in Codex to trust it"
 		}
+	}
+	return ""
+}
+
+// kiroHookProblem says why the Kiro approvals hook cannot answer: no
+// enabled PermissionRequest hook in ~/.kiro/hooks runs it, or a Kiro
+// rule asks, which turns the hook off.
+func kiroHookProblem(notSynced string) string {
+	home, err := globalUserHome()
+	if err != nil {
+		return notSynced
+	}
+	files, _ := filepath.Glob(filepath.Join(home, ".kiro", "hooks", "*.json"))
+	installed := false
+	for _, path := range files {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var file struct {
+			Hooks []struct {
+				Trigger string `json:"trigger"`
+				Enabled *bool  `json:"enabled"`
+				Action  struct {
+					Command string `json:"command"`
+				} `json:"action"`
+			} `json:"hooks"`
+		}
+		if json.Unmarshal(body, &file) != nil {
+			continue
+		}
+		for _, h := range file.Hooks {
+			if strings.EqualFold(h.Trigger, "PermissionRequest") && (h.Enabled == nil || *h.Enabled) && strings.Contains(h.Action.Command, approvalHookCommand) {
+				installed = true
+			}
+		}
+	}
+	if !installed {
+		return notSynced
+	}
+	cwd, _ := os.Getwd()
+	ask, err := approvals.KiroHasAskRule(approvals.KiroAskRuleFiles(home, cwd))
+	switch {
+	case err != nil:
+		return "cannot read the Kiro rules: " + err.Error()
+	case ask:
+		return "a Kiro permissions file or agent profile has an ask or evaluate rule, or approve-for-me, whose prompt a hook allow could answer; the hook asks every time"
 	}
 	return ""
 }
