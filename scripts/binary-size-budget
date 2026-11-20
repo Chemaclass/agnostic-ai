@@ -988,5 +988,6 @@
 # #3753 measured 27226272 bytes on CI: import keeps a spec's escaped
 # MCP `$${NAME}` values when it rewrites the spec from a tool file.
 # Allow 8192 bytes, rounded up to a 4096-byte page.
-# This branch measured 27242656 bytes in CI. Allow 8192 bytes, rounded up to a 4096-byte page.
-27254784
+# Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
+# Merged branch growth of 16384 bytes over its base, on top of main's 27291648.
+27308032

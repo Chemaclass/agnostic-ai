@@ -88,9 +88,13 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	var scopeIssues []validationIssue
 	if scope.global {
 		scopeIssues = lintGlobalRules(b.Rules, scope.targets)
+		if _, err := config.LoadHomeApprovals(scope.source); err != nil {
+			scopeIssues = append(scopeIssues, validationIssue{Path: globalConfigPaths(scope.source)[0], Field: "approvals", Message: err.Error()})
+		}
 		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 	} else {
 		scopeIssues = lintEntryPointFences(".", scope.cfg)
+		scopeIssues = append(scopeIssues, approvalsValidationIssues(".")...)
 		for _, conflict := range sharedRulesFileConflicts(scope.cfg, scope.bundle, scope.targets) {
 			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "rules-file", Message: conflict})
 		}
