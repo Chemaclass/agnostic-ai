@@ -8,10 +8,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Highlights
 
-- New `approvals` setting: ask you, let a tool's own reviewer decide, or let a Claude Code or Codex hook approve safe calls, not on Windows (#3700).
-- The companion lists Claude app chats, Cowork tasks and ChatGPT desktop chats beside your coding sessions, read from this computer (#3511).
+- **Removed:** Goose Native Review output, since Goose 1.60 removed `goose review` (#3403).
+- New `approvals` setting: `review` uses a tool's own reviewer, `yolo` adds a Claude Code and Codex hook for safe calls; `approvals ask` turns both off (#3700).
+- The macOS companion installs from a released CLI with no Go or Xcode, and lists Claude app, Cowork and ChatGPT desktop chats (#3511, #3516).
 - Ctrl+Alt+V sends copied text to a chat from any app; on macOS it is typed into live Claude Code or Codex tabs in Terminal or Ghostty (#3517, #3550).
-- On macOS, `companion install` from a released CLI downloads the companion the release built and checks it, with no Go or Xcode tools (#3516).
 - `sync` stops when a locked pack is missing, instead of deleting its files, and refuses an output path that points into the source folder (#3712, #3740).
 
 ### General
@@ -20,9 +20,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - New `approvals` home setting: `ask`, `review` or `yolo`, per-tool overrides, and per-project overrides and `always-ask` patterns for `yolo` (#3700).
 - `review` turns on each tool's own reviewer on `sync --global`: Claude Code, Codex, cursor-agent, Devin, CodeBuddy, Vibe, Qoder and Qwen Code (#3700).
-- `yolo` with `builtins: [approvals]` adds a Claude Code and Codex hook that approves safe calls; deletes, publishing, network and secrets still ask (#3700).
+- `yolo` with `builtins: [approvals]` adds a Claude Code and Codex hook that approves safe calls; deletes, publishing, network, secrets and agent-spec edits still ask (#3700).
 - `approvals status` shows each tool's route or why it asks; `approvals ask` brings every prompt back, after `sync --global` for `review` (#3700).
-- The companion shows how many requests the `yolo` hook approved per chat and why one still needs you; **Ask me** sets approvals to `ask` (#3700).
+- The companion shows how many requests `yolo` approved per chat and why one needs you; **Ask me** sets `ask` (#3700).
 
 #### Sync safety
 
