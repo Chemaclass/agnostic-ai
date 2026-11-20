@@ -115,6 +115,7 @@ Settings spec permissions merge into the same file under `toolPermissions`, whic
 - `ask` becomes `{ "type": "ask-user" }`. Auggie asks before the call, and denies when there is no interactive UI (headless). Auggie 0.x reads the same type.
 - Each `permission` is an **object** such as `{ "type": "deny" }`. Augment ignores a bare-string permission.
 - Bare tool names map onto Augment's six tools (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, ...).
+- Shell rules use `terminal`, the Auggie 0.x name. The 1.x [permissions docs](https://docs.augmentcode.com/cli/permissions) call the tool `bash` and do not list `terminal` as an old name, but the released 1.2.2 package matches `terminal` rules against `bash`, so one rule works on both versions.
 - `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`. An exact `Bash(command)` is anchored at both ends.
 - `mcp__<server>__<tool>` becomes `{tool-name}_{server-name}`.
 - Path or URL rules such as `Read(src/**)` are not written and raise a sync note. Only `terminal` takes a matcher, and a bare `read` would cover every file.
