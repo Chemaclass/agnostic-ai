@@ -162,6 +162,7 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 - `match` (`shell`, `edit`, `read`, or `web`) goes only with `before-tool` and `after-tool`.
 - `timeout` is a whole number of seconds above zero.
 - `targetsExclude` lists tools to leave out, written as `targets-exclude`. The page sends the configured tools that have no event for `on`. Each must be a configured tool, listed once, and at least one tool that writes hooks must remain. A tool that writes no hooks in the scope is accepted and left out of the file.
+- A `command` or `description` that holds a recognized literal credential, such as a token, a `Bearer` value, or a password, returns 400, and so does a `name` that is a token. The text inside `$(...)` and backticks is checked too. Read the secret at run time instead: `$GITHUB_TOKEN`, `${GITHUB_TOKEN}`, `$(gh auth token)`, or a backtick command. A quoted assignment such as `AUTH="Bearer $TOKEN"` is still refused.
 - `action: "preview"` returns `file`, `spec`, `syncCommand`, and `expected`. It answers 422 with `problems` when `validate` would report the hook.
 - `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`.
 - An existing hook name returns 409. So does a changed preview.

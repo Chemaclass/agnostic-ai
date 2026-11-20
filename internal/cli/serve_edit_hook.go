@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -24,6 +26,60 @@ const editHookPath = "/api/edit/hook"
 // hookFormMatches are the tool kinds the form offers; leaving match out
 // means every tool, so any is not needed.
 var hookFormMatches = []string{"shell", "edit", "read", "web"}
+
+// shellVariable matches a `$NAME` or `$1` the shell fills in at run time;
+// the credential detector alone knows only `${NAME}`.
+var shellVariable = regexp.MustCompile(`\$(?:[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?])`)
+
+// hookCommandCredential reports whether command holds a literal
+// credential. The text of each `$(...)`, `<(...)`, `>(...)`, or backtick
+// substitution is checked on its own, nested ones included; one with no
+// credential then counts as a reference, as `$NAME` does.
+func hookCommandCredential(command string) bool {
+	var out strings.Builder
+	for i := 0; i < len(command); i++ {
+		c := command[i]
+		if c == '`' {
+			end := strings.IndexByte(command[i+1:], '`')
+			if end < 0 {
+				out.WriteString(command[i:])
+				break
+			}
+			if hookCommandCredential(command[i+1 : i+1+end]) {
+				return true
+			}
+			out.WriteString("${REF}")
+			i += end + 1
+			continue
+		}
+		if (c == '$' || c == '<' || c == '>') && i+1 < len(command) && command[i+1] == '(' {
+			depth, end := 0, -1
+			for j := i + 1; j < len(command); j++ {
+				if command[j] == '(' {
+					depth++
+				} else if command[j] == ')' {
+					depth--
+					if depth == 0 {
+						end = j
+						break
+					}
+				}
+			}
+			if end < 0 {
+				out.WriteString(command[i:])
+				break
+			}
+			if hookCommandCredential(command[i+2 : end]) {
+				return true
+			}
+			out.WriteString("${REF}")
+			i = end
+			continue
+		}
+		out.WriteByte(c)
+	}
+	return preview.CommandCredentialDetected(shellVariable.ReplaceAllString(out.String(), "$${REF}"))
+}
 
 type hookSpecRequest struct {
 	Action      string `json:"action"`
@@ -119,6 +175,9 @@ func (h *editHandler) serveHook(w http.ResponseWriter, body []byte) {
 }
 
 func (req hookSpecRequest) check() error {
+	if preview.TokenIn(req.Name) {
+		return errors.New("name contains a credential; choose a name that describes the hook")
+	}
 	if !slugRe.MatchString(req.Name) || spec.ValidateName(spec.KindHook, req.Name) != nil {
 		return fmt.Errorf("name %q must use lowercase letters, digits, and hyphens, such as format-on-save", req.Name)
 	}
@@ -127,6 +186,12 @@ func (req hookSpecRequest) check() error {
 	}
 	if strings.TrimSpace(req.Command) == "" {
 		return errors.New("command is required")
+	}
+	if hookCommandCredential(req.Command) {
+		return errors.New("command contains a credential; read it at run time instead, as $GITHUB_TOKEN, ${GITHUB_TOKEN}, or $(gh auth token) do")
+	}
+	if preview.CredentialDetected(req.Description) {
+		return errors.New("description contains a credential; leave it out")
 	}
 	if req.Match != "" {
 		if req.On != "before-tool" && req.On != "after-tool" {

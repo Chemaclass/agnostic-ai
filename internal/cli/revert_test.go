@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -368,5 +371,196 @@ func TestRevert_RecordedMissingBackupRequiresIntactSafePath(t *testing.T) {
 	}
 	if got := readFile(t, handEditSkill+".bak"); got != "changed backup\n" {
 		t.Errorf("changed backup = %q", got)
+	}
+}
+
+func TestRevertCmd_ForceKeepsSourceNote(t *testing.T) {
+	for _, args := range [][]string{
+		{"revert", "--force"},
+		{"revert", "--force", "--json"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			note := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+			if err := os.WriteFile(note, []byte("Run tests.\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"sync", "-t", "claude"})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			root = NewRootCmd("test")
+			root.SetOut(io.Discard)
+			root.SetArgs(append(args, "-t", "claude"))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := os.ReadFile(note)
+			if err != nil {
+				t.Fatalf("revert --force removed the source note: %v", err)
+			}
+			if string(got) != "Run tests.\n" {
+				t.Errorf("source note changed: %q", got)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); !os.IsNotExist(err) {
+				t.Errorf("expected CLAUDE.md removed, err=%v", err)
+			}
+		})
+	}
+}
+
+// An output path that resolves into the source tree, by a letter-case
+// variant, a `..` segment, or a configured folder, is never reverted.
+func TestRevertCmd_ForceKeepsFilesInTheSourceTree(t *testing.T) {
+	for _, tc := range []struct {
+		name, outputs, keep string
+	}{
+		{"case variant", "  codex:\n    file: .agnostic-ai/agnostic_ai.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
+		{"dot dot", "  codex:\n    file: .agnostic-ai/rules/../AGNOSTIC_AI.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
+		{"rule file", "  codex:\n    file: .agnostic-ai/rules/style.md\n", ".agnostic-ai/rules/style.md"},
+		{"skills dir", "  claude:\n    skills-dir: .agnostic-ai/skills\n", ".agnostic-ai/skills/s1/SKILL.md"},
+	} {
+		for _, json := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s json=%v", tc.name, json), func(t *testing.T) {
+				dir := setupFixture(t)
+				testutil.Chdir(t, dir)
+				silence(t)
+				cfg := "version: 1\ntargets: [claude, codex]\noutputs:\n" + tc.outputs
+				files := map[string]string{
+					"agnostic-ai.yaml":                cfg,
+					".agnostic-ai/AGNOSTIC_AI.md":     "Run tests.\n",
+					".agnostic-ai/rules/style.md":     "---\nname: style\n---\nUse tabs.\n",
+					".agnostic-ai/skills/s1/SKILL.md": "---\nname: s1\ndescription: d\n---\nbody\n",
+				}
+				for path, body := range files {
+					if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				// sync may refuse the layout, or write into the source tree
+				// itself; revert must leave whatever it finds there.
+				root := NewRootCmd("test")
+				root.SetArgs([]string{"sync"})
+				_ = root.Execute()
+				want, err := os.ReadFile(tc.keep)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				args := []string{"revert", "--force"}
+				if json {
+					args = append(args, "--json")
+				}
+				root = NewRootCmd("test")
+				root.SetOut(io.Discard)
+				root.SetArgs(args)
+				_ = root.Execute()
+
+				got, err := os.ReadFile(tc.keep)
+				if err != nil {
+					t.Fatalf("revert --force removed %s: %v", tc.keep, err)
+				}
+				if string(got) != string(want) {
+					t.Errorf("%s changed: %q", tc.keep, got)
+				}
+			})
+		}
+	}
+}
+
+// An output that is itself a link into the source tree is kept, so a
+// restore never writes through it into the note.
+func TestRevertCmd_KeepsAnOutputLinkedIntoTheSourceTree(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [codex]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	note := filepath.Join(".agnostic-ai", "AGNOSTIC_AI.md")
+	if err := os.WriteFile(note, []byte("Run tests.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(note, "AGENTS.md"); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	if err := os.WriteFile("AGENTS.md.bak", []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"revert", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(note); err != nil || string(got) != "Run tests.\n" {
+		t.Errorf("note = %q, err=%v", got, err)
+	}
+}
+
+// A spec folder at the project root would hold every output; it does not
+// make revert keep them all.
+func TestRevertCmd_ARootSpecFolderDoesNotKeepEveryOutput(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("agnostic-ai.yaml", []byte("version: 1\nsources:\n  hooks: .\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
+		t.Errorf("CLAUDE.md kept, err=%v", err)
+	}
+}
+
+func TestRevertCmd_ReportsRestoredAndRemovedCounts(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("MY NOTES\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--backup"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--dry-run"}, "← revert claude\n    1 file(s) would be removed\n← revert entry-points\n    1 file(s) would be restored from .bak\n"},
+		{nil, "← revert claude\n    1 file(s) removed\n← revert entry-points\n    1 file(s) restored from .bak\n"},
+		// The restored CLAUDE.md has no .bak left, so --force removes it.
+		{nil, "← revert claude\n← revert entry-points\n    1 file(s) removed\n"},
+		{[]string{"--dry-run"}, "← revert claude\n← revert entry-points\n"},
+	} {
+		buf := captureLog(t)
+		root = NewRootCmd("test")
+		root.SetArgs(append([]string{"revert", "-t", "claude", "--force"}, tc.args...))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if got := buf.String(); got != tc.want {
+			t.Errorf("revert --force %v printed:\n%s\nwant:\n%s", tc.args, got, tc.want)
+		}
 	}
 }

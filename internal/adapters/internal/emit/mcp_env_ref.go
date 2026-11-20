@@ -120,6 +120,19 @@ func EscapeMCPLiterals(target string, server map[string]any) {
 	}
 }
 
+// MCPFieldReadsDollarRefs reports whether target expands a plain
+// `${NAME}` in an MCP `env`, `headers`, `url`, or `args` value.
+func MCPFieldReadsDollarRefs(target, field string) bool {
+	forms := mcpEnvRefTargets[target]
+	switch field {
+	case "env":
+		return forms.env == spec.EnvRefDollar
+	case "headers":
+		return forms.headers == spec.EnvRefDollar
+	}
+	return forms.launchSyntax(field) == spec.EnvRefDollar
+}
+
 type mcpEnvRefField struct {
 	name   string
 	syntax spec.EnvRefSyntax

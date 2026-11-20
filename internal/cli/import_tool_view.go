@@ -266,6 +266,10 @@ func writeImportAs(source, path string, data []byte, mode os.FileMode) error {
 // could not render, and comments it found no place for.
 func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adapters.Adapter, old spec.Entry, now []byte) ([]string, error) {
 	before := g.files[path].before
+	written := now
+	if old.Kind == spec.KindMCP {
+		now, _ = keepSyncedMCPEscapes(before, now, g.files[path].sources)
+	}
 	var hidden, unknown []string
 	for _, key := range missingKeys(path, before, now) {
 		if tool, ok := strings.CutPrefix(key, "x-"); ok && onlyDeleteMarkers(old.Meta[key]) && slices.Contains(g.files[path].sources, tool) {
@@ -287,14 +291,14 @@ func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adap
 		}
 	}
 	if merged, ok := mergeKeptYAML(path, before, now, hidden); ok {
-		if !bytes.Equal(merged, now) {
-			if err := g.rewrite(path, merged); err != nil {
-				return nil, err
-			}
-		}
 		now = merged
 	} else {
 		unknown = append(unknown, hidden...)
+	}
+	if !bytes.Equal(now, written) {
+		if err := g.rewrite(path, now); err != nil {
+			return nil, err
+		}
 	}
 	return carriedLosses(path, before, now, unknown, presentKeys(path, now)), nil
 }
