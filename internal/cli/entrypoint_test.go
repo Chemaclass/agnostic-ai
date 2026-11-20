@@ -185,6 +185,106 @@ func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
 	}
 }
 
+// A run limited to claude writes the CLAUDE.md a full run writes, so
+// `sync -t claude` and `sync --check -t claude` agree with a plain sync.
+func TestWriteAgnosticEntryPoints_ClaudeOnlyRunStillImportsAgents(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nMy instructions.\n")
+	cfg := &config.Config{Targets: []string{"claude", "codex"}}
+	claudeBody := func() string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(header.Strip(string(data)))
+	}
+
+	// With no AGENTS.md on disk, an import would leave Claude nothing.
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := claudeBody(); !strings.Contains(got, "My instructions.") {
+		t.Errorf("CLAUDE.md without AGENTS.md = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("a claude-only run wrote AGENTS.md, err=%v", err)
+	}
+
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := claudeBody(); got != "@AGENTS.md" {
+		t.Errorf("CLAUDE.md with a current AGENTS.md = %q", got)
+	}
+
+	// A stale AGENTS.md would hide the new text from Claude.
+	writeAgnosticFile(t, "# Project\n\nNew instructions.\n")
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := claudeBody(); !strings.Contains(got, "New instructions.") {
+		t.Errorf("CLAUDE.md with a stale AGENTS.md = %q", got)
+	}
+}
+
+func TestSyncCheck_TargetFilterMatchesFullSync(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A rule inlined into AGENTS.md keeps a full CLAUDE.md, so drop it.
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Fatal(err)
+	}
+	run := func(args ...string) error {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		return root.Execute()
+	}
+	for _, args := range [][]string{{"sync"}, {"sync", "--check", "-t", "claude"}, {"sync", "--check", "--only", "claude"}, {"sync", "-t", "claude"}, {"sync", "--check"}} {
+		if err := run(args...); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+
+	if err := os.WriteFile(adapters.AgnosticEntryPointPath, []byte("Run tests.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("sync", "--check", "-t", "claude"); err == nil {
+		t.Error("sync --check -t claude passed with an edited AGNOSTIC_AI.md")
+	}
+}
+
+// A user-owned AGENTS.md is never written, so a claude run decides the
+// import the way a full run does, without comparing it.
+func TestSyncCheck_TargetFilterMatchesFullSyncWithUnmanagedAgents(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex]\nsync:\n  unmanaged: [AGENTS.md]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("My own notes.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"sync"}, {"sync", "--check", "-t", "claude"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+}
+
 // Claude Code-only text stays in CLAUDE.md after the import line, while
 // AGENTS.md keeps only what its readers share.
 func TestWriteAgnosticEntryPoints_ClaudeImportsAgentsAndKeepsItsOwnBlock(t *testing.T) {
