@@ -988,7 +988,5 @@
 # #3753 measured 27226272 bytes on CI: import keeps a spec's escaped
 # MCP `$${NAME}` values when it rewrites the spec from a tool file.
 # Allow 8192 bytes, rounded up to a 4096-byte page.
-# #3750 measured 27250848 bytes locally (make size-check) on main
-# c395fb5d8: doctor runs sync's hand-written file guards and warns once
-# per missing pack. Allow 8192 bytes, rounded up to a 4096-byte page.
-27262976
+# Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
+27291648

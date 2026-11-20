@@ -290,6 +290,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 			return nil, 0, err
 		}
 		findings = append(findings, overlays...)
+		findings = append(findings, lintProjectApprovals(".")...)
 	}
 	findings = append(findings, lintGeminiHookVariables(scope.cfg, scope.targets, scope.bundle)...)
 	findings = append(findings, lintCodexMCPEnvironment(scope.targets, scope.bundle)...)
