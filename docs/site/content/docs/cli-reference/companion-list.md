@@ -156,6 +156,8 @@ A row shows the title, the agent's latest reply in one line, and a meta line.
 | Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age. |
 | Reply line | The agent's question, or the start of its last message. |
 | Approval pill | Orange, replaces the reply line while a call waits for approval. |
+| Approval reason | Under the pill, why [approvals](@/docs/cli-reference/companion.md#approvals) left the request to you. |
+| Approved for you | "▸ 3 approved for you" under the meta line, while approvals answer prompts. |
 
 A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits under its parent in the same group.
 

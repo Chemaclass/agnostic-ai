@@ -336,6 +336,95 @@ body {
   color: var(--alert);
 }
 
+/* While approvals answer routine prompts: the mode, and the one switch that turns them off. */
+
+.approvals-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 8px;
+  background: var(--action-soft);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.approvals-mode {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.approvals-ask {
+  flex: none;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--action);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.approvals-ask:disabled {
+  opacity: 0.6;
+}
+
+/* Why a permission wait reached the person, under its pill. */
+
+.approval-reason {
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--action);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* "▸ 3 approved for you" under the meta line, and the requests it folds out. */
+
+.approved {
+  margin-top: 1px;
+  font-size: 11.5px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.approved-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--paper-dim);
+  cursor: pointer;
+}
+
+.approved-toggle:hover {
+  color: var(--paper);
+}
+
+.approved-list {
+  margin: -2px 0 4px 27px;
+  padding: 0 0 0 8px;
+  border-left: 1.5px solid var(--hairline);
+  list-style: none;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--paper-dim);
+}
+
+.approved-call {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.approvals-bar[hidden],
 .note[hidden],
 .notice[hidden],
 .notice [hidden],

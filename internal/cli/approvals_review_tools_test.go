@@ -1,0 +1,101 @@
+package cli
+
+import (
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
+)
+
+func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
+	for _, tool := range slices.Sorted(maps.Keys(nativeReviewers)) {
+		reviewer := nativeReviewers[tool]
+		t.Run(tool, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			t.Setenv(config.EnvApprovals, "")
+			g := globalTargets[tool]
+			path := g.path(home, g.settings.path)
+			writeHomeApprovals(t, source, "approvals:\n  tools:\n    "+tool+": review\n")
+
+			if _, warnings, err := runGlobalAgentTest("--only", tool); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+
+			if have, ok := reviewerKey(t, path, g.settings.format, reviewer.key); !ok || !sameSetting(have, reviewer.value) {
+				t.Errorf("%s in %s = %v, want %v", reviewer.key, path, have, reviewer.value)
+			}
+			s := toolStatus(t, approvalsStatusJSON(t), tool)
+			if s.Effective != config.ApprovalsReview || s.Route != reviewer.name || len(s.Notes) != 0 {
+				t.Errorf("status: %+v", s)
+			}
+
+			writeHomeApprovals(t, source, "")
+			if _, warnings, err := runGlobalAgentTest("--only", tool); err != nil {
+				t.Fatalf("sync without review: %v\n%s", err, warnings)
+			}
+			if have, ok := reviewerKey(t, path, g.settings.format, reviewer.key); ok {
+				t.Errorf("removing review left %s = %v", reviewer.key, have)
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_ApprovalsReviewYieldsToTargetKeys(t *testing.T) {
+	for _, c := range []struct{ tool, spec string }{
+		{"codex", "x-codex:\n  approvals_reviewer: user\n"},
+		{"qwen", "x-qwen:\n  tools:\n    approvalMode: default\n"},
+	} {
+		t.Run(c.tool, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			g := globalTargets[c.tool]
+			writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), c.spec)
+			writeHomeApprovals(t, source, "approvals:\n  mode: review\n")
+
+			if _, warnings, err := runGlobalAgentTest("--only", c.tool); err != nil {
+				t.Fatalf("sync: %v\n%s", err, warnings)
+			}
+
+			key := nativeReviewers[c.tool].key
+			if have, _ := reviewerKey(t, g.path(home, g.settings.path), g.settings.format, key); sameSetting(have, nativeReviewers[c.tool].value) {
+				t.Errorf("review replaced the spec's %s", key)
+			}
+		})
+	}
+}
+
+func reviewerKey(t *testing.T, path, format, key string) (any, bool) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, err := settingsValues(path, format, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return settingsLookup(values, key, format)
+}
+
+func TestApprovalsStatus_QwenAutoIsItsDefault(t *testing.T) {
+	home := approvalsUserHome(t)
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [qwen]\napprovals:\n  mode: ask\n")
+
+	qwen := toolStatus(t, approvalsStatusJSON(t), "qwen")
+
+	if len(qwen.Notes) != 1 || !strings.Contains(qwen.Notes[0], "trusted folder") || !strings.Contains(qwen.Notes[0], `"default"`) {
+		t.Errorf("qwen notes: %q", qwen.Notes)
+	}
+
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [qwen]\napprovals:\n  mode: review\n")
+	qwen = toolStatus(t, approvalsStatusJSON(t), "qwen")
+	if qwen.Effective != config.ApprovalsReview || len(qwen.Notes) != 0 {
+		t.Errorf("an unset key reads as off: %+v", qwen)
+	}
+}

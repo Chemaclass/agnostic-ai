@@ -91,6 +91,11 @@ export function deleteConversation(conversation) {
   return change('/api/delete', { tool: conversation.tool, id: conversation.id })
 }
 
+/** Turns automatic approvals off for every tool and project, from the next request on. Answers {body, version}. */
+export function askApprovals() {
+  return change('/api/approvals/ask', { mode: 'ask' })
+}
+
 /** What was copied, without all of it: {preview, words, chars, hash}; words is 0 when no text was copied. */
 export const readClipboard = () => call('/api/clipboard')
 

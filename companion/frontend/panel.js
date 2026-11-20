@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
+import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -18,6 +18,9 @@ const list = document.getElementById('list')
 const summary = document.getElementById('summary')
 const toast = document.getElementById('toast')
 const toastText = document.getElementById('toast-text')
+const approvalsBar = document.getElementById('approvals-bar')
+const approvalsMode = document.getElementById('approvals-mode')
+const approvalsAsk = document.getElementById('approvals-ask')
 
 /** How long typing must pause before a search is sent. */
 const SEARCH_PAUSE_MS = 300
@@ -76,6 +79,8 @@ const state = {
    */
   helpersOpen: new Set(),
   helpersAll: new Set(),
+  /** Keys of the chats whose approved requests are unfolded; they last until the companion quits. */
+  approvedOpen: new Set(),
   /** Pick mode: the copied text as the banner shows it, {preview, words, chars, hash}; undefined outside it. */
   pick: undefined,
 }
@@ -251,6 +256,8 @@ function rowOf(conversation, order, folderNames, under) {
   const reply = replyOf(conversation)
   if (approval) text.append(approvalLine(approval))
   else if (reply) text.append(element('div', 'reply', reply))
+  const reason = approvalReasonOf(conversation)
+  if (reason) text.append(element('div', 'approval-reason', reason))
   // The meta line is the same in every group: tool, place, folder and age.
   const meta = element('div', 'meta')
   if (renaming?.problem) {
@@ -264,6 +271,8 @@ function rowOf(conversation, order, folderNames, under) {
   text.append(meta)
   const subagents = subagentsLine(conversation, key)
   if (subagents) text.append(subagents)
+  const approved = approvedLine(conversation, key)
+  if (approved) text.append(approved)
 
   const actions = element('div', 'actions')
   // Opening an archived chat, a new message in it, or its tool starting work brings it back.
@@ -339,6 +348,44 @@ function helpersToggle(conversation, key) {
     draw({ force: true })
   })
   return toggle
+}
+
+/** The "▸ 3 approved for you" line under a chat's meta line: it folds out the requests approvals approved, and back. */
+function approvedLine(conversation, key) {
+  const open = state.approvedOpen.has(key)
+  const label = approvedToggleOf(conversation, open)
+  if (label === undefined) return undefined
+  const toggle = element('button', 'approved-toggle', label)
+  toggle.type = 'button'
+  toggle.setAttribute('aria-expanded', String(open))
+  toggle.setAttribute('aria-controls', approvedId(key))
+  toggle.addEventListener('click', (event) => {
+    // The toggle sits inside the row, which opens on a click.
+    event.stopPropagation()
+    if (open) state.approvedOpen.delete(key)
+    else state.approvedOpen.add(key)
+    draw({ force: true })
+  })
+  const line = element('div', 'approved')
+  line.append(toggle)
+  return line
+}
+
+/** The requests approvals approved for a chat, newest first, folded out under it. */
+function approvedList(conversation, key, now) {
+  const box = element('ul', 'approved-list')
+  box.id = approvedId(key)
+  box.setAttribute('aria-label', 'Approved for you')
+  for (const call of approvedCallsOf(conversation)) {
+    const item = element('li', 'approved-call', call.text)
+    item.title = `${call.text}, ${ago(call.time, now)}`
+    box.append(item)
+  }
+  return box
+}
+
+function approvedId(key) {
+  return 'approved-' + key.replace(/[^A-Za-z0-9_-]/g, '-')
 }
 
 function helpersId(key) {
@@ -471,6 +518,29 @@ function cloudAside(view) {
   return shownPlace() === 'local' ? undefined : view.cloudNote
 }
 
+/** The approvals line over the list while approvals answer routine prompts, with Ask me to turn them off. */
+function drawApprovals(view) {
+  const header = approvalsHeaderOf(view)
+  approvalsBar.hidden = header === undefined
+  if (header) approvalsMode.textContent = header.label
+}
+
+/** Ask me: every prompt reaches the person again, from the next request on, with no sync. */
+async function askAgain() {
+  approvalsAsk.disabled = true
+  let version
+  try {
+    ({ version } = await askApprovals())
+  } catch (error) {
+    sayFailure(error)
+    return
+  } finally {
+    approvalsAsk.disabled = false
+  }
+  say('Approvals off: every permission prompt reaches you again.')
+  await afterChange(version)
+}
+
 function draw({ force } = { force: false }) {
   // A new list would take the name being typed away; it waits until the rename ends.
   if (state.renaming && !force) return
@@ -482,6 +552,7 @@ function draw({ force } = { force: false }) {
   const said = state.problem ?? state.note ?? view?.marksNote ?? ''
   note.hidden = said === ''
   note.textContent = said
+  drawApprovals(state.view)
   if (state.searching) {
     // The rows on screen answer another question, so they give way until this one's answer is here.
     state.drawn = undefined
@@ -530,6 +601,9 @@ function draw({ force } = { force: false }) {
       order += 1
       if (workingHelpersOf(conversation).length > 0 && state.helpersOpen.has(keyOf(conversation))) {
         list.append(helperList(conversation, keyOf(conversation), now))
+      }
+      if (approvedToggleOf(conversation, true) && state.approvedOpen.has(keyOf(conversation))) {
+        list.append(approvedList(conversation, keyOf(conversation), now))
       }
     }
   }
@@ -1544,6 +1618,7 @@ document.addEventListener('mousedown', (event) => {
 })
 Events.On('appearance', (event) => heard('appearance', event.data))
 Events.On('preferences', (event) => heard('preferences', event.data))
+approvalsAsk.addEventListener('click', askAgain)
 document.getElementById('dashboard').addEventListener('click', async () => {
   try {
     await openDashboard()

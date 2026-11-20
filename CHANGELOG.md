@@ -19,6 +19,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `import codex` keeps a nested `AGENTS.md` whose name another import took under its scope path, such as `services-api`, and a skip note names the real source file (#3704).
 - `agnostic-ai import` that changes no spec says so instead of pointing at sync (#3704).
 - New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
+- The companion and `serve` show what approvals decided, for each tool with a route (none yet): a row says "3 approved for you", a permission the gate left to you names why (such as "Always asks: publishing"), and an approved request never shows under Needs you or counts on the circle. The panel header names the mode, and **Ask me** turns approvals off. `serve` adds `GET /api/views/approvals` and `POST /api/approvals/ask`, which accepts only `ask` (#3700).
 - A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
 - `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
 - The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
@@ -129,6 +130,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
 
 ### By tool
+
+#### Qwen Code
+
+- `approvals` set to `review` turns on Qwen Code auto mode: `sync --global` writes `tools.approvalMode: "auto"` to `~/.qwen/settings.json`, and `approvals status` names it (#3700).
 
 #### Goose
 

@@ -175,6 +175,29 @@ function approvals(now) {
 }
 
 /**
+ * Rows as the server shapes them while approvals answer prompts (issue #3700): a chat whose requests the hook
+ * approved, so it works on with no row under Needs you, a request the gate left to the person with its rule, and a
+ * tool approvals do not reach.
+ */
+function autoApprovals(now) {
+  const permission = (detail, reason) => ({ activity: 'waiting', live: true, waiting: { for: 'permission', tool: 'Bash', detail }, approvals: { reason } })
+  const approved = (minutesAgo, detail) => ({ time: new Date(now - minutesAgo * MINUTE).toISOString(), call: 'Bash', detail })
+  return [
+    {
+      ...conversation(now, 'claude', 'auto-push', 'Ship the parser fix', 'blocked', { minutesAgo: 1 }),
+      ...permission('git push origin main', 'Always asks: publishing'),
+      approvals: { approved: 2, reason: 'Always asks: publishing', recent: [approved(2, 'go test ./...'), approved(4, 'go vet ./...')] },
+    },
+    {
+      ...conversation(now, 'claude', 'auto-tests', 'Fix the flaky login test', 'working', { minutesAgo: 0, reply: 'Running the suite again.' }),
+      activity: 'working',
+      approvals: { approved: 3, recent: [approved(0, 'go test ./internal/auth/...'), approved(1, 'make lint'), approved(3)] },
+    },
+    { ...conversation(now, 'cursor', 'auto-cursor', 'Rename the config keys', 'blocked', { folder: '/Users/you/Code/shop', minutesAgo: 6 }), ...permission('npm run build', 'Approvals not supported for Cursor') },
+  ]
+}
+
+/**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
  * markProblem, renameProblem, deleteProblem, deleteNote (deleted, with something left to tidy),
@@ -187,7 +210,8 @@ function approvals(now) {
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
  * openPending (the server did not answer an open in time, so nobody knows yet whether it opened),
  * lateOpenProblem (such an open fails later, with openCommand, once POST /dev/settle-late-opens),
- * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown).
+ * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown),
+ * approvalsMode (the loosest approvals mode the home config sets, until Ask me).
  */
 export const FIXTURES = {
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
@@ -208,6 +232,7 @@ export const FIXTURES = {
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
   nested: { label: 'Chats started from other chats', conversations: nested },
   approvals: { label: 'Chats waiting for an approval or an answer', conversations: approvals },
+  'auto-approvals': { label: 'Approvals in yolo: approved for you, always asks, and a tool approvals do not reach', conversations: autoApprovals, approvalsMode: 'yolo' },
   shared: { label: 'A local chat also open on claude.ai', conversations: shared },
   workers: {
     label: 'Native sub-agents: three working, two while waiting, unknown',
