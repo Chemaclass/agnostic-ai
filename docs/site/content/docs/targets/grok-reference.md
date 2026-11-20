@@ -56,6 +56,7 @@ Start with the [Grok setup](@/docs/targets/grok.md).
 
 ### Hooks
 
+- Events: the 14 in the [hooks page](https://docs.x.ai/build/features/hooks) Events table, plus `StopCancelled`. The page leaves it out, but Grok 1.0.4 added it ([changelog](https://github.com/xai-org/grok-build/blob/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8/crates/codegen/xai-grok-shell/changelogs/1.0.4.md), [event list](https://github.com/xai-org/grok-build/blob/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8/crates/codegen/xai-grok-hooks/src/event.rs#L135-L143)). It runs instead of `Stop` when a turn ends without completing.
 - Fields: native PascalCase `event`, optional `matcher`, command, safely quoted `args`, timeout in seconds, per-handler `env`.
 - Sync adds `AGNOSTIC_AI_TARGET=grok`. Grok provides `CLAUDE_PROJECT_DIR` and `GROK_WORKSPACE_ROOT`.
 - A matcher on `Stop` or `UserPromptSubmit` does nothing and gives a note.
