@@ -29,7 +29,11 @@ func (f globalSettingsFile) platformRootError(goos string) error {
 	case strings.HasPrefix(path, globalPathXDG):
 		name = "XDG_CONFIG_HOME"
 	}
+	names := f.absEnv
 	if name != "" {
+		names = append(names, name)
+	}
+	for _, name := range names {
 		if root := os.Getenv(name); root != "" && !filepath.IsAbs(root) {
 			return fmt.Errorf("%s=%q must be an absolute path", name, root)
 		}

@@ -115,7 +115,11 @@ var routes = []Route{
 	{Target: "continue", Reason: "no documented hook surface"},
 	{Target: "copilot", Reason: reasonDenyRules},
 	{Target: "crush", Reason: reasonNotBuilt},
-	{Target: "cursor", Reason: reasonNotBuilt},
+	{Target: "cursor", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "cursor-agent Auto-review",
+		File:     "~/.cursor/cli-config.json",
+		Evidence: "https://cursor.com/docs/agent/security/run-modes",
+	}},
 	{Target: "ellipsis", Reason: reasonNoPrompt},
 	{Target: "factory", Reason: reasonNotBuilt},
 	{Target: "gemini", Reason: reasonNoApprove},
