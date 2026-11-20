@@ -19,8 +19,8 @@ func claudeScopedProject(t *testing.T, config, field string) (string, string, er
 	dir := testutil.TempCwd(t)
 	silence(t)
 	notes := captureNotes(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+config)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\n"+field+"\n---\n\nReview the diff.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+config)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\n"+field+"\n---\n\nReview the diff.\n")
 	out, err := runCLI(t, "sync", "--gitignore=off")
 	if err != nil {
 		return "", notes.String() + out, err
@@ -98,8 +98,8 @@ func TestSync_ClaudeKeepsASkillsScopedAllowedTools(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	notes := captureNotes(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\non-unsupported: error\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "skills", "diff", "SKILL.md"), "---\nname: diff\ndescription: Shows the diff.\nallowed-tools: [read, shell(git diff *)]\n---\n\nShow the diff.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\non-unsupported: error\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "diff", "SKILL.md"), "---\nname: diff\ndescription: Shows the diff.\nallowed-tools: [read, shell(git diff *)]\n---\n\nShow the diff.\n")
 	mustSync(t)
 	got, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "diff", "SKILL.md"))
 	if err != nil {
@@ -148,8 +148,8 @@ func TestSync_WideningErrorNamesTheTargetOnce(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\non-unsupported: error\n")
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\n"+can+"\n---\n\nReview.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\non-unsupported: error\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\n"+can+"\n---\n\nReview.\n")
 			_, err := runCLI(t, "sync", "--gitignore=off")
 			want := target + ": " + filepath.Join(".agnostic-ai", "agents", "reviewer.md") + ": "
 			if err == nil || !strings.HasPrefix(err.Error(), want) {
@@ -166,8 +166,8 @@ func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			notes := captureNotes(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview.\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview.\n")
 			_, warnings, err := runGlobalAgentTest("--only", "claude")
 			const line = "shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern"
 			if mode == "error" {

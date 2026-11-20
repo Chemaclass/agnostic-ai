@@ -181,13 +181,13 @@ func TestMigrate_GlobalLeavesPackSpecsAndNamesThePack(t *testing.T) {
 	}
 	_, source := globalAgentTestHome(t)
 	silence(t)
-	mustWrite(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
 	files := map[string]string{
 		filepath.Join("mcps", "app.yaml"):      "name: app\ncommand: npx\nenv:\n  NODE_ENV: production\n",
 		filepath.Join("agents", "explorer.md"): "---\nname: explorer\ndescription: Maps the codebase.\ntools: [Read, WebFetch]\n---\n\nList files.\n",
 	}
 	for rel, body := range files {
-		mustWrite(t, filepath.Join(source, "packs", "acme", rel), body)
+		writeFile(t, filepath.Join(source, "packs", "acme", rel), body)
 		if err := os.MkdirAll(filepath.Join(source, filepath.Dir(rel)), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -263,7 +263,7 @@ func TestMigrate_SkipsASymlinkIntoAPackAndNamesThePack(t *testing.T) {
 	dir := migrationFixture(t, "hooks-portable-events")
 	silence(t)
 	packHook := filepath.Join(dir, ".agnostic-ai", "packs", "acme", "hooks", "pack-stop.yaml")
-	mustWrite(t, packHook, "name: pack-stop\nevent: Stop\ncommand: 'true'\n")
+	writeFile(t, packHook, "name: pack-stop\nevent: Stop\ncommand: 'true'\n")
 	if err := os.Symlink(filepath.Join("..", "packs", "acme", "hooks", "pack-stop.yaml"), filepath.Join(dir, ".agnostic-ai", "hooks", "pack-stop.yaml")); err != nil {
 		t.Fatal(err)
 	}
@@ -288,10 +288,10 @@ func TestMigrate_GlobalSkipsASymlinkIntoAPack(t *testing.T) {
 	}
 	_, source := globalAgentTestHome(t)
 	silence(t)
-	mustWrite(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
 	packHook := filepath.Join(source, "packs", "acme", "hooks", "guard.yaml")
 	body := "name: guard\ntarget: claude\nevent: Stop\ncommand: 'true'\n"
-	mustWrite(t, packHook, body)
+	writeFile(t, packHook, body)
 	if err := os.MkdirAll(filepath.Join(source, "hooks"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -314,8 +314,8 @@ func TestWriteMigrationChange_RefusesASymlinkRetargetedSinceThePlan(t *testing.T
 	}
 	dir := t.TempDir()
 	checked, other, link := filepath.Join(dir, "checked.yaml"), filepath.Join(dir, "other.yaml"), filepath.Join(dir, "link.yaml")
-	mustWrite(t, checked, "event: Stop\n")
-	mustWrite(t, other, "event: Stop\n")
+	writeFile(t, checked, "event: Stop\n")
+	writeFile(t, other, "event: Stop\n")
 	if err := os.Symlink(checked, link); err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func TestMigrate_RewritesTheFileASymlinkPointsAtAndKeepsTheLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, shared, string(body))
+	writeFile(t, shared, string(body))
 	if err := os.Chmod(shared, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -416,7 +416,7 @@ func TestMigrate_ConfigFileNameRenamesAndKeepsBytesAndMode(t *testing.T) {
 
 func TestMigrate_ConfigFileNameSkipsWhenBothFilesExist(t *testing.T) {
 	dir := migrationFixture(t, "config-file-name")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 
 	out, err := runCLI(t, "migrate")
 	if err != nil || !strings.Contains(out, "skipped agnostic.config.yaml: agnostic-ai.yaml exists and wins") {
@@ -446,7 +446,7 @@ func TestMigrate_ListAndOnly(t *testing.T) {
 
 func TestMigrate_QuietPrintsOnlySkips(t *testing.T) {
 	dir := migrationFixture(t, "config-file-name")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	out, err := runCLI(t, "-q", "migrate")
 	if err != nil || strings.TrimSpace(out) != "config-file-name: skipped agnostic.config.yaml: agnostic-ai.yaml exists and wins; remove agnostic.config.yaml by hand once it holds nothing you need" {
 		t.Errorf("-q output = %q, %v", out, err)
@@ -557,7 +557,7 @@ func TestMigrate_ConfigFileNameFinishesAnInterruptedRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), string(body))
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), string(body))
 
 	out, err := runCLI(t, "migrate")
 	if err != nil || !strings.Contains(out, "removed agnostic.config.yaml") {
@@ -585,8 +585,8 @@ func TestMigrate_ConfigFileNameSkipsWhenTheNewNameIsABrokenSymlink(t *testing.T)
 func TestMigrate_ConfigFileNameSkipsWhenGitIgnoresTheNewName(t *testing.T) {
 	dir := setupGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "*.yaml\n")
+	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, ".gitignore"), "*.yaml\n")
 	git(t, dir, "add", "-f", ".gitignore", "agnostic.config.yaml")
 
 	out, err := runCLI(t, "migrate")
@@ -612,7 +612,7 @@ func TestMigrate_ContentRewriteShowsARedactedDiffAndWritesInPlace(t *testing.T) 
 	spec := filepath.Join(dir, "spec.yaml")
 	before := "token: ghp_abcdefghijklmnop1234\nmode: old\n"
 	after := "token: ghp_abcdefghijklmnop1234\nmode: new\n"
-	mustWriteFile(t, spec, before)
+	writeFile(t, spec, before)
 	registry := specMigrations
 	t.Cleanup(func() { specMigrations = registry })
 	specMigrations = []specMigration{{
@@ -657,9 +657,9 @@ func TestMigrate_ConfigFileNameKeepsTheLegacyFileASymlinkPointsAt(t *testing.T) 
 func TestMigrate_ConfigFileNameKeepsATrackedDuplicateWhenGitIgnoresTheNewName(t *testing.T) {
 	dir := setupGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "agnostic-ai.yaml\n")
+	writeFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, ".gitignore"), "agnostic-ai.yaml\n")
 	git(t, dir, "add", ".gitignore", "agnostic.config.yaml")
 
 	out, err := runCLI(t, "migrate")
@@ -671,7 +671,7 @@ func TestMigrate_ConfigFileNameKeepsATrackedDuplicateWhenGitIgnoresTheNewName(t 
 func TestWriteMigrationChange_RemoveNeedsTheKeptFile(t *testing.T) {
 	dir := t.TempDir()
 	legacy, current := filepath.Join(dir, "agnostic.config.yaml"), filepath.Join(dir, "agnostic-ai.yaml")
-	mustWriteFile(t, legacy, "version: 1\n")
+	writeFile(t, legacy, "version: 1\n")
 	err := writeMigrationChange(migrationChange{Path: legacy, NewPath: current, Before: "version: 1\n", Remove: true})
 	if err == nil || !exists(legacy) {
 		t.Fatalf("a removal whose kept file vanished must fail and keep the old file: %v", err)
@@ -694,7 +694,7 @@ func TestDoctor_NamesPendingMigrations(t *testing.T) {
 
 func TestPendingMigrationHint_SaysManualWhenOnlySkips(t *testing.T) {
 	dir := migrationFixture(t, "config-file-name")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	if got := pendingMigrationHint(projectMigrationScope(".")); got != "1 spec migration needs a manual step (config-file-name). Preview: agnostic-ai migrate --dry-run" {
 		t.Errorf("hint = %q", got)
 	}
@@ -703,7 +703,7 @@ func TestPendingMigrationHint_SaysManualWhenOnlySkips(t *testing.T) {
 func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *testing.T) {
 	dir := migrationFixture(t, "hooks-portable-events")
 	silence(t)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "local", "hooks", "session-status.yaml"), "timeout: 5\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "hooks", "session-status.yaml"), "timeout: 5\n")
 
 	out, err := runCLI(t, "migrate", "--only", "hooks")
 	if err != nil {
@@ -745,7 +745,7 @@ func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *tes
 func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing.T) {
 	dir := migrationFixture(t, "hooks-portable-events")
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, kiro]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, kiro]\n")
 
 	out, err := runCLI(t, "migrate", "--only", "hooks", "--dry-run")
 	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/stop-check.yaml: no portable form gives Stop on kiro") {
@@ -775,10 +775,10 @@ func TestLint_SuggestsThePortableFormExactlyWhereMigrateRewrites(t *testing.T) {
 			dir := migrationFixture(t, "hooks-portable-events")
 			silence(t)
 			if tc.config != "" {
-				mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), tc.config)
+				writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), tc.config)
 			}
 			if tc.local != "" {
-				mustWrite(t, filepath.Join(dir, ".agnostic-ai", "local", "hooks", "session-status.yaml"), tc.local)
+				writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "hooks", "session-status.yaml"), tc.local)
 			}
 
 			plan, err := runCLI(t, "migrate", "--only", "hooks", "--dry-run")
@@ -863,7 +863,7 @@ func TestPendingMigrationHint_CountsOnlyRewritesAndActionableSkips(t *testing.T)
 	if out, _ := runCLI(t, "migrate", "--list"); !strings.Contains(out, "hooks-portable-events (0.79.0): rewrite a hook's event: and matcher: as the portable on: and match:: 0 to rewrite, 2 skipped") {
 		t.Errorf("--list still counts every skip:\n%s", out)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
 	if got := pendingMigrationHint(projectMigrationScope(".")); !strings.HasPrefix(got, "1 spec migration needs a manual step (hooks-portable-events)") {
 		t.Errorf("a spec with both forms needs the user: %q", got)
 	}
@@ -879,7 +879,7 @@ func TestPendingMigrationHint_PlansTheProjectTheCheckScopeLoaded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
 	if got := pendingMigrationHint(scope.migrationScope()); got != "" {
 		t.Errorf("doctor must plan the specs it loaded instead of loading them again: %q", got)
 	}

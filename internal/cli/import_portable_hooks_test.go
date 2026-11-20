@@ -110,7 +110,7 @@ func TestImport_KeepsAnIdenticalNativeSpecOnReimport(t *testing.T) {
 		name = n
 		native = strings.NewReplacer("on: before-tool", "event: PreToolUse", "match: shell", "matcher: Bash").Replace(body)
 	}
-	mustWrite(t, filepath.Join(".agnostic-ai", "hooks", name), native)
+	writeFile(t, filepath.Join(".agnostic-ai", "hooks", name), native)
 
 	importCapturing(t, "claude")
 

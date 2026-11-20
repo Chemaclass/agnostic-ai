@@ -24,7 +24,7 @@ func TestImportAntigravity_PreviewMatchesWindowsShortPaths(t *testing.T) {
 			physical := resolveImportSourceExisting(t.TempDir())
 			mcp := filepath.Join(".agents", "plugins", "team", "mcp.json")
 			const native = `{"mcpServers":{"docs":{"serverUrl":"https://example.com/mcp"}}}`
-			mustWriteFile(t, filepath.Join(physical, mcp), native)
+			writeFile(t, filepath.Join(physical, mcp), native)
 			short := antigravityShortPath(t, physical)
 			root, file := physical, filepath.Join(physical, mcp)
 			if tc.shortRoot {
@@ -35,7 +35,7 @@ func TestImportAntigravity_PreviewMatchesWindowsShortPaths(t *testing.T) {
 			}
 			testutil.Chdir(t, root)
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(file)))
+			writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(file)))
 			before := snapshotProject(t, physical)
 			for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
 				output := captureStdout(t, func() {

@@ -212,7 +212,7 @@ targets: [claude]
 
 func TestNew_AgentScaffoldLoadsOnEveryTarget(t *testing.T) {
 	dir := setupEmptyProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\ntargets: [claude, codex, cursor]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\ntargets: [claude, codex, cursor]\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 

@@ -15,7 +15,7 @@ import (
 func TestSyncGlobal_AugmentWindowsHookQuotesForCmd(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	home = filepath.Join(home, "user home")
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.cmd"), "@echo off\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.cmd"), "@echo off\n")
 	hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "SessionStart", "command": ".agnostic-ai/scripts/guard.cmd"}}
 	writes, _, err := buildGlobalWritesForPlatform(home, source, []string{"augment"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, globalState{Version: globalStateVersion}, nil, io.Discard, "warn", "windows")
 	if err != nil {

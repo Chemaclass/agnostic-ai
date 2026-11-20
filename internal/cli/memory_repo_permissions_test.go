@@ -28,12 +28,12 @@ func TestSync_OpenCodeRepoMemoryAllowsTheStoreAndKeepsUserRules(t *testing.T) {
 	read := func() {
 		t.Helper()
 		doc.Permission.Bash, doc.Permission.ExternalDirectory = "", nil
-		if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, "opencode.json")), &doc); err != nil {
 			t.Fatal(err)
 		}
 	}
 	read()
-	store := repoStore(t, parent, readText(t, "opencode.json"))
+	store := repoStore(t, parent, readFile(t, "opencode.json"))
 	if doc.Permission.ExternalDirectory[store+"/**"] != "allow" || doc.Permission.ExternalDirectory["~/notes/**"] != "allow" || doc.Permission.Bash != "ask" {
 		t.Errorf("permission after sync = %+v", doc.Permission)
 	}
@@ -63,7 +63,7 @@ func externalDirectoryOrder(t *testing.T) []string {
 			ExternalDirectory json.RawMessage `json:"external_directory"`
 		} `json:"permission"`
 	}
-	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, "opencode.json")), &doc); err != nil {
 		t.Fatal(err)
 	}
 	dec := json.NewDecoder(strings.NewReader(string(doc.Permission.ExternalDirectory)))
@@ -98,7 +98,7 @@ func TestSync_OpenCodeRepoMemoryKeepsTheUserOrder(t *testing.T) {
 				if err := runSync(t); err != nil {
 					t.Fatal(err)
 				}
-				store := repoStore(t, parent, readText(t, "opencode.json"))
+				store := repoStore(t, parent, readFile(t, "opencode.json"))
 				if got, want := externalDirectoryOrder(t), append(slices.Clone(user), store+"/**"); !slices.Equal(got, want) {
 					t.Errorf("external_directory order = %v, want %v", got, want)
 				}
@@ -119,7 +119,7 @@ func TestSync_OpenCodeRepoMemoryKeepsTheSpecOrder(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, "opencode.json"))
+	store := repoStore(t, parent, readFile(t, "opencode.json"))
 	if got, want := externalDirectoryOrder(t), []string{"/tmp/a/**", "*", store + "/**"}; !slices.Equal(got, want) {
 		t.Errorf("external_directory order = %v, want %v", got, want)
 	}
@@ -146,7 +146,7 @@ func TestSync_OpenCodeLocalSettingsLayerKeepsTheSharedOrder(t *testing.T) {
 			}
 			want := []string{"*", "/secret/**"}
 			if repo {
-				want = append(want, repoStore(t, parent, readText(t, "opencode.json"))+"/**")
+				want = append(want, repoStore(t, parent, readFile(t, "opencode.json"))+"/**")
 			}
 			if got := externalDirectoryOrder(t); !slices.Equal(got, want) {
 				t.Errorf("external_directory order = %v, want %v", got, want)
@@ -172,14 +172,14 @@ func TestSync_SpecPermissionsWithTheStoreRuleStayStable(t *testing.T) {
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			first := readText(t, tc.file)
+			first := readFile(t, tc.file)
 			if !strings.Contains(first, tc.kept) || !strings.Contains(first, filepath.ToSlash(parent)) {
 				t.Errorf("first sync:\n%s", first)
 			}
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			if second := readText(t, tc.file); second != first {
+			if second := readFile(t, tc.file); second != first {
 				t.Errorf("second sync changed the file:\n%s\nwant:\n%s", second, first)
 			}
 			if err := runSync(t, "--check"); err != nil {
@@ -189,7 +189,7 @@ func TestSync_SpecPermissionsWithTheStoreRuleStayStable(t *testing.T) {
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			if text := readText(t, tc.file); !strings.Contains(text, tc.kept) || strings.Contains(text, filepath.ToSlash(parent)) {
+			if text := readFile(t, tc.file); !strings.Contains(text, tc.kept) || strings.Contains(text, filepath.ToSlash(parent)) {
 				t.Errorf("after leaving repo mode:\n%s", text)
 			}
 			if err := runSync(t, "--check"); err != nil {
@@ -264,7 +264,7 @@ func TestSync_OpenCodeRetiredSpecKeepsAnOrderOnlyEdit(t *testing.T) {
 func editJSON(t *testing.T, path string, edit func(doc map[string]any)) {
 	t.Helper()
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readText(t, path)), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	edit(doc)
@@ -305,7 +305,7 @@ func TestSync_RetiredSettingsKeepAUserEditBesideTheStoreRule(t *testing.T) {
 			}
 			check := func(when string, wantStore bool) {
 				t.Helper()
-				text := readText(t, tc.file)
+				text := readFile(t, tc.file)
 				for _, want := range tc.kept {
 					if !strings.Contains(text, want) {
 						t.Errorf("%s: lost the user's %s:\n%s", when, want, text)
@@ -368,7 +368,7 @@ func TestSync_RetiringASpecAndRepoModeTogetherDropsTheStoreRule(t *testing.T) {
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			first := readText(t, tc.file)
+			first := readFile(t, tc.file)
 			for _, want := range tc.kept {
 				if !strings.Contains(first, want) {
 					t.Errorf("lost the user's %s:\n%s", want, first)
@@ -380,7 +380,7 @@ func TestSync_RetiringASpecAndRepoModeTogetherDropsTheStoreRule(t *testing.T) {
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			if second := readText(t, tc.file); second != first {
+			if second := readFile(t, tc.file); second != first {
 				t.Errorf("second sync changed the file:\n%s\nwant:\n%s", second, first)
 			}
 			checkKeepsOnlyTheEditedFile(t, tc.file)
@@ -399,7 +399,7 @@ func checkKeepsOnlyTheEditedFile(t *testing.T, file string) {
 	}
 	// Keeping the file as the user's, as sync suggests, must leave no
 	// other drift.
-	writeFile(t, "agnostic-ai.yaml", readText(t, "agnostic-ai.yaml")+"sync:\n  unmanaged: ["+filepath.ToSlash(file)+"]\n")
+	writeFile(t, "agnostic-ai.yaml", readFile(t, "agnostic-ai.yaml")+"sync:\n  unmanaged: ["+filepath.ToSlash(file)+"]\n")
 	if err := runSync(t, "--check"); err != nil {
 		t.Errorf("sync --check reported more than the kept %s: %v", file, err)
 	}
@@ -457,7 +457,7 @@ func TestSync_RetiringASpecKeepsAUserRuleThatLooksLikeTheStore(t *testing.T) {
 					if err := runSync(t); err != nil {
 						t.Fatal(err)
 					}
-					if text := readText(t, tc.file); !strings.Contains(text, tc.userRule(glob)) {
+					if text := readFile(t, tc.file); !strings.Contains(text, tc.userRule(glob)) {
 						t.Errorf("the user's rule left:\n%s", text)
 					}
 				}
@@ -478,7 +478,7 @@ func TestSync_RetiringASpecAndTheMemoryBuiltinTogetherDropsTheStoreRule(t *testi
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			store := repoStore(t, parent, readText(t, tc.file))
+			store := repoStore(t, parent, readFile(t, tc.file))
 			mine := "/tmp/mine/**"
 			editJSON(t, tc.file, func(doc map[string]any) { tc.addRule(doc, mine) })
 			if err := os.Remove(".agnostic-ai/settings/policy.yaml"); err != nil {
@@ -501,7 +501,7 @@ func TestSync_RetiringASpecAndTheMemoryBuiltinTogetherDropsTheStoreRule(t *testi
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			if second := readText(t, tc.file); second != string(first) {
+			if second := readFile(t, tc.file); second != string(first) {
 				t.Errorf("second sync changed the file:\n%s\nwant:\n%s", second, first)
 			}
 			checkKeepsOnlyTheEditedFile(t, tc.file)
@@ -514,7 +514,7 @@ func TestSync_RetiringASpecAndTheMemoryBuiltinTogetherDropsTheStoreRule(t *testi
 func permissionSection(t *testing.T, file string) string {
 	t.Helper()
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readText(t, file)), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, file)), &doc); err != nil {
 		t.Fatal(err)
 	}
 	section := doc["permission"]
@@ -540,7 +540,7 @@ func TestSync_RetiringASpecWhileTheStoreMovesDropsTheOldStoreRule(t *testing.T) 
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
-			oldStore := repoStore(t, oldParent, readText(t, tc.file))
+			oldStore := repoStore(t, oldParent, readFile(t, tc.file))
 			mine := "/tmp/mine/**"
 			editJSON(t, tc.file, func(doc map[string]any) { tc.addRule(doc, mine) })
 			if err := os.Remove(".agnostic-ai/settings/policy.yaml"); err != nil {
@@ -586,7 +586,7 @@ func TestSync_OpenCodeRepoMemoryJoinsSettingsPermissions(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	text := readText(t, "opencode.json")
+	text := readFile(t, "opencode.json")
 	var doc struct {
 		Permission struct {
 			Read              string            `json:"read"`
@@ -625,12 +625,12 @@ func TestSync_WindsurfRepoMemoryAllowsWritesAndKeepsUserRules(t *testing.T) {
 	read := func() {
 		t.Helper()
 		doc.Permissions.Allow, doc.ReadConfigFrom = nil, nil
-		if err := json.Unmarshal([]byte(readText(t, config)), &doc); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, config)), &doc); err != nil {
 			t.Fatal(err)
 		}
 	}
 	read()
-	store := repoStore(t, parent, readText(t, config))
+	store := repoStore(t, parent, readFile(t, config))
 	if want := []string{"Exec(make)", "Write(" + store + "/**)"}; !slices.Equal(doc.Permissions.Allow, want) || !doc.ReadConfigFrom["claude"] {
 		t.Errorf("config = %+v, want allow %v", doc, want)
 	}
@@ -693,7 +693,7 @@ func TestSync_StoreRulesLeaveWithRepoMode(t *testing.T) {
 		text, _ := os.ReadFile(filepath.Join(".devin", "config.json"))
 		t.Errorf(".devin/config.json stayed after repo mode: %s", text)
 	}
-	if text := readText(t, "opencode.json"); strings.Contains(text, "external_directory") || strings.Contains(text, `"permission"`) {
+	if text := readFile(t, "opencode.json"); strings.Contains(text, "external_directory") || strings.Contains(text, `"permission"`) {
 		t.Errorf("opencode.json kept the store rule after repo mode:\n%s", text)
 	}
 	if err := runSync(t, "--check"); err != nil {
@@ -730,8 +730,8 @@ func TestSync_OpenCodeRepoMemoryKeepsABarePermissionAction(t *testing.T) {
 				var doc struct {
 					Permission map[string]any `json:"permission"`
 				}
-				if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
-					t.Fatalf("permission is not an object: %v\n%s", err, readText(t, "opencode.json"))
+				if err := json.Unmarshal([]byte(readFile(t, "opencode.json")), &doc); err != nil {
+					t.Fatalf("permission is not an object: %v\n%s", err, readFile(t, "opencode.json"))
 				}
 				return doc.Permission
 			}
@@ -739,13 +739,13 @@ func TestSync_OpenCodeRepoMemoryKeepsABarePermissionAction(t *testing.T) {
 				if err := runSync(t); err != nil {
 					t.Fatal(err)
 				}
-				store := repoStore(t, parent, readText(t, "opencode.json"))
+				store := repoStore(t, parent, readFile(t, "opencode.json"))
 				permission := read()
 				directories, _ := permission["external_directory"].(map[string]any)
 				if permission["*"] != action || directories[store+"/**"] != "allow" || len(permission) != 2 {
 					t.Errorf("permission = %v", permission)
 				}
-				if text := readText(t, "opencode.json"); strings.Index(text, `"*"`) > strings.Index(text, `"external_directory"`) {
+				if text := readFile(t, "opencode.json"); strings.Index(text, `"*"`) > strings.Index(text, `"external_directory"`) {
 					t.Errorf("the catch-all should lead the store rule:\n%s", text)
 				}
 			}
@@ -787,7 +787,7 @@ func TestSync_RepoMemoryKeepsTheUserStoreRule(t *testing.T) {
 				if err := runSync(t); err != nil {
 					t.Fatal(err)
 				}
-				if text := readText(t, tc.file); strings.Count(text, `"`+entry+`"`) != 1 {
+				if text := readFile(t, tc.file); strings.Count(text, `"`+entry+`"`) != 1 {
 					t.Errorf("want the user's rule once:\n%s", text)
 				}
 			}

@@ -64,11 +64,11 @@ func TestSync_AntigravityMemoryIncludesAreStaticAndTargeted(t *testing.T) {
 
 func TestSyncGlobal_AntigravityMemoryIncludeStaysProjectOnly(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [antigravity]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [antigravity]\nbuiltins: [memory]\n")
 	if _, notes, err := runGlobalAgentTest(); err != nil {
 		t.Fatalf("global sync: %v\n%s", err, notes)
 	}
-	body := readGlobalTest(t, filepath.Join(home, ".gemini", "GEMINI.md"))
+	body := readFile(t, filepath.Join(home, ".gemini", "GEMINI.md"))
 	if strings.Contains(body, "antigravity-memory-index") || strings.Contains(body, "@[Project memory]") {
 		t.Error("project includes reached global instructions")
 	}

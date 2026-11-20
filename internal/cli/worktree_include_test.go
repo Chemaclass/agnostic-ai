@@ -16,8 +16,8 @@ func syncGitignored(t *testing.T, config string) string {
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync"})
 	if err := root.Execute(); err != nil {
@@ -61,8 +61,8 @@ func TestSync_WorktreeIncludeOptOutAndOtherTargets(t *testing.T) {
 	dir := syncGitignored(t, "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
 	path := filepath.Join(dir, ".worktreeinclude")
 	data, _ := os.ReadFile(path)
-	mustWriteFile(t, path, "secrets.local\n"+string(data))
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n  worktree-include: false\n")
+	writeFile(t, path, "secrets.local\n"+string(data))
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n  worktree-include: false\n")
 	if err := runSyncArgs(t); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func trackedWorktreeIncludeProject(t *testing.T) string {
 	dir := syncGitignored(t, "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
 	git(t, dir, "add", worktreeIncludeFile)
 	git(t, dir, "-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "worktree include")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n  ignore-worktree-include: true\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n  ignore-worktree-include: true\n")
 	return dir
 }
 

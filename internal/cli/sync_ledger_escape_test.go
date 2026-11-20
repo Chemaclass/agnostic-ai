@@ -24,8 +24,8 @@ func newEscapeFixture(t *testing.T) escapeFixture {
 	t.Helper()
 	base := t.TempDir()
 	f := escapeFixture{base: base, proj: filepath.Join(base, "proj"), victim: filepath.Join(base, "victim")}
-	mustWriteFile(t, filepath.Join(f.proj, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(f.proj, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: Rule one.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(f.proj, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(f.proj, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: Rule one.\n---\n\nBody.\n")
 	testutil.Chdir(t, f.proj)
 	return f
 }
@@ -37,7 +37,7 @@ func writeCraftedLedger(t *testing.T, state syncStateFile) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, stateFilePath("."), string(data))
+	writeFile(t, stateFilePath("."), string(data))
 }
 
 func captureLedgerWarnings(t *testing.T) *bytes.Buffer {
@@ -58,9 +58,9 @@ func TestRunSyncOnce_LeavesFilesOutsideTheProjectThatTheLedgerNames(t *testing.T
 	relVictim := filepath.Join("..", "victim", "sub", "CLAUDE.md")
 	absVictim := filepath.Join(f.victim, "abs", "CLAUDE.md")
 	mergedVictim := filepath.Join(f.victim, "x.json")
-	mustWriteFile(t, filepath.Join(f.victim, "sub", "CLAUDE.md"), body)
-	mustWriteFile(t, absVictim, body)
-	mustWriteFile(t, mergedVictim, "{\"a\": 1}\n")
+	writeFile(t, filepath.Join(f.victim, "sub", "CLAUDE.md"), body)
+	writeFile(t, absVictim, body)
+	writeFile(t, mergedVictim, "{\"a\": 1}\n")
 	relMerged := filepath.Join("..", "victim", "x.json")
 	writeCraftedLedger(t, syncStateFile{
 		Outputs:    []string{relVictim, absVictim, relMerged},
@@ -97,7 +97,7 @@ func TestRunSyncOnce_LeavesFilesOutsideTheProjectThatTheLedgerNames(t *testing.T
 
 func TestRunSyncOnce_LeavesALinkOutsideTheProjectThatTheLedgerNames(t *testing.T) {
 	f := newEscapeFixture(t)
-	mustWriteFile(t, filepath.Join(f.victim, "real", "data"), "keep\n")
+	writeFile(t, filepath.Join(f.victim, "real", "data"), "keep\n")
 	link := filepath.Join(f.victim, "skills", "foo")
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
@@ -155,7 +155,7 @@ func TestReadStateFile_DropsEntriesOutsideTheProject(t *testing.T) {
 func TestRunSyncOnce_RefusesAnAbsoluteOutputOutsideTheProject(t *testing.T) {
 	f := newEscapeFixture(t)
 	rules := filepath.Join(f.victim, "rules")
-	mustWriteFile(t, filepath.Join(f.proj, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: "+strconv.Quote(filepath.ToSlash(rules))+"\n")
+	writeFile(t, filepath.Join(f.proj, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: "+strconv.Quote(filepath.ToSlash(rules))+"\n")
 	silence(t)
 	captureLog(t)
 

@@ -75,8 +75,8 @@ func TestLintMCPLiterals_TextAroundAReferenceIsALiteral(t *testing.T) {
 // server and key without printing the value, and sync writes nothing.
 func TestLintAndSync_HandWrittenLiteralFailsWithoutTheValue(t *testing.T) {
 	dir := newProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\ncommand: srv\nenv: {API_KEY: sk-live-abc}\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\ncommand: srv\nenv: {API_KEY: sk-live-abc}\n")
 
 	out, err := runCLI(t, "lint")
 	if err == nil || !strings.Contains(out, "LINT035 [error] "+filepath.Join(".agnostic-ai", "mcps", "api.yaml")+`: MCP server "api": env API_KEY is a literal value`) {
@@ -107,13 +107,13 @@ func TestSync_LiteralTagWritesTheBareValueOnEveryTarget(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(targets, ", ")+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(targets, ", ")+"]\n")
 	mcp := filepath.Join(dir, ".agnostic-ai", "mcps", "app.yaml")
-	mustWriteFile(t, mcp, "name: app\ncommand: srv\nenv:\n  NODE_ENV: production\n")
+	writeFile(t, mcp, "name: app\ncommand: srv\nenv:\n  NODE_ENV: production\n")
 	if _, err := runCLI(t, "sync"); err == nil {
 		t.Fatal("sync must refuse the unmarked value")
 	}
-	mustWriteFile(t, mcp, "name: app\ncommand: srv\nenv:\n  NODE_ENV: !literal production\n")
+	writeFile(t, mcp, "name: app\ncommand: srv\nenv:\n  NODE_ENV: !literal production\n")
 	mustSync(t)
 	written := 0
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {

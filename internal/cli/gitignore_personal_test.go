@@ -56,14 +56,14 @@ func personalProject(t *testing.T, team string) {
 	chdir(t, root)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: "+team+"\ngitignore:\n  enabled: true\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: "+team+"\ngitignore:\n  enabled: true\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
 }
 
 func splitWithLocal(t *testing.T, team, local string, recorded []string) (block, personal []string) {
 	t.Helper()
 	personalProject(t, team)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: "+local+"\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: "+local+"\n")
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +111,7 @@ func TestBuiltinChanges_PersonalToggleKeepsCommittedIgnores(t *testing.T) {
 	root, _ := os.Getwd()
 	git(t, root, "init", "--quiet")
 	gitquery.Reset()
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -239,7 +239,7 @@ func TestBuiltinChanges_ApplyHoldsTheGitExcludeLock(t *testing.T) {
 	root, _ := os.Getwd()
 	git(t, root, "init", "--quiet")
 	gitquery.Reset()
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -283,7 +283,7 @@ func TestPersonalSplitBlock_FailsWhenThePreviousSetCannotBeRead(t *testing.T) {
 	root, _ := os.Getwd()
 	git(t, root, "init", "--quiet")
 	gitquery.Reset()
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +301,7 @@ func TestBuiltinChanges_ApplyRefusesAnExcludeChangedDuringPreview(t *testing.T) 
 	root, _ := os.Getwd()
 	git(t, root, "init", "--quiet")
 	gitquery.Reset()
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}

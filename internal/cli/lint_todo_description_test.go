@@ -51,7 +51,7 @@ func filledSpec(kind string) string {
 
 func TestLint_TodoDescriptionOnlyMatchesAPlaceholderPrefix(t *testing.T) {
 	budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "skills", "notes.md"), "---\nname: notes\ndescription: Lists TODO comments in a file.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "notes.md"), "---\nname: notes\ndescription: Lists TODO comments in a file.\n---\n\nBody.\n")
 
 	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT031")) != 0 {
 		t.Errorf("TODO inside a description is not the placeholder:\n%s", out)

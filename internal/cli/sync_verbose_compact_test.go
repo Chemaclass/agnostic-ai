@@ -12,10 +12,10 @@ import (
 
 func TestSyncVerbose_CollapsesRepeatedCoverageAndShowsNewNotes(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline, codex]\nsync:\n  dropped-summary: true\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "defaults.yaml"), "model: claude-opus-4-8\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline, codex]\nsync:\n  dropped-summary: true\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "defaults.yaml"), "model: claude-opus-4-8\n")
 	skill := filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md")
-	mustWriteFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
+	writeFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
 	silence(t)
 	log := captureLog(t)
 	diagnostics := captureNotes(t)
@@ -51,7 +51,7 @@ func TestSyncVerbose_CollapsesRepeatedCoverageAndShowsNewNotes(t *testing.T) {
 		t.Errorf("-vv did not replay the warning and note:\n%s", got)
 	}
 
-	mustWriteFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\ndisable-model-invocation: true\n---\nDeploy.\n")
+	writeFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\ndisable-model-invocation: true\n---\nDeploy.\n")
 	log.Reset()
 	diagnostics.Reset()
 	verbosity = levelQuiet
@@ -75,7 +75,7 @@ func TestSyncVerbose_CollapsesRepeatedCoverageAndShowsNewNotes(t *testing.T) {
 func TestSyncVerbose_LayeredProjectShowsResultBeforeDiagnostics(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "version: 1\n")
+	writeFile(t, "agnostic-ai.local.yaml", "version: 1\n")
 	silence(t)
 	log := captureLog(t)
 	root := NewRootCmd("test")
@@ -91,9 +91,9 @@ func TestSyncVerbose_LayeredProjectShowsResultBeforeDiagnostics(t *testing.T) {
 
 func TestSyncVerbose_PartialSyncPreservesOtherTargetsDiagnostics(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "defaults.yaml"), "model: claude-opus-4-8\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "defaults.yaml"), "model: claude-opus-4-8\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
 	silence(t)
 	log := captureLog(t)
 	diagnostics := captureNotes(t)
@@ -137,15 +137,15 @@ func TestPartialDropRecordsKeepUnselectedAndProjectEntries(t *testing.T) {
 
 func TestSyncVerbose_PartialSyncRemembersNewProjectNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
 	silence(t)
 	captureLog(t)
 	diagnostics := captureNotes(t)
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "overlays", "codex.config.toml"), "notify = [\"echo\"]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "overlays", "codex.config.toml"), "notify = [\"echo\"]\n")
 	verbosity = levelVerbose
 	diagnostics.Reset()
 	if err := runSyncOnce(".", []string{"codex"}, false, false, "off", 1); err != nil {
@@ -169,7 +169,7 @@ func TestSyncVerbose_PartialSyncRemembersNewProjectNote(t *testing.T) {
 	if err := runSyncOnce(".", []string{"codex"}, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, overlay, "notify = [\"echo\"]\n")
+	writeFile(t, overlay, "notify = [\"echo\"]\n")
 	diagnostics.Reset()
 	if err := runSyncOnce(".", []string{"codex"}, false, false, "off", 1); err != nil {
 		t.Fatal(err)

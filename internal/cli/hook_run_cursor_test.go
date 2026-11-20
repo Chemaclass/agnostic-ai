@@ -28,13 +28,13 @@ func cursorProject(t *testing.T, hook string) {
 func cursorProjectWithScript(t *testing.T, hook, body string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "protect-files.sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "protect-files.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "protect-files.yaml"), hook)
 	mustSync(t)
 }
 

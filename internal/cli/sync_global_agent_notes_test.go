@@ -8,7 +8,7 @@ import (
 
 func TestSyncGlobal_NotesAgentFieldsTheTargetDoesNotWrite(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmaxTurns: 5\nbackground: true\n---\nReview carefully.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmaxTurns: 5\nbackground: true\n---\nReview carefully.\n")
 
 	out, warnings, err := runGlobalAgentTest("--only", "codex", "--dry-run")
 	if err != nil {
@@ -24,7 +24,7 @@ func TestSyncGlobal_NotesAgentFieldsTheTargetDoesNotWrite(t *testing.T) {
 
 func TestSyncGlobal_PrintsQwensOwnAgentNoteOnce(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\npermissionMode: plan\neffort: high\n---\nReview carefully.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\npermissionMode: plan\neffort: high\n---\nReview carefully.\n")
 
 	out, warnings, err := runGlobalAgentTest("--only", "qwen", "--dry-run")
 	if err != nil {
@@ -42,8 +42,8 @@ func TestSyncGlobal_NotesAgentServersAnInlineTargetCannotWrite(t *testing.T) {
 	for _, target := range []string{"kiro", "openhands"} {
 		t.Run(target, func(t *testing.T) {
 			_, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmcpServers: [db]\n---\nReview carefully.\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmcpServers: [db]\n---\nReview carefully.\n")
+			writeFile(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
 
 			out, warnings, err := runGlobalAgentTest("--only", target, "--dry-run")
 			if err != nil {
@@ -58,8 +58,8 @@ func TestSyncGlobal_NotesAgentServersAnInlineTargetCannotWrite(t *testing.T) {
 
 func TestSyncGlobal_NoAgentServerNoteWhenOpenHandsServersAreSetNatively(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmcpServers: [db]\nx-openhands:\n  mcp_servers:\n    db:\n      command: db-mcp\n---\nReview carefully.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\nmcpServers: [db]\nx-openhands:\n  mcp_servers:\n    db:\n      command: db-mcp\n---\nReview carefully.\n")
+	writeFile(t, filepath.Join(source, "mcps", "db.yaml"), "name: db\ncommand: db-mcp\n")
 
 	out, warnings, err := runGlobalAgentTest("--only", "openhands", "--dry-run")
 	if err != nil {

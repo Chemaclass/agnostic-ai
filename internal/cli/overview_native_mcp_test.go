@@ -48,8 +48,8 @@ func writeNativeMCPProject(t *testing.T, home, dir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor, codex]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"), "command: github-mcp\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"), "command: github-mcp\n")
 	claude, err := json.Marshal(map[string]any{
 		"mcpServers": map[string]any{
 			"notion": map[string]any{"type": "http", "url": "https://u:synthetic-pass@mcp.notion.com/mcp?api_key=synthetic-q", "headers": map[string]any{"Authorization": "Bearer synthetic-bearer"}},
@@ -67,13 +67,13 @@ func writeNativeMCPProject(t *testing.T, home, dir string) {
 	if err := os.WriteFile(filepath.Join(home, ".claude.json"), claude, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers": {
+	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers": {
 		"github": {"command": "github-mcp", "env": {"GITHUB_TOKEN": "ghp_synthetic123"}},
 		"sentry": {"type": "sse", "url": "https://sentry.example/sse?token=synthetic-q", "headers": {"Authorization": "Bearer synthetic-bearer"}}
 	}}`)
-	mustWrite(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {"linear": {"url": "https://u:synthetic-pass@linear.example/mcp", "headers": {"Authorization": "Bearer synthetic-bearer"}}}}`)
-	mustWrite(t, filepath.Join(dir, ".codex", "config.toml"), "[mcp_servers.docs]\ncommand = \"docs\"\nargs = [\"--token\", \"synthetic-arg\"]\nenv = { TOKEN = \"ghp_synthetic123\" }\n")
-	mustWrite(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.broken\ncommand = \"x\"\n")
+	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {"linear": {"url": "https://u:synthetic-pass@linear.example/mcp", "headers": {"Authorization": "Bearer synthetic-bearer"}}}}`)
+	writeFile(t, filepath.Join(dir, ".codex", "config.toml"), "[mcp_servers.docs]\ncommand = \"docs\"\nargs = [\"--token\", \"synthetic-arg\"]\nenv = { TOKEN = \"ghp_synthetic123\" }\n")
+	writeFile(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.broken\ncommand = \"x\"\n")
 }
 
 func TestNativeMCPServers_ReadsEachTargetsProjectAndUserFiles(t *testing.T) {
@@ -111,8 +111,8 @@ func TestNativeMCPServers_LeavesOutWhatGlobalSyncWrote(t *testing.T) {
 	home := nativeMCPHome(t)
 	testutil.TempCwd(t)
 	source := filepath.Join(home, "source")
-	mustWrite(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {"db": {"command": "db"}, "linear": {"url": "https://linear.example/mcp"}}}`)
-	mustWrite(t, filepath.Join(source, "state", "global.json"), `{"version": 1, "files": [], "mcp": {"cursor": {"db": {"command": "db"}}}}`)
+	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {"db": {"command": "db"}, "linear": {"url": "https://linear.example/mcp"}}}`)
+	writeFile(t, filepath.Join(source, "state", "global.json"), `{"version": 1, "files": [], "mcp": {"cursor": {"db": {"command": "db"}}}}`)
 
 	got := nativeMCPServers(home, ".", source, &config.Config{Targets: []string{"cursor"}}, true)
 	if len(got) != 1 || got[0].Name != "linear" {
@@ -127,10 +127,10 @@ func TestNativeMCPServers_MissingOrBrokenFilesGiveNoServers(t *testing.T) {
 	if got := nativeMCPServers(home, ".", "", cfg, false); got != nil {
 		t.Errorf("no files: servers = %+v", got)
 	}
-	mustWrite(t, filepath.Join(home, ".claude.json"), "{not json")
-	mustWrite(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers": ["a list"]}`)
-	mustWrite(t, filepath.Join(dir, ".vibe", "config.toml"), "mcp_servers = \"text\"\n")
-	mustWrite(t, filepath.Join(dir, "opencode.json"), "[")
+	writeFile(t, filepath.Join(home, ".claude.json"), "{not json")
+	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers": ["a list"]}`)
+	writeFile(t, filepath.Join(dir, ".vibe", "config.toml"), "mcp_servers = \"text\"\n")
+	writeFile(t, filepath.Join(dir, "opencode.json"), "[")
 	if got := nativeMCPServers(home, ".", "", cfg, false); got != nil {
 		t.Errorf("broken files: servers = %+v", got)
 	}
@@ -139,8 +139,8 @@ func TestNativeMCPServers_MissingOrBrokenFilesGiveNoServers(t *testing.T) {
 func TestNativeMCPServers_ReadsTOMLArraysAndOpencode(t *testing.T) {
 	home := nativeMCPHome(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, ".vibe", "config.toml"), "[[mcp_servers]]\nname = \"docs\"\ntransport = \"streamable-http\"\nurl = \"https://docs.example/mcp?key=synthetic-q\"\n")
-	mustWrite(t, filepath.Join(dir, "opencode.json"), `{
+	writeFile(t, filepath.Join(dir, ".vibe", "config.toml"), "[[mcp_servers]]\nname = \"docs\"\ntransport = \"streamable-http\"\nurl = \"https://docs.example/mcp?key=synthetic-q\"\n")
+	writeFile(t, filepath.Join(dir, "opencode.json"), `{
 		// comment
 		"mcp": {"fs": {"type": "local", "command": ["fs"]}, "web": {"type": "remote", "url": "https://web.example"}}
 	}`)
@@ -207,7 +207,7 @@ func TestProjectNativeMCP_CoversEveryTarget(t *testing.T) {
 func TestNativeMCPServers_DropsTheImportHintForAnOverrideTheImporterSkips(t *testing.T) {
 	home := nativeMCPHome(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "tools", "mcp.json"), `{"mcpServers": {"notion": {"type": "http", "url": "https://x"}}}`)
+	writeFile(t, filepath.Join(dir, "tools", "mcp.json"), `{"mcpServers": {"notion": {"type": "http", "url": "https://x"}}}`)
 	cfg := &config.Config{Targets: []string{"claude"}, Outputs: map[string]config.Output{"claude": {MCPFile: "tools/mcp.json"}}}
 	got := nativeMCPServers(home, ".", "", cfg, false)
 	if len(got) != 1 || got[0].Path != "tools/mcp.json" || got[0].Import != "" {
@@ -289,7 +289,7 @@ func TestGlobalOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 	home := nativeMCPHome(t)
 	dir := testutil.TempCwd(t)
 	writeNativeMCPProject(t, home, dir)
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(home, "source", "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
 
 	out, err := runCLI(t, "view", "--global", "--json")
 	if err != nil {
@@ -332,7 +332,7 @@ func TestNativeMCPServers_KeepsTheImportHintForAntigravityPluginMCP(t *testing.T
 	home := nativeMCPHome(t)
 	dir := testutil.TempCwd(t)
 	path := ".agents/plugins/team/mcp.json"
-	mustWrite(t, filepath.Join(dir, filepath.FromSlash(path)), `{"mcpServers": {"fs": {"command": "fs-server"}}}`)
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(path)), `{"mcpServers": {"fs": {"command": "fs-server"}}}`)
 	cfg := &config.Config{Targets: []string{"antigravity"}, Outputs: map[string]config.Output{"antigravity": {MCPFile: path}}}
 	got := nativeMCPServers(home, ".", "", cfg, false)
 	if len(got) != 1 || got[0].Path != path || got[0].Import != "agnostic-ai import antigravity" {

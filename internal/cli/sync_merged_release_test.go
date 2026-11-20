@@ -45,10 +45,10 @@ const userSettings = "{\"userKey\": \"mine\", \"nested\": {\"keep\": true}}\n"
 func writeMergedSettingsSpecs(t *testing.T, extra map[string]string) {
 	t.Helper()
 	for path, body := range mergedSettingsSpecs {
-		mustWriteFile(t, path, body)
+		writeFile(t, path, body)
 	}
 	for path, body := range extra {
-		mustWriteFile(t, path, body)
+		writeFile(t, path, body)
 	}
 }
 
@@ -99,9 +99,9 @@ func TestSync_RemovingLastSpecKeepsUserKeysInMergedFile(t *testing.T) {
 		for _, mode := range []string{"text", "json"} {
 			t.Run(tc.target+"/"+mode, func(t *testing.T) {
 				testutil.Chdir(t, t.TempDir())
-				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
 				for _, f := range tc.files {
-					mustWriteFile(t, f, userSettings)
+					writeFile(t, f, userSettings)
 				}
 				writeMergedSettingsSpecs(t, tc.specs)
 				var args []string
@@ -126,13 +126,13 @@ func TestSync_RemovingTargetKeepsUserKeysInMergedFile(t *testing.T) {
 	for _, tc := range mergedSettingsFiles {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+", cline]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+", cline]\n")
 			for _, f := range tc.files {
-				mustWriteFile(t, f, userSettings)
+				writeFile(t, f, userSettings)
 			}
 			writeMergedSettingsSpecs(t, tc.specs)
 			runSyncOK(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 			runSyncOK(t)
 			for _, f := range tc.files {
 				assertOnlyUserSettings(t, f)
@@ -155,11 +155,11 @@ func TestSync_RemovingLastSpecDeletesMergedFileOnlyWhenSyncCreatedIt(t *testing.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
 			if tc.seed != "" {
-				mustWriteFile(t, settings, tc.seed)
+				writeFile(t, settings, tc.seed)
 			}
-			mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+			writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 			runSyncOK(t)
 			runSyncOK(t)
 			if err := os.Remove(".agnostic-ai/hooks/fmt.yaml"); err != nil {
@@ -178,9 +178,9 @@ func TestSync_RemovingLastSpecDeletesMergedFileOnlyWhenSyncCreatedIt(t *testing.
 func TestSync_RemovingProtectedBlockKeepsUserKeysInGeminiSettings(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/settings/protect.yaml", "protected:\n  paths: [.env]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/settings/protect.yaml", "protected:\n  paths: [.env]\n")
 	runSyncOK(t)
 	if err := os.Remove(".agnostic-ai/settings/protect.yaml"); err != nil {
 		t.Fatal(err)
@@ -194,9 +194,9 @@ func TestSync_RemovingProtectedBlockKeepsUserKeysInGeminiSettings(t *testing.T) 
 func TestDoctorFix_KeepsUserKeysInMergedFile(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
 	if err := os.Remove(".agnostic-ai/hooks/fmt.yaml"); err != nil {
 		t.Fatal(err)
@@ -210,10 +210,10 @@ func TestDoctorFix_KeepsUserKeysInMergedFile(t *testing.T) {
 func TestSync_RemovingLastSpecKeepsUserPermissionsInClaudeSettings(t *testing.T) {
 	const settings = ".claude/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, settings, "{\"userKey\": \"mine\", \"permissions\": {\"allow\": [\"Mine\"]}}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\npermissions:\n  allow: [\"Bash(go test:*)\"]\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, settings, "{\"userKey\": \"mine\", \"permissions\": {\"allow\": [\"Mine\"]}}\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\npermissions:\n  allow: [\"Bash(go test:*)\"]\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
 	runSyncOK(t)
 	for _, p := range []string{".agnostic-ai/settings/model.yaml", ".agnostic-ai/hooks/fmt.yaml"} {
 		if err := os.Remove(p); err != nil {
@@ -249,9 +249,9 @@ func TestSync_RemovingSpecsOneAtATimeReleasesEveryKeySyncSet(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
 			if tc.seed != "" {
-				mustWriteFile(t, settings, tc.seed)
+				writeFile(t, settings, tc.seed)
 			}
 			writeMergedSettingsSpecs(t, nil)
 			runSyncOK(t)
@@ -278,9 +278,9 @@ func TestSync_RemovingSpecsOneAtATimeReleasesEveryKeySyncSet(t *testing.T) {
 func TestSync_RemovingXClaudeListKeepsUserEntries(t *testing.T) {
 	const settings = ".claude/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, settings, "{\"sandbox\": {\"excludedCommands\": [\"mine\"]}}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/sandbox.yaml", "x-claude:\n  sandbox:\n    excludedCommands: [ours]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, settings, "{\"sandbox\": {\"excludedCommands\": [\"mine\"]}}\n")
+	writeFile(t, ".agnostic-ai/settings/sandbox.yaml", "x-claude:\n  sandbox:\n    excludedCommands: [ours]\n")
 	runSyncOK(t)
 	if err := os.Remove(".agnostic-ai/settings/sandbox.yaml"); err != nil {
 		t.Fatal(err)

@@ -28,7 +28,7 @@ func TestSync_ReviewIncludesAFileWithAnAtPathLine(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	bugbot := readFileString(t, filepath.Join(dir, filepath.FromSlash(includeScope), ".cursor", "BUGBOT.md"))
+	bugbot := readFile(t, filepath.Join(dir, filepath.FromSlash(includeScope), ".cursor", "BUGBOT.md"))
 	if !strings.Contains(bugbot, "# Create candidate\n\nCheck that the payload keeps its ids.\n") {
 		t.Errorf("BUGBOT.md lacks the README content:\n%s", bugbot)
 	}
@@ -75,7 +75,7 @@ func TestSync_ReviewIncludeLeavesFencedAtLinesAlone(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	bugbot := readFileString(t, filepath.Join(dir, filepath.FromSlash(includeScope), ".cursor", "BUGBOT.md"))
+	bugbot := readFile(t, filepath.Join(dir, filepath.FromSlash(includeScope), ".cursor", "BUGBOT.md"))
 	if !strings.Contains(bugbot, "@some/file.md") {
 		t.Errorf("a fenced @path line must stay as written:\n%s", bugbot)
 	}
@@ -89,7 +89,7 @@ func TestSync_ReviewIncludeReachesCodexReviewSection(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	agents := readFileString(t, filepath.Join(dir, filepath.FromSlash(includeScope), "AGENTS.md"))
+	agents := readFile(t, filepath.Join(dir, filepath.FromSlash(includeScope), "AGENTS.md"))
 	if !strings.Contains(agents, "## Code Review Rules\n\n# Create candidate") {
 		t.Errorf("scoped AGENTS.md lacks the included README:\n%s", agents)
 	}

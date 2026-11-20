@@ -35,8 +35,8 @@ func TestRender_LeavesTheBundleAsItFound(t *testing.T) {
 				settingsSb33.WriteString("x-" + name + ":\n  permissions:\n    deny: [\"Bash(rm *)\"]\n")
 			}
 			settings += settingsSb33.String()
-			mustWriteFile(t, filepath.Join(root, ".agnostic-ai", "settings", "team.yaml"), settings)
-			mustWriteFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(names, ", ")+"]\nsync:\n  collision-policy: prefer-spec\n")
+			writeFile(t, filepath.Join(root, ".agnostic-ai", "settings", "team.yaml"), settings)
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(names, ", ")+"]\nsync:\n  collision-policy: prefer-spec\n")
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				t.Fatal(err)

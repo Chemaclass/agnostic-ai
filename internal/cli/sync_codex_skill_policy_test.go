@@ -20,9 +20,9 @@ func setupBundledOpenAIYAMLProject(t *testing.T, targets, frontmatter, bundled s
 	t.Helper()
 	dir := setupFixture(t)
 	skill := filepath.Join(dir, ".agnostic-ai", "skills", "deploy")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+targets+"]\n")
-	mustWrite(t, filepath.Join(skill, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\n"+frontmatter+"---\nDeploy.\n")
-	mustWrite(t, filepath.Join(skill, "agents", "openai.yaml"), bundled)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, filepath.Join(skill, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\n"+frontmatter+"---\nDeploy.\n")
+	writeFile(t, filepath.Join(skill, "agents", "openai.yaml"), bundled)
 	return dir
 }
 
@@ -125,7 +125,7 @@ func TestSync_ManualOnlySkillNamesAnUnparsableBundledOpenAIYAML(t *testing.T) {
 
 func TestSync_TargetSharingCodexSkillsDirWritesMergedOpenAIYAML(t *testing.T) {
 	dir := setupBundledOpenAIYAMLProject(t, "codex, kiro", "disable-model-invocation: true\n", "interface:\n  display_name: Deploy UI\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, kiro]\noutputs:\n  codex:\n    skills-dir: shared/skills\n  kiro:\n    skills-dir: shared/skills\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, kiro]\noutputs:\n  codex:\n    skills-dir: shared/skills\n  kiro:\n    skills-dir: shared/skills\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 

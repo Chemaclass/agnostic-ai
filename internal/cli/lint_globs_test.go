@@ -8,9 +8,9 @@ import (
 
 func TestLint_RejectsGlobsThatAreNotAStringOrAList(t *testing.T) {
 	dir := budgetProject(t, "targets: [cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: {go: true}\n---\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "mixed.md"), "---\nname: mixed\nalwaysApply: false\nx-cursor:\n  globs: [\"*.go\", 3]\n---\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "good.md"), "---\nname: good\nalwaysApply: false\nglobs: [\"*.go\", \"*.mod\"]\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: {go: true}\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "mixed.md"), "---\nname: mixed\nalwaysApply: false\nx-cursor:\n  globs: [\"*.go\", 3]\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "good.md"), "---\nname: good\nalwaysApply: false\nglobs: [\"*.go\", \"*.mod\"]\n---\nBody.\n")
 
 	out, err := runCLI(t, "lint")
 	if err == nil {
@@ -49,8 +49,8 @@ func TestCompileGlob_MatchesBraceSets(t *testing.T) {
 
 func TestDoctorCheckGlobs_KeepsABraceSetWhole(t *testing.T) {
 	dir := budgetProject(t, "targets: [cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, "src", "app.tsx"), "x\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "ts.md"), "---\nname: ts\nalwaysApply: false\nglobs: [\"src/**/*.{ts,tsx}\"]\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, "src", "app.tsx"), "x\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "ts.md"), "---\nname: ts\nalwaysApply: false\nglobs: [\"src/**/*.{ts,tsx}\"]\n---\nBody.\n")
 
 	n, err := reportUnmatchedGlobs(NewRootCmd("test"), dir)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestDoctorCheckGlobs_KeepsABraceSetWhole(t *testing.T) {
 // writing an always-on rule with no word.
 func TestSync_WarnsOnMalformedGlobs(t *testing.T) {
 	dir := budgetProject(t, "targets: [cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: {go: true}\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: {go: true}\n---\nBody.\n")
 	var buf strings.Builder
 	prev := logOut
 	logOut = &buf
@@ -93,7 +93,7 @@ func TestCompileGlob_UnpairedBraceStaysLiteral(t *testing.T) {
 // comma form, which syncs to the same list.
 func TestKiro_ListFileMatchPatternRoundTrips(t *testing.T) {
 	dir := budgetProject(t, "targets: [kiro]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nalwaysApply: false\nglobs: [\"*.go\", \"src/**/*.{ts,tsx}\"]\n---\nGo body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nalwaysApply: false\nglobs: [\"*.go\", \"src/**/*.{ts,tsx}\"]\n---\nGo body.\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -103,7 +103,7 @@ func TestKiro_ListFileMatchPatternRoundTrips(t *testing.T) {
 		t.Fatalf("kiro must list both patterns:\n%s", first)
 	}
 
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "")
 	if out, err := runCLI(t, "import", "kiro", "--overwrite"); err != nil {
 		t.Fatalf("import kiro: %v\n%s", err, out)
 	}
@@ -149,9 +149,9 @@ func TestCompileGlob_BracesWithoutACommaStayLiteral(t *testing.T) {
 // still checked.
 func TestDoctorCheckGlobs_GoesOnPastABadPattern(t *testing.T) {
 	dir := budgetProject(t, "targets: [cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, "src", "app.go"), "x\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: \"x}y{z.txt,a[.go\"\n---\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "none.md"), "---\nname: none\nalwaysApply: false\nglobs: \"docs/**\"\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, "src", "app.go"), "x\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: \"x}y{z.txt,a[.go\"\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "none.md"), "---\nname: none\nalwaysApply: false\nglobs: \"docs/**\"\n---\nBody.\n")
 	var out strings.Builder
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)

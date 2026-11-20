@@ -16,8 +16,8 @@ func TestEntryPointPaths_ClaudeCompanionAgents(t *testing.T) {
 		t.Helper()
 		dir := testutil.TempCwd(t)
 		t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-		mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), claudeMD)
-		mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "# My rules\n")
+		writeFile(t, filepath.Join(dir, "CLAUDE.md"), claudeMD)
+		writeFile(t, filepath.Join(dir, "AGENTS.md"), "# My rules\n")
 	}
 
 	t.Run("claude only with @AGENTS.md lists the companion", func(t *testing.T) {

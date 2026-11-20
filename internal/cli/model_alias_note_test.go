@@ -12,7 +12,7 @@ import (
 // files that change under an unchanged spec are explained (#1578).
 func TestSync_NotesAnAliasThatMovesOnce(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
 	if out := syncOutput(t); strings.Contains(out, "now resolves") {
 		t.Errorf("a first sync has nothing to compare:\n%s", out)
 	}
@@ -33,7 +33,7 @@ func TestSync_NotesAnAliasThatMovesOnce(t *testing.T) {
 // the next text sync to report.
 func TestSyncJSON_KeepsTheAliasRecordForTheNextSync(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
 	syncOutput(t)
 	seedModelAlias(t, dir, "codex", "sol", "gpt-6-sol")
 
@@ -63,8 +63,8 @@ func seedModelAlias(t *testing.T, dir, target, alias, model string) {
 // does, while a new alias is recorded as the baseline.
 func TestSync_QuietKeepsAMovedAliasForTheNextSync(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "scout.md"), "---\nname: scout\ndescription: Scout.\nmodel: luna\n---\nScout.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "scout.md"), "---\nname: scout\ndescription: Scout.\nmodel: luna\n---\nScout.\n")
 	syncOutput(t)
 	seedModelAlias(t, dir, "codex", "sol", "gpt-6-sol")
 
@@ -83,7 +83,7 @@ func TestSync_QuietKeepsAMovedAliasForTheNextSync(t *testing.T) {
 // A sync that does not emit codex, or writes nothing, keeps its record.
 func TestSync_PartialAndDryRunKeepAnotherTargetsAliasRecord(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {claude: sonnet, codex: sol}\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {claude: sonnet, codex: sol}\n")
 	syncOutput(t)
 	seedModelAlias(t, dir, "codex", "sol", "gpt-6-sol")
 

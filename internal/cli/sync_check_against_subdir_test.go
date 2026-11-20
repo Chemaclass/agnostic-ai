@@ -50,8 +50,8 @@ func TestSyncCheckAgainst_ReadsASourceOutsideTheProject(t *testing.T) {
 	repo := t.TempDir()
 	git(t, repo, "init", "-q")
 	app := filepath.Join(repo, "apps", "web")
-	mustWriteFile(t, filepath.Join(app, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsources:\n  rules: ../../shared/rules\n")
-	mustWriteFile(t, filepath.Join(repo, "shared", "rules", "r1.md"), "---\nname: r1\n---\nShared rule.\n")
+	writeFile(t, filepath.Join(app, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsources:\n  rules: ../../shared/rules\n")
+	writeFile(t, filepath.Join(repo, "shared", "rules", "r1.md"), "---\nname: r1\n---\nShared rule.\n")
 	testutil.Chdir(t, app)
 	silence(t)
 	if err := runSyncArgs(t); err != nil {
@@ -61,7 +61,7 @@ func TestSyncCheckAgainst_ReadsASourceOutsideTheProject(t *testing.T) {
 	if stdout, _, err := checkAgainst(t, "index"); err != nil {
 		t.Fatalf("a synced index should pass: %v\n%s", err, stdout)
 	}
-	mustWriteFile(t, filepath.Join(repo, "shared", "rules", "r2.md"), "---\nname: r2\n---\nNew shared rule.\n")
+	writeFile(t, filepath.Join(repo, "shared", "rules", "r2.md"), "---\nname: r2\n---\nNew shared rule.\n")
 	git(t, repo, "add", "shared/rules/r2.md")
 
 	stdout, _, err := checkAgainst(t, "index")

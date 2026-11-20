@@ -11,7 +11,7 @@ import (
 func TestSyncGlobal_BackupKeepsHandEditedRemovedSkill(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
-	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestSyncGlobal_BackupKeepsHandEditedRemovedSkill(t *testing.T) {
 	if _, err := os.Stat(out); !os.IsNotExist(err) {
 		t.Errorf("the removed skill must be gone: %v", err)
 	}
-	if got := readGlobalTest(t, out+".bak"); got != edited {
+	if got := readFile(t, out+".bak"); got != edited {
 		t.Errorf("backup must hold the hand edit:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
@@ -37,7 +37,7 @@ func TestSyncGlobal_BackupKeepsHandEditedRemovedSkill(t *testing.T) {
 
 func TestApplyGlobalChanges_BackupKeepsRemovedFileBytes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	mustWriteGlobalTest(t, path, "{\"a\": 1}\n")
+	writeFile(t, path, "{\"a\": 1}\n")
 	guards := map[string]*diskSnapshot{path: {data: []byte("{\"a\": 1}\n")}}
 	if _, err := applyGlobalChanges(nil, []string{path}, true, guards); err != nil {
 		t.Fatal(err)
@@ -45,14 +45,14 @@ func TestApplyGlobalChanges_BackupKeepsRemovedFileBytes(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("the file must be removed: %v", err)
 	}
-	if got := readGlobalTest(t, path+".bak"); got != "{\"a\": 1}\n" {
+	if got := readFile(t, path+".bak"); got != "{\"a\": 1}\n" {
 		t.Errorf("backup = %q", got)
 	}
 }
 
 func TestApplyGlobalChanges_NoBackupFlagLeavesNoBackupOnRemoval(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	mustWriteGlobalTest(t, path, "{}\n")
+	writeFile(t, path, "{}\n")
 	if _, err := applyGlobalChanges(nil, []string{path}, false, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -65,18 +65,18 @@ func TestApplyGlobalChanges_FailedRemovalBackupKeepsTheFile(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.json")
 	path := filepath.Join(dir, "settings.json")
-	mustWriteGlobalTest(t, first, "{}\n")
-	mustWriteGlobalTest(t, path, "{\"a\": 1}\n")
+	writeFile(t, first, "{}\n")
+	writeFile(t, path, "{\"a\": 1}\n")
 	if err := os.MkdirAll(filepath.Join(path+".bak", "busy"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := applyGlobalChanges(nil, []string{first, path}, true, nil); err == nil || !strings.Contains(err.Error(), "backup "+path) {
 		t.Fatalf("a failed backup must stop the removal: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != "{\"a\": 1}\n" {
+	if got := readFile(t, path); got != "{\"a\": 1}\n" {
 		t.Errorf("file = %q", got)
 	}
-	if got := readGlobalTest(t, first); got != "{}\n" {
+	if got := readFile(t, first); got != "{}\n" {
 		t.Errorf("an earlier removal must be rolled back: %q", got)
 	}
 }
@@ -89,7 +89,7 @@ func TestApplyGlobalChanges_RemovalBackupOfPrivateFileStaysPrivate(t *testing.T)
 	if err := os.WriteFile(path, []byte("{\"key\": \"secret\"}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path+".bak", "old\n")
+	writeFile(t, path+".bak", "old\n")
 	if _, err := applyGlobalChanges(nil, []string{path}, true, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestApplyGlobalChanges_RemovalBackupOfPrivateFileStaysPrivate(t *testing.T)
 	if info.Mode().Perm() != 0o600 {
 		t.Errorf("backup mode = %v, want 0600", info.Mode().Perm())
 	}
-	if got := readGlobalTest(t, path+".bak"); got != "{\"key\": \"secret\"}\n" {
+	if got := readFile(t, path+".bak"); got != "{\"key\": \"secret\"}\n" {
 		t.Errorf("backup = %q", got)
 	}
 }
@@ -116,7 +116,7 @@ func TestApplyGlobalChanges_SymlinkRemovalBackupKeepsTargetBytesBesideTheLink(t 
 			t.Errorf("%s must be gone: %v", path, err)
 		}
 	}
-	if got := readGlobalTest(t, link+".bak"); got != "{\"theme\":\"dark\"}\n" {
+	if got := readFile(t, link+".bak"); got != "{\"theme\":\"dark\"}\n" {
 		t.Errorf("backup = %q", got)
 	}
 	if _, err := os.Lstat(target + ".bak"); !os.IsNotExist(err) {
@@ -127,7 +127,7 @@ func TestApplyGlobalChanges_SymlinkRemovalBackupKeepsTargetBytesBesideTheLink(t 
 func TestSyncGlobal_ReaddedSkillSyncsBesideItsBackup(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
-	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -140,14 +140,14 @@ func TestSyncGlobal_ReaddedSkillSyncsBesideItsBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy, my way.\n")
+	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy, my way.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("a skill put back in the source must sync beside its backup: %v", err)
 	}
-	if got := readGlobalTest(t, out); !strings.Contains(got, "Tidy, my way.") {
+	if got := readFile(t, out); !strings.Contains(got, "Tidy, my way.") {
 		t.Errorf("skill = %q", got)
 	}
-	if got := readGlobalTest(t, out+".bak"); got != edited {
+	if got := readFile(t, out+".bak"); got != edited {
 		t.Errorf("the backup must stay: %q", got)
 	}
 }
@@ -156,17 +156,17 @@ func TestApplyGlobalChanges_RollbackRestoresAnEarlierBackup(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.json")
 	changed := filepath.Join(dir, "settings.json")
-	mustWriteGlobalTest(t, first, "{}\n")
-	mustWriteGlobalTest(t, first+".bak", "kept by the user\n")
-	mustWriteGlobalTest(t, changed, "{\"a\": 1}\n")
+	writeFile(t, first, "{}\n")
+	writeFile(t, first+".bak", "kept by the user\n")
+	writeFile(t, changed, "{\"a\": 1}\n")
 	guards := map[string]*diskSnapshot{changed: {data: []byte("{}\n")}}
 	if _, err := applyGlobalChanges(nil, []string{first, changed}, true, guards); err == nil {
 		t.Fatal("a changed file must stop the removal")
 	}
-	if got := readGlobalTest(t, first); got != "{}\n" {
+	if got := readFile(t, first); got != "{}\n" {
 		t.Errorf("first = %q", got)
 	}
-	if got := readGlobalTest(t, first+".bak"); got != "kept by the user\n" {
+	if got := readFile(t, first+".bak"); got != "kept by the user\n" {
 		t.Errorf("an earlier backup must come back: %q", got)
 	}
 	if _, err := os.Stat(changed + ".bak"); !os.IsNotExist(err) {
@@ -177,7 +177,7 @@ func TestApplyGlobalChanges_RollbackRestoresAnEarlierBackup(t *testing.T) {
 func TestApplyGlobalChanges_RefusesABackupPathThatIsASymlink(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
-	mustWriteGlobalTest(t, path, "{}\n")
+	writeFile(t, path, "{}\n")
 	elsewhere := filepath.Join(dir, "elsewhere.json")
 	if err := os.Symlink(elsewhere, path+".bak"); err != nil {
 		t.Skipf("symlinks unsupported: %v", err)
@@ -185,7 +185,7 @@ func TestApplyGlobalChanges_RefusesABackupPathThatIsASymlink(t *testing.T) {
 	if _, err := applyGlobalChanges(nil, []string{path}, true, nil); err == nil || !strings.Contains(err.Error(), "not a regular file") {
 		t.Fatalf("a symlinked backup path must stop the run: %v", err)
 	}
-	if got := readGlobalTest(t, path); got != "{}\n" {
+	if got := readFile(t, path); got != "{}\n" {
 		t.Errorf("file = %q", got)
 	}
 	if _, err := os.Lstat(elsewhere); !os.IsNotExist(err) {
@@ -199,7 +199,7 @@ func TestApplyGlobalChanges_RefusesABackupPathThatIsASymlink(t *testing.T) {
 func TestGlobalFolderMatches_SymlinkedBackupIsACollision(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "tidy")
 	skill := filepath.Join(dir, "SKILL.md")
-	mustWriteGlobalTest(t, skill, "Tidy.\n")
+	writeFile(t, skill, "Tidy.\n")
 	if err := os.Symlink(filepath.Join(t.TempDir(), "private"), skill+".bak"); err != nil {
 		t.Skipf("symlinks unsupported: %v", err)
 	}
