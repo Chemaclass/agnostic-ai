@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"slices"
 	"strings"
@@ -210,4 +211,34 @@ func TestSync_PreviewStopOnAHandWrittenMCPFileOmitsNothingWritten(t *testing.T) 
 			t.Errorf("%s: err = %v, want the stop without \"nothing was written\"", strings.Join(args, " "), err)
 		}
 	}
+}
+
+// doctor --json listed a hand-written MCP file as plain stale, without
+// the reason the text output names.
+func TestDoctorJSON_CarriesTheHandWrittenGuardReason(t *testing.T) {
+	setUpCursorMCPProject(t)
+
+	out, err := runCLI(t, "doctor", "--json")
+	if err == nil {
+		t.Fatalf("doctor --json passed with a hand-written MCP file:\n%s", out)
+	}
+	var report struct {
+		Writes []struct {
+			Path   string `json:"path"`
+			Reason string `json:"reason"`
+		} `json:"writes"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &report); jerr != nil {
+		t.Fatalf("parse: %v\n%s", jerr, out)
+	}
+	for _, w := range report.Writes {
+		if w.Path != ".cursor/mcp.json" {
+			continue
+		}
+		if !strings.Contains(w.Reason, "holds MCP config agnostic-ai did not write") || !strings.Contains(w.Reason, "agnostic-ai import cursor") {
+			t.Errorf("reason = %q, want the guard reason and its keep step", w.Reason)
+		}
+		return
+	}
+	t.Fatalf("no write record for .cursor/mcp.json:\n%s", out)
 }

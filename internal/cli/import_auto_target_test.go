@@ -175,3 +175,38 @@ func TestAddTargetFrontmatter_NoFrontmatter_Synthesizes(t *testing.T) {
 		t.Errorf("addTargetFrontmatter:\ngot:  %q\nwant: %q", got, want)
 	}
 }
+
+// Goose and OpenHands write Markdown agents to .agents/agents/, the
+// folder Codex once used for its TOML agents. That is no Codex install,
+// so a Claude agent must not be pinned to Claude.
+func TestImportFromClaude_SharedAgentsFolderOfOtherTools_NoTargetTag(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "agents", "explorer.md"), "---\nname: explorer\n---\nedited body\n")
+	writeFile(t, filepath.Join(dir, ".claude", "skills", "validator", "SKILL.md"), "---\nname: validator\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agents", "agents", "explorer.md"), "---\nname: explorer\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agents", "skills", "other", "SKILL.md"), "---\nname: other\n---\nx\n")
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join("agents", "explorer.md"), filepath.Join("skills", "validator", "SKILL.md")} {
+		if got := readFile(t, filepath.Join(dir, path)); strings.Contains(got, "target:") {
+			t.Errorf("%s pinned to one tool with no Codex install:\n%s", path, got)
+		}
+	}
+}
+
+// Codex's legacy agent folder holds TOML agents, which still mark a
+// Codex install.
+func TestImportFromClaude_LegacyCodexAgentTOML_AddsTargetClaude(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude", "agents", "explorer.md"), "---\nname: explorer\n---\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agents", "agents", "phel.toml"), "name = \"phel\"\ndeveloper_instructions = \"x\"\n")
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, "agents", "explorer.md")); !strings.Contains(got, "target: claude") {
+		t.Errorf("expected `target: claude` with a legacy Codex agent:\n%s", got)
+	}
+}

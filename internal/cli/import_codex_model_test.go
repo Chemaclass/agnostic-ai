@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func TestImportFromCodex_ScopesAgentModelToCodex(t *testing.T) {
@@ -28,6 +30,9 @@ func TestImportFromCodex_ScopesAgentModelToCodex(t *testing.T) {
 			if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 				t.Fatal(err)
 			}
+			priorTarget := importScopeTarget
+			t.Cleanup(func() { importScopeTarget = priorTarget })
+			importScopeTarget = "codex"
 			if err := importFromCodex(dir, rootSources()); err != nil {
 				t.Fatal(err)
 			}
@@ -65,13 +70,16 @@ func TestMergeCodexAgentIntoExisting_Model(t *testing.T) {
 	}{
 		{"per-target map with codex follows the native model", "model: {claude: opus, codex: gpt-5}\n", map[string]any{"claude": "opus", "codex": "gpt-5.5"}, nil},
 		{"per-target map with default adds codex", "model: {default: gpt-5}\n", map[string]any{"default": "gpt-5", "codex": "gpt-5.5"}, nil},
-		{"shared value that differs", "model: sonnet\n", "sonnet", "gpt-5.5"},
+		{"shared value other tools read", "model: sonnet\n", map[string]any{"default": "sonnet", "codex": "gpt-5.5"}, nil},
 		{"shared value that matches", "model: gpt-5.5\n", "gpt-5.5", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			priorTarget, priorCfg := importScopeTarget, importHookConfig
+			t.Cleanup(func() { importScopeTarget, importHookConfig = priorTarget, priorCfg })
+			importScopeTarget, importHookConfig = "codex", &config.Config{Targets: []string{"claude", "codex"}}
 			existing := "---\nname: reviewer\n" + c.existing + "---\n\nReview.\n"
-			out, err := mergeCodexAgentIntoExisting(existing, "reviewer", map[string]any{"model": "gpt-5.5"}, nil)
+			out, err := mergeCodexAgentIntoExisting(existing, filepath.Join(".agnostic-ai", "agents", "reviewer.md"), "reviewer", map[string]any{"model": "gpt-5.5"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

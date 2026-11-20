@@ -11,19 +11,24 @@ import (
 // codexTreeExists reports whether root carries any sign of a Codex
 // installation. A claude-only project must not gain `target: claude`
 // tags during import, since cross-emit would never have triggered
-// anyway.
+// anyway. Goose, OpenHands and other tools share `.agents/agents/` and
+// `.agents/skills/`, so only `.codex/` or a TOML agent marks Codex.
 func codexTreeExists(root string) bool {
+	if dirExists(filepath.Join(root, codexDir)) {
+		return true
+	}
 	for _, d := range codexAgentDirs {
-		if dirExists(filepath.Join(root, d)) {
-			return true
+		entries, err := os.ReadDir(filepath.Join(root, d))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".toml") {
+				return true
+			}
 		}
 	}
-	for _, d := range codexSkillsDirs {
-		if dirExists(filepath.Join(root, d)) {
-			return true
-		}
-	}
-	return dirExists(filepath.Join(root, codexDir))
+	return false
 }
 
 // claudeTreeExists is the symmetric check for `import codex`.

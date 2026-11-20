@@ -165,6 +165,7 @@ func runDoctorJSON(cmd *cobra.Command, opts doctorOptions) error {
 	if err != nil {
 		return err
 	}
+	handWritten := guardRenders(readLedger("."), scope.cfg, scope.bundle, targets, doctorHandWrittenGuard(scope.cfg, scope.bundle, opts))
 	lint, accepted, err := lintScopeReport(scope)
 	if err != nil {
 		return err
@@ -185,7 +186,7 @@ func runDoctorJSON(cmd *cobra.Command, opts doctorOptions) error {
 	if claudeSkillOverridesSelected(scope.cfg, targets) {
 		overrides = collectClaudeSkillOverrides(scope.cfg, scope.bundle, opts.scope == "project")
 	}
-	return printDoctorJSON(cmd, displayReports, gate, refs, opts.checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
+	return printDoctorJSON(cmd, displayReports, handWritten, gate, refs, opts.checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
 }
 
 // doctorTextFindings carries what the text checks found into the final gate.
@@ -561,12 +562,16 @@ type doctorJSONOutput struct {
 // used by `sync --check --json`: missing, stale, and orphaned files appear
 // in writes. Lint, hook trust, packaging, nested copy, and hook script findings have their own lists. With checkRefs, broken skill
 // references appear in references, and with --check-globs, rules that never load appear in globs.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, gate doctorGateFindings, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck, skillOverrides []skillOverrideRecord) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, handWritten error, gate doctorGateFindings, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck, skillOverrides []skillOverrideRecord) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
 	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted, HookTrustCheck: trustCheck, SkillOverrides: skillOverrides,
 		Globs: gate.globs, NestedCopies: nestedCopyRecords(gate.nestedCopies), HookScriptDrift: gate.hookScripts}
+	out.Writes = withHandWrittenReasons(out.Writes, handWritten)
+	if _, stop := errors.AsType[handWrittenStop](handWritten); !stop {
+		out.addError(withoutNothingWritten(handWritten))
+	}
 	if out.HookScriptDrift == nil {
 		out.HookScriptDrift = []divergentHookScript{}
 	}
@@ -599,4 +604,21 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, gate doctorGateF
 		return err
 	}
 	return lintErrorsErr(lint)
+}
+
+// withHandWrittenReasons gives each write a hand-written file guard stops
+// on the reason and steps doctor's text output names.
+func withHandWrittenReasons(writes []fileRecord, guard error) []fileRecord {
+	stop, ok := errors.AsType[handWrittenStop](guard)
+	if !ok {
+		return writes
+	}
+	for i, w := range writes {
+		for _, f := range stop {
+			if w.Path == f.path {
+				writes[i].Reason = f.message
+			}
+		}
+	}
+	return writes
 }
