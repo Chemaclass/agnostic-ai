@@ -32,7 +32,7 @@ List conversations, newest first, one week per page.
 | `editor=<id>` | The editor chosen in Settings, so editor links use its scheme. |
 | `before=<time>` | The next page, which holds older conversations. |
 | `q=<words>` | A search. |
-| `tool=claude`, `codex` or `cursor` | List one tool. |
+| `tool=claude`, `codex`, `cursor` or `chatgpt` | List one tool. |
 
 Each row has a `state`, the first of these that holds:
 
@@ -53,7 +53,7 @@ A search keeps the conversations of every age where each word appears in the tit
 - Its pages hold only matches, and the page adds `matches`, the count across all pages.
 - A `q` over 200 characters, or another `tool`, is a 400.
 
-The route lists Claude Code, Codex and Cursor conversations from each tool's own store. The newest come first, by the last message from the person or the agent.
+The route lists Claude Code, Codex and Cursor conversations, and ChatGPT chats when its desktop app is installed, from each tool's own store. The newest come first, by the last message from the person or the agent.
 
 - Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so, without a search or tool filter, it holds every conversation `needsYou` counts. A later page leaves those out.
 - A page asked for with `before` holds the week before that time, and reaches past weeks with no conversation.
@@ -147,7 +147,7 @@ Marks:
 
 Cloud sessions and refresh:
 
-- On a server started with `--cloud-sessions`, Claude Code cloud sessions and Codex cloud threads are listed too, with `app` `cloud`. `cloudNote` says why they are missing when they could not be read.
+- On a server started with `--cloud-sessions`, Claude Code cloud sessions and Codex cloud threads are listed too, with `app` `cloud`. `cloudNote` says why they are missing when they could not be read. A machine where no one signed in to Codex has no Codex cloud threads, so that gets no note; a Codex sign-in with an API key instead of a ChatGPT login does.
 - When the ChatGPT desktop app is installed, its chats are listed as the tool `chatgpt` with `app` `chat`, read from the chat list the app keeps in `$CODEX_HOME/sqlite/codex.db`, with no network call and no flag. A project server lists none. Without the app the `chatgpt` tool is left out.
 - Claude chats (`app` `chat`) and Cowork tasks (`app` `cowork`) are listed under Claude Code, from what the Claude desktop app keeps on this computer. The server reads only the lists the app last fetched, never a chat's messages, and makes no network call. A chat you have not opened in the app since claude.ai changed it may be missing or out of date. These rows open in the Claude app and cannot be deleted from here. A project server lists no chats, because a chat names no folder. It lists a Cowork task whose folder is inside the project. When the app's lists cannot be read, the Claude Code tool's `note` says so and none of these rows are listed; the server reads them again after the app's next write.
 - Codex and Cursor chats are read again only when their files change, for at most a minute. One of them can show as open for up to a minute after its app quit.

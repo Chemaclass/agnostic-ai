@@ -45,6 +45,7 @@ agnostic-ai doctor
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |
 | Check and maintain shared memory | [memory commands](@/docs/cli-reference/memory.md#memory) |
+| See or stop automatic answers to permission prompts | [approvals](@/docs/cli-reference/approvals.md#approvals) |
 | Write and test hook commands | [hook paths](@/docs/cli-reference/maintain.md#hook-paths), [hook run](@/docs/cli-reference/hook-diagnostics.md#hook-run), [hook worktree-remove](@/docs/cli-reference/maintain.md#hook-worktree-remove) |
 | Check or prepare the project CLI | [project](@/docs/cli-reference/project.md#project), [readiness checks](@/docs/cli-reference/project.md#project-readiness) |
 | Set up your environment | [completion](@/docs/cli-reference/maintain.md#completion), [upgrade or update](@/docs/cli-reference/upgrades.md#upgrade), [migrate](@/docs/cli-reference/upgrades.md#migrate), [install-hook](@/docs/cli-reference/maintain.md#install-hook), [lsp](@/docs/cli-reference/maintain.md#lsp) |

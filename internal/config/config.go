@@ -66,6 +66,7 @@ type Config struct {
 	Doctor        DoctorConfig         `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
 	Coverage      CoverageConfig       `yaml:"coverage,omitempty"       json:"coverage,omitempty"`
 	Memory        MemoryConfig         `yaml:"memory,omitempty"         json:"memory,omitempty"`
+	Approvals     ApprovalsConfig      `yaml:"approvals,omitempty"      json:"approvals,omitzero"`
 }
 
 // VerifyConfig defines the external command that re-clears generated AI
@@ -563,6 +564,9 @@ func (c *Config) validate(root string, files []*configFile) error {
 	if err := c.Coverage.Validate(source); err != nil {
 		return err
 	}
+	if err := c.Approvals.Validate(source); err != nil {
+		return err
+	}
 	base, err := files[0].yamlMap()
 	if err != nil {
 		return err
@@ -585,7 +589,7 @@ func TeamBuiltins(root string) ([]string, error) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := yaml.Unmarshal(data, &team); err != nil {
-		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, errs.YAMLLine(err, data))
 	}
 	return team.Builtins, nil
 }
@@ -668,7 +672,7 @@ func (f *configFile) decode(v any) error {
 	if doc := f.document(); doc != nil {
 		return doc.Decode(v)
 	}
-	return yaml.Unmarshal(f.data, v)
+	return errs.YAMLLine(yaml.Unmarshal(f.data, v), f.data)
 }
 
 func (f *configFile) yamlMap() (map[string]any, error) {

@@ -70,8 +70,8 @@ One [OpenCode plugin](https://docs.opencode.ai/docs/plugins/) module per hook sp
 - Sync manages each native server separately. Servers and defaults added by hand stay; a removed spec server stays when you have edited it.
 - Stdio becomes `{type: "local", command: [...], cwd}`, and HTTP or SSE becomes `{type: "remote", url, headers}`. `cwd` (relative to the workspace) keeps its name.
 - `timeout` keeps its name and uses milliseconds for MCP requests, including tool calls. OpenCode defaults to `30000` ms when connecting and fetching tools.
+- Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`. The web editor's **Import** action uses the same nesting, including `oauth: false`.
 - `disabled: true` writes `"enabled": false` ([MCP docs](https://docs.opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key, unless the spec sets `x-opencode.enabled: true`, which import writes for a server that had `"enabled": true`.
-- Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`. The web editor's **Add to your setup** action uses the same nesting, including `oauth: false`.
 - Sync changes only `$schema` and `mcp`. `theme`, `model`, and other keys stay. They never show as drift in `sync --check` or `doctor`, and `doctor --fix` keeps them.
 
 ### Settings

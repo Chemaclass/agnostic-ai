@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -471,26 +473,84 @@ func renderedViewIs(cfg *config.Config, bundle spec.Bundle, srcName, source, bod
 // roundtrip does not carry it back into source specs. A missing srcDir
 // copies nothing.
 func copyMarkdownDir(srcDir, dstDir string) (int, error) {
+	written, err := copyMarkdownDirTo(srcDir, dstDir)
+	return len(written), err
+}
+
+// copyMarkdownDirTo is copyMarkdownDir that returns each destination it
+// wrote. A native file with the flat name of a namespaced command spec
+// goes to that spec.
+func copyMarkdownDirTo(srcDir, dstDir string) ([]string, error) {
 	if !dirExists(srcDir) {
-		return 0, nil
+		return nil, nil
 	}
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", srcDir, err)
+		return nil, fmt.Errorf("read %s: %w", srcDir, err)
 	}
-	count := 0
+	flat := flatCommandSpecs(dstDir)
+	var written []string
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
 		src := filepath.Join(srcDir, e.Name())
 		dst := filepath.Join(dstDir, e.Name())
-		if err := copyMarkdownFile(src, dst); err != nil {
-			return count, err
+		keepName := ""
+		stem := strings.TrimSuffix(e.Name(), ".md")
+		if s, ok := flat[stem]; ok {
+			dst = s.path
+			if s.name != stem {
+				keepName = s.name
+			}
 		}
-		count++
+		if err := copyMarkdownFileNamed(src, dst, keepName); err != nil {
+			return written, err
+		}
+		written = append(written, dst)
 	}
-	return count, nil
+	return written, nil
+}
+
+// flatCommandSpec is a command spec whose `group:name` the importing tool
+// writes under another file name.
+type flatCommandSpec struct{ path, name string }
+
+// flatCommandSpecs maps each flat name the importing tool writes a
+// command spec in dir under, such as `git-commit` for `git:commit`, to
+// that spec, so an edit to the native file reaches it and keeps its name.
+func flatCommandSpecs(dir string) map[string]flatCommandSpec {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var commands []spec.Entry
+	var paths []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		name := strings.TrimSuffix(e.Name(), ".md")
+		if _, _, meta := claudeFrontmatter(string(data)); meta != nil {
+			if n, _ := meta["name"].(string); n != "" {
+				name = n
+			}
+		}
+		commands = append(commands, spec.Entry{Kind: spec.KindCommand, Name: name})
+		paths = append(paths, path)
+	}
+	out := map[string]flatCommandSpec{}
+	for i, c := range adapters.FlatCommandNames(spec.Bundle{Commands: commands}, importScopeTarget).Commands {
+		if c.Name != commands[i].Name || c.Name+".md" != filepath.Base(paths[i]) {
+			out[c.Name] = flatCommandSpec{path: paths[i], name: commands[i].Name}
+		}
+	}
+	return out
 }
 
 // copyMarkdownTree copies every *.md file under srcDir into dstDir,
@@ -531,6 +591,12 @@ func copyMarkdownTree(srcDir, dstDir string) (int, error) {
 // when present, and writes the result to dst. Missing src is a no-op
 // so callers can probe optional paths without pre-checking existence.
 func copyMarkdownFile(src, dst string) error {
+	return copyMarkdownFileNamed(src, dst, "")
+}
+
+// copyMarkdownFileNamed is copyMarkdownFile that sets the spec's `name`
+// to name when it is not empty.
+func copyMarkdownFileNamed(src, dst, name string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -539,11 +605,14 @@ func copyMarkdownFile(src, dst string) error {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
 	importReadingNative(src)
-	out := header.Strip(string(data))
+	out := []byte(header.Strip(string(data)))
+	if name != "" {
+		out = withSpecName(out, name)
+	}
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := importWriteMarkdown(dst, []byte(out), 0o644); err != nil {
+	if err := importWriteMarkdown(dst, out, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
@@ -560,4 +629,28 @@ func mkdirAllSources(root string, dirs ...string) error {
 		}
 	}
 	return nil
+}
+
+// withSpecName sets the frontmatter `name` of a markdown spec, adding
+// frontmatter when it has none.
+func withSpecName(data []byte, name string) []byte {
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok {
+		return []byte("---\n" + yamlFrontmatterLine("name", name) + "---\n\n" + string(data))
+	}
+	value := &yaml.Node{Kind: yaml.ScalarNode, Value: name}
+	set := false
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == "name" {
+			mapping.Content[i+1], set = value, true
+		}
+	}
+	if !set {
+		mapping.Content = append([]*yaml.Node{{Kind: yaml.ScalarNode, Value: "name"}, value}, mapping.Content...)
+	}
+	out, err := encodeFrontmatter(mapping, rest, "command")
+	if err != nil {
+		return data
+	}
+	return out
 }

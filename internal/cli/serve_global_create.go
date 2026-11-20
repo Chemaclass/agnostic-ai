@@ -67,7 +67,7 @@ func globalHomeMissing(root string) (bool, error) {
 }
 
 type globalCreateRequest struct {
-	Git bool `json:"git"`
+	Git *bool `json:"git"`
 }
 
 type globalCreateReply struct {
@@ -95,7 +95,7 @@ func (h *globalCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	var req globalCreateRequest
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
+	if err := dec.Decode(&req); err != nil || req.Git == nil {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a JSON body such as {\"git\": true}"})
 		return
 	}
@@ -120,7 +120,7 @@ func (h *globalCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	gitResult := "skipped: not requested"
-	if req.Git {
+	if *req.Git {
 		gitResult = initGlobalGit(h.root)
 	}
 	writeEditJSON(w, http.StatusOK, globalCreateReply{Root: h.root, Created: created, Git: gitResult})
