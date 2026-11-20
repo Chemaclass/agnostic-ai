@@ -8,6 +8,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- Web interface polish: after **Undo last change**, review notes stay grouped and bounded; the rail counts findings as the Setup health page does (to fix, worth a look); `/api/switch` and `/api/global/create` refuse unknown or missing fields; an apply without `expected` is a 400; and a YAML error inside an unclosed `[` or `{` names the right line (#3728).
+- A `group:name` command, such as `git:commit` from `import gemini`, syncs as `git-commit` to every tool except Gemini CLI and Qwen Code, so no file or skill name holds a colon (#3704).
+- `import windsurf` from `.windsurf/rules/` names each hand-written rule to delete after the next sync, since Devin would load it twice (#3704).
+- `import codex` keeps a nested `AGENTS.md` whose name another import took under its scope path, such as `services-api`, and a skip note names the real source file (#3704).
+- `agnostic-ai import` that changes no spec says so instead of pointing at sync (#3704).
 - New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
 - A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
 - `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `sync --jobs -1` fails with AAI-302, `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).

@@ -320,7 +320,7 @@ Notes that start with a target name, such as `note: codex: outputs.codex.config.
 - Windows stores a file whose name holds a colon as a hidden stream of the file named before the colon. So sync refuses to write such a file on Windows.
 - Qwen Code and Gemini CLI turn each colon in a command name into a folder. A command named `git:commit` syncs as `git/commit.md` and `git/commit.toml`.
 - `import qwen` and `import gemini` read a file in a subfolder back as `git:commit`.
-- A target that writes the name as one file refuses the write, such as Claude Code for commands or Continue for assistants. `sync --check` and `--dry-run` report the same refusal. Name the spec `git-commit` for those targets.
+- Every other target writes a command named `git:commit` as `git-commit` ([commands](@/docs/spec-format/commands.md#output)). A target that writes another kind's name as one file refuses the write, such as Continue for assistants. `sync --check` and `--dry-run` report the same refusal.
 - The next sync removes a colon file an older release wrote.
 - Windows can leave an empty file named `git` beside it. Gemini CLI sync removes it to make the `git` folder. For other targets, delete it yourself.
 - Gemini CLI sync stops and names a `git` file that holds content when no colon output in the last sync explains it, or when you edited its old colon file. Copy any text you need, delete `git`, and sync again.

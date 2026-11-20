@@ -24,7 +24,7 @@ func TestLSPLinter_ReportsConfigParseFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("loading failure must return an error")
 	}
-	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-004", 1)
+	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-004", 2)
 }
 
 func TestLSPLinter_ReportsSpecParseFailure(t *testing.T) {
@@ -46,7 +46,7 @@ func TestLSPLinter_ReportsLocalConfigParseFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("loading failure must return an error")
 	}
-	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-004", 1)
+	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-004", 2)
 }
 
 func TestLSPLinter_ReportsYAMLSpecParseFailure(t *testing.T) {
@@ -57,7 +57,7 @@ func TestLSPLinter_ReportsYAMLSpecParseFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("loading failure must return an error")
 	}
-	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-001", 1)
+	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-001", 2)
 }
 
 func requireLSPLoadDiagnostic(t *testing.T, diagnostics map[string][]lsp.Diagnostic, path, code string, line int) {

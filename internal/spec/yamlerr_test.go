@@ -19,7 +19,7 @@ const codePrefix = "[AAI-001] "
 func TestFormatYAMLError_LineAndCol(t *testing.T) {
 	t.Parallel()
 	err := errors.New("yaml: line 3: column 5: did not find expected key")
-	got := formatYAMLError("rules/x.md", err, 1).Error()
+	got := formatYAMLError("rules/x.md", err, 1, nil).Error()
 	want := codePrefix + "rules/x.md:4:5: did not find expected key"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -29,7 +29,7 @@ func TestFormatYAMLError_LineAndCol(t *testing.T) {
 func TestFormatYAMLError_LineOnly(t *testing.T) {
 	t.Parallel()
 	err := errors.New("yaml: line 2: mapping values are not allowed in this context")
-	got := formatYAMLError("hooks/h.yaml", err, 0).Error()
+	got := formatYAMLError("hooks/h.yaml", err, 0, nil).Error()
 	want := codePrefix + "hooks/h.yaml:2:1: mapping values are not allowed in this context"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -39,7 +39,7 @@ func TestFormatYAMLError_LineOnly(t *testing.T) {
 func TestFormatYAMLError_Unparseable(t *testing.T) {
 	t.Parallel()
 	err := errors.New("totally unrecognized format")
-	got := formatYAMLError("p.md", err, 0).Error()
+	got := formatYAMLError("p.md", err, 0, nil).Error()
 	want := codePrefix + "p.md:1:1: totally unrecognized format"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -48,7 +48,7 @@ func TestFormatYAMLError_Unparseable(t *testing.T) {
 
 func TestFormatYAMLError_NilReturnsNil(t *testing.T) {
 	t.Parallel()
-	if formatYAMLError("x", nil, 0) != nil {
+	if formatYAMLError("x", nil, 0, nil) != nil {
 		t.Error("expected nil error to round-trip")
 	}
 }
@@ -58,7 +58,7 @@ func TestFormatYAMLError_TypeErrorUsesFirstMessage(t *testing.T) {
 	te := &yaml.TypeError{Errors: []string{
 		"yaml: line 4: column 1: cannot unmarshal !!str into int",
 	}}
-	got := formatYAMLError("mcps/m.yaml", te, 0).Error()
+	got := formatYAMLError("mcps/m.yaml", te, 0, nil).Error()
 	want := codePrefix + "mcps/m.yaml:4:1: cannot unmarshal !!str into int"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -125,5 +125,17 @@ func TestParseYAML_ErrorIncludesPathAndPosition(t *testing.T) {
 	parts := strings.SplitN(body, ":", 4)
 	if len(parts) < 4 {
 		t.Errorf("error %q missing line:col envelope", err.Error())
+	}
+}
+
+func TestParseMarkdown_OneLineFrontmatterNamesItsLine(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "x.md")
+	if err := os.WriteFile(path, []byte("---\nname: [x\n---\nBody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := parseMarkdown(path)
+	if err == nil || !strings.Contains(err.Error(), path+":2:") {
+		t.Errorf("err = %v, want line 2", err)
 	}
 }

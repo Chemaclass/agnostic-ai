@@ -40,8 +40,12 @@ var caps = emit.Capabilities{
 
 type Adapter struct{}
 
-func New() *Adapter                       { return &Adapter{} }
-func (Adapter) Name() string              { return target }
+func New() *Adapter          { return &Adapter{} }
+func (Adapter) Name() string { return target }
+
+// NamespacedCommands reports that Qwen Code reads `git/commit.md` as the
+// command `git:commit`.
+func (Adapter) NamespacedCommands() bool  { return true }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {

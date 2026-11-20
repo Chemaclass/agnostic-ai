@@ -28,6 +28,15 @@ interface Controller {
 const BuiltinChanges = createContext<Controller | null>(null)
 const pendingSourceFinding = 'This preview also applies pending source changes.'
 
+/** The notes worth listing: not the pending-source line, shown on its own, nor a note the server redacted whole, nor an undo's cleanup failure, which stays in view. */
+function reviewNotes(findings: string[]): string[] {
+  return findings.filter((finding) => finding !== pendingSourceFinding && finding.trim() !== '<redacted>' && !cleanupNote(finding))
+}
+
+function cleanupNote(finding: string): boolean {
+  return finding.startsWith('Files restored; directory cleanup:')
+}
+
 function useBuiltinChanges(): Controller {
   const value = useContext(BuiltinChanges)
   if (!value) throw new Error('Built-in controls need a BuiltinChangeProvider')
@@ -186,7 +195,8 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
       {!pending && !error && !notice && change?.status === 'undone' && 'Previous files restored.'}
     </div>
     {error && <ChangeError />}
-    {!proposal && !error && change?.status === 'undone' && change.findings.length > 0 && <ul className="builtin-change-findings">{change.findings.map((finding, index) => <li key={index}>{finding}</li>)}</ul>}
+    {!proposal && !error && change?.status === 'undone' && change.findings.filter(cleanupNote).map((finding) => <Notice key={finding} tone="warning" title={finding} />)}
+    {!proposal && !error && change?.status === 'undone' && reviewNotes(change.findings).length > 0 && <PreviewNotes findings={reviewNotes(change.findings)} targets={change.targets} />}
   </div>
 }
 
@@ -251,7 +261,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
   const global = useGlobalLevel()
   const preview = useRef<HTMLElement>(null)
   useEffect(() => { preview.current?.scrollIntoView({ block: 'start' }) }, [change.id])
-  const findings = change.findings.filter((finding) => finding !== pendingSourceFinding)
+  const findings = reviewNotes(change.findings)
   return <section ref={preview} className="builtin-change builtin-change-preview" aria-label={`${title} preview`} aria-busy={!!pending}>
     <div className="builtin-change-preview-head">
       <h3>{heading}</h3>
