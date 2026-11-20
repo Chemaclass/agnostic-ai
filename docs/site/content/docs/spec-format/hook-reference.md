@@ -207,8 +207,8 @@ Written only where the tool's schema defines them:
 - `commandWindows`: Codex, Copilot.
 - `additionalContextLimit`: Codex.
 - `loop_limit`: Cursor, Trae.
-- `failClosed`: Claude Code (command and HTTP handlers), Cursor, Factory (as `onFailure: "block"`).
-  - `true` blocks when the hook cannot start, times out, or exits with a code other than 0 or 2. Cursor also blocks on exit 0 with no output.
+- `failClosed`: Claude Code 2.1.295+ for command and HTTP handlers and 2.1.328+ for MCP-tool handlers, Cursor, and Factory (as `onFailure: "block"`). See [Claude Code handler limits](@/docs/targets/claude-reference.md#hook-mappings).
+  - `true` blocks on hook failure or timeout. For command hooks, failure includes a missing executable or an exit code other than 0 or 2. Cursor also blocks on exit 0 with no output. Claude Code treats HTTP connection errors, non-2xx responses, disconnected MCP servers, tool errors and invalid output as failures. [Claude Code failure handling](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails)
   - Events each tool ignores: [Claude Code hook mappings](@/docs/targets/claude-reference.md#hook-mappings), [Factory hooks](@/docs/targets/factory-reference.md#hooks).
 - Goose: `x-goose.on_failure`.
 - Factory: `x-factory.commandRegex` (a regex filter on the group), `x-factory.preserveRiskLevel` and `x-factory.onFailure` (per entry).

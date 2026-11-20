@@ -149,7 +149,7 @@ func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[str
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", path, err)
 	}
-	merged, err := mergeCodexAgentIntoExisting(string(existing), codexName, doc, tiers)
+	merged, err := mergeCodexAgentIntoExisting(string(existing), path, codexName, doc, tiers)
 	if err != nil {
 		return false, err
 	}
@@ -208,13 +208,13 @@ func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any, 
 // mergeCodexAgentIntoExisting parses an already-imported agent spec
 // (claude origin) and layers codex-specific frontmatter on top without
 // disturbing the body or existing top-level keys. The Codex model goes
-// through mergeCodexAgentModel. Other top-level keys with
-// divergent values across the two tools land under `x-codex.<key>` so
-// each target emit reproduces its source-of-truth value (#304). Claude's
-// richer body survives via mergeAgentBody. A Codex model and effort that
-// equal what the spec's tier gives Codex are the tier's, so they add
-// nothing.
-func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any, tiers map[string]config.ModelTier) (string, error) {
+// through reconcileImportedModel, as every importer's does. Other
+// top-level keys with divergent values across the two tools land under
+// `x-codex.<key>` so each target emit reproduces its source-of-truth
+// value (#304). Claude's richer body survives via mergeAgentBody. A Codex
+// model and effort that equal what the spec's tier gives Codex are the
+// tier's, so they add nothing.
+func mergeCodexAgentIntoExisting(existing, path, codexName string, doc map[string]any, tiers map[string]config.ModelTier) (string, error) {
 	front, body, ok := splitCodexAgentFrontmatter(existing)
 	if !ok {
 		return existing, nil
@@ -238,14 +238,27 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any,
 	// reproduces the codex source-of-truth.
 	mergeDivergentMetaKey(fm, xcodex, doc, "description")
 	tierModel, tierEffort, named := tierModelFor(fm, tiers, "codex")
-	if codexModel, _ := doc["model"].(string); named && codexModel == tierModel {
+	codexModel, _ := doc["model"].(string)
+	marker, scoped := xcodex["model"]
+	reconcileModel := false
+	switch {
+	case named && codexModel == tierModel:
 		doc = maps.Clone(doc)
 		delete(doc, "model")
 		if sameScalar(doc["model_reasoning_effort"], tierEffort) {
 			delete(doc, "model_reasoning_effort")
 		}
-	} else {
-		mergeCodexAgentModel(fm, xcodex, doc)
+	// `x-codex.model` already says what Codex gets; a delete marker stays
+	// until the TOML shows a model again.
+	case scoped && (marker != nil || codexModel == ""):
+	default:
+		reconcileModel = true
+		delete(xcodex, "model")
+		if codexModel == "" {
+			delete(fm, "model")
+		} else {
+			fm["model"] = codexModel
+		}
 	}
 	for key, val := range doc {
 		if codexAgentTopLevel[key] {
@@ -276,68 +289,24 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any,
 	if !strings.HasSuffix(mergedBody, "\n") {
 		mergedBody += "\n"
 	}
+	out := "---\n" + string(raw) + "---\n\n" + mergedBody
+	if !reconcileModel {
+		return out, nil
+	}
+	reconciled, err := reconcileImportedModel([]byte(existing), []byte(out), path, true)
+	if err != nil {
+		return "", fmt.Errorf("merge %s: %w", path, err)
+	}
+	// Re-marshal so the model keeps its place and layout in the spec.
+	front, _, _ = splitCodexAgentFrontmatter(string(reconciled))
+	fm = map[string]any{}
+	if err := yaml.Unmarshal([]byte(front), &fm); err != nil {
+		return "", fmt.Errorf("parse reconciled frontmatter: %w", err)
+	}
+	if raw, err = marshalAgentFrontmatter(fm); err != nil {
+		return "", fmt.Errorf("re-marshal frontmatter: %w", err)
+	}
 	return "---\n" + string(raw) + "---\n\n" + mergedBody, nil
-}
-
-func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
-	codexModel, _ := doc["model"].(string)
-	restored := false
-	if marker, set := xcodex["model"]; set {
-		if marker != nil || codexModel == "" {
-			return
-		}
-		delete(xcodex, "model")
-		restored = true
-	}
-	if codexModel == "" {
-		if model, isMap := fm["model"].(map[string]any); isMap {
-			delete(model, "codex")
-			if len(model) == 0 {
-				delete(fm, "model")
-			}
-			if shared, _ := model["default"].(string); shared == "" {
-				return
-			}
-		}
-		if adapters.ForeignClaudeModel("codex", sharedCodexModel(fm)) {
-			return
-		}
-		mergeDivergentMetaKey(fm, xcodex, doc, "model")
-		return
-	}
-	switch model := fm["model"].(type) {
-	case nil:
-		fm["model"] = map[string]any{"codex": codexModel}
-	case map[string]any:
-		var given string
-		if !restored {
-			given, _ = model["codex"].(string)
-			if given == "" {
-				given, _ = model["default"].(string)
-			}
-		}
-		if id, isAlias := adapters.ModelAlias("codex", given); isAlias {
-			given = id
-		}
-		if given != codexModel {
-			model["codex"] = codexModel
-		}
-	default:
-		mergeDivergentMetaKey(fm, xcodex, doc, "model")
-	}
-}
-
-// sharedCodexModel is the shared model fm gives Codex, with a tier name
-// read as the tier's default when the tier has no Codex entry.
-func sharedCodexModel(fm map[string]any) string {
-	shared := adapters.SharedModel(fm, "codex")
-	if tier, named := configTiers()[shared]; named {
-		if _, own := tier.Models["codex"]; own {
-			return ""
-		}
-		return tier.Models["default"]
-	}
-	return shared
 }
 
 // mergeDivergentMetaKey records a per-target override for key when the

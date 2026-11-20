@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `import claude` no longer pins agents and skills to Claude when Goose or OpenHands is a target: their `.agents/` folders no longer count as a Codex install. `import codex` sets a model another tool also reads as the spec's `codex` entry instead of `x-codex.model`, as other imports do. `doctor --json` gives a hand-written file that stops `sync` the same reason the text output names (#3749).
 - `doctor` reports a hand-written instructions or MCP file that stops `sync`, and `doctor --fix` stops on it before writing, where it replaced the file with no backup. `sync --check` and `--plan` no longer say "nothing was written" under that stop, and `doctor` warns once about a missing locked pack, in the words `sync` uses (#3749).
 - `import opencode` and `import copilot` name each original in `.opencode/agent/`, `.opencode/command/` or `.github/prompts/` to delete after the next sync, and `doctor` lists it while the tool loads it beside the generated copy. A re-import that changes nothing says so in a project with built-in specs (#3749).
 - `sync`, `sync --check`, `status` and `validate` refuse an `outputs.<target>` path that resolves into `.agnostic-ai/` or a configured spec folder, such as `.agnostic-ai/agnostic_ai.md` on macOS or `.agnostic-ai/rules/../AGNOSTIC_AI.md`, instead of overwriting the source file (#3740).
@@ -192,6 +193,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### Site
 
+- Document Claude Code's version requirement for fail-closed MCP-tool hooks and the current Kiro IDE Memories menu (#3770, #3773).
+- Restore OpenCode V1 reference links and describe the portable skill-name requirement (#3771, #3772).
+- Document Crush 0.102.0 prompt overrides in `crush.json` and qualify Junie ACP primary-agent selection by release channel (#3774, #3775).
 - Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).
 - Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
 
