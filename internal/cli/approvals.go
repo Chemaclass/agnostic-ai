@@ -21,11 +21,17 @@ import (
 
 // approvalRoutes names how each tool carries out a loosening mode. A
 // tool or mode missing here has no safe route and falls back to ask.
-var approvalRoutes = map[string]map[string]string{}
+var approvalRoutes = map[string]map[string]string{
+	"claude": {config.ApprovalsReview: nativeReviewers["claude"].name},
+	"codex":  {config.ApprovalsReview: nativeReviewers["codex"].name},
+}
 
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
 	Tools []approvalsToolStatus `json:"tools"`
+	// reviewerWritten is set when a native reviewer key sync --global
+	// wrote is still on.
+	reviewerWritten bool
 }
 
 type approvalsToolStatus struct {
@@ -35,6 +41,8 @@ type approvalsToolStatus struct {
 	Effective string `json:"effective"`
 	From      string `json:"from"`
 	Route     string `json:"route,omitempty"`
+	// Notes name what keeps the tool's native reviewer from matching Mode.
+	Notes []string `json:"notes,omitempty"`
 }
 
 func newApprovalsCmd() *cobra.Command {
@@ -95,7 +103,10 @@ func newApprovalsAskCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("approvals: ask for every tool and project. Wrote %s.\n", path)
-			if slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
+			if before.reviewerWritten {
+				cmd.Println("Run sync --global to remove the native reviewer keys it wrote to the tools' user settings.")
+			}
+			if before.reviewerWritten || slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
 				cmd.Println("A running session in a native reviewer mode keeps it until you switch modes in the tool (Shift+Tab in Claude Code).")
 			}
 			return nil
@@ -138,7 +149,12 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			}
 		}
 	}
+	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+	if err != nil {
+		return approvalsStatusOutput{}, err
+	}
 	policy := config.ApprovalsPolicy{Home: home, UserHome: userHome, Env: os.Getenv(config.EnvApprovals), ProjectAsk: projectAsk}
+	reviewerWritten := false
 	out := approvalsStatusOutput{Dir: dir, Tools: make([]approvalsToolStatus, 0, len(targets))}
 	for _, tool := range targets {
 		decision := policy.Resolve(tool, dir)
@@ -146,8 +162,20 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 		if route := approvalRoutes[tool][decision.Mode]; route != "" {
 			status.Effective, status.Route = decision.Mode, route
 		}
+		rs, native, err := readReviewerState(tool, userHome, state)
+		if err != nil {
+			status.Notes = append(status.Notes, err.Error())
+		} else if native {
+			homeMode, _ := homeToolMode(home, tool)
+			status.Notes = rs.notes(tool, decision.Mode, homeMode)
+			if status.Effective == config.ApprovalsReview && !rs.on {
+				status.Effective = config.ApprovalsAsk
+			}
+			reviewerWritten = reviewerWritten || rs.written
+		}
 		out.Tools = append(out.Tools, status)
 	}
+	out.reviewerWritten = reviewerWritten
 	return out, nil
 }
 
@@ -166,6 +194,9 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 			line += "; no route for " + s.Mode + ", falls back to ask"
 		}
 		cmd.Println(line)
+		for _, note := range s.Notes {
+			cmd.Println("    note: " + note)
+		}
 	}
 }
 

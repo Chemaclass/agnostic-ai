@@ -310,7 +310,7 @@ func importQwenSettings(root string, src config.Sources) (int, int, int, error) 
 				delete(model, "reasoningEffort")
 			}
 			if name, _ := model["name"].(string); name != "" {
-				doc["model"] = name
+				doc["model"] = targetModel("qwen", name)
 				delete(model, "name")
 			}
 			if len(model) == 0 {

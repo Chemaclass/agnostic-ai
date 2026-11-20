@@ -51,7 +51,7 @@ func TestImportAgents_ReimportOfARestoredModelDropsTheDeleteMarker(t *testing.T)
 			addNativeLine(t, tc.file, tc.key, "m-new")
 
 			got := reimportModelMap(t, tc.target)
-			want := fmt.Sprintf("model:\n  zed: low\n  default: m-two\n  %s: m-new\n", tc.target)
+			want := fmt.Sprintf("model:\n  zed: low\n  default: m-two\n  %s: m-new\n%s", tc.target, peerModelLine(tc.target, "m-new"))
 			if !hasBlock(got, want) || strings.Contains(got, "model: null") {
 				t.Errorf("the native model joins the map and the marker goes:\n%s", got)
 			}

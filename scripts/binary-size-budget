@@ -992,7 +992,6 @@
 # Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
 # Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
 # Merged branch growth of 61440 bytes over its base, on top of main's 27336704.
-# #3700 slice 4 measured 27467936, up 102400 from main's 27365536: serve reads
-# the approvals decision log, which links internal/approvals (the gate's
-# tables) into the CLI for the first time; hook approve needs it as well.
-27500544
+# Merged branch growth of 28672 bytes over its base, on top of main's 27398144.
+# Merged branch growth of 102400 bytes over its base, on top of main's 27426816.
+27529216
