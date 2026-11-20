@@ -840,6 +840,35 @@ func TestDecide_SpecFoldersFromTheSessionFolder(t *testing.T) {
 	}
 }
 
+func TestDecide_MovedSpecFolderInShellPaths(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.SpecSources = fakeSpecSources(map[string][]string{testRoot: {testRoot + "/config/hooks"}})
+	for _, command := range []string{
+		"go build -o config/hooks/x.yaml ./cmd/x",
+		"go test -coverprofile=config/hooks/x.yaml ./...",
+		"cd config/hooks",
+	} {
+		wantDecision(t, Decide(bash(command), p), RuleProtectedPath)
+	}
+	wantDecision(t, Decide(bash("go build -o bin/x ./cmd/x"), p), "")
+}
+
+func TestDecide_SourceOutsideItsFolderFromALinkedSession(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.SpecSources = fakeSpecSources(map[string][]string{testRoot + "/real/api": {testRoot + "/shared/hooks"}})
+	p.Resolve = func(path string) string {
+		if path == testRoot+"/services/api" {
+			return testRoot + "/real/api"
+		}
+		return path
+	}
+	r := call("Write", map[string]any{"file_path": testRoot + "/shared/hooks/x.yaml"})
+	r.Cwd = testRoot + "/services/api"
+	wantDecision(t, Decide(r, p), RuleProtectedPath)
+}
+
 func TestDecide_MovedSpecFolderThroughALink(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

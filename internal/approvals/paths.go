@@ -223,8 +223,8 @@ func underFold(p, dir string) bool {
 
 // specRule asks for a write to abs under, or above, a folder that a
 // project config file moves specs to. It reads the configs in every
-// folder above abs, as written and with links resolved, and above the
-// session folder, up to the file system root, so a config below the
+// folder above abs and above the session folder, each as written and
+// with links resolved, up to the file system root, so a config below the
 // session folder, above the Git root, or one whose source points
 // outside its own folder counts. A config that does not read asks.
 func (g *gate) specRule(abs string) string {
@@ -233,7 +233,7 @@ func (g *gate) specRule(abs string) string {
 	}
 	starts := []string{filepath.Dir(abs), g.cwd}
 	if g.policy.Resolve != nil {
-		starts = append(starts, filepath.Dir(filepath.Clean(g.policy.Resolve(abs))))
+		starts = append(starts, filepath.Dir(filepath.Clean(g.policy.Resolve(abs))), filepath.Clean(g.policy.Resolve(g.cwd)))
 	}
 	for _, start := range starts {
 		for dir := start; ; dir = filepath.Dir(dir) {
