@@ -24,9 +24,9 @@ type nativeReviewer struct {
 	legacyKey string
 	// off is a value in the same file that keeps the reviewer from running.
 	off *reviewerOff
-	// moveEnv names a variable that moves the tool's settings file to a
-	// folder sync --global does not write.
-	moveEnv string
+	// overrideEnv names a variable that makes the tool ignore the key in
+	// the file sync --global writes.
+	overrideEnv string
 }
 
 type reviewerOff struct {
@@ -40,11 +40,12 @@ type reviewerOff struct {
 // user, policy, or flag settings.
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
-	"codebuddy": {name: "CodeBuddy auto mode", key: "permissions.defaultMode", value: "auto", moveEnv: "CODEBUDDY_CONFIG_DIR",
+	"codebuddy": {name: "CodeBuddy auto mode", key: "permissions.defaultMode", value: "auto", overrideEnv: "CODEBUDDY_CONFIG_DIR",
 		off: &reviewerOff{key: "permissions.disableAutoMode", value: "disable", why: "CodeBuddy starts in default instead"}},
 	"codex": {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review",
 		off: &reviewerOff{key: "approval_policy", value: "never", why: "it reviews only prompts, so use on-request or a granular policy"}},
-	"vibe":  {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve"},
+	"vibe": {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve", overrideEnv: "VIBE_DEFAULT_AGENT",
+		off: &reviewerOff{key: "bypass_tool_permissions", value: true, why: "Vibe approves every call instead"}},
 	"qoder": {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
 	"qwen":  {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
@@ -166,7 +167,7 @@ func readReviewerState(tool, userHome string, state globalState) (reviewerState,
 
 // notes say what keeps the reviewer from matching mode: the key missing
 // or changed under review, the key still on where the mode is not review,
-// a value that switches the reviewer off, or a moved settings folder.
+// a value that switches the reviewer off, or a variable that overrides the key.
 func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	r := rs.reviewer
 	want := settingsValueText(r.key, r.value)
@@ -197,8 +198,8 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 			notes = append(notes, fmt.Sprintf("%s = %s in %s keeps %s from running; %s", off.key, settingsValueText(off.key, off.value), rs.path, r.name, off.why))
 		}
 	}
-	if r.moveEnv != "" && strings.TrimSpace(os.Getenv(r.moveEnv)) != "" {
-		notes = append(notes, fmt.Sprintf("%s is set, so %s reads its settings there, not from %s", r.moveEnv, tool, rs.path))
+	if r.overrideEnv != "" && strings.TrimSpace(os.Getenv(r.overrideEnv)) != "" {
+		notes = append(notes, fmt.Sprintf("%s is set, so %s does not take %s from %s", r.overrideEnv, tool, r.key, rs.path))
 	}
 	return notes
 }
