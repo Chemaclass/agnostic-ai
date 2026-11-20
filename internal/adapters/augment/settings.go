@@ -114,6 +114,10 @@ func nativeRules(entry spec.Entry) []any {
 //	Bash(command)            -> terminal, shellInputRegex ^command$
 //	mcp__server__tool        -> {toolName: tool_server}
 //
+// `terminal` is the 0.x shell name. Auggie 1.2.x still matches it
+// against `bash` (its alias table groups the two), so one rule serves
+// both versions.
+//
 // A path- or URL-scoped rule has no entry. Augment gates `read`,
 // `edit`, `write`, and `web-fetch` as whole tools, so `Read(src/**)`
 // would have to become an unrestricted `read` to fit, which grants far

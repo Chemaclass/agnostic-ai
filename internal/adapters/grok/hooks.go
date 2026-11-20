@@ -15,6 +15,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+// HookEvents is the docs.x.ai hooks Events table plus StopCancelled,
+// which the page omits but Grok 1.0.4 added ("New StopCancelled hook
+// event", xai-grok-shell changelogs/1.0.4.md) and xai-grok-hooks
+// src/event.rs declares.
 func HookEvents() []string {
 	return []string{"SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied", "Stop", "StopFailure", "StopCancelled", "Notification", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact"}
 }
