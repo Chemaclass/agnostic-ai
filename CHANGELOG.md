@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- In the web interface, copying a hook to the global setup or the project brings the shared scripts it runs, a permission save keeps a block list as a block list, **Add hook** leaves out tools that lack the chosen stage, and the source view shows hooks whose Windows command has an `=` (#3719).
 - Web interface polish: after **Undo last change**, review notes stay grouped and bounded; the rail counts findings as the Setup health page does (to fix, worth a look); `/api/switch` and `/api/global/create` refuse unknown or missing fields; an apply without `expected` is a 400; and a YAML error inside an unclosed `[` or `{` names the right line (#3728).
 - A `group:name` command, such as `git:commit` from `import gemini`, syncs as `git-commit` to every tool except Gemini CLI and Qwen Code, so no file or skill name holds a colon (#3704).
 - `import windsurf` from `.windsurf/rules/` names each hand-written rule to delete after the next sync, since Devin would load it twice (#3704).

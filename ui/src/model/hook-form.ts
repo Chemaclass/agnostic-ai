@@ -41,11 +41,19 @@ export function hookDraftProblem(draft: HookDraft): string | undefined {
   return undefined
 }
 
-export function hookRequest(draft: HookDraft, audience: EditAudience, action: 'preview' | 'apply', expected?: string): HookSpecRequest {
+/** The configured hook tools that run some stage but not this one; a new hook there leaves them out. */
+export function stageExcludes(stages: Stage[], on: string): string[] {
+  const runs = new Set(stages.find((stage) => stage.id === on)?.targets.map((entry) => entry.target) ?? [])
+  const tools = [...new Set(stages.flatMap((stage) => stage.targets.map((entry) => entry.target)))]
+  return tools.filter((tool) => !runs.has(tool))
+}
+
+export function hookRequest(draft: HookDraft, audience: EditAudience, action: 'preview' | 'apply', expected?: string, targetsExclude: string[] = []): HookSpecRequest {
   const request: HookSpecRequest = { action, audience, name: draft.name, on: draft.on, command: draft.command }
   if (takesMatch(draft.on) && draft.match) request.match = draft.match
   if (draft.timeout.trim()) request.timeout = Number(draft.timeout.trim())
   if (draft.description.trim()) request.description = draft.description.trim()
+  if (targetsExclude.length > 0) request.targetsExclude = targetsExclude
   if (expected) request.expected = expected
   return request
 }
