@@ -686,6 +686,86 @@ func writeSyncIgnores(root string, cfg *config.Config, b spec.Bundle, targets, r
 	return w, nil
 }
 
+// planIgnoreFiles is writeSyncIgnores for `sync --plan`: a report of the
+// ignore files the sync would change, with the content it would write.
+// The outputs the reports plan stand in for the paths a sync records.
+func planIgnoreFiles(root string, cfg *config.Config, b spec.Bundle, targets []string, reports []driftReport, ledger ledgerSnapshot) (driftReport, error) {
+	plan := driftReport{Target: "agnostic-ai"}
+	var recorded []string
+	for _, r := range reports {
+		for _, files := range [][]adapters.CapturedFile{r.Current, r.Missing, r.Stale, r.Edited} {
+			for _, f := range files {
+				recorded = append(recorded, f.Path)
+			}
+		}
+	}
+	retained := ledger.state.Orphans
+	if !coversAllConfiguredTargets(targets, cfg.Targets) {
+		retained = ledger.state.Outputs
+	}
+	for _, p := range retained {
+		if !cfg.IsUnmanaged(p) {
+			recorded = append(recorded, p)
+		}
+	}
+	renders := newTargetRenders(cfg, b)
+	shared, err := planSharedSkills(cfg, renders, targets)
+	if err != nil {
+		return plan, err
+	}
+	for _, l := range shared.links {
+		recorded = append(recorded, l.path)
+	}
+	block, _, err := plannedSplitBlock(root, cfg, renders, targets, recorded, ledger.missing())
+	if err != nil {
+		return plan, err
+	}
+	files := []struct {
+		rel    string
+		render func(string) string
+	}{
+		{gitignoreRel(cfg), func(existing string) string {
+			return replaceManagedBlock(stripLooseFixedDuplicates(existing), block)
+		}},
+		{worktreeIncludeFile, func(existing string) string {
+			return renderWorktreeInclude(existing, cfg, block)
+		}},
+	}
+	for _, f := range files {
+		existing, updated, err := plannedIgnoreFile(filepath.Join(root, f.rel), f.render)
+		if err != nil {
+			return plan, err
+		}
+		switch {
+		case updated == existing:
+		case strings.TrimSpace(updated) == "" && f.rel == worktreeIncludeFile:
+			plan.Leftover = append(plan.Leftover, f.rel)
+		case existing == "" && !fileExists(filepath.Join(root, f.rel)):
+			plan.Missing = append(plan.Missing, adapters.CapturedFile{Path: f.rel, Content: updated})
+		default:
+			plan.Stale = append(plan.Stale, adapters.CapturedFile{Path: f.rel, Content: updated})
+		}
+	}
+	return plan, nil
+}
+
+// withIgnorePlan folds the ignore file changes into the agnostic-ai
+// report, which lists the other files sync writes for every target.
+func withIgnorePlan(reports []driftReport, ignores driftReport) []driftReport {
+	if !ignores.hasDrift() {
+		return reports
+	}
+	for i := range reports {
+		if reports[i].Target == ignores.Target {
+			reports[i].Missing = append(reports[i].Missing, ignores.Missing...)
+			reports[i].Stale = append(reports[i].Stale, ignores.Stale...)
+			reports[i].Leftover = append(reports[i].Leftover, ignores.Leftover...)
+			return reports
+		}
+	}
+	return append(reports, ignores)
+}
+
 // untrackIgnored lists the outputs Git both tracks and ignores. With
 // untrack, it removes them from the index, never the working tree, and
 // returns the ones still tracked and the ones it removed.
