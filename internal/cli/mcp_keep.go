@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -100,9 +101,7 @@ func (g editGuard) backingUpMCPFiles(files []unledgeredMCPFile) editGuard {
 		return g
 	}
 	sums := make(map[string]string, len(g.sums)+len(files))
-	for k, v := range g.sums {
-		sums[k] = v
-	}
+	maps.Copy(sums, g.sums)
 	for _, f := range files {
 		sums[f.path] = unledgeredMCPSum
 	}
