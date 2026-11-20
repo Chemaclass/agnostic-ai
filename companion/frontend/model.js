@@ -546,10 +546,14 @@ export function rowActionOf(conversation) {
 
 /**
  * What the row menu offers: Mark as read clears a wait or a reply without opening the chat.
- * Only a chat under Archived that no process holds can be deleted.
+ * Mark complete and Hide match the row's own button. Only a chat under Archived that no process holds can be deleted.
  */
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename'] : ['rename']
+  const action = rowActionOf(conversation)
+  if (action === 'archive') offered.push('complete')
+  if (conversation.state === 'completed') offered.push('reopen')
+  if (action === 'hide') offered.push('hide')
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')
