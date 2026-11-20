@@ -1001,4 +1001,6 @@
 # #3749 leftovers measured 27590816 bytes locally on main bf6436ee5:
 # doctor --json gives each hand-written file the guard's reason. Allow
 # 4096 bytes, one page.
-27594752
+# #3700 cursor-agent review measured 27594912: a user settings file
+# for Cursor that follows cursor-agent's own path lookup. One page.
+27598848
