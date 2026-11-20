@@ -736,16 +736,11 @@ func gitignoreRel(cfg *config.Config) string {
 func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel string, changed bool, err error) {
 	rel = gitignoreRel(cfg)
 	path := filepath.Join(root, rel)
-	existing, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	existing, updated, err := plannedIgnoreFile(path, func(existing string) string {
+		return replaceManagedBlock(stripLooseFixedDuplicates(existing), entries)
+	})
+	if err != nil || updated == existing {
 		return rel, false, err
-	}
-	if err := validateManagedBlock(path, string(existing)); err != nil {
-		return rel, false, err
-	}
-	updated := replaceManagedBlock(stripLooseFixedDuplicates(string(existing)), entries)
-	if updated == string(existing) {
-		return rel, false, nil
 	}
 	if err := config.CheckProjectLinks(root, path, "write", false); err != nil {
 		return rel, false, err
@@ -774,16 +769,11 @@ const (
 // the file.
 func writeWorktreeInclude(root string, cfg *config.Config, block []string) (changed bool, err error) {
 	path := filepath.Join(root, worktreeIncludeFile)
-	existing, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	existing, updated, err := plannedIgnoreFile(path, func(existing string) string {
+		return renderWorktreeInclude(existing, cfg, block)
+	})
+	if err != nil || updated == existing {
 		return false, err
-	}
-	if err := validateManagedBlock(path, string(existing)); err != nil {
-		return false, err
-	}
-	updated := renderWorktreeInclude(string(existing), cfg, block)
-	if updated == string(existing) {
-		return false, nil
 	}
 	if err := config.CheckProjectLinks(root, path, "write", false); err != nil {
 		return false, err
@@ -795,6 +785,19 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 		return false, err
 	}
 	return true, nil
+}
+
+// plannedIgnoreFile returns the managed ignore file at path as it is and
+// as render would leave it, writing nothing.
+func plannedIgnoreFile(path string, render func(existing string) string) (existing, updated string, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", "", err
+	}
+	if err := validateManagedBlock(path, string(data)); err != nil {
+		return "", "", err
+	}
+	return string(data), render(string(data)), nil
 }
 
 func renderWorktreeInclude(existing string, cfg *config.Config, block []string) string {
