@@ -80,6 +80,14 @@ func RequestAllowed(r *http.Request, allowedOrigins ...string) bool {
 	return slices.Contains(allowedOrigins, normalized)
 }
 
+const deniedNavigation = `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Open agnostic-ai directly</title>
+<h1>Open agnostic-ai directly</h1>
+<p>Copy the address from the browser bar and paste it into a new tab to open the local interface.</p>
+</html>`
+
 // CORS rejects foreign hosts and origins before any route reads local data.
 func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +97,15 @@ func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 			return
 		}
 		if !RequestAllowed(r, allowedOrigins...) {
+			path := r.URL.Path
+			if (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.Header.Get("Sec-Fetch-Mode") == "navigate" && path != "/api" && !strings.HasPrefix(path, "/api/") {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(deniedNavigation))
+				return
+			}
 			writeError(w, http.StatusForbidden, errors.New("request host or origin is not allowed"))
 			return
 		}

@@ -53,3 +53,20 @@ func TestReadLog_MissingLogIsEmpty(t *testing.T) {
 		t.Errorf("ReadLog = %v, %v", entries, err)
 	}
 }
+
+func TestReadLog_LeavesOutSensitiveDetails(t *testing.T) {
+	t.Parallel()
+	log := Log{Path: LogPath(t.TempDir())}
+	for _, detail := range []string{"go test ./internal/approvals", "Use password example-only-value here."} {
+		if err := log.Append(Entry{Decision: Approved, Detail: detail}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, err := ReadLog(log.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 || entries[0].Detail != "go test ./internal/approvals" || entries[1].Detail != "" {
+		t.Error("expected the ordinary detail and an empty sensitive detail")
+	}
+}

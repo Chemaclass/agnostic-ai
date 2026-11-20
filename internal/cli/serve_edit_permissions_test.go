@@ -278,3 +278,22 @@ func TestPermissionEdit_RefusesWholePersonalPermissionsClearForBothAudiences(t *
 		})
 	}
 }
+
+// A personal deny list replaces the project list, so its preview names
+// the project rules that stop applying (#3799).
+func TestPermissionEdit_PersonalDenyPreviewNamesTheProjectRulesItDrops(t *testing.T) {
+	h := targetProject(t, "name: defaults\npermissions:\n  deny: [\"Bash(git push --force:*)\", \"Bash(curl:*)\"]\n")
+	body := map[string]any{"audience": "personal", "key": "permissions.deny", "rules": []string{"Bash(git push:*)", "Bash(curl:*)"}, "before": nil}
+
+	proposed := permissionPreviewRequest(t, h, body)
+
+	dropped, _ := proposed["dropped"].([]any)
+	if len(dropped) != 1 || dropped[0] != "Bash(git push --force:*)" {
+		t.Errorf("dropped = %v, want the project's force-push rule", proposed["dropped"])
+	}
+	body["audience"] = "shared"
+	body["before"] = []string{"Bash(git push --force:*)", "Bash(curl:*)"}
+	if shared := permissionPreviewRequest(t, h, body); shared["dropped"] != nil {
+		t.Errorf("a shared preview names dropped rules: %v", shared["dropped"])
+	}
+}

@@ -3,6 +3,7 @@ package authority
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -54,5 +55,30 @@ func TestHandler_RejectsForeignHostsOnEveryRouteBeforeLoading(t *testing.T) {
 	}
 	if loads != 0 {
 		t.Errorf("loaded %d times for refused requests", loads)
+	}
+}
+
+func TestCORS_ExplainsRefusedBrowserNavigation(t *testing.T) {
+	h := CORS(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("refusal called the application")
+	}))
+	for _, tc := range []struct {
+		path, mode, contentType string
+	}{
+		{"/", "navigate", "text/html"},
+		{"/api/health", "navigate", "application/json"},
+		{"/", "", "application/json"},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+tc.path, nil)
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		req.Header.Set("Sec-Fetch-Mode", tc.mode)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden || !strings.HasPrefix(rec.Header().Get("Content-Type"), tc.contentType) {
+			t.Errorf("%s %s: status %d, content type %s", tc.path, tc.mode, rec.Code, rec.Header().Get("Content-Type"))
+		}
+		if tc.contentType == "text/html" && !strings.Contains(rec.Body.String(), "paste it into a new tab") {
+			t.Error("the page does not explain how to open the interface")
+		}
 	}
 }

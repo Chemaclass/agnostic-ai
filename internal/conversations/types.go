@@ -121,14 +121,17 @@ type View struct {
 	// NeedsYou counts the blocked and unread conversations of every age
 	// and tool this server lists, whatever the page or the search.
 	NeedsYou int `json:"needsYou"`
+	// PermissionWaits holds live permission waits across all pages and
+	// filters, so the server can adjust NeedsYou and track ongoing waits.
+	PermissionWaits []Conversation `json:"-"`
 	// MarksNote says why the marks file could not be read or written;
 	// rows then show no marks.
 	MarksNote string `json:"marksNote,omitempty"`
 	// CloudNote says why a tool's cloud conversations are missing from
 	// the list, on a server that reads them; rows then hold none of them.
 	CloudNote string `json:"cloudNote,omitempty"`
-	// ApprovalsMode is the loosest approvals mode the home config sets,
-	// when it is review or yolo; empty when every request asks.
+	// ApprovalsMode is the loosest active approvals mode for the list.
+	// It is empty when no approvals route is active.
 	ApprovalsMode string         `json:"approvalsMode,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`

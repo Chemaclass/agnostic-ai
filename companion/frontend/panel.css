@@ -436,7 +436,7 @@ body {
 }
 
 .approved-list {
-  margin: -2px 0 4px 27px;
+  margin: 2px 0 0 4px;
   padding: 0 0 0 8px;
   border-left: 1.5px solid var(--hairline);
   list-style: none;

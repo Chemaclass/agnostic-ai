@@ -4,13 +4,16 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
@@ -140,6 +143,30 @@ type approvalsSnapshot struct {
 	// file that cannot be read asks.
 	projectAsk map[string]string
 	routed     func(tool, mode string) bool
+	activated  func(tool, mode string) bool
+	active     map[approvalDisplayRoute]bool
+}
+
+type approvalDisplayRoute struct{ tool, mode string }
+
+// approvalsListTools are the tools the conversations list shows.
+var approvalsListTools = []conversations.Tool{conversations.ToolClaude, conversations.ToolCodex, conversations.ToolCursor, conversations.ToolChatGPT}
+
+// carries reports whether the tool has an active route for mode.
+func (s approvalsSnapshot) carries(tool, mode string) bool {
+	if mode == config.ApprovalsAsk || !s.routed(tool, mode) {
+		return false
+	}
+	if s.activated == nil {
+		return true
+	}
+	key := approvalDisplayRoute{tool, mode}
+	on, cached := s.active[key]
+	if !cached {
+		on = s.activated(tool, mode)
+		s.active[key] = on
+	}
+	return on
 }
 
 // modeFor is the approvals mode tool resolves to in folder, and whether
@@ -152,39 +179,74 @@ func (s approvalsSnapshot) modeFor(tool conversations.Tool, folder string) (stri
 	if folder != "" {
 		ask, cached := s.projectAsk[folder]
 		if !cached {
-			var err error
-			if ask, err = config.ProjectApprovalsAsk(folder); err != nil {
-				ask = folder
-			}
+			ask = displayProjectAsk(folder)
 			s.projectAsk[folder] = ask
 		}
 		policy.ProjectAsk = ask
 	}
 	mode := policy.Resolve(string(tool), folder).Mode
-	return mode, mode != config.ApprovalsAsk && s.routed(string(tool), mode)
+	carried := s.carries(string(tool), mode)
+	if !carried && s.routed(string(tool), mode) {
+		return config.ApprovalsAsk, false
+	}
+	return mode, carried
 }
 
-// headerMode is the loosest mode the home config sets anywhere, for the
-// panel header; ask when none loosens or the environment turns them off.
-func (s approvalsSnapshot) headerMode() string {
+func displayProjectAsk(folder string) string {
+	ask, err := config.ProjectApprovalsAsk(folder)
+	if err != nil {
+		return folder
+	}
+	return ask
+}
+
+// headerMode is the loosest active mode for the project. The global
+// list considers the home policy for all listed tools and projects.
+func (s approvalsSnapshot) headerMode(folder string) string {
 	if !s.policyOK || strings.TrimSpace(s.policy.Env) != "" {
 		return config.ApprovalsAsk
 	}
-	home := s.policy.Home
-	modes := []string{home.Mode}
-	for _, mode := range home.Tools {
-		modes = append(modes, mode)
-	}
-	for _, mode := range home.Projects {
-		modes = append(modes, mode)
-	}
 	loosest := config.ApprovalsAsk
-	for _, mode := range modes {
-		if approvalsLooseness(mode) > approvalsLooseness(loosest) {
+	considerFolder := func(path string) {
+		for _, tool := range approvalsListTools {
+			if mode, active := s.modeFor(tool, path); active {
+				loosest = looserApprovalsMode(loosest, mode)
+			}
+		}
+	}
+	if folder != "" {
+		considerFolder(folder)
+		return loosest
+	}
+	home := s.policy.Home
+	consider := func(mode string, tools ...conversations.Tool) {
+		if approvalsLooseness(mode) > approvalsLooseness(loosest) && slices.ContainsFunc(tools, func(tool conversations.Tool) bool { return s.carries(string(tool), mode) }) {
 			loosest = mode
 		}
 	}
+	var unnamed []conversations.Tool
+	for _, tool := range approvalsListTools {
+		if mode := home.Tools[string(tool)]; mode != "" {
+			consider(mode, tool)
+		} else {
+			unnamed = append(unnamed, tool)
+		}
+	}
+	consider(home.Mode, unnamed...)
+	for _, path := range s.policy.ProjectFolders() {
+		considerFolder(path)
+		if resolved, err := filepath.EvalSymlinks(path); err == nil && resolved != path {
+			considerFolder(resolved)
+		}
+	}
 	return loosest
+}
+
+func looserApprovalsMode(a, b string) string {
+	if approvalsLooseness(b) > approvalsLooseness(a) {
+		return b
+	}
+	return a
 }
 
 func approvalsLooseness(mode string) int {
@@ -209,6 +271,10 @@ func (s approvalsSnapshot) waitVerdict(c conversations.Conversation, since, now 
 		return approvalsReasonCloud, time.Time{}
 	case !routed:
 		return fmt.Sprintf(approvalsReasonUnsupportedFmt, cmp.Or(approvalsToolLabels[c.Tool], string(c.Tool))), time.Time{}
+	case mode == config.ApprovalsReview:
+		// The approvals hook approves nothing in review, so no answer
+		// is coming: the wait is the person's.
+		return approvalsReasonReviewer, time.Time{}
 	}
 	last, decided := s.decisionSince(c, since)
 	if decided && last.Decision == approvals.Asked {
@@ -226,9 +292,6 @@ func (s approvalsSnapshot) waitVerdict(c conversations.Conversation, since, now 
 	}
 	if until := since.Add(approvalsHookWait); now.Before(until) {
 		return "", until
-	}
-	if mode == config.ApprovalsReview {
-		return approvalsReasonReviewer, time.Time{}
 	}
 	return approvalsReasonNoAnswer, time.Time{}
 }
@@ -260,45 +323,36 @@ func (s approvalsSnapshot) decisionSince(c conversations.Conversation, since tim
 	return latest, decided
 }
 
-// waitSeen is when the server first and last saw a Claude Code wait
-// whose start the tool did not give.
-type waitSeen struct{ first, last time.Time }
-
 // applyApprovals adds what approvals decided to each row of view. A
 // permission wait the hook may still answer, or already approved, is
-// shown as work: it never counts as needing the person. firstSeen keeps
-// the waits whose start the tool did not give. It returns the end of the
-// earliest hold, zero when none.
-func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.Time, firstSeen map[string]waitSeen) time.Time {
-	if mode := snap.headerMode(); mode != config.ApprovalsAsk {
+// shown as work: it never counts as needing the person, on this page or
+// not. firstSeen keeps the waits whose start the tool did not give. It
+// returns the end of the earliest hold, zero when none.
+func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder string, now time.Time, firstSeen map[string]time.Time) time.Time {
+	if mode := snap.headerMode(folder); mode != config.ApprovalsAsk {
 		view.ApprovalsMode = mode
 	}
 	var earliest time.Time
+	held := func(hold time.Time) {
+		if earliest.IsZero() || hold.Before(earliest) {
+			earliest = hold
+		}
+	}
 	// The scanner may keep the rows for a later page, so they are copied.
 	rows := slices.Clone(view.Conversations)
+	onPage := map[string]bool{}
+	waiting := map[string]bool{}
 	for i := range rows {
 		c := &rows[i]
 		key := approvalSessionKey(string(c.Tool), c.ID)
+		onPage[key] = true
 		var note conversations.ApprovalsNote
 		if session := snap.sessions[key]; session != nil {
 			note.Approved, note.Recent = session.Approved, session.recent
 		}
-		since, waits := c.PermissionWait()
-		waits = waits && c.Live
-		if !waits || !since.IsZero() {
-			delete(firstSeen, key)
-		}
+		reason, hold, waits := waitVerdictOf(*c, snap, now, firstSeen)
 		if waits {
-			if since.IsZero() && c.Tool == conversations.ToolClaude {
-				seen, ok := firstSeen[key]
-				if !ok {
-					seen.first = now
-				}
-				seen.last = now
-				firstSeen[key] = seen
-				since = seen.first
-			}
-			reason, hold := snap.waitVerdict(*c, since, now)
+			waiting[key] = true
 			note.Reason = reason
 			if !hold.IsZero() {
 				if c.State == conversations.StateBlocked {
@@ -307,9 +361,7 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.T
 				}
 				c.Activity = conversations.ActivityWorking
 				c.Waiting = nil
-				if earliest.IsZero() || hold.Before(earliest) {
-					earliest = hold
-				}
+				held(hold)
 			}
 		}
 		if note.Approved > 0 || note.Reason != "" {
@@ -317,45 +369,116 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.T
 		}
 	}
 	view.Conversations = rows
-	// A wait no list showed for an hour, such as one a search left out
-	// until it ended, is forgotten.
-	for key, seen := range firstSeen {
-		if now.Sub(seen.last) > time.Hour {
+	// A search or a later page leaves rows out that NeedsYou counts.
+	for _, c := range view.PermissionWaits {
+		key := approvalSessionKey(string(c.Tool), c.ID)
+		waiting[key] = true
+		if onPage[key] {
+			continue
+		}
+		if _, hold, _ := waitVerdictOf(c, snap, now, firstSeen); !hold.IsZero() {
+			if c.State == conversations.StateBlocked {
+				view.NeedsYou = max(view.NeedsYou-1, 0)
+			}
+			held(hold)
+		}
+	}
+	for key := range firstSeen {
+		if !waiting[key] {
 			delete(firstSeen, key)
 		}
 	}
 	return earliest
 }
 
+// waitVerdictOf is waitVerdict for row c, and whether c is a live
+// permission wait at all. A Claude Code wait whose start the tool did
+// not give starts when the server first saw it, kept in firstSeen.
+func waitVerdictOf(c conversations.Conversation, snap approvalsSnapshot, now time.Time, firstSeen map[string]time.Time) (reason string, hold time.Time, waits bool) {
+	key := approvalSessionKey(string(c.Tool), c.ID)
+	since, waits := c.PermissionWait()
+	waits = waits && c.Live
+	if !waits || !since.IsZero() {
+		delete(firstSeen, key)
+	}
+	if !waits {
+		return "", time.Time{}, false
+	}
+	if since.IsZero() && c.Tool == conversations.ToolClaude {
+		since = firstSeen[key]
+		if since.IsZero() {
+			since = now
+			firstSeen[key] = since
+		}
+	}
+	reason, hold = snap.waitVerdict(c, since, now)
+	return reason, hold, true
+}
+
 // approvalsReader reads the approvals policy and decision log for the
 // conversations list and the approvals routes, keeping the parsed log
 // until the log changes.
 type approvalsReader struct {
-	source func() (string, error)
-	home   func() (string, error)
-	env    func() string
-	now    func() time.Time
-	routed func(tool, mode string) bool
+	source    func() (string, error)
+	home      func() (string, error)
+	env       func() string
+	now       func() time.Time
+	routed    func(tool, mode string) bool
+	activated func(tool, mode, home string) bool
 
 	mu       sync.Mutex
 	logStamp string
 	sessions map[string]*approvalSession
 	// firstSeen: see applyApprovals.
-	firstSeen map[string]waitSeen
+	firstSeen map[string]time.Time
 	// holds is, per list query, the end of the earliest hold in the
 	// last answer to it; that list's tag changes once it passes, so the
 	// held row shows without a write.
-	holds map[string]time.Time
+	holds          map[string]time.Time
+	projectFolders []string
 }
 
 func newApprovalsReader() *approvalsReader {
 	return &approvalsReader{
-		source: globalSourceRoot,
-		home:   globalUserHome,
-		env:    func() string { return os.Getenv(config.EnvApprovals) },
-		now:    time.Now,
-		routed: approvalsRouted,
+		source:    globalSourceRoot,
+		home:      globalUserHome,
+		env:       func() string { return os.Getenv(config.EnvApprovals) },
+		now:       time.Now,
+		routed:    approvalsRouted,
+		activated: approvalsActivated,
 	}
+}
+
+func approvalsActivated(tool, mode, home string) bool {
+	if mode == config.ApprovalsYolo {
+		return approvalsToolStatusFor(tool, config.ApprovalDecision{Mode: mode}).Effective == mode
+	}
+	if home == "" {
+		return false
+	}
+	rs, native, err := readReviewerState(tool, home, globalState{})
+	if err != nil || !native || !rs.on {
+		return false
+	}
+	if off := rs.reviewer.off; off != nil {
+		if value, ok := settingsLookup(rs.values, off.key, globalTargets[tool].settings.format); ok && sameSetting(value, off.value) {
+			return false
+		}
+	}
+	return rs.reviewer.overrideEnv == "" || strings.TrimSpace(os.Getenv(rs.reviewer.overrideEnv)) == ""
+}
+
+// reviewerFiles are the user settings files that turn the listed tools'
+// reviewers on.
+func reviewerFiles(userHome string) []string {
+	var paths []string
+	for _, tool := range approvalsListTools {
+		if _, ok := nativeReviewers[string(tool)]; ok {
+			g := globalTargets[string(tool)]
+			paths = append(paths, g.path(userHome, g.settings.path))
+		}
+	}
+	return paths
 }
 
 // files are the home config files and the decision log, whose changes
@@ -377,9 +500,23 @@ func (a *approvalsReader) stamp(query string) string {
 	}
 	var b strings.Builder
 	b.WriteString(fileStamps(append(configs, log, log+".1")...))
+	if userHome, err := a.home(); err == nil {
+		b.WriteString(fileStamps(reviewerFiles(userHome)...))
+	}
+	if path, ok := claudeUserSettingsPath(); ok {
+		b.WriteString(fileStamps(path))
+	}
+	if path, err := codex.UserHooksPath(); err == nil {
+		b.WriteString(fileStamps(path, filepath.Join(filepath.Dir(path), "config.toml")))
+	}
+	fmt.Fprintf(&b, "env:%q;", a.env())
 	a.mu.Lock()
-	hold := a.holds[query]
+	hold, folders := a.holds[query], a.projectFolders
 	a.mu.Unlock()
+	for _, folder := range folders {
+		resolved, _ := filepath.EvalSymlinks(folder)
+		fmt.Fprintf(&b, "%q:%q:%q;", folder, resolved, displayProjectAsk(folder))
+	}
 	if !hold.IsZero() {
 		fmt.Fprintf(&b, "hold:%d:%t", hold.UnixNano(), !a.now().Before(hold))
 	}
@@ -402,13 +539,16 @@ func fileStamps(paths ...string) string {
 // snapshot reads the policy and, when it changed, the decision log. A
 // policy that cannot be read asks; a log that cannot be read is empty.
 func (a *approvalsReader) snapshot() approvalsSnapshot {
-	snap := approvalsSnapshot{projectAsk: map[string]string{}, routed: a.routed}
+	snap := approvalsSnapshot{projectAsk: map[string]string{}, routed: a.routed, active: map[approvalDisplayRoute]bool{}}
+	userHome, _ := a.home()
+	if a.activated != nil {
+		snap.activated = func(tool, mode string) bool { return a.activated(tool, mode, userHome) }
+	}
 	source, err := a.source()
 	if err != nil {
 		return snap
 	}
 	if home, err := config.LoadHomeApprovals(source); err == nil {
-		userHome, _ := a.home()
 		snap.policy = config.ApprovalsPolicy{Home: home, UserHome: userHome, Env: a.env()}
 		snap.policyOK = true
 	}
@@ -429,19 +569,20 @@ func (a *approvalsReader) snapshot() approvalsSnapshot {
 
 // decorate adds what approvals decided to the list the scanner read
 // for query.
-func (a *approvalsReader) decorate(view *conversations.View, query string) {
+func (a *approvalsReader) decorate(view *conversations.View, folder, query string) {
 	snap := a.snapshot()
 	now := a.now()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.firstSeen == nil {
-		a.firstSeen, a.holds = map[string]waitSeen{}, map[string]time.Time{}
+		a.firstSeen, a.holds = map[string]time.Time{}, map[string]time.Time{}
 	}
-	if hold := applyApprovals(view, snap, now, a.firstSeen); !hold.IsZero() {
+	if hold := applyApprovals(view, snap, folder, now, a.firstSeen); !hold.IsZero() {
 		a.holds[query] = hold
 	} else {
 		delete(a.holds, query)
 	}
+	a.projectFolders = slices.Sorted(maps.Keys(snap.projectAsk))
 	// A query nobody asks for again keeps its hold only a while.
 	for asked, hold := range a.holds {
 		if now.Sub(hold) > time.Minute {
@@ -452,7 +593,7 @@ func (a *approvalsReader) decorate(view *conversations.View, query string) {
 
 // approvalsView is the read route's answer.
 type approvalsView struct {
-	// Mode is the loosest mode the home config sets; ask when none.
+	// Mode is the loosest effective mode for the server directory.
 	Mode string `json:"mode"`
 	// Tools is approvals status for the server's working directory.
 	Tools []approvalsToolStatus `json:"tools"`
@@ -493,11 +634,20 @@ func (h approvalsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	snap := h.reader.snapshot()
-	out := approvalsView{Mode: snap.headerMode(), Tools: []approvalsToolStatus{}, Sessions: []*approvalSession{}}
+	out := approvalsView{Mode: config.ApprovalsAsk, Tools: []approvalsToolStatus{}, Sessions: []*approvalSession{}}
 	if status, err := readApprovalsStatus(io.Discard); err != nil {
 		out.Problem = err.Error()
 	} else {
 		out.Tools = status.Tools
+		home, _ := h.reader.home()
+		for i := range out.Tools {
+			tool := &out.Tools[i]
+			if tool.Effective == config.ApprovalsReview && !h.reader.activated(tool.Tool, tool.Effective, home) {
+				tool.Effective, tool.Route = config.ApprovalsAsk, ""
+				tool.Reason = "the tool's reviewer is inactive"
+			}
+			out.Mode = looserApprovalsMode(out.Mode, tool.Effective)
+		}
 	}
 	for _, session := range snap.sessions {
 		out.Sessions = append(out.Sessions, session)
