@@ -116,7 +116,7 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 		if !errors.Is(err, os.ErrNotExist) && errs.CodeOf(err) != errs.CodeConfigMissing {
 			return nil, err
 		}
-		if err := refuseNestedProject("run agnostic-ai use there"); err != nil {
+		if err := refuseNestedProject("use"); err != nil {
 			return nil, err
 		}
 		return tools, startProject(cmd, tools)
@@ -245,17 +245,26 @@ func localSetsTargets() bool {
 }
 
 // refuseNestedProject stops a command from starting a second project
-// inside one an enclosing directory already holds. remedy says what to
-// do instead.
-func refuseNestedProject(remedy string) error {
+// inside one an enclosing directory already holds.
+func refuseNestedProject(command string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 	if dir, ok := enclosingProject(cwd); ok {
-		return fmt.Errorf("this directory is inside the agnostic-ai project at %s; %s", dir, remedy)
+		return errors.New(insideProjectHint(dir, command))
 	}
 	return nil
+}
+
+// insideProjectHint names the project that encloses the working
+// directory and the command to run there; an empty command means any.
+func insideProjectHint(dir, command string) string {
+	run := "agnostic-ai"
+	if command != "" {
+		run += " " + command
+	}
+	return fmt.Sprintf("this directory is inside the agnostic-ai project at %s; run %s from there", dir, run)
 }
 
 // enclosingProject returns the nearest directory above dir that holds an

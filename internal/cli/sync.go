@@ -296,7 +296,7 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 // checks the rest of its flags itself.
 func validateSyncFlags(f syncFlags) error {
 	if f.jobs < 0 {
-		return fmt.Errorf("--jobs: want 0 (one per CPU) or more, got %d", f.jobs)
+		return errs.Coded(errs.CodeFlagConflict, "--jobs: want 0 (one per CPU) or more, got %d", f.jobs)
 	}
 	if f.allowEmptyTargets && (f.check || f.plan || f.watch || f.global) {
 		return errs.Coded(errs.CodeFlagConflict, "--allow-empty-targets cannot be combined with --check, --plan, --watch, or --global")

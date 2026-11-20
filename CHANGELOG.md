@@ -8,6 +8,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
+- `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `sync --jobs -1` fails with AAI-302, `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
+- From a subfolder of a project, `status`, `init`, `doctor`, `packs list` and `use` name the project with one sentence (#3749).
+- Cline: the note that some hook events run in the CLI only no longer prints when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3749).
 - `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
 - `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
 - `doctor` no longer fails when `CODEX_HOME` does not exist yet and the project has no Codex hooks file. `doctor --fix` saves each hand-edited file as `<path>.bak` before writing, as `sync` does (#3707).

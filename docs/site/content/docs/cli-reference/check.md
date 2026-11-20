@@ -47,7 +47,7 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | Check | Reports |
 |-------|------------|
 | Hook events | A hook with neither `on:` nor `event:`, or an event no target the hook emits to supports, after its `x-<target>` event. The report lists the supported events. |
-| Unused spec kinds | Hook, MCP, command, settings, review, environment, or ignore specs that no enabled target reads. The line names the targets that would. `new` names them too when it writes such a spec. |
+| Unused spec kinds | Hook, MCP, command, settings, review, or environment specs that no enabled target reads. The line names the targets that would. `new` names them too when it writes such a spec. Ignore specs no target reads print a `note:` on stderr and pass, as `lint` and `sync` do. |
 | Duplicate names | Two specs of one kind with the same `name` in one layer. Only the last one loaded reaches any tool, so validate fails and `sync` prints a warning naming both files. A project spec that overrides a pack, or a `local/` spec that extends a project spec, is not a duplicate. |
 | Case-only output clashes | On a filesystem where letter case does not count, such as macOS or Windows: outputs that differ only in letter case, such as the files of rules `b` and `B`, which land on one file. Validate fails with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and names both paths, as `sync` would. To find them it renders every target, which makes validate slower on those filesystems. |
 | Declared sources | A `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr, loads the kind empty, and passes. |
