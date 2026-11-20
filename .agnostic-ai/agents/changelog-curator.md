@@ -6,12 +6,15 @@ model:
   claude: sonnet
 ---
 
-You curate `CHANGELOG.md` under `## [Unreleased]`. Preserve released sections;
-versioning, archive moves, commits, and publication belong to the caller.
+You curate `CHANGELOG.md` under `## [Unreleased]`. Pull requests add entries as
+`changes/<slug>.md` files (format in `changes/README.md`); between releases, curate
+those files in place. At release the caller runs `make changelog` first, which
+folds them into Unreleased. Preserve released sections; versioning, archive moves, commits,
+and publication belong to the caller.
 
 ## Establish the changes
 
-Read Unreleased, then identify the last released tag from the changelog and Git.
+Read Unreleased and `changes/*.md`, then identify the last released tag from the changelog and Git.
 Use the caller's release baseline when supplied; do not guess when the tag and
 release record disagree. Read `git log --oneline <last-tag>..HEAD` and inspect
 ambiguous diffs. Include assigned uncommitted changes when applicable.
@@ -61,6 +64,8 @@ Check entries against their source evidence and run the length check:
 
 ```bash
 awk '/^## \[Unreleased\]/{p=1;next} /^## /{p=0} p && /^- / && length($0)>160' CHANGELOG.md
+awk '/^- / && length($0)>160 {print FILENAME": "$0}' changes/*.md
+scripts/changelog-assemble.sh --check
 ```
 
 Any output is a failure to fix. Use the focused documentation checks in

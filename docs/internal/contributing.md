@@ -30,7 +30,7 @@ Review the whole diff against the PR base, including tests, fixtures, generated 
 | Adapter, shared Go, runtime behavior, or unknown impact | `make ci-local`; focused package and integration tests for the acceptance scenario |
 | Inner edit loop, before the checks above | `make test-short`: skips end-to-end and timing tests, so it never replaces a gate |
 | Concurrency | `make test-race` (included in `make ci-local`) |
-| Dependencies (`go.mod`) or binary size | `make size-check` (included in `make ci-local`); raise [`scripts/binary-size-budget`](../../scripts/binary-size-budget) only when the growth is worth it, and say why in the PR |
+| Dependencies (`go.mod`) or binary size | `make size-growth-check`: fails when this branch grows the binary more than 16384 bytes over where it left `origin/main` (CI checks the same on each PR). When the growth is worth it, set the bytes the PR needs in [`scripts/binary-size-growth`](../../scripts/binary-size-growth) and say why there. Leave [`scripts/binary-size-budget`](../../scripts/binary-size-budget) alone: it is the upper bound `make size-check` checks on `main` and at release, and only a release raises it |
 | Shell scripts or CLI end-to-end behavior | `make test-shell` (included in `make ci-local`, requires bashunit on PATH at the `BASHUNIT_VERSION` in [ci.yml](../../.github/workflows/ci.yml)) |
 | Project setup, branch changes or package versions | `go test ./tests/integration -run TestProjectLifecycle -count=1`; Linux and macOS CI plus Windows smoke |
 | Config struct or schema fields | `go run ./cmd/schemagen`; review the updated schema and include it |
@@ -115,7 +115,7 @@ Verify examples in a temporary project. Describe what the generated files prove 
 - New or changed spec fields: update the matching page under [spec format](../site/content/docs/spec-format/_index.md).
 - Config struct tag changes: regenerate [config.schema.json](../schemas/config.schema.json).
 - New commands or visible behavior: update the matching capability or quickstart explanation in [README](../../README.md).
-- User-visible changes: add an `[Unreleased]` entry in [CHANGELOG](../../CHANGELOG.md), under `General` or the matching tool in `By tool`. Follow [.agnostic-ai/agents/changelog-curator.md](../../.agnostic-ai/agents/changelog-curator.md) for entry format.
+- User-visible changes: add a `changes/<slug>.md` file with the entry under `### General` or `### By tool` and its `#### <Tool>` heading ([format](../../changes/README.md)), instead of editing [CHANGELOG](../../CHANGELOG.md); a release folds the files into `[Unreleased]`. Follow [.agnostic-ai/agents/changelog-curator.md](../../.agnostic-ai/agents/changelog-curator.md) for entry format.
 
 Keep tutorials focused on one working outcome. Put optional workflows in task guides and field details in references. Link to the main explanation instead of copying tables or setup instructions. Preserve existing page paths and section anchors when reorganizing docs.
 

@@ -614,6 +614,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 2
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -627,7 +628,18 @@ jobs:
       - name: Lint specs
         run: ./agnostic-ai lint
 
+      - name: Changelog entries
+        run: scripts/changelog-assemble.sh --check
+
+      # A pull request is checked by its own growth over the base, so two
+      # pull requests that each add a little never conflict on one number.
+      # The merge commit's first parent is the base it was built on.
+      - name: Binary growth
+        if: github.event_name == 'pull_request'
+        run: make size-growth-check BASE="$(git rev-parse HEAD^1)"
+
       - name: Binary size
+        if: github.event_name != 'pull_request'
         run: make size-check
 
   plugin:
