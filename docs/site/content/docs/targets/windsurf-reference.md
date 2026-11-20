@@ -17,7 +17,7 @@ Start with the [Windsurf setup](@/docs/targets/windsurf.md).
 
 ### Rules
 
-Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurfrules` is legacy). Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync removes the files it wrote there earlier and leaves hand-written files alone.
+Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurfrules` is legacy). Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync removes the files it wrote there earlier and leaves hand-written files alone. `import windsurf` from `.windsurf/rules/` names each hand-written file to delete after the next sync, because Devin would load it and its `.devin/rules/` copy.
 
 ### Entry point
 

@@ -989,5 +989,6 @@
 # MCP `$${NAME}` values when it rewrites the spec from a tool file.
 # Allow 8192 bytes, rounded up to a 4096-byte page.
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
-# Merged branch growth of 16384 bytes over its base, on top of main's 27291648.
-27308032
+# Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
+# Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
+27336704

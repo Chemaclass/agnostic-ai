@@ -53,7 +53,7 @@ func TestWriteCodexRule_QuotesDescriptionSoSpecParses(t *testing.T) {
 			t.Fatal(err)
 		}
 		name := "rule"
-		if err := writeCodexRule(sub, name, desc, "", "body"); err != nil {
+		if err := writeCodexRule(sub, name, desc, "", "body", "AGENTS.md", true); err != nil {
 			t.Fatalf("case %d: writeCodexRule: %v", i, err)
 		}
 		data, err := os.ReadFile(filepath.Join(sub, name+".md"))
