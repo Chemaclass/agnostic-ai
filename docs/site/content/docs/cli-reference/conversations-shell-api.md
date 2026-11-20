@@ -30,11 +30,11 @@ On macOS and Linux, the server scans again before it signals the shell's process
 
 Send `{tool, id}` as JSON from the server's own origin. Use a row whose `stoppable` is `true`.
 
-On macOS and Linux, the server reads Claude Code's session files again and checks that the session's process still runs, with the start time its session file names. It sends SIGTERM to that process alone. If the same process still runs after five seconds, it sends SIGKILL. The transcript stays, so the chat can be resumed. Shells the session started in their own process groups get no signal from the server and may keep running.
+On macOS and Linux, the server scans again and checks that the session still runs in a terminal, that its process has the start time its session file names, and that the process is not this server or one of its parents. It sends SIGTERM to that process alone. If the same process, by PID and start time, still runs after five seconds, it sends SIGKILL. The transcript stays, so the chat can be resumed; a forced stop can lose the line Claude Code was writing. Shells the session started in their own process groups get no signal from the server and may keep running.
 
 | Status | Meaning |
 |--------|---------|
 | 200 | The stop request completed. The body is `{forced?, stillRunning?}`: `forced` when the process ignored SIGTERM and got SIGKILL, `stillRunning` when even that did not end it. |
 | 400 | The request body or a field is invalid. |
-| 409 | The server refused, for example because the session is not live here, its process changed, or a stop of it is already running. |
+| 409 | The server refused, for example because the session no longer runs in a terminal here, its process changed, or this server is already stopping it. |
 | 500 | The server could not complete the stop. |

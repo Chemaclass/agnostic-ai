@@ -2009,12 +2009,12 @@ test('confirming Stop chat ends it and says so', async ({ page }) => {
 
 test('a refused Stop chat says why', async ({ page }) => {
   await openPanel(page)
-  await page.route('**/api/stop-session', (route) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'this chat no longer runs here' }) }))
+  await page.route('**/api/stop-session', (route) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'this chat no longer runs in a terminal here' }) }))
   await row(page, 'Approve the database migration').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
   await stopChatDialog(page).getByRole('button', { name: 'Stop chat' }).click()
 
-  await expect(page.getByText('this chat no longer runs here')).toBeVisible()
+  await expect(page.getByText('this chat no longer runs in a terminal here')).toBeVisible()
 })
 
 test('the delete question keeps Tab on its buttons and closes on a click outside it', async ({ page }) => {

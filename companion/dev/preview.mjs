@@ -304,7 +304,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const body = await bodyOf(request)
     logCall('/api/stop-session', body)
     const row = find(body)
-    if (!row?.live || !row.stoppable) return sendJSON(response, 409, { error: 'this chat no longer runs here' })
+    if (!row?.live || !row.stoppable) return sendJSON(response, 409, { error: 'this chat no longer runs in a terminal here' })
     for (const key of ['live', 'stoppable', 'activity', 'waiting', 'stuckShells']) delete row[key]
     if (row.state === 'working' || row.state === 'blocked') row.state = 'active'
     listChanged()

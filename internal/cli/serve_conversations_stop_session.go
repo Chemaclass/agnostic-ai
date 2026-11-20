@@ -22,11 +22,11 @@ func (h *conversationsHandler) stopSession(w http.ResponseWriter, r *http.Reques
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: usage})
 		return
 	}
-	reply, err := h.scanner.StopSession(r.Context(), req.Tool, req.ID)
+	reply, err := h.scanner.StopSession(r.Context(), req.Tool, req.ID, h.scanOptions(""))
 	switch {
 	case err == nil:
 		writeEditJSON(w, http.StatusOK, reply)
-	case errors.Is(err, conversations.ErrSessionRefused):
+	case errors.Is(err, conversations.ErrSessionRefused), errors.Is(err, conversations.ErrSessionStopping):
 		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 	default:
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})

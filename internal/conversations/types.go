@@ -185,8 +185,8 @@ type Conversation struct {
 	// or their states are unknown; see helpers.go.
 	Helpers     []helper     `json:"helpers,omitempty"`
 	StuckShells []StuckShell `json:"stuckShells,omitempty"`
-	// Stoppable: a live Claude Code session whose process this server
-	// can end; see StopSession.
+	// Stoppable: a live Claude Code session in a terminal whose process
+	// this server can end; see StopSession.
 	Stoppable bool `json:"stoppable,omitempty"`
 	// Waiting says what a waiting conversation waits for, when its tool
 	// says: an approval, with the call when the transcript shows it, or

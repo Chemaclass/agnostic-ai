@@ -93,7 +93,7 @@
     "src/components/pick.tsx": "22eac15dc2d0948d7e79a87e4a6893b42ff8f42ac10b331dea284e58043aeb29",
     "src/components/section-context.ts": "af0d7202ce239dc63b85d54dd245d8b4ff7bb35adaf931f6e260fdea49f59a67",
     "src/components/ui.tsx": "2fe962e0889f3e85e0485081069fb6acb456422016bf8f48872180c1f2df844d",
-    "src/contract.ts": "eea8f2ffb26422b725d722140ea27f443e6ddfbca18fe56c4f6c3d924bcdbf71",
+    "src/contract.ts": "185ea9818d6374911fbc7365135586aa826d5f11f90fe1dba80fb395be05b879",
     "src/fixtures/context.mock.json": "fbd79bc39f98c600c774d81c0cb3847851a45b69ed7098eae8e59fc53061e99c",
     "src/fixtures/conversations.mock.json": "1b4e27cc8dfd6a2d0055db444ac20847d0c356d0829411ac8c665e44c231e713",
     "src/fixtures/overview.mock.json": "4476dae68d302d1f5c69ef72fc971b770103c3ebead2951e5dd46b567227c15e",

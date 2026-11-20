@@ -40,6 +40,8 @@ type fakeProcesses struct {
 	environmentFails bool
 	// missingFails makes Holders fail when asked about a file that does not exist, as lsof does.
 	missingFails bool
+	// tableFails makes reading the process table fail.
+	tableFails bool
 }
 
 func (f fakeProcesses) ClaudeParents(pids []int) (map[int]string, error) {
@@ -109,7 +111,12 @@ func (f fakeProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) 
 	return alive, nil
 }
 
-func (f fakeProcesses) Table() ([]ProcessInfo, error) { return f.table, nil }
+func (f fakeProcesses) Table() ([]ProcessInfo, error) {
+	if f.tableFails {
+		return nil, errors.New("ps timed out")
+	}
+	return f.table, nil
+}
 
 func (f fakeProcesses) Args([]int) map[int]string { return f.args }
 

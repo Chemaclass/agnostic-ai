@@ -306,7 +306,6 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		s.fill(&c, texts{title: meta.title, firstPrompt: meta.firstPrompt, lastPrompt: meta.lastPrompt, reply: meta.reply, question: meta.question})
 		session, isLive := live[id]
 		c.Live = isLive
-		c.Stoppable = isLive && canStopShells()
 		c.Activity = session.activity
 		if canStopShells() && (session.status == "shell" || session.status == "busy") && opts.shellAfter() > 0 {
 			c.shellSession = &session.process
@@ -388,6 +387,9 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 		c.Open = Route{Kind: RouteLink, Label: "Open in Claude app", Link: "claude://resume?session=" + c.ID}
 	case isLive:
 		c.process = &process
+		// Only a terminal session is its own process: a background job's
+		// daemon, an editor or the Claude app would start it again or lose track.
+		c.Stoppable = canStopShells() && process.PID > 1 && process.ProcStart != ""
 		c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: resume}
 	default:
 		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume}

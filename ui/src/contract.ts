@@ -969,7 +969,7 @@ export interface Conversation {
   /** The agents this conversation started that are no rows of their own and still work: its native subagents, and the Codex runs a local Claude Code session started with `codex exec`. Omitted when none works or their states are unknown. */
   helpers?: ConversationHelper[]
   stuckShells?: StuckShell[]
-  /** A live local Claude Code session whose process this server can end with POST /api/conversations/stop-session. */
+  /** A live Claude Code session in a terminal on this computer, whose process POST /api/conversations/stop-session can end. */
   stoppable?: boolean
   /** Absent from a server older than the marks. */
   state?: ConversationState
