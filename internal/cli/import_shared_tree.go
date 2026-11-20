@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // importScopedSkillFolders discovers the target's native skill directory at
@@ -113,10 +115,10 @@ func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir strin
 // importScopedSkillFoldersWith is importScopedSkillFoldersFrom with the
 // target's own SKILL.md field set.
 func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir string, fields *specFields) (int, error) {
-	return importScopedSkillFoldersTransformed(root, nativeDirs, dstDir, fields, nil)
+	return importScopedSkillFoldersTransformed(root, nativeDirs, dstDir, fields, nil, nil)
 }
 
-func importScopedSkillFoldersTransformed(root string, nativeDirs []string, dstDir string, fields *specFields, transform func([]byte) ([]byte, error)) (int, error) {
+func importScopedSkillFoldersTransformed(root string, nativeDirs []string, dstDir string, fields *specFields, transform func([]byte) ([]byte, error), copies map[string]flatWorkspaceCopy) (int, error) {
 	dirs, err := findScopedSkillDirsAll(root, nativeDirs)
 	if err != nil {
 		return 0, err
@@ -133,7 +135,7 @@ func importScopedSkillFoldersTransformed(root string, nativeDirs []string, dstDi
 			root,
 			dir.path,
 			filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
-			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders, Scope: dir.scope, TransformSkill: transform},
+			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders, Scope: dir.scope, TransformSkill: transform, WorkspaceCopies: copies},
 		)
 		if err != nil {
 			return count, err
@@ -207,7 +209,7 @@ func (c skillFolderClaims) recordWorkspaces() error {
 		if len(k.workspaces) == 0 {
 			continue
 		}
-		path := filepath.Join(k.dst, "SKILL.md")
+		path := k.dst
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -249,7 +251,8 @@ type skillFolderImportOpts struct {
 	// Folders dedupes skill folders across directories by resolved path.
 	Folders skillFolderClaims
 	// Scope is the project directory srcDir's native tree sits in.
-	Scope string
+	Scope           string
+	WorkspaceCopies map[string]flatWorkspaceCopy
 }
 
 // importSkillFoldersWith imports a native skill tree with optional
@@ -264,6 +267,7 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", srcDir, err)
 	}
+	flat := flatSkillPaths(dstDir, opts.Scope)
 	count := 0
 	for _, e := range entries {
 		if opts.SkipNames[e.Name()] {
@@ -277,8 +281,18 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 		if !ok {
 			continue
 		}
-		skillDst := filepath.Join(dstDir, e.Name())
-		skillMD, err := os.ReadFile(filepath.Join(skillSrc, "SKILL.md"))
+		native := filepath.Join(skillSrc, "SKILL.md")
+		if copy, found := opts.WorkspaceCopies[filepath.Join(srcDir, e.Name())]; found &&
+			opts.Folders[copy.owner] != nil && opts.Folders[copy.owner].dst == copy.source {
+			skip, err := copy.unchanged(native)
+			if err != nil {
+				return count, err
+			}
+			if skip {
+				continue
+			}
+		}
+		skillMD, err := os.ReadFile(native)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		} else if err != nil {
@@ -287,6 +301,7 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 		if adapters.WrittenFromAgent(string(skillMD)) || adapters.WrittenFromCommand(string(skillMD)) {
 			continue
 		}
+		skillDst := skillImportPath(dstDir, e.Name(), flat)
 		if !opts.Folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillDst, opts.Scope) {
 			continue
 		}
@@ -299,6 +314,51 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 		count++
 	}
 	return count, nil
+}
+
+func flatSkillPaths(dir, scope string) map[string]string {
+	for ancestor := dir; ; ancestor = filepath.Dir(ancestor) {
+		if fileExists(filepath.Join(ancestor, "SKILL.md")) {
+			return nil
+		}
+		if scope == "" || scope == "." {
+			break
+		}
+		scope = path.Dir(scope)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	paths := make(map[string]string)
+	for _, e := range entries {
+		if !e.Type().IsRegular() || filepath.Ext(e.Name()) != ".md" {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		entry, err := spec.ParseMarkdownBytes(spec.KindSkill, data)
+		if err != nil {
+			continue
+		}
+		name := entry.Name
+		if name == "" {
+			name = strings.TrimSuffix(e.Name(), ".md")
+		}
+		paths[name] = path
+	}
+	return paths
+}
+
+func skillImportPath(dir, name string, flat map[string]string) string {
+	folder := filepath.Join(dir, name, "SKILL.md")
+	if path := flat[name]; path != "" && !fileExists(folder) {
+		return path
+	}
+	return folder
 }
 
 // skillFolderSource returns the folder to import for the entry e of the
@@ -395,16 +455,10 @@ func noteOutsideSkill(link, target string) {
 	}
 }
 
-// copyDirTree walks srcDir recursively and writes every regular file
-// into the matching location under dstDir, byte-for-byte but for a
-// SKILL.md merged onto an existing spec, recreating
-// the directory layout as it goes. File mode bits are preserved so an
-// executable script remains executable on the destination. Symlinks
-// are not followed; if they appear inside a skill folder they are
-// silently skipped (skills are documented to be plain files +
-// directories — symlinks would not survive a tar/zip release anyway).
-func copyDirTree(srcDir, dstDir string) error {
-	return copyDirTreeWith(srcDir, dstDir, nil, allSpecFields)
+// copyDirTree copies a native skill to dstSkill, keeping bundled files and
+// executable bits for folder specs. Symlinks within the folder are skipped.
+func copyDirTree(srcDir, dstSkill string) error {
+	return copyDirTreeWith(srcDir, dstSkill, nil, allSpecFields)
 }
 
 // skillFields resolves a skill tree's field set, defaulting to the
@@ -454,10 +508,26 @@ func realPath(path string) string {
 	return real
 }
 
-func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
-	if spec, ok := singleFileSkillSpec(srcDir, dstDir); ok {
-		return copySkillFile(filepath.Join(srcDir, "SKILL.md"), spec, transformSkill, fields)
+func copyDirTreeWith(srcDir, dstSkill string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
+	if filepath.Base(dstSkill) != "SKILL.md" {
+		if err := checkFlatSkillAssets(srcDir, dstSkill); err != nil {
+			return err
+		}
+		path := filepath.Join(srcDir, "SKILL.md")
+		info, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", path, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		return importSkillMarkdown(path, dstSkill, data, info.Mode().Perm(), transformSkill, fields)
 	}
+	dstDir := filepath.Dir(dstSkill)
 	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -473,9 +543,6 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if !d.Type().IsRegular() || isSyncBackup(path) {
 			return nil
 		}
-		if filepath.Base(path) == "SKILL.md" {
-			return copySkillFile(path, target, transformSkill, fields)
-		}
 		info, err := d.Info()
 		if err != nil {
 			return err
@@ -484,11 +551,14 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if header.Leads(path, string(data)) {
+		if filepath.Base(path) != "SKILL.md" && header.Leads(path, string(data)) {
 			return nil
 		}
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
+		}
+		if filepath.Base(path) == "SKILL.md" {
+			return importSkillMarkdown(path, target, data, info.Mode().Perm(), transformSkill, fields)
 		}
 		if err := importWriteFile(target, data, info.Mode().Perm()); err != nil {
 			return fmt.Errorf("write %s: %w", target, err)
@@ -497,49 +567,37 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 	})
 }
 
-// copySkillFile merges a native SKILL.md onto the spec at target.
-func copySkillFile(path, target string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	importReadingNative(path)
+func importSkillMarkdown(src, dst string, data []byte, mode fs.FileMode, transform func([]byte) ([]byte, error), fields specFields) error {
+	importReadingNative(src)
 	data = []byte(header.Strip(string(data)))
-	if transformSkill != nil {
-		if data, err = transformSkill(data); err != nil {
-			return fmt.Errorf("transform %s: %w", path, err)
+	if transform != nil {
+		var err error
+		data, err = transform(data)
+		if err != nil {
+			return fmt.Errorf("transform %s: %w", src, err)
 		}
 	}
-	if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
-	}
-	if err := importWriteSpecMarkdown(target, data, info.Mode().Perm(), fields); err != nil {
-		return fmt.Errorf("write %s: %w", target, err)
+	if err := importWriteSpecMarkdown(dst, data, mode, fields); err != nil {
+		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
 }
 
-// singleFileSkillSpec returns `<skillDst>.md` when the skill is already a
-// single-file spec and the native folder holds only its SKILL.md, which
-// is all sync writes for one. The import then updates that file; a
-// `<skillDst>/` folder beside it would declare the skill twice.
-func singleFileSkillSpec(skillSrc, skillDst string) (string, bool) {
-	spec := skillDst + ".md"
-	if dirExists(skillDst) || !fileExists(spec) {
-		return "", false
-	}
-	entries, err := os.ReadDir(skillSrc)
-	if err != nil {
-		return "", false
-	}
-	for _, e := range entries {
-		if e.Name() != "SKILL.md" && !isSyncBackup(filepath.Join(skillSrc, e.Name())) {
-			return "", false
+func checkFlatSkillAssets(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
 		}
-	}
-	return spec, true
+		if path == filepath.Join(src, "SKILL.md") || !entry.Type().IsRegular() || entry.Name() == ".DS_Store" || isSyncBackup(path) {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		if filepath.Base(path) != "SKILL.md" && header.Leads(path, string(data)) {
+			return nil
+		}
+		return fmt.Errorf("%s: move %s into a skill folder as SKILL.md before importing its bundled files", path, dst)
+	})
 }
