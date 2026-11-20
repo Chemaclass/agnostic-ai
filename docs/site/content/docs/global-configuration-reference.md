@@ -226,8 +226,9 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 
 - A home settings spec that sets the same key wins: `permissions.default-mode` where the tool maps it, otherwise the key under `x-<tool>`, such as `x-codex.approvals_reviewer`. A value set outside agnostic-ai stays as it is, and `sync --global` warns that the reviewer stays off.
 - Remove `review` and run `sync --global` again, and the key goes. [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) alone does not remove it.
-- The key sits in a user file, so it applies in every folder. A `projects` entry or `AGNOSTIC_AI_APPROVALS=ask` cannot turn the reviewer off for one folder or session; `approvals status` notes it there. A project sync never writes either key.
+- The key sits in a user file, so it applies in every folder. A `projects` entry or `AGNOSTIC_AI_APPROVALS=ask` cannot turn the reviewer off for one folder or session; `approvals status` notes it there. A project sync never writes these keys.
 - Codex Auto-review answers only prompts Codex would show. With `approval_policy = "never"` there are none, so the reviewer never runs; `approvals status` says so when `~/.codex/config.toml` sets it. It does not read a trusted project's `.codex/config.toml`, which can set either key too.
+- Qwen Code already runs auto mode in a trusted folder when `tools.approvalMode` is unset, so `ask` alone does not bring its prompts back; `approvals status` says so. Set `x-qwen.tools.approvalMode: default` in a home settings spec to see them. Qwen Code asks anyway in an untrusted folder and with `--bare` or `--safe-mode`, and a project's `.qwen/settings.json` can set the same key. Checked against the Qwen Code 0.28.0 package.
 - A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code). A new session reads the new settings.
 - agnostic-ai logs no decision the reviewer makes. Each tool keeps its own record, and each review costs the tool's own model calls.
 

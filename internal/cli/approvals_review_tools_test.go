@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -80,4 +81,21 @@ func reviewerKey(t *testing.T, path, format, key string) (any, bool) {
 		t.Fatal(err)
 	}
 	return settingsLookup(values, key, format)
+}
+
+func TestApprovalsStatus_QwenAutoIsItsDefault(t *testing.T) {
+	home := approvalsUserHome(t)
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [qwen]\napprovals:\n  mode: ask\n")
+
+	qwen := toolStatus(t, approvalsStatusJSON(t), "qwen")
+
+	if len(qwen.Notes) != 1 || !strings.Contains(qwen.Notes[0], "trusted folder") || !strings.Contains(qwen.Notes[0], `"default"`) {
+		t.Errorf("qwen notes: %q", qwen.Notes)
+	}
+
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [qwen]\napprovals:\n  mode: review\n")
+	qwen = toolStatus(t, approvalsStatusJSON(t), "qwen")
+	if qwen.Effective != config.ApprovalsReview || len(qwen.Notes) != 0 {
+		t.Errorf("an unset key reads as off: %+v", qwen)
+	}
 }
