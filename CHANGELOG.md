@@ -135,6 +135,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `approvals` set to `review` turns on CodeBuddy auto mode: `sync --global` writes `permissions.defaultMode: "auto"` to `~/.codebuddy/settings.json`, and `approvals status` names it (#3700).
 
+#### Vibe
+
+- `approvals` set to `review` turns on Vibe smart-approve: `sync --global` writes `default_agent = "smart-approve"` to `~/.vibe/config.toml`, and `approvals status` names it (#3700).
+
 #### Qoder
 
 - `approvals` set to `review` turns on Qoder auto mode: `sync --global` writes `general.defaultPermissionMode: "auto"` to `~/.qoder/settings.json`, and `approvals status` names it (#3700).

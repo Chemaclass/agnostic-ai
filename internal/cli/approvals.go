@@ -27,6 +27,7 @@ var approvalRoutes = map[string]map[string]string{
 	"codex":     {config.ApprovalsReview: nativeReviewers["codex"].name},
 	"qoder":     {config.ApprovalsReview: nativeReviewers["qoder"].name},
 	"qwen":      {config.ApprovalsReview: nativeReviewers["qwen"].name},
+	"vibe":      {config.ApprovalsReview: nativeReviewers["vibe"].name},
 }
 
 type approvalsStatusOutput struct {
