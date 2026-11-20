@@ -246,6 +246,18 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	return collectGuardedDrift(ledger, loaded, b, targets, entryPointTargets, gitignoreFlag, nil)
 }
 
+// guardRenders runs guard on the renders collectGuardedDrift would give
+// it, without capturing the drift.
+func guardRenders(ledger ledgerSnapshot, loaded *config.Config, b spec.Bundle, targets []string, guard func(*targetRenders, *config.Config) error) error {
+	if len(targets) == 0 {
+		targets = loaded.Targets
+	}
+	release := holdCaptureState(ledger.state)
+	defer release()
+	readerCfg := loaded.WithAdditionalTargets(targets...)
+	return guard(newTargetRenders(readerCfg, b), readerCfg)
+}
+
 // collectGuardedDrift is collectLoadedDriftWith with a guard that sees
 // the run's renders first and can stop the preview.
 func collectGuardedDrift(ledger ledgerSnapshot, loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string, guard func(*targetRenders, *config.Config) error) ([]driftReport, error) {

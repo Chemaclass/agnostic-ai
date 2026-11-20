@@ -277,8 +277,8 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	reportGlobalNameClashes(cmd, scope.bundle, cfg)
 	// Stop on sync's hand-written file guards before the first --fix write.
 	if opts.fix {
-		if _, stop, err := collectDoctorDrift(cfg, scope.bundle, opts); err == nil && stop != nil {
-			return stop
+		if err := guardRenders(readLedger("."), cfg, scope.bundle, opts.targets, doctorHandWrittenGuard(cfg, scope.bundle, opts)); err != nil {
+			return err
 		}
 	}
 	if claudeSkillOverridesSelected(cfg, targets) {
@@ -436,25 +436,33 @@ func reportDoctorDrift(cmd *cobra.Command, opts doctorOptions, cfg *config.Confi
 
 // collectDoctorDrift collects the drift and runs sync's hand-written
 // file guards on it. It returns their stop apart, so doctor reports it
-// and doctor --fix stops on it as sync does. Only --fix writes, so only
-// --fix --backup passes the guards.
+// and doctor --fix stops on it as sync does.
 func collectDoctorDrift(cfg *config.Config, bundle spec.Bundle, opts doctorOptions) ([]driftReport, error, error) {
-	ledger := readLedger(".")
+	check := doctorHandWrittenGuard(cfg, bundle, opts)
 	var handWritten error
-	backup := opts.fix && opts.backup
 	guard := func(renders *targetRenders, readerCfg *config.Config) error {
+		handWritten = check(renders, readerCfg)
+		return nil
+	}
+	reports, err := collectGuardedDrift(readLedger("."), cfg, bundle, opts.targets, nil, "", guard)
+	return reports, handWritten, err
+}
+
+// doctorHandWrittenGuard runs sync's hand-written file guards for the
+// doctor targets. Only --fix writes, so only --fix --backup passes them.
+func doctorHandWrittenGuard(cfg *config.Config, bundle spec.Bundle, opts doctorOptions) func(*targetRenders, *config.Config) error {
+	outputs := readLedger(".").state.Outputs
+	backup := opts.fix && opts.backup
+	return func(renders *targetRenders, readerCfg *config.Config) error {
 		readers := opts.targets
 		if len(readers) == 0 {
 			readers = readerCfg.Targets
 		}
-		handWritten = keepHandWrittenInstructions(cfg, bundle, readers, ledger.state.Outputs, backup, false)
-		if handWritten == nil {
-			handWritten = keepHandWrittenMCPFiles(renders, readerCfg, readers, ledger.state.Outputs, backup, false)
+		if err := keepHandWrittenInstructions(cfg, bundle, readers, outputs, backup, false); err != nil {
+			return err
 		}
-		return nil
+		return keepHandWrittenMCPFiles(renders, readerCfg, readers, outputs, backup, false)
 	}
-	reports, err := collectGuardedDrift(ledger, cfg, bundle, opts.targets, nil, "", guard)
-	return reports, handWritten, err
 }
 
 // finishDoctorText suggests the next step, then decides the exit: the
