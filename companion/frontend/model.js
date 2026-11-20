@@ -565,13 +565,20 @@ export function rowMenuOf(conversation) {
 export function stopSessionConfirmOf(conversation) {
   return {
     title: `Stop "${titleOf(conversation)}"?`,
-    body: 'This ends its Claude Code process on this computer, and any work it is doing now. The transcript stays, so you can resume the chat later.',
+    body: 'This ends the Claude Code process on this computer. Shell commands it started may keep running. The transcript stays, so you can resume later.',
   }
 }
 
 /** What the toast says once a chat's process was asked to end. */
 export function stoppedSessionOf({ forced = false, stillRunning = false }) {
-  if (stillRunning) return { message: 'It did not stop, even when forced. End it in its terminal.', problem: true }
+  if (stillRunning) {
+    return {
+      message: forced
+        ? 'The Claude Code process is still running after a force stop.'
+        : 'The Claude Code process is still running after the stop request.',
+      problem: true,
+    }
+  }
   return { message: forced ? 'Stopped. It did not end when asked, so it was forced to.' : 'Stopped.' }
 }
 

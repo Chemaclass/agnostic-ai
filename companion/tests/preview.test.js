@@ -86,6 +86,31 @@ test('completing a chat that only waits on a shell saves the mark and leaves it 
   assert.equal(afterUndo.completedAt, undefined)
 })
 
+test('stopping a chat archives the transcript and keeps it archived after Undo complete', async (t) => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  const preview = await startPreview({ port: 0, fixture: 'stuck-shells', now })
+  t.after(preview.close)
+  const chat = { tool: 'claude', id: 'shell-blocked' }
+  const readRow = async () => (await inbox(preview.url)).body.view.conversations.find((row) => row.id === chat.id)
+  const { stoppable } = await readRow()
+  assert.equal((await postJSON(preview.url + '/api/stop-session', chat)).status, 400)
+  const stale = await postJSON(preview.url + '/api/stop-session', { ...chat, ...stoppable, procStart: 'another start' })
+  assert.equal(stale.status, 409)
+  assert.equal((await readRow()).live, true)
+  assert.equal((await postJSON(preview.url + '/api/mark', { ...chat, as: 'completed' })).status, 204)
+
+  assert.equal((await postJSON(preview.url + '/api/stop-session', { ...chat, ...stoppable })).status, 200)
+  const stopped = await readRow()
+  assert.equal(stopped.state, 'completed')
+  assert.equal(stopped.stoppable, undefined)
+  assert.equal(stopped.stuckShells, undefined)
+  assert.equal(stopped.open.kind, 'terminal')
+  assert.equal(stopped.open.label, 'Resume in Terminal')
+
+  assert.equal((await postJSON(preview.url + '/api/mark', { ...chat, as: 'open' })).status, 204)
+  assert.equal((await readRow()).state, 'dormant')
+})
+
 test('sends the copied text only while it is the text the page showed', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)

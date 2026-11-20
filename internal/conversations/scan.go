@@ -531,7 +531,12 @@ func (s *Scanner) readSince(opts ScanOptions, span time.Duration) ([]sourceResul
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
 	readTable := sync.OnceValues(s.Processes.Table)
 	number := s.beginRead()
-	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
+	at := s.Now()
+	claude, processErr := s.scanClaude(ctx, opts)
+	claude = readAt(at, claude)
+	if processErr == nil {
+		showStoppableSessions(claude.conversations, readTable)
+	}
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
 	claude.conversations = shareCloud(append(claude.conversations, claudeCloud...))
 	whole := ctx.Err() == nil && len(opts.Within) == 0 && claude.source.Found && s.cloudWhole(ToolClaude, s.Cloud)
