@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -79,6 +81,35 @@ func assertEmittedEqual(t *testing.T, want, got map[string]string) {
 			t.Errorf("re-emit added %s", rel)
 		}
 	}
+}
+
+func TestImportKiro_MCPOrganizationSignInModesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kiro]\n")
+	nativePath := filepath.FromSlash(".kiro/settings/mcp.json")
+	writeFile(t, nativePath, `{"mcpServers":{
+  "org":{"type":"http","url":"https://example.test/organization","oauth":{"mode":"enterprise"}},
+  "negotiated":{"type":"http","url":"https://example.test/negotiated","oauth":{"mode":"auto"}},
+  "browser":{"type":"http","url":"https://example.test/browser","oauth":{"mode":"browser","oauthScopes":[]}}
+}}`)
+	var want map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, nativePath)), &want); err != nil {
+		t.Fatal(err)
+	}
+
+	execCLI(t, "import", "kiro")
+	execCLI(t, "sync")
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, nativePath)), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("native MCP config after import and sync = %#v, want %#v", got, want)
+	}
+	execCLI(t, "sync", "--check")
 }
 
 // TestImportKiro_RoundTripFixedPoint emits a kit-sink bundle to kiro,

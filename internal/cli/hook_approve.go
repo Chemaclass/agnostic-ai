@@ -122,6 +122,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 			ProjectRoot:  approveProjectRoot(p.Cwd),
 			Home:         userHome,
 			AgnosticHome: source,
+			SpecSources:  approvals.SpecSources,
 			AlwaysAsk:    append(append([]string(nil), home.AlwaysAsk...), settings.Ask...),
 			RuleRoots:    append([]string{p.Cwd, projectDir}, settings.RuleRoots...),
 			Resolve:      approvals.ResolveLinks,
@@ -153,7 +154,11 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings, bool) {
 	switch target {
 	case "kiro":
-		ask, err := approvals.KiroHasAskRule(approvals.KiroAskRuleFiles(userHome, cwd))
+		root, err := kiroApprovalRoot(userHome)
+		if err != nil {
+			return approvals.ClaudeSettings{}, false
+		}
+		ask, err := kiroRulesAsk(root, cwd)
 		return approvals.ClaudeSettings{}, err == nil && !ask
 	case "claude":
 	default:

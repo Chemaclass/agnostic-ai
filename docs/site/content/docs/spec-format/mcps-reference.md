@@ -19,7 +19,7 @@ Per-tool details for the fields on the [MCP servers page](@/docs/spec-format/mcp
 | [Crush](@/docs/targets/crush.md) | `enabled_tools`, `disabled_tools`, `sessionless`, `channel_enabled`, `channel_reply` |
 | [Gemini](@/docs/targets/gemini.md) | `trust`, `includeTools`, `excludeTools` |
 | [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
-| [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauthScopes` |
+| [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauth`, `oauthScopes` |
 | [Factory](@/docs/targets/factory.md) | `x-factory.enabledTools`, `disabledTools`, `connectTimeout` |
 | [Windsurf / Devin Desktop](@/docs/targets/windsurf.md) | `disabledTools`, `oauthScopes` (remote servers) |
 | [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `bareElicitationCapability`, `headersHelper` |

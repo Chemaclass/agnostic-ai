@@ -19,6 +19,7 @@ const (
 	waitPermission waitKind = "permission"
 	// waitAnswer is a question for the person.
 	waitAnswer waitKind = "answer"
+	waitShell  waitKind = "shell"
 )
 
 // waitingOn says what a waiting conversation waits for, as its tool

@@ -43,7 +43,7 @@ Two steps happen in the tools:
 
 - Codex stops at startup with "Hooks need review" when the hook is new or changed. Open `/hooks` and trust it. Until then the hook does not run and Codex shows its prompts. `approvals status` says when the hook is not trusted yet.
 - Claude Code runs no hook in a folder until you accept its workspace trust dialog.
-- Kiro runs the hook only in a Kiro CLI 3.4.0 or newer V3 session, or Kiro IDE 1.4.236 or newer. It approves shell commands (`execute_bash`) and file reads (`read_file`) only; writes, searches and every other Kiro tool ask. A rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, in `~/.kiro/settings/permissions.yaml`, in any workspace permissions file under `~/.kiro/workspace-roots/`, or in an agent profile turns the hook off: a hook allow could answer that rule's prompt, or the one Kiro's reviewer shows when it is unsure, and the hook cannot match Kiro's rules. `approvals status` says so. Kiro asks before every shell command in a workspace you have not trusted; whether the hook can answer that prompt is not documented, so trust only workspaces you would run `yolo` in.
+- Kiro runs the hook only in a Kiro CLI 3.4.0 or newer V3 session, or Kiro IDE 1.4.236 or newer. It approves shell commands (`execute_bash`) and file reads (`read_file`) only; writes, searches and every other Kiro tool ask. A rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, in `~/.kiro/settings/permissions.yaml`, in any workspace permissions file under `~/.kiro/workspace-roots/`, or in an agent profile turns the hook off: a hook allow could answer that rule's prompt, or the one Kiro's reviewer shows when it is unsure, and the hook cannot match Kiro's rules. The hook checks the active `KIRO_HOME` profile when set, and leaves the native prompt in place if the policy files cannot be read. `approvals status` says why. Kiro asks before every shell command in a workspace you have not trusted; whether the hook can answer that prompt is not documented, so trust only workspaces you would run `yolo` in.
 
 ## Modes
 
@@ -85,6 +85,7 @@ Field details: [approvals reference](@/docs/global-configuration-reference.md#gl
 | Privilege and processes: `sudo`, `chmod -R`, `chown`, `kill`, `launchctl`, `crontab` | Changes the system |
 | A read or an edit outside the project | Outside the folder you work in |
 | An edit to `.git/`, `.github/workflows/`, shell profiles, tool settings and hook files, `agnostic-ai.yaml`, or anything under `$AGNOSTIC_AI_HOME` | Could turn the gate off |
+| An edit to agent, hook, MCP or settings specs, in `.agnostic-ai/` or a folder that a project `sources` setting moves them to, in any config file above the edited file. Every edit asks while such a config does not read, or names its own folder as a source | The next sync turns them into hooks, servers or permission modes, such as an agent's `x-claude` `hooks` or `permissionMode` |
 | A command that names `AGNOSTIC_AI_` settings | Could change the policy |
 | MCP tools, web fetch and search, questions to you such as `AskUserQuestion` | Not a call the gate reads |
 | A Claude Code session in any mode but manual or accept edits, such as auto or plan | In auto or plan the tool's reviewer or a rule already chose to ask you; other modes were not tested |
@@ -98,7 +99,7 @@ Claude Code `ask` rules come from `~/.claude/settings.json` (or `$CLAUDE_CONFIG_
 
 ## What you see in the companion
 
-The companion does not count approvals yet. Codex shows no prompt for an approved call. Claude Code draws its prompt while the hook runs and closes it when the hook approves, so a session can show as waiting for a moment. A call the gate sends to you shows as "Needs permission", as in `ask`.
+Once the hook approves a call in a chat, its row shows how many, as the [companion page](@/docs/cli-reference/companion.md#approvals) explains. Codex shows no prompt for an approved call. Claude Code draws its prompt while the hook runs and closes it when the hook approves, so a session can show as waiting for a moment. A call the gate sends to you shows as "Needs permission", as in `ask`.
 
 ## Turn it off fast
 
@@ -137,6 +138,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Qoder (`qoder`) | Qoder auto mode | asks | Nothing extra |
 | Qwen Code (`qwen`) | Qwen Code auto mode | asks | Qwen Code already runs auto mode in a trusted folder when the key is unset |
 | Mistral Vibe (`vibe`) | Vibe smart-approve | asks | `bypass_tool_permissions` off |
+| Devin CLI (`windsurf`) | Devin smart mode | asks | Your `deny` and `ask` rules still come first; `--permission-mode` and `DEVIN_PERMISSION_MODE` replace it for one launch |
 | Every other tool | asks | asks | |
 
 On Windows `yolo` asks in every tool: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.

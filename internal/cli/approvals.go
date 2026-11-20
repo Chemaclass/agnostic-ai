@@ -295,10 +295,21 @@ func kiroHookProblem(notSynced string) string {
 	if err != nil {
 		return notSynced
 	}
-	files, _ := filepath.Glob(filepath.Join(home, ".kiro", "hooks", "*.json"))
+	root, err := kiroApprovalRoot(home)
+	if err != nil {
+		return err.Error()
+	}
+	dir := filepath.Join(root, "hooks")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return notSynced
+	}
 	installed := false
-	for _, path := range files {
-		body, err := os.ReadFile(path)
+	for _, file := range files {
+		if file.IsDir() || filepath.Ext(file.Name()) != ".json" {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, file.Name()))
 		if err != nil {
 			continue
 		}
@@ -324,7 +335,7 @@ func kiroHookProblem(notSynced string) string {
 		return notSynced
 	}
 	cwd, _ := os.Getwd()
-	ask, err := approvals.KiroHasAskRule(approvals.KiroAskRuleFiles(home, cwd))
+	ask, err := kiroRulesAsk(root, cwd)
 	switch {
 	case err != nil:
 		return "cannot read the Kiro rules: " + err.Error()
@@ -332,6 +343,25 @@ func kiroHookProblem(notSynced string) string {
 		return "a Kiro permissions file or agent profile has an ask or evaluate rule, or approve-for-me, whose prompt a hook allow could answer; the hook asks every time"
 	}
 	return ""
+}
+
+func kiroApprovalRoot(home string) (string, error) {
+	if os.Getenv("KIRO_HOME") == "" {
+		return filepath.Join(home, ".kiro"), nil
+	}
+	root := globalTargets["kiro"].overrideRoot(home)
+	if root == "" {
+		return "", errors.New("cannot locate the Kiro rules under KIRO_HOME")
+	}
+	return root, nil
+}
+
+func kiroRulesAsk(root, cwd string) (bool, error) {
+	files, err := approvals.KiroAskRuleFiles(root, cwd)
+	if err != nil {
+		return false, err
+	}
+	return approvals.KiroHasAskRule(files)
 }
 
 func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {

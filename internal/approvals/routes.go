@@ -154,7 +154,11 @@ var routes = []Route{
 		Evidence: "https://docs.mistral.ai/vibe/code/cli/configuration-reference",
 	}},
 	{Target: "warp", Reason: "no external hook"},
-	{Target: "windsurf", Reason: reasonNotBuilt},
+	{Target: "windsurf", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "Devin smart mode",
+		File:     "~/.config/devin/config.json",
+		Evidence: "https://docs.devin.ai/cli/reference/permissions",
+	}},
 	{Target: "zed", Reason: reasonNoReviewer + "; no hook system"},
 }
 

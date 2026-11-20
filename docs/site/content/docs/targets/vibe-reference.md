@@ -52,10 +52,11 @@ Start with the [Vibe setup](@/docs/targets/vibe.md).
 
 ### Hooks
 
-- `event` (Vibe 3.1.1 and later): `pre_tool`, `post_tool`, `pre_agent`, `post_agent`, `notification`, `session_start`, `session_end`.
+- Vibe 3.1.1 supports `pre_tool`, `post_tool`, `pre_agent`, `post_agent`, `notification`, `session_start`, and `session_end`.
+- [Vibe 3.1.3](https://github.com/mistralai/mistral-vibe/releases/tag/v3.1.3) adds `pre_llm` before each model request and `post_llm` after each model response.
 - `matcher` maps to native `match`. Native `match` values pass through. A shell guard should match both `bash` and `process_start`.
 - `timeout` is in seconds.
-- `x-vibe.strict: true` is allowed only on `pre_tool`, `post_tool`, and `pre_agent`, as in the [released hook schema](https://github.com/mistralai/mistral-vibe/blob/97e31350d2adc15c8a33a091566e897cbe9f41bc/vibe/core/hooks/models.py). The other four events reject it.
+- Set `x-vibe.strict: true` on `pre_tool`, `post_tool`, `pre_agent`, `pre_llm`, or `post_llm`. See the [Vibe 3.1.3 hook schema](https://github.com/mistralai/mistral-vibe/blob/63dab302305c80131ea1e5b1c3cb18c2a4fd96d3/vibe/core/hooks/models.py).
 - On `post_agent`, `match` runs the hook only after the named agent ends its turn. `match: main` selects the main agent (Vibe 3.0.3 and later).
 - Hooks get JSON on standard input and answer with Vibe JSON. Exit zero with `{"decision":"deny","reason":"..."}` denies by event: `pre_tool` blocks the call, `post_tool` rewrites its output, `post_agent` requests a retry.
 - A nonzero exit is a hook failure. Claude-style exit 2 and portable lifecycle events are not translated.

@@ -9,11 +9,13 @@ group = "Reference"
 
 # Conversations commands
 
+For actions on a listed conversation, see the [Conversations API](@/docs/cli-reference/conversations-api.md) and learn how to [stop a forgotten shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
+
 ## conversations start
 
 Start a second conversation from a running session, in a new terminal tab in the same folder. The brief you pass becomes its first prompt. The session you run it from goes on with its own task. The [`side-conversation` skill](@/docs/side-conversation.md) tells the agent when to run it.
 
-The [conversations API](@/docs/cli-reference/serve-api.md) names the session it came from as the new row's `parent`.
+The [Conversations API](@/docs/cli-reference/conversations-api.md) names the session it came from as the new row's `parent`.
 
 ```bash
 agnostic-ai conversations start <<'BRIEF'

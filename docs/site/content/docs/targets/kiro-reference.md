@@ -99,13 +99,15 @@ Sync removes only recorded files after their specs are removed. A conflicting or
 
 **MCP** servers go to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). Local servers have `command` plus optional `args` and `env`. Remote ones have `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings. See [environment references](@/docs/spec-format/mcps.md#environment-references). `disabled` is copied as written (default `false`). Kiro also accepts `autoApprove` (tools approved without prompting, `"*"` for all) and `disabledTools` (tools hidden from the agent).
 
-A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`) and top-level `oauthScopes`. Set only one scopes list. Kiro documents different [scope precedence by client and version](https://kiro.dev/docs/mcp/configuration/#scopes):
+A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, mode, oauthScopes}`) and top-level `oauthScopes`. Set only one scopes list. Kiro documents different [scope precedence by client and version](https://kiro.dev/docs/mcp/configuration/#scopes):
 
 | Client | When both lists are set |
 | --- | --- |
 | CLI V2 sessions | Nested `oauth.oauthScopes` takes priority |
 | CLI V3 sessions before 3.4.0 | The nested list is ignored |
 | CLI V3 sessions in 3.4.0 or later, IDE 1.4.215 or later | Top-level `oauthScopes` takes priority |
+
+In Kiro IDE 1.4.236 or later and CLI V3 sessions in 3.5.0 or later, set `oauth.mode` to `browser`, `enterprise`, or `auto` for a remote HTTP server. Import and sync preserve the explicit mode. For organization sign-in, set up `identityProvider` in `~/.kiro/settings/mcp.json`. [Kiro organization sign-in](https://kiro.dev/docs/mcp/configuration/#organization-sign-in)
 
 An empty `oauthScopes: []` is written as is, which Kiro documents for scope errors. Kiro's `oauth` differs from Claude Code's, so each tool maps only its own sub-keys. See [`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target).
 

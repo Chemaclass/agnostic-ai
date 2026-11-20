@@ -159,7 +159,7 @@ Mappings were checked against vendor documentation on 2026-09-09. Tests verify t
 | Goose | `<scope>/AGENTS.md`, or nested `.goosehints` with its legacy opt-in | [Context files](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md) |
 | Augment | `<scope>/AGENTS.md` | [Rules](https://docs.augmentcode.com/cli/rules) |
 | Qoder | `.qoder/rules/<scope>/<name>.md`, `paths` | [CLI memory](https://docs.qoder.com/cli/memory) |
-| OpenHands | `.agents/skills/<name>/SKILL.md`, `paths` | [Path rules](https://docs.openhands.dev/overview/skills/path) |
+| OpenHands | `.agents/skills/<name>.md`, `paths` | [Path rules](https://docs.openhands.dev/overview/skills/path) |
 | Factory | `<scope>/AGENTS.md` | [Instructions](https://docs.factory.com/harness/agents-md) |
 | Kilo | `<scope>/AGENTS.md`, without unconditional `instructions` entries | [Instructions](https://kilo.ai/docs/customize/agents-md) |
 

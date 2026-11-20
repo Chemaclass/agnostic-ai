@@ -19,7 +19,7 @@ const pollEvery = 5 * time.Second
 // read after it; absent when that read did not end in time.
 const listVersionHeader = "List-Version"
 
-// changeWait bounds how long a mark, rename or delete waits for the list
+// changeWait bounds how long a successful change waits for the list
 // it changed; past it the call answers and the poll loop brings the list.
 const changeWait = 3 * time.Second
 
@@ -28,11 +28,12 @@ const maxRequestBytes = 4 << 10
 
 // The server's endpoints the companion uses.
 const (
-	serverListPath   = "/api/views/conversations"
-	serverOpenPath   = "/api/conversations/open"
-	serverMarkPath   = "/api/conversations/mark"
-	serverRenamePath = "/api/conversations/rename"
-	serverDeletePath = "/api/conversations/delete"
+	serverListPath      = "/api/views/conversations"
+	serverOpenPath      = "/api/conversations/open"
+	serverMarkPath      = "/api/conversations/mark"
+	serverRenamePath    = "/api/conversations/rename"
+	serverDeletePath    = "/api/conversations/delete"
+	serverStopShellPath = "/api/conversations/stop-shell"
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"
@@ -284,9 +285,8 @@ type stillOpening struct {
 
 // pass hands a page's request to the server's endpoint at path as it
 // came, and the server's answer back. The server checks the request; it
-// is the one that opens, marks, renames and deletes. A mark, rename or
-// delete that worked answers once the list it changed is held, naming
-// that list's version, so the page draws it right away. With read=later, such as each mark of a run
+// applies the action. A successful change answers once the list it changed
+// is held, naming that list's version, so the page draws it right away. With read=later, such as each mark of a run
 // but the last, it leaves that list to the poll loop.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

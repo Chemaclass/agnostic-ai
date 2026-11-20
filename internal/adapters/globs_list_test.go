@@ -124,7 +124,7 @@ func TestGlobs_BraceSetStaysOnePattern(t *testing.T) {
 		if !strings.Contains(got, "  - src/**/*.{ts,tsx}\n") || !strings.Contains(got, "  - lib/*.js\n") || strings.Contains(got, "{ts\n") {
 			t.Errorf("%s: cline paths must keep the brace set whole:\n%s", name, got)
 		}
-		got = captureRule(t, "openhands", globRule(globs, nil))[filepath.FromSlash(".agents/skills/go/SKILL.md")]
+		got = captureRule(t, "openhands", globRule(globs, nil))[filepath.FromSlash(".agents/skills/go.md")]
 		if !strings.Contains(got, "src/**/*.{ts,tsx}") || strings.Contains(got, "  - tsx}") {
 			t.Errorf("%s: openhands triggers must keep the brace set whole:\n%s", name, got)
 		}

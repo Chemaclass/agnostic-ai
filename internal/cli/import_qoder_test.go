@@ -280,7 +280,7 @@ func TestImportQoder_NativeMCPJSONCRoundTripsInFreshProject(t *testing.T) {
  "customSetting": {"enabled": true},
  "mcpServers": {
    "local": {"command": "echo", "args": ["probe"], "cwd": "src", "env": {"TOKEN": "${TOKEN}"}},
-   "remote": {"type": "http", "url": "https://example.com/mcp", "disabled": true, "timeout": 5000, "oauth": {"enabled": true, "clientId": "public-client", "authorizationUrl": "https://example.com/authorize", "scopes": ["read"]}, "headers": {"Authorization": "${AUTHORIZATION}"}},
+   "remote": {"type": "http", "url": "https://example.com/mcp", "protocolVersion": "2026-07-28", "disabled": true, "timeout": 5000, "oauth": {"enabled": true, "clientId": "public-client", "authorizationUrl": "https://example.com/authorize", "scopes": ["read"]}, "headers": {"Authorization": "${AUTHORIZATION}"}},
  },
 }`
 	nativePath := filepath.Join(dir, ".qoder/settings.json")
@@ -292,6 +292,7 @@ func TestImportQoder_NativeMCPJSONCRoundTripsInFreshProject(t *testing.T) {
 	if !strings.Contains(log.String(), "2 mcps") {
 		t.Errorf("import summary lacks MCP count: %s", log.String())
 	}
+	assertQoderMCPProtocolVersion(t, filepath.Join(dir, "portable/servers/remote.yaml"))
 	fresh := t.TempDir()
 	writeFile(t, filepath.Join(fresh, "agnostic-ai.yaml"), cfg)
 	for _, name := range []string{"local", "remote"} {
@@ -307,7 +308,7 @@ func TestImportQoder_NativeMCPJSONCRoundTripsInFreshProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]any{}
-	if err := json.Unmarshal([]byte(`{"local":{"command":"echo","args":["probe"],"cwd":"src","env":{"TOKEN":"${TOKEN}"}},"remote":{"type":"http","url":"https://example.com/mcp","disabled":true,"timeout":5000,"oauth":{"enabled":true,"clientId":"public-client","authorizationUrl":"https://example.com/authorize","scopes":["read"]},"headers":{"Authorization":"${AUTHORIZATION}"}}}`), &want); err != nil {
+	if err := json.Unmarshal([]byte(`{"local":{"command":"echo","args":["probe"],"cwd":"src","env":{"TOKEN":"${TOKEN}"}},"remote":{"type":"http","url":"https://example.com/mcp","protocolVersion":"2026-07-28","disabled":true,"timeout":5000,"oauth":{"enabled":true,"clientId":"public-client","authorizationUrl":"https://example.com/authorize","scopes":["read"]},"headers":{"Authorization":"${AUTHORIZATION}"}}}`), &want); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got["mcpServers"], want) {
@@ -321,6 +322,77 @@ func TestImportQoder_NativeMCPJSONCRoundTripsInFreshProject(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 	execCLI(t, "lint")
+}
+
+func assertQoderMCPProtocolVersion(t *testing.T, path string) {
+	t.Helper()
+	imported, err := spec.ParseYAMLBytes(spec.KindMCP, []byte(readFile(t, path)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := imported.Meta["protocolVersion"]; exists {
+		t.Errorf("protocolVersion should only appear under x-qoder: %#v", imported.Meta)
+	}
+	native, _ := imported.Meta["x-qoder"].(map[string]any)
+	if got := native["protocolVersion"]; got != "2026-07-28" {
+		t.Errorf("x-qoder.protocolVersion = %#v, want 2026-07-28", got)
+	}
+}
+
+func TestImportGlobal_QoderMCPProtocolVersionRoundTrips(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, qoderSettingsFile)
+	native := `{"mcpServers":{"pinned":{"type":"http","url":"https://example.invalid/mcp","protocolVersion":"2026-07-28"}}}` + "\n"
+	writeFile(t, path, native)
+	if _, warnings, err := runImportGlobalTest("qoder"); err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	assertQoderMCPProtocolVersion(t, filepath.Join(source, "mcps/pinned.yaml"))
+	if _, warnings, err := runGlobalAgentTest("--only", "qoder"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if got := readFile(t, path); got != native {
+		t.Errorf("native settings changed: %s", got)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qoder", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, warnings)
+	}
+}
+
+func TestSync_QoderMCPKeepsLegacyProtocolVersion(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qoder]\n")
+	cases := []struct {
+		name     string
+		override string
+		want     any
+	}{
+		{name: "legacy", want: "2025-11-25"},
+		{name: "overridden", override: "x-qoder: {protocolVersion: '2026-07-28'}\n", want: "2026-07-28"},
+		{name: "cleared", override: "x-qoder: {protocolVersion: null}\n"},
+	}
+	for _, tc := range cases {
+		writeFile(t, filepath.Join(dir, ".agnostic-ai/mcps", tc.name+".yaml"),
+			"name: "+tc.name+"\ntype: http\nurl: https://example.invalid/mcp\nprotocolVersion: '2025-11-25'\n"+tc.override)
+	}
+	execCLI(t, "sync")
+	var got struct {
+		Servers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, qoderSettingsFile))), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range cases {
+		server, exists := got.Servers[tc.name]
+		if !exists {
+			t.Errorf("missing %s server", tc.name)
+		}
+		if version, set := server["protocolVersion"]; set != (tc.want != nil) || version != tc.want {
+			t.Errorf("%s protocolVersion = %#v (set: %t), want %#v", tc.name, version, set, tc.want)
+		}
+	}
+	execCLI(t, "sync", "--check")
 }
 
 func TestImportQoder_MCPCredentialsBecomeReferences(t *testing.T) {

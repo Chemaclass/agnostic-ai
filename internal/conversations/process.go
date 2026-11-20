@@ -170,7 +170,10 @@ func psStartTimes(out string) map[int]string {
 }
 
 func (SystemProcesses) Table() ([]ProcessInfo, error) {
-	out, err := ps("-axo", "pid=,ppid=,stat=,tty=,lstart=,comm=")
+	if runtime.GOOS == "windows" {
+		return nil, errNoProcessRead
+	}
+	out, err := ps("-axo", "pid=,ppid=,pgid=,stat=,tty=,lstart=,comm=")
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +193,8 @@ func (SystemProcesses) Args(pids []int) map[int]string {
 	if len(pids) == 0 {
 		return args
 	}
-	out, err := ps("-o", "pid=,args=", "-p", pidList(pids))
-	if err != nil {
+	out, err := ps("-ww", "-o", "pid=,args=", "-p", pidList(pids))
+	if !answered(err) {
 		return args
 	}
 	for _, line := range strings.Split(out, "\n") {

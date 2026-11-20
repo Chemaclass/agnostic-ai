@@ -249,7 +249,7 @@ func stageGlobalSettings(home, source, stage string, targets []string, have []sp
 	for _, target := range targets {
 		g := globalTargets[target]
 		f := g.settings
-		if f.path == "" {
+		if f.path == "" || f.toolOwned {
 			continue
 		}
 		path := g.path(home, f.path)
@@ -694,6 +694,8 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 			normalizeGeminiMCP(server)
 		case "qwen":
 			normalizeGeminiTransport(server)
+		case "qoder":
+			normalizeQoderMCP(server)
 		}
 		adapters.EscapeMCPLiterals(target, server)
 		adapters.ReadMCPEnvRefs(target, server)

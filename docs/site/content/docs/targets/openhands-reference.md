@@ -34,11 +34,15 @@ OpenHands loads `.agents/agents/<name>.md` in local conversations. The files sha
 
 ### Rules
 
-An always-on rule goes into the `## Rules` block of `AGENTS.md`, and so does a rule with a catch-all `globs` or `paths`. A rule is always-on when it has no `globs`, no `paths`, and no scope from its folder or frontmatter.
+An always-on rule goes into the `## Rules` block of `AGENTS.md`, and so does a rule with a catch-all `globs` or `paths`. A rule is always-on when it has no `globs`, no `paths`, and no scope from its folder or frontmatter. A rule with file patterns but no directory scope also appears there with an `Applies to` line.
 
 ### Path-triggered rules
 
-A scoped rule becomes `.agents/skills/<name>/SKILL.md` with a `paths:` list (its scope directory plus file patterns). OpenHands [loads it only when a matching file is touched](https://docs.openhands.dev/overview/skills/path). It uses the folder form (a flat `.md` also works), and shares `outputs.openhands.skills-dir` with skills.
+A scoped rule becomes `.agents/skills/<name>.md` with a `paths:` list. OpenHands loads it when a touched file matches a pattern. The flat file keeps the rule out of Codex skill discovery. The `outputs.openhands.skills-dir` setting applies to both skills and rules. [OpenHands path-triggered rules](https://docs.openhands.dev/overview/skills/path)
+
+A rule named `skill`, `readme`, or another name OpenHands reserves gets a `-path-rule` filename suffix. Sync adds a number when another rule already uses that filename. OpenHands sees each rule under a `path-rule/` name, so it can load a rule and a skill with the same spec name.
+
+A full `agnostic-ai sync` removes old rule folders recorded as generated. For a hand-written rule in the old `<name>/SKILL.md` form, import it and check the flat output before removing the original.
 
 ### Hooks
 
@@ -101,7 +105,7 @@ No file. OpenHands keeps MCP servers in its [settings store](https://docs.openha
 | Source | Becomes |
 |--------|---------|
 | `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
-| `.agents/skills/<name>/SKILL.md` with `paths` (path-triggered rule) | `<rules>/<name>.md` with `paths` |
+| `.agents/skills/<name>.md` or `.agents/skills/<name>/SKILL.md` with `paths` | `<rules>/<name>.md` with `paths` |
 | `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md`, with `triggers` under `x-openhands` |
 | `.openhands/skills/` and `.openhands/microagents/` (legacy) | the same, read after `.agents/skills/` |
 | flat `<name>.md` in any of those three directories | a rule, or a skill when it has `triggers` (kept under `x-openhands`) |

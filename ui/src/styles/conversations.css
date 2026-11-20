@@ -146,6 +146,27 @@
   text-overflow: ellipsis;
 }
 
+.conversation-body .conversation-shell-warning {
+  color: var(--approval);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.conversation-shell-dialog {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.conversation-shell-dialog p {
+  overflow-wrap: anywhere;
+}
+
+.conversation-shell-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .conversation-withheld {
   font-size: var(--text-sm);
   color: var(--text-muted);

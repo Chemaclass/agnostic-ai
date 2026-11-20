@@ -60,9 +60,12 @@ func readNativeLog[T any](path string, kept *nativeLog[T], fresh func() T, visit
 }
 
 type claudeWorkerEvents struct {
-	tasks   map[string]nativeTaskEvent
-	pending map[string]bool
-	calls   map[string]string
+	tasks            map[string]nativeTaskEvent
+	pending          map[string]bool
+	calls            map[string]string
+	shellCalls       map[string]claudeShellCall
+	backgroundShells []claudeShellCall
+	mainWorking      bool
 }
 
 type nativeTaskEvent struct {
@@ -82,10 +85,15 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		Type        string `json:"type"`
 		Timestamp   string `json:"timestamp"`
 		IsSidechain bool   `json:"isSidechain"`
-		Operation   string `json:"operation"`
-		Content     string `json:"content"`
-		Message     struct {
-			Content json.RawMessage `json:"content"`
+		IsMeta      bool   `json:"isMeta"`
+		Origin      *struct {
+			Kind string `json:"kind"`
+		} `json:"origin"`
+		Operation string `json:"operation"`
+		Content   string `json:"content"`
+		Message   struct {
+			Content    json.RawMessage `json:"content"`
+			StopReason string          `json:"stop_reason"`
 		} `json:"message"`
 		Result json.RawMessage `json:"toolUseResult"`
 	}
@@ -98,6 +106,25 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 	when, err := time.Parse(time.RFC3339Nano, event.Timestamp)
 	if err != nil || when.UnixMilli() < startedAt {
 		return nil
+	}
+	if !event.IsSidechain {
+		switch event.Type {
+		case "assistant":
+			switch event.Message.StopReason {
+			case "end_turn", "stop_sequence", "max_tokens", "refusal":
+				events.mainWorking = false
+			case "tool_use", "pause_turn":
+				events.mainWorking = true
+			}
+		case "user":
+			if !event.IsMeta && (event.Origin == nil || event.Origin.Kind == "human") {
+				if content := event.Message.Content; !bytes.HasPrefix(content, []byte("[")) || !bytes.Contains(content, []byte(`"tool_result"`)) {
+					if prompt, typed := claudeContentText(content); typed && typedText(prompt) != "" {
+						events.mainWorking = true
+					}
+				}
+			}
+		}
 	}
 	if event.Type == "queue-operation" && event.Operation == "enqueue" && strings.HasPrefix(event.Content, "<task-notification>") {
 		id := notificationField(event.Content, "task-id")
@@ -114,6 +141,7 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		ToolUseID string          `json:"tool_use_id"`
 		IsError   bool            `json:"is_error"`
 		Content   json.RawMessage `json:"content"`
+		Input     json.RawMessage `json:"input"`
 	}
 	if len(event.Message.Content) == 0 || event.Message.Content[0] != '[' {
 		return nil
@@ -124,6 +152,8 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 	for _, block := range blocks {
 		if event.Type == "assistant" && block.Type == "tool_use" {
 			switch block.Name {
+			case "Bash":
+				events.recordShellCall(block.ID, block.Input, when)
 			case "Agent", "Task":
 				events.pending[block.ID] = true
 				events.calls[block.ID] = block.Name
@@ -133,6 +163,12 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		}
 		if event.Type != "user" || block.Type != "tool_result" {
 			continue
+		}
+		if call, found := events.shellCalls[block.ToolUseID]; found {
+			delete(events.shellCalls, block.ToolUseID)
+			if !block.IsError {
+				events.recordShellResult(call, event.Result, when)
+			}
 		}
 		wasAgent := events.pending[block.ToolUseID]
 		called := events.calls[block.ToolUseID]
@@ -276,8 +312,9 @@ type claudeWorkerCache struct {
 // subagents: which agents work, and which Agent or Task calls wait for
 // their result, each a subagent that works.
 type claudeWork struct {
-	agents  map[string]bool
-	pending map[string]bool
+	agents      map[string]bool
+	pending     map[string]bool
+	mainWorking bool
 }
 
 // count is how many subagents work.
@@ -329,6 +366,8 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 		kept = &claudeWorkerCache{startedAt: session.startedAt, logs: map[string]*nativeLog[claudeWorkerEvents]{}}
 		s.claudeWorkers[file] = kept
 	}
+	previousLogs := kept.logs
+	kept.logs = make(map[string]*nativeLog[claudeWorkerEvents], len(files))
 	tasks := map[string]nativeTaskEvent{}
 	work := &claudeWork{agents: map[string]bool{}, pending: map[string]bool{}}
 	for _, path := range files {
@@ -341,12 +380,15 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 				continue
 			}
 		}
-		log, err := readNativeLog(path, kept.logs[path], newClaudeWorkerEvents, func(events *claudeWorkerEvents, line []byte) error {
+		log, err := readNativeLog(path, previousLogs[path], newClaudeWorkerEvents, func(events *claudeWorkerEvents, line []byte) error {
 			return events.visit(line, session.startedAt)
 		})
-		kept.logs[path] = log
 		if err != nil {
 			return nil, watch
+		}
+		kept.logs[path] = log
+		if path == file {
+			work.mainWorking = log.value.mainWorking
 		}
 		for call := range log.value.pending {
 			work.pending[call] = true

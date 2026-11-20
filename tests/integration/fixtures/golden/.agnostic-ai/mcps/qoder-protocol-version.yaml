@@ -1,0 +1,5 @@
+name: qoder-protocol-version
+targets: [qoder]
+type: http
+url: https://example.test/mcp
+protocolVersion: "2026-07-28"
