@@ -156,7 +156,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        # The full Windows suite uses its own runners.
+        os: ${{ fromJSON(inputs.full_windows == true && '["macos-latest"]' || '["macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
