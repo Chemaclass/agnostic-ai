@@ -211,9 +211,9 @@ A target named in `--target`, `--only`, or the config is not built in, and no `a
 
 ### AAI-302: Mutually exclusive flags
 
-Two flags conflict (`--only` with `--except`, `--watch` with `--check`), or a flag lacks the one it needs (`--diff` without `--dry-run`).
+Two flags conflict (`--only` with `--except`, `--watch` with `--check`), a flag lacks the one it needs (`--diff` without `--dry-run`), or a flag has a value it cannot take (`--jobs -1`).
 
-**Fix:** the message names both flags. Drop one, or add the missing one.
+**Fix:** the message names the flags. Drop one, add the missing one, or pass a value the message accepts.
 
 ### AAI-303: Empty targets list
 
