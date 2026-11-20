@@ -95,7 +95,7 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads.
 
 ### Filename prefix reclassification {#filename-prefix-reclassification}
 
-`import cline`, `import windsurf`, `import trae`, `import qoder`, and `import continue` reclassify each file in their rules directory by name. The `agent-` and `skill-` prefixes count only in a file an older sync wrote, with the generated header or an `# Agent:` or `# Skill:` title. A hand-written `agent-<name>.md` stays a rule.
+`import cline`, `import windsurf`, `import trae`, `import qoder`, and `import continue` reclassify each file in their rules directory by name. The `agent-` and `skill-` prefixes count only in a file an older sync wrote, with the generated header or an `# Agent:` or `# Skill:` title. A hand-written `agent-<name>.md` stays a rule, also after sync rewrites it, because its rule spec exists.
 
 | Source filename | Becomes |
 |-----------------|---------|

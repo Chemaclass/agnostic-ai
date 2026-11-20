@@ -318,21 +318,20 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores, %d settings (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps, ignores, settings)
-	return noteWindsurfLegacyRules(root, rulesDir, scopes, cfg)
+	return noteWindsurfLegacyRules(root, scopes, cfg)
 }
 
 // noteWindsurfLegacyRules tells the user to delete each hand-written rule
-// import read from the legacy `.windsurf/rules/`. Sync writes the same
+// in the legacy `.windsurf/rules/`, on every import while it stays. Sync writes the same
 // rule to `.devin/rules/`, Devin loads both folders, and sync leaves a
 // file it did not write in place, so every rule would load twice. Import
 // never removes a file it did not write.
-func noteWindsurfLegacyRules(root, rulesDir string, scopes []string, cfg *config.Config) error {
-	if cfg == nil || !slices.Contains(cfg.Targets, "windsurf") || windsurfRulesDirFromCfg(cfg) != "" ||
-		filepath.Clean(rulesDir) != windsurfRulesDirs[1] {
+func noteWindsurfLegacyRules(root string, scopes []string, cfg *config.Config) error {
+	if cfg == nil || !slices.Contains(cfg.Targets, "windsurf") || windsurfRulesDirFromCfg(cfg) != "" {
 		return nil
 	}
 	for _, scope := range append([]string{""}, scopes...) {
-		dir, dest := filepath.Join(scope, rulesDir), filepath.Join(scope, windsurfRulesDirs[0])
+		dir, dest := filepath.Join(scope, windsurfRulesDirs[1]), filepath.Join(scope, windsurfRulesDirs[0])
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
 				return err

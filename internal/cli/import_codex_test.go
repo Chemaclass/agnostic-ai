@@ -1914,3 +1914,32 @@ func TestImportFromCodex_SyncedScopedRuleDoesNotTakeAScopePathName(t *testing.T)
 		t.Error("the rule's own spec covers that scope, so no second spec is expected")
 	}
 }
+
+func TestWriteCodexRule_KeepsASpecThatCoversTheScope(t *testing.T) {
+	for name, existing := range map[string]string{
+		"paths string": "---\nname: api\npaths: src/api/**\n---\n\nOther text.\n",
+		"paths list":   "---\nname: api\npaths:\n  - src/api/**\n---\n\nOther text.\n",
+		"globs list":   "---\nname: api\nglobs: [src/api/**]\n---\n\nOther text.\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "api.md"), existing)
+			captureSummary(t)
+			if err := writeCodexRule(dir, "api", "", "src/api/**", "Return typed errors.", "src/api/AGENTS.md", true); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "src-api.md")); err == nil {
+				t.Error("a spec covering the scope must not get a second copy")
+			}
+		})
+	}
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "api.md"), "---\nname: api\n---\n\nOther.\n")
+	captureSummary(t)
+	if err := writeCodexRule(dir, "api", "", "src/api/**", "Return typed errors.", "src/api/AGENTS.md", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "src-api.md")); err == nil {
+		t.Error("a generated AGENTS.md must not be renamed")
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -202,6 +203,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 			origin = f.path
 		}
 		source := adapters.StripReviewSection(string(raw))
+		handWritten := !header.Has(source)
 		if header.Has(source) && strings.TrimSpace(header.Strip(source)) == "" {
 			// A generated AGENTS.md holding only a review section.
 			continue
@@ -216,7 +218,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 		}
 		data := []byte(text)
 		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(source, adapters.RulesStartMarker) {
-			if err := writeCodexRule(dstDir, dedupSlug(used, name), desc, f.globs, body, origin); err != nil {
+			if err := writeCodexRule(dstDir, dedupSlug(used, name), desc, f.globs, body, origin, handWritten); err != nil {
 				return count, err
 			}
 			count++
@@ -232,7 +234,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 				continue
 			}
 			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeCodexRule(dstDir, name, "", f.globs, body, origin); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, body, origin, handWritten); err != nil {
 				return count, err
 			}
 			count++
@@ -245,7 +247,7 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 				continue
 			}
 			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeCodexRule(dstDir, name, "", f.globs, body, origin); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, body, origin, handWritten); err != nil {
 				return count, err
 			}
 			count++
@@ -253,14 +255,14 @@ func importCodexRulesFrom(root, dstDir string, files []hierarchicalFile, src con
 		}
 		if preamble := sectionsPreamble(string(data)); preamble != "" {
 			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeCodexRule(dstDir, name, "", f.globs, preamble, origin); err != nil {
+			if err := writeCodexRule(dstDir, name, "", f.globs, preamble, origin, handWritten); err != nil {
 				return count, err
 			}
 			count++
 		}
 		for _, s := range sections {
 			name := dedupSlug(used, sectionRuleName(wholeFileNames, f.globs, s.slug))
-			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body, origin); err != nil {
+			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body, origin, handWritten); err != nil {
 				return count, err
 			}
 			count++
@@ -443,7 +445,7 @@ func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error
 		}
 		for _, child := range unwrapH3(sec.body) {
 			name := dedupSlug(used, child.slug)
-			if err := writeCodexRule(dstDir, name, child.description, "", child.body, opts.RulesFile); err != nil {
+			if err := writeCodexRule(dstDir, name, child.description, "", child.body, opts.RulesFile, false); err != nil {
 				return count, err
 			}
 			count++
@@ -453,11 +455,11 @@ func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error
 }
 
 // writeCodexRule writes one rule read from source. A spec that already
-// holds the same text is left alone. When a spec from another import
-// holds the name and source is a nested file, the rule takes its whole
-// scope path as its name (`services-api`), as nested GEMINI.md files do.
-// Otherwise the existing spec wins and a note names source.
-func writeCodexRule(dstDir, name, description, globs, body, source string) error {
+// holds the same text is left alone. When a spec for another scope holds
+// the name and source is a hand-written nested file, the rule takes its
+// whole scope path as its name (`services-api`), as nested GEMINI.md
+// files do. Otherwise the existing spec wins and a note names source.
+func writeCodexRule(dstDir, name, description, globs, body, source string, handWritten bool) error {
 	path := filepath.Join(dstDir, name+".md")
 	if importLocal.leaves(path) {
 		return nil
@@ -485,9 +487,9 @@ func writeCodexRule(dstDir, name, description, globs, body, source string) error
 		}
 		scope := strings.TrimSuffix(globs, "/**")
 		_, _, meta := claudeFrontmatter(string(existing))
-		sameScope := meta["globs"] == globs || meta["scope"] == scope
-		if scopeName := slugify(scope); globs != "" && !sameScope && name == slugify(filepath.Base(filepath.FromSlash(scope))) && scopeName != name {
-			return writeCodexRule(dstDir, scopeName, description, globs, body, source)
+		if scopeName := slugify(scope); handWritten && globs != "" && !specCoversScope(meta, globs, scope) &&
+			name == slugify(filepath.Base(filepath.FromSlash(scope))) && scopeName != name {
+			return writeCodexRule(dstDir, scopeName, description, globs, body, source, handWritten)
 		}
 		summaryf("  ! skipped %s: already exists (likely from a prior import); review %s for unique content to merge by hand\n", path, filepath.ToSlash(source))
 		return nil
@@ -497,4 +499,26 @@ func writeCodexRule(dstDir, name, description, globs, body, source string) error
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// specCoversScope reports whether a rule spec's frontmatter already
+// applies to scope, through `scope`, or `globs` or `paths` as a string or
+// a list holding globs.
+func specCoversScope(meta map[string]any, globs, scope string) bool {
+	if meta["scope"] == scope {
+		return true
+	}
+	for _, key := range []string{"globs", "paths"} {
+		switch v := meta[key].(type) {
+		case string:
+			if v == globs {
+				return true
+			}
+		case []any:
+			if slices.Contains(v, any(globs)) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -25,7 +25,7 @@ func printImportNextSteps(root string, justImported ...string) {
 		return
 	}
 	summaryf("\n")
-	if importReportsNoChange && importSandbox == "" && !importChanged {
+	if importReportsNoChange && importSandbox == "" && importTxn != nil && !importTxn.changed() {
 		summaryf("no spec changed, so sync has nothing new to write\n")
 	} else {
 		summaryf("next steps:\n")

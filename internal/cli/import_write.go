@@ -208,13 +208,29 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	if current, err := os.ReadFile(path); err == nil && bytes.Equal(current, data) {
 		return nil
 	}
-	importChanged = true
 	return os.WriteFile(path, data, mode)
 }
 
-// importChanged records that the current import run wrote a file whose
-// content differs from what was on disk.
-var importChanged bool
+// changed reports whether a file the run wrote now differs from what it
+// held before the run, so a file written and then put back counts as
+// unchanged.
+func (t *importTransaction) changed() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for path, prior := range t.files {
+		current, err := os.ReadFile(path)
+		if prior == nil {
+			if err == nil {
+				return true
+			}
+			continue
+		}
+		if err != nil || !bytes.Equal(current, prior.data) {
+			return true
+		}
+	}
+	return false
+}
 
 // importMkdirAll creates dir and its parents, unless a dry-run is active
 // and dir resolves outside its sandbox.
