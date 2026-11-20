@@ -10,6 +10,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/vibe"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -64,14 +65,15 @@ func TestVibeRoundTrip_NativeProject(t *testing.T) {
 	must(t, err)
 	wantHooks := len(strictByEvent) + 1
 	for _, hook := range hooks.Hooks {
+		command := vibe.DeclaredHookCommand(hook.Command)
 		if hook.Name == "guard" {
-			if hook.Type != "post_agent" || hook.Strict || !strings.Contains(hook.Command, "echo '{}'") {
+			if hook.Type != "post_agent" || hook.Strict || command != "echo '{}'" {
 				t.Errorf("unexpected native guard: %+v", hook)
 			}
 			continue
 		}
 		strict, expected := strictByEvent[hook.Type]
-		if !expected || hook.Match != "main" || hook.Strict != strict || !strings.Contains(hook.Command, "echo done") {
+		if !expected || hook.Match != "main" || hook.Strict != strict || command != "echo done" {
 			t.Errorf("unexpected native hook: %+v", hook)
 		}
 		delete(strictByEvent, hook.Type)
