@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -118,9 +117,7 @@ func (p hookSpecProblems) Error() string {
 
 func (h *editHandler) serveHook(w http.ResponseWriter, body []byte) {
 	var req hookSpecRequest
-	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.DisallowUnknownFields()
-	if dec.Decode(&req) != nil || dec.Decode(&struct{}{}) != io.EOF || (req.Action != "preview" && req.Action != "apply") || req.Name == "" || req.On == "" {
+	if decodeStrictJSON(bytes.NewReader(body), &req) != nil || (req.Action != "preview" && req.Action != "apply") || req.Name == "" || req.On == "" {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send action preview or apply, audience, name, on, and command; timeout is whole seconds"})
 		return
 	}

@@ -48,7 +48,13 @@ describe('permission editing', () => {
     expect(parsePermissionPreview(preview)).toEqual(preview)
   })
 
+  it('keeps the deny rules a personal list leaves out', () => {
+    const personalPreview = { ...preview, key: 'permissions.deny', audience: 'personal', dropped: ['read(private/**)'] }
+    expect(parsePermissionPreview(personalPreview)).toEqual(personalPreview)
+  })
+
   it.each([
+    { dropped: [42] }, { dropped: null },
     { schemaVersion: 'permission-edit/v2' }, { audience: 'team' }, { key: 'permissions.default-mode' },
     { file: '' }, { expected: '' }, { before: [42] }, { rules: undefined }, { diff: false }, { syncCommand: '' },
   ])('refuses an invalid preview %j', (change) => {

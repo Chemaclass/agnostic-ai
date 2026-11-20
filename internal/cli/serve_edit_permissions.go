@@ -36,8 +36,7 @@ type permissionEditView struct {
 	Before        []string `json:"before"`
 	Rules         []string `json:"rules"`
 	Diff          string   `json:"diff"`
-	// Dropped are the project rules of a deny or ask list that a
-	// personal list stops applying, since it replaces the project list.
+	// Dropped lists shared ask or deny rules the personal list leaves out.
 	Dropped     []string `json:"dropped,omitempty"`
 	Expected    string   `json:"expected"`
 	SyncCommand string   `json:"syncCommand"`
@@ -250,7 +249,7 @@ func droppedProjectRules(meta map[string]any, key string, rules []string) []stri
 	var dropped []string
 	for _, rule := range project {
 		if text, ok := rule.(string); ok && !slices.Contains(rules, text) {
-			dropped = append(dropped, text)
+			dropped = append(dropped, preview.RedactRule(text))
 		}
 	}
 	return dropped

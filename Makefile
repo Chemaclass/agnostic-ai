@@ -16,6 +16,16 @@ ui-build:
 ui-check:
 	go test ./ui -run TestBundleMatchesSources -count=1
 
+ifeq ($(shell uname -s),Darwin)
+# Match the release minimum. Go's build cache keys on CGO_CFLAGS, so include it there too.
+MACOSX_DEPLOYMENT_TARGET ?= 13.0
+CGO_CFLAGS ?= -O2 -g
+CGO_LDFLAGS ?= -O2 -g
+companion companion-test: export MACOSX_DEPLOYMENT_TARGET := $(MACOSX_DEPLOYMENT_TARGET)
+companion companion-test: export CGO_CFLAGS := $(CGO_CFLAGS) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+companion companion-test: export CGO_LDFLAGS := $(CGO_LDFLAGS) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+endif
+
 # The floating companion is its own Go module (companion/go.mod), so
 # Wails stays out of the CLI's dependencies and its binary. It builds for
 # the system it runs on; see companion/README.md. Users get it with
@@ -24,20 +34,15 @@ ui-check:
 # for working on it.
 # private_mac_apis lets the macOS web view draw without a background,
 # which has no public API; other systems ignore the tag.
-# On macOS the C parts and the link target the same oldest system as the
-# release (scripts/companion-release.sh), so the linker warns of no
-# object built for a newer one.
-COMPANION_ENV := $(if $(filter Darwin,$(shell uname -s)),MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS="-O2 -g -mmacosx-version-min=13.0" CGO_LDFLAGS="-O2 -g -mmacosx-version-min=13.0",)
-
 companion:
-	cd companion && $(COMPANION_ENV) go build -tags "production private_mac_apis" -trimpath -ldflags="-s -w" -o ../bin/agnostic-ai-companion .
+	cd companion && go build -tags "production private_mac_apis" -trimpath -ldflags="-s -w" -o ../bin/agnostic-ai-companion .
 
 # The companion asks the agnostic-ai built from this checkout.
 companion-run: companion build
 	AGNOSTIC_AI_BIN="$(CURDIR)/$(BIN)" ./bin/agnostic-ai-companion
 
 companion-test:
-	cd companion && $(COMPANION_ENV) go vet . && $(COMPANION_ENV) go test . && node --test tests/*.test.js
+	cd companion && go vet . && go test . && node --test tests/*.test.js
 
 # The real companion pages in a browser, with fixture data and a reload on
 # each edit under companion/frontend. No Wails, server or credentials.

@@ -243,7 +243,7 @@ func settingsEditTarget(d fieldDef, edit *FieldEdit, paths map[string]string, en
 		edit.Path = paths[entries[target].Name]
 	} else if inEffect >= 0 || len(edit.Paths) == 0 {
 		if taken, ok := byName["defaults"]; ok {
-			edit.DisabledReason = DefaultsTakenReason(root, taken)
+			edit.DisabledReason = DefaultsTakenReason(root, defaultPath, taken)
 			if inEffect >= 0 {
 				edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
 			}
@@ -507,11 +507,11 @@ func (d fieldDef) matches(key string) bool {
 
 // DefaultsTakenReason says why an edit cannot create the settings spec
 // named defaults, which defaults already is, and what to create instead.
-func DefaultsTakenReason(root string, defaults spec.Entry) string {
+func DefaultsTakenReason(root, defaultPath string, defaults spec.Entry) string {
 	path := SpecPath(root, defaults)
 	if grantsAuthority(defaults) {
 		return path + " sets permission rules or protected files, so an edit adds no other field to it; create another settings spec, such as " +
-			filepath.ToSlash(filepath.Join(filepath.Dir(path), "editor.yaml")) + ", and set the field there."
+			filepath.ToSlash(filepath.Join(filepath.Dir(defaultPath), "editor.yaml")) + ", and set the field there."
 	}
 	return path + " is already the settings spec named defaults; add the field to an editable settings spec."
 }

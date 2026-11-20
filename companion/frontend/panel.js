@@ -541,14 +541,14 @@ function cloudAside(view) {
   return shownPlace() === 'local' ? undefined : view.cloudNote
 }
 
-/** The approvals line over the list while approvals answer routine prompts, with Ask me to turn them off. */
+/** The active approvals mode and the Ask me button above the list. */
 function drawApprovals(view) {
   const header = approvalsHeaderOf(view)
   approvalsBar.hidden = header === undefined
   if (header) approvalsMode.textContent = header.label
 }
 
-/** Ask me: every prompt reaches the person again, from the next request on, with no sync. */
+/** Ask me sets the home approvals policy to ask. */
 async function askAgain() {
   approvalsAsk.disabled = true
   let version
@@ -560,7 +560,7 @@ async function askAgain() {
   } finally {
     approvalsAsk.disabled = false
   }
-  say('Approvals off: every permission prompt reaches you again.')
+  say('Approvals set to ask. Your tool may still use its own reviewer.')
   await afterChange(version)
 }
 

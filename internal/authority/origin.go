@@ -80,17 +80,13 @@ func RequestAllowed(r *http.Request, allowedOrigins ...string) bool {
 	return slices.Contains(allowedOrigins, normalized)
 }
 
-// pageNavigation reports whether r opens a page of the static client
-// in a browser tab, as a link on another site does. The page holds no
-// local data, and the requests it then makes are same-origin. A frame,
-// a script fetch, and any /api path stay refused.
-func pageNavigation(r *http.Request) bool {
-	return (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
-		r.Header.Get("Origin") == "" &&
-		strings.EqualFold(r.Header.Get("Sec-Fetch-Mode"), "navigate") &&
-		strings.EqualFold(r.Header.Get("Sec-Fetch-Dest"), "document") &&
-		r.URL.Path != "/api" && !strings.HasPrefix(r.URL.Path, "/api/")
-}
+const deniedNavigation = `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Open agnostic-ai directly</title>
+<h1>Open agnostic-ai directly</h1>
+<p>Copy the address from the browser bar and paste it into a new tab to open the local interface.</p>
+</html>`
 
 // CORS rejects foreign hosts and origins before any route reads local data.
 func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
@@ -100,7 +96,16 @@ func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 			writeError(w, http.StatusMisdirectedRequest, errors.New("request Host must name a loopback address"))
 			return
 		}
-		if !RequestAllowed(r, allowedOrigins...) && !pageNavigation(r) {
+		if !RequestAllowed(r, allowedOrigins...) {
+			path := r.URL.Path
+			if (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.Header.Get("Sec-Fetch-Mode") == "navigate" && path != "/api" && !strings.HasPrefix(path, "/api/") {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(deniedNavigation))
+				return
+			}
 			writeError(w, http.StatusForbidden, errors.New("request host or origin is not allowed"))
 			return
 		}

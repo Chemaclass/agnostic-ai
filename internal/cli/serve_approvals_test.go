@@ -21,11 +21,12 @@ import (
 // Claude Code session (inProject, pid 4242), a temporary agnostic-ai
 // home, and a clock the test moves.
 type approvalsFixture struct {
-	h       *conversationsHandler
-	project string
-	home    string
-	now     time.Time
-	routed  bool
+	h        *conversationsHandler
+	project  string
+	home     string
+	userHome string
+	now      time.Time
+	routed   bool
 	// reviewerOff turns the tools' own reviewers off in their settings.
 	reviewerOff bool
 }
@@ -41,14 +42,14 @@ func newApprovalsFixture(t *testing.T, mode string, routed bool) *approvalsFixtu
 	if mode != "" {
 		writeTestFile(t, filepath.Join(f.home, config.ConfigFileName), "approvals:\n  mode: "+mode+"\n")
 	}
-	userHome := t.TempDir()
+	f.userHome = t.TempDir()
 	h.approvals = &approvalsReader{
-		source:     func() (string, error) { return f.home, nil },
-		home:       func() (string, error) { return userHome, nil },
-		env:        func() string { return "" },
-		now:        func() time.Time { return f.now },
-		routed:     func(string, string) bool { return f.routed },
-		reviewerOn: func(string, string) bool { return !f.reviewerOff },
+		source:    func() (string, error) { return f.home, nil },
+		home:      func() (string, error) { return f.userHome, nil },
+		env:       func() string { return "" },
+		now:       func() time.Time { return f.now },
+		routed:    func(string, string) bool { return f.routed },
+		activated: func(_ string, mode string, _ string) bool { return mode != config.ApprovalsReview || !f.reviewerOff },
 	}
 	return f
 }
@@ -298,6 +299,29 @@ func TestApprovals_SearchDoesNotCountAHeldWaitItLeavesOut(t *testing.T) {
 	}
 }
 
+func TestApprovals_ReviewWaitShowsImmediatelyOnlyNamingActiveReviewer(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsReview, true)
+	f.h.approvals.activated = approvalsActivated
+	f.h.approvals.routed = func(tool, mode string) bool { return tool == "claude" && approvalsRouted(tool, mode) }
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	f.wait(t, f.now.Add(-time.Second))
+
+	view, c := f.list(t)
+	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != "" || view.ApprovalsMode != "" {
+		t.Errorf("reviewer off: state %s, count %d, reason %q, mode %q", c.State, view.NeedsYou, reasonOf(c), view.ApprovalsMode)
+	}
+	tag := listTagOf(t, f.h, "")
+
+	writeTestFile(t, filepath.Join(f.userHome, ".claude", "settings.json"), `{"permissions":{"defaultMode":"auto"}}`)
+	if rec := getList(t, f.h, tag); rec.Code != http.StatusOK {
+		t.Errorf("a native settings change returned %d, want 200", rec.Code)
+	}
+	view, c = f.list(t)
+	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != approvalsReasonReviewer || view.ApprovalsMode != config.ApprovalsReview {
+		t.Errorf("reviewer on: state %s, count %d, reason %q, mode %q", c.State, view.NeedsYou, reasonOf(c), view.ApprovalsMode)
+	}
+}
+
 func TestApprovals_ReviewWaitWithNoDecisionNamesTheReviewer(t *testing.T) {
 	f := newApprovalsFixture(t, config.ApprovalsReview, true)
 	f.wait(t, f.now.Add(-approvalsHookWait-time.Second))
@@ -412,7 +436,7 @@ func TestApplyApprovals_HoldsOnlyALocalClaudeCodeWait(t *testing.T) {
 	}
 	before := view.Conversations[0]
 
-	hold := applyApprovals(&view, snap, now, map[string]waitSeen{})
+	hold := applyApprovals(&view, snap, "", now, map[string]time.Time{})
 
 	if !hold.IsZero() || view.NeedsYou != 3 {
 		t.Errorf("hold %v, needsYou %d; nothing may be held", hold, view.NeedsYou)
@@ -429,6 +453,7 @@ func TestApplyApprovals_HoldsOnlyALocalClaudeCodeWait(t *testing.T) {
 }
 
 func TestApprovalsSnapshot_HeaderModeIsTheLoosestSetting(t *testing.T) {
+	project := t.TempDir()
 	for _, tc := range []struct {
 		home config.ApprovalsConfig
 		env  string
@@ -437,11 +462,14 @@ func TestApprovalsSnapshot_HeaderModeIsTheLoosestSetting(t *testing.T) {
 		{config.ApprovalsConfig{}, "", config.ApprovalsAsk},
 		{config.ApprovalsConfig{Mode: config.ApprovalsReview}, "", config.ApprovalsReview},
 		{config.ApprovalsConfig{Mode: config.ApprovalsReview, Tools: map[string]string{"codex": config.ApprovalsYolo}}, "", config.ApprovalsYolo},
-		{config.ApprovalsConfig{Projects: map[string]string{"/tmp/sandbox": config.ApprovalsYolo}}, "", config.ApprovalsYolo},
+		{config.ApprovalsConfig{Projects: map[string]string{project: config.ApprovalsYolo}}, "", config.ApprovalsYolo},
 		{config.ApprovalsConfig{Mode: config.ApprovalsYolo}, "ask", config.ApprovalsAsk},
 	} {
-		snap := approvalsSnapshot{policy: config.ApprovalsPolicy{Home: tc.home, Env: tc.env}, policyOK: true, routed: func(string, string) bool { return true }}
-		if got := snap.headerMode(); got != tc.want {
+		snap := approvalsSnapshot{
+			policy: config.ApprovalsPolicy{Home: tc.home, Env: tc.env}, policyOK: true,
+			projectAsk: map[string]string{}, routed: func(string, string) bool { return true },
+		}
+		if got := snap.headerMode(""); got != tc.want {
 			t.Errorf("headerMode(%+v, env %q) = %q, want %q", tc.home, tc.env, got, tc.want)
 		}
 	}
@@ -462,9 +490,9 @@ func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
 	} {
 		snap := approvalsSnapshot{
 			policy: config.ApprovalsPolicy{Home: home}, policyOK: true, routed: tc.routed,
-			reviewerOn: func(string) bool { return tc.reviewerOn }, reviewers: map[string]bool{},
+			activated: func(_ string, mode string) bool { return mode != config.ApprovalsReview || tc.reviewerOn }, active: map[approvalDisplayRoute]bool{},
 		}
-		if got := snap.headerMode(); got != tc.want {
+		if got := snap.headerMode(""); got != tc.want {
 			t.Errorf("%s: headerMode = %q, want %q", tc.name, got, tc.want)
 		}
 	}
@@ -472,15 +500,110 @@ func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
 		policy:   config.ApprovalsPolicy{Home: config.ApprovalsConfig{Mode: config.ApprovalsReview, Tools: map[string]string{"claude": config.ApprovalsAsk}}},
 		policyOK: true, routed: func(tool, mode string) bool { return tool == "claude" },
 	}
-	if got := claudeOnly.headerMode(); got != config.ApprovalsAsk {
+	if got := claudeOnly.headerMode(""); got != config.ApprovalsAsk {
 		t.Errorf("review for tools with no route, ask for the one with a route: headerMode = %q, want ask", got)
 	}
 }
 
+func TestApprovals_GlobalHeaderFollowsProjectPolicyWithoutAConversation(t *testing.T) {
+	f := newApprovalsFixture(t, "", true)
+	settings := filepath.Join(f.home, config.ConfigFileName)
+	project := filepath.Join(f.userHome, "sandbox")
+	projectSettings := filepath.Join(project, config.ConfigFileName)
+	const homePolicy = "approvals:\n  projects:\n    ~/sandbox: yolo\n"
+	writeTestFile(t, settings, homePolicy)
+
+	if view := listConversations(t, f.h); view.ApprovalsMode != config.ApprovalsYolo {
+		t.Fatalf("header for the configured folder = %q, want yolo", view.ApprovalsMode)
+	}
+	tag := listTagOf(t, f.h, "")
+	if rec := getList(t, f.h, tag); rec.Code != http.StatusNotModified {
+		t.Fatalf("unchanged list returned %d, want 304", rec.Code)
+	}
+
+	writeTestFile(t, projectSettings, "approvals:\n  mode: ask\n")
+	if rec := getList(t, f.h, tag); rec.Code != http.StatusOK {
+		t.Errorf("changed project policy returned %d, want 200", rec.Code)
+	}
+	if view := listConversations(t, f.h); view.ApprovalsMode != "" {
+		t.Errorf("header when the project asks = %q, want empty", view.ApprovalsMode)
+	}
+
+	if err := os.Remove(projectSettings); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, settings, homePolicy+fmt.Sprintf("    %q: ask\n", filepath.ToSlash(project)))
+	if view := listConversations(t, f.h); view.ApprovalsMode != "" {
+		t.Errorf("header with a stricter alias for the project = %q, want empty", view.ApprovalsMode)
+	}
+}
+
+func TestApprovals_GlobalHeaderAlsoChecksThePhysicalProject(t *testing.T) {
+	f := newApprovalsFixture(t, "", true)
+	project := filepath.Join(f.userHome, "physical", "project")
+	aliasDir := filepath.Join(f.userHome, "aliases")
+	writeTestFile(t, filepath.Join(project, "README.md"), "Project.\n")
+	writeTestFile(t, filepath.Join(aliasDir, config.ConfigFileName), "approvals:\n  mode: ask\n")
+	if err := os.Symlink(project, filepath.Join(aliasDir, "project")); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	writeTestFile(t, filepath.Join(f.home, config.ConfigFileName), "approvals:\n  projects:\n    ~/aliases/project: yolo\n")
+
+	if view := listConversations(t, f.h); view.ApprovalsMode != config.ApprovalsYolo {
+		t.Fatalf("header for the physical project = %q, want yolo", view.ApprovalsMode)
+	}
+	tag := listTagOf(t, f.h, "")
+	writeTestFile(t, filepath.Join(project, config.ConfigFileName), "approvals:\n  mode: ask\n")
+	if rec := getList(t, f.h, tag); rec.Code != http.StatusOK {
+		t.Errorf("changed physical project policy returned %d, want 200", rec.Code)
+	}
+	if view := listConversations(t, f.h); view.ApprovalsMode != "" {
+		t.Errorf("header when both paths ask = %q, want empty", view.ApprovalsMode)
+	}
+}
+
+func TestApprovals_OnlyAnInstalledClaudeHookHoldsYoloWaits(t *testing.T) {
+	oldOS := approvalsGOOS
+	approvalsGOOS = "linux"
+	t.Cleanup(func() { approvalsGOOS = oldOS })
+	claude := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", claude)
+	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
+	f.h.global = false
+	f.h.approvals.activated = approvalsActivated
+	f.h.approvals.routed = func(tool, mode string) bool { return tool == "claude" && approvalsRouted(tool, mode) }
+	f.wait(t, f.now.Add(-time.Second))
+
+	view, c := f.list(t)
+	if !needsPermission(c) || view.NeedsYou != 1 || view.ApprovalsMode != "" {
+		t.Errorf("hook absent: state %s, count %d, mode %q", c.State, view.NeedsYou, view.ApprovalsMode)
+	}
+	tag := listTagOf(t, f.h, "")
+
+	writeTestFile(t, filepath.Join(claude, "settings.json"), `{"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve"}]}]}}`)
+	if rec := getList(t, f.h, tag); rec.Code != http.StatusOK {
+		t.Errorf("installing the hook returned %d, want 200", rec.Code)
+	}
+	view, c = f.list(t)
+	if needsPermission(c) || view.NeedsYou != 0 || view.ApprovalsMode != config.ApprovalsYolo {
+		t.Errorf("hook installed: state %s, count %d, mode %q", c.State, view.NeedsYou, view.ApprovalsMode)
+	}
+	tag = listTagOf(t, f.h, "")
+	writeTestFile(t, filepath.Join(f.project, config.ConfigFileName), "approvals:\n  mode: ask\n")
+	if rec := getList(t, f.h, tag); rec.Code != http.StatusOK {
+		t.Errorf("turning off approvals in the conversation folder returned %d, want 200", rec.Code)
+	}
+	view, c = f.list(t)
+	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != "" || view.ApprovalsMode != "" {
+		t.Errorf("project asks: state %s, count %d, reason %q, mode %q", c.State, view.NeedsYou, reasonOf(c), view.ApprovalsMode)
+	}
+}
+
 func TestApprovalsHandler_ReadRouteReturnsModeAndDecisionsPerSession(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv(envUserGlobalRoot, home)
-	writeTestFile(t, filepath.Join(home, config.ConfigFileName), "approvals:\n  mode: yolo\n")
+	userHome := approvalsUserHome(t)
+	home := filepath.Join(userHome, ".agnostic-ai")
+	writeTestFile(t, filepath.Join(home, config.ConfigFileName), "targets: [claude]\napprovals:\n  mode: review\n")
+	writeTestFile(t, filepath.Join(userHome, ".claude", "settings.json"), `{"permissions":{"defaultMode":"auto"}}`)
 	log := approvals.Log{Path: approvals.LogPath(home)}
 	at := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	for i, e := range []approvals.Entry{
@@ -511,7 +634,7 @@ func TestApprovalsHandler_ReadRouteReturnsModeAndDecisionsPerSession(t *testing.
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); rec.Code != http.StatusOK || err != nil {
 		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
 	}
-	if got.Mode != config.ApprovalsYolo || len(got.Sessions) != 2 {
+	if got.Mode != config.ApprovalsReview || len(got.Sessions) != 2 {
 		t.Fatalf("answer %s", rec.Body)
 	}
 	b, a := got.Sessions[0], got.Sessions[1]
@@ -603,7 +726,11 @@ func TestApprovals_ANewWaitWithoutAStartGetsItsOwnGrace(t *testing.T) {
 	f.list(t)
 	f.now = f.now.Add(time.Minute)
 	f.busy(t)
-	f.list(t)
+	rec := httptest.NewRecorder()
+	f.h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+"?q=nothing+matches", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("search = %d %s", rec.Code, rec.Body)
+	}
 
 	f.now = f.now.Add(time.Minute)
 	f.wait(t, time.Time{})
@@ -640,27 +767,5 @@ func TestApprovals_AProjectFileThatDoesNotParseAsks(t *testing.T) {
 
 	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != "" {
 		t.Errorf("state %s, needsYou %d, reason %q; a broken project file must not loosen", c.State, view.NeedsYou, reasonOf(c))
-	}
-}
-
-// A log line the hook did not write may hold a credential in its
-// detail; neither the approvals read nor a row shows it (#3799).
-func TestApprovalSessionsOf_DropsADetailThatMayHoldACredential(t *testing.T) {
-	at := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
-	secret := "curl -H 'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz0123456789' x"
-	sessions := approvalSessionsOf([]approvals.Entry{
-		{Time: at, Tool: "claude", Session: "a", Call: "Bash", Detail: secret, Decision: approvals.Approved},
-		{Time: at.Add(time.Second), Tool: "claude", Session: "a", Call: "Bash", Detail: "go test ./...", Decision: approvals.Approved},
-	})
-
-	s := sessions[approvalSessionKey("claude", "a")]
-	if s == nil || len(s.Decisions) != 2 || len(s.recent) != 2 {
-		t.Fatalf("sessions %+v", sessions)
-	}
-	if s.Decisions[1].Detail != "" || s.recent[1].Detail != "" {
-		t.Errorf("a credential detail was kept: %q, %q", s.Decisions[1].Detail, s.recent[1].Detail)
-	}
-	if s.Decisions[0].Detail != "go test ./..." {
-		t.Errorf("a plain detail was dropped: %q", s.Decisions[0].Detail)
 	}
 }

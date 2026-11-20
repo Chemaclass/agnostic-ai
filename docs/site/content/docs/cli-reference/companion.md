@@ -143,26 +143,28 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 
 ## Approvals {#approvals}
 
-With approvals set to `review` or `yolo` in the home config, routine permission prompts stop reaching you on each tool with a route; `agnostic-ai approvals status` names them. The list shows what was decided for you, and one button turns approvals off.
+With an active reviewer or approvals hook, some requests no longer need your answer. Run `agnostic-ai approvals status` to check each tool. The companion shows the decisions the hook logged.
 
 | Mode | Routine request | Request the gate sends to you | Tool with no route |
 |---|---|---|---|
 | `ask` | "Needs permission" under Needs you, counted on the circle | Same | Same |
-| `review`, `yolo` | No row under Needs you, not counted. The row shows "▸ 3 approved for you" | Under Needs you and counted, with the reason, such as "Always asks: publishing" | Under Needs you and counted, with "Approvals not supported for Cursor" |
+| `review` | The tool's reviewer handles the request | Under Needs you as soon as the tool prompts | Under Needs you when the tool prompts |
+| `yolo` | The approvals hook handles the request and adds it to **N approved for you** | Under Needs you with a reason, such as "Always asks: publishing" | Under Needs you with a reason, such as "Approvals not supported for Cursor" |
 
 - **N approved for you** folds out the latest approved requests under the row, newest first. It opens nothing.
 - The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
-- The header names the loosest mode a listed tool carries out, while it is not `ask`. **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. It works from the next request, with no sync. Nothing in the companion can turn approvals on.
+- The header names the loosest active mode when it is `review` or `yolo`.
+- **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --global` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
 
 {% <details summary="Details: the brief Claude Code prompt, counts, limits"> %}
-- Claude Code shows its prompt while the approvals hook runs, and records the wait. So the companion lists a Claude Code permission wait only once the decision log says `asked` for that session, or once 10 seconds (the hook timeout) passed with no decision. Until then the row shows as working.
+- With the `yolo` hook active, Claude Code can show its prompt while the hook runs. The companion lists the permission wait when the log says `asked` or after 10 seconds with no decision. Until then the row shows as working.
 - An `approved` line holds the wait for 10 seconds after it. A prompt still open after that reaches you, with "Still waits after the approvals hook approved a request".
 - A wait with no decision after 10 seconds reaches you with "No answer from the approvals hook".
-- In `review` the approvals hook approves nothing, so a `review` wait reaches you at once, with "The tool's reviewer left this to you". With that reviewer off in the tool's user settings, `review` shows as `ask`, as `approvals status` says.
+- A `review` prompt reaches you as soon as the tool asks. For Claude Code with its reviewer on, the row says "The tool's reviewer left this to you".
 - Codex waits for the hook before it prompts, so a Codex wait is never held.
-- A cloud session runs no local hook. Its wait says "Approvals do not reach cloud sessions".
-- The count comes from `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file. A native reviewer writes nothing there, so in `review` the count shows only what the hook logged. A logged detail that may hold a credential is left out.
-- The mode is resolved per row from its tool and folder, by the order `approvals status` uses. A session started with `AGNOSTIC_AI_APPROVALS=ask` in its own environment is not known to the companion: its prompt shows after the 10 seconds.
+- A cloud session runs no local hook. When a live cloud session waits for permission and its approvals mode is `review` or `yolo`, the row says "Approvals do not reach cloud sessions".
+- The count comes from `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file. The count covers hook decisions. Native reviewers do not add entries. A logged detail that may hold a credential is left out.
+- The mode is resolved per row from its tool and folder, by the order `approvals status` uses. A session started with `AGNOSTIC_AI_APPROVALS=ask` in its own environment is not known to the companion: its prompt can still wait up to 10 seconds when the companion sees an active `yolo` hook.
 {% </details> %}
 
 ## How it reads conversations {#how-it-reads}

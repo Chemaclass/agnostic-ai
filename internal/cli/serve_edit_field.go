@@ -201,7 +201,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 			return "", nil, errors.New("there is no field to clear")
 		}
 		if at := slices.IndexFunc(settings, func(e spec.Entry) bool { return e.Name == "defaults" }); at >= 0 {
-			return "", nil, errors.New(overview.DefaultsTakenReason(h.root, settings[at]))
+			return "", nil, errors.New(overview.DefaultsTakenReason(h.root, defaultShown, settings[at]))
 		}
 		if _, err := os.Lstat(file); err == nil {
 			return "", nil, errors.New("defaults.yaml exists but is not a loaded settings spec")

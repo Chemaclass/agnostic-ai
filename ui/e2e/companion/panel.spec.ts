@@ -1034,7 +1034,7 @@ test('folding a group by key keeps the keys on its title', async ({ page }) => {
   await expect(groupTitle(page, 'Needs you')).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('the header names the approvals mode, and Ask me turns approvals off', async ({ page }) => {
+test('the header names the approvals mode and Ask me switches agnostic-ai to ask', async ({ page }) => {
   await openPanel(page, 'auto-approvals')
   const bar = page.getByRole('region', { name: 'Approvals' })
   await expect(bar).toContainText('Approvals: routine prompts are approved for you')
@@ -1042,7 +1042,7 @@ test('the header names the approvals mode, and Ask me turns approvals off', asyn
   await bar.getByRole('button', { name: 'Ask me' }).click()
   expect((await asked).postDataJSON()).toEqual({ mode: 'ask' })
   await expect(bar).toBeHidden()
-  await expect(page.locator('#toast-text')).toHaveText('Approvals off: every permission prompt reaches you again.')
+  await expect(page.locator('#toast-text')).toHaveText('Approvals set to ask. Your tool may still use its own reviewer.')
 
   await openPanel(page, 'mixed')
   await expect(page.getByRole('region', { name: 'Approvals' })).toBeHidden()

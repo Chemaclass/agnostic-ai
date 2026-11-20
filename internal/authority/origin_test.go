@@ -3,6 +3,7 @@ package authority
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -57,35 +58,27 @@ func TestHandler_RejectsForeignHostsOnEveryRouteBeforeLoading(t *testing.T) {
 	}
 }
 
-// A link on another site opens the client page; nothing else crosses
-// sites (#3799).
-func TestCORS_LetsACrossSiteLinkOpenOnlyTheClientPage(t *testing.T) {
+func TestCORS_ExplainsRefusedBrowserNavigation(t *testing.T) {
+	h := CORS(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("refusal called the application")
+	}))
 	for _, tc := range []struct {
-		name, method, path, mode, dest, origin string
-		want                                   int
+		path, mode, contentType string
 	}{
-		{"link to the page", http.MethodGet, "/", "navigate", "document", "", http.StatusOK},
-		{"link to a client route", http.MethodGet, "/conversations", "navigate", "document", "", http.StatusOK},
-		{"link to the API", http.MethodGet, "/api/views/overview", "navigate", "document", "", http.StatusForbidden},
-		{"link to /api", http.MethodGet, "/api", "navigate", "document", "", http.StatusForbidden},
-		{"page in a frame", http.MethodGet, "/", "navigate", "iframe", "", http.StatusForbidden},
-		{"script fetch", http.MethodGet, "/", "cors", "empty", "", http.StatusForbidden},
-		{"form post", http.MethodPost, "/", "navigate", "document", "https://example.com", http.StatusForbidden},
+		{"/", "navigate", "text/html"},
+		{"/api/health", "navigate", "application/json"},
+		{"/", "", "application/json"},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			h := CORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))
-			req := httptest.NewRequest(tc.method, "http://127.0.0.1:4310"+tc.path, nil)
-			req.Header.Set("Sec-Fetch-Site", "cross-site")
-			req.Header.Set("Sec-Fetch-Mode", tc.mode)
-			req.Header.Set("Sec-Fetch-Dest", tc.dest)
-			if tc.origin != "" {
-				req.Header.Set("Origin", tc.origin)
-			}
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
-			if rec.Code != tc.want {
-				t.Errorf("status %d, want %d", rec.Code, tc.want)
-			}
-		})
+		req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+tc.path, nil)
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		req.Header.Set("Sec-Fetch-Mode", tc.mode)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden || !strings.HasPrefix(rec.Header().Get("Content-Type"), tc.contentType) {
+			t.Errorf("%s %s: status %d, content type %s", tc.path, tc.mode, rec.Code, rec.Header().Get("Content-Type"))
+		}
+		if tc.contentType == "text/html" && !strings.Contains(rec.Body.String(), "paste it into a new tab") {
+			t.Error("the page does not explain how to open the interface")
+		}
 	}
 }

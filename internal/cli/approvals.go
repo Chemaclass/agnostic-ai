@@ -348,13 +348,15 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 	}
 	index := -1
 	if root != nil {
+		merged := false
 		for i := 0; i+1 < len(root.Content); i += 2 {
-			if root.Content[i].Value == "approvals" {
+			key := root.Content[i]
+			if key.Value == "approvals" {
 				index = i + 1
 			}
+			merged = merged || key.Tag == "!!merge"
 		}
-		// A merged approvals block would win over one appended here.
-		if index < 0 && slices.ContainsFunc(root.Content, func(n *yaml.Node) bool { return n.Kind == yaml.ScalarNode && n.Value == "<<" }) {
+		if index < 0 && merged {
 			return nil, errors.New("merges keys with a YAML merge key; set approvals.mode: ask by hand")
 		}
 	}
@@ -381,7 +383,7 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 		}
 		if old.Kind == yaml.MappingNode {
 			for j := 0; j+1 < len(old.Content); j += 2 {
-				if old.Content[j].Value == "<<" {
+				if old.Content[j].Tag == "!!merge" {
 					return nil, errors.New("approvals merges keys with a YAML merge key; set approvals.mode: ask by hand")
 				}
 				if old.Content[j].Value == "always-ask" {

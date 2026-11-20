@@ -205,7 +205,7 @@ Body: `{action, audience, path?, key, rules, before?, expected?}`.
 - `rules` is a string list, or `null` to remove that list.
 - `before` is the selected audience's own list as shown, or `null` when absent. A mismatch returns 409.
 - Preview returns `schemaVersion: "permission-edit/v1"`, `file`, `key`, `audience`, `before`, `rules`, `diff`, `expected`, and `syncCommand`.
-- A personal `permissions.deny` or `permissions.ask` list replaces the project list. Its preview adds `dropped`: the project rules that stop applying.
+- A personal `permissions.deny` or `permissions.ask` preview includes `dropped` when the new list leaves out shared rules from the selected spec.
 - Apply requires the preview's `expected`, rechecks its inputs, saves only the source file, and returns the preview fields with `ok: true`.
 - Personal saves use the Git-ignore check.
 
@@ -264,14 +264,14 @@ Body: `{id}` from the change state.
 
 Takes no input. Returns the [approvals](@/docs/cli-reference/companion.md#approvals) mode and what the decision log holds.
 
-- `mode` is the loosest mode the home config sets that a listed tool carries out: `ask`, `review` or `yolo`. A tool carries out `yolo` or `review` when it has a route for it, and `review` only while its reviewer is on. `AGNOSTIC_AI_APPROVALS` in the server's environment makes it `ask`.
+- `mode` is the loosest active mode for the server's folder: `ask`, `review` or `yolo`. It checks the tool's hook or reviewer settings.
 - A decision `detail` that may hold a credential is left out.
-- `tools` is what `agnostic-ai approvals status --json` prints in its `tools`, for the folder the server runs in.
+- `tools` uses the same fields as `agnostic-ai approvals status --json` for the server's folder. The dashboard shows `effective: ask` if another setting or a tool environment variable turns off the native reviewer.
 - `sessions` holds each session in `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file, latest decision first: `{tool, session, approved, asked, decisions}`. `decisions` are its latest 20 log lines, newest first.
 - `problem` says why the settings could not be read; `tools` is then empty.
 
 ```json
-{"mode": "yolo", "tools": [{"tool": "claude", "mode": "yolo", "effective": "ask", "from": "approvals.mode"}],
+{"mode": "yolo", "tools": [{"tool": "claude", "mode": "yolo", "effective": "yolo", "from": "approvals.mode"}],
  "sessions": [{"tool": "claude", "session": "4f3c…", "approved": 3, "asked": 1, "decisions": [{"time": "2026-11-20T10:00:00Z", "tool": "claude", "session": "4f3c…", "cwd": "/Users/you/Code/shop", "call": "Bash", "detail": "git push", "mode": "yolo", "decision": "asked", "rule": "publish"}]}]}
 ```
 
@@ -279,7 +279,7 @@ Takes no input. Returns the [approvals](@/docs/cli-reference/companion.md#approv
 
 Body: `{"mode": "ask"}` with `Content-Type: application/json`. It is the only write approvals have here: no request loosens them.
 
-- Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. That block replaces the shared one, so no tool or project keeps `review` or `yolo`. Its `always-ask` patterns stay.
+- Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. That block replaces the shared one and keeps its `always-ask` patterns. The agnostic-ai approvals hook stops answering prompts immediately. A native reviewer stays active until its settings change.
 - It works from the next request, with no sync and no restart.
 - Replies `{"mode": "ask", "path": "<the file it wrote>"}`.
 - Any other mode, any other field, or a body that is not JSON is a 400. A request from another origin is a 403.

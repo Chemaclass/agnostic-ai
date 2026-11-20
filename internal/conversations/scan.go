@@ -332,7 +332,7 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	read = keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
 		for _, c := range result.conversations {
-			if _, waits := c.PermissionWait(); waits && c.Live && needsPerson(c.State) {
+			if _, waits := c.PermissionWait(); waits && c.Live {
 				read.waits = append(read.waits, c)
 			}
 		}
