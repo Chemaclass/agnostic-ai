@@ -17,9 +17,12 @@ func strongTier() map[string]config.ModelTier {
 }
 
 func TestMergeCodexAgentIntoExisting_KeepsATierThatMatches(t *testing.T) {
+	priorTarget, priorCfg := importScopeTarget, importHookConfig
+	t.Cleanup(func() { importScopeTarget, importHookConfig = priorTarget, priorCfg })
+	importScopeTarget, importHookConfig = "codex", &config.Config{Targets: []string{"claude", "codex"}, Models: strongTier()}
 	existing := "---\nname: reviewer\nmodel: strong\n---\n\nReview.\n"
 	doc := map[string]any{"model": "gpt-5.5", "model_reasoning_effort": "high"}
-	out, err := mergeCodexAgentIntoExisting(existing, "reviewer", doc, strongTier())
+	out, err := mergeCodexAgentIntoExisting(existing, filepath.Join(".agnostic-ai", "agents", "reviewer.md"), "reviewer", doc, strongTier())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,12 +34,13 @@ func TestMergeCodexAgentIntoExisting_KeepsATierThatMatches(t *testing.T) {
 		t.Errorf("a Codex value the tier gives must not pin Codex: %#v", fm["x-codex"])
 	}
 
-	out, err = mergeCodexAgentIntoExisting(existing, "reviewer", map[string]any{"model": "o4-mini"}, strongTier())
+	out, err = mergeCodexAgentIntoExisting(existing, filepath.Join(".agnostic-ai", "agents", "reviewer.md"), "reviewer", map[string]any{"model": "o4-mini"}, strongTier())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if xcodex, _ := parseAgentFrontmatter(t, out)["x-codex"].(map[string]any); xcodex["model"] != "o4-mini" {
-		t.Errorf("a Codex model that differs from the tier must still import: %s", out)
+	want := map[string]any{"default": "strong", "codex": "o4-mini"}
+	if got := parseAgentFrontmatter(t, out)["model"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("a Codex model that differs from the tier must still import as its own entry: %s", out)
 	}
 }
 

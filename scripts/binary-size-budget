@@ -998,4 +998,7 @@
 # 688018e29: doctor runs sync's hand-written file guards, and import
 # names duplicate originals. Allow 8192 bytes, rounded up to a 4096-byte
 # page.
-27590656
+# #3749 leftovers measured 27590816 bytes locally on main bf6436ee5:
+# doctor --json gives each hand-written file the guard's reason. Allow
+# 4096 bytes, one page.
+27594752
