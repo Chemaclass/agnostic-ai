@@ -69,7 +69,7 @@ func TestExplainContext_OmitsRulesWithoutNativeOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, output := range captured {
-		if strings.Contains(string(output.Content), nativeBody) {
+		if strings.Contains(output.Content, nativeBody) {
 			t.Fatalf("fixture unexpectedly emits the cursor-only AMP rule: %s", output.Path)
 		}
 	}

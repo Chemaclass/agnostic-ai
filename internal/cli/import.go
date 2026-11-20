@@ -106,6 +106,11 @@ func newImportCmd() *cobra.Command {
 			if dryRun {
 				return dryRunImport(args, nil, overwrite)
 			}
+			// Taking the lock writes .agnostic-ai/ and .gitignore, so a folder
+			// with no project fails first.
+			if _, _, err := config.ResolveConfigPath("."); err != nil {
+				return importConfigError(err)
+			}
 			lock, err := acquireLedgerLock(".", "import")
 			if err != nil {
 				return err
@@ -136,7 +141,7 @@ func runImportArgs(args []string, overwrite bool) error {
 func importArgs(args []string) error {
 	cfg, err := config.Load(".")
 	if err != nil {
-		return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
+		return importConfigError(err)
 	}
 	return withImportTree(".", func() error {
 		return withImportViewGuard(".", func() error {
@@ -355,4 +360,13 @@ func importAll(root string, cfg *config.Config) error {
 		printImportNextSteps(root, detected...)
 	}
 	return importErr
+}
+
+// importConfigError wraps a config load failure. It suggests init only
+// when no enclosing project would make that a second, nested one.
+func importConfigError(err error) error {
+	if _, nested := projectAboveMissingConfig(err); nested {
+		return fmt.Errorf("load config: %w", err)
+	}
+	return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
 }

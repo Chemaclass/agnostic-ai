@@ -46,8 +46,8 @@ func lspErrorLocation(err error) (string, lsp.Position) {
 	if code := errs.CodeOf(err); code != "" {
 		prefix := "[" + string(code) + "] "
 		for current := err; current != nil; current = errors.Unwrap(current) {
-			if strings.HasPrefix(current.Error(), prefix) {
-				body = strings.TrimPrefix(current.Error(), prefix)
+			if after, ok := strings.CutPrefix(current.Error(), prefix); ok {
+				body = after
 				break
 			}
 		}
@@ -65,8 +65,7 @@ func lspErrorLocation(err error) (string, lsp.Position) {
 		}
 		return parts[1], position
 	}
-	var pathError *os.PathError
-	if errors.As(err, &pathError) {
+	if pathError, ok := errors.AsType[*os.PathError](err); ok {
 		return pathError.Path, lsp.Position{}
 	}
 	return "", lsp.Position{}

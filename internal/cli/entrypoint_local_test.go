@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -138,10 +139,8 @@ func TestWatchDirs_IncludesProjectLocalDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Join(".", defaultProjectUser)
-	for _, p := range watchDirs(".", cfg) {
-		if p == want {
-			return
-		}
+	if slices.Contains(watchDirs(".", cfg), want) {
+		return
 	}
 	t.Errorf("watchDirs missing %s\ngot %v", want, watchDirs(".", cfg))
 }

@@ -238,13 +238,7 @@ outputs:
 	silence(t)
 
 	got := runWhyJSON(t, "custom-rules/no-console-log.mdc")
-	found := false
-	for _, k := range got.OutputKeys {
-		if k == "outputs.cursor.rules-dir" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(got.OutputKeys, "outputs.cursor.rules-dir")
 	if !found {
 		t.Errorf("expected outputs.cursor.rules-dir in keys, got %v", got.OutputKeys)
 	}

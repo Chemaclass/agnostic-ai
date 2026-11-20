@@ -204,8 +204,7 @@ func mergeTOMLArrayRecords(path string, data []byte, parent string, want map[str
 			}
 			delete(nextLayouts, name)
 		}
-		for i := len(r.spans) - 1; i >= 0; i-- {
-			span := r.spans[i]
+		for i, span := range slices.Backward(r.spans) {
 			insert := []byte(nil)
 			if i == 0 {
 				insert = fragment

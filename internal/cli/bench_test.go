@@ -87,7 +87,7 @@ func BenchmarkSyncEmit(b *testing.B) {
 			resetBenchBuffers()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				out, err := captureRenders(cfg, newTargetRenders(cfg, bundle), cfg.Targets)
 				if err != nil {
 					b.Fatal(err)
@@ -129,7 +129,7 @@ func BenchmarkSyncFull(b *testing.B) {
 				resetBenchBuffers()
 				b.ReportAllocs()
 				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					if err := runSyncOnce(".", nil, false, false, "off", jc.jobs); err != nil {
 						b.Fatal(err)
 					}
@@ -188,7 +188,7 @@ func benchSyncGitRepository(b *testing.B, initRepository bool) {
 	resetBenchBuffers()
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 			b.Fatal(err)
 		}
@@ -217,7 +217,7 @@ func BenchmarkSyncCheck(b *testing.B) {
 			resetBenchBuffers()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				out, err := collectDrift(nil)
 				if err != nil {
 					b.Fatal(err)
@@ -239,7 +239,7 @@ func BenchmarkLoadProject(b *testing.B) {
 			benchChdir(b, root)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, bundle, err := loadProject(".")
 				if err != nil {
 					b.Fatal(err)
@@ -261,7 +261,7 @@ func BenchmarkEntryPointRender(b *testing.B) {
 			body := adapters.EntryPointBody()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				out, err := renderEntryPointFiles(cfg, bundle, cfg.Targets, body)
 				if err != nil {
 					b.Fatal(err)
@@ -281,7 +281,7 @@ func BenchmarkCompare(b *testing.B) {
 			cfg, bundle := benchSyncedProject(b, n)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				out, err := compareTargets(cfg, bundle, []string{"claude", "codex"})
 				if err != nil {
 					b.Fatal(err)
@@ -300,7 +300,7 @@ func BenchmarkGraph(b *testing.B) {
 			cfg, bundle := benchSyncedProject(b, n)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				edges, err := computeGraphEdges(bundle, cfg, graphFilter{})
 				if err != nil {
 					b.Fatal(err)
@@ -320,7 +320,7 @@ func BenchmarkExplain(b *testing.B) {
 			rule := bundle.Rules[0]
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				configured, extra, err := computeContributions(rule, bundle, cfg)
 				if err != nil {
 					b.Fatal(err)
@@ -417,7 +417,7 @@ func benchExplainBaselines(b *testing.B, n int, target string) {
 		defer holdStateFile(".")()
 		b.ReportAllocs()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			files, err := captureEmit(adapter, one, cfg)
 			if err != nil {
 				b.Fatal(err)
@@ -435,7 +435,7 @@ func benchExplainLoop(b *testing.B, bundle spec.Bundle, target string, op func()
 	defer holdStateFile(".")()
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchIntSink = op()
 	}
 	b.StopTimer()
@@ -464,7 +464,7 @@ func BenchmarkLint(b *testing.B) {
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				findings, _, err := lintScopeReport(scope)
 				if err != nil {
 					b.Fatal(err)
@@ -500,7 +500,7 @@ func BenchmarkWatchResync(b *testing.B) {
 			}
 			b.Run("status-quo", func(b *testing.B) {
 				b.ReportAllocs()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					if err := resyncForChanges(".", nil, changed, opts); err != nil {
 						b.Fatal(err)
 					}
@@ -513,7 +513,7 @@ func BenchmarkWatchResync(b *testing.B) {
 			})
 			b.Run("proposed", func(b *testing.B) {
 				b.ReportAllocs()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					cfg, bundle, err := loadProject(".")
 					if err != nil {
 						b.Fatal(err)
@@ -529,7 +529,7 @@ func BenchmarkWatchResync(b *testing.B) {
 			})
 			b.Run("baseline", func(b *testing.B) {
 				b.ReportAllocs()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					if err := opts.sync(".", plan.targets); err != nil {
 						b.Fatal(err)
 					}
@@ -591,14 +591,14 @@ func BenchmarkFolderFingerprint(b *testing.B) {
 		b.Run(fmt.Sprintf("status-quo/files=%d", n), func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				benchStringSink = folderFingerprint(files)
 			}
 		})
 		b.Run(fmt.Sprintf("baseline/files=%d", n), func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				benchStringSink = naiveFolderFingerprint(files)
 			}
 		})
@@ -647,12 +647,12 @@ func writeBenchProject(tb testing.TB, root string, n int) {
 	tb.Helper()
 	writeBenchFile(tb, filepath.Join(root, "agnostic-ai.yaml"), benchConfigYAML())
 	base := filepath.Join(root, config.SourceBaseDir)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		writeBenchFile(tb, filepath.Join(base, "rules", fmt.Sprintf("rule-%04d.md", i)), benchRule(i))
 		writeBenchFile(tb, filepath.Join(base, "agents", fixtureAgentName(i)+".md"), benchAgent(i))
 		writeBenchFile(tb, filepath.Join(base, "skills", fmt.Sprintf("skill-%04d", i), "SKILL.md"), benchSkill(i))
 	}
-	for i := 0; i < benchFixedSpecs; i++ {
+	for i := range benchFixedSpecs {
 		writeBenchFile(tb, filepath.Join(base, "hooks", fmt.Sprintf("hook-%02d.yaml", i)), benchHook(i))
 		writeBenchFile(tb, filepath.Join(base, "mcps", fmt.Sprintf("mcp-%02d.yaml", i)), benchMCP(i))
 		writeBenchFile(tb, filepath.Join(base, "commands", fmt.Sprintf("command-%02d.md", i)), benchCommand(i))

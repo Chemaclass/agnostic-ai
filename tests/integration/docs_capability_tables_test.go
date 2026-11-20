@@ -13,7 +13,6 @@ var docTableRow = regexp.MustCompile(`^\|\s*(?:\*\*)?([A-Za-z][A-Za-z0-9 ()/.-]*
 func TestDocs_CapabilityTablesHaveNoDuplicateRows(t *testing.T) {
 	t.Parallel()
 	for _, rel := range []string{"docs/site/content/docs/target-behavior.md", "docs/site/content/docs/global-configuration.md", "docs/site/content/docs/global-configuration-reference.md", "README.md"} {
-		rel := rel
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
 			data, err := os.ReadFile(filepath.Join("..", "..", rel))

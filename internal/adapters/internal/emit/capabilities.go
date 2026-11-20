@@ -59,12 +59,7 @@ var trackedAgentFields = []struct{ field, reason string }{
 
 // supports reports whether the adapter declares native support for k.
 func (c Capabilities) supports(k spec.Kind) bool {
-	for _, s := range c.Supports {
-		if s == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.Supports, k)
 }
 
 // Unsupported policies. Mirrors agnostic-ai.yaml `on-unsupported`.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -114,9 +115,7 @@ func listMCPTools(ctx context.Context, root string, entries []spec.Entry, timeou
 	var wg sync.WaitGroup
 	jobs := make(chan spec.Entry)
 	for range min(mcpProbeWorkers, len(entries)) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for e := range jobs {
 				res := mcpprobe.ServerResult{Spec: mcpprobe.SpecFingerprint(e.Meta), ListedAt: time.Now().UTC(), Tools: []mcpprobe.Tool{}}
 				c, cancel := context.WithTimeout(ctx, timeout)
@@ -137,7 +136,7 @@ func listMCPTools(ctx context.Context, root string, entries []spec.Entry, timeou
 				cache.Servers[e.Name] = res
 				mu.Unlock()
 			}
-		}()
+		})
 	}
 	for _, e := range entries {
 		jobs <- e
@@ -219,9 +218,7 @@ func mcpServerContext(ctx context.Context, e spec.Entry, root string) (mcpprobe.
 		if err != nil {
 			return s, err
 		}
-		for k, v := range headers {
-			s.Headers[k] = v
-		}
+		maps.Copy(s.Headers, headers)
 	}
 	return s, nil
 }

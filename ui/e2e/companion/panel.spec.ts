@@ -105,6 +105,56 @@ test('Enter on the focused pencil starts the rename and opens nothing', async ({
   expect(calls).not.toContain('/api/panel/hide')
 })
 
+test('Enter on a focused header or footer button runs only that button, with a row selected', async ({ page }) => {
+  for (const button of [
+    page.getByRole('button', { name: 'Settings', exact: true }),
+    page.getByRole('button', { name: 'Open the dashboard' }),
+    page.getByRole('button', { name: 'Local', exact: true }),
+  ]) {
+    await openPanel(page)
+    await page.keyboard.press('ArrowDown')
+    await expect(selected(page)).toHaveCount(1)
+    await button.press('Enter')
+    expect(await calledPaths(page)).not.toContain('/api/open')
+  }
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+  await openPanel(page)
+  await page.getByLabel('Search every conversation').fill('login')
+  await page.keyboard.press('ArrowDown')
+  await page.getByRole('button', { name: 'Clear the search' }).press('Enter')
+  await expect(page.getByLabel('Search every conversation')).toHaveValue('')
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('the keys leave the list alone while the settings menu is open', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('ArrowDown')
+  const before = await selected(page).textContent()
+  await page.getByRole('button', { name: 'Settings', exact: true }).press('Enter')
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible()
+
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toHaveText(before ?? '')
+  await page.getByLabel('Search every conversation').focus()
+  await page.keyboard.press('Enter')
+  expect(await calledPaths(page)).not.toContain('/api/open')
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeHidden()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
+})
+
+test('the search takes at most 200 characters and keeps the rows', async ({ page }) => {
+  await openPanel(page)
+  const search = page.getByLabel('Search every conversation')
+  await search.focus()
+  await page.keyboard.insertText('login '.repeat(50))
+  expect((await search.inputValue()).length).toBe(200)
+  await expect(row(page, 'Fix the login redirect')).toBeVisible()
+})
+
 test('F2 renames the selected row and Enter saves the name', async ({ page }) => {
   await openPanel(page)
   await page.getByLabel('Search every conversation').fill('sync dry run')
@@ -860,9 +910,9 @@ test('a search started again while older weeks load keeps the rows already shown
   const startedAgain = page.waitForResponse((response) => response.url().includes('q=the') && !response.url().includes('before='))
   await page.getByRole('menuitem', { name: 'Mark as read' }).click()
   await startedAgain
-  // Its first page is in; a draw of that page alone would have dropped the second week by now.
+  // Its first page is in; a draw of that page alone would have dropped the second week, which holds this row, by now.
   await page.waitForTimeout(300)
-  expect(await row(page, 'Refactor the search index').count()).toBe(1)
+  expect(await row(page, 'Draft the release notes').count()).toBe(1)
 
   await expect(row(page, 'Write the onboarding guide')).toBeVisible()
   await expect(page.locator('#summary')).toHaveText('8 conversations match')
@@ -898,8 +948,8 @@ test('folders with the same name show their parent, and the full path on hover',
   await expect(row(page, 'Add rate limits')).toContainText(' · shop/api · ')
   await expect(row(page, 'Split the user routes')).toContainText(' · billing/api · ')
   await expect(row(page, 'Fix the health check')).toContainText(' · Work/api · ')
-  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Open in Terminal\n/Users/you/Code/shop/api')
-  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Open in Terminal /Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Resume in Terminal\n/Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Resume in Terminal /Users/you/Code/shop/api')
 })
 
 test('a folder name no other row shares stays short', async ({ page }) => {

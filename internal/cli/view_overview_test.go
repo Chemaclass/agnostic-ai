@@ -334,7 +334,7 @@ func TestView_BrowserFailureKeepsURLAvailable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var out, warnings bytes.Buffer
-	cmd := newViewCmdWithBrowser(func(string) error { cancel(); return fmt.Errorf("browser unavailable") })
+	cmd := newViewCmdWithBrowser(func(string) error { cancel(); return errors.New("browser unavailable") })
 	cmd.SetContext(ctx)
 	cmd.SetOut(&out)
 	cmd.SetErr(&warnings)

@@ -95,7 +95,7 @@ func TestDroppedByTarget_DedupAndIntraTargetSort(t *testing.T) {
 		{Kind: spec.KindSettings, Name: "s", Meta: map[string]any{"model": "x"}},
 		{Kind: spec.KindHook, Name: "h", Meta: map[string]any{"event": "PostToolUse"}},
 	})
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if err := ReportUnsupported(caps, b, OnUnsupportedWarn); err != nil {
 			t.Fatal(err)
 		}

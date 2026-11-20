@@ -69,8 +69,8 @@ func testReadFileWaitsForSharedWrite(t *testing.T, alias string) { //nolint:thel
 		if runtime.GOOS != "windows" {
 			t.Skip("Windows path syntax")
 		}
-		if strings.HasPrefix(path, `\\`) {
-			writePath = `\\?\UNC\` + strings.TrimPrefix(path, `\\`)
+		if after, ok := strings.CutPrefix(path, `\\`); ok {
+			writePath = `\\?\UNC\` + after
 		} else {
 			writePath = `\\?\` + path
 		}

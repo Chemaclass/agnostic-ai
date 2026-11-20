@@ -244,6 +244,7 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 	if err != nil {
 		return err
 	}
+	warnShadowedSpecs(cmd.ErrOrStderr(), project.bundle)
 	cfg := project.cfg
 	if noTargetsKept(cfg) && !f.allowEmptyTargets && !f.watch {
 		return runEmptyTargets(cmd, f, cfg, tree)
@@ -445,7 +446,7 @@ func (r syncRun) dispatch() error {
 		return r.checkDrift()
 	}
 	if f.watchPoll && !f.watch {
-		return fmt.Errorf("--watch-poll requires --watch")
+		return errors.New("--watch-poll requires --watch")
 	}
 	if f.watch {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

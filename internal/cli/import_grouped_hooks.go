@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -90,9 +91,7 @@ func writeGroupedHookSpecWithPrefix(dstDir, target, event, matcher, prefix, salt
 	if timeout != 0 {
 		doc["timeout"] = timeout
 	}
-	for k, v := range extra {
-		doc[k] = v
-	}
+	maps.Copy(doc, extra)
 	if err := writeHookSpecFile(dstDir, name, doc); err != nil {
 		return 0, err
 	}

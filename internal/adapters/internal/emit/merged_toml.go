@@ -150,8 +150,8 @@ func releaseTOMLKey(doc map[string]any, key MergedKey, force bool) bool {
 		list := tomlStrings(value)
 		pending := slices.Clone(key.Items)
 		changed := false
-		for i := len(list) - 1; i >= 0; i-- {
-			sum := canonicalValueSum(list[i], list[i])
+		for i, l := range slices.Backward(list) {
+			sum := canonicalValueSum(l, l)
 			if at := slices.Index(pending, sum); at >= 0 {
 				pending = slices.Delete(pending, at, at+1)
 				list = slices.Delete(list, i, i+1)

@@ -339,7 +339,7 @@ func TestWarpVoice_NativeNullClearsEarlierOverrides(t *testing.T) {
 				t.Fatalf("initial sync: %v\n%s", err, notes)
 			}
 			mustWriteGlobalTest(t, later, "x-warp:\n  agents:\n    voice:\n      voice_input_enabled: null\n      voice_input_language: null\n")
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
 					t.Fatalf("clear sync: %v\n%s", err, notes)
 				} else if strings.Contains(notes, "native field requires") || strings.Contains(notes, "lowercase") {

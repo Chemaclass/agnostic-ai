@@ -137,9 +137,11 @@ func TestImportOpenhands_ReadsNativeSnakeCaseHooks(t *testing.T) {
 		t.Fatalf("want 2 hook specs, got %v", hooks)
 	}
 	all := ""
+	var allSb140 strings.Builder
 	for _, h := range hooks {
-		all += readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", h))
+		allSb140.WriteString(readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", h)))
 	}
+	all += allSb140.String()
 	for _, want := range []string{"event: Stop", "on: before-tool", "match: shell", "command: .openhands/hooks/quality_gate.sh", "timeout: 120"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("missing %q in imported hooks:\n%s", want, all)
@@ -383,7 +385,7 @@ func TestImportOpenhands_KeepsAgentMCPServers(t *testing.T) {
 	writeFile(t, path, "---\nname: web-researcher\ndescription: Researches\ntools:\n  - file_editor\nmcp_servers:\n  fetch:\n    command: uvx\n    args:\n      - mcp-server-fetch\n  search:\n    command: uvx\n    args:\n      - mcp-server-search\n---\n\nBody\n")
 	execCLI(t, "import", "openhands")
 	specBytes := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/web-researcher.md"))
-	if before := strings.SplitN(specBytes, "x-openhands:", 2)[0]; strings.Contains(before, "mcp_servers") {
+	if before, _, _ := strings.Cut(specBytes, "x-openhands:"); strings.Contains(before, "mcp_servers") {
 		t.Errorf("mcp_servers left at the top level:\n%s", specBytes)
 	}
 	execCLI(t, "sync", "-t", "openhands")

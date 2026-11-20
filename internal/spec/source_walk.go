@@ -49,8 +49,7 @@ func WalkSourceRoot(root string, fn fs.WalkDirFunc) error {
 }
 
 func sourceWalkError(path string, err error) error {
-	var pathErr *fs.PathError
-	if errors.As(err, &pathErr) {
+	if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 		return &fs.PathError{Op: pathErr.Op, Path: path, Err: pathErr.Err}
 	}
 	return &fs.PathError{Op: "walk", Path: path, Err: err}

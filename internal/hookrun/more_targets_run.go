@@ -189,8 +189,8 @@ func augmentExpandWord(word string, env []string) (string, string) {
 // lookupEnv finds key in env, where a later entry wins as it does for
 // the started process.
 func lookupEnv(env []string, key string) (string, bool) {
-	for i := len(env) - 1; i >= 0; i-- {
-		if k, v, ok := strings.Cut(env[i], "="); ok && k == key {
+	for _, e := range slices.Backward(env) {
+		if k, v, ok := strings.Cut(e, "="); ok && k == key {
 			return v, true
 		}
 	}

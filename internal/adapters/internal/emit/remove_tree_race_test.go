@@ -36,7 +36,7 @@ func TestRemoveGeneratedTreeExt_DoesNotRaceAConcurrentWriter(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer done.Store(true)
-		for i := 0; i < rounds; i++ {
+		for range rounds {
 			// A fresh session each round, as each sync is, so the write
 			// is a create into a directory that may have to be made.
 			if err := NewSession().WriteFile(path, "x\n", false); err != nil {

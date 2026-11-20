@@ -312,9 +312,11 @@ func TestImportCopilotHooks_RestoresRepositoryRelativeScriptPath(t *testing.T) {
 	}
 	specs, _ := filepath.Glob(filepath.Join(".agnostic-ai", "hooks", "*.yaml"))
 	var all string
+	var allSb315 strings.Builder
 	for _, f := range specs {
-		all += readFile(t, f)
+		allSb315.WriteString(readFile(t, f))
 	}
+	all += allSb315.String()
 	if !strings.Contains(all, "command: .agnostic-ai/hooks/guard.sh") || !strings.Contains(all, ".github/hooks/scripts/guard.js") || strings.Contains(all, "../") {
 		t.Errorf("imported specs keep native-relative paths:\n%s", all)
 	}

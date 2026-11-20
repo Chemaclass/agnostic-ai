@@ -36,8 +36,8 @@ func npmUpgradeHint(exe, root, latest string, globalRoot func() (string, error))
 		if err == nil {
 			if pm, ok := projectPackageManager(source); ok {
 				packageRoot := root
-				if i := strings.Index(exe, string(filepath.Separator)+"node_modules"+string(filepath.Separator)); i >= 0 {
-					packageRoot = exe[:i]
+				if before, _, ok := strings.Cut(exe, string(filepath.Separator)+"node_modules"+string(filepath.Separator)); ok {
+					packageRoot = before
 				}
 				return fmt.Sprintf("This is a project package installation. From %s, run %s agnostic-ai@%s, then rerun this command and reconcile the project with its package manager's installed CLI.", packageRoot, pm.add, latest)
 			}

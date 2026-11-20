@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,9 +32,7 @@ func devinPermissionLists(t *testing.T) map[string]any {
 	t.Helper()
 	got, _ := readJSONMap(t, devinConfig)["permissions"].(map[string]any)
 	out := map[string]any{}
-	for list, value := range got {
-		out[list] = value
-	}
+	maps.Copy(out, got)
 	return out
 }
 

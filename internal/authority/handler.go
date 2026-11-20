@@ -305,8 +305,7 @@ func (h *handler) configFiles() []string {
 // statusOf maps an error to its HTTP status: an unknown agent or target
 // is not found, anything else a server failure.
 func statusOf(err error) int {
-	var notFound *NotFoundError
-	if errors.As(err, &notFound) {
+	if _, ok := errors.AsType[*NotFoundError](err); ok {
 		return http.StatusNotFound
 	}
 	return http.StatusInternalServerError
