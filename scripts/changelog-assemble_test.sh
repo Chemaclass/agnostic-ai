@@ -101,3 +101,35 @@ function test_a_failed_file_leaves_everything_in_place() {
   assert_equals "## [Unreleased]" "$(cat "$dir/CHANGELOG.md")"
   assert_file_exists "$dir/changes/a.md"
 }
+
+function test_rejects_an_unknown_section() {
+  write_changelog $'## [Unreleased]\n'
+  printf '### Genral\n\n- X.\n' > "$dir/changes/bad.md"
+  local out
+  out="$(assemble_changelog --check "$dir/CHANGELOG.md" "$dir/changes" 2>&1)"
+  assert_general_error "$?"
+  assert_contains "not ### Genral" "$out"
+}
+
+function test_a_trailing_space_in_a_heading_joins_the_section() {
+  write_changelog $'## [Unreleased]\n\n### General\n\n- A.\n'
+  printf '### General \n\n- B.\n' > "$dir/changes/one.md"
+  assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
+  assert_equals $'## [Unreleased]\n\n### General\n\n- A.\n- B.' "$(cat "$dir/CHANGELOG.md")"
+}
+
+function test_rejects_a_file_that_is_not_markdown() {
+  write_changelog $'## [Unreleased]\n'
+  printf '### General\n\n- X.\n' > "$dir/changes/entry.txt"
+  local out
+  out="$(assemble_changelog --check "$dir/CHANGELOG.md" "$dir/changes" 2>&1)"
+  assert_general_error "$?"
+  assert_contains "entry.txt: name an entry file <slug>.md" "$out"
+}
+
+function test_keeps_intro_text_before_the_first_section() {
+  write_changelog $'## [Unreleased]\n\nIntro one.\n\nIntro two.\n\n## v1.0.0 - 2026-01-01\n'
+  printf '### General\n\n- X.\n' > "$dir/changes/one.md"
+  assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
+  assert_equals $'## [Unreleased]\n\nIntro one.\n\nIntro two.\n\n### General\n\n- X.\n\n## v1.0.0 - 2026-01-01' "$(cat "$dir/CHANGELOG.md")"
+}

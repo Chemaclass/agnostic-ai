@@ -61,11 +61,17 @@ check_binary_size() {
 growth_allowance() {
   local base_ref="$1"
   local growth_file="${2:-$BINARY_SIZE_ROOT/scripts/binary-size-growth}"
-  if [ -f "$growth_file" ] && ! git -C "$(dirname -- "$growth_file")" diff --quiet "$base_ref" -- "$growth_file" 2>/dev/null; then
-    read_budget "$growth_file"
-    return
-  fi
-  printf '%s\n' "$BINARY_SIZE_GROWTH_DEFAULT"
+  local status=0
+  [ -f "$growth_file" ] || { printf '%s\n' "$BINARY_SIZE_GROWTH_DEFAULT"; return; }
+  git -C "$(dirname -- "$growth_file")" diff --quiet "$base_ref" -- "$growth_file" || status=$?
+  case "$status" in
+    0) printf '%s\n' "$BINARY_SIZE_GROWTH_DEFAULT" ;;
+    1) read_budget "$growth_file" ;;
+    *)
+      printf 'error: cannot compare %s with %s\n' "$growth_file" "$base_ref" >&2
+      return 1
+      ;;
+  esac
 }
 
 check_binary_growth() {
@@ -100,8 +106,12 @@ set_budget() {
   local size tmp
   size=$(file_size "$binary") || return 1
   tmp=$(mktemp)
-  { grep -e '^[[:space:]]*#' "$budget_file" || true; printf '%s\n' "$((size + BINARY_SIZE_HEADROOM))"; } > "$tmp"
-  mv "$tmp" "$budget_file"
+  if ! { grep -e '^[[:space:]]*#' "$budget_file" || true; printf '%s\n' "$((size + BINARY_SIZE_HEADROOM))"; } > "$tmp" ||
+    ! cat "$tmp" > "$budget_file"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
   printf 'binary-size: budget set to %s bytes (%s measured plus %s headroom)\n' \
     "$((size + BINARY_SIZE_HEADROOM))" "$size" "$BINARY_SIZE_HEADROOM"
 }

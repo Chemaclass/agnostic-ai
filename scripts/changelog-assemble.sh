@@ -25,9 +25,13 @@ CHANGELOG_ROOT=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 change_files() {
   local dir="$1" f
   [ -d "$dir" ] || return 0
-  for f in "$dir"/*.md; do
-    [ -f "$f" ] || continue
+  for f in "$dir"/* "$dir"/.[!.]*; do
+    [ -e "$f" ] || continue
     [ "$(basename -- "$f")" = README.md ] && continue
+    case "$f" in
+      *.md) [ -f "$f" ] ;;
+      *) false ;;
+    esac || { printf 'error: %s: name an entry file <slug>.md\n' "$f" >&2; return 1; }
     [ -s "$f" ] || { printf 'error: %s: no entry\n' "$f" >&2; return 1; }
     printf '%s\n' "$f"
   done
@@ -65,6 +69,11 @@ merge_unreleased() {
       while (pending[k] > 0) { body[k, ++lines[k]] = ""; pending[k]-- }
       body[k, ++lines[k]] = line
     }
+    function heading(line, n,   h) {
+      h = substr(line, n)
+      sub(/[[:space:]]+$/, "", h)
+      return h
+    }
     function fail(msg) { printf "error: %s: %s\n", source, msg > "/dev/stderr"; failed = 1; exit 1 }
     function emit(k,   i) {
       if (lines[k] == 0) return
@@ -83,10 +92,14 @@ merge_unreleased() {
       if (is_change) fail("use ### and #### headings only")
       next
     }
-    /^### / { close_bucket(); h3 = substr($0, 5); h4 = ""; bucket(h3, h4); next }
+    /^### / {
+      close_bucket(); h3 = heading($0, 5); h4 = ""
+      if (is_change && rank(h3) == 5) fail("use ### Highlights, General, By tool or Site, not ### " h3)
+      bucket(h3, h4); next
+    }
     /^#### / {
       if (h3 == "") fail("a #### heading needs a ### heading above it")
-      close_bucket(); h4 = substr($0, 6); bucket(h3, h4); next
+      close_bucket(); h4 = heading($0, 6); bucket(h3, h4); next
     }
     {
       if (h3 == "") {
@@ -100,8 +113,8 @@ merge_unreleased() {
     END {
       if (failed) exit 1
       if (is_change && entries == 0) fail("no entry")
-      for (i = 1; i <= nprelude; i++) if (preludeline[i] !~ /^[[:space:]]*$/) print preludeline[i]
-      print ""
+      for (i = 1; i <= nprelude; i++) print preludeline[i]
+      if (nprelude == 0 || preludeline[nprelude] !~ /^[[:space:]]*$/) print ""
       for (i = 1; i <= nh3; i++) idx[i] = i
       for (i = 2; i <= nh3; i++) {
         for (j = i; j > 1 && rank(h3order[idx[j]]) < rank(h3order[idx[j - 1]]); j--) {
@@ -147,7 +160,7 @@ assemble_changelog() {
   [ "${#files[@]}" -gt 0 ] || { printf 'changelog: no change files in %s\n' "$dir"; return 0; }
 
   tmp=$(mktemp)
-  MERGED="$merged" awk '
+  if ! MERGED="$merged" awk '
     /^## \[Unreleased\]$/ {
       print
       if (ENVIRON["MERGED"] != "") print ENVIRON["MERGED"]
@@ -157,9 +170,11 @@ assemble_changelog() {
     }
     skip && /^## / { skip = 0 }
     !skip
-  ' "$changelog" > "$tmp"
-  mv "$tmp" "$changelog"
-  rm -f -- "${files[@]}"
+  ' "$changelog" > "$tmp" || ! cat "$tmp" > "$changelog"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f -- "$tmp" "${files[@]}"
   printf 'changelog: assembled %s change file(s) into [Unreleased]\n' "${#files[@]}"
 }
 

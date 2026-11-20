@@ -122,3 +122,11 @@ function test_set_budget_keeps_comments_and_adds_headroom() {
   assert_equals "# keep me
 2097252" "$(cat "$dir/budget")"
 }
+
+function test_growth_fails_when_the_base_cannot_be_compared() {
+  make_repo_with_growth_file 99999
+  local out
+  out="$(check_binary_growth "$dir/bin" "$dir/bin" deadbeefdeadbeef "$repo/binary-size-growth" 2>&1)"
+  assert_general_error "$?"
+  assert_contains "cannot compare" "$out"
+}
