@@ -242,6 +242,7 @@ internal/markdown/
 internal/mdlink/
 internal/hookrun/
 internal/hookpaths/
+internal/approvals/
 internal/applypatch/
 go.mod
 go.sum
@@ -252,6 +253,7 @@ docs/site/content/docs/handoff.md
 docs/site/content/docs/wrap-up.md
 docs/site/content/docs/side-conversation.md
 docs/site/content/docs/cloud-handoff.md
+docs/site/content/docs/approvals.md
 docs/site/content/docs/configuration.md
 docs/site/content/docs/global-configuration.md
 docs/site/content/docs/global-configuration-reference.md

@@ -190,6 +190,7 @@ builtins: [handoff]
 | `side-conversation` | A skill to start a second task in a new tab | [Side conversations](@/docs/side-conversation.md) |
 | `wrap-up` | A skill to end a session with a summary to share | [Session wrap-ups](@/docs/wrap-up.md) |
 | `cloud-handoff` | A skill to push the task and continue it in a cloud session | [Cloud handoffs](@/docs/cloud-handoff.md) |
+| `approvals` | A Claude Code and Codex hook that answers routine permission prompts. Home config only: a project sync skips it | [Approvals](@/docs/approvals.md) |
 
 Set `requires` to the release you use. An upgrade that changes built-in text makes `sync --check` fail until you sync.
 

@@ -11,7 +11,7 @@ group = "Reference"
 
 ## approvals
 
-Shows and stops automatic answers to permission prompts. The [`approvals` setting](@/docs/global-configuration-reference.md#global-approvals) lives in the home config only.
+Shows and stops automatic answers to permission prompts. The [`approvals` setting](@/docs/global-configuration-reference.md#global-approvals) lives in the home config only; [Approvals](@/docs/approvals.md) explains how to turn it on. Any other argument is an error.
 
 ```bash
 agnostic-ai approvals status          # mode and route per tool, here
@@ -21,9 +21,9 @@ agnostic-ai approvals ask             # show every prompt again
 
 ## approvals status
 
-Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line says so. No tool has a route yet, so every tool shows its prompt.
+Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line gives the reason. For `yolo` on Claude Code and Codex it also checks that the hook is installed and, for Codex, trusted in `/hooks`; until then the tool falls back to `ask`. On Windows every tool falls back to `ask`. [Approvals per tool](@/docs/approvals.md#per-tool) lists the routes.
 
-`--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, and `route` when one exists.
+`--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, `yolo` and `review` (the tool's route for each mode, or `ask`), `reason` when the mode falls back to `ask`, `route` when one carries the mode, and `min_version` when the route needs a release.
 
 ## approvals ask
 

@@ -989,4 +989,7 @@
 # MCP `$${NAME}` values when it rewrites the spec from a tool file.
 # Allow 8192 bytes, rounded up to a 4096-byte page.
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
-27291648
+# #3700 hook approve links the approvals gate into the binary for the first
+# time: 184320 bytes of growth over its base at 93439df62 (27287712), on top
+# of main's 27291648.
+27475968

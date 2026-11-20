@@ -1,0 +1,1 @@
+{"session_id":"019a7c1e-2d3f-7b40-8c11-5e9f0a6b2c3d","turn_id":"1","transcript_path":"/tmp/rollout.jsonl","cwd":"{{CWD}}","hook_event_name":"PermissionRequest","model":"gpt-5.5","permission_mode":"default","tool_name":"Bash","tool_input":{"command":"{{COMMAND}}","description":"Run the command"}}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -68,19 +69,32 @@ func TestApprovalsStatus_DefaultIsAsk(t *testing.T) {
 	}
 }
 
-func TestApprovalsStatus_RoutePerTool(t *testing.T) {
-	saved := approvalRoutes
-	t.Cleanup(func() { approvalRoutes = saved })
-	approvalRoutes = map[string]map[string]string{
-		"claude": {config.ApprovalsYolo: "PermissionRequest hook"},
-		"codex":  {config.ApprovalsReview: "Codex Auto-review"},
+// fakeApprovalRoutes gives claude a yolo hook and codex a review route,
+// whatever the table holds.
+func fakeApprovalRoutes(t *testing.T) {
+	t.Helper()
+	saved, savedGOOS := approvalRouteFor, approvalsGOOS
+	t.Cleanup(func() { approvalRouteFor, approvalsGOOS = saved, savedGOOS })
+	approvalsGOOS = "linux"
+	approvalRouteFor = func(tool string) approvals.Route {
+		switch tool {
+		case "claude":
+			return approvals.Route{Target: tool, Reason: "not built yet", Yolo: &approvals.Mechanism{Name: "Claude yolo route"}}
+		case "codex":
+			return approvals.Route{Target: tool, Reason: "not built yet", Review: &approvals.Mechanism{Name: "Codex Auto-review"}}
+		}
+		return approvals.RouteFor(tool)
 	}
+}
+
+func TestApprovalsStatus_RoutePerTool(t *testing.T) {
+	fakeApprovalRoutes(t)
 	approvalsHome(t, "version: 1\ntargets: [claude, codex, cursor]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
 
 	got := approvalsStatusJSON(t)
 
 	claude := toolStatus(t, got, "claude")
-	if claude.Mode != config.ApprovalsYolo || claude.Effective != config.ApprovalsYolo || claude.Route == "" || claude.From != "approvals.mode" {
+	if claude.Mode != config.ApprovalsYolo || claude.Effective != config.ApprovalsYolo || claude.Route != "Claude yolo route" || claude.From != "approvals.mode" || claude.Yolo != "Claude yolo route" || claude.Review != config.ApprovalsAsk {
 		t.Errorf("claude: %+v", claude)
 	}
 	codex := toolStatus(t, got, "codex")
@@ -88,7 +102,7 @@ func TestApprovalsStatus_RoutePerTool(t *testing.T) {
 		t.Errorf("codex: %+v", codex)
 	}
 	cursor := toolStatus(t, got, "cursor")
-	if cursor.Mode != config.ApprovalsYolo || cursor.Effective != config.ApprovalsAsk || cursor.Route != "" {
+	if cursor.Mode != config.ApprovalsYolo || cursor.Effective != config.ApprovalsAsk || cursor.Route != "" || cursor.Reason == "" || cursor.Yolo != config.ApprovalsAsk {
 		t.Errorf("cursor: %+v", cursor)
 	}
 
@@ -96,8 +110,104 @@ func TestApprovalsStatus_RoutePerTool(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "falls back to ask") {
-		t.Errorf("no fallback note for cursor:\n%s", out)
+	if !strings.Contains(out, "falls back to ask: "+cursor.Reason) {
+		t.Errorf("no fallback reason for cursor:\n%s", out)
+	}
+}
+
+func TestApprovalsStatus_JSONHasEveryRouteField(t *testing.T) {
+	approvalsHome(t, "version: 1\ntargets: [claude, copilot]\napprovals:\n  mode: yolo\n")
+
+	out, err := runCLI(t, "approvals", "status", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw struct {
+		Tools []map[string]any `json:"tools"`
+	}
+	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range raw.Tools {
+		for _, key := range []string{"tool", "mode", "effective", "from", "yolo", "review", "reason"} {
+			if _, ok := tool[key]; !ok {
+				t.Errorf("%v has no %s", tool["tool"], key)
+			}
+		}
+	}
+	copilot := toolStatus(t, approvalsStatusJSON(t), "copilot")
+	if copilot.Reason != approvals.RouteFor("copilot").Reason {
+		t.Errorf("copilot: %+v", copilot)
+	}
+}
+
+func TestApprovalsStatus_WindowsFallsBack(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "windows"
+	approvalsHome(t, "version: 1\ntargets: [claude, codex]\napprovals:\n  mode: yolo\n")
+
+	out, err := runCLI(t, "approvals", "status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(out, "falls back to ask: Windows") != 2 {
+		t.Errorf("want both tools to fall back on Windows:\n%s", out)
+	}
+}
+
+func TestApprovalsStatus_HookNotInstalled(t *testing.T) {
+	approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+
+	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
+	if claude.Effective != config.ApprovalsAsk || !strings.Contains(claude.Reason, "sync --global") {
+		t.Errorf("claude: %+v", claude)
+	}
+}
+
+func TestApprovalsStatus_ClaudeHookInstalled(t *testing.T) {
+	approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	home, _ := os.UserHomeDir()
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target claude"}]}]}}`)
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+
+	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
+	if claude.Effective != config.ApprovalsYolo || claude.Route != approvals.MechanismPermissionHook || claude.MinVersion == "" {
+		t.Errorf("claude: %+v", claude)
+	}
+}
+
+func TestApprovalsStatus_CodexHookNotTrusted(t *testing.T) {
+	approvalsHome(t, "version: 1\ntargets: [codex]\napprovals:\n  mode: yolo\n")
+	codexHome := t.TempDir()
+	t.Setenv("CODEX_HOME", codexHome)
+	writeFile(t, filepath.Join(codexHome, "hooks.json"), `{"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target codex","timeout":10}]}]}}`)
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+
+	codex := toolStatus(t, approvalsStatusJSON(t), "codex")
+	if codex.Effective != config.ApprovalsAsk || !strings.Contains(codex.Reason, "/hooks") {
+		t.Errorf("codex: %+v", codex)
+	}
+	out, err := runCLI(t, "approvals", "status")
+	if err != nil || !strings.Contains(out, "Codex has not trusted the hook") {
+		t.Errorf("status does not name the trust step: %v\n%s", err, out)
+	}
+}
+
+func TestApprovals_RejectsUnknownArguments(t *testing.T) {
+	approvalsHome(t, "")
+	out, err := runCLI(t, "approvals", "yolo")
+	if err == nil || !strings.Contains(out+err.Error(), "yolo") {
+		t.Fatalf("approvals yolo = %v\n%s; want an error naming the argument", err, out)
+	}
+	if _, err := runCLI(t, "approvals"); err != nil {
+		t.Errorf("approvals alone: %v", err)
 	}
 }
 
@@ -135,9 +245,7 @@ func TestApprovalsStatus_ProjectFileCannotLoosen(t *testing.T) {
 }
 
 func TestApprovalsAsk_WritesTheLocalHomeConfig(t *testing.T) {
-	saved := approvalRoutes
-	t.Cleanup(func() { approvalRoutes = saved })
-	approvalRoutes = map[string]map[string]string{"codex": {config.ApprovalsReview: "Codex Auto-review"}}
+	fakeApprovalRoutes(t)
 	source := approvalsHome(t, "version: 1\ntargets: [claude, codex]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
 	local := filepath.Join(source, "local", config.ConfigFileName)
 	writeFile(t, local, "# mine\nmodels:\n  fast:\n    claude: haiku\napprovals:\n  tools:\n    codex: review\n  projects:\n    /tmp/x: yolo\n  always-ask:\n    - \"Bash(make deploy*)\"\n")

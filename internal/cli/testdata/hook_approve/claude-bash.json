@@ -1,0 +1,1 @@
+{"session_id":"5f0c2a9e-1b7d-4c3e-9a51-0d6c8e2f4b10","transcript_path":"/tmp/transcript.jsonl","cwd":"{{CWD}}","scratchpad_dir":"/tmp/scratchpad","prompt_id":"p-1","permission_mode":"default","effort":"medium","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"{{COMMAND}}","description":"Run the command"}}

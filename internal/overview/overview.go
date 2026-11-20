@@ -529,6 +529,7 @@ func instructionItems(docs []Document) []SectionItem {
 
 // builtinDescriptions says what each built-in feature does.
 var builtinDescriptions = map[string]string{
+	"approvals":         "Answers routine permission prompts by the approvals setting in the home config.",
 	"memory":            "Shared memory every coding tool reads and saves facts to.",
 	"handoff":           "Saves a task so the next session, in this or another tool, can resume it.",
 	"handoff-hook":      "Offers a saved handoff when a session starts.",
@@ -542,6 +543,14 @@ var builtinDescriptions = map[string]string{
 // builtinAbouts explains each built-in in its Details panel. Keep each
 // line true to what the built-in's files under internal/builtins/data emit.
 var builtinAbouts = map[string]BuiltinAbout{
+	"approvals": {
+		Summary: "Adds a hook to Claude Code and Codex that approves one tool call at a time when the approvals mode is yolo.",
+		Points: []string{
+			"Only the home config turns it on: sync --global writes the hook to ~/.claude/settings.json and ~/.codex/hooks.json. A project sync skips it.",
+			"Deleting, publishing, network, secrets and edits outside the project always ask. agnostic-ai approvals ask stops it on the next request.",
+			"Every decision goes to a log under $AGNOSTIC_AI_HOME/local/approvals/.",
+		},
+	},
 	"memory": {
 		Summary: "Sets up project and personal memory that your coding tools read when a session starts.",
 		Points: []string{
@@ -623,6 +632,7 @@ func builtinAbout(name string) *BuiltinAbout {
 // builtinLabels names each built-in for people; the id stays the key
 // written in the builtins list.
 var builtinLabels = map[string]string{
+	"approvals":         "Approvals",
 	"memory":            "Shared memory",
 	"handoff":           "Handoff",
 	"handoff-hook":      "Handoff on start",
@@ -656,6 +666,10 @@ func builtinItems(in Inputs) []SectionItem {
 	}
 	items := make([]SectionItem, 0, len(names))
 	for _, name := range names {
+		if name == config.ApprovalsBuiltin && !in.Global && !slices.Contains(enabled, name) {
+			// A project cannot turn it on: only sync --global writes its hooks.
+			continue
+		}
 		description := builtinDescriptions[name]
 		if description == "" {
 			description = "Built-in feature."
