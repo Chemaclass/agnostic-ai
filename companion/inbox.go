@@ -28,12 +28,13 @@ const maxRequestBytes = 4 << 10
 
 // The server's endpoints the companion uses.
 const (
-	serverListPath      = "/api/views/conversations"
-	serverOpenPath      = "/api/conversations/open"
-	serverMarkPath      = "/api/conversations/mark"
-	serverRenamePath    = "/api/conversations/rename"
-	serverDeletePath    = "/api/conversations/delete"
-	serverStopShellPath = "/api/conversations/stop-shell"
+	serverListPath        = "/api/views/conversations"
+	serverOpenPath        = "/api/conversations/open"
+	serverMarkPath        = "/api/conversations/mark"
+	serverRenamePath      = "/api/conversations/rename"
+	serverDeletePath      = "/api/conversations/delete"
+	serverStopShellPath   = "/api/conversations/stop-shell"
+	serverStopSessionPath = "/api/conversations/stop-session"
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"

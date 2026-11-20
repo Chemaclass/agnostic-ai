@@ -106,6 +106,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   waits only on a forgotten shell stays in Needs you until the shell stops.
   Once marked, it offers **Undo complete**. The
   [usual rules for Archived](../docs/site/content/docs/cli-reference/conversations-api.md#get-apiviewsconversations) still apply.
+- On macOS and Linux, **Stop chat…** in the same menu ends a live Claude
+  Code chat that runs in a terminal on this computer, after a question. The
+  transcript stays, so the chat can be resumed. Other chats, such as
+  claude.ai chats or background sessions, have no Stop chat.
 - **Mark all as read** beside Needs you does the same for every chat that
   group shows, after the search and the All, Local or Cloud choice. It shows
   only while the group is unfolded. A chat

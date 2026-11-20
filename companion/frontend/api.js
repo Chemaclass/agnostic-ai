@@ -91,6 +91,11 @@ export function deleteConversation(conversation) {
   return change('/api/delete', { tool: conversation.tool, id: conversation.id })
 }
 
+/** Ends the process `stoppable` named on a live Claude Code chat in a terminal; answers {body: {forced?, stillRunning?}, version}. */
+export function stopSession(conversation, process) {
+  return change('/api/stop-session', { tool: conversation.tool, id: conversation.id, pid: process.pid, procStart: process.procStart })
+}
+
 export function stopShell(conversation, shell) {
   return change('/api/stop-shell', { tool: conversation.tool, id: conversation.id, pid: shell.pid, procStart: shell.procStart })
 }
