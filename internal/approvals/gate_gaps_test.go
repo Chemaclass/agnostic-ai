@@ -252,7 +252,9 @@ func TestDotEnvSetsPolicy_UnicodeBlanks(t *testing.T) {
 func TestDecide_GitGlobWildcardsAsk(t *testing.T) {
 	t.Parallel()
 	p := testPolicy()
-	for _, glob := range []string{".gi?/config", ".git*/config", ".[g]it/config", "*.gitconfig", "**/.git/**"} {
+	for _, glob := range []string{".gi?/config", ".git*/config", ".[g]it/config", "*.gitconfig", "**/.git/**",
+		"sub/.gi?/config", "a/b/.gi?/config", "sub/.gitconfi?", "sub/.config/gi?/config", ".gi?/FETCH_HEAD",
+		".gi?/packed-refs", ".gi?/modules/*/config"} {
 		if got := Decide(call("Grep", map[string]any{"pattern": "x", "glob": glob}), p); got.Outcome != Asked {
 			t.Errorf("%q: got %+v, want asked", glob, got)
 		}

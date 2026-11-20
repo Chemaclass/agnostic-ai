@@ -139,8 +139,28 @@ func gitGlob(glob string) bool {
 	if err != nil {
 		return true
 	}
-	for _, sample := range []string{".git/config", ".git/hooks/x", ".gitconfig", ".config/git/config", "dir/.git/config"} {
+	for _, sample := range []string{".git/config", ".git/hooks/x", ".git/fetch_head", ".git/packed-refs", ".git/modules/x/config",
+		".git/worktrees/x/config.worktree", ".gitconfig", ".config/git/config", "dir/.git/config"} {
 		if re.MatchString(sample) {
+			return true
+		}
+	}
+	// Each segment on its own: a wildcard one deeper in the glob, such
+	// as sub/.gi?/FETCH_HEAD, may still name a Git folder. A segment of
+	// stars alone matches every name; the samples above cover it.
+	segments := strings.Split(lower, "/")
+	matches := func(segment, name string) bool {
+		if strings.Trim(segment, "*") == "" {
+			return false
+		}
+		seg, err := dotGlobRegexp("/" + segment)
+		return err != nil || seg.MatchString("/"+name)
+	}
+	for i, segment := range segments {
+		if matches(segment, ".git") || matches(segment, ".gitconfig") {
+			return true
+		}
+		if i+1 < len(segments) && matches(segment, ".config") && matches(segments[i+1], "git") {
 			return true
 		}
 	}
