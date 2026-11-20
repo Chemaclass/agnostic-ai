@@ -275,6 +275,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return makeParent(path)
 	}
 	editBackup := s.backsUpEdit(cur, content)
+	if editBackup && cur.isLink() {
+		if _, err := projectLinkTarget(path); err != nil {
+			// Never copy a link target from outside the project into it.
+			return fmt.Errorf("refusing to write %s: it links outside the project and holds a hand edit", path)
+		}
+	}
 	var backupPath string
 	if editBackup {
 		backupPath = path + ".bak"
