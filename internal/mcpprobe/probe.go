@@ -158,7 +158,7 @@ func handshake(ctx context.Context, x exchange, client string) ([]Tool, error) {
 	}
 	var tools []Tool
 	cursor := ""
-	for page := 0; page < maxPages; page++ {
+	for page := range maxPages {
 		params := map[string]any{}
 		if cursor != "" {
 			params["cursor"] = cursor
@@ -312,7 +312,7 @@ func (x *httpExchange) post(ctx context.Context, msg rpcRequest) (*http.Response
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	if msg.Method != "initialize" {
-		req.Header.Set("MCP-Protocol-Version", ProtocolVersion)
+		req.Header.Set("Mcp-Protocol-Version", ProtocolVersion)
 	}
 	if x.session != "" {
 		req.Header.Set("Mcp-Session-Id", x.session)

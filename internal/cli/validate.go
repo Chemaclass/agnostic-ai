@@ -2,7 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -99,7 +101,8 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	if len(entries) == 0 {
 		return scopeIssues
 	}
-	issues := lintEntries(entries)
+	issues := shadowedSpecIssues(b)
+	issues = append(issues, lintEntries(entries)...)
 	issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
 	issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
 	if !scope.global {
@@ -183,7 +186,34 @@ func reportIssues(cmd *cobra.Command, issues []validationIssue) {
 		}
 		cmd.Printf("  %s %s: %s\n", marker, i.Path, i.Message)
 	}
-	cmd.Printf("(* = autofixable; rerun with --fix)\n")
+	if slices.ContainsFunc(issues, validationIssue.Autofixable) {
+		cmd.Printf("(* = autofixable; rerun with --fix)\n")
+	}
+}
+
+// warnShadowedSpecs prints one warning per spec a same-layer peer replaced.
+func warnShadowedSpecs(w io.Writer, b spec.Bundle) {
+	for _, issue := range shadowedSpecIssues(b) {
+		_, _ = fmt.Fprintf(w, "warning: %s: %s\n", issue.Path, issue.Message)
+	}
+}
+
+// shadowedSpecIssues reports each spec a same-named peer in its layer
+// replaced: the loader keeps the last one, so the other reaches no tool.
+func shadowedSpecIssues(b spec.Bundle) []validationIssue {
+	var out []validationIssue
+	for _, e := range b.Shadowed {
+		if e.Layer == layerNameBuiltin {
+			continue
+		}
+		out = append(out, validationIssue{
+			Path:    filepath.ToSlash(e.Path),
+			Field:   "name",
+			Message: fmt.Sprintf("duplicate %s name %q; %s wins and this spec reaches no tool", e.Kind, e.Name, filepath.ToSlash(e.ShadowedBy)),
+			entry:   e,
+		})
+	}
+	return out
 }
 
 // reportNotes prints findings that do not fail the run to stderr, so
@@ -469,7 +499,7 @@ func injectFrontmatterName(data []byte, name string) ([]byte, error) {
 		node = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
 	}
 	if node.Kind != yaml.DocumentNode || len(node.Content) == 0 || node.Content[0].Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("frontmatter root must be a mapping")
+		return nil, errors.New("frontmatter root must be a mapping")
 	}
 	mapping := node.Content[0]
 
@@ -515,12 +545,12 @@ func splitFrontmatter(data []byte) (yamlBytes []byte, body string, hadFrontmatte
 		return nil, string(data), false
 	}
 	rest := data[len(delim):]
-	idx := bytes.Index(rest, []byte("\n"+delim))
-	if idx < 0 {
+	before, after, ok := bytes.Cut(rest, []byte("\n"+delim))
+	if !ok {
 		return nil, string(data), false
 	}
-	yamlBytes = rest[:idx]
-	body = string(bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n"))
+	yamlBytes = before
+	body = string(bytes.TrimLeft(after, "\n"))
 	return yamlBytes, body, true
 }
 

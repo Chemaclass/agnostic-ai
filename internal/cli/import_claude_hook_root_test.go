@@ -20,15 +20,15 @@ func TestImportClaude_ProjectRootHookRunsOnCodex(t *testing.T) {
 				t.Fatal(err)
 			}
 			testutil.Chdir(t, project)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-			mustWriteFile(t, "CLAUDE.md", "# Project\n")
-			mustWriteFile(t, ".claude/hooks/guard.sh", "#!/bin/sh\nprintf 'ran:%s' \"$1\"\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+			writeFile(t, "CLAUDE.md", "# Project\n")
+			writeFile(t, ".claude/hooks/guard.sh", "#!/bin/sh\nprintf 'ran:%s' \"$1\"\n")
 			settings := map[string]any{"hooks": map[string]any{"PostToolUse": []any{map[string]any{"matcher": "Write|Edit", "hooks": []any{map[string]any{"type": "command", "command": `sh "` + variable + `/.claude/hooks/guard.sh" "arg with space"`}}}}}}
 			data, err := json.Marshal(settings)
 			if err != nil {
 				t.Fatal(err)
 			}
-			mustWriteFile(t, ".claude/settings.json", string(data))
+			writeFile(t, ".claude/settings.json", string(data))
 			if out, err := runCLI(t, "import", "claude"); err != nil {
 				t.Fatalf("import: %v %s", err, out)
 			}
@@ -58,7 +58,7 @@ func TestImportClaude_ProjectRootHookRunsOnCodex(t *testing.T) {
 
 func TestSyncGlobal_HookRootUsesRuntimeProject(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\ncommand: 'printf %s \"${CLAUDE_PROJECT_DIR}\"'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\ncommand: 'printf %s \"${CLAUDE_PROJECT_DIR}\"'\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestSyncGlobal_HookRootUsesRuntimeProject(t *testing.T) {
 
 func TestSyncGlobal_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\nshell: powershell\ncommand: '\"$CLAUDE_PROJECT_DIR/custom/guard.ps1\"'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\nshell: powershell\ncommand: '\"$CLAUDE_PROJECT_DIR/custom/guard.ps1\"'\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestSyncGlobal_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
 
 func TestSyncGlobal_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: windows-guard\nevent: PreToolUse\ntarget: codex\ncommand: guard.sh\ncommandWindows: '$env:CLAUDE_PROJECT_DIR/custom/guard.ps1'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: windows-guard\nevent: PreToolUse\ntarget: codex\ncommand: guard.sh\ncommandWindows: '$env:CLAUDE_PROJECT_DIR/custom/guard.ps1'\n")
 	_, warnings, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func TestSyncGlobal_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
 	if handler["commandWindows"] != `$env:CLAUDE_PROJECT_DIR/custom/guard.ps1` {
 		t.Errorf("Windows override changed: %v", handler["commandWindows"])
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err == nil || !strings.Contains(err.Error(), "windows-guard") {
 		t.Errorf("want named global Windows error, got %v", err)
 	}

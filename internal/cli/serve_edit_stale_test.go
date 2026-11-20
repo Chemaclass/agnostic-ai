@@ -15,7 +15,7 @@ func TestEditValue_RejectsStaleBoolean(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
-	mustWriteGlobalTest(t, file, "x-claude:\n  verbose: true\n")
+	writeFile(t, file, "x-claude:\n  verbose: true\n")
 	rec := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
@@ -30,7 +30,7 @@ func TestEditBuiltin_RejectsStaleToggle(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, file, "targets:\n  - claude\nbuiltins:\n  - memory\n")
+	writeFile(t, file, "targets:\n  - claude\nbuiltins:\n  - memory\n")
 	rec := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true,"expected":false}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
@@ -45,7 +45,7 @@ func TestEditBuiltin_RejectsStalePersonalListReset(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "local", "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, file, "builtins:\n  - memory\n  - handoff\n")
+	writeFile(t, file, "builtins:\n  - memory\n  - handoff\n")
 	rec := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"personal","reset":true,"expected":["memory"]}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
@@ -60,7 +60,7 @@ func TestEditValue_RejectsStalePersonalReset(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "local", "settings", "native.yaml")
-	mustWriteGlobalTest(t, file, "name: native\nx-claude:\n  verbose: true\n")
+	writeFile(t, file, "name: native\nx-claude:\n  verbose: true\n")
 	rec := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"settings/native.yaml","key":"x-claude.verbose","value":null,"expected":false}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
@@ -119,13 +119,12 @@ func TestEditPersonal_RejectsTeamChangesBeforeReplacement(t *testing.T) {
 			edit = func(data []byte) ([]byte, error) {
 				out, err := next(data)
 				if err == nil {
-					mustWriteGlobalTest(t, team, "# changed while editing\n")
+					writeFile(t, team, "# changed while editing\n")
 				}
 				return out, err
 			}
 			_, err = h.applyValidated(file, edit, guard)
-			var stale staleToggleError
-			if !errors.As(err, &stale) {
+			if _, ok := errors.AsType[staleToggleError](err); !ok {
 				t.Errorf("error = %v, want stale conflict", err)
 			}
 			if _, err := os.Stat(file); !os.IsNotExist(err) {
@@ -163,13 +162,12 @@ func TestEditPersonal_StaleWriteDoesNotAlterGitExclude(t *testing.T) {
 			edit = func(data []byte) ([]byte, error) {
 				out, err := next(data)
 				if err == nil {
-					mustWriteGlobalTest(t, team, "# changed while editing\n")
+					writeFile(t, team, "# changed while editing\n")
 				}
 				return out, err
 			}
 			_, err = h.applyValidatedWithPrepare(file, edit, func() (func(bool) error, error) { return h.preparePersonalOutOfGit(file) }, guard)
-			var stale staleToggleError
-			if !errors.As(err, &stale) {
+			if _, ok := errors.AsType[staleToggleError](err); !ok {
 				t.Errorf("error = %v, want stale conflict", err)
 			}
 			if got := excludeOf(t, project); got != before {
@@ -200,7 +198,7 @@ func TestEditPersonal_TeamChangeDuringExcludeUpdateKeepsGitExclude(t *testing.T)
 		if err != nil {
 			return nil, err
 		}
-		mustWriteGlobalTest(t, team, "# changed during exclude update\n")
+		writeFile(t, team, "# changed during exclude update\n")
 		return finish, nil
 	}
 	_, err = h.applyValidatedWithPrepare(file, edit, prepare, guard)
@@ -245,7 +243,7 @@ func TestEditPersonal_RollbackKeepsConcurrentGitExcludeEdits(t *testing.T) {
 		if err := f.Close(); err != nil {
 			return nil, err
 		}
-		mustWriteGlobalTest(t, team, "# changed during exclude update\n")
+		writeFile(t, team, "# changed during exclude update\n")
 		return finish, nil
 	}
 	_, err = h.applyValidatedWithPrepare(file, edit, prepare, guard)
@@ -276,8 +274,8 @@ func TestEditPersonal_RollbackKeepsExclusionWhenPersonalFileAppears(t *testing.T
 		if err != nil {
 			return nil, err
 		}
-		mustWriteGlobalTest(t, file, "# user created this file\n")
-		mustWriteGlobalTest(t, team, "# changed during exclude update\n")
+		writeFile(t, file, "# user created this file\n")
+		writeFile(t, team, "# changed during exclude update\n")
 		return finish, nil
 	}
 	_, err = h.applyValidatedWithPrepare(file, edit, prepare, guard)
@@ -296,7 +294,7 @@ func TestEditPersonal_RollbackKeepsExclusionWhenPersonalFileAppears(t *testing.T
 
 func TestEditPersonal_FailedGitExclusionKeepsExclude(t *testing.T) {
 	project := gitScopeProject(t)
-	mustWrite(t, ".gitignore", "!/agnostic-ai.local.yaml\n")
+	writeFile(t, ".gitignore", "!/agnostic-ai.local.yaml\n")
 	before := excludeOf(t, project)
 	rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true,"expected":false}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Git would still track") {
@@ -358,8 +356,8 @@ func TestEditPersonal_RollbackKeepsExclusionWhenSiblingAppears(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		mustWriteGlobalTest(t, sibling, "private sibling\n")
-		mustWriteGlobalTest(t, team, "# changed during exclude update\n")
+		writeFile(t, sibling, "private sibling\n")
+		writeFile(t, team, "# changed during exclude update\n")
 		return finish, nil
 	}
 	_, err = h.applyValidatedWithPrepare(file, edit, prepare, guard)

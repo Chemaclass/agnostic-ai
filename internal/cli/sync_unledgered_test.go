@@ -36,18 +36,18 @@ func lostLedgerProjectFor(t *testing.T, targets string) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
 	rule := filepath.Join(".agnostic-ai", "rules", "api.md")
-	mustWriteFile(t, rule, "---\nname: api\nscope: services/api\n---\napi body\n")
+	writeFile(t, rule, "---\nname: api\nscope: services/api\n---\napi body\n")
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
 	if !fileExists(unledgeredScopedDoc) {
 		t.Fatalf("sync did not write %s", unledgeredScopedDoc)
 	}
-	mustWriteFile(t, unledgeredToolFile, header.With("name = \"old\"\n", header.FormatTOML))
-	mustWriteFile(t, headerlessToolFile, "name = \"hand\"\n")
-	mustWriteFile(t, mentionScopedDoc, "# Web\n\n"+header.Line(header.FormatMarkdown))
+	writeFile(t, unledgeredToolFile, header.With("name = \"old\"\n", header.FormatTOML))
+	writeFile(t, headerlessToolFile, "name = \"hand\"\n")
+	writeFile(t, mentionScopedDoc, "# Web\n\n"+header.Line(header.FormatMarkdown))
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	if err := os.Remove(rule); err != nil {
@@ -147,7 +147,7 @@ func TestDoctorFix_AfterSyncWithoutLedgerKeepsRecordedFileWithoutHeader(t *testi
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, unledgeredToolFile, "name = \"old\"\n")
+	writeFile(t, unledgeredToolFile, "name = \"old\"\n")
 
 	_, _ = runCLI(t, "doctor", "--fix")
 
@@ -274,7 +274,7 @@ func TestCollectDrift_UnledgeredReportHasItsOwnTarget(t *testing.T) {
 // recorded leftovers it did not write again.
 func TestKeepUnledgered_PartialRunCarriesRecordForward(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, stateFilePath("."), "{\"version\":5,\"synced_at\":\"2026-01-01T00:00:00Z\"}\n")
+	writeFile(t, stateFilePath("."), "{\"version\":5,\"synced_at\":\"2026-01-01T00:00:00Z\"}\n")
 	prev := syncStateFile{Unledgered: []string{unledgeredToolFile, unledgeredScopedDoc}}
 	var ledger syncLedger
 

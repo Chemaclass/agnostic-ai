@@ -39,7 +39,7 @@ func TestImportClaudeSettingsOverlay_MovesPermissionListsToSpec(t *testing.T) {
 		Permissions map[string][]string `yaml:"permissions"`
 		Target      any                 `yaml:"target"`
 	}
-	if err := yaml.Unmarshal([]byte(readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))), &doc); err != nil {
+	if err := yaml.Unmarshal([]byte(readFile(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))), &doc); err != nil {
 		t.Fatalf("parse spec: %v", err)
 	}
 	want := map[string][]string{
@@ -56,7 +56,7 @@ func TestImportClaudeSettingsOverlay_MovesPermissionListsToSpec(t *testing.T) {
 		t.Errorf("spec is pinned to %v, want it portable", doc.Target)
 	}
 
-	overlay := readFileString(t, claudeOverlayPath(root))
+	overlay := readFile(t, claudeOverlayPath(root))
 	for _, gone := range []string{"allow", "ask", "deny"} {
 		if strings.Contains(overlay, `"`+gone+`"`) {
 			t.Errorf("overlay still carries %s:\n%s", gone, overlay)
@@ -100,7 +100,7 @@ func TestImportClaudeSettingsOverlay_SkipsRulesAnotherSpecOwns(t *testing.T) {
 	if _, err := importClaudeSettingsOverlay(root, settingsDir); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
+	spec := readFile(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
 	if strings.Contains(spec, "Bash(rm:*)") || strings.Contains(spec, "shell(rm:*)") || strings.Contains(spec, "WebFetch") {
 		t.Errorf("spec copied a rule another spec owns:\n%s", spec)
 	}
@@ -122,7 +122,7 @@ func TestImportClaudeSettingsOverlay_KeepsRulesASpecForAnotherTargetAlsoLists(t 
 	if _, err := importClaudeSettingsOverlay(root, settingsDir); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
+	spec := readFile(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
 	if !strings.Contains(spec, "shell(rm:*)") || !strings.Contains(spec, "WebFetch") {
 		t.Errorf("spec dropped a rule only a spec for another target lists:\n%s", spec)
 	}
@@ -143,7 +143,7 @@ func assertNoSpecHolds(t *testing.T, root string, secrets ...string) {
 		if err != nil || d.IsDir() || strings.Contains(path, string(filepath.Separator)+claudeDir+string(filepath.Separator)) {
 			return err
 		}
-		data := readFileString(t, path)
+		data := readFile(t, path)
 		for _, secret := range secrets {
 			if strings.Contains(data, secret) {
 				t.Errorf("%s holds %q:\n%s", path, secret, data)
@@ -179,7 +179,7 @@ func TestImportClaudeSettingsOverlay_LeavesOutEnvCredentials(t *testing.T) {
 	}
 
 	assertNoSpecHolds(t, root, "sk-ant-api03-abcdefghijklmnop", "hcaik01jabcdefghijk", "ABSKQmVkcm9ja0FQSUtleS1hYmNk", "pw123456", "defaultsecret99", "FQoGZXIvYXdzEJr")
-	overlay := readFileString(t, claudeOverlayPath(root))
+	overlay := readFile(t, claudeOverlayPath(root))
 	for _, kept := range []string{`"DISABLE_TELEMETRY": "1"`, `"ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"`} {
 		if !strings.Contains(overlay, kept) {
 			t.Errorf("overlay lost %s:\n%s", kept, overlay)
@@ -220,7 +220,7 @@ func TestImportClaudeSettingsOverlay_LeavesOutCredentialHelper(t *testing.T) {
 	}
 
 	assertNoSpecHolds(t, root, "sk-ant-api03-abcdefghijklmnop", "abc123def456ghi")
-	if overlay := readFileString(t, claudeOverlayPath(root)); !strings.Contains(overlay, `"model": "opus"`) {
+	if overlay := readFile(t, claudeOverlayPath(root)); !strings.Contains(overlay, `"model": "opus"`) {
 		t.Errorf("overlay lost model:\n%s", overlay)
 	}
 	for _, key := range []string{"apiKeyHelper", "statusLine"} {
@@ -240,7 +240,7 @@ func TestImportClaudeSettingsOverlay_KeepsPlainSettings(t *testing.T) {
 	if _, err := importClaudeSettingsOverlay(root, filepath.Join(root, "settings")); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	overlay := readFileString(t, claudeOverlayPath(root))
+	overlay := readFile(t, claudeOverlayPath(root))
 	for _, kept := range []string{`"apiKeyHelper": "~/bin/get-key.sh"`, `"ANTHROPIC_MODEL"`, `"CLAUDE_CODE_USE_BEDROCK"`, `"AWS_PROFILE"`, `"ANTHROPIC_BASE_URL"`, `"AWS_SESSION_TOKEN"`} {
 		if !strings.Contains(overlay, kept) {
 			t.Errorf("overlay lost %s:\n%s", kept, overlay)
@@ -262,7 +262,7 @@ func TestImportClaudeSettingsOverlay_LeavesOutCredentialRule(t *testing.T) {
 	}
 
 	assertNoSpecHolds(t, root, "abc123def456ghi")
-	if spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml")); !strings.Contains(spec, "read(src/**)") {
+	if spec := readFile(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml")); !strings.Contains(spec, "read(src/**)") {
 		t.Errorf("spec lost the plain rule:\n%s", spec)
 	}
 	want := "warning: claude: left out a permissions.allow rule in " + filepath.Join(claudeDir, "settings.json") + ": it holds a credential or cannot be checked safely; add it under local/settings by hand"
@@ -287,7 +287,7 @@ func TestImportClaudeSettingsOverlay_LeavesOutCredentialRuleInAnyToolSpelling(t 
 	}
 
 	assertNoSpecHolds(t, root, "abc123def456ghi")
-	if spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml")); !strings.Contains(spec, "read(src/**)") {
+	if spec := readFile(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml")); !strings.Contains(spec, "read(src/**)") {
 		t.Errorf("spec lost the plain rule:\n%s", spec)
 	}
 	if !strings.Contains(log.String(), "left out a permissions.allow rule") {
@@ -310,7 +310,7 @@ func TestImportClaudeSettingsOverlay_LeavesOutLiteralHeaderEnv(t *testing.T) {
 		t.Fatalf("import: %v", err)
 	}
 
-	overlay := readFileString(t, claudeOverlayPath(root))
+	overlay := readFile(t, claudeOverlayPath(root))
 	if strings.Contains(overlay, "context-1m") || strings.Contains(overlay, "tenant1") || !strings.Contains(overlay, "${OTEL_TRACES_HEADERS}") {
 		t.Errorf("overlay kept a literal header value or lost a reference:\n%s", overlay)
 	}

@@ -22,8 +22,8 @@ func TestGuidedUpgrade_SyncPlanRunsWithoutUpgradeSideEffects(t *testing.T) {
 			}
 			dir, git := gitRepo(t)
 			testutil.Chdir(t, dir)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: '>=0.81.0'\n")
-			mustWriteFile(t, ".agnostic-ai/rules/demo.md", "demo rule\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: '>=0.81.0'\n")
+			writeFile(t, ".agnostic-ai/rules/demo.md", "demo rule\n")
 			git("add", "-A")
 			git("commit", "-q", "-m", "project")
 			before, err := os.ReadFile("agnostic-ai.yaml")

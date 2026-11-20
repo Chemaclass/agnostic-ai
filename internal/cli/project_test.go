@@ -16,10 +16,10 @@ func TestProject_PrefersLocalAndCheckNeverInstalls(t *testing.T) {
 		t.Skip("POSIX launcher fixture")
 	}
 	dir := budgetProject(t, "requires: '0.82.0'\ntargets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"^0.82.0"},"packageManager":"pnpm@10.0.0"}`)
+	writeFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"^0.82.0"},"packageManager":"pnpm@10.0.0"}`)
 	log := filepath.Join(dir, "calls")
 	local := filepath.Join(dir, "node_modules", ".bin", "agnostic-ai")
-	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; elif [ \"$2\" = --help ]; then exit 0; else printf '%s\\n' \"$*\" >> '"+log+"'; fi\n")
+	writeFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; elif [ \"$2\" = --help ]; then exit 0; else printf '%s\\n' \"$*\" >> '"+log+"'; fi\n")
 	if err := os.Chmod(local, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestProject_PrefersLocalAndCheckNeverInstalls(t *testing.T) {
 	if string(data) != "sync --check\n" {
 		t.Errorf("local calls: %s", data)
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nrequires: '0.83.0'\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nrequires: '0.83.0'\ntargets: [codex]\n")
 	_, err = runCLI(t, "project", "--check")
 	if err == nil || !strings.Contains(err.Error(), "0.82.0") || !strings.Contains(err.Error(), "0.83.0") || !strings.Contains(err.Error(), "project --bootstrap") {
 		t.Errorf("mismatch: %v", err)
@@ -55,7 +55,7 @@ func TestProject_InstallUsesFrozenManagerContract(t *testing.T) {
 	} {
 		t.Run(tc.manager+tc.lock, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, tc.lock), "fixture")
+			writeFile(t, filepath.Join(dir, tc.lock), "fixture")
 			command, err := projectInstallCommand(dir, projectPackage{PackageManager: tc.manager, DevDependencies: map[string]string{"agnostic-ai": "0.82.0"}})
 			if err != nil {
 				t.Fatal(err)
@@ -78,7 +78,7 @@ func TestProjectMemory_UsesNativeHostDirectoryForVersionContract(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			project := budgetProject(t, "requires: '0.83.0'\ntargets: ["+target+"]\n")
 			local := filepath.Join(project, "node_modules", ".bin", "agnostic-ai")
-			mustWriteFile(t, local, "#!/bin/sh\necho 'agnostic-ai version 0.82.0'\n")
+			writeFile(t, local, "#!/bin/sh\necho 'agnostic-ai version 0.82.0'\n")
 			if err := os.Chmod(local, 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -100,7 +100,7 @@ func TestProjectMemory_UsesConfiglessGitRootFromNestedDirectory(t *testing.T) {
 	}
 	project := setupGitRepo(t)
 	local := filepath.Join(project, "node_modules", ".bin", "agnostic-ai")
-	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; else printf '%s\\n' \"$*\"; fi\n")
+	writeFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; else printf '%s\\n' \"$*\"; fi\n")
 	if err := os.Chmod(local, 0o755); err != nil {
 		t.Fatal(err)
 	}

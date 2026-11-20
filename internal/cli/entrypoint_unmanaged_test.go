@@ -15,7 +15,7 @@ import (
 func TestWriteAgnosticEntryPoints_UnmanagedFileKeptAndNoWarning(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	const mine = "# My CLAUDE.md\n\nKeep me.\n"
-	mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), mine)
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), mine)
 	writeAgnosticFile(t, "# Pointer body\n")
 	buf := captureLog(t)
 	cfg := &config.Config{Targets: []string{"claude"}}

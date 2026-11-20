@@ -131,7 +131,7 @@ func TestServeEditHook_KeepsAMultilineCommandAndTheMatch(t *testing.T) {
 
 func TestServeEditHook_UsesTheProjectsConfiguredHookSource(t *testing.T) {
 	project := scopeProject(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  hooks: shared/hooks\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  hooks: shared/hooks\n")
 	h := newEditHandler(project, false)
 	request := hookEditBody("lint-on-stop", "stop", "make lint")
 	preview := hookEditPreview(t, h, request)
@@ -220,7 +220,7 @@ func TestServeEditHook_RefusesInvalidRequests(t *testing.T) {
 
 func TestServeEditHook_RefusesAMatchAConfiguredToolLacks(t *testing.T) {
 	project := scopeProject(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 	h := newEditHandler(project, false)
 	request := hookEditBody("read-guard", "before-tool", "exit 0")
 	request["match"] = "read"
@@ -243,7 +243,7 @@ func TestServeEditHook_RefusesAnExistingName(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			project := scopeProject(t)
-			mustWrite(t, tc.file, tc.body)
+			writeFile(t, tc.file, tc.body)
 			h := newEditHandler(project, false)
 			rec := hookEditRequest(t, h, hookEditBody("format-on-save", "after-edit", "npm run format"))
 			if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "A hook named format-on-save already exists") {
@@ -263,7 +263,7 @@ func TestServeEditHook_RefusesAHookCreatedAfterPreview(t *testing.T) {
 	preview := hookEditPreview(t, h, request)
 	file := filepath.Join(project, preview.File)
 	before := "on: stop\ncommand: echo other\n"
-	mustWrite(t, file, before)
+	writeFile(t, file, before)
 	request["action"], request["expected"] = "apply", preview.Expected
 	rec := hookEditRequest(t, h, request)
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "already exists") {
@@ -368,7 +368,7 @@ func TestServeEditHook_RefusesTheNameOfABuiltinHookForAnotherTool(t *testing.T) 
 
 func TestServeEditHook_PreviewRefusesWhatValidateWouldReport(t *testing.T) {
 	project := scopeProject(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\n")
 	h := newEditHandler(project, false)
 	rec := hookEditRequest(t, h, hookEditBody("lint-on-stop", "stop", "make lint"))
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "lint-on-stop.yaml") {

@@ -32,13 +32,13 @@ const clineExitScript = "#!/bin/sh\ncase \"$(cat)\" in *'rm -rf'*) echo 'no recu
 func clineProject(t *testing.T, hook, body string) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "block-rm.sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "block-rm.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "block-rm.yaml"), hook)
 	mustSync(t)
 	return dir
 }
@@ -184,7 +184,7 @@ func TestHookRun_ClineWarnsWhenTheSyncedScriptDrops(t *testing.T) {
 	dir := clineProject(t, clineHookSpec, clineGuardScript)
 	script := filepath.Join(dir, ".clinerules", "hooks", "PreToolUse")
 
-	mustWrite(t, script, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n\n./old.sh\n")
+	writeFile(t, script, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n\n./old.sh\n")
 	out, _ := runHookRun(t, "block-rm", "--target", "cline", "--bash", "ls")
 	if !strings.Contains(out, "warning: .clinerules/hooks/PreToolUse does not run this spec's PreToolUse commands; run agnostic-ai sync") {
 		t.Errorf("a stale script must warn:\n%s", out)
@@ -203,7 +203,7 @@ func TestHookRun_ClineDoesNotRunPreCompact(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := clineProject(t, "name: block-rm\nevent: PreCompact\ncommand: .agnostic-ai/scripts/block-rm.sh\n", clineGuardScript)
 	payload := filepath.Join(dir, "compact.json")
-	mustWrite(t, payload, "{}")
+	writeFile(t, payload, "{}")
 
 	out, err := runHookRun(t, "block-rm", "--target", "cline", "--payload", payload)
 	if !strings.Contains(out, "cline: not run (Cline has no PreCompact hook event)") || err == nil {
@@ -215,11 +215,11 @@ func TestHookRun_ClineDoesNotRunPreCompact(t *testing.T) {
 func clineSibling(t *testing.T, dir, name, meta, body string) {
 	t.Helper()
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", name+".sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", name+".yaml"), "name: "+name+"\n"+meta+"command: .agnostic-ai/scripts/"+name+".sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", name+".yaml"), "name: "+name+"\n"+meta+"command: .agnostic-ai/scripts/"+name+".sh\n")
 	mustSync(t)
 }
 

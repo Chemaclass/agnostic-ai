@@ -24,17 +24,42 @@ const (
 // personalSplitBlock is splitManagedBlock with the team's built-ins read
 // from the shared config when agnostic-ai.local.yaml exists.
 func personalSplitBlock(root string, cfg *config.Config, renders *targetRenders, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
+	return splitBlockWith(root, cfg, renders, targets, recorded, noLedger, previousPersonal)
+}
+
+// plannedSplitBlock is personalSplitBlock for a plan: it reads the
+// previous personal outputs without the exclude lock, whose lock file a
+// plan must not leave.
+func plannedSplitBlock(root string, cfg *config.Config, renders *targetRenders, targets, recorded []string, noLedger bool) (block, personal []string, err error) {
+	return splitBlockWith(root, cfg, renders, targets, recorded, noLedger, peekPreviousPersonal)
+}
+
+func splitBlockWith(root string, cfg *config.Config, renders *targetRenders, targets, recorded []string, noLedger bool, previous func(root string) ([]string, error)) (block, personal []string, err error) {
 	team := cfg.Builtins
 	if fileExists(filepath.Join(root, config.LocalOverrideFileName)) {
 		if team, err = config.TeamBuiltins(root); err != nil {
 			return nil, nil, err
 		}
 	}
-	prev, err := previousPersonal(root)
+	prev, err := previous(root)
 	if err != nil {
 		return nil, nil, err
 	}
 	return splitManagedBlock(root, cfg, renders, team, prev, targets, recorded, noLedger)
+}
+
+// peekPreviousPersonal is previousPersonal without the lock.
+func peekPreviousPersonal(root string) ([]string, error) {
+	ex, ok := personalExcludeFile(root)
+	if !ok {
+		return nil, nil
+	}
+	data, err := os.ReadFile(ex.state)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	prev := personalPatternsOf(string(data), personalExcludeKey(root), ex.prefix)
+	return slices.DeleteFunc(prev, func(p string) bool { return strings.HasSuffix(p, backupSuffix) }), nil
 }
 
 // previousPersonal returns the outputs the project's block in

@@ -34,12 +34,12 @@ func TestSyncGlobal_AddThenRemoveRestoresTheInstructionsFileBytes(t *testing.T) 
 				t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 				t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 				intro := filepath.Join(home, "source", "AGNOSTIC_AI.md")
-				mustWriteGlobalTest(t, intro, "Shared instructions\n")
+				writeFile(t, intro, "Shared instructions\n")
 				path := filepath.Join(home, f.file)
-				mustWriteGlobalTest(t, path, shape.text)
+				writeFile(t, path, shape.text)
 
 				syncGlobalOnly(t, f.target)
-				added := readGlobalTestFile(t, path)
+				added := readFile(t, path)
 				inserted, ok := strings.CutPrefix(added, shape.text)
 				if !ok {
 					t.Fatalf("add changed the user's text:\n got %q\nwant prefix %q", added, shape.text)
@@ -53,7 +53,7 @@ func TestSyncGlobal_AddThenRemoveRestoresTheInstructionsFileBytes(t *testing.T) 
 					t.Fatal(err)
 				}
 				syncGlobalOnly(t, f.target)
-				if got := readGlobalTestFile(t, path); got != shape.text {
+				if got := readFile(t, path); got != shape.text {
 					t.Errorf("add then remove = %q, want %q", got, shape.text)
 				}
 			})
@@ -68,15 +68,6 @@ func syncGlobalOnly(t *testing.T, target string) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func readGlobalTestFile(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
 }
 
 func TestMergeGlobalBlock_TouchesOnlyTheBlockAndItsSeparator(t *testing.T) {
@@ -96,7 +87,7 @@ func TestMergeGlobalBlock_TouchesOnlyTheBlockAndItsSeparator(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "CLAUDE.md")
-			mustWriteGlobalTest(t, path, tc.file)
+			writeFile(t, path, tc.file)
 			got, err := mergeGlobalBlock(path, tc.managed)
 			if err != nil {
 				t.Fatal(err)

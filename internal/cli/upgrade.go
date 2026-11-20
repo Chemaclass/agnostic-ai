@@ -266,8 +266,7 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 	if companionErr == nil && installed {
 		companionErr = refreshUpgradedCompanion(out, info, want, *deps.companion)
 	}
-	var notYet cliNotYetPublished
-	if errors.As(companionErr, &notYet) {
+	if notYet, ok := errors.AsType[cliNotYetPublished](companionErr); ok {
 		return notYet
 	}
 	if companionErr != nil {
@@ -294,7 +293,7 @@ func runDetectedUpgrade(out io.Writer, checkOnly bool, requestedVersion string, 
 			if info.LatestError != nil {
 				return fmt.Errorf("upgrade: check latest release: %w", info.LatestError)
 			}
-			return fmt.Errorf("upgrade: latest release tag unavailable")
+			return errors.New("upgrade: latest release tag unavailable")
 		}
 		if err := requireLatestProvenance(info.Latest); err != nil {
 			return err
@@ -370,7 +369,7 @@ func homebrewBinaryOK(linkPath string) (ok bool, hint string) {
 		return true, ""
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		return false, brewCollisionHint(linkPath, fmt.Sprintf("%s is a regular file, not a brew-owned symlink", linkPath))
+		return false, brewCollisionHint(linkPath, linkPath+" is a regular file, not a brew-owned symlink")
 	}
 	target, err := filepath.EvalSymlinks(linkPath)
 	if err != nil {

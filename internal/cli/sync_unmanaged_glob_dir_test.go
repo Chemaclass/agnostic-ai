@@ -12,10 +12,10 @@ import (
 func TestSync_SkipsFoldersAGlobDirectoryEntryOwns(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [claude, cursor]\ngitignore:\n  enabled: true\nsync:\n  unmanaged:\n    - .claude/skills/legacy-*/\n")
 	for _, name := range []string{"legacy-a", "pr"} {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"),
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"),
 			"---\nname: "+name+"\ndescription: Skill "+name+".\n---\n\nBody.\n")
 	}
 	silence(t)
@@ -49,12 +49,12 @@ func TestSync_SkipsFoldersAGlobDirectoryEntryOwns(t *testing.T) {
 func TestSync_KeepsAHandWrittenFolderWhoseNameHoldsBrackets(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [claude]\nsync:\n  unmanaged:\n    - .claude/skills/wip[1]/\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "wip[1]", "SKILL.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "wip[1]", "SKILL.md"),
 		"---\nname: wip[1]\ndescription: Skill wip.\n---\n\nSpec body.\n")
 	handWritten := filepath.Join(dir, ".claude", "skills", "wip[1]", "SKILL.md")
-	mustWriteFile(t, handWritten, "hand written\n")
+	writeFile(t, handWritten, "hand written\n")
 	silence(t)
 	buf := captureLog(t)
 

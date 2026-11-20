@@ -15,7 +15,7 @@ import (
 func budgetProject(t *testing.T, config string) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+config)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+config)
 	silence(t)
 	return dir
 }
@@ -36,9 +36,9 @@ func findingLines(out, code string) []string {
 
 func TestLintBudget_WarnsWhenEntryPointExceedsWordBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, amp, warp]\nlint:\n  instructions-words: 100\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(60)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), words(20)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n"+words(40)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(60)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), words(20)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n"+words(40)+"\n")
 
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -64,8 +64,8 @@ func TestLintBudget_WarnsWhenEntryPointExceedsWordBudget(t *testing.T) {
 
 func TestLintBudget_DefaultBudgetKeepsSmallProjectsQuiet(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(1500)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(1500)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	out, err := runCLI(t, "lint", "--strict")
 	if err != nil {
@@ -78,8 +78,8 @@ func TestLintBudget_DefaultBudgetKeepsSmallProjectsQuiet(t *testing.T) {
 
 func TestLintBudget_DefaultBudgetIsTwoThousandWords(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(2100)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(2100)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT011")
@@ -90,11 +90,11 @@ func TestLintBudget_DefaultBudgetIsTwoThousandWords(t *testing.T) {
 
 func TestLintBudget_CountsAlwaysOnRuleFilesAndDescriptions(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 50\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(10)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"), "---\nname: always\nalwaysApply: true\n---\n"+words(30)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: \"**/*.go\"\n---\n"+words(500)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: "+words(7)+"\n---\n"+words(500)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: "+words(5)+"\n---\n"+words(500)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(10)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"), "---\nname: always\nalwaysApply: true\n---\n"+words(30)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: \"**/*.go\"\n---\n"+words(500)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: "+words(7)+"\n---\n"+words(500)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: "+words(5)+"\n---\n"+words(500)+"\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT011")
@@ -112,8 +112,8 @@ func TestLintBudget_CountsAlwaysOnRuleFilesAndDescriptions(t *testing.T) {
 func TestLintBudget_NamesAntigravityByteCapUnderTheWordBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [antigravity]\n")
 	long := strings.Repeat("x", 99) + " "
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat(long, 250)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat(long, 250)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT011")
@@ -125,7 +125,7 @@ func TestLintBudget_NamesAntigravityByteCapUnderTheWordBudget(t *testing.T) {
 func TestLintBudget_NamesCodexCapOnlyPastIt(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, amp]\n")
 	long := strings.Repeat("x", 99) + " "
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat(long, 340)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat(long, 340)+"\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT011")
@@ -137,8 +137,8 @@ func TestLintBudget_NamesCodexCapOnlyPastIt(t *testing.T) {
 func TestLintBudget_WarnsOnLongDescription(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
 	skill := filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md")
-	mustWriteFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: "+strings.Repeat("a", 1100)+"\n---\nReview it.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: Help out.\n---\nHelp.\n")
+	writeFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: "+strings.Repeat("a", 1100)+"\n---\nReview it.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: Help out.\n---\nHelp.\n")
 
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -160,7 +160,7 @@ func TestLintBudget_WarnsOnLongDescription(t *testing.T) {
 
 func TestLintBudget_ConfigRaisesDescriptionBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  description-chars: 2000\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: "+strings.Repeat("a", 1100)+"\n---\nHelp.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: "+strings.Repeat("a", 1100)+"\n---\nHelp.\n")
 
 	out, err := runCLI(t, "lint", "--strict")
 	if err != nil || strings.Contains(out, "LINT012") {
@@ -171,7 +171,7 @@ func TestLintBudget_ConfigRaisesDescriptionBudget(t *testing.T) {
 func TestLintBudget_SkillDescriptionPastSpecLimitWarnsUnderRaisedBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  description-chars: 2000\n")
 	skill := filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md")
-	mustWriteFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: "+strings.Repeat("a", 1100)+"\n---\nReview it.\n")
+	writeFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: "+strings.Repeat("a", 1100)+"\n---\nReview it.\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := findingLines(out, "LINT012")
@@ -186,7 +186,7 @@ func TestLintBudget_SkillDescriptionPastSpecLimitWarnsUnderRaisedBudget(t *testi
 func TestLintBudget_ReadsTargetDescriptionOverride(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 10\n")
 	skill := filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md")
-	mustWriteFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: Review code\nx-claude:\n  description: "+words(1100)+"\n---\nReview it.\n")
+	writeFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: Review code\nx-claude:\n  description: "+words(1100)+"\n---\nReview it.\n")
 
 	out, _ := runCLI(t, "lint")
 	budget := findingLines(out, "LINT011")
@@ -201,8 +201,8 @@ func TestLintBudget_ReadsTargetDescriptionOverride(t *testing.T) {
 
 func TestLintBudget_RenderErrorWarnsAndKeepsOtherFindings(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nsync:\n  resolve-imports: inline\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "@docs/missing.md\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "empty.md"), "")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "@docs/missing.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "empty.md"), "")
 
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -219,7 +219,7 @@ func TestLintBudget_RenderErrorWarnsAndKeepsOtherFindings(t *testing.T) {
 
 func TestLintBudget_MeasuresProjectWithNoSpecs(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(3000)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(3000)+"\n")
 
 	out, err := runCLI(t, "lint", "--strict")
 	if err == nil || len(findingLines(out, "LINT011")) != 1 {
@@ -270,8 +270,8 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 
 func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(3000)+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(3000)+"\n")
 
 	out, _, err := runGlobalCheck("lint", "--strict")
 	if err == nil || len(findingLines(out, "LINT011")) != 1 {
@@ -281,9 +281,9 @@ func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
 
 func TestLintGlobal_ValidatesBudgetAfterLocalOverride(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: -1\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 100\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: -1\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 100\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	if out, _, err := runGlobalCheck("lint", "--strict"); err != nil {
 		t.Errorf("local/agnostic-ai.yaml replaces the negative value, so lint must pass: %v\n%s", err, out)
@@ -301,10 +301,10 @@ func TestLintBudget_RejectsNegativeBudget(t *testing.T) {
 
 func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "AGNOSTIC_AI.md"), words(15)+"\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\n"+words(10)+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
+	writeFile(t, filepath.Join(source, "local", "AGNOSTIC_AI.md"), words(15)+"\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\n"+words(10)+"\n")
 
 	out, errOut, err := runGlobalCheck("lint")
 	if err != nil {
@@ -330,11 +330,11 @@ func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 
 func TestLintGlobal_LocalConfigReplacesBudget(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: 10\n  description-chars: 10\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 5000\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: 10\n  description-chars: 10\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 5000\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
 	skill := filepath.Join(source, "skills", "review", "SKILL.md")
-	mustWriteGlobalTest(t, skill, "---\nname: review\ndescription: Review the code in front of you\n---\nReview it.\n")
+	writeFile(t, skill, "---\nname: review\ndescription: Review the code in front of you\n---\nReview it.\n")
 
 	out, _, _ := runGlobalCheck("lint")
 	if strings.Contains(out, "LINT011") {
@@ -349,7 +349,7 @@ func TestLintGlobal_LocalConfigReplacesBudget(t *testing.T) {
 // whole every session, so the count includes it.
 func TestLintBudget_CountsTheAGENTSMdClaudeMdImports(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(150)+"\n\n::target claude\n\n"+words(5)+"\n\n::end\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(150)+"\n\n::target claude\n\n"+words(5)+"\n\n::end\n")
 
 	out, _ := runCLI(t, "lint")
 	var claude string
@@ -370,7 +370,7 @@ func TestLintBudget_CountsTheAGENTSMdClaudeMdImports(t *testing.T) {
 // tool that resolves imports loads the file.
 func TestLintBudget_IgnoresAGENTSMdOutsideARealImport(t *testing.T) {
 	dir := budgetProject(t, "targets: [gemini, codex]\nlint:\n  instructions-words: 1000\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(600)+"\n\n```markdown\n@AGENTS.md\n```\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(600)+"\n\n```markdown\n@AGENTS.md\n```\n")
 
 	out, _ := runCLI(t, "lint")
 	if strings.Contains(out, "AGENTS.md import") {
@@ -383,7 +383,7 @@ func writeAgentsWithDescriptions(t *testing.T, dir string, count, chars int) {
 	desc := strings.Repeat("x", chars)
 	for i := range count {
 		name := fmt.Sprintf("helper-%02d", i)
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"), "---\nname: "+name+"\ndescription: "+desc+"\n---\nBody.\n")
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"), "---\nname: "+name+"\ndescription: "+desc+"\n---\nBody.\n")
 	}
 }
 
@@ -418,7 +418,7 @@ func TestLintBudget_CountsOnlyAgentsTheTargetReceives(t *testing.T) {
 	desc := strings.Repeat("x", 1000)
 	for i := range 62 {
 		name := fmt.Sprintf("cursor-only-%02d", i)
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"), "---\nname: "+name+"\ndescription: "+desc+"\ntargets: [cursor]\n---\nBody.\n")
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"), "---\nname: "+name+"\ndescription: "+desc+"\ntargets: [cursor]\n---\nBody.\n")
 	}
 
 	out, _ := runCLI(t, "lint")
@@ -429,7 +429,7 @@ func TestLintBudget_CountsOnlyAgentsTheTargetReceives(t *testing.T) {
 
 func TestLintBudget_WarnsForCursorReadingRootAgentsMd(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex, cursor]\nlint:\n  instructions-words: 300\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
 		t.Fatalf("a budget warning alone must not fail lint: %v\n%s", err, out)
@@ -442,7 +442,7 @@ func TestLintBudget_WarnsForCursorReadingRootAgentsMd(t *testing.T) {
 
 func TestLintBudget_CursorSharesOneLineWithCodexWhenTotalsMatch(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, cursor]\nlint:\n  instructions-words: 300\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
 		t.Fatalf("a budget warning alone must not fail lint: %v\n%s", err, out)
@@ -462,9 +462,9 @@ func TestLintBudget_CursorSharesOneLineWithCodexWhenTotalsMatch(t *testing.T) {
 // of context until the user invokes it; Codex still lists every skill.
 func TestLintBudget_ClaudeSkipsManualOnlySkillDescriptions(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\nlint:\n  instructions-words: 1\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(10)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "auto", "SKILL.md"), "---\nname: auto\ndescription: "+words(3)+"\n---\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "manual", "SKILL.md"), "---\nname: manual\ndisable-model-invocation: true\ndescription: "+words(8)+"\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(10)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "auto", "SKILL.md"), "---\nname: auto\ndescription: "+words(3)+"\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "manual", "SKILL.md"), "---\nname: manual\ndisable-model-invocation: true\ndescription: "+words(8)+"\n---\nBody.\n")
 
 	out, _ := runCLI(t, "lint")
 	want := map[string]string{"claude loads": "skill descriptions 3;", "codex loads": "skill descriptions 11;"}

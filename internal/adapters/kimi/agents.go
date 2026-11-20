@@ -75,8 +75,8 @@ func (Adapter) ToolCapabilities() emit.ToolCapabilityTable {
 	return emit.ToolCapabilityTable{"read": {Agent: []string{"Read"}}, "write": {Agent: []string{"Write"}}, "edit": {Agent: []string{"Edit"}}, "shell": {Agent: []string{"Bash"}}, "web": {Agent: []string{"FetchURL", "WebSearch"}}}
 }
 func (Adapter) TranslateAgentCapability(name string) ([]string, bool) {
-	if strings.HasPrefix(name, "mcp__") {
-		if !strings.Contains(strings.TrimPrefix(name, "mcp__"), "__") {
+	if after, ok := strings.CutPrefix(name, "mcp__"); ok {
+		if !strings.Contains(after, "__") {
 			name += "__*"
 		}
 		return []string{name}, true

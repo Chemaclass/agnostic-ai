@@ -20,7 +20,7 @@ func TestEditField_GlobalVoiceSavesAndClearsNestedMembers(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	original := "# Keep these native keys.\nx-claude:\n  verbose: false\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	h := newEditHandler(source, true)
 	for _, tc := range []struct {
 		key, raw string
@@ -105,7 +105,7 @@ func TestEditField_GlobalVoiceRemovesPreviousServerScaffold(t *testing.T) {
 	}
 	file := filepath.Join(source, "settings", "defaults.yaml")
 	previous := fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
-	mustWriteGlobalTest(t, file, previous+"model: sonnet\n")
+	writeFile(t, file, previous+"model: sonnet\n")
 	h := newEditHandler(source, true)
 	for _, body := range []string{
 		`{"audience":"shared","key":"voice.enabled","value":true}`,
@@ -126,7 +126,7 @@ func TestEditField_GlobalVoiceKeepsUserEditedServerScaffold(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	original := fieldCreatedMarker + "name: defaults\ndescription: My defaults.\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	h := newEditHandler(source, true)
 	for _, value := range []string{"true", "null"} {
 		body := fmt.Sprintf(`{"audience":"shared","key":"voice.enabled","value":%s}`, value)
@@ -134,7 +134,7 @@ func TestEditField_GlobalVoiceKeepsUserEditedServerScaffold(t *testing.T) {
 			t.Fatalf("%s = %d %s", body, rec.Code, rec.Body)
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("changed user-edited scaffold: %q, want %q", got, original)
 	}
 }
@@ -185,7 +185,7 @@ func TestEditField_ProjectVoiceIsReadOnly(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	h := newEditHandler(project, false)
 	for _, tc := range []struct{ key, raw string }{
 		{"enabled", "true"}, {"mode", `"tap"`}, {"language", `"es"`},
@@ -207,7 +207,7 @@ func TestEditField_VoicePersonalMembersAndStaleValuesStaySeparate(t *testing.T) 
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	original := "name: native\nvoice:\n  enabled: true\n  mode: tap\n  language: es\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	h := newEditHandler(source, true)
 	for _, tc := range []struct {
 		body string
@@ -226,7 +226,7 @@ func TestEditField_VoicePersonalMembersAndStaleValuesStaySeparate(t *testing.T) 
 			t.Fatalf("%s = %d %s, want %d", tc.body, rec.Code, rec.Body, tc.code)
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("personal edits changed shared voice: %s", got)
 	}
 	if _, err := os.Stat(filepath.Join(source, "local", "settings", "native.yaml")); !os.IsNotExist(err) {
@@ -238,10 +238,10 @@ func TestEditField_ProjectVoiceCannotUseTheBooleanEndpoint(t *testing.T) {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	file := filepath.Join(project, ".agnostic-ai", "settings", "voice.yaml")
 	original := "voice:\n  enabled: true\n  mode: hold\n  language: es\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	for _, key := range []string{"voice.enabled", "voice.mode", "voice.language"} {
 		for _, value := range []string{"false", "null"} {
 			body := fmt.Sprintf(`{"audience":"shared","path":".agnostic-ai/settings/voice.yaml","key":%q,"value":%s}`, key, value)
@@ -250,7 +250,7 @@ func TestEditField_ProjectVoiceCannotUseTheBooleanEndpoint(t *testing.T) {
 			}
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("project boolean edit changed voice: %s", got)
 	}
 }
@@ -260,7 +260,7 @@ func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	original := "voice:\n  enabled: true\n  mode: hold\n  language: es\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	h := newEditHandler(source, true)
 	for _, key := range []string{"voice.enabled", "voice.mode", "voice.language"} {
 		for _, value := range []string{"false", "null"} {
@@ -270,7 +270,7 @@ func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 			}
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("per-tool boolean edit changed voice: %s", got)
 	}
 }
@@ -285,7 +285,7 @@ func TestEditField_GlobalVoiceWritesEmptyDocuments(t *testing.T) {
 			}()
 			source := editHome(t)
 			file := filepath.Join(source, "settings", "native.yaml")
-			mustWriteGlobalTest(t, file, original)
+			writeFile(t, file, original)
 			if err := os.Chmod(file, 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -298,7 +298,7 @@ func TestEditField_GlobalVoiceWritesEmptyDocuments(t *testing.T) {
 					t.Fatalf("%s: %d %s", body, rec.Code, rec.Body)
 				}
 			}
-			if got := readGlobalTest(t, file); !strings.Contains(got, original) {
+			if got := readFile(t, file); !strings.Contains(got, original) {
 				t.Errorf("original bytes lost: %q", got)
 			}
 			if info, err := os.Stat(file); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -314,8 +314,8 @@ func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
 	local := filepath.Join(source, "local", "settings", "native.yaml")
 	original := "name: native\nvoice:\n  enabled: true\n  mode: hold\n  language: es\n"
 	personal := "# Personal clear\nname: native\nvoice: null\n"
-	mustWriteGlobalTest(t, shared, original)
-	mustWriteGlobalTest(t, local, personal)
+	writeFile(t, shared, original)
+	writeFile(t, local, personal)
 	h := newEditHandler(source, true)
 	for _, tc := range []struct{ key, value, expected string }{{"enabled", "false", `"true"`}, {"mode", `"tap"`, `"hold"`}, {"language", `"fr"`, `"es"`}} {
 		for _, audience := range []string{"shared", "personal"} {
@@ -338,7 +338,7 @@ func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
 			t.Errorf("stale clear %s: %d %s", audience, rec.Code, rec.Body)
 		}
 	}
-	if readGlobalTest(t, shared) != original || readGlobalTest(t, local) != personal {
+	if readFile(t, shared) != original || readFile(t, local) != personal {
 		t.Error("refused edits changed files")
 	}
 }
@@ -347,7 +347,7 @@ func TestEditField_GlobalVoiceRestoresCommentOnlyDocument(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	original := "# My settings\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	if err := os.Chmod(file, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func TestEditField_GlobalVoiceRestoresCommentOnlyDocument(t *testing.T) {
 			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
 		}
 	}
-	if got := readGlobalTest(t, file); got != original {
+	if got := readFile(t, file); got != original {
 		t.Errorf("got %q, want %q", got, original)
 	}
 	if info, err := os.Stat(file); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
@@ -378,9 +378,9 @@ func TestEditField_GlobalVoiceClearBlocksOnlyItsOwnSpec(t *testing.T) {
 	z := filepath.Join(source, "settings", "z.yaml")
 	originalA := "name: a\nvoice:\n  enabled: true\n  mode: hold\n"
 	originalLocal := "name: a\nvoice: null\n"
-	mustWriteGlobalTest(t, a, originalA)
-	mustWriteGlobalTest(t, local, originalLocal)
-	mustWriteGlobalTest(t, z, "name: z\nvoice:\n  enabled: false\n  mode: tap\n  language: es\n")
+	writeFile(t, a, originalA)
+	writeFile(t, local, originalLocal)
+	writeFile(t, z, "name: z\nvoice:\n  enabled: false\n  mode: tap\n  language: es\n")
 	h := newEditHandler(source, true)
 	for _, tc := range []struct {
 		path, value, expected string
@@ -395,7 +395,7 @@ func TestEditField_GlobalVoiceClearBlocksOnlyItsOwnSpec(t *testing.T) {
 			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
 		}
 	}
-	if readGlobalTest(t, a) != originalA || readGlobalTest(t, local) != originalLocal {
+	if readFile(t, a) != originalA || readFile(t, local) != originalLocal {
 		t.Error("editing changed cleared source")
 	}
 }

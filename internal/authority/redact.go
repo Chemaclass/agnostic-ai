@@ -17,11 +17,11 @@ func redactDisplay(value any) {
 				walk(v.Elem())
 			}
 		case reflect.Struct:
-			for i := 0; i < v.NumField(); i++ {
-				walk(v.Field(i))
+			for _, field := range v.Fields() {
+				walk(field)
 			}
 		case reflect.Slice:
-			for i := 0; i < v.Len(); i++ {
+			for i := range v.Len() {
 				walk(v.Index(i))
 			}
 		case reflect.String:

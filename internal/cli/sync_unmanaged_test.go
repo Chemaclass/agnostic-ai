@@ -18,13 +18,13 @@ const unmanagedAgentPath = ".claude/agents/x.md"
 func setupUnmanagedFixture(t *testing.T) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [claude]\nsync:\n  unmanaged:\n    - "+unmanagedAgentPath+"\n")
 	for _, name := range []string{"x", "y"} {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"),
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"),
 			"---\nname: "+name+"\ndescription: Agent "+name+".\n---\n\nBody.\n")
 	}
-	mustWriteFile(t, filepath.Join(dir, unmanagedAgentPath), "hand-owned\n")
+	writeFile(t, filepath.Join(dir, unmanagedAgentPath), "hand-owned\n")
 }
 
 func TestRunSyncOnce_PrintsUnmanagedSkipLineOnce(t *testing.T) {

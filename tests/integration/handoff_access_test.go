@@ -1043,7 +1043,7 @@ func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
 					run("sync")
 					handoffGit(t, linked, "add", "-f", file)
 				}
-				for i := 0; i < 2; i++ {
+				for i := range 2 {
 					output := run("sync")
 					if strings.Contains(output, "stays as configured") {
 						t.Errorf("sync %d repeats the note for a grant already there: %s", i+1, output)
@@ -1190,7 +1190,7 @@ func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
 					if state == "handoff off" {
 						handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), strings.Replace(config, "[handoff]", "[]", 1))
 					}
-					for i := 0; i < 2; i++ {
+					for i := range 2 {
 						run("sync")
 						content := handoffRead(t, path)
 						for _, store := range stores {

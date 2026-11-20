@@ -13,13 +13,13 @@ import (
 func TestImportAntigravity_PluginMCPFileRoundTrips(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: .agents/plugins/team/mcp.json\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: .agents/plugins/team/mcp.json\n")
 	mcpPath := filepath.FromSlash(".agents/plugins/team/mcp.json")
 	manifestPath := filepath.FromSlash(".agents/plugins/team/plugin.json")
 	mcp := "{\n  \"mcpServers\": {\n    \"docs\": {\n      \"serverUrl\": \"https://example.com/mcp\"\n    },\n    \"fs\": {\n      \"args\": [\n        \"--root\",\n        \".\"\n      ],\n      \"command\": \"fs-server\"\n    }\n  }\n}\n"
 	manifest := "{\n  \"name\": \"team\",\n  \"version\": \"2.0.0\"\n}\n"
-	mustWriteFile(t, mcpPath, mcp)
-	mustWriteFile(t, manifestPath, manifest)
+	writeFile(t, mcpPath, mcp)
+	writeFile(t, manifestPath, manifest)
 
 	if out, err := runRoot(t, "import", "antigravity"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -50,9 +50,9 @@ func TestImportAntigravity_AbsolutePluginMCPFileRoundTrips(t *testing.T) {
 	root := testutil.TempCwd(t)
 	silence(t)
 	mcpPath := filepath.Join(root, ".agents", "plugins", "team", "mcp.json")
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
 	mcp := "{\n  \"mcpServers\": {\n    \"docs\": {\n      \"serverUrl\": \"https://example.com/mcp\"\n    }\n  }\n}\n"
-	mustWriteFile(t, mcpPath, mcp)
+	writeFile(t, mcpPath, mcp)
 
 	if out, err := runRoot(t, "import", "antigravity"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -76,8 +76,8 @@ func TestImportAntigravity_RejectsAbsoluteMCPFileOutsideProject(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	mcpPath := filepath.Join(t.TempDir(), "mcp.json")
-	mustWriteFile(t, mcpPath, `{"mcpServers":{"outside":{"command":"outside-server"}}}`)
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	writeFile(t, mcpPath, `{"mcpServers":{"outside":{"command":"outside-server"}}}`)
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
 	if out, err := runRoot(t, "import", "antigravity"); err == nil || !strings.Contains(err.Error(), "outside the project") {
 		t.Errorf("import error = %v, want rejection of path outside the project\n%s", err, out)
 	}
@@ -90,8 +90,8 @@ func TestImportAntigravity_DryRunListsAbsolutePluginMCPFile(t *testing.T) {
 	root := testutil.TempCwd(t)
 	silence(t)
 	mcpPath := filepath.Join(root, ".agents", "plugins", "team", "mcp.json")
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
-	mustWriteFile(t, mcpPath, `{"mcpServers":{"docs":{"serverUrl":"https://example.com/mcp"}}}`)
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	writeFile(t, mcpPath, `{"mcpServers":{"docs":{"serverUrl":"https://example.com/mcp"}}}`)
 	before := snapshotProject(t, root)
 
 	out := captureStdout(t, func() {
@@ -113,8 +113,8 @@ func TestImportAntigravity_DryRunRejectsAbsoluteMCPFileOutsideProject(t *testing
 	silence(t)
 	mcpPath := filepath.Join(t.TempDir(), "mcp.json")
 	mcp := `{"mcpServers":{"outside":{"command":"outside-server"}}}`
-	mustWriteFile(t, mcpPath, mcp)
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	writeFile(t, mcpPath, mcp)
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
 	before := snapshotProject(t, root)
 
 	out := captureStdout(t, func() {
@@ -134,7 +134,7 @@ func TestImportAntigravity_DryRunRejectsAbsoluteMCPFileOutsideProject(t *testing
 func TestImportAntigravity_RejectsRelativeMCPFileOutsideProject(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: ../mcp.json\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: ../mcp.json\n")
 	if out, err := runRoot(t, "import", "antigravity"); err == nil || !strings.Contains(err.Error(), "outputs.antigravity.mcp-file") {
 		t.Errorf("import error = %v, want rejection naming outputs.antigravity.mcp-file\n%s", err, out)
 	}
@@ -148,9 +148,9 @@ func TestImportAntigravity_PreviewMatchesImportThroughProjectAlias(t *testing.T)
 	t.Setenv("PWD", alias)
 	silence(t)
 	mcpPath := filepath.Join(root, ".agents", "plugins", "team", "mcp.json")
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
 	const mcp = `{"mcpServers":{"docs":{"serverUrl":"https://example.com/mcp"}}}`
-	mustWriteFile(t, mcpPath, mcp)
+	writeFile(t, mcpPath, mcp)
 	before := snapshotProject(t, root)
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
 		output := captureStdout(t, func() {
@@ -179,7 +179,7 @@ func TestImportAntigravity_ProjectPathUsesPhysicalRoot(t *testing.T) {
 	alias := filepath.Join(t.TempDir(), "project-alias")
 	testutil.DirectoryAlias(t, root, alias)
 	path := filepath.Join(root, ".agents", "plugins", "team", "mcp.json")
-	mustWriteFile(t, path, `{"mcpServers":{}}`)
+	writeFile(t, path, `{"mcpServers":{}}`)
 	got, checkRoot, ok := importProjectSourcePath(alias, path)
 	if !ok {
 		t.Fatal("project file rejected through directory alias")
@@ -195,13 +195,13 @@ func TestImportAntigravity_PreviewRejectsOutsideMCPThroughSourceAlias(t *testing
 	silence(t)
 	external := resolveImportSourceExisting(t.TempDir())
 	mcpPath := filepath.Join(external, "mcp.json")
-	mustWriteFile(t, mcpPath, `{"mcpServers":{"outside":{"command":"outside-server"}}}`)
+	writeFile(t, mcpPath, `{"mcpServers":{"outside":{"command":"outside-server"}}}`)
 	if err := os.MkdirAll(".agents", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	testutil.DirectoryAlias(t, external, filepath.Join(root, ".agents", "shared"))
 	configuration := fmt.Sprintf("version: 1\ntargets: [antigravity]\nsources:\n  rules: %q\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(external), filepath.ToSlash(mcpPath))
-	mustWriteFile(t, "agnostic-ai.yaml", configuration)
+	writeFile(t, "agnostic-ai.yaml", configuration)
 	outsideBefore := snapshotProject(t, external)
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}, nil} {
 		output := captureStdout(t, func() {
@@ -233,7 +233,7 @@ func TestImportAntigravity_PreviewKeepsMissingMCPThroughProjectAliasAbsent(t *te
 	t.Setenv("PWD", alias)
 	silence(t)
 	mcpPath := filepath.Join(root, ".agents", "plugins", "missing", "mcp.json")
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(mcpPath)))
 	before := snapshotProject(t, root)
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
 		output := captureStdout(t, func() {
@@ -253,10 +253,10 @@ func TestImportAntigravity_PreviewRejectsMCPAliasIntoGit(t *testing.T) {
 	testutil.Chdir(t, root)
 	silence(t)
 	git := filepath.Join(root, ".git", "private")
-	mustWriteFile(t, filepath.Join(git, "mcp.json"), `{"mcpServers":{"private":{"command":"private-server"}}}`)
+	writeFile(t, filepath.Join(git, "mcp.json"), `{"mcpServers":{"private":{"command":"private-server"}}}`)
 	alias := filepath.Join(root, "plugin-alias")
 	testutil.DirectoryAlias(t, git, alias)
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(filepath.Join(alias, "mcp.json"))))
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [antigravity]\noutputs:\n  antigravity:\n    mcp-file: %q\n", filepath.ToSlash(filepath.Join(alias, "mcp.json"))))
 	gitBefore := snapshotProject(t, git)
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}, nil} {
 		if out, err := runRoot(t, append([]string{"import", "antigravity"}, flags...)...); err == nil || !strings.Contains(err.Error(), "inside .git") {

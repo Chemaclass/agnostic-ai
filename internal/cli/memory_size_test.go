@@ -257,7 +257,7 @@ func TestMemoryLint_NamesTheFactsTheHookDrops(t *testing.T) {
 				var files map[string]string
 				personal, files = factIndex("me", tc.personalN, tc.personal)
 				for name, content := range withIndex(personal, files) {
-					mustWriteFile(t, filepath.Join(personalDir, name), content)
+					writeFile(t, filepath.Join(personalDir, name), content)
 				}
 			}
 			project, files := factIndex("team", tc.projectN, tc.project)

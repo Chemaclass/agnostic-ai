@@ -4,13 +4,31 @@
 
 const MINUTE = 60 * 1000
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, shared } = {}) {
+/** The states the server gives only a chat a running process holds. */
+const LIVE_STATES = new Set(['blocked', 'working'])
+
+/** The command that resumes a local chat, as internal/conversations writes it. */
+const RESUME = { claude: 'claude --resume', codex: 'codex resume', cursor: 'cursor-agent --resume' }
+
+/** How the server reopens a chat (internal/conversations, Route): a link for a cloud one, the running tab for a live one, a new tab otherwise. */
+function openOf(tool, app, id, folder, live) {
+  if (app === 'cloud') {
+    return tool === 'codex'
+      ? { kind: 'link', label: 'Open in Codex app', link: `codex://threads/${id}?hostId=durable` }
+      : { kind: 'link', label: 'Open on claude.ai', link: 'https://claude.ai/code/session_' + id.replace(/^cse_/, '') }
+  }
+  const command = `cd '${folder}' && ${RESUME[tool]} ${id}`
+  return live ? { kind: 'focus', label: 'Open in Terminal', command } : { kind: 'terminal', label: 'Resume in Terminal', command }
+}
+
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, shared, live = LIVE_STATES.has(state) || shared !== undefined } = {}) {
   const cloud = app === 'cloud'
   return {
     ...(deleteUnsupported ? { deleteUnsupported } : {}),
     ...(reply ? { reply } : {}),
     ...(parent ? { parent } : {}),
-    ...(shared ? { live: true, cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
+    ...(live ? { live: true } : {}),
+    ...(shared ? { cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
     tool,
     app,
     id,
@@ -19,7 +37,7 @@ function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/a
     branch,
     updatedAt: new Date(now - minutesAgo * MINUTE).toISOString(),
     state,
-    open: cloud ? { kind: 'browser', label: 'Open on claude.ai' } : { kind: 'focus', label: 'Open in Terminal' },
+    open: openOf(tool, app, id, folder, live),
   }
 }
 
@@ -242,11 +260,11 @@ export const FIXTURES = {
   archived: { label: 'Archived chats to delete', conversations: archived },
   'archived-shared': {
     label: 'An archived chat that was also on claude.ai, so its menu offers both the page and delete',
-    conversations: (now) => [...archived(now), { ...conversation(now, 'claude', 'done-rc', 'Ship the retry queue', 'completed', { minutesAgo: 2 * 24 * 60, shared: 'cse_done' }), live: false }],
+    conversations: (now) => [...archived(now), conversation(now, 'claude', 'done-rc', 'Ship the retry queue', 'completed', { minutesAgo: 2 * 24 * 60, shared: 'cse_done', live: false })],
   },
   'one-terminal': {
     label: 'One chat runs in a Ghostty tab, so pick mode starts on it',
-    conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
+    conversations: (now) => mixed(now).map((row) => (row.id === 'active-2' ? { ...row, live: true, open: { ...row.open, kind: 'focus', label: 'Switch to Ghostty' } } : row)),
   },
   'one-terminal-markdown': {
     label: 'A copied web page and one chat in a Ghostty tab, so the send shortcut sends Markdown straight there',
@@ -257,7 +275,7 @@ export const FIXTURES = {
   'two-terminals': {
     label: 'Two chats run in Ghostty tabs, so the send shortcut asks which',
     conversations: (now) =>
-      mixed(now).map((row) => (row.id === 'active-2' || row.id === 'work-1' ? { ...row, live: true, open: { kind: 'focus', label: 'Switch to Ghostty' } } : row)),
+      mixed(now).map((row) => (row.id === 'active-2' || row.id === 'work-1' ? { ...row, live: true, open: { ...row.open, kind: 'focus', label: 'Switch to Ghostty' } } : row)),
   },
   'empty-clipboard': { label: 'Nothing copied, so pick mode does not open', conversations: mixed, clipboard: '' },
   'markdown-clipboard': {
@@ -363,8 +381,8 @@ export const FIXTURES = {
   'closed-unread': {
     label: 'A terminal chat that closed with an unread reply, under a folded Archived, and one resumed by hand with one',
     conversations: (now) => [
-      { ...conversation(now, 'claude', 'active-6', 'Write the migration guide', 'active', { minutesAgo: 30 }), unread: true, live: true },
-      { ...conversation(now, 'claude', 'closed-1', 'Port the billing job', 'dormant', { minutesAgo: 9 * 24 * 60, reply: 'The job now runs on the new queue.' }), unread: true, open: { kind: 'terminal', label: 'Resume in Terminal', command: "cd '/Users/you/Code/agnostic-ai' && claude --resume closed-1" } },
+      { ...conversation(now, 'claude', 'active-6', 'Write the migration guide', 'active', { minutesAgo: 30, live: true }), unread: true },
+      { ...conversation(now, 'claude', 'closed-1', 'Port the billing job', 'dormant', { minutesAgo: 9 * 24 * 60, reply: 'The job now runs on the new queue.' }), unread: true },
       conversation(now, 'claude', 'old-4', 'Sketch the pricing page', 'dormant', { folder: '/Users/you/Code/site', minutesAgo: 12 * 24 * 60 }),
     ],
   },

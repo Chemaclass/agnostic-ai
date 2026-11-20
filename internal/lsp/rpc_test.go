@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -170,7 +171,7 @@ func TestServer_FailedAnalysisPreservesEarlierDiagnostics(t *testing.T) {
 		if calls == 1 {
 			return map[string][]Diagnostic{a: {{Code: "LINT001", Message: "earlier finding"}}}, nil
 		}
-		return map[string][]Diagnostic{b: {{Severity: SeverityError, Code: "AAI-001", Message: "load failed"}}, a: {}}, fmt.Errorf("analysis failed")
+		return map[string][]Diagnostic{b: {{Severity: SeverityError, Code: "AAI-001", Message: "load failed"}}, a: {}}, errors.New("analysis failed")
 	}
 	messages := runDiagnosticProtocol(t, root, linter, pathToURI(a), pathToURI(b))
 	loadPublished := false
@@ -206,7 +207,7 @@ func TestServer_UnlocatedFailureReportsWorkspaceErrorWithoutClearing(t *testing.
 		if calls == 1 {
 			return map[string][]Diagnostic{a: {{Message: "earlier finding"}}}, nil
 		}
-		return nil, fmt.Errorf("layer resolution failed")
+		return nil, errors.New("layer resolution failed")
 	}
 	messages := runDiagnosticProtocol(t, root, linter, pathToURI(a), pathToURI(b))
 	workspaceError := false
@@ -418,7 +419,7 @@ func TestServer_MalformedJSONRepliesParseErrorAndKeepsServing(t *testing.T) {
 
 func TestReader_RejectsOversizedContentLength(t *testing.T) {
 	t.Parallel()
-	for _, length := range []string{"9223372036854775807", "8589934592", fmt.Sprint(maxContentLength + 1)} {
+	for _, length := range []string{"9223372036854775807", "8589934592", strconv.Itoa(maxContentLength + 1)} {
 		in := "Content-Length: " + length + "\r\n\r\n{}"
 		_, err := NewReader(strings.NewReader(in)).Read()
 		if err == nil || !strings.Contains(err.Error(), "exceeds") {

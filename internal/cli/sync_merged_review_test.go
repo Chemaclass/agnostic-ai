@@ -53,7 +53,7 @@ func writeJSONFile(t *testing.T, path string, doc map[string]any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, path, string(data)+"\n")
+	writeFile(t, path, string(data)+"\n")
 }
 
 const geminiFmtHookSpec = ".agnostic-ai/hooks/fmt.yaml"
@@ -61,11 +61,11 @@ const geminiFmtHookSpec = ".agnostic-ai/hooks/fmt.yaml"
 func syncedGeminiWithHook(t *testing.T, seed string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
 	if seed != "" {
-		mustWriteFile(t, ".gemini/settings.json", seed)
+		writeFile(t, ".gemini/settings.json", seed)
 	}
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
 }
 
@@ -80,11 +80,11 @@ func TestSync_RemovingTargetKeepsUserPermissionRules(t *testing.T) {
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+", cline]\n")
-			mustWriteFile(t, tc.file, "{\"userKey\": \"mine\", \"permissions\": {\"allow\": [\"Bash(make)\"]}}\n")
-			mustWriteFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n  deny: [\"Bash(rm:*)\"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+", cline]\n")
+			writeFile(t, tc.file, "{\"userKey\": \"mine\", \"permissions\": {\"allow\": [\"Bash(make)\"]}}\n")
+			writeFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n  deny: [\"Bash(rm:*)\"]\n")
 			runSyncOK(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 			runSyncOK(t)
 			got := readJSONMap(t, tc.file)
 			want := map[string]any{"userKey": "mine", "permissions": map[string]any{"allow": []any{"Bash(make)"}}}
@@ -114,10 +114,10 @@ func TestDoctorFix_ReleasedMergedFileLeavesTheLedger(t *testing.T) {
 func TestSync_ReleaseKeepsEditedValueAndReportsIt(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
 	doc := readJSONMap(t, settings)
 	doc["mcpServers"] = map[string]any{"gh": map[string]any{"command": "mine"}}
@@ -227,7 +227,7 @@ func TestSync_KeptMergedOrphanReleasesKeysLater(t *testing.T) {
 func TestSync_UnparseableMergedOrphanSaysWhy(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	syncedGeminiWithHook(t, userSettings)
-	mustWriteFile(t, settings, "{\"hooks\":")
+	writeFile(t, settings, "{\"hooks\":")
 	removeSpecs(t, geminiFmtHookSpec)
 	out := syncOutput(t)
 	if !strings.Contains(out, "does not parse") {

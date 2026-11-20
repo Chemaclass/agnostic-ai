@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -37,10 +38,8 @@ func availablePresets() []string {
 }
 
 func validatePresetName(name string) error {
-	for _, p := range availablePresets() {
-		if p == name {
-			return nil
-		}
+	if slices.Contains(availablePresets(), name) {
+		return nil
 	}
 	return fmt.Errorf("unknown preset %q. Available: %s", name, strings.Join(availablePresets(), ", "))
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -226,12 +227,8 @@ func MergeSettingsCustomRecordMap(keys map[string]any, settings []spec.Entry, ta
 		return
 	}
 	out := make(map[string]any)
-	for name, record := range managedMap {
-		out[name] = record
-	}
-	for name, record := range customMap {
-		out[name] = record
-	}
+	maps.Copy(out, managedMap)
+	maps.Copy(out, customMap)
 	keys[key] = out
 }
 
@@ -402,9 +399,7 @@ func marshalSettingsValue(v any) ([]byte, error) {
 // managed map can be a value an adapter still holds a reference to.
 func mergeSettingsMaps(managed, custom map[string]any) (map[string]any, bool) {
 	out := make(map[string]any)
-	for k, v := range managed {
-		out[k] = v
-	}
+	maps.Copy(out, managed)
 	clean := true
 	for k, v := range custom {
 		existing, ok := out[k]

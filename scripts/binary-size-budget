@@ -979,7 +979,11 @@
 # #3591 measured 27152544 bytes locally (make size-check): companion uninstall, install and upgrade check whether the companion runs, record the installing commit, and keep a moved-aside app; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3516 measured 27168928 bytes: verified whole-app updates and bundled
 # command installation; allow 8192 bytes, rounded up to a 4096-byte page.
-# #3719 measured 27197600 bytes in CI: copy to global brings the scripts a
+# #3699 measured 27181216 bytes: the modernize rewrites (errors.AsType,
+# slices.Backward and other generic helpers) add 20480 bytes over main;
+# stringsseq stays off because it alone added about 65 KB. Allow 8192
+# bytes, rounded up to a 4096-byte page.
+# #3719 adds about 28 KB over main: copy to global brings the scripts a
 # hook runs, and Windows hook commands are read as PowerShell; allow 8192
 # bytes, rounded up to a 4096-byte page.
-27209728
+27222016

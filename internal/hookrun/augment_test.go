@@ -1,6 +1,7 @@
 package hookrun
 
 import (
+	"maps"
 	"reflect"
 	"testing"
 )
@@ -26,9 +27,7 @@ func TestBuildAugment_PromptStopSessionEndAndNotificationPayloads(t *testing.T) 
 				"hook_event_name": tc.event, "hook_type": tc.event, "cwd": root,
 				"conversation_id": SessionID, "workspace_roots": []any{root},
 			}
-			for k, v := range tc.fields {
-				want[k] = v
-			}
+			maps.Copy(want, tc.fields)
 			if got := decode(t, p.Body); !reflect.DeepEqual(got, want) {
 				t.Errorf("payload = %v, want %v", got, want)
 			}

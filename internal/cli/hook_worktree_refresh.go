@@ -37,7 +37,7 @@ func newHookWorktreeRefreshCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(repo) == "" || strings.TrimSpace(worktree) == "" {
-				return fmt.Errorf("worktree refresh requires nonempty --repo and --worktree")
+				return errors.New("worktree refresh requires nonempty --repo and --worktree")
 			}
 			return refreshHookWorktree(cmd, repo, worktree)
 		},
@@ -75,7 +75,7 @@ func refreshHookWorktree(cmd *cobra.Command, repo, worktree string) error {
 	}
 	argv := hookrun.Argv("claude", runtime.GOOS, hookrun.Handler{Shell: "bash"})
 	if runtime.GOOS == "windows" && !filepath.IsAbs(argv[0]) {
-		return fmt.Errorf("claude worktree setup requires Git Bash; install Git for Windows or set CLAUDE_CODE_GIT_BASH_PATH")
+		return errors.New("claude worktree setup requires Git Bash; install Git for Windows or set CLAUDE_CODE_GIT_BASH_PATH")
 	}
 	if _, err := exec.LookPath(argv[0]); err != nil {
 		return fmt.Errorf("claude worktree setup shell %s: %w", argv[0], err)
@@ -148,7 +148,7 @@ func currentWorktreeSetup() (string, error) {
 		return "", err
 	}
 	if !slices.Contains(cfg.Targets, "claude") {
-		return "", fmt.Errorf("claude worktree setup is not enabled in this project")
+		return "", errors.New("claude worktree setup is not enabled in this project")
 	}
 	adapter, err := adapters.Resolve("claude")
 	if err != nil {
@@ -171,5 +171,5 @@ func currentWorktreeSetup() (string, error) {
 		}
 		return file.Path, nil
 	}
-	return "", fmt.Errorf("claude worktree setup is not configured; add an environment setup command and run `agnostic-ai sync`")
+	return "", errors.New("claude worktree setup is not configured; add an environment setup command and run `agnostic-ai sync`")
 }

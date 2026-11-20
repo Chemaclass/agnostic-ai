@@ -65,9 +65,9 @@ func TestSync_BareCapabilitiesWarnOnceEveryRunAndHonorSilent(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	log := captureLogOut(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell, shell]\n")
-	for i := 0; i < 2; i++ {
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell, shell]\n")
+	for i := range 2 {
 		log.Reset()
 		if err := runSyncOnce(dir, nil, false, false, "off", 1); err != nil {
 			t.Fatal(err)
@@ -113,8 +113,8 @@ func TestWarnBareCapabilities_QuietSuppressesSyncOnly(t *testing.T) {
 func TestSyncJSON_BareCapabilitiesKeepStdoutValid(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
 	var stdout, stderr bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&stdout)
@@ -134,8 +134,8 @@ func TestSyncJSON_BareCapabilitiesKeepStdoutValid(t *testing.T) {
 func TestLint_BareCapabilitiesWarnByDefaultAndFailStrict(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
 	if out, err := runCLI(t, "lint"); err != nil || !strings.Contains(out, "LINT038") {
 		t.Errorf("lint = %v, %s", err, out)
 	}

@@ -13,9 +13,9 @@ import (
 func seedOverlayProject(t *testing.T, overlays map[string]string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\ngitignore:\n  enabled: false\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\ngitignore:\n  enabled: false\n")
 	for name, body := range overlays {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "overlays", filepath.FromSlash(name)), body)
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "overlays", filepath.FromSlash(name)), body)
 	}
 	silence(t)
 }
@@ -141,8 +141,8 @@ func overlayMessages(t *testing.T) map[string]string {
 func TestUnreadOverlays_FollowsASymlinkedOverlaysFolder(t *testing.T) {
 	seedOverlayProject(t, nil)
 	real := t.TempDir()
-	mustWriteFile(t, filepath.Join(real, "claude.settings.json"), "{\"statusLine\": {\"type\": \"command\", \"command\": \"x\"}}\n")
-	mustWriteFile(t, filepath.Join(real, "gemini.settings.json"), "{}\n")
+	writeFile(t, filepath.Join(real, "claude.settings.json"), "{\"statusLine\": {\"type\": \"command\", \"command\": \"x\"}}\n")
+	writeFile(t, filepath.Join(real, "gemini.settings.json"), "{}\n")
 	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestUnreadOverlays_FollowsASymlinkedOverlaysFolder(t *testing.T) {
 
 func TestUnreadOverlays_OverlaysPathAsPlainFileFlagsNothing(t *testing.T) {
 	seedOverlayProject(t, nil)
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "overlays"), "not a folder\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "overlays"), "not a folder\n")
 	if got := overlayMessages(t); len(got) != 0 {
 		t.Errorf("want nothing flagged, got %v", got)
 	}
@@ -189,7 +189,7 @@ func TestUnreadOverlays_SkipsDotFoldersAndRootReadmes(t *testing.T) {
 func TestUnreadOverlays_SymlinkedHelperFolderIsKnown(t *testing.T) {
 	seedOverlayProject(t, nil)
 	real := t.TempDir()
-	mustWriteFile(t, filepath.Join(real, "README.md"), "# Claude\n")
+	writeFile(t, filepath.Join(real, "README.md"), "# Claude\n")
 	if err := os.MkdirAll(filepath.Join(".agnostic-ai", "overlays"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestUnreadOverlays_UnreadableFolderOnlySkips(t *testing.T) {
 func TestUnreadOverlays_SymlinkedHelperFolderWithWrongCaseSaysToRename(t *testing.T) {
 	seedOverlayProject(t, nil)
 	real := t.TempDir()
-	mustWriteFile(t, filepath.Join(real, "README.md"), "# Claude\n")
+	writeFile(t, filepath.Join(real, "README.md"), "# Claude\n")
 	overlays := filepath.Join(".agnostic-ai", "overlays")
 	if err := os.MkdirAll(overlays, 0o755); err != nil {
 		t.Fatal(err)

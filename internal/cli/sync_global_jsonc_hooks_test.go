@@ -14,10 +14,10 @@ func TestSyncGlobal_CommentedSettingsKeepsCommentsWithAndWithoutHooks(t *testing
 		for _, withHook := range []bool{false, true} {
 			home, source := globalAgentTestHome(t)
 			settings := filepath.Join(home, "."+target, "settings.json")
-			mustWriteGlobalTest(t, settings, commentedGlobalSettings)
-			mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  claude: opus\n  gemini: gemini-2.5-pro\n")
+			writeFile(t, settings, commentedGlobalSettings)
+			writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  claude: opus\n  gemini: gemini-2.5-pro\n")
 			if withHook {
-				mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\ncommand: guard.sh\n")
+				writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\ncommand: guard.sh\n")
 			}
 			if _, _, err := runGlobalAgentTest("--only", target); err != nil {
 				t.Fatalf("%s, hook %v: %v", target, withHook, err)
@@ -54,9 +54,9 @@ func TestSyncGlobal_CommentInsideHookEntryIsKeptAndRemovalRestoresFile(t *testin
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".claude", "settings.json")
 	original := "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      { // my own guard\n        \"matcher\": \"Read\",\n        \"hooks\": [{\"type\": \"command\", \"command\": \"mine.sh\"},],\n      },\n    ]\n  }\n}\n"
-	mustWriteGlobalTest(t, settings, original)
+	writeFile(t, settings, original)
 	spec := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
+	writeFile(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestSyncGlobal_CommentKeepsHooksFileSyncCreated(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".gemini", "settings.json")
 	spec := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
+	writeFile(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestSyncGlobal_CommentKeepsHooksFileSyncCreated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, settings, "// my note\n"+string(data))
+	writeFile(t, settings, "// my note\n"+string(data))
 	if err := os.Remove(spec); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestSyncGlobal_CommentRemovedWithHooksDropsFileSyncCreated(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".claude", "settings.json")
 	spec := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
+	writeFile(t, spec, "name: guard\non: before-tool\ncommand: guard.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestSyncGlobal_CommentRemovedWithHooksDropsFileSyncCreated(t *testing.T) {
 	if text == string(data) {
 		t.Fatalf("no PreToolUse array to comment:\n%s", data)
 	}
-	mustWriteGlobalTest(t, settings, text)
+	writeFile(t, settings, text)
 	if err := os.Remove(spec); err != nil {
 		t.Fatal(err)
 	}

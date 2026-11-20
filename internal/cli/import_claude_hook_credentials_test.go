@@ -56,7 +56,7 @@ func TestImportClaudeHooks_LeavesOutCredentialHooks(t *testing.T) {
 	var all strings.Builder
 	entries, _ := os.ReadDir(dst)
 	for _, e := range entries {
-		all.WriteString(readFileString(t, filepath.Join(dst, e.Name())))
+		all.WriteString(readFile(t, filepath.Join(dst, e.Name())))
 	}
 	for _, secret := range []string{"HOOKCMDSECRET123", "HOOKARGSECRET4567", "HOOKURLSECRET890", "HOOKHDRSECRET246", "SLACKSECRET42", "MCPINPUTSECRET", "STATUSSECRET", "go vet"} {
 		if strings.Contains(all.String(), secret) {
@@ -91,8 +91,8 @@ func TestImportClaudeHooks_LeavesOutCredentialHooks(t *testing.T) {
 func TestImportClaudeHooks_SyncKeepsALeftOutGroupOnce(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/settings.json", `{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/settings.json", `{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [
   {"type": "command", "command": "curl -H 'Authorization: Bearer SYNCSECRET123456' https://hooks.example.com"},
   {"type": "command", "command": "go vet ./..."}
 ]}]}}`)

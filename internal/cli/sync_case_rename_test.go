@@ -24,9 +24,9 @@ func TestSync_CaseOnlyRenameRemovesDistinctHardLinkedOutput(t *testing.T) {
 func testSyncRemovesHardLinkedOutput(t *testing.T, oldName, currentName string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	for _, name := range []string{oldName, currentName} {
-		mustWriteFile(t, ".agnostic-ai/rules/"+name+".md", "---\nname: "+name+"\ndescription: Rule.\n---\nUse this rule.\n")
+		writeFile(t, ".agnostic-ai/rules/"+name+".md", "---\nname: "+name+"\ndescription: Rule.\n---\nUse this rule.\n")
 	}
 	runSyncOK(t)
 	old, current := ".claude/rules/"+oldName+".md", ".claude/rules/"+currentName+".md"
@@ -76,19 +76,19 @@ func TestSync_CaseOnlyRenamePreservesHandEdits(t *testing.T) {
 	for _, mode := range []string{"backup", "backup conflict", "keep edits"} {
 		t.Run(mode, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 			const source = ".agnostic-ai/rules/example.md"
 			const old, current = ".claude/rules/My Rule.md", ".claude/rules/my rule.md"
 			nativeOld, nativeCurrent := filepath.FromSlash(old), filepath.FromSlash(current)
-			mustWriteFile(t, source, "---\nname: My Rule\ndescription: Rule.\n---\nOriginal.\n")
+			writeFile(t, source, "---\nname: My Rule\ndescription: Rule.\n---\nOriginal.\n")
 			runSyncOK(t)
 			baseline := readStateFile(".").OutputSums[nativeOld]
 			edited := readFile(t, old) + "\nUser edit.\n"
-			mustWriteFile(t, old, edited)
+			writeFile(t, old, edited)
 			if mode == "backup conflict" {
-				mustWriteFile(t, old+".bak", "Earlier backup.\n")
+				writeFile(t, old+".bak", "Earlier backup.\n")
 			}
-			mustWriteFile(t, source, "---\nname: my rule\ndescription: Rule.\n---\nUpdated.\n")
+			writeFile(t, source, "---\nname: my rule\ndescription: Rule.\n---\nUpdated.\n")
 			args := []string{"--json"}
 			if mode == "keep edits" {
 				args = append(args, "--keep-edits")
@@ -151,7 +151,7 @@ func TestSync_CaseOnlyRenameRemovesDistinctOldOutputs(t *testing.T) {
 func caseInsensitiveDirectory(t *testing.T, dir string) bool {
 	t.Helper()
 	path := filepath.Join(dir, "CaseProbe")
-	mustWriteFile(t, path, "probe\n")
+	writeFile(t, path, "probe\n")
 	a, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
@@ -188,15 +188,15 @@ func testSyncCaseOnlyRename(t *testing.T, sameFile bool) {
 		for _, mode := range []string{"text", "json"} {
 			t.Run(tc.kind+"/"+mode, func(t *testing.T) {
 				testutil.Chdir(t, t.TempDir())
-				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
 				spec := "---\nname: " + tc.name + "\ndescription: Rename fixture.\n"
 				if tc.kind == "rule" {
 					spec += "globs: \"**/*.go\"\n"
 				}
 				spec += "---\nBefore rename.\n"
-				mustWriteFile(t, tc.spec, spec)
+				writeFile(t, tc.spec, spec)
 				if tc.kind == "skill" {
-					mustWriteFile(t, ".agnostic-ai/skills/example/references/check.md", "Reference content.\n")
+					writeFile(t, ".agnostic-ai/skills/example/references/check.md", "Reference content.\n")
 				}
 				var args []string
 				if mode == "json" {
@@ -210,7 +210,7 @@ func testSyncCaseOnlyRename(t *testing.T, sameFile bool) {
 				}
 
 				spec = strings.Replace(spec, tc.name, strings.ToLower(tc.name), 1)
-				mustWriteFile(t, tc.spec, strings.Replace(spec, "Before rename.", "After rename.", 1))
+				writeFile(t, tc.spec, strings.Replace(spec, "Before rename.", "After rename.", 1))
 				runSyncOK(t, args...)
 				state := readStateFile(".")
 				for _, old := range tc.outputs {

@@ -213,7 +213,7 @@ func compileGlob(pattern string) (*regexp.Regexp, error) {
 func braceSets(pattern string) (sets, alternates map[int]bool) {
 	closeOf := map[int]int{}
 	var open []int
-	for i := 0; i < len(pattern); i++ {
+	for i := range len(pattern) {
 		switch pattern[i] {
 		case '{':
 			open = append(open, i)
@@ -226,7 +226,7 @@ func braceSets(pattern string) (sets, alternates map[int]bool) {
 	}
 	sets, alternates = map[int]bool{}, map[int]bool{}
 	var pairs []int
-	for i := 0; i < len(pattern); i++ {
+	for i := range len(pattern) {
 		switch pattern[i] {
 		case '{':
 			if _, ok := closeOf[i]; ok {

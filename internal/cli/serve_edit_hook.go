@@ -154,18 +154,15 @@ func (e hookExists) Error() string {
 }
 
 func writeHookError(w http.ResponseWriter, err error) {
-	var exists hookExists
-	if errors.As(err, &exists) {
+	if exists, ok := errors.AsType[hookExists](err); ok {
 		writeEditJSON(w, http.StatusConflict, editError{Error: fmt.Sprintf("A hook named %s already exists", string(exists))})
 		return
 	}
-	var conflict hookEditConflict
-	if errors.As(err, &conflict) {
+	if conflict, ok := errors.AsType[hookEditConflict](err); ok {
 		writeEditJSON(w, http.StatusConflict, editError{Error: conflict.Error()})
 		return
 	}
-	var problems hookSpecProblems
-	if errors.As(err, &problems) {
+	if problems, ok := errors.AsType[hookSpecProblems](err); ok {
 		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: "The hook does not validate", Problems: problems})
 		return
 	}

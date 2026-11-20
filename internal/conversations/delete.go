@@ -120,8 +120,7 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 		s.betweenReads()
 	}
 	freed, newest, err := measure(paths)
-	var linked *linkedError
-	if errors.As(err, &linked) {
+	if _, ok := errors.AsType[*linkedError](err); ok {
 		return DeleteReply{}, &DeleteError{Kind: DeleteUnsupported, Message: "agnostic-ai cannot verify which files belong to it, so it deletes none: " + err.Error(), Cause: err}
 	}
 	if err != nil {

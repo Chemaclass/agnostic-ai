@@ -28,12 +28,12 @@ func syncProjectOK(t *testing.T) {
 
 func TestSync_ListsDescribedTiersInEveryInstructionsFile(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex, gemini, copilot, zed, junie]\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
 
 	syncProjectOK(t)
 
 	for _, path := range []string{"AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md", ".rules", ".junie/AGENTS.md"} {
-		got := readFileString(t, filepath.Join(dir, path))
+		got := readFile(t, filepath.Join(dir, path))
 		if strings.Count(got, describedTiersLine) != 1 {
 			t.Errorf("%s should list the described tiers once:\n%s", path, got)
 		}
@@ -41,7 +41,7 @@ func TestSync_ListsDescribedTiersInEveryInstructionsFile(t *testing.T) {
 			t.Errorf("%s lists a tier without a description:\n%s", path, got)
 		}
 	}
-	claude := readFileString(t, filepath.Join(dir, "CLAUDE.md"))
+	claude := readFile(t, filepath.Join(dir, "CLAUDE.md"))
 	if !strings.Contains(claude, "@AGENTS.md") || strings.Contains(claude, "Model tiers") {
 		t.Errorf("CLAUDE.md should import AGENTS.md, which carries the tiers:\n%s", claude)
 	}
@@ -87,11 +87,11 @@ func TestSync_TiersWithoutDescriptionsChangeNoInstructionsFile(t *testing.T) {
 func syncedInstructions(t *testing.T, models string) map[string]string {
 	t.Helper()
 	dir := budgetProject(t, "targets: [claude, codex, gemini]\n"+models)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
 	syncProjectOK(t)
 	out := map[string]string{}
 	for _, path := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md"} {
-		out[path] = readFileString(t, filepath.Join(dir, path))
+		out[path] = readFile(t, filepath.Join(dir, path))
 	}
 	return out
 }
@@ -112,11 +112,11 @@ func TestSync_LocalTierReplacesItsDescription(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			dir := budgetProject(t, "targets: [codex]\n"+describedTiersConfig)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), tc.local)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), tc.local)
 
 			syncProjectOK(t)
 
-			agents := readFileString(t, filepath.Join(dir, "AGENTS.md"))
+			agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
 			if !strings.Contains(agents, tc.want) || strings.Contains(agents, tc.absent) {
 				t.Errorf("AGENTS.md should read %q:\n%s", tc.want, agents)
 			}
@@ -139,14 +139,14 @@ func TestImport_DropsTheModelTiersBlock(t *testing.T) {
 		t.Run(from, func(t *testing.T) {
 			dir := budgetProject(t, "targets: [claude, codex]\n"+describedTiersConfig)
 			source := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
-			mustWriteFile(t, source, "# Project\n\nShared instructions.\n")
+			writeFile(t, source, "# Project\n\nShared instructions.\n")
 			syncProjectOK(t)
 
 			if out, err := runCLI(t, "import", from); err != nil {
 				t.Fatalf("import: %v\n%s", err, out)
 			}
 
-			if got := readFileString(t, source); strings.Contains(got, "Model tiers") || strings.Contains(got, "agnostic-ai:models") {
+			if got := readFile(t, source); strings.Contains(got, "Model tiers") || strings.Contains(got, "agnostic-ai:models") {
 				t.Errorf("import copied the tiers into AGNOSTIC_AI.md:\n%s", got)
 			}
 			if out, err := runCLI(t, "sync", "--check"); err != nil {
@@ -158,7 +158,7 @@ func TestImport_DropsTheModelTiersBlock(t *testing.T) {
 
 func TestLintBudget_CountsTheModelTiersLayer(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nlint:\n  instructions-words: 10\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(5)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(5)+"\n")
 
 	out, _ := runCLI(t, "lint")
 
@@ -170,9 +170,9 @@ func TestLintBudget_CountsTheModelTiersLayer(t *testing.T) {
 
 func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n"+describedTiersConfig)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n"+describedTiersConfig)
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	if _, errOut, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, errOut)
@@ -189,8 +189,8 @@ func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
 
 func TestSyncGlobal_LocalTierReplacesItsDescription(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+describedTiersConfig)
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "version: 1\nmodels:\n  strong: {claude: opus, description: for the hard parts}\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+describedTiersConfig)
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "version: 1\nmodels:\n  strong: {claude: opus, description: for the hard parts}\n")
 
 	if _, errOut, err := runGlobalCheck("sync"); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, errOut)
@@ -206,8 +206,8 @@ func TestSyncGlobal_TiersWithoutDescriptionsKeepTheManagedBlock(t *testing.T) {
 	blocks := make([]string, 0, 2)
 	for _, models := range []string{"", "models:\n  strong: {claude: opus}\n"} {
 		home, source := globalAgentTestHome(t)
-		mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+models)
-		mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+		writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+models)
+		writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 		if _, errOut, err := runGlobalCheck("sync"); err != nil {
 			t.Fatalf("sync --global: %v\n%s", err, errOut)
 		}
@@ -230,11 +230,11 @@ func readGlobalManaged(t *testing.T, path string) string {
 
 func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex: {rules-file: AGENTS.md}\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	syncProjectOK(t)
 
-	agents := readFileString(t, filepath.Join(dir, "AGENTS.md"))
+	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
 	if strings.Count(agents, describedTiersLine) != 1 || !strings.Contains(agents, "Keep it short.") {
 		t.Errorf("AGENTS.md should hold the rules and the tiers once:\n%s", agents)
 	}
@@ -245,19 +245,19 @@ func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
 
 func TestSync_RulesFileBesideTheEntryPointGetsNoTiers(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex: {rules-file: CODEX_RULES.md}\n"+describedTiersConfig)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 
 	syncProjectOK(t)
 
-	if got := readFileString(t, filepath.Join(dir, "CODEX_RULES.md")); strings.Contains(got, "Model tiers") {
+	if got := readFile(t, filepath.Join(dir, "CODEX_RULES.md")); strings.Contains(got, "Model tiers") {
 		t.Errorf("a rules file that is not the entry point should not list the tiers:\n%s", got)
 	}
 }
 
 func TestSyncGlobal_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nmodels:\n  \"<!-- agnostic-ai:global:end -->\": {claude: opus, description: for all}\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nmodels:\n  \"<!-- agnostic-ai:global:end -->\": {claude: opus, description: for all}\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 
 	_, _, err := runGlobalCheck("sync")
 
@@ -280,12 +280,12 @@ func TestSync_AdapterWrittenRulesFileListsTheTiers(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				dir := budgetProject(t, "targets: ["+target+"]\noutputs:\n  "+target+": {rules-file: "+path+"}\n"+describedTiersConfig)
 				if withRule {
-					mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+					writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 				}
 
 				syncProjectOK(t)
 
-				got := readFileString(t, filepath.Join(dir, path))
+				got := readFile(t, filepath.Join(dir, path))
 				if strings.Count(got, describedTiersLine) != 1 {
 					t.Errorf("%s should list the tiers once:\n%s", path, got)
 				}
@@ -302,7 +302,7 @@ func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			path := adapters.EntryPointPath(&config.Config{Targets: []string{target}}, target)
 			dir := budgetProject(t, "targets: ["+target+"]\noutputs:\n  "+target+": {rules-file: "+path+"}\n"+describedTiersConfig)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep it short.\n")
 			syncProjectOK(t)
 
 			if out, err := runCLI(t, "import", target); err != nil {
@@ -310,7 +310,7 @@ func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
 			}
 			syncProjectOK(t)
 
-			if got := readFileString(t, filepath.Join(dir, path)); strings.Count(got, "Model tiers:") != 1 {
+			if got := readFile(t, filepath.Join(dir, path)); strings.Count(got, "Model tiers:") != 1 {
 				t.Errorf("%s should list the tiers once:\n%s", path, got)
 			}
 			rules, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", "rules"))
@@ -318,7 +318,7 @@ func TestImport_RulesFileRoundTripKeepsTheTiersOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, rule := range rules {
-				if body := readFileString(t, filepath.Join(dir, ".agnostic-ai", "rules", rule.Name())); strings.Contains(body, "agnostic-ai:models") {
+				if body := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", rule.Name())); strings.Contains(body, "agnostic-ai:models") {
 					t.Errorf("rule %s holds the tiers block:\n%s", rule.Name(), body)
 				}
 			}

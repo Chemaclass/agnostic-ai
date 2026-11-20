@@ -234,6 +234,7 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 	if err != nil {
 		return err
 	}
+	warnShadowedSpecs(cmd.ErrOrStderr(), project.bundle)
 	cfg := project.cfg
 	if noTargetsKept(cfg) && !f.allowEmptyTargets && !f.watch {
 		return runEmptyTargets(cmd, f, cfg, tree)
@@ -435,7 +436,7 @@ func (r syncRun) dispatch() error {
 		return r.checkDrift()
 	}
 	if f.watchPoll && !f.watch {
-		return fmt.Errorf("--watch-poll requires --watch")
+		return errors.New("--watch-poll requires --watch")
 	}
 	if f.watch {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -482,6 +483,18 @@ func (r syncRun) plan() error {
 	var driftErr error
 	if r.f.check && slices.ContainsFunc(reports, driftReport.hasDrift) {
 		driftErr = errDriftDetected()
+	}
+	// The ignore files are listed but never gate --check, which does not
+	// compare them either; sync reports their errors.
+	if resolveGitignore(r.cfg, r.f.gitignoreFlag) {
+		cfg := *r.cfg
+		cfg.Gitignore.Enabled = true
+		ignores, err := planIgnoreFiles(".", &cfg, r.bundle, r.effective, reports, r.ledger())
+		if err != nil {
+			_, _ = fmt.Fprintf(r.cmd.ErrOrStderr(), "! cannot plan the ignore files: %v\n", err)
+		} else {
+			reports = withIgnorePlan(reports, ignores)
+		}
 	}
 	if r.f.check {
 		notesErr = errors.Join(notesErr, r.ledger().checkError())

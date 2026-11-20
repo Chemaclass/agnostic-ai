@@ -101,6 +101,11 @@ func newInitCmd() *cobra.Command {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
+			if _, _, missing := config.ResolveConfigPath("."); missing != nil {
+				if err := refuseNestedProject("run agnostic-ai there instead of starting a second project"); err != nil {
+					return err
+				}
+			}
 			base := defaultBaseDir
 			if len(args) == 1 {
 				base = args[0]
@@ -116,6 +121,11 @@ func newInitCmd() *cobra.Command {
 					return err
 				}
 				defer func() { _ = lock.Close() }()
+				// Stop before the target picker, which prompts or prints
+				// its choice for a project init will not write.
+				if err := ensureNoExistingConfig(".", config.ConfigFileName); err != nil {
+					return err
+				}
 			}
 			targets := allTargetNames()
 			if !all {

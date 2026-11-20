@@ -146,7 +146,7 @@ func (h *specMoveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if plan.existing && !req.Overwrite {
-		writeEditJSON(w, http.StatusConflict, editError{Error: fmt.Sprintf("%s already exists; tick overwrite to replace it", plan.preview.Destination)})
+		writeEditJSON(w, http.StatusConflict, editError{Error: plan.preview.Destination + " already exists; tick overwrite to replace it"})
 		return
 	}
 	warning, err := plan.write()
@@ -166,8 +166,7 @@ func (h *specMoveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeSpecMoveError(w http.ResponseWriter, err error) {
-	var refusal specMoveError
-	if errors.As(err, &refusal) {
+	if refusal, ok := errors.AsType[specMoveError](err); ok {
 		writeEditJSON(w, refusal.status, refusal.reply)
 		return
 	}
@@ -605,8 +604,7 @@ func (p specMovePlan) write() (string, error) {
 		return "", err
 	}
 	if err := p.swapFolder(work); err != nil {
-		var lost rollbackError
-		if !errors.As(err, &lost) {
+		if _, ok := errors.AsType[rollbackError](err); !ok {
 			_ = removeMoveStaging(work)
 		}
 		return "", err

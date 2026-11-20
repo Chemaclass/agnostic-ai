@@ -201,9 +201,7 @@ func withNativePermission(translated map[string]any, native any) any {
 	if !ok {
 		return native
 	}
-	for tool, value := range nativeMap {
-		translated[tool] = value
-	}
+	maps.Copy(translated, nativeMap)
 	return translated
 }
 

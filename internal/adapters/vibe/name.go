@@ -1,6 +1,7 @@
 package vibe
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -27,7 +28,7 @@ func (Adapter) UserMCPArrayIdentities(records []map[string]any) (map[string]stri
 	for _, record := range records {
 		name, ok := record["name"].(string)
 		if !ok {
-			return nil, fmt.Errorf("vibe: MCP name must be a string")
+			return nil, errors.New("vibe: MCP name must be a string")
 		}
 		id := nativeMCPName(name)
 		if id == "" {
@@ -54,12 +55,12 @@ func validateConfigMCPNames(doc map[string]any) error {
 		for _, item := range list {
 			record, ok := item.(map[string]any)
 			if !ok {
-				return fmt.Errorf("vibe: mcp_servers must be an array of tables")
+				return errors.New("vibe: mcp_servers must be an array of tables")
 			}
 			records = append(records, record)
 		}
 	default:
-		return fmt.Errorf("vibe: mcp_servers must be an array of tables")
+		return errors.New("vibe: mcp_servers must be an array of tables")
 	}
 	_, err := (Adapter{}).UserMCPArrayIdentities(records)
 	return err

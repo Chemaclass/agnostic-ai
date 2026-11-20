@@ -11,7 +11,7 @@ const globalSyntaxSkill = "---\nname: pr\ndescription: Open a PR\n---\nBranch:\n
 func TestSyncGlobal_NotesClaudeSkillSyntaxOnTargetsThatReadPlainText(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	skill := filepath.Join(source, "skills", "pr", "SKILL.md")
-	mustWriteGlobalTest(t, skill, globalSyntaxSkill)
+	writeFile(t, skill, globalSyntaxSkill)
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude,codex")
 	if err != nil {
@@ -34,7 +34,7 @@ func TestSyncGlobal_NotesClaudeSkillSyntaxOnTargetsThatReadPlainText(t *testing.
 
 func TestSyncGlobal_FencedClaudeSkillSyntaxGetsNoNote(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "pr", "SKILL.md"),
+	writeFile(t, filepath.Join(source, "skills", "pr", "SKILL.md"),
 		"---\nname: pr\ndescription: Open a PR\n---\n::target claude\n!`git branch --show-current`\nAsk: $ARGUMENTS\n::end\n")
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude,codex")
@@ -49,8 +49,8 @@ func TestSyncGlobal_FencedClaudeSkillSyntaxGetsNoNote(t *testing.T) {
 func TestSyncGlobal_OnUnsupportedErrorFailsOnClaudeSkillSyntax(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	skill := filepath.Join(source, "skills", "pr", "SKILL.md")
-	mustWriteGlobalTest(t, skill, globalSyntaxSkill)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
+	writeFile(t, skill, globalSyntaxSkill)
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
 
 	_, _, err := runGlobalAgentTest("--only", "codex")
 	if err == nil {
@@ -65,9 +65,9 @@ func TestSyncGlobal_OnUnsupportedErrorFailsOnClaudeSkillSyntax(t *testing.T) {
 
 func TestSyncGlobal_LocalOnUnsupportedReplacesSharedValue(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "pr", "SKILL.md"), globalSyntaxSkill)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "on-unsupported: silent\n")
+	writeFile(t, filepath.Join(source, "skills", "pr", "SKILL.md"), globalSyntaxSkill)
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "on-unsupported: silent\n")
 
 	_, errOut, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
@@ -80,8 +80,8 @@ func TestSyncGlobal_LocalOnUnsupportedReplacesSharedValue(t *testing.T) {
 
 func TestSyncGlobal_OnUnsupportedSilentHidesClaudeSkillSyntaxNote(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "pr", "SKILL.md"), globalSyntaxSkill)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: silent\n")
+	writeFile(t, filepath.Join(source, "skills", "pr", "SKILL.md"), globalSyntaxSkill)
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: silent\n")
 
 	_, errOut, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {

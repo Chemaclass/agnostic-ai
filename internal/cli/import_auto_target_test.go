@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -175,13 +174,4 @@ func TestAddTargetFrontmatter_NoFrontmatter_Synthesizes(t *testing.T) {
 	if got != want {
 		t.Errorf("addTargetFrontmatter:\ngot:  %q\nwant: %q", got, want)
 	}
-}
-
-func readFile(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return string(data)
 }

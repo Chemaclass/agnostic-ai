@@ -29,13 +29,13 @@ func TestSyncJSON_SharedSkillsPrintsOneJSONDocument(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := setupSharedSkillsFixture(t, "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\n")
 			if tc.localConfig != "" {
-				mustWriteFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), tc.localConfig)
+				writeFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), tc.localConfig)
 			}
 			testutil.Chdir(t, dir)
 			stdout, stderr := captureLogOut(t), captureNotes(t)
 			previousVerbosity := verbosity
 			t.Cleanup(func() { verbosity = previousVerbosity })
-			for pass := 0; pass < 2; pass++ {
+			for pass := range 2 {
 				stdout.Reset()
 				root := NewRootCmd("test")
 				root.SetOut(stdout)

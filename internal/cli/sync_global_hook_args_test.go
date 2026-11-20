@@ -14,7 +14,7 @@ const globalExecHook = "name: guard\nevent: SessionStart\ncommand: node\nargs: [
 func TestSyncGlobal_ExecFormHooksKeepArgs(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, spec, globalExecHook)
+	writeFile(t, spec, globalExecHook)
 	only := []string{"--only", "claude,codex,qoder"}
 	if _, _, err := runGlobalAgentTest(only...); err != nil {
 		t.Fatal(err)
@@ -50,8 +50,8 @@ func TestSyncGlobal_ExecFormHooksKeepArgs(t *testing.T) {
 func TestSyncGlobal_HandWrittenExecFormHookIsAdopted(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, settings, `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"node","args":["guard.js","--strict"]}]}]}}`)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), strings.Replace(globalExecHook, "[claude, codex, qoder]", "[claude]", 1))
+	writeFile(t, settings, `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"node","args":["guard.js","--strict"]}]}]}}`)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), strings.Replace(globalExecHook, "[claude, codex, qoder]", "[claude]", 1))
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestSyncGlobal_HandWrittenExecFormHookIsAdopted(t *testing.T) {
 
 func TestSyncGlobal_CodexExecFormHookKeepsItsCommandWindows(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: SessionStart\ncommand: node\nargs: [guard.js]\ncommandWindows: node.exe guard.js\ntarget: codex\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: SessionStart\ncommand: node\nargs: [guard.js]\ncommandWindows: node.exe guard.js\ntarget: codex\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +85,8 @@ func TestSyncGlobal_CodexExecFormHookKeepsItsCommandWindows(t *testing.T) {
 func TestSyncGlobal_ArgsAddedByHandToAManagedHookAreAccepted(t *testing.T) {
 	for _, target := range []string{"claude", "qoder"} {
 		home, source := globalAgentTestHome(t)
-		mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
-		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), strings.Replace(globalExecHook, "[claude, codex, qoder]", "["+target+"]", 1))
+		writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
+		writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), strings.Replace(globalExecHook, "[claude, codex, qoder]", "["+target+"]", 1))
 		if _, _, err := runGlobalAgentTest("--only", target); err != nil {
 			t.Fatal(err)
 		}
@@ -117,7 +117,7 @@ func TestSyncGlobal_ArgsAddedByHandToAManagedHookAreAccepted(t *testing.T) {
 	// sync writes now keeps one entry, managed again.
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, spec, codexExecHook)
+	writeFile(t, spec, codexExecHook)
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func recordBareCodexCommand(t *testing.T, source string) {
 // stops rather than adding a second copy of the guard.
 func TestSyncGlobal_CodexBareCommandFixedByHandOtherwiseStops(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), codexExecHook)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), codexExecHook)
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}

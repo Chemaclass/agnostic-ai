@@ -65,7 +65,7 @@ func TestConversationsStart_PassesTheBriefFromStandardInput(t *testing.T) {
 
 func TestConversationsStart_ReadsABriefFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "brief.md")
-	mustWriteFile(t, path, "Tag the release\n")
+	writeFile(t, path, "Tag the release\n")
 	asked := fakeStartConversation(t, nil)
 
 	if _, err := runRootWithInput(t, "ignored", "conversations", "start", "--brief-file", path); err != nil {

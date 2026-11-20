@@ -9,7 +9,7 @@ import (
 
 func TestSyncGlobal_CheckDiffPrintsTheManagedBlockOnly(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -18,8 +18,8 @@ func TestSyncGlobal_CheckDiffPrintsTheManagedBlockOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path, "My own notes.\n\n"+strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, path, "My own notes.\n\n"+strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
+	writeFile(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 
 	out, _, err := runGlobalAgentTest("--only", "claude", "--check", "--diff")
 	if err == nil {
@@ -45,7 +45,7 @@ func TestSyncGlobal_CheckDiffPrintsTheManagedBlockOnly(t *testing.T) {
 
 func TestSyncGlobal_CheckDiffIsSilentWhenInSync(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestSyncGlobal_DiffRequiresCheck(t *testing.T) {
 func TestSyncGlobal_PreviewsNameAFileSyncWouldRemove(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
-	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}

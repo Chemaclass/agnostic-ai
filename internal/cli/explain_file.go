@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -75,13 +76,13 @@ var sourceMarkerRE = regexp.MustCompile(`(?m)^[ \t]*<!--\s*source:\s*(\S+)(?:\s+
 func validateExplainInput(args []string, file, target string) error {
 	switch {
 	case file != "" && len(args) > 0:
-		return fmt.Errorf("--file cannot be combined with a spec or error code argument")
+		return errors.New("--file cannot be combined with a spec or error code argument")
 	case file != "" && target == "":
 		return fmt.Errorf("--file requires --target (supported: %s)", strings.Join(fileContextTargets, ", "))
 	case file == "" && target != "":
-		return fmt.Errorf("--target applies only with --file")
+		return errors.New("--target applies only with --file")
 	case file == "" && len(args) == 0:
-		return fmt.Errorf("explain needs a spec path, an AAI-NNN error code, or --file")
+		return errors.New("explain needs a spec path, an AAI-NNN error code, or --file")
 	}
 	return nil
 }

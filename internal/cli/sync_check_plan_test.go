@@ -11,8 +11,8 @@ import (
 // CI step on drift (#1593).
 func TestSync_CheckPlanFailsOnDrift(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	runSyncOK(t)
 
 	for _, args := range [][]string{{"sync", "--check", "--plan"}, {"sync", "--check", "--plan", "--json"}} {
@@ -21,7 +21,7 @@ func TestSync_CheckPlanFailsOnDrift(t *testing.T) {
 		}
 	}
 
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
 	for _, args := range [][]string{{"sync", "--check", "--plan"}, {"sync", "--check", "--plan", "--json"}} {
 		out, err := runCLI(t, args...)
 		if err == nil || !strings.Contains(err.Error(), "drift detected") {

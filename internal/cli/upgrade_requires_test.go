@@ -2,7 +2,7 @@ package cli
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -41,7 +41,7 @@ func readUpgradeRequiresFile(t *testing.T, path string) []byte {
 func TestUpgradeRequires_UsesInstalledVersionAndPreservesConfig(t *testing.T) {
 	requiresProject(t, "0.76.0")
 	initial := "# Team configuration.\n# yaml-language-server: $schema=" + schemaURL("0.76.0") + "\nversion: 1\ntargets: [claude]\nrequires: \"0.76.0\" # Keep CI reproducible.\noutputs:\n  claude:\n    rules-dir: .claude/team-rules\n# Keep this trailing comment.\n"
-	mustWriteFile(t, "agnostic-ai.yaml", initial)
+	writeFile(t, "agnostic-ai.yaml", initial)
 
 	if err := executeUpgradeRequiresForTest(t, "v0.77.0"); err != nil {
 		t.Fatalf("upgrade --requires: %v", err)
@@ -64,7 +64,7 @@ func TestUpgradeRequires_ReconcilesLocalOverrides(t *testing.T) {
 		t.Run(value, func(t *testing.T) {
 			requiresProject(t, "0.75.0")
 			local := "# Personal budget.\n# yaml-language-server: $schema=" + schemaURL("0.76.0") + "\nrequires: " + value + " # Local override.\nlint:\n  instructions-words: 1234\n"
-			mustWriteFile(t, config.LocalOverrideFileName, local)
+			writeFile(t, config.LocalOverrideFileName, local)
 
 			if err := executeUpgradeRequiresForTest(t, "v0.77.0"); err != nil {
 				t.Fatalf("upgrade with local requires: %v", err)
@@ -92,7 +92,7 @@ func TestUpgradeRequires_ReconcilesLocalOverrides(t *testing.T) {
 func TestUpgradeRequires_KeepsAMinimum(t *testing.T) {
 	requiresProject(t, "0.76.0")
 	initial := "# yaml-language-server: $schema=" + schemaURL("0.76.0") + "\nversion: 1\ntargets: [claude]\nrequires: \">=0.76.0\" # Any later release.\n"
-	mustWriteFile(t, config.ConfigFileName, initial)
+	writeFile(t, config.ConfigFileName, initial)
 	if err := executeUpgradeRequiresForTest(t, "v0.77.0"); err != nil {
 		t.Fatalf("upgrade --requires: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestUpgradeRequires_KeepsAMinimum(t *testing.T) {
 
 func TestUpgradeRequires_AddsAMinimumWhenRequiresIsMissing(t *testing.T) {
 	requiresProject(t, "0.76.0")
-	mustWriteFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
 	if err := executeUpgradeRequiresForTest(t, "v0.77.0"); err != nil {
 		t.Fatalf("upgrade --requires: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestUpgradeRequires_AddsAMinimumWhenRequiresIsMissing(t *testing.T) {
 
 func TestUpgradeRequires_NamesARangeItTurnsIntoAMinimum(t *testing.T) {
 	requiresProject(t, "0.76.0")
-	mustWriteFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\nrequires: \">=0.76.0 <0.77.0\"\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\nrequires: \">=0.76.0 <0.77.0\"\n")
 	setRunningVersion(t, "v0.77.0")
 	log := captureLogOut(t)
 	root := NewRootCmd("9.9.9")
@@ -169,15 +169,15 @@ func TestUpgradeRequires_DoesNotDetectOrInstall(t *testing.T) {
 	deps := upgradeDeps{
 		detect: func(string) (upgradeInfo, error) {
 			t.Error("reconciliation detected an installation")
-			return upgradeInfo{}, fmt.Errorf("unexpected installation detection")
+			return upgradeInfo{}, errors.New("unexpected installation detection")
 		},
 		run: func(io.Writer, string) error {
 			t.Error("reconciliation ran an installer command")
-			return fmt.Errorf("unexpected installer command")
+			return errors.New("unexpected installer command")
 		},
 		install: func(io.Writer, string, string, string, *http.Client) error {
 			t.Error("reconciliation downloaded a release")
-			return fmt.Errorf("unexpected release download")
+			return errors.New("unexpected release download")
 		},
 	}
 	root := &cobra.Command{Use: "agnostic-ai", Version: "9.9.9", SilenceUsage: true, SilenceErrors: true}
@@ -248,7 +248,7 @@ func TestUpgradeRequires_RefusesHeldProjectLock(t *testing.T) {
 func TestUpgradeRequires_KeepsNewPinsWhenSyncFails(t *testing.T) {
 	requiresProject(t, "0.76.0")
 	initial := "Keep this hand-written instruction.\n"
-	mustWriteFile(t, "CLAUDE.md", initial)
+	writeFile(t, "CLAUDE.md", initial)
 	err := executeUpgradeRequiresForTest(t, "v0.77.0")
 	if err == nil || !strings.Contains(err.Error(), "CLAUDE.md") {
 		t.Errorf("sync conflict: got %v, want the protected instruction path", err)
@@ -267,8 +267,8 @@ func TestUpgradeRequires_KeepsNewPinsWhenSyncFails(t *testing.T) {
 
 func TestUpgradeRequires_NamesADroppedRangeWhenSyncFails(t *testing.T) {
 	requiresProject(t, "0.76.0")
-	mustWriteFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\nrequires: \">=0.76.0 <0.77.0\"\n")
-	mustWriteFile(t, "CLAUDE.md", "Keep this hand-written instruction.\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\nrequires: \">=0.76.0 <0.77.0\"\n")
+	writeFile(t, "CLAUDE.md", "Keep this hand-written instruction.\n")
 	setRunningVersion(t, "v0.77.0")
 	log := captureLogOut(t)
 	root := NewRootCmd("9.9.9")
@@ -288,7 +288,7 @@ func TestUpgradeRequires_RefusesGlobalHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	testutil.Chdir(t, home)
-	mustWriteFile(t, config.ConfigFileName, "requires: \"0.76.0\"\n")
+	writeFile(t, config.ConfigFileName, "requires: \"0.76.0\"\n")
 	before := readUpgradeRequiresFile(t, config.ConfigFileName)
 	err := executeUpgradeRequiresForTest(t, "v0.77.0")
 	if err == nil || !strings.Contains(err.Error(), "global home") {

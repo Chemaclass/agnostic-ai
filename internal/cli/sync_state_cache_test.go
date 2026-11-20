@@ -17,10 +17,10 @@ import (
 func TestHoldStateFile_ServesOneCopyUntilReleased(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	path := filepath.Join(dir, ".agnostic-ai", ".sync-state")
-	mustWriteFile(t, path, `{"output_sums":{"a.md":"one"}}`)
+	writeFile(t, path, `{"output_sums":{"a.md":"one"}}`)
 
 	release := holdStateFile(".")
-	mustWriteFile(t, path, `{"output_sums":{"a.md":"two"}}`)
+	writeFile(t, path, `{"output_sums":{"a.md":"two"}}`)
 	if got := priorStateFile().OutputSums["a.md"]; got != "one" {
 		t.Errorf("while held: sum %q, want the held one", got)
 	}
@@ -32,7 +32,7 @@ func TestHoldStateFile_ServesOneCopyUntilReleased(t *testing.T) {
 
 func TestHoldPriorState_ServesTheGivenCopy(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", ".sync-state"), `{"output_sums":{"a.md":"disk"}}`)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", ".sync-state"), `{"output_sums":{"a.md":"disk"}}`)
 
 	release := holdPriorState(".", syncStateFile{OutputSums: map[string]string{"a.md": "held"}})
 	if got := priorStateFile().OutputSums["a.md"]; got != "held" {
@@ -46,7 +46,7 @@ func TestHoldPriorState_ServesTheGivenCopy(t *testing.T) {
 
 func TestHoldPriorState_OtherRootHoldsNothing(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", ".sync-state"), `{"output_sums":{"a.md":"disk"}}`)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", ".sync-state"), `{"output_sums":{"a.md":"disk"}}`)
 
 	release := holdPriorState(t.TempDir(), syncStateFile{OutputSums: map[string]string{"a.md": "other"}})
 	defer release()
@@ -63,7 +63,7 @@ func TestRunSyncOnce_ReleasesTheHeldState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mustWriteFile(t, filepath.Join(".agnostic-ai", ".sync-state"), `{"output_sums":{"a.md":"after"}}`)
+	writeFile(t, filepath.Join(".agnostic-ai", ".sync-state"), `{"output_sums":{"a.md":"after"}}`)
 	if got := priorStateFile().OutputSums["a.md"]; got != "after" {
 		t.Errorf("sum %q, want after: sync must not hold the state once it returns", got)
 	}
@@ -72,11 +72,11 @@ func TestRunSyncOnce_ReleasesTheHeldState(t *testing.T) {
 func TestPriorStateFile_ReadsTheDiskWhenNothingIsHeld(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	path := filepath.Join(dir, ".agnostic-ai", ".sync-state")
-	mustWriteFile(t, path, `{"output_sums":{"a.md":"one"}}`)
+	writeFile(t, path, `{"output_sums":{"a.md":"one"}}`)
 	if got := priorStateFile().OutputSums["a.md"]; got != "one" {
 		t.Fatalf("first read: sum %q, want one", got)
 	}
-	mustWriteFile(t, path, `{"output_sums":{"a.md":"two"}}`)
+	writeFile(t, path, `{"output_sums":{"a.md":"two"}}`)
 	if got := priorStateFile().OutputSums["a.md"]; got != "two" {
 		t.Errorf("same-size rewrite: sum %q, want two", got)
 	}
@@ -118,9 +118,9 @@ func TestRenderRef_DoesNotBorrowLiveMergedLedger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs: {claude: {dir: .agnostic-ai/native}}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "name: model\nmodel: sonnet\n")
-	mustWriteFile(t, ".agnostic-ai/native/settings.json", "{\"statusLine\":\"old\"}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs: {claude: {dir: .agnostic-ai/native}}\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "name: model\nmodel: sonnet\n")
+	writeFile(t, ".agnostic-ai/native/settings.json", "{\"statusLine\":\"old\"}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "historical settings")
 	render := func() (map[string]string, error) {
@@ -150,7 +150,7 @@ func TestRenderRef_DoesNotBorrowLiveMergedLedger(t *testing.T) {
 	if priorStateFile().OutputSums["probe"] != "outer" {
 		t.Error("historical render lost live owner")
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: [\n")
+	writeFile(t, "agnostic-ai.yaml", "version: [\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "invalid settings")
 	if _, err := render(); err == nil {
@@ -170,7 +170,7 @@ func TestRenderRef_DoesNotBorrowLiveMergedLedger(t *testing.T) {
 
 func TestHoldCaptureState_BorrowsOwnerAndIsolationMasksIt(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteFile(t, stateFilePath("."), `{"output_sums":{"probe":"disk"}}`)
+	writeFile(t, stateFilePath("."), `{"output_sums":{"probe":"disk"}}`)
 	outer := holdState(syncStateFile{OutputSums: map[string]string{"probe": "outer"}})
 	defer outer()
 	borrowed := holdCaptureState(readStateFile("."))
@@ -221,11 +221,11 @@ func TestCapturePhases_ReuseLoadedLedgerForActualCallbacks(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			writeBenchProject(t, dir, 1)
 			orphan := filepath.ToSlash(filepath.Join(".trae", "agents", fixtureAgentName(0)+".md"))
-			mustWriteFile(t, orphan, "old native agent\n")
+			writeFile(t, orphan, "old native agent\n")
 			ledger := func(value string) string {
 				return `{"output_sums":{"probe":"` + value + `"},"orphans":["` + orphan + `"]}`
 			}
-			mustWriteFile(t, stateFilePath("."), ledger("one"))
+			writeFile(t, stateFilePath("."), ledger("one"))
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				t.Fatal(err)
@@ -235,7 +235,7 @@ func TestCapturePhases_ReuseLoadedLedgerForActualCallbacks(t *testing.T) {
 				current := priorStateFile()
 				seen = append(seen, current.OutputSums["probe"])
 				if len(seen) == 1 {
-					mustWriteFile(t, stateFilePath("."), ledger("two"))
+					writeFile(t, stateFilePath("."), ledger("two"))
 				}
 				return slices.Clone(current.Merged[path].Keys)
 			})
@@ -279,8 +279,8 @@ func TestCapturePhases_ReuseLoadedLedgerForActualCallbacks(t *testing.T) {
 func TestCapturePhases_KeepNativeBodyReadsFresh(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [trae]\n")
-	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\n---\n\nbody one\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [trae]\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\n---\n\nbody one\n")
 	syncProject(t)
 	cfg, b, err := loadProject(".")
 	if err != nil {
@@ -291,7 +291,7 @@ func TestCapturePhases_KeepNativeBodyReadsFresh(t *testing.T) {
 	release := holdStateFile(".")
 	defer release()
 	for _, body := range []string{strings.Replace(original, "body one", "body two", 1), original + "appended\n"} {
-		mustWriteFile(t, native, body)
+		writeFile(t, native, body)
 		drift, _, err := captureAllAndDiff(cfg.Targets, cfg, b)
 		if err != nil {
 			t.Fatal(err)
@@ -319,7 +319,7 @@ func TestCapturePhases_KeepNativeBodyReadsFresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, stateFilePath("."), string(encoded))
+	writeFile(t, stateFilePath("."), string(encoded))
 	reports, err := collectLoadedDrift(cfg, b, nil, "")
 	if err != nil {
 		t.Fatal(err)
@@ -341,8 +341,8 @@ func TestCapturePhases_ReleaseBeforeDeferredHistory(t *testing.T) {
 			dir, git := launchGitRepo(t)
 			testutil.Chdir(t, dir)
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore: {enabled: false}\n")
-			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "name: model\nmodel: sonnet\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore: {enabled: false}\n")
+			writeFile(t, ".agnostic-ai/settings/model.yaml", "name: model\nmodel: sonnet\n")
 			syncProject(t)
 			git("add", "-A")
 			git("commit", "-q", "-m", "generated settings")
@@ -405,7 +405,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			mustWriteFile(t, stateFilePath("."), `{"output_sums":{"probe":"before"}}`)
+			writeFile(t, stateFilePath("."), `{"output_sums":{"probe":"before"}}`)
 			cfg.Targets = []string{"claude"}
 			cfg.Outputs = map[string]config.Output{"claude": {Dir: "native"}}
 			if err := os.MkdirAll("native/settings.json", 0755); err != nil {
@@ -419,7 +419,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			if err == nil {
 				t.Error("invalid native settings did not fail capture")
 			}
-			mustWriteFile(t, stateFilePath("."), `{"output_sums":{"probe":"after"}}`)
+			writeFile(t, stateFilePath("."), `{"output_sums":{"probe":"after"}}`)
 			if priorStateFile().OutputSums["probe"] != "after" {
 				t.Error("failed capture retained ledger")
 			}
@@ -436,7 +436,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			if err == nil || !strings.Contains(filepath.ToSlash(err.Error()), "read native-agents/"+fixtureAgentName(0)+".md") {
 				t.Errorf("native comparison failure=%v", err)
 			}
-			mustWriteFile(t, stateFilePath("."), `{"output_sums":{"probe":"last"}}`)
+			writeFile(t, stateFilePath("."), `{"output_sums":{"probe":"last"}}`)
 			if priorStateFile().OutputSums["probe"] != "last" {
 				t.Error("failed native comparison retained ledger")
 			}

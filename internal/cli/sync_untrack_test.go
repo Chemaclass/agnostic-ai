@@ -23,8 +23,8 @@ func untrackFixture(t *testing.T) (dir string, gitc func(args ...string)) {
 	t.Helper()
 	dir, gitc = gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\n---\nrule body\n")
 	silence(t)
 	captureLogOut(t)
 	if err := runSyncArgs(t); err != nil {
@@ -32,7 +32,7 @@ func untrackFixture(t *testing.T) (dir string, gitc func(args ...string)) {
 	}
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
 	// Materialize the managed .gitignore block on disk: sync only
 	// rewrites it during a real run, and doctor never writes at all.
 	// The file stays tracked, since only --untrack removes it.
@@ -250,11 +250,11 @@ func TestSyncUntrack_QuietStillWarnsOtherClones(t *testing.T) {
 func TestGitTrackedAndIgnored_ReturnsOnlyCandidatesAndFilesUnderCandidateDirs(t *testing.T) {
 	dir, gitc := gitRepo(t)
 	for _, p := range []string{"out/a.md", "other/b.md", "skills/s/SKILL.md", "a[X]b.txt", "aXb.txt", "sub/out/c.md"} {
-		mustWriteFile(t, filepath.Join(dir, p), "x\n")
+		writeFile(t, filepath.Join(dir, p), "x\n")
 	}
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "out/\nother/\nskills/\na*b.txt\n")
+	writeFile(t, filepath.Join(dir, ".gitignore"), "out/\nother/\nskills/\na*b.txt\n")
 
 	got := gitTrackedAndIgnored(dir, []string{"./out/a.md", "skills/s/", "a[X]b.txt", "missing.md", "../outside.md"})
 	want := []string{"a[X]b.txt", "out/a.md", "skills/s/SKILL.md"}
@@ -271,10 +271,10 @@ func TestGitTrackedAndIgnored_ReturnsOnlyCandidatesAndFilesUnderCandidateDirs(t 
 func TestGitTrackedAndIgnored_MatchesAnOutputNamedInDecomposedUnicode(t *testing.T) {
 	dir, gitc := gitRepo(t)
 	decomposed := "out/café.md"
-	mustWriteFile(t, filepath.Join(dir, decomposed), "x\n")
+	writeFile(t, filepath.Join(dir, decomposed), "x\n")
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "out/\n")
+	writeFile(t, filepath.Join(dir, ".gitignore"), "out/\n")
 
 	if got := gitTrackedAndIgnored(dir, []string{decomposed}); len(got) != 1 {
 		t.Errorf("gitTrackedAndIgnored = %q, want the one output", got)

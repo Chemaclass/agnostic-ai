@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,9 +51,7 @@ func TestEmitAgents_PortableTurnLimitAndBackground(t *testing.T) {
 				t.Fatalf("no adapter %s", c.target)
 			}
 			meta := map[string]any{"description": "Review changes"}
-			for k, v := range c.meta {
-				meta[k] = v
-			}
+			maps.Copy(meta, c.meta)
 			dir := t.TempDir()
 			agents := []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Meta: meta, Body: "Find bugs."}}
 			if err := a.(AgentEmitter).EmitAgents(NewSession(), agents, dir, false); err != nil {

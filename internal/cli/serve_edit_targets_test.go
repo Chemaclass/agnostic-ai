@@ -16,7 +16,7 @@ func targetsProject(t *testing.T, body string) http.Handler {
 	silence(t)
 	root := t.TempDir()
 	testutil.Chdir(t, root)
-	mustWrite(t, "agnostic-ai.yaml", body)
+	writeFile(t, "agnostic-ai.yaml", body)
 	return newEditHandler(root, false)
 }
 
@@ -157,7 +157,7 @@ func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
 
 	silence(t)
 	source := editHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, aider]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, aider]\n")
 	rec = postEdit(t, newEditHandler(source, true), editTargetsPath, `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "keep at least one coding tool on") {
 		t.Errorf("global = %d, want 400 naming the rule: %s", rec.Code, rec.Body)
@@ -166,7 +166,7 @@ func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
 
 func TestEditTargets_ResetIgnoresNamesThePanelDoesNotShow(t *testing.T) {
 	h := targetsProject(t, "version: 1\ntargets: [claude, codex]\n")
-	mustWrite(t, "agnostic-ai.local.yaml", "targets: [claude, mytool]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "targets: [claude, mytool]\n")
 	rec := postEdit(t, h, editTargetsPath, `{"audience":"personal","reset":true,"expected":["claude"]}`, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reset = %d %s", rec.Code, rec.Body)

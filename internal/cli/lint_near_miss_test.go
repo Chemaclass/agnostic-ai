@@ -194,8 +194,8 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 
 func TestRunSyncOnce_WarnsAboutAMistypedKey(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nglob: \"*.go\"\n---\n\nUse gofmt.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nglob: \"*.go\"\n---\n\nUse gofmt.\n")
 	silence(t)
 	buf := captureLog(t)
 

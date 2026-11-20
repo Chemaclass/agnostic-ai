@@ -18,7 +18,7 @@ func TestReportInstalledCLIs_ListsToolsInNameOrder(t *testing.T) {
 	}
 	bin := t.TempDir()
 	for _, name := range []string{"zed", "aider", "opencode", "claude", "codex"} {
-		mustWriteFile(t, filepath.Join(bin, name), "#!/bin/sh\n")
+		writeFile(t, filepath.Join(bin, name), "#!/bin/sh\n")
 		if err := os.Chmod(filepath.Join(bin, name), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func TestDoctorInstall_ListsToolsInNameOrder(t *testing.T) {
 	}
 	bin := t.TempDir()
 	for _, name := range []string{"zed", "aider", "claude"} {
-		mustWriteFile(t, filepath.Join(bin, name), "#!/bin/sh\n")
+		writeFile(t, filepath.Join(bin, name), "#!/bin/sh\n")
 		if err := os.Chmod(filepath.Join(bin, name), 0o755); err != nil {
 			t.Fatal(err)
 		}
