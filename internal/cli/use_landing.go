@@ -2,7 +2,6 @@ package cli
 
 import (
 	"io"
-	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -20,8 +19,8 @@ import (
 func landingLocation(cfg *config.Config, b spec.Bundle, target string, entries []spec.Entry) string {
 	view := *cfg
 	view.OnUnsupported = "silent"
+	defer adapters.SetWarner(adapters.Warner())
 	adapters.SetWarner(io.Discard)
-	defer adapters.SetWarner(os.Stderr)
 	defer adapters.SkipNotes()()
 
 	var paths []string

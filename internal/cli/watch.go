@@ -41,8 +41,11 @@ type watchOptions struct {
 }
 
 func (o watchOptions) sync(root string, targets []string) error {
+	if !o.quietWhenClean {
+		return runSyncOnce(root, targets, o.dryRun, o.backup, o.gitignoreFlag, o.jobs)
+	}
 	gitquery.Reset()
-	return runSyncPass(root, targets, syncRunOptions{dryRun: o.dryRun, backup: o.backup, gitignoreFlag: o.gitignoreFlag, jobs: o.jobs, quietWhenClean: o.quietWhenClean})
+	return runSyncPass(root, targets, syncRunOptions{dryRun: o.dryRun, backup: o.backup, gitignoreFlag: o.gitignoreFlag, jobs: o.jobs, quietWhenClean: true})
 }
 
 // watchSync runs an initial sync, then re-runs whenever a watched path

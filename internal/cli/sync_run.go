@@ -293,7 +293,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 	if verbosity == levelVerbose {
 		logOut = originalLog
 	}
-	if verbosity >= levelDefault && !(opts.quietWhenClean && w.report.filesChanged() == 0 && len(toList) == 0) {
+	if verbosity >= levelDefault && (!opts.quietWhenClean || w.report.filesChanged() > 0 || len(toList) > 0) {
 		w.render(cfg, b, toList, time.Since(start))
 	}
 	if verbosity == levelVerbose {
