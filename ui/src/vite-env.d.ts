@@ -7,6 +7,8 @@ interface ImportMetaEnv {
    * are hosted without a server, for example on GitHub Pages.
    */
   readonly VITE_DEFAULT_SOURCE?: string
+  /** Set by the embedded bundle that `agnostic-ai serve` hosts: `?source=` then stays on the page's own origin. */
+  readonly VITE_SERVED?: boolean
 }
 
 interface ImportMeta {
