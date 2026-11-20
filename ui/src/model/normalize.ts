@@ -4,7 +4,8 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationHelper, ConversationRoute, ConversationSource, ConversationsView, ConversationTool, Gap, Improvements, OverviewView, Section, Snapshot, ToolCatalog } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, Conversation, ConversationHelper, ConversationRoute, ConversationSource, ConversationsView, ConversationTool, Gap, Improvements, OverviewView, Section, Snapshot, StuckShell, ToolCatalog } from '../contract'
+import { isConversationProcessRef } from './conversations'
 
 type Loose = Record<string, unknown>
 
@@ -226,6 +227,22 @@ function helpersOf(value: unknown): Conversation['helpers'] {
   }))
 }
 
+function stuckShellsOf(value: unknown): StuckShell[] | undefined {
+  const shells = arr<unknown>(value).flatMap((raw): StuckShell[] => {
+    const shell = obj(raw)
+    const { command, since, helperId, helperName, processCount } = shell
+    if (!isConversationProcessRef(shell) ||
+      typeof since !== 'string' || !Number.isFinite(Date.parse(since)) ||
+      typeof processCount !== 'number' || !Number.isSafeInteger(processCount) || processCount < 1) return []
+    return [{
+      pid: shell.pid, procStart: shell.procStart, since, command: text(command), processCount,
+      ...(typeof helperId === 'string' && helperId ? { helperId } : {}),
+      ...(typeof helperName === 'string' && helperName ? { helperName } : {}),
+    }]
+  })
+  return shells.length > 0 ? shells : undefined
+}
+
 // An activity this client does not know is left out, so the row shows Open now.
 function normalizeConversation(raw: unknown): Conversation {
   const c = obj(raw)
@@ -245,6 +262,7 @@ function normalizeConversation(raw: unknown): Conversation {
     live: c.live === true,
     parent: parentOf(c.parent),
     helpers: helpersOf(c.helpers),
+    stuckShells: c.live === true && c.tool === 'claude' ? stuckShellsOf(c.stuckShells) : undefined,
     open: { ...(route as unknown as ConversationRoute), label: text(route.label) },
   }
 }

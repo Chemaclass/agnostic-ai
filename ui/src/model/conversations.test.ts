@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Conversation, ConversationHelper, ConversationSource, ConversationsView } from '../contract'
+import type { Conversation, ConversationHelper, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
+import { appLabel, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Local times, so the day groups hold in any time zone the tests run in.
@@ -242,6 +242,10 @@ describe('conversation words', () => {
     expect(liveBadge(conversation({}), NOW)).toBeUndefined()
   })
 
+  it('shows the shell warning in place of Working when only the shell is active', () => {
+    expect(liveBadge(conversation({ activity: 'working', state: 'blocked', waiting: { for: 'shell' } }), NOW)).toBeUndefined()
+  })
+
   it('says how long a chat has been silent when its wait is read from that silence, not reported', () => {
     const since = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString()
     expect(liveBadge(conversation({ tool: 'codex', activity: 'waiting', quietSince: since(7) }), NOW)).toEqual({ label: 'No activity for 7m', tone: 'approval', description: 'Open now: nothing written for 7 minutes, so it may be waiting for you' })
@@ -446,5 +450,28 @@ describe('subagents', () => {
     const view = normalizeConversationsView({ conversations: [{ tool: 'claude', app: 'cli', id: 'x', updatedAt: NOW.toISOString(), open: {}, helpers: [{ tool: 'claude', id: 'a', state: 'working', updatedAt: NOW.toISOString() }, { tool: 'gemini', id: 'b' }, { tool: 'codex', id: '' }, 'nope'] }, { tool: 'claude', app: 'cli', id: 'y', updatedAt: NOW.toISOString(), open: {}, helpers: 'nope' }] })
     expect(view.conversations[0].helpers).toEqual([{ tool: 'claude', id: 'a', title: '', state: 'working', updatedAt: NOW.toISOString() }])
     expect(view.conversations[1].helpers).toBeUndefined()
+  })
+})
+
+describe('stuck shells', () => {
+  const shell: StuckShell = { pid: 37, procStart: 'start', since: local(11, 7, 15).toISOString(), command: 'npm run dev', processCount: 2 }
+
+  it('shows the shell age with the helper name when present', () => {
+    expect(shellWarning(shell, NOW)).toBe('Shell running for 1 hour')
+    expect(shellWarning({ ...shell, helperName: 'Faramir', since: local(11, 7, 16).toISOString() }, NOW)).toBe('Faramir left a shell running for 30 minutes')
+  })
+
+  it('keeps a selection only while its process and confirmation details match', () => {
+    expect(selectedStuckShell([shell], { ...shell })).toBe(shell)
+    for (const change of [{ procStart: 'replacement' }, { processCount: 3 }, { command: 'npm run preview' }, { since: NOW.toISOString() }, { helperName: 'Faramir' }]) {
+      expect(selectedStuckShell([{ ...shell, ...change }], shell)).toBeUndefined()
+    }
+    expect(selectedStuckShell([], shell)).toBeUndefined()
+  })
+
+  it('drops malformed process details when reading the view', () => {
+    const bad = [{ ...shell, pid: 0 }, { ...shell, procStart: '' }, { ...shell, processCount: -1 }, { ...shell, since: 'never' }]
+    const view = normalizeConversationsView({ conversations: [{ ...conversation({ live: true }), stuckShells: [...bad, shell] }] })
+    expect(view.conversations[0].stuckShells).toEqual([shell])
   })
 })

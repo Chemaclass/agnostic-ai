@@ -244,6 +244,18 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 
 Run [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) to see the mode and route per tool, and [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) to show every prompt again.
 
+## Conversations {#global-conversations}
+
+Set how long a Claude Code background shell can run before it appears in the [Conversations list and companion](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
+
+```yaml
+# $AGNOSTIC_AI_HOME/agnostic-ai.yaml or $AGNOSTIC_AI_HOME/local/agnostic-ai.yaml
+conversations:
+  stuckShellAfter: 45m
+```
+
+The default is `30m`. Use a nonnegative duration such as `1h30m`, or `0` to turn off the warnings and stop action. Only the home config controls this setting. The local home setting takes precedence over the shared home setting. Restart `agnostic-ai serve` or the companion to use the new value.
+
 ## MCP servers {#global-mcp-servers}
 
 MCP specs in the home's `mcps/` install servers in each supported tool's user MCP file, using the same format as project servers:

@@ -7,8 +7,8 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationTool, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
-import { filterConversations } from './model/conversations'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationStopShellReply, type ConversationStopShellRequest, type ConversationTool, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
+import { filterConversations, isConversationProcessRef } from './model/conversations'
 import { normalizeContextView, normalizeConversationsView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
@@ -194,6 +194,23 @@ export async function openConversation(request: ConversationOpenRequest): Promis
   const reply = parseOpenReply(body)
   if (!reply) return { kind: 'failed', message: 'The server answered without an opened flag and a message.' }
   return { kind: 'reply', reply }
+}
+
+export async function stopConversationShell(request: ConversationStopShellRequest): Promise<ConversationStopShellReply> {
+  let res: Response
+  try {
+    res = await fetch(API.conversationStopShell, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+  } catch {
+    throw new Error('Could not reach the server to stop the shell.')
+  }
+  if (!res.ok) throw new Error(await readError(res) || `The server answered ${res.status}.`)
+  const body: unknown = await res.json().catch(() => undefined)
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const { stillRunning } = body as Record<string, unknown>
+    if (stillRunning === undefined) return {}
+    if (Array.isArray(stillRunning) && stillRunning.every(isConversationProcessRef)) return { stillRunning }
+  }
+  throw new Error('The server sent an unreadable reply. Check the shell before retrying.')
 }
 
 /** One listed file's content from the running server. */

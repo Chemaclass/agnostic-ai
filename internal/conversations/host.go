@@ -16,7 +16,7 @@ import (
 
 // ProcessInfo is one row of the process table.
 type ProcessInfo struct {
-	PID, PPID int
+	PID, PPID, PGID int
 	// Stat is the ps state; a "+" marks the tty's foreground group.
 	Stat string
 	// TTY is the terminal device, such as /dev/ttys004; empty for none.
@@ -30,22 +30,23 @@ type ProcessInfo struct {
 // lstartLayout reads ps lstart in the C locale.
 const lstartLayout = "Mon Jan _2 15:04:05 2006"
 
-// parseProcessTable reads `ps -axo pid=,ppid=,stat=,tty=,lstart=,comm=`.
+// parseProcessTable reads `ps -axo pid=,ppid=,pgid=,stat=,tty=,lstart=,comm=`.
 // lstart is five fields, and comm, last, may hold spaces.
 func parseProcessTable(out string) []ProcessInfo {
 	var table []ProcessInfo
 	for _, line := range strings.Split(out, "\n") {
 		fields := strings.Fields(line)
-		if len(fields) < 10 {
+		if len(fields) < 11 {
 			continue
 		}
 		pid, pidErr := strconv.Atoi(fields[0])
 		ppid, ppidErr := strconv.Atoi(fields[1])
-		if pidErr != nil || ppidErr != nil {
+		pgid, pgidErr := strconv.Atoi(fields[2])
+		if pidErr != nil || ppidErr != nil || pgidErr != nil {
 			continue
 		}
 		rest := line
-		for range 4 {
+		for range 5 {
 			rest = strings.TrimLeft(rest, " ")
 			rest = rest[strings.IndexByte(rest, ' '):]
 		}
@@ -57,13 +58,13 @@ func parseProcessTable(out string) []ProcessInfo {
 		if _, err := time.Parse(lstartLayout, started); err != nil {
 			continue
 		}
-		tty := fields[3]
+		tty := fields[4]
 		if tty == "??" || tty == "?" || tty == "-" {
 			tty = ""
 		} else {
 			tty = "/dev/" + strings.TrimPrefix(tty, "/dev/")
 		}
-		table = append(table, ProcessInfo{PID: pid, PPID: ppid, Stat: fields[2], TTY: tty, Started: started, Command: strings.TrimSpace(rest[len(lstartLayout):])})
+		table = append(table, ProcessInfo{PID: pid, PPID: ppid, PGID: pgid, Stat: fields[3], TTY: tty, Started: started, Command: strings.TrimSpace(rest[len(lstartLayout):])})
 	}
 	return table
 }
@@ -404,7 +405,7 @@ func isClaudePTYHostArgs(args string) bool {
 // session resumes in a new tab there, as does claude attach for a
 // Claude Code background session. A Codex thread the app-server daemon
 // holds shows in a terminal client, which is looked for.
-func (s *Scanner) placeLive(results []sourceResult) {
+func (s *Scanner) placeLive(results []sourceResult, readTable func() ([]ProcessInfo, error)) {
 	var live, liveHelpers []*Conversation
 	var threads []threadStart
 	for r := range results {
@@ -426,7 +427,7 @@ func (s *Scanner) placeLive(results []sourceResult) {
 	}
 	tabs := s.rememberedTabs()
 	if len(live) > 0 || len(liveHelpers) > 0 {
-		if table, err := s.Processes.Table(); err == nil {
+		if table, err := readTable(); err == nil {
 			seen := map[string]terminalHost{}
 			clients := newCodexClients(table, threads, s.Processes)
 			for _, c := range live {

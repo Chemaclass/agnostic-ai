@@ -16,6 +16,8 @@ delete-an-archived-chat = "@/docs/cli-reference/companion-list.md"
 
 A small circle that floats over every app and counts the Claude Code, Codex and Cursor conversations that wait for you. Click it for a searchable list: see [Companion list](@/docs/cli-reference/companion-list.md).
 
+Use the row menu to [stop a forgotten Claude Code shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
+
 <span id="companion" hidden></span>
 
 ## Install and start {#install}

@@ -1,5 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel } from '/api.js'
+import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopShell } from '/api.js'
+import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf } from '/model.js'
 
 const card = document.getElementById('card')
@@ -271,6 +272,12 @@ function rowOf(conversation, order, folderNames, under) {
   text.append(meta)
   const subagents = subagentsLine(conversation, key)
   if (subagents) text.append(subagents)
+  for (const shell of stuckShellsOf(conversation)) {
+    const warning = shellWarningOf(shell, now)
+    const line = element('div', 'shell-warning', warning)
+    line.title = warning
+    text.append(line)
+  }
   const approved = approvedLine(conversation, key)
   if (approved) text.append(approved)
 
@@ -574,8 +581,9 @@ function draw({ force } = { force: false }) {
   // The quiet notes go in too: a silent chat's "No activity for 7m" tooltip changes with no new row data.
   const now = Date.now()
   const reasons = view.conversations.map((conversation) => quietNoteOf(conversation, now))
+  const shellAges = view.conversations.flatMap((conversation) => stuckShellsOf(conversation).map((shell) => ago(shell.since, now)))
   const stillSearching = state.query !== '' && state.readingOlder === state.query
-  const signature = JSON.stringify([view.conversations, reasons, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
+  const signature = JSON.stringify([view.conversations, reasons, shellAges, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
@@ -769,6 +777,7 @@ function show(reply, problem) {
   draw()
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
+  keepStopShellCurrent()
 }
 
 /**
@@ -1162,7 +1171,13 @@ async function completeRow(conversation, row, button) {
 
 const rowMenu = document.getElementById('row-menu')
 const renameItem = document.getElementById('rename')
-const menuItems = { read: document.getElementById('mark-read'), rename: renameItem, delete: document.getElementById('delete'), web: document.getElementById('open-web') }
+const menuItems = {
+  read: document.getElementById('mark-read'),
+  rename: renameItem,
+  delete: document.getElementById('delete'),
+  web: document.getElementById('open-web'),
+  'stop-shell': document.getElementById('stop-shell'),
+}
 /** The conversation the row menu was opened on. */
 let rowMenuFor
 
@@ -1303,14 +1318,15 @@ rowMenu.addEventListener('keydown', (event) => {
   items[(at + step + items.length) % items.length].focus()
 })
 
-/** A question keeps the keys: Tab goes round its buttons. */
+/** A question keeps the keys: Tab goes round its controls. */
 function holdTab(dialog) {
   dialog.addEventListener('keydown', (event) => {
     if (event.key !== 'Tab') return
     event.preventDefault()
-    const buttons = [...dialog.querySelectorAll('button:not(:disabled)')]
-    const at = buttons.indexOf(document.activeElement)
-    buttons[(at + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus()
+    const controls = [...dialog.querySelectorAll(':is(button, select):not(:disabled, [hidden])')]
+    const at = controls.indexOf(document.activeElement)
+    const next = event.shiftKey ? (at <= 0 ? controls.length - 1 : at - 1) : (at + 1) % controls.length
+    controls[next]?.focus()
   })
 }
 
@@ -1416,6 +1432,110 @@ deleteGo.addEventListener('click', async () => {
   if (problem) showOpenFailure({ message: message + ' ' + problem }, NOTICES.notTidied)
   else say(message)
   await afterChange(version)
+})
+
+const stopShellDialog = document.getElementById('stop-shell-dialog')
+const stopShellChoice = document.getElementById('stop-shell-choice')
+const stopShellCommand = document.getElementById('stop-shell-command')
+const stopShellDetails = document.getElementById('stop-shell-details')
+const stopShellCancel = document.getElementById('stop-shell-cancel')
+const stopShellGo = document.getElementById('stop-shell-go')
+let stopShellFor
+let stoppingShell = false
+
+menuItems['stop-shell'].addEventListener('click', () => {
+  const conversation = rowMenuTarget('stop-shell')
+  closeRowMenu()
+  queryInput.focus()
+  if (!conversation || stoppingShell) return
+  const shells = stuckShellsOf(conversation)
+  const now = Date.now()
+  stopShellFor = { conversation, shells }
+  stopShellChoice.replaceChildren(new Option('Choose a shell', ''))
+  shells.forEach((shell, index) => {
+    stopShellChoice.add(new Option(shellWarningOf(shell, now) + ' (PID ' + shell.pid + ')', String(index)))
+  })
+  stopShellChoice.hidden = shells.length === 1
+  showShellChoice(shells.length === 1 ? shells[0] : undefined)
+  stopShellDialog.hidden = false
+  stopShellCancel.focus()
+})
+
+function showShellChoice(shell) {
+  stopShellFor.selected = shell
+  stopShellCommand.hidden = !shell
+  stopShellCommand.textContent = shell ? shellCommandOf(shell) : ''
+  stopShellDetails.hidden = !shell
+  stopShellDetails.textContent = shell ? stopShellDetailsOf(shell, Date.now()) : ''
+  stopShellGo.disabled = !shell
+}
+
+function closeStopShell() {
+  stopShellDialog.hidden = true
+  stopShellFor = undefined
+  queryInput.focus()
+}
+
+function stopShellRow() {
+  const key = keyOf(stopShellFor.conversation)
+  return shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
+}
+
+function shellChanged() {
+  closeStopShell()
+  showOpenFailure({ message: 'The shell changed. Check the list and choose it again.' }, NOTICES.shellNotStopped)
+}
+
+function keepStopShellCurrent() {
+  if (!stopShellFor || stoppingShell) return
+  const row = stopShellRow()
+  const { selected, shells } = stopShellFor
+  if (selected ? currentShellOf(row, selected) : shells.some((shell) => currentShellOf(row, shell))) return
+  shellChanged()
+}
+
+stopShellChoice.addEventListener('change', () => {
+  if (!stopShellFor) return
+  const choice = stopShellChoice.value
+  const shell = choice === '' ? undefined : stopShellFor.shells[Number(choice)]
+  if (shell && !currentShellOf(stopShellRow(), shell)) {
+    shellChanged()
+    return
+  }
+  showShellChoice(shell)
+})
+stopShellCancel.addEventListener('click', closeStopShell)
+document.addEventListener('mousedown', (event) => {
+  if (!stopShellDialog.hidden && !stopShellDialog.contains(event.target)) closeStopShell()
+})
+holdTab(stopShellDialog)
+stopShellGo.addEventListener('click', async () => {
+  if (!stopShellFor?.selected || stoppingShell) return
+  const { conversation, selected } = stopShellFor
+  if (!currentShellOf(stopShellRow(), selected)) {
+    shellChanged()
+    return
+  }
+  stoppingShell = true
+  stopShellGo.disabled = true
+  stopShellChoice.disabled = true
+  let result
+  try {
+    result = await stopShell(conversation, selected)
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+    showOpenFailure({ message: error.message }, NOTICES.shellNotStopped)
+  } finally {
+    stoppingShell = false
+    stopShellChoice.disabled = false
+    if (stopShellFor) closeStopShell()
+  }
+  if (result) {
+    const message = stoppedShellOf(result.body)
+    if (result.body.stillRunning?.length) showOpenFailure({ message }, NOTICES.shellProcessesLeft)
+    else say(message)
+  }
+  await afterChange(result?.version)
 })
 
 /** A Mark all run is on its way, so another press does nothing. Each mark redraws the list, so the button cannot hold this. */
@@ -1635,6 +1755,7 @@ document.addEventListener('keydown', (event) => {
     const closes = {
       'quit-confirm': closeQuitConfirm,
       'delete-confirm': closeDeleteConfirm,
+      'stop-shell': closeStopShell,
       'row-menu': closeRowMenu,
       rename: escapeRename,
       settings: () => {
@@ -1647,11 +1768,11 @@ document.addEventListener('keydown', (event) => {
       },
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined })]()
+    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined })]()
     return
   }
-  // The open row menu, the delete confirmation and the quit question take Enter and Space on their own buttons.
-  if (!rowMenu.hidden || !deleteConfirm.hidden || !quitConfirm.hidden || state.renaming) return
+  // Menus and confirmations handle Enter and Space on their own controls.
+  if (!rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !quitConfirm.hidden || state.renaming) return
   if (togglesPick(event, isMac) && settings.recording === undefined) {
     event.preventDefault()
     togglePick()
@@ -1710,6 +1831,8 @@ function opened(from) {
   closeRowMenu()
   deleteConfirm.hidden = true
   deleteFor = undefined
+  stopShellDialog.hidden = true
+  stopShellFor = undefined
   quitConfirm.hidden = true
   state.renaming = undefined
   if (!state.returning) {
