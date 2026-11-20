@@ -71,6 +71,15 @@ func editNativeModel(t *testing.T, file, key, value string) {
 // hasBlock reports whether got holds the `model:` block in want. The Codex
 // importer rewrites a changed spec with sorted keys and four-space
 // indents, so each block is compared by its sorted entries.
+// peerModelLine is the map entry the target sharing target's native
+// agent file gets with it, or "" when no target shares it.
+func peerModelLine(target, model string) string {
+	if peer, ok := sharedAgentFileTargets[target]; ok {
+		return "  " + peer + ": " + model + "\n"
+	}
+	return ""
+}
+
 func hasBlock(got, want string) bool {
 	return strings.Contains(sortBlocks(got), sortBlocks(want))
 }
@@ -106,7 +115,7 @@ func TestImportAgents_ReimportUpdatesOnlyTheTargetsModelEntry(t *testing.T) {
 			editNativeModel(t, tc.file, tc.key, "m-new")
 
 			got := reimportModelMap(t, tc.target)
-			want := fmt.Sprintf("model:\n  %s: m-new\n  zed: low\n  default: m-two\n", tc.target)
+			want := fmt.Sprintf("model:\n  %s: m-new\n  zed: low\n  default: m-two\n%s", tc.target, peerModelLine(tc.target, "m-new"))
 			if !hasBlock(got, want) {
 				t.Errorf("only %s's entry should change:\n%s", tc.target, got)
 			}
@@ -135,7 +144,7 @@ func TestImportAgents_ReimportAddsATargetModelEntryWhenTheValueDiffersFromDefaul
 			editNativeModel(t, tc.file, tc.key, "m-new")
 
 			got := reimportModelMap(t, tc.target)
-			want := fmt.Sprintf("model:\n  zed: low\n  default: m-one\n  %s: m-new\n", tc.target)
+			want := fmt.Sprintf("model:\n  zed: low\n  default: m-one\n  %s: m-new\n%s", tc.target, peerModelLine(tc.target, "m-new"))
 			if !hasBlock(got, want) {
 				t.Errorf("a new entry for %s expected:\n%s", tc.target, got)
 			}
@@ -264,7 +273,7 @@ func TestImportAgents_ReimportWritesTheNativeModelNotTheTierForAChangedTarget(t 
 			editNativeModel(t, tc.file, tc.key, "m-new")
 
 			got := reimportModelMap(t, tc.target)
-			want := fmt.Sprintf("model:\n  zed: low\n  default: strong\n  %s: m-new\n", tc.target)
+			want := fmt.Sprintf("model:\n  zed: low\n  default: strong\n  %s: m-new\n%s", tc.target, peerModelLine(tc.target, "m-new"))
 			if !hasBlock(got, want) {
 				t.Errorf("the entry holds the native name and the tier stays the default:\n%s", got)
 			}

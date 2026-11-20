@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -10,34 +11,50 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestScopeNewImportedModel(t *testing.T) {
+func TestReconcileImportedModel(t *testing.T) {
 	cases := []struct {
-		name, source, file, existing, model, want string
+		name, source, file, existing, native, want string
+		holds                                      bool
 	}{
-		{"vendor model", "copilot", "rev.md", "", "gpt-4", "model: {copilot: gpt-4}\n"},
-		{"shared agent file", "goose", "rev.md", "", "gpt-4", "model: {goose: gpt-4, openhands: gpt-4}\n"},
-		{"existing spec without a model", "copilot", "rev.md", "---\nname: rev\n---\n\nBody.\n", "gpt-4", "model: {copilot: gpt-4}\n"},
-		{"existing scalar keeps its shape", "copilot", "rev.md", "---\nname: rev\nmodel: gpt-3\n---\n\nBody.\n", "gpt-4", "model: gpt-4\n"},
-		{"inherit stays portable", "copilot", "rev.md", "", "inherit", "model: inherit\n"},
-		{"tier stays portable", "copilot", "rev.md", "", "fast", "model: fast\n"},
-		{"skills stay as written", "codex", "SKILL.md", "", "sonnet", "model: sonnet\n"},
-		{"claude scopes its own names", "claude", "rev.md", "", "gpt-4", "model: gpt-4\n"},
-		{"no source", "", "rev.md", "", "gpt-4", "model: gpt-4\n"},
+		{"new vendor model", "copilot", "rev.md", "", "model: gpt-4\n", "model: {copilot: gpt-4}\n", true},
+		{"new shared agent file", "goose", "rev.md", "", "model: gpt-4\n", "model: {goose: gpt-4, openhands: gpt-4}\n", true},
+		{"spec without a model", "copilot", "rev.md", "---\nname: rev\n---\n", "model: gpt-4\n", "model: {copilot: gpt-4}\n", true},
+		{"scalar only this tool reads", "copilot", "rev.md", "---\nname: rev\nmodel: gpt-3\n---\n", "model: gpt-4\n", "model: gpt-4\n", true},
+		{"scalar other tools read", "opencode", "rev.md", "---\nname: rev\nmodel: sonnet\n---\n", "model: gpt-5\n", "model: {default: sonnet, opencode: gpt-5}\n", true},
+		{"scalar sync already gives", "opencode", "rev.md", "---\nname: rev\nmodel: sonnet\n---\n", "model: sonnet\n", "model: sonnet\n", true},
+		{"tier sync resolves the same", "opencode", "rev.md", "---\nname: rev\nmodel: fast\n---\n", "model: gpt-5-mini\n", "model: fast\n", true},
+		{"map sets only the tool's entry", "opencode", "rev.md", "---\nname: rev\nmodel: {default: sonnet, junie: j}\n---\n", "model: gpt-5\n", "model: {default: sonnet, junie: j, opencode: gpt-5}\n", true},
+		{"map sets both shared entries", "goose", "rev.md", "---\nname: rev\nmodel: {goose: a, openhands: a}\n---\n", "model: b\n", "model: {goose: b, openhands: b}\n", true},
+		{"body-only edit where the format holds no model", "trae", "rev.md", "---\nname: rev\nmodel: {default: sonnet, trae: foo}\n---\n", "", "model: {default: sonnet, trae: foo}\n", false},
+		{"deleted model drops the tool's entry", "opencode", "rev.md", "---\nname: rev\nmodel: {junie: j, opencode: o}\n---\n", "", "model: {junie: j}\n", true},
+		{"inherit stays portable", "copilot", "rev.md", "", "model: inherit\n", "model: inherit\n", true},
+		{"claude scopes only its own names", "claude", "rev.md", "", "model: gpt-4\n", "model: gpt-4\n", true},
+		{"skills stay as written", "codex", "SKILL.md", "", "model: sonnet\n", "model: sonnet\n", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			priorTarget, priorCfg := importScopeTarget, importHookConfig
 			t.Cleanup(func() { importScopeTarget, importHookConfig = priorTarget, priorCfg })
 			importScopeTarget = c.source
-			importHookConfig = &config.Config{Targets: []string{"goose", "openhands", "copilot"}, Models: map[string]config.ModelTier{"fast": {}}}
+			importHookConfig = &config.Config{
+				Targets: []string{"claude", c.source},
+				Models:  map[string]config.ModelTier{"fast": {Models: map[string]string{"opencode": "gpt-5-mini", "default": "sonnet"}}},
+			}
+			if c.name == "scalar only this tool reads" {
+				importHookConfig.Targets = []string{c.source}
+			}
 			var existing []byte
 			if c.existing != "" {
 				existing = []byte(c.existing)
 			}
-
-			got := string(scopeNewImportedModel(existing, filepath.Join("x", c.file), []byte("---\nname: rev\nmodel: "+c.model+"\n---\n\nBody.\n")))
-			if want := "---\nname: rev\n" + c.want + "---\n\nBody.\n"; got != want {
-				t.Errorf("got:\n%s\nwant:\n%s", got, want)
+			got, err := reconcileImportedModel(existing, []byte("---\nname: rev\n"+c.native+"---\n"), filepath.Join("x", c.file), c.holds)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, gotMeta := claudeFrontmatter(string(got))
+			_, _, wantMeta := claudeFrontmatter("---\nname: rev\n" + c.want + "---\n")
+			if !reflect.DeepEqual(gotMeta, wantMeta) {
+				t.Errorf("got:\n%s\nwant:\n%s", got, c.want)
 			}
 		})
 	}

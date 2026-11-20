@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"maps"
 	"os"
-	"path/filepath"
 	"reflect"
 	"slices"
 
@@ -47,7 +46,10 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		importPendingKeptNote, importNativeSource = "", ""
-		return importWriteFile(path, scopeNewImportedModel(nil, path, data), mode)
+		if data, err = reconcileImportedModel(nil, data, path, importedHasKey(data, "model")); err != nil {
+			return fmt.Errorf("merge %s: %w", path, err)
+		}
+		return importWriteFile(path, data, mode)
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
@@ -64,13 +66,12 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
-	for _, key := range []string{"effort", "model"} {
-		shown := fields.expresses(key) || key == "model" && importedHasKey(data, key)
-		if data, err = reconcileTargetMap(existing, data, key, importModelTargets(importScopeTarget), shown); err != nil {
-			return fmt.Errorf("merge %s: %w", path, err)
-		}
+	if data, err = reconcileTargetMap(existing, data, "effort", importModelTargets(importScopeTarget), fields.expresses("effort")); err != nil {
+		return fmt.Errorf("merge %s: %w", path, err)
 	}
-	data = scopeNewImportedModel(existing, path, data)
+	if data, err = reconcileImportedModel(existing, data, path, fields.expresses("model") || importedHasKey(data, "model")); err != nil {
+		return fmt.Errorf("merge %s: %w", path, err)
+	}
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err
 	}
@@ -249,99 +250,6 @@ func detachImportOverride(node *yaml.Node) *yaml.Node {
 		detached.Content[i] = detachImportOverride(child)
 	}
 	return &detached
-}
-
-// sharedAgentFileTargets lists, for an import source, every target that
-// writes the same native agent file. A model scoped to only one of them
-// would make the shared file differ between them.
-var sharedAgentFileTargets = map[string][]string{
-	"goose":     {"openhands"},
-	"openhands": {"goose"},
-}
-
-// scopeNewImportedModel scopes the model of an imported agent or command
-// to the tool it came from, so other targets keep their own default
-// instead of a model name from another vendor. existing is the spec
-// already on disk, nil when there is none; a model it already sets keeps
-// its shape. Skills are left alone: most tools write no skill model, so
-// a scoped one would reach no tool. `inherit` and a tier name are
-// portable and stay as written. Claude's importer scopes its own names.
-func scopeNewImportedModel(existing []byte, path string, data []byte) []byte {
-	source := importScopeTarget
-	if source == "" || source == "claude" || filepath.Base(path) == "SKILL.md" {
-		return data
-	}
-	if existing != nil {
-		if _, _, meta := claudeFrontmatter(string(existing)); meta != nil {
-			if _, set := meta["model"]; set {
-				return data
-			}
-		}
-	}
-	return []byte(scopeTopLevelModel(string(data), importModelTargets(source), scopableModel))
-}
-
-// importModelTargets lists the targets an import from source sets a
-// per-target value for: source itself, plus each configured target that
-// writes the same native file.
-func importModelTargets(source string) []string {
-	targets := []string{source}
-	for _, other := range sharedAgentFileTargets[source] {
-		if other != source && importHookConfig != nil && slices.Contains(importHookConfig.Targets, other) {
-			targets = append(targets, other)
-		}
-	}
-	return targets
-}
-
-// scopableModel reports whether an imported model is a vendor name.
-// `inherit` and a tier name are portable.
-func scopableModel(model string) bool {
-	if model == "inherit" {
-		return false
-	}
-	if importHookConfig != nil {
-		if _, tier := importHookConfig.Models[model]; tier {
-			return false
-		}
-	}
-	return true
-}
-
-// scopeCopiedModel is scopeNewImportedModel for a spec an importer
-// replaces whole, such as a command copied from markdown. When the spec
-// already holds a per-target model, only the source's entries change. A
-// shared scalar that differs from the imported model becomes the map's
-// `default`, so the tools that read it keep it.
-func scopeCopiedModel(existing []byte, path string, data []byte) ([]byte, error) {
-	source := importScopeTarget
-	if existing == nil || source == "" || source == "claude" || filepath.Base(path) == "SKILL.md" {
-		return scopeNewImportedModel(existing, path, data), nil
-	}
-	existingMap, _, ok := frontmatterNode(existing)
-	if !ok || mappingValue(existingMap, "model") == nil {
-		return scopeNewImportedModel(existing, path, data), nil
-	}
-	current := mappingValue(existingMap, "model")
-	if current.Kind == yaml.MappingNode {
-		return reconcileTargetMap(existing, data, "model", importModelTargets(source), true)
-	}
-	importedMap, rest, ok := frontmatterNode(data)
-	if !ok {
-		return data, nil
-	}
-	imported := mappingValue(importedMap, "model")
-	if current.Kind != yaml.ScalarNode || imported == nil || imported.Kind != yaml.ScalarNode ||
-		imported.Value == current.Value || !scopableModel(imported.Value) {
-		return data, nil
-	}
-	perTarget := &yaml.Node{Kind: yaml.MappingNode, Style: yaml.FlowStyle}
-	perTarget.Content = append(perTarget.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "default"}, current)
-	for _, target := range importModelTargets(source) {
-		perTarget.Content = append(perTarget.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: target}, imported)
-	}
-	setOrDropKey(importedMap, "model", perTarget)
-	return encodeFrontmatter(importedMap, rest, source)
 }
 
 // addsOnlyOwnModelEntries reports whether data differs from existing only

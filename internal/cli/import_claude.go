@@ -544,7 +544,7 @@ func copyMarkdownFile(src, dst string) error {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", dst, err)
 	}
-	if out, err = scopeCopiedModel(existing, dst, out); err != nil {
+	if out, err = reconcileImportedModel(existing, out, dst, importedHasKey(out, "model") || commandFormatsWithModel[importScopeTarget]); err != nil {
 		return fmt.Errorf("scope model in %s: %w", dst, err)
 	}
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
