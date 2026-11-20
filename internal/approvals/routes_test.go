@@ -44,18 +44,22 @@ func TestRoutes_ClaudeAndCodexHaveTheHook(t *testing.T) {
 		if m := r.Mechanism("yolo", "darwin"); m == nil || m.Name != approvals.MechanismPermissionHook {
 			t.Errorf("%s yolo = %+v, want the permission hook", target, m)
 		}
-		if r.Mechanism("review", "linux") != nil {
-			t.Errorf("%s review has a route before its slice lands", target)
+		if m := r.Mechanism("review", "linux"); m == nil || !strings.Contains(m.Name, "auto") && !strings.Contains(m.Name, "Auto") {
+			t.Errorf("%s review = %+v, want the native reviewer", target, m)
 		}
 	}
 }
 
-func TestRoutes_WindowsFallsBack(t *testing.T) {
+func TestRoutes_WindowsFallsBackForTheHook(t *testing.T) {
 	for _, r := range approvals.Routes() {
-		for _, mode := range []string{"yolo", "review"} {
-			if r.Mechanism(mode, "windows") != nil || r.FallbackReason(mode, "windows") != approvals.WindowsReason {
-				t.Errorf("%s %s on Windows = %q, want %q", r.Target, mode, r.FallbackReason(mode, "windows"), approvals.WindowsReason)
-			}
+		if r.Mechanism("yolo", "windows") != nil {
+			t.Errorf("%s yolo has a route on Windows", r.Target)
+		}
+		if r.Yolo != nil && r.FallbackReason("yolo", "windows") != approvals.WindowsReason {
+			t.Errorf("%s yolo on Windows = %q, want %q", r.Target, r.FallbackReason("yolo", "windows"), approvals.WindowsReason)
+		}
+		if r.Review != nil && r.Mechanism("review", "windows") != r.Review {
+			t.Errorf("%s review: a native reviewer key works on Windows too", r.Target)
 		}
 	}
 }

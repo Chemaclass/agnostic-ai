@@ -50,7 +50,7 @@ Two steps happen in the tools:
 
 `yolo` approves one call at a time when no always-ask rule matches. Each approval covers that call only; the hook never saves a rule, never changes the tool's mode and never rewrites the call. The hook took about 11 ms per prompt in our test on macOS; its real cost is the gate's limits above.
 
-`review` hands routine prompts to the tool's own reviewer model. No tool carries it out yet, so `review` behaves as `ask`. In `review` the hook prints nothing.
+`review` hands routine prompts to the tool's own reviewer model: Claude Code auto mode or Codex Auto-review, which `sync --global` turns on in the tool's user settings ([details](@/docs/global-configuration-reference.md#global-approvals-review)). Each review costs the tool's own model calls. In `review` the hook prints nothing, so Codex's reviewer answers instead of the hook.
 
 ## Settings
 
@@ -107,7 +107,7 @@ Each works on the next request, with no sync and no restart:
 2. `AGNOSTIC_AI_APPROVALS=ask` in a session's environment.
 3. `approvals.mode: ask` in a project's `agnostic-ai.yaml`.
 
-To remove the hooks, drop `approvals` from `builtins` and run `sync --global`.
+To remove the hooks, drop `approvals` from `builtins` and run `sync --global`. A native reviewer that `review` turned on stays in the tool's user settings until the next `sync --global`, and a running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code).
 
 ## The decision log
 
@@ -128,8 +128,8 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 
 | Tool | `review` | `yolo` | Needs |
 |---|---|---|---|
-| Claude Code (`claude`) | asks | PermissionRequest hook | Claude Code 2.0.45 or newer; accept the workspace trust dialog |
-| Codex (`codex`) | asks | PermissionRequest hook | Trust the hook in `/hooks` |
+| Claude Code (`claude`) | Claude Code auto mode | PermissionRequest hook | Claude Code 2.0.45 or newer; accept the workspace trust dialog |
+| Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
 | Every other tool | asks | asks | |
 
-On Windows every tool asks: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.
+On Windows `yolo` asks in every tool: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.

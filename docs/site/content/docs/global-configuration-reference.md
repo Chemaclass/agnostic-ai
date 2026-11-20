@@ -212,7 +212,23 @@ approvals:
 - A `projects` key is an absolute path or one under `~`, the home folder. The deepest folder that holds the session wins; links are resolved, and on macOS and Windows case is ignored. Two keys for one folder take the stricter mode.
 - The strictest source wins, in this order: `AGNOSTIC_AI_APPROVALS=ask` in the session's environment, a project file that says `ask`, `projects`, `tools`, `mode`. Any value of the environment variable means `ask`: it can only tighten.
 - A config without `approvals` behaves as `ask`. `$AGNOSTIC_AI_HOME` must be an absolute path for approvals to read it.
-- Claude Code and Codex carry out `yolo` through a hook that `builtins: [approvals]` and `sync --global` install; no tool carries out `review` yet. [Approvals](@/docs/approvals.md) covers setup, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) shows which tools fall back to `ask`.
+- Only Claude Code and Codex carry out `review` and `yolo`: `review` through their own reviewer, below, and `yolo` through a hook that `builtins: [approvals]` and `sync --global` install ([Approvals](@/docs/approvals.md)). Every other tool falls back to `ask`, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) says so.
+
+### Review through the tool's own reviewer {#global-approvals-review}
+
+When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `sync --global` turns on the tool's own reviewer in its user settings:
+
+| Tool | Reviewer | Key `sync --global` writes |
+|---|---|---|
+| Claude Code | [Auto mode](https://code.claude.com/docs/en/permission-modes) | `permissions.defaultMode: "auto"` in `~/.claude/settings.json` |
+| Codex | [Auto-review](https://learn.chatgpt.com/docs/agent-approvals-security) | `approvals_reviewer = "auto_review"` in `~/.codex/config.toml` |
+
+- A home settings spec that sets the same key wins: `permissions.default-mode` for Claude Code, `x-codex.approvals_reviewer` for Codex. A value set outside agnostic-ai stays as it is, and `sync --global` warns that the reviewer stays off.
+- Remove `review` and run `sync --global` again, and the key goes. [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) alone does not remove it.
+- The key sits in a user file, so it applies in every folder. A `projects` entry or `AGNOSTIC_AI_APPROVALS=ask` cannot turn the reviewer off for one folder or session; `approvals status` notes it there. A project sync never writes either key.
+- Codex Auto-review answers only prompts Codex would show. With `approval_policy = "never"` there are none, so the reviewer never runs; `approvals status` says so when `~/.codex/config.toml` sets it. It does not read a trusted project's `.codex/config.toml`, which can set either key too.
+- A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code). A new session reads the new settings.
+- agnostic-ai logs no decision the reviewer makes. Each tool keeps its own record, and each review costs the tool's own model calls.
 
 Run [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) to see the mode and route per tool, and [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) to show every prompt again.
 

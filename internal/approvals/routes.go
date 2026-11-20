@@ -28,23 +28,24 @@ type Route struct {
 	MinVersion string `json:"min_version,omitempty"`
 }
 
-// WindowsReason is why every route falls back to ask on Windows: the
+// WindowsReason is why a hook route falls back to ask on Windows: the
 // built-in hook has no Windows command yet.
 const WindowsReason = "Windows"
 
 // Mechanism returns the route for mode on goos, or nil when the mode
 // falls back to ask there.
 func (r Route) Mechanism(mode, goos string) *Mechanism {
-	if goos == "windows" {
-		return nil
-	}
+	var m *Mechanism
 	switch mode {
 	case ModeYolo:
-		return r.Yolo
+		m = r.Yolo
 	case ModeReview:
-		return r.Review
+		m = r.Review
 	}
-	return nil
+	if m != nil && goos == "windows" && m.Name == MechanismPermissionHook {
+		return nil
+	}
+	return m
 }
 
 // FallbackReason is why mode falls back to ask on goos, or "" when the
@@ -53,11 +54,11 @@ func (r Route) FallbackReason(mode, goos string) string {
 	if mode != ModeYolo && mode != ModeReview {
 		return ""
 	}
-	if goos == "windows" {
-		return WindowsReason
-	}
 	if r.Mechanism(mode, goos) != nil {
 		return ""
+	}
+	if goos == "windows" && (mode == ModeYolo && r.Yolo != nil || mode == ModeReview && r.Review != nil) {
+		return WindowsReason
 	}
 	return r.Reason
 }
@@ -87,17 +88,25 @@ var routes = []Route{
 	{Target: "amp", Reason: "does not ask before running tools by default"},
 	{Target: "antigravity", Reason: reasonNotBuilt},
 	{Target: "augment", Reason: reasonAllowDeny},
-	{Target: "claude", MinVersion: "2.0.45", Reason: reasonNotBuilt, Yolo: &Mechanism{
+	{Target: "claude", MinVersion: "2.0.45", Yolo: &Mechanism{
 		Name:     MechanismPermissionHook,
 		File:     "~/.claude/settings.json",
 		Evidence: "https://code.claude.com/docs/en/hooks.md",
+	}, Review: &Mechanism{
+		Name:     "Claude Code auto mode",
+		File:     "~/.claude/settings.json",
+		Evidence: "https://code.claude.com/docs/en/permission-modes.md",
 	}},
 	{Target: "cline", Reason: reasonNoRoute},
 	{Target: "codebuddy", Reason: reasonNotBuilt},
-	{Target: "codex", Reason: reasonNotBuilt, Yolo: &Mechanism{
+	{Target: "codex", Yolo: &Mechanism{
 		Name:     MechanismPermissionHook,
 		File:     "~/.codex/hooks.json",
 		Evidence: "https://learn.chatgpt.com/docs/hooks.md",
+	}, Review: &Mechanism{
+		Name:     "Codex Auto-review",
+		File:     "~/.codex/config.toml",
+		Evidence: "https://learn.chatgpt.com/docs/agent-approvals-security.md",
 	}},
 	{Target: "continue", Reason: "no documented hook surface"},
 	{Target: "copilot", Reason: reasonDenyRules},

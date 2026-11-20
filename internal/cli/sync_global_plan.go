@@ -18,6 +18,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -36,6 +37,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 		}
 	}
 	p := newGlobalPlan(home, source, platform, targets, intro, b, old, agentErr, warn, onUnsupported)
+	if err := p.loadPlanApprovals(); err != nil {
+		return nil, globalState{}, err
+	}
 	p.carryOverState()
 	p.sweepOwnedSurfaces()
 	if err := p.eachTarget(p.planAgents, p.planInstructions, p.planRules, p.planSkills, p.planHookFiles, p.planJSONHooks); err != nil {
@@ -76,6 +80,8 @@ type globalPlan struct {
 	warn          io.Writer
 	onUnsupported string
 	agentErr      func(string, error) error
+	// approvals is the home approvals block, which picks native reviewers.
+	approvals config.ApprovalsConfig
 	// body is the instructions text; managed wraps it in the global block.
 	body, managed string
 }
@@ -675,6 +681,10 @@ func (p *globalPlan) planSettings(target string, g globalTarget) error {
 		previousRules = nil
 		originals = nil
 		parents = jsonParents{}
+	}
+	want, err := p.approvalsReviewSetting(target, path, g.settings.format, want, previous)
+	if err != nil {
+		return err
 	}
 	m, originals, err := mergeGlobalPersonal(path, g.settings.format, p.baseFor(path), want, previous, originals, parents, personalNativeKeys(target, g.settings, b.Settings), target, warn)
 	if err != nil {

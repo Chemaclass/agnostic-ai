@@ -89,7 +89,8 @@ func fakeApprovalRoutes(t *testing.T) {
 
 func TestApprovalsStatus_RoutePerTool(t *testing.T) {
 	fakeApprovalRoutes(t)
-	approvalsHome(t, "version: 1\ntargets: [claude, codex, cursor]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
+	source := approvalsHome(t, "version: 1\ntargets: [claude, codex, cursor]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
+	writeCodexReviewerOn(t, source)
 
 	got := approvalsStatusJSON(t)
 
@@ -269,6 +270,7 @@ func TestApprovalsStatus_ProjectFileCannotLoosen(t *testing.T) {
 func TestApprovalsAsk_WritesTheLocalHomeConfig(t *testing.T) {
 	fakeApprovalRoutes(t)
 	source := approvalsHome(t, "version: 1\ntargets: [claude, codex]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
+	writeCodexReviewerOn(t, source)
 	local := filepath.Join(source, "local", config.ConfigFileName)
 	writeFile(t, local, "# mine\nmodels:\n  fast:\n    claude: haiku\napprovals:\n  tools:\n    codex: review\n  projects:\n    /tmp/x: yolo\n  always-ask:\n    - \"Bash(make deploy*)\"\n")
 
