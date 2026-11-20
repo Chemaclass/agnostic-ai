@@ -21,6 +21,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // approvalRouteFor and approvalsGOOS pick each tool's route; tests
@@ -239,6 +240,10 @@ func approvalHookProblem(tool string) string {
 		path, _ = claudeUserSettingsPath()
 	case "codex":
 		path, _ = codex.UserHooksPath()
+	case "qwen":
+		if home, err := globalUserHome(); err == nil {
+			path = filepath.Join(qwenUserDir(home), "settings.json")
+		}
 	}
 	if path == "" {
 		return notSynced
@@ -257,7 +262,8 @@ func approvalHookProblem(tool string) string {
 			} `json:"PermissionRequest"`
 		} `json:"hooks"`
 	}
-	if err := json.Unmarshal(body, &file); err != nil {
+	stripped, _ := preview.StripJSONC(body)
+	if err := json.Unmarshal(stripped, &file); err != nil {
 		return fmt.Sprintf("%s does not parse: %v", path, err)
 	}
 	installed := false
@@ -271,6 +277,9 @@ func approvalHookProblem(tool string) string {
 	}
 	if file.DisableAllHooks {
 		return path + " sets disableAllHooks"
+	}
+	if tool == "qwen" {
+		return qwenAskProblem()
 	}
 	if tool != "codex" {
 		return ""
@@ -330,6 +339,24 @@ func kiroHookProblem(notSynced string) string {
 		return "cannot read the Kiro rules: " + err.Error()
 	case ask:
 		return "a Kiro permissions file or agent profile has an ask or evaluate rule, or approve-for-me, whose prompt a hook allow could answer; the hook asks every time"
+	}
+	return ""
+}
+
+// qwenAskProblem says when a Qwen Code permissions.ask rule, which a
+// hook allow could answer, turns the hook off.
+func qwenAskProblem() string {
+	home, err := globalUserHome()
+	if err != nil {
+		return "cannot find the home folder: " + err.Error()
+	}
+	cwd, _ := os.Getwd()
+	ask, err := approvals.SettingsHaveAskRules(qwenSettingsFiles(home, cwd))
+	switch {
+	case err != nil:
+		return "cannot read the Qwen Code settings: " + err.Error()
+	case ask:
+		return "a Qwen Code settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
 	}
 	return ""
 }

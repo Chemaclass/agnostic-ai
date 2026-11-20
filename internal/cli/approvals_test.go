@@ -475,3 +475,32 @@ func TestApprovalsStatus_KiroHook(t *testing.T) {
 		})
 	}
 }
+
+func TestApprovalsStatus_QwenHook(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	const hook = `"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target qwen"}]}]}`
+	for name, tc := range map[string]struct {
+		body   string
+		routed bool
+	}{
+		"installed":     {"{\n  // mine\n  " + hook + "\n}", true},
+		"not installed": {`{}`, false},
+		"all hooks off": {`{"disableAllHooks":true,` + hook + `}`, false},
+		"ask rule":      {`{"permissions":{"ask":["edit"]},` + hook + `}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [qwen]\napprovals:\n  mode: yolo\n")
+			t.Setenv("QWEN_HOME", "")
+			t.Setenv("QWEN_CODE_SYSTEM_DEFAULTS_PATH", filepath.Join(t.TempDir(), "d.json"))
+			t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "s.json"))
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), tc.body)
+			qwen := toolStatus(t, approvalsStatusJSON(t), "qwen")
+			if tc.routed != (qwen.Effective == config.ApprovalsYolo) || !tc.routed && qwen.Reason == "" {
+				t.Errorf("qwen: %+v", qwen)
+			}
+		})
+	}
+}

@@ -142,7 +142,11 @@ var routes = []Route{
 		File:     "~/.qoder/settings.json",
 		Evidence: "https://docs.qoder.com/cli/permissions",
 	}},
-	{Target: "qwen", Reason: reasonNotBuilt, Review: &Mechanism{
+	{Target: "qwen", Yolo: &Mechanism{
+		Name:     MechanismPermissionHook,
+		File:     "~/.qwen/settings.json",
+		Evidence: "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/hooks.md",
+	}, Review: &Mechanism{
 		Name:     "Qwen Code auto mode",
 		File:     "~/.qwen/settings.json",
 		Evidence: "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md",

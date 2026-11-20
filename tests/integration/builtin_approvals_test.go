@@ -98,6 +98,8 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		"PATH=" + bin + string(os.PathListSeparator) + "/usr/bin" + string(os.PathListSeparator) + "/bin",
 		"HOME=" + home, "USERPROFILE=" + home, "AGNOSTIC_AI_HOME=" + source, "CODEX_HOME=" + codexHome,
 		"AGNOSTIC_AI_NO_UPDATE_CHECK=1", "TMPDIR=" + os.TempDir(),
+		"QWEN_CODE_SYSTEM_DEFAULTS_PATH=" + filepath.Join(base, "qwen-system", "system-defaults.json"),
+		"QWEN_CODE_SYSTEM_SETTINGS_PATH=" + filepath.Join(base, "qwen-system", "settings.json"),
 	}
 	run := func(dir string, args ...string) {
 		t.Helper()
@@ -108,16 +110,17 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		}
 	}
 	must(t, os.MkdirAll(source, 0o755))
-	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
 	run(base, "sync", "--global")
 
 	files := map[string]string{
 		"claude": filepath.Join(home, ".claude", "settings.json"),
 		"codex":  filepath.Join(codexHome, "hooks.json"),
 		"kiro":   filepath.Join(home, ".kiro", "hooks", "approve-permission-request.json"),
+		"qwen":   filepath.Join(home, ".qwen", "settings.json"),
 	}
-	allow := map[string]string{"claude": approvalsAllowReply, "codex": approvalsAllowReply, "kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`}
-	shell := map[string]string{"claude": "Bash", "codex": "Bash", "kiro": "execute_bash"}
+	allow := map[string]string{"claude": approvalsAllowReply, "codex": approvalsAllowReply, "kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`, "qwen": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`}
+	shell := map[string]string{"claude": "Bash", "codex": "Bash", "kiro": "execute_bash", "qwen": "run_shell_command"}
 	for target, path := range files {
 		read := approvalsHookCommand
 		if target == "kiro" {
@@ -154,9 +157,9 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		}
 	}
 
-	must(t, os.WriteFile(filepath.Join(project, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro]\nbuiltins: [approvals]\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(project, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen]\nbuiltins: [approvals]\n"), 0o644))
 	run(project, "sync", "--gitignore=off")
-	for _, rel := range []string{".claude/settings.json", ".codex/hooks.json"} {
+	for _, rel := range []string{".claude/settings.json", ".codex/hooks.json", ".qwen/settings.json"} {
 		if command := approvalsHookCommand(t, filepath.Join(project, rel)); command != "" {
 			t.Errorf("project sync wrote a PermissionRequest hook to %s: %q", rel, command)
 		}

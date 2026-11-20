@@ -28,6 +28,9 @@ func approveSetup(t *testing.T, shared string) (source, project string) {
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
 	t.Setenv(adapters.HookTargetEnv, "")
+	t.Setenv("QWEN_HOME", "")
+	t.Setenv("QWEN_CODE_SYSTEM_DEFAULTS_PATH", filepath.Join(t.TempDir(), "system-defaults.json"))
+	t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "settings.json"))
 	managed := t.TempDir()
 	old := claudeManagedDir
 	claudeManagedDir = managed
@@ -96,7 +99,7 @@ func approveLog(t *testing.T, source string) []approvals.Entry {
 }
 
 func TestHookApprove_AllowsGoTest(t *testing.T) {
-	for _, target := range []string{"claude", "codex", "kiro"} {
+	for _, target := range []string{"claude", "codex", "kiro", "qwen"} {
 		t.Run(target, func(t *testing.T) {
 			source, project := approveSetup(t, yoloHome)
 			want, _ := hookrun.PermissionAllowReply(target)
@@ -112,7 +115,7 @@ func TestHookApprove_AllowsGoTest(t *testing.T) {
 }
 
 func TestHookApprove_GitPushAsks(t *testing.T) {
-	for _, target := range []string{"claude", "codex", "kiro"} {
+	for _, target := range []string{"claude", "codex", "kiro", "qwen"} {
 		t.Run(target, func(t *testing.T) {
 			source, project := approveSetup(t, yoloHome)
 			if got := runApprove(t, target, recordedPayload(t, target, project, "git push origin main")); got != "" {
@@ -202,6 +205,35 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 		{name: "kiro write tool", home: yoloHome, target: "kiro", rule: approvals.RuleTool, payload: func(project string) string {
 			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"tool_name":"fs_write","tool_input":{"path":"a.txt"}}`
 		}},
+		{name: "qwen mode ask", home: "version: 1\napprovals:\n  mode: ask\n", target: "qwen"},
+		{name: "qwen unreadable config", home: "version: 1\napprovals: [\n", target: "qwen"},
+		{name: "qwen broken JSON", home: yoloHome, target: "qwen", payload: func(string) string { return `{"tool_name":"run_shell_command",` }},
+		{name: "qwen plan mode", home: yoloHome, target: "qwen", rule: approvals.RulePermissionMode, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"plan","tool_name":"run_shell_command","tool_input":{"command":"go test ./...","is_background":false}}`
+		}},
+		{name: "qwen shell in another folder", home: yoloHome, target: "qwen", rule: approvals.RuleInput, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"run_shell_command","tool_input":{"command":"go test ./...","is_background":false,"directory":"/tmp"}}`
+		}},
+		{name: "qwen other tool", home: yoloHome, target: "qwen", rule: approvals.RuleTool, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"grep_search","tool_input":{"pattern":"x"}}`
+		}},
+		{name: "qwen user ask rule", home: yoloHome, target: "qwen", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), "{\n  // mine\n  \"permissions\": {\"ask\": [\"Bash(git push *)\"]}\n}")
+		}},
+		{name: "qwen project ask rule", home: yoloHome, target: "qwen", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
+			t.Helper()
+			writeFile(t, filepath.Join(project, ".qwen", "settings.json"), `{"permissions":{"ask":["run_shell_command"]}}`)
+		}},
+		{name: "qwen system ask rule", home: yoloHome, target: "qwen", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			writeFile(t, os.Getenv("QWEN_CODE_SYSTEM_SETTINGS_PATH"), `{"permissions":{"ask":["edit"]}}`)
+		}},
+		{name: "qwen settings do not parse", home: yoloHome, target: "qwen", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
+			t.Helper()
+			writeFile(t, filepath.Join(project, ".qwen", "settings.json"), `{"permissions":`)
+		}},
 		{name: "home always-ask", home: yoloHome + "  always-ask:\n    - \"Bash(go test*)\"\n", target: "codex", rule: approvals.RuleAlwaysAsk},
 		{name: "log cannot be written", home: yoloHome, target: "codex", setup: func(t *testing.T, source, _ string) {
 			t.Helper()
@@ -216,7 +248,7 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 			}
 			target := tc.target
 			payload := recordedPayload(t, "claude", project, "go test ./...")
-			if target == "codex" || target == "kiro" {
+			if target == "codex" || target == "kiro" || target == "qwen" {
 				payload = recordedPayload(t, target, project, "go test ./...")
 			}
 			if tc.payload != nil {
@@ -361,5 +393,18 @@ func TestHookApprove_KiroLogsTheCommand(t *testing.T) {
 	runApprove(t, "kiro", recordedPayload(t, "kiro", project, "go test ./..."))
 	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Call != "execute_bash" || !strings.Contains(entries[0].Detail, "go test") {
 		t.Errorf("log = %+v, want the execute_bash command as the detail", entries)
+	}
+}
+
+func TestHookApprove_QwenAutoEditAndEdits(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	writeFile(t, filepath.Join(os.Getenv("HOME"), ".qwen", "settings.json"), `{"permissions":{"allow":["run_shell_command"]}}`)
+	payload := `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"auto_edit","session_id":"q","tool_name":"edit","tool_input":{"file_path":` + strconvQuote(filepath.Join(project, "main.go")) + `,"old_string":"a","new_string":"b"}}`
+	want, _ := hookrun.PermissionAllowReply("qwen")
+	if got := runApprove(t, "qwen", payload); got != string(want) {
+		t.Fatalf("reply = %q, want %q", got, want)
+	}
+	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Call != "edit" {
+		t.Errorf("log = %+v, want one qwen edit line", entries)
 	}
 }

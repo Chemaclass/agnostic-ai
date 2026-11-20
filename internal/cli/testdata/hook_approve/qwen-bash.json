@@ -1,0 +1,1 @@
+{"session_id":"q-1","transcript_path":"/tmp/q.jsonl","cwd":"{{CWD}}","hook_event_name":"PermissionRequest","timestamp":"2026-11-20T10:00:00Z","permission_mode":"default","tool_name":"run_shell_command","tool_input":{"command":"{{COMMAND}}","is_background":false,"description":"Run the command"},"permission_suggestions":[]}
