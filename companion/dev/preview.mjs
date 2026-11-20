@@ -238,6 +238,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     sendJSON(response, 200, { view, note, version })
   }
 
+  const DAY_MS = 24 * 60 * 60 * 1000
+
   async function mark(request, response, url) {
     const body = await bodyOf(request)
     logCall('/api/mark', body)
@@ -248,7 +250,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const marking = state.fixture.marksIgnored ? structuredClone(row) : row
     if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== marking)
     else if (body.as === 'completed') marking.state = 'completed'
-    else if (body.as === 'open' && marking.state === 'completed') marking.state = 'active'
+    // Like the server: a chat no process holds and quiet for a day goes back to Archived as dormant.
+    else if (body.as === 'open') {
+      if (marking.state === 'completed') marking.state = marking.live || Date.now() - Date.parse(marking.updatedAt) < DAY_MS ? 'active' : 'dormant'
+    }
     else if (body.as === 'seen' && NEEDS_PERSON[marking.state]) marking.state = 'active'
     else if (body.as === 'seen' && marking.unread) delete marking.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })

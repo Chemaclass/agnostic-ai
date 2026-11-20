@@ -103,8 +103,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   Right-clicking alone does not open the chat or mark it as read.
 - The same menu has the row's own buttons too: **Mark complete** on a chat
   that is not under Archived or working, and **Hide from agnostic-ai** on an
-  archived one. A chat you marked complete also offers **Undo complete**. It
-  goes back to Active, unless it is closed or has been quiet for a while.
+  archived one. A chat that waits only on a forgotten shell stays in Needs
+  you until the shell stops. A chat you marked complete also offers **Undo
+  complete**. It goes back to Active, unless it is closed or has been quiet
+  for a while.
 - **Mark all as read** beside Needs you does the same for every chat that
   group shows, after the search and the All, Local or Cloud choice. It shows
   only while the group is unfolded. A chat

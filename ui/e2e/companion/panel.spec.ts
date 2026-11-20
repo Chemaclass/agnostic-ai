@@ -255,7 +255,10 @@ test('the row menu of an archived chat undoes complete or hides it', async ({ pa
   await row(page, 'Tidy the old branches').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
   await page.getByRole('menuitem', { name: 'Undo complete' }).click()
-  await expect(row(page, 'Tidy the old branches').getByRole('button', { name: /^Mark complete,/ })).toBeAttached()
+  // Closed and quiet for days, it stays under Archived, now without the mark to undo.
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.keyboard.press('Escape')
 
   await row(page, 'Sketch the pricing page').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
