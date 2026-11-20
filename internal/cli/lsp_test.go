@@ -35,7 +35,7 @@ func TestLSPLinter_ReportsSpecParseFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("loading failure must return an error")
 	}
-	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-001", 2)
+	requireLSPLoadDiagnostic(t, diagnostics, path, "AAI-001", 1)
 }
 
 func TestLSPLinter_ReportsLocalConfigParseFailure(t *testing.T) {
