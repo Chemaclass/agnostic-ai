@@ -66,7 +66,7 @@ type Config struct {
 	Doctor        DoctorConfig         `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
 	Coverage      CoverageConfig       `yaml:"coverage,omitempty"       json:"coverage,omitempty"`
 	Memory        MemoryConfig         `yaml:"memory,omitempty"         json:"memory,omitempty"`
-	Approvals     ApprovalsConfig      `yaml:"approvals,omitempty"      json:"approvals,omitempty"`
+	Approvals     ApprovalsConfig      `yaml:"approvals,omitempty"      json:"approvals,omitzero"`
 }
 
 // VerifyConfig defines the external command that re-clears generated AI
