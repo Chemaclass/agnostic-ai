@@ -4,7 +4,7 @@
 // slim pointer to the source specs, with every rule body inlined under
 // a sentinel-marked block (one body shared with codex, amp, warp, and
 // the other AGENTS.md consumers, so the write dedupes). That path is
-// the only one OpenCode reads: docs.opencode.ai/docs/rules documents an
+// the one named in OpenCode's Rules reference, which documents an
 // upward walk from the current directory for `AGENTS.md` and
 // `CLAUDE.md`, and the vendor's own source file
 // `packages/core/src/instruction-context.ts` on branch `dev` walks with
@@ -38,10 +38,7 @@
 // tool callbacks with x-opencode.plugin-api: v2. Plugin code cannot be
 // imported back into specs.
 //
-// Skill names must contain 1-64 lowercase alphanumeric characters
-// separated by single hyphens, per docs.opencode.ai/docs/skills. Invalid
-// names fail before output is written: OpenCode V1 skips such a folder (V2 does not enforce the pattern), so
-// the skill would never reach the `skill` tool catalog.
+// Sync enforces the portable skill name format before writing OpenCode output.
 package opencode
 
 import (
@@ -96,9 +93,7 @@ func capabilities(cfg *config.Config) emit.Capabilities {
 	return coverage
 }
 
-// skillNameRule is the regex docs.opencode.ai/docs/skills states for a skill
-// `name`, which must also match the folder holding SKILL.md. Byte-identical
-// to Zed's rule, hence the shared emit.ValidateNames (#857).
+// The portable skill name format also applies to Zed.
 var skillNameRule = emit.NameRule{
 	Pattern: regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`),
 	MaxLen:  64,

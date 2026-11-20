@@ -10,7 +10,7 @@ Review changed behavior against callers, tests and `.agnostic-ai/rules/`. Report
 - Capability claims must match actual emission, CLI parity, and site capability data.
 - New behavior needs a test that fails without the change.
 - Returned errors retain the failing path or operation and preserve wrapped causes.
-- User-visible changes update docs and `CHANGELOG.md` Unreleased per `docs/internal/contributing.md#documentation-checklist`.
+- User-visible changes update docs and add a `changes/<slug>.md` changelog entry per `docs/internal/contributing.md#documentation-checklist`.
 - Config field or schema-tag changes regenerate `docs/schemas/config.schema.json`.
 
 Report each finding as `path:line problem -> suggested fix`, highest impact first. Name validation limits.

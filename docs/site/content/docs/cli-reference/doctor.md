@@ -50,6 +50,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 - With `--scope project`, Codex hook trust shows `SKIPPED` in text. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and an empty `hook_trust`.
 - `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 - When sync removes unchanged managed keys from a shared settings file but keeps your keys and edits, doctor reports the file as out of date. JSON reports its action as `stale`.
+- A hand-written file that stops sync appears in JSON as `stale` with a `reason`: the text doctor prints for it, with the keep and replace steps on their own lines.
 - The packaging check handles literal paths, `*`, `?`, character classes, and `**` segments. Braces, extended globs, escaped patterns, and unsupported classes give a coverage-check warning, not an uncovered claim.
 - It reads only the root ignore file. It ignores `package.json` allowlists, built-in package exclusions, nested ignore files, and Dockerfile-specific ignore files. Verify with `npm pack --dry-run`, `vsce ls`, or your Docker build context.
 {% </details> %}

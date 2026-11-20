@@ -17,8 +17,8 @@ func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
 		t.Run(tool, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			t.Setenv(config.EnvApprovals, "")
-			if reviewer.moveEnv != "" {
-				t.Setenv(reviewer.moveEnv, "")
+			if reviewer.overrideEnv != "" {
+				t.Setenv(reviewer.overrideEnv, "")
 			}
 			g := globalTargets[tool]
 			path := g.path(home, g.settings.path)
@@ -153,5 +153,18 @@ func TestApprovalsStatus_CodeBuddyAutoModeDisabledOrMoved(t *testing.T) {
 	codebuddy = toolStatus(t, approvalsStatusJSON(t), "codebuddy")
 	if len(codebuddy.Notes) != 1 || !strings.Contains(codebuddy.Notes[0], "CODEBUDDY_CONFIG_DIR") {
 		t.Errorf("codebuddy notes: %q", codebuddy.Notes)
+	}
+}
+
+func TestApprovalsStatus_VibeBypassStopsTheClassifier(t *testing.T) {
+	home := approvalsUserHome(t)
+	t.Setenv("VIBE_DEFAULT_AGENT", "")
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [vibe]\napprovals:\n  mode: review\n")
+	writeFile(t, filepath.Join(home, ".vibe", "config.toml"), "default_agent = \"smart-approve\"\nbypass_tool_permissions = true\n")
+
+	vibe := toolStatus(t, approvalsStatusJSON(t), "vibe")
+
+	if len(vibe.Notes) != 1 || !strings.Contains(vibe.Notes[0], "bypass_tool_permissions") {
+		t.Errorf("vibe notes: %q", vibe.Notes)
 	}
 }
