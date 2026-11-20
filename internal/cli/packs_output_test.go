@@ -40,3 +40,14 @@ func TestPacksAdd_AMissingFolderNamesTheErrorOnce(t *testing.T) {
 		t.Errorf("add ./nope: %v", err)
 	}
 }
+
+func TestPacks_RejectsAnUnknownSubcommand(t *testing.T) {
+	silence(t)
+	out, err := runCLI(t, "packs", "bogus")
+	if err == nil || !strings.Contains(err.Error(), `unknown command "bogus"`) {
+		t.Errorf("packs bogus: err = %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "packs"); err != nil || !strings.Contains(out, "Available Commands") {
+		t.Errorf("bare packs should print help: err = %v\n%s", err, out)
+	}
+}
