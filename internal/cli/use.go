@@ -47,6 +47,9 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := stopOnMissingPacks("."); err != nil {
+				return err
+			}
 			lock, err := acquireLedgerLock(".", "use")
 			if err != nil {
 				return err

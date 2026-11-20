@@ -203,6 +203,11 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 		tree = entered
 		defer tree.leave()
 	}
+	if tree == nil {
+		if err := stopOnMissingPacks("."); err != nil {
+			return err
+		}
+	}
 	// The state file lists every output, so one read serves the
 	// whole run. --against reads the trees it enters instead.
 	var read *ledgerSnapshot

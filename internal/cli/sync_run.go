@@ -78,6 +78,9 @@ type syncRunOptions struct {
 // untrack, a generated path git both tracks and ignores is removed from
 // the index (not the working tree) after the sweep.
 func runSyncPass(root string, targets []string, opts syncRunOptions) error {
+	if err := stopOnMissingPacks(root); err != nil {
+		return err
+	}
 	return runSyncPassWith(root, readLedger(root), nil, targets, opts)
 }
 

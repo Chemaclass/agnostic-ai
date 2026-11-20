@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -795,6 +796,41 @@ func (l *packsLock) remove(name string) {
 		out = append(out, p)
 	}
 	l.Packs = out
+}
+
+// stopOnMissingPacks refuses a sync while a locked pack is not
+// installed, as on a fresh clone where the packs folder is ignored:
+// the sync would otherwise remove every output the pack generated.
+func stopOnMissingPacks(projectRoot string) error {
+	lock, err := readPacksLock(projectRoot)
+	if err != nil {
+		return fmt.Errorf("%w; fix it before syncing so pack outputs are not removed", err)
+	}
+	var missing, outside []string
+	updatable := false
+	for _, p := range lock.Packs {
+		if dirExists(filepath.Join(projectRoot, packsDir, p.Name)) {
+			continue
+		}
+		missing = append(missing, strconv.Quote(p.Name))
+		if err := checkLockedEntry(projectRoot, p); errors.Is(err, errLocalSourceOutsideProject) {
+			outside = append(outside, fmt.Sprintf("pack %q: %v", p.Name, err))
+		} else {
+			updatable = true
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	msg := fmt.Sprintf("%s lists %s %s, not installed in %s/",
+		packsLockfile, migrationWord(len(missing), "pack", "packs"), strings.Join(missing, ", "), packsDir)
+	if updatable {
+		msg += "; run `agnostic-ai packs update` before syncing"
+	}
+	if len(outside) > 0 {
+		msg += "\n  " + strings.Join(outside, "\n  ")
+	}
+	return errors.New(msg)
 }
 
 // resolvePacksLayers returns one spec.Layer per installed pack, in
