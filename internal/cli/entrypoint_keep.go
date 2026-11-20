@@ -95,12 +95,10 @@ func (e nothingWritten) Unwrap() error { return e.err }
 // withoutNothingWritten drops "nothing was written" from a hand-written
 // file guard's error, for a run that never writes.
 func withoutNothingWritten(err error) error {
-	var stop handWrittenStop
-	if errors.As(err, &stop) {
+	if stop, ok := errors.AsType[handWrittenStop](err); ok {
 		return errors.New(strings.Join(stop, "\n"))
 	}
-	var read nothingWritten
-	if errors.As(err, &read) {
+	if read, ok := errors.AsType[nothingWritten](err); ok {
 		return read.err
 	}
 	return err
