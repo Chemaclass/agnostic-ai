@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -58,10 +58,33 @@ test-short:
 
 # Same target and flags as the linux/amd64 build in .goreleaser.yml, so the
 # number matches the published binary.
+SIZE_BUILD := GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=0.0.0"
+
 size-check:
 	@dir=$$(mktemp -d) && trap 'rm -rf "$$dir"' EXIT && \
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=0.0.0" -o "$$dir/$(BIN)" $(PKG) && \
+	$(SIZE_BUILD) -o "$$dir/$(BIN)" $(PKG) && \
 	scripts/binary-size.sh "$$dir/$(BIN)"
+
+# Sets the upper bound in scripts/binary-size-budget to this build plus
+# headroom. A release runs it.
+size-budget:
+	@dir=$$(mktemp -d) && trap 'rm -rf "$$dir"' EXIT && \
+	$(SIZE_BUILD) -o "$$dir/$(BIN)" $(PKG) && \
+	scripts/binary-size.sh --set-budget "$$dir/$(BIN)"
+
+# Folds changes/*.md into CHANGELOG.md [Unreleased] and deletes them. A release runs it.
+changelog:
+	scripts/changelog-assemble.sh
+
+# Builds BASE (default: where this branch left origin/main) from its committed
+# tree and fails when the working tree's build grows past the allowance.
+size-growth-check:
+	@base="$(BASE)"; [ -n "$$base" ] || base=$$(git merge-base HEAD origin/main) && \
+	dir=$$(mktemp -d) && trap 'rm -rf "$$dir"' EXIT && \
+	mkdir "$$dir/base" && git archive "$$base" | tar -x -C "$$dir/base" && \
+	$(SIZE_BUILD) -o "$$dir/head" $(PKG) && \
+	(cd "$$dir/base" && $(SIZE_BUILD) -o "$$dir/base.bin" $(PKG)) && \
+	scripts/binary-size.sh --growth "$$dir/head" "$$dir/base.bin" "$$base"
 
 # e2e_test.sh drives the built binary, so build first. docfetch_test.sh
 # runs alone: its time limits fail under the load of the parallel run.
@@ -73,7 +96,7 @@ bashunit scripts/docfetch_test.sh
 bashunit --parallel scripts/release-notes_test.sh scripts/target-facts_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/companion-release_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
-		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh \
+		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh scripts/changelog-assemble_test.sh \
 		scripts/bench-commands_test.sh scripts/test-go_test.sh scripts/go-packages_test.sh scripts/doctor-dev_test.sh scripts/gofmt-on-edit_test.sh
 endef
 
@@ -156,6 +179,7 @@ ci-local: fmt-check test-race build lint
 	$(run-shell-tests)
 	node --test $(SITE_DIR)/static/assets/scripts/*.test.js
 	$(MAKE) size-check
+	scripts/changelog-assemble.sh --check
 	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm test
 ifeq ($(SKIP_JETBRAINS),1)
 	@echo "ci-local: SKIPPED the JetBrains plugin. This run did NOT gate it."

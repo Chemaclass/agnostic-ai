@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Keep documentation and CHANGELOG aligned with user-visible changes.
+description: Keep documentation and changelog entries aligned with user-visible changes.
 globs: "**/*"
 alwaysApply: true
 ---

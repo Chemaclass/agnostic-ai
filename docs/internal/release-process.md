@@ -10,7 +10,7 @@ Use Semantic Versioning (`major.minor.patch`). Before 1.0, minor releases may br
 
 ## Cut a release
 
-Follow the `cut-release` skill's [release guide](../../.agnostic-ai/skills/cut-release/SKILL.md). It prepares the dated changelog, updates the version, and creates `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` immediately before the signed release commit and tag. The announcement summarizes the release and links to the GitHub release for the complete record. Keep verified upstream CLI and model news separate.
+Follow the `cut-release` skill's [release guide](../../.agnostic-ai/skills/cut-release/SKILL.md). It folds the `changes/*.md` entries into `CHANGELOG.md` with `make changelog`, prepares the dated changelog, raises the binary size upper bound with `make size-budget`, updates the version, and creates `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` immediately before the signed release commit and tag. The announcement summarizes the release and links to the GitHub release for the complete record. Keep verified upstream CLI and model news separate.
 
 Run `make site-build site-test` before the release commit. Confirm the article,
 updates archive, RSS entry identifier (GUID), old `.html` address, and sitemap URL are generated.
