@@ -39,12 +39,12 @@ agnostic-ai approvals status
 
 `sync --global` writes a `PermissionRequest` hook to `~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.kiro/hooks/approve-permission-request.json`, `~/.qwen/settings.json` (or `$QWEN_HOME/settings.json`) and `~/.qoder/settings.json`. A project sync never writes it, so a teammate never gets it from a committed file. Changing the mode later needs no sync: the hook reads the setting on each request.
 
-Two steps happen in the tools:
+What each tool needs:
 
 - Codex stops at startup with "Hooks need review" when the hook is new or changed. Open `/hooks` and trust it. Until then the hook does not run and Codex shows its prompts. `approvals status` says when the hook is not trusted yet.
 - Claude Code runs no hook in a folder until you accept its workspace trust dialog.
 - Kiro runs the hook only in a Kiro CLI 3.4.0 or newer V3 session, or Kiro IDE 1.4.236 or newer. It approves shell commands (`execute_bash`) and file reads (`read_file`) only; writes, searches and every other Kiro tool ask. A rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, in `~/.kiro/settings/permissions.yaml`, in any workspace permissions file under `~/.kiro/workspace-roots/`, or in an agent profile turns the hook off: a hook allow could answer that rule's prompt, or the one Kiro's reviewer shows when it is unsure, and the hook cannot match Kiro's rules. The hook checks the active `KIRO_HOME` profile when set, and leaves the native prompt in place if the policy files cannot be read. `approvals status` says why. Kiro asks before every shell command in a workspace you have not trusted; whether the hook can answer that prompt is not documented, so trust only workspaces you would run `yolo` in.
-- Qwen Code: the hook approves shell commands (`run_shell_command` without a `directory`), file reads, edits and writes in `default` and `auto_edit` mode; every other Qwen tool and mode asks. Qwen Code runs auto mode in a trusted folder unless `tools.approvalMode` says otherwise, so set it to `default` or `auto_edit` for the hook to answer. `disableAllHooks`, `--safe-mode` and `--bare` turn the hook off. A `permissions.ask` rule in the user, project or system settings turns the hook off: a hook allow skips that rule's prompt in Qwen Code, and the hook cannot match Qwen's rules. `approvals status` says so. Qwen Code asks you to approve a project's hooks, but this hook is a user hook.
+- Qwen Code: the hook approves shell commands (`run_shell_command` without a `directory`), file reads, edits and writes in `default` and `auto_edit` mode; every other Qwen tool and mode asks. Qwen Code runs auto mode in a trusted folder unless `tools.approvalMode` says otherwise, so set it to `default` or `auto_edit` for the hook to answer. `disableAllHooks`, `--safe-mode` and `--bare` turn the hook off. A `permissions.ask` rule in the user, project or system settings turns the hook off: a hook allow skips that rule's prompt in Qwen Code, and the hook cannot match Qwen's rules. So does a `.env` or `.qwen/.env` file in the session folder or above it, or a settings `env` block, that sets `HOME`, `AGNOSTIC_AI_HOME`, `CLAUDE_CONFIG_DIR` or `USERPROFILE`: Qwen Code passes those values to its hooks, so a repository could point the hook at a policy of its own. `approvals status` says so. Qwen Code asks you to approve a project's hooks, but this hook is a user hook.
 - Qoder: the hook approves `Bash` and `Read` calls, and `Edit` and `Write` calls outside dot folders and dot files, in `default` and `accept_edits` mode; every other tool and mode asks. A `permissions.ask` rule in `~/.qoder/settings.json` or in a project's `.qoder/settings.json` or `.qoder/settings.local.json` turns the hook off: Qoder runs the hook after its own rules ask, so a hook allow would skip that rule's prompt. `approvals status` says so. A file passed with `qoder --settings` and rules your organization manages are not read, so keep ask rules out of them. Qoder may report its plan state as `default` mode, in which case the hook can approve a safe call while you plan.
 
 ## Modes
@@ -70,7 +70,7 @@ approvals:
 
 - Only the home config may loosen. A project's `agnostic-ai.yaml` or `agnostic-ai.local.yaml` may set `approvals.mode: ask` and nothing else, so a team can turn approvals off for its repository. `builtins: [approvals]` in a project file does nothing; `validate` reports both.
 - The strictest source wins, in this order: `AGNOSTIC_AI_APPROVALS=ask` in the session's environment, a project file that says `ask`, `projects`, `tools`, `mode`.
-- `always-ask` patterns use the Claude Code permission rule form, such as `Bash(make deploy*)`, for both tools.
+- `always-ask` patterns use the Claude Code permission rule form, such as `Bash(make deploy*)`, for every tool.
 
 Field details: [approvals reference](@/docs/global-configuration-reference.md#global-approvals).
 
@@ -85,13 +85,14 @@ Field details: [approvals reference](@/docs/global-configuration-reference.md#gl
 | Network and installs: `curl`, `wget`, `ssh`, `npm install <name>`, `pip install`, `go install` | Reaches other hosts |
 | Secrets: `~/.ssh`, `~/.aws`, `.env*`, `*.pem`, `*.key`, `env`, `printenv`, `gh auth token` | Can print a credential |
 | Privilege and processes: `sudo`, `chmod -R`, `chown`, `kill`, `launchctl`, `crontab` | Changes the system |
-| A read or an edit outside the project | Outside the folder you work in |
-| An edit to `.git/`, `.github/workflows/`, shell profiles, tool settings and hook files, `agnostic-ai.yaml`, or anything under `$AGNOSTIC_AI_HOME` | Could turn the gate off |
+| A read or an edit outside the project, or any call in a session whose project is your home folder or a folder above it (a session outside a Git checkout takes its own folder as the project) | Outside the folder you work in |
+| A read of a `.git` folder, `.gitconfig` or `.config/git/`, and any path that a link leads to a credential file | A Git config can hold a token in a remote URL |
+| An edit to `.git/`, `.gitconfig`, `.config/git/`, `.github/workflows/`, shell profiles, a tool folder, login agent or `bin` folder under your home folder (such as `~/.claude`, `~/Library/LaunchAgents` or `~/go/bin`, even when the session runs inside it), tool settings and hook files, `agnostic-ai.yaml`, or anything under `$AGNOSTIC_AI_HOME` | Could turn the gate off |
 | An edit to agent, hook, MCP or settings specs, in `.agnostic-ai/` or a folder that a project `sources` setting moves them to, in any config file above the edited file. Every edit asks while such a config does not read, or names its own folder as a source | The next sync turns them into hooks, servers or permission modes, such as an agent's `x-claude` `hooks` or `permissionMode` |
 | A command that names `AGNOSTIC_AI_` settings | Could change the policy |
 | MCP tools, web fetch and search, questions to you such as `AskUserQuestion` | Not a call the gate reads |
 | A Claude Code session in any mode but manual or accept edits, such as auto or plan | In auto or plan the tool's reviewer or a rule already chose to ask you; other modes were not tested |
-| A Claude Code call that matches an `ask` rule in your user, project, local or managed settings. A search tool (Grep, Glob, LS) asks whenever a `Read` rule names a path | A hook allow would skip that rule |
+| A Claude Code call that matches an `ask` rule in your user, project, local or managed settings, with the path as written, with links resolved, or in another letter case. A search tool (Grep, Glob, LS) asks whenever a `Read` rule names a path, and every shell command asks whenever a `Read` or `Edit` rule names one. A command run through `rtk` is matched as the command it runs | A hook allow would skip that rule |
 | A Claude Code project settings file whose `env` sets `AGNOSTIC_AI_HOME`, `HOME`, `CLAUDE_CONFIG_DIR` or `USERPROFILE` | It would move the files the hook reads |
 | A pattern in `always-ask` | Your own rule |
 
@@ -108,14 +109,17 @@ Once the hook approves a call in a chat, its row shows how many, as the [compani
 Each works on the next request, with no sync and no restart:
 
 1. `agnostic-ai approvals ask` writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
-2. `AGNOSTIC_AI_APPROVALS=ask` in a session's environment.
-3. `approvals.mode: ask` in a project's `agnostic-ai.yaml`.
+2. The companion's "Ask me" button does the same.
+3. `AGNOSTIC_AI_APPROVALS=ask` in a session's environment.
+4. `approvals.mode: ask` in a project's `agnostic-ai.yaml`.
 
 To remove the hooks, drop `approvals` from `builtins` and run `sync --global`. A native reviewer that `review` turned on stays in the tool's user settings until the next `sync --global`, and a running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code).
 
 ## The decision log
 
-In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl`: `time`, `tool`, `session`, `cwd`, `call` (the tool name), `detail`, `mode`, `decision` (`approved` or `asked`) and `rule` (the row that asked). `detail` leaves out text that may hold a credential. At 5 MB the file moves to `decisions.jsonl.1`, and one older file is kept. When the hook cannot write the log, it asks.
+In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl`. A session that sets `AGNOSTIC_AI_APPROVALS=ask` while the home config loosens logs `asked` with rule `mode`, since the companion cannot see that session's environment. Each line holds `time`, `tool`, `session`, `cwd`, `call` (the tool name), `detail`, `mode`, `decision` (`approved` or `asked`) and `rule` (the row that asked). `detail` leaves out text that may hold a credential. For a Codex `apply_patch`, `detail` lists the files the patch touches. At 5 MB the file moves to `decisions.jsonl.1`, and one older file is kept. When the hook cannot write the log, it asks.
+
+`agnostic-ai approvals log` prints the log, oldest first; `--since 1h` keeps the last hour and `--json` prints an array.
 
 ## What can go wrong
 
@@ -142,5 +146,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Mistral Vibe (`vibe`) | Vibe smart-approve | asks | `bypass_tool_permissions` off |
 | Devin CLI (`windsurf`) | Devin smart mode | asks | Your `deny` and `ask` rules still come first; `--permission-mode` and `DEVIN_PERMISSION_MODE` replace it for one launch |
 | Every other tool | asks | asks | |
+
+The Kiro and Qoder `yolo` routes rest on the vendors' docs; we have not run them in a live session. The Qwen Code route was run with Qwen Code 0.28.0 and a local test model.
 
 On Windows `yolo` asks in every tool: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.

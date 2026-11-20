@@ -115,7 +115,7 @@ var routes = []Route{
 	{Target: "continue", Reason: "no documented hook surface"},
 	{Target: "copilot", Reason: reasonDenyRules},
 	{Target: "crush", Reason: reasonNotBuilt},
-	{Target: "cursor", Reason: reasonNotBuilt, Review: &Mechanism{
+	{Target: "cursor", Reason: "no PermissionRequest hook, and beforeShellExecution acts only on deny and ask", Review: &Mechanism{
 		Name:     "cursor-agent Auto-review",
 		File:     "~/.cursor/cli-config.json",
 		Evidence: "https://cursor.com/docs/agent/security/run-modes",
@@ -156,7 +156,7 @@ var routes = []Route{
 		Evidence: "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md",
 	}},
 	{Target: "trae", Reason: "a hook allow still needs the person in manual mode"},
-	{Target: "vibe", Reason: reasonNotBuilt, Review: &Mechanism{
+	{Target: "vibe", Reason: "pre_tool hooks can only deny or rewrite", Review: &Mechanism{
 		Name:     "Vibe smart-approve",
 		File:     "~/.vibe/config.toml",
 		Evidence: "https://docs.mistral.ai/vibe/code/cli/configuration-reference",

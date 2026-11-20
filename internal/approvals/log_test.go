@@ -133,3 +133,12 @@ func TestLog_ConcurrentRollOverKeepsEveryLine(t *testing.T) {
 		t.Fatalf("kept %d lines, want 8", got)
 	}
 }
+
+func TestNewEntry_PatchListsItsFiles(t *testing.T) {
+	t.Parallel()
+	patch := "*** Begin Patch\n*** Update File: src/a.go\n@@\n-a\n+b\n*** Add File: docs/b.md\n+x\n*** End Patch\n"
+	e := NewEntry("codex", "s", "yolo", Request{Call: "apply_patch", Input: map[string]any{"input": patch}}, approved, time.Now())
+	if e.Detail != "src/a.go, docs/b.md" {
+		t.Errorf("detail = %q, want both files", e.Detail)
+	}
+}

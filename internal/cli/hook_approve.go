@@ -109,11 +109,18 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 		return nil
 	}
 	policy := config.ApprovalsPolicy{Home: home, UserHome: userHome, Env: os.Getenv(config.EnvApprovals), ProjectAsk: projectAsk}
-	mode := policy.Resolve(target, p.Cwd).Mode
+	resolved := policy.Resolve(target, p.Cwd)
+	mode := resolved.Mode
+	request := approvals.Request{Call: p.Call, Input: p.Input, PermissionMode: p.PermissionMode, Cwd: p.Cwd}
+	log := approvals.Log{Path: approvals.LogPath(source)}
 	if mode != config.ApprovalsYolo {
+		if resolved.From == config.EnvApprovals && home.Loosens() {
+			// The companion cannot see a session's environment, so it
+			// would hold this prompt waiting for an answer that never comes.
+			_ = log.Append(approvals.NewEntry(target, p.Session, mode, request, approvals.Decision{Outcome: approvals.Asked, Rule: approvals.RuleMode}, now))
+		}
 		return nil
 	}
-	request := approvals.Request{Call: p.Call, Input: p.Input, PermissionMode: p.PermissionMode, Cwd: p.Cwd}
 	native := approvals.NativeRequest(target, request)
 	decision := approvals.Decision{Outcome: approvals.Asked, Rule: approvals.RuleToolSettings}
 	if settings, ok := approveToolSettings(target, p.Cwd, userHome); ok {
@@ -129,7 +136,6 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 			Resolve:      approvals.ResolveLinks,
 		})
 	}
-	log := approvals.Log{Path: filepath.Join(source, "local", "approvals", "decisions.jsonl")}
 	logged := native
 	if logged.Call == "" {
 		logged = request
@@ -148,36 +154,14 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 
 // approveToolSettings reads the tool's own ask rules, which a hook allow
 // would answer. For Claude Code it returns the rules of its settings
-// files (decision 022); ok is false when a settings file does not read,
-// or a project file's env block moves the folders the hook reads its
-// policy from. For Kiro, Qwen Code and Qoder, whose rules the hook cannot
-// match, ok is false when any of their rules asks or a file does not read.
+// files (decision 022) for the gate to match; ok is false when a
+// settings file does not read, or a project file's env block moves the
+// folders the hook reads its policy from. For Kiro, Qwen Code and Qoder,
+// whose rules the hook cannot match, ok is false when nativeRulesQuiet
+// says a rule of theirs could ask.
 func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings, bool) {
-	switch target {
-	case "kiro":
-		root, err := kiroApprovalRoot(userHome)
-		if err != nil {
-			return approvals.ClaudeSettings{}, false
-		}
-		ask, err := kiroRulesAsk(root, cwd)
-		return approvals.ClaudeSettings{}, err == nil && !ask
-	case "qoder":
-		files, ok := qoderSettingsFiles(userHome, cwd)
-		if !ok {
-			return approvals.ClaudeSettings{}, false
-		}
-		settings, err := approvals.ReadJSONSettings(files)
-		return approvals.ClaudeSettings{}, err == nil && !settings.Ask
-	case "qwen":
-		dir, ok := qwenUserDir(userHome)
-		if !ok {
-			return approvals.ClaudeSettings{}, false
-		}
-		settings, err := readQwenApprovalSettings(dir, cwd)
-		return approvals.ClaudeSettings{}, err == nil && !settings.Ask
-	case "claude":
-	default:
-		return approvals.ClaudeSettings{}, true
+	if target != "claude" {
+		return approvals.ClaudeSettings{}, nativeRulesQuiet(target, cwd, userHome)
 	}
 	user, _ := claudeUserSettingsPath()
 	files := approvals.ClaudeSettingsFiles(cwd, os.Getenv("CLAUDE_PROJECT_DIR"), user, claudeManagedDir)
@@ -186,6 +170,39 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		return approvals.ClaudeSettings{}, false
 	}
 	return settings, true
+}
+
+// nativeRulesQuiet reports that no Kiro, Qwen Code or Qoder rule could
+// ask, and that their files read. Any other tool has no such rules.
+func nativeRulesQuiet(target, cwd, userHome string) bool {
+	switch target {
+	case "kiro":
+		root, err := kiroApprovalRoot(userHome)
+		if err != nil {
+			return false
+		}
+		ask, err := kiroRulesAsk(root, cwd)
+		return err == nil && !ask
+	case "qoder":
+		files, ok := qoderSettingsFiles(userHome, cwd)
+		if !ok {
+			return false
+		}
+		settings, err := approvals.ReadJSONSettings(files)
+		return err == nil && !settings.Ask && !settings.MovedEnv
+	case "qwen":
+		dir, ok := qwenUserDir(userHome)
+		if !ok {
+			return false
+		}
+		settings, err := readQwenApprovalSettings(dir, cwd)
+		if err != nil || settings.Ask || settings.MovedEnv {
+			return false
+		}
+		moved, err := approvals.QwenDotEnvMovesPolicy(cwd)
+		return err == nil && !moved
+	}
+	return true
 }
 
 // qoderSettingsFiles lists the Qoder settings files for a session in

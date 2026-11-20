@@ -753,13 +753,13 @@ func TestDecide_EditInputs(t *testing.T) {
 func TestDecide_AgnosticHomeInsideProject(t *testing.T) {
 	t.Parallel()
 	p := testPolicy()
-	p.ProjectRoot = testHome
+	p.ProjectRoot = testHome + "/dotfiles"
 	p.AgnosticHome = testHome + "/dotfiles/agnostic"
 	r := call("Write", map[string]any{"file_path": testHome + "/dotfiles/agnostic/local/agnostic-ai.yaml"})
-	r.Cwd = testHome
+	r.Cwd = testHome + "/dotfiles"
 	wantDecision(t, Decide(r, p), RuleProtectedPath)
 	r = call("Write", map[string]any{"file_path": testHome + "/dotfiles/agnostic/notes.md"})
-	r.Cwd = testHome
+	r.Cwd = testHome + "/dotfiles"
 	wantDecision(t, Decide(r, p), RuleProtectedPath)
 }
 
@@ -895,6 +895,8 @@ func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
 	wantDecision(t, Decide(bash("make deploy-staging"), p), RuleAlwaysAsk)
 	wantDecision(t, Decide(bash("go test ./... && make deploy"), p), RuleAlwaysAsk)
 	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/docs/a.md"}), p), RuleAlwaysAsk)
+	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/src/a.go"}), p), "")
+	p.AlwaysAsk = []string{"Bash(make deploy*)"}
 	wantDecision(t, Decide(bash("make test"), p), "")
 
 	p.AlwaysAsk = []string{"Bash(rm *"}
@@ -909,7 +911,7 @@ func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
 	wantDecision(t, Decide(bash("FOO_UPDATE=1 npm run build --watch"), p), RuleAlwaysAsk)
 	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/secrets/a.txt"}), p), RuleAlwaysAsk)
 	wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/a.txt"}), p), RuleAlwaysAsk)
-	wantDecision(t, Decide(bash("ls other"), p), "")
+	wantDecision(t, Decide(bash("ls other"), p), RuleAlwaysAsk)
 	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/docs/a.txt"}), p), "")
 
 	// A pattern can never approve what a fixed rule asks for.

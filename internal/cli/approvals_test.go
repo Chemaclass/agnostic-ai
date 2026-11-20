@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -179,6 +180,9 @@ func TestApprovalsStatus_ClaudeHookInstalled(t *testing.T) {
 	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
 	if claude.Effective != config.ApprovalsYolo || claude.Route != approvals.MechanismPermissionHook || claude.MinVersion == "" {
 		t.Errorf("claude: %+v", claude)
+	}
+	if !slices.Contains(claude.Notes, claudeUnreadRulesNote) {
+		t.Errorf("claude notes = %q, want the --settings note", claude.Notes)
 	}
 }
 
@@ -538,6 +542,11 @@ func TestApprovalsStatus_QwenHookOffElsewhere(t *testing.T) {
 		"relative home": func(t *testing.T) {
 			t.Helper()
 			t.Setenv("QWEN_HOME", "alt")
+		},
+		"project env moves the policy": func(t *testing.T) {
+			t.Helper()
+			cwd, _ := os.Getwd()
+			writeFile(t, filepath.Join(cwd, ".qwen", ".env"), "AGNOSTIC_AI_HOME=/tmp/evil\n")
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

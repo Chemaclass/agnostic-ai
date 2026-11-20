@@ -10,7 +10,9 @@ package approvals
 
 import (
 	"encoding/json"
+	"maps"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -147,6 +149,9 @@ func Decide(r Request, policy Policy) Decision {
 	if !ok {
 		return asked(RuleInput)
 	}
+	if g.holdsHome() {
+		return asked(RuleOutsideProject)
+	}
 	if rule := g.alwaysAsk(r); rule != "" {
 		return asked(rule)
 	}
@@ -240,26 +245,45 @@ func (g *gate) alwaysAsk(r Request) string {
 	if len(g.policy.AlwaysAsk) == 0 {
 		return ""
 	}
-	if searchCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isReadPathRule) {
+	if searchCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isReadRule) {
 		return RuleAlwaysAsk
 	}
-	bodies, ok := g.ruleCalls(r)
+	// A shell command can read or write any file, and the gate cannot
+	// list them all, so any Read or Edit rule asks.
+	if shellCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isFileRule) {
+		return RuleAlwaysAsk
+	}
+	forms, ok := g.ruleCalls(r)
 	if !ok {
 		return RuleAlwaysAsk
 	}
-	roots := []string{g.roots[0]}
+	roots := slices.Clone(g.roots)
 	for _, root := range g.policy.RuleRoots {
-		if filepath.IsAbs(root) && !slices.Contains(roots, filepath.Clean(root)) {
-			roots = append(roots, filepath.Clean(root))
+		if !filepath.IsAbs(root) {
+			continue
+		}
+		forms := []string{filepath.Clean(root)}
+		if g.policy.Resolve != nil {
+			forms = append(forms, filepath.Clean(g.policy.Resolve(root)))
+		}
+		for _, form := range forms {
+			if !slices.Contains(roots, form) {
+				roots = append(roots, form)
+			}
 		}
 	}
-	for _, rule := range g.policy.AlwaysAsk {
-		rule = asEditRule(rule)
-		for _, body := range bodies {
-			for _, root := range roots {
-				runs, err := hookrun.ClaudeIfRuns(rule, "PermissionRequest", body, root)
-				if err != nil || runs {
-					return RuleAlwaysAsk
+	for _, written := range g.policy.AlwaysAsk {
+		for _, rule := range g.anchoredRules(asEditRule(written)) {
+			for _, form := range forms {
+				for _, root := range roots {
+					formRule, formRoot := rule, root
+					if form.fold {
+						formRule, formRoot = g.foldRule(rule), strings.ToLower(root)
+					}
+					runs, err := hookrun.ClaudeIfRuns(formRule, "PermissionRequest", form.body, formRoot)
+					if err != nil || runs {
+						return RuleAlwaysAsk
+					}
 				}
 			}
 		}
@@ -267,16 +291,135 @@ func (g *gate) alwaysAsk(r Request) string {
 	return ""
 }
 
+// anchoredRules is rule and, for a ~/ or // pattern, the same rule
+// anchored where its folder really is, since the matcher anchors those
+// patterns at the path as written and a tool may report the real path.
+func (g *gate) anchoredRules(rule string) []string {
+	rules := []string{rule}
+	tool, pattern, ok := strings.Cut(rule, "(")
+	if !ok {
+		return rules
+	}
+	pattern = strings.TrimSpace(pattern)
+	add := func(anchored string) {
+		if !slices.Contains(rules, anchored) {
+			rules = append(rules, anchored)
+		}
+	}
+	if rest, ok := strings.CutPrefix(pattern, "~/"); ok {
+		for _, home := range g.homes() {
+			add(tool + "(//" + strings.TrimPrefix(filepath.ToSlash(home), "/") + "/" + rest)
+		}
+		return rules
+	}
+	rest, ok := strings.CutPrefix(pattern, "//")
+	if !ok || g.policy.Resolve == nil {
+		return rules
+	}
+	rest, closed := strings.CutSuffix(rest, ")")
+	segments := strings.Split(rest, "/")
+	literal := 0
+	for literal < len(segments) && segments[literal] != "" && !strings.ContainsAny(segments[literal], "*?[{") {
+		literal++
+	}
+	if literal == 0 {
+		return rules
+	}
+	prefix := "/" + strings.Join(segments[:literal], "/")
+	real := filepath.ToSlash(filepath.Clean(g.policy.Resolve(filepath.FromSlash(prefix))))
+	if real == prefix {
+		return rules
+	}
+	anchored := tool + "(//" + strings.TrimPrefix(real, "/")
+	if tail := segments[literal:]; len(tail) > 0 {
+		anchored += "/" + strings.Join(tail, "/")
+	}
+	if closed {
+		anchored += ")"
+	}
+	add(anchored)
+	return rules
+}
+
+// ruleForm is one form of a request a permission rule is matched
+// against. A fold form has its path in lower case, and is matched with
+// the rule's pattern and the root in lower case too.
+type ruleForm struct {
+	body []byte
+	fold bool
+}
+
+// foldRule is rule with the pattern inside its parentheses in lower
+// case. A ~/ pattern becomes the absolute // form of the home folder,
+// since the matcher would anchor ~ at the home folder as written.
+func (g *gate) foldRule(rule string) string {
+	tool, pattern, ok := strings.Cut(rule, "(")
+	if !ok {
+		return rule
+	}
+	if rest, ok := strings.CutPrefix(strings.TrimSpace(pattern), "~/"); ok {
+		pattern = "/" + filepath.ToSlash(g.home) + "/" + rest
+	}
+	return tool + "(" + strings.ToLower(pattern)
+}
+
+// holdsHome reports a project root at or above the home folder, as when
+// a session runs in the home folder outside any Git checkout: every file
+// of the person would count as the project.
+func (g *gate) holdsHome() bool {
+	for _, home := range g.homes() {
+		for _, root := range g.roots {
+			if underFold(home, root) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// homes is the home folder as given and, when the policy resolves
+// links, where it really is.
+func (g *gate) homes() []string {
+	homes := []string{g.home}
+	if g.policy.Resolve != nil {
+		if real := filepath.Clean(g.policy.Resolve(g.home)); real != g.home {
+			homes = append(homes, real)
+		}
+	}
+	return homes
+}
+
 // ruleCalls are the forms of r a permission rule is matched against: the
-// call as sent, plus an Edit call for each path an edit or patch writes
-// and a Read call for each path a read tool reads, since Claude Code
-// applies Edit rules to every file edit tool and Read rules to every
-// read tool. ok is false when a form does not encode.
-func (g *gate) ruleCalls(r Request) ([][]byte, bool) {
+// call as sent, the shell command with its rtk prefixes removed, and an
+// Edit call for each path an edit or patch writes and a Read call for
+// each path a read tool reads, since Claude Code applies Edit rules to
+// every file edit tool and Read rules to every read tool. Each path is
+// added as written, with links resolved, and in lower case, since macOS
+// and Windows disks ignore case. ok is false when a form does not encode.
+func (g *gate) ruleCalls(r Request) ([]ruleForm, bool) {
 	calls := []map[string]any{{"tool_name": r.Call, "tool_input": r.Input}}
+	var folded []map[string]any
+	if command, ok := r.Input["command"].(string); ok && shellCalls[r.Call] {
+		if plain := rtkPrefix.ReplaceAllString(command, "$1$2"); plain != command {
+			input := maps.Clone(r.Input)
+			input["command"] = plain
+			calls = append(calls, map[string]any{"tool_name": r.Call, "tool_input": input})
+		}
+	}
 	addPath := func(tool, p string) {
-		if abs, ok := g.path(p, g.cwd); ok {
-			calls = append(calls, map[string]any{"tool_name": tool, "tool_input": map[string]any{"file_path": abs}})
+		abs, ok := g.path(p, g.cwd)
+		if !ok {
+			return
+		}
+		paths := []string{abs}
+		if g.policy.Resolve != nil {
+			if real := filepath.Clean(g.policy.Resolve(abs)); real != abs {
+				paths = append(paths, real)
+			}
+		}
+		for _, file := range paths {
+			calls = append(calls, map[string]any{"tool_name": tool, "tool_input": map[string]any{"file_path": file}})
+			folded = append(folded, map[string]any{"tool_name": tool, "tool_input": map[string]any{"file_path": strings.ToLower(file)}})
 		}
 	}
 	switch {
@@ -301,24 +444,41 @@ func (g *gate) ruleCalls(r Request) ([][]byte, bool) {
 			}
 		}
 	}
-	bodies := make([][]byte, 0, len(calls))
-	for _, call := range calls {
+	forms := make([]ruleForm, 0, len(calls)+len(folded))
+	for i, call := range append(calls, folded...) {
 		body, err := json.Marshal(call)
 		if err != nil {
 			return nil, false
 		}
-		bodies = append(bodies, body)
+		forms = append(forms, ruleForm{body: body, fold: i >= len(calls)})
 	}
-	return bodies, true
+	return forms, true
 }
+
+// rtkPrefix finds an rtk word that runs the program after it, at the
+// start of the text or of a command in a list or pipeline.
+var rtkPrefix = regexp.MustCompile(`(^\s*|[;&|(]\s*)rtk\s+(` + strings.Join(rtkPassThrough, "|") + `)\b`)
 
 // searchCalls read every file under a folder, so a Read rule with a
 // path may cover any of them.
 var searchCalls = map[string]bool{"Glob": true, "Grep": true, "LS": true}
 
-func isReadPathRule(rule string) bool {
-	rest, ok := strings.CutPrefix(strings.TrimSpace(rule), "Read(")
-	return ok && strings.TrimSpace(strings.TrimSuffix(rest, ")")) != "*"
+func isReadRule(rule string) bool {
+	return ruleTool(rule) == "Read"
+}
+
+// isFileRule reports a rule of the Read tool or of any file edit tool.
+func isFileRule(rule string) bool {
+	switch ruleTool(rule) {
+	case "Read", "Edit", "Write", "MultiEdit", "NotebookEdit":
+		return true
+	}
+	return false
+}
+
+func ruleTool(rule string) string {
+	tool, _, _ := strings.Cut(strings.TrimSpace(rule), "(")
+	return strings.TrimSpace(tool)
 }
 
 // asEditRule reads a Write, MultiEdit or NotebookEdit rule with a path
@@ -461,7 +621,29 @@ func (g *gate) readRule(p, cwd string) string {
 	if !g.inside(abs) {
 		return RuleOutsideProject
 	}
+	if g.gitInternal(abs) {
+		return RuleProtectedPath
+	}
 	return ""
+}
+
+// gitInternals are the Git folders and config files a read asks for:
+// a config can hold a token in a remote URL.
+var gitInternals = spec.ProtectGroup{Paths: []string{"**/.git", "**/.gitconfig", "**/.config/git"}}
+
+func (g *gate) gitInternal(abs string) bool {
+	paths := []string{abs}
+	if g.policy.Resolve != nil {
+		paths = append(paths, filepath.Clean(g.policy.Resolve(abs)))
+	}
+	for _, p := range paths {
+		if rel := g.relative(p); rel != "" && rel != "." {
+			if _, ok := gitInternals.Match(rel); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isDevice(abs string) bool {

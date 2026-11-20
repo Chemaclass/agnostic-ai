@@ -30,8 +30,16 @@ var secretNames = []string{
 // real values.
 var secretSamples = []string{".env.example", ".env.sample", ".env.template", ".env.dist"}
 
-// secret reports whether abs names a credential file or folder.
+// secret reports whether abs names a credential file or folder, as
+// written or with its links resolved.
 func (g *gate) secret(abs string) bool {
+	if g.secretPath(abs) {
+		return true
+	}
+	return g.policy.Resolve != nil && g.secretPath(filepath.Clean(g.policy.Resolve(abs)))
+}
+
+func (g *gate) secretPath(abs string) bool {
 	if under(abs, g.home) {
 		rel, _ := filepath.Rel(g.home, abs)
 		rel = filepath.ToSlash(rel)
@@ -112,7 +120,68 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 			return RuleSecret
 		}
 	}
+	if gitGlob(glob) {
+		return RuleProtectedPath
+	}
 	return ""
+}
+
+// gitGlob reports a search glob that may match a Git folder or config
+// file, read the way the search tool reads it.
+var gitSamples = []string{".git/config", ".git/head", ".git/index", ".git/hooks/x", ".git/fetch_head", ".git/packed-refs",
+	".git/modules/x/config", ".git/worktrees/x/config.worktree", ".gitconfig", ".config/git/config"}
+
+func gitGlob(glob string) bool {
+	lower := strings.ToLower(glob)
+	for segment := range strings.SplitSeq(lower, "/") {
+		if segment == ".git" {
+			return true
+		}
+	}
+	re, err := dotGlobRegexp(lower)
+	if err != nil {
+		return true
+	}
+	// Each sample is tried at every depth the glob reaches, after the
+	// glob's own leading folders, since a segment of stars alone matches
+	// any folder.
+	depth := strings.Count(lower, "/") + 1
+	var lead strings.Builder
+	for _, segment := range strings.Split(lower, "/")[:depth-1] {
+		if strings.ContainsAny(segment, "*?[{") {
+			break
+		}
+		lead.WriteString(segment + "/")
+	}
+	for _, base := range []string{"", lead.String()} {
+		for _, sample := range gitSamples {
+			for prefix := base; strings.Count(prefix, "/") <= depth; prefix += "d/" {
+				if re.MatchString(prefix + sample) {
+					return true
+				}
+			}
+		}
+	}
+	// Each segment on its own: a wildcard one deeper in the glob, such
+	// as sub/.gi?/FETCH_HEAD, may still name a Git folder. A segment of
+	// stars alone matches every name; the samples above cover it.
+	segments := strings.Split(lower, "/")
+	matches := func(segment, name string) bool {
+		if strings.Trim(segment, "*") == "" {
+			return false
+		}
+		seg, err := dotGlobRegexp("/" + segment)
+		return err != nil || seg.MatchString("/"+name)
+	}
+	for i, segment := range segments {
+		if matches(segment, ".git") || matches(segment, ".gitconfig") {
+			return true
+		}
+		if i+1 < len(segments) && matches(segment, ".config") && matches(segments[i+1], "git") {
+			return true
+		}
+	}
+	return false
 }
 
 // dotGlobRegexp reads a glob as search tools do: * and ? stay inside a
@@ -168,7 +237,7 @@ func dotGlobRegexp(glob string) (*regexp.Regexp, error) {
 // Agent specs are among them: an x-claude hooks or permissionMode field
 // in one becomes a hook or a permission mode after the next sync.
 var fixedProtected = spec.ProtectGroup{Paths: []string{
-	"**/.git",
+	"**/.git", "**/.gitconfig", "**/.config/git",
 	".github/workflows", ".github/hooks", ".gitlab-ci.yml", ".circleci", ".buildkite",
 	"azure-pipelines.yml", "Jenkinsfile",
 	".github/actions", ".gitmodules", ".gitattributes",
@@ -191,10 +260,34 @@ var fixedProtected = spec.ProtectGroup{Paths: []string{
 	"**/.config/fish",
 }}
 
+// homeProtected are paths under the home folder an edit always asks
+// for, beside fixedProtected read from the home folder: programs on the
+// PATH and login agents run without the person.
+var homeProtected = spec.ProtectGroup{Paths: []string{
+	"Library/LaunchAgents", "Library/LaunchDaemons", ".config/autostart", ".config/systemd",
+	"bin", ".local/bin", "go/bin", ".cargo/bin", ".bun/bin", ".deno/bin", ".npm-global/bin",
+}}
+
+// homeTopProtected is fixedProtected anchored at the home folder: a
+// **/ pattern there means a folder right under home, so a tool folder
+// inside some project above the session does not protect it.
+var homeTopProtected = func() spec.ProtectGroup {
+	var group spec.ProtectGroup
+	for _, p := range fixedProtected.Paths {
+		group.Paths = append(group.Paths, strings.TrimPrefix(p, "**/"))
+	}
+	return group
+}()
+
 // protected reports whether abs, inside the project, is a path an edit
-// always asks for, or one under $AGNOSTIC_AI_HOME.
+// always asks for, or one under $AGNOSTIC_AI_HOME. Read from the home
+// folder too, so a project inside a tool folder such as ~/.claude does
+// not make its files plain project files.
 func (g *gate) protected(abs string) bool {
 	if g.underFolder(abs, g.policy.AgnosticHome) {
+		return true
+	}
+	if g.protectedFromHome(abs) {
 		return true
 	}
 	if g.protectedRel(g.relative(abs)) {
@@ -270,6 +363,38 @@ func (g *gate) specSourcesIn(dir string) ([]string, error) {
 type specFolders struct {
 	dirs []string
 	err  error
+}
+
+func (g *gate) protectedFromHome(abs string) bool {
+	paths := []string{abs}
+	if g.policy.Resolve != nil {
+		paths = append(paths, filepath.Clean(g.policy.Resolve(abs)))
+	}
+	for _, home := range g.homes() {
+		for _, p := range paths {
+			if p == home || !underFold(p, home) {
+				continue
+			}
+			rel, err := filepath.Rel(strings.ToLower(home), strings.ToLower(p))
+			if err != nil {
+				continue
+			}
+			rel = filepath.ToSlash(rel)
+			if segments := strings.Split(rel, "/"); len(segments) > 2 && segments[1] == "worktrees" &&
+				strings.HasPrefix(segments[0], ".") && segments[0] != ".git" {
+				// A tool's own worktrees, such as ~/.codex/worktrees, hold
+				// checkouts, not the tool's settings.
+				continue
+			}
+			if _, ok := homeTopProtected.Match(rel); ok {
+				return true
+			}
+			if _, ok := homeProtected.Match(rel); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (g *gate) protectedRel(rel string) bool {
