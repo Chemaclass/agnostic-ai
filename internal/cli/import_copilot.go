@@ -52,11 +52,11 @@ const (
 
 // importFromCopilot reads an existing GitHub Copilot project
 // (`.github/copilot-instructions.md`, `.github/instructions/`,
-// `.github/chatmodes/`, every directory in copilotSkillsDirs,
+// `.github/chatmodes/`, `.github/prompts/`, every directory in copilotSkillsDirs,
 // `.github/copilot/settings.json`, and `.vscode/mcp.json`) under root
 // and writes specs into the configured source directories.
 func importFromCopilot(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
 	}
 	counts, err := importCopilotRules(root, src)
@@ -80,6 +80,10 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	commands, err := importCopilotPrompts(root, importSourcePath(root, src.Commands))
+	if err != nil {
+		return err
+	}
 	mcps, err := importCopilotMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
@@ -95,8 +99,8 @@ func importFromCopilot(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, copilotMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d settings\n",
-		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, hooks, mcps, settings)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d hooks, %d mcps, %d settings\n",
+		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, commands, hooks, mcps, settings)
 	return nil
 }
 

@@ -65,6 +65,22 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{".agents/commands/*.md", "amp"},
 }
 
+// unmanagedImportedOnce lists config files a tool reads that sync never
+// writes, so import leaves them in place. One stays unmanaged until the
+// spec import writes from it exists.
+var unmanagedImportedOnce = []struct{ glob, target, kind, suffix string }{
+	{cursorLegacyRulesFile, "cursor", "rules", ""},
+	{".github/prompts/*" + copilotPromptSuffix, "copilot", "commands", copilotPromptSuffix},
+	{".opencode/agent/*.md", "opencode", "agents", ".md"},
+	{".opencode/command/*.md", "opencode", "commands", ".md"},
+}
+
+// unmanagedMCPFiles lists MCP files sync replaces whole. JSON carries no
+// marker, so one is unmanaged when it names a server no MCP spec has.
+var unmanagedMCPFiles = []struct{ path, key, target string }{
+	{".cursor/mcp.json", "mcpServers", "cursor"},
+}
+
 // unmanagedTrees lists config folders a tool reads at every depth, which
 // filepath.Glob cannot express: it reads `**` as one folder level.
 var unmanagedTrees = []struct{ dir, ext, target string }{
@@ -123,6 +139,24 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 		}
 		for _, m := range matches {
 			add(m, c.target)
+		}
+	}
+	for _, c := range unmanagedImportedOnce {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range matches {
+			name := strings.TrimPrefix(strings.TrimSuffix(filepath.Base(m), c.suffix), ".")
+			if !fileExists(filepath.Join(unmanagedSourceDir(root, cfg, c.kind), name+".md")) {
+				add(m, c.target)
+			}
+		}
+	}
+	for _, f := range unmanagedMCPFiles {
+		path := filepath.Join(root, filepath.FromSlash(f.path))
+		if mcpServersWithoutSpecs(path, f.key, unmanagedSourceDir(root, cfg, "mcps")) {
+			add(path, f.target)
 		}
 	}
 	for _, tree := range unmanagedTrees {
@@ -264,4 +298,29 @@ func claudeGlobsFor(cfg *config.Config, globs []struct{ glob, target string }) [
 		out = append(out, g)
 	}
 	return out
+}
+
+// unmanagedSourceDir is the spec folder of kind under root.
+func unmanagedSourceDir(root string, cfg *config.Config, kind string) string {
+	dirs := map[string]string{"rules": cfg.Sources.Rules, "commands": cfg.Sources.Commands, "agents": cfg.Sources.Agents, "mcps": cfg.Sources.MCPs}
+	dir := dirs[kind]
+	if dir == "" {
+		dir = config.SourceBaseDir + "/" + kind
+	}
+	return config.ResolveSourcePath(root, dir)
+}
+
+// mcpServersWithoutSpecs reports whether the MCP file at path names a
+// server under key that has no spec in specDir.
+func mcpServersWithoutSpecs(path, key, specDir string) bool {
+	servers, err := readJSONCMapAt(path, key)
+	if err != nil || len(servers) == 0 {
+		return err != nil && fileExists(path)
+	}
+	for name := range servers {
+		if !fileExists(filepath.Join(specDir, spec.MCPFileName(name))) {
+			return true
+		}
+	}
+	return false
 }

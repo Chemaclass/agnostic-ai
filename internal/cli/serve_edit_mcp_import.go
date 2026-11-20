@@ -36,7 +36,7 @@ func previewMCPSpec(target, name, path, format string, server map[string]any) ([
 	case "grok":
 		servers = grokMCPDocs(servers)
 	case "opencode":
-		servers[name] = nestOpencodeOnlyMCPKeys(normalizeOpencodeMCPEntry(copy))
+		servers[name] = opencodeMCPSpec(copy)
 	case "kilo":
 		servers[name] = normalizeOpencodeMCPEntry(copy)
 	case "windsurf":

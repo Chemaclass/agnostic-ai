@@ -128,7 +128,17 @@ func previewDrift(cfg *config.Config, bundle spec.Bundle, targets []string, back
 			return nil, syncDrops{}, nil, err
 		}
 	}
-	reports, err := collectLoadedDriftWith(ledger, cfg, bundle, targets, nil, gitignoreFlag)
+	var guard func(*targetRenders, *config.Config) error
+	if opts.tree == nil {
+		guard = func(renders *targetRenders, readerCfg *config.Config) error {
+			readers := targets
+			if len(readers) == 0 {
+				readers = readerCfg.Targets
+			}
+			return keepHandWrittenMCPFiles(renders, readerCfg, readers, ledger.state.Outputs, backup, false)
+		}
+	}
+	reports, err := collectGuardedDrift(ledger, cfg, bundle, targets, nil, gitignoreFlag, guard)
 	if err != nil {
 		return nil, syncDrops{}, nil, err
 	}

@@ -52,6 +52,9 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, opts.backup, opts.keepEdits); err != nil {
 		return nil, nil, err
 	}
+	if err := keepHandWrittenMCPFiles(renders, cfg, targets, prior.state.Outputs, opts.backup, opts.keepEdits); err != nil {
+		return nil, nil, err
+	}
 	winners, err := detectRenderedCollisions(renders, cfg, targets, root, prior.state.Backups)
 	if err != nil {
 		return nil, nil, err
@@ -130,7 +133,7 @@ func runSyncPassWith(root string, prior ledgerSnapshot, project *projectLoad, ta
 		return err
 	}
 	prior.warn()
-	edits := editGuardFor(opts.keepEdits, prev)
+	edits := editGuardFor(opts.keepEdits, prev).backingUpMCPFiles(unledgeredMCPFiles(renders, cfg, effectiveTargets, prev.Outputs))
 
 	// Each concurrent target owns its own session; sessions collects every
 	// session with a rollback log in write order, so the deferred rollback
@@ -1036,7 +1039,7 @@ func runSyncJSON(cmd *cobra.Command, root string, prior ledgerSnapshot, project 
 		return err
 	}
 	prior.warn()
-	edits := editGuardFor(opts.keepEdits, prev)
+	edits := editGuardFor(opts.keepEdits, prev).backingUpMCPFiles(unledgeredMCPFiles(renders, cfg, effectiveTargets, prev.Outputs))
 
 	// JSON retains partial target output except when coverage acceptance rejects the run.
 	mainSess := newMainSession(cfg, opts.backup, edits)
