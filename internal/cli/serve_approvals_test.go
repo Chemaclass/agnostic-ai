@@ -21,20 +21,21 @@ import (
 // Claude Code session (inProject, pid 4242), a temporary agnostic-ai
 // home, and a clock the test moves.
 type approvalsFixture struct {
-	h      *conversationsHandler
-	home   string
-	now    time.Time
-	routed bool
+	h       *conversationsHandler
+	project string
+	home    string
+	now     time.Time
+	routed  bool
 }
 
 func newApprovalsFixture(t *testing.T, mode string, routed bool) *approvalsFixture {
 	t.Helper()
-	h, _, _ := conversationsFixture(t, true)
+	h, _, project := conversationsFixture(t, true)
 	h.scanner.Processes = runningProcesses{pid: 4242}
 	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	// A baseline before the transcripts, so a waiting session is unseen.
 	writeTestFile(t, h.scanner.MarksPath, `{"schemaVersion":"conversation-marks/v1","since":"2026-01-01T00:00:00Z","marks":{}}`)
-	f := &approvalsFixture{h: h, home: t.TempDir(), now: time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC), routed: routed}
+	f := &approvalsFixture{h: h, project: project, home: t.TempDir(), now: time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC), routed: routed}
 	if mode != "" {
 		writeTestFile(t, filepath.Join(f.home, config.ConfigFileName), "approvals:\n  mode: "+mode+"\n")
 	}
@@ -79,6 +80,12 @@ func (f *approvalsFixture) decide(t *testing.T, session string, outcome approval
 	if err := log.Append(entry); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// busy writes the session file of the same session at work.
+func (f *approvalsFixture) busy(t *testing.T) {
+	t.Helper()
+	writeTestFile(t, filepath.Join(f.h.scanner.Stores.ClaudeDir, "sessions", "4242.json"), `{"pid":4242,"sessionId":"`+inProject+`","status":"busy"}`)
 }
 
 func (f *approvalsFixture) list(t *testing.T) (conversations.View, conversations.Conversation) {
@@ -359,7 +366,7 @@ func TestApplyApprovals_HoldsOnlyALocalClaudeCodeWait(t *testing.T) {
 	}
 	before := view.Conversations[0]
 
-	hold := applyApprovals(&view, snap, now, map[string]time.Time{})
+	hold := applyApprovals(&view, snap, now, map[string]waitSeen{})
 
 	if !hold.IsZero() || view.NeedsYou != 3 {
 		t.Errorf("hold %v, needsYou %d; nothing may be held", hold, view.NeedsYou)
@@ -498,4 +505,64 @@ func getList(t *testing.T, h http.Handler, held string) *httptest.ResponseRecord
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestApprovals_AskedCallInAWaitWinsOverALaterApproval(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
+	since := f.now.Add(-time.Second)
+	f.wait(t, since)
+	f.decide(t, inProject, approvals.Asked, approvals.RuleSecret, since.Add(100*time.Millisecond))
+	f.decide(t, inProject, approvals.Approved, "", since.Add(200*time.Millisecond))
+
+	_, c := f.list(t)
+
+	if !needsPermission(c) || reasonOf(c) != "Always asks: secrets" {
+		t.Errorf("state %s, reason %q; a call left to the person keeps the wait", c.State, reasonOf(c))
+	}
+}
+
+func TestApprovals_ANewWaitWithoutAStartGetsItsOwnGrace(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
+	f.wait(t, time.Time{})
+	f.list(t)
+	f.now = f.now.Add(time.Minute)
+	f.busy(t)
+	f.list(t)
+
+	f.now = f.now.Add(time.Minute)
+	f.wait(t, time.Time{})
+
+	if _, c := f.list(t); needsPermission(c) {
+		t.Errorf("state %s, reason %q; the second wait must be held from when it began", c.State, reasonOf(c))
+	}
+}
+
+func TestApprovals_ASearchDoesNotDropTheListsHold(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
+	since := f.now.Add(-2 * time.Second)
+	f.wait(t, since)
+	tag := listTagOf(t, f.h, "")
+	rec := httptest.NewRecorder()
+	f.h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+"?q=nothing+matches", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("search = %d %s", rec.Code, rec.Body)
+	}
+
+	f.now = since.Add(approvalsHookWait + time.Second)
+
+	if rec := getList(t, f.h, tag); rec.Code == http.StatusNotModified {
+		t.Error("the list answered unchanged after its hold ended, because a search cleared it")
+	}
+}
+
+func TestApprovals_AProjectFileThatDoesNotParseAsks(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
+	writeTestFile(t, filepath.Join(f.project, config.ConfigFileName), "approvals: [\n")
+	f.wait(t, f.now.Add(-200*time.Millisecond))
+
+	view, c := f.list(t)
+
+	if !needsPermission(c) || view.NeedsYou != 1 || reasonOf(c) != "" {
+		t.Errorf("state %s, needsYou %d, reason %q; a broken project file must not loosen", c.State, view.NeedsYou, reasonOf(c))
+	}
 }

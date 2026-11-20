@@ -136,7 +136,8 @@ type approvalsSnapshot struct {
 	policy   config.ApprovalsPolicy
 	policyOK bool
 	sessions map[string]*approvalSession
-	// projectAsk caches config.ProjectApprovalsAsk per folder.
+	// projectAsk caches config.ProjectApprovalsAsk per folder; a project
+	// file that cannot be read asks.
 	projectAsk map[string]string
 	routed     func(tool, mode string) bool
 }
@@ -151,7 +152,10 @@ func (s approvalsSnapshot) modeFor(tool conversations.Tool, folder string) (stri
 	if folder != "" {
 		ask, cached := s.projectAsk[folder]
 		if !cached {
-			ask, _ = config.ProjectApprovalsAsk(folder)
+			var err error
+			if ask, err = config.ProjectApprovalsAsk(folder); err != nil {
+				ask = folder
+			}
 			s.projectAsk[folder] = ask
 		}
 		policy.ProjectAsk = ask
@@ -229,22 +233,43 @@ func (s approvalsSnapshot) waitVerdict(c conversations.Conversation, since, now 
 	return approvalsReasonNoAnswer, time.Time{}
 }
 
-// decisionSince is the session's latest decision, when it was made
-// during the wait that began at since; a zero since takes any.
+// decisionSince is the decision made during the wait that began at
+// since: the latest asked one, since one call left to the person keeps
+// the wait open, else the latest. A zero since takes the latest of all.
 func (s approvalsSnapshot) decisionSince(c conversations.Conversation, since time.Time) (approvals.Entry, bool) {
 	session := s.sessions[approvalSessionKey(string(c.Tool), c.ID)]
-	if session == nil || (!since.IsZero() && session.last.Time.Before(since.Add(-approvalsClockSlack))) {
+	if session == nil {
 		return approvals.Entry{}, false
 	}
-	return session.last, true
+	if since.IsZero() {
+		return session.last, true
+	}
+	var latest approvals.Entry
+	decided := false
+	for _, e := range session.Decisions {
+		if e.Time.Before(since.Add(-approvalsClockSlack)) {
+			break
+		}
+		if e.Decision == approvals.Asked {
+			return e, true
+		}
+		if !decided {
+			latest, decided = e, true
+		}
+	}
+	return latest, decided
 }
+
+// waitSeen is when the server first and last saw a Claude Code wait
+// whose start the tool did not give.
+type waitSeen struct{ first, last time.Time }
 
 // applyApprovals adds what approvals decided to each row of view. A
 // permission wait the hook may still answer, or already approved, is
 // shown as work: it never counts as needing the person. firstSeen keeps
-// when the server first saw a Claude Code wait whose start the tool did
-// not give. It returns the end of the earliest hold, zero when none.
-func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.Time, firstSeen map[string]time.Time) time.Time {
+// the waits whose start the tool did not give. It returns the end of the
+// earliest hold, zero when none.
+func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.Time, firstSeen map[string]waitSeen) time.Time {
 	if mode := snap.headerMode(); mode != config.ApprovalsAsk {
 		view.ApprovalsMode = mode
 	}
@@ -258,12 +283,20 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.T
 		if session := snap.sessions[key]; session != nil {
 			note.Approved, note.Recent = session.Approved, session.recent
 		}
-		if since, waits := c.PermissionWait(); waits && c.Live {
+		since, waits := c.PermissionWait()
+		waits = waits && c.Live
+		if !waits || !since.IsZero() {
+			delete(firstSeen, key)
+		}
+		if waits {
 			if since.IsZero() && c.Tool == conversations.ToolClaude {
-				if _, seen := firstSeen[key]; !seen {
-					firstSeen[key] = now
+				seen, ok := firstSeen[key]
+				if !ok {
+					seen.first = now
 				}
-				since = firstSeen[key]
+				seen.last = now
+				firstSeen[key] = seen
+				since = seen.first
 			}
 			reason, hold := snap.waitVerdict(*c, since, now)
 			note.Reason = reason
@@ -284,8 +317,10 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, now time.T
 		}
 	}
 	view.Conversations = rows
-	for key, at := range firstSeen {
-		if now.Sub(at) > time.Hour {
+	// A wait no list showed for an hour, such as one a search left out
+	// until it ended, is forgotten.
+	for key, seen := range firstSeen {
+		if now.Sub(seen.last) > time.Hour {
 			delete(firstSeen, key)
 		}
 	}
@@ -306,10 +341,11 @@ type approvalsReader struct {
 	logStamp string
 	sessions map[string]*approvalSession
 	// firstSeen: see applyApprovals.
-	firstSeen map[string]time.Time
-	// hold is the end of the earliest hold in the last list; the list
-	// tag changes once it passes, so the held row shows without a write.
-	hold time.Time
+	firstSeen map[string]waitSeen
+	// holds is, per list query, the end of the earliest hold in the
+	// last answer to it; that list's tag changes once it passes, so the
+	// held row shows without a write.
+	holds map[string]time.Time
 }
 
 func newApprovalsReader() *approvalsReader {
@@ -332,8 +368,9 @@ func (a *approvalsReader) files() (configs []string, log string, err error) {
 	return globalConfigPaths(source), approvals.LogPath(source), nil
 }
 
-// stamp names the state of every input of applyApprovals, for the list tag.
-func (a *approvalsReader) stamp() string {
+// stamp names the state of every input of applyApprovals for the list
+// that query asks for, for its tag.
+func (a *approvalsReader) stamp(query string) string {
 	configs, log, err := a.files()
 	if err != nil {
 		return "unreadable"
@@ -341,7 +378,7 @@ func (a *approvalsReader) stamp() string {
 	var b strings.Builder
 	b.WriteString(fileStamps(append(configs, log, log+".1")...))
 	a.mu.Lock()
-	hold := a.hold
+	hold := a.holds[query]
 	a.mu.Unlock()
 	if !hold.IsZero() {
 		fmt.Fprintf(&b, "hold:%d:%t", hold.UnixNano(), !a.now().Before(hold))
@@ -390,15 +427,27 @@ func (a *approvalsReader) snapshot() approvalsSnapshot {
 	return snap
 }
 
-// decorate adds what approvals decided to a list the scanner read.
-func (a *approvalsReader) decorate(view *conversations.View) {
+// decorate adds what approvals decided to the list the scanner read
+// for query.
+func (a *approvalsReader) decorate(view *conversations.View, query string) {
 	snap := a.snapshot()
+	now := a.now()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.firstSeen == nil {
-		a.firstSeen = map[string]time.Time{}
+		a.firstSeen, a.holds = map[string]waitSeen{}, map[string]time.Time{}
 	}
-	a.hold = applyApprovals(view, snap, a.now(), a.firstSeen)
+	if hold := applyApprovals(view, snap, now, a.firstSeen); !hold.IsZero() {
+		a.holds[query] = hold
+	} else {
+		delete(a.holds, query)
+	}
+	// A query nobody asks for again keeps its hold only a while.
+	for asked, hold := range a.holds {
+		if now.Sub(hold) > time.Minute {
+			delete(a.holds, asked)
+		}
+	}
 }
 
 // approvalsView is the read route's answer.

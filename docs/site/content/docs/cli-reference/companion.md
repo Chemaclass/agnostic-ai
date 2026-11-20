@@ -141,7 +141,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 
 ## Approvals {#approvals}
 
-With approvals set to `review` or `yolo` in the home config, routine permission prompts stop reaching you. The list shows what was decided for you, and one button turns approvals off.
+With approvals set to `review` or `yolo` in the home config, routine permission prompts stop reaching you on each tool with a route; `agnostic-ai approvals status` names them. The list shows what was decided for you, and one button turns approvals off.
 
 | Mode | Routine request | Request the gate sends to you | Tool with no route |
 |---|---|---|---|

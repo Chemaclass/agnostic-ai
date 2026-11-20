@@ -188,7 +188,7 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	stamp := h.scanner.TakeStamp()
 	tagged := stamp.Tag
 	if h.approvals != nil {
-		tagged += "\x00" + h.approvals.stamp()
+		tagged += "\x00" + h.approvals.stamp(r.URL.RawQuery)
 	}
 	tag := listTag(tagged, r)
 	w.Header().Set("ETag", tag)
@@ -201,7 +201,7 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	opts.Before, opts.Query, opts.Tool = before, search, tool
 	view := h.scanner.ScanStamped(r.Context(), opts, stamp)
 	if h.approvals != nil {
-		h.approvals.decorate(&view)
+		h.approvals.decorate(&view, r.URL.RawQuery)
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }
