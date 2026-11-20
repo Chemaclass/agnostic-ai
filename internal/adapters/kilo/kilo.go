@@ -683,10 +683,10 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		out["enabled"] = false
 	}
 	if raw := e.Meta["timeout"]; raw != nil {
-		if timeout, whole := emit.WholeNumber(raw); whole && timeout > 0 {
+		if timeout, whole := emit.WholeNumber(raw); whole && timeout > 0 && int64(timeout) < 1<<53 {
 			out["timeout"] = timeout
 		} else {
-			emit.NoteProject("kilo: MCP " + e.Name + " timeout must be a positive whole number of milliseconds, so sync leaves it out and Kilo uses its default")
+			emit.NoteProject("kilo: MCP " + e.Name + " timeout must be a whole number of milliseconds from 1 to 9007199254740991, so sync leaves it out and Kilo uses its default")
 		}
 	}
 
