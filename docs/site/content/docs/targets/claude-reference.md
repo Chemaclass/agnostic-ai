@@ -125,6 +125,8 @@ Claude Code creates the directory on first use. Subagent memory is part of auto 
 
 `sync --global --only claude` maps a home settings spec's `permissions.default-mode` to `permissions.defaultMode` in `~/.claude/settings.json`. It merges the home's `allow`, `ask`, and `deny` rules into the lists there. `import --global claude` copies user-level rules into the home. See [global settings and rule ownership](@/docs/global-configuration-reference.md#global-default-model-and-effort).
 
+With no `permissions.default-mode` in a home settings spec, `approvals` set to `review` for Claude Code writes `permissions.defaultMode: "auto"` there instead. Claude Code takes auto mode only from user, managed, or command-line settings, never from a project file. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
+
 `outputs.claude.settings` declares `.claude/settings.json` keys directly. Layers, lowest first (a later layer wins):
 
 1. Captured overlay (from `import claude`).

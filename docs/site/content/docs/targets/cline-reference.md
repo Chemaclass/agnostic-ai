@@ -47,7 +47,7 @@ Cline finds a hook script by file name only, and it has two hook runtimes.
 Not every name runs in both:
 
 - The VS Code extension runs six: `TaskStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `TaskComplete`, `TaskCancel` ([source](https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/apps/vscode/src/sdk/hooks-adapter.ts#L1-L12), v4.1.26).
-- `TaskResume`, `TaskError` and `SessionShutdown` run in the Cline CLI only ([source](https://github.com/cline/cline/blob/071e1b25b48f9ef5dff7fc32085e6a16f02bf02e/sdk/packages/core/src/hooks/hook-file-hooks.ts#L988-L1084), cli-v3.0.74). Sync writes their scripts and gives a note.
+- `TaskResume`, `TaskError` and `SessionShutdown` run in the Cline CLI only ([source](https://github.com/cline/cline/blob/071e1b25b48f9ef5dff7fc32085e6a16f02bf02e/sdk/packages/core/src/hooks/hook-file-hooks.ts#L988-L1084), cli-v3.0.74). Sync writes their scripts and gives a note, unless `outputs.cline.hooks-dir` is `.cline/hooks`, which only the CLI reads.
 - `PreCompact` runs in neither: the SDK maps it to no event ([source](https://github.com/cline/cline/blob/071e1b25b48f9ef5dff7fc32085e6a16f02bf02e/sdk/packages/core/src/hooks/hook-file-config.ts#L41)). Sync writes its script and gives a note.
 
 So sync writes one file per event to `.clinerules/hooks/<Event>`, the only layout both run, once each. The next sync removes an older `.cline/hooks/<Event>.sh` that sync wrote. Sync overwrites a hand-written `.clinerules/hooks/<Event>` for an event a spec uses. List it under `sync.unmanaged` to keep your own. A single-file `.clinerules` blocks `.clinerules/hooks/`. Sync replaces it only when a rule spec holds its content. So run `agnostic-ai import cline` first, or set `outputs.cline.hooks-dir: .cline/hooks`, which only the Cline CLI reads.
@@ -60,7 +60,6 @@ The [hooks page](https://docs.cline.bot/customization/hooks) points to SDK Plugi
 - **Exit 2 blocks.** Cline ignores the exit code: only stdout `{"cancel": true}` blocks ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks/hook-file-hooks.ts#L415-L454)). The current VS Code extension honors valid reply JSON even after a nonzero exit. So the script turns a command's `exit 2`, as on Claude Code, into a last `HOOK_CONTROL<TAB>{"cancel": true, "errorMessage": ...}` line with the command's stderr, and exits 0. Any exit 2 counts, including a tool error such as `grep` on a missing file. A cancel stops the whole Cline run, not only that tool call.
 - **On Windows the VS Code extension runs only `<Event>.ps1`** ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/hooks/hook-factory.ts#L988-L997)). For a TaskStart hook with `x-cline.runtime: vscode` and `commandWindows`, a Windows sync also writes its native `.ps1` companion. Unix sync omits it so the SDK does not run a second PowerShell hook. Normal ledger cleanup removes a previously owned companion when syncing on Unix.
 - [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs a hook's script with bash, Cline's event data, and its 120 second timeout, before a session does.
-- `PreCompact` has no runtime event yet. Its script is written and reported but never runs.
 - Any other event gets a sync note instead of a file.
 
 ### Workflows

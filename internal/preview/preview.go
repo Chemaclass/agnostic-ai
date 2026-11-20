@@ -178,6 +178,8 @@ func sanitize(value any, sensitive bool) (any, bool) {
 					hidden = sensitiveURL(text)
 				} else if normal == "apikeyhelper" {
 					hidden = sensitiveHelper(text)
+				} else if normal == "commandwindows" || normal == "powershell" {
+					hidden = sensitivePowerShell(text)
 				} else if executionField(normal) {
 					hidden = sensitiveShell(text)
 				}

@@ -19,6 +19,7 @@ type specMoveTestReply struct {
 	Destination  string   `json:"destination"`
 	Exists       bool     `json:"exists"`
 	Files        []string `json:"files"`
+	Scripts      []string `json:"scripts"`
 	SyncCommands []string `json:"syncCommands"`
 	Expected     string   `json:"expected"`
 	Error        string   `json:"error"`
@@ -449,5 +450,106 @@ func TestSpecMove_KeepsTheOldSkillWhenRollbackFails(t *testing.T) {
 	kept, err := filepath.Glob(filepath.Join(global, ".agnostic-ai-move-*", "old", "SKILL.md"))
 	if err != nil || len(kept) != 1 || !strings.Contains(readOptional(t, kept[0]), "Old.") {
 		t.Errorf("the old skill is gone: %v %v", kept, err)
+	}
+}
+
+func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
+	project, global := moveProject(t)
+	writeFile(t, ".agnostic-ai/hooks/guard-push.yaml", "name: guard-push\non: before-tool\nmatch: shell\ncommand: .agnostic-ai/scripts/guard-push.sh\ncommandWindows: powershell -File .agnostic-ai/scripts/guard-push.ps1\n")
+	writeFile(t, ".agnostic-ai/scripts/guard-push.sh", "#!/bin/sh\nexit 0\n")
+	writeFile(t, ".agnostic-ai/scripts/claude/guard-push.sh", "#!/bin/sh\necho claude\n")
+	writeFile(t, ".agnostic-ai/scripts/guard-push.ps1", "exit 0\n")
+	writeFile(t, ".agnostic-ai/scripts/other.sh", "#!/bin/sh\n")
+	if err := os.Chmod(filepath.Join(project, ".agnostic-ai", "scripts", "guard-push.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	preview, code, applied := previewThenApply(t, projectMoveHandler(project, global), moveBody("hook", "guard-push", "project", "global", "move"))
+	want := []string{"~/source/scripts/claude/guard-push.sh", "~/source/scripts/guard-push.ps1", "~/source/scripts/guard-push.sh"}
+	if !slices.Equal(preview.Scripts, want) {
+		t.Errorf("scripts = %v, want %v", preview.Scripts, want)
+	}
+	if code != http.StatusOK || !applied.OK {
+		t.Fatalf("apply = %d %+v", code, applied)
+	}
+	if got := readOptional(t, filepath.Join(global, "scripts", "claude", "guard-push.sh")); got != "#!/bin/sh\necho claude\n" {
+		t.Errorf("target script = %q", got)
+	}
+	info, err := os.Stat(filepath.Join(global, "scripts", "guard-push.sh"))
+	if err != nil || info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("script lost its run bit: %v %v", info, err)
+	}
+	if _, err := os.Stat(filepath.Join(global, "scripts", "other.sh")); !os.IsNotExist(err) {
+		t.Errorf("copied a script the hook does not run: %v", err)
+	}
+	if readOptional(t, filepath.Join(project, ".agnostic-ai", "scripts", "guard-push.sh")) == "" {
+		t.Error("a move removed the project script, which other hooks may run")
+	}
+}
+
+func TestSpecMove_RefusesAHookWhoseScriptDiffersOrIsMissing(t *testing.T) {
+	project, global := moveProject(t)
+	writeFile(t, ".agnostic-ai/hooks/guard-push.yaml", "name: guard-push\non: session-start\ncommand: .agnostic-ai/scripts/guard-push.sh\n")
+	writeFile(t, ".agnostic-ai/hooks/lost.yaml", "name: lost\non: session-start\ncommand: .agnostic-ai/scripts/lost.sh\n")
+	writeFile(t, ".agnostic-ai/scripts/guard-push.sh", "#!/bin/sh\nexit 0\n")
+	writeFile(t, filepath.Join(global, "scripts", "guard-push.sh"), "#!/bin/sh\nexit 1\n")
+	h := projectMoveHandler(project, global)
+	if code, reply := postSpecMove(t, h, moveBody("hook", "guard-push", "project", "global", "copy")); code != http.StatusConflict || !strings.Contains(reply.Error, "guard-push.sh") {
+		t.Errorf("different script = %d %+v, want 409", code, reply)
+	}
+	if code, reply := postSpecMove(t, h, moveBody("hook", "lost", "project", "global", "copy")); code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "lost.sh") {
+		t.Errorf("missing script = %d %+v, want 422", code, reply)
+	}
+	if got := readOptional(t, filepath.Join(global, "scripts", "guard-push.sh")); got != "#!/bin/sh\nexit 1\n" {
+		t.Errorf("refusal changed the global script: %q", got)
+	}
+}
+
+func TestSpecMove_ReadsEveryCommandFormOfAHook(t *testing.T) {
+	project, global := moveProject(t)
+	writeFile(t, ".agnostic-ai/hooks/pair.yaml", "name: pair\non: session-start\ncommand: [.agnostic-ai/scripts/a.sh, .agnostic-ai/scripts/b.sh]\n")
+	writeFile(t, ".agnostic-ai/hooks/flagged.yaml", "name: flagged\non: session-start\ncommand: .agnostic-ai/scripts/c.sh\nargs: [x]\ncommandWindows: powershell -File .agnostic-ai/scripts/c.ps1 -Flag\n")
+	for _, name := range []string{"a.sh", "b.sh", "c.sh", "c.ps1"} {
+		writeFile(t, ".agnostic-ai/scripts/"+name, "exit 0\n")
+	}
+	h := projectMoveHandler(project, global)
+	for name, want := range map[string][]string{
+		"pair":    {"~/source/scripts/a.sh", "~/source/scripts/b.sh"},
+		"flagged": {"~/source/scripts/c.ps1", "~/source/scripts/c.sh"},
+	} {
+		code, reply := postSpecMove(t, h, moveBody("hook", name, "project", "global", "copy"))
+		if code != http.StatusOK || !slices.Equal(reply.Scripts, want) {
+			t.Errorf("%s = %d %+v, want scripts %v", name, code, reply, want)
+		}
+	}
+}
+
+func TestSpecMove_ReadsCommandsUnderToolKeys(t *testing.T) {
+	project, global := moveProject(t)
+	writeFile(t, ".agnostic-ai/hooks/kiro-only.yaml", "name: kiro-only\non: session-start\ncommand: echo hi\nx-kiro:\n  action:\n    type: command\n    command: .agnostic-ai/scripts/k.sh\nx-cursor:\n  hooks:\n    - command: .agnostic-ai/scripts/gone.sh\nx-gemini:\n  hooks:\n    - command: .agnostic-ai/scripts/g.sh\n")
+	writeFile(t, ".agnostic-ai/scripts/k.sh", "exit 0\n")
+	writeFile(t, ".agnostic-ai/scripts/g.sh", "exit 0\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("hook", "kiro-only", "project", "global", "copy"))
+	if want := []string{"~/source/scripts/g.sh", "~/source/scripts/k.sh"}; code != http.StatusOK || !slices.Equal(reply.Scripts, want) {
+		t.Errorf("move = %d %+v, want scripts %v", code, reply, want)
+	}
+}
+
+func TestSpecMove_RefusesAScriptLinkedOutsideTheScriptsFolder(t *testing.T) {
+	project, global := moveProject(t)
+	outside := filepath.Join(t.TempDir(), "outside")
+	writeFile(t, filepath.Join(outside, "secret.sh"), "cat ~/.ssh/id_ed25519\n")
+	writeFile(t, ".agnostic-ai/hooks/linked.yaml", "name: linked\non: session-start\ncommand: .agnostic-ai/scripts/link/secret.sh\n")
+	if err := os.MkdirAll(filepath.Join(project, ".agnostic-ai", "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(project, ".agnostic-ai", "scripts", "link")); err != nil {
+		t.Skip(err)
+	}
+	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("hook", "linked", "project", "global", "copy"))
+	if code != http.StatusUnprocessableEntity {
+		t.Errorf("linked script = %d %+v, want 422", code, reply)
+	}
+	if _, err := os.Stat(filepath.Join(global, "scripts", "link", "secret.sh")); !os.IsNotExist(err) {
+		t.Errorf("copied a file from outside the scripts folder: %v", err)
 	}
 }

@@ -75,7 +75,8 @@ func TestApprovalsStatus_RoutePerTool(t *testing.T) {
 		"claude": {config.ApprovalsYolo: "PermissionRequest hook"},
 		"codex":  {config.ApprovalsReview: "Codex Auto-review"},
 	}
-	approvalsHome(t, "version: 1\ntargets: [claude, codex, cursor]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
+	source := approvalsHome(t, "version: 1\ntargets: [claude, codex, cursor]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
+	writeCodexReviewerOn(t, source)
 
 	got := approvalsStatusJSON(t)
 
@@ -139,6 +140,7 @@ func TestApprovalsAsk_WritesTheLocalHomeConfig(t *testing.T) {
 	t.Cleanup(func() { approvalRoutes = saved })
 	approvalRoutes = map[string]map[string]string{"codex": {config.ApprovalsReview: "Codex Auto-review"}}
 	source := approvalsHome(t, "version: 1\ntargets: [claude, codex]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
+	writeCodexReviewerOn(t, source)
 	local := filepath.Join(source, "local", config.ConfigFileName)
 	writeFile(t, local, "# mine\nmodels:\n  fast:\n    claude: haiku\napprovals:\n  tools:\n    codex: review\n  projects:\n    /tmp/x: yolo\n  always-ask:\n    - \"Bash(make deploy*)\"\n")
 
