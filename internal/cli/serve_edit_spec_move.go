@@ -578,12 +578,12 @@ func hookMoveCommands(meta map[string]any) []hookMoveCommand {
 		}
 		literal := len(stringSliceFromAny(override["args"])) > 0 || len(stringSliceFromAny(meta["args"])) > 0
 		add(override, literal)
-		// Kiro nests its command under action, Gemini and Qwen under a
-		// hooks list.
-		if action, ok := override["action"].(map[string]any); ok {
+		// As sync reads them: Kiro nests a command action under action,
+		// Gemini and Qwen their handlers under a hooks list.
+		if action, ok := override["action"].(map[string]any); ok && key == "x-kiro" && action["type"] == "command" {
 			add(action, false)
 		}
-		if hooks, ok := override["hooks"].([]any); ok {
+		if hooks, ok := override["hooks"].([]any); ok && (key == "x-gemini" || key == "x-qwen") {
 			for _, item := range hooks {
 				if hook, ok := item.(map[string]any); ok {
 					add(hook, false)

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -66,7 +67,7 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 		if mapping.Kind != yaml.MappingNode || mapping.Anchor != "" {
 			return nil, fmt.Errorf("%s is not in a plain permissions mapping", key)
 		}
-		_, node := yamlMapValue(mapping, member)
+		at, node := yamlMapValue(mapping, member)
 		switch {
 		case node == nil:
 			out, err = editYAMLPair(data, mapping, member, value)
@@ -100,7 +101,11 @@ func setPermissionValue(data []byte, key string, value any) ([]byte, error) {
 				return nil, e
 			}
 			if node.Kind == yaml.SequenceNode && node.Style&yaml.FlowStyle == 0 && len(node.Content) > 0 && len(value.([]string)) == 0 {
-				start, encoded = keyLineEnd(data, start), " "+encoded
+				keyEnd, e := keyColonEnd(data, mapping.Content[at])
+				if e != nil {
+					return nil, fmt.Errorf("%s is not safely editable: %w", key, e)
+				}
+				start, encoded = keyEnd, " "+encoded
 			}
 			out = spliceEditYAML(data, start, end, encoded)
 		}
@@ -159,19 +164,20 @@ func permissionListText(value any, node *yaml.Node, newline string) (string, err
 	return strings.Join(lines, newline+strings.Repeat(" ", node.Column-1)), nil
 }
 
-// keyLineEnd moves offset back over the spaces and line breaks after a
-// key's colon, so an emptied block list's `[]` lands on the key line, where
-// it parses whatever the list's indent was. With no colon there, offset
-// comes back unchanged.
-func keyLineEnd(data []byte, offset int) int {
-	i := offset
-	for i > 0 && strings.ContainsRune(" \t\r\n", rune(data[i-1])) {
-		i--
+// keyColonEnd is the offset just past a key's colon, where an emptied
+// block list's `[]` parses whatever the list's indent was.
+func keyColonEnd(data []byte, keyNode *yaml.Node) (int, error) {
+	_, end, err := yamlScalarSpan(data, keyNode)
+	if err != nil {
+		return 0, err
 	}
-	if i > 0 && data[i-1] == ':' {
-		return i
+	for end < len(data) && (data[end] == ' ' || data[end] == '\t') {
+		end++
 	}
-	return offset
+	if end >= len(data) || data[end] != ':' {
+		return 0, errors.New("no colon after the key")
+	}
+	return end + 1, nil
 }
 
 // lineEnding is CRLF when data uses it, else LF.

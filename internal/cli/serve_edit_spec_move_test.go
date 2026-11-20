@@ -525,7 +525,7 @@ func TestSpecMove_ReadsEveryCommandFormOfAHook(t *testing.T) {
 
 func TestSpecMove_ReadsCommandsUnderToolKeys(t *testing.T) {
 	project, global := moveProject(t)
-	writeFile(t, ".agnostic-ai/hooks/kiro-only.yaml", "name: kiro-only\non: session-start\ncommand: echo hi\nx-kiro:\n  action:\n    command: .agnostic-ai/scripts/k.sh\nx-gemini:\n  hooks:\n    - command: .agnostic-ai/scripts/g.sh\n")
+	writeFile(t, ".agnostic-ai/hooks/kiro-only.yaml", "name: kiro-only\non: session-start\ncommand: echo hi\nx-kiro:\n  action:\n    type: command\n    command: .agnostic-ai/scripts/k.sh\nx-cursor:\n  hooks:\n    - command: .agnostic-ai/scripts/gone.sh\nx-gemini:\n  hooks:\n    - command: .agnostic-ai/scripts/g.sh\n")
 	writeFile(t, ".agnostic-ai/scripts/k.sh", "exit 0\n")
 	writeFile(t, ".agnostic-ai/scripts/g.sh", "exit 0\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("hook", "kiro-only", "project", "global", "copy"))

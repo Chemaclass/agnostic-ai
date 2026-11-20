@@ -41,6 +41,7 @@ func TestSetPermissionList_EmptiesABlockList(t *testing.T) {
 	for _, in := range []string{
 		"permissions:\n  allow:\n  - read(src/**)\nmodel: sonnet\n",
 		"permissions:\n  allow:\n    - read(src/**)\nmodel: sonnet\n",
+		"permissions:\n  allow:\n    # Read-only commands:\n    - read(src/**)\nmodel: sonnet\n",
 	} {
 		got, err := setPermissionList([]byte(in), "permissions.allow", []string{})
 		if err != nil {

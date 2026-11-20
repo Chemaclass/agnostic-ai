@@ -47,10 +47,26 @@ func TestDisplay_HidesHeadersInPowerShellThatDoesNotParseAsShell(t *testing.T) {
 		`curl.exe -H "X-Api-Key: abc123def456" https://x.test; if ($LASTEXITCODE) { exit 1 }`,
 		`curl.exe -H "Authorization: Basic dXNlcjpodW50ZXIy" https://x.test; if ($LASTEXITCODE) { exit 1 }`,
 		`$h["X-Api-Key"] = "hunter2hunter2"; if (x) { exit 1 }`,
+		`$h[ "X-Api-Key" ] = "hunter2hunter2"; if (x) { exit 1 }`,
 	} {
 		body := "name: a\ncommandWindows: '" + strings.ReplaceAll(command, "'", "''") + "'\n"
 		if !Display("hook.yaml", body).Hidden {
 			t.Errorf("shown: %s", command)
+		}
+	}
+}
+
+func TestDisplay_ShowsPowerShellHeadersThatHoldNoSecret(t *testing.T) {
+	for _, command := range []string{
+		`curl.exe -H "Authorization: Bearer $env:TOKEN" https://x.test; if ($LASTEXITCODE) { exit 1 }`,
+		`curl.exe -H "Authorization: Bearer ${env:TOKEN}" https://x.test; if ($LASTEXITCODE) { exit 1 }`,
+		`curl.exe -H "Authorization: Bearer $($env:TOKEN)" https://x.test; if ($LASTEXITCODE) { exit 1 }`,
+		`Write-Host "Token: see the docs"; if ($LASTEXITCODE) { exit 1 }`,
+		`Write-Host "password: required"; if ($LASTEXITCODE) { exit 1 }`,
+	} {
+		body := "name: a\ncommandWindows: '" + strings.ReplaceAll(command, "'", "''") + "'\n"
+		if Display("hook.yaml", body).Hidden {
+			t.Errorf("hidden: %s", command)
 		}
 	}
 }
