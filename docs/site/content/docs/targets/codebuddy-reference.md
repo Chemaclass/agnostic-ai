@@ -111,6 +111,7 @@ Empty tool lists:
 - Session retention maps to `cleanupPeriodDays` at user scope.
 - Voice has no documented native key.
 - Project `autoMode` and `permissions.defaultMode: auto` are rejected, because CodeBuddy ignores them there.
+- With no `permissions.default-mode` in a home settings spec, `approvals` set to `review` for CodeBuddy makes `sync --global` write `permissions.defaultMode: "auto"` to `~/.codebuddy/settings.json`. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
 
 ### Hooks
 

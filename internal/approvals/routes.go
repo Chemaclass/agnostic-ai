@@ -98,7 +98,11 @@ var routes = []Route{
 		Evidence: "https://code.claude.com/docs/en/permission-modes.md",
 	}},
 	{Target: "cline", Reason: reasonNoRoute},
-	{Target: "codebuddy", Reason: reasonNotBuilt},
+	{Target: "codebuddy", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "CodeBuddy auto mode",
+		File:     "~/.codebuddy/settings.json",
+		Evidence: "https://www.codebuddy.ai/docs/cli/permission-modes",
+	}},
 	{Target: "codex", Yolo: &Mechanism{
 		Name:     MechanismPermissionHook,
 		File:     "~/.codex/hooks.json",

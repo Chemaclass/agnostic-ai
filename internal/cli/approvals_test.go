@@ -430,3 +430,16 @@ func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
 		t.Fatalf("validate --global passed or did not name the value: %v\n%s", err, out)
 	}
 }
+
+func TestApprovalRoutes_ReviewMatchesNativeReviewers(t *testing.T) {
+	for _, r := range approvals.Routes() {
+		reviewer, ok := nativeReviewers[r.Target]
+		if (r.Review != nil) != ok {
+			t.Errorf("%s: route table review %+v, native reviewer %v", r.Target, r.Review, ok)
+			continue
+		}
+		if ok && r.Review.Name != reviewer.name {
+			t.Errorf("%s: route names %q, native reviewer %q", r.Target, r.Review.Name, reviewer.name)
+		}
+	}
+}
