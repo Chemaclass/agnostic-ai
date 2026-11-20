@@ -24,6 +24,7 @@ import (
 var approvalRoutes = map[string]map[string]string{
 	"claude": {config.ApprovalsReview: nativeReviewers["claude"].name},
 	"codex":  {config.ApprovalsReview: nativeReviewers["codex"].name},
+	"qoder":  {config.ApprovalsReview: nativeReviewers["qoder"].name},
 	"qwen":   {config.ApprovalsReview: nativeReviewers["qwen"].name},
 }
 

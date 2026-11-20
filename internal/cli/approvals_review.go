@@ -26,6 +26,7 @@ type nativeReviewer struct {
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
 	"codex":  {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review"},
+	"qoder":  {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto"},
 	"qwen":   {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
 

@@ -128,6 +128,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### By tool
 
+#### Qoder
+
+- `approvals` set to `review` turns on Qoder auto mode: `sync --global` writes `general.defaultPermissionMode: "auto"` to `~/.qoder/settings.json`, and `approvals status` names it (#3700).
+
 #### Qwen Code
 
 - `approvals` set to `review` turns on Qwen Code auto mode: `sync --global` writes `tools.approvalMode: "auto"` to `~/.qwen/settings.json`, and `approvals status` names it (#3700).
