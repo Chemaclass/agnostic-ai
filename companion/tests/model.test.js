@@ -4,7 +4,15 @@ import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago
 
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf } from '../frontend/model.js'
 
-const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
+const row = (id, state, extra = {}) => ({
+  tool: 'claude',
+  id,
+  state,
+  title: id,
+  updatedAt: '2026-11-09T12:00:00Z',
+  ...(state === 'completed' ? { completedAt: '2026-11-09T13:00:00Z' } : {}),
+  ...extra,
+})
 
 test('groups rows by state, in list order, and leaves empty groups out', () => {
   const groups = grouped([row('a', 'dormant'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'completed')])
@@ -796,6 +804,14 @@ test('the tooltip of a permission row names why approvals left it to the person'
 
 const shell = { pid: 42, procStart: 'shell-start', command: 'npm run dev', since: '2026-11-09T10:30:00Z', processCount: 3 }
 const shellNow = Date.parse('2026-11-09T12:00:00Z')
+
+test('a saved completion offers Undo complete, and an archived row can still be hidden', () => {
+  const completedAt = '2026-11-09T13:00:00Z'
+  assert.deepEqual(rowMenuOf(row('app-archive', 'dormant', { completedAt })), ['rename', 'reopen', 'hide', 'delete'])
+  const waiting = row('shell-wait', 'blocked', { completedAt, live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
+  assert.deepEqual(rowMenuOf(waiting), ['read', 'rename', 'reopen', 'stop-shell'])
+  assert.equal(rowActionOf(waiting), undefined)
+})
 
 test('warns about each shell with its age, command and owner when known', () => {
   const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })

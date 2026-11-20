@@ -53,6 +53,39 @@ test('a mark changes only the fixture in this process', async (t) => {
   assert.equal(untouched.body.view.conversations.find((row) => row.id === 'active-1').state, 'active')
 })
 
+test('undoing a completion uses the fixture clock and keeps closed or app-archived chats in Archived', async (t) => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  const preview = await startPreview({ port: 0, fixture: 'completions', now })
+  t.after(preview.close)
+
+  const states = { 'recent-complete': 'active', 'closed-complete': 'dormant', 'cloud-complete': 'active', 'app-archive': 'dormant' }
+  for (const [id, state] of Object.entries(states)) {
+    const reply = await postJSON(preview.url + '/api/mark', { tool: 'claude', id, as: 'open' })
+    assert.equal(reply.status, 204)
+    const { body } = await inbox(preview.url)
+    const row = body.view.conversations.find((row) => row.id === id)
+    assert.equal(row.state, state, id)
+    assert.equal(row.completedAt, undefined, id)
+  }
+})
+
+test('completing a chat that only waits on a shell saves the mark and leaves it blocked', async (t) => {
+  const now = Date.parse('2026-11-07T15:30:00Z')
+  const preview = await startPreview({ port: 0, fixture: 'stuck-shells', now })
+  t.after(preview.close)
+  const chat = { tool: 'claude', id: 'shell-blocked' }
+
+  assert.equal((await postJSON(preview.url + '/api/mark', { ...chat, as: 'completed' })).status, 204)
+  const completed = (await inbox(preview.url)).body.view.conversations.find((row) => row.id === chat.id)
+  assert.equal(completed.state, 'blocked')
+  assert.equal(completed.completedAt, new Date(now).toISOString())
+
+  assert.equal((await postJSON(preview.url + '/api/mark', { ...chat, as: 'open' })).status, 204)
+  const afterUndo = (await inbox(preview.url)).body.view.conversations.find((row) => row.id === chat.id)
+  assert.equal(afterUndo.state, 'blocked')
+  assert.equal(afterUndo.completedAt, undefined)
+})
+
 test('sends the copied text only while it is the text the page showed', async (t) => {
   const preview = await startPreview({ port: 0 })
   t.after(preview.close)

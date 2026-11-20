@@ -237,7 +237,7 @@ test('marking one chat complete shows a green tick, then archives it', async ({ 
   await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toBeAttached()
 })
 
-test('the row menu marks a chat complete with the same tick as its button', async ({ page }) => {
+test('the row menu marks a chat complete with a tick and can return it to Active', async ({ page }) => {
   await openPanel(page)
   const marks = markBodies(page)
   const target = row(page, 'Fix the login redirect')
@@ -246,7 +246,14 @@ test('the row menu marks a chat complete with the same tick as its button', asyn
 
   await expect(target.locator('.action.is-done')).toBeAttached()
   await expect(target).toBeHidden()
-  expect(marks).toEqual([{ tool: 'cursor', id: 'active-1', as: 'completed' }])
+  await groupTitle(page, 'Archived').click()
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  await expect(completeButton(target)).toBeAttached()
+  expect(marks).toEqual([
+    { tool: 'cursor', id: 'active-1', as: 'completed' },
+    { tool: 'cursor', id: 'active-1', as: 'open' },
+  ])
 })
 
 test('the row menu of an archived chat undoes complete or hides it', async ({ page }) => {
@@ -268,6 +275,20 @@ test('the row menu of an archived chat undoes complete or hides it', async ({ pa
     { tool: 'claude', id: 'done-2', as: 'open' },
     { tool: 'claude', id: 'old-2', as: 'hidden' },
   ])
+})
+
+test('a chat waiting on a forgotten shell keeps its place and only offers Undo after completion', async ({ page }) => {
+  await openPanel(page, 'stuck-shells')
+  const target = row(page, 'Preview the reporting changes')
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark complete' }).click()
+  await expect(completeButton(target)).toHaveCount(0)
+  await expect(target).toHaveClass(/needs-you/)
+
+  await target.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  await expect(completeButton(target)).toBeAttached()
 })
 
 test('a refused mark complete gives the tick back, keeps the row and says why', async ({ page }) => {
