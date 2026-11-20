@@ -23,7 +23,7 @@ The calls most people use:
 
 - `GET /api/health` checks that the server runs and which folder it reads.
 - `GET /api/views/overview` returns what the setup holds and what is missing.
-- An edit in two steps: send the request with `"action": "preview"`, read the plan, then send it again with `"action": "apply"` and the `expected` value the preview returned. Nothing is written until apply.
+- An edit in two steps: send the request with `"action": "preview"`, read the plan, then send it again with `"action": "apply"` and the `expected` value the preview returned. Nothing is written until apply. An apply without `expected` is a 400; one whose `expected` no longer matches is a 409.
 
 ```bash
 curl -s http://127.0.0.1:4310/api/health
@@ -49,7 +49,7 @@ Takes no input.
 
 ## `POST /api/switch`
 
-Body: `{}` with `Content-Type: application/json`.
+Body: `{}` with `Content-Type: application/json`. Any field is a 400.
 
 - Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server.
 - Returns `url`, `root`, `global`, and `started`.
@@ -64,7 +64,7 @@ Body: `{"git": true}` or `{"git": false}`. Project servers only.
 - Writes the starter files into the user configuration folder fixed at startup.
 - Replies `{root, created, git}`.
 - Answers 409 when a setup already exists.
-- Any other field is a 400.
+- A body without `git`, or with any other field, is a 400.
 
 ## `GET /api/views/overview`
 

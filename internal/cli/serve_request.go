@@ -7,6 +7,9 @@ import (
 	"net/http"
 )
 
+// errApplyWithoutPreview answers an apply that carries no expected value.
+const errApplyWithoutPreview = "apply needs the expected value a preview returned; send action preview first"
+
 // errExtraJSONValue is a body that holds more than one JSON value.
 var errExtraJSONValue = errors.New("the body holds more than one JSON value")
 

@@ -141,7 +141,11 @@ func (h *specMoveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusOK, plan.preview)
 		return
 	}
-	if req.Expected == "" || req.Expected != plan.preview.Expected {
+	if req.Expected == "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: errApplyWithoutPreview})
+		return
+	}
+	if req.Expected != plan.preview.Expected {
 		writeEditJSON(w, http.StatusConflict, editError{Error: "The spec or its destination changed; review a fresh preview before applying"})
 		return
 	}
