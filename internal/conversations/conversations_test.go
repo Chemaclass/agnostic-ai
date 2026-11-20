@@ -263,7 +263,7 @@ func TestScan_ListsClaudeSessionsWithTitlesPromptsAndRoutes(t *testing.T) {
 	}
 	stoppable := ""
 	if canStopShells() {
-		stoppable = "\n  \"stoppable\": true,"
+		stoppable = "\n  \"stoppable\": {\n    \"pid\": 4242,\n    \"procStart\": \"Sat Nov  7 08:00:00 2026\"\n  },"
 	}
 	if actual := asJSON(t, byID(t, view, idSafari)); actual != `{
   "tool": "claude",

@@ -969,8 +969,8 @@ export interface Conversation {
   /** The agents this conversation started that are no rows of their own and still work: its native subagents, and the Codex runs a local Claude Code session started with `codex exec`. Omitted when none works or their states are unknown. */
   helpers?: ConversationHelper[]
   stuckShells?: StuckShell[]
-  /** A live Claude Code session in a terminal on this computer, whose process POST /api/conversations/stop-session can end. */
-  stoppable?: boolean
+  /** The process of a live Claude Code session in a terminal on this computer, which POST /api/conversations/stop-session can end. */
+  stoppable?: ConversationProcessRef
   /** Absent from a server older than the marks. */
   state?: ConversationState
   /** Set only on an `active` row whose latest write the person has not seen: a terminal session resumed by hand after it closed with a reply, until the person opens or marks it. It does not count toward `needsYou`. An archived row is never `unread`. */
@@ -1075,7 +1075,7 @@ export interface ConversationStopShellReply {
   stillRunning?: ConversationProcessRef[]
 }
 
-export interface ConversationStopSessionRequest {
+export interface ConversationStopSessionRequest extends ConversationProcessRef {
   tool: ConversationTool
   id: string
 }

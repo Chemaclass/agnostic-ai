@@ -2023,7 +2023,7 @@ test('confirming Stop chat ends it and says so', async ({ page }) => {
 
   await expect(page.getByRole('status').filter({ hasText: 'Stopped.' })).toBeVisible()
   await expect(stopChatDialog(page)).toBeHidden()
-  expect(sent).toEqual([{ tool: 'claude', id: 'waits-1' }])
+  expect(sent).toEqual([{ tool: 'claude', id: 'waits-1', pid: 4007, procStart: 'Fri Nov 20 09:00:00 2026' }])
   await row(page, 'Approve the database migration').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
 })

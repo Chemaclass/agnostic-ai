@@ -1592,12 +1592,14 @@ function closeStopSession() {
   queryInput.focus()
 }
 
-/** A new list where the chat no longer runs here closes the question. */
+const sameProcess = (a, b) => a?.pid === b?.pid && a?.procStart === b?.procStart
+
+/** A new list where the chat no longer runs here, or runs in another process, closes the question. */
 function keepStopSessionCurrent() {
   if (stopSessionConfirm.hidden || !stopSessionFor || stopSessionGo.disabled) return
   const key = keyOf(stopSessionFor)
   const current = shownView()?.conversations.find((conversation) => keyOf(conversation) === key)
-  if (current && rowMenuOf(current).includes('stop-session')) return
+  if (current && rowMenuOf(current).includes('stop-session') && sameProcess(current.stoppable, stopSessionFor.stoppable)) return
   closeStopSession()
 }
 
@@ -1613,7 +1615,8 @@ stopSessionGo.addEventListener('click', async () => {
   let reply
   let version
   try {
-    ({ body: reply, version } = await stopSession(conversation))
+    // The question named this process: a chat that moved to another one since is refused, not stopped.
+    ({ body: reply, version } = await stopSession(conversation, conversation.stoppable))
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     closeStopSession()

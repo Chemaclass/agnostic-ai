@@ -77,7 +77,7 @@ Returns `tools` and `conversations`:
 Conversation fields:
 
 - `app` is `cli`, `ide`, `desktop`, `background`, `cloud`, `chat` or `cowork`.
-- `folder` is where the conversation started and where it resumes.
+- `folder` is where the conversation started and resumes.
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
 - `waiting` is `{for, tool?, detail?}`. See [what a chat waits for](@/docs/cli-reference/companion-list.md#waiting).
@@ -91,14 +91,14 @@ Conversation fields:
   - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
   - `workingSubagents` stays as it was and does not count `codex exec` runs.
 - [`stuckShells`](@/docs/cli-reference/conversations-shell-api.md#stuck-shells) lists forgotten shells.
-- `stoppable` is `true` on a live Claude Code session that runs in a terminal on this computer, on macOS and Linux. Background, editor and Claude app sessions are not stoppable here. See [stop a chat](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-session).
+- [`stoppable`](@/docs/cli-reference/conversations-shell-api.md#stoppable) marks a chat the server can stop.
 - `unread` is `true` only on an `active` row whose latest write you have not seen: a terminal session resumed by hand after it closed with a reply. It stays until you open the chat or mark it read. It does not count toward `needsYou`. An archived row is never `unread`.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.
 - `cloud` is `{id, link}`, set on a local Claude Code session that Remote Control also shows on claude.ai: a live one, or one that closed while this server ran and whose cloud session wrote nothing more than two minutes after the session's last write. A restarted server sets it again only once the session runs; the cloud row it lists meanwhile is not `unread` for a write the local row showed, except a last reply that reached claude.ai after this server last read the list while the session ran and was never marked read. That cloud session is not listed as its own row. `POST /api/conversations/open` with the cloud `id` opens `link`. See [Remote Control](@/docs/cli-reference/companion.md#claude-code-cloud-sessions).
 - `reply` is the agent's latest message since the latest prompt, as one line of at most 200 characters. When the agent asks a question, the line is the question. Otherwise it is the start of the message. It never holds tool calls, tool results or subagent output.
-- Only local Claude Code, Codex and Cursor conversations have a `reply`. Cloud sessions have none.
+- Only local Claude Code, Codex and Cursor conversations have a `reply`.
 - Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:

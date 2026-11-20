@@ -26,8 +26,8 @@ const sessionGracePeriod = 5 * time.Second
 // StopSession ends the process of a live Claude Code session that runs in
 // a terminal on this machine. It asks first and kills only a process that
 // is still the same one after the grace period.
-func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, opts ScanOptions) (StopSessionReply, error) {
-	if !canStopShells() || tool != ToolClaude || !sessionIDPattern.MatchString(id) {
+func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, target ProcessRef, opts ScanOptions) (StopSessionReply, error) {
+	if !canStopShells() || tool != ToolClaude || !sessionIDPattern.MatchString(id) || target.PID <= 1 || target.ProcStart == "" {
 		return StopSessionReply{}, ErrSessionRefused
 	}
 	if _, stopping := s.stoppingSessions.LoadOrStore(id, struct{}{}); stopping {
@@ -35,7 +35,7 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, opts Sc
 	}
 	defer s.stoppingSessions.Delete(id)
 
-	process, found := s.sessionToStop(ctx, id, opts)
+	process, found := s.sessionToStop(ctx, id, target, opts)
 	if !found {
 		return StopSessionReply{}, ErrSessionRefused
 	}
@@ -86,12 +86,12 @@ func (s *Scanner) StopSession(ctx context.Context, tool Tool, id string, opts Sc
 }
 
 // sessionToStop finds the row as a scan lists it, so the endpoint stops
-// only what the list offers to stop.
-func (s *Scanner) sessionToStop(ctx context.Context, id string, opts ScanOptions) (liveProcess, bool) {
+// only what the list offers to stop, and only the process the person saw.
+func (s *Scanner) sessionToStop(ctx context.Context, id string, target ProcessRef, opts ScanOptions) (liveProcess, bool) {
 	s.lock()
 	defer s.unlock()
 	for _, c := range s.scanClaude(ctx, opts).conversations {
-		if c.ID == id && c.Stoppable && c.process != nil && c.process.PID > 1 && c.process.PID != os.Getpid() {
+		if c.ID == id && c.Stoppable != nil && *c.Stoppable == target && c.process != nil && c.process.PID > 1 && c.process.PID != os.Getpid() {
 			return *c.process, true
 		}
 	}

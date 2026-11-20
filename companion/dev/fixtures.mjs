@@ -30,7 +30,7 @@ function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/a
     ...(live ? { live: true } : {}),
     ...(state === 'completed' ? { completedAt: new Date(now).toISOString() } : {}),
     // Like the server: a live Claude Code session in a terminal can be stopped.
-    ...(live && tool === 'claude' && app === 'cli' ? { stoppable: true } : {}),
+    ...(live && tool === 'claude' && app === 'cli' ? { stoppable: { pid: 4000 + id.length, procStart: 'Fri Nov 20 09:00:00 2026' } } : {}),
     ...(shared ? { cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
     tool,
     app,

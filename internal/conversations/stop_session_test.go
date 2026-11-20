@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+func sessionRef(processes *fakeProcesses) ProcessRef {
+	return ProcessRef{PID: 4242, ProcStart: processes.table[0].Started}
+}
+
 func recordSessionSignals(scanner *Scanner) *[]shellTestSignal {
 	var signals []shellTestSignal
 	scanner.sessionSignal = func(pid int, force bool) error {
@@ -32,7 +36,7 @@ func TestStopSession_AsksTheProcessToEndFirst(t *testing.T) {
 		return nil
 	}
 	prior := scanner.Stamp()
-	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, ScanOptions{})
+	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,10 +58,10 @@ func TestStopSession_KillsTheSameProcessWhenItKeepsRunning(t *testing.T) {
 	if !canStopShells() {
 		t.Skip("requires signals")
 	}
-	scanner, _, _, _ := forgottenShellScanner(t)
+	scanner, processes, _, _ := forgottenShellScanner(t)
 	signals := recordSessionSignals(scanner)
 	scanner.shellWait = func(context.Context, time.Duration) error { return nil }
-	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, ScanOptions{})
+	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +83,7 @@ func TestStopSession_DoesNotKillAProcessThatReusedThePID(t *testing.T) {
 		processes.table[0].Started = "reused"
 		return nil
 	}
-	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, ScanOptions{})
+	reply, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,23 +93,37 @@ func TestStopSession_DoesNotKillAProcessThatReusedThePID(t *testing.T) {
 }
 
 func TestStopSession_RefusesBeforeSignaling(t *testing.T) {
-	cases := map[string]func(*Scanner, *fakeProcesses, *Tool, *string){
-		"other tool":        func(_ *Scanner, _ *fakeProcesses, tool *Tool, _ *string) { *tool = ToolCodex },
-		"unknown session":   func(_ *Scanner, _ *fakeProcesses, _ *Tool, id *string) { *id = "00000000-0000-4000-8000-000000000000" },
-		"not a session id":  func(_ *Scanner, _ *fakeProcesses, _ *Tool, id *string) { *id = "../4242" },
-		"process ended":     func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string) { processes.alive = map[int]bool{} },
-		"process restarted": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string) { processes.table[0].Started = "reused" },
-		"table unreadable":  func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string) { processes.tableFails = true },
-		"runs this server": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string) {
+	cases := map[string]func(*Scanner, *fakeProcesses, *Tool, *string, *ProcessRef){
+		"other tool": func(_ *Scanner, _ *fakeProcesses, tool *Tool, _ *string, _ *ProcessRef) { *tool = ToolCodex },
+		"unknown session": func(_ *Scanner, _ *fakeProcesses, _ *Tool, id *string, _ *ProcessRef) {
+			*id = "00000000-0000-4000-8000-000000000000"
+		},
+		"not a session id": func(_ *Scanner, _ *fakeProcesses, _ *Tool, id *string, _ *ProcessRef) { *id = "../4242" },
+		"process ended": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
+			processes.alive = map[int]bool{}
+		},
+		"process restarted": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
+			processes.table[0].Started = "reused"
+		},
+		"table unreadable": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
+			processes.tableFails = true
+		},
+		"runs this server": func(_ *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
 			processes.table = append(processes.table, ProcessInfo{PID: os.Getpid(), PPID: 4242})
 		},
-		"already stopping": func(scanner *Scanner, _ *fakeProcesses, _ *Tool, id *string) {
+		"already stopping": func(scanner *Scanner, _ *fakeProcesses, _ *Tool, id *string, _ *ProcessRef) {
 			scanner.stoppingSessions.Store(*id, struct{}{})
 		},
-		"session file names another chat": func(scanner *Scanner, processes *fakeProcesses, _ *Tool, _ *string) {
+		"session file names another chat": func(scanner *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
 			write(t, filepath.Join(scanner.Stores.ClaudeDir, "sessions", "4242.json"), lines(obj{"sessionId": "00000000-0000-4000-8000-000000000000", "pid": 4242, "procStart": processes.table[0].Started, "status": "shell"}))
 		},
-		"editor session": func(scanner *Scanner, processes *fakeProcesses, _ *Tool, _ *string) {
+		"stale confirmation": func(_ *Scanner, _ *fakeProcesses, _ *Tool, _ *string, target *ProcessRef) {
+			target.ProcStart = "an earlier process"
+		},
+		"background job": func(scanner *Scanner, _ *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
+			write(t, filepath.Join(scanner.Stores.ClaudeDir, "jobs", "e3469759", "state.json"), lines(obj{"sessionId": idSafari, "state": "running"}))
+		},
+		"editor session": func(scanner *Scanner, processes *fakeProcesses, _ *Tool, _ *string, _ *ProcessRef) {
 			write(t, filepath.Join(scanner.Stores.ClaudeDir, "sessions", "4242.json"), lines(obj{"sessionId": idSafari, "pid": 4242, "procStart": processes.table[0].Started, "status": "shell", "entrypoint": "claude-vscode"}))
 		},
 	}
@@ -113,9 +131,9 @@ func TestStopSession_RefusesBeforeSignaling(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scanner, processes, _, _ := forgottenShellScanner(t)
 			signals := recordSessionSignals(scanner)
-			tool, id := ToolClaude, idSafari
-			change(scanner, processes, &tool, &id)
-			_, err := scanner.StopSession(context.Background(), tool, id, ScanOptions{})
+			tool, id, target := ToolClaude, idSafari, sessionRef(processes)
+			change(scanner, processes, &tool, &id, &target)
+			_, err := scanner.StopSession(context.Background(), tool, id, target, ScanOptions{})
 			if err == nil || len(*signals) != 0 {
 				t.Errorf("err = %v, signals = %+v", err, *signals)
 			}
@@ -126,11 +144,11 @@ func TestStopSession_RefusesBeforeSignaling(t *testing.T) {
 func TestScan_MarksALiveClaudeSessionStoppable(t *testing.T) {
 	scanner, processes, _, _ := forgottenShellScanner(t)
 	c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari)
-	if c.Stoppable != canStopShells() {
-		t.Errorf("live row stoppable = %v", c.Stoppable)
+	if want := sessionRef(processes); canStopShells() && (c.Stoppable == nil || *c.Stoppable != want) {
+		t.Errorf("live row stoppable = %+v, want %+v", c.Stoppable, want)
 	}
 	processes.alive = map[int]bool{}
-	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Stoppable {
+	if c := byID(t, scanner.Scan(context.Background(), ScanOptions{}), idSafari); c.Stoppable != nil {
 		t.Error("ended row is stoppable")
 	}
 }
@@ -145,7 +163,7 @@ func TestStopSession_SaysSoWhenItCannotTellTheChatEnded(t *testing.T) {
 		processes.tableFails = true
 		return nil
 	}
-	if _, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, ScanOptions{}); err == nil || errors.Is(err, ErrSessionRefused) {
+	if _, err := scanner.StopSession(context.Background(), ToolClaude, idSafari, sessionRef(processes), ScanOptions{}); err == nil || errors.Is(err, ErrSessionRefused) {
 		t.Errorf("err = %v, want a failure to check", err)
 	}
 	if want := []shellTestSignal{{group: 4242}}; !reflect.DeepEqual(*signals, want) {

@@ -389,7 +389,9 @@ func claudeRoute(c *Conversation, entrypoint, jobID string, process liveProcess,
 		c.process = &process
 		// Only a terminal session is its own process: a background job's
 		// daemon, an editor or the Claude app would start it again or lose track.
-		c.Stoppable = canStopShells() && process.PID > 1 && process.ProcStart != ""
+		if canStopShells() && process.PID > 1 && process.ProcStart != "" {
+			c.Stoppable = &ProcessRef{PID: process.PID, ProcStart: process.ProcStart}
+		}
 		c.Open = Route{Kind: RouteFocus, Label: "Open in Terminal", Command: resume}
 	default:
 		c.Open = Route{Kind: RouteTerminal, Label: "Resume in Terminal", Command: resume}

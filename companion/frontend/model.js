@@ -561,7 +561,7 @@ export function rowMenuOf(conversation) {
   return offered
 }
 
-/** The question before Stop session ends a running chat's process. */
+/** The question before Stop chat ends a running chat's process. */
 export function stopSessionConfirmOf(conversation) {
   return {
     title: `Stop "${titleOf(conversation)}"?`,

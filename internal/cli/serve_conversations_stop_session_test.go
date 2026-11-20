@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
@@ -15,14 +16,15 @@ func TestServeMux_StopSessionRejectsInvalidAndUnlistedTargets(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	h := newServeMux(nil, authority.HandlerOptions{Root: home}, serveMuxOptions{})
-	valid := `{"tool":"claude","id":"` + inProject + `"}`
+	valid := `{"tool":"claude","id":"` + inProject + `","pid":54321,"procStart":"2026-11-07T12:00:00Z"}`
 	for _, tc := range []struct {
 		name, body, origin string
 		status             int
 	}{
 		{"not running", valid, "", http.StatusConflict},
-		{"missing id", `{"tool":"claude"}`, "", http.StatusBadRequest},
-		{"extra field", `{"tool":"claude","id":"` + inProject + `","pid":42}`, "", http.StatusBadRequest},
+		{"missing id", `{"tool":"claude","pid":54321,"procStart":"time"}`, "", http.StatusBadRequest},
+		{"missing process", `{"tool":"claude","id":"` + inProject + `"}`, "", http.StatusBadRequest},
+		{"extra field", strings.TrimSuffix(valid, "}") + `,"command":"anything"}`, "", http.StatusBadRequest},
 		{"foreign origin", valid, "https://foreign.example", http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
