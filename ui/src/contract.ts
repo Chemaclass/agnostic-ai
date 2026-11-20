@@ -651,6 +651,8 @@ export interface PermissionEditPreview {
   before: string[] | null
   rules: string[] | null
   diff: string
+  /** Shared ask or deny rules left out of this spec’s personal list. */
+  dropped?: string[]
   expected: string
   syncCommand: string
 }

@@ -278,7 +278,7 @@ function rowOf(conversation, order, folderNames, under) {
     line.title = warning
     text.append(line)
   }
-  const approved = approvedLine(conversation, key)
+  const approved = approvedLine(conversation, key, now)
   if (approved) text.append(approved)
 
   const actions = element('div', 'actions')
@@ -350,15 +350,17 @@ function helpersToggle(conversation, key) {
   toggle.addEventListener('click', (event) => {
     // The toggle sits inside the row, which opens on a click.
     event.stopPropagation()
+    const focused = document.activeElement === toggle
     if (open) state.helpersOpen.delete(key)
     else state.helpersOpen.add(key)
     draw({ force: true })
+    if (focused) refocus(`.helpers-toggle[aria-controls="${helpersId(key)}"]`)
   })
   return toggle
 }
 
 /** The "▸ 3 approved for you" line under a chat's meta line: it folds out the requests approvals approved, and back. */
-function approvedLine(conversation, key) {
+function approvedLine(conversation, key, now) {
   const open = state.approvedOpen.has(key)
   const label = approvedToggleOf(conversation, open)
   if (label === undefined) return undefined
@@ -369,13 +371,22 @@ function approvedLine(conversation, key) {
   toggle.addEventListener('click', (event) => {
     // The toggle sits inside the row, which opens on a click.
     event.stopPropagation()
+    const focused = document.activeElement === toggle
     if (open) state.approvedOpen.delete(key)
     else state.approvedOpen.add(key)
     draw({ force: true })
+    if (focused) refocus(`.approved-toggle[aria-controls="${approvedId(key)}"]`)
   })
   const line = element('div', 'approved')
   line.append(toggle)
+  // The list folds out inside the row, so it reads as part of it.
+  if (open) line.append(approvedList(conversation, key, now))
   return line
+}
+
+/** Gives the keys back to the control a redraw replaced, as the person left them on it. */
+function refocus(selector) {
+  document.querySelector(selector)?.focus()
 }
 
 /** The requests approvals approved for a chat, newest first, folded out under it. */
@@ -383,6 +394,8 @@ function approvedList(conversation, key, now) {
   const box = element('ul', 'approved-list')
   box.id = approvedId(key)
   box.setAttribute('aria-label', 'Approved for you')
+  // The list only tells; a click on it does not open the chat.
+  box.addEventListener('click', (event) => event.stopPropagation())
   for (const call of approvedCallsOf(conversation)) {
     const item = element('li', 'approved-call', call.text)
     item.title = `${call.text}, ${ago(call.time, now)}`
@@ -487,9 +500,12 @@ function groupHead(group) {
   const unread = unreadLabelOf(group.rows)
   if (unread) title.append(element('span', 'unread-count', unread))
   title.firstChild.classList.add('chevron')
+  title.dataset.group = group.id
   title.addEventListener('click', () => {
+    const focused = document.activeElement === title
     state.folded.set(group.id, !folded)
     draw({ force: true })
+    if (focused) refocus(`.group-title[data-group="${group.id}"]`)
   })
   const head = element('div', 'group-head')
   head.append(title)
@@ -525,14 +541,14 @@ function cloudAside(view) {
   return shownPlace() === 'local' ? undefined : view.cloudNote
 }
 
-/** The approvals line over the list while approvals answer routine prompts, with Ask me to turn them off. */
+/** The active approvals mode and the Ask me button above the list. */
 function drawApprovals(view) {
   const header = approvalsHeaderOf(view)
   approvalsBar.hidden = header === undefined
   if (header) approvalsMode.textContent = header.label
 }
 
-/** Ask me: every prompt reaches the person again, from the next request on, with no sync. */
+/** Ask me sets the home approvals policy to ask. */
 async function askAgain() {
   approvalsAsk.disabled = true
   let version
@@ -544,7 +560,7 @@ async function askAgain() {
   } finally {
     approvalsAsk.disabled = false
   }
-  say('Approvals off: every permission prompt reaches you again.')
+  say('Approvals set to ask. Your tool may still use its own reviewer.')
   await afterChange(version)
 }
 
@@ -609,9 +625,6 @@ function draw({ force } = { force: false }) {
       order += 1
       if (workingHelpersOf(conversation).length > 0 && state.helpersOpen.has(keyOf(conversation))) {
         list.append(helperList(conversation, keyOf(conversation), now))
-      }
-      if (approvedToggleOf(conversation, true) && state.approvedOpen.has(keyOf(conversation))) {
-        list.append(approvedList(conversation, keyOf(conversation), now))
       }
     }
   }
@@ -1174,6 +1187,9 @@ const renameItem = document.getElementById('rename')
 const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
+  complete: document.getElementById('complete'),
+  reopen: document.getElementById('reopen'),
+  hide: document.getElementById('hide'),
   delete: document.getElementById('delete'),
   web: document.getElementById('open-web'),
   'stop-shell': document.getElementById('stop-shell'),
@@ -1300,6 +1316,25 @@ menuItems.read.addEventListener('click', () => {
   // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
   markRow(conversation, 'seen')
 })
+menuItems.complete.addEventListener('click', () => {
+  const conversation = rowMenuTarget('complete')
+  closeRowMenu()
+  queryInput.focus()
+  if (!conversation) return
+  // The row's own tick shows the mark, as if it was pressed.
+  const row = list.querySelector(`.row[data-key="${CSS.escape(keyOf(conversation))}"]`)
+  const tick = row?.querySelector('.action[aria-label^="Mark complete"]')
+  if (row && tick) completeRow(conversation, row, tick)
+  else markRow(conversation, 'completed')
+})
+for (const [item, mark] of [['reopen', 'open'], ['hide', 'hidden']]) {
+  menuItems[item].addEventListener('click', () => {
+    const conversation = rowMenuTarget(item)
+    closeRowMenu()
+    queryInput.focus()
+    if (conversation) markRow(conversation, mark)
+  })
+}
 menuItems.web.addEventListener('click', () => {
   const conversation = rowMenuTarget('web')
   closeRowMenu()

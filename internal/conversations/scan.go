@@ -260,7 +260,7 @@ func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp)
 		From: from.UTC().Format(time.RFC3339), To: to.UTC().Format(time.RFC3339),
 		Tools: []Source{}, Conversations: page,
 	}
-	view.NeedsYou = read.needsYou
+	view.NeedsYou, view.PermissionWaits = read.needsYou, read.waits
 	if read.marksErr != nil {
 		view.MarksNote = "Seen and completed marks are unavailable: " + read.marksErr.Error()
 	}
@@ -295,6 +295,7 @@ type keptSearch struct {
 	all       []Conversation
 	sources   []Source
 	needsYou  int
+	waits     []Conversation
 	marksErr  error
 	cloudNote string
 }
@@ -330,6 +331,11 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	needsYou, marksErr := s.applyMarks(results)
 	read = keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
+		for _, c := range result.conversations {
+			if _, waits := c.PermissionWait(); waits && c.Live {
+				read.waits = append(read.waits, c)
+			}
+		}
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
 			read.all = append(read.all, result.conversations...)
 		}

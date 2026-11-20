@@ -489,7 +489,7 @@ export function approvedToggleOf(conversation, open) {
   return label === undefined ? undefined : `${open ? '▾' : '▸'} ${label}`
 }
 
-/** The approvals modes the header names, as the person set them in the home config. */
+/** The active approvals modes the header names. */
 const APPROVALS_MODE_LABELS = {
   review: 'Approvals: your tools\' reviewers answer routine prompts',
   yolo: 'Approvals: routine prompts are approved for you',
@@ -535,21 +535,23 @@ export function unreadLabelOf(rows) {
 /** What a resumed chat's marker says: it is open again, with a reply from before the person has not read. */
 export const RESUMED_UNREAD = 'Resumed with a reply from before that you have not read'
 
-/**
- * The one action a row offers: hide a chat that is archived, archive one that
- * is not. A working chat offers none, since the work would undo the archive.
- */
+/** An archived row offers Hide. Other rows can be marked complete when they have no completion mark and are not working. */
 export function rowActionOf(conversation) {
-  if (conversation.state === 'working') return undefined
-  return GROUP_OF_STATE[conversation.state] === 'archived' ? 'hide' : 'archive'
+  if (GROUP_OF_STATE[conversation.state] === 'archived') return 'hide'
+  if (conversation.state === 'working' || conversation.completedAt) return undefined
+  return 'archive'
 }
 
 /**
  * What the row menu offers: Mark as read clears a wait or a reply without opening the chat.
- * Only a chat under Archived that no process holds can be deleted.
+ * Mark complete and Hide match the row's own button. Only a chat under Archived that no process holds can be deleted.
  */
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename'] : ['rename']
+  const action = rowActionOf(conversation)
+  if (action === 'archive') offered.push('complete')
+  if (conversation.completedAt) offered.push('reopen')
+  if (action === 'hide') offered.push('hide')
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')

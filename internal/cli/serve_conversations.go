@@ -205,7 +205,11 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	opts.Before, opts.Query, opts.Tool = before, search, tool
 	view := h.scanner.ScanStamped(r.Context(), opts, stamp)
 	if h.approvals != nil {
-		h.approvals.decorate(&view, r.URL.RawQuery)
+		folder := ""
+		if len(opts.Within) > 0 {
+			folder = opts.Within[0]
+		}
+		h.approvals.decorate(&view, folder, r.URL.RawQuery)
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }

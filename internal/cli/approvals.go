@@ -348,10 +348,16 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 	}
 	index := -1
 	if root != nil {
+		merged := false
 		for i := 0; i+1 < len(root.Content); i += 2 {
-			if root.Content[i].Value == "approvals" {
+			key := root.Content[i]
+			if key.Value == "approvals" {
 				index = i + 1
 			}
+			merged = merged || key.Tag == "!!merge"
+		}
+		if index < 0 && merged {
+			return nil, errors.New("merges keys with a YAML merge key; set approvals.mode: ask by hand")
 		}
 	}
 	if index < 0 && (root == nil || root.Style&yaml.FlowStyle == 0) {
@@ -372,8 +378,14 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 		if old.Anchor != "" {
 			return nil, fmt.Errorf("approvals carries the YAML anchor &%s; set approvals.mode: ask by hand", old.Anchor)
 		}
+		if old.Kind == yaml.AliasNode {
+			return nil, fmt.Errorf("approvals is the YAML alias *%s; set approvals.mode: ask by hand", old.Value)
+		}
 		if old.Kind == yaml.MappingNode {
 			for j := 0; j+1 < len(old.Content); j += 2 {
+				if old.Content[j].Tag == "!!merge" {
+					return nil, errors.New("approvals merges keys with a YAML merge key; set approvals.mode: ask by hand")
+				}
 				if old.Content[j].Value == "always-ask" {
 					block.Content = append(block.Content, old.Content[j], old.Content[j+1])
 				}

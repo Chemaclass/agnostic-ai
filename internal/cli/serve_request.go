@@ -18,7 +18,11 @@ var errExtraJSONValue = errors.New("the body holds more than one JSON value")
 // limit fails with *http.MaxBytesError while the first value is read, and
 // with errExtraJSONValue when anything follows it.
 func decodeOneJSON(w http.ResponseWriter, r *http.Request, limit int64, v any) error {
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
+	return decodeStrictJSON(http.MaxBytesReader(w, r.Body, limit), v)
+}
+
+func decodeStrictJSON(reader io.Reader, v any) error {
+	dec := json.NewDecoder(reader)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
 		return err

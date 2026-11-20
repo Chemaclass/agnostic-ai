@@ -101,6 +101,11 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
+- The same menu offers **Mark complete** on an unmarked chat in Active or
+  Needs you, and **Hide from agnostic-ai** on an archived chat. A chat that
+  waits only on a forgotten shell stays in Needs you until the shell stops.
+  Once marked, it offers **Undo complete**. The
+  [usual rules for Archived](../docs/site/content/docs/cli-reference/conversations-api.md#get-apiviewsconversations) still apply.
 - **Mark all as read** beside Needs you does the same for every chat that
   group shows, after the search and the All, Local or Cloud choice. It shows
   only while the group is unfolded. A chat

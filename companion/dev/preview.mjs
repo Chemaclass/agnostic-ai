@@ -28,6 +28,8 @@ const TYPES = {
 }
 
 const NEEDS_PERSON = { blocked: true, unread: true }
+const DAY_MS = 24 * 60 * 60 * 1000
+const OPEN_UNTIL_ARCHIVED = new Set(['desktop', 'chat', 'cowork', 'cloud'])
 
 /** The state one preview holds: the chosen fixture's rows and settings, changed only by its own calls. */
 function fixtureState(name, now) {
@@ -247,8 +249,18 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     // With marksIgnored the server keeps the mark, but the list it reads next shows the chat where it was.
     const marking = state.fixture.marksIgnored ? structuredClone(row) : row
     if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== marking)
-    else if (body.as === 'completed') marking.state = 'completed'
-    else if (body.as === 'seen' && NEEDS_PERSON[marking.state]) marking.state = 'active'
+    else if (body.as === 'completed') {
+      marking.completedAt = new Date(timeOf()).toISOString()
+      delete marking.unread
+      if (marking.waiting?.for !== 'shell' && !state.fixture.appArchived?.includes(marking.id)) marking.state = 'completed'
+    } else if (body.as === 'open') {
+      delete marking.completedAt
+      if (marking.state === 'completed') {
+        const knownClosed = state.fixture.knownClosed?.includes(marking.id)
+        const active = marking.live || OPEN_UNTIL_ARCHIVED.has(marking.app) || timeOf() - Date.parse(marking.updatedAt) < DAY_MS
+        marking.state = active && !knownClosed ? 'active' : 'dormant'
+      }
+    } else if (body.as === 'seen' && NEEDS_PERSON[marking.state]) marking.state = 'active'
     else if (body.as === 'seen' && marking.unread) delete marking.unread
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
     // Like the shell: a mark answers once the new list is read, after the event for it goes out.
@@ -305,7 +317,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       delete row.stuckShells
       if (row.waiting?.for === 'shell') {
         delete row.waiting
-        row.state = 'active'
+        row.state = row.completedAt ? 'completed' : 'active'
       }
     }
     listChanged()
@@ -524,6 +536,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       const row = find(await bodyOf(request))
       if (!row) return sendJSON(response, 404, { error: 'That conversation is not in this fixture.' })
       row.updatedAt = new Date(timeOf()).toISOString()
+      delete row.completedAt
       row.state = 'unread'
       noContent(response)
       listChanged()

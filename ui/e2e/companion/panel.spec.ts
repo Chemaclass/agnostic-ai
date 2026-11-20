@@ -237,6 +237,60 @@ test('marking one chat complete shows a green tick, then archives it', async ({ 
   await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toBeAttached()
 })
 
+test('the row menu marks a chat complete with a tick and can return it to Active', async ({ page }) => {
+  await openPanel(page)
+  const marks = markBodies(page)
+  const target = row(page, 'Fix the login redirect')
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark complete' }).click()
+
+  await expect(target.locator('.action.is-done')).toBeAttached()
+  await expect(target).toBeHidden()
+  await groupTitle(page, 'Archived').click()
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  await expect(completeButton(target)).toBeAttached()
+  expect(marks).toEqual([
+    { tool: 'cursor', id: 'active-1', as: 'completed' },
+    { tool: 'cursor', id: 'active-1', as: 'open' },
+  ])
+})
+
+test('the row menu of an archived chat undoes complete or hides it', async ({ page }) => {
+  await openArchived(page)
+  const marks = markBodies(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  // Closed and quiet for days, it stays under Archived, now without the mark to undo.
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.keyboard.press('Escape')
+
+  await row(page, 'Sketch the pricing page').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Hide from agnostic-ai' }).click()
+  await expect(row(page, 'Sketch the pricing page')).toHaveCount(0)
+  expect(marks).toEqual([
+    { tool: 'claude', id: 'done-2', as: 'open' },
+    { tool: 'claude', id: 'old-2', as: 'hidden' },
+  ])
+})
+
+test('a chat waiting on a forgotten shell keeps its place and only offers Undo after completion', async ({ page }) => {
+  await openPanel(page, 'stuck-shells')
+  const target = row(page, 'Preview the reporting changes')
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark complete' }).click()
+  await expect(completeButton(target)).toHaveCount(0)
+  await expect(target).toHaveClass(/needs-you/)
+
+  await target.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  await expect(completeButton(target)).toBeAttached()
+})
+
 test('a refused mark complete gives the tick back, keeps the row and says why', async ({ page }) => {
   await openPanel(page, 'mark-failure')
   const target = row(page, 'Fix the login redirect')
@@ -1013,7 +1067,28 @@ test('"N approved for you" folds out the approved requests, newest first, and op
   expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
-test('the header names the approvals mode, and Ask me turns approvals off', async ({ page }) => {
+test('the approved list folds out inside its row, and the keys stay on the toggle', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  const working = row(page, 'Fix the flaky login test')
+  await working.getByRole('button', { name: '▸ 3 approved for you' }).focus()
+  await page.keyboard.press('Space')
+  const open = working.getByRole('button', { name: '▾ 3 approved for you' })
+  await expect(open).toBeFocused()
+  await expect(working.getByRole('list', { name: 'Approved for you' })).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(working.getByRole('button', { name: '▸ 3 approved for you' })).toBeFocused()
+  await expect(page.getByRole('list', { name: 'Approved for you' })).toHaveCount(0)
+})
+
+test('folding a group by key keeps the keys on its title', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  await groupTitle(page, 'Needs you').focus()
+  await page.keyboard.press('Enter')
+  await expect(groupTitle(page, 'Needs you')).toBeFocused()
+  await expect(groupTitle(page, 'Needs you')).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('the header names the approvals mode and Ask me switches agnostic-ai to ask', async ({ page }) => {
   await openPanel(page, 'auto-approvals')
   const bar = page.getByRole('region', { name: 'Approvals' })
   await expect(bar).toContainText('Approvals: routine prompts are approved for you')
@@ -1021,7 +1096,7 @@ test('the header names the approvals mode, and Ask me turns approvals off', asyn
   await bar.getByRole('button', { name: 'Ask me' }).click()
   expect((await asked).postDataJSON()).toEqual({ mode: 'ask' })
   await expect(bar).toBeHidden()
-  await expect(page.locator('#toast-text')).toHaveText('Approvals off: every permission prompt reaches you again.')
+  await expect(page.locator('#toast-text')).toHaveText('Approvals set to ask. Your tool may still use its own reviewer.')
 
   await openPanel(page, 'mixed')
   await expect(page.getByRole('region', { name: 'Approvals' })).toBeHidden()
@@ -1908,8 +1983,10 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('menuitem', { name: 'Open on claude.ai' })).toBeFocused()
+  for (const name of ['Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByRole('menuitem', { name })).toBeFocused()
+  }
   await page.keyboard.press('ArrowDown')
   await expect(deleteItem(page)).toBeFocused()
 })
@@ -1919,13 +1996,16 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   await row(page, 'Approve the database migration').click({ button: 'right' })
   const read = page.getByRole('menuitem', { name: 'Mark as read' })
   const rename = page.getByRole('menuitem', { name: 'Rename…' })
+  const complete = page.getByRole('menuitem', { name: 'Mark complete' })
   await expect(read).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(rename).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(complete).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(read).toBeFocused()
   await page.keyboard.press('ArrowUp')
-  await expect(rename).toBeFocused()
+  await expect(complete).toBeFocused()
   await expect(selected(page)).toContainText('Approve the database migration')
 })
 

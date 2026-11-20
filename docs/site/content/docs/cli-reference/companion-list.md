@@ -126,6 +126,16 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 - On failure the row keeps its old name. The server logs what the tool said on its standard error, with the tool and the conversation id.
 {% </details> %}
 
+## Archive or hide a chat from the row menu {#row-menu}
+
+Right-click a row to reach what its buttons do, and a little more:
+
+- **Mark complete** moves an unmarked chat from Active or Needs you to Archived. A chat waiting only on a forgotten shell stays in Needs you until the shell stops.
+- **Undo complete** clears the mark you set. The [usual rules for Archived](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) still apply.
+- **Hide from agnostic-ai**: takes an archived chat out of every list and search. The tool keeps the chat.
+
+A new message, or the tool starting work, brings a completed or hidden chat back.
+
 ## Mark chats as read {#mark-as-read}
 
 Clear a chat that needs you without opening it.
