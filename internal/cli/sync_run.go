@@ -49,6 +49,9 @@ func prepareSyncTargets(out io.Writer, root string, prior ledgerSnapshot, cfg *c
 	if err := stopOnPendingImports(prior.state, cfg); err != nil {
 		return nil, nil, err
 	}
+	if err := outputsInSourceTree(cfg.WithAdditionalTargets(targets...)); err != nil {
+		return nil, nil, err
+	}
 	if err := keepHandWrittenInstructions(cfg, b, targets, prior.state.Outputs, opts.backup, opts.keepEdits); err != nil {
 		return nil, nil, err
 	}

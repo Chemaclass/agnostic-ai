@@ -221,8 +221,32 @@ func sourceTree(cfg *config.Config) func(path string) bool {
 			return true
 		}
 		target, err := filepath.EvalSymlinks(abs)
-		return err == nil && target != abs && inRoot(target)
+		if err == nil && target != abs && inRoot(target) {
+			return true
+		}
+		// The OS follows a link before a later `..`, which Abs cleans away.
+		raw := path
+		if !filepath.IsAbs(raw) {
+			raw = project + string(filepath.Separator) + raw
+		}
+		return inRoot(resolveRaw(raw))
 	}
+}
+
+// resolveRaw resolves links in path, or in its folder when path does not
+// exist yet, following each link before any `..` after it, as the OS does.
+func resolveRaw(path string) string {
+	if target, err := filepath.EvalSymlinks(path); err == nil {
+		return target
+	}
+	i := strings.LastIndexAny(path, `/`+string(filepath.Separator))
+	if i <= 0 {
+		return path
+	}
+	if dir, err := filepath.EvalSymlinks(path[:i]); err == nil {
+		return filepath.Join(dir, path[i+1:])
+	}
+	return path
 }
 
 // underOrAt reports whether path is root or lies under it.
