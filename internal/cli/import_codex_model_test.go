@@ -44,6 +44,19 @@ func TestImportFromCodex_ScopesAgentModelToCodex(t *testing.T) {
 	}
 }
 
+func TestImportFromCodex_ScopesNewAgentModelToCodex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex", "agents", "reviewer.toml"),
+		"name = \"reviewer\"\ndescription = \"Reviews diffs.\"\nmodel = \"gpt-5.5\"\ndeveloper_instructions = \"Review.\"\n")
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	fm := agentFrontmatter(t, filepath.Join(dir, "agents", "reviewer.md"))
+	if want := map[string]any{"codex": "gpt-5.5"}; !reflect.DeepEqual(fm["model"], want) {
+		t.Errorf("model = %#v, want %#v", fm["model"], want)
+	}
+}
+
 func TestMergeCodexAgentIntoExisting_Model(t *testing.T) {
 	cases := []struct {
 		name, existing string

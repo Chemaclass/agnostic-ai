@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"reflect"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -44,6 +46,9 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		importPendingKeptNote, importNativeSource = "", ""
+		if data, err = reconcileImportedModel(nil, data, path, importedHasKey(data, "model")); err != nil {
+			return fmt.Errorf("merge %s: %w", path, err)
+		}
 		return importWriteFile(path, data, mode)
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
@@ -61,17 +66,21 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
-	for _, key := range []string{"effort", "model"} {
-		shown := fields.expresses(key) || key == "model" && importedHasKey(data, key)
-		if data, err = reconcileTargetMap(existing, data, key, importScopeTarget, shown); err != nil {
-			return fmt.Errorf("merge %s: %w", path, err)
-		}
+	if data, err = reconcileTargetMap(existing, data, "effort", importModelTargets(importScopeTarget), fields.expresses("effort")); err != nil {
+		return fmt.Errorf("merge %s: %w", path, err)
+	}
+	if data, err = reconcileImportedModel(existing, data, path, fields.expresses("model") || importedHasKey(data, "model")); err != nil {
+		return fmt.Errorf("merge %s: %w", path, err)
 	}
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err
 	}
 	flushKeptNote(path, data)
-	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
+	data = keepEqualMarkdown(existing, data)
+	if addsOnlyOwnModelEntries(existing, data, importModelTargets(importScopeTarget)) {
+		return withImportMerge(func() error { return importWriteFile(path, data, mode) })
+	}
+	return importWriteFile(path, data, mode)
 }
 
 // importWriteMarkdown writes an imported markdown spec whose frontmatter
@@ -241,4 +250,36 @@ func detachImportOverride(node *yaml.Node) *yaml.Node {
 		detached.Content[i] = detachImportOverride(child)
 	}
 	return &detached
+}
+
+// addsOnlyOwnModelEntries reports whether data differs from existing only
+// in the per-target model entries of targets, which layers the import onto
+// the spec instead of replacing what it holds for other tools.
+func addsOnlyOwnModelEntries(existing, data []byte, targets []string) bool {
+	_, oldEnd, oldMeta := claudeFrontmatter(string(existing))
+	newRest, newEnd, newMeta := claudeFrontmatter(string(data))
+	oldRest, _, _ := claudeFrontmatter(string(existing))
+	if oldMeta == nil || newMeta == nil || oldRest[oldEnd:] != newRest[newEnd:] {
+		return false
+	}
+	oldModel, newModel := oldMeta["model"], newMeta["model"]
+	oldMap, oldIsMap := oldModel.(map[string]any)
+	newMap, newIsMap := newModel.(map[string]any)
+	if !newIsMap || oldModel != nil && !oldIsMap {
+		return false
+	}
+	for k, v := range oldMap {
+		if !slices.Contains(targets, k) && !reflect.DeepEqual(newMap[k], v) {
+			return false
+		}
+	}
+	for k, v := range newMap {
+		if !slices.Contains(targets, k) && !reflect.DeepEqual(oldMap[k], v) {
+			return false
+		}
+	}
+	oldOther, newOther := maps.Clone(oldMeta), maps.Clone(newMeta)
+	delete(oldOther, "model")
+	delete(newOther, "model")
+	return reflect.DeepEqual(oldOther, newOther)
 }

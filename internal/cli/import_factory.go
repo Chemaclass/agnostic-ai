@@ -298,7 +298,7 @@ func importFactorySettings(src, dstDir string) (int, error) {
 	}
 	doc := map[string]any{}
 	if model, _ := native["model"].(string); model != "" {
-		doc["model"] = model
+		doc["model"] = targetModel("factory", model)
 	}
 	permissions := map[string][]string{}
 	for _, list := range factoryCommandList {

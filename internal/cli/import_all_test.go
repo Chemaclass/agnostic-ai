@@ -67,7 +67,7 @@ func TestImportAll_ImportsACopilotProjectWithOnlyCopilotSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import all must import .github/copilot/settings.json: %v", err)
 	}
-	if !strings.Contains(string(got), "model: gpt-5.4") {
+	if !strings.Contains(string(got), "copilot: gpt-5.4") {
 		t.Errorf("imported settings lost the model:\n%s", got)
 	}
 }

@@ -19,9 +19,9 @@ func TestImportPortableSettings_TargetShapes(t *testing.T) {
 		permissions   bool
 		wantFragments []string
 	}{
-		{name: "opencode", target: "opencode", nativePath: "opencode.json", body: `{"model":"open/model","theme":"dark"}`, wantFragments: []string{"model: open/model"}},
-		{name: "junie", target: "junie", nativePath: ".junie/config.json", body: `{"model":"junie-model","effort":"high"}`, wantFragments: []string{"model: junie-model"}},
-		{name: "kilo jsonc", target: "kilo", nativePath: "kilo.jsonc", body: "{\n // project default\n \"model\": \"kilo/model\"\n}", wantFragments: []string{"model: kilo/model"}},
+		{name: "opencode", target: "opencode", nativePath: "opencode.json", body: `{"model":"open/model","theme":"dark"}`, wantFragments: []string{"model:\n    opencode: open/model"}},
+		{name: "junie", target: "junie", nativePath: ".junie/config.json", body: `{"model":"junie-model","effort":"high"}`, wantFragments: []string{"model:\n    junie: junie-model"}},
+		{name: "kilo jsonc", target: "kilo", nativePath: "kilo.jsonc", body: "{\n // project default\n \"model\": \"kilo/model\"\n}", wantFragments: []string{"model:\n    kilo: kilo/model"}},
 		{
 			name:        "qoder",
 			target:      "qoder",
@@ -30,7 +30,7 @@ func TestImportPortableSettings_TargetShapes(t *testing.T) {
 			nestedModel: true,
 			permissions: true,
 			wantFragments: []string{
-				"model: qoder-model", "permissions:", "allow:", "- read(**)", "deny:", "- shell(rm:*)",
+				"model:\n    qoder: qoder-model", "permissions:", "allow:", "- read(**)", "deny:", "- shell(rm:*)",
 			},
 		},
 	}
@@ -84,7 +84,7 @@ func TestImportAll_KeepsEachToolsSettings(t *testing.T) {
 
 	execCLI(t, "import", "all")
 
-	for file, want := range map[string]string{"copilot.yaml": "model: copilot-model", "gemini.yaml": "model: gemini-model"} {
+	for file, want := range map[string]string{"copilot.yaml": "copilot: copilot-model", "gemini.yaml": "gemini: gemini-model"} {
 		got := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", file))
 		if !strings.Contains(got, want) {
 			t.Errorf("settings/%s must keep %q:\n%s", file, want, got)

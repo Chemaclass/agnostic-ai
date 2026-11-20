@@ -609,10 +609,23 @@ func copyMarkdownFileNamed(src, dst, name string) error {
 	if name != "" {
 		out = withSpecName(out, name)
 	}
+	existing, err := os.ReadFile(dst)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read %s: %w", dst, err)
+	}
+	if out, err = reconcileImportedModel(existing, out, dst, importedHasKey(out, "model") || commandFormatsWithModel[importScopeTarget]); err != nil {
+		return fmt.Errorf("scope model in %s: %w", dst, err)
+	}
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	if err := importWriteMarkdown(dst, out, 0o644); err != nil {
+	write := func() error { return importWriteMarkdown(dst, out, 0o644) }
+	if existing != nil && addsOnlyOwnModelEntries(existing, out, importModelTargets(importScopeTarget)) {
+		err = withImportMerge(write)
+	} else {
+		err = write()
+	}
+	if err != nil {
 		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil

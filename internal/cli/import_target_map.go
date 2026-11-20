@@ -79,8 +79,8 @@ func importedHasKey(data []byte, key string) bool {
 // a `null` there is a delete marker, which a value shown again replaces.
 // A `model` alias such as Codex's `sol` is compared by the id it resolves
 // to, since that is what the native file holds.
-func reconcileTargetMap(existing, data []byte, key, target string, expresses bool) ([]byte, error) {
-	if target == "" || !expresses {
+func reconcileTargetMap(existing, data []byte, key string, targets []string, expresses bool) ([]byte, error) {
+	if len(targets) == 0 || targets[0] == "" || !expresses {
 		return data, nil
 	}
 	existingMap, _, ok := frontmatterNode(existing)
@@ -91,41 +91,64 @@ func reconcileTargetMap(existing, data []byte, key, target string, expresses boo
 	if current == nil || current.Kind != yaml.MappingNode {
 		return data, nil
 	}
-	scoped := mappingValue(mappingValue(existingMap, "x-"+target), key)
-	deleted := scoped != nil && scoped.Tag == "!!null"
-	if scoped != nil && !deleted {
-		return data, nil
-	}
 	importedMap, rest, ok := frontmatterNode(data)
 	if !ok {
 		return data, nil
 	}
-	imported, ok := importedTargetValue(mappingValue(importedMap, key), target)
+	imported, ok := importedTargetValue(mappingValue(importedMap, key), targets[0])
 	if !ok {
 		return data, nil
 	}
 
-	merged := current
-	given := resolvedTargetValue(key, current, target)
-	if deleted {
-		given = nil
+	if allScoped(existingMap, key, targets) {
+		return data, nil
 	}
-	switch {
-	case imported == nil:
-		if mappingValue(current, target) != nil {
-			merged = withoutMappingKey(current, target)
+	merged := current
+	var unmark, mark []string
+	for _, target := range targets {
+		scoped := mappingValue(mappingValue(existingMap, "x-"+target), key)
+		deleted := scoped != nil && scoped.Tag == "!!null"
+		if scoped != nil && !deleted {
+			continue
 		}
-	case given == nil || given.Value != imported.Value:
-		merged = withMappingValue(current, target, imported)
+		given := resolvedTargetValue(key, merged, target)
+		if deleted {
+			given = nil
+		}
+		switch {
+		case imported == nil:
+			if mappingValue(merged, target) != nil {
+				merged = withoutMappingKey(merged, target)
+			}
+		case given == nil || given.Value != imported.Value:
+			merged = withMappingValue(merged, target, imported)
+		}
+		if deleted && imported != nil {
+			unmark = append(unmark, target)
+		}
+		if imported == nil && resolvedTargetValue(key, merged, target) != nil {
+			mark = append(mark, target)
+		}
 	}
 	setOrDropKey(importedMap, key, merged)
-	if deleted && imported != nil {
+	for _, target := range unmark {
 		dropScopedKey(importedMap, key, target)
 	}
-	if imported == nil && resolvedTargetValue(key, merged, target) != nil {
+	for _, target := range mark {
 		markKeyDeleted(importedMap, key, target)
 	}
-	return encodeFrontmatter(importedMap, rest, target)
+	return encodeFrontmatter(importedMap, rest, targets[0])
+}
+
+// allScoped reports whether every target has a non-null x-<target>.<key>.
+func allScoped(existingMap *yaml.Node, key string, targets []string) bool {
+	for _, target := range targets {
+		scoped := mappingValue(mappingValue(existingMap, "x-"+target), key)
+		if scoped == nil || scoped.Tag == "!!null" {
+			return false
+		}
+	}
+	return true
 }
 
 // markKeyDeleted writes `x-<target>.<key>: null`, the documented way to
