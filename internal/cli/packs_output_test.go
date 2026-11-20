@@ -12,7 +12,7 @@ import (
 func TestPacksAdd_SaysReinstalledForAnInstalledPack(t *testing.T) {
 	root := testutil.TempCwd(t)
 	src := filepath.Join(t.TempDir(), "team")
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nbody")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nbody")
 
 	var out bytes.Buffer
 	for range 2 {

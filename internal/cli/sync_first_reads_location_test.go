@@ -18,10 +18,10 @@ func TestSync_FirstRunNamesWhereEachKindLands(t *testing.T) {
 		t.Run(tool, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			isolateGit(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tool+"]\n")
-			mustWriteFile(t, ".agnostic-ai/rules/tone.md", "---\nname: tone\ndescription: Tone.\nalwaysApply: true\n---\nBe kind.\n")
-			mustWriteFile(t, ".agnostic-ai/rules/api.md", "---\nname: api\ndescription: API.\nscope: services/api\n---\nReturn typed errors.\n")
-			mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tool+"]\n")
+			writeFile(t, ".agnostic-ai/rules/tone.md", "---\nname: tone\ndescription: Tone.\nalwaysApply: true\n---\nBe kind.\n")
+			writeFile(t, ".agnostic-ai/rules/api.md", "---\nname: api\ndescription: API.\nscope: services/api\n---\nReturn typed errors.\n")
+			writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
 			log := captureLog(t)
 
 			if out, err := runCLI(t, "sync"); err != nil {
