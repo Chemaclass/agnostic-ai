@@ -32,7 +32,7 @@ func TestImportPi_NativeRoundTrip(t *testing.T) {
 		t.Errorf("native MCP not normalized: %s", mcp)
 	}
 	settings := readFile(t, filepath.Join(dir, ".agnostic-ai/settings/pi.yaml"))
-	if !strings.Contains(settings, "model: model-a") || !strings.Contains(settings, "effort: high") {
+	if !strings.Contains(settings, "pi: model-a") || !strings.Contains(settings, "effort: high") {
 		t.Errorf("settings not promoted: %s", settings)
 	}
 	execCLI(t, "sync", "-t", "pi")
@@ -217,7 +217,7 @@ func TestImportPi_ReadsConfiguredNativeDirectories(t *testing.T) {
 	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/commands/check.md")); !strings.Contains(got, "Check $1.") {
 		t.Errorf("prompt not imported: %s", got)
 	}
-	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/settings/pi.yaml")); !strings.Contains(got, "model: model-a") {
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai/settings/pi.yaml")); !strings.Contains(got, "pi: model-a") {
 		t.Errorf("settings not imported: %s", got)
 	}
 	execCLI(t, "sync", "-t", "pi")

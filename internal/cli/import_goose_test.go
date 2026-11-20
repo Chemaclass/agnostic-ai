@@ -57,7 +57,7 @@ func TestImportGoose_RoundTripFixedPoint(t *testing.T) {
 		t.Errorf("rule not reconstructed:\n%s", rule)
 	}
 	agent := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"))
-	for _, want := range []string{"description: Reviews code", "model: gpt-5.5", "agent body"} {
+	for _, want := range []string{"description: Reviews code", "goose: gpt-5.5", "agent body"} {
 		if !strings.Contains(agent, want) {
 			t.Errorf("agent lost %q:\n%s", want, agent)
 		}

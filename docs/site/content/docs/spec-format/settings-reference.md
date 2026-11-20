@@ -42,7 +42,7 @@ Per-tool details for the fields on the [settings page](@/docs/spec-format/settin
 
 Other targets support neither field. Unsupported fields raise a sync note; output for other tools continues. A rule the vendor cannot scope, such as a path rule on Factory's shell lists, raises a note instead of widening.
 
-A shared Claude model name raises the same note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, Factory, and Kiro; Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model. Review an imported `model` before you enable more tools, because model names differ between vendors.
+A shared Claude model name raises the same note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, Factory, and Kiro; Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model. Import writes a tool's model only for that tool, as `model: {<tool>: <name>}`, because model names differ between vendors.
 
 ## Target-specific keys {#target-specific-keys}
 

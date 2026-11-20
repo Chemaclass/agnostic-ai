@@ -25,7 +25,7 @@ func TestImportFromGemini_ImportsDefaultModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), "model: gemini-2.5-pro") || strings.Contains(string(raw), "permissions") {
+	if !strings.Contains(string(raw), "model:\n    gemini: gemini-2.5-pro") || strings.Contains(string(raw), "permissions") {
 		t.Errorf("imported settings: %s", raw)
 	}
 	cfg := &config.Config{Sources: sources}
