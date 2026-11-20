@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestErrorText_AddsTheRegistryFixToACodedError(t *testing.T) {
+	testutil.TempCwd(t)
 	err := errs.Coded(errs.CodeConfigMissing, "read config: no agnostic-ai.yaml in .")
 
 	got := ErrorText(err)

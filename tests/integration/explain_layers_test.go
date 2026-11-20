@@ -59,9 +59,11 @@ func TestExplainLayers_BuiltBinaryShowsResolutionWithoutChangingFiles(t *testing
 	for _, path := range paths {
 		text := command("explain", path, "--layers")
 		wantText := "rule conventional-commits\n"
+		var wantTextSb62 strings.Builder
 		for _, source := range wantSources {
-			wantText += "  " + source.Source.Path + " [" + source.Source.Layer + "] " + source.Operation + " (" + source.Role + ")\n"
+			wantTextSb62.WriteString("  " + source.Source.Path + " [" + source.Source.Layer + "] " + source.Operation + " (" + source.Role + ")\n")
 		}
+		wantText += wantTextSb62.String()
 		wantText += "effective source: " + paths[2] + "\n"
 		if text != wantText {
 			t.Errorf("layers text = %q, want %q", text, wantText)

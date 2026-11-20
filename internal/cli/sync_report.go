@@ -178,7 +178,6 @@ func (r *syncReport) renderDetails(w io.Writer, verbose bool) {
 	if n := len(r.trackedIgnored); n > 0 {
 		_, _ = fmt.Fprintf(w, "  %s %d file%s tracked despite being ignored: git rm --cached %s\n", term.Bang(w), n, plural(n), strings.Join(r.trackedIgnored, " "))
 	}
-
 }
 
 func (r *syncReport) renderSummary(w io.Writer, targets int, elapsed time.Duration) {

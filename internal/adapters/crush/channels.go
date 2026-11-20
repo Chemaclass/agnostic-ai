@@ -1,6 +1,7 @@
 package crush
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -37,7 +38,7 @@ func channelFields(e spec.Entry) (map[string]any, error) {
 func channelReplyFields(value any) (map[string]any, error) {
 	input, ok := value.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("must be an object")
+		return nil, errors.New("must be an object")
 	}
 	out := map[string]any{}
 	for key, value := range input {
@@ -85,7 +86,7 @@ func channelReplyFields(value any) (map[string]any, error) {
 func channelReplyRoute(value any) (map[string]any, error) {
 	input, ok := value.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("must be an object")
+		return nil, errors.New("must be an object")
 	}
 	out := map[string]any{}
 	for key, value := range input {

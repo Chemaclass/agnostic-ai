@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"maps"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,9 +15,7 @@ import (
 
 func agentMCPBundle(agentMeta map[string]any) spec.Bundle {
 	meta := map[string]any{"description": "Reviews pull requests.", "mcpServers": []any{"github", "docs"}}
-	for k, v := range agentMeta {
-		meta[k] = v
-	}
+	maps.Copy(meta, agentMeta)
 	return spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindMCP, Name: "github", Path: "mcps/github.yaml", Meta: map[string]any{
 			"command":    "github-mcp",

@@ -436,11 +436,13 @@ func TestImportMCP_URLCredentialNeverEchoedInOutput(t *testing.T) {
 	})
 	out := stdout + stderr + log.String()
 	specs := ""
+	var specsSb439 strings.Builder
 	for _, name := range []string{"cmd", "tick", "query", "prompt"} {
 		if data, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml")); err == nil {
-			specs += string(data)
+			specsSb439.WriteString(string(data))
 		}
 	}
+	specs += specsSb439.String()
 	for _, secret := range []string{"PASSW0RD", "BACKT1CK", "T0KCMD", "PR0MPT"} {
 		if strings.Contains(out, secret) {
 			t.Errorf("import output echoes text from a URL credential")

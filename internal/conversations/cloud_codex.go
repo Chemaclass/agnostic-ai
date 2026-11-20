@@ -173,8 +173,8 @@ func (c *CodexCloud) List(ctx context.Context) ([]Conversation, error) {
 		return nil, &CloudError{Tool: ToolCodex, Reason: CloudUnreachable, Cause: err}
 	}
 	req.Header.Set("Authorization", "Bearer "+login.AccessToken)
-	req.Header.Set("ChatGPT-Account-Id", login.AccountID)
-	req.Header.Set("X-OpenAI-Product-Sku", "codex")
+	req.Header.Set("Chatgpt-Account-Id", login.AccountID)
+	req.Header.Set("X-Openai-Product-Sku", "codex")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "agnostic-ai")
 	body, err := cloudGet(c.Client, req, ToolCodex, "thread")

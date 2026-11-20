@@ -124,8 +124,7 @@ func TestEditPersonal_RejectsTeamChangesBeforeReplacement(t *testing.T) {
 				return out, err
 			}
 			_, err = h.applyValidated(file, edit, guard)
-			var stale staleToggleError
-			if !errors.As(err, &stale) {
+			if _, ok := errors.AsType[staleToggleError](err); !ok {
 				t.Errorf("error = %v, want stale conflict", err)
 			}
 			if _, err := os.Stat(file); !os.IsNotExist(err) {
@@ -168,8 +167,7 @@ func TestEditPersonal_StaleWriteDoesNotAlterGitExclude(t *testing.T) {
 				return out, err
 			}
 			_, err = h.applyValidatedWithPrepare(file, edit, func() (func(bool) error, error) { return h.preparePersonalOutOfGit(file) }, guard)
-			var stale staleToggleError
-			if !errors.As(err, &stale) {
+			if _, ok := errors.AsType[staleToggleError](err); !ok {
 				t.Errorf("error = %v, want stale conflict", err)
 			}
 			if got := excludeOf(t, project); got != before {

@@ -580,7 +580,7 @@ func TestConversationsHandler_SearchesAndFiltersByTool(t *testing.T) {
 	}
 	for query, reply := range map[string]string{
 		"?tool=gemini":                   `{"error":"tool must be claude, codex, cursor or chatgpt"}`,
-		"?q=" + strings.Repeat("a", 201): `{"error":"q is longer than 200 characters"}`,
+		"?q=" + strings.Repeat("a", 201): `{"error":"the search is longer than 200 characters"}`,
 	} {
 		if rec := get(query); rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != reply {
 			t.Errorf("%.20s = %d %s", query, rec.Code, rec.Body)

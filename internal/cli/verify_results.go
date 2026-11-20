@@ -38,15 +38,15 @@ type verifyTargetResult struct {
 func validateVerifyRecording(path, evaluation string, overwrite bool) error {
 	if path == "" {
 		if evaluation != "" || overwrite {
-			return fmt.Errorf("--evaluation and --overwrite require --record")
+			return errors.New("--evaluation and --overwrite require --record")
 		}
 		return nil
 	}
 	if strings.TrimSpace(evaluation) == "" {
-		return fmt.Errorf("--record requires --evaluation with a suite and dataset revision")
+		return errors.New("--record requires --evaluation with a suite and dataset revision")
 	}
 	if preview.RedactText(evaluation) != evaluation {
-		return fmt.Errorf("--evaluation must be an identifier without credentials")
+		return errors.New("--evaluation must be an identifier without credentials")
 	}
 	info, err := os.Lstat(path)
 	if err == nil {

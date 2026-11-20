@@ -98,8 +98,7 @@ func readSettings(path string) (settings, error) {
 	}
 	var s settings
 	if err := json.Unmarshal(raw, &s); err != nil {
-		var wrongType *json.UnmarshalTypeError
-		if errors.As(err, &wrongType) {
+		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
 			log.Printf("companion settings %s: %v; kept the other settings", path, err)
 			return fieldsThatParse(raw), nil
 		}
@@ -149,8 +148,7 @@ func (e *unreadableSettings) Unwrap() error { return e.cause }
 // a name with the time, and the companion starts with empty settings.
 func loadSettings(path string) (settings, error) {
 	s, err := readSettings(path)
-	var unreadable *unreadableSettings
-	if !errors.As(err, &unreadable) {
+	if _, ok := errors.AsType[*unreadableSettings](err); !ok {
 		return s, err
 	}
 	aside := path + ".bad"

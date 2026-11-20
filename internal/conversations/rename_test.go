@@ -145,7 +145,7 @@ func claudeCloudRenameAPI(t *testing.T, answer func(w http.ResponseWriter, r *ht
 			http.Error(w, "unexpected request "+r.Method+" "+r.URL.String(), http.StatusTeapot)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("anthropic-version") != "2023-06-01" || r.Header.Get("Content-Type") != "application/json" {
+		if r.Header.Get("Authorization") != "Bearer "+fakeToken || r.Header.Get("Anthropic-Version") != "2023-06-01" || r.Header.Get("Content-Type") != "application/json" {
 			http.Error(w, "missing the sign-in headers", http.StatusTeapot)
 			return
 		}
@@ -748,7 +748,7 @@ func TestRename_ChatGPTChangesTheChatTitleOnChatGPT(t *testing.T) {
 	titles := chatGPTServer(t, func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		asked = fmt.Sprintf("%s %s auth=%t account=%s type=%s body=%s", r.Method, r.URL.Path,
-			r.Header.Get("Authorization") == "Bearer "+fakeToken, r.Header.Get("ChatGPT-Account-Id"), r.Header.Get("Content-Type"), body)
+			r.Header.Get("Authorization") == "Bearer "+fakeToken, r.Header.Get("Chatgpt-Account-Id"), r.Header.Get("Content-Type"), body)
 		_, _ = io.WriteString(w, `{"success":true}`)
 	})
 

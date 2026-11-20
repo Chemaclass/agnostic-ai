@@ -171,7 +171,7 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	}
 	search := query.Get("q")
 	if len([]rune(search)) > maxConversationQuery {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "q is longer than 200 characters"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "the search is longer than 200 characters"})
 		return
 	}
 	tool := conversations.Tool(query.Get("tool"))
@@ -302,8 +302,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	}
 	var req conversationSendRequest
 	err := decodeOneJSON(w, r, maxConversationSendBytes, &req)
-	var overLimit *http.MaxBytesError
-	if errors.As(err, &overLimit) {
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 		tooLarge("over")
 		return
 	}

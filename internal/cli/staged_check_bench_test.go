@@ -73,7 +73,7 @@ func BenchmarkSyncCheckAgainstIndex(b *testing.B) {
 				applyStagedCheckCase(b, root, scenario)
 				b.ReportAllocs()
 				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					err := runStagedCheckCommand(b, root, "sync", "--check", "--against", "index")
 					checkStagedCheckResult(b, scenario, err)
 				}
@@ -136,19 +136,19 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 	stagedCheckGit(tb, root, "config", "core.symlinks", "true")
 	writeBenchFile(tb, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
 	writeBenchFile(tb, filepath.Join(root, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Benchmark project\n\nRead the nearest scoped instructions before editing.\n")
-	for i := 0; i < specs/2; i++ {
+	for i := range specs / 2 {
 		body := benchRule(i)
 		if i > 0 && i%3 == 0 {
 			body = strings.Replace(body, "---\n", fmt.Sprintf("---\nscope: packages/unit-%04d\n", i%20), 1)
 		}
 		writeBenchFile(tb, filepath.Join(root, ".agnostic-ai", "rules", fmt.Sprintf("rule-%04d.md", i)), body)
 	}
-	for i := 0; i < specs-specs/2; i++ {
+	for i := range specs - specs/2 {
 		dir := filepath.Join(root, ".agnostic-ai", "skills", fmt.Sprintf("skill-%04d", i))
 		writeBenchFile(tb, filepath.Join(dir, "SKILL.md"), benchSkill(i))
 		writeBenchFile(tb, filepath.Join(dir, "assets", "example.md"), fmt.Sprintf("# Example %d\n\nDeterministic asset body.\n", i))
 	}
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		writeBenchFile(tb, filepath.Join(root, "packages", fmt.Sprintf("unit-%04d", i), "src", "index.txt"), "Source fixture.\n")
 	}
 	if err := runStagedCheckCommand(tb, root, "sync"); err != nil {
@@ -161,7 +161,7 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 	if tracked > files {
 		tb.Fatalf("fixture has %d tracked files, exceeding requested %d", tracked, files)
 	}
-	for i := 0; i < files-tracked; i++ {
+	for i := range files - tracked {
 		writeBenchFile(tb, filepath.Join(root, "packages", fmt.Sprintf("unit-%04d", i/20), "src", fmt.Sprintf("file-%05d.txt", i)), fmt.Sprintf("Source %d.\n", i))
 	}
 	stagedCheckGit(tb, root, "add", "-A")

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -78,8 +79,8 @@ func effectiveMemoryPath(path string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("%s: %w", ancestor, err)
 			}
-			for i := len(tail) - 1; i >= 0; i-- {
-				resolved = filepath.Join(resolved, tail[i])
+			for _, t := range slices.Backward(tail) {
+				resolved = filepath.Join(resolved, t)
 			}
 			return resolved, nil
 		} else if !errors.Is(err, fs.ErrNotExist) {

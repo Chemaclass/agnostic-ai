@@ -263,7 +263,7 @@ func continueMCPStringKeys(node *yaml.Node) error {
 		for i := 0; i < len(node.Content); i += 2 {
 			key := node.Content[i]
 			if key.Kind != yaml.ScalarNode {
-				return fmt.Errorf("MCP mapping keys must be scalar values")
+				return errors.New("MCP mapping keys must be scalar values")
 			}
 			if key.Tag != "!!merge" {
 				key.Tag = "!!str"
@@ -286,7 +286,7 @@ func (e continueMCPYAMLError) Unwrap() error { return e.err }
 func normalizeContinueMCPCredentials(server map[string]any) error {
 	if opts := server["requestOptions"]; opts != nil {
 		if _, ok := opts.(map[string]any); !ok {
-			return fmt.Errorf("MCP requestOptions must be a mapping")
+			return errors.New("MCP requestOptions must be a mapping")
 		}
 	}
 	for _, field := range []string{"env", "headers"} {

@@ -2,6 +2,7 @@ package crush
 
 import (
 	"encoding/json"
+	"maps"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,9 +33,7 @@ func emitMCPTimeoutMeta(t *testing.T, extra map[string]any) (server map[string]a
 	t.Cleanup(emit.ResetCoverageNotes)
 
 	meta := map[string]any{"type": "http", "url": "https://api.example.com/mcp/"}
-	for k, v := range extra {
-		meta[k] = v
-	}
+	maps.Copy(meta, extra)
 	entries := []spec.Entry{{Kind: spec.KindMCP, Name: "slow", Meta: meta}}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)

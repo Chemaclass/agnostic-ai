@@ -2,10 +2,12 @@ package authority
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -19,12 +21,12 @@ func ParseOrigin(raw string) (string, error) {
 		return "", fmt.Errorf("parse origin: %w", err)
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(raw, "#") || strings.HasSuffix(u.Host, ":") {
-		return "", fmt.Errorf("origin must contain only an http or https scheme, host, and optional port")
+		return "", errors.New("origin must contain only an http or https scheme, host, and optional port")
 	}
 	if port := u.Port(); port != "" {
 		n, err := strconv.Atoi(port)
 		if err != nil || n < 1 || n > 65535 {
-			return "", fmt.Errorf("origin has an invalid port")
+			return "", errors.New("origin has an invalid port")
 		}
 	}
 	return u.Scheme + "://" + strings.ToLower(u.Host), nil
@@ -75,12 +77,7 @@ func RequestAllowed(r *http.Request, allowedOrigins ...string) bool {
 	if trusted, _ := r.Context().Value(originPermission{}).(string); trusted == normalized {
 		return true
 	}
-	for _, allowed := range allowedOrigins {
-		if normalized == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowedOrigins, normalized)
 }
 
 // CORS rejects foreign hosts and origins before any route reads local data.
@@ -88,11 +85,11 @@ func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Origin")
 		if !loopbackHost(r.Host) {
-			writeError(w, http.StatusMisdirectedRequest, fmt.Errorf("request Host must name a loopback address"))
+			writeError(w, http.StatusMisdirectedRequest, errors.New("request Host must name a loopback address"))
 			return
 		}
 		if !RequestAllowed(r, allowedOrigins...) {
-			writeError(w, http.StatusForbidden, fmt.Errorf("request host or origin is not allowed"))
+			writeError(w, http.StatusForbidden, errors.New("request host or origin is not allowed"))
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" {

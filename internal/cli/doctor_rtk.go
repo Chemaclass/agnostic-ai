@@ -358,8 +358,8 @@ func rtkRuleMatches(rule, command string) (bool, bool) {
 		}
 	}
 	for _, suffix := range []string{":*", " *"} {
-		if strings.HasSuffix(pattern, suffix) {
-			prefix := strings.TrimSuffix(pattern, suffix)
+		if before, ok := strings.CutSuffix(pattern, suffix); ok {
+			prefix := before
 			if !rtkPlainCommand.MatchString(prefix) {
 				return false, false
 			}

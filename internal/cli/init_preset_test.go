@@ -101,13 +101,7 @@ func TestInit_PresetComposesWithDemo(t *testing.T) {
 		"rules/go-style.md",             // from --preset go
 	}
 	for _, p := range mustContain {
-		found := false
-		for _, g := range got {
-			if g == p {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(got, p)
 		if !found {
 			t.Errorf("expected %s in seeded files; got %v", p, got)
 		}
@@ -157,13 +151,7 @@ func TestInit_PresetSuggestsSyncInNextSteps(t *testing.T) {
 func TestAvailablePresets_ListsEmbedded(t *testing.T) {
 	got := availablePresets()
 	for _, want := range []string{"go", "ts-react", "python"} {
-		found := false
-		for _, g := range got {
-			if g == want {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(got, want)
 		if !found {
 			t.Errorf("availablePresets missing %q; got %v", want, got)
 		}
