@@ -938,7 +938,7 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 	var candidates []unmanagedFinding
 	var paths []string
 	for _, f := range found {
-		if isTracked[f.Path] && !cfg.IsUnmanaged(f.Path) {
+		if isTracked[f.Path] && !cfg.IsUnmanaged(f.Path) && f.Duplicate == "" {
 			candidates = append(candidates, f)
 			paths = append(paths, f.Path)
 		}

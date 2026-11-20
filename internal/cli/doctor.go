@@ -113,7 +113,9 @@ var errDoctorNoConfig = errors.New("no config found")
 // load, if it did. manualOnly means the drift is scope documents in
 // manual, which neither sync nor doctor --fix removes. fixOnly means the
 // drift is nested CLAUDE.md copies, which only doctor --fix removes.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings, hookFindings, unmanaged int, configErr error, packaging, mergedHookSpecs int) {
+// handWritten means sync's guard stops on a file it did not write, so
+// neither sync nor doctor --fix reconciles yet.
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly, handWritten bool, manual []string, lintFindings, hookFindings, unmanaged int, configErr error, packaging, mergedHookSpecs int) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -133,6 +135,8 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 		return
 	}
 	switch {
+	case handWritten:
+		cmd.Println("  Keep or replace the hand-written file named above, then run: agnostic-ai sync")
 	case drift && manualOnly:
 		cmd.Println("  Delete " + manualRemovalAdvice(manual) + ".")
 	case drift && fixOnly:

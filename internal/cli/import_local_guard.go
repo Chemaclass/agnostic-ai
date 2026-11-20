@@ -52,6 +52,9 @@ type localImportGuard struct {
 	synced map[string]bool
 	// kept lists the merged kinds whose import the run undid.
 	kept map[spec.Kind]bool
+	// nextSteps prints the post-import guidance once the guard has put
+	// back what it undid, so it sees the run's net change.
+	nextSteps func()
 	// saved holds, per absolute path of a local spec file the run wrote,
 	// the file as it was before the run (nil when it did not exist).
 	saved map[string]*savedImportFile
@@ -101,6 +104,9 @@ func withLocalImportGuard(root string, cfg *config.Config, fn func() error) erro
 		return errors.Join(runErr, err)
 	}
 	guard.printNote()
+	if guard.nextSteps != nil {
+		guard.nextSteps()
+	}
 	return runErr
 }
 
