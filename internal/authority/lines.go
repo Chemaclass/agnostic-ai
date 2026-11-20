@@ -41,11 +41,11 @@ func (li *lineIndex) doc(e spec.Entry) *specDoc {
 	}
 	if bytes.HasPrefix(data, []byte("---")) {
 		rest := data[3:]
-		end := bytes.Index(rest, []byte("\n---"))
-		if end < 0 {
+		before, _, ok := bytes.Cut(rest, []byte("\n---"))
+		if !ok {
 			return nil
 		}
-		data = rest[:end]
+		data = before
 	}
 	var node yaml.Node
 	if yaml.Unmarshal(data, &node) != nil || node.Kind != yaml.DocumentNode || len(node.Content) == 0 {

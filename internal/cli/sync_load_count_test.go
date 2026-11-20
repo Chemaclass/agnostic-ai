@@ -54,7 +54,7 @@ func TestSync_PickedTargetsSyncFromTheSavedConfig(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := setupSharedSkillsFixture(t, "version: 1\ntargets:\n"+listTargets(allTargetNames()))
 			testutil.Chdir(t, dir)
-			mustWriteFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
+			writeFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
 			stdout, stderr := captureLogOut(t), captureNotes(t)
 			root := NewRootCmd("test")
 			root.SetOut(stdout)

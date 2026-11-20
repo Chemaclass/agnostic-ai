@@ -17,9 +17,9 @@ func TestSyncGlobal_RendersSkillMetadataAndPreservesAssets(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			folder := filepath.Join(source, "skills", "review")
-			mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: review\ndescription: Review code\n"+tc.meta+"---\nReview carefully.\n")
+			writeFile(t, filepath.Join(folder, "SKILL.md"), "---\nname: review\ndescription: Review code\n"+tc.meta+"---\nReview carefully.\n")
 			asset := "#!/bin/sh\nprintf 'asset\\n'\n"
-			mustWriteGlobalTest(t, filepath.Join(folder, "scripts", "check.sh"), asset)
+			writeFile(t, filepath.Join(folder, "scripts", "check.sh"), asset)
 			if err := os.Chmod(filepath.Join(folder, "scripts", "check.sh"), 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +74,7 @@ func TestSyncGlobal_RendersSkillMetadataAndPreservesAssets(t *testing.T) {
 
 func TestSyncGlobal_SharedSkillsStayNeutralAcrossTargetSelections(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Neutral description\nx-codex:\n  description: Codex description\n  custom: codex-only\nx-amp:\n  description: Amp description\n  custom: amp-only\n---\nReview carefully.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Neutral description\nx-codex:\n  description: Codex description\n  custom: codex-only\nx-amp:\n  description: Amp description\n  custom: amp-only\n---\nReview carefully.\n")
 	var first []byte
 	for _, targets := range []string{"codex", "amp", "codex,amp", "amp,codex"} {
 		if _, _, err := runGlobalAgentTest("--only", targets); err != nil {
@@ -100,8 +100,8 @@ func TestSyncGlobal_SharedSkillsStayNeutralAcrossTargetSelections(t *testing.T) 
 
 func TestSyncGlobal_ReportsDroppedSkillFields(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nmodel: {claude: opus, codex: model-code, cursor: model-cursor}\neffort: high\nargument-hint: '[file]'\nallowed-tools: [Read]\n---\nReview.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\nmodel: shared-model\neffort: low\nargument-hint: '[version]'\nallowed-tools: [Read]\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nmodel: {claude: opus, codex: model-code, cursor: model-cursor}\neffort: high\nargument-hint: '[file]'\nallowed-tools: [Read]\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\nmodel: shared-model\neffort: low\nargument-hint: '[version]'\nallowed-tools: [Read]\n---\nDeploy.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "claude,codex,cursor")
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ const globalManualOnlySkill = "---\nname: gh-issues\ndescription: Work through r
 func TestSyncGlobal_WritesCodexSkillPolicySidecar(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	spec := filepath.Join(source, "skills", "gh-issues", "SKILL.md")
-	mustWriteGlobalTest(t, spec, globalManualOnlySkill)
+	writeFile(t, spec, globalManualOnlySkill)
 	sidecar := filepath.Join(home, ".agents", "skills", "gh-issues", "agents", "openai.yaml")
 	for _, flag := range []string{"", "", "--check"} {
 		args := []string{"--only", "claude,codex"}
@@ -143,7 +143,7 @@ func TestSyncGlobal_WritesCodexSkillPolicySidecar(t *testing.T) {
 		t.Errorf("codex policy sidecar: %s", data)
 	}
 
-	mustWriteGlobalTest(t, spec, "---\nname: gh-issues\ndescription: Work through ready issues, one PR each.\n---\nProcess the queue.\n")
+	writeFile(t, spec, "---\nname: gh-issues\ndescription: Work through ready issues, one PR each.\n---\nProcess the queue.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -154,8 +154,8 @@ func TestSyncGlobal_WritesCodexSkillPolicySidecar(t *testing.T) {
 
 func TestSyncGlobal_ReportsManualOnlySkillsThatStayModelInvocable(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "gh-issues", "SKILL.md"), globalManualOnlySkill)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(source, "skills", "gh-issues", "SKILL.md"), globalManualOnlySkill)
+	writeFile(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "claude,codex,amp")
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func TestSyncGlobal_ReportsManualOnlySkillsThatStayModelInvocable(t *testing.T) 
 
 func TestSyncGlobal_ManualOnlySkillWritesCodexPolicyWithoutXCodex(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
 	sidecar := filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml")
 	for _, only := range []string{"codex,amp", "amp"} {
 		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
@@ -193,7 +193,7 @@ func TestSyncGlobal_ManualOnlySkillWritesCodexPolicyWithoutXCodex(t *testing.T) 
 
 func TestSyncGlobal_PartialSyncOfSharedSkillsKeepsCodexPolicy(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "gh-issues", "SKILL.md"), globalManualOnlySkill)
+	writeFile(t, filepath.Join(source, "skills", "gh-issues", "SKILL.md"), globalManualOnlySkill)
 	sidecar := filepath.Join(home, ".agents", "skills", "gh-issues", "agents", "openai.yaml")
 	for _, only := range []string{"codex,amp", "amp", "amp"} {
 		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
@@ -211,8 +211,8 @@ func TestSyncGlobal_PartialSyncOfSharedSkillsKeepsCodexPolicy(t *testing.T) {
 func TestSyncGlobal_BundledOpenAIYAMLYieldsToCodexPolicy(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	folder := filepath.Join(source, "skills", "gh-issues")
-	mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), globalManualOnlySkill)
-	mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), "policy:\n  allow_implicit_invocation: true\n")
+	writeFile(t, filepath.Join(folder, "SKILL.md"), globalManualOnlySkill)
+	writeFile(t, filepath.Join(folder, "agents", "openai.yaml"), "policy:\n  allow_implicit_invocation: true\n")
 	for _, only := range []string{"amp,codex", "codex,amp"} {
 		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
 			t.Fatalf("--only %s: %v", only, err)
@@ -229,7 +229,7 @@ func TestSyncGlobal_BundledOpenAIYAMLYieldsToCodexPolicy(t *testing.T) {
 
 func TestSyncGlobal_ExplicitCodexInvocationPolicySilencesManualOnlyNote(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "lint", "SKILL.md"), "---\nname: lint\ndescription: Lint.\ndisable-model-invocation: true\nx-codex:\n  policy:\n    allow_implicit_invocation: true\n---\nLint.\n")
+	writeFile(t, filepath.Join(source, "skills", "lint", "SKILL.md"), "---\nname: lint\ndescription: Lint.\ndisable-model-invocation: true\nx-codex:\n  policy:\n    allow_implicit_invocation: true\n---\nLint.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
 		t.Fatal(err)
@@ -252,8 +252,8 @@ func TestSyncGlobal_ManualOnlySkillMergesPolicyIntoBundledOpenAIYAML(t *testing.
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			folder := filepath.Join(source, "skills", "deploy")
-			mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
-			mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), tc.bundled)
+			writeFile(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+			writeFile(t, filepath.Join(folder, "agents", "openai.yaml"), tc.bundled)
 			if _, _, err := runGlobalAgentTest("--only", "codex,amp"); err != nil {
 				t.Fatal(err)
 			}
@@ -276,8 +276,8 @@ func TestSyncGlobal_ManualOnlySkillMergesPolicyIntoBundledOpenAIYAML(t *testing.
 func TestSyncGlobal_AmpAloneWritesMergedBundledOpenAIYAML(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	folder := filepath.Join(source, "skills", "deploy")
-	mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
-	mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), "interface:\n  display_name: Deploy UI\n")
+	writeFile(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(folder, "agents", "openai.yaml"), "interface:\n  display_name: Deploy UI\n")
 	if _, _, err := runGlobalAgentTest("--only", "amp"); err != nil {
 		t.Fatal(err)
 	}
@@ -298,8 +298,8 @@ func TestSyncGlobal_AmpAloneWritesMergedBundledOpenAIYAML(t *testing.T) {
 func TestSyncGlobal_CodexCopiesAnUnparsableBundledOpenAIYAML(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	folder := filepath.Join(source, "skills", "deploy")
-	mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\n---\nDeploy.\n")
-	mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), "- a\n")
+	writeFile(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\n---\nDeploy.\n")
+	writeFile(t, filepath.Join(folder, "agents", "openai.yaml"), "- a\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func TestSyncGlobal_CodexCopiesAnUnparsableBundledOpenAIYAML(t *testing.T) {
 
 func TestSyncGlobal_ReportsOmittedFalseSkillInvocationFlag(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review.\ndisable-model-invocation: false\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review.\ndisable-model-invocation: false\n---\nReview.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "claude,codex,cursor,amp")
 	if err != nil {
 		t.Fatal(err)
@@ -336,7 +336,7 @@ func TestSyncGlobal_NormalizesSkillCapabilitiesAndKeepsNativeOverride(t *testing
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\n"+tc.meta+"---\nReview code.\n")
+			writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\n"+tc.meta+"---\nReview code.\n")
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("sync = %v, %s", err, warnings)
 			}
@@ -353,7 +353,7 @@ func TestSyncGlobal_NormalizesSkillCapabilitiesAndKeepsNativeOverride(t *testing
 
 func TestSyncGlobal_RejectsMalformedSkillCapability(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nallowed-tools: [raed]\n---\nReview code.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nallowed-tools: [raed]\n---\nReview code.\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "unknown capability") {
 		t.Errorf("sync = %v, %s", err, warnings)
 	}
@@ -366,8 +366,8 @@ func TestSyncGlobal_UnsupportedSkillDeleteHonorsMode(t *testing.T) {
 	for _, mode := range []string{"warn", "silent", "error"} {
 		t.Run(mode, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\non-unsupported: "+mode+"\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nallowed-tools: [read, delete]\n---\nReview code.\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\non-unsupported: "+mode+"\n")
+			writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nallowed-tools: [read, delete]\n---\nReview code.\n")
 			_, warnings, err := runGlobalAgentTest("--only", "claude")
 			if mode == "error" {
 				if err == nil || !strings.Contains(err.Error(), "delete has no native") {
@@ -398,7 +398,7 @@ func TestSyncGlobal_UnsupportedSkillDeleteHonorsMode(t *testing.T) {
 func TestSyncGlobal_SharedSkillFencesStayNeutralAcrossTargetSelections(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	body := "Shared instructions.\n\n::target codex\nCodex instructions.\n::end\n\n::target amp\nAmp instructions.\n::end\n"
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\nallowed-tools: [read]\n---\n\n"+body)
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\nallowed-tools: [read]\n---\n\n"+body)
 	var baseline []byte
 	for _, only := range []string{"codex", "amp", "codex,amp"} {
 		if _, warnings, err := runGlobalAgentTest("--only", only); err != nil {

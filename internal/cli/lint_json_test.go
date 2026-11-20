@@ -37,7 +37,7 @@ func runLintJSON(t *testing.T, args ...string) (lintJSONReport, string, error) {
 
 func TestLintJSON_ReportsFindingsWithLintExitStatus(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/style.md"), "---\nallowed_tools: [Read]\n---\n\nPrefer short functions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/style.md"), "---\nallowed_tools: [Read]\n---\n\nPrefer short functions.\n")
 
 	report, _, err := runLintJSON(t)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestLintJSON_ReportsFindingsWithLintExitStatus(t *testing.T) {
 
 func TestLintJSON_CleanProjectPrintsEmptyFindings(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/style.md"), "Prefer short functions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/style.md"), "Prefer short functions.\n")
 
 	report, _, err := runLintJSON(t, "--strict")
 	if err != nil {
@@ -85,7 +85,7 @@ func TestLintJSON_EmptyProjectKeepsHintOnStderr(t *testing.T) {
 
 func TestLintJSON_GlobalReportsErrorsAndFails(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), "effort:\n  claude: max\n")
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "effort:\n  claude: max\n")
 
 	report, _, err := runLintJSON(t, "--global")
 	if err == nil {

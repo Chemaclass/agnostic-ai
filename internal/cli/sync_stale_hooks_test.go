@@ -15,12 +15,12 @@ import (
 func TestSync_RetiredGeminiHookLeavesWhileModelStays(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 	removeSpecs(t, geminiFmtHookSpec)
 	runSyncOK(t)
 	got := readJSONMap(t, settings)
@@ -38,10 +38,10 @@ func TestSync_RetiredGeminiHookLeavesWhileModelStays(t *testing.T) {
 func TestSync_StaleParentClaimKeepsCurrentChild(t *testing.T) {
 	const settings = ".claude/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    settings:\n      env:\n        FOO: bar\n")
-	mustWriteFile(t, ".agnostic-ai/settings/env.yaml", "x-claude:\n  env:\n    BAR: baz\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    settings:\n      env:\n        FOO: bar\n")
+	writeFile(t, ".agnostic-ai/settings/env.yaml", "x-claude:\n  env:\n    BAR: baz\n")
 	runSyncOK(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	runSyncOK(t)
 	env, _ := readJSONMap(t, settings)["env"].(map[string]any)
 	if env["BAR"] != "baz" {
@@ -64,10 +64,10 @@ func TestSync_ClaudePortableHookMovesToUnclaimedCustomHooks(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
-			mustWriteFile(t, settings, userSettings)
-			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
-			mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+			writeFile(t, settings, userSettings)
+			writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+			writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
 			runSyncOK(t)
 			priorStop := []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo prior"}}}}
 			if tc.priorUserStop {
@@ -84,7 +84,7 @@ func TestSync_ClaudePortableHookMovesToUnclaimedCustomHooks(t *testing.T) {
 			if tc.stop {
 				body += "    Stop:\n      - hooks:\n          - type: command\n            command: echo custom\n"
 			}
-			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", body)
+			writeFile(t, ".agnostic-ai/settings/model.yaml", body)
 			runSyncOK(t)
 			want := map[string]any{"PostToolUse": []any{map[string]any{"matcher": "", "hooks": []any{map[string]any{"type": "command", "command": tc.command}}}}}
 			if tc.stop {
@@ -112,7 +112,7 @@ func TestSync_ClaudePortableHookMovesToUnclaimedCustomHooks(t *testing.T) {
 			want["Stop"] = append(stop, map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo mine"}}})
 			doc["hooks"] = want
 			writeJSONFile(t, settings, doc)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 			runSyncOK(t)
 			if got := readJSONMap(t, settings); !reflect.DeepEqual(got["hooks"], want) || got["userKey"] != "mine" {
 				t.Errorf("custom or user hooks lost on release: %#v", got)
@@ -128,8 +128,8 @@ func TestSync_ClaudePortableHookMovesToUnclaimedCustomHooks(t *testing.T) {
 func TestSync_CursorHooksFileLeavesWithItsLastHook(t *testing.T) {
 	const hooksFile = ".cursor/hooks.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
 	runSyncOK(t)
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
@@ -144,9 +144,9 @@ func TestSync_CursorHooksFileLeavesWithItsLastHook(t *testing.T) {
 func TestSync_CursorHooksFileKeepsTheUsersVersionKey(t *testing.T) {
 	const hooksFile = ".cursor/hooks.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-	mustWriteFile(t, hooksFile, `{"version": 1}`)
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, hooksFile, `{"version": 1}`)
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
 	runSyncOK(t)
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
@@ -161,8 +161,8 @@ func TestSync_CursorHooksFileKeepsTheUsersVersionKey(t *testing.T) {
 func TestSync_CursorHooksFileKeepsVersionBesideAUserHook(t *testing.T) {
 	const hooksFile = ".cursor/hooks.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
 	runSyncOK(t)
 	runSyncOK(t)
 	doc := readJSONMap(t, hooksFile)

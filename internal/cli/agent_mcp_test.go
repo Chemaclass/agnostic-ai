@@ -12,10 +12,10 @@ import (
 func writeAgentOnlyProject(t *testing.T, env string) string {
 	t.Helper()
 	dir := newProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, kiro, cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, kiro, cursor]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"),
 		"name: github\nagent-only: true\ncommand: github-mcp\nenv:\n  GITHUB_TOKEN: "+env+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "triager.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "triager.md"),
 		"---\nname: triager\ndescription: Triage issues.\nmcpServers: [github]\n---\nLabel new issues.\n")
 	return dir
 }
@@ -102,7 +102,7 @@ func TestStopOnSpecTypos_RefusesANonBooleanAgentOnly(t *testing.T) {
 
 func TestSyncGlobal_RefusesANonBooleanAgentOnly(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "github.yaml"), "name: github\nagent-only: \"yes\"\ncommand: github-mcp\n")
+	writeFile(t, filepath.Join(source, "mcps", "github.yaml"), "name: github\nagent-only: \"yes\"\ncommand: github-mcp\n")
 	_, _, err := runGlobalAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), "agent-only must be true or false") {
 		t.Fatalf("sync --global must refuse it: %v", err)
@@ -154,8 +154,8 @@ func TestStopOnSpecTypos_SharedServerKeepsTheProjectCheck(t *testing.T) {
 
 func TestValidateAndLint_ReportAnAgentFileCredential(t *testing.T) {
 	dir := newProject(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"),
 		"name: github\nagent-only: true\ntype: http\nurl: https://mcp.example.com/mcp?api_key=sk-live-abcdef1234567890\n")
 	out, err := runCLI(t, "validate")
 	if err == nil || !strings.Contains(out+err.Error(), `MCP server "github": url holds a credential`) {

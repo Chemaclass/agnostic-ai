@@ -11,7 +11,7 @@ import (
 
 func TestSyncGlobal_AugmentMemoryIncludesItsExecutableBuiltinScript(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\nbuiltins: [memory]\n")
 	if _, _, err := runGlobalAgentTest("--only", "augment"); err != nil {
 		t.Fatal(err)
 	}
@@ -47,11 +47,11 @@ func TestSyncGlobal_NeutralHookExecutesWithShellPunctuationInHome(t *testing.T) 
 	home = filepath.Join(home, "user;home")
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' shared-hook\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' shared-hook\n")
 	if err := os.Chmod(filepath.Join(source, "scripts", "guard.sh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -71,11 +71,11 @@ func TestSyncGlobal_NeutralHookExecFormKeepsLiteralFilename(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	const name = "my guard;script.sh"
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", name), "#!/bin/sh\nprintf '%s\\n' \"$1\"\n")
+	writeFile(t, filepath.Join(source, "scripts", name), "#!/bin/sh\nprintf '%s\\n' \"$1\"\n")
 	if err := os.Chmod(filepath.Join(source, "scripts", name), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/"+name+"\nargs: ['argument with ; punctuation']\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/"+name+"\nargs: ['argument with ; punctuation']\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestSyncGlobal_NeutralHookExecFormKeepsLiteralFilename(t *testing.T) {
 func TestSyncGlobal_NeutralHookScriptsCopyToUserTargets(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	const body = "#!/bin/sh\necho shared-hook\n"
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), body)
+	writeFile(t, filepath.Join(source, "scripts", "guard.sh"), body)
 	if err := os.Chmod(filepath.Join(source, "scripts", "guard.sh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestSyncGlobal_NeutralHookScriptsCopyToUserTargets(t *testing.T) {
 		if target == "cursor" {
 			event = "sessionStart"
 		}
-		mustWriteGlobalTest(t, filepath.Join(source, "hooks", target+".yaml"), "name: guard-"+target+"\nevent: "+event+"\ntarget: "+target+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
+		writeFile(t, filepath.Join(source, "hooks", target+".yaml"), "name: guard-"+target+"\nevent: "+event+"\ntarget: "+target+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	}
 	only := []string{"--only", "claude,codex,cursor,gemini,qoder,augment"}
 	if _, _, err := runGlobalAgentTest(only...); err != nil {
@@ -156,11 +156,11 @@ func TestSyncGlobal_WindowsHookUsesCopiedTargetScript(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.ps1"), "Write-Output 'shared'\n")
+			writeFile(t, filepath.Join(source, "scripts", "guard.ps1"), "Write-Output 'shared'\n")
 			const variant = "Write-Output 'codex'\n"
-			mustWriteGlobalTest(t, filepath.Join(source, "scripts", "codex", "guard.ps1"), variant)
+			writeFile(t, filepath.Join(source, "scripts", "codex", "guard.ps1"), variant)
 			hook := filepath.Join(source, "hooks", "guard.yaml")
-			mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: 'true'\ncommandWindows: '"+tc.command+"'\n"+tc.args)
+			writeFile(t, hook, "event: SessionStart\ncommand: 'true'\ncommandWindows: '"+tc.command+"'\n"+tc.args)
 			if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
 				t.Fatal(err)
 			}
@@ -201,11 +201,11 @@ func TestSyncGlobal_AugmentNeutralHookExecutesFromHomeWithSpaces(t *testing.T) {
 	home = filepath.Join(home, "user home")
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' shared-hook\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.sh"), "#!/bin/sh\nprintf '%s\\n' shared-hook\n")
 	if err := os.Chmod(filepath.Join(source, "scripts", "guard.sh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "event: SessionStart\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "augment"); err != nil {
 		t.Fatal(err)
 	}

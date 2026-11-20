@@ -95,7 +95,7 @@ type RenameError struct {
 func (e *RenameError) Error() string {
 	text, known := renameReasonTexts[e.Reason]
 	if !known {
-		return fmt.Sprintf("%s: an unknown problem", toolLabels[e.Tool])
+		return toolLabels[e.Tool] + ": an unknown problem"
 	}
 	if e.Reason == RenameNotSupported {
 		return fmt.Sprintf(text, e.Kind)
@@ -117,15 +117,15 @@ func (e *RenameError) Message() string {
 	case RenameSignedOut:
 		return renameSignIn[e.Tool]
 	case RenameInUse:
-		return fmt.Sprintf("%s has this conversation open and would put the old name back. Stop or close it there, then try again.", tool)
+		return tool + " has this conversation open and would put the old name back. Stop or close it there, then try again."
 	case RenameRefused:
 		return fmt.Sprintf("%s did not take the new name. Try again, or rename it in %s.", tool, tool)
 	case RenameUnreachable:
-		return fmt.Sprintf("%s did not answer in time. Try again.", tool)
+		return tool + " did not answer in time. Try again."
 	case RenameUnexpected:
 		return fmt.Sprintf("This version cannot rename this %s conversation. Rename it in %s.", tool, tool)
 	}
-	return fmt.Sprintf("%s did not take the new name.", tool)
+	return tool + " did not take the new name."
 }
 
 // maxRenameAnswerBytes bounds what is read of a provider's answer to a

@@ -3,7 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,8 +27,8 @@ func builtinChangeProject(t *testing.T) string {
 	chdir(t, root)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "# Keep me.\nversion: 1\ntargets: [claude, codex]\nbuiltins: []\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
+	writeFile(t, "agnostic-ai.yaml", "# Keep me.\nversion: 1\ntargets: [claude, codex]\nbuiltins: []\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestBuiltinChanges_StaleSourceRefusesApply(t *testing.T) {
 	root := builtinChangeProject(t)
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, true)
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "An intervening edit.\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "An intervening edit.\n")
 	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("apply: %d %s", rec.Code, rec.Body)
@@ -200,7 +200,7 @@ func TestBuiltinChanges_EnableDisableMatchesOrdinarySync(t *testing.T) {
 
 func TestBuiltinChanges_UsesLocalConfigAndKeepsPrivateModes(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, "agnostic-ai.local.yaml", "# Personal choice.\nbuiltins: []\n")
+	writeFile(t, "agnostic-ai.local.yaml", "# Personal choice.\nbuiltins: []\n")
 	if err := os.Chmod("agnostic-ai.local.yaml", 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestBuiltinChanges_PartialWriteFailureRestoresFiles(t *testing.T) {
 	h.beforeWrite = func(string) error {
 		count++
 		if count == 3 {
-			return fmt.Errorf("injected write failure")
+			return errors.New("injected write failure")
 		}
 		return nil
 	}
@@ -282,7 +282,7 @@ func TestBuiltinChanges_RollbackKeepsAnInterveningEdit(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, first), []byte("Later edit.\n"), 0o600); err != nil {
 			return err
 		}
-		return fmt.Errorf("injected write failure")
+		return errors.New("injected write failure")
 	}
 	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
 	if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "could not restore") || !strings.Contains(rec.Body.String(), first) {
@@ -313,7 +313,7 @@ func TestBuiltinChanges_NewSourceInvalidatesPreview(t *testing.T) {
 	root := builtinChangeProject(t)
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, true)
-	mustWriteFile(t, ".agnostic-ai/rules/later.md", "---\nname: later\ndescription: New source.\n---\nNew rule.\n")
+	writeFile(t, ".agnostic-ai/rules/later.md", "---\nname: later\ndescription: New source.\n---\nNew rule.\n")
 	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("apply: %d %s", rec.Code, rec.Body)
@@ -325,7 +325,7 @@ func TestBuiltinChanges_InputChangedDuringApplyIsKept(t *testing.T) {
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, true)
 	h.beforeWrite = func(string) error {
-		mustWriteFile(t, ".agnostic-ai/rules/concurrent.md", "---\nname: concurrent\ndescription: Concurrent rule.\n---\nKeep this rule.\n")
+		writeFile(t, ".agnostic-ai/rules/concurrent.md", "---\nname: concurrent\ndescription: Concurrent rule.\n---\nKeep this rule.\n")
 		return nil
 	}
 	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
@@ -389,7 +389,7 @@ func TestBuiltinChanges_RejectsUnsafeProjectsBeforeWriting(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := builtinChangeProject(t)
-			mustWriteFile(t, "agnostic-ai.yaml", tc.config)
+			writeFile(t, "agnostic-ai.yaml", tc.config)
 			before, err := snapshotBuiltinProject(root, nil)
 			if err != nil {
 				t.Fatal(err)
@@ -409,7 +409,7 @@ func TestBuiltinChanges_RejectsUnsafeProjectsBeforeWriting(t *testing.T) {
 func TestBuiltinChanges_LocalScratchSymlinkDoesNotBlockApplyOrUndo(t *testing.T) {
 	root := builtinChangeProject(t)
 	outside := filepath.Join(t.TempDir(), "bashunit")
-	mustWriteFile(t, outside, "Keep the tool.\n")
+	writeFile(t, outside, "Keep the tool.\n")
 	link := filepath.Join(defaultProjectUser, "refactor-sync-guards", "tools", "bashunit")
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
@@ -418,10 +418,10 @@ func TestBuiltinChanges_LocalScratchSymlinkDoesNotBlockApplyOrUndo(t *testing.T)
 		t.Fatal(err)
 	}
 	report := filepath.Join(defaultProjectUser, "refactor-sync-guards", "report.md")
-	mustWriteFile(t, report, "Original notes.\n")
+	writeFile(t, report, "Original notes.\n")
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, true)
-	mustWriteFile(t, report, "Later notes.\n")
+	writeFile(t, report, "Later notes.\n")
 	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
 	builtinAction(t, h, builtinUndoPath, applied.ID)
 	if target, err := os.Readlink(link); err != nil || target != outside {
@@ -448,7 +448,7 @@ func TestBuiltinChanges_NewLocalSourcesAndHookScriptsRefuseApply(t *testing.T) {
 			root := builtinChangeProject(t)
 			h := newBuiltinChangeHandler(root, false)
 			proposal := builtinProposal(t, h, true)
-			mustWriteFile(t, path, "A later source.\n")
+			writeFile(t, path, "A later source.\n")
 			rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
 			if rec.Code != http.StatusConflict {
 				t.Fatalf("apply: %d %s", rec.Code, rec.Body)
@@ -472,10 +472,10 @@ func TestBuiltinChanges_SymlinkInputRefused(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			root := builtinChangeProject(t)
 			if tc.config != "" {
-				mustWriteFile(t, "agnostic-ai.yaml", tc.config)
+				writeFile(t, "agnostic-ai.yaml", tc.config)
 			}
 			outside := filepath.Join(t.TempDir(), "rule.md")
-			mustWriteFile(t, outside, "Keep me.\n")
+			writeFile(t, outside, "Keep me.\n")
 			if err := os.MkdirAll(filepath.Dir(tc.path), 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -538,7 +538,7 @@ func TestBuiltinChanges_RedactsPreviewAndLeavesEnvironmentUntouched(t *testing.T
 	root := builtinChangeProject(t)
 	secret := "sk-" + strings.Repeat("a1", 24)
 	config, _ := os.ReadFile("agnostic-ai.yaml")
-	mustWriteFile(t, "agnostic-ai.yaml", strings.Replace(string(config), "builtins: []", "builtins: [] # https://example.test/?api_key="+secret, 1))
+	writeFile(t, "agnostic-ai.yaml", strings.Replace(string(config), "builtins: []", "builtins: [] # https://example.test/?api_key="+secret, 1))
 	home, err := snapshotBuiltinProject(os.Getenv("HOME"), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -558,7 +558,7 @@ func TestBuiltinChanges_RedactsPreviewAndLeavesEnvironmentUntouched(t *testing.T
 
 func TestBuiltinChanges_DisableUndoRestoresDeletedFileMode(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [caveman]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [caveman]\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -627,7 +627,7 @@ func TestBuiltinChanges_FailedLaterApplyKeepsSuccessfulUndo(t *testing.T) {
 	h.beforeWrite = func(string) error {
 		count++
 		if count == 2 {
-			return fmt.Errorf("injected failure")
+			return errors.New("injected failure")
 		}
 		return nil
 	}
@@ -648,7 +648,7 @@ func TestBuiltinChanges_FailedUndoCanRetryAfterCompleteRollback(t *testing.T) {
 	h.beforeWrite = func(string) error {
 		count++
 		if count == 2 {
-			return fmt.Errorf("injected failure")
+			return errors.New("injected failure")
 		}
 		return nil
 	}
@@ -662,7 +662,7 @@ func TestBuiltinChanges_FailedUndoCanRetryAfterCompleteRollback(t *testing.T) {
 
 func TestBuiltinChanges_DisablingUnsupportedSkillClearsWarnings(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\nbuiltins: [caveman]\non-unsupported: warn\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\nbuiltins: [caveman]\non-unsupported: warn\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -771,7 +771,7 @@ func TestBuiltinChanges_StaleProposalRecoveryRequiresFreshPreview(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", string(config)+"# A later edit.\n")
+	writeFile(t, "agnostic-ai.yaml", string(config)+"# A later edit.\n")
 	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+stale.ID+`"}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("apply: %d %s", rec.Code, rec.Body)
@@ -805,7 +805,7 @@ func TestBuiltinChanges_NativePathsUseRecordedSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", string(config)+"gitignore:\n  enabled: true\n  path: '"+ignore+"'\n")
+	writeFile(t, "agnostic-ai.yaml", string(config)+"gitignore:\n  enabled: true\n  path: '"+ignore+"'\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -854,7 +854,7 @@ func TestBuiltinChanges_AnchoredSnapshotRejectsIdenticalReplacement(t *testing.T
 	root := t.TempDir()
 	path := filepath.Join("nested", "file")
 	absolute := filepath.Join(root, path)
-	mustWriteFile(t, absolute, "Keep this content.\n")
+	writeFile(t, absolute, "Keep this content.\n")
 	before, err := snapshotEditFile(absolute)
 	if err != nil {
 		t.Fatal(err)
@@ -919,7 +919,7 @@ func TestBuiltinChanges_AllBuiltinsEnableDisableUndo(t *testing.T) {
 
 func TestBuiltinChanges_PendingHandoffIncludedAndUndoRestoresDrift(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff]\n")
 	before, err := snapshotBuiltinProject(root, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -954,16 +954,16 @@ func TestBuiltinChanges_RefusesUnprovenOutputWrites(t *testing.T) {
 			switch kind {
 			case "new collision":
 				path = ".claude/skills/caveman/SKILL.md"
-				mustWriteFile(t, path, "User file.\n")
+				writeFile(t, path, "User file.\n")
 			case "edited manifest":
-				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: []\nsync:\n  output-manifest: true\n")
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: []\nsync:\n  output-manifest: true\n")
 				if out, err := runCLI(t, "sync"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, out)
 				}
 				path = outputManifestPath
-				mustWriteFile(t, path, "User file.\n")
+				writeFile(t, path, "User file.\n")
 			case "edited":
-				mustWriteFile(t, path, "User file.\n")
+				writeFile(t, path, "User file.\n")
 			case "missing checksum":
 				state := readStateFile(".")
 				delete(state.OutputSums, path)
@@ -971,9 +971,9 @@ func TestBuiltinChanges_RefusesUnprovenOutputWrites(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				mustWriteFile(t, stateFilePath("."), string(data))
+				writeFile(t, stateFilePath("."), string(data))
 			}
-			mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Changed source.\n")
+			writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Changed source.\n")
 			before, err := snapshotBuiltinProject(root, nil)
 			if err != nil {
 				t.Fatal(err)
@@ -1025,8 +1025,8 @@ func TestBuiltinChanges_LastHookReleasePreservesUserSettings(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			root := builtinChangeProject(t)
 			original := "{\n  \"theme\": \"dark\"\n}\n"
-			mustWriteFile(t, ".claude/settings.json", original)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: ["+name+"]\n")
+			writeFile(t, ".claude/settings.json", original)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: ["+name+"]\n")
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
@@ -1068,7 +1068,7 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 			switch kind {
 			case "native fact", "native fact BOM", "native index":
 				if kind == "native fact BOM" {
-					mustWriteFile(t, ".claude/settings.local.json", "\xef\xbb\xbf{}\n")
+					writeFile(t, ".claude/settings.local.json", "\xef\xbb\xbf{}\n")
 					if out, err := runCLI(t, "sync"); err != nil {
 						t.Fatalf("sync: %v\n%s", err, out)
 					}
@@ -1078,9 +1078,9 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 					t.Fatal(err)
 				}
 				if kind == "native fact" || kind == "native fact BOM" {
-					mustWriteFile(t, filepath.Join(native, "fact.md"), "A saved fact.\n")
+					writeFile(t, filepath.Join(native, "fact.md"), "A saved fact.\n")
 				} else {
-					mustWriteFile(t, filepath.Join(native, "MEMORY.md"), "A saved note in the index.\n")
+					writeFile(t, filepath.Join(native, "MEMORY.md"), "A saved note in the index.\n")
 				}
 			case "repo fact", "external store", "tracked settings":
 				if _, err := gitquery.LayoutAt(root); err == nil {
@@ -1094,11 +1094,11 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					mustWriteFile(t, filepath.Join(store, "fact.md"), "A saved repository fact.\n")
+					writeFile(t, filepath.Join(store, "fact.md"), "A saved repository fact.\n")
 				case "external store":
-					mustWriteFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+					writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
 				case "tracked settings":
-					mustWriteFile(t, ".claude/settings.local.json", "{}\n")
+					writeFile(t, ".claude/settings.local.json", "{}\n")
 					git(t, root, "add", "--force", ".claude/settings.local.json")
 				}
 			}
@@ -1130,8 +1130,8 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 
 func TestBuiltinChanges_UnchangedUserMemoryDirectoryDoesNotRequireNativeMigration(t *testing.T) {
 	root := builtinChangeProject(t)
-	mustWriteFile(t, ".claude/settings.local.json", `{"autoMemoryDirectory":"/user/memory"}`+"\n")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [memory]\n")
+	writeFile(t, ".claude/settings.local.json", `{"autoMemoryDirectory":"/user/memory"}`+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [memory]\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -1139,7 +1139,7 @@ func TestBuiltinChanges_UnchangedUserMemoryDirectoryDoesNotRequireNativeMigratio
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(native, "fact.md"), "A saved native fact.\n")
+	writeFile(t, filepath.Join(native, "fact.md"), "A saved native fact.\n")
 	h := newBuiltinChangeHandler(root, false)
 	builtinAction(t, h, builtinApplyPath, builtinProposal(t, h, true).ID)
 	data, err := os.ReadFile(".claude/settings.local.json")
@@ -1159,7 +1159,7 @@ func unsyncedBuiltinProject(t *testing.T) string {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	gitInit(t, root)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 	return root
 }
 
@@ -1250,7 +1250,7 @@ func TestBuiltinChanges_UnsyncedProjectRespectsRunningSync(t *testing.T) {
 
 func TestBuiltinChanges_PreviewAfterUndoKeepsLockIgnored(t *testing.T) {
 	root := unsyncedBuiltinProject(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\ngitignore:\n  enabled: false\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\ngitignore:\n  enabled: false\n")
 	h := newBuiltinChangeHandler(root, false)
 	first := builtinProposal(t, h, true)
 	applied := builtinAction(t, h, builtinApplyPath, first.ID)
@@ -1285,7 +1285,7 @@ func TestBuiltinChanges_MemoryAddsSyncGitExclusion(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	git(t, root, "init", "--quiet")
 	gitquery.Reset()
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff, rtk]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff, rtk]\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -1327,7 +1327,7 @@ func memoryGitProject(t *testing.T, root, config string) {
 	t.Helper()
 	chdir(t, root)
 	gitquery.Reset()
-	mustWriteFile(t, "agnostic-ai.yaml", config)
+	writeFile(t, "agnostic-ai.yaml", config)
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}

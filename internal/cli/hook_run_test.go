@@ -25,8 +25,8 @@ func skipWithoutPOSIXShell(t *testing.T) {
 func hookRunProject(t *testing.T, hook string) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
 	return dir
 }
 
@@ -200,8 +200,8 @@ func TestHookRun_AnAsyncHookIsNotJudged(t *testing.T) {
 func TestHookRun_GeminiBlocksAnEditWithTheSyncedEnv(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: BeforeTool\nmatcher: write_file|replace\ntarget: gemini\ntimeout: 5\n"+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: BeforeTool\nmatcher: write_file|replace\ntarget: gemini\ntimeout: 5\n"+
 		`command: 'test "$AGNOSTIC_AI_TARGET/$GEMINI_PROJECT_DIR" = "gemini/$(pwd -P)" || test "$AGNOSTIC_AI_TARGET/$GEMINI_PROJECT_DIR" = "gemini/$PWD" || exit 1; grep -q "\"file_path\":\"[^\"]*workflows" && { echo protected >&2; exit 2; }; exit 0'`+"\n")
 
 	out, err := runHookRun(t, "guard", "--edit", ".github/workflows/tests.yml", "--expect", "block")
@@ -218,8 +218,8 @@ func TestHookRun_GeminiBlocksAnEditWithTheSyncedEnv(t *testing.T) {
 func TestHookRun_GeminiTimeoutIsMilliseconds(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: BeforeAgent\nx-gemini:\n  timeout: 300\ncommand: 'sleep 5'\n")
 
 	out, err := runHookRun(t, "guard", "--prompt", "hi")
@@ -286,7 +286,7 @@ func TestHookRun_CodexAcceptsForkSessionSource(t *testing.T) {
 func TestHookRun_CodexSessionEndCountsAuthoredAsyncFailure(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := hookRunProject(t, "name: guard\nevent: SessionEnd\ntargets: [codex]\nasync: true\ncommand: exit 1\n")
-	mustWrite(t, filepath.Join(dir, "payload.json"), `{"hook_event_name":"SessionEnd","cwd":"`+filepath.ToSlash(dir)+`","session_id":"test","reason":"other"}`)
+	writeFile(t, filepath.Join(dir, "payload.json"), `{"hook_event_name":"SessionEnd","cwd":"`+filepath.ToSlash(dir)+`","session_id":"test","reason":"other"}`)
 	out, err := runHookRun(t, "guard", "--target", "codex", "--payload", "payload.json", "--json")
 	if err == nil {
 		t.Errorf("expected synchronous failure: %s", out)
@@ -318,7 +318,7 @@ func TestHookRun_CodexShutdownUsesEffectiveHandlerTimeout(t *testing.T) {
 	} {
 		t.Run(tc.event+tc.timeout, func(t *testing.T) {
 			dir := hookRunProject(t, "name: guard\ntargets: [codex]\nevent: "+tc.event+"\n"+tc.timeout+"command: sleep "+tc.sleep+"\n")
-			mustWrite(t, filepath.Join(dir, "payload.json"), `{"hook_event_name":"`+tc.event+`","cwd":"`+filepath.ToSlash(dir)+`","session_id":"test","reason":"other"}`)
+			writeFile(t, filepath.Join(dir, "payload.json"), `{"hook_event_name":"`+tc.event+`","cwd":"`+filepath.ToSlash(dir)+`","session_id":"test","reason":"other"}`)
 			out, err := runHookRun(t, "guard", "--target", "codex", "--payload", "payload.json", "--json")
 			if err == nil || !strings.Contains(out, `"timed_out": true`) {
 				t.Errorf("expected native timeout, err=%v: %s", err, out)

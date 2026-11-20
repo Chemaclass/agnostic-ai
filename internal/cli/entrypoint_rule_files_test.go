@@ -17,8 +17,8 @@ const (
 func ruleFilesProject(t *testing.T, config string) string {
 	t.Helper()
 	dir := budgetProject(t, config)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"), alwaysRuleSpec)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), goRuleSpec)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"), alwaysRuleSpec)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), goRuleSpec)
 	return dir
 }
 
@@ -63,7 +63,7 @@ func TestSync_AddingCodexSweepsTheClineCopyOfAnAlwaysOnRule(t *testing.T) {
 		t.Fatal("without codex, .clinerules/always.md is the only copy Cline gets")
 	}
 
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
 	mustSync(t)
 
 	if exists(filepath.Join(dir, ".clinerules", "always.md")) {
@@ -179,9 +179,9 @@ func TestExplain_CreditsAGENTSMdToClineForAnInlinedRule(t *testing.T) {
 // or it would lose the text that is only in that copy.
 func TestSync_ClineKeepsARuleWhoseBodyDiffersFromTheInlinedOne(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "fenced.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "fenced.md"),
 		"---\nname: fenced\n---\nShared line.\n\n::target cline\nCLINE ONLY LINE.\n::end\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "vars.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "vars.md"),
 		"---\nname: vars\n---\nSkills live in {{$SKILLS_DIR}}.\n")
 
 	mustSync(t)
@@ -226,8 +226,8 @@ func TestSync_ClineKeepsRuleFilesWhenItSharesAMovedEntryPointWithCodex(t *testin
 // now carries go.
 func TestSync_KiloDropsOnlyTheInstructionsEntriesOfInlinedRules(t *testing.T) {
 	dir := ruleFilesProject(t, "targets: [kilo]\n")
-	mustWriteFile(t, filepath.Join(dir, ".kilo", "rules", "mine.md"), "My own rule.\n")
-	mustWriteFile(t, filepath.Join(dir, "kilo.jsonc"),
+	writeFile(t, filepath.Join(dir, ".kilo", "rules", "mine.md"), "My own rule.\n")
+	writeFile(t, filepath.Join(dir, "kilo.jsonc"),
 		`{"instructions": [".kilo/rules/always.md", ".kilo/rules/go.md", ".kilo/rules/mine.md", "docs/x.md"]}`+"\n")
 
 	mustSync(t)
@@ -250,7 +250,7 @@ func TestSync_KiloDropsOnlyTheInstructionsEntriesOfInlinedRules(t *testing.T) {
 func TestSyncCheck_ReportsARuleFileTheNextSyncRemoves(t *testing.T) {
 	dir := ruleFilesProject(t, "targets: [cline]\n")
 	mustSync(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
 	mustSync(t, "--only", "codex")
 
 	out, err := runCLI(t, "sync", "--check", "--json")
@@ -290,7 +290,7 @@ func TestImport_ClineReadsTheRulesBlockItsCopiesWereSkippedFor(t *testing.T) {
 // `resources` by default, so a steering copy would load each rule twice.
 func TestSync_KiroSkipsSteeringCopyWhenAnAgentSetsResources(t *testing.T) {
 	dir := ruleFilesProject(t, "targets: [codex, kiro]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"),
 		"---\nname: helper\ndescription: Helps.\nx-kiro:\n  resources: [\"file://.kiro/steering/**\"]\n---\nHelp.\n")
 
 	mustSync(t)
@@ -457,7 +457,7 @@ func TestSync_CursorWindsurfAndTraeLeaveCodexAGENTSMdUnchanged(t *testing.T) {
 	mustSync(t)
 	alone := readFile(t, filepath.Join(dir, "AGENTS.md"))
 
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cursor, windsurf, trae]\n"+opts)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cursor, windsurf, trae]\n"+opts)
 	mustSync(t)
 
 	if got := readFile(t, filepath.Join(dir, "AGENTS.md")); got != alone {
@@ -593,7 +593,7 @@ func upgradedProject(t *testing.T) string {
 	t.Helper()
 	dir := ruleFilesProject(t, "targets: [cline]\n")
 	mustSync(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
 	mustSync(t, "--only", "codex")
 	return dir
 }
@@ -628,7 +628,7 @@ func TestSyncCheck_ReportsLeftoversUnderTheLedger(t *testing.T) {
 // block, even when its file name differs from the rule name.
 func TestImport_ClineSkipsBlockRulesThatAlreadyHaveASpec(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always-rule.md"), alwaysRuleSpec)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always-rule.md"), alwaysRuleSpec)
 	mustSync(t)
 
 	if out, err := runCLI(t, "import", "cline"); err != nil {

@@ -40,12 +40,12 @@ func requiresProject(t *testing.T, requires string) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := testutil.TempCwd(t)
 	setRequires(t, requires)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 }
 
 func setRequires(t *testing.T, requires string) {
 	t.Helper()
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \""+requires+"\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \""+requires+"\"\n")
 }
 
 func assertUnmetRequires(t *testing.T, err error, config, required, installed string) {
@@ -232,7 +232,7 @@ func TestWatchResync_StopsOnceRequiresIsRaised(t *testing.T) {
 
 	setRequires(t, ">=0.70.0")
 	rule := filepath.Join(".agnostic-ai", "rules", "safe.md")
-	mustWriteFile(t, rule, "---\nname: safe\n---\nBe very safe.\n")
+	writeFile(t, rule, "---\nname: safe\n---\nBe very safe.\n")
 
 	err := resyncForChanges(".", nil, []string{rule}, watchOptions{gitignoreFlag: "off", jobs: 1})
 	assertUnmetRequires(t, err, "agnostic-ai.yaml", ">=0.70.0", "0.69.0")
@@ -282,7 +282,7 @@ func TestSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
 func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "requires: \">=0.70.0\"\ntargets: [claude]\n")
+	writeFile(t, config, "requires: \">=0.70.0\"\ntargets: [claude]\n")
 
 	for _, args := range [][]string{{"sync"}, {"sync", "--check"}, {"sync", "-t", "claude"}, {"lint"}, {"validate"}, {"list"}} {
 		_, _, err := runAsVersion(t, "v0.69.0", append(args, "--global")...)
@@ -302,9 +302,9 @@ func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 
 func TestGlobalSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
 	_, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.60.0\"\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.60.0\"\n")
 	local := filepath.Join(source, "local", "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, local, "requires: \">=0.70.0\"\n")
+	writeFile(t, local, "requires: \">=0.70.0\"\n")
 
 	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--global")
 	assertUnmetRequires(t, err, local, ">=0.70.0", "0.69.0")
@@ -313,7 +313,7 @@ func TestGlobalSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
 func TestGlobalSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
 	_, source := globalConfigTestHome(t)
 	path := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, path, "requires: \"0.76.0\"\n")
+	writeFile(t, path, "requires: \"0.76.0\"\n")
 
 	_, _, err := runAsVersion(t, "v0.77.0", "sync", "--global")
 	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
@@ -331,8 +331,8 @@ func TestGlobalSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
 
 func TestGlobalSync_NullLocalRequiresClearsShared(t *testing.T) {
 	home, source := globalConfigTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.70.0\"\ntargets: [claude]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "requires:\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.70.0\"\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "requires:\n")
 
 	if _, _, err := runAsVersion(t, "v0.69.0", "sync", "--global"); err != nil {
 		t.Fatalf("a null local requires must clear the shared one, as in a project: %v", err)
@@ -343,7 +343,7 @@ func TestGlobalSync_NullLocalRequiresClearsShared(t *testing.T) {
 func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "targets: [claude\n")
+	writeFile(t, config, "targets: [claude\n")
 
 	_, errOut, err := runAsVersion(t, "v0.69.0", "sync", "--global", "-t", "claude")
 	if err != nil {
@@ -354,8 +354,8 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
 
-	mustWriteGlobalTest(t, config, "requires: \">=0.70.0\"\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [claude\n")
+	writeFile(t, config, "requires: \">=0.70.0\"\n")
+	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [claude\n")
 	_, _, err = runAsVersion(t, "v0.69.0", "sync", "--global", "-t", "claude")
 	assertUnmetRequires(t, err, config, ">=0.70.0", "0.69.0")
 }
@@ -363,7 +363,7 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 func TestGlobalSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
 	_, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "requires: [\">=0.70.0\"]\n")
+	writeFile(t, config, "requires: [\">=0.70.0\"]\n")
 
 	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--global")
 	if errs.CodeOf(err) != errs.CodeConfigDecode || !strings.Contains(err.Error(), config+": requires:") {
@@ -393,8 +393,8 @@ func TestDoctor_NextStepGivesTheConfigErrorFix(t *testing.T) {
 func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
 	_, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "targets: [claude\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, config, "targets: [claude\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	out, errOut, err := runAsVersion(t, "v0.69.0", "list", "--global")
 	if err != nil {
@@ -599,7 +599,7 @@ func TestProjectCommands_RangeGetsNoMinimumHint(t *testing.T) {
 func TestGlobalCommands_ExactPinHintsAtMinimum(t *testing.T) {
 	_, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "requires: \"0.88.0\"\ntargets: [claude]\n")
+	writeFile(t, config, "requires: \"0.88.0\"\ntargets: [claude]\n")
 
 	_, _, err := runAsVersion(t, "v0.89.0", "sync", "--global")
 	if errs.CodeOf(err) != errs.CodeRequiresUnmet {

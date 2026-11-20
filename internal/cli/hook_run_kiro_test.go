@@ -27,13 +27,13 @@ const kiroGuardSpec = "name: deploy-guard\nevent: UserPromptSubmit\ncommand: .ag
 func kiroProject(t *testing.T, hook, body string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, kiro]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, kiro]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "deploy-guard.sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "deploy-guard.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "deploy-guard.yaml"), hook)
 	mustSync(t)
 }
 
@@ -116,7 +116,7 @@ func TestHookRun_KiroRefusesBashAndEditButRunsAToolPayload(t *testing.T) {
 	}
 
 	payload := filepath.Join(t.TempDir(), "call.json")
-	mustWrite(t, payload, `{"hook_event_name":"preToolUse","cwd":"/p","session_id":"s","tool_name":"execute_bash","tool_input":{"command":"deploy prod"}}`)
+	writeFile(t, payload, `{"hook_event_name":"preToolUse","cwd":"/p","session_id":"s","tool_name":"execute_bash","tool_input":{"command":"deploy prod"}}`)
 	out, err := runHookRun(t, "deploy-guard", "--target", "kiro", "--payload", payload, "--expect", "block", "--include-assumed")
 	if err != nil || !strings.Contains(out, "kiro: block (exit 2") || !strings.Contains(out, "event: PreToolUse (execute_bash)") {
 		t.Errorf("matcher shell must match execute_bash, its canonical name: %v\n%s", err, out)

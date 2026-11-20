@@ -51,9 +51,9 @@ func TestQwen_CommandHookTimeoutRoundTripsThroughImport(t *testing.T) {
 
 func TestSyncGlobal_QwenCommandHookTimeoutUnit(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "short.yaml"), "name: short\non: session-start\ncommand: echo short\ntimeout: 999\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "edge.yaml"), "name: edge\non: session-start\ncommand: echo edge\ntimeout: 1000\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "long.yaml"), "name: long\non: session-start\ncommand: echo long\ntimeout: 1200\n")
+	writeFile(t, filepath.Join(source, "hooks", "short.yaml"), "name: short\non: session-start\ncommand: echo short\ntimeout: 999\n")
+	writeFile(t, filepath.Join(source, "hooks", "edge.yaml"), "name: edge\non: session-start\ncommand: echo edge\ntimeout: 1000\n")
+	writeFile(t, filepath.Join(source, "hooks", "long.yaml"), "name: long\non: session-start\ncommand: echo long\ntimeout: 1200\n")
 
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)

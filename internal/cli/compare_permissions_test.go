@@ -86,8 +86,8 @@ func TestCompare_PortablePermissionEntriesAppear(t *testing.T) {
 func TestCompare_AugmentAskRuleIsTranslated(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  ask: [Write]\n")
+	writeFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
+	writeFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  ask: [Write]\n")
 	runSyncOK(t)
 
 	out := compareJSON(t, "augment", "claude")
@@ -299,9 +299,9 @@ func TestCompare_PermissionWebhookCredentialsHiddenInTextAndJSON(t *testing.T) {
 			dir := t.TempDir()
 			testutil.Chdir(t, dir)
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
-			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [shell]\nx-augment:\n  toolPermissions:\n    - toolName: terminal\n      permission:\n        type: webhook-policy\n        "+test.policy+"\n")
-			mustWriteFile(t, ".augment/settings.json", "{\"manual\":\"Keep existing output.\"}\n")
+			writeFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [shell]\nx-augment:\n  toolPermissions:\n    - toolName: terminal\n      permission:\n        type: webhook-policy\n        "+test.policy+"\n")
+			writeFile(t, ".augment/settings.json", "{\"manual\":\"Keep existing output.\"}\n")
 			before := snapshotTree(t, dir)
 			for _, format := range [][]string{nil, {"--json"}} {
 				args := append([]string{"augment", "claude"}, format...)
@@ -358,8 +358,8 @@ func TestCompare_PermissionWebhookCredentialsHiddenInTextAndJSON(t *testing.T) {
 func TestCompare_PermissionOrdinaryWebhookDetailsRemainVisible(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [shell]\nx-augment:\n  toolPermissions:\n    - toolName: terminal\n      permission:\n        type: webhook-policy\n        webhookUrl: https://example.invalid/check?mode=review\n")
+	writeFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
+	writeFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [shell]\nx-augment:\n  toolPermissions:\n    - toolName: terminal\n      permission:\n        type: webhook-policy\n        webhookUrl: https://example.invalid/check?mode=review\n")
 	for _, format := range [][]string{nil, {"--json"}} {
 		out, err := runCompare(t, append([]string{"augment", "claude"}, format...)...)
 		if err != nil {
@@ -379,8 +379,8 @@ func TestCompare_PermissionFilenamePatternsKeepTheirOrdinaryActions(t *testing.T
 			dir := t.TempDir()
 			testutil.Chdir(t, dir)
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "targets: ["+target+", claude]\n")
-			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [read]\nx-"+target+":\n  permission:\n    read:\n      TOKEN: deny\n")
+			writeFile(t, "agnostic-ai.yaml", "targets: ["+target+", claude]\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [read]\nx-"+target+":\n  permission:\n    read:\n      TOKEN: deny\n")
 			before := snapshotTree(t, dir)
 			for _, format := range [][]string{nil, {"--json"}} {
 				out, err := runCompare(t, append([]string{target, "claude"}, format...)...)
@@ -412,8 +412,8 @@ func TestCompare_PermissionSourceRuleCredentialHiddenInTextAndJSON(t *testing.T)
 		t.Run("exec-policies="+strconv.FormatBool(execPolicies), func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "targets: [claude, codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: "+strconv.FormatBool(execPolicies)+"\n")
-			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow:\n    - \""+strings.ReplaceAll(rule, `"`, `\"`)+"\"\n    - shell(go test:*)\n")
+			writeFile(t, "agnostic-ai.yaml", "targets: [claude, codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: "+strconv.FormatBool(execPolicies)+"\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow:\n    - \""+strings.ReplaceAll(rule, `"`, `\"`)+"\"\n    - shell(go test:*)\n")
 			for _, format := range [][]string{nil, {"--json"}} {
 				out, err := runCompare(t, append([]string{"claude", "codex"}, format...)...)
 				if err != nil {
@@ -448,8 +448,8 @@ func TestCompare_PermissionNativeCredentialHiddenInTextAndJSON(t *testing.T) {
 		t.Run(test.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "targets: ["+test.target+", claude]\n"+test.config)
-			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow:\n    - \"shell("+command+":*)\"\n    - shell(go test:*)\n"+test.policy)
+			writeFile(t, "agnostic-ai.yaml", "targets: ["+test.target+", claude]\n"+test.config)
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow:\n    - \"shell("+command+":*)\"\n    - shell(go test:*)\n"+test.policy)
 			for _, format := range [][]string{nil, {"--json"}} {
 				out, err := runCompare(t, append([]string{test.target, "claude"}, format...)...)
 				if err != nil {

@@ -16,8 +16,8 @@ func syncedSettingsTree(t *testing.T, permissions string) map[string]string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(adapters.Names(), ", ")+"]\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n"+permissions)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(adapters.Names(), ", ")+"]\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n"+permissions)
 	mustSync(t)
 	tree := snapshotTree(t, dir)
 	for rel := range tree {
@@ -64,12 +64,12 @@ func TestSync_StopsOnAPermissionCapabilityItCannotRead(t *testing.T) {
 		t.Run(tc.rule, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 			rule := "'" + tc.rule + "'"
 			if strings.Contains(tc.rule, ": ") {
 				rule = tc.rule
 			}
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "p.yaml"), "permissions:\n  deny:\n    - "+rule+"\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "p.yaml"), "permissions:\n  deny:\n    - "+rule+"\n")
 			if out, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("sync: %v\n%s", err, out)
 			}
@@ -89,8 +89,8 @@ func TestSync_StopsOnAPermissionCapabilityItCannotRead(t *testing.T) {
 func TestLint_MidWildcardReadsAShellCapability(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "p.yaml"), "permissions:\n  allow: ['shell(git * main)']\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "p.yaml"), "permissions:\n  allow: ['shell(git * main)']\n")
 	if out, _ := runCLI(t, "lint"); !strings.Contains(out, "LINT009") {
 		t.Errorf("lint misses LINT009:\n%s", out)
 	}
@@ -139,9 +139,9 @@ func TestMigrate_CapabilitiesRewritesPermissionRulesInPlace(t *testing.T) {
 func TestSync_StopsOnAPackPermissionItCannotRead(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "packs", "p", "settings", "p.yaml"), "permissions:\n  allow: [edit]\n  deny: ['edit(.env']\n")
-	mustWrite(t, filepath.Join(dir, "agnostic.packs.lock"), "version: 1\npacks:\n  - name: p\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "packs", "p", "settings", "p.yaml"), "permissions:\n  allow: [edit]\n  deny: ['edit(.env']\n")
+	writeFile(t, filepath.Join(dir, "agnostic.packs.lock"), "version: 1\npacks:\n  - name: p\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), "is missing its closing parenthesis") {
 		t.Errorf("sync: %v\n%s", err, out)
 	}

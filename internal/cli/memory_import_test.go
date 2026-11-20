@@ -88,10 +88,10 @@ func TestMemoryImport_CopiesClaudesFactsIntoPersonalMemory(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
 		t.Errorf("tabs.md = %q", got)
 	}
-	index := readText(t, filepath.Join(personalStore, "MEMORY.md"))
+	index := readFile(t, filepath.Join(personalStore, "MEMORY.md"))
 	if !strings.Contains(index, "- [Tabs please](tabs.md) — the user prefers tabs\n") {
 		t.Errorf("source index line not kept:\n%s", index)
 	}
@@ -120,14 +120,14 @@ func TestMemoryImport_KeepsAFactPersonalMemoryAlreadyHas(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != "my own tabs fact\n" {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != "my own tabs fact\n" {
 		t.Errorf("personal fact replaced: %q", got)
 	}
 	if !strings.Contains(out, "Kept 1 fact(s)") || !strings.Contains(out, "  tabs.md") || strings.Contains(out, "ci-ubuntu.md") {
 		t.Errorf("output:\n%s", out)
 	}
 	want := "- [Tabs](tabs.md): mine\n- [ci-ubuntu](ci-ubuntu.md): CI runs on Ubuntu\n"
-	if got := readText(t, filepath.Join(personalStore, "MEMORY.md")); got != want {
+	if got := readFile(t, filepath.Join(personalStore, "MEMORY.md")); got != want {
 		t.Errorf("index = %q, want the unlinked identical fact added: %q", got, want)
 	}
 }
@@ -187,7 +187,7 @@ func TestMemoryImport_CopiesTheCheckoutStoreIntoTheRepoStore(t *testing.T) {
 	}
 
 	repo := memoryPaths(t)["personal"]
-	if got := readText(t, filepath.Join(filepath.FromSlash(repo), "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(filepath.FromSlash(repo), "tabs.md")); got != tabsFact {
 		t.Errorf("repo store tabs.md = %q", got)
 	}
 }
@@ -230,7 +230,7 @@ func TestMemoryImport_CopiesFromAnyFolderWithPath(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "MEMORY.md")); got != "- [CI](ci-ubuntu.md): CI\n" {
+	if got := readFile(t, filepath.Join(personalStore, "MEMORY.md")); got != "- [CI](ci-ubuntu.md): CI\n" {
 		t.Errorf("index:\n%s", got)
 	}
 }
@@ -244,7 +244,7 @@ func TestSync_SeedsAnEmptyPersonalStoreFromClaudesOwnStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
 		t.Errorf("tabs.md = %q", got)
 	}
 	if after := listing(t, native); after != before {
@@ -369,7 +369,7 @@ func TestMemoryImport_FinishesAnImportThatStoppedPartWay(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "MEMORY.md")); got != "- [Tabs](tabs.md): tabs\n" {
+	if got := readFile(t, filepath.Join(personalStore, "MEMORY.md")); got != "- [Tabs](tabs.md): tabs\n" {
 		t.Errorf("index:\n%s", got)
 	}
 }
@@ -385,11 +385,11 @@ func TestMemoryImport_KeepsNotesFromTheSourceIndex(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	notes := readText(t, filepath.Join(personalStore, "claude-index-notes.md"))
+	notes := readFile(t, filepath.Join(personalStore, "claude-index-notes.md"))
 	if !strings.Contains(notes, "# Memory\nAlways run the tests before a push.\n") || !strings.Contains(notes, "type: reference") {
 		t.Errorf("notes fact:\n%s", notes)
 	}
-	if index := readText(t, filepath.Join(personalStore, "MEMORY.md")); !strings.Contains(index, "(claude-index-notes.md)") {
+	if index := readFile(t, filepath.Join(personalStore, "MEMORY.md")); !strings.Contains(index, "(claude-index-notes.md)") {
 		t.Errorf("index:\n%s", index)
 	}
 }
@@ -431,7 +431,7 @@ func TestWriteNewFile_NeverReplacesAFile(t *testing.T) {
 	if err != nil || created {
 		t.Fatalf("created = %v, err = %v", created, err)
 	}
-	if got := readText(t, path); got != "mine\n" {
+	if got := readFile(t, path); got != "mine\n" {
 		t.Errorf("file = %q", got)
 	}
 	if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
@@ -477,7 +477,7 @@ func TestMemoryImport_BuildsAnIndexLineWhenTheSourceLineLooksLikeASecret(t *test
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	index := readText(t, filepath.Join(personalStore, "MEMORY.md"))
+	index := readFile(t, filepath.Join(personalStore, "MEMORY.md"))
 	if strings.Contains(index, "ghp_") || !strings.Contains(index, "- [tabs](tabs.md): user prefers tabs\n") {
 		t.Errorf("index:\n%s", index)
 	}
@@ -554,7 +554,7 @@ func TestMemoryImport_CopiesTheRepoStoreIntoTheCheckout(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
 		t.Errorf("tabs.md = %q", got)
 	}
 }
@@ -577,14 +577,14 @@ func TestMemoryImport_NeverWritesThroughALinkedIndex(t *testing.T) {
 	if err := os.Symlink(filepath.Join(native, "MEMORY.md"), filepath.Join(personalStore, "MEMORY.md")); err != nil {
 		t.Skipf("symlink: %v", err)
 	}
-	before := readText(t, filepath.Join(native, "MEMORY.md"))
+	before := readFile(t, filepath.Join(native, "MEMORY.md"))
 
 	_, err := runRoot(t, "memory", "import", "--from", "claude")
 
 	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
 		t.Errorf("err = %v", err)
 	}
-	if after := readText(t, filepath.Join(native, "MEMORY.md")); after != before {
+	if after := readFile(t, filepath.Join(native, "MEMORY.md")); after != before {
 		t.Errorf("source index changed:\n%s", after)
 	}
 }
@@ -637,7 +637,7 @@ func TestMemoryImport_CopiesOnlyTheFactsYouPick(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(personalStore, "ci-ubuntu.md")); err == nil {
 		t.Error("a fact outside --only was copied")
 	}
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
 		t.Errorf("tabs.md = %q", got)
 	}
 }
@@ -680,10 +680,10 @@ func TestMemoryImport_KeepsIndexNotesWhenASourceFactUsesTheirName(t *testing.T) 
 	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
-	if got := readText(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
 		t.Errorf("source fact = %q", got)
 	}
-	notes := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md"))
+	notes := readFile(t, filepath.Join(personalStore, "claude-index-notes-2.md"))
 	if !strings.Contains(notes, "Prefer small pull requests.") {
 		t.Errorf("notes = %q", notes)
 	}
@@ -757,10 +757,10 @@ func TestMemoryImport_KeepsIndexNotesWhenTheDestinationUsesTheirName(t *testing.
 	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
-	if got := readText(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
 		t.Errorf("existing fact = %q", got)
 	}
-	if got := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
+	if got := readFile(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
 		t.Errorf("notes = %q", got)
 	}
 	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil || !strings.Contains(out, "Nothing to copy") {
@@ -781,10 +781,10 @@ func TestMemoryImport_KeepsNewIndexNotesAfterTheCollidingSourceFactIsRemoved(t *
 	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
 		t.Fatalf("notes import: %v\n%s", err, out)
 	}
-	if got := readText(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
 		t.Errorf("original fact = %q", got)
 	}
-	if got := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
+	if got := readFile(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
 		t.Errorf("new prose lost: %q", got)
 	}
 }
@@ -829,7 +829,7 @@ func TestMemoryImport_SkipRecordsADeclineAndCopiesNothing(t *testing.T) {
 			t.Errorf("%s copied", name)
 		}
 	}
-	record := readText(t, filepath.Join(personalStore, ".declined"))
+	record := readFile(t, filepath.Join(personalStore, ".declined"))
 	if !strings.HasPrefix(record, "claude/old.md\tsha256:") || strings.Count(record, "\n") != 1 {
 		t.Errorf(".declined = %q", record)
 	}
@@ -856,7 +856,7 @@ func TestMemoryImport_SkipRestDeclinesEveryFactNotImported(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	record := readText(t, filepath.Join(personalStore, ".declined"))
+	record := readFile(t, filepath.Join(personalStore, ".declined"))
 	for _, key := range []string{"claude/ci-ubuntu.md\t", "claude/old.md\t", "claude/token.md\t", "claude/@index-notes/claude-index-notes.md\t"} {
 		if !strings.Contains(record, key) {
 			t.Errorf(".declined lacks %q:\n%s", key, record)
@@ -881,10 +881,10 @@ func TestMemoryImport_OnlyWithSkipRestCopiesThePickAndDeclinesTheOthers(t *testi
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
 		t.Errorf("tabs.md = %q", got)
 	}
-	record := readText(t, filepath.Join(personalStore, ".declined"))
+	record := readFile(t, filepath.Join(personalStore, ".declined"))
 	if strings.Contains(record, "tabs.md") || strings.Count(record, "\n") != 3 {
 		t.Errorf(".declined:\n%s", record)
 	}
@@ -942,7 +942,7 @@ func TestMemoryImport_DryRunShowsImportedDeclinedAndPending(t *testing.T) {
 	if out, err := runRoot(t, "memory", "import", "--from", "claude", "--skip-rest", "--dry-run"); err != nil || !strings.Contains(out, "Would decline 2 fact(s)") {
 		t.Fatalf("dry run with --skip-rest: %v\n%s", err, out)
 	}
-	recorded := readText(t, filepath.Join(personalStore, ".declined"))
+	recorded := readFile(t, filepath.Join(personalStore, ".declined"))
 
 	out, err := runRoot(t, "memory", "import", "--from", "claude", "--dry-run")
 	if err != nil {
@@ -958,7 +958,7 @@ func TestMemoryImport_DryRunShowsImportedDeclinedAndPending(t *testing.T) {
 			t.Errorf("dry run lacks %q:\n%s", want, out)
 		}
 	}
-	if got := readText(t, filepath.Join(personalStore, ".declined")); got != recorded {
+	if got := readFile(t, filepath.Join(personalStore, ".declined")); got != recorded {
 		t.Errorf("dry run changed .declined:\n%s", got)
 	}
 }
@@ -993,7 +993,7 @@ func TestMemoryImport_OnlyBringsBackADeclinedFact(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "old.md")); got != oldFact {
+	if got := readFile(t, filepath.Join(personalStore, "old.md")); got != oldFact {
 		t.Errorf("old.md = %q", got)
 	}
 }
@@ -1140,7 +1140,7 @@ func TestSync_DoesNotSeedDeclinedFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
 		t.Errorf("tabs.md = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(personalStore, "old.md")); err == nil {
@@ -1189,10 +1189,10 @@ func TestMemoryImport_StartsARecordOnItsOwnLine(t *testing.T) {
 		t.Fatalf("memory import: %v\n%s", err, out)
 	}
 
-	if got := readText(t, filepath.Join(personalStore, ".imported")); got != "claude/other.md\nclaude/tabs.md\n" {
+	if got := readFile(t, filepath.Join(personalStore, ".imported")); got != "claude/other.md\nclaude/tabs.md\n" {
 		t.Errorf(".imported = %q", got)
 	}
-	declined := readText(t, filepath.Join(personalStore, ".declined"))
+	declined := readFile(t, filepath.Join(personalStore, ".declined"))
 	if !strings.HasPrefix(declined, "claude/other.md\nclaude/old.md\tsha256:") {
 		t.Errorf(".declined = %q", declined)
 	}

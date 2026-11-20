@@ -21,7 +21,7 @@ outputs:
         allow: ["Bash(npm run check)", "Bash(npx vitest run:*)", "Bash(git:*)"]
         deny: ["Bash(rm -rf:*)"]
 `)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/security.yaml"), "name: security\npermissions:\n  deny: [\"Bash(curl:*)\"]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/security.yaml"), "name: security\npermissions:\n  deny: [\"Bash(curl:*)\"]\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
 		t.Fatalf("policy drift is advisory: %v\n%s", err, out)
@@ -40,28 +40,28 @@ outputs:
 func TestLint_CodexPoliciesReadFileAndHonorStrictMode(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\noutputs:\n  codex:\n    exec-policies-file: policies.yaml\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(npm run check)\"]\n        deny: [\"Bash(rm -rf:*)\"]\n")
 	path := filepath.Join(dir, "policies.yaml")
-	mustWriteFile(t, path, "- {pattern: [npm, run], decision: allow}\n- {pattern: [rm], decision: forbidden}\n")
+	writeFile(t, path, "- {pattern: [npm, run], decision: allow}\n- {pattern: [rm], decision: forbidden}\n")
 	before := "- {pattern: [npm, run], decision: allow}\n- {pattern: [rm], decision: forbidden}\n"
 	out, err := runCLI(t, "lint", "--strict")
 	if err != nil || len(findingLines(out, "LINT021")) != 0 {
 		t.Errorf("matching policies lint: %v\n%s", err, out)
 	}
-	mustWriteFile(t, path, "- {pattern: [npm, run], decision: prompt}\n- {pattern: [rm], decision: forbidden}\n")
+	writeFile(t, path, "- {pattern: [npm, run], decision: prompt}\n- {pattern: [rm], decision: forbidden}\n")
 	out, err = runCLI(t, "lint", "--strict")
 	if err == nil || !strings.Contains(out, "LINT021") || !strings.Contains(out, "matching prompt prefix") {
 		t.Errorf("conflict should fail strict lint: %v\n%s", err, out)
 	}
-	mustWriteFile(t, path, before)
+	writeFile(t, path, before)
 }
 
 func TestLint_CodexPoliciesSkipDisabledTargetsAndFilteredSpecs(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\noutputs:\n  codex:\n    exec-policies: [{pattern: [git], decision: forbidden}]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/security.yaml"), "targets: [claude]\npermissions:\n  allow: [\"Bash(git:*)\"]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/security.yaml"), "targets: [claude]\npermissions:\n  allow: [\"Bash(git:*)\"]\n")
 	out, err := runCLI(t, "lint")
 	if err != nil || strings.Contains(out, "LINT021") {
 		t.Errorf("disabled target lint: %v\n%s", err, out)
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "targets: [claude, codex]\noutputs:\n  codex:\n    exec-policies: [{pattern: [git], decision: forbidden}]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "targets: [claude, codex]\noutputs:\n  codex:\n    exec-policies: [{pattern: [git], decision: forbidden}]\n")
 	out, err = runCLI(t, "lint")
 	if err != nil || strings.Contains(out, "LINT021") {
 		t.Errorf("Claude-only permissions lint: %v\n%s", err, out)
@@ -93,18 +93,18 @@ outputs:
 func TestLint_CodexPoliciesCheckedOnlyForTranslatableRulesAndNamedBySource(t *testing.T) {
 	invalid := "targets: [codex]\noutputs:\n  codex:\n    exec-policies: [{pattern: [git, diff], decision: allowed}]\n"
 	dir := budgetProject(t, invalid)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/agents/reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\nallowed_tools: [Read]\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/agents/reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\nallowed_tools: [Read]\n---\n\nReview.\n")
 	out, err := runCLI(t, "lint")
 	if err != nil || !strings.Contains(out, "LINT007") {
 		t.Errorf("policy check without Bash permissions hid other findings: %v\n%s", err, out)
 	}
 	permissions := "  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git diff:*)\"]\n"
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+invalid+permissions)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+invalid+permissions)
 	if _, err := runCLI(t, "lint"); err == nil || !strings.Contains(err.Error(), "agnostic-ai.yaml: exec-policies[0]") {
 		t.Errorf("invalid inline policy should name agnostic-ai.yaml, got %v", err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "policies.yaml"), "- {pattern: [git, diff], decision: allowed}\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    exec-policies: [{pattern: [git], decision: allow}]\n    exec-policies-file: policies.yaml\n"+permissions)
+	writeFile(t, filepath.Join(dir, "policies.yaml"), "- {pattern: [git, diff], decision: allowed}\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    exec-policies: [{pattern: [git], decision: allow}]\n    exec-policies-file: policies.yaml\n"+permissions)
 	if _, err := runCLI(t, "lint"); err == nil || !strings.Contains(err.Error(), "policies.yaml: exec-policies[0]") {
 		t.Errorf("invalid file policy should name its file and index there, got %v", err)
 	}

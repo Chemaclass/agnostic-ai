@@ -31,7 +31,7 @@ func warningAdapterOnPath(t *testing.T, target string) {
 	t.Helper()
 	bin := t.TempDir()
 	script := filepath.Join(bin, "agnostic-ai-adapter-"+target)
-	mustWriteFile(t, script, "#!/bin/sh\ncat >/dev/null\nprintf '%s' '{\"protocol_version\":1,\"files\":[{\"path\":\""+target+".md\",\"content\":\"from "+target+"\\n\"}],\"warnings\":[\"heads up\"]}'\n")
+	writeFile(t, script, "#!/bin/sh\ncat >/dev/null\nprintf '%s' '{\"protocol_version\":1,\"files\":[{\"path\":\""+target+".md\",\"content\":\"from "+target+"\\n\"}],\"warnings\":[\"heads up\"]}'\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -58,12 +58,12 @@ func renderReuseProject(t *testing.T) string {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
 	warningAdapterOnPath(t, "acme")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, opencode, kilo, copilot, acme]\nbuiltins: []\ngitignore:\n  enabled: true\n  commit: [skills]\nsync:\n  shared-skills: true\n")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
-	mustWriteFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
-	mustWriteFile(t, ".agnostic-ai/skills/s1/SKILL.md", "---\nname: s1\ndescription: One skill.\n---\nskill body\n")
-	mustWriteFile(t, ".agnostic-ai/agents/a1.md", "---\nname: a1\ndescription: One agent.\n---\nagent body\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, opencode, kilo, copilot, acme]\nbuiltins: []\ngitignore:\n  enabled: true\n  commit: [skills]\nsync:\n  shared-skills: true\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
+	writeFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
+	writeFile(t, ".agnostic-ai/skills/s1/SKILL.md", "---\nname: s1\ndescription: One skill.\n---\nskill body\n")
+	writeFile(t, ".agnostic-ai/agents/a1.md", "---\nname: a1\ndescription: One agent.\n---\nagent body\n")
 	return root
 }
 

@@ -23,8 +23,8 @@ func TestSync_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
 
 func TestSyncGlobal_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\nbuiltins: [memory]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "hooks", "memory-session-start.yaml"), "timeout: 9\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "local", "hooks", "memory-session-start.yaml"), "timeout: 9\n")
 	if _, _, err := runGlobalAgentTest("--only", "augment"); err != nil {
 		t.Fatal(err)
 	}

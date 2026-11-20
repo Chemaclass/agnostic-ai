@@ -259,7 +259,7 @@ You review code.
 
 func TestExplain_LeavesNoCoverageNotesBuffered(t *testing.T) {
 	dir := setupExplainFixture(t)
-	mustWriteFile(t, filepath.Join(dir, "skills", "deploy", "SKILL.md"), `---
+	writeFile(t, filepath.Join(dir, "skills", "deploy", "SKILL.md"), `---
 name: deploy
 description: Deploys the app.
 argument-hint: "[env]"
@@ -368,7 +368,7 @@ func TestExplain_SameContributionsWhenOneTargetTurnsTheHeaderOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, cfgPath, string(cfg)+"outputs:\n  codex:\n    provenance-header: false\n")
+	writeFile(t, cfgPath, string(cfg)+"outputs:\n  codex:\n    provenance-header: false\n")
 
 	if got := explainJSON(); !reflect.DeepEqual(got, want) {
 		t.Errorf("contributions changed with codex's header off:\ngot  %+v\nwant %+v", got, want)
@@ -381,10 +381,10 @@ func TestExplain_SameContributionsWhenOneTargetTurnsTheHeaderOff(t *testing.T) {
 func writeExplainTargetsProject(t *testing.T, targets string) string {
 	t.Helper()
 	dir, _ := gitRepo(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n\nUse tabs.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "pr", "SKILL.md"), "---\nname: pr\ndescription: Open a pull request when asked.\n---\n\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text.\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+"\ngitignore:\n  enabled: true\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "pr", "SKILL.md"), "---\nname: pr\ndescription: Open a pull request when asked.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+"\ngitignore:\n  enabled: true\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	return dir

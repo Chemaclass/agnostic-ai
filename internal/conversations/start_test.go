@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -41,10 +42,8 @@ func newFakeStart(t *testing.T, table []ProcessInfo, installed ...string) fakeSt
 		Processes: fakeProcesses{table: table},
 		Launcher:  launcher,
 		LookPath: func(name string) (string, error) {
-			for _, tool := range installed {
-				if tool == name {
-					return "/opt/bin/" + name, nil
-				}
+			if slices.Contains(installed, name) {
+				return "/opt/bin/" + name, nil
 			}
 			return "", exec.ErrNotFound
 		},

@@ -64,7 +64,7 @@ func newHookRunCmd() *cobra.Command {
 				return fmt.Errorf("--runtime: expected vscode, got %q", hookRuntime)
 			}
 			if hookRuntime == "vscode" && (len(only) != 1 || only[0] != "cline") {
-				return fmt.Errorf("runtime vscode requires --target cline")
+				return errors.New("runtime vscode requires --target cline")
 			}
 			if expect != "" && expect != string(hookrun.Allow) && expect != string(hookrun.Block) {
 				return fmt.Errorf("--expect: expected allow or block, got %q", expect)
@@ -78,7 +78,7 @@ func newHookRunCmd() *cobra.Command {
 			}
 			if payloadFile != "" {
 				if in.Edit != "" || in.Bash != "" || in.Prompt != "" {
-					return fmt.Errorf("--payload replaces --edit, --bash, and --prompt")
+					return errors.New("--payload replaces --edit, --bash, and --prompt")
 				}
 				raw, err := os.ReadFile(payloadFile)
 				if err != nil {

@@ -12,8 +12,8 @@ import (
 func TestLint_WarnsWhenLocalNullClearsSharedSettings(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    config:\n      sandbox: read-only\ngitignore:\n  enabled: true\n")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "outputs:\n  codex:\n    config:\ngitignore:\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    config:\n      sandbox: read-only\ngitignore:\n  enabled: true\n")
+	writeFile(t, "agnostic-ai.local.yaml", "outputs:\n  codex:\n    config:\ngitignore:\n")
 	report, _, err := runLintJSON(t)
 	if err != nil {
 		t.Fatal(err)
@@ -71,8 +71,8 @@ func TestLint_LocalNullMessageFollowsSharedValueKind(t *testing.T) {
 			if tc.name == "targets over the defaults" {
 				header = "version: 1\n"
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", header+tc.base)
-			mustWriteFile(t, "agnostic-ai.local.yaml", tc.local)
+			writeFile(t, "agnostic-ai.yaml", header+tc.base)
+			writeFile(t, "agnostic-ai.local.yaml", tc.local)
 			var messages []string
 			report, _, _ := runLintJSON(t)
 			for _, finding := range report.Findings {
@@ -96,8 +96,8 @@ func TestLint_LocalNullMessageFollowsSharedValueKind(t *testing.T) {
 
 func TestLint_LocalNullReadsLegacyBaseConfig(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic.config.yaml", "version: 1\ntargets: [codex]\ngitignore:\n  commit: [codex:instructions]\n")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "gitignore:\n  commit:\n")
+	writeFile(t, "agnostic.config.yaml", "version: 1\ntargets: [codex]\ngitignore:\n  commit: [codex:instructions]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "gitignore:\n  commit:\n")
 	report, _, _ := runLintJSON(t)
 	for _, finding := range report.Findings {
 		if finding.Code == "LINT055" {

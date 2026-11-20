@@ -48,7 +48,7 @@ func WritePluginManifests(sess *Session, roots []string, dryRun bool) error {
 		path := filepath.Join(root, "plugin.json")
 		if PriorOutputSum == nil || PriorOutputSum(path) == "" {
 			if _, err := os.Lstat(path); err == nil {
-				NoteProject(fmt.Sprintf("%s: kept existing plugin manifest because sync did not write it", filepath.ToSlash(path)))
+				NoteProject(filepath.ToSlash(path) + ": kept existing plugin manifest because sync did not write it")
 				continue
 			} else if !os.IsNotExist(err) {
 				return fmt.Errorf("%s: %w", path, err)

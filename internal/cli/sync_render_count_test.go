@@ -102,11 +102,11 @@ func gitignoreFixture(t *testing.T) {
 	chdir(t, t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, opencode]\nbuiltins: []\ngitignore:\n  enabled: true\n  commit: [skills]\nsync:\n  shared-skills: true\n")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
-	mustWriteFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
-	mustWriteFile(t, ".agnostic-ai/skills/s1/SKILL.md", "---\nname: s1\ndescription: One skill.\n---\nskill body\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, opencode]\nbuiltins: []\ngitignore:\n  enabled: true\n  commit: [skills]\nsync:\n  shared-skills: true\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Project instructions.\n")
+	writeFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
+	writeFile(t, ".agnostic-ai/skills/s1/SKILL.md", "---\nname: s1\ndescription: One skill.\n---\nskill body\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -153,8 +153,8 @@ func TestSync_PrintsAnExternalAdapterWarningOncePerRender(t *testing.T) {
 			chdir(t, t.TempDir())
 			t.Setenv("HOME", t.TempDir())
 			warningAdapterOnPath(t, "acme")
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, acme]\nsync:\n  shared-skills: true\n")
-			mustWriteFile(t, ".agnostic-ai/skills/s1/SKILL.md", "---\nname: s1\ndescription: One skill.\n---\nskill body\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, acme]\nsync:\n  shared-skills: true\n")
+			writeFile(t, ".agnostic-ai/skills/s1/SKILL.md", "---\nname: s1\ndescription: One skill.\n---\nskill body\n")
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}

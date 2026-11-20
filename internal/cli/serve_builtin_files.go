@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -179,7 +180,7 @@ func (s builtinProjectSnapshot) check(root string) error {
 		return err
 	}
 	if !s.sameContent(now) {
-		return fmt.Errorf("project inputs or output files changed; refresh and preview again")
+		return errors.New("project inputs or output files changed; refresh and preview again")
 	}
 	for path, before := range s.files {
 		if before.info != nil && (!os.SameFile(before.info, now.files[path].info) || !before.info.ModTime().Equal(now.files[path].info.ModTime())) {
@@ -400,9 +401,7 @@ func (s builtinProjectSnapshot) afterWrites(root string, journal builtinJournal)
 		return now, err
 	}
 	expected := make(map[string]editFileSnapshot, len(s.files))
-	for path, snap := range s.files {
-		expected[path] = snap
-	}
+	maps.Copy(expected, s.files)
 	for _, write := range journal.writes {
 		expected[write.change.Path] = write.after
 	}
@@ -421,9 +420,7 @@ func (s builtinProjectSnapshot) afterWrites(root string, journal builtinJournal)
 		}
 	}
 	expectedDirs := make(map[string]os.FileInfo, len(s.dirs))
-	for path, info := range s.dirs {
-		expectedDirs[path] = info
-	}
+	maps.Copy(expectedDirs, s.dirs)
 	for _, dir := range journal.createdDirs {
 		rel, err := builtinRelativePath(root, dir.path)
 		if err != nil {

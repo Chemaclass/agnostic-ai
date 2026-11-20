@@ -95,7 +95,7 @@ func TestImport_BlockLeftOpenByOneRuleKeepsTheRulesAfterIt(t *testing.T) {
 				if got := names(mustReadDir(t, filepath.Join(dir, "rules"))); !slices.Equal(got, want) {
 					t.Errorf("%s: rules = %v, want %v", file, got, want)
 				}
-				if alpha := readFileString(t, filepath.Join(dir, "rules", "alpha.md")); strings.Contains(alpha, "Beta text.") {
+				if alpha := readFile(t, filepath.Join(dir, "rules", "alpha.md")); strings.Contains(alpha, "Beta text.") {
 					t.Errorf("%s: alpha swallowed beta:\n%s", file, alpha)
 				}
 			}
@@ -124,7 +124,7 @@ func TestImport_H2LinesInsideCodeAndHTMLStayInTheirRule(t *testing.T) {
 				if got := names(mustReadDir(t, filepath.Join(dir, "rules"))); !slices.Equal(got, want) {
 					t.Errorf("%s: rules = %v, want %v", file, got, want)
 				}
-				if alpha := readFileString(t, filepath.Join(dir, "rules", "alpha.md")); !strings.Contains(alpha, literal) {
+				if alpha := readFile(t, filepath.Join(dir, "rules", "alpha.md")); !strings.Contains(alpha, literal) {
 					t.Errorf("%s: alpha lost its literal heading:\n%s", file, alpha)
 				}
 			}

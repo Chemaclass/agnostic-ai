@@ -436,11 +436,13 @@ func TestImportMCP_URLCredentialNeverEchoedInOutput(t *testing.T) {
 	})
 	out := stdout + stderr + log.String()
 	specs := ""
+	var specsSb439 strings.Builder
 	for _, name := range []string{"cmd", "tick", "query", "prompt"} {
 		if data, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml")); err == nil {
-			specs += string(data)
+			specsSb439.WriteString(string(data))
 		}
 	}
+	specs += specsSb439.String()
 	for _, secret := range []string{"PASSW0RD", "BACKT1CK", "T0KCMD", "PR0MPT"} {
 		if strings.Contains(out, secret) {
 			t.Errorf("import output echoes text from a URL credential")
@@ -562,13 +564,13 @@ func TestSync_URLArgsRefLeavesServerOutWithNote(t *testing.T) {
 func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mcpDir := filepath.Join(source, "mcps")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nargs: [--token, \"${GH_TOKEN}\", \"${workspaceFolder}\", \"${env:workspaceFolder}\"]\n")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "api.yaml"), "name: api\ntype: http\nurl: https://${API_HOST}/mcp\n")
+	writeFile(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nargs: [--token, \"${GH_TOKEN}\", \"${workspaceFolder}\", \"${env:workspaceFolder}\"]\n")
+	writeFile(t, filepath.Join(mcpDir, "api.yaml"), "name: api\ntype: http\nurl: https://${API_HOST}/mcp\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
-	want := readGlobalTest(t, cursorPath)
+	want := readFile(t, cursorPath)
 	for _, form := range []string{`"${env:GH_TOKEN}"`, `"${workspaceFolder}"`, `"${env:workspaceFolder}"`, `"https://${env:API_HOST}/mcp"`} {
 		if !strings.Contains(want, form) {
 			t.Fatalf("cursor lacks %s:\n%s", form, want)
@@ -580,16 +582,16 @@ func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest(); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "- ${GH_TOKEN}") || !strings.Contains(got, "- ${workspaceFolder}") || !strings.Contains(got, "- ${env:workspaceFolder}") {
+	if got := readFile(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "- ${GH_TOKEN}") || !strings.Contains(got, "- ${workspaceFolder}") || !strings.Contains(got, "- ${env:workspaceFolder}") {
 		t.Errorf("import must read ${env:NAME} back and keep ${workspaceFolder}:\n%s", got)
 	}
-	if got := readGlobalTest(t, filepath.Join(mcpDir, "api.yaml")); !strings.Contains(got, "url: https://${API_HOST}/mcp") {
+	if got := readFile(t, filepath.Join(mcpDir, "api.yaml")); !strings.Contains(got, "url: https://${API_HOST}/mcp") {
 		t.Errorf("import must read the url reference back:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, cursorPath); got != want {
+	if got := readFile(t, cursorPath); got != want {
 		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, want)
 	}
 }

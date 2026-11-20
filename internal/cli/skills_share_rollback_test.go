@@ -34,7 +34,7 @@ func TestSync_FailedGitignoreWriteRestoresUnlinkedSkillFolder(t *testing.T) {
 			if err != nil {
 				t.Skipf("shared-skills kept a real copy: %v", err)
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, cursor]\n"+ignored)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, cursor]\n"+ignored)
 			if err := os.Remove(".gitignore"); err != nil {
 				t.Fatal(err)
 			}
@@ -83,7 +83,7 @@ func TestSync_FailedGitignoreWriteRestoresRepointedLink(t *testing.T) {
 				t.Skipf("shared-skills kept a real copy: %v", err)
 			}
 			body := readFile(t, canonical)
-			mustWriteFile(t, "vendor/greet/SKILL.md", "vendored\n")
+			writeFile(t, "vendor/greet/SKILL.md", "vendored\n")
 			wrong := filepath.Join("..", "..", "vendor", "greet")
 			if err := os.Remove(cursorGreet); err != nil {
 				t.Fatal(err)
@@ -92,7 +92,7 @@ func TestSync_FailedGitignoreWriteRestoresRepointedLink(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.edit {
-				mustWriteFile(t, ".agnostic-ai/skills/greet.md", "---\nname: greet\ndescription: Say hi\n---\nGreet the user warmly.\n")
+				writeFile(t, ".agnostic-ai/skills/greet.md", "---\nname: greet\ndescription: Say hi\n---\nGreet the user warmly.\n")
 			}
 			if err := os.Remove(".gitignore"); err != nil {
 				t.Fatal(err)
@@ -127,7 +127,7 @@ func TestSync_FailedReconcileRestoresRemovedLink(t *testing.T) {
 	dir := setupSharedSkillsFixture(t, "version: 1\ntargets: [codex, cursor]\nsync:\n  unmanaged:\n    - "+dangling+"/notes.md\n")
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, ".agents/skills/a/SKILL.md", "body\n")
+	writeFile(t, ".agents/skills/a/SKILL.md", "body\n")
 	const stale = ".cursor/skills/a"
 	if err := os.MkdirAll(filepath.Dir(stale), 0o755); err != nil {
 		t.Fatal(err)

@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -137,7 +138,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			continue
 		}
 		if target == "cursor" && set["crush"] {
-			return fmt.Errorf("scoped Cursor rules conflict with crush, which reads .cursor/rules unconditionally; use separate worktrees or remove an incompatible target")
+			return errors.New("scoped Cursor rules conflict with crush, which reads .cursor/rules unconditionally; use separate worktrees or remove an incompatible target")
 		}
 		a, ok := Get(target)
 		if !ok {

@@ -78,8 +78,8 @@ func (rr *Reader) Read() (*Message, error) {
 		if line == "" {
 			break
 		}
-		if strings.HasPrefix(line, "Content-Length:") {
-			v := strings.TrimSpace(strings.TrimPrefix(line, "Content-Length:"))
+		if after, ok := strings.CutPrefix(line, "Content-Length:"); ok {
+			v := strings.TrimSpace(after)
 			n, err := strconv.Atoi(v)
 			if err != nil {
 				return nil, fmt.Errorf("lsp: bad Content-Length %q", v)
@@ -94,7 +94,7 @@ func (rr *Reader) Read() (*Message, error) {
 		}
 	}
 	if length < 0 {
-		return nil, fmt.Errorf("lsp: missing Content-Length header")
+		return nil, errors.New("lsp: missing Content-Length header")
 	}
 	body := make([]byte, length)
 	if _, err := io.ReadFull(rr.r, body); err != nil {

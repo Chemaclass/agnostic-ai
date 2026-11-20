@@ -289,7 +289,7 @@ func extractParenCall(s string) (string, int, error) {
 			}
 		}
 	}
-	return "", 0, fmt.Errorf("unterminated prefix_rule call")
+	return "", 0, errors.New("unterminated prefix_rule call")
 }
 
 // parsePrefixRuleCall extracts pattern, decision, justification, and
@@ -333,7 +333,7 @@ var matchRE = regexp.MustCompile(`match\s*=\s*\[([^\]]*)\]`)
 func readPrefixRulePattern(call string) ([]string, error) {
 	m := patternRE.FindStringSubmatch(call)
 	if m == nil {
-		return nil, fmt.Errorf("pattern = [...] not found")
+		return nil, errors.New("pattern = [...] not found")
 	}
 	return splitStringList(m[1]), nil
 }
@@ -342,7 +342,7 @@ func readPrefixRulePattern(call string) ([]string, error) {
 func readPrefixRuleDecision(call string) (string, error) {
 	m := decisionRE.FindStringSubmatch(call)
 	if m == nil {
-		return "", fmt.Errorf(`decision = "..." not found`)
+		return "", errors.New(`decision = "..." not found`)
 	}
 	return m[1], nil
 }

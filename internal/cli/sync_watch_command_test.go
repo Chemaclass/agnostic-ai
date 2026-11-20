@@ -11,9 +11,9 @@ import (
 
 func TestSyncWatchCommand_FollowsTargetsEditedInConfig(t *testing.T) {
 	dir := setupFixture(t)
-	writeTestFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: always\nalways: true\n---\nrule body\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: always\nalways: true\n---\nrule body\n")
 	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
-	writeTestFile(t, cfgPath, "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, cfgPath, "version: 1\ntargets: [claude, codex]\n")
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestSyncWatchCommandHelperProcess$", "-test.timeout=2m")
 	cmd.Dir = dir
@@ -50,7 +50,7 @@ func TestSyncWatchCommandHelperProcess(t *testing.T) {
 func TestWatchPass_SkipsAPassWhileConfigListsNoTargets(t *testing.T) {
 	dir, buf, stop := followsTargetsFixture(t, nil)
 	stop()
-	writeTestFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets:\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets:\n")
 
 	if err := watchPass(".", nil, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)

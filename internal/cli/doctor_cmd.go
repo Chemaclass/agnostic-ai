@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -68,7 +69,7 @@ const doctorExample = `  # Project and local runtime diagnostic
   # Validate project files on a fresh CI runner
   agnostic-ai doctor --scope project --check-references
 
-  # Reconcile drift in place, keeping a .bak of each hand-edited file
+  # Reconcile drift in place, keeping a .bak of every file it overwrites
   agnostic-ai doctor --fix --backup
 
   # Machine-readable drift report for CI dashboards
@@ -208,7 +209,11 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	cmd.Println()
 	cmd.Println("Config:")
 	if !configOK {
-		cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
+		if dir, ok := enclosingWorkingProject(); ok {
+			cmd.Println("  ✗ agnostic-ai.yaml not found here; this directory is inside the agnostic-ai project at " + dir)
+		} else {
+			cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
+		}
 		doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
 		return errDoctorNoConfig
 	}
@@ -434,9 +439,9 @@ func finishDoctorText(cmd *cobra.Command, opts doctorOptions, cfg *config.Config
 				return fmt.Errorf("drift detected. delete %s", manualRemovalAdvice(manualFiles))
 			}
 			if f.drift.copiesOnly {
-				return fmt.Errorf("drift detected. run `agnostic-ai doctor --fix`")
+				return errors.New("drift detected. run `agnostic-ai doctor --fix`")
 			}
-			return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
+			return errors.New("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
 		}
 		fixed, err := fixDrift(reports, opts.backup)
 		if err != nil {
@@ -530,7 +535,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, gate doctorGateF
 		return fmt.Errorf("%d rule(s) have a glob matching no files and will never load", len(*gate.globs))
 	}
 	if len(out.Writes) > 0 || len(out.NestedCopies) > 0 || len(out.HookScriptDrift) > 0 {
-		return fmt.Errorf("drift detected")
+		return errors.New("drift detected")
 	}
 	if len(refs) > 0 {
 		return fmt.Errorf("%d broken skill reference(s)", len(refs))

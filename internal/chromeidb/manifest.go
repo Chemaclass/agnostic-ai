@@ -202,19 +202,19 @@ func logRecords(data []byte, checksum bool, keep func([]byte) error) error {
 		switch kind {
 		case logFull:
 			if fragmented {
-				return fmt.Errorf("full record inside fragmented record")
+				return errors.New("full record inside fragmented record")
 			}
 			if err := keep(fragment); err != nil {
 				return err
 			}
 		case logFirst:
 			if fragmented {
-				return fmt.Errorf("first fragment inside fragmented record")
+				return errors.New("first fragment inside fragmented record")
 			}
 			pending, fragmented = append([]byte(nil), fragment...), true
 		case logMiddle, logLast:
 			if !fragmented {
-				return fmt.Errorf("fragment without a first fragment")
+				return errors.New("fragment without a first fragment")
 			}
 			pending = append(pending, fragment...)
 			if kind == logLast {

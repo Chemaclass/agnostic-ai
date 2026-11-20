@@ -47,8 +47,7 @@ func downloadCompanion(ctx context.Context, out io.Writer, client *http.Client, 
 // missingAsNoPrebuilt names what was fetched and marks a release that
 // does not publish it as one without a built companion.
 func missingAsNoPrebuilt(what string, err error) error {
-	var missing releaseAssetMissing
-	if errors.As(err, &missing) {
+	if _, ok := errors.AsType[releaseAssetMissing](err); ok {
 		err = fmt.Errorf("%w (%w)", errNoPrebuiltCompanion, err)
 	}
 	if what == "" {

@@ -23,7 +23,7 @@ var globalHookFormatCases = []globalHookFormatCase{
 func syncedGlobalHook(t *testing.T, tc globalHookFormatCase) string {
 	t.Helper()
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "targets: ["+tc.target+"]\nevent: "+tc.event+"\nmatcher: Bash\ncommand: guard-command\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "targets: ["+tc.target+"]\nevent: "+tc.event+"\nmatcher: Bash\ncommand: guard-command\n")
 	if _, _, err := runGlobalAgentTest("--only", tc.target); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestSyncGlobal_MissingManagedHookIsWrittenAgain(t *testing.T) {
 						t.Fatal(err)
 					}
 				} else {
-					mustWriteGlobalTest(t, hooksFile, loss.content)
+					writeFile(t, hooksFile, loss.content)
 				}
 
 				_, warnings, err := runGlobalAgentTest("--only", tc.target)
@@ -97,8 +97,8 @@ func TestSyncGlobal_EditedManagedHookStopsTheRun(t *testing.T) {
 
 func TestSyncGlobal_StateFromAnotherHomeStopsBeforeWrites(t *testing.T) {
 	first, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalReviewer)
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}

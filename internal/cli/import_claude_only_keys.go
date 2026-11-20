@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"regexp"
@@ -173,13 +174,9 @@ func withClaudeOnlyKeysMoved(meta map[string]any) map[string]any {
 	out := make(map[string]any, len(meta))
 	x := map[string]any{}
 	if existing, ok := meta["x-claude"].(map[string]any); ok {
-		for k, v := range existing {
-			x[k] = v
-		}
+		maps.Copy(x, existing)
 	}
-	for k, v := range meta {
-		out[k] = v
-	}
+	maps.Copy(out, meta)
 	for _, key := range claudeOnlySkillKeys {
 		v, ok := meta[key]
 		if !ok {

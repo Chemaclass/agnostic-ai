@@ -10,24 +10,24 @@ import (
 
 func TestSyncGlobal_LocalLayerExtendsSharedSpecsAndAppendsAgreements(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared agreements.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\nmodel: opus\n---\nShared skill.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "reviewer", "shared.txt"), "shared asset\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nmodel: shared-model\n---\nShared agent.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "reviewer.md"), "---\nname: reviewer\n---\nShared rule.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "reviewer.yaml"), "name: reviewer\nevent: SessionStart\ncommand: shared-command\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared agreements.\n")
+	writeFile(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\nmodel: opus\n---\nShared skill.\n")
+	writeFile(t, filepath.Join(source, "skills", "reviewer", "shared.txt"), "shared asset\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nmodel: shared-model\n---\nShared agent.\n")
+	writeFile(t, filepath.Join(source, "rules", "reviewer.md"), "---\nname: reviewer\n---\nShared rule.\n")
+	writeFile(t, filepath.Join(source, "hooks", "reviewer.yaml"), "name: reviewer\nevent: SessionStart\ncommand: shared-command\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
 		t.Fatal(err)
 	}
 
 	local := filepath.Join(source, "local")
-	mustWriteGlobalTest(t, filepath.Join(local, "AGNOSTIC_AI.md"), "Personal agreements.\n")
-	mustWriteGlobalTest(t, filepath.Join(local, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nLocal skill.\n")
-	mustWriteGlobalTest(t, filepath.Join(local, "skills", "reviewer", "local.txt"), "local asset\n")
-	mustWriteGlobalTest(t, filepath.Join(local, "agents", "reviewer.md"), "---\nname: reviewer\n---\nLocal agent.\n")
-	mustWriteGlobalTest(t, filepath.Join(local, "rules", "reviewer.md"), "---\nname: reviewer\n---\nLocal rule.\n")
-	mustWriteGlobalTest(t, filepath.Join(local, "rules", "personal.md"), "---\nname: personal\n---\nAdditional local rule.\n")
-	mustWriteGlobalTest(t, filepath.Join(local, "hooks", "reviewer.yaml"), "name: reviewer\nevent: SessionStart\ncommand: local-command\n")
+	writeFile(t, filepath.Join(local, "AGNOSTIC_AI.md"), "Personal agreements.\n")
+	writeFile(t, filepath.Join(local, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nLocal skill.\n")
+	writeFile(t, filepath.Join(local, "skills", "reviewer", "local.txt"), "local asset\n")
+	writeFile(t, filepath.Join(local, "agents", "reviewer.md"), "---\nname: reviewer\n---\nLocal agent.\n")
+	writeFile(t, filepath.Join(local, "rules", "reviewer.md"), "---\nname: reviewer\n---\nLocal rule.\n")
+	writeFile(t, filepath.Join(local, "rules", "personal.md"), "---\nname: personal\n---\nAdditional local rule.\n")
+	writeFile(t, filepath.Join(local, "hooks", "reviewer.yaml"), "name: reviewer\nevent: SessionStart\ncommand: local-command\n")
 	for _, flag := range []string{"", "", "--check"} {
 		args := []string{"--only", "claude,codex"}
 		if flag != "" {
@@ -90,10 +90,10 @@ func TestListGlobal_ReportsEffectiveLayersWithoutProjectConfig(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", "")
 				source = filepath.Join(home, ".agnostic-ai")
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nShared skill.\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nShared agent.\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "local", "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nLocal skill.\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "local", "rules", "personal.md"), "---\nname: personal\n---\nPersonal rule.\n")
+			writeFile(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nShared skill.\n")
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nShared agent.\n")
+			writeFile(t, filepath.Join(source, "local", "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nLocal skill.\n")
+			writeFile(t, filepath.Join(source, "local", "rules", "personal.md"), "---\nname: personal\n---\nPersonal rule.\n")
 			root := NewRootCmd("test")
 			var out bytes.Buffer
 			root.SetOut(&out)
@@ -115,8 +115,8 @@ func TestListGlobal_ReportsEffectiveLayersWithoutProjectConfig(t *testing.T) {
 
 func TestSyncGlobal_SharedHomeWithoutLocalLayer(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared agreements.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nShared skill.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared agreements.\n")
+	writeFile(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\n---\nShared skill.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
 		t.Fatal(err)
 	}

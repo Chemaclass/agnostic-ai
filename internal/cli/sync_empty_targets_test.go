@@ -287,7 +287,7 @@ func TestSync_RemovingOneTargetStillRemovesItsFiles(t *testing.T) {
 
 func TestUpgradeRequires_EmptyTargetsWarnsOnStderrAndSkipsSync(t *testing.T) {
 	requiresProject(t, "0.76.0")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\nrequires: \"0.76.0\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: []\nrequires: \"0.76.0\"\n")
 
 	var err error
 	stderr := captureStderr(t, func() { err = executeUpgradeRequiresForTest(t, "v0.77.0", "-q") })

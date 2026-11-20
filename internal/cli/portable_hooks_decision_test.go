@@ -18,13 +18,13 @@ func TestHookRun_StdoutDecisionBlocksOnEveryBeforeToolTarget(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
 	targets := []string{"claude", "codex", "gemini", "factory", "qoder", "openhands", "goose", "crush", "windsurf", "cursor", "copilot", "cline"}
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(targets, ", ")+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(targets, ", ")+"]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, script, "#!/bin/sh\nif grep -q \"push --force\"; then echo '{\"decision\": \"deny\", \"reason\": \"no force push\"}'; else echo '{\"decision\": \"allow\"}'; fi\n")
+	writeFile(t, script, "#!/bin/sh\nif grep -q \"push --force\"; then echo '{\"decision\": \"deny\", \"reason\": \"no force push\"}'; else echo '{\"decision\": \"allow\"}'; fi\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ndecision: stdout\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ndecision: stdout\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	mustSync(t)
 
 	out, err := runHookRun(t, "guard", "--bash", "git push --force", "--expect", "block", "--include-assumed")
@@ -43,7 +43,7 @@ func TestHookRun_StdoutDecisionBlocksOnEveryBeforeToolTarget(t *testing.T) {
 		t.Errorf("an allow decision must pass everywhere: %v\n%s", err, allowed)
 	}
 
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, augment]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, augment]\n")
 	if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, "sync writes augment hooks without the wrapper") {
 		t.Errorf("validate must name augment: %v\n%s", err, out)
 	}
@@ -55,11 +55,11 @@ func TestHookRun_StdoutDecisionBlocksOnEveryBeforeToolTarget(t *testing.T) {
 func TestSync_PortableHookRunsOnceOnCursorBesideClaude(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
 	hooks := filepath.Join(dir, ".agnostic-ai", "hooks")
-	mustWrite(t, filepath.Join(hooks, "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'echo blocked >&2; exit 2'\n")
-	mustWrite(t, filepath.Join(hooks, "audit.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: 'echo audit'\n")
-	mustWrite(t, filepath.Join(hooks, "status.yaml"), "on: stop\ntarget: claude\ncommand: 'echo stop'\n")
+	writeFile(t, filepath.Join(hooks, "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'echo blocked >&2; exit 2'\n")
+	writeFile(t, filepath.Join(hooks, "audit.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: 'echo audit'\n")
+	writeFile(t, filepath.Join(hooks, "status.yaml"), "on: stop\ntarget: claude\ncommand: 'echo stop'\n")
 	mustSync(t)
 
 	settings := readGlobalJSON(t, filepath.Join(dir, ".claude", "settings.json"))
