@@ -623,6 +623,25 @@ body {
   box-shadow: 0 0 0 3px var(--action-soft);
 }
 
+/* The same lock the circle shows while a chat waits for you. */
+.state.has-lock {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--ink);
+}
+
+.state.has-lock > svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .state.is-working {
   width: 32px;
   height: 32px;

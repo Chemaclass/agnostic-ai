@@ -1019,6 +1019,15 @@ test('the circle counts the conversations that need you, and names the waiting a
   await expect(page.getByRole('button', { name: 'Conversations: 1 waiting for you, 1 unread' })).toBeVisible()
 })
 
+test('a row that waits for the person shows the circle\'s lock; an unread reply keeps a plain dot', async ({ page }) => {
+  await openPanel(page)
+  const waiting = row(page, 'Approve the database migration').locator('.state')
+  await expect(waiting).toHaveClass('state is-blocked has-lock')
+  await expect(waiting.locator('svg')).toBeVisible()
+  await expect(waiting).toHaveCSS('background-color', 'rgb(240, 163, 94)')
+  await expect(row(page, 'Draft the release notes').locator('.state svg')).toHaveCount(0)
+})
+
 test('a chat waiting for the person gives the circle a solid badge with a lock; unread replies alone do not', async ({ page }) => {
   await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
   await page.goto('/')

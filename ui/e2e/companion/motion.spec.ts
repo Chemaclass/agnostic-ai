@@ -93,7 +93,7 @@ test('adds one miniature fractal per native working sub-agent, with five plain b
   await expect(working.locator('.work-worker')).toHaveCount(3)
 })
 
-test('waiting and idle parents keep ordinary still dots while workers retain their own working appearance', async ({ page }) => {
+test('waiting and idle parents keep still dots, with the lock only where the circle counts the wait, while workers keep their own appearance', async ({ page }) => {
   const plainWaiting = await page.locator('.state.is-blocked').evaluate((element) => {
     const style = getComputedStyle(element)
     return { color: style.backgroundColor, width: style.width, shadow: style.boxShadow }
@@ -103,7 +103,8 @@ test('waiting and idle parents keep ordinary still dots while workers retain the
   const waiting = page.getByRole('option', { name: /Review the implementation/ })
   const core = waiting.locator('.state')
   await expect(waiting.locator('.work-worker')).toHaveCount(2)
-  await expect(core).toHaveClass('state is-blocked')
+  await expect(core).toHaveClass('state is-blocked has-lock')
+  await expect(core.locator(':scope > svg')).toHaveCount(1)
   await expect(core).toHaveCSS('background-color', plainWaiting.color)
   await expect(core).toHaveCSS('width', plainWaiting.width)
   await expect(core).toHaveCSS('box-shadow', plainWaiting.shadow)
@@ -121,7 +122,9 @@ test('waiting and idle parents keep ordinary still dots while workers retain the
     ['Waiting parent already read', 'blocked'],
   ]) {
     const row = page.getByRole('option', { name: new RegExp(name) })
+    // A wait already read sits under Working: the circle does not count it, so it has no lock.
     await expect(row.locator('.state')).toHaveClass(`state is-${state}`)
+    await expect(row.locator('.state > svg')).toHaveCount(0)
     await expect(row.locator('.state > .work-system')).toHaveCount(0)
     await expect(row.locator('.work-worker')).toHaveCount(1)
   }
