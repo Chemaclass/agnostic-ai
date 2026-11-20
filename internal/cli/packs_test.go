@@ -918,8 +918,8 @@ func TestPacksAdd_RefusesGitSourcesUpdateRefuses(t *testing.T) {
 // pack rule's generated path.
 func syncedPackProject(t *testing.T, root, src string) string {
 	t.Helper()
-	mustWrite(t, filepath.Join(root, config.ConfigFileName), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(src, "rules", "team-style.md"), "---\nname: team-style\ndescription: Team style.\nalwaysApply: true\n---\nTeam style rule.\n")
+	writeFile(t, filepath.Join(root, config.ConfigFileName), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(src, "rules", "team-style.md"), "---\nname: team-style\ndescription: Team style.\nalwaysApply: true\n---\nTeam style rule.\n")
 	if err := runPacksAdd(root, src, "team", &bytes.Buffer{}); err != nil {
 		t.Fatalf("add: %v", err)
 	}
@@ -991,7 +991,7 @@ func TestSync_KeepsPackOutputsWhenTheLockfileIsBroken(t *testing.T) {
 		"unreadable lockfile": {
 			breakIt: func(t *testing.T, root string) {
 				t.Helper()
-				mustWrite(t, filepath.Join(root, packsLockfile), "<<<<<<< HEAD\nversion: 1\n")
+				writeFile(t, filepath.Join(root, packsLockfile), "<<<<<<< HEAD\nversion: 1\n")
 			},
 			want: packsLockfile,
 		},
