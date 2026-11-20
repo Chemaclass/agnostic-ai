@@ -311,8 +311,8 @@ func TestServeEditHook_RefusesAnApplyWithoutAMatchingPreview(t *testing.T) {
 	h := newEditHandler(project, false)
 	request := hookEditBody("format-on-save", "after-edit", "npm run format")
 	request["action"] = "apply"
-	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusConflict {
-		t.Errorf("apply without preview = %d %s, want 409", rec.Code, rec.Body)
+	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "send action preview first") {
+		t.Errorf("apply without preview = %d %s, want 400", rec.Code, rec.Body)
 	}
 	request["action"] = "preview"
 	preview := hookEditPreview(t, h, request)
@@ -415,6 +415,65 @@ func TestServeEditHook_RefusesMatchAny(t *testing.T) {
 	rec := hookEditRequest(t, newEditHandler(project, false), request)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "match must be one of shell, edit, read, web") {
 		t.Errorf("match any = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestServeEditHook_LeavesOutTheToolsAStageLacks(t *testing.T) {
+	project := scopeProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	h := newEditHandler(project, false)
+	if rec := hookEditRequest(t, h, hookEditBody("format-on-save", "after-edit", "npm run format")); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("without exclusion = %d %s, want 422", rec.Code, rec.Body)
+	}
+	request := hookEditBody("format-on-save", "after-edit", "npm run format")
+	request["targetsExclude"] = []string{"cursor"}
+	got := hookEditPreview(t, h, request)
+	if !strings.Contains(got.Spec, "targets-exclude:\n  - cursor\n") {
+		t.Errorf("spec = %q", got.Spec)
+	}
+	hookEditApply(t, h, request, got)
+	request = hookEditBody("other", "after-edit", "npm run format")
+	request["targetsExclude"] = []string{"../x"}
+	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusBadRequest {
+		t.Errorf("bad tool name = %d %s, want 400", rec.Code, rec.Body)
+	}
+}
+
+func TestServeEditHook_ChecksTheToolsItLeavesOut(t *testing.T) {
+	scopeProject(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor, aider]\n")
+	h := newEditHandler(".", false)
+	for _, tc := range []struct {
+		exclude []string
+		problem string
+	}{
+		{[]string{"cursor", "bogus"}, "bogus is not a configured tool"},
+		{[]string{"cursor", "cursor"}, "cursor is listed twice"},
+		{[]string{"claude", "cursor"}, "leaves the hook no tool to run on"},
+	} {
+		request := hookEditBody("note-start", "session-start", "echo hi")
+		request["targetsExclude"] = tc.exclude
+		if rec := hookEditRequest(t, h, request); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), tc.problem) {
+			t.Errorf("exclude %v = %d %s, want 422 with %q", tc.exclude, rec.Code, rec.Body, tc.problem)
+		}
+	}
+	request := hookEditBody("note-start", "session-start", "echo hi")
+	request["targetsExclude"] = []string{"aider"}
+	if got := hookEditPreview(t, h, request); strings.Contains(got.Spec, "targets-exclude") {
+		t.Errorf("a tool that writes no hooks was written out: %q", got.Spec)
+	}
+}
+
+func TestServeEditHook_GlobalAcceptsAToolTheGlobalSetupWritesNoHooksFor(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - windsurf\n")
+	h := newEditHandler(source, true)
+	request := hookEditBody("note-start", "session-start", "echo hi")
+	request["targetsExclude"] = []string{"windsurf"}
+	got := hookEditPreview(t, h, request)
+	if strings.Contains(got.Spec, "targets-exclude") {
+		t.Errorf("spec = %q, want no exclusion for a tool with no global hooks", got.Spec)
 	}
 }
 

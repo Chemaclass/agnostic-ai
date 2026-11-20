@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -50,6 +52,7 @@ type specMovePreview struct {
 	Destination  string   `json:"destination"`
 	Exists       bool     `json:"exists"`
 	Files        []string `json:"files"`
+	Scripts      []string `json:"scripts,omitempty"`
 	SyncCommands []string `json:"syncCommands"`
 	Expected     string   `json:"expected"`
 	OK           bool     `json:"ok,omitempty"`
@@ -69,6 +72,10 @@ type specMovePlan struct {
 	folder   bool
 	files    []specMoveFile
 	existing bool
+	// scripts are the shared scripts a hook runs that the destination
+	// lacks; rel is the full destination path. A move keeps them in the
+	// source, since other hooks may run them too.
+	scripts []specMoveFile
 }
 
 type specMoveFile struct {
@@ -134,7 +141,11 @@ func (h *specMoveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusOK, plan.preview)
 		return
 	}
-	if req.Expected == "" || req.Expected != plan.preview.Expected {
+	if req.Expected == "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: errApplyWithoutPreview})
+		return
+	}
+	if req.Expected != plan.preview.Expected {
 		writeEditJSON(w, http.StatusConflict, editError{Error: "The spec or its destination changed; review a fresh preview before applying"})
 		return
 	}
@@ -283,6 +294,19 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		return specMovePlan{}, err
 	}
 	plan.existing = current != nil
+	if kind == spec.KindHook {
+		if plan.scripts, err = hookMoveScripts(entry, scriptsDirOf(root, h.global), scriptsDirOf(dstRoot, !h.global)); err != nil {
+			return specMovePlan{}, err
+		}
+		for _, f := range plan.scripts {
+			if inside, err := insideRealRoot(dstRoot, f.rel); err != nil || !inside {
+				if err != nil {
+					return specMovePlan{}, err
+				}
+				return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s leads outside %s through a link; copy it by hand", f.rel, dstRoot)
+			}
+		}
+	}
 
 	home, _ := globalUserHome()
 	display := func(level, path string) string {
@@ -305,6 +329,9 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	for _, f := range plan.files {
 		plan.preview.Files = append(plan.preview.Files, f.rel)
 	}
+	for _, f := range plan.scripts {
+		plan.preview.Scripts = append(plan.preview.Scripts, display(req.To, f.rel))
+	}
 	// One preview covers both buttons and the overwrite box: the revision
 	// names the spec and the two sides, not the choice.
 	identity := req
@@ -318,7 +345,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		Src     string
 		Dst     string
 	}{identity, shown, plan.src, plan.dst})
-	for _, unit := range [][]specMoveFile{plan.files, current} {
+	for _, unit := range [][]specMoveFile{plan.files, current, plan.scripts} {
 		for _, f := range unit {
 			_, _ = fmt.Fprintf(sum, "%s\x00%o\x00%d\x00", f.rel, f.mode, len(f.data))
 			_, _ = sum.Write(f.data)
@@ -456,11 +483,134 @@ func readMoveUnit(path string, folder bool) ([]specMoveFile, error) {
 	return files, err
 }
 
+// scriptsDirOf is the shared scripts folder of a setup: under
+// .agnostic-ai in a project, at the root of the global setup.
+func scriptsDirOf(root string, global bool) string {
+	if global {
+		return filepath.Join(root, "scripts")
+	}
+	return filepath.Join(root, ".agnostic-ai", "scripts")
+}
+
+// hookMoveScripts reads each shared script the hook runs, and every
+// per-tool copy of it in a subfolder, that the destination lacks. A script
+// the source lacks, or one the destination holds with other content,
+// stops the move, since sync would then run the wrong file or none.
+func hookMoveScripts(hook spec.Entry, srcDir, dstDir string) ([]specMoveFile, error) {
+	var names []string
+	for _, command := range hookMoveCommands(hook.Meta) {
+		for _, name := range adapters.NeutralHookScriptNames(command.value, command.literal) {
+			if !slices.Contains(names, name) {
+				names = append(names, name)
+			}
+		}
+	}
+	entries, err := os.ReadDir(srcDir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	var scripts []specMoveFile
+	for _, name := range names {
+		if !fs.ValidPath(name) || strings.Contains(name, "\\") {
+			return nil, moveRefusal(http.StatusUnprocessableEntity, "%s runs %s, which is outside the scripts folder; move it by hand", hook.Name, name)
+		}
+		rels := []string{name}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				rels = append(rels, entry.Name()+"/"+name)
+			}
+		}
+		found := false
+		for _, rel := range rels {
+			src := filepath.Join(srcDir, filepath.FromSlash(rel))
+			if _, err := os.Lstat(src); errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if inside, err := insideRealRoot(srcDir, src); err != nil || !inside {
+				return nil, moveRefusal(http.StatusUnprocessableEntity, "%s runs %s, which a link leads outside the scripts folder; move it by hand", hook.Name, src)
+			}
+			files, err := readMoveUnit(src, false)
+			if err != nil {
+				return nil, err
+			}
+			found = true
+			dst := filepath.Join(dstDir, filepath.FromSlash(rel))
+			current, err := readMoveUnitIfPresent(dst, false)
+			if err != nil {
+				return nil, err
+			}
+			if current != nil {
+				if !bytes.Equal(current[0].data, files[0].data) {
+					return nil, moveRefusal(http.StatusConflict, "%s already exists with other content; make the two copies match, then try again", dst)
+				}
+				continue
+			}
+			scripts = append(scripts, specMoveFile{rel: dst, data: files[0].data, mode: files[0].mode})
+		}
+		if !found {
+			return nil, moveRefusal(http.StatusUnprocessableEntity, "%s runs %s, which does not exist; add it or fix the command first", hook.Name, filepath.Join(srcDir, filepath.FromSlash(name)))
+		}
+	}
+	slices.SortFunc(scripts, func(a, b specMoveFile) int { return strings.Compare(a.rel, b.rel) })
+	return scripts, nil
+}
+
+// hookMoveCommand is one command a hook runs, and whether sync reads its
+// script path literally (a hook with args).
+type hookMoveCommand struct {
+	value   string
+	literal bool
+}
+
+// hookMoveCommands are a hook's commands, per-tool overrides included. A
+// Windows command is read as sync reads it for most tools: not literally.
+func hookMoveCommands(meta map[string]any) []hookMoveCommand {
+	var commands []hookMoveCommand
+	add := func(m map[string]any, literal bool) {
+		for _, command := range globalHookCommands(m["command"]) {
+			commands = append(commands, hookMoveCommand{command, literal})
+		}
+		if windows, ok := m["commandWindows"].(string); ok && windows != "" {
+			commands = append(commands, hookMoveCommand{windows, false})
+		}
+	}
+	add(meta, len(stringSliceFromAny(meta["args"])) > 0)
+	for key, value := range meta {
+		override, ok := value.(map[string]any)
+		if !ok || !strings.HasPrefix(key, "x-") {
+			continue
+		}
+		literal := len(stringSliceFromAny(override["args"])) > 0 || len(stringSliceFromAny(meta["args"])) > 0
+		add(override, literal)
+		// As sync reads them: Kiro nests a command action under action,
+		// Gemini and Qwen their handlers under a hooks list.
+		if action, ok := override["action"].(map[string]any); ok && key == "x-kiro" && action["type"] == "command" {
+			add(action, false)
+		}
+		if hooks, ok := override["hooks"].([]any); ok && (key == "x-gemini" || key == "x-qwen") {
+			for _, item := range hooks {
+				if hook, ok := item.(map[string]any); ok {
+					add(hook, false)
+				}
+			}
+		}
+	}
+	return commands
+}
+
 // write replaces the destination. A file goes through atomicfile; a skill
 // folder is built in the stage folder and renamed into place, so a
 // failure leaves the old folder whole. The reply is a warning when the
 // swap worked but the stage folder could not be removed.
 func (p specMovePlan) write() (string, error) {
+	for _, f := range p.scripts {
+		if err := os.MkdirAll(filepath.Dir(f.rel), 0o755); err != nil {
+			return "", err
+		}
+		if err := atomicfile.Write(f.rel, f.data, f.mode); err != nil {
+			return "", err
+		}
+	}
 	if !p.folder {
 		f := p.files[0]
 		if err := os.MkdirAll(filepath.Dir(p.dst), 0o755); err != nil {
