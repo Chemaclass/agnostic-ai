@@ -44,6 +44,12 @@ Cline finds a hook script by file name only, and it has two hook runtimes.
 - **The VS Code extension** runs an executable named after the event with no extension, such as `.clinerules/hooks/PreToolUse` ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/hooks/hook-factory.ts#L1022-L1033)). It turns the SDK runtime off, so nothing runs twice ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/vscode-session-host.ts#L171-L178)).
 - **The SDK runtime**, which the Cline CLI runs, lists ten names (`TaskStart`, `TaskResume`, `TaskCancel`, `TaskComplete`, `TaskError`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `SessionShutdown`). It scans `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks` and runs every file with that name and an allowed extension (no extension counts).
 
+Not every name runs in both:
+
+- The VS Code extension runs six: `TaskStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `TaskComplete`, `TaskCancel` ([source](https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/apps/vscode/src/sdk/hooks-adapter.ts#L1-L12), v4.1.26).
+- `TaskResume`, `TaskError` and `SessionShutdown` run in the Cline CLI only ([source](https://github.com/cline/cline/blob/071e1b25b48f9ef5dff7fc32085e6a16f02bf02e/sdk/packages/core/src/hooks/hook-file-hooks.ts#L988-L1084), cli-v3.0.74). Sync writes their scripts and gives a note.
+- `PreCompact` runs in neither: the SDK maps it to no event ([source](https://github.com/cline/cline/blob/071e1b25b48f9ef5dff7fc32085e6a16f02bf02e/sdk/packages/core/src/hooks/hook-file-config.ts#L41)). Sync writes its script and gives a note.
+
 So sync writes one file per event to `.clinerules/hooks/<Event>`, the only layout both run, once each. The next sync removes an older `.cline/hooks/<Event>.sh` that sync wrote. Sync overwrites a hand-written `.clinerules/hooks/<Event>` for an event a spec uses. List it under `sync.unmanaged` to keep your own. A single-file `.clinerules` blocks `.clinerules/hooks/`. Sync replaces it only when a rule spec holds its content. So run `agnostic-ai import cline` first, or set `outputs.cline.hooks-dir: .cline/hooks`, which only the Cline CLI reads.
 
 The [hooks page](https://docs.cline.bot/customization/hooks) points to SDK Plugins, a TypeScript API. The [config reference](https://docs.cline.bot/getting-started/config) lists file hooks under `.cline/hooks/` and the older `.clinerules/hooks/` folder.

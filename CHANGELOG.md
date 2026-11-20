@@ -136,6 +136,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Skill descriptions allow up to 1024 Unicode characters instead of limiting UTF-8 bytes.
 
+#### Cline
+
+- Sync notes that `TaskResume`, `TaskError` and `SessionShutdown` hooks run in the Cline CLI only, not in the VS Code extension (#3723).
+
 ### Site
 
 - Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).
