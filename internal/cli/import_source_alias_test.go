@@ -11,7 +11,7 @@ import (
 func TestNewImportSourceAlias_SharesWritesAndKeepsTargetOnRemoval(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	target := filepath.Join(t.TempDir(), "shared guidance \u00e9 \U0001f9ed")
-	mustWriteFile(t, filepath.Join(target, "rule.md"), "Original.\n")
+	writeFile(t, filepath.Join(target, "rule.md"), "Original.\n")
 	alias, err := newImportSourceAlias(t.TempDir(), target)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestNewImportSourceAlias_SharesWritesAndKeepsTargetOnRemoval(t *testing.T) 
 	if !os.SameFile(aliasInfo, targetInfo) {
 		t.Error("alias has a separate physical destination")
 	}
-	mustWriteFile(t, filepath.Join(alias, "rule.md"), "Replacement.\n")
+	writeFile(t, filepath.Join(alias, "rule.md"), "Replacement.\n")
 	if got := readFile(t, filepath.Join(target, "rule.md")); got != "Replacement.\n" {
 		t.Errorf("alias write = %q", got)
 	}

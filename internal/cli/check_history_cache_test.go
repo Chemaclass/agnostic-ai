@@ -21,9 +21,9 @@ func TestUnledgeredReport_HeadAndFileHistoryShareOneRender(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	// Explicit output options require the full historical renderer.
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\noutputs:\n  claude:\n    provenance-header: true\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\noutputs:\n  claude:\n    provenance-header: true\n")
 	syncProject(t)
-	mustWriteFile(t, ".claude/launch.json", "{\"configurations\":[{\"name\":\"manual\",\"runtimeExecutable\":\"npm\"}],\"version\":\"0.0.1\"}\n")
+	writeFile(t, ".claude/launch.json", "{\"configurations\":[{\"name\":\"manual\",\"runtimeExecutable\":\"npm\"}],\"version\":\"0.0.1\"}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "adopt")
 	if err := os.Remove(stateFilePath(".")); err != nil {
@@ -58,9 +58,9 @@ func TestHistoryRenderer_HeadCacheKeepsEightHistoricalAdmissions(t *testing.T) {
 			dir, git := gitRepo(t)
 			testutil.Chdir(t, dir)
 			var paths, commits []string
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				p := filepath.Join(".claude", fmt.Sprintf("file-%d.json", i))
-				mustWriteFile(t, p, "{}\n")
+				writeFile(t, p, "{}\n")
 				git("add", p)
 				git("commit", "-q", "-m", fmt.Sprintf("file %d", i))
 				sha, err := gitOutput(".", nil, "rev-parse", "HEAD")
@@ -87,7 +87,7 @@ func TestHistoryRenderer_HeadCacheKeepsEightHistoricalAdmissions(t *testing.T) {
 			if tc.headInHistory {
 				allowed = 7
 			}
-			for i := 0; i < 9; i++ {
+			for i := range 9 {
 				if got, want := h.proves(paths[i]), i < allowed; got != want {
 					t.Errorf("history %d proved=%v, want %v", i, got, want)
 				}
@@ -105,14 +105,14 @@ func TestHistoryRenderer_HeadCacheKeepsEightHistoricalAdmissions(t *testing.T) {
 func TestHistoryRenderer_PinsFileHistoryToPreparedHEAD(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, ".claude/old.json", "{}\n")
+	writeFile(t, ".claude/old.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "old")
 	h := &historyRenderer{}
 	if !h.prepare() {
 		t.Fatal("Git history not prepared")
 	}
-	mustWriteFile(t, ".claude/new.json", "{}\n")
+	writeFile(t, ".claude/new.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "new")
 	sha, err := gitOutput(".", nil, "rev-parse", "HEAD")
@@ -131,7 +131,7 @@ func TestHistoryRenderer_PinsFileHistoryToPreparedHEAD(t *testing.T) {
 func TestHistoryRenderer_MissingHEADSuppliesNoProof(t *testing.T) {
 	dir, _ := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	h := &historyRenderer{}
 	if h.provesAtHEAD(".claude/launch.json") || h.proves(".claude/launch.json") {
 		t.Error("uncommitted repository supplied proof")
@@ -147,8 +147,8 @@ func TestHistoryRenderer_FailedHEADRenderIsSharedWithHistory(t *testing.T) {
 	}
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [unknown-target]\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [unknown-target]\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "broken historical config")
 	log := recordHistoryGitRenders(t)

@@ -127,7 +127,7 @@ func TestInstallHook_RefusesHooksThatNeverReachTheEnd(t *testing.T) {
 func TestInstallHook_Idempotent(t *testing.T) {
 	dir := setupGitRepo(t)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := installPreCommitHook(dir, false, io.Discard, io.Discard); err != nil {
 			t.Fatalf("run %d: %v", i, err)
 		}

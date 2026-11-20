@@ -23,19 +23,19 @@ func TestSync_OutputOnAnotherOutputsBackup_Stops(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
 			if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 			data, _ := os.ReadFile(filepath.Join(dir, "RULES.md"))
 			edited := string(data) + "\nUNIQUE USER NOTE\n"
-			mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
+			writeFile(t, filepath.Join(dir, "RULES.md"), edited)
 			if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
-			mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: ./RULES.md.bak\n")
+			writeFile(t, filepath.Join(dir, "RULES.md"), edited)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: ./RULES.md.bak\n")
 
 			out, err := runCLI(t, args...)
 
@@ -60,8 +60,8 @@ func TestSync_OutputOnAnotherOutputsBackup_Stops(t *testing.T) {
 func TestSync_OutputNamedBakWithoutABase_Passes(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: NOTES.md.bak\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: NOTES.md.bak\n")
 
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)

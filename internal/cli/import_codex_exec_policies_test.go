@@ -80,7 +80,7 @@ func TestSync_ImportAfterTranslatedPoliciesKeepsTranslatingPermissions(t *testin
 	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml")); !os.IsNotExist(err) {
 		t.Errorf("import captured generated policies as an overlay: %v", err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+fmt.Sprintf(config, `"Bash(git diff:*)", "Bash(go test:*)"`))
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+fmt.Sprintf(config, `"Bash(git diff:*)", "Bash(go test:*)"`))
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, out)
 	}

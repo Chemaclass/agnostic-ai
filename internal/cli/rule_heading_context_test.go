@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -60,9 +61,7 @@ func TestImport_ClaudeRulesFileRestoresTheSpecHeadings(t *testing.T) {
 		".agnostic-ai/rules/style.md":   "---\nname: style\n---\n\nStyle text.\n\n### Details\n",
 	}
 	files := map[string]string{"agnostic-ai.yaml": "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-file: CLAUDE.md\n"}
-	for path, body := range specs {
-		files[path] = body
-	}
+	maps.Copy(files, specs)
 	for path, body := range files {
 		if err := os.WriteFile(path, []byte(body), 0644); err != nil {
 			t.Fatal(err)

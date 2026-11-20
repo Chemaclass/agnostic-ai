@@ -41,7 +41,7 @@ set = { GITHUB_TOKEN = "ghp_SHELLSECRET0123456789", NODE_ENV = "production" }
 		t.Fatalf("import: %v", err)
 	}
 
-	overlay := readFileString(t, codexOverlayPath(root))
+	overlay := readFile(t, codexOverlayPath(root))
 	for _, secret := range []string{"NOTIFYSECRET123", "PROVIDERSECRET456", "HEADERSECRET789xyz", "SHELLSECRET0123456789"} {
 		if strings.Contains(overlay, secret) {
 			t.Errorf("overlay holds %s:\n%s", secret, overlay)
@@ -70,7 +70,7 @@ func TestImportCodexConfigOverlay_KeepsLayoutWithoutCredentials(t *testing.T) {
 	if _, _, err := importCodexConfigOverlay(root, filepath.Join(root, "settings"), adapters.GrantedRoots{}); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	if got := readFileString(t, codexOverlayPath(root)); got != config {
+	if got := readFile(t, codexOverlayPath(root)); got != config {
 		t.Errorf("overlay = %q, want the file as written %q", got, config)
 	}
 }
@@ -81,8 +81,8 @@ func TestImportCodexConfigOverlay_KeepsLayoutWithoutCredentials(t *testing.T) {
 func TestImport_RestoredCodexOverlayLeavesOutCredentials(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/codex.config.toml", "model = \"gpt-6-luna\"\n\n[shell_environment_policy]\nset = { GITHUB_TOKEN = \"ghp_RESTOREDSECRET0123456\", NODE_ENV = \"production\" }\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/overlays/codex.config.toml", "model = \"gpt-6-luna\"\n\n[shell_environment_policy]\nset = { GITHUB_TOKEN = \"ghp_RESTOREDSECRET0123456\", NODE_ENV = \"production\" }\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -116,7 +116,7 @@ env_http_headers = { "X-Org" = "ORG_TOKEN" }
 	if _, _, err := importCodexConfigOverlay(root, filepath.Join(root, "settings"), adapters.GrantedRoots{}); err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	overlay := readFileString(t, codexOverlayPath(root))
+	overlay := readFile(t, codexOverlayPath(root))
 	if strings.Contains(overlay, "PASTEDKEYSECRET") {
 		t.Errorf("overlay kept a token pasted under env_key:\n%s", overlay)
 	}
@@ -175,8 +175,8 @@ name = "ORG_TOKEN"
 func TestImport_RestoredClaudeOverlayLeavesOutCredentials(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/claude.settings.json", "{\n  \"env\": {\n    \"ANTHROPIC_AUTH_TOKEN\": \"sk-ant-api03-RESTOREDCLAUDE99\",\n    \"DISABLE_TELEMETRY\": \"1\"\n  },\n  \"model\": \"opus\"\n}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/overlays/claude.settings.json", "{\n  \"env\": {\n    \"ANTHROPIC_AUTH_TOKEN\": \"sk-ant-api03-RESTOREDCLAUDE99\",\n    \"DISABLE_TELEMETRY\": \"1\"\n  },\n  \"model\": \"opus\"\n}\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}

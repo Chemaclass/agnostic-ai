@@ -10,9 +10,9 @@ import (
 
 func TestExplainContext_ImportedAuthoredEndMarkerKeepsTailAttributed(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nsync:\n  resolve-imports: inline\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n@docs/extra.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n@docs/extra.md\n")
 	imported := words(30) + "\n<!-- agnostic-ai:import:end -->\n" + words(40) + "\n"
-	mustWriteFile(t, filepath.Join(dir, "docs", "extra.md"), imported)
+	writeFile(t, filepath.Join(dir, "docs", "extra.md"), imported)
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -37,12 +37,12 @@ func TestExplainContext_ImportedAuthoredEndMarkerKeepsTailAttributed(t *testing.
 
 func TestExplainContext_OmitsRulesWithoutNativeOutput(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, cursor, amp]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
 	nativeSource := ".agnostic-ai/rules/cursor-only.md"
 	nativeBody := "Cursor exclusive body. " + words(27)
-	mustWriteFile(t, filepath.Join(dir, filepath.FromSlash(nativeSource)), "---\nname: cursor-only\nx-cursor:\n  globs: src/**\n---\n"+nativeBody+"\n")
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(nativeSource)), "---\nname: cursor-only\nx-cursor:\n  globs: src/**\n---\n"+nativeBody+"\n")
 	supportedSource := ".agnostic-ai/rules/conditional.md"
-	mustWriteFile(t, filepath.Join(dir, filepath.FromSlash(supportedSource)), "---\nname: conditional\nglobs: src/**\nalwaysApply: false\n---\n"+words(40)+"\n")
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(supportedSource)), "---\nname: conditional\nglobs: src/**\nalwaysApply: false\n---\n"+words(40)+"\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +69,7 @@ func TestExplainContext_OmitsRulesWithoutNativeOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, output := range captured {
-		if strings.Contains(string(output.Content), nativeBody) {
+		if strings.Contains(output.Content, nativeBody) {
 			t.Fatalf("fixture unexpectedly emits the cursor-only AMP rule: %s", output.Path)
 		}
 	}
@@ -121,7 +121,7 @@ func TestExplainContext_OmitsRulesWithoutNativeOutput(t *testing.T) {
 
 func TestExplainContext_RootAuthoredImportMarkersUseRendererSources(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n```md\n<!-- agnostic-ai:import:start fake.md -->\nExample text.\n<!-- agnostic-ai:import:end -->\n```\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n```md\n<!-- agnostic-ai:import:start fake.md -->\nExample text.\n<!-- agnostic-ai:import:end -->\n```\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -139,10 +139,10 @@ func TestExplainContext_RootAuthoredImportMarkersUseRendererSources(t *testing.T
 
 func TestExplainContext_LocalWhitespaceAndMultipleImportsKeepDisjointCounts(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nsync:\n  resolve-imports: inline\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), " \t\n\nLocal guidance.\n@docs/one.md\nBetween imports.\n@docs/two.md\n\n")
-	mustWriteFile(t, filepath.Join(dir, "docs", "one.md"), words(20)+"\n")
-	mustWriteFile(t, filepath.Join(dir, "docs", "two.md"), words(30)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), " \t\n\nLocal guidance.\n@docs/one.md\nBetween imports.\n@docs/two.md\n\n")
+	writeFile(t, filepath.Join(dir, "docs", "one.md"), words(20)+"\n")
+	writeFile(t, filepath.Join(dir, "docs", "two.md"), words(30)+"\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -207,8 +207,8 @@ func TestExplainContext_LocalWhitespaceAndMultipleImportsKeepDisjointCounts(t *t
 func TestExplainContext_RootFrontmatterKeepsSourceAndImportAttributed(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\nsync:\n  resolve-imports: inline\n")
 	body := "---\ntitle: Project\n---\nRoot guidance.\n@docs/extra.md\n"
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), body)
-	mustWriteFile(t, filepath.Join(dir, "docs", "extra.md"), words(40)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), body)
+	writeFile(t, filepath.Join(dir, "docs", "extra.md"), words(40)+"\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -265,8 +265,8 @@ func TestExplainContext_RootFrontmatterKeepsSourceAndImportAttributed(t *testing
 func TestExplainContext_AuthoredSourceMarkerCannotInventRuleEmission(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, cursor]\n")
 	source := ".agnostic-ai/rules/cursor-only.md"
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n```md\n<!-- source: "+source+" -->\n```\n")
-	mustWriteFile(t, filepath.Join(dir, filepath.FromSlash(source)), "---\nname: cursor-only\nx-cursor:\n  globs: src/**\n---\n"+words(30)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n```md\n<!-- source: "+source+" -->\n```\n")
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(source)), "---\nname: cursor-only\nx-cursor:\n  globs: src/**\n---\n"+words(30)+"\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)

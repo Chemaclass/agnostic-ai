@@ -51,7 +51,7 @@ func MarshalJSONIndentWith(v any, indent string) ([]byte, error) {
 // letting the caller fall back to a default.
 func DetectJSONIndent(data []byte) string {
 	// Skip first line (the opening `{` or `[`).
-	for i := 0; i < len(data); i++ {
+	for i := range data {
 		if data[i] != '\n' {
 			continue
 		}

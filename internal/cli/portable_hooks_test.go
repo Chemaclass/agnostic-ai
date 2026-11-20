@@ -18,12 +18,12 @@ import (
 
 func TestValidateAndLint_ReportInvalidPortableHooks(t *testing.T) {
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
 	hooks := filepath.Join(dir, ".agnostic-ai", "hooks")
-	mustWrite(t, filepath.Join(hooks, "typo.yaml"), "on: befor-tool\ncommand: x\n")
-	mustWrite(t, filepath.Join(hooks, "read.yaml"), "on: before-tool\nmatch: read\ncommand: x\n")
-	mustWrite(t, filepath.Join(hooks, "both.yaml"), "on: stop\nevent: Stop\ncommand: x\n")
-	mustWrite(t, filepath.Join(hooks, "ok.yaml"), "on: before-tool\nmatch: read\ntarget-exclude: codex\ncommand: x\n")
+	writeFile(t, filepath.Join(hooks, "typo.yaml"), "on: befor-tool\ncommand: x\n")
+	writeFile(t, filepath.Join(hooks, "read.yaml"), "on: before-tool\nmatch: read\ncommand: x\n")
+	writeFile(t, filepath.Join(hooks, "both.yaml"), "on: stop\nevent: Stop\ncommand: x\n")
+	writeFile(t, filepath.Join(hooks, "ok.yaml"), "on: before-tool\nmatch: read\ntarget-exclude: codex\ncommand: x\n")
 
 	out, err := runCLI(t, "validate")
 	if err == nil {
@@ -49,8 +49,8 @@ func TestValidateAndLint_ReportInvalidPortableHooks(t *testing.T) {
 
 func TestSync_StopsOnAnInvalidPortableHook(t *testing.T) {
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "on: before-tool\nmatch: shel\ncommand: x\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "on: before-tool\nmatch: shel\ncommand: x\n")
 	if _, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), "did you mean shell") {
 		t.Errorf("sync = %v, want it to stop on the typo", err)
 	}
@@ -63,8 +63,8 @@ func TestSync_PortableBeforeToolHookReachesClaudeCodexAndKiro(t *testing.T) {
 	adapters.ResetCoverageNotes()
 	adapters.SetWarner(&notes)
 	t.Cleanup(func() { adapters.ResetCoverageNotes(); adapters.SetWarner(os.Stderr) })
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, kiro]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "on: before-tool\nmatch: shell\ncommand: exit 2\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, kiro]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "on: before-tool\nmatch: shell\ncommand: exit 2\n")
 	mustSync(t)
 
 	for _, path := range []string{".claude/settings.json", ".codex/hooks.json"} {
@@ -80,7 +80,6 @@ func TestSync_PortableBeforeToolHookReachesClaudeCodexAndKiro(t *testing.T) {
 	if strings.Contains(notes.String(), "on: has no kiro mapping") {
 		t.Errorf("before-tool must not report a missing Kiro mapping: %s", notes.String())
 	}
-
 }
 
 // Cursor and Copilot read a block from a JSON reply, so sync wraps a
@@ -88,9 +87,9 @@ func TestSync_PortableBeforeToolHookReachesClaudeCodexAndKiro(t *testing.T) {
 // as written, and removing the portable hook removes the wrapper.
 func TestSync_WrapsAPortableBeforeToolHookOnCursorAndCopilotOnly(t *testing.T) {
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor, copilot]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor, copilot]\n")
 	guard := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
-	mustWrite(t, guard, "on: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
+	writeFile(t, guard, "on: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
 	mustSync(t)
 
 	for path, want := range map[string]string{
@@ -112,7 +111,7 @@ func TestSync_WrapsAPortableBeforeToolHookOnCursorAndCopilotOnly(t *testing.T) {
 		t.Fatalf("sync --check: %v\n%s", err, out)
 	}
 
-	mustWrite(t, guard, "event: preToolUse\nmatcher: ^Shell$\ntarget: cursor\ncommand: ./guard.sh\n")
+	writeFile(t, guard, "event: preToolUse\nmatcher: ^Shell$\ntarget: cursor\ncommand: ./guard.sh\n")
 	mustSync(t)
 	if body, err := os.ReadFile(filepath.Join(dir, ".cursor", "hooks.json")); err != nil || !strings.Contains(string(body), `"command": "./guard.sh"`) {
 		t.Errorf("a native hook syncs as written: %s, %v", body, err)
@@ -126,8 +125,8 @@ func TestSync_WrapsAPortableBeforeToolHookOnCursorAndCopilotOnly(t *testing.T) {
 
 func TestImportCopilot_UnwrapsAPortableHookCommand(t *testing.T) {
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "on: before-tool\nmatch: shell\ncommand: ./guard.sh 'it'\\''s'\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "on: before-tool\nmatch: shell\ncommand: ./guard.sh 'it'\\''s'\n")
 	mustSync(t)
 
 	imported := t.TempDir()
@@ -152,9 +151,9 @@ func TestImportCopilot_UnwrapsAPortableHookCommand(t *testing.T) {
 // guard's exit 2 still denies with its reason.
 func TestImportCopilot_PortableHookRoundTrips(t *testing.T) {
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
 	guard := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
-	mustWrite(t, guard, "on: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
+	writeFile(t, guard, "on: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
 	mustSync(t)
 	synced, err := os.ReadFile(filepath.Join(dir, ".github", "hooks", "agnostic-ai.json"))
 	if err != nil {
@@ -177,7 +176,7 @@ func TestHookRun_PortableHookRunsOnClaudeAndCodex(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := hookRunProject(t, "name: guard\non: before-tool\nmatch: shell\n"+
 		`command: 'if grep -q "push --force"; then echo "no force push" >&2; exit 2; fi'`+"\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, kiro]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, kiro]\n")
 
 	out, err := runHookRun(t, "guard", "--bash", "git push --force", "--expect", "block")
 	if err != nil {
@@ -210,7 +209,7 @@ func TestHookRun_PortableEditHookRunsOnEveryEditTool(t *testing.T) {
 
 func TestSyncGlobal_StopsOnAnInvalidPortableHook(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: befor-tool\ncommand: 'true'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: befor-tool\ncommand: 'true'\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "did you mean before-tool") {
 		t.Errorf("sync --global = %v, want it to stop on the typo", err)
 	}
@@ -218,7 +217,7 @@ func TestSyncGlobal_StopsOnAnInvalidPortableHook(t *testing.T) {
 
 func TestSyncGlobal_PortableHookReachesClaudeAndCursor(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 2'\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 2'\n")
 	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
 	if err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
@@ -301,13 +300,13 @@ func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, gemini, factory, qoder, trae, openhands, goose, augment, crush, windsurf, cline, copilot, cursor, kiro]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, gemini, factory, qoder, trae, openhands, goose, augment, crush, windsurf, cline, copilot, cursor, kiro]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, script, "#!/bin/sh\nif grep -q \"push --force\"; then echo \"no force push\" >&2; exit 2; fi\n")
+	writeFile(t, script, "#!/bin/sh\nif grep -q \"push --force\"; then echo \"no force push\" >&2; exit 2; fi\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	mustSync(t)
 
 	out, err := runHookRun(t, "guard", "--bash", "git push --force", "--expect", "block", "--include-assumed")
@@ -345,8 +344,8 @@ func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 func TestHookRun_NativeClineHookBesideAFilteredOneShowsNoDrift(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := hookRunProject(t, "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 0'\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "audit.yaml"), "name: audit\nevent: PreToolUse\ncommand: [\"cat >/dev/null\", 'exit 0']\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "audit.yaml"), "name: audit\nevent: PreToolUse\ncommand: [\"cat >/dev/null\", 'exit 0']\n")
 	mustSync(t)
 
 	for _, hook := range []string{"guard", "audit"} {
@@ -362,7 +361,7 @@ func TestHookRun_NativeClineHookBesideAFilteredOneShowsNoDrift(t *testing.T) {
 func TestHookRun_PortableShellHookSkipsAnEditOnCline(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := hookRunProject(t, "name: guard\non: before-tool\nmatch: shell\ncommand: 'echo never >&2; exit 2'\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
 	mustSync(t)
 
 	out, err := runHookRun(t, "guard", "--edit", "src/app.go", "--expect", "allow", "--include-assumed")
@@ -378,7 +377,7 @@ func TestHookRun_PortableHookWithoutMatchBlocksOnCline(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := hookRunProject(t, "name: guard\non: before-tool\n"+
 		`command: 'if grep -q "push --force"; then echo "no force push" >&2; exit 2; fi'`+"\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
 
 	out, err := runHookRun(t, "guard", "--bash", "git push --force", "--expect", "block", "--include-assumed")
 	if err != nil {
@@ -394,21 +393,21 @@ func TestHookRun_PortableHookWithoutMatchBlocksOnCline(t *testing.T) {
 func TestHookRun_PortableKiroEditGuardBlocksOnlyFileWriteTools(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := newProject(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, script, "#!/bin/sh\ncat >/dev/null\necho protected >&2\nexit 2\n")
+	writeFile(t, script, "#!/bin/sh\ncat >/dev/null\necho protected >&2\nexit 2\n")
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: edit\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: edit\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	mustSync(t)
 	payload := filepath.Join(t.TempDir(), "call.json")
-	mustWrite(t, payload, `{"tool_name":"str_replace","tool_input":{}}`)
+	writeFile(t, payload, `{"tool_name":"str_replace","tool_input":{}}`)
 	out, err := runHookRun(t, "guard", "--payload", payload, "--expect", "block", "--include-assumed")
 	if err != nil || !strings.Contains(out, "kiro: block (exit 2") {
 		t.Errorf("portable edit guard must block str_replace: %v\n%s", err, out)
 	}
-	mustWrite(t, payload, `{"tool_name":"code","tool_input":{}}`)
+	writeFile(t, payload, `{"tool_name":"code","tool_input":{}}`)
 	out, err = runHookRun(t, "guard", "--payload", payload, "--include-assumed")
 	if err != nil || !strings.Contains(out, "not run: matcher") {
 		t.Errorf("portable edit guard must not include code: %v\n%s", err, out)
@@ -424,21 +423,21 @@ func TestHookRun_PortableKiroBuiltinKindsExcludeMCPNames(t *testing.T) {
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			dir := newProject(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
 			script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-			mustWrite(t, script, "#!/bin/sh\ncat >/dev/null\necho protected >&2\nexit 2\n")
+			writeFile(t, script, "#!/bin/sh\ncat >/dev/null\necho protected >&2\nexit 2\n")
 			if err := os.Chmod(script, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: "+tc.kind+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: "+tc.kind+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
 			mustSync(t)
 			payload := filepath.Join(t.TempDir(), "call.json")
-			mustWrite(t, payload, `{"tool_name":"`+tc.builtin+`","tool_input":{}}`)
+			writeFile(t, payload, `{"tool_name":"`+tc.builtin+`","tool_input":{}}`)
 			out, err := runHookRun(t, "guard", "--payload", payload, "--expect", "block", "--include-assumed")
 			if err != nil || !strings.Contains(out, "kiro: block (exit 2") {
 				t.Errorf("builtin must match: %v\n%s", err, out)
 			}
-			mustWrite(t, payload, `{"tool_name":"`+tc.mcp+`","tool_input":{}}`)
+			writeFile(t, payload, `{"tool_name":"`+tc.mcp+`","tool_input":{}}`)
 			out, err = runHookRun(t, "guard", "--payload", payload, "--include-assumed")
 			if err != nil || !strings.Contains(out, "not run: matcher") {
 				t.Errorf("MCP ID must not match builtin kind: %v\n%s", err, out)

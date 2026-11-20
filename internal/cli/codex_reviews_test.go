@@ -33,12 +33,12 @@ func TestSync_CodexReviewsLandInAgentsMD(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	bugbot := readFileString(t, filepath.Join(dir, "services", "api", ".cursor", "BUGBOT.md"))
-	scoped := readFileString(t, filepath.Join(dir, "services", "api", "AGENTS.md"))
+	bugbot := readFile(t, filepath.Join(dir, "services", "api", ".cursor", "BUGBOT.md"))
+	scoped := readFile(t, filepath.Join(dir, "services", "api", "AGENTS.md"))
 	if !strings.Contains(bugbot, codexReviewBody) || !strings.Contains(scoped, "## Code Review Rules\n\n"+codexReviewBody) {
 		t.Errorf("BUGBOT.md:\n%s\nAGENTS.md:\n%s", bugbot, scoped)
 	}
-	rootAgents := readFileString(t, filepath.Join(dir, "AGENTS.md"))
+	rootAgents := readFile(t, filepath.Join(dir, "AGENTS.md"))
 	if !strings.Contains(rootAgents, "## Code Review Rules\n\nCheck that errors carry the path.") || strings.Contains(rootAgents, codexReviewBody) {
 		t.Errorf("root AGENTS.md:\n%s", rootAgents)
 	}
@@ -58,7 +58,7 @@ func TestSync_NoReviewSectionWithoutCodex(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "services", "api", "AGENTS.md")); !os.IsNotExist(err) {
 		t.Errorf("scoped AGENTS.md written without codex: %v", err)
 	}
-	if strings.Contains(readFileString(t, filepath.Join(dir, "AGENTS.md")), "Code Review Rules") {
+	if strings.Contains(readFile(t, filepath.Join(dir, "AGENTS.md")), "Code Review Rules") {
 		t.Error("root AGENTS.md carries a review section without codex")
 	}
 }
@@ -82,14 +82,14 @@ func TestImportCodex_ReadsReviewSectionsBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	reviews := filepath.Join(dir, ".agnostic-ai", "reviews")
-	api := readFileString(t, filepath.Join(reviews, "services-api.md"))
+	api := readFile(t, filepath.Join(reviews, "services-api.md"))
 	if !strings.Contains(api, "scope: services/api") || !strings.Contains(api, codexReviewBody) {
 		t.Errorf("services-api review:\n%s", api)
 	}
-	if root := readFileString(t, filepath.Join(reviews, "review.md")); !strings.Contains(root, "Check that errors carry the path.") {
+	if root := readFile(t, filepath.Join(reviews, "review.md")); !strings.Contains(root, "Check that errors carry the path.") {
 		t.Errorf("root review:\n%s", root)
 	}
-	web := readFileString(t, filepath.Join(reviews, "web.md"))
+	web := readFile(t, filepath.Join(reviews, "web.md"))
 	if !strings.Contains(web, "scope: web") || !strings.Contains(web, "Flag inline colors.") {
 		t.Errorf("web review:\n%s", web)
 	}
@@ -98,7 +98,7 @@ func TestImportCodex_ReadsReviewSectionsBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		body := readFileString(t, filepath.Join(dir, ".agnostic-ai", "rules", e.Name()))
+		body := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", e.Name()))
 		if strings.Contains(body, "Flag inline colors.") || strings.Contains(body, codexReviewBody) {
 			t.Errorf("review text imported as rule %s:\n%s", e.Name(), body)
 		}
@@ -120,7 +120,7 @@ func specTree(t *testing.T, dir string) map[string]string {
 			t.Fatal(err)
 		}
 		for _, e := range entries {
-			out[sub+"/"+e.Name()] = readFileString(t, filepath.Join(base, e.Name()))
+			out[sub+"/"+e.Name()] = readFile(t, filepath.Join(base, e.Name()))
 		}
 	}
 	return out
@@ -136,7 +136,7 @@ func TestImportCodex_ReviewOnlyScopeRoundTripIsStable(t *testing.T) {
 	silence(t)
 	before := specTree(t, dir)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if err := runSync(t); err != nil {
 			t.Fatal(err)
 		}
@@ -232,7 +232,7 @@ func TestImportCodex_HandWrittenReviewAfterRulesBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	agents := filepath.Join(dir, "services", "api", "AGENTS.md")
-	writeFile(t, agents, readFileString(t, agents)+"\n## Code Review Rules\n\nFlag raw SQL.\n")
+	writeFile(t, agents, readFile(t, agents)+"\n## Code Review Rules\n\nFlag raw SQL.\n")
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "rules")); err != nil {
 		t.Fatal(err)
 	}

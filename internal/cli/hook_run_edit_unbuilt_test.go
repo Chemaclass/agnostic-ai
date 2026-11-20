@@ -14,13 +14,13 @@ const editUnbuiltScript = "#!/bin/sh\ncat >/dev/null\nexit 0\n"
 func editUnbuiltProject(t *testing.T, targets, event string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+"\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: "+targets+"\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, script, editUnbuiltScript)
+	writeFile(t, script, editUnbuiltScript)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: "+event+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: "+event+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	mustSync(t)
 }
 

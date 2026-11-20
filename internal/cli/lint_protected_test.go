@@ -8,7 +8,7 @@ import (
 
 func TestLint_WarnsWhenAProtectedPathCoversAFileSyncWrites(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
 		"protected:\n  paths: [.claude/**, composer.lock]\n  reason: Hands off.\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -30,7 +30,7 @@ func TestLint_WarnsWhenAProtectedPathCoversAFileSyncWrites(t *testing.T) {
 
 func TestLint_ProtectedPathsSyncDoesNotWriteAreClean(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
 		"protected:\n  paths: [.github/**, composer.lock]\n")
 	out, err := runCLI(t, "lint", "--strict")
 	if err != nil || len(findingLines(out, "LINT022")) != 0 {
@@ -42,7 +42,7 @@ func TestLint_ProtectedPathsSyncDoesNotWriteAreClean(t *testing.T) {
 // advice to protect the source instead does not apply.
 func TestLint_SkipsAProtectedPathThatCoversItsOwnSpec(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
 		"protected:\n  paths: [\"**\", .claude/**]\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -56,8 +56,8 @@ func TestLint_SkipsAProtectedPathThatCoversItsOwnSpec(t *testing.T) {
 
 func TestLint_ReportsATargetItCannotRenderAndChecksTheRest(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\noutputs:\n  claude:\n    mcp-file: other.json\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/mcps/off.yaml"), "command: srv\ndisabled: true\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/mcps/off.yaml"), "command: srv\ndisabled: true\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
 		"protected:\n  paths: [.codex/**]\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -74,7 +74,7 @@ func TestLint_ReportsATargetItCannotRenderAndChecksTheRest(t *testing.T) {
 
 func TestLint_ReportsAnInvalidProtectedBlock(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/settings/protected.yaml"),
 		"protected:\n  paths: [\"../outside\"]\n")
 	out, err := runCLI(t, "lint")
 	if err == nil || len(findingLines(out, "LINT023")) != 1 {

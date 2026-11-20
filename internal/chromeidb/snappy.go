@@ -2,6 +2,7 @@ package chromeidb
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 )
 
@@ -23,7 +24,7 @@ const (
 func decodeSnappy(src []byte) ([]byte, error) {
 	length, read := binary.Uvarint(src)
 	if read <= 0 {
-		return nil, fmt.Errorf("snappy: no length")
+		return nil, errors.New("snappy: no length")
 	}
 	if length > maxDecodedBytes {
 		return nil, fmt.Errorf("snappy: %d bytes is more than %d", length, maxDecodedBytes)
@@ -41,7 +42,7 @@ func decodeSnappy(src []byte) ([]byte, error) {
 				// Lengths over 60 follow the tag in 1 to 4 little-endian bytes.
 				extra := size - 60
 				if at+extra > len(src) {
-					return nil, fmt.Errorf("snappy: literal length cut short")
+					return nil, errors.New("snappy: literal length cut short")
 				}
 				size = 0
 				for i := range extra {
@@ -51,7 +52,7 @@ func decodeSnappy(src []byte) ([]byte, error) {
 				at += extra
 			}
 			if at+size > len(src) {
-				return nil, fmt.Errorf("snappy: literal cut short")
+				return nil, errors.New("snappy: literal cut short")
 			}
 			if err := checkRoom(out, length, size); err != nil {
 				return nil, err
@@ -61,21 +62,21 @@ func decodeSnappy(src []byte) ([]byte, error) {
 			continue
 		case snappyCopy1:
 			if at+1 > len(src) {
-				return nil, fmt.Errorf("snappy: copy cut short")
+				return nil, errors.New("snappy: copy cut short")
 			}
 			size = int(tag>>2&7) + 4
 			offset = int(tag>>5)<<8 | int(src[at])
 			at++
 		case snappyCopy2:
 			if at+2 > len(src) {
-				return nil, fmt.Errorf("snappy: copy cut short")
+				return nil, errors.New("snappy: copy cut short")
 			}
 			size = int(tag>>2) + 1
 			offset = int(binary.LittleEndian.Uint16(src[at:]))
 			at += 2
 		case snappyCopy4:
 			if at+4 > len(src) {
-				return nil, fmt.Errorf("snappy: copy cut short")
+				return nil, errors.New("snappy: copy cut short")
 			}
 			size = int(tag>>2) + 1
 			offset = int(binary.LittleEndian.Uint32(src[at:]))

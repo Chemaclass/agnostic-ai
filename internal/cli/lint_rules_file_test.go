@@ -36,7 +36,7 @@ func TestLint_AcceptsRulesFileOnATargetThatWritesIt(t *testing.T) {
 // A key set only in agnostic-ai.local.yaml is reported against that file.
 func TestLint_NamesTheLocalFileForAnOutputKeySetThere(t *testing.T) {
 	dir := budgetProject(t, "targets: [cline, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), "outputs:\n  cline:\n    rules-file: AGENTS.md\n  codex:\n    rules-mode: import\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.local.yaml"), "outputs:\n  cline:\n    rules-file: AGENTS.md\n  codex:\n    rules-mode: import\n")
 
 	out, _ := runCLI(t, "lint")
 

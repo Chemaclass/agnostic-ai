@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -67,8 +68,8 @@ func TestPacksLifecycle_LocalSource(t *testing.T) {
 	root := testutil.TempCwd(t)
 
 	src := filepath.Join(t.TempDir(), "go-rules")
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nbody")
-	mustWrite(t, filepath.Join(src, "agents", "y.md"), "---\nname: y\n---\nbody")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nbody")
+	writeFile(t, filepath.Join(src, "agents", "y.md"), "---\nname: y\n---\nbody")
 
 	var out bytes.Buffer
 	if err := runPacksAdd(root, src, "", &out); err != nil {
@@ -123,14 +124,14 @@ func TestPacksUpdate_LocalSource(t *testing.T) {
 	root := testutil.TempCwd(t)
 
 	src := filepath.Join(root, "shared", "go-rules")
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nv1")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nv1")
 
 	var out bytes.Buffer
 	if err := runPacksAdd(root, src, "", &out); err != nil {
 		t.Fatalf("add: %v", err)
 	}
 
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nv2")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "---\nname: x\n---\nv2")
 
 	out.Reset()
 	if err := runPacksUpdate(root, "", false, &out); err != nil {
@@ -145,7 +146,7 @@ func TestPacksUpdate_LocalSource(t *testing.T) {
 func TestPacksAdd_FailedFetchPreservesInstalledPack(t *testing.T) {
 	root := testutil.TempCwd(t)
 	src := filepath.Join(root, "source")
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "original")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "original")
 	var out bytes.Buffer
 	if err := runPacksAdd(root, src, "p", &out); err != nil {
 		t.Fatal(err)
@@ -175,8 +176,8 @@ func TestPacksUpdate_FailedFetchKeepsPackAndRecordsEarlierUpdate(t *testing.T) {
 	remote.git("tag", "--no-sign", "-f", "first")
 	root := testutil.TempCwd(t)
 	writeLock(t, root, packEntry{Name: "a", Source: gitPackSource, Ref: "first", Sha: pinned}, packEntry{Name: "b", Source: gitPackSource, Ref: "missing", Sha: pinned})
-	mustWrite(t, filepath.Join(root, packsDir, "a", "rules", "x.md"), "old")
-	mustWrite(t, filepath.Join(root, packsDir, "b", "rules", "x.md"), "keep")
+	writeFile(t, filepath.Join(root, packsDir, "a", "rules", "x.md"), "old")
+	writeFile(t, filepath.Join(root, packsDir, "b", "rules", "x.md"), "keep")
 	var out bytes.Buffer
 	if err := runPacksUpdate(root, "", true, &out); err == nil {
 		t.Fatal("expected missing ref to fail")
@@ -200,11 +201,11 @@ func TestPacksUpdate_FailedFetchKeepsPackAndRecordsEarlierUpdate(t *testing.T) {
 
 func TestInstallPack_RestoresPreviousPackWhenRecordingFails(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "p")
-	mustWrite(t, filepath.Join(dest, "rule.md"), "old")
+	writeFile(t, filepath.Join(dest, "rule.md"), "old")
 	err := installPack(dest, func(staged string) (string, error) {
-		mustWrite(t, filepath.Join(staged, "rule.md"), "new")
+		writeFile(t, filepath.Join(staged, "rule.md"), "new")
 		return "new", nil
-	}, func(string) error { return fmt.Errorf("cannot write lock") })
+	}, func(string) error { return errors.New("cannot write lock") })
 	if err == nil || !strings.Contains(err.Error(), "cannot write lock") {
 		t.Errorf("error = %v, want lock error", err)
 	}
@@ -217,7 +218,7 @@ func TestInstallPack_RestoresPreviousPackWhenRecordingFails(t *testing.T) {
 func TestPacksUpdate_LeavesPackAndLinkedLockUntouched(t *testing.T) {
 	root := testutil.TempCwd(t)
 	src := filepath.Join(root, "source")
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "old")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "old")
 	var out bytes.Buffer
 	if err := runPacksAdd(root, src, "p", &out); err != nil {
 		t.Fatal(err)
@@ -237,7 +238,7 @@ func TestPacksUpdate_LeavesPackAndLinkedLockUntouched(t *testing.T) {
 	if err := os.Symlink(target, lockPath); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "new")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "new")
 	if err := runPacksUpdate(root, "p", false, &out); err == nil {
 		t.Fatal("expected linked lockfile to be refused")
 	}
@@ -254,7 +255,7 @@ func TestPacksUpdate_LeavesPackAndLinkedLockUntouched(t *testing.T) {
 func TestResolveLayers_PacksLayerInsertedBeforeProject(t *testing.T) {
 	root := t.TempDir()
 	src := filepath.Join(t.TempDir(), "p1")
-	mustWrite(t, filepath.Join(src, "rules", "r.md"), "---\nname: r\n---\nb")
+	writeFile(t, filepath.Join(src, "rules", "r.md"), "---\nname: r\n---\nb")
 
 	var out bytes.Buffer
 	if err := runPacksAdd(root, src, "", &out); err != nil {
@@ -280,10 +281,10 @@ func TestResolveLayers_PacksLayerInsertedBeforeProject(t *testing.T) {
 func TestResolveLayers_PackRuleFoldersUseConsumingProjectDirectories(t *testing.T) {
 	root := testutil.TempCwd(t)
 	src := filepath.Join(t.TempDir(), "module-rules")
-	mustWrite(t, filepath.Join(src, "rules", "modules", "grouped.md"), "---\nname: grouped\n---\nGrouped.\n")
-	mustWrite(t, filepath.Join(src, "modules", "module.go"), "package modules\n")
-	mustWrite(t, filepath.Join(src, "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth.\n")
-	mustWrite(t, filepath.Join(src, "reviews", "review.md"), "---\nname: review\n---\n@missing.md\n")
+	writeFile(t, filepath.Join(src, "rules", "modules", "grouped.md"), "---\nname: grouped\n---\nGrouped.\n")
+	writeFile(t, filepath.Join(src, "modules", "module.go"), "package modules\n")
+	writeFile(t, filepath.Join(src, "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth.\n")
+	writeFile(t, filepath.Join(src, "reviews", "review.md"), "---\nname: review\n---\n@missing.md\n")
 	if err := os.MkdirAll(filepath.Join(root, "backend"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -316,22 +317,12 @@ func TestResolveLayers_PackRuleFoldersUseConsumingProjectDirectories(t *testing.
 	}
 }
 
-func mustWrite(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestPacksUpdateAndRemove_RefuseALockedNameOutsideThePacksFolder(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "proj")
 	victim := filepath.Join(base, "victim", "data")
-	mustWrite(t, victim, "keep\n")
-	mustWrite(t, filepath.Join(root, packsLockfile), "version: 1\npacks:\n  - name: ../../../victim\n    source: "+filepath.ToSlash(t.TempDir())+"\n")
+	writeFile(t, victim, "keep\n")
+	writeFile(t, filepath.Join(root, packsLockfile), "version: 1\npacks:\n  - name: ../../../victim\n    source: "+filepath.ToSlash(t.TempDir())+"\n")
 	testutil.Chdir(t, root)
 
 	var out bytes.Buffer
@@ -368,7 +359,7 @@ func newGitPackRemote(t *testing.T, extraConfig ...string) *gitPackRemote {
 	if !strings.HasPrefix(filepath.ToSlash(dir), "/") {
 		url = "file:///" + filepath.ToSlash(dir)
 	}
-	mustWrite(t, cfg, "[url \""+url+"\"]\n\tinsteadOf = https://"+gitPackSource+"\n"+strings.Join(extraConfig, "\n"))
+	writeFile(t, cfg, "[url \""+url+"\"]\n\tinsteadOf = https://"+gitPackSource+"\n"+strings.Join(extraConfig, "\n"))
 	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	for _, k := range []string{"GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"} {
@@ -397,7 +388,7 @@ func (r *gitPackRemote) git(args ...string) string {
 
 func (r *gitPackRemote) commit(body string) string {
 	r.t.Helper()
-	mustWrite(r.t, filepath.Join(r.dir, "rules", "x.md"), body)
+	writeFile(r.t, filepath.Join(r.dir, "rules", "x.md"), body)
 	r.git("add", "-A")
 	r.git("commit", "--quiet", "-m", body)
 	return r.git("rev-parse", "HEAD")
@@ -589,8 +580,8 @@ func TestPacksUpdate_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
 			parent := t.TempDir()
 			root := filepath.Join(parent, "project")
 			victim := filepath.Join(parent, "victim")
-			mustWrite(t, filepath.Join(victim, "keep.txt"), "keep")
-			mustWrite(t, filepath.Join(root, "payload", "rules", "x.md"), "---\nname: x\n---\nb")
+			writeFile(t, filepath.Join(victim, "keep.txt"), "keep")
+			writeFile(t, filepath.Join(root, "payload", "rules", "x.md"), "---\nname: x\n---\nb")
 			testutil.Chdir(t, root)
 			writeLock(t, root, packEntry{Name: name, Source: "./payload"})
 
@@ -611,8 +602,8 @@ func TestPacksUpdate_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
 
 func TestPacksUpdate_ChecksEveryEntryBeforeChangingAny(t *testing.T) {
 	root := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(root, "good", "rules", "x.md"), "---\nname: x\n---\nnew")
-	mustWrite(t, filepath.Join(root, packsDir, "a-good", "rules", "x.md"), "old")
+	writeFile(t, filepath.Join(root, "good", "rules", "x.md"), "---\nname: x\n---\nnew")
+	writeFile(t, filepath.Join(root, packsDir, "a-good", "rules", "x.md"), "old")
 	writeLock(t, root,
 		packEntry{Name: "a-good", Source: "./good"},
 		packEntry{Name: "z-bad/x", Source: "./good"},
@@ -632,8 +623,8 @@ func TestPacksAdd_RefusesSymlinkedPacksDir(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "project")
 	outside := filepath.Join(parent, "outside")
-	mustWrite(t, filepath.Join(outside, "p", "keep.txt"), "keep")
-	mustWrite(t, filepath.Join(root, "payload", "rules", "x.md"), "b")
+	writeFile(t, filepath.Join(outside, "p", "keep.txt"), "keep")
+	writeFile(t, filepath.Join(root, "payload", "rules", "x.md"), "b")
 	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -657,8 +648,8 @@ func TestPacksUpdate_RefusesSymlinkedPacksDir(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "project")
 	outside := filepath.Join(parent, "outside")
-	mustWrite(t, filepath.Join(outside, "p", "keep.txt"), "keep")
-	mustWrite(t, filepath.Join(root, "payload", "rules", "x.md"), "b")
+	writeFile(t, filepath.Join(outside, "p", "keep.txt"), "keep")
+	writeFile(t, filepath.Join(root, "payload", "rules", "x.md"), "b")
 	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -746,7 +737,7 @@ func TestPacksUpdate_RefusesWindowsNetworkPathBeforeOpeningIt(t *testing.T) {
 
 func TestPacksUpdate_RefusesLocalSourceHoldingPacksDir(t *testing.T) {
 	root := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(root, packsDir, "keep.txt"), "x")
+	writeFile(t, filepath.Join(root, packsDir, "keep.txt"), "x")
 	for _, source := range []string{"./", "./.agnostic-ai", "./" + packsDir, "./.AGNOSTIC-AI"} {
 		if err := checkLockedSource(root, source); err == nil {
 			t.Errorf("checkLockedSource(%q) accepted a folder that holds the packs folder", source)
@@ -757,7 +748,7 @@ func TestPacksUpdate_RefusesLocalSourceHoldingPacksDir(t *testing.T) {
 func TestPacksUpdate_AbsoluteLocalSourceInsideProjectWithDotRoot(t *testing.T) {
 	root := testutil.TempCwd(t)
 	src := filepath.Join(root, "shared", "p")
-	mustWrite(t, filepath.Join(src, "rules", "x.md"), "v2")
+	writeFile(t, filepath.Join(src, "rules", "x.md"), "v2")
 	writeLock(t, ".", packEntry{Name: "p", Source: src}, packEntry{Name: "q", Source: "../" + filepath.Base(root) + "/shared/p"})
 
 	var out bytes.Buffer
@@ -774,8 +765,8 @@ func TestPacksUpdate_AbsoluteLocalSourceInsideProjectWithDotRoot(t *testing.T) {
 func TestPacksUpdate_SkipsOutsideLocalSourceAndUpdatesTheRest(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "project")
-	mustWrite(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
-	mustWrite(t, filepath.Join(root, "inside", "rules", "x.md"), "new")
+	writeFile(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
+	writeFile(t, filepath.Join(root, "inside", "rules", "x.md"), "new")
 	testutil.Chdir(t, root)
 	writeLock(t, root,
 		packEntry{Name: "far", Source: "../elsewhere"},
@@ -811,7 +802,7 @@ func TestResolvePacksLayers_SkipsInvalidLockfileNames(t *testing.T) {
 func TestPacksUpdate_RefusesLocalSourceOutsideProject(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "project")
-	mustWrite(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
+	writeFile(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -835,8 +826,8 @@ func TestPacksRemove_RefusesLockfileNameOutsidePacksDir(t *testing.T) {
 			parent := t.TempDir()
 			root := filepath.Join(parent, "project")
 			victim := filepath.Join(parent, "victim")
-			mustWrite(t, filepath.Join(victim, "keep.txt"), "keep")
-			mustWrite(t, filepath.Join(root, packsDir, "other", "keep.txt"), "keep")
+			writeFile(t, filepath.Join(victim, "keep.txt"), "keep")
+			writeFile(t, filepath.Join(root, packsDir, "other", "keep.txt"), "keep")
 			testutil.Chdir(t, root)
 			writeLock(t, root, packEntry{Name: name, Source: "./x"}, packEntry{Name: "other", Source: "./x"})
 
@@ -886,7 +877,7 @@ func TestGitCloneArgs_EndOptionsBeforeSource(t *testing.T) {
 func TestPacksUpdate_SkipNoticeQuotesLockfileValues(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "project")
-	mustWrite(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
+	writeFile(t, filepath.Join(parent, "elsewhere", "rules", "x.md"), "b")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}

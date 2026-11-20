@@ -460,18 +460,18 @@ func TestAgainstTreeSameInputs_OnlyWhenSpecsAndDirectoriesMatch(t *testing.T) {
 		{"unchanged", func(t *testing.T, dir string) { t.Helper() }, true},
 		{"a source file changed", func(t *testing.T, dir string) {
 			t.Helper()
-			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n")
+			writeFile(t, filepath.Join(dir, "main.go"), "package main\n")
 		}, true},
 		{"a spec changed", func(t *testing.T, dir string) { t.Helper(); editRuleSpec(t, dir, "Changed rule.\n") }, false},
 		{"a source directory was added", func(t *testing.T, dir string) {
 			t.Helper()
-			mustWriteFile(t, filepath.Join(dir, "src", "app", "main.go"), "package main\n")
+			writeFile(t, filepath.Join(dir, "src", "app", "main.go"), "package main\n")
 		}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := committedProject(t, "instructions")
-			mustWriteFile(t, filepath.Join(dir, "main.go"), "package base\n")
+			writeFile(t, filepath.Join(dir, "main.go"), "package base\n")
 			git(t, dir, "add", "-A")
 			git(t, dir, "commit", "-q", "-m", "source")
 			tc.stage(t, dir)
@@ -493,7 +493,7 @@ func TestAgainstTreeSameInputs_OnlyWhenSpecsAndDirectoriesMatch(t *testing.T) {
 
 func TestAgainstTreeExportMissing_ChecksOutATrackedOutputTheGuessLeftOut(t *testing.T) {
 	dir := committedProject(t, "instructions")
-	mustWriteFile(t, filepath.Join(dir, "docs", "guide.md"), "tracked\n")
+	writeFile(t, filepath.Join(dir, "docs", "guide.md"), "tracked\n")
 	git(t, dir, "add", "-A")
 	tree, err := enterAgainstTree(againstIndex)
 	if err != nil {
@@ -527,7 +527,7 @@ func TestSyncCheckAgainst_PassesWithAnIncludeGitDoesNotTrack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, entry, string(data)+"\n@~/.claude/personal.md\n")
+	writeFile(t, entry, string(data)+"\n@~/.claude/personal.md\n")
 	if err := runSyncArgs(t); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -548,7 +548,7 @@ func TestSyncCheckAgainst_ReadsASpecLinkedOutsideTheDotPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "shared", "instructions.md"), string(data)+"\nShared line.\n")
+	writeFile(t, filepath.Join(dir, "shared", "instructions.md"), string(data)+"\nShared line.\n")
 	if err := os.Remove(entry); err != nil {
 		t.Fatal(err)
 	}
@@ -571,8 +571,8 @@ func TestSyncCheckAgainst_ReadsALinkedSourceDirectory(t *testing.T) {
 		t.Skip("Git for Windows checks a symlink out as a text file unless core.symlinks is set")
 	}
 	dir := committedProject(t, "instructions")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), againstConfig("instructions")+"sources:\n  rules: rules\n")
-	mustWriteFile(t, filepath.Join(dir, "policies", "r9.md"), "---\nalwaysApply: true\n---\nLinked rule.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), againstConfig("instructions")+"sources:\n  rules: rules\n")
+	writeFile(t, filepath.Join(dir, "policies", "r9.md"), "---\nalwaysApply: true\n---\nLinked rule.\n")
 	if err := os.Symlink("policies", filepath.Join(dir, "rules")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
@@ -591,9 +591,9 @@ func TestSyncCheckAgainst_ComparesAScopedOutputWithoutItsDirectoryExported(t *te
 	dir := setupFixture(t)
 	isolateGit(t)
 	git(t, dir, "init", "-q")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [instructions]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nAPI rule.\n")
-	mustWriteFile(t, filepath.Join(dir, "src", "api", "handler.go"), "package api\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [instructions]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nAPI rule.\n")
+	writeFile(t, filepath.Join(dir, "src", "api", "handler.go"), "package api\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	root := NewRootCmd("test")
@@ -611,7 +611,7 @@ func TestSyncCheckAgainst_ComparesAScopedOutputWithoutItsDirectoryExported(t *te
 		t.Fatalf("a synced commit should pass: %v\n%s", err, stdout)
 	}
 
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nChanged API rule.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nChanged API rule.\n")
 	git(t, dir, "add", ".agnostic-ai/rules/api.md")
 
 	stdout, _, err := checkAgainst(t, "index")
@@ -625,8 +625,8 @@ func TestSyncCheckAgainst_RejectsAConflictingSiblingOfACurrentScopedOutput(t *te
 	dir := setupFixture(t)
 	isolateGit(t)
 	git(t, dir, "init", "-q")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nAPI rule.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nAPI rule.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	root := NewRootCmd("test")
@@ -636,7 +636,7 @@ func TestSyncCheckAgainst_RejectsAConflictingSiblingOfACurrentScopedOutput(t *te
 	}
 	git(t, dir, "add", "-A")
 	git(t, dir, "commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(dir, "src", "api", "AGENTS.override.md"), "Hand-written override.\n")
+	writeFile(t, filepath.Join(dir, "src", "api", "AGENTS.override.md"), "Hand-written override.\n")
 	git(t, dir, "add", "src/api/AGENTS.override.md")
 
 	_, _, err := checkAgainst(t, "index")
@@ -650,8 +650,8 @@ func TestSyncCheckAgainst_ScopesARuleFolderToADirectoryOnlyTheIndexHolds(t *test
 	dir := setupFixture(t)
 	isolateGit(t)
 	git(t, dir, "init", "-q")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth rule.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth rule.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	if err := runSyncArgs(t); err != nil {
@@ -662,7 +662,7 @@ func TestSyncCheckAgainst_ScopesARuleFolderToADirectoryOnlyTheIndexHolds(t *test
 	if stdout, _, err := checkAgainst(t, "index"); err != nil {
 		t.Fatalf("a synced index should pass: %v\n%s", err, stdout)
 	}
-	mustWriteFile(t, filepath.Join(dir, "backend", "handler.go"), "package backend\n")
+	writeFile(t, filepath.Join(dir, "backend", "handler.go"), "package backend\n")
 	git(t, dir, "add", "backend/handler.go")
 
 	stdout, _, err := checkAgainst(t, "index")
@@ -679,9 +679,9 @@ func TestSyncCheckAgainst_LoadsALinkedLocalOverride(t *testing.T) {
 	dir := setupFixture(t)
 	isolateGit(t)
 	git(t, dir, "init", "-q")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
-	mustWriteFile(t, filepath.Join(dir, "config", "override.yaml"), "sources:\n  rules: policies\n")
-	mustWriteFile(t, filepath.Join(dir, "policies", "p1.md"), "---\nname: p1\n---\nPolicy rule.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	writeFile(t, filepath.Join(dir, "config", "override.yaml"), "sources:\n  rules: policies\n")
+	writeFile(t, filepath.Join(dir, "policies", "p1.md"), "---\nname: p1\n---\nPolicy rule.\n")
 	if err := os.Symlink(filepath.Join("config", "override.yaml"), filepath.Join(dir, "agnostic-ai.local.yaml")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
@@ -693,7 +693,7 @@ func TestSyncCheckAgainst_LoadsALinkedLocalOverride(t *testing.T) {
 	git(t, dir, "add", "-A")
 	git(t, dir, "add", "-f", "agnostic-ai.local.yaml")
 	git(t, dir, "commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(dir, "policies", "p2.md"), "---\nname: p2\n---\nNew policy.\n")
+	writeFile(t, filepath.Join(dir, "policies", "p2.md"), "---\nname: p2\n---\nNew policy.\n")
 	git(t, dir, "add", "policies/p2.md")
 
 	stdout, _, err := checkAgainst(t, "index")
@@ -710,8 +710,8 @@ func TestSyncCheckAgainst_ScopesALinkedSourceFolder(t *testing.T) {
 	dir := setupFixture(t)
 	isolateGit(t)
 	git(t, dir, "init", "-q")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsources:\n  rules: rules\n")
-	mustWriteFile(t, filepath.Join(dir, "policies", "backend", "auth.md"), "---\nname: auth\n---\nAuth rule.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsources:\n  rules: rules\n")
+	writeFile(t, filepath.Join(dir, "policies", "backend", "auth.md"), "---\nname: auth\n---\nAuth rule.\n")
 	if err := os.Symlink("policies", filepath.Join(dir, "rules")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
@@ -722,7 +722,7 @@ func TestSyncCheckAgainst_ScopesALinkedSourceFolder(t *testing.T) {
 	}
 	git(t, dir, "add", "-A")
 	git(t, dir, "commit", "-q", "-m", "base")
-	mustWriteFile(t, filepath.Join(dir, "backend", "handler.go"), "package backend\n")
+	writeFile(t, filepath.Join(dir, "backend", "handler.go"), "package backend\n")
 	git(t, dir, "add", "backend/handler.go")
 
 	stdout, _, err := checkAgainst(t, "index")
@@ -739,9 +739,9 @@ func TestSyncCheckAgainstIndex_MatchesFullCheckWithAFencedImportLine(t *testing.
 	dir := setupFixture(t)
 	isolateGit(t)
 	git(t, dir, "init", "-q")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [instructions]\nsync:\n  resolve-imports: inline\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\n```markdown\n@docs/guide.md\n```\n")
-	mustWriteFile(t, filepath.Join(dir, "docs", "guide.md"), "Guide text.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [instructions]\nsync:\n  resolve-imports: inline\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\n```markdown\n@docs/guide.md\n```\n")
+	writeFile(t, filepath.Join(dir, "docs", "guide.md"), "Guide text.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	root := NewRootCmd("test")

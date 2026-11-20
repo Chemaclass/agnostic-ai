@@ -203,6 +203,9 @@ func dedupeLayer(src []Entry) ([]Entry, []Entry) {
 		idx[e.Name] = len(out)
 		out = append(out, e)
 	}
+	for i := range shadowed {
+		shadowed[i].ShadowedBy = out[idx[shadowed[i].Name]].Path
+	}
 	return out, shadowed
 }
 

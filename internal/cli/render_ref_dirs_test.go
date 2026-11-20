@@ -91,14 +91,14 @@ func TestRenderRef_MatchesARenderWhereEveryDirectoryExists(t *testing.T) {
 				project, prefix = filepath.Join(dir, "svc"), "svc/"
 			}
 			testutil.Chdir(t, dir)
-			mustWriteFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\ngitignore: {enabled: false}\n")
-			mustWriteFile(t, filepath.Join(project, ".agnostic-ai/rules/backend/auth.md"), "---\nname: auth\n---\nAuth rule.\n")
-			mustWriteFile(t, filepath.Join(project, ".agnostic-ai/rules/frontend/ui.md"), "---\nname: ui\n---\nUI rule.\n")
-			mustWriteFile(t, filepath.Join(project, ".agnostic-ai/skills/backend/review/SKILL.md"), "---\nname: review\ndescription: Review.\n---\nReview.\n")
-			mustWriteFile(t, filepath.Join(project, ".agnostic-ai/rules/global.md"), "---\nname: global\nalwaysApply: true\n---\nGlobal rule.\n")
-			mustWriteFile(t, filepath.Join(project, "backend/handler.go"), "package backend\n")
-			for i := 0; i < 12; i++ {
-				mustWriteFile(t, filepath.Join(project, fmt.Sprintf("apps/unit-%02d/src/main.go", i)), "package main\n")
+			writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\ngitignore: {enabled: false}\n")
+			writeFile(t, filepath.Join(project, ".agnostic-ai/rules/backend/auth.md"), "---\nname: auth\n---\nAuth rule.\n")
+			writeFile(t, filepath.Join(project, ".agnostic-ai/rules/frontend/ui.md"), "---\nname: ui\n---\nUI rule.\n")
+			writeFile(t, filepath.Join(project, ".agnostic-ai/skills/backend/review/SKILL.md"), "---\nname: review\ndescription: Review.\n---\nReview.\n")
+			writeFile(t, filepath.Join(project, ".agnostic-ai/rules/global.md"), "---\nname: global\nalwaysApply: true\n---\nGlobal rule.\n")
+			writeFile(t, filepath.Join(project, "backend/handler.go"), "package backend\n")
+			for i := range 12 {
+				writeFile(t, filepath.Join(project, fmt.Sprintf("apps/unit-%02d/src/main.go", i)), "package main\n")
 			}
 			git("add", "-A")
 			git("commit", "-q", "-m", "project")

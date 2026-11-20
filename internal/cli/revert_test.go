@@ -357,12 +357,12 @@ func TestRevertCmd_RestoresRemovedAgentsCompanion(t *testing.T) {
 func TestRevert_RecordedMissingBackupRequiresIntactSafePath(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "edit\n"
-	mustWriteFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill, edited)
 	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
 		t.Fatal(err)
 	}
 	runSyncOK(t)
-	mustWriteFile(t, handEditSkill+".bak", "changed backup\n")
+	writeFile(t, handEditSkill+".bak", "changed backup\n")
 	if out, err := runCLI(t, "revert"); err != nil {
 		t.Fatalf("revert: %v\n%s", err, out)
 	}

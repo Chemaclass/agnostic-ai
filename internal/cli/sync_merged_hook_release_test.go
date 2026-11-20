@@ -14,9 +14,9 @@ func TestSync_HandRestoredHookSurvivesDroppingClaude(t *testing.T) {
 	const settings = ".claude/settings.json"
 	const hookSpec = ".agnostic-ai/hooks/fmt.yaml"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
-	mustWriteFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
+	writeFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
 	runSyncOK(t)
 	written := readJSONMap(t, settings)
 	if written["hooks"] == nil || written["env"] == nil {
@@ -33,7 +33,7 @@ func TestSync_HandRestoredHookSurvivesDroppingClaude(t *testing.T) {
 	doc["env"] = written["env"]
 	writeJSONFile(t, settings, doc)
 
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 
 	got := readJSONMap(t, settings)
@@ -50,16 +50,16 @@ func TestSync_KeptHookEnvOverrideStaysClaimedAfterHooksGo(t *testing.T) {
 	const settings = ".claude/settings.json"
 	const hookSpec = ".agnostic-ai/hooks/fmt.yaml"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
-	mustWriteFile(t, settings, "{\"userKey\": \"mine\"}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\nx-claude:\n  env:\n    AGNOSTIC_AI_TARGET: gemini\n")
-	mustWriteFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, settings, "{\"userKey\": \"mine\"}\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\nx-claude:\n  env:\n    AGNOSTIC_AI_TARGET: gemini\n")
+	writeFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
 	runSyncOK(t)
 
 	removeSpecs(t, hookSpec)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
 	runSyncOK(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 
 	if got, want := readJSONMap(t, settings), map[string]any{"userKey": "mine"}; !reflect.DeepEqual(got, want) {
@@ -74,9 +74,9 @@ func TestSync_HandRestoredEnvSurvivesAfterConfigEnvAndHooksGo(t *testing.T) {
 	const settings = ".claude/settings.json"
 	const hookSpec = ".agnostic-ai/hooks/fmt.yaml"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\noutputs:\n  claude:\n    settings:\n      env:\n        AGNOSTIC_AI_TARGET: claude\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
-	mustWriteFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\noutputs:\n  claude:\n    settings:\n      env:\n        AGNOSTIC_AI_TARGET: claude\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
+	writeFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
 	runSyncOK(t)
 	written := readJSONMap(t, settings)
 	if written["env"] == nil {
@@ -84,7 +84,7 @@ func TestSync_HandRestoredEnvSurvivesAfterConfigEnvAndHooksGo(t *testing.T) {
 	}
 
 	removeSpecs(t, hookSpec)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
 	runSyncOK(t)
 	doc := readJSONMap(t, settings)
 	if doc["env"] != nil {
@@ -94,7 +94,7 @@ func TestSync_HandRestoredEnvSurvivesAfterConfigEnvAndHooksGo(t *testing.T) {
 	doc["env"] = written["env"]
 	writeJSONFile(t, settings, doc)
 
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 
 	got := readJSONMap(t, settings)
@@ -109,12 +109,12 @@ func TestSync_HandRestoredEnvSurvivesAfterConfigEnvAndHooksGo(t *testing.T) {
 func TestSync_XClaudeHooksStayClaimedWithoutHookSpecs(t *testing.T) {
 	const settings = ".claude/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
-	mustWriteFile(t, settings, "{\"userKey\": \"mine\"}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\nx-claude:\n  env:\n    AGNOSTIC_AI_TARGET: claude\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, settings, "{\"userKey\": \"mine\"}\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\nx-claude:\n  env:\n    AGNOSTIC_AI_TARGET: claude\n")
 	runSyncOK(t)
 
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 
 	if got, want := readJSONMap(t, settings), map[string]any{"userKey": "mine"}; !reflect.DeepEqual(got, want) {

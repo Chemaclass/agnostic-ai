@@ -33,8 +33,8 @@ func TestHookMemory_ClineUsesContextModificationReply(t *testing.T) {
 func TestHookRun_ClineVSCodeTaskStartAddsContext(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: TaskStart\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: TaskStart\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
 	syncProject(t)
 	out, err := runHookRun(t, "memory", "--target", "cline", "--runtime", "vscode", "--format", "json")
 	if err != nil {
@@ -44,7 +44,7 @@ func TestHookRun_ClineVSCodeTaskStartAddsContext(t *testing.T) {
 		t.Errorf("VS Code TaskStart did not report its context channel: %s", out)
 	}
 	payload := filepath.Join(dir, "cline-sdk-task-start.json")
-	mustWriteFile(t, payload, `{"hookName":"agent_start","taskId":"fixture-task","sessionContext":{"rootSessionId":"fixture-session"}}`)
+	writeFile(t, payload, `{"hookName":"agent_start","taskId":"fixture-task","sessionContext":{"rootSessionId":"fixture-session"}}`)
 	out, err = runHookRun(t, "memory", "--target", "cline", "--payload", payload, "--format", "json")
 	if err != nil {
 		t.Fatalf("run SDK TaskStart: %v\n%s", err, out)
@@ -67,12 +67,12 @@ func TestSync_ClineUnixRemovesLedgeredWindowsCompanion(t *testing.T) {
 		t.Skip("checks a Windows-to-Unix sync")
 	}
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: TaskStart\ntarget: cline\ncommand: 'true'\nx-cline:\n  runtime: vscode\n  commandWindows: 'Write-Output fixture'\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: TaskStart\ntarget: cline\ncommand: 'true'\nx-cline:\n  runtime: vscode\n  commandWindows: 'Write-Output fixture'\n")
 	syncProject(t)
 	path := filepath.Join(".clinerules", "hooks", "TaskStart.ps1")
 	body := "\U0000FEFF" + header.With("Write-Output fixture\n", header.FormatShell)
-	mustWriteFile(t, path, body)
+	writeFile(t, path, body)
 	state := readStateFile(dir)
 	state.Outputs = append(state.Outputs, path)
 	if state.OutputSums == nil {
@@ -83,7 +83,7 @@ func TestSync_ClineUnixRemovesLedgeredWindowsCompanion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, stateFilePath(dir), string(data))
+	writeFile(t, stateFilePath(dir), string(data))
 	syncProject(t)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("Unix sync must remove the owned Windows companion: %v", err)
@@ -93,8 +93,8 @@ func TestSync_ClineUnixRemovesLedgeredWindowsCompanion(t *testing.T) {
 func TestHookRun_ClineVSCodeCanonicalizesNativeEvent(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: taskstart\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: taskstart\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
 	syncProject(t)
 	out, err := runHookRun(t, "memory", "--target", "cline", "--runtime", "vscode", "--format", "json")
 	if err != nil {

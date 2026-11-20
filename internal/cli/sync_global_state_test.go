@@ -10,7 +10,7 @@ import (
 func TestSyncGlobal_CheckPassesAfterRemovingOnlySkill(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	skill := filepath.Join(source, "skills", "foo", "SKILL.md")
-	mustWriteGlobalTest(t, skill, "---\nname: foo\ndescription: Foo\n---\nFoo.\n")
+	writeFile(t, skill, "---\nname: foo\ndescription: Foo\n---\nFoo.\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}

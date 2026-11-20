@@ -168,8 +168,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	if err != nil {
 		notes = append(notes, "Could not read Codex's latest replies from "+filepath.Base(newestNumbered(s.Stores.CodexDir, codexHistoryPattern)))
 	}
-	var unread *environmentError
-	if errors.As(linkErr, &unread) {
+	if unread, ok := errors.AsType[*environmentError](linkErr); ok {
 		notes = append(notes, "Codex runs started from Claude Code could not be linked to their session: "+string(unread.reason))
 	}
 	result.source.Note = strings.Join(notes, ". ")
@@ -412,14 +411,14 @@ func codexTurnRuns(path string) bool {
 		// The first line of a cut tail is the end of a longer one.
 		lines = lines[1:]
 	}
-	for i := len(lines) - 1; i >= 0; i-- {
+	for _, line := range slices.Backward(lines) {
 		var event struct {
 			Type    string `json:"type"`
 			Payload struct {
 				Type string `json:"type"`
 			} `json:"payload"`
 		}
-		if json.Unmarshal([]byte(lines[i]), &event) != nil || event.Type != "event_msg" {
+		if json.Unmarshal([]byte(line), &event) != nil || event.Type != "event_msg" {
 			continue
 		}
 		if runs, known := codexTurnEvents[event.Payload.Type]; known {

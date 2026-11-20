@@ -41,10 +41,10 @@ func TestSync_LedgerSpelling_UpgradeKeepsAMergedFile(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
 			if userKeys != "" {
-				mustWriteFile(t, filepath.Join(dir, ".amp", "settings.json"), userKeys)
+				writeFile(t, filepath.Join(dir, ".amp", "settings.json"), userKeys)
 			}
 			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
@@ -75,8 +75,8 @@ func TestSync_LedgerSpelling_UpgradeKeepsAMergedFile(t *testing.T) {
 func TestSync_LedgerSpelling_UpgradeKeepsAWholeFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: ./docs/RULES.md\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: ./docs/RULES.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -101,9 +101,9 @@ func TestSync_LedgerSpelling_UpgradeKeepsAWholeFile(t *testing.T) {
 func TestSync_LedgerSpelling_SecondSyncKeepsAMergedFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "defaults.yaml"), "model: claude-opus-4-8\n")
-	mustWriteFile(t, filepath.Join(dir, ".claude", "settings.json"), "{\"theme\": \"dark\"}\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "defaults.yaml"), "model: claude-opus-4-8\n")
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), "{\"theme\": \"dark\"}\n")
 
 	for i := range 2 {
 		if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
@@ -191,14 +191,14 @@ func rawLedger(t *testing.T) syncStateFile {
 func TestDoctorFix_LedgerSpelling_ReleasesAnOldSpellingsClaim(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
-	mustWriteFile(t, filepath.Join(dir, ".amp", "settings.json"), "{\"amp.theme\": \"dark\"}\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "gh.yaml"), "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
+	writeFile(t, filepath.Join(dir, ".amp", "settings.json"), "{\"amp.theme\": \"dark\"}\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	respellLedger(t, ".amp/settings.json", "./.amp/settings.json")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  amp:\n    mcp-file: ./.amp/settings.json\n")
 
 	out, err := runCLI(t, "doctor", "--fix")
 

@@ -49,7 +49,7 @@ func TestInstallHookPostCheckout_UpgradesLegacyChecks(t *testing.T) {
 	if err := os.WriteFile(path, []byte(old), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := runInstallHook("--post-checkout"); err != nil {
 			t.Fatal(err)
 		}
@@ -310,7 +310,7 @@ func TestInstallHookPostMerge_SkipsMissingBinaryOrConfig(t *testing.T) {
 	if calls, _ := os.ReadFile(log); len(calls) != 0 {
 		t.Errorf("missing config ran sync: %s", calls)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\n")
 	realGit, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatal(err)

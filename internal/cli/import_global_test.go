@@ -23,23 +23,23 @@ func runImportGlobalTest(args ...string) (string, string, error) {
 func TestImportGlobal_CodexConfigRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	codexPath := filepath.Join(home, ".codex", "config.toml")
-	mustWriteGlobalTest(t, codexPath, "model = \"gpt-6-luna\"\nmodel_reasoning_effort = \"high\"\n\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\n")
+	writeFile(t, codexPath, "model = \"gpt-6-luna\"\nmodel_reasoning_effort = \"high\"\n\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\n")
 
 	if _, warnings, err := runImportGlobalTest("codex"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	settings := readGlobalTest(t, filepath.Join(source, "settings", "imported.yaml"))
+	settings := readFile(t, filepath.Join(source, "settings", "imported.yaml"))
 	if !strings.Contains(settings, "codex: gpt-6-luna") || !strings.Contains(settings, "codex: high") {
 		t.Errorf("settings spec:\n%s", settings)
 	}
 	if _, err := os.Stat(filepath.Join(source, "mcps", "docs.yaml")); err != nil {
 		t.Fatalf("docs MCP spec: %v", err)
 	}
-	before := readGlobalTest(t, codexPath)
+	before := readFile(t, codexPath)
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != before {
+	if got := readFile(t, codexPath); got != before {
 		t.Errorf("sync after import changed config.toml:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
@@ -53,7 +53,7 @@ func TestImportGlobal_CodexConfigRoundTrips(t *testing.T) {
 func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	codexPath := filepath.Join(home, ".codex", "config.toml")
-	mustWriteGlobalTest(t, codexPath, "[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\ndescription = \"Docs search\"\nroots = [{ uri = \"file:///workspace\", name = \"workspace\" }]\n")
+	writeFile(t, codexPath, "[mcp_servers.docs]\ncommand = \"docs-mcp\"\nargs = [\"--stdio\"]\ndescription = \"Docs search\"\nroots = [{ uri = \"file:///workspace\", name = \"workspace\" }]\n")
 
 	_, warnings, err := runImportGlobalTest("codex")
 	if err != nil {
@@ -62,17 +62,17 @@ func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
 	if !strings.Contains(warnings, "codex mcp docs: description and roots have no effect on Codex") {
 		t.Errorf("import must say it left the keys out:\n%s", warnings)
 	}
-	got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"))
+	got := readFile(t, filepath.Join(source, "mcps", "docs.yaml"))
 	for _, unwanted := range []string{"description", "roots", "file:///workspace"} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("docs.yaml must leave out %q:\n%s", unwanted, got)
 		}
 	}
-	before := readGlobalTest(t, codexPath)
+	before := readFile(t, codexPath)
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, codexPath); got != before {
+	if got := readFile(t, codexPath); got != before {
 		t.Errorf("sync after import changed config.toml:\n%s", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex", "--check"); err != nil {
@@ -84,8 +84,8 @@ func TestImportGlobal_CodexDescribedServerRoundTrips(t *testing.T) {
 // server with the same description in both homes is one server (#2999).
 func TestImportGlobal_ClaudeAndCodexAgreeDespiteDescription(t *testing.T) {
 	home, _ := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude.json"), "{\"mcpServers\": {\"fs\": {\"command\": \"fs-mcp\", \"description\": \"Files\"}}}\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
+	writeFile(t, filepath.Join(home, ".claude.json"), "{\"mcpServers\": {\"fs\": {\"command\": \"fs-mcp\", \"description\": \"Files\"}}}\n")
+	writeFile(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
 
 	_, warnings, err := runImportGlobalTest("claude", "codex")
 	if err != nil {
@@ -109,24 +109,24 @@ func TestImportGlobal_LaterToolKeepsDescriptionCodexDrops(t *testing.T) {
 		t.Run(tc.other, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			otherPath := filepath.Join(home, filepath.FromSlash(tc.rel))
-			mustWriteGlobalTest(t, otherPath, tc.native)
+			writeFile(t, otherPath, tc.native)
 			codexPath := filepath.Join(home, ".codex", "config.toml")
-			mustWriteGlobalTest(t, codexPath, "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
+			writeFile(t, codexPath, "[mcp_servers.fs]\ncommand = \"fs-mcp\"\ndescription = \"Files\"\n")
 
 			if _, warnings, err := runImportGlobalTest("codex", tc.other); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, filepath.Join(source, "mcps", "fs.yaml")); !strings.Contains(got, "description: Files") {
+			if got := readFile(t, filepath.Join(source, "mcps", "fs.yaml")); !strings.Contains(got, "description: Files") {
 				t.Errorf("fs.yaml lost the %s description:\n%s", tc.other, got)
 			}
-			codexBefore, otherBefore := readGlobalTest(t, codexPath), readGlobalTest(t, otherPath)
+			codexBefore, otherBefore := readFile(t, codexPath), readFile(t, otherPath)
 			if _, warnings, err := runGlobalAgentTest("--only", "codex,"+tc.other); err != nil {
 				t.Fatalf("sync after import: %v\n%s", err, warnings)
 			}
-			if got := readGlobalTest(t, codexPath); got != codexBefore {
+			if got := readFile(t, codexPath); got != codexBefore {
 				t.Errorf("sync changed config.toml:\n%s", got)
 			}
-			if got := readGlobalTest(t, otherPath); got != otherBefore {
+			if got := readFile(t, otherPath); got != otherBefore {
 				t.Errorf("sync changed %s:\n%s", tc.rel, got)
 			}
 		})
@@ -139,7 +139,7 @@ func TestImportGlobal_RoundTripsWhatSyncWrote(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	targets := "claude,codex,copilot,cursor,gemini,qoder"
 	settings := filepath.Join(source, "settings", "d.yaml")
-	mustWriteGlobalTest(t, settings, `model:
+	writeFile(t, settings, `model:
   claude: opus
   codex: gpt-6-luna
   copilot: gpt-6-sol
@@ -151,14 +151,14 @@ effort:
   qoder: max
 `)
 	mcpDir := filepath.Join(source, "mcps")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "docs.yaml"), "name: docs\ncommand: docs-mcp\nargs: [--stdio]\nenv:\n  TOKEN: ${DOCS_TOKEN}\n")
-	mustWriteGlobalTest(t, filepath.Join(mcpDir, "web.yaml"), "name: web\ntype: http\nurl: https://example.com/mcp\n")
+	writeFile(t, filepath.Join(mcpDir, "docs.yaml"), "name: docs\ncommand: docs-mcp\nargs: [--stdio]\nenv:\n  TOKEN: ${DOCS_TOKEN}\n")
+	writeFile(t, filepath.Join(mcpDir, "web.yaml"), "name: web\ntype: http\nurl: https://example.com/mcp\n")
 	if _, warnings, err := runGlobalAgentTest("--only", targets); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	snapshot := map[string]string{}
 	for _, rel := range []string{".claude.json", ".claude/settings.json", ".codex/config.toml", ".copilot/settings.json", ".copilot/mcp-config.json", ".cursor/mcp.json", ".gemini/settings.json", ".qoder/settings.json"} {
-		snapshot[rel] = readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel)))
+		snapshot[rel] = readFile(t, filepath.Join(home, filepath.FromSlash(rel)))
 	}
 	for _, path := range []string{settings, mcpDir, filepath.Join(source, "state")} {
 		if err := os.RemoveAll(path); err != nil {
@@ -174,7 +174,7 @@ effort:
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
 	for rel, want := range snapshot {
-		if got := readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel))); got != want {
+		if got := readFile(t, filepath.Join(home, filepath.FromSlash(rel))); got != want {
 			t.Errorf("%s changed after import:\n%s\nwant:\n%s", rel, got, want)
 		}
 	}
@@ -182,15 +182,15 @@ effort:
 
 func TestImportGlobal_NeverReplacesASpec(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".codex", "config.toml"), "model = \"gpt-6-luna\"\n")
+	writeFile(t, filepath.Join(home, ".codex", "config.toml"), "model = \"gpt-6-luna\"\n")
 	existing := filepath.Join(source, "settings", "imported.yaml")
-	mustWriteGlobalTest(t, existing, "effort:\n  claude: low\n")
+	writeFile(t, existing, "effort:\n  claude: low\n")
 
 	_, warnings, err := runImportGlobalTest("codex")
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	if got := readGlobalTest(t, existing); got != "effort:\n  claude: low\n" {
+	if got := readFile(t, existing); got != "effort:\n  claude: low\n" {
 		t.Errorf("an existing spec must stay: %q", got)
 	}
 	if !strings.Contains(warnings, "skipped "+existing) {
@@ -207,9 +207,9 @@ func TestImportGlobal_NeverReplacesASpec(t *testing.T) {
 
 func TestImportGlobal_LeavesWhatTheHomeProvides(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "mcps", "secret.yaml"), "name: secret\ncommand: s\nenv:\n  TOKEN: sk-live-123\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "me.yaml"), "model:\n  codex: private\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "documentation.yaml"), "name: docs\ncommand: docs-mcp\n")
+	writeFile(t, filepath.Join(source, "local", "mcps", "secret.yaml"), "name: secret\ncommand: s\nenv:\n  TOKEN: sk-live-123\n")
+	writeFile(t, filepath.Join(source, "local", "settings", "me.yaml"), "model:\n  codex: private\n")
+	writeFile(t, filepath.Join(source, "mcps", "documentation.yaml"), "name: docs\ncommand: docs-mcp\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -232,7 +232,7 @@ func TestImportGlobal_HandWrittenShapesRoundTrip(t *testing.T) {
 		".gemini/settings.json":    `{"mcpServers": {"g": {"url": "https://x", "type": "http"}, "h": {"httpUrl": "https://y"}}}`,
 	}
 	for rel, body := range files {
-		mustWriteGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel)), body+"\n")
+		writeFile(t, filepath.Join(home, filepath.FromSlash(rel)), body+"\n")
 	}
 	if _, warnings, err := runImportGlobalTest("cursor", "copilot", "gemini"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
@@ -254,7 +254,7 @@ func TestImportGlobal_HandWrittenShapesRoundTrip(t *testing.T) {
 		if err := json.Unmarshal([]byte(body), &before); err != nil {
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel)))), &after); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, filepath.FromSlash(rel)))), &after); err != nil {
 			t.Fatal(err)
 		}
 		for name, server := range before["mcpServers"] {
@@ -267,7 +267,7 @@ func TestImportGlobal_HandWrittenShapesRoundTrip(t *testing.T) {
 
 func TestImportGlobal_SkipsServerThatWouldNotRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.a]\ncommand = \"x\"\n\n[mcp_servers.a.tools.t]\napproval_mode = \"approve\"\n")
+	writeFile(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.a]\ncommand = \"x\"\n\n[mcp_servers.a.tools.t]\napproval_mode = \"approve\"\n")
 	_, warnings, err := runImportGlobalTest("codex")
 	if err != nil {
 		t.Fatalf("import: %v", err)
@@ -285,8 +285,8 @@ func TestImportGlobal_SkipsServerThatWouldNotRoundTrip(t *testing.T) {
 
 func TestImportGlobal_OneServerAcrossToolsImportsOnce(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".copilot", "mcp-config.json"), `{"mcpServers": {"d": {"command": "x", "tools": ["*"]}}}`+"\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {"d": {"command": "x"}}}`+"\n")
+	writeFile(t, filepath.Join(home, ".copilot", "mcp-config.json"), `{"mcpServers": {"d": {"command": "x", "tools": ["*"]}}}`+"\n")
+	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {"d": {"command": "x"}}}`+"\n")
 	_, warnings, err := runImportGlobalTest("copilot", "cursor")
 	if err != nil {
 		t.Fatalf("import: %v", err)
@@ -294,14 +294,14 @@ func TestImportGlobal_OneServerAcrossToolsImportsOnce(t *testing.T) {
 	if strings.Contains(warnings, "differently") {
 		t.Errorf("one server in two spellings is not a clash:\n%s", warnings)
 	}
-	if got := readGlobalTest(t, filepath.Join(source, "mcps", "d.yaml")); strings.Contains(got, "tools") {
+	if got := readFile(t, filepath.Join(source, "mcps", "d.yaml")); strings.Contains(got, "tools") {
 		t.Errorf("Copilot's default tools must not reach the spec:\n%s", got)
 	}
 	if _, w, err := runGlobalAgentTest("--only", "copilot,cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	for rel, want := range map[string]string{".copilot/mcp-config.json": `{"mcpServers": {"d": {"command": "x", "tools": ["*"]}}}`, ".cursor/mcp.json": `{"mcpServers": {"d": {"command": "x"}}}`} {
-		if got := readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel))); got != want+"\n" {
+		if got := readFile(t, filepath.Join(home, filepath.FromSlash(rel))); got != want+"\n" {
 			t.Errorf("%s: both tools must adopt the server as written:\n%s", rel, got)
 		}
 	}
@@ -320,7 +320,7 @@ func TestImportGlobal_CopilotNativeClientSettingsRoundTrip(t *testing.T) {
 	t.Setenv("COPILOT_HOME", "")
 	path := filepath.Join(home, ".copilot/mcp-config.json")
 	original := "{\n\t\"unrelated\":true,\n\t\"mcpServers\":{\n\t\t\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"oauthClientId\":\"public-test-client\",\"timeout\":45000,\"tools\":[\"*\"]},\n\t\t\"local\":{\"command\":\"server\",\"cwd\":\"/tmp\",\"timeout\":45000,\"tools\":[\"*\"]}\n\t}\n}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
 	}
@@ -333,7 +333,7 @@ func TestImportGlobal_CopilotNativeClientSettingsRoundTrip(t *testing.T) {
 		if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 			t.Fatalf("sync: %v %s", err, warnings)
 		}
-		if got := readGlobalTest(t, path); got != original {
+		if got := readFile(t, path); got != original {
 			t.Errorf("native bytes changed: %s", got)
 		}
 	}
@@ -347,7 +347,7 @@ func TestImportGlobal_CopilotExtraServerFieldsRoundTrip(t *testing.T) {
 	t.Setenv("COPILOT_HOME", "")
 	path := filepath.Join(home, ".copilot/mcp-config.json")
 	original := "{\n\t\"mcpServers\":{\n\t\t\"remote\":{\"type\":\"http\",\"url\":\"https://example.invalid/mcp\",\"oauthClientId\":\"abc\",\"oauthScopes\":[\"read\"],\"oauthPublicClient\":false,\"oauthGrantType\":\"client_credentials\",\"deferTools\":\"never\",\"filterMapping\":\"markdown\",\"slowConnectionThresholdMs\":5000,\"oidc\":true},\n\t\t\"local\":{\"command\":\"server\",\"disableToolCache\":true,\"oidc\":true,\"slowConnectionThresholdMs\":2147483647,\"deferTools\":\"never\",\"filterMapping\":\"none\"}\n\t}\n}\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatalf("import: %v %s", err, warnings)
 	}
@@ -360,7 +360,7 @@ func TestImportGlobal_CopilotExtraServerFieldsRoundTrip(t *testing.T) {
 		if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 			t.Fatalf("sync: %v %s", err, warnings)
 		}
-		if got := readGlobalTest(t, path); got != original {
+		if got := readFile(t, path); got != original {
 			t.Errorf("native bytes changed: %s", got)
 		}
 	}

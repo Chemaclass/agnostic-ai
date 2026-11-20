@@ -2,6 +2,7 @@ package emit
 
 import (
 	"encoding/json"
+	"maps"
 	"reflect"
 	"strings"
 	"testing"
@@ -114,9 +115,7 @@ func TestMCPDocument_TransportAliases(t *testing.T) {
 		{"local", map[string]any{"command": "npx", "args": []any{"-y", "pkg"}}, []string{`"command": "npx"`, `"-y"`}, ""},
 	} {
 		meta := map[string]any{"type": tc.transport}
-		for k, v := range tc.meta {
-			meta[k] = v
-		}
+		maps.Copy(meta, tc.meta)
 		got, err := MCPDocument([]spec.Entry{{Kind: spec.KindMCP, Name: "srv", Meta: meta}}, MCPSchemaServersMap)
 		if err != nil {
 			t.Fatal(err)

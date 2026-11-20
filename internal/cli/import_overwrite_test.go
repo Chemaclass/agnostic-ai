@@ -26,10 +26,10 @@ const (
 func importOverwriteProject(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
-	mustWriteFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip\n")
 }
 
 // Import replaced a hand-written spec of the same name without a word
@@ -57,13 +57,13 @@ func TestImport_StopsBeforeReplacingAHandWrittenSkill(t *testing.T) {
 
 func TestImport_StopsBeforeReplacingAnMCPServer(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"github":{"command":"npx","args":["github-mcp"]}}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"github":{"command":"npx","args":["github-mcp"]}}}`)
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("first import: %v\n%s", err, out)
 	}
 	mine := "command: docker\nargs: [run, github-mcp]\n"
-	mustWriteFile(t, ".agnostic-ai/mcps/github.yaml", mine)
+	writeFile(t, ".agnostic-ai/mcps/github.yaml", mine)
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -77,7 +77,7 @@ func TestImport_StopsBeforeReplacingAnMCPServer(t *testing.T) {
 
 func TestImport_LeavesAnIdenticalSpecAlone(t *testing.T) {
 	importOverwriteProject(t)
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", nativeSkill)
 	stamp := time.Unix(1_000_000_000, 0)
 	if err := os.Chtimes(".agnostic-ai/skills/review/SKILL.md", stamp, stamp); err != nil {
 		t.Fatal(err)
@@ -104,10 +104,10 @@ func TestImport_LeavesAnIdenticalSpecAlone(t *testing.T) {
 func TestImport_ProtectsASourceDirAtTheProjectRoot(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: .\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  rules: .\n")
 	const mine = "---\ndescription: Mine.\n---\nMine\n"
-	mustWriteFile(t, "style.md", mine)
-	mustWriteFile(t, ".claude/rules/style.md", "---\ndescription: Native.\n---\nNative\n")
+	writeFile(t, "style.md", mine)
+	writeFile(t, ".claude/rules/style.md", "---\ndescription: Native.\n---\nNative\n")
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -135,10 +135,10 @@ func TestImport_OverwriteReplacesTheSpec(t *testing.T) {
 // later source replaces is today's last-wins import.
 func TestImport_SourcesInOneRunStillReplaceEachOther(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip\n")
-	mustWriteFile(t, ".claude/rules/style.md", "---\ndescription: Claude style.\n---\nUse tabs.\n")
-	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, ".agnostic-ai/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip\n")
+	writeFile(t, ".claude/rules/style.md", "---\ndescription: Claude style.\n---\nUse tabs.\n")
+	writeFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
 
 	if out, err := runCLI(t, "import", "claude", "cursor"); err != nil {
 		t.Fatalf("import claude cursor: %v\n%s", err, out)
@@ -152,9 +152,9 @@ func TestImport_SourcesInOneRunStillReplaceEachOther(t *testing.T) {
 func TestImport_OnlyTheLastSourcesContentCanBeReimported(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"npx"}}}`)
-	mustWriteFile(t, ".codex/config.toml", "[mcp_servers.fs]\ncommand = \"uvx\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"npx"}}}`)
+	writeFile(t, ".codex/config.toml", "[mcp_servers.fs]\ncommand = \"uvx\"\n")
 	if out, err := runCLI(t, "import", "claude", "codex"); err != nil {
 		t.Fatalf("import claude codex: %v\n%s", err, out)
 	}
@@ -183,14 +183,14 @@ func TestImport_StopsOnASpecSyncDidNotWrite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
 			runSyncOK(t)
 			changed := strings.Replace(handSkill, "Mine\n", "Changed in the source\n", 1)
-			mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", changed)
-			mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+			writeFile(t, ".agnostic-ai/skills/review/SKILL.md", changed)
+			writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 			if tc.unmanaged {
-				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [.claude/skills/review/SKILL.md]\n")
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [.claude/skills/review/SKILL.md]\n")
 			}
 			if out, err := runCLI(t, append([]string{"sync"}, tc.flags...)...); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
@@ -228,10 +228,10 @@ func TestImport_StopsOnASpecWithNoNativeOutput(t *testing.T) {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
-			mustWriteFile(t, tc.spec, tc.mine)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+			writeFile(t, tc.spec, tc.mine)
 			runSyncOK(t)
-			mustWriteFile(t, tc.native, tc.data)
+			writeFile(t, tc.native, tc.data)
 
 			_, err := runCLI(t, "import", tc.target)
 
@@ -262,19 +262,19 @@ func TestImport_StopsOnASkillAssetTheTargetDidNotCopy(t *testing.T) {
 			}
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review.\n"+tc.meta+"---\nReview.\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review.\n"+tc.meta+"---\nReview.\n")
 			asset := filepath.Join(".agnostic-ai/skills/review", tc.asset)
 			if tc.link {
-				mustWriteFile(t, "tool.sh", "Original\n")
+				writeFile(t, "tool.sh", "Original\n")
 				if err := os.Symlink("../../../tool.sh", asset); err != nil {
 					t.Fatal(err)
 				}
 			} else {
-				mustWriteFile(t, asset, "Original\n")
+				writeFile(t, asset, "Original\n")
 			}
 			runSyncOK(t)
-			mustWriteFile(t, filepath.Join(".claude/skills/review", tc.asset), "Replacement\n")
+			writeFile(t, filepath.Join(".claude/skills/review", tc.asset), "Replacement\n")
 
 			_, err := runCLI(t, "import", "claude")
 
@@ -305,12 +305,12 @@ func TestImport_StopsOnSettingsThatContributeNoNativeKeys(t *testing.T) {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
 			path := ".agnostic-ai/settings/" + tc.target + ".yaml"
 			const original = "model:\n  claude: sonnet\n"
-			mustWriteFile(t, path, original)
+			writeFile(t, path, original)
 			runSyncOK(t)
-			mustWriteFile(t, tc.native, tc.data)
+			writeFile(t, tc.native, tc.data)
 
 			_, err := runCLI(t, "import", tc.target)
 
@@ -327,14 +327,14 @@ func TestImport_StopsOnSettingsThatContributeNoNativeKeys(t *testing.T) {
 func TestImport_RollbackRestoresHardLinkedDestinations(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	const original = "---\ndescription: Original.\n---\nOriginal\n"
-	mustWriteFile(t, ".agnostic-ai/rules/a.md", original)
+	writeFile(t, ".agnostic-ai/rules/a.md", original)
 	if err := os.Link(".agnostic-ai/rules/a.md", ".agnostic-ai/rules/b.md"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, ".claude/rules/a.md", "---\ndescription: A.\n---\nNative A\n")
-	mustWriteFile(t, ".claude/rules/b.md", "---\ndescription: B.\n---\nNative B\n")
+	writeFile(t, ".claude/rules/a.md", "---\ndescription: A.\n---\nNative A\n")
+	writeFile(t, ".claude/rules/b.md", "---\ndescription: B.\n---\nNative B\n")
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -353,14 +353,14 @@ func TestImport_PreviewKeepsHardLinkIdentity(t *testing.T) {
 		t.Run(strings.Join(flags, " "), func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 			const original = "---\ndescription: Original.\n---\nOriginal\n"
-			mustWriteFile(t, ".agnostic-ai/rules/a.md", original)
+			writeFile(t, ".agnostic-ai/rules/a.md", original)
 			if err := os.Link(".agnostic-ai/rules/a.md", ".agnostic-ai/rules/b.md"); err != nil {
 				t.Fatal(err)
 			}
-			mustWriteFile(t, ".claude/rules/a.md", "---\ndescription: Replacement.\n---\nReplacement\n")
-			mustWriteFile(t, ".claude/rules/b.md", original)
+			writeFile(t, ".claude/rules/a.md", "---\ndescription: Replacement.\n---\nReplacement\n")
+			writeFile(t, ".claude/rules/b.md", original)
 
 			if out, err := runCLI(t, append([]string{"import", "claude"}, flags...)...); err != nil {
 				t.Errorf("import rejected unchanged linked destinations: %v\n%s", err, out)
@@ -390,11 +390,11 @@ func TestImport_StopsOnSettingsWithNoNativeEffortOrPermissions(t *testing.T) {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
 			path := ".agnostic-ai/settings/" + tc.file + ".yaml"
-			mustWriteFile(t, path, tc.mine)
+			writeFile(t, path, tc.mine)
 			runSyncOK(t)
-			mustWriteFile(t, tc.native, tc.data)
+			writeFile(t, tc.native, tc.data)
 
 			_, err := runCLI(t, "import", tc.target)
 
@@ -413,9 +413,9 @@ func TestSync_RecordsSettingsWithOnlyNativeMCPServers(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
 			path := ".agnostic-ai/settings/" + target + ".yaml"
-			mustWriteFile(t, path, "x-"+target+":\n  mcpServers:\n    docs:\n      command: docs-server\n")
+			writeFile(t, path, "x-"+target+":\n  mcpServers:\n    docs:\n      command: docs-server\n")
 
 			runSyncOK(t)
 
@@ -433,8 +433,8 @@ func TestImport_ProtectsItsConfiguredSourceDirBeforeImportWrites(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
 			const original = "version: 1\ntargets: [zed]\nsources:\n  hooks: .\n"
-			mustWriteFile(t, "agnostic-ai.yaml", original)
-			mustWriteFile(t, ".zed/tasks.json", `[{"label":"agnostic-ai","command":"replacement"}]`)
+			writeFile(t, "agnostic-ai.yaml", original)
+			writeFile(t, ".zed/tasks.json", `[{"label":"agnostic-ai","command":"replacement"}]`)
 
 			_, err := runCLI(t, append([]string{"import", "zed"}, flags...)...)
 
@@ -498,8 +498,8 @@ func TestImport_DryRunWithOverwriteListsTheReplacedSpec(t *testing.T) {
 
 func TestInitFrom_StopsBeforeReplacingAHandWrittenSkill(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 
 	_, err := runCLI(t, "init", "--from", "claude")
 
@@ -513,11 +513,11 @@ func TestInitFrom_StopsBeforeReplacingAHandWrittenSkill(t *testing.T) {
 
 func TestUse_StopsBeforeReplacingAHandWrittenRule(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	runSyncOK(t)
 	mine := "---\ndescription: Mine.\n---\nUse tabs.\n"
-	mustWriteFile(t, ".agnostic-ai/rules/style.md", mine)
-	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	writeFile(t, ".agnostic-ai/rules/style.md", mine)
+	writeFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
 
 	_, err := runCLI(t, "use", "cursor")
 
@@ -552,8 +552,8 @@ func TestImport_UneditedRoundTripNeedsNoFlag(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			silence(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
-			mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", agent)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			writeFile(t, ".agnostic-ai/agents/reviewer.md", agent)
 			runSyncOK(t)
 
 			if out, err := runCLI(t, "import", target); err != nil {
@@ -569,10 +569,10 @@ func claudeSyncedReviewSkill(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
 	runSyncOK(t)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 }
 
 func TestImport_ReimportsANativeEditWithoutAFlag(t *testing.T) {
@@ -590,7 +590,7 @@ func TestImport_ReimportsANativeEditWithoutAFlag(t *testing.T) {
 func TestImport_StopsWhenTheSpecChangedSinceTheLastSync(t *testing.T) {
 	claudeSyncedReviewSkill(t)
 	edited := strings.Replace(handSkill, "Mine\n", "Mine, edited\n", 1)
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", edited)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", edited)
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -608,11 +608,11 @@ func TestImport_StopsWhenTheSpecChangedSinceTheLastSync(t *testing.T) {
 func TestImport_StopsOnASyncedSpecTheSourceNeverReceived(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
 	mine := "---\nname: style\ndescription: Mine.\ntargets: [claude]\n---\nUse tabs.\n"
-	mustWriteFile(t, ".agnostic-ai/rules/style.md", mine)
+	writeFile(t, ".agnostic-ai/rules/style.md", mine)
 	runSyncOK(t)
-	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	writeFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
 
 	_, err := runCLI(t, "import", "cursor")
 
@@ -629,10 +629,10 @@ func TestImport_StopsOnASyncedSpecTheSourceNeverReceived(t *testing.T) {
 func TestUse_StopsOnASyncedSpecTheNewToolNeverReceived(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
 	runSyncOK(t)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 
 	_, err := runCLI(t, "use", "claude")
 
@@ -647,11 +647,11 @@ func TestUse_StopsOnASyncedSpecTheNewToolNeverReceived(t *testing.T) {
 func TestImport_StopsOnASpecScopedToAnotherTool(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 	mine := "---\nname: review\ndescription: Mine.\ntargets: [codex]\n---\nMine\n"
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", mine)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", mine)
 	runSyncOK(t)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -667,7 +667,7 @@ func TestImport_StopsOnASpecScopedToAnotherTool(t *testing.T) {
 func TestImport_StopsOnACommentAddedSinceTheLastSync(t *testing.T) {
 	claudeSyncedReviewSkill(t)
 	edited := strings.Replace(handSkill, "description: Mine.\n", "description: Mine.\n# keep the review short\n", 1)
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", edited)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", edited)
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -685,9 +685,9 @@ func mcpImportedFromClaude(t *testing.T) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"npx","args":["fs-mcp"]}}}`)
-	mustWriteFile(t, ".codex/config.toml", "[mcp_servers.fs]\ncommand = \"uvx\"\nargs = [\"fs-mcp\"]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"npx","args":["fs-mcp"]}}}`)
+	writeFile(t, ".codex/config.toml", "[mcp_servers.fs]\ncommand = \"uvx\"\nargs = [\"fs-mcp\"]\n")
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
 	}
@@ -697,7 +697,7 @@ func mcpImportedFromClaude(t *testing.T) {
 // own config: a later claude import brings back an edit made there.
 func TestImport_ReplacesWhatAnEarlierImportOfTheSameToolWrote(t *testing.T) {
 	mcpImportedFromClaude(t)
-	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"bunx","args":["fs-mcp"]}}}`)
+	writeFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"bunx","args":["fs-mcp"]}}}`)
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("re-import of claude: %v\n%s", err, out)
@@ -726,12 +726,12 @@ func TestImport_StopsOnWhatAnotherToolsImportWrote(t *testing.T) {
 func TestImport_ReimportsAChangedSettingsOverlay(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/settings.json", `{"statusLine": {"type": "command", "command": "first"}}`+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/settings.json", `{"statusLine": {"type": "command", "command": "first"}}`+"\n")
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("first import: %v\n%s", err, out)
 	}
-	mustWriteFile(t, ".claude/settings.json", `{"statusLine": {"type": "command", "command": "second"}}`+"\n")
+	writeFile(t, ".claude/settings.json", `{"statusLine": {"type": "command", "command": "second"}}`+"\n")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("re-import after a settings change: %v\n%s", err, out)
@@ -765,11 +765,11 @@ func TestImport_RealRunDoesNotCopyTheProject(t *testing.T) {
 func TestImport_StopsOnASpecWithATargetKeyForAnotherTool(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 	mine := "---\nname: review\ndescription: Mine.\ntarget: codex\n---\nMine\n"
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", mine)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", mine)
 	runSyncOK(t)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -784,13 +784,13 @@ func TestImport_StopsOnASpecWithATargetKeyForAnotherTool(t *testing.T) {
 // A skill an earlier import wrote comes back from a later native edit.
 func TestImport_ReimportsASkillAnEarlierImportWrote(t *testing.T) {
 	importOverwriteProject(t)
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", nativeSkill)
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("first import: %v\n%s", err, out)
 	}
 	edited := strings.Replace(nativeSkill, "Native\n", "Native, edited\n", 1)
-	mustWriteFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip, edited\n")
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", edited)
+	writeFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip, edited\n")
+	writeFile(t, ".claude/skills/review/SKILL.md", edited)
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("re-import of an imported skill: %v\n%s", err, out)
@@ -805,9 +805,9 @@ func TestImport_ReimportsASkillAnEarlierImportWrote(t *testing.T) {
 func TestImport_StopsOnARuleAnotherToolsImportWrote(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
-	mustWriteFile(t, ".claude/rules/style.md", "---\ndescription: Claude style.\n---\nUse tabs.\n")
-	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, ".claude/rules/style.md", "---\ndescription: Claude style.\n---\nUse tabs.\n")
+	writeFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
 	}
@@ -829,14 +829,14 @@ func TestImport_StopsOnARuleAnotherToolsImportWrote(t *testing.T) {
 func TestImport_RecordsAToolThatAlreadyHeldASyncedSpec(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
 	runSyncOK(t)
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", handSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", handSkill)
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import of an identical skill: %v\n%s", err, out)
 	}
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("re-import after a claude edit: %v\n%s", err, out)
@@ -871,7 +871,7 @@ const corruptState = "{not json\n"
 // over it.
 func TestImport_KeepsAStateFileThatDoesNotParse(t *testing.T) {
 	importOverwriteProject(t)
-	mustWriteFile(t, stateFilePath("."), corruptState)
+	writeFile(t, stateFilePath("."), corruptState)
 
 	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -885,9 +885,9 @@ func TestImport_KeepsAStateFileThatDoesNotParse(t *testing.T) {
 func TestUse_RefusesToWriteOverAStateFileThatDoesNotParse(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
-	mustWriteFile(t, stateFilePath("."), corruptState)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	writeFile(t, stateFilePath("."), corruptState)
 
 	_, err := runCLI(t, "use", "cursor")
 
@@ -927,9 +927,9 @@ func TestReplacesSpec_GuardsAnAbsoluteSourceDir(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	skills := filepath.Join(dir, "specs", "skills")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(skills)+"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(skills)+"\n")
 	spec := filepath.Join(skills, "review", "SKILL.md")
-	mustWriteFile(t, spec, handSkill)
+	writeFile(t, spec, handSkill)
 
 	for _, path := range []string{spec, "specs/skills/review/SKILL.md"} {
 		e := importPreviewEntry{
@@ -950,15 +950,15 @@ func TestImport_StopsBeforeReplacingASkillThroughALinkedFolder(t *testing.T) {
 	}
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "shared/review/SKILL.md", handSkill)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "shared/review/SKILL.md", handSkill)
 	if err := os.MkdirAll(".agnostic-ai/skills", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink("../../shared/review", ".agnostic-ai/skills/review"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+	writeFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -976,14 +976,14 @@ func TestImport_RollbackRestoresAFileWrittenThroughTwoPaths(t *testing.T) {
 	}
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	const original = "---\ndescription: Original.\n---\nOriginal\n"
-	mustWriteFile(t, ".agnostic-ai/rules/b.md", original)
+	writeFile(t, ".agnostic-ai/rules/b.md", original)
 	if err := os.Symlink("b.md", ".agnostic-ai/rules/a.md"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, ".claude/rules/a.md", "---\ndescription: A.\n---\nNative A\n")
-	mustWriteFile(t, ".claude/rules/b.md", "---\ndescription: B.\n---\nNative B\n")
+	writeFile(t, ".claude/rules/a.md", "---\ndescription: A.\n---\nNative A\n")
+	writeFile(t, ".claude/rules/b.md", "---\ndescription: B.\n---\nNative B\n")
 
 	_, err := runCLI(t, "import", "claude")
 
@@ -1015,11 +1015,11 @@ func TestImportTransaction_RollbackRemovesNewFileWrittenThroughDirectoryAlias(t 
 	if err := txn.saveFile(viaAlias); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, viaAlias, "First import.\n")
+	writeFile(t, viaAlias, "First import.\n")
 	if err := txn.saveFile(viaTarget); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, viaTarget, "Second import.\n")
+	writeFile(t, viaTarget, "Second import.\n")
 	entries, err := txn.entries(&importRecorder{writes: []importPlannedWrite{{path: viaAlias}, {path: viaTarget}}})
 	if err != nil {
 		t.Fatal(err)
@@ -1043,13 +1043,13 @@ func TestImport_LeavesADanglingDestinationLinkAndItsTargetAlone(t *testing.T) {
 	}
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/rules/z.md", "---\ndescription: Mine.\n---\nMine\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/rules/z.md", "---\ndescription: Mine.\n---\nMine\n")
 	if err := os.Symlink("../../missing.md", ".agnostic-ai/rules/a.md"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, ".claude/rules/a.md", "---\ndescription: A.\n---\nNative A\n")
-	mustWriteFile(t, ".claude/rules/z.md", "---\ndescription: Z.\n---\nNative Z\n")
+	writeFile(t, ".claude/rules/a.md", "---\ndescription: A.\n---\nNative A\n")
+	writeFile(t, ".claude/rules/z.md", "---\ndescription: Z.\n---\nNative Z\n")
 
 	for _, flags := range [][]string{nil, {"--dry-run"}, {"--dry-run", "--diff"}} {
 		_, err := runCLI(t, append([]string{"import", "claude"}, flags...)...)
@@ -1091,7 +1091,7 @@ func TestGuardedImport_InterruptDuringVerificationRestoresWrites(t *testing.T) {
 	}
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, ".agnostic-ai/rules/keep.md", "Original\n")
+	writeFile(t, ".agnostic-ai/rules/keep.md", "Original\n")
 	cmd := exec.Command(os.Args[0], "-test.run=^TestGuardedImport_InterruptDuringVerificationRestoresWrites$")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "AGNOSTIC_AI_TEST_IMPORT_SIGNAL=1")
@@ -1141,14 +1141,14 @@ func TestGuardedImport_InterruptDuringVerificationRestoresWrites(t *testing.T) {
 func TestImport_PartialSyncKeepsWhatAnEarlierSyncWroteForOtherTools(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
-	mustWriteFile(t, ".agnostic-ai/rules/review.md", "---\nname: review\ndescription: Mine.\ntargets: [cursor]\n---\nMine\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, ".agnostic-ai/rules/review.md", "---\nname: review\ndescription: Mine.\ntargets: [cursor]\n---\nMine\n")
 	runSyncOK(t)
 	if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
 		t.Fatalf("sync --only claude: %v\n%s", err, out)
 	}
 	native := ".cursor/rules/review.mdc"
-	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Mine", "Mine, edited in cursor", 1))
+	writeFile(t, native, strings.Replace(readFile(t, native), "Mine", "Mine, edited in cursor", 1))
 
 	if out, err := runCLI(t, "import", "cursor"); err != nil {
 		t.Fatalf("import cursor after a partial sync: %v\n%s", err, out)
@@ -1163,16 +1163,16 @@ func TestImport_PartialSyncKeepsWhatAnEarlierSyncWroteForOtherTools(t *testing.T
 func TestUse_StopsOnASpecSyncedForAToolSinceRemoved(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
 	mine := "---\nname: r\ndescription: Mine.\n---\nMine\n"
-	mustWriteFile(t, ".agnostic-ai/rules/r.md", mine)
+	writeFile(t, ".agnostic-ai/rules/r.md", mine)
 	runSyncOK(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	runSyncOK(t)
 	if err := os.RemoveAll(".cursor"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, ".cursor/rules/r.mdc", "---\ndescription: Unrelated.\nalwaysApply: true\n---\nSomething else.\n")
+	writeFile(t, ".cursor/rules/r.mdc", "---\ndescription: Unrelated.\nalwaysApply: true\n---\nSomething else.\n")
 
 	_, err := runCLI(t, "use", "cursor")
 

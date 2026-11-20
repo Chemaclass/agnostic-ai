@@ -2,6 +2,7 @@ package integration
 
 import (
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,9 +35,7 @@ func TestImportAll_AgainAfterSyncLeavesSourcesUnchanged(t *testing.T) {
 				"AGENTS.md":              "# Project\n\nRoot guidance.\n",
 				"services/api/AGENTS.md": "# API\n\nUse integer minor units.\n",
 			}
-			for k, v := range extra {
-				files[k] = v
-			}
+			maps.Copy(files, extra)
 			for rel, body := range files {
 				must(t, os.MkdirAll(filepath.Dir(filepath.Join(dir, rel)), 0o755))
 				must(t, os.WriteFile(filepath.Join(dir, rel), []byte(body), 0o644))

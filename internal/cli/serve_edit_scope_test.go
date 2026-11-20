@@ -14,8 +14,8 @@ func scopeProject(t *testing.T) string {
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
-	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\ndescription: Team defaults.\nmodel: sonnet\neffort: high\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+	writeFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\ndescription: Team defaults.\nmodel: sonnet\neffort: high\n")
 	return project
 }
 
@@ -68,7 +68,7 @@ func TestEditField_JustMeWritesAnOverlayAndResetRemovesIt(t *testing.T) {
 func TestEditField_JustMeKeepsAHandWrittenOverlay(t *testing.T) {
 	project := scopeProject(t)
 	overlay := ".agnostic-ai/local/settings/mine.yaml"
-	mustWrite(t, overlay, "# Mine.\nname: defaults\nmodel: opus\neffort: low\n")
+	writeFile(t, overlay, "# Mine.\nname: defaults\nmodel: opus\neffort: low\n")
 	h := newEditHandler(project, false)
 	rec := postEdit(t, h, editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":null}`, nil)
 	if rec.Code != 200 {
@@ -82,7 +82,7 @@ func TestEditField_JustMeKeepsAHandWrittenOverlay(t *testing.T) {
 func TestEditField_TeamScopeWritesTheSharedSpecBehindAnOverlay(t *testing.T) {
 	project := scopeProject(t)
 	overlay := ".agnostic-ai/local/settings/defaults.yaml"
-	mustWrite(t, overlay, "name: defaults\nmodel: opus\n")
+	writeFile(t, overlay, "name: defaults\nmodel: opus\n")
 	h := newEditHandler(project, false)
 
 	rec := postEdit(t, h, editFieldPath, `{"audience":"shared","path":".agnostic-ai/settings/defaults.yaml","key":"effort","value":"low"}`, nil)
@@ -173,7 +173,7 @@ func TestEditBuiltin_JustMeSeedsTheLocalListAndResetRemovesIt(t *testing.T) {
 
 func TestEditBuiltin_ResetKeepsOtherLocalKeys(t *testing.T) {
 	project := scopeProject(t)
-	mustWrite(t, "agnostic-ai.local.yaml", "# Mine.\nbuiltins:\n  - memory\n  - handoff\nmemory:\n  personal: repo\n")
+	writeFile(t, "agnostic-ai.local.yaml", "# Mine.\nbuiltins:\n  - memory\n  - handoff\nmemory:\n  personal: repo\n")
 	rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":false}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
@@ -185,7 +185,7 @@ func TestEditBuiltin_ResetKeepsOtherLocalKeys(t *testing.T) {
 
 func TestEditBuiltin_TeamScopeRefusesAListTheLocalConfigReplaces(t *testing.T) {
 	project := scopeProject(t)
-	mustWrite(t, "agnostic-ai.local.yaml", "builtins: [memory, rtk]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: [memory, rtk]\n")
 	rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"audience":"shared","name":"handoff","enabled":true}`, nil)
 	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "agnostic-ai.local.yaml") {
 		t.Fatalf("team edit = %d %s", rec.Code, rec.Body)
@@ -197,7 +197,7 @@ func TestEditBuiltin_TeamScopeRefusesAListTheLocalConfigReplaces(t *testing.T) {
 
 func TestOverviewInputs_ReportTheTeamAndLocalBuiltins(t *testing.T) {
 	scopeProject(t)
-	mustWrite(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
 	in, err := overviewInputs(".")
 	if err != nil {
 		t.Fatal(err)
@@ -243,8 +243,8 @@ func TestBuiltinChanges_JustMeAppliesToTheLocalConfigAndResetDeletesIt(t *testin
 func TestEditValue_TeamScopeWritesASharedSpecThatAlsoGrantsPermissions(t *testing.T) {
 	project := scopeProject(t)
 	shared := ".agnostic-ai/settings/perm.yaml"
-	mustWrite(t, shared, "name: perm\npermissions:\n  allow: [Read]\nx-claude:\n  verbose: false\n")
-	mustWrite(t, ".agnostic-ai/local/settings/perm.yaml", "name: perm\nx-claude:\n  alwaysThinkingEnabled: true\n")
+	writeFile(t, shared, "name: perm\npermissions:\n  allow: [Read]\nx-claude:\n  verbose: false\n")
+	writeFile(t, ".agnostic-ai/local/settings/perm.yaml", "name: perm\nx-claude:\n  alwaysThinkingEnabled: true\n")
 	rec := postEdit(t, newEditHandler(project, false), editValuePath, `{"audience":"shared","path":"`+shared+`","key":"x-claude.verbose","value":true}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("team toggle = %d %s", rec.Code, rec.Body)

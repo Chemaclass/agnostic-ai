@@ -32,8 +32,8 @@ func TestSync_FailedIgnoreWriteRestoresGitignoreOfSweptOrphan(t *testing.T) {
 			testutil.TempCwd(t)
 			silence(t)
 			captureLogOut(t)
-			mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
-			mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Gone.\n---\nOld.\n")
+			writeFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+			writeFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Gone.\n---\nOld.\n")
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
@@ -64,7 +64,7 @@ func TestSync_FailedIgnoreWriteKeepsOnlyRuntimeIgnores(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+	writeFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
 
 	ignoreRollbackFail(t, []string{"sync"})
 
@@ -86,7 +86,7 @@ func TestSyncJSON_FailedWorktreeIncludeKeepsTheGitignoreItCreated(t *testing.T) 
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+	writeFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
 
 	ignoreRollbackFail(t, []string{"sync", "--json"})
 
@@ -105,15 +105,15 @@ func TestSyncJSON_FailedWorktreeIncludeKeepsNewAndRestoredPathsIgnored(t *testin
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
-	mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Gone.\n---\nOld.\n")
+	writeFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+	writeFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Gone.\n---\nOld.\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	if err := os.RemoveAll(".agnostic-ai/skills"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, ".agnostic-ai/agents/helper.md", "---\nname: helper\ndescription: Helps.\n---\nHelp.\n")
+	writeFile(t, ".agnostic-ai/agents/helper.md", "---\nname: helper\ndescription: Helps.\n---\nHelp.\n")
 
 	ignoreRollbackFail(t, []string{"sync", "--json"})
 
@@ -150,7 +150,7 @@ func TestIgnoreFileErrorsNameTheFileOnce(t *testing.T) {
 			testutil.TempCwd(t)
 			silence(t)
 			captureLogOut(t)
-			mustWriteFile(t, "agnostic-ai.yaml", c.config)
+			writeFile(t, "agnostic-ai.yaml", c.config)
 			if c.dir != "" {
 				if err := os.Mkdir(c.dir, 0o755); err != nil {
 					t.Fatal(err)

@@ -35,8 +35,8 @@ func partialSyncProject(t *testing.T, configYAML, rule string) map[string]string
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), configYAML)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), rule)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), configYAML)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), rule)
 	partialSyncRun(t, "--all")
 	return partialSyncBlockFiles(t)
 }
@@ -129,8 +129,8 @@ func TestSync_FirstRunOfSomeTargetsWritesTheFullBlock(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	captureLogOut(t)
-	mustWriteFile(t, "agnostic-ai.yaml", partialSyncConfig)
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "rules", "style.md"), partialSyncStyleRule)
+	writeFile(t, "agnostic-ai.yaml", partialSyncConfig)
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "style.md"), partialSyncStyleRule)
 	args := []string{"--only", "codex"}
 	partialSyncRun(t, args...)
 	partial := partialSyncBlockFiles(t)
@@ -174,13 +174,13 @@ func TestSync_PartialRunWithoutLedgerKeepsOtherTargetsIgnored(t *testing.T) {
 func TestSync_PartialRunKeepsEntriesOfPulledSpecs(t *testing.T) {
 	partialSyncProject(t, partialSyncConfig, partialSyncStyleRule)
 	ledger := readFile(t, stateFilePath("."))
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "skills", "new", "SKILL.md"), "---\nname: new\ndescription: New.\n---\nNew skill.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "new", "SKILL.md"), "---\nname: new\ndescription: New.\n---\nNew skill.\n")
 	partialSyncRun(t, "--all")
 	full := partialSyncBlockFiles(t)
 	if !strings.Contains(full[".gitignore"], "/.claude/skills/\n") {
 		t.Fatalf("full sync does not ignore claude's skills:\n%s", full[".gitignore"])
 	}
-	mustWriteFile(t, stateFilePath("."), ledger)
+	writeFile(t, stateFilePath("."), ledger)
 
 	args := []string{"--only", "codex"}
 	partialSyncRun(t, args...)

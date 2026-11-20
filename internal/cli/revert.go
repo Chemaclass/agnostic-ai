@@ -52,7 +52,7 @@ func newRevertCmd() *cobra.Command {
   agnostic-ai revert --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(only) > 0 && len(except) > 0 {
-				return fmt.Errorf("--only and --except are mutually exclusive")
+				return errors.New("--only and --except are mutually exclusive")
 			}
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err

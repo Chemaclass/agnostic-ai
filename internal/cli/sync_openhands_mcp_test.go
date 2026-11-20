@@ -15,9 +15,9 @@ import (
 // and prints one note pointing at the OpenHands settings (#1259, #2576).
 func TestSync_OpenhandsMCPWritesNoConfigTOML(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\n")
-	mustWriteFile(t, filepath.Join(dir, "config.toml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\n")
+	writeFile(t, filepath.Join(dir, "config.toml"),
 		header.With("[mcp]\n\n[[mcp.stdio_servers]]\nname = \"fs\"\ncommand = \"npx\"\n", header.FormatTOML))
 	if err := writeStateFile(dir, 1, "", "", syncLedger{outputs: []string{"config.toml"}}); err != nil {
 		t.Fatal(err)

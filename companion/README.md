@@ -211,8 +211,10 @@ change made in one shows in the other.
   the ⋯ menu was opened or another setting changed.
 - **Open from anywhere** shows the shortcut. In the ⋯ menu, click it, then
   press the new keys: at least one of Ctrl, Alt or Cmd (the Windows or Super
-  key elsewhere), and a letter, digit, Space, an arrow or a function key. In
-  the right-click menu it shows the keys; choosing it opens the list on its ⋯
+  key elsewhere), and a letter, digit, Space, Enter, Tab, Backspace, Delete,
+  Home, End, an arrow or a function key. Keys every app uses to copy, paste,
+  undo, quit, close, stop a terminal command or switch apps and tabs, such as
+  Cmd+C, Cmd+Q, Ctrl+C or Ctrl+Tab, are refused. In the right-click menu it shows the keys; choosing it opens the list on its ⋯
   menu, ready to change them. A shortcut takes its keys away from every other
   app, so pick one nothing else uses. Keys another app already holds are
   refused and the old shortcut stays. macOS, Windows and X11 ask for no
@@ -395,5 +397,4 @@ make companion-test   # Go vet, Go tests and the page logic tests
 make companion-e2e    # the list's search, open, rename, mark as read and failure flows, its ⋯ menu, the quit question, and the hidden and dimmed circle, in headless Chromium
 ```
 
-CI runs the page tests and the browser tests. It does not run the Go tests yet,
-so run `make companion-test` before you push a change to Go code here.
+CI runs Go vet, the Go tests, the page tests and the browser tests.

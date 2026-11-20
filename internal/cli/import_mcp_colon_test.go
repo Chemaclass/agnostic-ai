@@ -38,9 +38,9 @@ func colonMCPClaudeProject(t *testing.T) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".claude", "rules", "style.md"), "Keep it short.\n")
-	mustWrite(t, filepath.Join(dir, claudeMCPFile), `{"mcpServers": {"ns:tool": {"command": "npx"}}}`)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".claude", "rules", "style.md"), "Keep it short.\n")
+	writeFile(t, filepath.Join(dir, claudeMCPFile), `{"mcpServers": {"ns:tool": {"command": "npx"}}}`)
 	return dir
 }
 
@@ -69,7 +69,7 @@ func TestImport_ClaudeRefusesAColonMCPFileNameWhereItNamesAStream(t *testing.T) 
 
 func TestImport_TwoSourcesRollBackOnAColonMCPFileName(t *testing.T) {
 	dir := colonMCPClaudeProject(t)
-	mustWrite(t, filepath.Join(dir, ".codex", "config.toml"), "[mcp_servers.plain]\ncommand = \"x\"\n")
+	writeFile(t, filepath.Join(dir, ".codex", "config.toml"), "[mcp_servers.plain]\ncommand = \"x\"\n")
 	fakeWindowsDataStreams(t)
 	out, err := runCLI(t, "import", "claude", "codex")
 	if !errors.Is(err, errImportDataStream) || !strings.Contains(err.Error(), "import failed for: claude") {
@@ -114,8 +114,8 @@ func TestImport_ContinueRefusesAColonMCPFileNameWhereItNamesAStream(t *testing.T
 			}
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-			mustWrite(t, filepath.Join(dir, continueMCPServersDir, tt.file), tt.body)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+			writeFile(t, filepath.Join(dir, continueMCPServersDir, tt.file), tt.body)
 			fakeWindowsDataStreams(t)
 			out, err := runCLI(t, "import", "continue")
 			got := mcpSpecFiles(t, dir)
@@ -154,7 +154,7 @@ func TestImportWriteFile_RefusesAColonNameWhereItNamesAStream(t *testing.T) {
 func TestImportGlobal_SkipsAColonMCPNameWhereItNamesAStream(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	config := filepath.Join(home, ".cursor", "mcp.json")
-	mustWriteGlobalTest(t, config, `{"mcpServers": {"ns:tool": {"command": "x"}, "plain": {"command": "x"}}}`+"\n")
+	writeFile(t, config, `{"mcpServers": {"ns:tool": {"command": "x"}, "plain": {"command": "x"}}}`+"\n")
 	fakeWindowsDataStreams(t)
 	_, warnings, err := runImportGlobalTest("cursor")
 	if err != nil {

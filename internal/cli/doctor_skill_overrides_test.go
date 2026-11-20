@@ -18,9 +18,9 @@ import (
 
 func writeSkillOverrideProject(t *testing.T, config string, skills ...string) {
 	t.Helper()
-	mustWrite(t, "agnostic-ai.yaml", config)
+	writeFile(t, "agnostic-ai.yaml", config)
 	for _, name := range skills {
-		mustWrite(t, filepath.Join(".agnostic-ai", "skills", name, "SKILL.md"), "---\nname: "+name+"\ndescription: Does "+name+".\n---\n\nBody.\n")
+		writeFile(t, filepath.Join(".agnostic-ai", "skills", name, "SKILL.md"), "---\nname: "+name+"\ndescription: Does "+name+".\n---\n\nBody.\n")
 	}
 }
 
@@ -85,7 +85,7 @@ func TestDoctor_ReportsClaudeSkillOverrides(t *testing.T) {
 				if path == "" {
 					path = ".claude/settings.local.json"
 				}
-				mustWrite(t, filepath.FromSlash(path), c.settings)
+				writeFile(t, filepath.FromSlash(path), c.settings)
 			}
 			out, _ := runDoctor(t, c.args...)
 			if c.absent {
@@ -120,7 +120,7 @@ func TestDoctor_SkillOverridesListAtMostTenNames(t *testing.T) {
 	for i, name := range names {
 		entries[i] = `"` + name + `":"off"`
 	}
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), "{\"skillOverrides\":{"+strings.Join(entries, ",")+"}}")
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), "{\"skillOverrides\":{"+strings.Join(entries, ",")+"}}")
 	out, _ := runDoctor(t)
 	if want := "turns off 12 of 12 synced skills (off), so Claude Code refuses to run them: s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, and 2 more"; !strings.Contains(out, want) {
 		t.Errorf("missing %q:\n%s", want, out)
@@ -133,7 +133,7 @@ func TestDoctor_SkillOverridesLeavesSettingsUnchanged(t *testing.T) {
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
 	path := filepath.Join(".claude", "settings.local.json")
 	const body = "{\n  \"model\": \"opus\",\n  \"skillOverrides\": {\"a\": \"off\"}\n}\n"
-	mustWrite(t, path, body)
+	writeFile(t, path, body)
 	if _, err := runDoctor(t); err != nil && !strings.Contains(err.Error(), "drift") {
 		t.Fatalf("doctor: %v", err)
 	}
@@ -161,7 +161,7 @@ func collectTestSkillOverrides(t *testing.T, settings string, skills ...string) 
 	testutil.TempCwd(t)
 	silence(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", skills...)
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), settings)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), settings)
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +257,7 @@ func TestResetClaudeSkillOverrides_RefusesFileChangedAfterRead(t *testing.T) {
 	report := collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
 	const edited = `{"skillOverrides":{"a":"off","b":"off"}}`
 	removed, err := resetClaudeSkillOverrides(report, false, func(string) (bool, error) {
-		mustWrite(t, filepath.Join(".claude", "settings.local.json"), edited)
+		writeFile(t, filepath.Join(".claude", "settings.local.json"), edited)
 		return true, nil
 	})
 	if !errors.Is(err, errSkillOverridesChanged) || removed != 0 {
@@ -283,9 +283,9 @@ func TestResetClaudeSkillOverrides_RemovesDuplicateKeys(t *testing.T) {
 func TestCollectClaudeSkillOverrides_MatchesTheNameClaudeSees(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Reviews.\nx-claude:\n  name: claude-review\n---\n\nBody.\n")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"claude-review":"off","review":"off"}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Reviews.\nx-claude:\n  name: claude-review\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"claude-review":"off","review":"off"}}`)
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -318,7 +318,7 @@ func TestResetClaudeSkillOverrides_RefusesSymlinkedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, target, `{"skillOverrides":{"a":"off"}}`)
+	writeFile(t, target, `{"skillOverrides":{"a":"off"}}`)
 	path := filepath.Join(".claude", "settings.local.json")
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
@@ -417,7 +417,7 @@ func TestCollectClaudeSkillOverrides_SkipsUnmanagedSkills(t *testing.T) {
 			if strings.Contains(c.config, "tools/claude") {
 				dir = filepath.Join("tools", "claude")
 			}
-			mustWrite(t, filepath.Join(dir, "settings.local.json"), `{"skillOverrides":{"a":"off","b":"off"}}`)
+			writeFile(t, filepath.Join(dir, "settings.local.json"), `{"skillOverrides":{"a":"off","b":"off"}}`)
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
 				t.Fatal(err)
@@ -435,7 +435,7 @@ func TestApplySkillOverrideReset_LeavesUnmanagedSettingsFile(t *testing.T) {
 	silence(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [.claude/settings.local.json]\n", "a")
 	const settings = `{"skillOverrides":{"a":"off"}}`
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), settings)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), settings)
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -460,7 +460,7 @@ func TestDoctor_SkillOverridesNamesFileFixCannotEdit(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"},"skillOverrides":{"b":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"},"skillOverrides":{"b":"off"}}`)
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -633,7 +633,7 @@ func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
 				if path == user {
 					path = filepath.Join(userDir, "settings.json")
 				}
-				mustWrite(t, filepath.FromSlash(path), body)
+				writeFile(t, filepath.FromSlash(path), body)
 			}
 			out, _ := runDoctor(t, c.args...)
 			out = skillOverridesSection(out)
@@ -664,8 +664,8 @@ func TestDoctor_SkillOverridesReadsClaudeConfigDir(t *testing.T) {
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
 	configDir := t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", configDir)
-	mustWrite(t, filepath.Join(configDir, "settings.json"), `{"skillOverrides":{"a":"off"}}`)
-	mustWrite(t, filepath.Join(skillOverrideHome(t), ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
+	writeFile(t, filepath.Join(configDir, "settings.json"), `{"skillOverrides":{"a":"off"}}`)
+	writeFile(t, filepath.Join(skillOverrideHome(t), ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
 	out, _ := runDoctor(t)
 	if want := filepath.ToSlash(filepath.Join(configDir, "settings.json")) + " turns off 1 of 1 synced skills (off)"; !strings.Contains(out, want) {
 		t.Errorf("missing %q:\n%s", want, out)
@@ -693,11 +693,11 @@ func skillOverrideGitRepo(t *testing.T) string {
 func TestDoctor_SkillOverridesReadsGitRootLocalFileForNestedProject(t *testing.T) {
 	t.Run("git root", func(t *testing.T) {
 		root := skillOverrideGitRepo(t)
-		mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","c":"on"}}`)
+		writeFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","c":"on"}}`)
 		testutil.Chdir(t, mustMkdir(t, filepath.Join(root, "sub")))
 		silence(t)
 		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b", "c")
-		mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"b":"off","c":"off"}}`)
+		writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"b":"off","c":"off"}}`)
 		out, _ := runDoctor(t)
 		out = skillOverridesSection(out)
 		last := -1
@@ -719,7 +719,7 @@ func TestDoctor_SkillOverridesReadsGitRootLocalFileForNestedProject(t *testing.T
 	})
 	t.Run("main checkout", func(t *testing.T) {
 		root := skillOverrideGitRepo(t)
-		mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+		writeFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
 		worktree := filepath.Join(filepath.Dir(root), filepath.Base(root)+"-wt")
 		git(t, root, "worktree", "add", "-q", worktree)
 		testutil.Chdir(t, worktree)
@@ -735,7 +735,7 @@ func TestDoctor_SkillOverridesReadsGitRootLocalFileForNestedProject(t *testing.T
 		testutil.Chdir(t, root)
 		silence(t)
 		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
-		mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+		writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
 		out, _ := runDoctor(t)
 		if n := strings.Count(out, "turns off 1 of 1 synced skills"); n != 1 || strings.Contains(out, "(git root)") || !strings.Contains(out, "doctor --fix` in a terminal") {
 			t.Errorf("want one local line, got %d:\n%s", n, out)
@@ -747,7 +747,7 @@ func TestDoctor_SkillOverridesSkipsGitRootFileWhenRootIsHome(t *testing.T) {
 	root := skillOverrideGitRepo(t)
 	t.Setenv("HOME", root)
 	t.Setenv("USERPROFILE", root)
-	mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+	writeFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
 	testutil.Chdir(t, mustMkdir(t, filepath.Join(root, "sub")))
 	silence(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
@@ -823,10 +823,10 @@ func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
 	if got := doctorSkillOverridesJSON(t); len(got) != 0 {
 		t.Errorf("want [], got %+v", got)
 	}
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"on"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"a":"off","b":"","mine":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"on"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"a":"off","b":"","mine":"off"}}`)
 	userFile := filepath.Join(home, ".claude", "settings.json")
-	mustWrite(t, userFile, `{"skillOverrides":`)
+	writeFile(t, userFile, `{"skillOverrides":`)
 	entry := func(path, scope, skill, value string, synced, effective bool) map[string]any {
 		return map[string]any{"path": path, "scope": scope, "skill": skill, "value": value, "synced": synced, "effective": effective}
 	}
@@ -861,9 +861,9 @@ func TestDoctor_FixEditsOnlyTheLocalFile(t *testing.T) {
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
 	const others = `{"skillOverrides":{"a":"off"}}`
 	userFile := filepath.Join(skillOverrideHome(t), ".claude", "settings.json")
-	mustWrite(t, filepath.Join(".claude", "settings.json"), others)
-	mustWrite(t, userFile, others)
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"b":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.json"), others)
+	writeFile(t, userFile, others)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"b":"off"}}`)
 	var out bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&out)
@@ -904,7 +904,7 @@ func TestDoctor_SkillOverridesNamesUnreadableFileOnce(t *testing.T) {
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
 	path := filepath.Join(home, ".claude", "settings.json")
-	mustWrite(t, path, `{"skillOverrides":{"a":"off"}}`)
+	writeFile(t, path, `{"skillOverrides":{"a":"off"}}`)
 	if err := os.Chmod(path, 0o000); err != nil {
 		t.Fatal(err)
 	}
@@ -945,7 +945,7 @@ func TestDoctor_SkillOverridesReportsConflictingKeysInOneFile(t *testing.T) {
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"A":"on","a":"off","b":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"A":"on","a":"off","b":"off"}}`)
 	out, _ := runDoctor(t)
 	for _, want := range []string{
 		"! .claude/settings.local.json names a under more than one key with different values (A: on, a: off); Claude Code may apply either",
@@ -987,8 +987,8 @@ func TestDoctor_SkillOverridesCautionsFileWithRejectedValue(t *testing.T) {
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","mine":"Off"}}`)
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","mine":"Off"}}`)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
 	out, _ := runDoctor(t)
 	for _, want := range []string{
 		"! .claude/settings.local.json turns off 1 of 1 synced skills (off)",
@@ -1010,8 +1010,8 @@ func TestDoctor_SkillOverridesConflictingKeysStillOverruleLowerFiles(t *testing.
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
 	out, _ := runDoctor(t)
 	if !strings.Contains(out, "names deploy under more than one key with different values (Deploy: on, deploy: name-only)") {
 		t.Errorf("missing conflict:\n%s", out)
@@ -1029,8 +1029,8 @@ func resetWithLowerFile(t *testing.T, local, user string) (asked []string, out s
 	silence(t)
 	home := skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), local)
-	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), user)
+	writeFile(t, filepath.Join(".claude", "settings.local.json"), local)
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), user)
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)

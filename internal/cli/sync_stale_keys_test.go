@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -30,19 +31,19 @@ func TestSync_KeySyncStopsSettingLeavesStillWrittenFile(t *testing.T) {
 	for _, tc := range staleKeyFiles {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
 			mine := map[string]any{"command": "my-server"}
 			seed, _ := json.Marshal(map[string]any{"userKey": "kept", tc.mcpKey: map[string]any{"mine": mine}})
-			mustWriteFile(t, tc.file, string(seed)+"\n")
-			mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
-			mustWriteFile(t, ".agnostic-ai/settings/keep.yaml", "x-"+tc.target+":\n  keepAlive: true\n  stale: true\n")
+			writeFile(t, tc.file, string(seed)+"\n")
+			writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
+			writeFile(t, ".agnostic-ai/settings/keep.yaml", "x-"+tc.target+":\n  keepAlive: true\n  stale: true\n")
 			runSyncOK(t)
 			if readJSONMap(t, tc.file)["stale"] != true {
 				t.Fatalf("x-%s key not written: %#v", tc.target, readJSONMap(t, tc.file))
 			}
 
 			removeSpecs(t, ".agnostic-ai/mcps/gh.yaml")
-			mustWriteFile(t, ".agnostic-ai/settings/keep.yaml", "x-"+tc.target+":\n  keepAlive: true\n")
+			writeFile(t, ".agnostic-ai/settings/keep.yaml", "x-"+tc.target+":\n  keepAlive: true\n")
 			runSyncOK(t)
 			got := readJSONMap(t, tc.file)
 			want := map[string]any{"userKey": "kept", "keepAlive": true, tc.mcpKey: map[string]any{"mine": mine}}
@@ -62,9 +63,9 @@ func TestSync_KeySyncStopsSettingLeavesStillWrittenFile(t *testing.T) {
 func TestSync_StaleKeyTheUserEditedStays(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
 	doc := readJSONMap(t, settings)
 	doc["model"] = map[string]any{"name": "my-model"}
@@ -83,14 +84,14 @@ func TestSync_StaleKeyTheUserEditedStays(t *testing.T) {
 func TestSync_ClaudeDropsStaleKeysAndReleasesDeletedHooks(t *testing.T) {
 	const settings = ".claude/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
-	mustWriteFile(t, settings, "{\"userKey\": \"kept\"}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, settings, "{\"userKey\": \"kept\"}\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
 	runSyncOK(t)
 	hooks := readJSONMap(t, settings)["hooks"]
 	removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "x-claude:\n  includeCoAuthoredBy: false\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "x-claude:\n  includeCoAuthoredBy: false\n")
 	runSyncOK(t)
 	got := readJSONMap(t, settings)
 	if got["model"] != nil || got["hooks"] != nil {
@@ -100,7 +101,7 @@ func TestSync_ClaudeDropsStaleKeysAndReleasesDeletedHooks(t *testing.T) {
 
 	got["hooks"] = hooks
 	writeJSONFile(t, settings, got)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 	if final := readJSONMap(t, settings); !reflect.DeepEqual(final["hooks"], hooks) || final["userKey"] != "kept" {
 		t.Errorf("hand-restored hook or user key lost: %#v", final)
@@ -122,8 +123,8 @@ func TestSync_ClaudeRetiredEnvParentDropsOnlyUneditedValues(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    settings:\n      env:\n        FOO: first\n        BAR: stale\n")
-			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    settings:\n      env:\n        FOO: first\n        BAR: stale\n")
+			writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 			runSyncOK(t)
 			if tc.legacy {
 				env, err := json.Marshal(readJSONMap(t, settings)["env"])
@@ -147,13 +148,11 @@ func TestSync_ClaudeRetiredEnvParentDropsOnlyUneditedValues(t *testing.T) {
 				if !ok {
 					t.Fatalf("env = %#v, want the generated object", doc["env"])
 				}
-				for key, value := range tc.edit {
-					env[key] = value
-				}
+				maps.Copy(env, tc.edit)
 				writeJSONFile(t, settings, doc)
 			}
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, ".agnostic-ai/settings/env.yaml", "x-claude:\n  env:\n    FOO: current\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".agnostic-ai/settings/env.yaml", "x-claude:\n  env:\n    FOO: current\n")
 			runSyncOK(t)
 			if got := readJSONMap(t, settings)["env"]; !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("env = %#v, want %#v", got, tc.want)

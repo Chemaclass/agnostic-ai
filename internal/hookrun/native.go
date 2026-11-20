@@ -170,8 +170,10 @@ func shownCommand(h Handler, goos string) string {
 	if goos == "windows" && h.CommandWindows != "" {
 		command = h.CommandWindows
 	}
+	var commandSb173 strings.Builder
 	for _, a := range h.Args {
-		command += " " + a
+		commandSb173.WriteString(" " + a)
 	}
+	command += commandSb173.String()
 	return command
 }

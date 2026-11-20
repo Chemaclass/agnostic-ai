@@ -20,8 +20,8 @@ func mcpConversionProject(t *testing.T, targets, path, native string) (string, h
 	silence(t)
 	project := t.TempDir()
 	testutil.Chdir(t, project)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
-	mustWrite(t, path, native)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, path, native)
 	request := mcpEditIdentity("docs", "shared", "project", filepath.ToSlash(path))
 	return project, newEditHandler(project, false), request
 }
@@ -135,7 +135,7 @@ func TestServeEditMCP_ClaudeDisabledProjectServerStaysDisabled(t *testing.T) {
 	const native = `{"mcpServers":{"docs":{"type":"http","url":"https://example.test/mcp"}}}`
 	project, h, request := mcpConversionProject(t, "claude", ".mcp.json", native)
 	const settings = `{"disabledMcpjsonServers":["docs"]}`
-	mustWrite(t, ".claude/settings.json", settings)
+	writeFile(t, ".claude/settings.json", settings)
 	preview := mcpEditPreview(t, h, request)
 	if mcpConversionDoc(t, preview)["disabled"] != true {
 		t.Errorf("disabled project server became enabled: %s", preview.Spec)
@@ -151,9 +151,9 @@ func TestServeEditMCP_ClaudeDisabledProjectServerStaysDisabled(t *testing.T) {
 
 func TestServeEditMCP_ClaudeDisabledChangeInvalidatesPreview(t *testing.T) {
 	_, h, request := mcpConversionProject(t, "claude", ".mcp.json", `{"mcpServers":{"docs":{"type":"http","url":"https://example.test/mcp"}}}`)
-	mustWrite(t, ".claude/settings.json", `{"disabledMcpjsonServers":[]}`)
+	writeFile(t, ".claude/settings.json", `{"disabledMcpjsonServers":[]}`)
 	preview := mcpEditPreview(t, h, request)
-	mustWrite(t, ".claude/settings.json", `{"disabledMcpjsonServers":["docs"]}`)
+	writeFile(t, ".claude/settings.json", `{"disabledMcpjsonServers":["docs"]}`)
 	request["action"], request["expected"] = "apply", preview.Expected
 	rec := mcpEditRequest(t, h, request)
 	if rec.Code != http.StatusConflict {

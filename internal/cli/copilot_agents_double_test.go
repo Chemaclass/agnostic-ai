@@ -33,7 +33,7 @@ func copilotBudgetLine(t *testing.T) string {
 // the workspace settings and VS Code loads the text once (#2247).
 func TestSync_TurnsOffVSCodeAGENTSMdWhenCopilotSharesTheRootFile(t *testing.T) {
 	budgetProject(t, "targets: [copilot, codex]\nlint:\n  instructions-words: 100\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(80)+"\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(80)+"\n")
 
 	notes := syncNotes(t)
 	if got := readFile(t, vscodeSettings); !strings.Contains(got, agentsMdOff) {
@@ -52,8 +52,8 @@ func TestSync_TurnsOffVSCodeAGENTSMdWhenCopilotSharesTheRootFile(t *testing.T) {
 // lint counts both files.
 func TestSync_KeepsTheUsersVSCodeAGENTSMdSetting(t *testing.T) {
 	budgetProject(t, "targets: [copilot, codex]\nlint:\n  instructions-words: 100\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(80)+"\n")
-	mustWriteFile(t, vscodeSettings, "{\n  \"chat.useAgentsMdFile\": true\n}\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(80)+"\n")
+	writeFile(t, vscodeSettings, "{\n  \"chat.useAgentsMdFile\": true\n}\n")
 
 	notes := syncNotes(t)
 	if got := readFile(t, vscodeSettings); !strings.Contains(got, `"chat.useAgentsMdFile": true`) {
@@ -75,7 +75,7 @@ func TestSync_LeavesVSCodeSettingsAloneWithoutARootAGENTSMd(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			budgetProject(t, config)
-			mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(20)+"\n")
+			writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(20)+"\n")
 
 			notes := syncNotes(t)
 			if _, err := os.Stat(vscodeSettings); err == nil {
@@ -91,11 +91,11 @@ func TestSync_LeavesVSCodeSettingsAloneWithoutARootAGENTSMd(t *testing.T) {
 // Dropping the AGENTS.md target releases the key sync set.
 func TestSync_RemovingTheAGENTSMdTargetReleasesTheVSCodeSetting(t *testing.T) {
 	budgetProject(t, "targets: [copilot, codex]\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(20)+"\n")
-	mustWriteFile(t, vscodeSettings, "{\n  \"editor.tabSize\": 2\n}\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(20)+"\n")
+	writeFile(t, vscodeSettings, "{\n  \"editor.tabSize\": 2\n}\n")
 	runSyncOK(t)
 
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
 	runSyncOK(t)
 	got := readFile(t, vscodeSettings)
 	if strings.Contains(got, "chat.useAgentsMdFile") || !strings.Contains(got, "editor.tabSize") {
@@ -107,7 +107,7 @@ func TestSync_RemovingTheAGENTSMdTargetReleasesTheVSCodeSetting(t *testing.T) {
 // AGENTS.md, so the setting goes in too.
 func TestSync_TurnsOffVSCodeAGENTSMdWithALegacyRulesFile(t *testing.T) {
 	budgetProject(t, "targets: [copilot, codex]\noutputs:\n  copilot:\n    rules-file: .github/copilot-instructions.md\n")
-	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(20)+"\n")
+	writeFile(t, ".agnostic-ai/AGNOSTIC_AI.md", words(20)+"\n")
 
 	runSyncOK(t)
 	if got := readFile(t, vscodeSettings); !strings.Contains(got, agentsMdOff) {

@@ -87,7 +87,12 @@ func parameterRule(spec string, input map[string]any) (name, value string, ok bo
 	return "", "", false
 }
 
-func globMatch(pattern, value string) bool {
+func globMatch(pattern, value string) bool { return matchGlob(pattern, value, "") }
+
+// bashGlobMatch lets `*` cross the newlines a quoted argument can hold.
+func bashGlobMatch(pattern, value string) bool { return matchGlob(pattern, value, "(?s)") }
+
+func matchGlob(pattern, value, flags string) bool {
 	if !strings.Contains(pattern, "*") {
 		return pattern == value
 	}
@@ -95,7 +100,7 @@ func globMatch(pattern, value string) bool {
 	for i, p := range parts {
 		parts[i] = regexp.QuoteMeta(p)
 	}
-	return regexp.MustCompile("^" + strings.Join(parts, ".*") + "$").MatchString(value)
+	return regexp.MustCompile(flags + "^" + strings.Join(parts, ".*") + "$").MatchString(value)
 }
 
 // bashRuleRuns follows the Bash rows of the hooks reference: leading
@@ -116,15 +121,58 @@ func bashRuleRuns(pattern, command string) bool {
 		return true
 	}
 	for _, sub := range subcommands {
-		if bashPatternMatches(pattern, stripBashPrefix(sub)) {
+		command := stripBashPrefix(sub)
+		if commandUnknown(command) {
+			return true
+		}
+		if bashPatternMatches(pattern, command) {
 			return true
 		}
 	}
 	return false
 }
 
+// dequoteCommandName removes the quotes and backslashes in the first
+// word, as bash does before it looks the command up: `\git` and `"g"it`
+// run git.
+func dequoteCommandName(command string) string {
+	end := strings.IndexFunc(command, unicode.IsSpace)
+	if end < 0 {
+		end = len(command)
+	}
+	word := []rune(command[:end])
+	if !strings.ContainsAny(string(word), `\'"`) {
+		return command
+	}
+	var b strings.Builder
+	for i := 0; i < len(word); i++ {
+		switch {
+		case word[i] == '\\' && i+1 < len(word):
+			i++
+			b.WriteRune(word[i])
+		case word[i] == '\'' || word[i] == '"':
+		default:
+			b.WriteRune(word[i])
+		}
+	}
+	return b.String() + command[end:]
+}
+
+var assignmentWord = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*\+?=`)
+
+// commandUnknown reports whether the program command runs cannot be read
+// from its text: eval runs its arguments as a new command line, and a
+// substitution or variable in the name decides it at run time.
+func commandUnknown(command string) bool {
+	fields := strings.Fields(command)
+	if len(fields) == 0 || assignmentWord.MatchString(fields[0]) {
+		return false
+	}
+	return fields[0] == "eval" || strings.ContainsAny(fields[0], substitutionOutput+"$")
+}
+
 func bashPatternMatches(pattern, command string) bool {
-	if globMatch(pattern, command) {
+	if bashGlobMatch(pattern, command) {
 		return true
 	}
 	// "A `*` at the end, with a space before it, also matches the bare
@@ -138,13 +186,22 @@ var bashWrappers = []string{"time", "nice", "nohup", "builtin", "noglob", "comma
 
 var leadingAssignment = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"[^"]*"|\S*)\s+`)
 
+// leadingRedirection is a redirection and its word before the command
+// name, such as `2>&1` or `<<<word`.
+var leadingRedirection = regexp.MustCompile(`(?s)^[0-9]*(?:<<<|<<-?|&>>|&>|>>|>&|<&|<>|>\||<|>)\s*(?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s'"\\;&|<>()])+`)
+
 func stripBashPrefix(command string) string {
 	for {
 		command = strings.TrimSpace(command)
+		if loc := leadingRedirection.FindStringIndex(command); loc != nil {
+			command = command[loc[1]:]
+			continue
+		}
 		if loc := leadingAssignment.FindStringIndex(command); loc != nil {
 			command = command[loc[1]:]
 			continue
 		}
+		command = dequoteCommandName(command)
 		fields := strings.Fields(command)
 		switch {
 		case len(fields) > 1 && fields[0] == "command" && fields[1] == "-v":
@@ -164,7 +221,26 @@ func stripBashPrefix(command string) string {
 // splitBash returns the subcommands of command, with the commands inside
 // `$()` and backticks as subcommands of their own. ok is false when the
 // command does not parse: an open quote, substitution, or operator.
-func splitBash(command string) (subs []string, ok bool) {
+//
+// It reads command twice and keeps the subcommands of both readings:
+// once with comments and here-documents as plain shell text, and once
+// the way bash reads them, where they are not commands but the
+// substitutions in an unquoted here-document body are. A misread
+// comment or here-document can then only add a subcommand, never hide
+// one.
+func splitBash(command string) ([]string, bool) {
+	plain, ok := splitBashAs(command, false)
+	if !ok {
+		return nil, false
+	}
+	aware, ok := splitBashAs(command, true)
+	if !ok {
+		return nil, false
+	}
+	return append(plain, aware...), true
+}
+
+func splitBashAs(command string, aware bool) (subs []string, ok bool) {
 	var cur strings.Builder
 	flush := func() {
 		if s := strings.TrimSpace(cur.String()); s != "" {
@@ -174,9 +250,14 @@ func splitBash(command string) (subs []string, ok bool) {
 	}
 	runes := []rune(command)
 	var quote rune
+	var heredocs []heredoc
 	pendingOperator := false
+	wordStart := true
+	var prev rune
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
+		atWordStart, afterRedirect := wordStart, prev == '>' || prev == '<'
+		wordStart, prev = false, 0
 		switch {
 		case quote == '\'':
 			cur.WriteRune(r)
@@ -184,10 +265,32 @@ func splitBash(command string) (subs []string, ok bool) {
 				quote = 0
 			}
 			continue
+		case r == '\\' && i+1 < len(runes) && runes[i+1] == '\n':
+			i++
+			wordStart = atWordStart
+			continue
 		case r == '\\' && i+1 < len(runes):
 			cur.WriteRune(r)
 			cur.WriteRune(runes[i+1])
 			i++
+			continue
+		case aware && r == '#' && quote == 0 && atWordStart:
+			for i+1 < len(runes) && runes[i+1] != '\n' {
+				i++
+			}
+			continue
+		case r == '<' && quote == 0 && hasPrefixAt(runes, i, "<<<"):
+			cur.WriteString("<<<")
+			i += 2
+			continue
+		case aware && r == '<' && quote == 0 && hasPrefixAt(runes, i, "<<"):
+			doc, end, docOK := readHeredoc(runes, i+2)
+			if !docOK {
+				return nil, false
+			}
+			heredocs = append(heredocs, doc)
+			cur.WriteString(string(runes[i:end]))
+			i = end - 1
 			continue
 		case r == '\'' && quote == 0:
 			quote = r
@@ -206,21 +309,12 @@ func splitBash(command string) (subs []string, ok bool) {
 			if end < 0 {
 				return nil, false
 			}
-			inner, innerOK := splitBash(unescapeBackticks(runes[i+1:end], false))
+			inner, innerOK := splitBacktick(runes[i+1:end], quote == '"', aware)
 			if !innerOK {
 				return nil, false
 			}
 			subs = append(subs, inner...)
-			// A " splitBash reads as opening double quotes may sit in a
-			// here-doc body or a comment, so both readings are checked.
-			if quote == '"' {
-				quoted, quotedOK := splitBash(unescapeBackticks(runes[i+1:end], true))
-				if !quotedOK {
-					return nil, false
-				}
-				subs = append(subs, quoted...)
-			}
-			cur.WriteString("_")
+			writeSubstitution(&cur, runes[i+1:end])
 			i = end
 			continue
 		case r == '$' && i+1 < len(runes) && runes[i+1] == '(':
@@ -228,19 +322,32 @@ func splitBash(command string) (subs []string, ok bool) {
 			if end < 0 {
 				return nil, false
 			}
-			inner, innerOK := splitBash(string(runes[i+2 : end]))
+			inner, innerOK := splitBashAs(string(runes[i+2:end]), aware)
 			if !innerOK {
 				return nil, false
 			}
 			subs = append(subs, inner...)
-			cur.WriteString("_")
+			writeSubstitution(&cur, runes[i+2:end])
 			i = end
 			continue
 		case quote == '"':
 			cur.WriteRune(r)
 			continue
+		case r == '\n' && len(heredocs) > 0:
+			flush()
+			wordStart, pendingOperator = true, false
+			bodies, next, bodyOK := readHeredocBodies(runes, i+1, heredocs)
+			if !bodyOK {
+				return nil, false
+			}
+			subs = append(subs, bodies...)
+			heredocs = nil
+			i = next - 1
+			continue
+		case isRedirectionPart(runes, i, afterRedirect):
 		case r == '&' || r == '|' || r == ';' || r == '\n':
 			flush()
+			wordStart = true
 			pendingOperator = r == '&' && i+1 < len(runes) && runes[i+1] == '&' ||
 				r == '|' && i+1 < len(runes) && runes[i+1] == '|'
 			if i+1 < len(runes) && (runes[i+1] == '&' || runes[i+1] == '|') {
@@ -248,15 +355,181 @@ func splitBash(command string) (subs []string, ok bool) {
 			}
 			continue
 		}
+		if strings.ContainsRune(" \t()", r) {
+			wordStart = true
+		}
 		if !unicode.IsSpace(r) {
 			pendingOperator = false
 		}
+		prev = r
 		cur.WriteRune(r)
 	}
 	if quote != 0 || pendingOperator {
 		return nil, false
 	}
 	flush()
+	return subs, true
+}
+
+// splitBacktick splits the text of a backtick substitution. A " that
+// splitBash reads as opening double quotes may sit in a here-document
+// body or a comment, so both readings are checked.
+func splitBacktick(text []rune, inDoubleQuotes, aware bool) ([]string, bool) {
+	subs, ok := splitBashAs(unescapeBackticks(text, false), aware)
+	if !ok || !inDoubleQuotes {
+		return subs, ok
+	}
+	quoted, ok := splitBashAs(unescapeBackticks(text, true), aware)
+	return append(subs, quoted...), ok
+}
+
+// substitutionOutput stands in for what a substitution prints. It is a
+// character no command name holds, so a computed name can be told apart.
+const substitutionOutput = "\uFFFC"
+
+// writeSubstitution stands in for a substitution's output. An empty one
+// expands to nothing, so the word after it can still be the command.
+func writeSubstitution(cur *strings.Builder, text []rune) {
+	if strings.TrimSpace(string(text)) != "" {
+		cur.WriteString(substitutionOutput)
+	}
+}
+
+// isRedirectionPart reports whether the & or | at i belongs to a
+// redirection, such as `2>&1`, `&>file`, or `>|file`, not an operator.
+// afterRedirect is whether an unescaped < or > comes right before it.
+func isRedirectionPart(runes []rune, i int, afterRedirect bool) bool {
+	switch runes[i] {
+	case '&':
+		return afterRedirect || i+1 < len(runes) && runes[i+1] == '>'
+	case '|':
+		return afterRedirect && runes[i-1] == '>'
+	}
+	return false
+}
+
+func hasPrefixAt(runes []rune, i int, prefix string) bool {
+	return strings.HasPrefix(string(runes[i:min(len(runes), i+len(prefix))]), prefix)
+}
+
+// heredoc is a pending `<<` redirection: its body starts on the next
+// line. A quoted delimiter turns off substitutions in the body.
+type heredoc struct {
+	delimiter         string
+	stripTabs, expand bool
+}
+
+// readHeredoc reads the delimiter word after `<<` or `<<-` at from, and
+// returns the index after it.
+func readHeredoc(runes []rune, from int) (heredoc, int, bool) {
+	doc := heredoc{expand: true}
+	i := from
+	if i < len(runes) && runes[i] == '-' {
+		doc.stripTabs = true
+		i++
+	}
+	for i < len(runes) && (runes[i] == ' ' || runes[i] == '\t') {
+		i++
+	}
+	var word strings.Builder
+	var quote rune
+word:
+	for ; i < len(runes); i++ {
+		r := runes[i]
+		switch {
+		case quote != 0 && r == quote:
+			quote = 0
+		case quote != 0:
+			word.WriteRune(r)
+		case r == '\'' || r == '"':
+			quote, doc.expand = r, false
+		case r == '\\' && i+1 < len(runes):
+			doc.expand = false
+			i++
+			word.WriteRune(runes[i])
+		case unicode.IsSpace(r) || strings.ContainsRune(";&|<>()", r):
+			break word
+		default:
+			word.WriteRune(r)
+		}
+	}
+	if quote != 0 || word.Len() == 0 {
+		return heredoc{}, 0, false
+	}
+	doc.delimiter = word.String()
+	return doc, i, true
+}
+
+// readHeredocBodies reads the body of each pending here-document from
+// from, one after the other, and returns the commands inside the
+// substitutions of the unquoted ones and the index after the last
+// delimiter line. A body with no delimiter line runs to the end, as
+// bash reads it.
+func readHeredocBodies(runes []rune, from int, docs []heredoc) ([]string, int, bool) {
+	var subs []string
+	i := from
+	for _, doc := range docs {
+		var body []rune
+		for i < len(runes) {
+			end := i
+			for end < len(runes) && runes[end] != '\n' {
+				end++
+			}
+			line := string(runes[i:end])
+			i = min(end+1, len(runes))
+			if doc.stripTabs {
+				line = strings.TrimLeft(line, "\t")
+			}
+			if line == doc.delimiter {
+				break
+			}
+			body = append(body, []rune(line+"\n")...)
+		}
+		if !doc.expand {
+			continue
+		}
+		inner, ok := heredocSubstitutions(body)
+		if !ok {
+			return nil, 0, false
+		}
+		subs = append(subs, inner...)
+	}
+	return subs, i, true
+}
+
+// heredocSubstitutions returns the commands inside the `$()` and
+// backtick substitutions of an unquoted here-document body, where quotes
+// are plain text.
+func heredocSubstitutions(body []rune) ([]string, bool) {
+	var subs []string
+	for i := 0; i < len(body); i++ {
+		switch {
+		case body[i] == '\\':
+			i++
+		case body[i] == '`':
+			end := indexRune(body, i+1, '`')
+			if end < 0 {
+				return nil, false
+			}
+			inner, ok := splitBacktick(body[i+1:end], true, true)
+			if !ok {
+				return nil, false
+			}
+			subs = append(subs, inner...)
+			i = end
+		case body[i] == '$' && i+1 < len(body) && body[i+1] == '(':
+			end := closingParen(body, i+2)
+			if end < 0 {
+				return nil, false
+			}
+			inner, ok := splitBashAs(string(body[i+2:end]), true)
+			if !ok {
+				return nil, false
+			}
+			subs = append(subs, inner...)
+			i = end
+		}
+	}
 	return subs, true
 }
 

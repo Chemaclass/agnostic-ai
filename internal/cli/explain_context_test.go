@@ -11,11 +11,11 @@ import (
 
 func TestExplainContext_RanksDescriptionsAndSeparatesBodies(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Project instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Project instructions.\n")
 	for name, size := range map[string]int{"large": 40, "small": 20} {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"), "---\nname: "+name+"\ndescription: "+words(size)+"\n---\n"+words(300)+"\n")
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"), "---\nname: "+name+"\ndescription: "+words(size)+"\n---\n"+words(300)+"\n")
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "excluded", "SKILL.md"), "---\nname: excluded\ntarget-exclude: claude\ndescription: "+words(200)+"\n---\nHidden body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "excluded", "SKILL.md"), "---\nname: excluded\ntarget-exclude: claude\ndescription: "+words(200)+"\n---\nHidden body.\n")
 	out, err := runCLI(t, "explain", "--context", "--target", "claude", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +63,7 @@ func TestExplainContext_RanksDescriptionsAndSeparatesBodies(t *testing.T) {
 			t.Errorf("text missing %s", row)
 		}
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "large", "SKILL.md"), "---\nname: large\ndescription: "+words(10)+"\n---\n"+words(300)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "large", "SKILL.md"), "---\nname: large\ndescription: "+words(10)+"\n---\n"+words(300)+"\n")
 	out, err = runCLI(t, "explain", "--context", "--target", "claude", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -86,8 +86,8 @@ func TestExplainContext_TracksScopedRulesWithoutIncreasingStartup(t *testing.T) 
 	for _, target := range []string{"cursor", "claude"} {
 		t.Run(target, func(t *testing.T) {
 			dir := budgetProject(t, "targets: ["+target+"]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "scoped.md"), "---\nname: scoped\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "scoped.md"), "---\nname: scoped\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
 				t.Fatal(err)
@@ -109,10 +109,10 @@ func TestExplainContext_TracksScopedRulesWithoutIncreasingStartup(t *testing.T) 
 
 func TestExplainContext_AttributesInlineImportsAndSharedSectionsOnce(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, amp]\nsync:\n  resolve-imports: inline\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n@docs/extra.md\n")
-	mustWriteFile(t, filepath.Join(dir, "docs", "extra.md"), words(30)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "shared.md"), "---\nname: shared\n---\n"+words(20)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "nested.md"), "---\nname: nested\nglobs: [src/api/**]\n---\n"+words(40)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n@docs/extra.md\n")
+	writeFile(t, filepath.Join(dir, "docs", "extra.md"), words(30)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "shared.md"), "---\nname: shared\n---\n"+words(20)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "nested.md"), "---\nname: nested\nglobs: [src/api/**]\n---\n"+words(40)+"\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func TestExplainContext_AttributesInlineImportsAndSharedSectionsOnce(t *testing.
 
 func TestExplainContext_UsesNormalizedRenderedBytes(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "hello"+strings.Repeat("\n", 2000))
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "hello"+strings.Repeat("\n", 2000))
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -226,9 +226,9 @@ func TestExplainContext_UsesNormalizedRenderedBytes(t *testing.T) {
 func TestExplainContext_LeavesAuthoredMarkersWithTheirSource(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex]\n")
 	fake := "<!-- source: fake.md -->\n"
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root notes.\n```md\n"+fake+"```\n"+fake+"Root body.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "real.md"), "---\nname: real\n---\nRule text.\n```md\n"+fake+"```\n"+fake+"Rule body.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "review.md"), "---\nname: review\n---\nReview text.\n"+fake+"Review body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root notes.\n```md\n"+fake+"```\n"+fake+"Root body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "real.md"), "---\nname: real\n---\nRule text.\n```md\n"+fake+"```\n"+fake+"Rule body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "review.md"), "---\nname: review\n---\nReview text.\n"+fake+"Review body.\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -255,11 +255,11 @@ func TestExplainContext_PreservesCompanionLocalProvenance(t *testing.T) {
 	for _, targets := range []string{"claude, codex", "claude"} {
 		t.Run(targets, func(t *testing.T) {
 			dir := budgetProject(t, "targets: ["+targets+"]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Shared instructions.\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), "Shared personal guidance.\n::target claude\nPersonal exclusive instructions.\n::end\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Shared instructions.\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), "Shared personal guidance.\n::target claude\nPersonal exclusive instructions.\n::end\n")
 			if targets == "claude" {
-				mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
-				mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "Existing.\n")
+				writeFile(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
+				writeFile(t, filepath.Join(dir, "AGENTS.md"), "Existing.\n")
 			}
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
@@ -285,8 +285,8 @@ func TestExplainContext_PreservesCompanionLocalProvenance(t *testing.T) {
 func cursorAgentsProject(t *testing.T) string {
 	t.Helper()
 	dir := budgetProject(t, "targets: [claude, codex, cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "s1", "SKILL.md"), "---\nname: s1\ndescription: Use when handling case one.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root text. "+words(400)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "s1", "SKILL.md"), "---\nname: s1\ndescription: Use when handling case one.\n---\n\nBody.\n")
 	return dir
 }
 
@@ -322,7 +322,7 @@ func TestExplainContext_CursorCountsRootAgentsMdAnotherToolWrites(t *testing.T) 
 
 func TestExplainContext_CursorWithAlwaysOnRuleMatchesWhatSyncWrites(t *testing.T) {
 	dir := cursorAgentsProject(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\nalwaysApply: true\n---\n\n"+words(50)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\nalwaysApply: true\n---\n\n"+words(50)+"\n")
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +342,7 @@ func TestExplainContext_CursorWithAlwaysOnRuleMatchesWhatSyncWrites(t *testing.T
 
 func TestExplainContext_ManualOnlySkillLoadsOnDemandForClaude(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "manual", "SKILL.md"), "---\nname: manual\ndisable-model-invocation: true\ndescription: "+words(8)+"\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "manual", "SKILL.md"), "---\nname: manual\ndisable-model-invocation: true\ndescription: "+words(8)+"\n---\nBody.\n")
 	for target, want := range map[string]string{"claude": "on-demand", "codex": "startup"} {
 		out, err := runCLI(t, "explain", "--context", "--target", target, "--json")
 		if err != nil {

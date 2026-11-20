@@ -16,16 +16,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // rootSources returns a Sources value pointing at root-level kind dirs,
 // matching the importer test fixtures.
 func rootSources() config.Sources {
@@ -976,9 +966,11 @@ func writeMinimalConfig(t *testing.T, dir, base string) {
 	cfg := "version: 1\n"
 	if base != "" {
 		cfg += "sources:\n"
+		var cfgSb979 strings.Builder
 		for _, k := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
-			cfg += "  " + k + ": " + filepath.ToSlash(filepath.Join(base, k)) + "\n"
+			cfgSb979.WriteString("  " + k + ": " + filepath.ToSlash(filepath.Join(base, k)) + "\n")
 		}
+		cfg += cfgSb979.String()
 	}
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
 }

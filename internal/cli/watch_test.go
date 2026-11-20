@@ -247,13 +247,7 @@ func TestWatchDirs_IncludesOverlayDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Join(".", agnosticOverlayDir)
-	found := false
-	for _, p := range watchDirs(".", cfg) {
-		if p == want {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(watchDirs(".", cfg), want)
 	if !found {
 		t.Errorf("watchDirs missing %s\ngot %v", want, watchDirs(".", cfg))
 	}
@@ -438,10 +432,10 @@ func TestPlanWatchResync_AbsoluteSourceChangesStayIncremental(t *testing.T) {
 	rule := filepath.Join(rules, "demo.md")
 	skill := filepath.Join(skills, "demo", "SKILL.md")
 	asset := filepath.Join(skills, "demo", "references", "guide.txt")
-	writeTestFile(t, rule, "---\nname: demo\ntarget: claude\n---\nExternal rule.\n")
-	writeTestFile(t, skill, "---\nname: demo\ndescription: demo\ntarget: codex\n---\nExternal skill.\n")
-	writeTestFile(t, asset, "External asset.\n")
-	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+	writeFile(t, rule, "---\nname: demo\ntarget: claude\n---\nExternal rule.\n")
+	writeFile(t, skill, "---\nname: demo\ndescription: demo\ntarget: codex\n---\nExternal skill.\n")
+	writeFile(t, asset, "External asset.\n")
+	writeFile(t, config.ConfigFileName, fmt.Sprintf(
 		"version: 1\nsources:\n  rules: %q\n  skills: %q\ntargets: [claude, codex]\n",
 		filepath.ToSlash(rules), filepath.ToSlash(skills)))
 	cfg, b, err := loadProject(dir)
@@ -473,8 +467,8 @@ func TestPlanWatchResync_OverlappingAbsoluteSourcesUseLoadedKind(t *testing.T) {
 	external := t.TempDir()
 	hooks := filepath.Join(external, "hooks")
 	hook := filepath.Join(hooks, "gate.yaml")
-	writeTestFile(t, hook, "name: gate\nevent: PreToolUse\ncommand: echo guard\n")
-	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+	writeFile(t, hook, "name: gate\nevent: PreToolUse\ncommand: echo guard\n")
+	writeFile(t, config.ConfigFileName, fmt.Sprintf(
 		"version: 1\nsources:\n  agents: %q\n  hooks: %q\ntargets: [crush]\n",
 		filepath.ToSlash(external), filepath.ToSlash(hooks)))
 	cfg, b, err := loadProject(dir)
@@ -912,7 +906,7 @@ func TestIsWatchNoise_KeepsOnlyWatchedInputs(t *testing.T) {
 func TestIsWatchNoise_KeepsDirectoryLeadingToMissingInput(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
-	writeTestFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: specs/team/rules\n")
+	writeFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: specs/team/rules\n")
 	cfg, _, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -1050,16 +1044,6 @@ func waitForFileContaining(t *testing.T, path, want string, timeout time.Duratio
 	t.Fatalf("timed out waiting for %q in %s; got:\n%s", want, path, got)
 }
 
-func writeTestFile(t *testing.T, path, body string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // assertWatchPicksUpNewLocalOverride creates agnostic-ai.local.yaml after
 // the watch starts and waits for the full re-sync it must trigger.
 func assertWatchPicksUpNewLocalOverride(t *testing.T, forcePoll bool) {
@@ -1070,7 +1054,7 @@ func assertWatchPicksUpNewLocalOverride(t *testing.T, forcePoll bool) {
 	buf, stop := startWatch(t, []string{"claude"}, forcePoll)
 	defer stop()
 
-	writeTestFile(t, config.LocalOverrideFileName, "version: 1\n")
+	writeFile(t, config.LocalOverrideFileName, "version: 1\n")
 	waitForOutput(t, buf, "change · "+config.LocalOverrideFileName, 5*time.Second)
 	waitForOutput(t, buf, "full re-sync", 5*time.Second)
 }
@@ -1093,7 +1077,7 @@ func assertWatchPicksUpNewOverlayDir(t *testing.T, forcePoll bool) {
 	_, stop := startWatch(t, []string{"codex"}, forcePoll)
 	defer stop()
 
-	writeTestFile(t, filepath.Join(agnosticOverlayDir, codexOverlayFile), "model = \"o4-late\"\n")
+	writeFile(t, filepath.Join(agnosticOverlayDir, codexOverlayFile), "model = \"o4-late\"\n")
 	waitForFileContaining(t, filepath.Join(dir, ".codex", "config.toml"), "o4-late", 5*time.Second)
 }
 
@@ -1115,7 +1099,7 @@ func assertWatchPicksUpNewCommandsDir(t *testing.T, forcePoll bool) {
 	_, stop := startWatch(t, []string{"claude"}, forcePoll)
 	defer stop()
 
-	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
 		"---\nname: deploy\ndescription: deploy the app\n---\nrun deploy\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "deploy.md"), "run deploy", 5*time.Second)
 }
@@ -1138,7 +1122,7 @@ func assertWatchPicksUpSharedInstructionsEdit(t *testing.T, forcePoll bool) {
 	_, stop := startWatch(t, []string{"claude"}, forcePoll)
 	defer stop()
 
-	writeTestFile(t, adapters.AgnosticEntryPointPath, "# Project\n\nedited shared instructions\n")
+	writeFile(t, adapters.AgnosticEntryPointPath, "# Project\n\nedited shared instructions\n")
 	waitForFileContaining(t, filepath.Join(dir, "CLAUDE.md"), "edited shared instructions", 5*time.Second)
 }
 
@@ -1170,11 +1154,11 @@ func assertWatchPicksUpNestedSourceDir(t *testing.T, forcePoll bool) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: specs/team/rules\n")
+	writeFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: specs/team/rules\n")
 	_, stop := startWatch(t, []string{"claude"}, forcePoll)
 	defer stop()
 
-	writeTestFile(t, filepath.Join("specs", "team", "rules", "r2.md"), "---\nname: r2\n---\nlate rule body\n")
+	writeFile(t, filepath.Join("specs", "team", "rules", "r2.md"), "---\nname: r2\n---\nlate rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "late rule body", 5*time.Second)
 }
 
@@ -1195,11 +1179,11 @@ func assertWatchReEmitsAbsoluteSources(t *testing.T, forcePoll bool) {
 	skills := filepath.Join(external, "skills")
 	rule := filepath.Join(rules, "demo.md")
 	asset := filepath.Join(skills, "demo", "references", "guide.txt")
-	writeTestFile(t, rule, "---\nname: demo\n---\nInitial external rule.\n")
-	writeTestFile(t, filepath.Join(skills, "demo", "SKILL.md"),
+	writeFile(t, rule, "---\nname: demo\n---\nInitial external rule.\n")
+	writeFile(t, filepath.Join(skills, "demo", "SKILL.md"),
 		"---\nname: demo\ndescription: demo\n---\nExternal skill.\n")
-	writeTestFile(t, asset, "Initial external asset.\n")
-	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+	writeFile(t, asset, "Initial external asset.\n")
+	writeFile(t, config.ConfigFileName, fmt.Sprintf(
 		"version: 1\nsources:\n  rules: %q\n  skills: %q\ntargets: [claude]\n",
 		filepath.ToSlash(rules), filepath.ToSlash(skills)))
 	t.Run("rule", func(t *testing.T) {
@@ -1240,13 +1224,13 @@ func TestWatchSync_WatchesMissingAbsoluteSourceWithinProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	rules := filepath.Join(absDir, "specs", "team", "rules")
-	writeTestFile(t, config.ConfigFileName, fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
+	writeFile(t, config.ConfigFileName, fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
 	buf, stop := startWatch(t, nil, false)
 	defer stop()
 	if !strings.Contains(buf.String(), "fsnotify") {
 		t.Fatalf("fsnotify test fell back to polling:\n%s", buf.String())
 	}
-	writeTestFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate absolute rule.\n")
+	writeFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate absolute rule.\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "late.md"), "Late absolute rule.", 5*time.Second)
 }
 
@@ -1254,7 +1238,7 @@ func TestWatchSync_PollsMissingAbsoluteSourceWithoutSafeAnchor(t *testing.T) {
 	workspace := t.TempDir()
 	dir := filepath.Join(workspace, "project")
 	rules := filepath.Join(workspace, "shared")
-	writeTestFile(t, filepath.Join(dir, config.ConfigFileName), fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
+	writeFile(t, filepath.Join(dir, config.ConfigFileName), fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
 	testutil.Chdir(t, dir)
 	silence(t)
 	buf, stop := startWatch(t, nil, false)
@@ -1262,7 +1246,7 @@ func TestWatchSync_PollsMissingAbsoluteSourceWithoutSafeAnchor(t *testing.T) {
 	if !strings.Contains(buf.String(), "(poll)") {
 		t.Fatalf("missing source without a safe anchor must use polling:\n%s", buf.String())
 	}
-	writeTestFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate external rule.\n")
+	writeFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate external rule.\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "late.md"), "Late external rule.", 5*time.Second)
 }
 
@@ -1274,13 +1258,13 @@ func TestWatchSync_PollsMissingAbsoluteSourceUnderProjectAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	rules := filepath.Join(alias, "rules")
-	writeTestFile(t, config.ConfigFileName, fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
+	writeFile(t, config.ConfigFileName, fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
 	buf, stop := startWatch(t, nil, false)
 	defer stop()
 	if !strings.Contains(buf.String(), "(poll)") {
 		t.Fatalf("missing aliased source must use polling:\n%s", buf.String())
 	}
-	writeTestFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate aliased rule.\n")
+	writeFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate aliased rule.\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "late.md"), "Late aliased rule.", 5*time.Second)
 }
 
@@ -1291,13 +1275,13 @@ func TestWatchSync_OwnWritesDoNotRetrigger(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
 	buf, stop := startWatch(t, nil, false)
 	defer stop()
 
 	// The override adds targets, so the re-sync writes new files at the
 	// root, right next to the inputs the root watch exists for.
-	writeTestFile(t, config.LocalOverrideFileName, "targets: [claude, codex, gemini]\n")
+	writeFile(t, config.LocalOverrideFileName, "targets: [claude, codex, gemini]\n")
 	waitForFile(t, filepath.Join(dir, "AGENTS.md"), 5*time.Second)
 	waitForFile(t, filepath.Join(dir, "GEMINI.md"), 5*time.Second)
 	time.Sleep(600 * time.Millisecond)
@@ -1324,10 +1308,10 @@ func TestWatchSync_WatchesSourceTreeMovedAndRecreatedInOneStep(t *testing.T) {
 	if err := os.Rename(".agnostic-ai", "moved"); err != nil {
 		t.Fatal(err)
 	}
-	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "r2.md"), "---\nname: r2\n---\nback rule body\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "r2.md"), "---\nname: r2\n---\nback rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "back rule body", 5*time.Second)
 
-	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r3.md"), "later rule body", 5*time.Second)
 }
 
@@ -1378,7 +1362,7 @@ func TestWatchSync_StaysOnFsnotifyWhenNewDirIsGoneBeforeItsWatch(t *testing.T) {
 	defer stop()
 	fail.Store(true)
 
-	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
 		"---\nname: deploy\ndescription: deploy the app\n---\nrun deploy\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "deploy.md"), "run deploy", 5*time.Second)
 	if strings.Contains(buf.String(), "(poll)") {
@@ -1420,11 +1404,11 @@ func TestWatchSync_KeepsWatchingWhenNewDirCannotBeRegistered(t *testing.T) {
 	defer stop()
 	fail.Store(true)
 
-	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
 		"---\nname: deploy\ndescription: deploy the app\n---\nrun deploy\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "deploy.md"), "run deploy", 5*time.Second)
 
-	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "ship.md"),
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "ship.md"),
 		"---\nname: ship\ndescription: ship the app\n---\nrun ship\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "ship.md"), "run ship", 5*time.Second)
 }
@@ -1435,16 +1419,16 @@ func TestWatchSync_KeepsWatchingWhenReloadedSourceCannotBeRegistered(t *testing.
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, filepath.Join("extra", "rules", "r2.md"), "---\nname: r2\n---\nextra rule body\n")
+	writeFile(t, filepath.Join("extra", "rules", "r2.md"), "---\nname: r2\n---\nextra rule body\n")
 	fail := failWatchAdd(t, "extra")
 	_, stop := startWatch(t, []string{"claude"}, false)
 	defer stop()
 	fail.Store(true)
 
-	writeTestFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: extra/rules\n")
+	writeFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: extra/rules\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "extra rule body", 5*time.Second)
 
-	writeTestFile(t, filepath.Join("extra", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
+	writeFile(t, filepath.Join("extra", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r3.md"), "later rule body", 5*time.Second)
 }
 
@@ -1452,7 +1436,7 @@ func TestResyncForChanges_IgnoresHandoffBeforeLoadingConfig(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "invalid: [")
+	writeFile(t, config.ConfigFileName, "invalid: [")
 	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3", "handoffs/feat-a.md", "handoffs/.feat-a.md.a1B2c3.tmp", "handoffs/feat-a.md.a1B2c3.tmp"} {
 		path := filepath.Join(dir, defaultProjectUser, name)
 		if err := resyncForChanges(dir, []string{"claude"}, []string{path}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
@@ -1467,7 +1451,7 @@ func TestResyncForChanges_MixedHandoffAndRuleSyncsRule(t *testing.T) {
 	silence(t)
 	buf := captureWatchOutput(t)
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
-	writeTestFile(t, rule, "---\nname: r1\n---\nUpdated rule.\n")
+	writeFile(t, rule, "---\nname: r1\n---\nUpdated rule.\n")
 	if err := resyncForChanges(dir, []string{"claude"}, []string{filepath.Join(dir, defaultProjectUser, "HANDOFF.md"), filepath.Join(dir, defaultProjectUser, "HANDOFF.auto.md.a1B2c3"), rule}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -1488,7 +1472,7 @@ func TestResyncForChanges_HandoffNamedRuleSyncs(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	path := filepath.Join(dir, ".agnostic-ai", "rules", "HANDOFF.md")
-	writeTestFile(t, path, "---\nname: handoff-rule\n---\nKeep this ordinary rule.\n")
+	writeFile(t, path, "---\nname: handoff-rule\n---\nKeep this ordinary rule.\n")
 	if err := resyncForChanges(dir, []string{"claude"}, []string{path}, watchOptions{gitignoreFlag: "off", jobs: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -1531,7 +1515,7 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 			testutil.Chdir(t, dir)
 			silence(t)
 			for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
-				writeTestFile(t, filepath.Join(dir, defaultProjectUser, name), "Initial handoff.\n")
+				writeFile(t, filepath.Join(dir, defaultProjectUser, name), "Initial handoff.\n")
 			}
 			buf, stop := startWatch(t, []string{"claude"}, forcePoll)
 			defer stop()
@@ -1552,7 +1536,7 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 				name string
 				run  func()
 			}{
-				{"create", func() { writeTestFile(t, temp, "Incomplete snapshot.\n") }},
+				{"create", func() { writeFile(t, temp, "Incomplete snapshot.\n") }},
 				{"write", func() { writeAndBumpMtime(t, temp, []byte("Complete snapshot.\n")) }},
 				{"replace", func() {
 					if err := os.Remove(auto); err != nil {
@@ -1562,7 +1546,7 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 						t.Fatal(err)
 					}
 				}},
-				{"create-for-cleanup", func() { writeTestFile(t, temp, "Failed snapshot.\n") }},
+				{"create-for-cleanup", func() { writeFile(t, temp, "Failed snapshot.\n") }},
 				{"remove", func() {
 					if err := os.Remove(temp); err != nil {
 						t.Fatal(err)
@@ -1577,7 +1561,7 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 				}
 			}
 			outside := filepath.Join(dir, ".agnostic-ai", "rules", "HANDOFF.auto.md.a1B2c3")
-			writeTestFile(t, outside, "Ordinary watched file.\n")
+			writeFile(t, outside, "Ordinary watched file.\n")
 			waitForOutput(t, buf, "full re-sync", 3*time.Second)
 			rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
 			writeAndBumpMtime(t, rule, []byte("---\nname: r1\n---\nOrdinary change.\n"))
@@ -1590,12 +1574,12 @@ func TestWatchSync_LocalDirectoryWritesTrackFiles(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
 	local := defaultProjectUser
 	rules := filepath.Join(local, "rules")
 	rule := filepath.Join(rules, "directory-rule.md")
-	writeTestFile(t, rule, "---\nname: directory-rule\n---\nInitial local rule.\n")
-	writeTestFile(t, filepath.Join(local, "HANDOFF.auto.md"), "Initial snapshot.\n")
+	writeFile(t, rule, "---\nname: directory-rule\n---\nInitial local rule.\n")
+	writeFile(t, filepath.Join(local, "HANDOFF.auto.md"), "Initial snapshot.\n")
 	watcherReady := make(chan *fsnotify.Watcher, 1)
 	var directoryOnly atomic.Bool
 	prev := watchAdd
@@ -1640,7 +1624,7 @@ func TestWatchSync_LocalDirectoryWritesTrackFiles(t *testing.T) {
 		run  func()
 	}{
 		{"unchanged", func() {}},
-		{"create", func() { writeTestFile(t, temp, "Incomplete snapshot.\n") }},
+		{"create", func() { writeFile(t, temp, "Incomplete snapshot.\n") }},
 		{"write", func() { writeAndBumpMtime(t, temp, []byte("Complete snapshot.\n")) }},
 		{"remove", func() {
 			if err := os.Remove(temp); err != nil {
@@ -1662,14 +1646,14 @@ func TestWatchSync_LocalDirectoryWritesTrackFiles(t *testing.T) {
 	directoryWrite()
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "directory-rule.md"), "Updated local rule.", 3*time.Second)
 	added := filepath.Join(rules, "added-rule.md")
-	writeTestFile(t, added, "---\nname: added-rule\n---\nAdded local rule.\n")
+	writeFile(t, added, "---\nname: added-rule\n---\nAdded local rule.\n")
 	directoryWrite()
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "added-rule.md"), "Added local rule.", 3*time.Second)
 	renamed := filepath.Join(rules, "renamed-rule.md")
 	if err := os.Rename(added, renamed); err != nil {
 		t.Fatal(err)
 	}
-	writeTestFile(t, renamed, "---\nname: renamed-rule\n---\nRenamed local rule.\n")
+	writeFile(t, renamed, "---\nname: renamed-rule\n---\nRenamed local rule.\n")
 	directoryWrite()
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "renamed-rule.md"), "Renamed local rule.", 3*time.Second)
 	waitForRemoval := func(path string) {
@@ -1695,11 +1679,11 @@ func TestWatchSync_LocalRuleEditedWhileArmingIsReconciled(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
 	local := defaultProjectUser
 	rules := filepath.Join(local, "rules")
 	rule := filepath.Join(rules, "registration-rule.md")
-	writeTestFile(t, rule, "---\nname: registration-rule\n---\nBefore registration.\n")
+	writeFile(t, rule, "---\nname: registration-rule\n---\nBefore registration.\n")
 	prevAdd := watchAdd
 	watchAdd = func(w *fsnotify.Watcher, p string) error {
 		if pathWithin(rules, p) {
@@ -1760,8 +1744,8 @@ func TestWatchSync_PersonalMemoryChangesDoNotResync(t *testing.T) {
 			defer stop()
 			memory := filepath.Join(dir, defaultProjectUser, "memory")
 			before := buf.String()
-			writeTestFile(t, filepath.Join(memory, "MEMORY.md"), "- [Prefers tabs](tabs.md): tabs\n")
-			writeTestFile(t, filepath.Join(memory, "tabs.md"), "The user indents with tabs.\n")
+			writeFile(t, filepath.Join(memory, "MEMORY.md"), "- [Prefers tabs](tabs.md): tabs\n")
+			writeFile(t, filepath.Join(memory, "tabs.md"), "The user indents with tabs.\n")
 			time.Sleep(300 * time.Millisecond)
 			writeAndBumpMtime(t, filepath.Join(memory, "MEMORY.md"), []byte("- [Prefers tabs](tabs.md): tabs, always\n"))
 			time.Sleep(300 * time.Millisecond)
@@ -1803,8 +1787,8 @@ func followsTargetsFixture(t *testing.T, watched []string) (dir string, buf *saf
 	dir = setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: always\nalways: true\n---\nrule body\n")
-	writeTestFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: always\nalways: true\n---\nrule body\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
 	buf, stop = startWatch(t, watched, true)
 	return dir, buf, stop
 }

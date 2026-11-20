@@ -55,20 +55,11 @@ func repoStore(t *testing.T, parent, text string) string {
 	return filepath.ToSlash(parent) + "/" + rest[:strings.IndexAny(rest, "/\"\n")]
 }
 
-func readText(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
-}
-
 // localSettingsStore returns the repo store sync names in Claude Code's
 // personal settings.
 func localSettingsStore(t *testing.T, parent string) string {
 	t.Helper()
-	return repoStore(t, parent, readText(t, filepath.Join(".claude", "settings.local.json")))
+	return repoStore(t, parent, readFile(t, filepath.Join(".claude", "settings.local.json")))
 }
 
 func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
@@ -79,14 +70,14 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 
 	store := localSettingsStore(t, parent)
 	// Claude Code's auto memory loads the store's index itself.
-	if claude := readText(t, "CLAUDE.md"); strings.Contains(claude, store) || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
+	if claude := readFile(t, "CLAUDE.md"); strings.Contains(claude, store) || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("CLAUDE.md imports:\n%s", claude)
 	}
 	var local map[string]any
-	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".claude", "settings.local.json"))), &local); err != nil || local["autoMemoryDirectory"] != store {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(".claude", "settings.local.json"))), &local); err != nil || local["autoMemoryDirectory"] != store {
 		t.Errorf("autoMemoryDirectory = %v, want %s (%v)", local["autoMemoryDirectory"], store, err)
 	}
-	if codex := readText(t, filepath.Join(".codex", "config.toml")); !strings.Contains(codex, "[sandbox_workspace_write]\nwritable_roots = [\""+store+"\"]") {
+	if codex := readFile(t, filepath.Join(".codex", "config.toml")); !strings.Contains(codex, "[sandbox_workspace_write]\nwritable_roots = [\""+store+"\"]") {
 		t.Errorf("codex config.toml:\n%s", codex)
 	}
 	var gemini struct {
@@ -94,14 +85,14 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 			IncludeDirectories []string `json:"includeDirectories"`
 		} `json:"context"`
 	}
-	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".gemini", "settings.json"))), &gemini); err != nil || len(gemini.Context.IncludeDirectories) != 1 || gemini.Context.IncludeDirectories[0] != store {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(".gemini", "settings.json"))), &gemini); err != nil || len(gemini.Context.IncludeDirectories) != 1 || gemini.Context.IncludeDirectories[0] != store {
 		t.Errorf("gemini includeDirectories = %v (%v)", gemini.Context.IncludeDirectories, err)
 	}
-	if text := readText(t, "opencode.json"); !strings.Contains(text, `"`+store+`/MEMORY.md"`) || strings.Contains(text, ".agnostic-ai/local/memory") {
+	if text := readFile(t, "opencode.json"); !strings.Contains(text, `"`+store+`/MEMORY.md"`) || strings.Contains(text, ".agnostic-ai/local/memory") {
 		t.Errorf("opencode.json instructions:\n%s", text)
 	}
 	// Kilo drops project-declared files outside the root, so the store index stays out.
-	if text := readText(t, "kilo.jsonc"); strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/memory/MEMORY.md"`) {
+	if text := readFile(t, "kilo.jsonc"); strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/memory/MEMORY.md"`) {
 		t.Errorf("kilo.jsonc instructions:\n%s", text)
 	}
 	var qoder struct {
@@ -109,10 +100,10 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 			AdditionalDirectories []string `json:"additionalDirectories"`
 		} `json:"permissions"`
 	}
-	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".qoder", "settings.json"))), &qoder); err != nil || len(qoder.Permissions.AdditionalDirectories) != 1 || qoder.Permissions.AdditionalDirectories[0] != store {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(".qoder", "settings.json"))), &qoder); err != nil || len(qoder.Permissions.AdditionalDirectories) != 1 || qoder.Permissions.AdditionalDirectories[0] != store {
 		t.Errorf("qoder additionalDirectories = %v (%v)", qoder.Permissions.AdditionalDirectories, err)
 	}
-	if text := readText(t, filepath.Join(".cursor", "cli.json")); !strings.Contains(text, `"Write(`+store+`/**)"`) {
+	if text := readFile(t, filepath.Join(".cursor", "cli.json")); !strings.Contains(text, `"Write(`+store+`/**)"`) {
 		t.Errorf("cursor cli.json:\n%s", text)
 	}
 	if err := runSync(t, "--check"); err != nil {
@@ -128,7 +119,7 @@ func TestSync_RepoPersonalMemoryReachesClaudeThroughCLAUDEmdWithAutoMemoryOff(t 
 	}
 
 	store := localSettingsStore(t, parent)
-	if claude := readText(t, "CLAUDE.md"); !strings.Contains(claude, "\n@"+store+"/MEMORY.md\n") || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
+	if claude := readFile(t, "CLAUDE.md"); !strings.Contains(claude, "\n@"+store+"/MEMORY.md\n") || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("CLAUDE.md imports:\n%s", claude)
 	}
 	if err := runSync(t, "--check"); err != nil {
@@ -155,10 +146,10 @@ func TestSync_RepoPersonalMemoryStaysOutOfCommittableFiles(t *testing.T) {
 			t.Errorf("%s names the repo store:\n%s", file, data)
 		}
 	}
-	if claude := readText(t, "CLAUDE.md"); !strings.Contains(claude, "\n@.agnostic-ai/local/memory/MEMORY.md\n") {
+	if claude := readFile(t, "CLAUDE.md"); !strings.Contains(claude, "\n@.agnostic-ai/local/memory/MEMORY.md\n") {
 		t.Errorf("CLAUDE.md lost the checkout import:\n%s", claude)
 	}
-	if local := readText(t, filepath.Join(".claude", "settings.local.json")); !strings.Contains(local, filepath.ToSlash(parent)) {
+	if local := readFile(t, filepath.Join(".claude", "settings.local.json")); !strings.Contains(local, filepath.ToSlash(parent)) {
 		t.Errorf("settings.local.json is personal and should name the repo store:\n%s", local)
 	}
 }
@@ -174,7 +165,7 @@ func TestSync_LeavingRepoModeDropsTheRepoIndexFromInstructions(t *testing.T) {
 	}
 
 	for _, file := range []string{"opencode.json", "kilo.jsonc"} {
-		text := readText(t, file)
+		text := readFile(t, file)
 		if strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/local/memory/MEMORY.md"`) {
 			t.Errorf("%s instructions after leaving repo mode:\n%s", file, text)
 		}
@@ -189,7 +180,7 @@ func TestSync_MovingTheHomeDropsTheOldRepoIndexFromInstructions(t *testing.T) {
 	var doc struct {
 		Instructions []string `json:"instructions"`
 	}
-	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, "opencode.json")), &doc); err != nil {
 		t.Fatal(err)
 	}
 	i := slices.IndexFunc(doc.Instructions, func(s string) bool { return strings.HasPrefix(s, filepath.ToSlash(oldStores)) })
@@ -221,7 +212,7 @@ func TestSync_MovingTheHomeDropsTheOldRepoIndexFromInstructions(t *testing.T) {
 	}
 
 	doc.Instructions = nil
-	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, "opencode.json")), &doc); err != nil {
 		t.Fatal(err)
 	}
 	newStores := filepath.ToSlash(filepath.Join(newHome, "local", "memory"))
@@ -237,7 +228,7 @@ func opencodeInstructions(t *testing.T) []string {
 	var doc struct {
 		Instructions []string `json:"instructions"`
 	}
-	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, "opencode.json")), &doc); err != nil {
 		t.Fatal(err)
 	}
 	return doc.Instructions
@@ -373,7 +364,7 @@ func TestSync_RepoPersonalMemoryHonorsGitignoreOverride(t *testing.T) {
 			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if body := readText(t, "CLAUDE.md"); strings.Contains(body, filepath.ToSlash(parent)) {
+			if body := readFile(t, "CLAUDE.md"); strings.Contains(body, filepath.ToSlash(parent)) {
 				t.Errorf("committable CLAUDE.md exposes the personal store: %s", body)
 			}
 			if format == "preview" {
@@ -419,10 +410,10 @@ func TestSync_RepoPersonalMemoryHonorsAllowedOutputPaths(t *testing.T) {
 			if err := exec.Command("git", "check-ignore", "-q", path).Run(); err == nil {
 				t.Errorf("allowed output %s is ignored", path)
 			}
-			if local := readText(t, ".claude/settings.local.json"); !strings.Contains(local, filepath.ToSlash(parent)) {
+			if local := readFile(t, ".claude/settings.local.json"); !strings.Contains(local, filepath.ToSlash(parent)) {
 				t.Errorf("personal settings lost the repo store: %s", local)
 			}
-			if path != "CLAUDE.md" && !strings.Contains(readText(t, "CLAUDE.md"), filepath.ToSlash(parent)) {
+			if path != "CLAUDE.md" && !strings.Contains(readFile(t, "CLAUDE.md"), filepath.ToSlash(parent)) {
 				t.Error("an unrelated allow disabled repo memory in ignored CLAUDE.md")
 			}
 			if err := runSync(t, "--check"); err != nil {
@@ -446,7 +437,7 @@ func TestSync_ReaddedStoreDirectorySurvivesAfterLeavingRepoMode(t *testing.T) {
 			list := func() []string {
 				t.Helper()
 				var doc map[string]map[string]any
-				if err := json.Unmarshal([]byte(readText(t, tc.file)), &doc); err != nil {
+				if err := json.Unmarshal([]byte(readFile(t, tc.file)), &doc); err != nil {
 					t.Fatal(err)
 				}
 				var out []string
@@ -458,7 +449,7 @@ func TestSync_ReaddedStoreDirectorySurvivesAfterLeavingRepoMode(t *testing.T) {
 			addByHand := func(dir string) {
 				t.Helper()
 				var doc map[string]any
-				if err := json.Unmarshal([]byte(readText(t, tc.file)), &doc); err != nil {
+				if err := json.Unmarshal([]byte(readFile(t, tc.file)), &doc); err != nil {
 					t.Fatal(err)
 				}
 				object := doc[tc.object].(map[string]any)
@@ -722,7 +713,7 @@ func TestSync_CursorCLIConfigHasBothListsAndLeavesWithRepoMode(t *testing.T) {
 	var doc struct {
 		Permissions map[string][]string `json:"permissions"`
 	}
-	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".cursor", "cli.json"))), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(".cursor", "cli.json"))), &doc); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := doc.Permissions["deny"]; !ok || len(doc.Permissions["allow"]) != 1 {
@@ -806,7 +797,7 @@ func TestSync_RepoMemoryFilesAreInTheSharedBlockWithoutRepoMode(t *testing.T) {
 	if err := os.Remove("agnostic-ai.local.yaml"); err != nil {
 		t.Fatal(err)
 	}
-	before := readText(t, filepath.Join(".git", "info", "exclude"))
+	before := readFile(t, filepath.Join(".git", "info", "exclude"))
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
@@ -823,14 +814,14 @@ func TestSync_RepoMemoryFilesAreInTheSharedBlockWithoutRepoMode(t *testing.T) {
 			t.Errorf("the managed block does not ignore %s", file)
 		}
 	}
-	if include := readText(t, ".worktreeinclude"); !strings.Contains(include, "/.codex/config.toml") && !strings.Contains(include, "/.codex/\n") {
+	if include := readFile(t, ".worktreeinclude"); !strings.Contains(include, "/.codex/config.toml") && !strings.Contains(include, "/.codex/\n") {
 		t.Errorf(".worktreeinclude leaves out the Codex config:\n%s", include)
 	}
 	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	if after := readText(t, filepath.Join(".git", "info", "exclude")); strings.Contains(after, "codex") || strings.Contains(after, "cursor") || strings.Contains(after, "devin") {
+	if after := readFile(t, filepath.Join(".git", "info", "exclude")); strings.Contains(after, "codex") || strings.Contains(after, "cursor") || strings.Contains(after, "devin") {
 		t.Errorf("info/exclude gained repo-mode files:\n%s\nwas:\n%s", after, before)
 	}
 }
@@ -867,14 +858,14 @@ func TestSync_RepoPersonalMemoryFirstSyncWritesTheSettledBlock(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	first := readText(t, ".gitignore")
+	first := readFile(t, ".gitignore")
 	if !strings.Contains(first, "/.claude/settings.local.json") && !strings.Contains(first, "/.claude/\n") {
 		t.Errorf(".gitignore leaves out the Claude local settings:\n%s", first)
 	}
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	if second := readText(t, ".gitignore"); second != first {
+	if second := readFile(t, ".gitignore"); second != first {
 		t.Errorf(".gitignore after a second sync:\n%s\nwant:\n%s", second, first)
 	}
 }
@@ -887,11 +878,11 @@ func TestSync_RepoPersonalMemorySubsetSyncKeepsTheSharedBlock(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	before := readText(t, ".gitignore")
+	before := readFile(t, ".gitignore")
 	if err := runSync(t, "--target", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if after := readText(t, ".gitignore"); after != before {
+	if after := readFile(t, ".gitignore"); after != before {
 		t.Errorf(".gitignore after a claude-only sync:\n%s\nwant:\n%s", after, before)
 	}
 }
@@ -908,14 +899,14 @@ func TestSync_RepoMemoryFilesReturnToAnOlderBlock(t *testing.T) {
 			}
 			want := map[string]string{}
 			for _, file := range []string{".gitignore", ".worktreeinclude"} {
-				want[file] = readText(t, file)
+				want[file] = readFile(t, file)
 				writeFile(t, file, strings.Replace(want[file], "/.codex/config.toml\n", "", 1))
 			}
 			if err := runSync(t, args...); err != nil {
 				t.Fatal(err)
 			}
 			for file, text := range want {
-				if got := readText(t, file); got != text {
+				if got := readFile(t, file); got != text {
 					t.Errorf("%s:\n%s\nwant:\n%s", file, got, text)
 				}
 			}
@@ -952,7 +943,7 @@ func TestMemoryWorktree_InheritsOnlyMainPersonalModeAndSharesEveryCommand(t *tes
 	if out, err := runRoot(t, "memory", "import", "--from", "checkout"); err != nil {
 		t.Fatalf("import: %v %s", err, out)
 	}
-	if got := readText(t, filepath.Join(want, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(want, "tabs.md")); got != tabsFact {
 		t.Errorf("import copied to wrong store: %s", got)
 	}
 	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, want+"/MEMORY.md") {
@@ -997,7 +988,7 @@ func TestSync_MemoryModeSwitchSeedsEmptyStoreBothWays(t *testing.T) {
 			if !strings.Contains(out, "copied 1 fact(s)") {
 				t.Errorf("copy count missing: %s", out)
 			}
-			if readText(t, filepath.Join(source, "tabs.md")) != tabsFact {
+			if readFile(t, filepath.Join(source, "tabs.md")) != tabsFact {
 				t.Error("source changed")
 			}
 		})
@@ -1117,7 +1108,7 @@ func TestSync_MemoryModeSwitchLeavesDeletedHandledFactsGone(t *testing.T) {
 	if out, err := runRoot(t, "memory", "import", "--from", "checkout"); err != nil {
 		t.Fatalf("intentional reimport: %v %s", err, out)
 	}
-	if got := readText(t, filepath.Join(target, "tabs.md")); got != tabsFact {
+	if got := readFile(t, filepath.Join(target, "tabs.md")); got != tabsFact {
 		t.Errorf("intentional import did not restore fact: %s", got)
 	}
 }

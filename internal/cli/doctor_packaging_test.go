@@ -16,10 +16,10 @@ func TestDoctor_WarnsAboutGeneratedPathsMissingFromPackagingIgnores(t *testing.T
 	testutil.Chdir(t, dir)
 	silence(t)
 	t.Setenv("CODEX_HOME", t.TempDir())
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteGlobalTest(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	ignore := ".claude/**\n.codex/**\n"
-	mustWriteGlobalTest(t, ".vscodeignore", ignore)
+	writeFile(t, ".vscodeignore", ignore)
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync"})
 	if err := root.Execute(); err != nil {
@@ -110,7 +110,7 @@ func TestPackagingIgnore_FormatRules(t *testing.T) {
 
 func TestPackagingIgnore_ReportsUnsupportedSyntaxWithoutClaimingUncoveredPaths(t *testing.T) {
 	testutil.TempCwd(t)
-	mustWriteGlobalTest(t, ".vscodeignore", "{.agents,.codex}/**\n")
+	writeFile(t, ".vscodeignore", "{.agents,.codex}/**\n")
 	reports := []driftReport{{Current: []adapters.CapturedFile{{Path: ".agents/skills/review/SKILL.md"}}}}
 	findings := collectPackagingIgnoreFindings(reports)
 	if len(findings) != 1 || findings[0].Path != ".vscodeignore" || findings[0].Problem == "" || len(findings[0].Uncovered) != 0 {
@@ -120,7 +120,7 @@ func TestPackagingIgnore_ReportsUnsupportedSyntaxWithoutClaimingUncoveredPaths(t
 
 func TestPackagingIgnore_UsesCapturedPathsIncludingOverridesAndAssets(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteGlobalTest(t, ".dockerignore", "/.agents/\n")
+	writeFile(t, ".dockerignore", "/.agents/\n")
 	reports := []driftReport{{Current: []adapters.CapturedFile{{Path: "native/skills/review/helper.sh"}}, Missing: []adapters.CapturedFile{{Path: "native/skills/review/SKILL.md"}, {Path: "native/skills/review/helper.sh"}, {Path: dir + "/../outside.md"}}}}
 	findings := collectPackagingIgnoreFindings(reports)
 	if len(findings) != 1 || strings.Join(findings[0].Uncovered, ",") != "native/skills/review/SKILL.md,native/skills/review/helper.sh" {

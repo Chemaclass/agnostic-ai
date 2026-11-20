@@ -125,10 +125,5 @@ func notATargetError(name string, targets []string) error {
 }
 
 func contains(ss []string, s string) bool {
-	for _, v := range ss {
-		if v == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ss, s)
 }
