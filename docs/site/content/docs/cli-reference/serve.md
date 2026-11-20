@@ -106,6 +106,7 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 - **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
 - The first time, macOS asks to let agnostic-ai control each terminal app.
 - Codex and Cursor chats need the `sqlite3` command.
+- In `review` and `yolo`, a permission prompt the approvals hook approved is not listed as waiting. See [approvals in the companion](@/docs/cli-reference/companion.md#approvals), and [`GET /api/views/approvals`](@/docs/cli-reference/serve-api.md#get-api-views-approvals) and [`POST /api/approvals/ask`](@/docs/cli-reference/serve-api.md#post-api-approvals-ask) for the routes.
 - See [`/api/views/conversations`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
 {% </details> %}
 

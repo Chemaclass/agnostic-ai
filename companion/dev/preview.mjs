@@ -48,6 +48,8 @@ function fixtureState(name, now) {
     clipboard: fixture.clipboard ?? COPIED,
     /** Whether the copied text came as HTML the server turns into Markdown. */
     copiedMarkdown: Boolean(fixture.clipboardMarkdown),
+    /** The approvals mode the header names; Ask me clears it. */
+    approvalsMode: fixture.approvalsMode,
   }
 }
 
@@ -90,6 +92,7 @@ function viewOf(state, conversations, query, all = conversations) {
   if (query !== undefined) view.matches = conversations.length
   if (state.fixture.cloudNote) view.cloudNote = state.fixture.cloudNote
   if (state.fixture.marksNote) view.marksNote = state.fixture.marksNote
+  if (state.approvalsMode) view.approvalsMode = state.approvalsMode
   return view
 }
 
@@ -388,6 +391,16 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       logCall('/api/open/late/dismiss', body)
       if (lateOpen.settled?.id === body.id) lateOpen.settled = undefined
       noContent(response)
+    },
+    // Like serve: only ask can be set here, and the list read after it no longer names a mode.
+    'POST /api/approvals/ask': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/approvals/ask', body)
+      if (body.mode !== 'ask' || Object.keys(body).length !== 1) return sendJSON(response, 400, { error: 'only ask can be set here; review and yolo are set in $AGNOSTIC_AI_HOME/agnostic-ai.yaml' })
+      state.approvalsMode = undefined
+      listChanged()
+      response.setHeader('List-Version', state.version)
+      sendJSON(response, 200, { mode: 'ask', path: '/Users/you/.agnostic-ai/local/agnostic-ai.yaml' })
     },
     'POST /api/mark': mark,
     'POST /api/rename': rename,

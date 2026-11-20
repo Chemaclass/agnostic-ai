@@ -226,6 +226,9 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	for _, path := range conversationPaths {
 		mux.Handle(path, conversationsHandler)
 	}
+	approvalsRoutes := approvalsHandler{reader: conversationsHandler.approvals}
+	mux.Handle(approvalsViewPath, approvalsRoutes)
+	mux.Handle(approvalsAskPath, approvalsRoutes)
 	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
 	var peer *switchPeer
 	if switches != nil {
