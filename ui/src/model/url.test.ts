@@ -91,6 +91,15 @@ describe('data source', () => {
     expect(staticOverviewUrl('./s/')).toBe('./s/overview.json')
   })
 
+  it('keeps a served client on its own origin', () => {
+    const origin = 'http://127.0.0.1:47811'
+    expect(resolveDataSource(parseUrlState('?source=https%3A%2F%2Fexample.org%2Fsnap'), undefined, origin).kind).toBe('invalid')
+    expect(resolveDataSource(parseUrlState('?source=%2F%2Fexample.org%2Fsnap'), undefined, origin).kind).toBe('invalid')
+    expect(resolveDataSource(parseUrlState('?source=./snapshot'), undefined, origin)).toEqual({ kind: 'static', base: './snapshot/' })
+    expect(resolveDataSource(parseUrlState('?source=http%3A%2F%2F127.0.0.1%3A47811%2Fsnap'), undefined, origin)).toEqual({ kind: 'static', base: 'http://127.0.0.1:47811/snap/' })
+    expect(resolveDataSource(parseUrlState(''), undefined, origin)).toEqual({ kind: 'api' })
+  })
+
   it('refuses a source with any other scheme', () => {
     expect(resolveDataSource(parseUrlState('?source=javascript%3Aalert(1)')).kind).toBe('invalid')
     expect(resolveDataSource(parseUrlState('?source=data%3Atext%2Fplain%2Cx')).kind).toBe('invalid')
