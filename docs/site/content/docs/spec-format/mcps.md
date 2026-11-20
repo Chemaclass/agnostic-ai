@@ -73,7 +73,7 @@ A server needs `command` (stdio) or `url` (remote). Only [`agnostic-ai lint`](@/
 - `type`: `local` means `stdio`; `streamable-http` and `remote` mean `http`.
 - `type`: remote types write an explicit `type`; `stdio` does not.
 - `type`: Augment, Factory, and Qoder get no server for `ws`. Ellipsis gets none for `sse` or `ws`.
-- `timeout`: milliseconds on most tools, including [Junie](@/docs/targets/junie-reference.md#mcp).
+- `timeout`: milliseconds on most tools, including [Junie](@/docs/targets/junie-reference.md#mcp). [Kilo Code](@/docs/targets/kilo-reference.md#mcp) requires a positive whole number.
 - `timeout`: [Kiro](@/docs/targets/kiro.md) agent files leave it out with a note. Set `x-kiro.timeout` or `x-kiro.requestTimeout` there.
 - `timeout`: [Crush](@/docs/targets/crush-reference.md#mcp) and [Pi](@/docs/targets/pi.md#native-mappings) read seconds, so sync divides by 1000. Crush rounds up to whole seconds.
 - `roots`: `uri` is required. Lint, `validate`, and sync refuse any other item, such as a plain string (LINT060).
