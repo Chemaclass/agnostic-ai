@@ -1,6 +1,9 @@
 package approvals
 
-import "maps"
+import (
+	"maps"
+	"strings"
+)
 
 // NativeRequest maps a tool call that target names its own way into the
 // call names and input fields the gate reads. For a target it maps, a
@@ -11,6 +14,8 @@ func NativeRequest(target string, r Request) Request {
 		return kiroRequest(r)
 	case "qwen":
 		return qwenRequest(r)
+	case "qoder":
+		return qoderRequest(r)
 	}
 	return r
 }
@@ -72,6 +77,28 @@ func qwenRequest(r Request) Request {
 		r.Call = "Edit"
 	case "write_file":
 		r.Call = "Write"
+	default:
+		r.Call = ""
+	}
+	return r
+}
+
+// qoderModes maps Qoder CLI permission modes, which it accepts in snake
+// or camel case, to the gate's (docs.qoder.com/cli/permissions).
+var qoderModes = map[string]string{"default": "default", "accept_edits": "acceptEdits", "acceptedits": "acceptEdits"}
+
+// qoderRequest keeps the Claude-style names Qoder CLI uses for the tools
+// whose input the gate reads: Bash, Read, Edit and Write. Every other
+// call gets no name, and a mode other than default or accept edits keeps
+// a name the gate does not approve in.
+func qoderRequest(r Request) Request {
+	if mode, ok := qoderModes[strings.ToLower(r.PermissionMode)]; ok {
+		r.PermissionMode = mode
+	} else {
+		r.PermissionMode = "qoder:" + r.PermissionMode
+	}
+	switch r.Call {
+	case "Bash", "Read", "Edit", "Write":
 	default:
 		r.Call = ""
 	}

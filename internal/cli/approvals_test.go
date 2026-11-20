@@ -545,3 +545,28 @@ func TestApprovalsStatus_QwenHookOffElsewhere(t *testing.T) {
 		})
 	}
 }
+
+func TestApprovalsStatus_QoderHook(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	const hook = `"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target qoder"}]}]}`
+	for name, tc := range map[string]struct {
+		body   string
+		routed bool
+	}{
+		"installed":     {`{` + hook + `}`, true},
+		"not installed": {`{}`, false},
+		"ask rule":      {`{"permissions":{"ask":["Edit"]},` + hook + `}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [qoder]\napprovals:\n  mode: yolo\n")
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qoder", "settings.json"), tc.body)
+			qoder := toolStatus(t, approvalsStatusJSON(t), "qoder")
+			if tc.routed != (qoder.Effective == config.ApprovalsYolo) || !tc.routed && qoder.Reason == "" {
+				t.Errorf("qoder: %+v", qoder)
+			}
+		})
+	}
+}

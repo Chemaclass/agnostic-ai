@@ -46,3 +46,15 @@ func TestNativeRequest_Qwen(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeRequest_Qoder(t *testing.T) {
+	for mode, rule := range map[string]string{"default": "", "accept_edits": "", "acceptEdits": "", "ACCEPT_EDITS": "", "auto": RulePermissionMode, "bypass_permissions": RulePermissionMode, "yolo": RulePermissionMode, "dont_ask": RulePermissionMode, "plan": RulePermissionMode, "": RulePermissionMode} {
+		r := NativeRequest("qoder", Request{Call: "Read", Input: map[string]any{"file_path": testRoot + "/a.go"}, PermissionMode: mode, Cwd: testRoot})
+		wantDecision(t, Decide(r, testPolicy()), rule)
+	}
+	for call, want := range map[string]string{"Bash": "Bash", "Read": "Read", "Edit": "Edit", "Write": "Write", "Glob": "", "WebFetch": "", "mcp__github__create_issue": "", "run_shell_command": ""} {
+		if r := NativeRequest("qoder", Request{Call: call}); r.Call != want {
+			t.Errorf("%s mapped to %q, want %q", call, r.Call, want)
+		}
+	}
+}

@@ -110,7 +110,7 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		}
 	}
 	must(t, os.MkdirAll(source, 0o755))
-	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen, qoder]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
 	run(base, "sync", "--global")
 
 	files := map[string]string{
@@ -118,9 +118,10 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		"codex":  filepath.Join(codexHome, "hooks.json"),
 		"kiro":   filepath.Join(home, ".kiro", "hooks", "approve-permission-request.json"),
 		"qwen":   filepath.Join(home, ".qwen", "settings.json"),
+		"qoder":  filepath.Join(home, ".qoder", "settings.json"),
 	}
-	allow := map[string]string{"claude": approvalsAllowReply, "codex": approvalsAllowReply, "kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`, "qwen": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`}
-	shell := map[string]string{"claude": "Bash", "codex": "Bash", "kiro": "execute_bash", "qwen": "run_shell_command"}
+	allow := map[string]string{"claude": approvalsAllowReply, "codex": approvalsAllowReply, "kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`, "qwen": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`, "qoder": `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`}
+	shell := map[string]string{"claude": "Bash", "codex": "Bash", "kiro": "execute_bash", "qwen": "run_shell_command", "qoder": "Bash"}
 	for target, path := range files {
 		read := approvalsHookCommand
 		if target == "kiro" {
@@ -157,9 +158,9 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		}
 	}
 
-	must(t, os.WriteFile(filepath.Join(project, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen]\nbuiltins: [approvals]\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(project, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen, qoder]\nbuiltins: [approvals]\n"), 0o644))
 	run(project, "sync", "--gitignore=off")
-	for _, rel := range []string{".claude/settings.json", ".codex/hooks.json", ".qwen/settings.json"} {
+	for _, rel := range []string{".claude/settings.json", ".codex/hooks.json", ".qwen/settings.json", ".qoder/settings.json"} {
 		if command := approvalsHookCommand(t, filepath.Join(project, rel)); command != "" {
 			t.Errorf("project sync wrote a PermissionRequest hook to %s: %q", rel, command)
 		}

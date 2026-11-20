@@ -240,6 +240,10 @@ func approvalHookProblem(tool string) string {
 		path, _ = claudeUserSettingsPath()
 	case "codex":
 		path, _ = codex.UserHooksPath()
+	case "qoder":
+		if home, err := globalUserHome(); err == nil {
+			path = filepath.Join(home, ".qoder", "settings.json")
+		}
 	case "qwen":
 		if home, err := globalUserHome(); err == nil {
 			if dir, ok := qwenUserDir(home); ok {
@@ -284,6 +288,9 @@ func approvalHookProblem(tool string) string {
 	}
 	if tool == "qwen" {
 		return qwenAskProblem()
+	}
+	if tool == "qoder" {
+		return qoderAskProblem()
 	}
 	if tool != "codex" {
 		return ""
@@ -362,7 +369,7 @@ func qwenAskProblem() string {
 	}
 	dir, _ := qwenUserDir(home)
 	cwd, _ := os.Getwd()
-	settings, err := approvals.ReadQwenSettings(approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv))
+	settings, err := approvals.ReadJSONSettings(approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv))
 	switch {
 	case err != nil:
 		return "cannot read the Qwen Code settings: " + err.Error()
@@ -376,6 +383,24 @@ func qwenAskProblem() string {
 			mode = "auto in a trusted folder"
 		}
 		return "Qwen Code runs in " + mode + " mode, where the hook stays silent; set tools.approvalMode to default or auto_edit"
+	}
+	return ""
+}
+
+// qoderAskProblem says when a Qoder CLI permissions.ask rule, whose
+// prompt a hook allow could answer, turns the hook off.
+func qoderAskProblem() string {
+	home, err := globalUserHome()
+	if err != nil {
+		return "cannot find the home folder: " + err.Error()
+	}
+	cwd, _ := os.Getwd()
+	settings, err := approvals.ReadJSONSettings(approvals.QoderSettingsFiles(home, cwd))
+	switch {
+	case err != nil:
+		return "cannot read the Qoder settings: " + err.Error()
+	case settings.Ask:
+		return "a Qoder settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
 	}
 	return ""
 }
