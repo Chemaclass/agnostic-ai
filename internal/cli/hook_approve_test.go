@@ -214,6 +214,13 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 		{name: "qwen shell in another folder", home: yoloHome, target: "qwen", rule: approvals.RuleInput, payload: func(project string) string {
 			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"run_shell_command","tool_input":{"command":"go test ./...","is_background":false,"directory":"/tmp"}}`
 		}},
+		{name: "qwen undocumented mode", home: yoloHome, target: "qwen", rule: approvals.RulePermissionMode, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"acceptEdits","tool_name":"run_shell_command","tool_input":{"command":"go test ./...","is_background":false}}`
+		}},
+		{name: "qwen relative home", home: yoloHome, target: "qwen", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			t.Setenv("QWEN_HOME", "alt")
+		}},
 		{name: "qwen other tool", home: yoloHome, target: "qwen", rule: approvals.RuleTool, payload: func(project string) string {
 			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"grep_search","tool_input":{"pattern":"x"}}`
 		}},

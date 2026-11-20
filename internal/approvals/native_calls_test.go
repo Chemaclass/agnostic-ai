@@ -34,7 +34,7 @@ func TestNativeRequest_Qwen(t *testing.T) {
 		t.Errorf("run_shell_command = %+v", shell)
 	}
 	wantDecision(t, Decide(shell, testPolicy()), "")
-	dir := NativeRequest("qwen", Request{Call: "run_shell_command", Input: map[string]any{"command": "ls", "is_background": false, "directory": "/tmp"}, Cwd: testRoot})
+	dir := NativeRequest("qwen", Request{Call: "run_shell_command", Input: map[string]any{"command": "ls", "is_background": false, "directory": "/tmp"}, PermissionMode: "default", Cwd: testRoot})
 	wantDecision(t, Decide(dir, testPolicy()), RuleInput)
 	for mode, rule := range map[string]string{"default": "", "auto_edit": "", "plan": RulePermissionMode, "auto": RulePermissionMode, "yolo": RulePermissionMode} {
 		r := NativeRequest("qwen", Request{Call: "read_file", Input: map[string]any{"file_path": testRoot + "/a.go"}, PermissionMode: mode, Cwd: testRoot})

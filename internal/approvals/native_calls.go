@@ -48,8 +48,8 @@ func renamed(input map[string]any, from, to string) map[string]any {
 }
 
 // qwenModes maps Qwen Code approval modes to the gate's: default asks
-// for edits and commands, auto_edit approves edits. plan, auto and yolo
-// keep their names, so the gate asks.
+// for edits and commands, auto_edit approves edits. Any other mode, or
+// none, keeps a name the gate does not approve in.
 var qwenModes = map[string]string{"default": "default", "auto_edit": "acceptEdits"}
 
 // qwenRequest maps the Qwen Code tools whose input the gate can read
@@ -60,6 +60,8 @@ var qwenModes = map[string]string{"default": "default", "auto_edit": "acceptEdit
 func qwenRequest(r Request) Request {
 	if mode, ok := qwenModes[r.PermissionMode]; ok {
 		r.PermissionMode = mode
+	} else {
+		r.PermissionMode = "qwen:" + r.PermissionMode
 	}
 	switch r.Call {
 	case "run_shell_command":

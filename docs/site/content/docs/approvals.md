@@ -44,7 +44,7 @@ Two steps happen in the tools:
 - Codex stops at startup with "Hooks need review" when the hook is new or changed. Open `/hooks` and trust it. Until then the hook does not run and Codex shows its prompts. `approvals status` says when the hook is not trusted yet.
 - Claude Code runs no hook in a folder until you accept its workspace trust dialog.
 - Kiro runs the hook only in a Kiro CLI 3.4.0 or newer V3 session, or Kiro IDE 1.4.236 or newer. It approves shell commands (`execute_bash`) and file reads (`read_file`) only; writes, searches and every other Kiro tool ask. A rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, in `~/.kiro/settings/permissions.yaml`, in any workspace permissions file under `~/.kiro/workspace-roots/`, or in an agent profile turns the hook off: a hook allow could answer that rule's prompt, or the one Kiro's reviewer shows when it is unsure, and the hook cannot match Kiro's rules. `approvals status` says so. Kiro asks before every shell command in a workspace you have not trusted; whether the hook can answer that prompt is not documented, so trust only workspaces you would run `yolo` in.
-- Qwen Code: the hook approves shell commands (`run_shell_command` without a `directory`), file reads, edits and writes in `default` and `auto_edit` mode; every other Qwen tool and mode asks. A `permissions.ask` rule in the user, project or system settings turns the hook off: a hook allow skips that rule's prompt in Qwen Code, and the hook cannot match Qwen's rules. `approvals status` says so. Qwen Code asks you to approve a project's hooks, but this hook is a user hook.
+- Qwen Code: the hook approves shell commands (`run_shell_command` without a `directory`), file reads, edits and writes in `default` and `auto_edit` mode; every other Qwen tool and mode asks. Qwen Code runs auto mode in a trusted folder unless `tools.approvalMode` says otherwise, so set it to `default` or `auto_edit` for the hook to answer. `disableAllHooks`, `--safe-mode` and `--bare` turn the hook off. A `permissions.ask` rule in the user, project or system settings turns the hook off: a hook allow skips that rule's prompt in Qwen Code, and the hook cannot match Qwen's rules. `approvals status` says so. Qwen Code asks you to approve a project's hooks, but this hook is a user hook.
 
 ## Modes
 
@@ -136,7 +136,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Kiro (`kiro`) | asks | PermissionRequest hook | Kiro CLI 3.4.0 or newer in a V3 session; no Kiro `ask` rule |
 | Cursor (`cursor`) | cursor-agent Auto-review | asks | `cursor-agent` only; a classifier-capable model and team permission; set Auto-review in the desktop app by hand |
 | Qoder (`qoder`) | Qoder auto mode | asks | Nothing extra |
-| Qwen Code (`qwen`) | Qwen Code auto mode | PermissionRequest hook | No `permissions.ask` rule; Qwen Code already runs auto mode in a trusted folder when the key is unset |
+| Qwen Code (`qwen`) | Qwen Code auto mode | PermissionRequest hook | For `yolo`, `tools.approvalMode` set to `default` or `auto_edit` and no `permissions.ask` rule; Qwen Code runs auto mode in a trusted folder when the key is unset |
 | Mistral Vibe (`vibe`) | Vibe smart-approve | asks | `bypass_tool_permissions` off |
 | Every other tool | asks | asks | |
 

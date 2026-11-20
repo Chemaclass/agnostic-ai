@@ -7,63 +7,84 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
-// QwenSettingsFiles lists the Qwen Code settings files whose
-// permissions.ask rules may apply to a session in cwd: the system
-// defaults and system files (or the paths their environment variables
-// name), the user file in userDir, and .qwen/settings.json in cwd and
-// every folder above it (docs/users/configuration/settings.md).
+// QwenSettingsFiles lists the Qwen Code settings files that may apply to
+// a session in cwd, lowest precedence first: the system defaults file,
+// the user file in userDir, .qwen/settings.json in every folder from the
+// root down to cwd, and the system file. The two system files move to
+// the paths their environment variables name
+// (docs/users/configuration/settings.md).
 func QwenSettingsFiles(userDir, cwd, goos string, getenv func(string) string) []string {
 	system := map[string]string{"linux": "/etc/qwen-code", "darwin": "/Library/Application Support/QwenCode"}[goos]
-	var files []string
-	for _, f := range []struct{ env, name string }{{"QWEN_CODE_SYSTEM_DEFAULTS_PATH", "system-defaults.json"}, {"QWEN_CODE_SYSTEM_SETTINGS_PATH", "settings.json"}} {
-		if path := getenv(f.env); path != "" {
-			files = append(files, path)
-		} else if system != "" {
-			files = append(files, filepath.Join(system, f.name))
+	systemFile := func(env, name string) []string {
+		if path := getenv(env); path != "" {
+			return []string{path}
 		}
+		if system != "" {
+			return []string{filepath.Join(system, name)}
+		}
+		return nil
 	}
+	files := systemFile("QWEN_CODE_SYSTEM_DEFAULTS_PATH", "system-defaults.json")
 	files = append(files, filepath.Join(userDir, "settings.json"))
 	if filepath.IsAbs(cwd) {
+		var project []string
 		for dir := filepath.Clean(cwd); ; dir = filepath.Dir(dir) {
-			files = append(files, filepath.Join(dir, ".qwen", "settings.json"))
+			project = append(project, filepath.Join(dir, ".qwen", "settings.json"))
 			if filepath.Dir(dir) == dir {
 				break
 			}
 		}
+		slices.Reverse(project)
+		files = append(files, project...)
 	}
-	return files
+	return append(files, systemFile("QWEN_CODE_SYSTEM_SETTINGS_PATH", "settings.json")...)
 }
 
-// SettingsHaveAskRules reports whether any of the JSON settings files,
-// comments allowed, lists a permissions.ask rule. A hook allow may
-// answer such a rule's prompt and the hook does not match the tool's
-// own rule grammar, so any ask rule turns the hook off. A file that
-// exists but does not read or parse is an error.
-func SettingsHaveAskRules(files []string) (bool, error) {
+// QwenSettings is what the hook needs from Qwen Code's settings files.
+type QwenSettings struct {
+	// Ask is set when any file lists a permissions.ask rule.
+	Ask bool
+	// HooksOff is set when any file sets disableAllHooks.
+	HooksOff bool
+	// ApprovalMode is tools.approvalMode from the last file that sets it.
+	ApprovalMode string
+}
+
+// ReadQwenSettings reads files, comments allowed, in precedence order. A
+// file that exists but does not read or parse is an error.
+func ReadQwenSettings(files []string) (QwenSettings, error) {
+	var out QwenSettings
 	for _, path := range files {
 		data, err := os.ReadFile(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return false, fmt.Errorf("read %s: %w", path, err)
+			return QwenSettings{}, fmt.Errorf("read %s: %w", path, err)
 		}
 		data, _ = preview.StripJSONC(data)
-		var settings struct {
-			Permissions struct {
+		var file struct {
+			DisableAllHooks bool `json:"disableAllHooks"`
+			Permissions     struct {
 				Ask []string `json:"ask"`
 			} `json:"permissions"`
+			Tools struct {
+				ApprovalMode string `json:"approvalMode"`
+			} `json:"tools"`
 		}
-		if err := json.Unmarshal(data, &settings); err != nil {
-			return false, fmt.Errorf("parse %s: %w", path, err)
+		if err := json.Unmarshal(data, &file); err != nil {
+			return QwenSettings{}, fmt.Errorf("parse %s: %w", path, err)
 		}
-		if len(settings.Permissions.Ask) > 0 {
-			return true, nil
+		out.Ask = out.Ask || len(file.Permissions.Ask) > 0
+		out.HooksOff = out.HooksOff || file.DisableAllHooks
+		if file.Tools.ApprovalMode != "" {
+			out.ApprovalMode = file.Tools.ApprovalMode
 		}
 	}
-	return false, nil
+	return out, nil
 }

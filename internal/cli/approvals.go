@@ -242,7 +242,11 @@ func approvalHookProblem(tool string) string {
 		path, _ = codex.UserHooksPath()
 	case "qwen":
 		if home, err := globalUserHome(); err == nil {
-			path = filepath.Join(qwenUserDir(home), "settings.json")
+			if dir, ok := qwenUserDir(home); ok {
+				path = filepath.Join(dir, "settings.json")
+			} else {
+				return "QWEN_HOME is not an absolute path, so the hook cannot find the Qwen Code settings"
+			}
 		}
 	}
 	if path == "" {
@@ -343,20 +347,35 @@ func kiroHookProblem(notSynced string) string {
 	return ""
 }
 
-// qwenAskProblem says when a Qwen Code permissions.ask rule, which a
-// hook allow could answer, turns the hook off.
+// qwenAskProblem says why the Qwen Code hook cannot approve: hooks are
+// off, a permissions.ask rule turns it off, or Qwen Code runs in a mode
+// in which the hook stays silent.
 func qwenAskProblem() string {
+	for _, env := range []string{"QWEN_CODE_SAFE_MODE", "QWEN_CODE_SIMPLE"} {
+		if os.Getenv(env) != "" {
+			return env + " is set, which turns off every Qwen Code hook"
+		}
+	}
 	home, err := globalUserHome()
 	if err != nil {
 		return "cannot find the home folder: " + err.Error()
 	}
+	dir, _ := qwenUserDir(home)
 	cwd, _ := os.Getwd()
-	ask, err := approvals.SettingsHaveAskRules(qwenSettingsFiles(home, cwd))
+	settings, err := approvals.ReadQwenSettings(approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv))
 	switch {
 	case err != nil:
 		return "cannot read the Qwen Code settings: " + err.Error()
-	case ask:
+	case settings.HooksOff:
+		return "a Qwen Code settings file sets disableAllHooks"
+	case settings.Ask:
 		return "a Qwen Code settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
+	case settings.ApprovalMode != "default" && settings.ApprovalMode != "auto_edit":
+		mode := settings.ApprovalMode
+		if mode == "" {
+			mode = "auto in a trusted folder"
+		}
+		return "Qwen Code runs in " + mode + " mode, where the hook stays silent; set tools.approvalMode to default or auto_edit"
 	}
 	return ""
 }

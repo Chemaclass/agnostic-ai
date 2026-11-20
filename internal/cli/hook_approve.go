@@ -157,8 +157,12 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		ask, err := approvals.KiroHasAskRule(approvals.KiroAskRuleFiles(userHome, cwd))
 		return approvals.ClaudeSettings{}, err == nil && !ask
 	case "qwen":
-		ask, err := approvals.SettingsHaveAskRules(qwenSettingsFiles(userHome, cwd))
-		return approvals.ClaudeSettings{}, err == nil && !ask
+		dir, ok := qwenUserDir(userHome)
+		if !ok {
+			return approvals.ClaudeSettings{}, false
+		}
+		settings, err := approvals.ReadQwenSettings(approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv))
+		return approvals.ClaudeSettings{}, err == nil && !settings.Ask
 	case "claude":
 	default:
 		return approvals.ClaudeSettings{}, true
@@ -172,16 +176,15 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 	return settings, true
 }
 
-// qwenUserDir is Qwen Code's user folder: $QWEN_HOME, or ~/.qwen.
-func qwenUserDir(userHome string) string {
-	if dir := os.Getenv("QWEN_HOME"); filepath.IsAbs(dir) {
-		return dir
+// qwenUserDir is Qwen Code's user folder: $QWEN_HOME, or ~/.qwen. ok is
+// false for a QWEN_HOME that is not absolute, which Qwen Code resolves
+// in ways the hook does not follow.
+func qwenUserDir(userHome string) (string, bool) {
+	dir := os.Getenv("QWEN_HOME")
+	if dir == "" {
+		return filepath.Join(userHome, ".qwen"), true
 	}
-	return filepath.Join(userHome, ".qwen")
-}
-
-func qwenSettingsFiles(userHome, cwd string) []string {
-	return approvals.QwenSettingsFiles(qwenUserDir(userHome), cwd, runtime.GOOS, os.Getenv)
+	return dir, filepath.IsAbs(dir)
 }
 
 // approveProjectRoot is the root of the Git checkout that holds cwd, or
