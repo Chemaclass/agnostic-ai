@@ -992,7 +992,8 @@
 # Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
 # Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
 # Merged branch growth of 61440 bytes over its base, on top of main's 27336704.
+# Merged branch growth of 28672 bytes over its base, on top of main's 27398144.
 # #3700 hook approve links the approvals gate into the binary for the first
 # time: 200704 bytes of growth over its base at 93439df62 (27287712), on top
-# of main's 27398144.
-27598848
+# of main's 27426816.
+27627520
