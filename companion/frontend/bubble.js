@@ -24,7 +24,7 @@ function show({ view, note }) {
   bubble.setAttribute('aria-label', circleLabelOf(waiting))
   badge.hidden = count === 0
   badge.classList.toggle('is-blocked', waiting.blocked > 0)
-  badgeCount.textContent = badgeText(count)
+  badgeCount.textContent = badgeText(waiting.blocked || waiting.unread)
   if (count > shownCount && document.documentElement.dataset.motion !== 'off') {
     // Restart the pop, so each new arrival is noticed.
     badge.classList.remove('is-new')

@@ -105,7 +105,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
-- The circle's count turns solid orange, with a lock and a halo, while a chat waits for a permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
+- The circle shows a solid orange count with a lock and a halo for chats waiting for permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
 - The circle and the list's ⋯ menu hold the same items in the same order.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).

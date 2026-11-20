@@ -35,6 +35,24 @@ test('search, select and open names the chosen conversation', async ({ page }) =
   expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1', title: 'Fix the login redirect' })
 })
 
+test('Escape clears a search first and then closes the list', async ({ page }) => {
+  await openPanel(page)
+  const search = page.getByLabel('Search every conversation')
+  const rows = page.getByRole('option')
+  const total = await rows.count()
+  await search.fill('login')
+  await expect(rows).toHaveCount(1)
+
+  await search.press('Escape')
+  await expect(search).toHaveValue('')
+  await expect(search).toBeFocused()
+  await expect(rows).toHaveCount(total)
+  expect(await calledPaths(page)).not.toContain('/api/panel/hide')
+
+  await search.press('Escape')
+  await expect.poll(() => calledPaths(page)).toContain('/api/panel/hide')
+})
+
 test('a row shows the agent\'s latest reply under its title, and a row without one shows none', async ({ page }) => {
   await openPanel(page)
   const waiting = row(page, 'Approve the database migration')
@@ -1012,10 +1030,10 @@ test('a folder name no other row shares stays short', async ({ page }) => {
   await expect(row(page, 'Fix the login redirect')).toContainText('Cursor · shop · 3h')
 })
 
-test('the circle counts the conversations that need you, and names the waiting and unread ones apart', async ({ page }) => {
+test('the circle lock counts waiting chats and the accessible name includes unread replies', async ({ page }) => {
   await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
   await page.goto('/')
-  await expect(page.locator('#badge')).toHaveText('2')
+  await expect(page.locator('#badge')).toHaveText('1')
   await expect(page.getByRole('button', { name: 'Conversations: 1 waiting for you, 1 unread' })).toBeVisible()
 })
 
@@ -2168,9 +2186,7 @@ test('a closed list keeps its search but asks for it again only when it opens', 
   await search.fill('login')
   await expect(page.getByRole('option')).toHaveCount(1)
 
-  const hidden = page.waitForResponse((response) => response.url().endsWith('/api/panel/hide'))
-  await search.press('Escape')
-  await hidden
+  expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
   let searches = 0
   page.on('request', (request) => {
     if (request.url().includes('q=login')) searches += 1
@@ -2200,9 +2216,7 @@ test('a search a new list made stale does not run again once the list closes', a
     if (request.url().includes('q=release')) searches += 1
   })
   expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
-  const hidden = page.waitForResponse((response) => response.url().endsWith('/api/panel/hide'))
-  await search.press('Escape')
-  await hidden
+  expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
   // The fixture answers "release" 1.5 seconds after it was asked.
   await page.waitForTimeout(2_500)
   expect(searches).toBe(0)
