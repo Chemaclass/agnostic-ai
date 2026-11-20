@@ -662,6 +662,7 @@ func (v *importToolView) syncedAsIs(path string, f *importViewFile) bool {
 // counts as edited, except a rule the tool inlines into its
 // instructions file, which that file decides.
 func (v *importToolView) uneditedFor(a adapters.Adapter, olds []spec.Entry) []bool {
+	olds = flatCommandsAmong(v.after, olds, a.Name())
 	out := make([]bool, len(olds))
 	var group []int
 	for i, e := range olds {
@@ -909,4 +910,35 @@ func yamlPart(path string, data []byte) []byte {
 		return data
 	}
 	return nil
+}
+
+// flatCommandsAmong gives each command in entries the name target writes
+// it under when the whole bundle syncs, since a subset rendered alone can
+// give a `group:name` command a flat name another command holds.
+func flatCommandsAmong(b spec.Bundle, entries []spec.Entry, target string) []spec.Entry {
+	all := b.For(target).Commands
+	flat := adapters.FlatCommandNames(spec.Bundle{Commands: all}, target).Commands
+	names := map[string]string{}
+	for i, c := range all {
+		if flat[i].Name != c.Name {
+			names[c.Name] = flat[i].Name
+		}
+	}
+	if len(names) == 0 {
+		return entries
+	}
+	out := slices.Clone(entries)
+	for i, e := range out {
+		name, ok := names[e.Name]
+		if e.Kind != spec.KindCommand || !ok {
+			continue
+		}
+		if e.Meta["name"] == e.Name {
+			e.Meta = maps.Clone(e.Meta)
+			e.Meta["name"] = name
+		}
+		e.Name = name
+		out[i] = e
+	}
+	return out
 }

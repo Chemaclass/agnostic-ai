@@ -157,6 +157,10 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+// NamespacedCommands reports that Gemini CLI reads `git/commit.toml` as
+// the command `git:commit`.
+func (Adapter) NamespacedCommands() bool { return true }
+
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool {
