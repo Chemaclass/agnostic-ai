@@ -1174,6 +1174,9 @@ const renameItem = document.getElementById('rename')
 const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
+  complete: document.getElementById('complete'),
+  reopen: document.getElementById('reopen'),
+  hide: document.getElementById('hide'),
   delete: document.getElementById('delete'),
   web: document.getElementById('open-web'),
   'stop-shell': document.getElementById('stop-shell'),
@@ -1300,6 +1303,25 @@ menuItems.read.addEventListener('click', () => {
   // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
   markRow(conversation, 'seen')
 })
+menuItems.complete.addEventListener('click', () => {
+  const conversation = rowMenuTarget('complete')
+  closeRowMenu()
+  queryInput.focus()
+  if (!conversation) return
+  // The row's own tick shows the mark, as if it was pressed.
+  const row = list.querySelector(`.row[data-key="${CSS.escape(keyOf(conversation))}"]`)
+  const tick = row?.querySelector('.action[aria-label^="Mark complete"]')
+  if (row && tick) completeRow(conversation, row, tick)
+  else markRow(conversation, 'completed')
+})
+for (const [item, mark] of [['reopen', 'open'], ['hide', 'hidden']]) {
+  menuItems[item].addEventListener('click', () => {
+    const conversation = rowMenuTarget(item)
+    closeRowMenu()
+    queryInput.focus()
+    if (conversation) markRow(conversation, mark)
+  })
+}
 menuItems.web.addEventListener('click', () => {
   const conversation = rowMenuTarget('web')
   closeRowMenu()

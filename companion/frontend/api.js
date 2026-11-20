@@ -74,7 +74,7 @@ export const readLateOpenFailure = () => call('/api/open/late')
 export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
 
 /**
- * mark is `seen`, `completed` or `hidden`; answers {version}. With `later`, such as each mark of a run but the
+ * mark is `seen`, `completed`, `open` or `hidden`; answers {version}. With `later`, such as each mark of a run but the
  * last, the companion answers at once, with no version, and reads the list soon after.
  */
 export function markConversation(conversation, mark, { later = false } = {}) {

@@ -237,6 +237,39 @@ test('marking one chat complete shows a green tick, then archives it', async ({ 
   await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toBeAttached()
 })
 
+test('the row menu marks a chat complete with the same tick as its button', async ({ page }) => {
+  await openPanel(page)
+  const marks = markBodies(page)
+  const target = row(page, 'Fix the login redirect')
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark complete' }).click()
+
+  await expect(target.locator('.action.is-done')).toBeAttached()
+  await expect(target).toBeHidden()
+  expect(marks).toEqual([{ tool: 'cursor', id: 'active-1', as: 'completed' }])
+})
+
+test('the row menu of an archived chat undoes complete or hides it', async ({ page }) => {
+  await openArchived(page)
+  const marks = markBodies(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  // Closed and quiet for days, it stays under Archived, now without the mark to undo.
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.keyboard.press('Escape')
+
+  await row(page, 'Sketch the pricing page').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Hide from agnostic-ai' }).click()
+  await expect(row(page, 'Sketch the pricing page')).toHaveCount(0)
+  expect(marks).toEqual([
+    { tool: 'claude', id: 'done-2', as: 'open' },
+    { tool: 'claude', id: 'old-2', as: 'hidden' },
+  ])
+})
+
 test('a refused mark complete gives the tick back, keeps the row and says why', async ({ page }) => {
   await openPanel(page, 'mark-failure')
   const target = row(page, 'Fix the login redirect')
@@ -1908,8 +1941,10 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('menuitem', { name: 'Open on claude.ai' })).toBeFocused()
+  for (const name of ['Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByRole('menuitem', { name })).toBeFocused()
+  }
   await page.keyboard.press('ArrowDown')
   await expect(deleteItem(page)).toBeFocused()
 })
@@ -1919,13 +1954,16 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   await row(page, 'Approve the database migration').click({ button: 'right' })
   const read = page.getByRole('menuitem', { name: 'Mark as read' })
   const rename = page.getByRole('menuitem', { name: 'Rename…' })
+  const complete = page.getByRole('menuitem', { name: 'Mark complete' })
   await expect(read).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(rename).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(complete).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(read).toBeFocused()
   await page.keyboard.press('ArrowUp')
-  await expect(rename).toBeFocused()
+  await expect(complete).toBeFocused()
   await expect(selected(page)).toContainText('Approve the database migration')
 })
 

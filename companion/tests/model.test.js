@@ -111,21 +111,21 @@ test('says which conversation a nested row was started from', () => {
 test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
-    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename', 'delete'], ['rename', 'delete']],
+    [['read', 'rename', 'complete'], ['read', 'rename', 'complete'], ['rename'], ['rename', 'complete'], ['rename', 'reopen', 'hide', 'delete'], ['rename', 'hide', 'delete']],
   )
 })
 
 test('offers Delete only on a chat under Archived that no process holds', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename'])
-  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'reopen', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'reopen', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename', 'complete'])
 })
 
 test('an archived chat has no read state: no Mark as read, and Delete without reading it first', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'delete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'reopen', 'hide', 'delete', 'web'])
   assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), 'hide')
   assert.equal(unreadMarkOf(row('a', 'dormant', { unread: true })), false)
   assert.equal(unreadMarkOf(row('a', 'active', { unread: true })), true)
@@ -608,9 +608,9 @@ test('a shared row shows under Local and under Cloud, and counts once in each', 
 })
 
 test('offers Open on claude.ai only on a shared row, and names its cloud session', () => {
-  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'web'])
-  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'web'])
-  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename'])
+  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename', 'complete'])
   const sharedRow = shared('a', 'active')
   assert.deepEqual(cloudPageOf(sharedRow), { tool: 'claude', id: 'cse_a1', title: sharedRow.title })
   assert.equal(cloudPageOf(row('a', 'active')), undefined)
@@ -707,7 +707,7 @@ test('a group header names the unread chats it holds, and an archived one adds n
 
 test('a resumed chat with an unread marker offers Mark as read, and its tooltip says so', () => {
   const open = { kind: 'focus', label: 'Switch to Ghostty' }
-  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename', 'complete'])
   assert.equal(rowTooltipOf(row('a', 'active', { unread: true, open }), Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\nResumed with a reply from before that you have not read')
 })
 
@@ -799,9 +799,9 @@ const shellNow = Date.parse('2026-11-09T12:00:00Z')
 
 test('warns about each shell with its age, command and owner when known', () => {
   const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })
-  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'stop-shell'])
-  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename'])
-  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'complete', 'stop-shell'])
+  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename', 'complete'])
+  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename', 'complete'])
   assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'stop-shell'])
   assert.deepEqual(conversation.stuckShells.map((entry) => shellWarningOf(entry, shellNow)), [
     'Shell running for 1h: npm run dev',
