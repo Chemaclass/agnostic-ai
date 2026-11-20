@@ -47,6 +47,7 @@ package zed
 import (
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -210,12 +211,7 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 }
 
 func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, want)
 }
 
 // emitContextServers writes (or merges into) .zed/settings.json with

@@ -109,12 +109,12 @@ func TestPermissionEdit_RefusesStaleListsSourcesAndNewPersonalOverrides(t *testi
 	body["before"] = []string{"read"}
 	proposed := permissionPreviewRequest(t, h, body)
 	file := ".agnostic-ai/settings/defaults.yaml"
-	mustWrite(t, file, "# Later comment.\nname: defaults\npermissions:\n  allow: [read]\n")
+	writeFile(t, file, "# Later comment.\nname: defaults\npermissions:\n  allow: [read]\n")
 	if rec := permissionApplyRequest(t, h, body, proposed); rec.Code != 409 {
 		t.Fatalf("changed raw source = %d %s", rec.Code, rec.Body)
 	}
 	proposed = permissionPreviewRequest(t, h, body)
-	mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\npermissions:\n  allow: [edit]\n")
+	writeFile(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\npermissions:\n  allow: [edit]\n")
 	if rec := permissionApplyRequest(t, h, body, proposed); rec.Code != 409 {
 		t.Fatalf("new personal override = %d %s", rec.Code, rec.Body)
 	}
@@ -125,7 +125,7 @@ func TestPermissionEdit_RefusesStaleListsSourcesAndNewPersonalOverrides(t *testi
 
 func TestPermissionEdit_RequiresAConfiguredSourceAndExplicitChoice(t *testing.T) {
 	h := targetProject(t, "name: defaults\npermissions:\n  allow: [read]\n")
-	mustWrite(t, ".agnostic-ai/settings/other.yaml", "name: other\neffort: high\n")
+	writeFile(t, ".agnostic-ai/settings/other.yaml", "name: other\neffort: high\n")
 	body := map[string]any{"action": "preview", "audience": "shared", "key": "permissions.ask", "rules": []string{"shell"}, "before": nil}
 	if rec := permissionRequest(t, h, body); rec.Code != 400 || !strings.Contains(rec.Body.String(), "choose a path") {
 		t.Fatalf("ambiguous source = %d %s", rec.Code, rec.Body)
@@ -162,7 +162,7 @@ func TestPermissionEdit_CreatesConfiguredProjectAndGlobalSources(t *testing.T) {
 				h, file = &editHandler{root: root, global: true}, filepath.Join(root, "settings", "permissions.yaml")
 			} else {
 				h = targetProject(t, "")
-				mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  settings: config/policies\n")
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  settings: config/policies\n")
 				file = filepath.Join(h.root, "config", "policies", "permissions.yaml")
 			}
 			body := map[string]any{"audience": "shared", "key": "permissions.deny", "rules": []string{"shell(rm -rf *)"}, "before": nil}
@@ -203,7 +203,7 @@ func TestPermissionEdit_RechecksSourcesInsideTheAtomicSave(t *testing.T) {
 	body := map[string]any{"audience": "shared", "key": "permissions.allow", "rules": []string{"edit"}, "before": []string{"read"}}
 	proposed := permissionPreviewRequest(t, h, body)
 	h.validate = func() ([]string, error) {
-		mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\npermissions:\n  allow: [shell]\n")
+		writeFile(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\npermissions:\n  allow: [shell]\n")
 		return nil, nil
 	}
 	if rec := permissionApplyRequest(t, h, body, proposed); rec.Code != http.StatusConflict {
@@ -237,7 +237,7 @@ func TestPermissionEdit_UsesExistingOriginAndMethodGuards(t *testing.T) {
 func TestPermissionEdit_ResetsAPersonalNullWithoutChangingOtherKeys(t *testing.T) {
 	h := targetProject(t, "name: defaults\npermissions:\n  allow: [read]\n")
 	local := ".agnostic-ai/local/settings/defaults.yaml"
-	mustWrite(t, local, "# Mine.\nname: defaults\npermissions:\n  allow: null\neffort: low\n")
+	writeFile(t, local, "# Mine.\nname: defaults\npermissions:\n  allow: null\neffort: low\n")
 	body := map[string]any{"audience": "personal", "key": "permissions.allow", "rules": nil, "before": nil}
 	proposed := permissionPreviewRequest(t, h, body)
 	if rec := permissionApplyRequest(t, h, body, proposed); rec.Code != http.StatusOK {
@@ -263,8 +263,8 @@ func TestPermissionEdit_RefusesWholePersonalPermissionsClearForBothAudiences(t *
 				h = targetProject(t, original)
 			}
 			sharedFile, localFile := filepath.Join(h.root, filepath.FromSlash(shared)), filepath.Join(h.root, filepath.FromSlash(local))
-			mustWrite(t, sharedFile, original)
-			mustWrite(t, localFile, personal)
+			writeFile(t, sharedFile, original)
+			writeFile(t, localFile, personal)
 			for _, audience := range []string{"shared", "personal"} {
 				body := map[string]any{"action": "preview", "audience": audience, "path": shared, "key": "permissions.allow", "rules": []string{"edit"}}
 				rec := permissionRequest(t, h, body)

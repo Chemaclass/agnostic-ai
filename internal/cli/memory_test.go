@@ -18,7 +18,7 @@ func memoryFact(name, typ, description string) string {
 func writeMemory(t *testing.T, dir, store string, files map[string]string) {
 	t.Helper()
 	for name, content := range files {
-		mustWriteFile(t, filepath.Join(dir, filepath.FromSlash(store), name), content)
+		writeFile(t, filepath.Join(dir, filepath.FromSlash(store), name), content)
 	}
 }
 
@@ -158,7 +158,7 @@ func TestMemoryLint_ExitsOnErrorsOnly(t *testing.T) {
 		t.Errorf("--strict should fail on a warning")
 	}
 
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"), "- [Gone](gone.md): removed\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"), "- [Gone](gone.md): removed\n")
 	out, err = runRoot(t, "memory", "lint", "--json")
 	if err == nil {
 		t.Fatalf("an error must fail memory lint:\n%s", out)
@@ -273,7 +273,7 @@ func TestMemoryIndex_PreservesExistingLinksAndIsIdempotent(t *testing.T) {
 		"sub/deep.md":  "nested\n",
 	})
 	want := strings.Replace(index, "- [Missing](gone.md): stale\n", "", 1) + "- [new space](new%20space.md): new\n"
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if out, err := runRoot(t, "memory", "index"); err != nil {
 			t.Fatalf("memory index: %v\n%s", err, out)
 		}

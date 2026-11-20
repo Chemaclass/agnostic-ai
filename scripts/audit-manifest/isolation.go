@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -83,7 +84,7 @@ func (a app) isolate(args []string) (string, error) {
 		return "", err
 	}
 	if *out == "" || len(f.Args()) != 0 {
-		return "", fmt.Errorf("isolate requires --out <new-worktree> and optional --commit <revision>")
+		return "", errors.New("isolate requires --out <new-worktree> and optional --commit <revision>")
 	}
 	status, err := a.command("git", "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
@@ -94,7 +95,7 @@ func (a app) isolate(args []string) (string, error) {
 		return "", err
 	}
 	if *commit == "" && (status != "" || embedded != "") {
-		return "", fmt.Errorf("isolate: working changes exist; commit them first or use --commit <revision> to audit committed inputs only")
+		return "", errors.New("isolate: working changes exist; commit them first or use --commit <revision> to audit committed inputs only")
 	}
 	if *commit == "" {
 		*commit = "HEAD"

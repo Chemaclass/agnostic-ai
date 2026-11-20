@@ -11,16 +11,16 @@ import (
 
 func TestSyncVerbose_ShowsNewDiagnosticsAfterJSONSync(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline, codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline, codex]\n")
 	skill := filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md")
-	mustWriteFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
+	writeFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\n---\nDeploy.\n")
 	silence(t)
 	captureLog(t)
 	notes := captureNotes(t)
 	if _, err := runCLI(t, "sync", "-v"); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\ndisable-model-invocation: true\n---\nDeploy.\n")
+	writeFile(t, skill, "---\nname: deploy\nargument-hint: '[version]'\ndisable-model-invocation: true\n---\nDeploy.\n")
 	notes.Reset()
 	out := runSyncJSONDrops(t)
 	found := false
@@ -42,8 +42,8 @@ func TestSyncVerbose_ShowsNewDiagnosticsAfterJSONSync(t *testing.T) {
 func TestSyncVerbose_ReportsKeptHandEditWhenBackupExists(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
-	mustWriteFile(t, handEditSkill+".bak", "earlier edit\n")
+	writeFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill+".bak", "earlier edit\n")
 	log := captureLog(t)
 	if _, err := runCLI(t, "sync", "-v"); err != nil {
 		t.Fatal(err)
@@ -58,10 +58,10 @@ func TestSyncVerbose_ReportsKeptHandEditWhenBackupExists(t *testing.T) {
 
 func TestSyncVerboseFull_ListsEveryChangedPathAndAcceptedNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n"+acceptCodexTools)
-	mustWriteFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: Reviews code.\ntools: [Read, Grep]\n---\nReview.\n")
-	for i := 0; i < 5; i++ {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", fmt.Sprintf("rule%d.md", i)), fmt.Sprintf("---\nname: rule%d\n---\nRule.\n", i))
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n"+acceptCodexTools)
+	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: Reviews code.\ntools: [Read, Grep]\n---\nReview.\n")
+	for i := range 5 {
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", fmt.Sprintf("rule%d.md", i)), fmt.Sprintf("---\nname: rule%d\n---\nRule.\n", i))
 	}
 	silence(t)
 	log := captureLog(t)
@@ -69,7 +69,7 @@ func TestSyncVerboseFull_ListsEveryChangedPathAndAcceptedNote(t *testing.T) {
 	if _, err := runCLI(t, "sync", "-vv"); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		path := fmt.Sprintf(".claude/rules/rule%d.md", i)
 		if !strings.Contains(log.String(), path) {
 			t.Errorf("full output omitted %s:\n%s", path, log.String())

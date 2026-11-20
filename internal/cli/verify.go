@@ -77,7 +77,7 @@ func newVerifyCmd() *cobra.Command {
 				return err
 			}
 			if len(cfg.Verify.Command) == 0 || strings.TrimSpace(cfg.Verify.Command[0]) == "" {
-				return fmt.Errorf("verify.command must name an executable and optional arguments")
+				return errors.New("verify.command must name an executable and optional arguments")
 			}
 
 			effective := cfg.Targets
@@ -274,9 +274,9 @@ func emittedModelFile(cfg *config.Config, target string) (string, string) {
 
 func capturedContent(files []adapters.CapturedFile, path string) (string, bool) {
 	want := normalizeFingerprintPath(path)
-	for i := len(files) - 1; i >= 0; i-- {
-		if normalizeFingerprintPath(files[i].Path) == want {
-			return files[i].Content, true
+	for _, file := range slices.Backward(files) {
+		if normalizeFingerprintPath(file.Path) == want {
+			return file.Content, true
 		}
 	}
 	return "", false
@@ -435,8 +435,7 @@ func runVerifier(cmd *cobra.Command, argv []string, context verifyContext) error
 		if cmd.Context().Err() != nil {
 			return fmt.Errorf("verify %s: %w", context.Target, cmd.Context().Err())
 		}
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			return &verifierExitError{target: context.Target, err: exitErr}
 		}
 		return fmt.Errorf("verify %s: run %s: %w", context.Target, argv[0], err)

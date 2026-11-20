@@ -566,8 +566,8 @@ func comparisonValid(dir string, row []string) error {
 		return nil
 	}
 	path := row[9]
-	if strings.HasSuffix(path, ".body") {
-		extracted := strings.TrimSuffix(path, ".body") + ".txt"
+	if before, ok := strings.CutSuffix(path, ".body"); ok {
+		extracted := before + ".txt"
 		if _, err := os.Stat(filepath.Join(dir, extracted)); err == nil {
 			path = extracted
 		}
@@ -684,8 +684,8 @@ func (a app) builtinDeep(m *manifest) ([]string, error) {
 		return nil, err
 	}
 	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(line, "builtin-deep:") {
-			return strings.Fields(strings.TrimPrefix(line, "builtin-deep:")), nil
+		if after, ok := strings.CutPrefix(line, "builtin-deep:"); ok {
+			return strings.Fields(after), nil
 		}
 	}
 	return nil, nil
@@ -955,7 +955,6 @@ func (a app) finalize(m *manifest) (string, error) {
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
 		return "", errors.New("usage: isolate|start|capture|comment-paths|comment-reviews|review-comment|resume|checkpoint|checkpoints|schedule|dispatch|release|assign|complete|record|result-template|ingest|result-report|validate|finalize (see scripts/target-audit/manifest.md)")
-
 	}
 	switch args[0] {
 	case "comment-paths":

@@ -18,8 +18,8 @@ func TestHistoryDefaultAbsence_HandwrittenFilesSkipRenderWithoutChangingClassifi
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
 	writeBenchProject(t, dir, 3)
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
-	mustWriteFile(t, ".gitignore", "# >>> agnostic-ai (managed) >>>\n.claude/settings.json\n# <<< agnostic-ai (managed) <<<\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, ".gitignore", "# >>> agnostic-ai (managed) >>>\n.claude/settings.json\n# <<< agnostic-ai (managed) <<<\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual launch")
 	cfg, err := config.Load(".")
@@ -61,7 +61,7 @@ func TestHistoryDefaultAbsence_HandwrittenFilesSkipRenderWithoutChangingClassifi
 	if !present {
 		t.Fatal("full renderer has no settings output")
 	}
-	mustWriteFile(t, other, content)
+	writeFile(t, other, content)
 	if !h.provesAtHEAD(filepath.FromSlash(other)) {
 		t.Error("other JSON no longer proved owned after negative results")
 	}
@@ -105,10 +105,10 @@ func TestHistoryDefaultAbsence_UnknownInputsKeepFullRender(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir, git := launchGitRepo(t)
 			testutil.Chdir(t, dir)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\n"+tc.config)
-			mustWriteFile(t, ".claude/launch.json", "{}\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\n"+tc.config)
+			writeFile(t, ".claude/launch.json", "{}\n")
 			if tc.path != "" {
-				mustWriteFile(t, tc.path, tc.body)
+				writeFile(t, tc.path, tc.body)
 			}
 			git("add", "-A")
 			git("commit", "-q", "-m", "guard")
@@ -126,8 +126,8 @@ func TestHistoryDefaultAbsence_UnknownInputsKeepFullRender(t *testing.T) {
 func TestHistoryLaunch_DeletedEnvironmentKeepsHistoricalOwnership(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore: {enabled: false}\n")
-	mustWriteFile(t, ".agnostic-ai/environments/dev.yaml", "name: dev\ndev-commands:\n  - name: web\n    command: npm run dev\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore: {enabled: false}\n")
+	writeFile(t, ".agnostic-ai/environments/dev.yaml", "name: dev\ndev-commands:\n  - name: web\n    command: npm run dev\n")
 	syncProject(t)
 	git("add", "-A")
 	git("commit", "-q", "-m", "generated launch")
@@ -157,7 +157,7 @@ func TestHistoryLaunch_DeletedEnvironmentKeepsHistoricalOwnership(t *testing.T) 
 	if !reflect.DeepEqual(rep.Orphaned, []string{filepath.FromSlash(".claude/launch.json")}) || len(rep.Leftover) != 0 {
 		t.Errorf("deleted environment classification: %+v", rep)
 	}
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	if h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("edited launch remains owned")
 	}
@@ -167,9 +167,9 @@ func TestHistoryDefaultAbsence_DefaultProducersCannotEmitEitherPath(t *testing.T
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	writeBenchProject(t, dir, 1)
-	mustWriteFile(t, ".agnostic-ai/ignore/secrets.md", "---\nname: secrets\n---\n\n*.env\n")
-	mustWriteFile(t, ".agnostic-ai/reviews/review.md", "---\nname: review\n---\n\nCheck changes.\n")
-	mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [read]\n")
+	writeFile(t, ".agnostic-ai/ignore/secrets.md", "---\nname: secrets\n---\n\n*.env\n")
+	writeFile(t, ".agnostic-ai/reviews/review.md", "---\nname: review\n---\n\nCheck changes.\n")
+	writeFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [read]\n")
 	cfg, loaded, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -210,9 +210,9 @@ func TestHistoryDefaultAbsence_DefaultProducersCannotEmitEitherPath(t *testing.T
 func TestHistoryLaunch_NestedProjectIgnoresSiblingEnvironment(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, ".agnostic-ai/environments/dev.yaml", "name: sibling\n")
-	mustWriteFile(t, "nested/agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "nested/.claude/launch.json", "{}\n")
+	writeFile(t, ".agnostic-ai/environments/dev.yaml", "name: sibling\n")
+	writeFile(t, "nested/agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "nested/.claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "nested manual")
 	testutil.Chdir(t, filepath.Join(dir, "nested"))
@@ -227,9 +227,9 @@ func TestHistoryLaunch_NegativeProofStillConsumesHistoricalAdmission(t *testing.
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
 	var paths, commits []string
-	for i := 0; i < maxHistoryRenders; i++ {
+	for i := range maxHistoryRenders {
 		path := fmt.Sprintf(".claude/other-%d.json", i)
-		mustWriteFile(t, path, "{}\n")
+		writeFile(t, path, "{}\n")
 		git("add", "-A")
 		git("commit", "-q", "-m", "other")
 		sha, err := gitOutput(".", nil, "rev-parse", "HEAD")
@@ -239,8 +239,8 @@ func TestHistoryLaunch_NegativeProofStillConsumesHistoricalAdmission(t *testing.
 		paths = append(paths, path)
 		commits = append(commits, strings.TrimSpace(sha))
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual")
 	h := &historyRenderer{}
@@ -257,7 +257,7 @@ func TestHistoryLaunch_NegativeProofStillConsumesHistoricalAdmission(t *testing.
 			t.Errorf("candidate %d proof=%v", i, got)
 		}
 	}
-	mustWriteFile(t, ".claude/other.json", "{}\n")
+	writeFile(t, ".claude/other.json", "{}\n")
 	// A later HEAD must not enter the pinned snapshot or consume its budget.
 	git("add", "-A")
 	git("commit", "-q", "-m", "later")
@@ -281,10 +281,10 @@ func TestHistoryLaunch_LegacyAndSourceAliasKeepFullRender(t *testing.T) {
 			if alias {
 				configName = config.ConfigFileName
 			}
-			mustWriteFile(t, configName, "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, ".claude/launch.json", "{}\n")
+			writeFile(t, configName, "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".claude/launch.json", "{}\n")
 			if alias {
-				mustWriteFile(t, "outside/dev.yaml", "name: dev\n")
+				writeFile(t, "outside/dev.yaml", "name: dev\n")
 				if err := os.MkdirAll(".agnostic-ai", 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -306,8 +306,8 @@ func TestHistoryLaunch_LegacyAndSourceAliasKeepFullRender(t *testing.T) {
 func TestHistoryLaunch_CustomGitFilterKeepsFullRender(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("config", "filter.unused.smudge", "cat")
 	git("add", "-A")
 	git("commit", "-q", "-m", "filter")
@@ -321,9 +321,9 @@ func TestHistoryLaunch_CustomGitFilterKeepsFullRender(t *testing.T) {
 func TestHistoryLaunch_RestoredHelperRetainsOwnership(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/claude/launch.json", "{}\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/overlays/claude/launch.json", "{}\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "helper")
 	h := &historyRenderer{}
@@ -335,9 +335,9 @@ func TestHistoryLaunch_RestoredHelperRetainsOwnership(t *testing.T) {
 func TestHistoryLaunch_UnrelatedHelperDoesNotDefeatAbsence(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/overlays/claude/readme.txt", "helper\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/overlays/claude/readme.txt", "helper\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual")
 	h := &historyRenderer{}
@@ -350,10 +350,10 @@ func TestHistoryLaunch_UnrelatedHelperDoesNotDefeatAbsence(t *testing.T) {
 func TestHistoryLaunch_EscapingSkillNameCannotProduceLaunchAsset(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: ../../.claude\n---\nskill\n")
-	mustWriteFile(t, ".agnostic-ai/skills/demo/launch.json", "{}\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: ../../.claude\n---\nskill\n")
+	writeFile(t, ".agnostic-ai/skills/demo/launch.json", "{}\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	if _, _, err := loadProject("."); err == nil || !strings.Contains(err.Error(), "invalid spec name") {
 		t.Fatalf("escaping skill loader error=%v", err)
 	}
@@ -368,10 +368,10 @@ func TestHistoryLaunch_EscapingSkillNameCannotProduceLaunchAsset(t *testing.T) {
 func TestHistoryLaunch_ValidScopedSkillAssetDoesNotOwnRootLaunch(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/.claude/demo/SKILL.md", "---\nname: demo\n---\nskill\n")
-	mustWriteFile(t, ".agnostic-ai/skills/.claude/demo/launch.json", "{}\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/.claude/demo/SKILL.md", "---\nname: demo\n---\nskill\n")
+	writeFile(t, ".agnostic-ai/skills/.claude/demo/launch.json", "{}\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "scoped skill")
 	h := &historyRenderer{}
@@ -393,8 +393,8 @@ func TestHistoryLaunch_ValidScopedSkillAssetDoesNotOwnRootLaunch(t *testing.T) {
 func TestHistoryLaunch_CurrentCustomSourceKeepsFullRender(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/launch.json", "{}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual")
 	h := &historyRenderer{sources: []string{"custom"}}
@@ -414,15 +414,15 @@ func launchGitRepo(t *testing.T) (string, func(...string)) {
 func TestHistoryDefaultAbsence_ConfiguredIgnoreOutputKeepsOwnership(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\ngitignore: {enabled: false}\noutputs:\n  aider:\n    ignore-file: .gitignore\n    provenance-header: false\n")
-	mustWriteFile(t, ".agnostic-ai/ignore/secrets.md", "---\nname: secrets\n---\n\n*.env\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\ngitignore: {enabled: false}\noutputs:\n  aider:\n    ignore-file: .gitignore\n    provenance-header: false\n")
+	writeFile(t, ".agnostic-ai/ignore/secrets.md", "---\nname: secrets\n---\n\n*.env\n")
 	syncProject(t)
 	git("add", "-A")
 	git("commit", "-q", "-m", "configured ignore output")
 	if err := os.Remove(stateFilePath(".")); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\ngitignore: {enabled: false}\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\ngitignore: {enabled: false}\n")
 	cfg, err := config.Load(".")
 	if err != nil {
 		t.Fatal(err)
@@ -438,7 +438,7 @@ func TestHistoryDefaultAbsence_ConfiguredIgnoreOutputKeepsOwnership(t *testing.T
 	if !reflect.DeepEqual(rep.Leftover, []string{filepath.FromSlash(".gitignore")}) || len(rep.Orphaned) != 0 {
 		t.Errorf("configured ignore classification: %+v", rep)
 	}
-	mustWriteFile(t, ".gitignore", "my own patterns\n")
+	writeFile(t, ".gitignore", "my own patterns\n")
 	if h.provesAtHEAD(filepath.FromSlash(".gitignore")) {
 		t.Error("edited ignore remains owned")
 	}

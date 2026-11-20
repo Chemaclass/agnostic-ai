@@ -170,13 +170,13 @@ func TestDiffSpecSums(t *testing.T) {
 func TestEntrySum_SkillAssetEditChangesSum(t *testing.T) {
 	dir := t.TempDir()
 	skill := filepath.Join(dir, "SKILL.md")
-	mustWriteFile(t, skill, "body")
+	writeFile(t, skill, "body")
 	asset := filepath.Join(dir, "references", "notes.md")
-	mustWriteFile(t, asset, "v1")
+	writeFile(t, asset, "v1")
 	e := spec.Entry{Kind: spec.KindSkill, Name: "s", Path: skill, Body: "body"}
 	before := entrySum(e)
 
-	mustWriteFile(t, asset, "v2")
+	writeFile(t, asset, "v2")
 
 	if entrySum(e) == before {
 		t.Error("editing a skill asset should change the skill's sum")
@@ -210,7 +210,7 @@ func TestGitRepo_DoesNotStartAutomaticMaintenance(t *testing.T) {
 	dir, git := gitRepo(t)
 	trace := filepath.Join(t.TempDir(), "git-trace.jsonl")
 	t.Setenv("GIT_TRACE2_EVENT", trace)
-	mustWriteFile(t, filepath.Join(dir, "tracked.md"), "fixture\n")
+	writeFile(t, filepath.Join(dir, "tracked.md"), "fixture\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	data, err := os.ReadFile(trace)
@@ -233,14 +233,14 @@ func TestGitRepo_DoesNotStartAutomaticMaintenance(t *testing.T) {
 
 func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
 	dir, git := gitRepo(t)
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "ignored.md\n")
-	mustWriteFile(t, filepath.Join(dir, "tracked.md"), "v1")
-	mustWriteFile(t, filepath.Join(dir, "same.md"), "v1")
+	writeFile(t, filepath.Join(dir, ".gitignore"), "ignored.md\n")
+	writeFile(t, filepath.Join(dir, "tracked.md"), "v1")
+	writeFile(t, filepath.Join(dir, "same.md"), "v1")
 	git("add", ".")
 	git("commit", "-q", "-m", "init")
-	mustWriteFile(t, filepath.Join(dir, "tracked.md"), "v2")
-	mustWriteFile(t, filepath.Join(dir, "ignored.md"), "x")
-	mustWriteFile(t, filepath.Join(dir, "new.md"), "x")
+	writeFile(t, filepath.Join(dir, "tracked.md"), "v2")
+	writeFile(t, filepath.Join(dir, "ignored.md"), "x")
+	writeFile(t, filepath.Join(dir, "new.md"), "x")
 
 	got := gitPending(dir, []string{"tracked.md", "ignored.md", "new.md", "same.md"})
 
@@ -256,14 +256,14 @@ func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
 func TestGitPending_SkipsAnOutputBeingUntracked(t *testing.T) {
 	dir, git := gitRepo(t)
 	sub := filepath.Join(dir, "sub")
-	mustWriteFile(t, filepath.Join(sub, "settings.json"), "v1")
-	mustWriteFile(t, filepath.Join(sub, "gone.md"), "v1")
+	writeFile(t, filepath.Join(sub, "settings.json"), "v1")
+	writeFile(t, filepath.Join(sub, "gone.md"), "v1")
 	git("add", ".")
 	git("commit", "-q", "-m", "init")
 	git("rm", "-q", "--cached", "sub/settings.json")
 	git("rm", "-q", "sub/gone.md")
-	mustWriteFile(t, filepath.Join(sub, ".gitignore"), "settings.json\n")
-	mustWriteFile(t, filepath.Join(sub, "settings.json"), "v2")
+	writeFile(t, filepath.Join(sub, ".gitignore"), "settings.json\n")
+	writeFile(t, filepath.Join(sub, "settings.json"), "v2")
 
 	got := gitPending(sub, []string{"settings.json", "gone.md"})
 
@@ -275,7 +275,7 @@ func TestGitPending_SkipsAnOutputBeingUntracked(t *testing.T) {
 func TestGitPending_PathsAreRelativeToAProjectInASubdirectory(t *testing.T) {
 	dir, _ := gitRepo(t)
 	sub := filepath.Join(dir, "sub")
-	mustWriteFile(t, filepath.Join(sub, "new.md"), "x")
+	writeFile(t, filepath.Join(sub, "new.md"), "x")
 
 	got := gitPending(sub, []string{"new.md"})
 
@@ -308,8 +308,8 @@ func TestGitPending_OutsideGitRepoReturnsNothing(t *testing.T) {
 // review).
 func TestGitRmCached_TreatsGlobCharactersLiterally(t *testing.T) {
 	dir, gitc := gitRepo(t)
-	mustWriteFile(t, filepath.Join(dir, "a[X]b.txt"), "v1")
-	mustWriteFile(t, filepath.Join(dir, "aXb.txt"), "v2")
+	writeFile(t, filepath.Join(dir, "a[X]b.txt"), "v1")
+	writeFile(t, filepath.Join(dir, "aXb.txt"), "v2")
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
 
@@ -336,7 +336,7 @@ func TestGitRmCached_TreatsGlobCharactersLiterally(t *testing.T) {
 // remove what it can and name only the path that failed (#1330 review).
 func TestGitRmCached_PartialFailureRemovesWhatItCanAndNamesTheRest(t *testing.T) {
 	dir, gitc := gitRepo(t)
-	mustWriteFile(t, filepath.Join(dir, "good.txt"), "v1")
+	writeFile(t, filepath.Join(dir, "good.txt"), "v1")
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
 
@@ -359,9 +359,9 @@ func TestGitRmCached_PartialFailureRemovesWhatItCanAndNamesTheRest(t *testing.T)
 
 func TestRunSyncOnce_ReportNamesTheEditedSpec(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "testing.md")
-	mustWriteFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite tests.\n")
+	writeFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite tests.\n")
 	silence(t)
 	buf := captureLog(t)
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
@@ -387,16 +387,16 @@ func TestRunSyncOnce_ReportNamesTheEditedSpec(t *testing.T) {
 
 func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# demo\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# demo\n")
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
-	mustWriteFile(t, rule, "---\nname: style\nalwaysApply: true\n---\n\nUse tabs.\n")
+	writeFile(t, rule, "---\nname: style\nalwaysApply: true\n---\n\nUse tabs.\n")
 	silence(t)
 	buf := captureLog(t)
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, rule, "---\nname: style\nalwaysApply: true\n---\n\nUse tabs.\nUse spaces.\n")
+	writeFile(t, rule, "---\nname: style\nalwaysApply: true\n---\n\nUse tabs.\nUse spaces.\n")
 	buf.Reset()
 	verbosity = levelVerbose
 
@@ -421,15 +421,15 @@ func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
 
 func TestRunSyncOnce_PartialRunKeepsTheSpecBaseline(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "testing.md")
-	mustWriteFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite tests.\n")
+	writeFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite tests.\n")
 	silence(t)
 	buf := captureLog(t)
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite more tests.\n")
+	writeFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite more tests.\n")
 	if err := runSyncOnce(".", []string{"claude"}, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
@@ -446,8 +446,8 @@ func TestRunSyncOnce_PartialRunKeepsTheSpecBaseline(t *testing.T) {
 
 func TestRunSyncOnce_ReportsAGitignoreRewrite(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "testing.md"), "---\ndescription: Tests.\n---\n\nWrite tests.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "testing.md"), "---\ndescription: Tests.\n---\n\nWrite tests.\n")
 	silence(t)
 	buf := captureLog(t)
 

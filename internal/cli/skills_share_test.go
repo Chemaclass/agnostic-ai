@@ -328,9 +328,9 @@ func TestPlanSkillLinks_NoLinkForSingleOrDivergentFolders(t *testing.T) {
 // collapse into a link, and never lose its SKILL.md on the way.
 func TestSync_SharedSkills_FolderWithAssetsBecomesLink(t *testing.T) {
 	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
 		"---\nname: deploy\ndescription: Ship it\n---\nDeploy.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
@@ -358,7 +358,7 @@ func TestSync_SharedSkills_HandAuthoredFileInsideFolderKeepsSkill(t *testing.T) 
 	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
 
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
@@ -380,9 +380,9 @@ func TestSync_SharedSkills_UndeletableAssetKeepsSkillReadable(t *testing.T) {
 		t.Skip("needs POSIX permissions enforced for the current user")
 	}
 	dir := setupSharedSkillsFixture(t, "version: 1\ntargets: [codex, cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
 		"---\nname: deploy\ndescription: Ship it\n---\nDeploy.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	if err := runSync(t); err != nil {
@@ -393,7 +393,7 @@ func TestSync_SharedSkills_UndeletableAssetKeepsSkillReadable(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { restoreWritable(t, filepath.Join(dir, ".cursor")) })
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
 
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
@@ -420,7 +420,7 @@ func TestSync_SharedSkills_DryRunDoesNotPromiseALinkItWillNotMake(t *testing.T) 
 	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
 	buf := captureLog(t)
 
 	if err := runSync(t, "--dry-run"); err != nil {
@@ -442,7 +442,7 @@ func TestSync_SharedSkills_EnablingAfterPlainSyncKeepsCanonical(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
 
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
@@ -465,7 +465,7 @@ func TestSharedSkillsReconcile_PreservesNativeFileSymlinks(t *testing.T) {
 				destination := filepath.Join(t.TempDir(), "native settings")
 				switch targetState {
 				case "regular file":
-					mustWriteFile(t, destination, original)
+					writeFile(t, destination, original)
 				case "directory":
 					if err := os.Mkdir(destination, 0o755); err != nil {
 						t.Fatal(err)
@@ -510,7 +510,7 @@ func TestSharedSkillsReconcile_RemovesOwnedFolderLinks(t *testing.T) {
 			path := filepath.Join(".cursor", "skills", "greet")
 			destination := filepath.Join(t.TempDir(), "shared skill")
 			if targetState == "directory" {
-				mustWriteFile(t, filepath.Join(destination, "SKILL.md"), "private skill\n")
+				writeFile(t, filepath.Join(destination, "SKILL.md"), "private skill\n")
 			}
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				t.Fatal(err)

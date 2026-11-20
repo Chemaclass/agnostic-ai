@@ -296,5 +296,5 @@ func widerEditNote(target, matcher string) string {
 			extra = append(extra, name)
 		}
 	}
-	return fmt.Sprintf("; match: edit there also covers %s", strings.Join(extra, " and "))
+	return "; match: edit there also covers " + strings.Join(extra, " and ")
 }

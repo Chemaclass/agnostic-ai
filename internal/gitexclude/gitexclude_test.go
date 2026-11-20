@@ -12,7 +12,7 @@ import (
 func TestUpdatePreservesConcurrentWrites(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "info", "exclude")
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -26,7 +26,7 @@ func TestUpdatePreservesConcurrentWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if !strings.Contains(string(data), fmt.Sprintf("entry-%d\n", i)) {
 			t.Errorf("missing entry %d", i)
 		}

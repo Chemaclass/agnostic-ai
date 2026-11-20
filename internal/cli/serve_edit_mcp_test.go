@@ -30,10 +30,10 @@ func mcpEditGlobal(t *testing.T, native string) (string, string) {
 	silence(t)
 	home := nativeMCPHome(t)
 	source := filepath.Join(home, "source")
-	mustWrite(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
-	mustWrite(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions.\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions.\n")
 	path := filepath.Join(home, ".claude.json")
-	mustWrite(t, path, native)
+	writeFile(t, path, native)
 	if err := os.Chmod(path, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestServeEditMCP_RefusesAnExistingSpecByName(t *testing.T) {
 	source, _ := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	file := filepath.Join(source, "mcps", "different-file.yaml")
 	before := "name: notion\ncommand: existing-mcp\n"
-	mustWrite(t, file, before)
+	writeFile(t, file, before)
 	rec := mcpEditRequest(t, newEditHandler(source, true), mcpEditIdentity("notion", "shared", "user", "~/.claude.json"))
 	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "A spec named notion already exists") {
 		t.Errorf("existing spec = %d %s", rec.Code, rec.Body)
@@ -211,7 +211,7 @@ func TestServeEditMCP_RefusesASpecCreatedAfterPreview(t *testing.T) {
 	preview := mcpEditPreview(t, h, request)
 	file := filepath.Join(source, preview.File)
 	before := "name: notion\ncommand: existing-mcp\n"
-	mustWrite(t, file, before)
+	writeFile(t, file, before)
 	request["action"], request["expected"] = "apply", preview.Expected
 	rec := mcpEditRequest(t, h, request)
 	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "A spec named notion already exists") {
@@ -226,7 +226,7 @@ func TestServeEditMCP_ProjectPersonalSaveStaysOutOfGit(t *testing.T) {
 	nativeMCPHome(t)
 	project := gitScopeProject(t)
 	const native = `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`
-	mustWrite(t, ".mcp.json", native)
+	writeFile(t, ".mcp.json", native)
 	git(t, project, "add", ".mcp.json")
 	git(t, project, "commit", "-qm", "native server")
 	h := newEditHandler(project, false)
@@ -292,7 +292,7 @@ func TestServeEditMCP_RefusesAnApplyWithoutPreviewOrAfterNativeChange(t *testing
 	}
 	request["action"] = "preview"
 	preview := mcpEditPreview(t, h, request)
-	mustWrite(t, path, `{"mcpServers":{"notion":{"type":"http","url":"https://changed.example/mcp"}}}`)
+	writeFile(t, path, `{"mcpServers":{"notion":{"type":"http","url":"https://changed.example/mcp"}}}`)
 	request["action"], request["expected"] = "apply", preview.Expected
 	if rec := mcpEditRequest(t, h, request); rec.Code != http.StatusConflict {
 		t.Errorf("stale apply = %d %s, want 409", rec.Code, rec.Body)
@@ -349,8 +349,8 @@ func TestServeEditMCP_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
 func TestServeEditMCP_UsesTheProjectsConfiguredMCPSource(t *testing.T) {
 	nativeMCPHome(t)
 	project := scopeProject(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  mcps: shared/servers\n")
-	mustWrite(t, ".mcp.json", `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  mcps: shared/servers\n")
+	writeFile(t, ".mcp.json", `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	h := newEditHandler(project, false)
 	request := mcpEditIdentity("notion", "shared", "project", ".mcp.json")
 	preview := mcpEditPreview(t, h, request)
@@ -387,7 +387,7 @@ func TestServeEditMCP_ImportsClaudeLocalServersForTheServedProject(t *testing.T)
 		t.Fatal(err)
 	}
 	nativePath := filepath.Join(home, ".claude.json")
-	mustWrite(t, nativePath, string(native))
+	writeFile(t, nativePath, string(native))
 	h := newEditHandler(project, false)
 	request := mcpEditIdentity("local-db", "shared", "project", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)

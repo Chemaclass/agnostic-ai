@@ -178,7 +178,7 @@ func TestImportFromContinue_RequestOptionsCredentialLeavesServerOut(t *testing.T
 
 func TestImportGlobal_LeavesOutServersWithCredentials(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
+	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
   "flag": {"command": "x", "args": ["--api-key", "GL0BALKEY"]},
   "env": {"command": "x", "env": {"NODE_ENV": "production", "GITHUB_TOKEN": "GL0BALENV"}},
   "auth": {"url": "https://h/mcp", "headers": {"Authorization": "Bearer GL0BALHDR"}},
@@ -314,7 +314,7 @@ func TestImportMCP_NonCredentialNamesAndValuesImportUnchanged(t *testing.T) {
 
 func TestImportGlobal_CredentialKeysAndReferenceValues(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
+	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
   "pg": {"command": "x", "env": {"PGPASSWORD": "GL0BALPGPW"}},
   "notion": {"command": "x", "env": {"OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ntn_GL0BALNOTION\"}"}},
   "ref": {"url": "https://h/mcp", "headers": {"Authorization": "Bearer ${env:GH_TOKEN}", "X-Token": "token ${env:X_TOKEN}"}},
@@ -431,7 +431,7 @@ func TestImportMCP_FinalNonCredentialValuesImportUnchanged(t *testing.T) {
 
 func TestImportGlobal_FinalCredentialKeys(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
+	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
   "openai": {"command": "x", "env": {"OPENAI_KEY": "GL0BALOAI1"}},
   "auth": {"command": "x", "env": {"X_AUTH": "GL0BALAUTH"}},
   "headers": {"command": "x", "env": {"MCP_HEADERS": "X-Api-Key: GL0BALHDR1"}},

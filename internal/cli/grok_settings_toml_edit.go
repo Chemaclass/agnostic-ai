@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 )
@@ -62,9 +63,7 @@ func grokTableSeparators(value any) map[string]string {
 	case string:
 		separators["models"] = stored
 	case map[string]string:
-		for table, separator := range stored {
-			separators[table] = separator
-		}
+		maps.Copy(separators, stored)
 	case map[string]any:
 		for table, value := range stored {
 			if separator, ok := value.(string); ok {
@@ -91,8 +90,7 @@ func editGrokTable(path string, data []byte, table string, order []string, set m
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 		if len(sections) > 0 && (replace || len(sections) > 1) {
-			for i := len(sections) - 1; i >= 0; i-- {
-				section := sections[i]
+			for i, section := range slices.Backward(sections) {
 				replacement := ""
 				if replace && i == 0 {
 					replacement = "[" + table + "]\n"

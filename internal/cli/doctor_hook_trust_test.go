@@ -21,8 +21,8 @@ func TestDoctor_ReportsCodexHookTrustInTextAndJSON(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	t.Setenv("CODEX_HOME", t.TempDir())
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteGlobalTest(t, ".agnostic-ai/hooks/guard.yaml", "event: PreToolUse\nmatcher: Bash\ncommand: guard-env\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/hooks/guard.yaml", "event: PreToolUse\nmatcher: Bash\ncommand: guard-env\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync"})
 	if err := root.Execute(); err != nil {
@@ -72,12 +72,12 @@ func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing
 	t.Setenv("CODEX_HOME", codexHome)
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [codex]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: guard-env\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "model.yaml"), "model: gpt-test\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [codex]\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "event: PreToolUse\nmatcher: Bash\ncommand: guard-env\n")
+	writeFile(t, filepath.Join(source, "settings", "model.yaml"), "model: gpt-test\n")
 	state := "[hooks.state.\"retained-key\"]\ntrusted_hash = \"sha256:retained\"\nenabled = false\n"
-	mustWriteGlobalTest(t, filepath.Join(codexHome, "config.toml"), state)
-	mustWriteGlobalTest(t, filepath.Join(codexHome, "hooks.json"), `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"handwritten"}]}]}}`)
+	writeFile(t, filepath.Join(codexHome, "config.toml"), state)
+	writeFile(t, filepath.Join(codexHome, "hooks.json"), `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"handwritten"}]}]}}`)
 	var output, notes bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&output)
@@ -108,7 +108,7 @@ func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing
 	}
 	key := filepath.Join(resolvedHome, "hooks.json") + ":pre_tool_use:0:0"
 	trusted := append(slices.Clip(config), []byte(fmt.Sprintf("\n[hooks.state.%q]\ntrusted_hash = %q\n", key, hash))...)
-	mustWriteGlobalTest(t, filepath.Join(codexHome, "config.toml"), string(trusted))
+	writeFile(t, filepath.Join(codexHome, "config.toml"), string(trusted))
 	body, err := os.ReadFile(filepath.Join(codexHome, "hooks.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -128,8 +128,8 @@ func TestDoctor_ReportsDisabledCodexHookWithoutFailure(t *testing.T) {
 	silence(t)
 	home := t.TempDir()
 	t.Setenv("CODEX_HOME", home)
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteGlobalTest(t, ".agnostic-ai/hooks/guard.yaml", "event: PreToolUse\nmatcher: Bash\ncommand: guard-env\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/hooks/guard.yaml", "event: PreToolUse\nmatcher: Bash\ncommand: guard-env\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync"})
 	if err := root.Execute(); err != nil {
@@ -140,7 +140,7 @@ func TestDoctor_ReportsDisabledCodexHookWithoutFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := filepath.Join(cwd, ".codex/hooks.json") + ":pre_tool_use:0:0"
-	mustWriteGlobalTest(t, filepath.Join(home, "config.toml"), fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key))
+	writeFile(t, filepath.Join(home, "config.toml"), fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key))
 	var output bytes.Buffer
 	root = NewRootCmd("test")
 	root.SetOut(&output)
@@ -159,7 +159,7 @@ func TestDoctor_ReportsUserCodexHooksAndMalformedUserConfig(t *testing.T) {
 	testutil.Chdir(t, dir)
 	home := t.TempDir()
 	t.Setenv("CODEX_HOME", home)
-	mustWriteGlobalTest(t, filepath.Join(home, "hooks.json"), `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"user-guard"}]}]}}`)
+	writeFile(t, filepath.Join(home, "hooks.json"), `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"user-guard"}]}]}}`)
 	cfg, err := config.Load(".")
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestDoctor_ReportsUserCodexHooksAndMalformedUserConfig(t *testing.T) {
 	if len(findings) != 1 || findings[0].Hook != "user-guard" || findings[0].Status != "untrusted" {
 		t.Errorf("user hook not inspected: %+v", findings)
 	}
-	mustWriteGlobalTest(t, filepath.Join(home, "config.toml"), "[broken")
+	writeFile(t, filepath.Join(home, "config.toml"), "[broken")
 	findings = collectCodexHookTrust(cfg, []string{"codex"})
 	if len(findings) != 1 || findings[0].Status != "unknown" || !strings.Contains(findings[0].Problem, "config.toml") {
 		t.Errorf("malformed trust config not diagnosed: %+v", findings)
@@ -191,13 +191,13 @@ func TestDoctor_ReportsNullCodexHookGroupsInTextAndJSON(t *testing.T) {
 			silence(t)
 			home := t.TempDir()
 			t.Setenv("CODEX_HOME", home)
-			mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 			root := NewRootCmd("test")
 			root.SetArgs([]string{"sync"})
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			mustWriteGlobalTest(t, filepath.Join(home, "hooks.json"), test.body)
+			writeFile(t, filepath.Join(home, "hooks.json"), test.body)
 			var text bytes.Buffer
 			root = NewRootCmd("test")
 			root.SetOut(&text)

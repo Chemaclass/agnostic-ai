@@ -24,7 +24,7 @@ func importedHookTargets(t *testing.T, dir string) map[string]any {
 	out := map[string]any{}
 	for _, e := range entries {
 		var doc map[string]any
-		if err := yaml.Unmarshal([]byte(readFileString(t, filepath.Join(dir, e.Name()))), &doc); err != nil {
+		if err := yaml.Unmarshal([]byte(readFile(t, filepath.Join(dir, e.Name()))), &doc); err != nil {
 			t.Fatal(err)
 		}
 		out[doc["event"].(string)] = doc["target"]

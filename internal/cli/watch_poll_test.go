@@ -15,13 +15,13 @@ func TestWatchSync_PollEmitsSkillAssetEditedDuringResync(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
 	rule := filepath.Join(".agnostic-ai", "rules", "demo.md")
 	asset := filepath.Join(".agnostic-ai", "skills", "demo", "references", "guide.txt")
-	writeTestFile(t, rule, "---\nname: demo\n---\nInitial rule.\n")
-	writeTestFile(t, filepath.Join(".agnostic-ai", "skills", "demo", "SKILL.md"),
+	writeFile(t, rule, "---\nname: demo\n---\nInitial rule.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "demo", "SKILL.md"),
 		"---\nname: demo\ndescription: Demo skill.\n---\nUse the guide.\n")
-	writeTestFile(t, asset, "Initial skill asset.\n")
+	writeFile(t, asset, "Initial skill asset.\n")
 	waitPaused, resume := startPausedPollWatch(t)
 
 	writeAndBumpMtime(t, rule, []byte("---\nname: demo\n---\nRule emitted before the asset edit.\n"))
@@ -40,11 +40,11 @@ func TestWatchSync_PollReloadsSourceRootsAndEmitsEditsDuringResync(t *testing.T)
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
-	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "original.md"),
+	writeFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "original.md"),
 		"---\nname: original\n---\nOriginal source rule.\n")
 	rule := filepath.Join("extra", "rules", "reloaded.md")
-	writeTestFile(t, rule, "---\nname: reloaded\n---\nReloaded source rule.\n")
+	writeFile(t, rule, "---\nname: reloaded\n---\nReloaded source rule.\n")
 	waitPaused, resume := startPausedPollWatch(t)
 
 	writeAndBumpMtime(t, config.ConfigFileName,

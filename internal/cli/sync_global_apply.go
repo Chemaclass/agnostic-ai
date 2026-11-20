@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -218,8 +219,7 @@ type globalPrior struct {
 }
 
 func (a *globalApply) rollback() {
-	for i := len(a.done) - 1; i >= 0; i-- {
-		p := a.done[i]
+	for _, p := range slices.Backward(a.done) {
 		if p.link != "" {
 			_ = os.Symlink(p.link, p.path)
 			continue

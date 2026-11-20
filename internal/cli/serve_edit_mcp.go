@@ -107,13 +107,11 @@ func (e mcpSpecExists) Error() string {
 
 func writeMCPError(w http.ResponseWriter, err error) {
 	status := http.StatusUnprocessableEntity
-	var conflict mcpEditConflict
-	if errors.As(err, &conflict) {
+	if _, ok := errors.AsType[mcpEditConflict](err); ok {
 		status = http.StatusConflict
 	}
 	message := err.Error()
-	var exists mcpSpecExists
-	if errors.As(err, &exists) {
+	if exists, ok := errors.AsType[mcpSpecExists](err); ok {
 		message = fmt.Sprintf("A spec named %s already exists", string(exists))
 	}
 	writeEditJSON(w, status, editError{Error: message})

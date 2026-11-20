@@ -54,11 +54,11 @@ func previewProject(t *testing.T, layout string) []string {
 	gitIn(t, main, "init", "-q")
 	silence(t)
 	testutil.Chdir(t, project)
-	mustWriteFile(t, "agnostic-ai.yaml", previewProjectConfig)
-	mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", fencedDemoSkill)
+	writeFile(t, "agnostic-ai.yaml", previewProjectConfig)
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", fencedDemoSkill)
 	local := "memory:\n  personal: repo\n"
 	if layout != "checkout" && !strings.HasPrefix(layout, "worktree") {
-		mustWriteFile(t, "agnostic-ai.local.yaml", local)
+		writeFile(t, "agnostic-ai.local.yaml", local)
 	}
 	gitDirs := []string{filepath.Join(main, ".git")}
 	if strings.HasPrefix(layout, "worktree") {
@@ -67,7 +67,7 @@ func previewProject(t *testing.T, layout string) []string {
 		wt := filepath.Join(base, "wt")
 		gitIn(t, main, "worktree", "add", "-q", wt)
 		gitDirs = append(gitDirs, filepath.Join(main, ".git", "worktrees", "wt"))
-		mustWriteFile(t, filepath.Join(project, "agnostic-ai.local.yaml"), local)
+		writeFile(t, filepath.Join(project, "agnostic-ai.local.yaml"), local)
 		testutil.Chdir(t, filepath.Join(wt, sub))
 	}
 	if err := runSync(t); err != nil {
@@ -132,7 +132,7 @@ func TestImport_DryRunMatchesImportWithRepoMemory(t *testing.T) {
 
 func TestImport_DryRunFailsLikeImportWhenTheMainCheckoutConfigDoesNotLoad(t *testing.T) {
 	gitDirs := previewProject(t, "worktree")
-	mustWriteFile(t, filepath.Join(filepath.Dir(gitDirs[0]), "agnostic-ai.local.yaml"), "memory:\n  personal: bogus\n")
+	writeFile(t, filepath.Join(filepath.Dir(gitDirs[0]), "agnostic-ai.local.yaml"), "memory:\n  personal: bogus\n")
 
 	_, importErr := runCLI(t, "import", "cursor")
 	_, previewErr := runCLI(t, "import", "cursor", "--dry-run")

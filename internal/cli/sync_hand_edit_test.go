@@ -16,8 +16,8 @@ const handEditSkill = ".claude/skills/review/SKILL.md"
 func handEditProject(t *testing.T, targets string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	runSyncOK(t)
 }
 
@@ -26,7 +26,7 @@ func TestSync_KeepsAHandEditAsABackupBeforeWritingOverIt(t *testing.T) {
 	handEditProject(t, "claude")
 	generated := readFile(t, handEditSkill)
 	edited := generated + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill, edited)
 	log := captureLog(t)
 
 	runSyncOK(t)
@@ -46,11 +46,11 @@ func TestSync_KeepsAHandEditAsABackupBeforeWritingOverIt(t *testing.T) {
 // the warning for an entry point also names shared memory (#2103).
 func TestSync_OverwriteWarningForAnEntryPointNamesSharedMemory(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\nbuiltins: [memory]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\nbuiltins: [memory]\n")
 	runSyncOK(t)
 	skill := ".gemini/skills/shared-memory/SKILL.md"
 	for _, path := range []string{"GEMINI.md", skill} {
-		mustWriteFile(t, path, readFile(t, path)+"The API listens on port 8080.\n")
+		writeFile(t, path, readFile(t, path)+"The API listens on port 8080.\n")
 	}
 	log := captureLog(t)
 
@@ -69,7 +69,7 @@ func TestSync_OverwriteWarningForAnEntryPointNamesSharedMemory(t *testing.T) {
 // Without the memory built-in no tool reads .agnostic-ai/memory/.
 func TestSync_OverwriteWarningForAnEntryPointWithoutSharedMemoryKeepsItsText(t *testing.T) {
 	handEditProject(t, "gemini")
-	mustWriteFile(t, "GEMINI.md", readFile(t, "GEMINI.md")+"my local tweak\n")
+	writeFile(t, "GEMINI.md", readFile(t, "GEMINI.md")+"my local tweak\n")
 	log := captureLog(t)
 
 	runSyncOK(t)
@@ -81,7 +81,7 @@ func TestSync_OverwriteWarningForAnEntryPointWithoutSharedMemoryKeepsItsText(t *
 
 func TestSync_SpecChangeAloneWritesNoBackup(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
 
 	runSyncOK(t)
 
@@ -95,7 +95,7 @@ func TestSync_SpecChangeAloneWritesNoBackup(t *testing.T) {
 func TestSync_SharedFileKeepsTheHandEditInItsBackup(t *testing.T) {
 	handEditProject(t, "codex, opencode")
 	edited := readFile(t, "AGENTS.md") + "my local tweak\n"
-	mustWriteFile(t, "AGENTS.md", edited)
+	writeFile(t, "AGENTS.md", edited)
 
 	runSyncOK(t)
 
@@ -106,7 +106,7 @@ func TestSync_SharedFileKeepsTheHandEditInItsBackup(t *testing.T) {
 
 func TestSyncJSON_NamesTheBackupOfAHandEdit(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
 
 	out, err := runCLI(t, "sync", "--json")
 	if err != nil {
@@ -129,7 +129,7 @@ func TestSyncJSON_NamesTheBackupOfAHandEdit(t *testing.T) {
 func TestSync_KeepEditsStillLeavesTheEditInPlace(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill, edited)
 
 	runSyncOK(t, "--keep-edits")
 
@@ -145,11 +145,11 @@ func TestSync_KeepEditsStillLeavesTheEditInPlace(t *testing.T) {
 // add there is not a hand edit to back up.
 func TestSync_UserKeyInAMergedFileWritesNoBackup(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: gofmt -l .\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: gofmt -l .\n")
 	runSyncOK(t)
 	settings := readFile(t, ".claude/settings.json")
-	mustWriteFile(t, ".claude/settings.json", strings.Replace(settings, "{", "{\n  \"theme\": \"dark\",", 1))
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: gofmt -l ./...\n")
+	writeFile(t, ".claude/settings.json", strings.Replace(settings, "{", "{\n  \"theme\": \"dark\",", 1))
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: gofmt -l ./...\n")
 
 	runSyncOK(t)
 
@@ -164,7 +164,7 @@ func TestSync_UserKeyInAMergedFileWritesNoBackup(t *testing.T) {
 func TestRevert_RestoresAHandEditSyncBackedUp(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill, edited)
 	runSyncOK(t)
 
 	if out, err := runCLI(t, "revert"); err != nil {
@@ -181,7 +181,7 @@ func TestRevert_RestoresAHandEditSyncBackedUp(t *testing.T) {
 func TestSync_LeavesAHandEditInPlaceWhenItsBackupExists(t *testing.T) {
 	outside := filepath.Join(t.TempDir(), "outside.txt")
 	for name, plant := range map[string]func(){
-		"earlier backup": func() { mustWriteFile(t, handEditSkill+".bak", "first edit\n") },
+		"earlier backup": func() { writeFile(t, handEditSkill+".bak", "first edit\n") },
 		"planted link": func() {
 			if err := os.Symlink(outside, handEditSkill+".bak"); err != nil {
 				t.Skip(err)
@@ -193,7 +193,7 @@ func TestSync_LeavesAHandEditInPlaceWhenItsBackupExists(t *testing.T) {
 			plant()
 			before, _ := os.Readlink(handEditSkill + ".bak")
 			edited := readFile(t, handEditSkill) + "second edit\n"
-			mustWriteFile(t, handEditSkill, edited)
+			writeFile(t, handEditSkill, edited)
 			log := captureLog(t)
 
 			runSyncOK(t)
@@ -220,7 +220,7 @@ func TestSync_OutputMatchingTheCommittedVersionIsNotAHandEdit(t *testing.T) {
 	handEditProject(t, "claude")
 	isolateGit(t)
 	gitInit(t, ".")
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"from another branch\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"from another branch\n")
 	git(t, ".", "add", "-A", "-f")
 	git(t, ".", "commit", "-q", "-m", "outputs")
 
@@ -239,7 +239,7 @@ func TestSync_BackupKeepsAnExecutableMode(t *testing.T) {
 	if err := os.Chmod(handEditSkill, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
 
 	runSyncOK(t)
 
@@ -252,7 +252,7 @@ func TestSync_BackupKeepsAnExecutableMode(t *testing.T) {
 // A backup sync left in a skill folder is not part of the skill.
 func TestImport_SkipsABackupInASkillFolder(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
 	runSyncOK(t)
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
@@ -266,7 +266,7 @@ func TestImport_SkipsABackupInASkillFolder(t *testing.T) {
 
 func TestImport_KeepsASkillAssetNamedBak(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, ".claude/skills/review/examples/patch.bak", "a user asset\n")
+	writeFile(t, ".claude/skills/review/examples/patch.bak", "a user asset\n")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -279,8 +279,8 @@ func TestImport_KeepsASkillAssetNamedBak(t *testing.T) {
 
 func TestImport_KeepsAUserPairOfFileAndBak(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, ".claude/skills/review/examples/patch", "new\n")
-	mustWriteFile(t, ".claude/skills/review/examples/patch.bak", "old\n")
+	writeFile(t, ".claude/skills/review/examples/patch", "new\n")
+	writeFile(t, ".claude/skills/review/examples/patch.bak", "old\n")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -295,7 +295,7 @@ func TestImport_KeepsAUserPairOfFileAndBak(t *testing.T) {
 // happens to sit beside a generated one.
 func TestImport_KeepsAUserBakBesideAGeneratedFile(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, handEditSkill+".bak", "a user asset\n")
+	writeFile(t, handEditSkill+".bak", "a user asset\n")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -308,7 +308,7 @@ func TestImport_KeepsAUserBakBesideAGeneratedFile(t *testing.T) {
 
 func TestImport_SkipsASyncBackupCopy(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
 	runSyncOK(t, "--backup")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
@@ -323,9 +323,9 @@ func TestImport_SkipsASyncBackupCopy(t *testing.T) {
 // A backup the user has since changed is theirs, so import keeps it.
 func TestImport_KeepsABackupTheUserChanged(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
 	runSyncOK(t)
-	mustWriteFile(t, handEditSkill+".bak", "now a user asset\n")
+	writeFile(t, handEditSkill+".bak", "now a user asset\n")
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -340,14 +340,14 @@ func TestImport_KeepsABackupTheUserChanged(t *testing.T) {
 // it and must still skip the backup sync made there.
 func TestImport_SkipsASyncBackupBehindASharedSkillLink(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  shared-skills: true\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  shared-skills: true\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	runSyncOK(t)
 	if fi, err := os.Lstat(".claude/skills/review"); err != nil || fi.Mode()&os.ModeSymlink == 0 {
 		t.Skip("no shared-skill link on this platform")
 	}
-	mustWriteFile(t, ".agents/skills/review/SKILL.md", readFile(t, ".agents/skills/review/SKILL.md")+"my local tweak\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
+	writeFile(t, ".agents/skills/review/SKILL.md", readFile(t, ".agents/skills/review/SKILL.md")+"my local tweak\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
 	runSyncOK(t)
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
@@ -363,10 +363,10 @@ func TestImport_SkipsASyncBackupBehindASharedSkillLink(t *testing.T) {
 // the user's, so import keeps it.
 func TestImport_KeepsAnUnrelatedCopyOfASyncBackup(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
 	runSyncOK(t)
-	mustWriteFile(t, ".claude/skills/other/SKILL.md", "---\nname: other\ndescription: Other.\n---\nOther.\n")
-	mustWriteFile(t, ".claude/skills/other/SKILL.md.bak", readFile(t, handEditSkill+".bak"))
+	writeFile(t, ".claude/skills/other/SKILL.md", "---\nname: other\ndescription: Other.\n---\nOther.\n")
+	writeFile(t, ".claude/skills/other/SKILL.md.bak", readFile(t, handEditSkill+".bak"))
 
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
@@ -383,7 +383,7 @@ func TestImport_KeepsAnUnrelatedCopyOfASyncBackup(t *testing.T) {
 func TestSync_BacksUpEditedOrphanWhenSpecIsRemoved(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill, edited)
 	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
 		t.Fatal(err)
 	}
@@ -409,8 +409,8 @@ func TestSync_BacksUpEditedOrphanWhenSpecIsRemoved(t *testing.T) {
 func TestSync_BacksUpEditedOrphanWhenTargetIsDropped(t *testing.T) {
 	handEditProject(t, "claude, gemini")
 	edited := readFile(t, handEditSkill) + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, handEditSkill, edited)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
 	runSyncOK(t)
 	if got, err := os.ReadFile(handEditSkill + ".bak"); err != nil || string(got) != edited {
 		t.Fatalf("backup = %q, %v; want edit", got, err)
@@ -433,9 +433,9 @@ func TestSync_OrphanBackupConflictsAndKeepEdits(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			handEditProject(t, "claude")
 			edited := readFile(t, handEditSkill) + "edit\n"
-			mustWriteFile(t, handEditSkill, edited)
+			writeFile(t, handEditSkill, edited)
 			if tc.backup {
-				mustWriteFile(t, handEditSkill+".bak", "earlier\n")
+				writeFile(t, handEditSkill+".bak", "earlier\n")
 			}
 			if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
 				t.Fatal(err)
@@ -478,7 +478,7 @@ func TestSync_UneditedOrphanIsRemovedWithoutBackup(t *testing.T) {
 
 func TestSyncJSON_NamesBackupOfRemovedEdit(t *testing.T) {
 	handEditProject(t, "claude")
-	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"edit\n")
+	writeFile(t, handEditSkill, readFile(t, handEditSkill)+"edit\n")
 	if err := os.Remove(".agnostic-ai/skills/review/SKILL.md"); err != nil {
 		t.Fatal(err)
 	}
@@ -501,7 +501,7 @@ func TestSyncJSON_NamesBackupOfRemovedEdit(t *testing.T) {
 func TestSync_KeepsEditedOrphanWhenBackupIsASymlink(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "edit\n"
-	mustWriteFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill, edited)
 	outside := filepath.Join(t.TempDir(), "outside")
 	if err := os.Symlink(outside, handEditSkill+".bak"); err != nil {
 		t.Skip(err)
@@ -529,14 +529,14 @@ func TestSync_ProtectsEditedCodexConfigWhenLastMCPIsRemoved(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-			mustWriteFile(t, ".agnostic-ai/mcps/local.yaml", "name: local\ncommand: server\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			writeFile(t, ".agnostic-ai/mcps/local.yaml", "name: local\ncommand: server\n")
 			runSyncOK(t)
 			const path = ".codex/config.toml"
 			edited := readFile(t, path) + "# local edit\n"
-			mustWriteFile(t, path, edited)
+			writeFile(t, path, edited)
 			if tc.existing {
-				mustWriteFile(t, path+".bak", "earlier\n")
+				writeFile(t, path+".bak", "earlier\n")
 			}
 			if err := os.Remove(".agnostic-ai/mcps/local.yaml"); err != nil {
 				t.Fatal(err)
@@ -599,7 +599,7 @@ func TestRevert_RestoresRemovedEditWithItsMode(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			handEditProject(t, "claude")
 			edited := readFile(t, handEditSkill) + "edit\n"
-			mustWriteFile(t, handEditSkill, edited)
+			writeFile(t, handEditSkill, edited)
 			if err := os.Chmod(handEditSkill, tc.mode); err != nil {
 				t.Fatal(err)
 			}
@@ -629,8 +629,8 @@ func TestRevert_RestoresRemovedEditWithItsMode(t *testing.T) {
 func TestSync_KeepsAHandEditTheUserCopiedToABackup(t *testing.T) {
 	handEditProject(t, "claude")
 	edited := readFile(t, handEditSkill) + "my local tweak\n"
-	mustWriteFile(t, handEditSkill, edited)
-	mustWriteFile(t, handEditSkill+".bak", edited)
+	writeFile(t, handEditSkill, edited)
+	writeFile(t, handEditSkill+".bak", edited)
 
 	runSyncOK(t)
 

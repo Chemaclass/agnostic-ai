@@ -3,6 +3,7 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -994,9 +995,7 @@ func landingProse(value any, path string) map[string]string {
 		prose[path] = typed
 	case []any:
 		for index, item := range typed {
-			for key, copy := range landingProse(item, fmt.Sprintf("%s[%d]", path, index)) {
-				prose[key] = copy
-			}
+			maps.Copy(prose, landingProse(item, fmt.Sprintf("%s[%d]", path, index)))
 		}
 	case map[string]any:
 		for name, item := range typed {
@@ -1004,9 +1003,7 @@ func landingProse(value any, path string) map[string]string {
 			if path != "" {
 				child = path + "." + name
 			}
-			for key, copy := range landingProse(item, child) {
-				prose[key] = copy
-			}
+			maps.Copy(prose, landingProse(item, child))
 		}
 	}
 	return prose

@@ -129,11 +129,9 @@ func TestQuit_TwoAtOnceEndTheAppOnce(t *testing.T) {
 
 	var both sync.WaitGroup
 	for range 2 {
-		both.Add(1)
-		go func() {
-			defer both.Done()
+		both.Go(func() {
 			s.quit()
-		}()
+		})
 	}
 	both.Wait()
 

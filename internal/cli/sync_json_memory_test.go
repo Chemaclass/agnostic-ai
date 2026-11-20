@@ -78,7 +78,7 @@ func TestSyncJSON_PreparesAndSeedsMemoryLikePlainSync(t *testing.T) {
 			if seeds := adapters.TakeMemorySeeds(); len(seeds) != 0 {
 				t.Errorf("memory seed queue = %+v, want empty", seeds)
 			}
-			if got := readText(t, filepath.Join(store, "tabs.md")); got != tabsFact {
+			if got := readFile(t, filepath.Join(store, "tabs.md")); got != tabsFact {
 				t.Errorf("seeded fact = %q", got)
 			}
 			root, _ := os.Getwd()

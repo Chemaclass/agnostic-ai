@@ -62,7 +62,7 @@ func editNativeModel(t *testing.T, file, key, value string) {
 		if value == "" {
 			lines = append(lines[:i], lines[i+1:]...)
 		}
-		mustWriteFile(t, file, strings.Join(lines, "\n"))
+		writeFile(t, file, strings.Join(lines, "\n"))
 		return
 	}
 	t.Fatalf("%s has no %s line:\n%s", file, key, readFile(t, file))
@@ -238,8 +238,8 @@ func modelTierProject(t *testing.T, target, spec string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [%s]\nmodels:\n  strong: {%s: m-one}\n", target, target))
-	mustWriteFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\n"+spec+"---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", fmt.Sprintf("version: 1\ntargets: [%s]\nmodels:\n  strong: {%s: m-one}\n", target, target))
+	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\n"+spec+"---\n\nbody\n")
 	runSyncOK(t)
 }
 

@@ -45,7 +45,7 @@ func codexGlobDirectories(cfg *config.Config, target string, r spec.Entry) ([]st
 	for _, directory := range dirs {
 		destination := filepath.Join(directory, "AGENTS.md")
 		if cfg.IsUnmanaged(destination) {
-			return nil, fmt.Sprintf("%s is unmanaged", filepath.ToSlash(destination))
+			return nil, filepath.ToSlash(destination) + " is unmanaged"
 		}
 	}
 	for _, reader := range append([]string{"codex", target}, cfg.Targets...) {
@@ -54,10 +54,10 @@ func codexGlobDirectories(cfg *config.Config, target string, r spec.Entry) ([]st
 		}
 		o := cfg.Outputs[reader]
 		if o.File != "" || HasLegacyRulesFile(cfg, reader) || o.RulesDir != "" || o.ProvenanceHeader != nil && !*o.ProvenanceHeader {
-			return nil, fmt.Sprintf("%s output overrides do not support automatic nested instructions", reader)
+			return nil, reader + " output overrides do not support automatic nested instructions"
 		}
 		if InlinesRulesIntoEntryPoint(reader) && configuredScopeDocument(cfg, reader) != "AGENTS.md" {
-			return nil, fmt.Sprintf("%s shares the root instructions but has no verified nested instructions", reader)
+			return nil, reader + " shares the root instructions but has no verified nested instructions"
 		}
 	}
 	return dirs, ""

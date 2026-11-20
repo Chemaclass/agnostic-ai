@@ -21,9 +21,9 @@ type globalPlanJSON struct {
 
 func TestSyncGlobal_PlanJSONListsSettingsKeysAndWritesNothing(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  codex: gpt-6-luna\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  codex: gpt-6-luna\n")
 	codexPath := filepath.Join(home, ".codex", "config.toml")
-	mustWriteGlobalTest(t, codexPath, "[tui]\ntheme = \"dark\"\n")
+	writeFile(t, codexPath, "[tui]\ntheme = \"dark\"\n")
 
 	out, _, err := runGlobalAgentTest("--only", "codex", "--plan", "--json")
 	if err != nil {
@@ -45,7 +45,7 @@ func TestSyncGlobal_PlanJSONListsSettingsKeysAndWritesNothing(t *testing.T) {
 	if !found || plan.Command != "sync --global --plan" {
 		t.Errorf("plan = %+v", plan)
 	}
-	if got := readGlobalTest(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
+	if got := readFile(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
 		t.Errorf("plan must write nothing: %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(source, "state")); !os.IsNotExist(err) {
@@ -72,7 +72,7 @@ func TestSyncGlobal_PlanJSONListsSettingsKeysAndWritesNothing(t *testing.T) {
 
 func TestSyncGlobal_CheckJSONReportsDrift(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  codex: gpt-6-luna\n")
+	writeFile(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  codex: gpt-6-luna\n")
 	out, _, err := runGlobalAgentTest("--only", "codex", "--check", "--json")
 	if err == nil {
 		t.Fatal("drift must fail")
@@ -87,7 +87,7 @@ func TestSyncGlobal_PlanCheckGatesWithoutWriting(t *testing.T) {
 		t.Run(fmt.Sprintf("json=%t", jsonOut), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			input := filepath.Join(source, "AGNOSTIC_AI.md")
-			mustWriteGlobalTest(t, input, "Be brief.\n")
+			writeFile(t, input, "Be brief.\n")
 			args := []string{"--only", "claude", "--plan", "--check"}
 			if jsonOut {
 				args = append(args, "--json")
@@ -120,16 +120,16 @@ func TestSyncGlobal_PlanCheckGatesWithoutWriting(t *testing.T) {
 			if out, _, err := runGlobalAgentTest(args...); err != nil {
 				t.Errorf("clean: %v\n%s", err, out)
 			}
-			before := readGlobalTest(t, output)
-			state := readGlobalTest(t, filepath.Join(source, "state", "global.json"))
-			mustWriteGlobalTest(t, input, "Be short.\n")
+			before := readFile(t, output)
+			state := readFile(t, filepath.Join(source, "state", "global.json"))
+			writeFile(t, input, "Be short.\n")
 			if out, _, err := runGlobalAgentTest(args...); err == nil || !strings.Contains(err.Error(), "drift detected") {
 				t.Errorf("changed source: %v\n%s", err, out)
 			}
-			if got := readGlobalTest(t, output); got != before {
+			if got := readFile(t, output); got != before {
 				t.Error("preview changed output")
 			}
-			if got := readGlobalTest(t, filepath.Join(source, "state", "global.json")); got != state {
+			if got := readFile(t, filepath.Join(source, "state", "global.json")); got != state {
 				t.Error("preview changed state")
 			}
 			if _, err := os.Stat(output + ".bak"); !os.IsNotExist(err) {
@@ -142,7 +142,7 @@ func TestSyncGlobal_PlanCheckGatesWithoutWriting(t *testing.T) {
 func TestSyncGlobal_PlanCheckPreservesLoadFailure(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	path := filepath.Join(source, "settings", "bad.yaml")
-	mustWriteGlobalTest(t, path, "model: [\n")
+	writeFile(t, path, "model: [\n")
 	for _, args := range [][]string{{"--plan", "--check"}, {"--plan", "--check", "--json"}} {
 		_, _, err := runGlobalAgentTest(args...)
 		if err == nil || strings.Contains(err.Error(), "drift detected") || !strings.Contains(err.Error(), "bad.yaml") {
@@ -161,7 +161,7 @@ func TestSyncGlobal_PlanRejectsDryRun(t *testing.T) {
 func TestSyncGlobal_JSONRunPrunesEmptySkillFolder(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	skill := filepath.Join(source, "skills", "foo", "SKILL.md")
-	mustWriteGlobalTest(t, skill, "---\nname: foo\ndescription: Foo\n---\nFoo.\n")
+	writeFile(t, skill, "---\nname: foo\ndescription: Foo\n---\nFoo.\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
@@ -178,14 +178,14 @@ func TestSyncGlobal_JSONRunPrunesEmptySkillFolder(t *testing.T) {
 
 func TestSyncGlobal_PlanMarksHandEdit(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
 	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, w)
 	}
 	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
-	data := readGlobalTest(t, claudeMD)
-	mustWriteGlobalTest(t, claudeMD, strings.Replace(data, "Be brief.", "Be terse.", 1))
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be short.\n")
+	data := readFile(t, claudeMD)
+	writeFile(t, claudeMD, strings.Replace(data, "Be brief.", "Be terse.", 1))
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be short.\n")
 	out, _, err := runGlobalAgentTest("--only", "claude", "--plan")
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -197,7 +197,7 @@ func TestSyncGlobal_PlanMarksHandEdit(t *testing.T) {
 
 func TestSyncGlobal_PlanCheckDoesNotGateOnOwnershipOnly(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}

@@ -1336,9 +1336,7 @@ func handoffReadHandlersFor(t *testing.T, dir, target string) map[string]handoff
 		if h.Env == nil {
 			h.Env = map[string]string{}
 		}
-		for k, v := range doc.Env {
-			h.Env[k] = v
-		}
+		maps.Copy(h.Env, doc.Env)
 		if target == "claude" {
 			h.Env["CLAUDE_PROJECT_DIR"] = dir
 		}

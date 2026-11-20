@@ -12,7 +12,7 @@ import (
 // Paths and formats are asserted independently of the global target table.
 func TestSyncGlobal_AgentsUseNativeFormatsForEverySupportedTarget(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review changes\n---\nReview carefully.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review changes\n---\nReview carefully.\n")
 	_, warnings, err := runGlobalAgentTest()
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestSyncGlobal_AgentsUseNativeFormatsForEverySupportedTarget(t *testing.T) 
 func TestSyncGlobal_SharedAgentsKeepUnselectedOwnership(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	input := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, input, "---\nname: reviewer\n---\nReview.\n")
+	writeFile(t, input, "---\nname: reviewer\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest("--only", "goose,openhands"); err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestSyncGlobal_SharedAgentsKeepUnselectedOwnership(t *testing.T) {
 
 func TestSyncGlobal_SharedAgentConflictsStopBeforeWrites(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nx-goose:\n  model: first\nx-openhands:\n  model: second\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nx-goose:\n  model: first\nx-openhands:\n  model: second\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude,goose,openhands"); err == nil || !strings.Contains(err.Error(), "different content") {
 		t.Fatalf("want shared conflict: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestSyncGlobal_SharedAgentConflictsStopBeforeWrites(t *testing.T) {
 func TestSyncGlobal_SharedAgentUpdateRequiresAllOwners(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	input := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, input, "---\nname: reviewer\n---\nOriginal.\n")
+	writeFile(t, input, "---\nname: reviewer\n---\nOriginal.\n")
 	if _, _, err := runGlobalAgentTest("--only", "goose,openhands"); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestSyncGlobal_SharedAgentUpdateRequiresAllOwners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, input, "---\nname: reviewer\n---\nChanged.\n")
+	writeFile(t, input, "---\nname: reviewer\n---\nChanged.\n")
 	if _, _, err := runGlobalAgentTest("--only", "goose"); err == nil || !strings.Contains(err.Error(), "unselected target openhands") {
 		t.Fatalf("want shared owner conflict: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestSyncGlobal_AgentsHonorNativeRootOverrides(t *testing.T) {
 			defaultPath := globalTargets[tc.target].agentsPath(home)
 			nativeRoot := t.TempDir()
 			t.Setenv(tc.env, nativeRoot)
-			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
 			if _, _, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatal(err)
 			}
@@ -176,10 +176,10 @@ func TestSyncGlobal_AgentsHonorNativeRootOverrides(t *testing.T) {
 
 func TestSyncGlobal_AgentRenderingDoesNotLoadProjectConfiguration(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, "agnostic-ai.yaml", "not: valid: yaml")
-	mustWriteGlobalTest(t, ".agnostic-ai/agents/project.md", "---\nname: project\n---\nProject only.\n")
-	mustWriteGlobalTest(t, ".agnostic-ai/overlays/claude.settings.json", "invalid JSON")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "not: valid: yaml")
+	writeFile(t, ".agnostic-ai/agents/project.md", "---\nname: project\n---\nProject only.\n")
+	writeFile(t, ".agnostic-ai/overlays/claude.settings.json", "invalid JSON")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest(); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestSyncGlobal_AgentRenderingDoesNotLoadProjectConfiguration(t *testing.T) 
 func TestSyncGlobal_AgentsRejectRelativeNativeRoots(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	t.Setenv("QODER_CONFIG_DIR", ".qoder")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest("--only", "qoder"); err == nil || !strings.Contains(err.Error(), "must be an absolute path") {
 		t.Fatalf("want relative root rejection: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestSyncGlobal_AgentsRejectRelativeNativeRoots(t *testing.T) {
 func TestSyncGlobal_DefaultRunSkipsTargetWithRelativeRoot(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("QODER_CONFIG_DIR", ".qoder")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
 	_, warnings, err := runGlobalAgentTest()
 	if err != nil {
 		t.Fatalf("relative qoder root failed the default run: %v", err)
@@ -223,10 +223,10 @@ func TestSyncGlobal_RootOverrideMovesEverySurface(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	root := t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", root)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy up.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "name: start\nevent: SessionStart\ncommand: echo hi\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	writeFile(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy up.\n")
+	writeFile(t, filepath.Join(source, "hooks", "start.yaml"), "name: start\nevent: SessionStart\ncommand: echo hi\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestSyncGlobal_RootOverrideMovesEverySurface(t *testing.T) {
 
 func TestSyncGlobal_DefaultRunSkipsAgentsANativeFormatRejects(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "code_reviewer.md"), "---\nname: code_reviewer\ndescription: Review\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "agents", "code_reviewer.md"), "---\nname: code_reviewer\ndescription: Review\n---\nReview.\n")
 	_, warnings, err := runGlobalAgentTest()
 	if err != nil {
 		t.Fatalf("one strict target failed the default run: %v", err)
@@ -263,7 +263,7 @@ func TestSyncGlobal_DefaultRunSkipsAgentsANativeFormatRejects(t *testing.T) {
 
 func TestSyncGlobal_CheckAcceptsOlderStateVersion(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
 	if _, _, err := runGlobalAgentTest(); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestSyncGlobal_CheckAcceptsOlderStateVersion(t *testing.T) {
 	if older == string(data) {
 		t.Fatalf("state has no current version marker:\n%s", data)
 	}
-	mustWriteGlobalTest(t, statePath, older)
+	writeFile(t, statePath, older)
 	if _, _, err := runGlobalAgentTest("--check"); err != nil {
 		t.Errorf("version 5 state with the same ownership reported drift: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestSyncGlobal_CheckAcceptsOlderStateVersion(t *testing.T) {
 func TestSyncGlobal_RemovedFolderAgentLeavesNoEmptyDirectory(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	agent := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, agent, "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
+	writeFile(t, agent, "---\nname: reviewer\ndescription: Review\n---\nReview.\n")
 	if _, _, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
 		t.Fatal(err)
 	}

@@ -63,8 +63,8 @@ func TestHealthNamesRequiresAndWhetherTheRunningBuildMeetsIt(t *testing.T) {
 
 func TestHealthReadsTheGlobalRequiresWhereLocalReplacesShared(t *testing.T) {
 	home := t.TempDir()
-	mustWriteFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\nrequires: \">=0.70.0\"\n")
-	mustWriteFile(t, filepath.Join(home, "local", "agnostic-ai.yaml"), "requires: \">=0.90.0\"\n")
+	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\nrequires: \">=0.70.0\"\n")
+	writeFile(t, filepath.Join(home, "local", "agnostic-ai.yaml"), "requires: \">=0.90.0\"\n")
 	setRunningVersion(t, "v0.80.0")
 	fields := healthFields(t, home, true)
 	if got := string(fields["requires"]); got != `">=0.90.0"` {
@@ -88,7 +88,7 @@ func TestHealthLeavesOutARequiresThatDoesNotParse(t *testing.T) {
 
 func TestHealthChecksRequiresInAConfigWithUnknownKeys(t *testing.T) {
 	requiresProject(t, ">=0.81.0")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.81.0\"\nfuture-key: true\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.81.0\"\nfuture-key: true\n")
 	setRunningVersion(t, "v0.80.0")
 	fields := healthFields(t, ".", false)
 	if got := string(fields["requires"]); got != `">=0.81.0"` {
@@ -101,8 +101,8 @@ func TestHealthChecksRequiresInAConfigWithUnknownKeys(t *testing.T) {
 
 func TestHealthLeavesOutAGlobalRequiresThatLocalClears(t *testing.T) {
 	home := t.TempDir()
-	mustWriteFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\nrequires: \">=0.90.0\"\n")
-	mustWriteFile(t, filepath.Join(home, "local", "agnostic-ai.yaml"), "requires: null\n")
+	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\nrequires: \">=0.90.0\"\n")
+	writeFile(t, filepath.Join(home, "local", "agnostic-ai.yaml"), "requires: null\n")
 	setRunningVersion(t, "v0.80.0")
 	fields := healthFields(t, home, true)
 	for _, key := range []string{"requires", "requiresMet"} {

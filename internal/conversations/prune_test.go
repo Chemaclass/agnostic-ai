@@ -580,9 +580,11 @@ func codexStateStore(t *testing.T, stores Stores, ids ...string) {
 	_ = os.Remove(path)
 	script := `CREATE TABLE threads (id TEXT PRIMARY KEY, cwd TEXT, created_at_ms INTEGER, updated_at_ms INTEGER, originator TEXT, source TEXT,
   git_branch TEXT, name TEXT, title TEXT, first_user_message TEXT, rollout_path TEXT, archived INTEGER, archived_at INTEGER, thread_source TEXT);`
+	var scriptSb583 strings.Builder
 	for _, id := range ids {
-		script += fmt.Sprintf(`INSERT INTO threads VALUES ('%s', '/tmp/app', 1794045600000, 1794049200000, 'codex-tui', 'cli', '', 'Plan', '', 'Plan it', '%s', 0, 0, 'user');`, id, codexRollout(stores, id))
+		fmt.Fprintf(&scriptSb583, `INSERT INTO threads VALUES ('%s', '/tmp/app', 1794045600000, 1794049200000, 'codex-tui', 'cli', '', 'Plan', '', 'Plan it', '%s', 0, 0, 'user');`, id, codexRollout(stores, id))
 	}
+	script += scriptSb583.String()
 	if err := os.MkdirAll(stores.CodexDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

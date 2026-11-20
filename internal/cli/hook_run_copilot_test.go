@@ -24,13 +24,13 @@ echo '{"permissionDecision":"allow"}'
 func copilotProject(t *testing.T, hook, body string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, copilot]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, copilot]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, script, body)
+	writeFile(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), hook)
 	mustSync(t)
 }
 
@@ -123,15 +123,15 @@ func TestHookRun_CopilotMissingExecutableFailsACountedCheck(t *testing.T) {
 func TestHookRun_CopilotPermissionRequestMergesLaterOutputs(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
 	for name, reply := range map[string]string{"deny.sh": "deny", "allow.sh": "allow"} {
 		script := filepath.Join(dir, ".agnostic-ai", "scripts", name)
-		mustWrite(t, script, "#!/bin/sh\ncat >/dev/null\necho '{\"behavior\":\""+reply+"\"}'\n")
+		writeFile(t, script, "#!/bin/sh\ncat >/dev/null\necho '{\"behavior\":\""+reply+"\"}'\n")
 		if err := os.Chmod(script, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: permissionRequest\ncommand: [.agnostic-ai/scripts/deny.sh, .agnostic-ai/scripts/allow.sh]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: permissionRequest\ncommand: [.agnostic-ai/scripts/deny.sh, .agnostic-ai/scripts/allow.sh]\n")
 	mustSync(t)
 
 	out, err := runHookRun(t, "guard", "--payload", writePayload(t, dir, `{"toolName":"bash"}`), "--expect", "allow", "--include-assumed")
@@ -143,6 +143,6 @@ func TestHookRun_CopilotPermissionRequestMergesLaterOutputs(t *testing.T) {
 func writePayload(t *testing.T, dir, body string) string {
 	t.Helper()
 	path := filepath.Join(dir, "payload.json")
-	mustWrite(t, path, body)
+	writeFile(t, path, body)
 	return path
 }

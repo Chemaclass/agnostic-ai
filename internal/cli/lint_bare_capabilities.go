@@ -84,7 +84,6 @@ func bareCapabilityNativePermissions(rule, list, target string) []string {
 		return nil
 	}
 	return adapters.TranslatePermissionCapability(target, list, rule, nil).Native
-
 }
 
 func barePermissionOverridden(settings []spec.Entry, entry spec.Entry, target, name string) bool {

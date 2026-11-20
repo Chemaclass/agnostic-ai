@@ -16,10 +16,10 @@ func TestSync_ClaudeAgentAlwaysGetsANameAndADescription(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	notes := captureNotes(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "bare.md"), "Review the diff.\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "named.md"), "---\nname: named\n---\n\nReview the diff.\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "full.md"), "---\nname: full\ndescription: Reviews a diff.\n---\n\nReview the diff.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "bare.md"), "Review the diff.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "named.md"), "---\nname: named\n---\n\nReview the diff.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "full.md"), "---\nname: full\ndescription: Reviews a diff.\n---\n\nReview the diff.\n")
 	mustSync(t)
 
 	for name, want := range map[string]string{
@@ -50,8 +50,8 @@ func TestSync_ClaudeLeavesOutAnAgentWithNoUsableTool(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
 			notes := captureNotes(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\ndescription: Thinks.\n"+can+"\n---\n\nThink.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\ndescription: Thinks.\n"+can+"\n---\n\nThink.\n")
 			mustSync(t)
 
 			if _, err := os.Stat(filepath.Join(dir, ".claude", "agents", "idle.md")); !os.IsNotExist(err) {
@@ -177,8 +177,8 @@ func TestLintAgentLimits_RejectsWrongTypes(t *testing.T) {
 func TestSync_StopsOnAnInvalidAgentTurnLimit(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "loop.md"), "---\ndescription: Loops.\nmaxTurns: \"many\"\n---\n\nLoop.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "loop.md"), "---\ndescription: Loops.\nmaxTurns: \"many\"\n---\n\nLoop.\n")
 	out, err := runRoot(t, "sync")
 	if err == nil || !strings.Contains(out+err.Error(), `maxTurns is the text "many"; write a whole number of 1 or more`) {
 		t.Fatalf("sync must stop on the bad value: %v\n%s", err, out)
@@ -193,9 +193,9 @@ func TestSync_StopsOnAnInvalidAgentTurnLimit(t *testing.T) {
 func TestSync_ClaudeAgentLimitsComposeWithTools(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "git.md"), "---\ndescription: Runs git.\ncan: [read, \"shell(git *)\"]\nmaxTurns: 8\nbackground: true\n---\n\nRun git.\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\ndescription: Thinks.\ncan: []\nmaxTurns: 8\n---\n\nThink.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "git.md"), "---\ndescription: Runs git.\ncan: [read, \"shell(git *)\"]\nmaxTurns: 8\nbackground: true\n---\n\nRun git.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\ndescription: Thinks.\ncan: []\nmaxTurns: 8\n---\n\nThink.\n")
 	mustSync(t)
 	got, err := os.ReadFile(filepath.Join(dir, ".claude", "agents", "git.md"))
 	if err != nil {

@@ -11,7 +11,7 @@ func TestImportGlobal_KiroHookRoundTrip(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".kiro", "hooks", "guard.json")
 	native := `{"version":"v1","hooks":[{"name":"guard","trigger":"PreToolUse","matcher":"write","action":{"type":"command","command":"guard.sh"},"timeout":0}]}`
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	out, warnings, err := runImportGlobalTest("kiro")
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +41,7 @@ func TestImportGlobal_KiroSkipsHookFilesItCannotPreserve(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".kiro", "hooks", "mixed.json")
 	native := `{"version":"v1","hooks":[{"name":"mixed","trigger":"Stop","action":{"type":"command","command":"first"}},{"name":"mixed-2","trigger":"PreToolUse","action":{"type":"command","command":"second"}}]}`
-	mustWriteGlobalTest(t, path, native)
+	writeFile(t, path, native)
 	_, warnings, err := runImportGlobalTest("kiro")
 	if err != nil {
 		t.Fatal(err)

@@ -11,9 +11,9 @@ var importGlobalNextCommand = regexp.MustCompile("run `agnostic-ai (sync --globa
 
 func importClaudeUserFiles(t *testing.T, home string) {
 	t.Helper()
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude.json"),
+	writeFile(t, filepath.Join(home, ".claude.json"),
 		`{"mcpServers":{"docs":{"type":"stdio","command":"docs-mcp","args":["--stdio"]}}}`+"\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"opus"}`+"\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"opus"}`+"\n")
 }
 
 // printedGlobalCommand returns the sync arguments of the command import
@@ -69,7 +69,7 @@ func TestImportGlobal_PrintedCheckPassesInAHomeThatSynced(t *testing.T) {
 	if _, warnings, err := runGlobalAgentTest("--target", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude.json"),
+	writeFile(t, filepath.Join(home, ".claude.json"),
 		`{"mcpServers":{"docs":{"type":"stdio","command":"docs-mcp","args":["--stdio"]},"web":{"type":"http","url":"https://example.com/mcp"}}}`+"\n")
 
 	out, warnings, err := runImportGlobalTest("claude")
@@ -110,7 +110,7 @@ func TestSyncGlobalCheck_MissingStateDriftsBesideAChangedFile(t *testing.T) {
 	if _, warnings, err := runImportGlobalTest("claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"sonnet"}`+"\n")
+	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"model":"sonnet"}`+"\n")
 	statePath := filepath.ToSlash(filepath.Join(source, "state", "global.json"))
 
 	out, _, err := runGlobalAgentTest("--target", "claude", "--check", "--diff")
@@ -131,7 +131,7 @@ func TestSyncGlobalCheck_MissingStateDriftsBesideAChangedFile(t *testing.T) {
 func TestImportGlobal_HintAsksToAddAnUnmanagedTool(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	importClaudeUserFiles(t, home)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 
 	out, warnings, err := runImportGlobalTest("claude")
 	if err != nil {
@@ -141,7 +141,7 @@ func TestImportGlobal_HintAsksToAddAnUnmanagedTool(t *testing.T) {
 		t.Errorf("hint does not ask to add claude to targets:\n%s", out)
 	}
 	args := printedGlobalCommand(t, out)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
 	if checkOut, checkWarnings, err := runGlobalAgentTest(args...); err != nil {
 		t.Fatalf("%v: %v\n%s%s", args, err, checkOut, checkWarnings)
 	}

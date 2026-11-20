@@ -28,7 +28,7 @@ func TestImportKimi_RejectsInvalidExecutor(t *testing.T) {
 					if global {
 						path = filepath.Join(home, ".kimi-code/mcp.json")
 						specPath = filepath.Join(source, "mcps/obsolete.yaml")
-						mustWriteGlobalTest(t, path, native)
+						writeFile(t, path, native)
 						_, _, err = runImportGlobalTest("kimi")
 					} else {
 						writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\nbuiltins: []\n")
@@ -45,7 +45,7 @@ func TestImportKimi_RejectsInvalidExecutor(t *testing.T) {
 					if _, err := os.Stat(specPath); !os.IsNotExist(err) {
 						t.Errorf("invalid executor published an MCP spec: %v", err)
 					}
-					if got := readGlobalTest(t, path); got != native {
+					if got := readFile(t, path); got != native {
 						t.Error("import changed native configuration")
 					}
 				})
@@ -147,7 +147,7 @@ func TestImportGemini_OAuthCredentialsStayOutOfSpecs(t *testing.T) {
 			if global {
 				path = filepath.Join(home, ".gemini/settings.json")
 				specDir = filepath.Join(source, "mcps")
-				mustWriteGlobalTest(t, path, native)
+				writeFile(t, path, native)
 				var err error
 				if _, warnings, err = runImportGlobalTest("gemini"); err != nil {
 					t.Fatal(err)
@@ -169,7 +169,7 @@ func TestImportGemini_OAuthCredentialsStayOutOfSpecs(t *testing.T) {
 			if imported := readFile(t, filepath.Join(specDir, "reference.yaml")); !strings.Contains(imported, "${OAUTH_SECRET}") || !strings.Contains(imported, "x-gemini:") {
 				t.Errorf("OAuth reference was lost or unscoped: %s", imported)
 			}
-			if got := readGlobalTest(t, path); got != native {
+			if got := readFile(t, path); got != native {
 				t.Error("import changed native configuration")
 			}
 			reported := log.String() + warnings
@@ -196,7 +196,7 @@ func TestImportGemini_UnbracedOAuthReferenceRoundTrip(t *testing.T) {
 			if global {
 				path = filepath.Join(home, ".gemini/settings.json")
 				specPath = filepath.Join(source, "mcps/reference.yaml")
-				mustWriteGlobalTest(t, path, native)
+				writeFile(t, path, native)
 				if _, warnings, err := runImportGlobalTest("gemini"); err != nil {
 					t.Fatalf("import: %v %s", err, warnings)
 				}
@@ -212,7 +212,7 @@ func TestImportGemini_UnbracedOAuthReferenceRoundTrip(t *testing.T) {
 			if imported := readFile(t, specPath); !strings.Contains(imported, "$OAUTH_SECRET") || !strings.Contains(imported, "x-gemini:") {
 				t.Errorf("native OAuth reference was lost or unscoped: %s", imported)
 			}
-			if got := readGlobalTest(t, path); got != native {
+			if got := readFile(t, path); got != native {
 				t.Error("import changed native configuration")
 			}
 			if global {
@@ -221,7 +221,7 @@ func TestImportGemini_UnbracedOAuthReferenceRoundTrip(t *testing.T) {
 						t.Fatalf("%v: %v %s", args, err, warnings)
 					}
 				}
-				if got := readGlobalTest(t, path); got != native {
+				if got := readFile(t, path); got != native {
 					t.Error("global adoption changed native OAuth reference bytes")
 				}
 			} else {
@@ -262,12 +262,12 @@ func TestSyncGlobal_VibeSamplingDefaultControlsOwnership(t *testing.T) {
 			path := filepath.Join(root, "config.toml")
 			prefix := "# User configuration\nactive_model = 'audit-model'\n\n"
 			original := prefix + "[[mcp_servers]]\nname = 'audit'\ntransport = 'stdio'\ncommand = 'example-mcp'\n" + tc.nativeSampling
-			mustWriteGlobalTest(t, path, original)
+			writeFile(t, path, original)
 			if err := os.Chmod(path, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			specPath := filepath.Join(source, "mcps/audit.yaml")
-			mustWriteGlobalTest(t, specPath, "name: audit\ncommand: example-mcp\n"+tc.specSampling)
+			writeFile(t, specPath, "name: audit\ncommand: example-mcp\n"+tc.specSampling)
 			for _, args := range [][]string{{"--only", "vibe"}, {"--only", "vibe", "--check"}} {
 				_, warnings, err := runGlobalAgentTest(args...)
 				if tc.conflict {
@@ -277,7 +277,7 @@ func TestSyncGlobal_VibeSamplingDefaultControlsOwnership(t *testing.T) {
 				} else if err != nil {
 					t.Errorf("matching native sampling was refused: %v %s", err, warnings)
 				}
-				if got := readGlobalTest(t, path); got != original {
+				if got := readFile(t, path); got != original {
 					t.Error("adoption or check changed user bytes")
 				}
 			}
@@ -291,7 +291,7 @@ func TestSyncGlobal_VibeSamplingDefaultControlsOwnership(t *testing.T) {
 			if tc.conflict {
 				want = original
 			}
-			if got := readGlobalTest(t, path); got != want {
+			if got := readFile(t, path); got != want {
 				t.Errorf("removal changed wrong user bytes: got %q want %q", got, want)
 			}
 			info, err := os.Stat(path)
@@ -311,33 +311,33 @@ func TestSyncGlobal_VibeSamplingUpgradeProtectsOwnedTrue(t *testing.T) {
 	t.Setenv("VIBE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	original := "# User configuration\n\n[[mcp_servers]]\nname = 'audit'\ntransport = 'stdio'\ncommand = 'example-mcp'\nsampling_enabled = true\n"
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, path, original)
 	specPath := filepath.Join(source, "mcps/audit.yaml")
 	base := "name: audit\ncommand: example-mcp\n"
-	mustWriteGlobalTest(t, specPath, base+"x-vibe:\n  sampling_enabled: true\n")
+	writeFile(t, specPath, base+"x-vibe:\n  sampling_enabled: true\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("adopt: %v %s", err, warnings)
 	}
-	mustWriteGlobalTest(t, specPath, base)
+	writeFile(t, specPath, base)
 	statePath := filepath.Join(source, "state/global.json")
-	stateBefore := readGlobalTest(t, statePath)
+	stateBefore := readFile(t, statePath)
 	for _, args := range [][]string{{"--only", "vibe", "--dry-run"}, {"--only", "vibe", "--check"}, {"--only", "vibe"}} {
 		_, _, err := runGlobalAgentTest(args...)
 		if err == nil || !strings.Contains(err.Error(), "sampling_enabled") || !strings.Contains(err.Error(), path) {
 			t.Errorf("upgrade must diagnose owned sampling true: %v", err)
 		}
-		if got := readGlobalTest(t, path); got != original {
+		if got := readFile(t, path); got != original {
 			t.Error("upgrade deleted user sampling setting")
 		}
-		if got := readGlobalTest(t, statePath); got != stateBefore {
+		if got := readFile(t, statePath); got != stateBefore {
 			t.Error("upgrade changed ownership state")
 		}
 	}
-	mustWriteGlobalTest(t, specPath, base+"x-vibe:\n  sampling_enabled: false\n")
+	writeFile(t, specPath, base+"x-vibe:\n  sampling_enabled: false\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("explicit change: %v %s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); !strings.Contains(got, "sampling_enabled = false") {
+	if got := readFile(t, path); !strings.Contains(got, "sampling_enabled = false") {
 		t.Errorf("explicit sampling choice was not applied: %s", got)
 	}
 }

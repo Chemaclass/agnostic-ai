@@ -53,8 +53,7 @@ type permissionEditConflict struct{ error }
 func (e permissionEditConflict) Unwrap() error { return e.error }
 
 func writePermissionEditError(w http.ResponseWriter, err error, status int, problems []string) {
-	var conflict permissionEditConflict
-	if errors.As(err, &conflict) {
+	if _, ok := errors.AsType[permissionEditConflict](err); ok {
 		status = http.StatusConflict
 	}
 	writeEditJSON(w, status, editError{Error: err.Error(), Problems: problems})
@@ -193,7 +192,7 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 	if req.Action == "preview" && len(req.Before) > 0 {
 		var wanted []string
 		if json.Unmarshal(req.Before, &wanted) != nil {
-			return nil, fmt.Errorf("before must be the selected audience's own list, or null when unset")
+			return nil, errors.New("before must be the selected audience's own list, or null when unset")
 		}
 		if !slices.Equal(before, wanted) || (before == nil) != (wanted == nil) {
 			return nil, permissionEditConflict{fmt.Errorf("%s: %s changed after editing began; reload saved rules", overviewDisplay(h.root, file), req.Key)}

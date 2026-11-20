@@ -810,8 +810,8 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 func bashBlocks(body string) []string {
 	var blocks []string
 	for _, part := range strings.Split(body, "```bash\n")[1:] {
-		if end := strings.Index(part, "```"); end >= 0 {
-			blocks = append(blocks, part[:end])
+		if before, _, ok := strings.Cut(part, "```"); ok {
+			blocks = append(blocks, before)
 		}
 	}
 	return blocks

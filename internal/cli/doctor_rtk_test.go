@@ -162,7 +162,7 @@ func TestDoctorRTK_MissingProcessorKeepsApprovalUnknown(t *testing.T) {
 	silence(t)
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
-	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
@@ -193,7 +193,7 @@ func TestDoctorRTK_ProcessesDataWithoutExecutingPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)
-	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
@@ -249,7 +249,7 @@ func TestDoctorRTK_HandlesProcessorAskAndDeny(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Setenv("PATH", bin)
-			mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+			writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
 			var out bytes.Buffer
 			cmd := NewRootCmd("test")
 			cmd.SetOut(&out)
@@ -296,9 +296,9 @@ func TestDoctorRTK_ReportsDeclaredChangeAndDuplicateOwners(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)
-	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\nbuiltins: [rtk]\n")
-	mustWrite(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  ask: ['Bash(git status)']\n  allow: ['Bash(rtk git status)']\n")
-	mustWrite(t, filepath.Join(user, "settings.json"), `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"}]}]}}`)
+	writeFile(t, "agnostic-ai.yaml", "targets: [claude]\nbuiltins: [rtk]\n")
+	writeFile(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  ask: ['Bash(git status)']\n  allow: ['Bash(rtk git status)']\n")
+	writeFile(t, filepath.Join(user, "settings.json"), `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"}]}]}}`)
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
@@ -346,7 +346,7 @@ func TestDoctorRTK_RejectsOversizedProcessorReplacement(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Setenv("PATH", bin)
-			mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+			writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
 			var out bytes.Buffer
 			cmd := NewRootCmd("test")
 			cmd.SetOut(&out)
@@ -395,8 +395,8 @@ func TestDoctorRTK_UsesNativeSettingsOnlyWithoutPlannedSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)
-	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
-	mustWrite(t, ".claude/settings.json", `{"permissions":{"ask":["Bash(git status)"],"allow":["Bash(rtk git status)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"},{"type":"command","command":"rtk hook claude"}]}]}}`)
+	writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
+	writeFile(t, ".claude/settings.json", `{"permissions":{"ask":["Bash(git status)"],"allow":["Bash(rtk git status)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"},{"type":"command","command":"rtk hook claude"}]}]}}`)
 	run := func() rtkReport {
 		t.Helper()
 		var out bytes.Buffer
@@ -419,7 +419,7 @@ func TestDoctorRTK_UsesNativeSettingsOnlyWithoutPlannedSettings(t *testing.T) {
 	if len(native.Hooks) != 2 || !strings.Contains(strings.Join(native.Warnings, "\n"), "multiple known RTK handlers") {
 		t.Errorf("native handlers = %v, warnings = %v", native.Hooks, native.Warnings)
 	}
-	mustWrite(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  deny: ['Bash(git status)']\n  ask: ['Bash(rtk git status)']\n")
+	writeFile(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  deny: ['Bash(git status)']\n  ask: ['Bash(rtk git status)']\n")
 	planned := run()
 	if planned.Original.Decision != "deny" {
 		t.Errorf("planned original deny decision = %s", planned.Original.Decision)
@@ -469,7 +469,7 @@ func TestDoctorRTK_RejectsIncompleteAskReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)
-	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
 	var out bytes.Buffer
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
@@ -496,11 +496,11 @@ func TestDoctorRTK_DeduplicatesAliasedSettings(t *testing.T) {
 					userDir = filepath.Join(dir, ".claude")
 				}
 				t.Setenv("CLAUDE_CONFIG_DIR", userDir)
-				mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
-				mustWrite(t, ".claude/settings.json", `{"permissions":{"ask":["Bash(git status)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"}]}]}}`)
+				writeFile(t, "agnostic-ai.yaml", "targets: [claude]\n")
+				writeFile(t, ".claude/settings.json", `{"permissions":{"ask":["Bash(git status)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"}]}]}}`)
 				wantDecision := "ask"
 				if planned {
-					mustWrite(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  deny: ['Bash(git status)']\n")
+					writeFile(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  deny: ['Bash(git status)']\n")
 					wantDecision = "deny"
 				}
 				report, err := collectRTKReport("git status")

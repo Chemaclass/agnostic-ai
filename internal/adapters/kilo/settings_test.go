@@ -2,6 +2,7 @@ package kilo
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -294,9 +295,7 @@ func TestEmit_AgentAllToolsUnmappedWritesNoPermission(t *testing.T) {
 // against a decoded JSON object.
 func toAnyMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 

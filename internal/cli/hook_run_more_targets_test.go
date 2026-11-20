@@ -14,9 +14,9 @@ import (
 func TestHookRun_SharedScriptBlocksOnTraeOpenHandsGooseAndAugment(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae, openhands, goose, augment]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae, openhands, goose, augment]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
-	mustWrite(t, script, `#!/bin/sh
+	writeFile(t, script, `#!/bin/sh
 payload=$(cat)
 echo "env:${AGNOSTIC_AI_TARGET:-}${TRAE_PROJECT_DIR:+trae}${OPENHANDS_EVENT_TYPE:+openhands}${PLUGIN_ROOT:+goose}${AUGMENT_HOOK_EVENT:+augment}" >&2
 case "$payload" in
@@ -27,7 +27,7 @@ exit 0
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n")
 	mustSync(t)
 
@@ -58,8 +58,8 @@ exit 0
 func TestHookRun_AugmentRunsAnInlineCommand(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment, trae]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: 'exit 0'\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment, trae]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: 'exit 0'\n")
 
 	out, err := runHookRun(t, "guard", "--bash", "ls")
 	if err != nil {
@@ -73,8 +73,8 @@ func TestHookRun_AugmentRunsAnInlineCommand(t *testing.T) {
 func TestHookRun_GooseFailClosedTurnsAFailureIntoABlock(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [goose]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\nx-goose:\n  on_failure: block\ncommand: 'echo not-json; exit 1'\n")
 
 	out, err := runHookRun(t, "guard", "--bash", "ls", "--expect", "block")
@@ -86,8 +86,8 @@ func TestHookRun_GooseFailClosedTurnsAFailureIntoABlock(t *testing.T) {
 func TestHookRun_AugmentPromptSubmitBlockReplyReadsAsAllow(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PromptSubmit\ntargets: [augment]\ncommand: 'echo {\\\"continue\\\":false}'\n")
 	mustSync(t)
 
@@ -108,8 +108,8 @@ func TestHookRun_OpenHandsSessionStartContextNeedsSyncHook(t *testing.T) {
 	}{{"sync", "", true}, {"async", "async: true\n", false}} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "ctx.yaml"), "name: ctx\nevent: SessionStart\n"+tc.async+"command: >-\n  printf '{\"additionalContext\":\"fixture fact\"}'\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "ctx.yaml"), "name: ctx\nevent: SessionStart\n"+tc.async+"command: >-\n  printf '{\"additionalContext\":\"fixture fact\"}'\n")
 			syncProject(t)
 			out, err := runHookRun(t, "ctx", "--target", "openhands", "--format", "json")
 			if err != nil {

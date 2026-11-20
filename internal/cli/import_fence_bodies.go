@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -208,7 +209,7 @@ func upsertXCodexInFrontmatter(front string, overrides map[string]any) (string, 
 		return "", err
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 || doc.Content[0].Kind != yaml.MappingNode {
-		return "", fmt.Errorf("frontmatter is not a mapping")
+		return "", errors.New("frontmatter is not a mapping")
 	}
 	mapping := doc.Content[0]
 	xcodex := findOrAppendMapping(mapping, "x-codex")

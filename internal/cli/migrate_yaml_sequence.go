@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -28,7 +30,7 @@ func rewriteTopLevelYAMLSequence(src string, rw yamlSequenceRewrite) (string, er
 		return "", err
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode || doc.Content[0].Style&yaml.FlowStyle != 0 {
-		return "", fmt.Errorf("not a block mapping")
+		return "", errors.New("not a block mapping")
 	}
 	mapping := doc.Content[0]
 	key, value := topLevelPair(mapping, rw.Key)
@@ -107,7 +109,7 @@ func sameSequenceApartFrom(before, after string, rw yamlSequenceRewrite) error {
 	delete(old, rw.Key)
 	delete(next, rw.NewKey)
 	if !reflect.DeepEqual(old, next) {
-		return fmt.Errorf("the rewrite changes other keys")
+		return errors.New("the rewrite changes other keys")
 	}
 	return nil
 }
@@ -119,11 +121,11 @@ func rewriteFrontmatter(src string, rewrite func(string) (string, error)) (strin
 	const delim = "---"
 	rest, ok := strings.CutPrefix(src, delim+"\n")
 	if !ok {
-		return "", fmt.Errorf("no frontmatter")
+		return "", errors.New("no frontmatter")
 	}
 	end := strings.Index("\n"+rest, "\n"+delim)
 	if end < 0 {
-		return "", fmt.Errorf("no frontmatter")
+		return "", errors.New("no frontmatter")
 	}
 	front, err := rewrite(rest[:end])
 	if err != nil {
@@ -143,7 +145,7 @@ func rewriteYAMLSequenceItems(src string, path []string, items map[int]string) (
 		return "", err
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 {
-		return "", fmt.Errorf("not a block mapping")
+		return "", errors.New("not a block mapping")
 	}
 	node := doc.Content[0]
 	for _, key := range path {
@@ -213,7 +215,7 @@ func withSequenceItems(doc any, path []string, items map[int]string) (any, error
 	if len(path) == 0 {
 		list, ok := doc.([]any)
 		if !ok {
-			return nil, fmt.Errorf("not a list")
+			return nil, errors.New("not a list")
 		}
 		list = slices.Clone(list)
 		for i, v := range items {
@@ -225,16 +227,14 @@ func withSequenceItems(doc any, path []string, items map[int]string) (any, error
 	}
 	m, ok := doc.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("not a mapping")
+		return nil, errors.New("not a mapping")
 	}
 	inner, err := withSequenceItems(m[path[0]], path[1:], items)
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	out[path[0]] = inner
 	return out, nil
 }
