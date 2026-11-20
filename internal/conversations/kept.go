@@ -167,5 +167,5 @@ func (s *Scanner) stampOf(files []string, stores string) string {
 	}
 	// The names are part of the stamp: a file that replaces another of
 	// the same size and time is still a change.
-	return strconv.FormatInt(spanOf(s.Now()), 10) + "\x00" + strings.Join(files, "\x00") + "\x00" + stores + marks
+	return strconv.FormatInt(spanOf(s.Now()), 10) + "/" + strconv.FormatUint(s.shellStops.Load(), 10) + "\x00" + strings.Join(files, "\x00") + "\x00" + stores + marks
 }

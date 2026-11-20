@@ -107,6 +107,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				}
 				uiDir = abs
 			}
+			stuckShellAfter := servedShellThreshold(cmd.ErrOrStderr())
 			src, err := openAuthoritySource(dir, global)
 			if err != nil {
 				return err
@@ -153,7 +154,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if stopWithStdin {
 				ctx = endedWith(ctx, cmd.InOrStdin())
 			}
-			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions}))
+			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions, stuckShellAfter: stuckShellAfter}))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -182,7 +183,8 @@ type serveMuxOptions struct {
 	switches *switchHandler
 	// cloudSessions also lists Claude Code cloud sessions and Codex cloud
 	// threads. Without it nothing reads the sign-in or leaves this machine.
-	cloudSessions bool
+	cloudSessions   bool
+	stuckShellAfter *time.Duration
 }
 
 // newServeMux routes the API and the client. More specific patterns win
@@ -196,6 +198,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	switches := muxOpts.switches
 	mux := http.NewServeMux()
 	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
+	conversationsHandler.stuckShellAfter = muxOpts.stuckShellAfter
 	opts.ScanningSince = conversationsHandler.scanner.ScanningSince
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", muxOpts.compareInstalled)

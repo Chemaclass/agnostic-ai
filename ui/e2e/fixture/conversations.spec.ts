@@ -155,6 +155,63 @@ test.describe('conversations', () => {
     expect(mocks.views).toEqual(['?editor=cursor', '?editor=cursor'])
   })
 
+  test('keeps the shell action for a survivor and preserves feedback when the row moves', async ({ page }) => {
+    const shell = { pid: 37, procStart: 'first-shell-start', since: '2026-11-07T14:45:00Z', command: 'npm run dev', processCount: 2 }
+    const other = { pid: 38, procStart: 'second-shell-start', since: '2026-11-07T14:30:00Z', command: 'npm run preview', helperName: 'Faramir', processCount: 3 }
+    const title = 'Add a Conversations page to the local UI'
+    const chat = conversations.conversations.find((item: Row) => item.title === title)
+    const stops: unknown[] = []
+    const { views } = await mockServer(page, opened, () => ({
+      json: {
+        ...conversations,
+        conversations: [stops.length < 2
+          ? { ...chat, state: 'blocked', activity: 'working', waiting: { for: 'shell' }, stuckShells: [shell, other] }
+          : { ...chat, live: false, state: 'dormant', activity: undefined }],
+      },
+    }))
+    await page.route('**/api/conversations/stop-shell', (route) => {
+      stops.push(route.request().postDataJSON())
+      const survivor = stops.length === 1
+        ? { pid: other.pid, procStart: other.procStart }
+        : { pid: 69, procStart: 'escaped-process-start' }
+      return route.fulfill({ json: { stillRunning: [survivor] } })
+    })
+
+    await page.goto('/')
+    const working = row(page, title)
+    await expect(working.getByText(/Faramir left a shell running for 1 hour/)).toBeVisible()
+    await expect(working.locator('.conversation-live')).toHaveCount(0)
+    await expect(working.getByText(other.command)).toBeVisible()
+    await working.hover()
+    const stop = working.getByRole('button', { name: 'Stop shell (PID 38)…' })
+    await stop.click()
+    const dialog = page.getByRole('dialog', { name: 'Stop this shell?' })
+    await expect(dialog.getByText(other.command)).toBeVisible()
+    await expect(dialog.getByText('Send a stop signal to 3 processes in this group.')).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    expect(stops).toEqual([])
+
+    await working.hover()
+    await stop.click()
+    await dialog.getByRole('button', { name: 'Stop shell', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(working.getByRole('status')).toHaveText('Stop signal sent. Processes still running (PID 38).')
+    await expect.poll(() => views.length).toBe(2)
+    await expect(working.getByText(other.command)).toBeVisible()
+
+    await working.hover()
+    await stop.click()
+    await dialog.getByRole('button', { name: 'Stop shell', exact: true }).click()
+    const moved = page.getByRole('region', { name: /^Today/ }).locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
+    await expect(moved.getByRole('status')).toHaveText('Stop signal sent. Processes still running (PID 69).')
+    await expect(moved.getByText(other.command)).toHaveCount(0)
+    await expect(moved.getByText(shell.command)).toHaveCount(0)
+    const request = { tool: 'claude', id: chat.id, pid: other.pid, procStart: other.procStart }
+    expect(stops).toEqual([request, request])
+    expect(views).toHaveLength(3)
+  })
+
   test('filters by tool with the source chips and narrows with the search', async ({ page }) => {
     const mocks = await mockServer(page)
     await page.goto('/')

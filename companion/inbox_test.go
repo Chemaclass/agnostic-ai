@@ -528,3 +528,27 @@ func TestInbox_AServerThatIsGoneSaysSoInPlainWords(t *testing.T) {
 		t.Errorf("an open = %d %s; a real failure still answers as one", rec.Code, body)
 	}
 }
+
+func TestInbox_PassesStopShellAndRefreshesTheList(t *testing.T) {
+	const payload = `{"tool":"claude","id":"a","pid":90,"procStart":"shell-start"}`
+	answer := fakeAnswer{http.StatusOK, `{"stillRunning":[{"pid":91,"procStart":"child-start"}]}`}
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{"/api/conversations/stop-shell": answer}}
+	fake.list = listOfPosts(fake)
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+	routes := (&shell{}).routes(in, fstest.MapFS{})
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/stop-shell", strings.NewReader(payload)))
+
+	if rec.Code != answer.status || rec.Body.String() != answer.body {
+		t.Errorf("= %d %s", rec.Code, rec.Body)
+	}
+	if sent := fake.posts["/api/conversations/stop-shell"]; len(sent) != 1 || sent[0] != "application/json "+payload {
+		t.Errorf("the server received %q", sent)
+	}
+	heldAfter(t, in, "the stop", `{"posts":1}`)
+	if version := rec.Header().Get(listVersionHeader); version != `"v1"` {
+		t.Errorf("list version = %q; want v1", version)
+	}
+}

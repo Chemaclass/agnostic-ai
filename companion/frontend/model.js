@@ -97,10 +97,10 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-/** What Escape closes: the quit question, then a delete confirmation, then the row menu, then a rename, then the settings menu, then pick mode, then the panel. */
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, rowMenuOpen, renaming, settingsOpen, picking }) {
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, rowMenuOpen, renaming, settingsOpen, picking }) {
   if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
+  if (stopShellOpen) return 'stop-shell'
   if (rowMenuOpen) return 'row-menu'
   if (renaming) return 'rename'
   if (settingsOpen) return 'settings'
@@ -229,6 +229,8 @@ export const NOTICES = {
   cannotDelete: { label: 'Why it cannot be deleted', tone: 'error' },
   notDeleted: { label: 'Why it was not deleted', tone: 'error' },
   notTidied: { label: 'What was not tidied', tone: 'info' },
+  shellNotStopped: { label: 'Why the shell could not be stopped', tone: 'error' },
+  shellProcessesLeft: { label: 'Processes still running', tone: 'info' },
   subagent: { label: 'How to reach the subagent', tone: 'info' },
 }
 
@@ -550,7 +552,47 @@ export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename'] : ['rename']
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
+  if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')
   return offered
+}
+
+export function stuckShellsOf(conversation) {
+  return conversation?.live ? conversation.stuckShells ?? [] : []
+}
+
+function shellAge(shell, now) {
+  const age = ago(shell.since, now)
+  return age === 'now' ? 'less than a minute' : age
+}
+
+export function shellCommandOf(shell) {
+  return shell.command || 'Command hidden'
+}
+
+export function shellWarningOf(shell, now) {
+  const owner = shell.helperName ? shell.helperName + ' left a shell' : 'Shell'
+  return `${owner} running for ${shellAge(shell, now)}: ${shellCommandOf(shell)}`
+}
+
+export function currentShellOf(conversation, selected) {
+  return stuckShellsOf(conversation).find((shell) =>
+    shell.pid === selected.pid &&
+    shell.procStart === selected.procStart &&
+    shell.command === selected.command &&
+    shell.since === selected.since &&
+    shell.processCount === selected.processCount
+  )
+}
+
+export function stopShellDetailsOf(shell, now) {
+  const processes = shell.processCount === 1 ? '1 process' : `${shell.processCount} processes`
+  return `Running for ${shellAge(shell, now)}. This stops ${processes}.`
+}
+
+export function stoppedShellOf({ stillRunning = [] }) {
+  return stillRunning.length > 0
+    ? `Shell stop sent. Processes still running (PIDs ${stillRunning.map(({ pid }) => pid).join(', ')}).`
+    : 'Shell stopped.'
 }
 
 /** What the open request names to show a shared row's claude.ai page; undefined on a row that is not shared. */

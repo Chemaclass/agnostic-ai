@@ -15,6 +15,12 @@ import (
 
 func main() {
 	r := jsonschema.Reflector{Mapper: func(t reflect.Type) *jsonschema.Schema {
+		if t == reflect.TypeFor[config.ShellDuration]() {
+			return &jsonschema.Schema{
+				OneOf:   []*jsonschema.Schema{{Type: "string", MinLength: new(uint64(1))}, {Type: "integer", Const: 0}},
+				Default: "30m",
+			}
+		}
 		if s := mapType(t); s != nil {
 			return s
 		}

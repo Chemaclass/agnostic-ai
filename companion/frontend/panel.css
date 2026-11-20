@@ -298,6 +298,34 @@ body {
   color: var(--paper-dim);
 }
 
+.stop-shell-choice {
+  min-width: 0;
+  width: 100%;
+  padding: 4px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.stop-shell-command {
+  max-height: 6em;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.shell-warning {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--action);
+  font-size: 11px;
+}
+
 .confirm-actions {
   justify-content: flex-end;
 }
