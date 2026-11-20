@@ -990,4 +990,6 @@
 # Allow 8192 bytes, rounded up to a 4096-byte page.
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
 # Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
-27320320
+# Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
+# Merged branch growth of 61440 bytes over its base, on top of main's 27336704.
+27398144
