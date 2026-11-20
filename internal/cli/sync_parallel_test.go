@@ -47,7 +47,7 @@ func writeParallelFixture(t *testing.T, dir, extraConfig string) {
 	cfg.WriteString(extraConfig)
 	must(os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg.String()), 0o644))
 
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		writeSpec(fmt.Sprintf("rules/rule-%d.md", i),
 			fmt.Sprintf("---\nname: rule-%d\ndescription: Rule %d.\nglobs: \"**/*.go\"\n---\nRule %d body. Keep it deterministic.\n", i, i, i))
 		writeSpec(filepath.Join("agents", fixtureAgentName(i)+".md"),

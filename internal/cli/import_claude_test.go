@@ -976,9 +976,11 @@ func writeMinimalConfig(t *testing.T, dir, base string) {
 	cfg := "version: 1\n"
 	if base != "" {
 		cfg += "sources:\n"
+		var cfgSb979 strings.Builder
 		for _, k := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
-			cfg += "  " + k + ": " + filepath.ToSlash(filepath.Join(base, k)) + "\n"
+			cfgSb979.WriteString("  " + k + ": " + filepath.ToSlash(filepath.Join(base, k)) + "\n")
 		}
+		cfg += cfgSb979.String()
 	}
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
 }

@@ -2,6 +2,7 @@ package overview
 
 import (
 	"encoding/json"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -237,12 +238,8 @@ func localOverlay(shared spec.Entry, path string, own map[string]any) spec.Entry
 	merged := shared
 	merged.Path, merged.Layer = path, "project-user"
 	merged.Meta = map[string]any{}
-	for k, v := range shared.Meta {
-		merged.Meta[k] = v
-	}
-	for k, v := range own {
-		merged.Meta[k] = v
-	}
+	maps.Copy(merged.Meta, shared.Meta)
+	maps.Copy(merged.Meta, own)
 	base := shared
 	merged.Base, merged.LocalMeta = &base, own
 	return merged

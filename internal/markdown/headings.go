@@ -38,7 +38,7 @@ func Headings(body string) []Heading {
 		if !atxHeading.MatchString(strings.TrimSuffix(lines[start], "\r")) {
 			heading.End = lineAt(offsets, h.Lines().At(h.Lines().Len()-1).Stop-1) + 1
 			heading.contentStarts = map[int]int{}
-			for i := 0; i < h.Lines().Len(); i++ {
+			for i := range h.Lines().Len() {
 				segment := h.Lines().At(i)
 				line := lineAt(offsets, segment.Start)
 				heading.contentStarts[line] = segment.Start - offsets[line]

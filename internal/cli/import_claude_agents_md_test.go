@@ -305,7 +305,7 @@ func TestImportFromClaude_UnchangedLineNamesThePairOnRepeatImport(t *testing.T) 
 	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Rules\n\nHand written rules.\n")
 	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\nClaude only: use plan mode.\n\n\n")
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		buf.Reset()
 		if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 			t.Fatalf("import %d: %v", i+1, err)

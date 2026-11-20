@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -133,7 +134,7 @@ func newExplainCmd() *cobra.Command {
 				return err
 			}
 			if global && file != "" {
-				return fmt.Errorf("--global cannot be combined with --file")
+				return errors.New("--global cannot be combined with --file")
 			}
 			if file != "" {
 				return runExplainForFile(cmd, file, target, jsonOut)
@@ -272,13 +273,11 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 		adapters.SetProvenanceEnabled(batch.provenance)
 		var wg sync.WaitGroup
 		for _, i := range batch.indices {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				results[i].found, results[i].err = specContributions(names[i], e, b, withoutSpec, cfg)
-			}()
+			})
 		}
 		wg.Wait()
 	}

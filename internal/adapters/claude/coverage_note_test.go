@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,9 +118,7 @@ func TestEmit_Hook_FailClosedNotesIgnoredFailuresAndPreservesNativeKey(t *testin
 			testutil.TempCwd(t)
 			buf := swapNoteWarner(t)
 			meta := map[string]any{"event": c.event, "command": "guard.sh", "failClosed": true}
-			for k, v := range c.meta {
-				meta[k] = v
-			}
+			maps.Copy(meta, c.meta)
 			entry := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: meta}
 			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
 				t.Fatal(err)

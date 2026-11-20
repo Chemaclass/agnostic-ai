@@ -277,12 +277,12 @@ func splitMdcFrontmatter(data []byte) (map[string]any, string) {
 		return empty, string(data)
 	}
 	rest := data[len(delim):]
-	idx := bytes.Index(rest, []byte("\n"+delim))
-	if idx < 0 {
+	before, after, ok := bytes.Cut(rest, []byte("\n"+delim))
+	if !ok {
 		return empty, string(data)
 	}
-	yamlPart := rest[:idx]
-	body := bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n")
+	yamlPart := before
+	body := bytes.TrimLeft(after, "\n")
 
 	var meta map[string]any
 	if err := yaml.Unmarshal(yamlPart, &meta); err != nil {

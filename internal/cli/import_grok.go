@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -118,13 +119,13 @@ func importGrokSkillName(data []byte) ([]byte, error) {
 	mapping, rest, ok := frontmatterNode([]byte(document))
 	if !ok {
 		if strings.HasPrefix(document, "---") {
-			return nil, fmt.Errorf("invalid Grok skill frontmatter")
+			return nil, errors.New("invalid Grok skill frontmatter")
 		}
 		return data, nil
 	}
 	var meta map[string]any
 	if err := mapping.Decode(&meta); err != nil {
-		return nil, fmt.Errorf("invalid Grok skill frontmatter")
+		return nil, errors.New("invalid Grok skill frontmatter")
 	}
 	if err := validateGrokMetadataKeys(meta); err != nil {
 		return nil, err

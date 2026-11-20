@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -145,13 +146,13 @@ func scanTOMLRoot(lines []string) (map[string]tomlRootKey, int, error) {
 			if strings.HasPrefix(trimmed, "[") {
 				return keys, lastKey, nil
 			}
-			eq := strings.Index(raw, "=")
-			if eq < 0 {
+			before, after, ok := strings.Cut(raw, "=")
+			if !ok {
 				return nil, -1, fmt.Errorf("line %d: expected a key and value", i+1)
 			}
-			current = tomlRootKeyName(raw[:eq])
+			current = tomlRootKeyName(before)
 			keys[current] = tomlRootKey{start: i, end: i}
-			rest = raw[eq+1:]
+			rest = after
 		}
 		comment := scanTOMLLine(rest, &multi, &depth)
 		loc := keys[current]
@@ -165,7 +166,7 @@ func scanTOMLRoot(lines []string) (map[string]tomlRootKey, int, error) {
 		}
 	}
 	if multi != "" || depth != 0 {
-		return nil, -1, fmt.Errorf("unterminated value in the root table")
+		return nil, -1, errors.New("unterminated value in the root table")
 	}
 	return keys, lastKey, nil
 }
@@ -203,7 +204,7 @@ func tomlValueText(v any) (string, error) {
 		parts := make([]string, 0, len(value))
 		for _, item := range value {
 			if _, table := item.(map[string]any); table {
-				return "", fmt.Errorf("an array of tables is not a root key")
+				return "", errors.New("an array of tables is not a root key")
 			}
 			text, err := tomlValueText(item)
 			if err != nil {
@@ -288,8 +289,8 @@ func scanTOMLHeaders(lines []string) ([]tomlHeader, error) {
 		}
 		rest := raw
 		if multi == "" && depth == 0 {
-			if eq := strings.Index(raw, "="); eq >= 0 {
-				rest = raw[eq+1:]
+			if _, after, ok := strings.Cut(raw, "="); ok {
+				rest = after
 			}
 		}
 		scanTOMLLine(rest, &multi, &depth)

@@ -43,9 +43,11 @@ func TestClaudePermissions_RemovedRulesLeaveAndImportKeepsOnlyHandWrittenOnes(t 
 	runCmd(t, "import", "claude")
 	sources := sourceSnapshot(t, filepath.Join(dir, ".agnostic-ai"))
 	all := ""
+	var allSb46 strings.Builder
 	for _, body := range sources {
-		all += body
+		allSb46.WriteString(body)
 	}
+	all += allSb46.String()
 	if strings.Contains(all, "Bash(rm:*)") || strings.Count(all, "Bash(git push:*)") != 1 {
 		t.Errorf("import brought back a generated rule:\n%s", all)
 	}

@@ -2,6 +2,7 @@ package emit
 
 import (
 	"encoding/json"
+	"maps"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -24,9 +25,7 @@ func TestMCPDocument_ClaudeBooleanFlagsPreserveExplicitValues(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(transport+"/"+tc.name, func(t *testing.T) {
 				meta := map[string]any{"type": transport, "command": "example-server", "url": "https://example.invalid/mcp"}
-				for key, value := range tc.fields {
-					meta[key] = value
-				}
+				maps.Copy(meta, tc.fields)
 				data, err := MCPDocument([]spec.Entry{{Kind: spec.KindMCP, Name: "example", Meta: meta}}, MCPSchemaServersMap, WithClaudeMCPExtras())
 				if err != nil {
 					t.Fatal(err)

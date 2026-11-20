@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -239,9 +240,7 @@ func localWatchChanges(root, localRoot string, ev fsnotify.Event, snapshot map[s
 		current := collectMtimes([]string{localRoot})
 		paths := changedPaths(snapshot, current)
 		clear(snapshot)
-		for path, mtime := range current {
-			snapshot[path] = mtime
-		}
+		maps.Copy(snapshot, current)
 		kept := paths[:0]
 		for _, path := range paths {
 			if !isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, root) {
@@ -763,6 +762,7 @@ func resyncForChanges(root string, configured, changed []string, opts watchOptio
 		// for a narrower emit. runSyncOnce surfaces the load error itself.
 		return opts.sync(root, configured)
 	}
+	warnShadowedSpecs(os.Stderr, b)
 	if noTargetsKept(cfg) {
 		warnEmptyTargetsSummary()
 		return nil

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 	}
 	if shown == "" {
 		if edit.Path == "" {
-			return "", "", nil, fmt.Errorf("several editable settings specs exist; choose a path")
+			return "", "", nil, errors.New("several editable settings specs exist; choose a path")
 		}
 		shown = edit.Path
 	}

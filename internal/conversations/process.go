@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -239,9 +240,7 @@ func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
 			count++
 		}
 		open, err := readHolders(paths[:count])
-		for path, pid := range open {
-			held[path] = pid
-		}
+		maps.Copy(held, open)
 		readErr = errors.Join(readErr, err)
 		paths = paths[count:]
 	}

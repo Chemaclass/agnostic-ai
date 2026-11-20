@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -116,7 +117,7 @@ func TestMemoryGrant_OpenCodeKeepsBracketsAndBracesLiteral(t *testing.T) {
 	}
 	binary := builtBinary(t)
 	for i, name := range []string{"home[1]", "home{a,b}"} {
-		t.Run(fmt.Sprint(i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			memoryGrantHome(t, name)
 			project := memoryGrantProject(t, "opencode")
 			output := memoryGrantSync(t, binary, project)

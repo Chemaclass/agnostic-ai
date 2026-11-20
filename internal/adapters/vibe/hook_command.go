@@ -1,7 +1,7 @@
 package vibe
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 )
@@ -14,7 +14,7 @@ func DeclaredHookCommand(command string) string {
 }
 func nativeHookCommand(command string, args []string, platform string) (string, error) {
 	if platform == "windows" && !emit.PowerShellReadsFold(command, args) {
-		return "", fmt.Errorf("arguments cannot keep their exact values in Windows PowerShell; put them in a native command instead")
+		return "", errors.New("arguments cannot keep their exact values in Windows PowerShell; put them in a native command instead")
 	}
 	return hookCommand(emit.ExecFormCommand(command, args), platform), nil
 }
