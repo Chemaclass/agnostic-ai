@@ -3,6 +3,7 @@ package emit
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -204,9 +205,7 @@ func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun 
 	}
 	merged, claims := MergeOwnedLists(path, keyPath, onDisk, plannedLists)
 	out := orderedChildren{values: map[string]any{}}
-	for field, value := range plannedFields {
-		out.values[field] = value
-	}
+	maps.Copy(out.values, plannedFields)
 	var diskOrder []string
 	if existing != nil {
 		diskOrder = existing.Keys()
@@ -434,8 +433,8 @@ func stripHookTargetExport(command string) string {
 	if !strings.HasPrefix(command, prefix) {
 		return command
 	}
-	if i := strings.Index(command, "; "); i >= 0 {
-		return command[i+2:]
+	if _, after, ok := strings.Cut(command, "; "); ok {
+		return after
 	}
 	return command
 }

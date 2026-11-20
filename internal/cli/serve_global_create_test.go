@@ -125,7 +125,7 @@ func TestGlobalCreate_KeepsAnExistingGitignoreAndAddsLocalOnce(t *testing.T) {
 	ignore := filepath.Join(root, ".gitignore")
 	mustWrite(t, ignore, "node_modules")
 	mustWrite(t, filepath.Join(root, "README.md"), "notes\n")
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		_ = os.Remove(filepath.Join(root, "agnostic-ai.yaml"))
 		_ = os.Remove(filepath.Join(root, "AGNOSTIC_AI.md"))
 		rec := postCreate(t, newGlobalCreateHandler(root), `{"git":false}`, nil)

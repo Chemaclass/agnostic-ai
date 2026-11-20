@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -84,7 +85,7 @@ func TestImport_LeavesASpecTheToolShowsUnchanged(t *testing.T) {
 
 func TestImport_KeepsLinkedSkillSpecsAndStopsOnLossyEdits(t *testing.T) {
 	for _, edited := range []bool{false, true} {
-		t.Run(fmt.Sprint(edited), func(t *testing.T) {
+		t.Run(strconv.FormatBool(edited), func(t *testing.T) {
 			syncedSharedSkillProject(t)
 			const path = ".agnostic-ai/skills/demo/SKILL.md"
 			if err := os.Rename(path, "source.md"); err != nil {

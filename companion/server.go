@@ -452,12 +452,10 @@ func unanswered(caller, limited context.Context, path string, cause error) error
 		// A failed request and its dial name the address, and a search's
 		// holds the words typed: the log gets the path alone.
 		said := cause
-		var request *url.Error
-		if errors.As(cause, &request) {
+		if request, ok := errors.AsType[*url.Error](cause); ok {
 			said = request.Err
 		}
-		var dial *net.OpError
-		if errors.As(said, &dial) {
+		if dial, ok := errors.AsType[*net.OpError](said); ok {
 			said = dial.Err
 		}
 		endpoint, _, _ := strings.Cut(path, "?")

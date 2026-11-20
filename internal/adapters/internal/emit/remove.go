@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -439,13 +440,13 @@ func removeEmptyDirs(dir string) error {
 	}); err != nil {
 		return fmt.Errorf("walk %s: %w", dir, err)
 	}
-	for i := len(dirs) - 1; i >= 0; i-- {
-		entries, err := os.ReadDir(dirs[i])
+	for _, dir := range slices.Backward(dirs) {
+		entries, err := os.ReadDir(dir)
 		if err != nil {
 			if IsAbsent(err) {
 				continue
 			}
-			return fmt.Errorf("readdir %s: %w", dirs[i], err)
+			return fmt.Errorf("readdir %s: %w", dir, err)
 		}
 		if len(entries) > 0 {
 			continue
@@ -454,8 +455,8 @@ func removeEmptyDirs(dir string) error {
 		// ReadDir above and this Remove, and then the directory is no
 		// longer ours to prune. Treat that as the success it
 		// effectively is.
-		if err := os.Remove(dirs[i]); err != nil && !IsAbsent(err) && !isDirNotEmpty(err) {
-			return fmt.Errorf("remove %s: %w", dirs[i], err)
+		if err := os.Remove(dir); err != nil && !IsAbsent(err) && !isDirNotEmpty(err) {
+			return fmt.Errorf("remove %s: %w", dir, err)
 		}
 	}
 	return nil

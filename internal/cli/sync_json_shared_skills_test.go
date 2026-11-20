@@ -35,7 +35,7 @@ func TestSyncJSON_SharedSkillsPrintsOneJSONDocument(t *testing.T) {
 			stdout, stderr := captureLogOut(t), captureNotes(t)
 			previousVerbosity := verbosity
 			t.Cleanup(func() { verbosity = previousVerbosity })
-			for pass := 0; pass < 2; pass++ {
+			for pass := range 2 {
 				stdout.Reset()
 				root := NewRootCmd("test")
 				root.SetOut(stdout)

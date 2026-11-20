@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -30,7 +31,7 @@ func agentV2Temperature(front map[string]any) error {
 	if raw, set := front["request"]; set {
 		existing, ok := raw.(map[string]any)
 		if !ok {
-			return fmt.Errorf("agent request: expected an object with headers and body")
+			return errors.New("agent request: expected an object with headers and body")
 		}
 		request = maps.Clone(existing)
 	}
@@ -38,7 +39,7 @@ func agentV2Temperature(front map[string]any) error {
 	if raw, set := request["body"]; set {
 		existing, ok := raw.(map[string]any)
 		if !ok {
-			return fmt.Errorf("agent request.body: expected an object")
+			return errors.New("agent request.body: expected an object")
 		}
 		body = maps.Clone(existing)
 	}
@@ -98,7 +99,7 @@ func agentV2Permissions(front map[string]any, keys *[]string) error {
 			return fmt.Errorf("encode agent permissions: %w", err)
 		}
 		if node.Kind != yaml.SequenceNode {
-			return fmt.Errorf("agent permissions: expected an array of action/resource/effect rules")
+			return errors.New("agent permissions: expected an array of action/resource/effect rules")
 		}
 		rules.Content = append(rules.Content, node.Content...)
 	}

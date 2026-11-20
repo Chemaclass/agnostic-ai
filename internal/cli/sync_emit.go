@@ -153,7 +153,6 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 		g, ctx := errgroup.WithContext(context.Background())
 		g.SetLimit(workers)
 		for _, idx := range batch.indices {
-			idx := idx
 			g.Go(func() error {
 				if failFast && ctx.Err() != nil {
 					return nil // group already failing; do not start new work
@@ -205,11 +204,11 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 // are joined.
 func rollbackSessions(sessions []*adapters.Session) error {
 	var errs []error
-	for i := len(sessions) - 1; i >= 0; i-- {
-		if sessions[i] == nil {
+	for _, session := range slices.Backward(sessions) {
+		if session == nil {
 			continue
 		}
-		if err := sessions[i].Rollback(); err != nil {
+		if err := session.Rollback(); err != nil {
 			errs = append(errs, err)
 		}
 	}

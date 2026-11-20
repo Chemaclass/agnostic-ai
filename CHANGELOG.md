@@ -8,6 +8,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- From a subfolder of a project, a missing-config error (AAI-003), `doctor`, `import`, `packs list` and `packs update` name the project folder instead of suggesting `init`; `import` no longer leaves a lock file and `.gitignore` there; and `init` refuses to start a second project there, as `use` does (#3706).
+- `validate` fails when two specs of one kind share a name in one layer, and `sync` warns, naming the file that reaches no tool. `new` says when no enabled target reads the kind it wrote, and `validate` offers `--fix` only when an issue is autofixable (#3705).
 - New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
 - Import notes show project-relative paths for folders whose names begin with two dots (#3621).
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).
@@ -23,6 +25,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Companion
 
+- In the companion list, Enter on a focused button, such as Settings, Home, the search's clear button or Local, runs only that button instead of also opening the selected chat. While the settings menu is open, the arrow keys and Enter leave the list behind it alone, and Esc gives the keys back to the search (#3708).
+- The companion search field takes at most 200 characters, the most `serve` searches for, instead of emptying the list on a longer paste. `serve` now says "the search is longer than 200 characters" instead of naming the `q` parameter (#3708).
+- The companion refuses shortcuts every app uses, such as Cmd+C, Cmd+Q, Ctrl+C or Ctrl+Tab, with a message, and keeps the old shortcut (#3708).
+- `agnostic-ai companion update-app` names a refused `--version` and asks for X.Y.Z. Its `--help` says it quits and restarts the companion, and both `update-app` and `install-command` show an example (#3708).
 - On macOS, the CLI opens the companion as its own app so macOS uses the app’s permissions when it controls a terminal (#3601).
 - Claude Code conversations skip named pipes posing as transcripts, which could freeze the companion list (#3601).
 - macOS disk images include the CLI; the app offers updates and can install the command line tool without replacing an existing install (#3516).

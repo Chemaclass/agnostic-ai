@@ -81,8 +81,7 @@ func Coded(code Code, format string, args ...any) error {
 // CodeOf returns the Code attached to err, or "" if none is in the
 // chain. Walks the entire chain via errors.As.
 func CodeOf(err error) Code {
-	var c *codedError
-	if errors.As(err, &c) {
+	if c, ok := errors.AsType[*codedError](err); ok {
 		return c.code
 	}
 	return ""

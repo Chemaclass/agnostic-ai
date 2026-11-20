@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -218,7 +219,7 @@ func runPacksList(root string, out io.Writer) error {
 		return err
 	}
 	if len(lock.Packs) == 0 {
-		_, _ = fmt.Fprintln(out, "no packs installed.")
+		reportNoPacks(root, out, "list")
 		return nil
 	}
 	for _, p := range lock.Packs {
@@ -241,7 +242,7 @@ func runPacksUpdate(root, only string, latest bool, out io.Writer) error {
 		return err
 	}
 	if len(lock.Packs) == 0 {
-		_, _ = fmt.Fprintln(out, "no packs installed.")
+		reportNoPacks(root, out, "update")
 		return nil
 	}
 	skipped := map[string]bool{}
@@ -856,4 +857,17 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 		})
 	}
 	return out
+}
+
+// reportNoPacks says no packs are installed in root, and names the
+// enclosing project when root has no config of its own, since its packs
+// are the ones the user is after.
+func reportNoPacks(root string, out io.Writer, command string) {
+	if _, _, missing := config.ResolveConfigPath(root); missing != nil {
+		if dir, ok := enclosingProject(root); ok {
+			_, _ = fmt.Fprintf(out, "no packs installed here; this directory is inside the agnostic-ai project at %s; run agnostic-ai packs %s there.\n", dir, command)
+			return
+		}
+	}
+	_, _ = fmt.Fprintln(out, "no packs installed.")
 }

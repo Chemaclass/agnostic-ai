@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -98,6 +99,33 @@ func TestCompanionUpdateApp_VerifiesBeforeStoppingAndReplacesTogether(t *testing
 	raw, err := os.ReadFile(filepath.Join(app, "Contents", "Resources", binaryName))
 	if err != nil || string(raw) != "updated cli" || !stopped || !started {
 		t.Errorf("update = %q, %v, stopped %v, started %v", raw, err, stopped, started)
+	}
+}
+
+func TestCompanionUpdateApp_NamesTheVersionItRefusesAndTheFormat(t *testing.T) {
+	app := testDownloadableApp(t, t.TempDir())
+	deps := companionAppDeps{prepare: func(context.Context, io.Writer, string, string) (string, error) {
+		t.Error("downloaded a refused version")
+		return "", nil
+	}}
+	for _, version := range []string{"v1.2", "", "1.2.3-rc1", "latest"} {
+		err := updateCompanionApp(context.Background(), io.Discard, app, version, builtTools(t), deps)
+		want := fmt.Sprintf("update %s: version %q is not a stable release; use X.Y.Z, such as 1.4.0", app, version)
+		if err == nil || err.Error() != want {
+			t.Errorf("version %q: error %v; want %q", version, err, want)
+		}
+	}
+}
+
+func TestCompanionAppCommands_HelpShowsAnExampleAndTheRestart(t *testing.T) {
+	for _, command := range companionAppCommands(companionTools{}) {
+		if !strings.Contains(command.Example, "agnostic-ai companion "+command.Name()+" --app") {
+			t.Errorf("%s example = %q", command.Name(), command.Example)
+		}
+	}
+	update := companionAppCommands(companionTools{})[1]
+	if !strings.Contains(update.Long, "quits the running companion") || !strings.Contains(update.Long, "starts it again") {
+		t.Errorf("update-app long = %q", update.Long)
 	}
 }
 

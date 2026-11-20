@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path"
@@ -82,9 +83,7 @@ func (n *claudeHookNamer) heldByOtherHook(name, event, matcher string, fields ma
 	}
 	doc = native.Meta
 	want := map[string]any{"event": event, "matcher": matcher}
-	for k, v := range fields {
-		want[k] = v
-	}
+	maps.Copy(want, fields)
 	for k, v := range want {
 		if fmt.Sprint(hookFieldValue(doc[k])) != fmt.Sprint(hookFieldValue(v)) {
 			return true

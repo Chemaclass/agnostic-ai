@@ -80,7 +80,7 @@ func TestNoteCoverageGap_PluralizesSingular(t *testing.T) {
 
 func TestNoteCoverageGap_DedupSameTargetKindViaWithinFlush(t *testing.T) {
 	buf := swapWarnerForNotes(t)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		NoteCoverageGap("gemini", spec.KindSkill, 2, "outputs.gemini.emit-skills-as-commands")
 	}
 	FlushCoverageNotes()

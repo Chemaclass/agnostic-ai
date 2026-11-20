@@ -54,7 +54,7 @@ The tool does not support a spec kind (hook, mcp, command, ...). A warning by de
 
 Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the project root.
 
-**Fix:** run `agnostic-ai init`, or `cd` into the directory that already has a config. `agnostic-ai doctor` gives a full diagnosis.
+**Fix:** run `agnostic-ai init`, or `cd` into the directory that already has a config. `agnostic-ai doctor` gives a full diagnosis. From a subfolder of a project, the fix names that project's folder instead, since `init` there would start a second project.
 
 ### AAI-004: Config decode failed
 

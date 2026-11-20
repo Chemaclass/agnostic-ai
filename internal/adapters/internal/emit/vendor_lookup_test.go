@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"slices"
 	"sort"
 	"testing"
 )
@@ -123,12 +124,7 @@ func sortedTargets() []string {
 }
 
 func anyInlinesRules(targets []string) bool {
-	for _, t := range targets {
-		if InlinesRulesIntoEntryPoint(t) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(targets, InlinesRulesIntoEntryPoint)
 }
 
 func rankIn(order []string, path string) int {

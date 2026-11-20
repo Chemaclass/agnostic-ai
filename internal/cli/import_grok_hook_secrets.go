@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -36,7 +37,7 @@ func grokHookEntries(hooks map[string]any) map[string]any {
 						entry[field] = value
 					}
 				}
-				probe[fmt.Sprint(index)] = entry
+				probe[strconv.Itoa(index)] = entry
 				index++
 			}
 		}

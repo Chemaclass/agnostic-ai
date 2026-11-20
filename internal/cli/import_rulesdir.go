@@ -315,9 +315,9 @@ func stripLeadingHeading(content string) string {
 	if !strings.HasPrefix(content, "# ") {
 		return content
 	}
-	nl := strings.IndexByte(content, '\n')
-	if nl < 0 {
+	_, after, ok := strings.Cut(content, "\n")
+	if !ok {
 		return ""
 	}
-	return strings.TrimLeft(content[nl+1:], "\n")
+	return strings.TrimLeft(after, "\n")
 }

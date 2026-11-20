@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -70,7 +72,7 @@ func newNewCmd() *cobra.Command {
 			kind, name := strings.ToLower(args[0]), args[1]
 			if cmd.Flags().Changed("scope") {
 				if kind != "rule" {
-					return fmt.Errorf("--scope is supported only for rules")
+					return errors.New("--scope is supported only for rules")
 				}
 				var err error
 				scope, err = spec.NormalizeScope(scope)
@@ -78,7 +80,7 @@ func newNewCmd() *cobra.Command {
 					return err
 				}
 				if scope == "" {
-					return fmt.Errorf("--scope requires a project-relative subdirectory")
+					return errors.New("--scope requires a project-relative subdirectory")
 				}
 			}
 			if !validKind(kind) {
@@ -120,6 +122,10 @@ func newNewCmd() *cobra.Command {
 			if kind == string(spec.KindMCP) {
 				summaryf("→ real servers to copy: https://agnostic-ai.org/docs/spec-format/mcp-recipes/\n")
 			}
+			support := projectKindSupport(cfg)
+			if readers := support[spec.Kind(kind)]; len(readers) > 0 && len(cfg.Targets) > 0 && !anyTargetSupports(spec.Kind(kind), setOf(cfg.Targets...), support) {
+				summaryf("→ no enabled target reads %s specs; enable one of: %s\n", kind, commaList(sortedKeys(readers)))
+			}
 			return nil
 		},
 	}
@@ -130,12 +136,7 @@ func newNewCmd() *cobra.Command {
 }
 
 func validKind(k string) bool {
-	for _, v := range newSpecKinds {
-		if v == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(newSpecKinds, k)
 }
 
 // newSpecPath resolves the destination file for a `new` invocation by

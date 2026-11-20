@@ -155,7 +155,7 @@ func TestSyncGlobal_NativePermissionShapeErrorsPreserveOwnedDenials(t *testing.T
 func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(t *testing.T) {
 	const numericCredential = "98765432101234567890"
 	nested := `curl -H "X-Api-Key: test-api-key" https://example.test`
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		nested = "sh -c '" + strings.ReplaceAll(nested, "'", "'\"'\"'") + "'"
 	}
 	for name, command := range map[string]string{
