@@ -294,6 +294,25 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     sendJSON(response, 200, { deleted: true, freedBytes: 12_400_000, ...(state.fixture.deleteNote ? { note: state.fixture.deleteNote } : {}) })
   }
 
+  async function stopShell(request, response) {
+    const body = await bodyOf(request)
+    logCall('/api/stop-shell', body)
+    const row = find(body)
+    const shell = row?.live && row.stuckShells?.find((shell) => shell.pid === body.pid && shell.procStart === body.procStart)
+    if (!shell) return sendJSON(response, 409, { error: 'The shell is no longer in the list.' })
+    row.stuckShells = row.stuckShells.filter((other) => other !== shell)
+    if (row.stuckShells.length === 0) {
+      delete row.stuckShells
+      if (row.waiting?.for === 'shell') {
+        delete row.waiting
+        row.state = 'active'
+      }
+    }
+    listChanged()
+    response.setHeader('List-Version', state.version)
+    sendJSON(response, 200, shell.pid === 840 ? { stillRunning: [{ pid: shell.pid + 1, procStart: shell.procStart }] } : {})
+  }
+
   async function open(request, response) {
     // A held open answers from the fixture it started under, even if another is chosen meanwhile.
     const fixture = state.fixture
@@ -405,6 +424,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,
+    'POST /api/stop-shell': stopShell,
     'GET /api/clipboard': (request, response) => sendJSON(response, 200, clipboardOf(state.clipboard)),
     'POST /api/send': send,
     'POST /api/panel/toggle': (request, response) => { logCall('/api/panel/toggle'); comeBack(); noContent(response); emit('panel-shown', 'bottom-right') },

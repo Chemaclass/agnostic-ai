@@ -388,6 +388,9 @@
         "memory": {
           "$ref": "#/$defs/MemoryConfig"
         },
+        "conversations": {
+          "$ref": "#/$defs/ConversationsConfig"
+        },
         "approvals": {
           "$ref": "#/$defs/ApprovalsConfig"
         }
@@ -397,6 +400,26 @@
       "required": [
         "version"
       ]
+    },
+    "ConversationsConfig": {
+      "properties": {
+        "stuckShellAfter": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "integer",
+              "const": 0
+            }
+          ],
+          "description": "How long a Claude Code background shell can run before Conversations offers to stop it. Use a duration like 45m or 1h30m. Default 30m. Use 0 to disable. Home config only.",
+          "default": "30m"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "CoverageAccept": {
       "properties": {

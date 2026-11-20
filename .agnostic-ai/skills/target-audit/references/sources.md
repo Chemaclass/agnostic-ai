@@ -325,7 +325,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - changelog: https://github.com/OpenHands/OpenHands/releases (the org renamed; the recorded `All-Hands-AI/OpenHands` URL 301s here and still resolves, corrected 2026-09-11, #737)
 - watch: the `.agents/skills/` shared tree, and whether Cloud documents the same automatic agent registration as `LocalConversation`.
 - trap: microagents are resolved. The vendor heads the section "Skills (formerly Microagents)" and says "use `.agents/skills/` for new skills".
-- decision: path-triggered rules emit in folder form at `.agents/skills/<name>/SKILL.md`, avoiding loose `.md` files in a shared tree (#643).
+- decision: path-triggered rules use flat Markdown in `.agents/skills/` so Codex discovers only skill folders (#3768). OpenHands SDK 1.63.1 skips `SKILL.md` and `README.md` at that level and treats `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` as always-on. Use safe filenames for reserved names and prefix each rule's native name with `path-rule/` to keep it distinct from folder skills.
 - decision: `.openhands/hooks.json` uses the Claude-compatible PascalCase wrapper, with a coverage note for OpenHands matchers (`file_editor`, `terminal`).
 - quirk: the agent loader skips subdirectories, so Antigravity coexists at `.agents/agents/<name>/agent.md` (#717).
 - decision: agent `color` stays unemitted with a coverage note (#864). Goose shares `.agents/agents/` and has no such key. Use `x-openhands.color`. Re-open only if Goose adds `color` or OpenHands stops sharing the path.

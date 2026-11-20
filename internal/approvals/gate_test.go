@@ -773,6 +773,121 @@ func TestDecide_SettingsProtectedPaths(t *testing.T) {
 	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/main.go"}), p), "")
 }
 
+func TestDecide_AgentSpecsAsk(t *testing.T) {
+	t.Parallel()
+	for _, path := range []string{".agnostic-ai/agents/reviewer.md", ".agnostic-ai/local/agents/mine.md"} {
+		wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/" + path}), testPolicy()), RuleProtectedPath)
+		wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/" + path}), testPolicy()), RuleProtectedPath)
+	}
+	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/.agnostic-ai/skills/x/SKILL.md"}), testPolicy()), "")
+}
+
+// fakeSpecSources is a SpecSources over a fixed map of config folder to
+// the source folders its files name.
+func fakeSpecSources(sources map[string][]string) func(string) ([]string, error) {
+	return func(dir string) ([]string, error) {
+		if dir == testRoot+"/broken" {
+			return nil, os.ErrInvalid
+		}
+		return sources[dir], nil
+	}
+}
+
+func TestDecide_MovedSpecFoldersAsk(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.SpecSources = fakeSpecSources(map[string][]string{
+		testRoot:                   {testRoot + "/config/hooks"},
+		testRoot + "/services/api": {testRoot + "/services/api/cfg/agents"},
+		"/work":                    {testRoot + "/above/mcps"},
+	})
+	for _, file := range []string{"config/hooks/guard.yaml", "CONFIG/Hooks/guard.yaml", "services/api/cfg/agents/x.md", "above/mcps/m.yaml", "config", "agnostic.config.yaml", "sub/agnostic.config.yaml"} {
+		wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/" + file}), p), RuleProtectedPath)
+	}
+	wantDecision(t, Decide(call("apply_patch", map[string]any{"input": "*** Begin Patch\n*** Add File: config/hooks/g.yaml\n+x\n*** End Patch"}), p), RuleProtectedPath)
+	wantDecision(t, Decide(call("Write", map[string]any{"file_path": testRoot + "/broken/x.md"}), p), RuleProjectConfig)
+	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/config/app.yaml"}), p), "")
+	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/config/hooks.md"}), p), "")
+	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/services/web/cfg/agents/x.md"}), p), "")
+}
+
+func TestDecide_SpecFoldersFromTheSessionFolder(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	calls := map[string]int{}
+	p.SpecSources = func(dir string) ([]string, error) {
+		calls[dir]++
+		if dir == testRoot+"/services/api" {
+			return []string{testRoot + "/shared/hooks", testRoot + "/services/api/.agnostic-ai/agents"}, nil
+		}
+		return nil, nil
+	}
+	session := func(r Request) Request {
+		r.Cwd = testRoot + "/services/api"
+		return r
+	}
+	for _, file := range []string{"shared/hooks/x.yaml", "services/api/.agnostic-ai/agents/x.md"} {
+		wantDecision(t, Decide(session(call("Write", map[string]any{"file_path": testRoot + "/" + file})), p), RuleProtectedPath)
+	}
+	wantDecision(t, Decide(session(bash("go build -o .agnostic-ai/agents/x ./cmd/x")), p), RuleProtectedPath)
+	wantDecision(t, Decide(session(bash("cd .agnostic-ai/agents")), p), RuleProtectedPath)
+	clear(calls)
+	wantDecision(t, Decide(session(call("apply_patch", map[string]any{"input": "*** Begin Patch\n*** Add File: a.go\n+x\n*** Add File: b.go\n+y\n*** End Patch"})), p), "")
+	for dir, n := range calls {
+		if n > 1 {
+			t.Errorf("SpecSources(%s) ran %d times in one request", dir, n)
+		}
+	}
+}
+
+func TestDecide_MovedSpecFolderInShellPaths(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.SpecSources = fakeSpecSources(map[string][]string{testRoot: {testRoot + "/config/hooks"}})
+	for _, command := range []string{
+		"go build -o config/hooks/x.yaml ./cmd/x",
+		"go test -coverprofile=config/hooks/x.yaml ./...",
+		"cd config/hooks",
+	} {
+		wantDecision(t, Decide(bash(command), p), RuleProtectedPath)
+	}
+	wantDecision(t, Decide(bash("go build -o bin/x ./cmd/x"), p), "")
+}
+
+func TestDecide_SourceOutsideItsFolderFromALinkedSession(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.SpecSources = fakeSpecSources(map[string][]string{testRoot + "/real/api": {testRoot + "/shared/hooks"}})
+	p.Resolve = func(path string) string {
+		if path == testRoot+"/services/api" {
+			return testRoot + "/real/api"
+		}
+		return path
+	}
+	r := call("Write", map[string]any{"file_path": testRoot + "/shared/hooks/x.yaml"})
+	r.Cwd = testRoot + "/services/api"
+	wantDecision(t, Decide(r, p), RuleProtectedPath)
+}
+
+func TestDecide_MovedSpecFolderThroughALink(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	proj := filepath.Join(root, "proj")
+	real := filepath.Join(proj, "config", "hooks")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustSymlink(t, real, filepath.Join(proj, "h"))
+	p := Policy{Mode: ModeYolo, ProjectRoot: proj, Home: testHome, Resolve: ResolveLinks, SpecSources: func(dir string) ([]string, error) {
+		if dir == ResolveLinks(proj) {
+			return []string{ResolveLinks(real)}, nil
+		}
+		return nil, nil
+	}}
+	r := Request{Call: "Write", Input: map[string]any{"file_path": filepath.Join(proj, "h", "x.yaml")}, Cwd: proj}
+	wantDecision(t, Decide(r, p), RuleProtectedPath)
+}
+
 func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
 	t.Parallel()
 	p := testPolicy()

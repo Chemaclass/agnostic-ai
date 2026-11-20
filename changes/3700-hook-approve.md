@@ -1,3 +1,0 @@
-### General
-
-- New `approvals` built-in for the home config. With `approvals.mode: yolo`, `sync --global` installs a `PermissionRequest` hook in Claude Code and Codex that approves one safe tool call at a time; deleting, publishing, network, secrets, edits outside the project and Claude Code `ask` rules still ask, and every decision goes to `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl`. A project sync skips the built-in. `approvals status` gives each tool's route and the reason it falls back to `ask`, including a Codex hook not yet trusted, and `approvals` rejects unknown arguments. See the new [Approvals](https://agnostic-ai.org/docs/approvals/) page (#3700).

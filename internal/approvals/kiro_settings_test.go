@@ -20,7 +20,10 @@ func TestKiroAskRuleFiles_EveryScope(t *testing.T) {
 	} {
 		writeFile(t, path, "")
 	}
-	got := approvals.KiroAskRuleFiles(home, cwd)
+	got, err := approvals.KiroAskRuleFiles(filepath.Join(home, ".kiro"), cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, want := range []string{
 		filepath.Join(home, ".kiro", "settings", "permissions.yaml"),
 		filepath.Join(home, ".kiro", "workspace-roots", "h1", "permissions.yaml"),

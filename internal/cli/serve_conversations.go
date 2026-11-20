@@ -19,17 +19,18 @@ import (
 )
 
 const (
-	conversationsViewPath  = "/api/views/conversations"
-	conversationOpenPath   = "/api/conversations/open"
-	conversationMarkPath   = "/api/conversations/mark"
-	conversationRenamePath = "/api/conversations/rename"
-	conversationDeletePath = "/api/conversations/delete"
-	conversationSendPath   = "/api/conversations/send"
+	conversationsViewPath     = "/api/views/conversations"
+	conversationOpenPath      = "/api/conversations/open"
+	conversationMarkPath      = "/api/conversations/mark"
+	conversationRenamePath    = "/api/conversations/rename"
+	conversationDeletePath    = "/api/conversations/delete"
+	conversationStopShellPath = "/api/conversations/stop-shell"
+	conversationSendPath      = "/api/conversations/send"
 )
 
 // conversationPaths are the endpoints conversationsHandler serves. The
 // mux mounts each one and serializeAPI leaves each out of its lock.
-var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath}
+var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath, conversationStopShellPath}
 
 // maxConversationOpenBytes bounds an open request: a tool, an id, an editor and a helper.
 const maxConversationOpenBytes = 4 << 10
@@ -117,7 +118,8 @@ type conversationsHandler struct {
 	openReplyWait time.Duration
 	// approvals adds what the approvals hook decided to the list; nil
 	// leaves the list as the tools report it.
-	approvals *approvalsReader
+	approvals       *approvalsReader
+	stuckShellAfter *time.Duration
 }
 
 // conversationOpenReplyTimeout outlasts the companion's openTimeout and
@@ -154,6 +156,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.delete(w, r)
 	case conversationSendPath:
 		h.send(w, r)
+	case conversationStopShellPath:
+		h.stopShell(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -504,7 +508,7 @@ func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOptions {
-	opts := conversations.ScanOptions{Editor: editor}
+	opts := conversations.ScanOptions{Editor: editor, StuckShellAfter: h.stuckShellAfter}
 	if h.global {
 		return opts
 	}

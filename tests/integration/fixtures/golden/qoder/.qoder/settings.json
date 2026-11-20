@@ -29,6 +29,13 @@
       }
     ]
   },
+  "mcpServers": {
+    "qoder-protocol-version": {
+      "protocolVersion": "2026-07-28",
+      "type": "http",
+      "url": "https://example.test/mcp"
+    }
+  },
   "model": {
     "name": "example-model"
   },

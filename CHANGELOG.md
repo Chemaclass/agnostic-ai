@@ -6,198 +6,270 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### Highlights
+
+- Set `approvals` to keep prompts, use a supported tool's reviewer, or let trusted Claude Code or Codex hooks answer routine prompts on macOS and Linux (#3700).
+- The companion lists cached Claude app chats and Cowork tasks with coding sessions, plus cached ChatGPT chats when `sqlite3` is available (#3511).
+- On macOS, Ctrl+Alt+V opens the send picker or pastes into the only eligible Claude Code or Codex chat shown in Terminal or Ghostty (#3522, #3550).
+- On macOS 13+, `companion install` can download the matching app without Go or Xcode tools from the release-tag CLI unless you pass `--source` (#3516).
+- `sync` stops if a locked pack is missing or a configured output path points into a source folder (#3712, #3740).
+
 ### General
 
-- `import claude` no longer pins agents and skills to Claude when Goose or OpenHands is a target: their `.agents/` folders no longer count as a Codex install. `import codex` sets a model another tool also reads as the spec's `codex` entry instead of `x-codex.model`, as other imports do. `doctor --json` gives a hand-written file that stops `sync` the same reason the text output names (#3749).
-- `doctor` reports a hand-written instructions or MCP file that stops `sync`, and `doctor --fix` stops on it before writing, where it replaced the file with no backup. `sync --check` and `--plan` no longer say "nothing was written" under that stop, and `doctor` warns once about a missing locked pack, in the words `sync` uses (#3749).
-- `import opencode` and `import copilot` name each original in `.opencode/agent/`, `.opencode/command/` or `.github/prompts/` to delete after the next sync, and `doctor` lists it while the tool loads it beside the generated copy. A re-import that changes nothing says so in a project with built-in specs (#3749).
-- `sync`, `sync --check`, `status` and `validate` refuse an `outputs.<target>` path that resolves into `.agnostic-ai/` or a configured spec folder, such as `.agnostic-ai/agnostic_ai.md` on macOS or `.agnostic-ai/rules/../AGNOSTIC_AI.md`, instead of overwriting the source file (#3740).
-- `approvals` set to `review` turns on the tool's own reviewer through `sync --global`: `permissions.defaultMode: "auto"` in `~/.claude/settings.json` (Claude Code auto mode) and `approvals_reviewer = "auto_review"` in `~/.codex/config.toml` (Codex Auto-review). A settings spec or a hand-set value wins. `approvals status` names the reviewer and notes when the key is missing, when Codex `approval_policy = "never"` keeps it from running, or when it stays on where the mode asks (#3700).
-- In the web interface, copying a hook to the global setup or the project brings the shared scripts it runs, a permission save keeps a block list as a block list, **Add hook** leaves out tools that lack the chosen stage, and the source view shows hooks whose Windows command has an `=` (#3719).
-- Web interface polish: after **Undo last change**, review notes stay grouped and bounded; the rail counts findings as the Setup health page does (to fix, worth a look); `/api/switch` and `/api/global/create` refuse unknown or missing fields; an apply without `expected` is a 400; and a YAML error inside an unclosed `[` or `{` names the right line (#3728).
-- A `group:name` command, such as `git:commit` from `import gemini`, syncs as `git-commit` to every tool except Gemini CLI and Qwen Code, so no file or skill name holds a colon (#3704).
-- `import windsurf` from `.windsurf/rules/` names each hand-written rule to delete after the next sync, since Devin would load it twice (#3704).
-- `import codex` keeps a nested `AGENTS.md` whose name another import took under its scope path, such as `services-api`, and a skip note names the real source file (#3704).
-- `agnostic-ai import` that changes no spec says so instead of pointing at sync (#3704).
-- New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064 (#3700).
-- The companion and `serve` show what approvals decided, for each tool with a route: a row says "3 approved for you", a permission the gate left to you names why (such as "Always asks: publishing"), and an approved request never shows under Needs you or counts on the circle. The panel header names the mode, and **Ask me** turns approvals off. `serve` adds `GET /api/views/approvals` and `POST /api/approvals/ask`, which accepts only `ask` (#3700).
-- A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
-- `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
-- The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
-- `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
-- `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
-- `import` right after `sync` keeps an escaped MCP value such as `$${GITHUB_TOKEN}` escaped instead of turning it into a reference to the variable, on every tool that writes it as `${GITHUB_TOKEN}` (#3741).
-- `doctor` no longer fails when `CODEX_HOME` does not exist yet and the project has no Codex hooks file. `doctor --fix` saves each hand-edited file as `<path>.bak` before writing, as `sync` does (#3707).
-- From a subfolder of a project, a missing-config error (AAI-003), `status`, `doctor`, `import`, `packs list`, `packs update` and `use` name the project folder instead of suggesting `init`; `import` no longer leaves a lock file and `.gitignore` there; and `init` refuses to start a second project there, as `use` does (#3706).
-- `validate` fails when two specs of one kind share a name in one layer, and `sync` warns, naming the file that reaches no tool. `new` says when no enabled target reads the kind it wrote, and `validate` offers `--fix` only when an issue is autofixable (#3705).
-- New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
-- Import notes show project-relative paths for folders whose names begin with two dots (#3621).
-- Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).
-- Authority notes and opt-in links point directly to the reference pages that explain their settings (#3553).
-- A conversation request that names an unknown tool now gets an error that lists all four accepted tools: claude, codex, cursor and chatgpt (#3622).
-- Import writes a tool's own model only for that tool, as `model: {<tool>: <name>}`, so another tool no longer gets a model it cannot run. This covers agents and commands from every importer, and the Gemini, OpenCode, Copilot, Junie, Kilo, Qoder, Factory, Qwen, Pi and Vibe settings (#3703).
-- `revert --force` no longer deletes `.agnostic-ai/AGNOSTIC_AI.md`, the note you write, or other files in `.agnostic-ai/` and the spec folders an `outputs` path points into, and `revert` prints how many files it restored and removed for each target (#3701).
-- On a fresh clone, `sync`, `sync --check`, `doctor --fix`, `use`, and `upgrade --requires` stop and name each pack `agnostic.packs.lock` lists but `.agnostic-ai/packs/` lacks, with `agnostic-ai packs update` as the fix. Before, they removed every file those packs generated. A lockfile that does not parse now stops them as well (#3712).
-- `sync -t claude` and `sync --check -t claude` write and expect the same `CLAUDE.md` as a full sync when another target writes `AGENTS.md`, so the two checks no longer fail each other (#3714).
-- `sync --plan` lists the `.gitignore` and `.worktreeinclude` changes sync makes, and `init --dry-run` lists the `.gitignore` init writes. `init` in an existing project fails before it picks targets (#3714).
-- `hook run` reads a Claude Code `if: "Bash(...)"` rule as the Claude Code 2.1.328 hook matcher does. It matches commands inside `( )`, `if` and loop bodies, and after `!`, reads `"git" push 2>&1` as `git push`, and no longer strips wrappers such as `timeout`, `nohup`, or `nice`. It runs the hook for commands Claude Code cannot read, such as a `{ }` group, `<()`, a `{fd}>` redirection, backslash-escaped whitespace, or an unquoted here-document. `eval` and `bash <<'X'` bodies are no longer read as commands, and 4,000 nested `$()` take about 6 ms instead of almost a second (#3742).
-- `hook run` checks a command inside escaped backticks or an escaped `$()` within backticks, as bash runs it, for a Claude Code `if: "Bash(...)"` rule, and runs the hook when an escaped backtick leaves a substitution open (#3681).
-- `hook run` checks more commands for a Claude Code `if: "Bash(...)"` rule as bash runs them: a command name with a backslash or quotes (`\git push`), a line continuation, an empty substitution before the command, a redirection before it (`2>&1 git push`), substitutions in a here-document body, and commands after a quote inside a comment or here-document. `eval`, and a command name built by a substitution or variable, always run the hook (#3698).
-- `explain rules/tone.md` and `explain rules/tone.md --layers` find `.agnostic-ai/rules/tone.md`, as the help and docs show; `explain tone` suggests the file. An unknown error code links the public error page (#3709).
-- `sync --jobs` rejects a negative count with AAI-302, and `sync --watch` prints one summary at start instead of two (#3709).
-- After a first sync, the list of what each tool reads names where rules and skills land for tools such as Codex, Cursor, Cline and Kiro, where it showed a blank (#3709).
-- `migrate` lists aliases it keeps in a rewritten file under that file's rewrite line, and a re-run says nothing for a skill it already rewrote (#3709).
-- `memory lint` with `memory.personal: repo` names the personal folder it looked in (#3709).
-- `packs add` says `reinstalled` for an installed pack and names a missing folder once; `packs list` shows no `@HEAD` for a local folder (#3709).
-- Shell completion offers source names after `import`, and `completion` with an unknown shell exits non-zero (#3709).
+#### Approvals
 
-- Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
-- `agnostic-ai import` with several sources, or `all`, prints its next steps once at the end and no longer suggests importing a tool the same run imported. `import kimi` and `import vibe` now print them too (#3619).
-- `import` scans project directories fewer times, and `explain --context` and `explain --file` run faster in projects with many rules (#3663).
-- The Conversations page lists the working subagents of each chat under it, newest first, five before a "Show more" button. A click opens the chat a Claude Code subagent runs in and names the subagent; a Codex subagent opens its own thread (#3667).
+- Set `approvals` modes and tool or folder overrides in home config, with `always-ask` rules for `yolo` and only `ask` allowed in project config (#3700).
+- When settings allow, `sync --global` enables `review` for Claude Code, Codex, `cursor-agent`, Devin CLI, CodeBuddy, Vibe, Qoder and Qwen Code (#3700).
+- On macOS and Linux, use `sync --global` with the `approvals` built-in and trust its hooks to use `yolo` in Claude Code or Codex (#3700).
+- `approvals status` shows how each configured tool handles prompts, and `approvals ask` turns off hook answers on the next request (#3700).
+- The companion counts prompts approved by the hook, shows known reasons for waits, and sets home approvals to `ask` with **Ask me** (#3700).
 
-#### Companion
+#### Approval safeguards
 
-- In the companion list, Enter on a focused button, such as Settings, Home, the search's clear button or Local, runs only that button instead of also opening the selected chat. While the settings menu is open, the arrow keys and Enter leave the list behind it alone, and Esc gives the keys back to the search (#3708).
-- The companion search field takes at most 200 characters, the most `serve` searches for, instead of emptying the list on a longer paste. `serve` now says "the search is longer than 200 characters" instead of naming the `q` parameter (#3708).
-- The companion refuses shortcuts every app uses, such as Cmd+C, Cmd+Q, Ctrl+C or Ctrl+Tab, with a message, and keeps the old shortcut (#3708).
-- `agnostic-ai companion update-app` names a refused `--version` and asks for X.Y.Z. Its `--help` says it quits and restarts the companion, and both `update-app` and `install-command` show an example (#3708).
-- On macOS, the CLI opens the companion as its own app so macOS uses the app’s permissions when it controls a terminal (#3601).
-- Claude Code conversations skip named pipes posing as transcripts, which could freeze the companion list (#3601).
-- macOS disk images include the CLI; the app offers updates and can install the command line tool without replacing an existing install (#3516).
-- The companion list skips named pipes where Claude Code stores live session and background job details (#3601).
-- A click on a Claude Code subagent row still opens the chat it runs in, and now leaves a notice that names the subagent and says how to reach it. `POST /api/conversations/open` takes an optional `helper`, the subagent's id (#3667).
-- Each Claude Code subagent row shows the subagent's latest message under its title. `helpers` entries carry it as `reply` (#3667).
-- The companion replaces an `agnostic-ai serve` whose conversation list read has run for over two minutes, even when the server still answers its health check. `GET /api/health` now reports `scanningSince`, when the running read began (#3601).
+- After `approvals ask`, run `sync --global` to undo sync-owned reviewer settings and switch modes in running reviewer sessions (#3700).
+- In `yolo`, edits to agent specs, moved agent, hook, MCP or settings folders, and legacy `agnostic.config.yaml` ask for approval (#3700, #3790).
 
-- On Windows, `agnostic-ai companion uninstall` deletes the companion's start at login value from the registry, even when the program is gone, and its browser data, which the companion now keeps in its own folder. After this upgrade the Windows companion starts with an empty browser data folder, so the list forgets its last chosen place once and opens on All. On Linux, `stop` and `uninstall` from a shell without a D-Bus session bus, such as an SSH login, say so: `stop` stops nothing, and `uninstall` still deletes the files. (#3221, #3222)
-- A companion search shows the matches from the newest weeks as soon as they arrive, and the foot says "Searching…" until the older weeks are read. When no chat file changed between two weeks, the server reuses the first week's read instead of reading every store again. While an agent writes, a file changes between weeks, so the server still reads them all for each week. (#3606)
-- A closed companion list with a search left in it no longer runs that search again each time the list changes, which kept the server reading up to 8 weeks of matches again and again while agents worked. Opening the list runs the search once and keeps the words. (#3607)
-- The circle's shadow and count badge are no longer cut off at the edge of its window, at rest or under the pointer. The circle has a smaller shadow and a slightly larger window. (#3597)
-- `agnostic-ai companion uninstall` removes a companion that cannot run, such as one built for another processor, with a warning, instead of keeping it. (#3591)
-- `agnostic-ai companion` says when the companion cannot run, and names its path, instead of saying it is on screen. It also warns when an `agnostic-ai` from another commit installed it. (#3591)
-- `agnostic-ai companion install` stops on a Mac older than macOS 13, which the companion needs, and the app now says 13.0 too. An Intel `agnostic-ai` under Rosetta gets the Apple silicon companion, a slow download has 10 minutes, and a failing `gh` check names `AGNOSTIC_AI_VERIFY_ATTESTATION=0`. (#3591)
-- Ctrl-C during `agnostic-ai companion install` removes its build folder, and the next install removes one an earlier install left over an hour ago. When neither the new app nor the old one can take its place, the old one is kept and the error names where. (#3591)
-- In the companion, a mark, rename or delete answers once the new list is read, so the panel shows the list as the server has it. A chat marked complete keeps its tick until then, and stays where the list puts it. (#3601)
-- `agnostic-ai upgrade` replaces a companion built for another release even when the CLI is already current. When Homebrew or npm does not serve the new release yet, it says so instead of reporting a failed companion update. (#3591)
-- On macOS, `agnostic-ai companion install` downloads the companion the release built, for Apple silicon and Intel, instead of building it. It needs no Go and no Xcode Command Line Tools, and checks the download against the release's checksums and build provenance. A download that does not verify stops the install. A release without a built companion, an `agnostic-ai` built from any commit but a release tag, and `--source` still build it on your machine.
+#### Sync safety
+
+- `sync` stops if `agnostic.packs.lock` is invalid or names a missing pack, and names the missing packs before it can remove their generated files (#3712).
+- `sync`, `status` and `validate` refuse an `outputs` path that resolves into `.agnostic-ai/` or a spec folder, instead of overwriting the source (#3740).
+- `doctor --fix` backs up edits to whole generated files, and both it and `sync` back up edits through links into the project (#3707, #3736).
+- `revert --force` keeps files in `.agnostic-ai/` and configured spec folders, and `revert` reports how many files it restores or removes (#3701).
+- When tools write different content to one file, `sync` applies the strictest of their `outputs.<target>.collision-policy` settings (#3631).
+
+#### Sync checks and previews
+
+- `sync` stops if replacing a whole hand-written MCP file would lose settings, and `--backup` can proceed if the `.bak` path is free (#3702).
+- `sync --plan` previews `.gitignore` and `.worktreeinclude` changes, and `init --dry-run` previews `.gitignore` (#3714).
+- `sync --check`, `doctor --fix`, `use` and `upgrade --requires` stop on missing locked packs or an invalid `agnostic.packs.lock` (#3712).
+- `sync` spends less time writing output, including Kilo Code projects with many wildcard permissions (#3634).
+- `sync` starts fewer Git processes when you run it outside a Git repository (#3694).
+
+#### Import
+
+- `import` keeps tool-specific model choices on their own targets, so another tool no longer gets a model it cannot use (#3703).
+- Gemini CLI and Qwen Code keep command names like `git:commit`, while other tools get `git-commit` with a number if needed (#3704).
+- `import` and `doctor` flag legacy OpenCode agent and command files or Copilot prompts that can load twice after sync (#3749).
+- After `sync`, `import` keeps an unchanged literal such as `$${NAME}` escaped in the MCP spec when the tool writes it as `${NAME}` (#3741).
+- `import` says when no specs changed and shows next steps once for multiple sources, with fewer directory scans on large projects (#3619, #3663, #3704).
+
+#### Import details
+
+- `import claude` uses Codex-specific files to detect Codex, so `.agents/` from Goose or OpenHands no longer limits shared imports to Claude (#3749).
+- `import codex` puts a shared settings model in the portable `model.codex` field (#3749).
+- Re-importing an edited `git-commit` command keeps its `git:commit` spec name and the Gemini CLI or Qwen Code command it feeds (#3704).
+- `import` shows project-relative paths for spec folders whose names start with two dots (#3621).
+
+#### Checks and commands
+
+- `doctor` names hand-written instructions or MCP files that block `sync`, and `doctor --fix` stops before writing when it finds one (#3749).
+- `validate` rejects duplicate spec names of the same kind in one layer and outputs that differ only by case on case-insensitive disks (#3705, #3733).
+- From a subfolder, `status`, `doctor`, `import`, `packs list` and `packs update` name the project root, and `init` refuses to nest a project (#3706).
+- With `AGENTS.md` current or user-owned, `sync -t claude` keeps the same `CLAUDE.md` as a full sync (#3714).
+- `explain` finds specs by path, `sync` rejects negative `--jobs`, and `sync --watch` prints one startup summary (#3709, #3749).
+
+#### Command output
+
+- `new` warns when no enabled tool reads a spec kind, and `validate` offers `--fix` only for issues it can fix (#3705).
+- `validate` notes unused ignore specs without failing, and `packs` rejects unknown subcommands (#3749).
+- `migrate` names kept aliases, `memory lint` names the repo's personal store, and shell completion suggests sources after `import` (#3709).
+- `packs add` says when it reinstalls a pack, and `packs list` omits `@HEAD` for a local folder (#3709).
+- `status`, `sync --watch` and the web editor handle project folders whose names start with two dots (#3676).
+
+#### Diagnostics
+
+- `explain --context` and `explain --file` run faster in projects with many rules (#3663).
+- `doctor` skips Codex hook trust checks when the project has no Codex hooks file (#3707).
+- The first sync tells you where tools read rules and skills even when they have no dedicated folder (#3709).
+
+#### Hooks and built-ins
+
+- `hook run` follows Claude Code 2.1.328 for `Bash(...)` matching for quotes, substitutions and wrappers such as `timeout` (#3681, #3698, #3742).
+- The opt-in `cloud-handoff` skill pushes work to a Git remote, then uses a signed-in Claude Code or Codex CLI to start a cloud session (#3666).
+- Automatic Claude Code cloud launch uses `script`, while starting a Codex cloud task requires an environment ID (#3666).
+- Built-in session skills point to `cloud-handoff`, which stops if it cannot commit or push your work (#3690, #3692).
+
+#### Web interface
+
+- On the Conversations page, working Claude Code subagents open their parent chat and working Codex subagents open their own thread (#3667).
+- Copying a hook between project and global setups brings its shared scripts, and **Add hook** skips tools missing the chosen stage (#3719).
+- The web interface blocks detected credentials in new hooks, and pages from `agnostic-ai serve` reject other sites in `?source=` (#3710).
+- **Undo last change** groups review notes, and the sidebar shows **Setup health** errors and warnings separately (#3728).
+- **Collapse all** on Lifecycle hides the stages without hooks again (#3529).
+
+#### Web editing and API
+
+- The web editor keeps existing permission rules on separate lines when the list stays nonempty and shows hooks with an `=` in the Windows command (#3719).
+- `/api/switch` rejects unknown fields, `/api/global/create` requires `git`, and applying edits requires the preview value (#3728).
+- The web editor points to the right YAML error line when a list or map is left open (#3730).
+- Turn on the `cloud-handoff` built-in from the web interface and see its skill on the Context page (#3691).
+- The conversations API lists `chatgpt` among the accepted tools when a request names an unknown tool (#3622).
+
+#### Companion app
+
+- Companion downloads check the checksum and verify build provenance with supported, signed-in `gh` when verification is enabled (#3516, #3520).
+- On macOS, the disk image app comes with the CLI and can update itself, and the installed companion uses its own permissions (#3516, #3601).
+- `companion install` stops on macOS before 13, `companion uninstall` removes unrunnable builds, and `upgrade` names lagging install sources (#3591).
+- The companion restarts `serve` after three list timeouts if its health check fails or a scan has run for two minutes (#3591, #3601).
+- For experimental builds, `companion uninstall` clears Windows login and web data, and `companion stop` reports missing Linux D-Bus (#3221, #3222).
+
+#### Companion installation and updates
+
+- On macOS, **Install command line tool** links the disk image app's bundled CLI when you have no existing install (#3611).
+- On Apple silicon, `companion install` picks the native download even when the CLI runs under Rosetta (#3594).
+- Canceling `companion install` clears its temporary build folder and leaves an existing app alone before replacement starts (#3594).
+- `upgrade` refreshes a companion built for an older release even if the CLI is already current (#3594).
+- `companion update-app` explains its restart and version rules, and it and `companion install-command` show usage examples (#3716).
 
 #### Chat list
 
-- Your Claude chats and Cowork tasks show beside your coding sessions, read from what the Claude desktop app keeps on this computer, with no network call. A chat the assistant answered counts under Needs you until you see it, and opens in the Claude app.
-- Your ChatGPT chats show too, as the new `chatgpt` tool, read from the ChatGPT desktop app on this computer with no network call. A new reply shows within seconds. They open on chatgpt.com and count under Needs you once answered, like Claude chats. A chat started on the web or your phone shows once the app has synced it.
-- The conversations API gains the `chat` and `cowork` app values; the companion reads them as "Claude · Chat" and "Claude · Cowork", and puts chats under Cloud.
-- Renaming a conversation now renames it in its own tool first, so Claude Code, Codex, Cursor, ChatGPT and Claude Code cloud sessions show the new name in their own lists. When the tool does not take the name, the companion says why, such as "Codex is not installed", and keeps the old name. Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
-- Working agents show a quiet five-dot rainbow gyroscope, with a miniature fractal per native Claude Code or Codex sub-agent and reduced-motion support. Waiting parents keep a plain orange dot while their working satellites animate independently in blue.
-- Dragging the companion keeps its open conversation list beside it, preserving the search.
-- A Codex thread, Cursor chat, Claude chat or Claude Cowork task you archive in its own app now shows under Archived instead of leaving the list. Un-archive it in the app, or write in it, and it comes back. A Claude chat counts as archived when it leaves the Claude app's chat list while older chats are still in it, so a deleted one shows there too for a while. (#3524)
-- A chat with working subagents shows "▸ 3 subagents" in the companion. Click it to see them under the chat, newest first, each with its tool, type and age. A subagent that finished leaves the list and the count. Codex runs a Claude Code session started with `codex exec` are listed too while they run. A Codex subagent opens its own thread, or switches to the terminal that runs it. The conversations API gains an optional `helpers` field for this.
-- A terminal session goes under Archived as soon as no process holds it, whatever its age, even when its last reply is unread, and no longer counts under Needs you. Resuming it by hand does not bring the old reply back as new; it shows an orange ring under Active until read, and a later reply counts. A failed process read changes nothing. The conversations API gains `unread` on a row. (#3527)
-- A Claude Code session shared through Remote Control stays one row after it closes: its cloud row no longer comes back to count the same reply under Needs you, and marking either one read clears both. A reply written on claude.ai within two minutes of the session's last reply stays folded into the archived row; a later one shows the cloud row on its own, under Needs you. After a restart, a resume without Remote Control or a delete of the local session, the cloud row shows on its own again but does not count a reply already shown, unless that reply reached claude.ai after the last check while the session ran and was never marked read. (#3541)
-- A Claude Code session file left behind by a crash no longer keeps every session open and every delete refused. Codex and `cursor-agent` find a running thread of any age with one `lsof` run over their folder. (#3527)
-- Desktop app sessions, Claude chats, Cowork tasks, ChatGPT chats and cloud sessions stay under Active until you archive them, however old they are. One you began in the desktop app and resumed in a terminal goes back to that rule once the terminal closes. Editor panels and background jobs still go under Archived a day after their last write. (#3527)
-- A closed terminal session says **Resume in Terminal**, or the app it last ran in. A session that still runs where no tab shows it, such as a detached `tmux` session, offers its resume command with a note to end that process first. (#3527)
-- When a chat waits for you to approve a tool call, the companion row shows what it asks in place of the reply, such as "Approve `git push origin…`", "Approve edit `dashboard.tsx`" or "Approve Notion fetch", and "Needs permission" when the tool does not say which call. The meta line now shows only the tool, place, folder and age, and "▸ 3 subagents" moves to its own line. The conversations API gains `waiting` (#3526).
-- When something you asked for fails in the companion, such as an open, a send, a mark, a rename or a delete, its message now has a red border and a warning icon, and a screen reader reads it out at once. A message about something that worked, such as "Switched to it. Paste with Cmd+V.", keeps the neutral look. (#3531)
-- The companion circle shows when a chat is stuck waiting for you: its count turns solid orange with a lock and an orange halo, while unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". Under Needs you, chats waiting for a permission come first, then those waiting for an answer, then unread replies; a chat started from another one stays under it. (#3533)
-- A chat deleted in Claude Code, Codex or `cursor-agent` loses its marks once full reads of its store have missed it for 30 days, counted from the first miss, and its own file is gone. A pause of more than 8 days between reads starts the 30 days again. A failed, partial or empty read never removes a mark, and a server that reads another store leaves it alone. Claude chats, ChatGPT chats, Cursor editor chats and cloud sessions keep theirs, since the server cannot read their whole list. A chat restored after its marks went shows as unread, without its chosen name. The marks file now keeps fields it does not know. (#3540)
-- The companion list no longer marks, opens or archives a chat that is out of sight or changed since it was drawn, and a slow search finishes. (#3591)
-- The companion list names the selected chat to screen readers, its menus take arrow keys and Tab, and a failed circle click shows the trouble state. (#3591)
-- An archived chat no longer shows as unread. A chat that closed with a reply you did not read shows no orange ring, adds nothing to the Archived header, which loses its **Mark all as read**, and can be deleted without reading it first. The conversations API sets `unread` only on `active` rows and no longer refuses a delete as `unread`. A chat resumed by hand still shows its ring under Active. (#3596)
+- Unread replies in cached Claude chats, Cowork tasks and ChatGPT chats appear under **Needs you**, with `sqlite3` required for ChatGPT (#3511).
+- Rename Claude Code, local Codex and Cursor chats in their own tools, plus ChatGPT chats with a ChatGPT sign-in in Codex (#3512).
+- Expand a chat to see working Claude Code and Codex subagents, with each Claude Code subagent's latest available message (#3518, #3667).
+- **Needs you** puts permission requests first and shows details when available, and the circle shows a lock when a chat is blocked (#3526, #3533).
+- On macOS and Linux, terminal chats from Claude Code, Codex and `cursor-agent` move to **Archived** once known closed, even unread (#3527, #3596).
+
+#### Chat history and actions
+
+- Codex, Cursor editor and Cowork archives show under **Archived**, along with Claude app chats the running server saw leave the sidebar (#3524).
+- You can delete an eligible closed Claude Code chat without reading its last reply first (#3596).
+- Claude chats and Cowork tasks open in the Claude app, and ChatGPT chats open on chatgpt.com (#3511).
+- A Claude Code subagent row opens its parent chat and names the subagent, while a Codex row opens its own thread (#3667).
+- After you mark, rename or delete a chat, the companion waits for the updated list before the action finishes (#3603).
+
+#### Companion fixes
+
+- Companion search shows recent matches first, skips refreshes while closed, and limits pasted queries to 200 characters (#3606, #3607, #3708).
+- Enter on a focused companion button only runs that button, and shortcut setup rejects common shortcuts such as Cmd+C (#3708).
+- **Mark all complete** skips chats that changed in the latest list, and screen readers announce the selected chat (#3591).
+- A closed Claude Code Remote Control session and its cloud copy stay under **Shared** while the running server still links them (#3541).
+- On macOS, dragging keeps the companion list open, resizing keeps its side, and the circle shows its whole shadow (#3513, #3597).
+
+#### Companion reliability
+
+- The companion starts with defaults after invalid JSON in `companion.json` and suggests an update when an older CLI cannot start its server (#3591).
+- A failed shortcut change keeps the old keys, and the companion can start before macOS detects a screen (#3593).
+- Companion error notices have a red border and are announced by screen readers (#3531).
+- The companion list skips named pipes in Claude Code transcripts, live session files and background job files (#3601).
+- Working chats and subagents have animated markers that keep moving smoothly when the list redraws (#3513, #3544).
+
+#### Saved chat marks
+
+- Deleted Claude Code, Codex and `cursor-agent` chats lose saved marks once full reads have missed them regularly for at least 30 days (#3540).
 
 #### Sending copied text
 
-- Send copied text into a chat from the companion. Open the list and press Cmd+Shift+V, then pick a chat. The text lands in a live Terminal or Ghostty chat's input, and nothing is submitted: you press Enter there. For any other chat, the companion switches to it and says to paste with Cmd+V. A chat that ended is never resumed and typed into. Neither is a Cursor chat, a working Codex chat, a chat waiting for your answer, nor one whose state is not known. Pasting into Terminal needs macOS Accessibility access once, and plain text leaves the clipboard as you copied it, so text ending in a line break is not pasted there. The server gains `POST /api/conversations/send`. (#3517)
-- Press Ctrl+Alt+V in any app to send what you copied. The companion list opens to pick a chat. When exactly one chat can take typed text, the text goes straight there and the list hides. Change the keys in the list's ⋯ menu under **Send copied text**. (#3517)
-- The send picker never offers an archived chat, also not in a search, and its banner says what a click or Enter does, such as "Click a chat or press Enter to paste these 14 words there". Enter does nothing while a search is on its way; its answer keeps the selected chat when it still matches, else selects the first. The send shortcut sends straight only to a chat you can see, not one in a folded group. A clipboard that cannot be read says so plainly and sends nothing. (#3550)
-- Text copied from a web page goes as Markdown when it holds links, tables, code blocks, headings or lists, and the reply after the send says so. Scripts, styles and images are left out, a link keeps its target only for a short web or mail address, and a page whose HTML shows words the copied text does not, or in another order, goes as plain text. After a paste into Terminal, the clipboard holds the Markdown. `POST /api/conversations/send` takes the copied HTML in an optional `html` field. macOS only. (#3517)
-- In the send picker, a click on a subagent row sends the text to its chat instead of opening it. (#3591)
+- On macOS, Ctrl+Alt+V opens the picker or pastes into the only eligible chat shown, while Cmd+Shift+V in the list opens the picker (#3522, #3550).
+- On macOS, the picker fills eligible live Claude Code or idle Codex inputs in Terminal or Ghostty and leaves Enter to you (#3521).
+- On macOS, copied web text can paste as Markdown when HTML adds structure, matches the copied words, and fits within the send limit (#3517).
+- The send picker hides archived chats, explains what Enter does, and sends copied text to the parent chat when you click a subagent (#3550, #3591).
+- If a send loses its connection or times out after 60 seconds, the companion tells you to check the chat before sending again (#3591).
 
-#### Opening and resuming chats
+#### Send fallback and permissions
 
-- Clicking a Claude Code session started with `claude --bg` switches to a Terminal or Ghostty tab that already runs `claude attach` on it, or opens a new tab that runs `claude attach` in its folder, in the app it last ran in. When that fails, the `claude attach` command is offered to copy. It used to say the session ran in an app it could not switch to.
-- Clicking a running chat while the list is being read no longer waits for that read, nor reads the list again. A Claude Code session of the desktop app or an editor still waits, since it may run in a terminal since. A chat that ended waits for that read and then reads the list once more, so a session that started again in the meantime is not resumed a second time. (#3530)
-- A chat that takes long to open no longer brings the companion list back with an error although the terminal opened. The companion waits up to 60 seconds for an open, and after that keeps the list hidden. A real failure, such as a missing Automation permission, still shows its reason. (#3530)
-- A chat that fails to open after the companion stopped waiting now shows why, with its name and its command to copy, as soon as the list shows, even with a search typed, after a reload, or when the list opens to send copied text. It stays until you dismiss it or open a chat; another message on screen comes first. An open that gets no answer at all says the chat may still have opened. Opening the same chat twice while it opens, or opening a Claude Code session from the desktop app or an editor while the list refreshes, no longer starts a second copy. (#3537)
-- The companion list no longer comes back over the chat you just opened from it. Hiding the list could hand the focus to the circle for a moment, which showed the list again. (#3548)
-- When the companion cannot reach `agnostic-ai`, or gets no answer in time, it says so in plain words instead of showing a Go error with a local address. (#3530)
-- A send that gets no answer within 60 seconds now says the text may have been typed, so check the chat before you send again. So does a send whose server stops answering. The server keeps a slow send's answer as long as a slow open's. (#3591)
-- The companion no longer stops at every login when `companion.json` is damaged. A file that is not JSON moves to `companion.json.bad`, or a name with the time when that exists, and the companion starts with the defaults. A value of the wrong type is skipped and the other settings kept. The file is flushed to disk before it is replaced. (#3591)
-- When the installed `agnostic-ai` does not match the companion, the list says so and names `agnostic-ai upgrade` and `agnostic-ai companion install`, instead of an "unknown flag" error. After failed starts in a row, the companion waits longer before it tries again, up to a minute, but tries at once when the `agnostic-ai` program changed. A server that misses 3 list reads in a row and does not answer its health check, such as after a sleep, is replaced; one busy with a long read is kept. (#3591)
-- A failed shortcut change keeps the old keys working and frees the new ones, so you can pick them again. A quit right after a drag no longer moves the circle to the top left at the next start, and the companion no longer crashes when it opens before macOS lists the screens. (#3591)
+- Pasting into Terminal needs macOS Accessibility access, and copied plain text ending in whitespace stays for manual paste (#3517, #3525).
+- The companion tries to open other chats for manual paste and asks you to resume an ended terminal chat first (#3517).
+- The companion warns when it cannot read the clipboard, and Enter waits for a picker search to finish before it can send (#3550).
 
-#### Web client
+#### Opening chats
 
-- **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
+- On macOS, `claude --bg` rows use `claude attach` in Terminal or Ghostty, with a copyable command when available (#3515).
+- With a recent list, running terminal or cloud chats can open during a refresh, and the panel stays hidden on success or after 60 seconds (#3530, #3548).
+- Concurrent clicks share one chat open, and late failures show why, with a resume command when available (#3537, #3685).
+- Closed terminal chats offer **Resume in Terminal** or **Resume in Ghostty**, and a detached `tmux` chat can offer a command to run after it ends (#3527).
+- When the companion cannot reach `agnostic-ai`, it says so in plain words instead of a Go error (#3530).
 
 ### By tool
 
-#### CodeBuddy
-
-- `approvals` set to `review` turns on CodeBuddy auto mode: `sync --global` writes `permissions.defaultMode: "auto"` to `~/.codebuddy/settings.json`, and `approvals status` names it (#3700).
-
-#### Vibe
-
-- `approvals` set to `review` turns on Vibe smart-approve: `sync --global` writes `default_agent = "smart-approve"` to `~/.vibe/config.toml`, and `approvals status` names it (#3700).
-
-#### Qoder
-
-- `approvals` set to `review` turns on Qoder auto mode: `sync --global` writes `general.defaultPermissionMode: "auto"` to `~/.qoder/settings.json`, and `approvals status` names it (#3700).
-
-#### Qwen Code
-
-- `approvals` set to `review` turns on Qwen Code auto mode: `sync --global` writes `tools.approvalMode: "auto"` to `~/.qwen/settings.json`, and `approvals status` names it (#3700).
-
 #### Goose
 
-- **Removed:** Native Review output after Goose removed `goose review` in 1.60. Reuse the source text in another target or a skill.
-
-#### Factory
-
-- Exact-name hook aliases `Bash`, `Write`, and `WebFetch` no longer raise a false no-effect note (#3571).
-
-- `hook run` describes its Factory execution limits without claiming the native launcher is undocumented.
-
-#### OpenCode
-
-- Import preserves OpenCode V2's choice when `.agents` and `.claude` define the same skill.
-- `import opencode` reads the legacy `.opencode/agent/` and `.opencode/command/` folders, which `doctor` now lists, and keeps `"enabled": true` on an MCP server, with no replace warning on the next sync (#3702).
-
-#### Cursor
-
-- `import cursor` reads `.cursor/mcp.json` and `.cursorrules`. `sync` stops instead of replacing an MCP file it did not write when the file names servers no spec has, and `doctor` lists that file as unmanaged (#3702).
-
-#### Copilot
-
-- `import copilot` reads `.github/prompts/*.prompt.md` as commands, and `doctor` lists prompt files not yet imported (#3702).
-
-#### Grok
-
-- MCP `headers_helper` survives import and sync through `x-grok`, including user-level configuration.
-
-#### Trae
-
-- `hook run` reports context for Trae's supported events and reply formats; the hook guide lists the same limits (#3569).
+- **Removed:** Goose review output after Goose 1.60 dropped `goose review`, with the old root `.agents/REVIEW.md` still importable (#3403).
 
 #### Mistral Vibe
 
-- Skill descriptions allow up to 1024 Unicode characters instead of limiting UTF-8 bytes.
+- `sync` and `sync --global` write Vibe 3.1.3 `pre_llm` and `post_llm` hooks and keep `x-vibe.strict` when set (#3766).
+- `lint` accepts `matcher` on Vibe tool, agent and session hooks (#3558).
+- Vibe skill descriptions can use up to 1,024 Unicode characters, counted as code points (#3570).
+
+#### Copilot
+
+- `import copilot` reads `.github/prompts/*.prompt.md` as commands when no matching spec exists (#3702).
+- `import copilot` keeps the first copy of a project skill from `.github/skills`, `.agents/skills` or `.claude/skills`, in CLI order (#3557).
+- For Copilot CLI agents, `sync` points to `x-copilot.reasoningEffort` when portable `effort` cannot set it (#3563).
+
+#### OpenCode
+
+- `import opencode` reads project files in `.opencode/agent/` and `.opencode/command/` and keeps MCP servers' explicit `enabled: true` on sync (#3702).
+- For the same scope, `import opencode` keeps the first copy from `.opencode/skills`, `.agents/skills` or `.claude/skills`, in that order (#3567).
+
+#### Codex
+
+- For Codex, `sync --global` points `commandWindows` at the copied script when its path starts with `$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/` (#3749).
+- `import codex` uses a free full-folder name for a hand-written nested rule if the short name belongs to another folder, and names skipped files (#3704).
+
+#### Factory
+
+- A Factory hook matcher of exactly `Bash`, `Write` or `WebFetch` no longer gets a false note that it does nothing (#3571).
+- For Factory, `hook run` explains its Windows and shell limits and says it uses the project root (#3573, #3592).
+
+#### Kiro
+
+- Project import and sync keep remote MCP `oauth.mode` for Kiro IDE 1.4.236+ and CLI 3.5.0+ V3 sessions (#3767).
+- `validate` and `sync` accept `PermissionRequest` command hooks for V3 sessions in Kiro CLI 3.4.0 and later (#3554).
+
+#### OpenHands
+
+- `sync` writes OpenHands path rules as flat Markdown files in its skills folder, keeping their triggers and avoiding Codex skill warnings (#3768).
+- `import openhands` keeps a generated path rule and a same-named skill as separate specs (#3768).
+
+#### Cursor
+
+- `import cursor` reads `.cursor/mcp.json` and `.cursorrules`, and `doctor` reports hand-written files without matching specs (#3702).
+
+#### Windsurf / Devin Desktop
+
+- With Devin enabled and default rule paths, `import windsurf` prints a cleanup notice for hand-written `.windsurf/rules/` files (#3704).
+
+#### Qwen Code
+
+- Project and user settings round-trip supported `effort` values through `model.reasoningEffort` in Qwen Code 0.28.0 and later (#3556).
+
+#### Junie
+
+- A Junie agent name may start with a digit, such as `7review` (#3555).
+
+#### Qoder
+
+- Project and user import and sync keep a Qoder MCP server's explicit `protocolVersion` (#3769).
+
+#### Kilo Code
+
+- `sync` drops invalid MCP timeouts from Kilo Code's project config so Kilo uses its default and still loads the servers (#3765).
 
 #### Cline
 
-- Sync notes that `TaskResume`, `TaskError` and `SessionShutdown` hooks run in the Cline CLI only, not in the VS Code extension. The note is left out when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3723, #3749).
+- `sync` warns when a hook in `.clinerules/hooks` uses `TaskResume`, `TaskError` or `SessionShutdown`, which Cline for VS Code skips (#3723, #3749).
+
+#### Trae
+
+- `hook run` marks successful Trae hook output as model context on supported events, including plain text at session start or prompt submission (#3569).
+
+#### Grok Build
+
+- Project and user import and sync keep `x-grok.headers_helper` for dynamic MCP headers in Grok Build 1.0.88 and later (#3568).
 
 ### Site
 
-- Document Claude Code's version requirement for fail-closed MCP-tool hooks and the current Kiro IDE Memories menu (#3770, #3773).
-- Restore OpenCode V1 reference links and describe the portable skill-name requirement (#3771, #3772).
-- Document Crush 0.102.0 prompt overrides in `crush.json` and qualify Junie ACP primary-agent selection by release channel (#3774, #3775).
-- Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).
-- Factory hook guides document notice settings, native launchers, and local preview limits (#3572, #3573).
+- The docs lead with common tasks and move long tables to reference pages, and the home page is shorter on desktop and phones (#3552).
+- New guides explain approvals modes and how to hand off work to Claude Code or Codex in the cloud (#3689, #3700).
+- Authority notes and the tool comparison table link directly to reference sections for settings and opt-ins (#3553).
 
-- Target guides clarify native hooks, OAuth scope, Devin ignores, OpenCode instruction fallback, and Junie ACP support (#3575, #3576).
-- The home page is shorter: a hero with one install command for your system, three steps, the source explorer cut to five entries, and a line for the latest release. The video moves to the Why page (#3552).
-- Docs pages are shorter to read. Each opens with the common task; edge cases sit in folded sections, and long tables move to new reference pages for configuration, global configuration and each tool. Every fact stays, and `llms-full.txt` still carries all of it.
+#### Target guides
+
+- Guides cover Claude MCP hooks, Kiro Memories, OpenCode V1 and skill names, Crush prompts and Junie ACP versions (#3770, #3771, #3772, #3773, #3774, #3775).
+- Guides clarify Goose hook data, Auggie 1.x memory, Cline VS Code hook replies and Factory hook output and launchers (#3572, #3573, #3574, #3577, #3578).
+- Guides explain Kiro OAuth scopes, protected paths, Devin ignores, OpenCode V2 Claude flags and Junie ACP support (#3559, #3560, #3561, #3575, #3576).
+- The Grok and Augment guides link to vendor documentation for `StopCancelled` and terminal shell rule matching (#3745, #3746).
 
 ## v0.95.0 - 2026-11-15
 

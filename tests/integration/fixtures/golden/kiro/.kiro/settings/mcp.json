@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kiro-oauth-mode": {
+      "oauth": {
+        "mode": "enterprise"
+      },
+      "type": "http",
+      "url": "https://example.test/mcp"
+    }
+  }
+}

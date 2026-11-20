@@ -1,0 +1,7 @@
+name: vibe-post-llm
+target: vibe
+event: post_llm
+command: echo done
+matcher: main
+x-vibe:
+  strict: true

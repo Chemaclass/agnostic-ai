@@ -197,6 +197,24 @@ function autoApprovals(now) {
   ]
 }
 
+function stuckShells(now) {
+  const makeShell = (pid, minutes, command, processCount) => {
+    const since = new Date(now - minutes * MINUTE).toISOString()
+    return { pid, procStart: since, since, command, processCount }
+  }
+  return [
+    {
+      ...conversation(now, 'claude', 'shell-blocked', 'Preview the reporting changes', 'blocked'),
+      waiting: { for: 'shell' },
+      stuckShells: [{ ...makeShell(531, 15 * 60, 'bash scripts/run-preview.bash', 3), helperId: 'faramir', helperName: 'Faramir' }],
+    },
+    {
+      ...conversation(now, 'claude', 'shells-working', 'Refactor the search index', 'working'),
+      stuckShells: [makeShell(840, 90, 'npm run dev', 3), makeShell(910, 45, 'npm run watch', 2)],
+    },
+  ]
+}
+
 /**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
@@ -230,6 +248,7 @@ export const FIXTURES = {
     renameProblem: 'agnostic-ai could not save the name: the marks file is read-only.',
   },
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
+  'stuck-shells': { label: 'Forgotten shells on waiting and working Claude Code chats', conversations: stuckShells },
   nested: { label: 'Chats started from other chats', conversations: nested },
   approvals: { label: 'Chats waiting for an approval or an answer', conversations: approvals },
   'auto-approvals': { label: 'Approvals in yolo: approved for you, always asks, and a tool approvals do not reach', conversations: autoApprovals, approvalsMode: 'yolo' },

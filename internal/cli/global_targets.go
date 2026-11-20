@@ -354,6 +354,13 @@ var globalTargets = map[string]globalTarget{
 		agentsWindows: "devin/agents",
 		instructions:  globalPathXDG + "devin/AGENTS.md",
 		skills:        globalPathHome + ".agents/skills",
+		// Devin also reads hooks and permissions here; sync owns only the
+		// permission mode.
+		settings: globalSettingsFile{
+			path: globalPathHome + ".config/devin/config.json", windowsPath: globalPathAppData + "devin/config.json", format: "json", toolOwned: true,
+			allowed:       map[string]string{"permission_mode": "enum:normal|accept-edits|smart|dangerous"},
+			allowedReason: "sync --global writes only permission_mode to Devin's config.json",
+		},
 	},
 	"amp": {
 		instructions: globalPathXDG + "amp/AGENTS.md",

@@ -21,7 +21,7 @@ curl -s -X POST http://127.0.0.1:4310/api/conversations/mark \
   -H 'Content-Type: application/json' -d '{"tool":"claude","id":"<id>","as":"seen"}'
 ```
 
-The first call lists chats and their `state`. The second reopens one. The third marks one read. POST routes must come from the server's own origin. The sections below list every route, field and status code.
+The first call lists chats and their `state`. The second reopens one. The third marks one read. POST routes must come from the server's own origin. See [Shell API](@/docs/cli-reference/conversations-shell-api.md) to stop a forgotten shell.
 
 ## `GET /api/views/conversations`
 
@@ -71,7 +71,7 @@ Codex and Cursor stores are read with the `sqlite3` command.
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, deleteUnsupported?, parent?, cloud?, approvals?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, deleteUnsupported?, parent?, cloud?, approvals?, open}`.
 - `approvalsMode` is `review` or `yolo`, the loosest approvals mode the home config sets; absent in `ask`.
 
 Conversation fields:
@@ -80,7 +80,7 @@ Conversation fields:
 - `folder` is where the conversation started and where it resumes.
 - `live` is true while it is open: a running Claude Code process holds it, a Codex process has its thread loaded, a running `cursor-agent` has its chat open, a Cursor window shows it selected, or a cloud provider reports an active session.
 - `activity` is `working`, `waiting` or `idle` when available. Claude Code reports local session status. Local Codex activity is inferred from its rollout. Cloud sessions use provider status.
-- `waiting` is `{for, tool?, detail?}`: an approval or an answer. See [waiting](@/docs/cli-reference/companion-list.md#waiting).
+- `waiting` is `{for, tool?, detail?}`. See [what a chat waits for](@/docs/cli-reference/companion-list.md#waiting).
 - `approvals` is `{approved?, recent?, reason?}`: how many requests the approvals hook approved for this session, the latest 10 of them as `{time, call, detail?}` newest first, and why a permission wait reached you. In `review` and `yolo` a wait the hook approved, or may still answer, is `working` and not counted in `needsYou`, exactly so only on the first page with no search or tool filter. See [approvals](@/docs/cli-reference/companion.md#approvals).
 - `quietSince` is set only with a `waiting` activity that was inferred from silence, not reported by the tool. It is the time of the last write, so a client can say how long nothing came. Today only local Codex sets it.
 - `workingSubagents` is an optional native task count for local Claude Code and Codex. Zero means none; omission means unavailable. Claude uses task dispatch, launch, completion, stop and resume events from the current live process; Codex uses native parent relationships, live writer locks and unfinished turn events, including nested workers. It does not count linked child conversations or cloud workers. An unfinished native task may be waiting on a tool. Native logs that cannot be read leave the count unavailable. Worker event writes invalidate the cached list; process exits can take up to a minute to show. Positive counts keep an otherwise idle parent in `working`, while a parent's unread question still takes priority.
@@ -90,6 +90,7 @@ Conversation fields:
   - A `codex exec` run is linked to its Claude Code session only from the running `codex` process: the process holds the run's writer lock, and its environment holds `CLAUDE_CODE_SESSION_ID` and `CLAUDE_CODE_CHILD_SESSION=1`, which Claude Code's Bash tool sets. The server reads the environment the kernel keeps for the process (`kern.procargs2` on macOS, `/proc/<pid>/environ` on Linux), keeps only those two variables, and links nothing when either is missing or set twice. Every scan reads the link again; nothing is saved, so a run that ended is listed nowhere. Titles, folders and times are never used to guess. When process environments cannot be read, the Codex tool's `note` says so.
   - `POST /api/conversations/open` opens a helper only when a conversation in the server's scope lists it.
   - `workingSubagents` stays as it was and does not count `codex exec` runs.
+- [`stuckShells`](@/docs/cli-reference/conversations-shell-api.md#stuck-shells) lists forgotten shells.
 - `unread` is `true` only on an `active` row whose latest write you have not seen: a terminal session resumed by hand after it closed with a reply. It stays until you open the chat or mark it read. It does not count toward `needsYou`. An archived row is never `unread`.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.

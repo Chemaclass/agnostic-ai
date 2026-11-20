@@ -2,6 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
+import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf } from '../frontend/model.js'
+
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
 test('groups rows by state, in list order, and leaves empty groups out', () => {
@@ -546,6 +548,8 @@ test('a notice is an error when what was asked did not happen, and info when it 
       cannotDelete: 'error',
       notDeleted: 'error',
       notTidied: 'info',
+      shellNotStopped: 'error',
+      shellProcessesLeft: 'info',
       subagent: 'info',
     },
   )
@@ -788,4 +792,43 @@ test('the approved requests fold out newest first, with the detail when the serv
 test('the tooltip of a permission row names why approvals left it to the person', () => {
   const asked = permission('a', { folder: '/w/app', open: { label: 'Switch to Ghostty' }, approvals: { reason: 'Always asks: publishing' } })
   assert.equal(rowTooltipOf(asked, Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\n/w/app\nAlways asks: publishing')
+})
+
+const shell = { pid: 42, procStart: 'shell-start', command: 'npm run dev', since: '2026-11-09T10:30:00Z', processCount: 3 }
+const shellNow = Date.parse('2026-11-09T12:00:00Z')
+
+test('warns about each shell with its age, command and owner when known', () => {
+  const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })
+  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'stop-shell'])
+  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'stop-shell'])
+  assert.deepEqual(conversation.stuckShells.map((entry) => shellWarningOf(entry, shellNow)), [
+    'Shell running for 1h: npm run dev',
+    'Faramir left a shell running for 1h: npm run watch',
+  ])
+  assert.equal(shellWarningOf({ ...shell, since: '2026-11-09T11:59:30Z' }, shellNow), 'Shell running for less than a minute: npm run dev')
+})
+
+test('shows a label for a credential-filtered shell command', () => {
+  const filtered = { ...shell, command: '' }
+  assert.equal(shellCommandOf(filtered), 'Command hidden')
+  assert.equal(shellWarningOf(filtered, shellNow), 'Shell running for 1h: Command hidden')
+})
+
+test('confirms only an unchanged shell and names the processes still running after a stop', () => {
+  const conversation = row('a', 'blocked', { live: true, stuckShells: [shell] })
+  assert.equal(currentShellOf(conversation, shell), shell)
+  assert.equal(currentShellOf(conversation, { ...shell, procStart: 'later' }), undefined)
+  assert.equal(currentShellOf(conversation, { ...shell, processCount: 4 }), undefined)
+  assert.equal(currentShellOf(conversation, { ...shell, command: 'npm run watch' }), undefined)
+  assert.equal(currentShellOf({ ...conversation, live: false }, shell), undefined)
+  assert.equal(stopShellDetailsOf(shell, shellNow), 'Running for 1h. This stops 3 processes.')
+  assert.equal(stopShellDetailsOf({ ...shell, processCount: 1 }, shellNow), 'Running for 1h. This stops 1 process.')
+  assert.equal(stoppedShellOf({}), 'Shell stopped.')
+  assert.equal(stoppedShellOf({ stillRunning: [{ pid: 91 }, { pid: 92 }] }), 'Shell stop sent. Processes still running (PIDs 91, 92).')
+})
+
+test('Escape closes the stop shell confirmation before returning to the row menu', () => {
+  assert.equal(escapeTarget({ stopShellOpen: true, rowMenuOpen: true }), 'stop-shell')
 })

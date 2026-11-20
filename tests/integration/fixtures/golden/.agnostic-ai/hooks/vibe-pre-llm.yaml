@@ -1,0 +1,7 @@
+name: vibe-pre-llm
+target: vibe
+event: pre_llm
+command: echo done
+matcher: main
+x-vibe:
+  strict: true

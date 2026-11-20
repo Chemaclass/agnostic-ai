@@ -448,12 +448,14 @@ func TestApprovalsStatus_KiroHook(t *testing.T) {
 	saved := approvalsGOOS
 	t.Cleanup(func() { approvalsGOOS = saved })
 	approvalsGOOS = "linux"
+	t.Setenv("KIRO_HOME", "")
 	const hook = `{"version":"v1","hooks":[{"name":"approve","trigger":"PermissionRequest","timeout":10,"action":{"type":"command","command":"agnostic-ai hook approve --target kiro"}}]}`
 	for name, tc := range map[string]struct {
-		hook, rules string
-		routed      bool
+		hook, rules      string
+		routed, override bool
 	}{
 		"installed":     {hook: hook, routed: true},
+		"override":      {hook: hook, routed: true, override: true},
 		"not installed": {},
 		"disabled":      {hook: strings.Replace(hook, `"timeout":10`, `"timeout":10,"enabled":false`, 1)},
 		"other trigger": {hook: strings.Replace(hook, "PermissionRequest", "PreToolUse", 1)},
@@ -462,11 +464,16 @@ func TestApprovalsStatus_KiroHook(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			approvalsHome(t, "version: 1\ntargets: [kiro]\napprovals:\n  mode: yolo\n")
 			home, _ := os.UserHomeDir()
+			root := filepath.Join(home, ".kiro")
+			if tc.override {
+				root = filepath.Join(t.TempDir(), "kiro[profile]")
+				t.Setenv("KIRO_HOME", root)
+			}
 			if tc.hook != "" {
-				writeFile(t, filepath.Join(home, ".kiro", "hooks", "approve-permission-request.json"), tc.hook)
+				writeFile(t, filepath.Join(root, "hooks", "approve-permission-request.json"), tc.hook)
 			}
 			if tc.rules != "" {
-				writeFile(t, filepath.Join(home, ".kiro", "settings", "permissions.yaml"), tc.rules)
+				writeFile(t, filepath.Join(root, "settings", "permissions.yaml"), tc.rules)
 			}
 			kiro := toolStatus(t, approvalsStatusJSON(t), "kiro")
 			if tc.routed != (kiro.Effective == config.ApprovalsYolo) || tc.routed && kiro.MinVersion != "3.4.0" || !tc.routed && kiro.Reason == "" {
@@ -550,22 +557,29 @@ func TestApprovalsStatus_QoderHook(t *testing.T) {
 	saved := approvalsGOOS
 	t.Cleanup(func() { approvalsGOOS = saved })
 	approvalsGOOS = "linux"
+	t.Setenv("QODER_PROJECT_DIR", "")
 	const hook = `"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target qoder"}]}]}`
 	for name, tc := range map[string]struct {
-		body   string
-		routed bool
+		body, project string
+		routed        bool
 	}{
-		"installed":     {`{` + hook + `}`, true},
-		"not installed": {`{}`, false},
-		"ask rule":      {`{"permissions":{"ask":["Edit"]},` + hook + `}`, false},
-		"accept edits":  {`{"general":{"defaultPermissionMode":"acceptEdits"},` + hook + `}`, true},
-		"auto mode":     {`{"general":{"defaultPermissionMode":"auto"},` + hook + `}`, false},
-		"yolo mode":     {`{"general":{"defaultPermissionMode":"bypass_permissions"},` + hook + `}`, false},
+		"active project ask": {`{` + hook + `}`, `{"permissions":{"ask":["Edit"]}}`, false},
+		"installed":          {`{` + hook + `}`, "", true},
+		"not installed":      {`{}`, "", false},
+		"ask rule":           {`{"permissions":{"ask":["Edit"]},` + hook + `}`, "", false},
+		"accept edits":       {`{"general":{"defaultPermissionMode":"acceptEdits"},` + hook + `}`, "", true},
+		"auto mode":          {`{"general":{"defaultPermissionMode":"auto"},` + hook + `}`, "", false},
+		"yolo mode":          {`{"general":{"defaultPermissionMode":"bypass_permissions"},` + hook + `}`, "", false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			approvalsHome(t, "version: 1\ntargets: [qoder]\napprovals:\n  mode: yolo\n")
 			home, _ := os.UserHomeDir()
 			writeFile(t, filepath.Join(home, ".qoder", "settings.json"), tc.body)
+			if tc.project != "" {
+				project := t.TempDir()
+				t.Setenv("QODER_PROJECT_DIR", project)
+				writeFile(t, filepath.Join(project, ".qoder", "settings.json"), tc.project)
+			}
 			qoder := toolStatus(t, approvalsStatusJSON(t), "qoder")
 			if tc.routed != (qoder.Effective == config.ApprovalsYolo) || !tc.routed && qoder.Reason == "" {
 				t.Errorf("qoder: %+v", qoder)

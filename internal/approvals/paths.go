@@ -165,6 +165,8 @@ func dotGlobRegexp(glob string) (*regexp.Regexp, error) {
 
 // fixedProtected are paths an edit always asks for: Git internals, CI,
 // hook and tool settings, shell profiles, and agnostic-ai's own config.
+// Agent specs are among them: an x-claude hooks or permissionMode field
+// in one becomes a hook or a permission mode after the next sync.
 var fixedProtected = spec.ProtectGroup{Paths: []string{
 	"**/.git",
 	".github/workflows", ".github/hooks", ".gitlab-ci.yml", ".circleci", ".buildkite",
@@ -178,12 +180,12 @@ var fixedProtected = spec.ProtectGroup{Paths: []string{
 	"**/.junie", "**/.trae", "**/.goose", "**/.opencode", "**/.zed", "**/.idea", "**/.amp", "**/.roo",
 	"**/.windsurf", "**/.crush", "**/.crush.json", "**/crush.json", "**/.mcp.json",
 	"**/.vscode", "**/opencode.json", "**/opencode.jsonc",
-	".agnostic-ai/hooks", ".agnostic-ai/settings", ".agnostic-ai/mcps", ".agnostic-ai/overlays", ".agnostic-ai/scripts",
-	".agnostic-ai/local/hooks", ".agnostic-ai/local/settings", ".agnostic-ai/local/mcps",
+	".agnostic-ai/agents", ".agnostic-ai/hooks", ".agnostic-ai/settings", ".agnostic-ai/mcps", ".agnostic-ai/overlays", ".agnostic-ai/scripts",
+	".agnostic-ai/local/agents", ".agnostic-ai/local/hooks", ".agnostic-ai/local/settings", ".agnostic-ai/local/mcps",
 	".agnostic-ai/local/overlays", ".agnostic-ai/local/scripts",
 	".agnostic-ai/packs",
 	"**/agnostic.packs.lock",
-	"**/agnostic-ai.yaml", "**/agnostic-ai.local.yaml",
+	"**/agnostic-ai.yaml", "**/agnostic-ai.local.yaml", "**/agnostic.config.yaml",
 	"**/.bashrc", "**/.bash_profile", "**/.bash_login", "**/.bash_logout", "**/.profile",
 	"**/.zshrc", "**/.zshenv", "**/.zprofile", "**/.zlogin", "**/.zlogout",
 	"**/.config/fish",
@@ -192,18 +194,82 @@ var fixedProtected = spec.ProtectGroup{Paths: []string{
 // protected reports whether abs, inside the project, is a path an edit
 // always asks for, or one under $AGNOSTIC_AI_HOME.
 func (g *gate) protected(abs string) bool {
-	if home := g.policy.AgnosticHome; home != "" && filepath.IsAbs(home) {
-		if under(abs, filepath.Clean(home)) {
-			return true
-		}
-		if g.policy.Resolve != nil && under(filepath.Clean(g.policy.Resolve(abs)), filepath.Clean(g.policy.Resolve(home))) {
-			return true
-		}
+	if g.underFolder(abs, g.policy.AgnosticHome) {
+		return true
 	}
 	if g.protectedRel(g.relative(abs)) {
 		return true
 	}
 	return g.policy.Resolve != nil && g.protectedRel(g.relative(filepath.Clean(g.policy.Resolve(abs))))
+}
+
+// underFolder reports whether abs sits under the absolute folder dir,
+// as written or with links resolved.
+func (g *gate) underFolder(abs, dir string) bool {
+	if dir == "" || !filepath.IsAbs(dir) {
+		return false
+	}
+	if underFold(abs, filepath.Clean(dir)) {
+		return true
+	}
+	return g.policy.Resolve != nil && underFold(filepath.Clean(g.policy.Resolve(abs)), filepath.Clean(g.policy.Resolve(dir)))
+}
+
+// underFold is under with case ignored, since macOS and Windows disks
+// ignore it, as the protected path globs do.
+func underFold(p, dir string) bool {
+	return under(strings.ToLower(p), strings.ToLower(dir))
+}
+
+// specRule asks for a write to abs under, or above, a folder that a
+// project config file moves specs to. It reads the configs in every
+// folder above abs and above the session folder, each as written and
+// with links resolved, up to the file system root, so a config below the
+// session folder, above the Git root, or one whose source points
+// outside its own folder counts. A config that does not read asks.
+func (g *gate) specRule(abs string) string {
+	if g.policy.SpecSources == nil {
+		return ""
+	}
+	starts := []string{filepath.Dir(abs), g.cwd}
+	if g.policy.Resolve != nil {
+		starts = append(starts, filepath.Dir(filepath.Clean(g.policy.Resolve(abs))), filepath.Clean(g.policy.Resolve(g.cwd)))
+	}
+	for _, start := range starts {
+		for dir := start; ; dir = filepath.Dir(dir) {
+			sources, err := g.specSourcesIn(dir)
+			if err != nil {
+				return RuleProjectConfig
+			}
+			for _, source := range sources {
+				if g.underFolder(abs, source) || underFold(source, abs) {
+					return RuleProtectedPath
+				}
+			}
+			if filepath.Dir(dir) == dir {
+				break
+			}
+		}
+	}
+	return ""
+}
+
+// specSourcesIn is SpecSources for dir, read once per request.
+func (g *gate) specSourcesIn(dir string) ([]string, error) {
+	if found, ok := g.specCache[dir]; ok {
+		return found.dirs, found.err
+	}
+	dirs, err := g.policy.SpecSources(dir)
+	if g.specCache == nil {
+		g.specCache = map[string]specFolders{}
+	}
+	g.specCache[dir] = specFolders{dirs: dirs, err: err}
+	return dirs, err
+}
+
+type specFolders struct {
+	dirs []string
+	err  error
 }
 
 func (g *gate) protectedRel(rel string) bool {

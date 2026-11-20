@@ -1,0 +1,6 @@
+name: kiro-oauth-mode
+targets: [kiro]
+type: http
+url: https://example.test/mcp
+oauth:
+  mode: enterprise

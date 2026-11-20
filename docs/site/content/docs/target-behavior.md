@@ -57,7 +57,7 @@ Tools with no rule directory get project-wide rules in a marked `## Rules` block
 | Tool | Rules block holds |
 |---|---|
 | Augment, Kilo | Project-wide rules (they have rule directories too) |
-| OpenHands | Always-on rules; path-triggered rules become skills |
+| OpenHands | Always-on rules and scoped rules that rely on file patterns alone. The latter have an `Applies to` line. |
 | Qwen Code | Rules without file patterns; a rule with `globs` goes to `.qwen/rules/` and loads when a matching file is read or edited |
 
 <details>

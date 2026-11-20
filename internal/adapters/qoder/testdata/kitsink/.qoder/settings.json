@@ -64,6 +64,7 @@
       "includeTools": [
         "read_file"
       ],
+      "protocolVersion": "2025-11-25",
       "type": "http",
       "url": "https://example.test/mcp"
     },

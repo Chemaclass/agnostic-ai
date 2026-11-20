@@ -27,6 +27,7 @@ func approveSetup(t *testing.T, shared string) (source, project string) {
 	source = approvalsHome(t, shared)
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("KIRO_HOME", "")
 	t.Setenv(adapters.HookTargetEnv, "")
 	t.Setenv("QWEN_HOME", "")
 	t.Setenv("QODER_PROJECT_DIR", "")
@@ -469,5 +470,64 @@ func TestHookApprove_QoderAcceptEditsWrite(t *testing.T) {
 	}
 	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Call != "Write" {
 		t.Errorf("log = %+v, want one qoder Write line", entries)
+	}
+}
+
+func TestHookApprove_KiroReadsRulesFromOverride(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	root := filepath.Join(t.TempDir(), "kiro[profile]")
+	t.Setenv("KIRO_HOME", root)
+	writeFile(t, filepath.Join(root, "workspace-roots", "workspace", "permissions.yaml"), "rules:\n  - capability: shell\n    effect: ask\n")
+	if got := runApprove(t, "kiro", recordedPayload(t, "kiro", project, "go test ./...")); got != "" {
+		t.Errorf("reply = %q, want no reply when the active Kiro profile has an ask rule", got)
+	}
+}
+
+func TestHookApprove_KiroKeepsPromptWhenRuleDiscoveryFails(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	t.Setenv("KIRO_HOME", "")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(home, ".kiro", "workspace-roots"), "unreadable as a directory")
+	if got := runApprove(t, "kiro", recordedPayload(t, "kiro", project, "go test ./...")); got != "" {
+		t.Errorf("reply = %q, want no reply when Kiro workspace policies could not be listed", got)
+	}
+}
+
+func TestHookApprove_MovedSpecFoldersAsk(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\nsources:\n  hooks: config/hooks\n")
+	write := func(rel string) string {
+		payload, err := json.Marshal(map[string]any{
+			"session_id": "s", "cwd": project, "permission_mode": "default", "hook_event_name": "PermissionRequest",
+			"tool_name": "Write", "tool_input": map[string]any{"file_path": filepath.Join(project, rel), "content": "x"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(payload)
+	}
+	if got := runApprove(t, "claude", write("notes.md")); got != approveAllowReply {
+		t.Fatalf("plain edit reply = %q, want the allow reply", got)
+	}
+	for _, rel := range []string{"config/hooks/guard.yaml", ".agnostic-ai/agents/reviewer.md"} {
+		if got := runApprove(t, "claude", write(rel)); got != "" {
+			t.Errorf("%s reply = %q, want nothing", rel, got)
+		}
+	}
+	writeFile(t, filepath.Join(project, "agnostic-ai.local.yaml"), "sources:\n  hooks: [a, b]\n")
+	if got := runApprove(t, "claude", write("notes.md")); got != "" {
+		t.Errorf("broken project config reply = %q, want nothing", got)
+	}
+	entries := approveLog(t, source)
+	rules := []string{}
+	for _, e := range entries {
+		rules = append(rules, e.Rule)
+	}
+	want := []string{"", approvals.RuleProtectedPath, approvals.RuleProtectedPath, approvals.RuleProjectConfig}
+	if strings.Join(rules, ",") != strings.Join(want, ",") {
+		t.Errorf("logged rules = %v, want %v", rules, want)
 	}
 }

@@ -118,7 +118,7 @@ func WithClaudeMCPExtras() MCPOption {
 // use one scopes list (kiro.dev/docs/mcp/configuration/#scopes).
 //
 // Kiro's `oauth` object is not Claude Code's: it takes clientId,
-// clientSecret, redirectUri, clientMetadataUrl, and oauthScopes, where
+// clientSecret, redirectUri, clientMetadataUrl, mode, and oauthScopes, where
 // Claude Code takes clientId, callbackPort, authServerMetadataUrl, and
 // a space-separated scopes string. Each target maps its own documented
 // sub-keys, so a spec written for one never leaks an unrecognized key
@@ -532,7 +532,7 @@ func buildClaudeMCPOAuth(meta map[string]any) map[string]any {
 // buildKiroMCPOAuth reads the spec's `oauth` object into Kiro's own
 // documented shape (kiro.dev/docs/mcp/configuration/ "OAuth
 // properties"): `clientId`, `clientSecret`, `redirectUri`,
-// `clientMetadataUrl`, and an `oauthScopes` array. Explicit field
+// `clientMetadataUrl`, `mode`, and an `oauthScopes` array. Explicit field
 // mapping for the same reason as the Claude Code mapper above.
 //
 // Unlike Claude Code, Kiro does document `clientSecret` inside the
@@ -555,6 +555,9 @@ func buildKiroMCPOAuth(meta map[string]any) map[string]any {
 	}
 	if url, _ := raw["clientMetadataUrl"].(string); url != "" {
 		out["clientMetadataUrl"] = url
+	}
+	if mode := stringField(raw, "mode"); mode != "" {
+		out["mode"] = mode
 	}
 	if scopes, ok := scopeList(raw, "oauthScopes"); ok {
 		out["oauthScopes"] = scopes
