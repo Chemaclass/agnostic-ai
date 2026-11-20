@@ -10,6 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - `doctor` reports a hand-written instructions or MCP file that stops `sync`, and `doctor --fix` stops on it before writing, where it replaced the file with no backup. `sync --check` and `--plan` no longer say "nothing was written" under that stop, and `doctor` warns once about a missing locked pack, in the words `sync` uses (#3749).
 - `import opencode` and `import copilot` name each original in `.opencode/agent/`, `.opencode/command/` or `.github/prompts/` to delete after the next sync, and `doctor` lists it while the tool loads it beside the generated copy. A re-import that changes nothing says so in a project with built-in specs (#3749).
+- `approvals` set to `review` turns on the tool's own reviewer through `sync --global`: `permissions.defaultMode: "auto"` in `~/.claude/settings.json` (Claude Code auto mode) and `approvals_reviewer = "auto_review"` in `~/.codex/config.toml` (Codex Auto-review). A settings spec or a hand-set value wins. `approvals status` names the reviewer and notes when the key is missing, when Codex `approval_policy = "never"` keeps it from running, or when it stays on where the mode asks (#3700).
 - In the web interface, copying a hook to the global setup or the project brings the shared scripts it runs, a permission save keeps a block list as a block list, **Add hook** leaves out tools that lack the chosen stage, and the source view shows hooks whose Windows command has an `=` (#3719).
 - Web interface polish: after **Undo last change**, review notes stay grouped and bounded; the rail counts findings as the Setup health page does (to fix, worth a look); `/api/switch` and `/api/global/create` refuse unknown or missing fields; an apply without `expected` is a 400; and a YAML error inside an unclosed `[` or `{` names the right line (#3728).
 - A `group:name` command, such as `git:commit` from `import gemini`, syncs as `git-commit` to every tool except Gemini CLI and Qwen Code, so no file or skill name holds a colon (#3704).
@@ -18,15 +19,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `agnostic-ai import` that changes no spec says so instead of pointing at sync (#3704).
 - New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
 - A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
-- `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `sync --jobs -1` fails with AAI-302, `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
-- From a subfolder of a project, `status`, `init`, `doctor`, `packs list` and `use` name the project with one sentence (#3749).
-- Cline: the note that some hook events run in the CLI only no longer prints when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3749).
+- `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
 - The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
 - `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
 - `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
 - `import` right after `sync` keeps an escaped MCP value such as `$${GITHUB_TOKEN}` escaped instead of turning it into a reference to the variable, on every tool that writes it as `${GITHUB_TOKEN}` (#3741).
 - `doctor` no longer fails when `CODEX_HOME` does not exist yet and the project has no Codex hooks file. `doctor --fix` saves each hand-edited file as `<path>.bak` before writing, as `sync` does (#3707).
-- From a subfolder of a project, a missing-config error (AAI-003), `doctor`, `import`, `packs list` and `packs update` name the project folder instead of suggesting `init`; `import` no longer leaves a lock file and `.gitignore` there; and `init` refuses to start a second project there, as `use` does (#3706).
+- From a subfolder of a project, a missing-config error (AAI-003), `status`, `doctor`, `import`, `packs list`, `packs update` and `use` name the project folder instead of suggesting `init`; `import` no longer leaves a lock file and `.gitignore` there; and `init` refuses to start a second project there, as `use` does (#3706).
 - `validate` fails when two specs of one kind share a name in one layer, and `sync` warns, naming the file that reaches no tool. `new` says when no enabled target reads the kind it wrote, and `validate` offers `--fix` only when an issue is autofixable (#3705).
 - New opt-in `cloud-handoff` built-in skill: say "send this to a remote agent" and the agent pushes the work to a branch, writes the goal and next step as the prompt, and starts a Claude Code or Codex cloud session (#3666).
 - Import notes show project-relative paths for folders whose names begin with two dots (#3621).
@@ -40,7 +39,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `hook run` checks a command inside escaped backticks or an escaped `$()` within backticks, as bash runs it, for a Claude Code `if: "Bash(...)"` rule, and runs the hook when an escaped backtick leaves a substitution open (#3681).
 - `hook run` checks more commands for a Claude Code `if: "Bash(...)"` rule as bash runs them: a command name with a backslash or quotes (`\git push`), a line continuation, an empty substitution before the command, a redirection before it (`2>&1 git push`), substitutions in a here-document body, and commands after a quote inside a comment or here-document. `eval`, and a command name built by a substitution or variable, always run the hook (#3698).
 - `explain rules/tone.md` and `explain rules/tone.md --layers` find `.agnostic-ai/rules/tone.md`, as the help and docs show; `explain tone` suggests the file. An unknown error code links the public error page (#3709).
-- `sync --jobs` rejects a negative count, and `sync --watch` prints one summary at start instead of two (#3709).
+- `sync --jobs` rejects a negative count with AAI-302, and `sync --watch` prints one summary at start instead of two (#3709).
 - After a first sync, the list of what each tool reads names where rules and skills land for tools such as Codex, Cursor, Cline and Kiro, where it showed a blank (#3709).
 - `migrate` lists aliases it keeps in a rewritten file under that file's rewrite line, and a re-run says nothing for a skill it already rewrote (#3709).
 - `memory lint` with `memory.personal: repo` names the personal folder it looked in (#3709).
@@ -115,7 +114,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Clicking a running chat while the list is being read no longer waits for that read, nor reads the list again. A Claude Code session of the desktop app or an editor still waits, since it may run in a terminal since. A chat that ended waits for that read and then reads the list once more, so a session that started again in the meantime is not resumed a second time. (#3530)
 - A chat that takes long to open no longer brings the companion list back with an error although the terminal opened. The companion waits up to 60 seconds for an open, and after that keeps the list hidden. A real failure, such as a missing Automation permission, still shows its reason. (#3530)
 - A chat that fails to open after the companion stopped waiting now shows why, with its name and its command to copy, as soon as the list shows, even with a search typed, after a reload, or when the list opens to send copied text. It stays until you dismiss it or open a chat; another message on screen comes first. An open that gets no answer at all says the chat may still have opened. Opening the same chat twice while it opens, or opening a Claude Code session from the desktop app or an editor while the list refreshes, no longer starts a second copy. (#3537)
-- A chat that fails to open shortly after the companion stopped waiting for it now shows why. Before, the companion could miss that failure until the list showed again. (#3685)
 - The companion list no longer comes back over the chat you just opened from it. Hiding the list could hand the focus to the circle for a moment, which showed the list again. (#3548)
 - When the companion cannot reach `agnostic-ai`, or gets no answer in time, it says so in plain words instead of showing a Go error with a local address. (#3530)
 - A send that gets no answer within 60 seconds now says the text may have been typed, so check the chat before you send again. So does a send whose server stops answering. The server keeps a slow send's answer as long as a slow open's. (#3591)
@@ -166,7 +164,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Cline
 
-- Sync notes that `TaskResume`, `TaskError` and `SessionShutdown` hooks run in the Cline CLI only, not in the VS Code extension (#3723).
+- Sync notes that `TaskResume`, `TaskError` and `SessionShutdown` hooks run in the Cline CLI only, not in the VS Code extension. The note is left out when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3723, #3749).
 
 ### Site
 
