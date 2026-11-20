@@ -17,6 +17,7 @@ import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type Ur
 
 // A build for a host with no server can name a snapshot to read by default.
 const DEFAULT_SOURCE = import.meta.env.VITE_DEFAULT_SOURCE
+const SERVED_ORIGIN = import.meta.env.VITE_SERVED ? window.location.origin : undefined
 
 // The theme follows the system until the person picks one with the
 // toggle; only that choice is stored.
@@ -79,7 +80,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  const source = useMemo(() => resolveDataSource(state, DEFAULT_SOURCE), [state.mock, state.source])
+  const source = useMemo(() => resolveDataSource(state, DEFAULT_SOURCE, SERVED_ORIGIN), [state.mock, state.source])
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
   const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
