@@ -178,3 +178,35 @@ func TestImport_FromASubfolderFailsWithoutWritingThere(t *testing.T) {
 		}
 	}
 }
+
+func TestInsideAProject_EveryCommandUsesOneSentence(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		run  string
+	}{
+		{[]string{"status"}, "the command"},
+		{[]string{"init"}, "the command"},
+		{[]string{"doctor", "--scope", "project"}, "agnostic-ai doctor"},
+		{[]string{"packs", "list"}, "agnostic-ai packs list"},
+		{[]string{"use", "codex"}, "agnostic-ai use"},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			root := projectWithSubfolder(t)
+			cmd := NewRootCmd("test")
+			cmd.SetIn(strings.NewReader("claude\n"))
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs(tc.args)
+			err := cmd.Execute()
+			text := out.String()
+			if err != nil {
+				text += ErrorText(err)
+			}
+			want := "this directory is inside the agnostic-ai project at " + root + "; run " + tc.run + " from there"
+			if !strings.Contains(text, want) {
+				t.Errorf("want %q in:\n%s", want, text)
+			}
+		})
+	}
+}

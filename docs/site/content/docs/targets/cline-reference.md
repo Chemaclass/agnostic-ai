@@ -41,7 +41,7 @@ Older releases wrote `<name>.md` with no frontmatter, which Cline skipped. Sync 
 
 Cline finds a hook script by file name only, and it has two hook runtimes.
 
-- **The VS Code extension** runs an executable named after the event with no extension, such as `.clinerules/hooks/PreToolUse` ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/hooks/hook-factory.ts#L1022-L1033)). It turns the SDK runtime off, so nothing runs twice ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/vscode-session-host.ts#L171-L178)).
+- **The VS Code extension** (v4.1.26) finds an executable named after the event with no extension, such as `.clinerules/hooks/PreToolUse`, with its own hook finder ([source](https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/apps/vscode/src/core/hooks/hook-factory.ts#L1022-L1033)). Its hooks adapter runs that script from the SDK runtime's lifecycle events. It turns off the SDK runtime's own hook-file loader, so nothing runs twice ([source](https://github.com/cline/cline/blob/a459f1d04dea030833b558be645011ab739c463b/apps/vscode/src/sdk/vscode-session-host.ts#L164-L173)).
 - **The SDK runtime**, which the Cline CLI runs, lists ten names (`TaskStart`, `TaskResume`, `TaskCancel`, `TaskComplete`, `TaskError`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `SessionShutdown`). It scans `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks` and runs every file with that name and an allowed extension (no extension counts).
 
 Not every name runs in both:

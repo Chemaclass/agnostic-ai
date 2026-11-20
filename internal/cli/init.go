@@ -102,7 +102,7 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 			if _, _, missing := config.ResolveConfigPath("."); missing != nil {
-				if err := refuseNestedProject("run agnostic-ai there instead of starting a second project"); err != nil {
+				if err := refuseNestedProject(""); err != nil {
 					return err
 				}
 			}

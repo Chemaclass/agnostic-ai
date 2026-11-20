@@ -121,10 +121,6 @@ func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
 	return emit.RewriteGlobalWindowsHookPath(command, scriptsDir)
 }
 
-func RewriteWindowsNeutralHookPath(command, scriptsDir string) string {
-	return emit.RewriteWindowsNeutralHookPath(command, scriptsDir)
-}
-
 func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
 	return emit.RewriteGlobalHookPath(command, target, scriptsDir, metadata...)
 }

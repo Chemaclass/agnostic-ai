@@ -49,13 +49,13 @@ func TestSync_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
 
 func TestValidate_NoAutofixHintWhenNothingIsAutofixable(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	writeFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "x.md"), "---\nname: x\ndescription: d\n---\nnode_modules/\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [aider]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"), "name: fmt\nevent: PostToolUse\ncommand: \"true\"\n")
 	testutil.Chdir(t, dir)
 
 	out, err := runCLI(t, "validate")
 	if err == nil {
-		t.Fatalf("validate passed an ignore spec no target reads:\n%s", out)
+		t.Fatalf("validate passed a hook spec no target reads:\n%s", out)
 	}
 	if strings.Contains(out, "autofixable") {
 		t.Errorf("validate offered --fix with no autofixable issue:\n%s", out)
