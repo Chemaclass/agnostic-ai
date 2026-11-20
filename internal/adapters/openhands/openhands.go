@@ -34,17 +34,9 @@
 // value and no source-layout or frontmatter scope) reaches it
 // exclusively through that shared entry-point.
 //
-// A rule that carries one of those instead emits natively as a
-// path-triggered rule: `<skillsDir>/<name>/SKILL.md` with a `paths:`
-// frontmatter list, OpenHands' own deterministic per-file mechanism
-// (docs.openhands.dev/overview/skills/path): "guaranteed to load for
-// the files they scope, with no reliance on the model choosing them",
-// and "zero baseline cost" to the context window until a matching file
-// is touched. The vendor's own example places this content in a flat
-// `.md` file; this adapter writes the folder form instead, the second
-// documented location, which shares `.agents/skills/` with regular
-// skills rather than needing a separate `outputs.openhands.rules-dir`
-// key. See path_rules.go for the glob-resolution and rendering.
+// Scoped rules use flat Markdown files with `paths` frontmatter in the
+// shared skills directory. OpenHands discovers them by path and Codex
+// discovers only the SKILL.md files in this directory.
 //
 
 // MCP servers have no file output. Agent Canvas, Cloud, and the SDK keep
@@ -101,7 +93,7 @@ var caps = emit.Capabilities{
 	// KindRule covers two paths: an always-on rule reaches OpenHands
 	// only through the shared AGENTS.md entry-point sync writes
 	// centrally, while a path-triggered rule (paths/globs/scope) writes
-	// its own skill folder directly (see path_rules.go). KindMCP reaches
+	// its own Markdown file directly (see path_rules.go). KindMCP reaches
 	// OpenHands only through an agent's mcp_servers.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
 	// Each name in an agent's mcpServers is written to mcp_servers as
@@ -125,11 +117,6 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
-// Emit writes one native skill folder per skill under .agents/skills/,
-// one path-triggered-rule skill folder per scoped rule under the same
-// directory, plus `.openhands/setup.sh` for environment specs. The
-// project-root AGENTS.md (with always-on rule bodies inlined) is written
-// by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err

@@ -182,6 +182,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Sync notes that `TaskResume`, `TaskError` and `SessionShutdown` hooks run in the Cline CLI only, not in the VS Code extension. The note is left out when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3723, #3749).
 
+#### OpenHands
+
+- Scoped rules sync to `.agents/skills/<name>.md`, keeping path triggers in OpenHands and avoiding skill warnings in Codex (#3768).
+
 ### Site
 
 - Shared guides clarify Goose hook data, Auggie 1.x memory fallback, and Cline JSON replies after a nonzero exit (#3574, #3577, #3578).

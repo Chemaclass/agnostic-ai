@@ -2,34 +2,69 @@ package openhands
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// emitPathTriggeredRules writes one `<skillsDir>/<name>/SKILL.md` per
-// rule that resolves a non-empty glob list (see pathTriggerGlobs), the
-// vendor's own deterministic path-triggered rule form
-// (docs.openhands.dev/overview/skills/path): "Path-triggered rules are
-// skills that OpenHands injects deterministically whenever the agent
-// reads, edits, or creates a file whose path matches a glob pattern...
-// guaranteed to load for the files they scope, with no reliance on the
-// model choosing them." A rule that resolves no glob list reaches
-// OpenHands only through the shared AGENTS.md entry-point sync writes
-// centrally, unchanged.
+const pathRuleNamePrefix = "path-rule/"
+const pathRuleFileSuffix = "-path-rule"
+
 func emitPathTriggeredRules(sess *emit.Session, rules []spec.Entry, skillsDir string, dryRun bool) error {
+	usedStems := make(map[string]bool, len(rules))
+	for _, r := range rules {
+		usedStems[strings.ToLower(r.Name)] = true
+	}
 	for _, r := range rules {
 		globs := pathTriggerGlobs(r)
 		if len(globs) == 0 {
 			continue
 		}
-		path := filepath.Join(skillsDir, r.Name, "SKILL.md")
+		stem := r.Name
+		if reservedPathRuleStem(stem) {
+			base := stem + pathRuleFileSuffix
+			stem = base
+			for i := 2; usedStems[strings.ToLower(stem)]; i++ {
+				stem = base + "-" + strconv.Itoa(i)
+			}
+			usedStems[strings.ToLower(stem)] = true
+		}
+		path := filepath.Join(skillsDir, stem+".md")
 		if err := sess.WriteFile(path, emit.WithHeader(pathRuleMarkdown(r, globs), emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func reservedPathRuleStem(name string) bool {
+	// The SDK skips SKILL.md and README.md and reserves the other names for instruction files.
+	switch strings.ToLower(name) {
+	case "agent", "agents", "claude", "gemini", "readme", "skill":
+		return true
+	default:
+		return false
+	}
+}
+
+// PathRuleSourceName reverses the filename and name emitted for a scoped rule.
+func PathRuleSourceName(stem, nativeName string) (string, bool) {
+	name, ok := strings.CutPrefix(nativeName, pathRuleNamePrefix)
+	if !ok || spec.ValidateName(spec.KindRule, name) != nil {
+		return "", false
+	}
+	if !reservedPathRuleStem(name) {
+		return name, stem == name
+	}
+	base := name + pathRuleFileSuffix
+	if stem == base {
+		return name, true
+	}
+	number, ok := strings.CutPrefix(stem, base+"-")
+	i, err := strconv.Atoi(number)
+	return name, ok && err == nil && i >= 2 && strconv.Itoa(i) == number
 }
 
 // pathTriggerGlobs returns the glob patterns that make a rule a
@@ -91,16 +126,11 @@ func hasCatchAllGlob(globs []string) bool {
 	return false
 }
 
-// pathRuleMarkdown renders one path-triggered rule as a SKILL.md body:
-// a `paths:` frontmatter list carrying the resolved globs (OpenHands'
-// own field name), arbitrary `x-openhands` keys passed through, then
-// the trimmed rule body. The vendor's own example places this content
-// in a flat `.md` file with `paths:` as the frontmatter's only key; the
-// folder form used here needs nothing else to qualify.
 func pathRuleMarkdown(e spec.Entry, globs []string) string {
-	meta := map[string]any{"paths": globs}
-	keys := []string{"paths"}
-	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "paths", "globs", "alwaysApply", "scope")
+	// OpenHands deduplicates rules and skills by name. Folder skills cannot contain a slash.
+	meta := map[string]any{"paths": globs, "name": pathRuleNamePrefix + e.Name}
+	keys := []string{"paths", "name"}
+	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "paths", "name", "globs", "alwaysApply", "scope")
 	front := emit.FrontmatterOrdered(meta, keys)
 	return front + "\n" + strings.TrimSpace(e.Body) + "\n"
 }

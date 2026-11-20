@@ -61,7 +61,8 @@ Have existing files? Read [what `import openhands` reads](@/docs/targets/openhan
 |---|---|
 | Shared instructions and always-on rules | `AGENTS.md` (pointer body plus inlined always-on rules) |
 | Agents | `.agents/agents/<name>.md` (shared with Goose) |
-| Skills and path-triggered rules | `.agents/skills/<name>/SKILL.md` (shared tree) |
+| Skills | `.agents/skills/<name>/SKILL.md` (shared tree) |
+| Path-triggered rules | `.agents/skills/<name>.md` |
 | Hooks | `.openhands/hooks.json`, when hook entries exist |
 | Environment `install` | `.openhands/setup.sh`, when an environment spec sets it |
 | MCP servers | No file. Add them in Agent Canvas under **Customize > MCP Servers** ([MCP](@/docs/targets/openhands-reference.md#mcp)) |
@@ -84,7 +85,7 @@ Overrides, field mappings, and import: [native reference](@/docs/targets/openhan
 - A project or home MCP spec gets one sync note pointing to Agent Canvas. An agent's `mcpServers` still reach its `mcp_servers`.
 - A Claude matcher such as `Bash` matches nothing, because OpenHands calls that tool `terminal`.
 - Agents share Goose's folder and format.
-- A scoped rule becomes a skill that OpenHands loads only when a matching file is touched ([path-triggered rules](@/docs/targets/openhands-reference.md#path-triggered-rules)).
+- OpenHands loads a scoped rule when a file matches one of its `paths` ([path-triggered rules](@/docs/targets/openhands-reference.md#path-triggered-rules)).
 - `terminals` gets a sync note, because the setup script runs once when the repo starts. With several environment specs, the last `install` wins ([environments](@/docs/targets/openhands-reference.md#environments)).
 - `outputs.openhands.mcp-file` no longer has an effect. The next sync removes a `config.toml` an earlier release wrote ([legacy files](@/docs/targets/openhands-reference.md#mcp)).
 {% </details> %}

@@ -831,7 +831,7 @@
 
   [[targets.kinds]]
     id = "rule"
-    paths = [".agents/skills/testing/SKILL.md", "AGENTS.md"]
+    paths = [".agents/skills/testing.md", "AGENTS.md"]
 
   [[targets.kinds]]
     id = "hook"
