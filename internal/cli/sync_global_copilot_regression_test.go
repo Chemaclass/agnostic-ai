@@ -20,19 +20,19 @@ func TestSyncGlobal_CopilotImportKeepsExistingGlobalScriptSpec(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			native := filepath.Join(home, "native home")
 			t.Setenv("COPILOT_HOME", native)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
 			const body = "#!/bin/sh\nprintf '%s\\n' checked\n"
-			mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.sh"), body)
+			writeFile(t, filepath.Join(source, "scripts", "guard.sh"), body)
 			declaration := "event: PreToolUse\n"
 			if portable {
 				declaration = "on: before-tool\n"
 			}
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\n"+declaration+"command: .agnostic-ai/scripts/guard.sh\n")
+			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\n"+declaration+"command: .agnostic-ai/scripts/guard.sh\n")
 			if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 				t.Fatal(err)
 			}
 			managed := filepath.Join(native, "hooks", "agnostic-ai.json")
-			before := readGlobalTest(t, managed)
+			before := readFile(t, managed)
 			if _, warnings, err := runImportGlobalTest("copilot"); err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -51,11 +51,11 @@ func TestSyncGlobal_CopilotImportKeepsExistingGlobalScriptSpec(t *testing.T) {
 			if len(handlers) != 1 {
 				t.Errorf("global sync/import/sync emitted %d handlers, want one", len(handlers))
 			}
-			if after := readGlobalTest(t, managed); after != before {
+			if after := readFile(t, managed); after != before {
 				t.Errorf("import changed emitted command or wrapper: before %s\nafter %s", before, after)
 			}
 			copied := filepath.Join(native, "hooks", "hooks", "guard.sh")
-			if got := readGlobalTest(t, copied); got != body {
+			if got := readFile(t, copied); got != body {
 				t.Errorf("copied script changed: %s", got)
 			}
 			if _, _, err := runGlobalAgentTest("--only", "copilot", "--check"); err != nil {
@@ -68,9 +68,9 @@ func TestSyncGlobal_CopilotImportKeepsExistingGlobalScriptSpec(t *testing.T) {
 func TestSyncGlobal_CopilotRemovingManagedHookKeepsHandwrittenFileVersion(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("COPILOT_HOME", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
 	specPath := filepath.Join(source, "hooks", "managed.yaml")
-	mustWriteGlobalTest(t, specPath, "name: managed\ntarget: copilot\nevent: SessionStart\ncommand: echo managed\n")
+	writeFile(t, specPath, "name: managed\ntarget: copilot\nevent: SessionStart\ncommand: echo managed\n")
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestSyncGlobal_CopilotRemovingManagedHookKeepsHandwrittenFileVersion(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, path, string(raw))
+	writeFile(t, path, string(raw))
 	if err := os.Remove(specPath); err != nil {
 		t.Fatal(err)
 	}
@@ -106,10 +106,10 @@ func TestSyncGlobal_CopilotScopedWindowsScriptUsesNativeHome(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	native := filepath.Join(home, "native home")
 	t.Setenv("COPILOT_HOME", native)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
 	const windowsBody = "Write-Output checked\n"
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.ps1"), windowsBody)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\nevent: SessionStart\ncommand: echo checked\nx-copilot:\n  commandWindows: \"& .agnostic-ai/scripts/guard.ps1\"\n")
+	writeFile(t, filepath.Join(source, "scripts", "guard.ps1"), windowsBody)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: copilot\nevent: SessionStart\ncommand: echo checked\nx-copilot:\n  commandWindows: \"& .agnostic-ai/scripts/guard.ps1\"\n")
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}
@@ -136,26 +136,26 @@ func TestSyncGlobal_CopilotScopedWindowsScriptUsesNativeHome(t *testing.T) {
 func TestSyncGlobal_CopilotMatchingNeighborCannotHideEditedImportedSource(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("COPILOT_HOME", "")
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\n")
 	dir := filepath.Join(home, ".copilot", "hooks")
 	original := filepath.Join(dir, "z-personal.json")
 	const native = `{"version":1,"hooks":{"SessionStart":[{"type":"command","command":"echo original"}]}}`
-	mustWriteGlobalTest(t, original, native)
+	writeFile(t, original, native)
 	if _, _, err := runImportGlobalTest("copilot"); err != nil {
 		t.Fatal(err)
 	}
 	earlier := filepath.Join(dir, "a-matching.json")
-	mustWriteGlobalTest(t, earlier, native)
+	writeFile(t, earlier, native)
 	edited := strings.ReplaceAll(native, "echo original", "echo changed")
-	mustWriteGlobalTest(t, original, edited)
+	writeFile(t, original, edited)
 	_, _, err := runGlobalAgentTest("--only", "copilot")
 	if err == nil || !strings.Contains(err.Error(), original) || !strings.Contains(err.Error(), "differs from its source file") {
 		t.Errorf("matching earlier file bypassed source conflict: %v", err)
 	}
-	if got := readGlobalTest(t, original); got != edited {
+	if got := readFile(t, original); got != edited {
 		t.Errorf("conflict changed edited native file: %s", got)
 	}
-	if got := readGlobalTest(t, earlier); got != native {
+	if got := readFile(t, earlier); got != native {
 		t.Errorf("conflict changed neighboring file: %s", got)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.json")); !os.IsNotExist(err) {
@@ -167,7 +167,7 @@ func TestSyncGlobal_CopilotMemoryWindowsCommandUsesCopilotReplyFormat(t *testing
 	home, source := globalAgentTestHome(t)
 	native := filepath.Join(home, "copilot native home")
 	t.Setenv("COPILOT_HOME", native)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
 	if _, warnings, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatalf("global memory sync: %v\n%s", err, warnings)
 	}
@@ -190,7 +190,7 @@ func TestSyncGlobal_CopilotMemoryWindowsCommandUsesCopilotReplyFormat(t *testing
 	}
 	assertTarget(filepath.Join(native, "hooks", "agnostic-ai.json"))
 	project := t.TempDir()
-	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
 	testutil.Chdir(t, project)
 	cmd := NewRootCmd("test")
 	cmd.SetArgs([]string{"sync", "-t", "copilot"})

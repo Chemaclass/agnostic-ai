@@ -321,7 +321,7 @@ func TestDoctor_SaysInSyncWhenNothingDrifted(t *testing.T) {
 func TestLoadProject_ParseErrorNamesThePathOnce(t *testing.T) {
 	dir := setupFixture(t)
 	bad := filepath.Join(dir, ".agnostic-ai", "rules", "bad.md")
-	mustWriteFile(t, bad, "---\ndescription: [oops\n---\nbody\n")
+	writeFile(t, bad, "---\ndescription: [oops\n---\nbody\n")
 
 	_, _, err := loadProject(dir)
 
@@ -335,7 +335,7 @@ func TestLoadProject_ParseErrorNamesThePathOnce(t *testing.T) {
 
 func TestDoctor_DoesNotClaimSyncForATargetItCouldNotCheck(t *testing.T) {
 	dir := setupFixture(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claud]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claud]\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 

@@ -40,8 +40,8 @@ var codexAgentFile = filepath.Join(".codex", "agents", "rev.toml")
 func setupCoverageAcceptProject(t *testing.T, config string) {
 	t.Helper()
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n"+config)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\ntools: [Read, Grep]\n---\nReview.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n"+config)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\ntools: [Read, Grep]\n---\nReview.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
@@ -162,7 +162,7 @@ func TestSyncCheck_FailOnNotesFailsOnUnacceptedNote(t *testing.T) {
 	if out, err := runCLI(t, "sync", "--check"); err != nil {
 		t.Fatalf("an in-sync project with every note accepted should pass --check: %v\n%s", err, out)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n"+failOnNotes)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n"+failOnNotes)
 
 	for _, args := range [][]string{{"sync", "--check"}, {"sync", "--check", "--json"}} {
 		notes.Reset()
@@ -253,7 +253,7 @@ func TestLint_WarnsOnAcceptEntryThatMatchesNoNote(t *testing.T) {
 func TestLint_TargetThatFailsToEmitIsAFindingNotAFailure(t *testing.T) {
 	setupCoverageAcceptProject(t, "")
 	failingAdapterOnPath(t, "flaky")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, flaky]\n"+acceptCodexTools+`    - target: flaky
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, flaky]\n"+acceptCodexTools+`    - target: flaky
       kind: agents
       field: tools
       reason: Unchecked.

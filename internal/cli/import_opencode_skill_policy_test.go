@@ -98,8 +98,8 @@ func TestSyncOpenCodeSkillPolicySurvivesSharedFolders(t *testing.T) {
 
 func TestSyncGlobalOpenCodeSkillKeepsNativeInvocationForms(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills/release/SKILL.md"), "---\nname: release\ndescription: Release.\ndisable-model-invocation: true\nmetadata:\n  opencode/autoinvoke: \"false\"\n---\nBody.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills/release/assets/check.txt"), "asset\n")
+	writeFile(t, filepath.Join(source, "skills/release/SKILL.md"), "---\nname: release\ndescription: Release.\ndisable-model-invocation: true\nmetadata:\n  opencode/autoinvoke: \"false\"\n---\nBody.\n")
+	writeFile(t, filepath.Join(source, "skills/release/assets/check.txt"), "asset\n")
 	for _, args := range [][]string{{"--only", "opencode"}, {"--only", "opencode", "--check"}} {
 		if _, _, err := runGlobalAgentTest(args...); err != nil {
 			t.Fatal(err)

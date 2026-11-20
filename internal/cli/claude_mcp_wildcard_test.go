@@ -14,10 +14,10 @@ import (
 func TestImport_ClaudeKeepsBareRuleForTrailingUnderscoreServer(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	native := "{\n  \"permissions\": {\n    \"allow\": [\n      \"mcp__api_\",\n      \"mcp__reports__v2__*\"\n    ]\n  }\n}\n"
 	settings := filepath.Join(dir, ".claude", "settings.json")
-	mustWrite(t, settings, native)
+	writeFile(t, settings, native)
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
@@ -44,8 +44,8 @@ func TestImport_ClaudeKeepsBareRuleForTrailingUnderscoreServer(t *testing.T) {
 func TestSync_ClaudeSkillAllowedToolsWriteWildcardForDoubleUnderscoreServer(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "skills", "rep", "SKILL.md"), "---\nname: rep\ndescription: Reports.\nallowed-tools: [mcp:github, mcp:reports__v2]\n---\n\nRun the report.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "rep", "SKILL.md"), "---\nname: rep\ndescription: Reports.\nallowed-tools: [mcp:github, mcp:reports__v2]\n---\n\nRun the report.\n")
 	mustSync(t)
 	got, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "rep", "SKILL.md"))
 	if err != nil {

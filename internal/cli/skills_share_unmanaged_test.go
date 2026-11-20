@@ -53,8 +53,8 @@ func TestSync_SharedSkills_OwningLinkedFileKeepsEdit(t *testing.T) {
 		t.Fatalf("fixture should link %s first: mode %v, err %v", cursorGreet, fi, err)
 	}
 	owned := filepath.Join(cursorGreet, "SKILL.md")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg+"  unmanaged:\n    - "+filepath.ToSlash(owned)+"\n")
-	mustWriteFile(t, owned, "mine\n") // written through the link
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg+"  unmanaged:\n    - "+filepath.ToSlash(owned)+"\n")
+	writeFile(t, owned, "mine\n") // written through the link
 
 	if err := runSync(t); err != nil {
 		t.Fatal(err)

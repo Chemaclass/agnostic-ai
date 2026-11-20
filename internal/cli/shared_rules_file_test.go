@@ -14,9 +14,9 @@ func sharedRulesFileProject(t *testing.T, config string) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+config)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nSHARED-BODY\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+config)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nSHARED-BODY\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
 	return dir
 }
 
@@ -35,7 +35,7 @@ func TestSync_RulesFileOnASharedInstructionsFile_StopsWhenRulesAreLost(t *testin
 		t.Run(name, func(t *testing.T) {
 			dir := sharedRulesFileProject(t, tc.config)
 			if tc.rule != "" {
-				mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "only-codex.md"), tc.rule)
+				writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "only-codex.md"), tc.rule)
 			}
 
 			out, err := runCLI(t, "sync", "--gitignore=off")
@@ -137,7 +137,7 @@ func TestSync_TwoRulesFilesOnOnePath(t *testing.T) {
 	config := "targets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n  amp:\n    rules-file: AGENTS.md\n"
 	t.Run("different content", func(t *testing.T) {
 		dir := sharedRulesFileProject(t, config)
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "only-codex.md"), "---\nname: only-codex\ntarget: codex\n---\nCodex only.\n")
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "only-codex.md"), "---\nname: only-codex\ntarget: codex\n---\nCodex only.\n")
 
 		_, err := runCLI(t, "sync", "--gitignore=off")
 
@@ -197,7 +197,7 @@ func TestSync_AdapterFileOnAnInstructionsFile_StopsAndNamesBoth(t *testing.T) {
 // keeps their rules: neither merged file survives sync, but they differ.
 func TestSync_TwoKeptRulesFilesWithDifferentContent_Collide(t *testing.T) {
 	dir := sharedRulesFileProject(t, "targets: [codex, amp, crush]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n  amp:\n    rules-file: AGENTS.md\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "pair.md"), "---\nname: pair\ntargets: [codex, crush]\n---\nPair rule.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "pair.md"), "---\nname: pair\ntargets: [codex, crush]\n---\nPair rule.\n")
 
 	_, err := runCLI(t, "sync", "--gitignore=off")
 
@@ -292,8 +292,8 @@ func TestSync_PartialRunOfTheOwnerKeepsTheFullRunsFile(t *testing.T) {
 // target's instructions file cannot stop a run of the owner.
 func TestSync_PartialRunOfTheOwnerIgnoresAnotherTargetsBrokenImport(t *testing.T) {
 	dir := sharedRulesFileProject(t, "targets: [codex, amp, gemini]\noutputs:\n  codex:\n    rules-file: AGENTS.md\nsync:\n  resolve-imports: inline\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nSHARED-BODY\n\n::target gemini\n@docs/gemini-only.md\n::\n")
-	mustWriteFile(t, filepath.Join(dir, "docs", "gemini-only.md"), "Gemini only.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nSHARED-BODY\n\n::target gemini\n@docs/gemini-only.md\n::\n")
+	writeFile(t, filepath.Join(dir, "docs", "gemini-only.md"), "Gemini only.\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -318,7 +318,7 @@ func TestSync_PartialRunOfTheOwnerStillSeesAHandEdit(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "hand edit\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "hand edit\n")
 
 	if out, err := runCLI(t, "sync", "--check", "--target", "codex"); err == nil {
 		t.Errorf("sync --check --target codex must see the hand edit:\n%s", out)
@@ -439,7 +439,7 @@ func TestSync_RulesFileOnASharedInstructionsFile_BacksUpAHandEditOnce(t *testing
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
 
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync after the edit: %v\n%s", err, out)
@@ -467,7 +467,7 @@ func TestSync_DotSlashRulesFileStuckOnAnOldBackup_Heals(t *testing.T) {
 	amp, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	state := readStateFile(".")
 	config, _ := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: ./AGENTS.md\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync codex alone: %v\n%s", err, out)
 	}
@@ -475,8 +475,8 @@ func TestSync_DotSlashRulesFileStuckOnAnOldBackup_Heals(t *testing.T) {
 	if string(merged) == string(amp) {
 		t.Fatal("setup: AGENTS.md must hold codex's merged file")
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), string(config))
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), string(amp))
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), string(config))
+	writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), string(amp))
 	state.Outputs = append(state.Outputs, "./AGENTS.md")
 	state.OutputSums["./AGENTS.md"] = adapters.ContentSum(string(merged))
 	state.OutputSums["AGENTS.md"] = adapters.ContentSum(string(amp))
@@ -528,8 +528,8 @@ func TestSync_RulesFileStuckOnABackupOfTheSameBytes_Heals(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	want, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "MERGED\n")
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MERGED\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "MERGED\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MERGED\n")
 	state := readStateFile(".")
 	state.Backups = map[string]string{"AGENTS.md.bak": adapters.ContentSum("MERGED\n")}
 	if err := replaceStateFile(".", state); err != nil {
@@ -556,11 +556,11 @@ func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
 	for name, plant := range map[string]func(t *testing.T, dir string){
 		"older backup": func(t *testing.T, dir string) {
 			t.Helper()
-			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "EARLIER-EDIT\n")
+			writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), "EARLIER-EDIT\n")
 		},
 		"same bytes, not saved by sync": func(t *testing.T, dir string) {
 			t.Helper()
-			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "HAND-EDIT\n")
+			writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), "HAND-EDIT\n")
 		},
 		"hard link": func(t *testing.T, dir string) {
 			t.Helper()
@@ -580,7 +580,7 @@ func TestSync_HandEditWithADifferentOrLinkedBackup_IsKept(t *testing.T) {
 			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
-			mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
+			writeFile(t, filepath.Join(dir, "AGENTS.md"), "HAND-EDIT\n")
 			plant(t, dir)
 
 			out, err := runCLI(t, "sync", "--gitignore=off")
@@ -622,16 +622,16 @@ func TestSync_DotDotRulesFileOnASharedInstructionsFile_Settles(t *testing.T) {
 func TestSync_HandEditCopiedToABackupThatIsAnotherOutput_IsKept(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nKeep changes small.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	data, _ := os.ReadFile(filepath.Join(dir, "RULES.md"))
 	edited := string(data) + "\nUNIQUE USER NOTE\n"
-	mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
-	mustWriteFile(t, filepath.Join(dir, "RULES.md.bak"), edited)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: RULES.md.bak\n")
+	writeFile(t, filepath.Join(dir, "RULES.md"), edited)
+	writeFile(t, filepath.Join(dir, "RULES.md.bak"), edited)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: RULES.md.bak\n")
 
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err == nil {
 		t.Fatalf("sync must stop on an output at RULES.md.bak:\n%s", out)
@@ -659,7 +659,7 @@ func TestSync_DotDotRulesFileThroughALinkedFolder_ChecksThatFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("setup: sync must write %s: %v", rulesFile, err)
 	}
-	mustWriteFile(t, rulesFile, string(data)+"\nUSER EDIT\n")
+	writeFile(t, rulesFile, string(data)+"\nUSER EDIT\n")
 
 	out, err := runCLI(t, "sync", "--check")
 

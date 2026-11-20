@@ -162,7 +162,7 @@ func TestSyncJSON_UnknownTargetRecordsError(t *testing.T) {
 	silence(t)
 
 	const bogus = "definitely-not-a-real-target"
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, "+bogus+"]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, "+bogus+"]\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--json"})
 	out := &bytes.Buffer{}
@@ -379,12 +379,12 @@ func TestSyncJSON_EmptyArraysWhenClean(t *testing.T) {
 // before any write.
 func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
+	writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
 	runSyncOK(t)
 	skill := ".agents/skills/review/SKILL.md"
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
-	mustWriteFile(t, ".amp/settings.json", "{")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, ".amp/settings.json", "{")
 
 	out, err := runCLI(t, "sync", "--json")
 

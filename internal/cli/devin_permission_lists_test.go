@@ -21,11 +21,11 @@ const (
 func devinPermissionProject(t *testing.T, handWritten string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [windsurf]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [windsurf]\n")
 	if handWritten != "" {
-		mustWriteFile(t, devinConfig, handWritten+"\n")
+		writeFile(t, devinConfig, handWritten+"\n")
 	}
-	mustWriteFile(t, devinPolicySpec, devinPolicy)
+	writeFile(t, devinPolicySpec, devinPolicy)
 }
 
 func devinPermissionLists(t *testing.T) map[string]any {
@@ -62,7 +62,7 @@ func TestSync_DevinPermissionListsKeepEntriesTheSpecsDoNotWrite(t *testing.T) {
 	runSyncOK(t)
 	runSyncOK(t, "--check")
 
-	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(sudo:*)\"]\n")
+	writeFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(sudo:*)\"]\n")
 	runSyncOK(t)
 	want = map[string]any{
 		"allow": []any{"Exec(ls)"},
@@ -147,7 +147,7 @@ func asWholeListClaims(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, path, string(out)+"\n")
+	writeFile(t, path, string(out)+"\n")
 }
 
 // A ledger written when sync claimed each list whole moves to one claim
@@ -172,7 +172,7 @@ func TestSync_DevinPermissionListsUpgradeAWholeListClaim(t *testing.T) {
 		runSyncOK(t)
 		asWholeListClaims(t)
 		devinHandEdit(t, "deny", "Exec(curl)")
-		mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\", \"Bash(sudo:*)\"]\n")
+		writeFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\", \"Bash(sudo:*)\"]\n")
 		runSyncOK(t)
 		if got := devinPermissionLists(t)["deny"]; !reflect.DeepEqual(got, []any{"Exec(curl)", "Exec(rm)", "Exec(sudo)"}) {
 			t.Fatalf("deny = %#v, want the hand entry before the spec's", got)
@@ -225,9 +225,9 @@ func TestSync_DevinPermissionListsKeepAnExtraCopyOfASpecRule(t *testing.T) {
 // there later stays while a spec is present.
 func TestSync_DevinPermissionListsReleaseARuleThatLeftBeforeTheUserWroteIt(t *testing.T) {
 	devinPermissionProject(t, `{"permissions": {"deny": ["Exec(curl)"]}}`)
-	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
 	runSyncOK(t)
-	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(curl:*)\"]\n")
+	writeFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(curl:*)\"]\n")
 	runSyncOK(t)
 	runSyncOK(t, "--check")
 	devinHandEdit(t, "deny", "Exec(rm)")
@@ -242,7 +242,7 @@ func TestSync_DevinPermissionListsReleaseARuleThatLeftBeforeTheUserWroteIt(t *te
 // records no claim and a check right after the sync stays clean.
 func TestSync_DevinPermissionListsClaimNothingWhenTheUserHoldsEveryRule(t *testing.T) {
 	devinPermissionProject(t, `{"permissions": {"allow": ["Read(src/**)"]}}`)
-	mustWriteFile(t, devinPolicySpec, "permissions:\n  allow: [\"Read(src/**)\"]\n")
+	writeFile(t, devinPolicySpec, "permissions:\n  allow: [\"Read(src/**)\"]\n")
 	runSyncOK(t)
 	runSyncOK(t, "--check")
 	removeSpecs(t, devinPolicySpec)
@@ -257,7 +257,7 @@ func TestSync_DevinPermissionListsClaimNothingWhenTheUserHoldsEveryRule(t *testi
 // adds before it stays theirs and the file settles in one sync.
 func TestSync_DevinPermissionListsKeepACopyAddedBeforeTheSpecRule(t *testing.T) {
 	devinPermissionProject(t, "")
-	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
 	runSyncOK(t)
 	doc := readJSONMap(t, devinConfig)
 	doc["permissions"].(map[string]any)["deny"] = []any{"Exec(rm)", "Exec(curl)", "Exec(rm)"}

@@ -193,16 +193,16 @@ func TestDetectExistingTargets_GooseWithoutHintsFile(t *testing.T) {
 	}{
 		{"review file", func(t *testing.T, dir string) {
 			t.Helper()
-			mustWriteFile(t, filepath.Join(dir, ".agents", "REVIEW.md"), "# review\n")
+			writeFile(t, filepath.Join(dir, ".agents", "REVIEW.md"), "# review\n")
 		}},
 		{"hints file", func(t *testing.T, dir string) {
 			t.Helper()
-			mustWriteFile(t, filepath.Join(dir, ".goosehints"), "# hints\n")
+			writeFile(t, filepath.Join(dir, ".goosehints"), "# hints\n")
 		}},
 		{"plugin hooks", func(t *testing.T, dir string) {
 			t.Helper()
 			plugin := filepath.Join(dir, ".agents", "plugins", "agnostic-ai")
-			mustWriteFile(t, filepath.Join(plugin, "hooks", "hooks.json"), "{}\n")
+			writeFile(t, filepath.Join(plugin, "hooks", "hooks.json"), "{}\n")
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -309,9 +309,9 @@ func TestDetectExistingTargets_AbsoluteInProjectLinkFromDotRoot(t *testing.T) {
 func TestDetectExistingTargets_AntigravityPluginIsNotGoose(t *testing.T) {
 	dir := t.TempDir()
 	plugin := filepath.Join(dir, ".agents", "plugins", "team")
-	mustWriteFile(t, filepath.Join(plugin, "plugin.json"), "{}\n")
-	mustWriteFile(t, filepath.Join(plugin, "mcp.json"), "{}\n")
-	mustWriteFile(t, filepath.Join(plugin, "hooks.json"), "{}\n")
+	writeFile(t, filepath.Join(plugin, "plugin.json"), "{}\n")
+	writeFile(t, filepath.Join(plugin, "mcp.json"), "{}\n")
+	writeFile(t, filepath.Join(plugin, "hooks.json"), "{}\n")
 	if got := detectExistingTargets(dir); slices.Contains(got, "goose") {
 		t.Errorf("goose claimed an antigravity-only plugin project: %v", got)
 	}
@@ -330,7 +330,7 @@ func TestDetectExistingTargets_GoosePluginHookDirectoryIsNotMarker(t *testing.T)
 func TestDetectExistingTargets_GoosePluginHookStaysInsideProject(t *testing.T) {
 	dir := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "hooks.json")
-	mustWriteFile(t, outside, "{}\n")
+	writeFile(t, outside, "{}\n")
 	hooksDir := filepath.Join(dir, ".agents", "plugins", "team", "hooks")
 	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
 		t.Fatal(err)

@@ -14,8 +14,8 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Reviews a diff.\n"+field+"\n---\n\nReview the diff.\n")
 	_, err := runCLI(t, "sync", "--gitignore=off")
 	tree := snapshotTree(t, dir)
@@ -106,8 +106,8 @@ func TestSync_KiroNotesTheAccessACategoryAdds(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	buf := captureNotes(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "writer.md"), "---\nname: writer\ndescription: Writes docs.\ncan: [read, edit]\n---\n\nWrite docs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "writer.md"), "---\nname: writer\ndescription: Writes docs.\ncan: [read, edit]\n---\n\nWrite docs.\n")
 	mustSync(t)
 	if want := "kiro: " + filepath.Join(".agnostic-ai", "agents", "writer.md") + ": edit becomes Kiro's write category, which also allows delete_file"; !strings.Contains(buf.String(), want) {
 		t.Errorf("sync output misses %q:\n%s", want, buf.String())
@@ -128,8 +128,8 @@ func TestSync_StopsOnACapabilityItCannotRead(t *testing.T) {
 		t.Run(tc.field, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "a.md"), "---\nname: a\ndescription: A.\n"+tc.field+"\n---\n\nBody.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "a.md"), "---\nname: a\ndescription: A.\n"+tc.field+"\n---\n\nBody.\n")
 			out, err := runCLI(t, "sync", "--gitignore=off")
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("sync: %v\n%s", err, out)
@@ -188,9 +188,9 @@ func TestMigrate_CapabilitiesRewritesToolsInPlaceAndKeepsAliases(t *testing.T) {
 func TestMigrate_CapabilitiesSkipsBothFormsAndLocalExtensions(t *testing.T) {
 	dir := migrationFixture(t, "capabilities-agent-tools")
 	silence(t)
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "local", "agents", "writer.md"), "---\nmodel: opus\n---\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "local", "agents", "writer.md"), "---\nmodel: opus\n---\n")
 	both := filepath.Join(dir, ".agnostic-ai", "agents", "both.md")
-	mustWrite(t, both, "---\nname: both\ndescription: Both.\ntools: [Read]\ncan: [read]\n---\n\nBody.\n")
+	writeFile(t, both, "---\nname: both\ndescription: Both.\ntools: [Read]\ncan: [read]\n---\n\nBody.\n")
 
 	out, err := runCLI(t, "migrate", "--only", "capabilities")
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 
 func TestImportTrae_ReimportKeepsTheModelEntryWhenTheNativeLineIsGone(t *testing.T) {
 	effortMapProject(t, "trae", "model:\n  trae: m-one\n  zed: low\n")
-	mustWriteFile(t, ".trae/agents/rev.md", strings.Replace(readFile(t, ".trae/agents/rev.md"), "model: m-one\n", "", 1))
+	writeFile(t, ".trae/agents/rev.md", strings.Replace(readFile(t, ".trae/agents/rev.md"), "model: m-one\n", "", 1))
 
 	got := reimportModelMap(t, "trae")
 	if !hasBlock(got, "model:\n  trae: m-one\n  zed: low\n") {
@@ -36,12 +36,12 @@ func addNativeLine(t *testing.T, file, key, value string) {
 	t.Helper()
 	content := readFile(t, file)
 	if strings.HasSuffix(file, ".toml") {
-		mustWriteFile(t, file, fmt.Sprintf("%s = %q\n%s", key, value, content))
+		writeFile(t, file, fmt.Sprintf("%s = %q\n%s", key, value, content))
 		return
 	}
 	lines := strings.Split(content, "\n")
 	lines = append(lines[:1], append([]string{key + ": " + value}, lines[1:]...)...)
-	mustWriteFile(t, file, strings.Join(lines, "\n"))
+	writeFile(t, file, strings.Join(lines, "\n"))
 }
 
 func TestImportAgents_ReimportOfARestoredModelDropsTheDeleteMarker(t *testing.T) {
@@ -85,7 +85,7 @@ func TestImportCodex_ReimportKeepsAVendorAliasEntryAcrossAnUnrelatedEdit(t *test
 	if !strings.Contains(native, "gpt-6.1-sol") {
 		t.Fatalf("codex should write the alias's id:\n%s", native)
 	}
-	mustWriteFile(t, ".codex/agents/rev.toml", strings.Replace(native, `description = "r"`, `description = "r2"`, 1))
+	writeFile(t, ".codex/agents/rev.toml", strings.Replace(native, `description = "r"`, `description = "r2"`, 1))
 
 	got := reimportModelMap(t, "codex")
 	if !hasBlock(got, "model:\n  claude: opus\n  codex: sol\n") {

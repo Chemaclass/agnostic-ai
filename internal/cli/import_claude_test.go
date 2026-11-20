@@ -16,16 +16,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // rootSources returns a Sources value pointing at root-level kind dirs,
 // matching the importer test fixtures.
 func rootSources() config.Sources {

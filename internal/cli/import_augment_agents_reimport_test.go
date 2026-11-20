@@ -10,10 +10,10 @@ import (
 func TestImportAugment_ReimportKeepsExplicitThinkingOverride(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\neffort: high\nx-augment:\n  thinking: low\n---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\neffort: high\nx-augment:\n  thinking: low\n---\n\nbody\n")
 	runSyncOK(t)
-	mustWriteFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\nthinking: low\n---\n\nedited body\n")
+	writeFile(t, ".augment/agents/rev.md", "---\nname: rev\ndescription: r\nthinking: low\n---\n\nedited body\n")
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)
@@ -27,11 +27,11 @@ func TestImportAugment_ReimportKeepsExplicitThinkingOverride(t *testing.T) {
 func TestImportAugment_DeletingThinkingRemovesEffortButKeepsABudget(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
-	mustWriteFile(t, ".agnostic-ai/agents/lvl.md", "---\nname: lvl\ndescription: r\neffort: high\n---\n\nbody\n")
-	mustWriteFile(t, ".agnostic-ai/agents/budget.md", "---\nname: budget\ndescription: r\neffort: 8000\n---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [augment]\n")
+	writeFile(t, ".agnostic-ai/agents/lvl.md", "---\nname: lvl\ndescription: r\neffort: high\n---\n\nbody\n")
+	writeFile(t, ".agnostic-ai/agents/budget.md", "---\nname: budget\ndescription: r\neffort: 8000\n---\n\nbody\n")
 	runSyncOK(t)
-	mustWriteFile(t, ".augment/agents/lvl.md", "---\nname: lvl\ndescription: r\n---\n\nbody\n")
+	writeFile(t, ".augment/agents/lvl.md", "---\nname: lvl\ndescription: r\n---\n\nbody\n")
 
 	if _, err := runCLI(t, "import", "augment"); err != nil {
 		t.Fatalf("import: %v", err)

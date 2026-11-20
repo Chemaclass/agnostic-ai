@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,11 @@ func collectCodexHookTrust(cfg *config.Config, targets []string) []codex.HookTru
 	paths := []string{project}
 	user, err := codex.UserHooksPath()
 	if err != nil {
+		// With no project hooks file there is nothing whose trust to check,
+		// as on a machine where Codex has not created CODEX_HOME yet.
+		if _, statErr := os.Lstat(project); errors.Is(err, os.ErrNotExist) && errors.Is(statErr, os.ErrNotExist) {
+			return nil
+		}
 		return []codex.HookTrustFinding{{Path: project, Status: "unknown", Problem: err.Error()}}
 	}
 	paths = append(paths, user)

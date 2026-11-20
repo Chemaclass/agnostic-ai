@@ -11,8 +11,8 @@ import (
 func TestSync_FirstRunShowsWhatEachToolReads(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "sync"); err != nil {
@@ -38,7 +38,7 @@ func TestSync_FirstRunShowsWhatEachToolReads(t *testing.T) {
 func TestUse_AlreadyInUseStillShowsTheFirstSyncList(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "use", "codex"); err != nil {
@@ -52,7 +52,7 @@ func TestUse_AlreadyInUseStillShowsTheFirstSyncList(t *testing.T) {
 func TestSync_FirstRunListIsQuietUnderQuiet(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "sync", "--quiet"); err != nil {
@@ -67,7 +67,7 @@ func TestSync_FirstRunListIsQuietUnderQuiet(t *testing.T) {
 func TestUse_FirstSyncListsEveryTarget(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "use", "codex"); err != nil {
@@ -84,7 +84,7 @@ func TestUse_FirstSyncListsEveryTarget(t *testing.T) {
 func TestSync_FirstRunListLeavesOutATargetThatDidNotEmit(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, acme-tool]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, acme-tool]\n")
 	log := captureLog(t)
 
 	_, _ = runCLI(t, "sync")
@@ -98,9 +98,9 @@ func TestSync_FirstRunListLeavesOutATargetThatDidNotEmit(t *testing.T) {
 func TestSync_FirstRunListLeavesOutUnsupportedKinds(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [jules]\n")
-	mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\ndescription: Style.\n---\nKeep it short.\n")
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [jules]\n")
+	writeFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\ndescription: Style.\n---\nKeep it short.\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "sync"); err != nil {
@@ -115,7 +115,7 @@ func TestSync_FirstRunListLeavesOutUnsupportedKinds(t *testing.T) {
 func TestSync_APartialFirstSyncLeavesTheOtherToolsToALaterOne(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "sync", "-t", "claude"); err != nil {
@@ -137,8 +137,8 @@ func TestSync_APartialFirstSyncLeavesTheOtherToolsToALaterOne(t *testing.T) {
 func TestSync_AnOlderLedgerShowsNoList(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/.sync-state", `{"outputs":["AGENTS.md"]}`)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/.sync-state", `{"outputs":["AGENTS.md"]}`)
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "sync"); err != nil {
@@ -153,7 +153,7 @@ func TestSync_AnOlderLedgerShowsNoList(t *testing.T) {
 func TestUse_ListsAnAddedToolOnce(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -177,7 +177,7 @@ func TestSync_AQuietOrJSONFirstSyncLeavesTheListForLater(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
 			isolateGit(t)
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 			if out, err := runCLI(t, args...); err != nil {
 				t.Fatalf("%v: %v\n%s", args, err, out)
 			}
@@ -197,13 +197,13 @@ func TestSync_AQuietOrJSONFirstSyncLeavesTheListForLater(t *testing.T) {
 func TestSync_AJSONSyncKeepsTheListedTools(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
 	for _, args := range [][]string{{"sync"}, {"sync", "--json"}} {
 		if out, err := runCLI(t, args...); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "sync"); err != nil {
@@ -219,9 +219,9 @@ func TestSync_AJSONSyncKeepsTheListedTools(t *testing.T) {
 func TestSync_FirstRunListLeavesOutAnMCPServerATargetDidNotGet(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, zed]\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: gh-mcp\nargs: [--token, \"${TOKEN}\"]\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/plain.yaml", "name: plain\ncommand: npx\nargs: [-y, server]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, zed]\n")
+	writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: gh-mcp\nargs: [--token, \"${TOKEN}\"]\n")
+	writeFile(t, ".agnostic-ai/mcps/plain.yaml", "name: plain\ncommand: npx\nargs: [-y, server]\n")
 	log := captureLog(t)
 	notes := captureNotes(t)
 
@@ -239,13 +239,13 @@ func TestSync_FirstRunListLeavesOutAnMCPServerATargetDidNotGet(t *testing.T) {
 func TestUse_ListLeavesOutAnMCPServerATargetDidNotGet(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, zed]\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: gh-mcp\nargs: [--token, \"${TOKEN}\"]\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/plain.yaml", "name: plain\ncommand: npx\nargs: [-y, server]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, zed]\n")
+	writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: gh-mcp\nargs: [--token, \"${TOKEN}\"]\n")
+	writeFile(t, ".agnostic-ai/mcps/plain.yaml", "name: plain\ncommand: npx\nargs: [-y, server]\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	log := captureLog(t)
 
 	if out, err := runCLI(t, "use", "zed"); err != nil {

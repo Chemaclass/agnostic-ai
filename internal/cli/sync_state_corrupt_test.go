@@ -20,7 +20,7 @@ func truncateLedger(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	data := readFile(t, stateFilePath("."))
-	mustWriteFile(t, stateFilePath("."), data[:len(data)/2])
+	writeFile(t, stateFilePath("."), data[:len(data)/2])
 }
 
 func TestLedgerMissing_TrueForALedgerThatDoesNotParse(t *testing.T) {
@@ -78,7 +78,7 @@ func TestStateFileWriters_ReplaceTheLedgerWhole(t *testing.T) {
 	for name, write := range writers {
 		t.Run(name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, stateFilePath("."), "{}")
+			writeFile(t, stateFilePath("."), "{}")
 			// On Windows os.Stat leaves the file id for os.SameFile to read
 			// later, from whatever file then holds the path; File.Stat reads
 			// it now. Windows also refuses to replace an open file.
@@ -158,15 +158,15 @@ func TestSyncCheckAgainst_WarnsAboutATruncatedLedger(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/rules/r1.md", "---\nname: r1\n---\nrule body\n")
 	if out, err := runCLI(t, "sync", "-t", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 	data := readFile(t, stateFilePath("."))
-	mustWriteFile(t, stateFilePath("."), data[:len(data)/2])
+	writeFile(t, stateFilePath("."), data[:len(data)/2])
 
 	out, err := runCLI(t, "sync", "-t", "claude", "--check", "--against", "HEAD")
 

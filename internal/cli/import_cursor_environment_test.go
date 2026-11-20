@@ -35,7 +35,7 @@ func TestImportFromCursor_ReadsEnvironmentJSONWithComments(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "cursor.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "cursor.yaml"))
 	want := `name: cursor
 # Cloud agents need computer use
 install: bash .cursor/cloud-agent/install.sh
@@ -68,7 +68,7 @@ func TestImportFromCursor_ReadsEnvironmentJSONWithoutComments(t *testing.T) {
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "cursor.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "cursor.yaml"))
 	want := "name: cursor\ninstall: npm ci\nstart: docker compose up -d\nports:\n    - 3000\n"
 	if got != want {
 		t.Errorf("environments/cursor.yaml:\n%s\nwant:\n%s", got, want)
@@ -128,7 +128,7 @@ func TestImportFromCursor_SkipsSyncedEnvironmentJSONAndExistingSpec(t *testing.T
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	if got := readFileString(t, filepath.Join(dir, "environments", "cursor.yaml")); got != own {
+	if got := readFile(t, filepath.Join(dir, "environments", "cursor.yaml")); got != own {
 		t.Errorf("existing spec changed:\n%s", got)
 	}
 
@@ -155,7 +155,7 @@ func TestImportFromCursor_LeavesEnvironmentJSONWithAReservedKey(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "environments", "cursor.yaml")); !os.IsNotExist(err) {
 		t.Errorf("a file with a reserved key was imported: %v", err)
 	}
-	if got := readFileString(t, filepath.Join(dir, ".cursor", "environment.json")); got != original {
+	if got := readFile(t, filepath.Join(dir, ".cursor", "environment.json")); got != original {
 		t.Errorf("environment.json changed:\n%s", got)
 	}
 }

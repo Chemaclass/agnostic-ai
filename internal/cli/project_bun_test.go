@@ -22,8 +22,8 @@ func TestProject_BunInstallUsesFrozenLockfile(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "package.json"), tc.manifest)
-			mustWriteFile(t, filepath.Join(dir, tc.lock), "fixture")
+			writeFile(t, filepath.Join(dir, "package.json"), tc.manifest)
+			writeFile(t, filepath.Join(dir, tc.lock), "fixture")
 			pkg, err := readProjectPackage(dir)
 			if err != nil {
 				t.Fatal(err)
@@ -51,9 +51,9 @@ func TestProject_BootstrapRefusesWithManagerNextStep(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := budgetProject(t, "targets: [codex]\n")
-			mustWriteFile(t, filepath.Join(root, "package.json"), tc.manifest)
+			writeFile(t, filepath.Join(root, "package.json"), tc.manifest)
 			if tc.lock != "" {
-				mustWriteFile(t, filepath.Join(root, tc.lock), "fixture")
+				writeFile(t, filepath.Join(root, tc.lock), "fixture")
 			}
 			_, err := runCLI(t, "project", "--bootstrap")
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -73,10 +73,10 @@ func TestProjectContract_BunDevEnginesBootstraps(t *testing.T) {
 	}
 	root := budgetProject(t, "targets: [codex]\n")
 	local := filepath.Join(root, "node_modules", ".bin", "agnostic-ai")
-	mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":{"packageManager":{"name":"bun","version":"1.4.2","onFail":"download"}}}`)
-	mustWriteFile(t, filepath.Join(root, "bun.lock"), "{}\n")
+	writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":{"packageManager":{"name":"bun","version":"1.4.2","onFail":"download"}}}`)
+	writeFile(t, filepath.Join(root, "bun.lock"), "{}\n")
 	installer := filepath.Join(t.TempDir(), "bun")
-	mustWriteFile(t, installer, "#!/bin/sh\necho \"$*\" > '"+filepath.Join(root, "install.log")+"'\nmkdir -p '"+filepath.Dir(local)+"'\nprintf '#!/bin/sh\\nif [ \"$1\" = --version ]; then echo agnostic-ai 0.82.0; else exit 0; fi\\n' > '"+local+"'\nchmod +x '"+local+"'\n")
+	writeFile(t, installer, "#!/bin/sh\necho \"$*\" > '"+filepath.Join(root, "install.log")+"'\nmkdir -p '"+filepath.Dir(local)+"'\nprintf '#!/bin/sh\\nif [ \"$1\" = --version ]; then echo agnostic-ai 0.82.0; else exit 0; fi\\n' > '"+local+"'\nchmod +x '"+local+"'\n")
 	if err := os.Chmod(installer, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestProjectHook_MissingCLINamesManagerInstall(t *testing.T) {
 	} {
 		t.Run(tc.lock, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
+			writeFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
 			assertMissingCLIHook(t, dir, tc.lock, tc.want)
 		})
 	}
@@ -120,7 +120,7 @@ func TestProjectHook_MissingCLIPrefersDeclaredManager(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "package.json"), tc.manifest)
+			writeFile(t, filepath.Join(dir, "package.json"), tc.manifest)
 			assertMissingCLIHook(t, dir, tc.lock, tc.want)
 		})
 	}
@@ -131,7 +131,7 @@ func TestProject_CheckIgnoresMalformedDevEngines(t *testing.T) {
 		t.Run(devEngines, func(t *testing.T) {
 			root := budgetProject(t, "targets: [codex]\n")
 			projectContractBinary(t, root, "0.82.0")
-			mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":`+devEngines+`}`)
+			writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":`+devEngines+`}`)
 			if _, err := runCLI(t, "project", "--check"); err != nil {
 				t.Errorf("project --check: %v", err)
 			}
@@ -145,7 +145,7 @@ func TestProject_CheckIgnoresMalformedDevEngines(t *testing.T) {
 func assertMissingCLIHook(t *testing.T, dir, lock, want string) {
 	t.Helper()
 	if lock != "" {
-		mustWriteFile(t, filepath.Join(dir, lock), "fixture")
+		writeFile(t, filepath.Join(dir, lock), "fixture")
 	}
 	hook := exec.Command("sh", "-c", "agnostic_ai_bin=agnostic-ai-missing-fixture\n"+projectHookCapability)
 	hook.Dir = dir

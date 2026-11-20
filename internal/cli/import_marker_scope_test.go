@@ -11,8 +11,8 @@ func markerProject(t *testing.T, targets, frontmatter string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
-	mustWriteFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\n"+frontmatter+"---\n\nbody\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
+	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: r\n"+frontmatter+"---\n\nbody\n")
 	runSyncOK(t)
 }
 
@@ -29,7 +29,7 @@ func TestImport_AnotherToolsDeleteMarkerSurvivesAnImportOfThisOne(t *testing.T) 
 			if !strings.Contains(native, "description: r\n") {
 				t.Fatalf("no description line to edit in %s:\n%s", tc.file, native)
 			}
-			mustWriteFile(t, tc.file, strings.Replace(native, "description: r\n", "description: r2\n", 1))
+			writeFile(t, tc.file, strings.Replace(native, "description: r\n", "description: r2\n", 1))
 
 			reimportEffortMap(t, tc.target)
 			runSyncOK(t)
@@ -90,7 +90,7 @@ func TestImportClaude_KeepsItsDeleteMarkerAcrossAnUnrelatedEdit(t *testing.T) {
 		t.Run(targets, func(t *testing.T) {
 			markerProject(t, targets, "effort: high\nx-claude:\n  effort: null\n")
 			native := readFile(t, ".claude/agents/rev.md")
-			mustWriteFile(t, ".claude/agents/rev.md", strings.Replace(native, "description: r\n", "description: r2\n", 1))
+			writeFile(t, ".claude/agents/rev.md", strings.Replace(native, "description: r\n", "description: r2\n", 1))
 
 			if got := reimportEffortMap(t, "claude"); !strings.Contains(got, "effort: null") || !strings.Contains(got, "description: r2") {
 				t.Errorf("the edit must land and the marker must stay:\n%s", got)

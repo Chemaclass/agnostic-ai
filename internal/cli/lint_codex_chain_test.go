@@ -12,9 +12,9 @@ import (
 func chainProject(t *testing.T, config string) string {
 	t.Helper()
 	dir := budgetProject(t, "targets: [codex, cursor]\n"+config)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat("rootwords12 ", 1000)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "engine.md"), "---\nname: engine\nscope: apps/engine\n---\n"+strings.Repeat("eng ", 1000)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "src.md"), "---\nname: src\nscope: apps/engine/src\n---\n"+strings.Repeat("src ", 3000)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat("rootwords12 ", 1000)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "engine.md"), "---\nname: engine\nscope: apps/engine\n---\n"+strings.Repeat("eng ", 1000)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "src.md"), "---\nname: src\nscope: apps/engine/src\n---\n"+strings.Repeat("src ", 3000)+"\n")
 	return dir
 }
 
@@ -30,7 +30,7 @@ func chainFindings(out string) []string {
 
 func TestLintCodexChain_WarnsWhenScopeChainPassesTheDefault(t *testing.T) {
 	dir := chainProject(t, "")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "src.md"), "---\nscope: apps/engine/src\n---\n"+strings.Repeat("rev ", 1500)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "src.md"), "---\nscope: apps/engine/src\n---\n"+strings.Repeat("rev ", 1500)+"\n")
 
 	out, err := runCLI(t, "lint")
 	if err != nil {
@@ -61,7 +61,7 @@ func TestLintCodexChain_WarnsWhenScopeChainPassesTheDefault(t *testing.T) {
 
 func TestLintCodexChain_QuietOnceTheReviewMovesToCursor(t *testing.T) {
 	dir := chainProject(t, "")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "src.md"), "---\nscope: apps/engine/src\ntarget: cursor\n---\n"+strings.Repeat("rev ", 1500)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "src.md"), "---\nscope: apps/engine/src\ntarget: cursor\n---\n"+strings.Repeat("rev ", 1500)+"\n")
 
 	out, err := runCLI(t, "lint", "--strict")
 	if err != nil {
@@ -81,7 +81,7 @@ func TestLintCodexChain_HonorsTheConfiguredLimit(t *testing.T) {
 		t.Errorf("expected one chain warning against the 20000-byte limit, got:\n%s", out)
 	}
 
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cursor]\nlint:\n  codex-chain-bytes: 60000\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cursor]\nlint:\n  codex-chain-bytes: 60000\n")
 	out, _ = runCLI(t, "lint")
 	if lines := chainFindings(out); len(lines) != 0 {
 		t.Errorf("a 60000-byte limit leaves this chain quiet, got:\n%s", out)
@@ -90,7 +90,7 @@ func TestLintCodexChain_HonorsTheConfiguredLimit(t *testing.T) {
 
 func TestLintCodexChain_ReportsOnlyTheFirstScopePastTheLimit(t *testing.T) {
 	dir := chainProject(t, "lint:\n  codex-chain-bytes: 15000\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "deep.md"), "---\nname: deep\nscope: apps/engine/src/deep\n---\n"+strings.Repeat("deep ", 200)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "deep.md"), "---\nname: deep\nscope: apps/engine/src/deep\n---\n"+strings.Repeat("deep ", 200)+"\n")
 
 	out, _ := runCLI(t, "lint")
 	lines := chainFindings(out)
@@ -101,8 +101,8 @@ func TestLintCodexChain_ReportsOnlyTheFirstScopePastTheLimit(t *testing.T) {
 
 func TestLintCodexChain_IgnoresProjectsWithoutCodex(t *testing.T) {
 	dir := budgetProject(t, "targets: [cursor, amp]\nlint:\n  codex-chain-bytes: 100\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat("root ", 400)+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "engine.md"), "---\nname: engine\nscope: apps/engine\n---\n"+strings.Repeat("eng ", 400)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat("root ", 400)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "engine.md"), "---\nname: engine\nscope: apps/engine\n---\n"+strings.Repeat("eng ", 400)+"\n")
 
 	out, _ := runCLI(t, "lint")
 	if lines := chainFindings(out); len(lines) != 0 {

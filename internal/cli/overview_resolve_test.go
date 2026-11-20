@@ -13,11 +13,11 @@ import (
 
 func TestOverview_ModelAndEffortMatchWhatSyncWrites(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWrite(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor, aider]\nmodels:\n  fast:\n    claude: haiku\n    codex: gpt-5.4-mini\n")
-	mustWrite(t, dir+"/.gitignore", ".agnostic-ai/local/\n")
-	mustWrite(t, dir+"/.agnostic-ai/settings/team.yaml", "model: opus\neffort: high\n")
-	mustWrite(t, dir+"/.agnostic-ai/local/settings/team.yaml", "model: sonnet\n")
-	mustWrite(t, dir+"/.agnostic-ai/settings/z-codex.yaml", "targets: [codex]\nmodel: {codex: gpt-5.5}\neffort: medium\n")
+	writeFile(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor, aider]\nmodels:\n  fast:\n    claude: haiku\n    codex: gpt-5.4-mini\n")
+	writeFile(t, dir+"/.gitignore", ".agnostic-ai/local/\n")
+	writeFile(t, dir+"/.agnostic-ai/settings/team.yaml", "model: opus\neffort: high\n")
+	writeFile(t, dir+"/.agnostic-ai/local/settings/team.yaml", "model: sonnet\n")
+	writeFile(t, dir+"/.agnostic-ai/settings/z-codex.yaml", "targets: [codex]\nmodel: {codex: gpt-5.5}\neffort: medium\n")
 
 	in, err := overviewInputs(".")
 	if err != nil {
@@ -77,9 +77,9 @@ func TestOverview_ModelAndEffortMatchWhatSyncWrites(t *testing.T) {
 
 func TestOverview_CodexSkipsALaterClaudeModelAsSyncDoes(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWrite(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWrite(t, dir+"/.agnostic-ai/settings/a.yaml", "model: gpt-5.5\n")
-	mustWrite(t, dir+"/.agnostic-ai/settings/b.yaml", "model: sonnet\n")
+	writeFile(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, dir+"/.agnostic-ai/settings/a.yaml", "model: gpt-5.5\n")
+	writeFile(t, dir+"/.agnostic-ai/settings/b.yaml", "model: sonnet\n")
 
 	in, err := overviewInputs(".")
 	if err != nil {

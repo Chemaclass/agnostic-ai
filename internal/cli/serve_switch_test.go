@@ -267,9 +267,9 @@ func TestSwitchPeerFor_ProjectServerPointsAtTheUserConfiguration(t *testing.T) {
 func TestSwitchPeerFor_GlobalServerPointsBackAtTheProjectItStartedIn(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	nested := filepath.Join(project, "src")
-	mustWrite(t, filepath.Join(nested, "main.go"), "package main\n")
+	writeFile(t, filepath.Join(nested, "main.go"), "package main\n")
 
 	peer := switchPeerFor(nested, true)
 	if peer == nil || peer.global || !sameProjectRoot(peer.root, project) {
@@ -350,13 +350,13 @@ func fakeChild(t *testing.T, addr string, identity viewServer, exitsAtOnce bool)
 func seededHome(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 	return dir
 }
 
 func configuredProject(t *testing.T, dir string) string {
 	t.Helper()
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	return dir
 }
 

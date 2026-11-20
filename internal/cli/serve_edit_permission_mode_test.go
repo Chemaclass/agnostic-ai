@@ -38,9 +38,9 @@ func globalModeHandler(t *testing.T, settings string) (*editHandler, string, str
 	t.Helper()
 	silence(t)
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	if settings != "" {
-		mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), settings)
+		writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), settings)
 	}
 	return &editHandler{root: source, global: true}, home, source
 }
@@ -59,7 +59,7 @@ func TestPermissionModeEdit_GlobalSaveReachesClaudeThroughGlobalSync(t *testing.
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
 	}
 	var native map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
 		t.Fatal(err)
 	}
 	if perms, _ := native["permissions"].(map[string]any); perms["defaultMode"] != "plan" {
@@ -125,7 +125,7 @@ func TestPermissionModeEdit_LocalSaveWritesTheOverlay(t *testing.T) {
 
 func TestPermissionModeEdit_RefusesWhileALocalFileClearsPermissions(t *testing.T) {
 	h, _, source := globalModeHandler(t, "name: defaults\npermissions:\n  allow: [read]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "defaults.yaml"), "name: defaults\npermissions: null\n")
+	writeFile(t, filepath.Join(source, "local", "settings", "defaults.yaml"), "name: defaults\npermissions: null\n")
 	code, body := permissionModeRequest(t, h, map[string]any{"audience": "personal", "value": "plan"})
 	if code != http.StatusBadRequest || !strings.Contains(body, "permissions: null") {
 		t.Fatalf("save = %d %s", code, body)
@@ -147,8 +147,8 @@ func TestPermissionModeEdit_ProjectRefusesBecauseOnlyGlobalSyncWritesIt(t *testi
 
 func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 	h, home, source := globalModeHandler(t, "")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "z.yaml"), "name: z\npermissions:\n  default-mode: bypassPermissions\n")
+	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
+	writeFile(t, filepath.Join(source, "settings", "z.yaml"), "name: z\npermissions:\n  default-mode: bypassPermissions\n")
 	code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "path": "settings/a.yaml", "value": "plan", "expected": nil})
 	if code != http.StatusConflict || !strings.Contains(body, "settings/z.yaml sets permissions.default-mode") {
 		t.Fatalf("shadowed save = %d %s", code, body)
@@ -162,7 +162,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 			t.Fatalf("sync --global: %v\n%s", err, warnings)
 		}
 		var native map[string]any
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
 			t.Fatal(err)
 		}
 		perms, _ := native["permissions"].(map[string]any)
@@ -181,9 +181,9 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 
 func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing.T) {
 	h, home, source := globalModeHandler(t, "")
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "z.yaml"), "name: z\ntargets: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
+	writeFile(t, filepath.Join(source, "settings", "z.yaml"), "name: z\ntargets: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
 	code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "path": "settings/a.yaml", "value": "plan", "expected": nil})
 	if code != http.StatusConflict || !strings.Contains(body, "settings/z.yaml sets permissions.default-mode for claude") {
 		t.Fatalf("shadowed save = %d %s", code, body)
@@ -192,7 +192,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing
 		t.Fatalf("sync --global: %v\n%s", err, warnings)
 	}
 	var native map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
 		t.Fatal(err)
 	}
 	if perms, _ := native["permissions"].(map[string]any); perms["defaultMode"] != "bypassPermissions" {

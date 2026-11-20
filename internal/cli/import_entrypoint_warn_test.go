@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,8 +17,8 @@ func TestImportFromClaude_WarnsAboutDivergentSiblingEntryPoint(t *testing.T) {
 	testutil.Chdir(t, dir)
 	buf := captureSummary(t)
 
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Claude guide\n\nFull instructions.\n")
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Agents\n\nUnique codex-only notes.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "# Claude guide\n\nFull instructions.\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Agents\n\nUnique codex-only notes.\n")
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
@@ -30,7 +29,7 @@ func TestImportFromClaude_WarnsAboutDivergentSiblingEntryPoint(t *testing.T) {
 		t.Errorf("expected a warning naming AGENTS.md, got:\n%s", out)
 	}
 	// The captured body still comes from CLAUDE.md.
-	got := mustRead(t, filepath.Join(dir, agnosticMainFile))
+	got := readFile(t, filepath.Join(dir, agnosticMainFile))
 	if !strings.Contains(got, "Full instructions.") {
 		t.Errorf("AGNOSTIC_AI.md should hold the CLAUDE.md body, got:\n%s", got)
 	}
@@ -45,8 +44,8 @@ func TestImportFromClaude_NoWarnWhenSiblingMatches(t *testing.T) {
 	buf := captureSummary(t)
 
 	body := "# Shared\n\nIdentical body.\n"
-	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), body)
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), body)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), body)
 
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
@@ -54,13 +53,4 @@ func TestImportFromClaude_NoWarnWhenSiblingMatches(t *testing.T) {
 	if strings.Contains(buf.String(), "unique content") {
 		t.Errorf("did not expect a divergence warning, got:\n%s", buf.String())
 	}
-}
-
-func mustRead(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
 }

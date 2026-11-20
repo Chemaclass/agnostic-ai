@@ -121,8 +121,8 @@ Commands come from the spec, so a command that calls a hook script needs a `sync
 
 A handler's `if` permission rule decides whether it runs, as in Claude Code. It applies only on `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, and `PermissionDenied`. See the [`if` field](https://code.claude.com/docs/en/hooks) and [permission rule syntax](https://code.claude.com/docs/en/permissions#permission-rule-syntax).
 
-- `Bash(git *)` matches any part of a command split by `&&`, `||`, `;`, `|`, and `&`, and commands inside `$()` and backticks, past leading `VAR=value` assignments and wrappers such as `timeout 30`. A trailing ` *` also matches the bare command, and `:*` equals ` *`.
-- A pattern that names more than the command runs on any `$()`, backtick, or `$VAR`. A command that does not parse always runs.
+- `Bash(git *)` matches any part of a command split by `&&`, `||`, `;`, `|`, and `&`, and commands inside `$()` and backticks, including those in a here-document whose delimiter is not quoted, past leading `VAR=value` assignments, redirections such as `2>&1`, and wrappers such as `timeout 30`. Quotes and backslashes in the command name are removed, as bash does, so `\git` is `git`. Comment and here-document text is checked both as shell text and as bash reads it, so a quote inside it cannot hide a later command. A trailing ` *` also matches the bare command, and `:*` equals ` *`.
+- A pattern that names more than the command runs on any `$()`, backtick, or `$VAR`. A command that does not parse, runs through `eval`, or takes its name from a substitution or variable always runs.
 - `Edit(path)` covers `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`, with gitignore patterns: `//path` from the filesystem root, `~/path` from home, `/path` and `path` from the project root, and a bare name such as `.env` at any depth. `Tool(param:value)` matches a top-level input field.
 
 </details>

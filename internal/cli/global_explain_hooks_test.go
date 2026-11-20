@@ -14,7 +14,7 @@ func TestExplainGlobal_DirectoryHookFilesMatchSync(t *testing.T) {
 		for _, custom := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/custom=%t", target, custom), func(t *testing.T) {
 				home, source := globalAgentTestHome(t)
-				mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
+				writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
 				root := filepath.Join(home, "."+target)
 				if custom {
 					root = filepath.Join(home, "custom "+target)
@@ -26,7 +26,7 @@ func TestExplainGlobal_DirectoryHookFilesMatchSync(t *testing.T) {
 					name, event = "PreToolUse", "pretooluse"
 				}
 				path := filepath.Join(root, "hooks", name)
-				mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: "+event+"\ncommand: echo guard\n")
+				writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: "+event+"\ncommand: echo guard\n")
 				out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml", "--json")
 				if err != nil {
 					t.Fatal(err)
@@ -80,8 +80,8 @@ func TestExplainGlobal_DirectoryHooksWithNoNativeOutput(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
+			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
 			out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml", "--json")
 			if err != nil {
 				t.Fatal(err)
@@ -114,8 +114,8 @@ func TestExplainGlobal_DirectoryHookNativeActions(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
+			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
 			path := filepath.Join(home, "."+tc.target, "hooks", "guard.json")
 			out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml")
 			if err != nil || !strings.Contains(out, filepath.ToSlash(path)) {
@@ -135,10 +135,10 @@ func TestExplainGlobal_DirectoryHookScriptsMatchSync(t *testing.T) {
 	for _, target := range []string{"kiro", "grok", "cline"} {
 		t.Run(target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: [.agnostic-ai/scripts/guard.ps1, .agnostic-ai/scripts/guard.ps1]\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
+			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: [.agnostic-ai/scripts/guard.ps1, .agnostic-ai/scripts/guard.ps1]\n")
 			body := "exit 97\n"
-			mustWriteGlobalTest(t, filepath.Join(source, "scripts", "guard.ps1"), body)
+			writeFile(t, filepath.Join(source, "scripts", "guard.ps1"), body)
 			out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml", "--json")
 			if err != nil {
 				t.Fatal(err)
@@ -188,8 +188,8 @@ func TestExplainGlobal_DirectoryHookValidationMatchesSync(t *testing.T) {
 	} {
 		t.Run(tc.target+tc.want, func(t *testing.T) {
 			_, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
+			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
 			if out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml"); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("explain error = %v, want %q\n%s", err, tc.want, out)
 			}

@@ -115,8 +115,8 @@ func TestAuditKiloGlobal_TrustedShellOnly(t *testing.T) {
 	for _, mode := range []string{"warn", "error"} {
 		t.Run(mode, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
-			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "skills", "probe", "SKILL.md"), "---\nname: probe\ndescription: Show context.\n---\nLive: !`printf audit-probe`\n")
+			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
+			writeFile(t, filepath.Join(source, "skills", "probe", "SKILL.md"), "---\nname: probe\ndescription: Show context.\n---\nLive: !`printf audit-probe`\n")
 			_, warnings, err := runGlobalAgentTest("--only", "kilo")
 			if err != nil {
 				t.Fatalf("trusted global shell: %v", err)
@@ -136,8 +136,8 @@ func TestAuditKiloGlobal_TrustedShellOnly(t *testing.T) {
 
 func TestAuditKiloGlobal_ArgumentPlaceholdersRemainUnsupported(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "probe", "SKILL.md"), globalSyntaxSkill)
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
+	writeFile(t, filepath.Join(source, "skills", "probe", "SKILL.md"), globalSyntaxSkill)
 	_, _, err := runGlobalAgentTest("--only", "kilo")
 	if err == nil || !strings.Contains(err.Error(), "$ARGUMENTS") {
 		t.Errorf("want unsupported arguments, got %v", err)
