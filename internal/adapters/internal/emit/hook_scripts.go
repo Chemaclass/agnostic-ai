@@ -504,3 +504,13 @@ func readHookCandidate(path string) ([]byte, os.FileMode, bool, error) {
 	}
 	return body, mode, true, nil
 }
+
+// NeutralHookScriptNames returns the files under .agnostic-ai/scripts/
+// that command runs, as slash paths relative to that folder.
+func NeutralHookScriptNames(command string, literal bool) []string {
+	var names []string
+	for _, ref := range neutralHookReferences(command, literal) {
+		names = append(names, ref.name)
+	}
+	return names
+}

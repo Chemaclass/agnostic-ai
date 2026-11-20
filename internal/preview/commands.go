@@ -70,6 +70,63 @@ func pureArgument(value string) bool {
 	return ok && PureReference(strings.TrimSpace(rest))
 }
 
+// powerShellAssignment is a `name = value` in any PowerShell spelling: a
+// variable with an optional scope such as `$env:` or `${env:NAME}`, a
+// hashtable key, quoted or not, and `+=`. value stops at its closing quote
+// or at a space, `;`, or `}`.
+var powerShellAssignment = regexp.MustCompile(`(?i)(?:\$\{?(?:[a-z]+:)?|["']?)([A-Za-z_][A-Za-z0-9_-]*)["'}]?\s*\]?\s*\+?=\s*("[^"]*"|'[^']*'|[^\s;}]+)`)
+
+// powerShellQuoted is a quoted PowerShell string, read as a possible
+// `Name: value` header.
+var powerShellQuoted = regexp.MustCompile(`"([^"]*)"|'([^']*)'`)
+
+// powerShellFlag is a `-Name:value` or `-Name value` parameter.
+var powerShellFlag = regexp.MustCompile(`(?:^|\s)-([A-Za-z][A-Za-z0-9_-]*)(?::|\s+)("[^"]*"|'[^']*'|[^\s;}]+)`)
+
+// sensitivePowerShell reads a Windows hook command, which is PowerShell:
+// a shell parser fails on its `if (...) { }` blocks, so the shell fallback
+// would hide every command with an `=` in it. It hides what the shell
+// reading finds when the text parses as shell, a credential the text
+// detectors find, a quoted credential header, or a literal given to a
+// credential name as an assignment, hashtable key, or parameter.
+func sensitivePowerShell(body string) bool {
+	if file, err := syntax.NewParser().Parse(strings.NewReader(body), ""); err == nil && sensitiveShellTree(file) {
+		return true
+	}
+	if CredentialDetected(body) {
+		return true
+	}
+	for _, m := range powerShellQuoted.FindAllStringSubmatch(body, -1) {
+		if powerShellHeader(m[1] + m[2]) {
+			return true
+		}
+	}
+	for _, pattern := range []*regexp.Regexp{powerShellAssignment, powerShellFlag} {
+		for _, m := range pattern.FindAllStringSubmatch(body, -1) {
+			if CredentialKey(m[1]) && SecretValue(m[2], false, WeakCredential) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// powerShellHeader reports a `Name: value` credential header whose value,
+// after an optional scheme word such as Bearer, is one literal word with
+// a digit: a `$` reference reads the secret at run time, and a value with
+// spaces, or a plain word like "required", is prose.
+func powerShellHeader(text string) bool {
+	_, value, ok := strings.Cut(text, ":")
+	if !ok {
+		return false
+	}
+	fields := strings.Fields(value)
+	if len(fields) == 2 {
+		fields = fields[1:]
+	}
+	return len(fields) == 1 && !strings.HasPrefix(fields[0], "$") && strings.ContainsAny(fields[0], "0123456789") && CredentialHeader(text)
+}
+
 func sensitiveShell(body string) bool {
 	file, err := syntax.NewParser().Parse(strings.NewReader(body), "")
 	if err != nil {

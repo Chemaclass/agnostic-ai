@@ -991,7 +991,6 @@
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
 # Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
 # Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
-# #3724 measured 27353248 bytes in CI on top of that main: one model rule
-# for every agent and command importer. Allow 8192 bytes, rounded up to a
-# 4096-byte page.
-27365376
+# Merged branch growth of 61440 bytes over its base, on top of main's 27336704.
+# Merged branch growth of 28672 bytes over its base, on top of main's 27398144.
+27426816
