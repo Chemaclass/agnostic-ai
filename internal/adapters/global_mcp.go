@@ -77,6 +77,13 @@ func EscapeMCPLiterals(target string, server map[string]any) {
 	emit.EscapeMCPLiterals(target, server)
 }
 
+// MCPFieldReadsDollarRefs reports whether target expands a plain
+// `${NAME}` in an MCP `env`, `headers`, `url`, or `args` value, where
+// sync writes a spec's `$${NAME}` escape as that same `${NAME}`.
+func MCPFieldReadsDollarRefs(target, field string) bool {
+	return emit.MCPFieldReadsDollarRefs(target, field)
+}
+
 // ReadMCPEnvRefs rewrites target's own environment reference form in a
 // native MCP server's `env`, `headers`, `url`, and `args` values back to
 // the spec's `${NAME}`, in place.

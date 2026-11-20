@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -88,6 +89,7 @@ func newRevertCmd() *cobra.Command {
 			}
 
 			seen := map[string]bool{}
+			inSource := sourceTree(cfg)
 			sess := adapters.NewSession()
 			for _, t := range effective {
 				adapter, err := adapters.Resolve(t)
@@ -105,50 +107,33 @@ func newRevertCmd() *cobra.Command {
 				}
 				files := sess.StopCapture()
 				summaryf("← revert %s\n", t)
-				var restored, removed, preserved int
+				var tally revertTally
 				for _, f := range files {
 					if alreadyHandled(seen, f.Path) {
 						continue
 					}
-					action, err := revertOne(f.Path, dryRun, force)
+					action, err := revertOutput(inSource, f.Path, dryRun, force)
 					if err != nil {
 						return fmt.Errorf("%s: %w", t, err)
 					}
-					switch action {
-					case "restore":
-						restored++
-					case "remove":
-						removed++
-					case "preserve":
-						preserved++
-					}
+					tally.add(action)
 				}
-				if preserved > 0 {
-					summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
-				}
-				_ = restored
-				_ = removed
+				tally.report(dryRun)
 			}
 
 			// sync writes the entry-point files (CLAUDE.md, AGENTS.md, ...)
 			// outside adapter emission, so revert them on the same terms.
-			paths := entryPointPaths(cfg, effective)
 			summaryf("← revert entry-points\n")
-			var preserved int
-			for _, p := range paths {
+			var tally revertTally
+			for _, p := range generatedEntryPoints(cfg, effective) {
 				if alreadyHandled(seen, p) {
 					continue
 				}
-				action, err := revertOne(p, dryRun, force)
+				action, err := revertOutput(inSource, p, dryRun, force)
 				if err != nil {
 					return fmt.Errorf("entry-point: %w", err)
 				}
-				if action == "preserve" {
-					preserved++
-				}
-			}
-			if preserved > 0 {
-				summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
+				tally.add(action)
 			}
 			companions, err := adapters.AgentsCompanionPaths(cfg, b, effective)
 			if err != nil {
@@ -158,20 +143,25 @@ func newRevertCmd() *cobra.Command {
 				if alreadyHandled(seen, p) {
 					continue
 				}
-				if _, err := revertOne(p, dryRun, false); err != nil {
+				action, err := revertOutput(inSource, p, dryRun, false)
+				if err != nil {
 					return fmt.Errorf("claude: %w", err)
 				}
+				tally.addRestore(action)
 			}
 			if len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				for _, p := range missingRecordedBackups(cfg) {
 					if alreadyHandled(seen, p) {
 						continue
 					}
-					if _, err := revertOne(p, dryRun, false); err != nil {
+					action, err := revertOutput(inSource, p, dryRun, false)
+					if err != nil {
 						return fmt.Errorf("recorded backup: %w", err)
 					}
+					tally.addRestore(action)
 				}
 			}
+			tally.report(dryRun)
 			return nil
 		},
 	}
@@ -183,6 +173,142 @@ func newRevertCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "Also delete adapter-emitted files that lack a .bak (use with care: removes user-authored files that share a path with adapter output)")
 	registerTargetCompletion(cmd)
 	return cmd
+}
+
+// sourceTree reports whether path resolves into the source tree: the
+// .agnostic-ai folder or a configured spec folder. Those files are what
+// the user writes, so revert never restores or deletes them, whatever
+// output path a config points there. Lexical containment covers `..`
+// segments; the link target and os.SameFile on each existing parent cover
+// links and letter case on a case-insensitive disk. A spec folder that
+// holds the project root would hold every output, so it is not a root.
+func sourceTree(cfg *config.Config) func(path string) bool {
+	project, err := filepath.Abs(".")
+	if err != nil {
+		return func(string) bool { return true }
+	}
+	var roots []string
+	var infos []os.FileInfo
+	for _, d := range append([]string{config.SourceBaseDir}, sourceFolders(cfg)...) {
+		abs, err := filepath.Abs(d)
+		if err != nil || underOrAt(abs, project) {
+			continue
+		}
+		roots = append(roots, abs)
+		if info, err := os.Stat(abs); err == nil {
+			infos = append(infos, info)
+		}
+	}
+	inRoot := func(abs string) bool {
+		if slices.ContainsFunc(roots, func(r string) bool { return underOrAt(r, abs) }) {
+			return true
+		}
+		for dir := filepath.Dir(abs); ; dir = filepath.Dir(dir) {
+			if info, err := os.Stat(dir); err == nil && slices.ContainsFunc(infos, func(r os.FileInfo) bool { return os.SameFile(r, info) }) {
+				return true
+			}
+			if next := filepath.Dir(dir); next == dir {
+				return false
+			}
+		}
+	}
+	return func(path string) bool {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return true
+		}
+		if inRoot(abs) {
+			return true
+		}
+		target, err := filepath.EvalSymlinks(abs)
+		return err == nil && target != abs && inRoot(target)
+	}
+}
+
+// underOrAt reports whether path is root or lies under it.
+func underOrAt(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// generatedEntryPoints is entryPointPaths without the note, which sync
+// lists but the user writes; sourceTree keeps it too.
+func generatedEntryPoints(cfg *config.Config, targets []string) []string {
+	return slices.DeleteFunc(entryPointPaths(cfg, targets), func(p string) bool {
+		return p == adapters.AgnosticEntryPointPath
+	})
+}
+
+// sourceFolders lists the spec folders the config sets.
+func sourceFolders(cfg *config.Config) []string {
+	var out []string
+	for _, d := range []string{
+		cfg.Sources.Agents, cfg.Sources.Skills, cfg.Sources.Rules,
+		cfg.Sources.Hooks, cfg.Sources.MCPs, cfg.Sources.Commands,
+		cfg.Sources.Settings, cfg.Sources.Reviews, cfg.Sources.Environments,
+		cfg.Sources.Ignore,
+	} {
+		if d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// revertOutput is revertOne for a path a config can point anywhere: a
+// path in the source tree is kept.
+func revertOutput(inSource func(string) bool, path string, dryRun, force bool) (string, error) {
+	if inSource(path) {
+		verbosef("    keep:    %s (source file)\n", path)
+		return "keep", nil
+	}
+	return revertOne(path, dryRun, force)
+}
+
+// revertTally counts what revert did to one group of files.
+type revertTally struct{ restored, removed, preserved, kept int }
+
+func (t *revertTally) add(action string) {
+	switch action {
+	case "restore":
+		t.restored++
+	case "remove":
+		t.removed++
+	case "preserve":
+		t.preserved++
+	case "keep":
+		t.kept++
+	}
+}
+
+// addRestore counts only a restore, for files revert never deletes, so
+// --force does not report them as kept for lack of --force.
+func (t *revertTally) addRestore(action string) {
+	switch action {
+	case "restore":
+		t.restored++
+	case "keep":
+		t.kept++
+	}
+}
+
+func (t revertTally) report(dryRun bool) {
+	verb := ""
+	if dryRun {
+		verb = "would be "
+	}
+	if t.restored > 0 {
+		summaryf("    %d file(s) %srestored from .bak\n", t.restored, verb)
+	}
+	if t.removed > 0 {
+		summaryf("    %d file(s) %sremoved\n", t.removed, verb)
+	}
+	if t.preserved > 0 {
+		summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", t.preserved)
+	}
+	if t.kept > 0 {
+		summaryf("    %d file(s) kept in the source tree\n", t.kept)
+	}
 }
 
 // restorePerm sets path to bak's mode before the bytes land, so private
@@ -262,6 +388,9 @@ func revertOne(path string, dryRun, force bool) (string, error) {
 	}
 
 	if dryRun {
+		if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
+			return "skip", nil
+		}
 		verbosef("    remove:  %s\n", path)
 		return "remove", nil
 	}
@@ -286,6 +415,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 
 	out := jsonOutput{Version: "1", Command: "revert"}
 	seen := map[string]bool{}
+	inSource := sourceTree(cfg)
 	sess := adapters.NewSession()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
@@ -304,13 +434,13 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 			if alreadyHandled(seen, f.Path) {
 				continue
 			}
-			action, err := revertOne(f.Path, dryRun, force)
+			action, err := revertOutput(inSource, f.Path, dryRun, force)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: t, Message: err.Error()})
 				continue
 			}
 			rec := fileRecord{Target: t, Path: f.Path, Action: action, Bytes: 0}
-			if action == "skip" || action == "preserve" {
+			if action == "skip" || action == "preserve" || action == "keep" {
 				out.Skipped = append(out.Skipped, rec)
 			} else {
 				out.Writes = append(out.Writes, rec)
@@ -320,17 +450,17 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 
 	// Entry-point files are written outside adapter emission; revert them
 	// too so the JSON report matches the text path.
-	for _, p := range entryPointPaths(cfg, targets) {
+	for _, p := range generatedEntryPoints(cfg, targets) {
 		if alreadyHandled(seen, p) {
 			continue
 		}
-		action, err := revertOne(p, dryRun, force)
+		action, err := revertOutput(inSource, p, dryRun, force)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 			continue
 		}
 		rec := fileRecord{Target: "agnostic-ai", Path: p, Action: action, Bytes: 0}
-		if action == "skip" || action == "preserve" {
+		if action == "skip" || action == "preserve" || action == "keep" {
 			out.Skipped = append(out.Skipped, rec)
 		} else {
 			out.Writes = append(out.Writes, rec)
@@ -344,7 +474,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 		if alreadyHandled(seen, p) {
 			continue
 		}
-		action, err := revertOne(p, dryRun, false)
+		action, err := revertOutput(inSource, p, dryRun, false)
 		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
 			continue
@@ -358,7 +488,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force, all bool
 			if alreadyHandled(seen, p) {
 				continue
 			}
-			action, err := revertOne(p, dryRun, false)
+			action, err := revertOutput(inSource, p, dryRun, false)
 			if err != nil {
 				out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 				continue

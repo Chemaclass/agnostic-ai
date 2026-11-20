@@ -983,4 +983,9 @@
 # slices.Backward and other generic helpers) add 20480 bytes over main;
 # stringsseq stays off because it alone added about 65 KB. Allow 8192
 # bytes, rounded up to a 4096-byte page.
-27193344
+# Main at a4439281b measures 27213984 bytes after the QA fix round
+# (#3726 to #3748). Allow 8192 bytes, rounded up to a 4096-byte page.
+# #3753 measured 27226272 bytes on CI: import keeps a spec's escaped
+# MCP `$${NAME}` values when it rewrites the spec from a tool file.
+# Allow 8192 bytes, rounded up to a 4096-byte page.
+27238400
