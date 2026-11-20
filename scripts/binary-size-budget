@@ -983,8 +983,6 @@
 # slices.Backward and other generic helpers) add 20480 bytes over main;
 # stringsseq stays off because it alone added about 65 KB. Allow 8192
 # bytes, rounded up to a 4096-byte page.
-# #3738 measured 27218080 bytes locally (make size-check): the approvals
-# setting, its status and ask commands, LINT064 with the rebuilt web
-# bundle, and the always-ask gate merged from main. Allow 8192 bytes,
-# rounded up to a 4096-byte page.
-27230208
+# Main at a4439281b measures 27213984 bytes after the QA fix round
+# (#3726 to #3748). Allow 8192 bytes, rounded up to a 4096-byte page.
+27226112
