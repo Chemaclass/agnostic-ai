@@ -23,7 +23,7 @@ func TestImportFromClaude_StripsWorkspaceFolderFromCwd(t *testing.T) {
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
-	got := readFileString(t, filepath.Join(dir, "environments", "dev.yaml"))
+	got := readFile(t, filepath.Join(dir, "environments", "dev.yaml"))
 	want := `name: dev
 dev-commands:
     - name: Docs

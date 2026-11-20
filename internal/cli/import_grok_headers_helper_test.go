@@ -39,14 +39,14 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 			path := filepath.Join(home, ".grok/config.toml")
 			before := "# Keep formatting.\n[plugins]\ncustom = 'untouched' # Keep note.\n"
 			if existing {
-				mustWriteGlobalTest(t, path, before)
+				writeFile(t, path, before)
 			}
 			sourcePath := filepath.Join(source, "mcps/docs.yaml")
-			mustWriteGlobalTest(t, sourcePath, "name: docs\nurl: https://example.com/mcp\nx-grok:\n  headers_helper: sh headers.sh\n")
+			writeFile(t, sourcePath, "name: docs\nurl: https://example.com/mcp\nx-grok:\n  headers_helper: sh headers.sh\n")
 			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			got := readGlobalTest(t, path)
+			got := readFile(t, path)
 			if !strings.Contains(got, `headers_helper = "sh headers.sh"`) {
 				t.Errorf("global helper lost:\n%s", got)
 			}
@@ -70,7 +70,7 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if existing {
-				if got := readGlobalTest(t, path); got != before {
+				if got := readFile(t, path); got != before {
 					t.Errorf("remove changed original bytes:\n%s", got)
 				}
 			} else if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -85,15 +85,15 @@ func TestImportGlobal_GrokHeadersHelperRoundTrips(t *testing.T) {
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok/config.toml")
 	before := "# Keep comment.\n[mcp_servers.docs]\nurl = 'https://example.com/mcp'\nheaders_helper = 'sh headers.sh' # Keep helper.\n"
-	mustWriteGlobalTest(t, path, before)
+	writeFile(t, path, before)
 	if _, warnings, err := runImportGlobalTest("grok"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	assertGrokImportedHeadersHelper(t, readGlobalTest(t, filepath.Join(source, "mcps/docs.yaml")))
+	assertGrokImportedHeadersHelper(t, readFile(t, filepath.Join(source, "mcps/docs.yaml")))
 	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, path); got != before {
+	if got := readFile(t, path); got != before {
 		t.Errorf("native config changed:\n%s", got)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {

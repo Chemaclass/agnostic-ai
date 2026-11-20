@@ -44,9 +44,9 @@ func runSyncJSONDrops(t *testing.T) syncJSONDrops {
 
 func TestSyncJSON_ListsDroppedSpecsAndPlainSyncStillPrintsThem(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, aider]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\ntools: [Read]\n---\nReview.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, aider]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\ntools: [Read]\n---\nReview.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
@@ -102,8 +102,8 @@ func TestSyncJSON_LeavesOutAcceptedNotes(t *testing.T) {
 
 func TestSyncJSON_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "Prefer short functions.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "Prefer short functions.\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
@@ -134,9 +134,9 @@ func TestSyncJSONPreviewModes_ListTheDropsSyncJSONLists(t *testing.T) {
 	for _, mode := range []string{"--check", "--plan", "--dry-run"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\n---\nReview.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\n---\nReview.\n")
 			testutil.Chdir(t, dir)
 			silence(t)
 			captureLogOut(t)
@@ -162,8 +162,8 @@ func TestSyncJSONPreviewModes_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
 	for _, mode := range []string{"--check", "--plan", "--dry-run"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "Prefer short functions.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "Prefer short functions.\n")
 			testutil.Chdir(t, dir)
 			silence(t)
 			captureLogOut(t)
@@ -179,8 +179,8 @@ func TestSyncJSONPreviewModes_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
 
 func TestOrphanGeneratedPaths_LeavesUnselectedTargetDropsOutOfTheBuffers(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 	captureNotes(t)

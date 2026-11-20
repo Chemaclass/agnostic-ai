@@ -96,7 +96,7 @@ func TestView_HasNoSubcommands(t *testing.T) {
 func TestView_DefaultSourceDoesNotMixProjectAndGlobalTargets(t *testing.T) {
 	home := globalOverviewHome(t)
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
 	nested := filepath.Join(project, "src", "nested")
 	if err := os.MkdirAll(nested, 0755); err != nil {
 		t.Fatal(err)
@@ -104,10 +104,10 @@ func TestView_DefaultSourceDoesNotMixProjectAndGlobalTargets(t *testing.T) {
 	outside := t.TempDir()
 	source := filepath.Join(home, "source")
 	local := filepath.Join(source, "local")
-	mustWrite(t, filepath.Join(local, "agnostic-ai.yaml"), "targets: [codex]\n")
-	mustWrite(t, filepath.Join(local, "rules", "local-rule.md"), "---\nname: local-rule\n---\nLocal instructions.\n")
+	writeFile(t, filepath.Join(local, "agnostic-ai.yaml"), "targets: [codex]\n")
+	writeFile(t, filepath.Join(local, "rules", "local-rule.md"), "---\nname: local-rule\n---\nLocal instructions.\n")
 	localProject := filepath.Join(local, "projects", "service")
-	mustWrite(t, filepath.Join(localProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
+	writeFile(t, filepath.Join(localProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
 	localAlias := filepath.Join(t.TempDir(), "local-alias")
 	localAliasErr := os.Symlink(local, localAlias)
 	globalNested := filepath.Join(source, "rules")
@@ -115,7 +115,7 @@ func TestView_DefaultSourceDoesNotMixProjectAndGlobalTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	nestedProject := filepath.Join(source, "projects", "service")
-	mustWrite(t, filepath.Join(nestedProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
+	writeFile(t, filepath.Join(nestedProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
 	alias := filepath.Join(t.TempDir(), "alias")
 	aliasErr := os.Symlink(nested, alias)
 
@@ -165,15 +165,15 @@ func TestView_RejectsInvalidSourcesBeforeOpeningBrowser(t *testing.T) {
 	globalOverviewHome(t)
 	outside := t.TempDir()
 	invalid := t.TempDir()
-	mustWrite(t, filepath.Join(invalid, "agnostic-ai.yaml"), "targets: [\n")
+	writeFile(t, filepath.Join(invalid, "agnostic-ai.yaml"), "targets: [\n")
 	nested := filepath.Join(invalid, "nested")
 	if err := os.Mkdir(nested, 0755); err != nil {
 		t.Fatal(err)
 	}
 	sourceOnly := t.TempDir()
-	mustWrite(t, filepath.Join(sourceOnly, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nExample.\n")
+	writeFile(t, filepath.Join(sourceOnly, ".agnostic-ai", "rules", "example.md"), "---\nname: example\n---\nExample.\n")
 	file := filepath.Join(outside, "file")
-	mustWrite(t, file, "not a directory")
+	writeFile(t, file, "not a directory")
 	for _, tc := range []struct {
 		name, cwd, want string
 		args            []string
@@ -212,7 +212,7 @@ func TestView_RejectsInvalidSourcesBeforeOpeningBrowser(t *testing.T) {
 func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 	home := globalOverviewHome(t)
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
 	nested := filepath.Join(project, "src")
 	if err := os.Mkdir(nested, 0755); err != nil {
 		t.Fatal(err)
@@ -220,10 +220,10 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 	outside := t.TempDir()
 	source := filepath.Join(home, "source")
 	local := filepath.Join(source, "local")
-	mustWrite(t, filepath.Join(local, "agnostic-ai.yaml"), "targets: [codex]\n")
-	mustWrite(t, filepath.Join(local, "rules", "local-rule.md"), "---\nname: local-rule\n---\nLocal instructions.\n")
+	writeFile(t, filepath.Join(local, "agnostic-ai.yaml"), "targets: [codex]\n")
+	writeFile(t, filepath.Join(local, "rules", "local-rule.md"), "---\nname: local-rule\n---\nLocal instructions.\n")
 	localProject := filepath.Join(local, "projects", "service")
-	mustWrite(t, filepath.Join(localProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
+	writeFile(t, filepath.Join(localProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
 	localAlias := filepath.Join(t.TempDir(), "local-alias")
 	localAliasErr := os.Symlink(local, localAlias)
 	globalNested := filepath.Join(source, "rules")
@@ -231,7 +231,7 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 		t.Fatal(err)
 	}
 	nestedProject := filepath.Join(source, "projects", "service")
-	mustWrite(t, filepath.Join(nestedProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
+	writeFile(t, filepath.Join(nestedProject, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, opencode]\n")
 	alias := filepath.Join(t.TempDir(), "alias")
 	aliasErr := os.Symlink(nested, alias)
 
@@ -375,9 +375,9 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	other := t.TempDir()
-	mustWrite(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	for _, tc := range []struct {
 		name      string
 		server    *viewServer
@@ -423,7 +423,7 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 
 func TestView_ReusesSameProjectSpelledInOtherCase(t *testing.T) {
 	project := filepath.Join(t.TempDir(), "MyProj")
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	lower := filepath.Join(filepath.Dir(project), "myproj")
 	if _, err := os.Stat(lower); err != nil {
 		t.Skip("the file system is case-sensitive")
@@ -458,7 +458,7 @@ func TestView_ReusesGlobalServerForRelativeHome(t *testing.T) {
 
 func TestView_ProbesAgainWhenTheAddressIsTaken(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -501,7 +501,7 @@ func TestView_ProbesAgainWhenTheAddressIsTaken(t *testing.T) {
 
 func TestProbeViewServer_ReadsTheRealHealthEndpoint(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	src, err := openAuthoritySource(project, false)
 	if err != nil {
 		t.Fatal(err)
@@ -622,9 +622,9 @@ func TestView_OpensAnotherConfigurationOnTheNextFreePort(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	other := t.TempDir()
-	mustWrite(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	for _, tc := range []struct {
 		name    string
 		running *viewServer
@@ -656,7 +656,7 @@ func TestView_ReusesMatchingServerOnALaterPort(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	ports := freeLoopbackAddrs(t, 3)
 	servers := map[string]*viewServer{
 		ports[1]: {OK: true, Root: project, UI: true},
@@ -674,7 +674,7 @@ func TestView_ReusesMatchingServerOnALaterPort(t *testing.T) {
 
 func TestView_SkipsAPortHeldByAnotherProcess(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	held, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -692,7 +692,7 @@ func TestView_SkipsAPortHeldByAnotherProcess(t *testing.T) {
 
 func TestView_FailsWhenEveryPortServesAnotherConfiguration(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	other := t.TempDir()
 	ports := freeLoopbackAddrs(t, 2)
 	servers := map[string]*viewServer{
@@ -710,7 +710,7 @@ func TestView_FailsWhenEveryPortServesAnotherConfiguration(t *testing.T) {
 
 func TestView_ExplicitAddrDoesNotMoveToAnotherPort(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	other := t.TempDir()
 	ports := freeLoopbackAddrs(t, 2)
 	opened, _, err := runViewOnPorts(t, ports, map[string]*viewServer{ports[0]: {OK: true, Root: other, UI: true}}, "--dir", project, "--addr", ports[0])
@@ -731,7 +731,7 @@ func TestViewPortCandidates_ScanAFixedLoopbackRange(t *testing.T) {
 
 func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	other := t.TempDir()
 	for _, tc := range []struct {
 		name     string
@@ -781,7 +781,7 @@ func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
 
 func TestView_ScanKeepsTheBindErrorWhenNoPortOpens(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	var ports []string
 	for range 2 {
 		held, err := net.Listen("tcp", "127.0.0.1:0")
@@ -817,7 +817,7 @@ func heldLoopbackAddrs(t *testing.T, n int) []string {
 
 func TestView_ScanWaitsForASlowServerOfTheSameConfiguration(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	ports := append(heldLoopbackAddrs(t, 1), freeLoopbackAddrs(t, 1)...)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -846,7 +846,7 @@ func (c *fakeClock) Now() time.Time { return c.now }
 
 func TestView_ScanBoundsRechecksOfSlowOtherConfigurations(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	other := t.TempDir()
 	held := heldLoopbackAddrs(t, 6)
 	ports := append(slices.Clone(held), freeLoopbackAddrs(t, 1)...)
@@ -874,7 +874,7 @@ func TestView_ScanBoundsRechecksOfSlowOtherConfigurations(t *testing.T) {
 
 func TestView_ScanFastRejectKeepsTheBudgetForASlowMatch(t *testing.T) {
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	ports := append(heldLoopbackAddrs(t, 2), freeLoopbackAddrs(t, 1)...)
 	clock := &fakeClock{now: time.Unix(0, 0)}
 	probes := map[string]int{}
@@ -906,7 +906,7 @@ func TestView_ScanFastRejectKeepsTheBudgetForASlowMatch(t *testing.T) {
 func TestView_HealthNamesTheRootVersion(t *testing.T) {
 	globalOverviewHome(t)
 	project := t.TempDir()
-	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	health := make(chan string, 1)

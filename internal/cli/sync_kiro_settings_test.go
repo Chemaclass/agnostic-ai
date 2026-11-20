@@ -16,7 +16,7 @@ func setupKiroSettingsProject(t *testing.T, model string) string {
 	t.Helper()
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	dir := setupFixture(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
 	writeKiroSettingsSpec(t, dir, model)
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -29,7 +29,7 @@ func writeKiroSettingsSpec(t *testing.T, dir, model string) {
 	if model != "" {
 		body = "model: " + model + "\n"
 	}
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "project-defaults.yaml"), body)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "project-defaults.yaml"), body)
 }
 
 func readKiroCLIJSON(t *testing.T, dir string) map[string]any {
@@ -83,7 +83,7 @@ func TestSync_KiroSettingsModelAddThenRemoveRestoresCLIJSON(t *testing.T) {
 	} {
 		t.Run(name+" with a hand-set key", func(t *testing.T) {
 			dir := setupKiroSettingsProject(t, "claude-sonnet-4.6")
-			mustWrite(t, filepath.Join(dir, kiroCLIJSON), original)
+			writeFile(t, filepath.Join(dir, kiroCLIJSON), original)
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
 			}
@@ -108,7 +108,7 @@ func TestSync_KiroSettingsModelAddThenRemoveRestoresCLIJSON(t *testing.T) {
 
 func TestSync_KiroOverwritesHandSetDefaultModel(t *testing.T) {
 	dir := setupKiroSettingsProject(t, "claude-sonnet-4.6")
-	mustWrite(t, filepath.Join(dir, kiroCLIJSON), "{\"chat.defaultModel\": \"auto\"}\n")
+	writeFile(t, filepath.Join(dir, kiroCLIJSON), "{\"chat.defaultModel\": \"auto\"}\n")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}

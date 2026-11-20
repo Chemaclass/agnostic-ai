@@ -13,7 +13,7 @@ const pathsRule = "---\nname: a\ndescription: d\npaths:\n  - resources/js/**\n--
 
 func TestRender_RulePathsScopesCopilotAndCursorLikeGlobs(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, copilot, cursor, codex, junie]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), pathsRule)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), pathsRule)
 
 	cases := map[string][]string{
 		"copilot": {`applyTo: "resources/js/**"`},
@@ -38,7 +38,7 @@ func TestRender_RulePathsScopesCopilotAndCursorLikeGlobs(t *testing.T) {
 
 func TestLintBudget_RulePathsIsNotAlwaysOnCopilotContext(t *testing.T) {
 	dir := budgetProject(t, "targets: [copilot, cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), "---\nname: a\ndescription: d\npaths: [\"resources/js/**\"]\n---\n\n"+words(300)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), "---\nname: a\ndescription: d\npaths: [\"resources/js/**\"]\n---\n\n"+words(300)+"\n")
 
 	cfg, err := config.Load(dir)
 	if err != nil {
@@ -57,8 +57,8 @@ func TestLintBudget_RulePathsIsNotAlwaysOnCopilotContext(t *testing.T) {
 
 func TestValidate_RejectsRuleWithConflictingPathsAndGlobs(t *testing.T) {
 	dir := budgetProject(t, "targets: [cursor]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "both.md"), "---\nname: both\npaths: [\"a/**\"]\nglobs: [\"b/**\"]\n---\nBody.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "same.md"), "---\nname: same\npaths: [\"a/**\"]\nglobs: \"a/**\"\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "both.md"), "---\nname: both\npaths: [\"a/**\"]\nglobs: [\"b/**\"]\n---\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "same.md"), "---\nname: same\npaths: [\"a/**\"]\nglobs: \"a/**\"\n---\nBody.\n")
 
 	out, err := runCLI(t, "validate")
 	if err == nil || !strings.Contains(out, "both.md") || strings.Contains(out, "same.md") {
@@ -72,7 +72,7 @@ func TestValidate_RejectsRuleWithConflictingPathsAndGlobs(t *testing.T) {
 
 func TestRender_RuleEmptyPathsStaysNeverActiveOnClaudeAndCline(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "off.md"), "---\nname: off\ndescription: d\npaths: []\n---\n\nOFF rule.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "off.md"), "---\nname: off\ndescription: d\npaths: []\n---\n\nOFF rule.\n")
 
 	for _, target := range []string{"claude", "cline"} {
 		out, err := runCLI(t, "render", ".agnostic-ai/rules/off.md", "--target", target)
@@ -87,7 +87,7 @@ func TestRender_RuleEmptyPathsStaysNeverActiveOnClaudeAndCline(t *testing.T) {
 
 func TestSync_RuleStringPathsKeepsItsFormOnClaudeAndCline(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, cline, copilot]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go-style.md"), "---\nname: go-style\ndescription: d\npaths: src/**\n---\n\nbody\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go-style.md"), "---\nname: go-style\ndescription: d\npaths: src/**\n---\n\nbody\n")
 
 	for _, target := range []string{"claude", "cline"} {
 		out, err := runCLI(t, "render", ".agnostic-ai/rules/go-style.md", "--target", target)

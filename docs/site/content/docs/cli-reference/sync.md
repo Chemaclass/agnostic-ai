@@ -52,6 +52,7 @@ agnostic-ai sync --only claude,cursor
 <summary>Flag details: --plan, --diff, --backup, --allow-empty-targets</summary>
 
 - `--plan --diff` prints a diff per changed file after the plan and names each file it would remove.
+- With the managed `.gitignore` block on, `--plan` counts `.gitignore` and `.worktreeinclude` under `[agnostic-ai]` when sync would create or change them. They never fail `--plan --check`.
 - `--dry-run --diff` also names each generated file a full sync removes because its spec is gone.
 - A shared settings file that keeps your own keys shows as a diff, not a removal. `--check`, `--plan`, and plain `--dry-run` report it as changed.
 - `--dry-run --diff` stops where sync would stop on a hand edit, and exits 0 on drift.

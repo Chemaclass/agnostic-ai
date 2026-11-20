@@ -14,8 +14,8 @@ import (
 
 func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n"+duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), duplicatedPassage+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n"+duplicatedPassage+"\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 
@@ -42,7 +42,7 @@ func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 	}
 	getContextView(t, srv.URL+contextViewPath+"?target=cursor", http.StatusBadRequest)
 
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep functions small.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nKeep functions small.\n")
 	if refreshed := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK); len(refreshed.Report.Opportunities) != 0 || refreshed.Report.Startup.Words >= view.Report.Startup.Words {
 		t.Errorf("refresh did not read the changed source: %+v", refreshed.Report)
 	}
@@ -50,7 +50,7 @@ func TestServeContext_MatchesTheCommandForTheChosenTarget(t *testing.T) {
 
 func TestServeContext_ReportsTheConfiguredWordBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 300\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Keep functions small.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Keep functions small.\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK); view.StartupWordBudget != 300 {
@@ -86,8 +86,8 @@ func getContextView(t *testing.T, url string, status int) contextView {
 
 func TestServeContext_CountsScopedRulesForTheGivenFile(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, copilot]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude&file=src/main.go", http.StatusOK); view.Report.File != "src/main.go" || view.Report.FileScope.Words != 40 || strings.Join(view.FileTargets, ",") != "claude" {

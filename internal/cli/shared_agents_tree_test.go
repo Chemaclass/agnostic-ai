@@ -130,9 +130,9 @@ func TestWarnSharedAgentsTreeReaders_OneLineForManyAgents(t *testing.T) {
 
 func TestRunSyncOnce_SharedOnlyAgentReportsDiscovery(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [goose, windsurf]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Reviews code.\ntarget: goose\n---\n\nBody.\n")
 	silence(t)
 	notes := captureNotes(t)
@@ -160,9 +160,9 @@ func TestRunSyncOnce_SharedOnlyAgentReportsDiscovery(t *testing.T) {
 // of re-printing the shared-tree note on every run.
 func TestRunSyncOnce_SharedAgentsTreeNoteSuppressedWhenUnchanged(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 		"version: 1\ntargets: [goose, windsurf]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Reviews code.\n---\n\nBody.\n")
 	silence(t)
 	log := captureLog(t)
@@ -219,9 +219,9 @@ func TestRunSyncOnce_SharedAgentsTreeNoteSurvivesUnrelatedPreferSpec(t *testing.
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
 				"version: 1\ntargets: [goose, windsurf, cursor]\n"+c.config)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
 				"---\nname: reviewer\ndescription: Reviews code.\ntarget: goose\n---\n\nBody.\n")
 			silence(t)
 			notes := captureNotes(t)

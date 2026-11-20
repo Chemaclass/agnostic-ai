@@ -459,7 +459,7 @@ func TestInitCmd_GitignoreDefaultNote(t *testing.T) {
 func TestInitCmd_NoGitignoreNoteWhenInitFails(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 
 	var stderr strings.Builder
 	root := NewRootCmd("test")
@@ -733,7 +733,7 @@ func TestInitCmd_NoTTYNoPipe_SuggestsCodexForRootAgentsMainFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n")
 
 	stderr := &bytes.Buffer{}
 	root := NewRootCmd("test")
@@ -1036,7 +1036,7 @@ func TestInitAll_SyncsAnAlwaysOnRule(t *testing.T) {
 	if out, err := runCLI(t, "init", "--all"); err != nil {
 		t.Fatalf("init --all: %v\n%s", err, out)
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai/rules/demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nDemo body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nDemo body.\n")
 	if out, err := runCLI(t, "lint"); err != nil {
 		t.Fatalf("lint after init --all: %v\n%s", err, out)
 	}

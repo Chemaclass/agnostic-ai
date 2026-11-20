@@ -12,10 +12,10 @@ import (
 func setupDoctorLintProject(t *testing.T, specs map[string]string) {
 	t.Helper()
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: Style.\n---\nrule body\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "r1.md"), "---\nname: r1\ndescription: Style.\n---\nrule body\n")
 	for path, content := range specs {
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", path), content)
+		writeFile(t, filepath.Join(dir, ".agnostic-ai", path), content)
 	}
 	testutil.Chdir(t, dir)
 	silence(t)

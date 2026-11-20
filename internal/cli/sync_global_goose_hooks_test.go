@@ -16,7 +16,7 @@ func TestSyncGlobal_GoosePluginHooks(t *testing.T) {
 	hooksFile := filepath.Join(plugin, "hooks", "hooks.json")
 	manifest := filepath.Join(plugin, "plugin.json")
 	specPath := filepath.Join(source, "hooks", "guard.yaml")
-	mustWriteGlobalTest(t, specPath, "name: guard\nevent: PreToolUse\nmatcher: developer__shell\ncommand: echo guard\n")
+	writeFile(t, specPath, "name: guard\nevent: PreToolUse\nmatcher: developer__shell\ncommand: echo guard\n")
 	out, _, err := runGlobalAgentTest("--only", "goose", "--dry-run")
 	if err != nil {
 		t.Fatal(err)
@@ -57,8 +57,8 @@ func TestSyncGlobal_GoosePluginHooks(t *testing.T) {
 func TestSyncGlobal_GooseKeepsUnmanagedPlugin(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	hooksFile := filepath.Join(home, ".agents", "plugins", "agnostic-ai-global", "hooks", "hooks.json")
-	mustWriteGlobalTest(t, hooksFile, `{"hooks":{}}`)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: Stop\ncommand: echo done\n")
+	writeFile(t, hooksFile, `{"hooks":{}}`)
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: Stop\ncommand: echo done\n")
 	if _, _, err := runGlobalAgentTest("--only", "goose"); err == nil {
 		t.Fatal("unmanaged hooks file overwritten")
 	}
@@ -70,9 +70,9 @@ func TestSyncGlobal_GooseKeepsUnmanagedPlugin(t *testing.T) {
 func TestSyncGlobal_GooseHookScriptPaths(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	scripts := filepath.Join(home, ".agents", "plugins", "agnostic-ai-global", "hooks")
-	mustWriteGlobalTest(t, filepath.Join(source, "scripts", "no-force-push.sh"), "#!/bin/sh\nexit 0\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "quoted.yaml"), "name: quoted\nevent: PreToolUse\ncommand: '\"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh\"'\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "bare.yaml"), "name: bare\nevent: Stop\ncommand: $CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh\n")
+	writeFile(t, filepath.Join(source, "scripts", "no-force-push.sh"), "#!/bin/sh\nexit 0\n")
+	writeFile(t, filepath.Join(source, "hooks", "quoted.yaml"), "name: quoted\nevent: PreToolUse\ncommand: '\"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh\"'\n")
+	writeFile(t, filepath.Join(source, "hooks", "bare.yaml"), "name: bare\nevent: Stop\ncommand: $CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh\n")
 	if _, _, err := runGlobalAgentTest("--only", "goose"); err != nil {
 		t.Fatal(err)
 	}
@@ -101,9 +101,9 @@ func TestSyncGlobal_GooseHookScriptPaths(t *testing.T) {
 
 func TestSyncGlobal_GooseKeepsProjectPluginName(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: Stop\ncommand: echo done\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: Stop\ncommand: echo done\n")
 	project := filepath.Join(home, "repo", ".agents", "plugins", "agnostic-ai", "hooks", "hooks.json")
-	mustWriteGlobalTest(t, project, `{"hooks":{}}`)
+	writeFile(t, project, `{"hooks":{}}`)
 	if _, _, err := runGlobalAgentTest("--only", "goose"); err != nil {
 		t.Fatal(err)
 	}

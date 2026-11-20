@@ -91,7 +91,7 @@ func TestWhy_DefaultProjectIgnoresUnconfiguredAdapterErrors(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nUse plain words.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "demo.md"), "---\nname: demo\ndescription: Demo rule.\nalwaysApply: true\n---\n\nUse plain words.\n")
 	root = NewRootCmd("test")
 	root.SetArgs([]string{"sync"})
 	if err := root.Execute(); err != nil {
@@ -117,7 +117,7 @@ func TestWhy_DefaultProjectIgnoresUnconfiguredAdapterErrors(t *testing.T) {
 
 func TestWhy_ConfiguredAdapterErrorHasOneTargetPrefix(t *testing.T) {
 	dir := setupWhyFixture(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets: [claude, grok]\ngitignore:\n  enabled: true\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets: [claude, grok]\ngitignore:\n  enabled: true\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
@@ -474,7 +474,7 @@ func TestWhy_EntryPointFileCreditsTheSharedInstructions(t *testing.T) {
 
 func TestWhy_EntryPointWithInlinedRulesListsInstructionsFirst(t *testing.T) {
 	dir := setupWhyFixture(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets:\n  - codex\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets:\n  - codex\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
@@ -517,9 +517,9 @@ func TestWhy_SharedInstructionsSayWhereTheyGo(t *testing.T) {
 func whyProject(t *testing.T, cfg string, files map[string]string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
 	for p, body := range files {
-		mustWriteFile(t, filepath.Join(dir, p), body)
+		writeFile(t, filepath.Join(dir, p), body)
 	}
 	silence(t)
 }

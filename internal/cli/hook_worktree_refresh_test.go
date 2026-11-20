@@ -28,11 +28,11 @@ func TestHookWorktreeRefresh_CancelsReadyDescendant(t *testing.T) {
 	ready := filepath.Join(t.TempDir(), "ready")
 	t.Setenv("AGNOSTIC_REFRESH_TEST_EXECUTABLE", filepath.ToSlash(helper))
 	t.Setenv("AGNOSTIC_REFRESH_DESCENDANT_READY", ready)
-	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: |\n  \"$AGNOSTIC_REFRESH_TEST_EXECUTABLE\" -test.run=^TestHookWorktreeRefreshDescendant$\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: |\n  \"$AGNOSTIC_REFRESH_TEST_EXECUTABLE\" -test.run=^TestHookWorktreeRefreshDescendant$\n")
 	if out, err := runCLI(t, "sync", "--quiet"); err != nil {
 		t.Fatalf("sync descendant setup: %v\n%s", err, out)
 	}
-	mustWriteFile(t, marker, "completed before refresh")
+	writeFile(t, marker, "completed before refresh")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var out bytes.Buffer
@@ -104,7 +104,7 @@ func TestHookWorktreeRefresh_CancelsReadyDescendant(t *testing.T) {
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {
 		t.Errorf("canceled refresh retained completion marker: %v", err)
 	}
-	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: printf 'recovered\\n' > recovered-setup\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: printf 'recovered\\n' > recovered-setup\n")
 	if out, err := runCLI(t, "sync", "--quiet"); err != nil {
 		t.Fatalf("sync recovery setup: %v\n%s", err, out)
 	}
@@ -160,7 +160,7 @@ func TestHookWorktreeRefresh_KeepsSuccessfulBackgroundSetup(t *testing.T) {
 	ready := filepath.Join(t.TempDir(), "ready")
 	t.Setenv("AGNOSTIC_REFRESH_TEST_EXECUTABLE", filepath.ToSlash(helper))
 	t.Setenv("AGNOSTIC_REFRESH_DESCENDANT_READY", ready)
-	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: |\n  \"$AGNOSTIC_REFRESH_TEST_EXECUTABLE\" -test.run=^TestHookWorktreeRefreshDescendant$ > descendant-output 2>&1 &\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: |\n  \"$AGNOSTIC_REFRESH_TEST_EXECUTABLE\" -test.run=^TestHookWorktreeRefreshDescendant$ > descendant-output 2>&1 &\n")
 	if out, err := runCLI(t, "sync", "--quiet"); err != nil {
 		t.Fatalf("sync background setup: %v\n%s", err, out)
 	}
@@ -211,8 +211,8 @@ func refreshFixture(t *testing.T, override bool) (main, linked, script, marker s
 		dir = "tool output/claude"
 		config += "outputs:\n  claude:\n    dir: '" + dir + "'\n"
 	}
-	mustWriteFile(t, filepath.Join(main, "agnostic-ai.yaml"), config)
-	mustWriteFile(t, filepath.Join(main, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: |\n  printf 'setup\\n' >> setup-runs\n  test ! -e fail-setup\n")
+	writeFile(t, filepath.Join(main, "agnostic-ai.yaml"), config)
+	writeFile(t, filepath.Join(main, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\nsetup: |\n  printf 'setup\\n' >> setup-runs\n  test ! -e fail-setup\n")
 	git(t, main, "add", ".")
 	git(t, main, "commit", "-qm", "setup fixture")
 	linked = filepath.Join(t.TempDir(), "linked worktree with spaces")
@@ -258,9 +258,9 @@ func TestHookWorktreeRefresh_RerunsConfiguredSetupOnly(t *testing.T) {
 			other := filepath.Join(t.TempDir(), "other linked worktree")
 			git(t, main, "worktree", "add", "-q", "--detach", other)
 			otherMarker := filepath.Join(strings.TrimSpace(git(t, other, "rev-parse", "--absolute-git-dir")), "agnostic-ai-worktree-setup")
-			mustWriteFile(t, otherMarker, "keep other marker")
+			writeFile(t, otherMarker, "keep other marker")
 			mainMarker := filepath.Join(main, ".git", "agnostic-ai-worktree-setup")
-			mustWriteFile(t, mainMarker, "keep main marker")
+			writeFile(t, mainMarker, "keep main marker")
 			for range 2 {
 				if err := nativeRefreshSetup(t, linked, script); err != nil {
 					t.Fatal(err)
@@ -292,7 +292,7 @@ func TestHookWorktreeRefresh_FailureLeavesNoCompletion(t *testing.T) {
 	if err := nativeRefreshSetup(t, linked, script); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(linked, "fail-setup"), "fail")
+	writeFile(t, filepath.Join(linked, "fail-setup"), "fail")
 	if _, err := runCLI(t, "hook", "worktree-refresh", "--repo", main, "--worktree", linked); err == nil || !strings.Contains(err.Error(), "setup") {
 		t.Errorf("failed setup must fail refresh with context: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestHookWorktreeRefresh_FailureLeavesNoCompletion(t *testing.T) {
 
 func TestHookWorktreeRefresh_RejectsOtherCheckoutsWithoutReset(t *testing.T) {
 	main, linked, _, marker := refreshFixture(t, false)
-	mustWriteFile(t, marker, "keep")
+	writeFile(t, marker, "keep")
 	_, _, foreignLinked := disposableWorktree(t)
 	for _, candidate := range []string{main, foreignLinked, filepath.Dir(linked)} {
 		if _, err := runCLI(t, "hook", "worktree-refresh", "--repo", main, "--worktree", candidate); err == nil {
@@ -328,16 +328,16 @@ func TestHookWorktreeRefresh_RequiresCurrentGeneratedSetup(t *testing.T) {
 	for _, broken := range []string{"missing", "edited", "disabled"} {
 		t.Run(broken, func(t *testing.T) {
 			main, linked, script, marker := refreshFixture(t, false)
-			mustWriteFile(t, marker, "keep")
+			writeFile(t, marker, "keep")
 			switch broken {
 			case "missing":
 				if err := os.Remove(script); err != nil {
 					t.Fatal(err)
 				}
 			case "edited":
-				mustWriteFile(t, script, "#!/bin/sh\nexit 0\n")
+				writeFile(t, script, "#!/bin/sh\nexit 0\n")
 			case "disabled":
-				mustWriteFile(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+				writeFile(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 			}
 			if _, err := runCLI(t, "hook", "worktree-refresh", "--repo", main, "--worktree", linked); err == nil {
 				t.Errorf("accepted %s setup", broken)

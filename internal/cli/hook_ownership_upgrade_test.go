@@ -32,8 +32,8 @@ func editLedger(t *testing.T, edit func(state map[string]any)) {
 func TestSync_UpgradeReplacesHooksAnOlderSyncWroteWhole(t *testing.T) {
 	const hooks = ".codex/hooks.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo old\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo old\n")
 	runSyncOK(t)
 	data, err := os.ReadFile(hooks)
 	if err != nil {
@@ -51,7 +51,7 @@ func TestSync_UpgradeReplacesHooksAnOlderSyncWroteWhole(t *testing.T) {
 		sums[hooks] = hex.EncodeToString(sum[:])
 		state["output_sums"] = sums
 	})
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo new\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo new\n")
 	runSyncOK(t)
 	got, _ := os.ReadFile(hooks)
 	if strings.Contains(string(got), "echo old") || !strings.Contains(string(got), "echo new") {

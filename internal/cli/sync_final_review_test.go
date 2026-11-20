@@ -20,9 +20,9 @@ func TestSync_DirectorySettingNamedLikeABackup_Passes(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "example", "SKILL.md"), "---\nname: example\ndescription: An example skill.\n---\nCheck the change.\n")
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: rules\n    skills-dir: rules.bak\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "example", "SKILL.md"), "---\nname: example\ndescription: An example skill.\n---\nCheck the change.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-dir: rules\n    skills-dir: rules.bak\n")
 
 			if out, err := runCLI(t, args...); err != nil {
 				t.Fatalf("%v: %v\n%s", args, err, out)
@@ -45,14 +45,14 @@ func sharedAgentsEditProject(t *testing.T) (dir, edited string) {
 	t.Helper()
 	dir = testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	data, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	edited = string(data) + "\nUNIQUE USER NOTE\n"
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), edited)
+	writeFile(t, filepath.Join(dir, "AGENTS.md"), edited)
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -122,8 +122,8 @@ func TestSync_OutputOnAnotherOutputsBackupInOtherCase_Stops(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: rules.md.BAK\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\noutputs:\n  codex:\n    rules-file: RULES.md\n  claude:\n    rules-file: rules.md.BAK\n")
 
 			out, err := runCLI(t, args...)
 
@@ -145,21 +145,21 @@ func TestSync_OutputMovedOntoARecordedBackup_Stops(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "example.md"), finalReviewRule)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md\n")
 			if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 			data, _ := os.ReadFile(filepath.Join(dir, "RULES.md"))
 			edited := string(data) + "\nUNIQUE USER NOTE\n"
-			mustWriteFile(t, filepath.Join(dir, "RULES.md"), edited)
+			writeFile(t, filepath.Join(dir, "RULES.md"), edited)
 			if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 			if bak, _ := os.ReadFile(filepath.Join(dir, "RULES.md.bak")); string(bak) != edited {
 				t.Fatalf("sync must save the edit as RULES.md.bak, got:\n%s", bak)
 			}
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md.bak\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    rules-file: RULES.md.bak\n")
 
 			out, err := runCLI(t, args...)
 
@@ -184,12 +184,12 @@ func TestRevertCmd_StopsWhileTheProjectIsLocked(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
-			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
-			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
 			if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
-			mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
+			writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
 			lock, err := acquireProjectLock(".", "sync")
 			if err != nil {
 				t.Fatal(err)
@@ -215,9 +215,9 @@ func TestRevertCmd_StopsWhileTheProjectIsLocked(t *testing.T) {
 func TestSync_OutputsThatDifferOnlyInCase(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: agents.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: agents.md\n")
 
 	if caseInsensitiveFS(".") {
 		for _, args := range [][]string{{"sync", "--gitignore=off", "--jobs=1"}, {"sync", "--check"}, {"status"}, {"validate"}} {
@@ -259,9 +259,9 @@ func TestSync_HealsAFileRecordedUnderAnotherCase(t *testing.T) {
 	if !caseInsensitiveFS(".") {
 		t.Skip("letter case names distinct files here")
 	}
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\nShared instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -275,8 +275,8 @@ func TestSync_HealsAFileRecordedUnderAnotherCase(t *testing.T) {
 	ledger["output_sums"].(map[string]any)["agents.md"] = adapters.ContentSum(merged)
 	ledger["outputs"] = append(ledger["outputs"].([]any), "agents.md")
 	data, _ = json.Marshal(ledger)
-	mustWriteFile(t, stateFilePath("."), string(data))
-	mustWriteFile(t, filepath.Join(dir, "agents.md"), merged)
+	writeFile(t, stateFilePath("."), string(data))
+	writeFile(t, filepath.Join(dir, "agents.md"), merged)
 
 	if out, err := runCLI(t, "sync", "--gitignore=off", "--jobs=1"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
@@ -298,13 +298,13 @@ func TestSync_HealsAFileRecordedUnderAnotherCase(t *testing.T) {
 func TestRevertCmd_LeavesGitignoreAlone(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [amp]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nUse tabs.\n")
 	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "node_modules/\n")
-	mustWriteFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
+	writeFile(t, filepath.Join(dir, ".gitignore"), "node_modules/\n")
+	writeFile(t, filepath.Join(dir, "AGENTS.md.bak"), "MINE\n")
 
 	if out, err := runCLI(t, "revert", "--force"); err != nil {
 		t.Fatalf("revert: %v\n%s", err, out)

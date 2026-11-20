@@ -15,13 +15,13 @@ import (
 func TestSync_PartialUpgradeKeepsUnrecordedMergedFile(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini, cline]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini, cline]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
 	dropMergedRecords(t)
 	runSyncOK(t, "--only", "cline")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 	if got := readJSONMap(t, settings); got["userKey"] != "mine" {
 		t.Errorf("user key lost: %#v", got)
@@ -89,9 +89,9 @@ func TestSync_FailedMergedReleaseKeepsLedgerRecord(t *testing.T) {
 func TestSync_KiloKeepsSkillPathTheUserListedFirst(t *testing.T) {
 	const config = "kilo.jsonc"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kilo]\noutputs:\n  kilo:\n    skills-dir: custom-skills\n")
-	mustWriteFile(t, config, "{\"skills\": {\"paths\": [\"custom-skills\"]}}\n")
-	mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill.\n---\n\nBody.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kilo]\noutputs:\n  kilo:\n    skills-dir: custom-skills\n")
+	writeFile(t, config, "{\"skills\": {\"paths\": [\"custom-skills\"]}}\n")
+	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill.\n---\n\nBody.\n")
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/skills/demo/SKILL.md")
 	runSyncOK(t)
@@ -106,11 +106,11 @@ func TestSync_KiloKeepsSkillPathTheUserListedFirst(t *testing.T) {
 func TestSync_RemovingClaudeReleasesPermissionScalars(t *testing.T) {
 	const settings = ".claude/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
-	mustWriteFile(t, settings, "{\"userKey\": \"mine\"}\n")
-	mustWriteFile(t, ".agnostic-ai/settings/mode.yaml", "x-claude:\n  permissions:\n    defaultMode: plan\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	writeFile(t, settings, "{\"userKey\": \"mine\"}\n")
+	writeFile(t, ".agnostic-ai/settings/mode.yaml", "x-claude:\n  permissions:\n    defaultMode: plan\n")
 	runSyncOK(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 	if got := readJSONMap(t, settings); !reflect.DeepEqual(got, map[string]any{"userKey": "mine"}) {
 		t.Errorf("%s = %#v", settings, got)

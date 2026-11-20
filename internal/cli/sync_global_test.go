@@ -20,10 +20,10 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	source := filepath.Join(home, "source")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal text.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
+	writeFile(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal text.\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global"})
@@ -75,8 +75,8 @@ func TestSyncGlobal_RelativeXDGFallsBackAndPreservesUserInstructions(t *testing.
 	intro := filepath.Join(source, "AGNOSTIC_AI.md")
 	path := filepath.Join(home, ".config", "opencode", "AGENTS.md")
 	const original = "My instructions.\n"
-	mustWriteGlobalTest(t, intro, "Shared instructions.\n")
-	mustWriteGlobalTest(t, path, original)
+	writeFile(t, intro, "Shared instructions.\n")
+	writeFile(t, path, original)
 	if _, _, err := runGlobalAgentTest("--only", "opencode"); err != nil {
 		t.Fatal(err)
 	}
@@ -107,9 +107,9 @@ func TestSyncGlobal_PreflightRejectsUnmanagedSkillBeforeWrites(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "new\n")
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "skills", "review", "SKILL.md"), "---\nname: review\n---\nmanaged\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "skills", "review", "SKILL.md"), "unmanaged\n")
+	writeFile(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "new\n")
+	writeFile(t, filepath.Join(home, "source", "skills", "review", "SKILL.md"), "---\nname: review\n---\nmanaged\n")
+	writeFile(t, filepath.Join(home, ".cursor", "skills", "review", "SKILL.md"), "unmanaged\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global"})
@@ -130,7 +130,7 @@ func TestSyncGlobal_RejectsScopedRuleAndUnsupportedFlags(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "rules", "backend", "safe.md"), "---\nname: safe\n---\nSafe.\n")
+	writeFile(t, filepath.Join(home, "source", "rules", "backend", "safe.md"), "---\nname: safe\n---\nSafe.\n")
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global"})
 	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "scoped") {
@@ -153,8 +153,8 @@ func TestSyncGlobal_PreservesAndRemovesOnlyManagedHooks(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	sourceHook := filepath.Join(home, "source", "hooks", "notify.yaml")
-	mustWriteGlobalTest(t, sourceHook, "name: notify\nevent: sessionStart\ncommand: managed-command\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "hooks.json"), "{\n  \"version\": 1,\n  \"theme\": \"dark\",\n  \"hooks\": {\"sessionStart\": [{\"command\": \"user-command\"}]}\n}\n")
+	writeFile(t, sourceHook, "name: notify\nevent: sessionStart\ncommand: managed-command\n")
+	writeFile(t, filepath.Join(home, ".cursor", "hooks.json"), "{\n  \"version\": 1,\n  \"theme\": \"dark\",\n  \"hooks\": {\"sessionStart\": [{\"command\": \"user-command\"}]}\n}\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global", "--only", "cursor"})
@@ -183,16 +183,6 @@ func TestSyncGlobal_PreservesAndRemovesOnlyManagedHooks(t *testing.T) {
 	}
 }
 
-func mustWriteGlobalTest(t *testing.T, path, body string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestSyncGlobal_WritesEachTargetsOwnNativePaths(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -202,9 +192,9 @@ func TestSyncGlobal_WritesEachTargetsOwnNativePaths(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	source := filepath.Join(home, "source")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global"})
@@ -272,7 +262,7 @@ func TestSyncGlobal_SharedPathIsWrittenOnce(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "Shared instructions\n")
+	writeFile(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "Shared instructions\n")
 
 	root := NewRootCmd("test")
 	// cline and warp both read ~/.agents/AGENTS.md.
@@ -296,7 +286,7 @@ func TestSyncGlobal_RejectsTargetWithNoUserLevelSurface(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-	mustWriteGlobalTest(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "Shared instructions\n")
+	writeFile(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "Shared instructions\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global", "-t", "jules"})
@@ -315,7 +305,7 @@ func TestSyncGlobal_SweepsAnInstructionsFileAfterItsSourceIsGone(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	intro := filepath.Join(home, "source", "AGNOSTIC_AI.md")
-	mustWriteGlobalTest(t, intro, "Shared instructions\n")
+	writeFile(t, intro, "Shared instructions\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global", "--only", "codex"})
@@ -347,8 +337,8 @@ func TestSyncGlobal_KeepsTheTrailingNewlineOfPreservedUserText(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	intro := filepath.Join(home, "source", "AGNOSTIC_AI.md")
-	mustWriteGlobalTest(t, intro, "Shared instructions\n")
-	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal notes.\n")
+	writeFile(t, intro, "Shared instructions\n")
+	writeFile(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal notes.\n")
 
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global", "--only", "claude"})
@@ -382,10 +372,10 @@ func TestSyncGlobal_DropsAHooksFileThatHasNothingLeftInIt(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	hook := filepath.Join(home, "source", "hooks", "notify.yaml")
-	mustWriteGlobalTest(t, hook, "name: notify\nevent: SessionStart\ncommand: managed-command\n")
+	writeFile(t, hook, "name: notify\nevent: SessionStart\ncommand: managed-command\n")
 	// A second target keeps unrelated content in its hooks file, so the
 	// same teardown must leave that one in place.
-	mustWriteGlobalTest(t, filepath.Join(home, ".gemini", "settings.json"), "{\n  \"theme\": \"dark\"\n}\n")
+	writeFile(t, filepath.Join(home, ".gemini", "settings.json"), "{\n  \"theme\": \"dark\"\n}\n")
 
 	for _, pass := range []string{"create", "teardown"} {
 		if pass == "teardown" {
@@ -448,9 +438,9 @@ func TestSyncGlobal_FiltersHooksAndSkillsByTarget(t *testing.T) {
 			t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 			source := filepath.Join(home, "source")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "cursor.yaml"), "name: cursor\n"+tc.filter+"event: beforeShellExecution\ncommand: cursor-command\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "shell.yaml"), "name: shell\ntargets: [claude, codex]\nevent: PreToolUse\nmatcher: Bash\ncommand: shell-command\n")
-			mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n"+tc.filter+"---\nReview code.\n")
+			writeFile(t, filepath.Join(source, "hooks", "cursor.yaml"), "name: cursor\n"+tc.filter+"event: beforeShellExecution\ncommand: cursor-command\n")
+			writeFile(t, filepath.Join(source, "hooks", "shell.yaml"), "name: shell\ntargets: [claude, codex]\nevent: PreToolUse\nmatcher: Bash\ncommand: shell-command\n")
+			writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n"+tc.filter+"---\nReview code.\n")
 			for _, check := range []bool{false, false, true} {
 				root := NewRootCmd("test")
 				args := []string{"sync", "--global", "--only", "claude,codex,cursor"}
@@ -494,15 +484,15 @@ func TestSyncGlobal_RemovesHooksWhenTargetExcluded(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	source := filepath.Join(home, "source", "hooks", "shell.yaml")
-	mustWriteGlobalTest(t, source, "name: shell\nevent: PreToolUse\ncommand: managed-command\n")
+	writeFile(t, source, "name: shell\nevent: PreToolUse\ncommand: managed-command\n")
 	path := filepath.Join(home, ".cursor", "hooks.json")
-	mustWriteGlobalTest(t, path, `{"hooks":{"beforeShellExecution":[{"command":"user-command"}]}}`)
+	writeFile(t, path, `{"hooks":{"beforeShellExecution":[{"command":"user-command"}]}}`)
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, source, "name: shell\ntarget: claude\nevent: PreToolUse\ncommand: managed-command\n")
+	writeFile(t, source, "name: shell\ntarget: claude\nevent: PreToolUse\ncommand: managed-command\n")
 	for _, check := range []bool{false, true} {
 		root = NewRootCmd("test")
 		args := []string{"sync", "--global", "--only", "claude,cursor"}

@@ -16,8 +16,8 @@ func linkedSourceSkill(t *testing.T) (spec.Entry, string) {
 	t.Helper()
 	testutil.TempCwd(t)
 	physical := t.TempDir()
-	writeTestFile(t, filepath.Join(physical, "SKILL.md"), skillSpec("demo", ""))
-	writeTestFile(t, filepath.Join(physical, "references", "guide.txt"), "Initial asset.\n")
+	writeFile(t, filepath.Join(physical, "SKILL.md"), skillSpec("demo", ""))
+	writeFile(t, filepath.Join(physical, "references", "guide.txt"), "Initial asset.\n")
 	testutil.DirectoryAlias(t, physical, "skill-link")
 	return spec.Entry{
 		Kind: spec.KindSkill,
@@ -40,7 +40,7 @@ func TestSpecEntryFiles_LinkedSourceKeepsAssetProvenance(t *testing.T) {
 func TestEntrySum_LinkedSourceAssetEditChangesSum(t *testing.T) {
 	e, physical := linkedSourceSkill(t)
 	before := entrySum(e)
-	writeTestFile(t, filepath.Join(physical, "references", "guide.txt"), "Updated asset.\n")
+	writeFile(t, filepath.Join(physical, "references", "guide.txt"), "Updated asset.\n")
 	if entrySum(e) == before {
 		t.Error("editing a linked-root skill asset did not change the reported spec sum")
 	}
@@ -49,14 +49,14 @@ func TestEntrySum_LinkedSourceAssetEditChangesSum(t *testing.T) {
 func TestSkillAssets_LinkedSourceDetectsGlobalDifference(t *testing.T) {
 	project, _ := linkedSourceSkill(t)
 	globalRoot := t.TempDir()
-	writeTestFile(t, filepath.Join(globalRoot, "SKILL.md"), skillSpec("demo", ""))
-	writeTestFile(t, filepath.Join(globalRoot, "references", "guide.txt"), "Initial asset.\n")
+	writeFile(t, filepath.Join(globalRoot, "SKILL.md"), skillSpec("demo", ""))
+	writeFile(t, filepath.Join(globalRoot, "references", "guide.txt"), "Initial asset.\n")
 	global := project
 	global.Path = filepath.Join(globalRoot, "SKILL.md")
 	if got := compareSkillAssets(project, global); got != contentIdentical {
 		t.Errorf("same linked and global assets = %v, want identical", got)
 	}
-	writeTestFile(t, filepath.Join(globalRoot, "references", "guide.txt"), "Changed asset.\n")
+	writeFile(t, filepath.Join(globalRoot, "references", "guide.txt"), "Changed asset.\n")
 	if got := compareSkillAssets(project, global); got != contentDiffers {
 		t.Errorf("changed global asset = %v, want differs", got)
 	}
@@ -72,7 +72,7 @@ func TestSkillAssets_LinkedSourceDetectsGlobalDifference(t *testing.T) {
 func TestAddGlobalSkill_LinkedSourceCopiesNestedAsset(t *testing.T) {
 	e, physical := linkedSourceSkill(t)
 	outside := t.TempDir()
-	writeTestFile(t, filepath.Join(outside, "outside.txt"), "Do not copy.\n")
+	writeFile(t, filepath.Join(outside, "outside.txt"), "Do not copy.\n")
 	testutil.DirectoryAlias(t, outside, filepath.Join(physical, "nested-link"))
 	files := map[string][]byte{}
 	err := addGlobalSkill("native/demo", e, "claude", false, nil,
@@ -98,10 +98,10 @@ func TestExplainInputs_LinkedSourceFindsReviewIncludes(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	physical := t.TempDir()
-	writeTestFile(t, filepath.Join(physical, "web.md"), "---\nname: web\n---\n@apps/web/README.md\n")
-	writeTestFile(t, "apps/web/README.md", "Web notes.\n")
+	writeFile(t, filepath.Join(physical, "web.md"), "---\nname: web\n---\n@apps/web/README.md\n")
+	writeFile(t, "apps/web/README.md", "Web notes.\n")
 	testutil.DirectoryAlias(t, physical, "reviews-link")
-	writeTestFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  reviews: reviews-link\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  reviews: reviews-link\n")
 	var out bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&out)

@@ -18,9 +18,9 @@ const handFormattedClaudeSettings = "{\n    \"model\": \"opus\",\n    \"permissi
 
 func TestSyncGlobal_SettingsWithNothingToWriteStayByteIdentical(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
 	settings := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, settings, handFormattedClaudeSettings)
+	writeFile(t, settings, handFormattedClaudeSettings)
 
 	for run := 1; run <= 2; run++ {
 		if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
@@ -41,9 +41,9 @@ func TestSyncGlobal_SettingsWithNothingToWriteStayByteIdentical(t *testing.T) {
 
 func TestSyncGlobal_SettingsHookChangeKeepsKeyOrderAndIndent(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
 	settings := filepath.Join(home, ".claude", "settings.json")
-	mustWriteGlobalTest(t, settings, handFormattedClaudeSettings)
+	writeFile(t, settings, handFormattedClaudeSettings)
 
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestSyncGlobal_SettingsHookChangeKeepsKeyOrderAndIndent(t *testing.T) {
 
 func TestSyncGlobal_UnchangedHookWithTimeoutIsNotRewritten(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\ntimeout: 30\n")
+	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\ntimeout: 30\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestSyncGlobal_UnchangedHookWithTimeoutIsNotRewritten(t *testing.T) {
 		t.Fatal(err)
 	}
 	reformatted := strings.ReplaceAll(string(data), "  ", "    ")
-	mustWriteGlobalTest(t, settings, reformatted)
+	writeFile(t, settings, reformatted)
 
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
@@ -101,11 +101,11 @@ func TestSyncGlobal_HookAddThenRemoveRestoresSettingsBytes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			settings := filepath.Join(home, ".claude", "settings.json")
-			mustWriteGlobalTest(t, settings, original)
+			writeFile(t, settings, original)
 			fmtHook := filepath.Join(source, "hooks", "fmt.yaml")
-			mustWriteGlobalTest(t, fmtHook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+			writeFile(t, fmtHook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
 			startHook := filepath.Join(source, "hooks", "start.yaml")
-			mustWriteGlobalTest(t, startHook, "event: SessionStart\ncommand: echo hi\n")
+			writeFile(t, startHook, "event: SessionStart\ncommand: echo hi\n")
 
 			if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatal(err)
@@ -139,7 +139,7 @@ func TestSyncGlobal_HookAddThenRemoveRestoresSettingsBytes(t *testing.T) {
 func TestSyncGlobal_HookAddThenRemoveDropsSettingsSyncCreated(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "fmt.yaml")
-	mustWriteGlobalTest(t, hook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+	writeFile(t, hook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestSyncGlobal_HookAddThenRemoveDropsSettingsSyncCreated(t *testing.T) {
 func TestSyncGlobal_HookRemoveKeepsKeyAddedToSettingsSyncCreated(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "fmt.yaml")
-	mustWriteGlobalTest(t, hook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+	writeFile(t, hook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestSyncGlobal_HookRemoveKeepsKeyAddedToSettingsSyncCreated(t *testing.T) {
 		t.Fatal(err)
 	}
 	edited := strings.Replace(string(data), "{", "{\n  \"model\":   \"opus\",", 1)
-	mustWriteGlobalTest(t, settings, edited)
+	writeFile(t, settings, edited)
 	if err := os.Remove(hook); err != nil {
 		t.Fatal(err)
 	}
@@ -217,9 +217,9 @@ func TestSyncGlobal_HookAddThenRemoveKeepsUserContainers(t *testing.T) {
 			t.Run(target.name+"/"+name, func(t *testing.T) {
 				home, source := globalAgentTestHome(t)
 				native := filepath.Join(home, filepath.FromSlash(target.file))
-				mustWriteGlobalTest(t, native, original)
+				writeFile(t, native, original)
 				hook := filepath.Join(source, "hooks", "start.yaml")
-				mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
+				writeFile(t, hook, "event: SessionStart\ncommand: echo hi\n")
 				if _, _, err := runGlobalAgentTest("--only", target.name); err != nil {
 					t.Fatal(err)
 				}
@@ -256,11 +256,11 @@ func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) 
 	created := func(t *testing.T, target, file string) string {
 		t.Helper()
 		home, source := globalAgentTestHome(t)
-		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), spec)
+		writeFile(t, filepath.Join(source, "hooks", "start.yaml"), spec)
 		if _, _, err := runGlobalAgentTest("--only", target); err != nil {
 			t.Fatal(err)
 		}
-		return readGlobalTest(t, filepath.Join(home, filepath.FromSlash(file)))
+		return readFile(t, filepath.Join(home, filepath.FromSlash(file)))
 	}
 	for _, target := range []struct{ name, file string }{
 		{"claude", ".claude/settings.json"},
@@ -275,12 +275,12 @@ func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) 
 				want := created(t, target.name, target.file)
 				home, source := globalAgentTestHome(t)
 				native := filepath.Join(home, filepath.FromSlash(target.file))
-				mustWriteGlobalTest(t, native, original)
-				mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), spec)
+				writeFile(t, native, original)
+				writeFile(t, filepath.Join(source, "hooks", "start.yaml"), spec)
 				if _, _, err := runGlobalAgentTest("--only", target.name); err != nil {
 					t.Fatal(err)
 				}
-				got := readGlobalTest(t, native)
+				got := readFile(t, native)
 				body := strings.TrimSuffix(strings.TrimSuffix(want, "\n}\n"), "\n")
 				if original == "{}\n" && got != want || !strings.HasPrefix(got, body) {
 					t.Errorf("a hook added to %q must be indented like a file sync creates\nwant: %q\ngot:  %q", original, want, got)
@@ -292,17 +292,17 @@ func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) 
 
 func TestSyncGlobal_UpgradeKeepsUserEnvOnTargetWithoutHookHistory(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	statePath := filepath.Join(source, "state", "global.json")
-	mustWriteGlobalTest(t, statePath, strings.Replace(readGlobalTest(t, statePath), fmt.Sprintf(`"version": %d`, globalStateVersion), `"version": 5`, 1))
+	writeFile(t, statePath, strings.Replace(readFile(t, statePath), fmt.Sprintf(`"version": %d`, globalStateVersion), `"version": 5`, 1))
 	settings := filepath.Join(home, ".claude", "settings.json")
 	original := `{"model":"x","env":{}}`
-	mustWriteGlobalTest(t, settings, original)
+	writeFile(t, settings, original)
 	hook := filepath.Join(source, "hooks", "start.yaml")
-	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
+	writeFile(t, hook, "event: SessionStart\ncommand: echo hi\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestSyncGlobal_UpgradeKeepsUserEnvOnTargetWithoutHookHistory(t *testing.T) 
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, settings); got != original {
+	if got := readFile(t, settings); got != original {
 		t.Errorf("a target with no hook history must not take the user's containers\nwant: %q\ngot:  %q", original, got)
 	}
 }
@@ -321,15 +321,15 @@ func TestSyncGlobal_HookRemoveAfterUpgradeDropsContainersOlderStateMade(t *testi
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"model\": \"x\"}\n"
-	mustWriteGlobalTest(t, settings, original)
+	writeFile(t, settings, original)
 	hook := filepath.Join(source, "hooks", "start.yaml")
-	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
+	writeFile(t, hook, "event: SessionStart\ncommand: echo hi\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	statePath := filepath.Join(source, "state", "global.json")
 	var state map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, statePath)), &state); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, statePath)), &state); err != nil {
 		t.Fatal(err)
 	}
 	state["version"] = 5
@@ -338,14 +338,14 @@ func TestSyncGlobal_HookRemoveAfterUpgradeDropsContainersOlderStateMade(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteGlobalTest(t, statePath, string(older))
+	writeFile(t, statePath, string(older))
 	if err := os.Remove(hook); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if got := readGlobalTest(t, settings); got != original {
+	if got := readFile(t, settings); got != original {
 		t.Errorf("state from before the container record must still drop the hooks and env sync added\nwant: %q\ngot:  %q", original, got)
 	}
 }
@@ -362,7 +362,7 @@ func TestSyncGlobal_HooksWriteStopsWhenFileChangedAfterRead(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			native := filepath.Join(home, filepath.FromSlash(target.file))
 			original := "{\"model\": \"x\"}\n"
-			mustWriteGlobalTest(t, native, original)
+			writeFile(t, native, original)
 			bundle := spec.Bundle{Hooks: []spec.Entry{{Kind: spec.KindHook, Name: "start", Meta: map[string]any{"event": "SessionStart", "command": "echo hi"}}}}
 			writes, _, err := buildGlobalWrites(home, source, []string{target.name}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "")
 			if err != nil {
@@ -376,11 +376,11 @@ func TestSyncGlobal_HooksWriteStopsWhenFileChangedAfterRead(t *testing.T) {
 				t.Fatalf("the hooks write must carry the bytes the merge read, got %+v", p)
 			}
 			changed := "{\"model\": \"y\"}\n"
-			mustWriteGlobalTest(t, native, changed)
+			writeFile(t, native, changed)
 			if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 				t.Fatalf("err = %v", err)
 			}
-			if got := readGlobalTest(t, native); got != changed {
+			if got := readFile(t, native); got != changed {
 				t.Errorf("the tool's write must survive: %q", got)
 			}
 		})
@@ -390,7 +390,7 @@ func TestSyncGlobal_HooksWriteStopsWhenFileChangedAfterRead(t *testing.T) {
 func TestSyncGlobal_ReplacingEveryEntryKeepsOneLineArray(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "start.yaml")
-	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo one\n")
+	writeFile(t, hook, "event: SessionStart\ncommand: echo one\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -404,8 +404,8 @@ func TestSyncGlobal_ReplacingEveryEntryKeepsOneLineArray(t *testing.T) {
 		t.Fatal(err)
 	}
 	oneLine := strings.Replace(compact.String(), "{", "{\"model\": \"x\", ", 1)
-	mustWriteGlobalTest(t, settings, oneLine)
-	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo two\n")
+	writeFile(t, settings, oneLine)
+	writeFile(t, hook, "event: SessionStart\ncommand: echo two\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}

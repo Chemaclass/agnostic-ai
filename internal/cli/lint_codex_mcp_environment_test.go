@@ -9,7 +9,7 @@ import (
 func codexMCPEnvironmentProject(t *testing.T, targets, mcp string) {
 	t.Helper()
 	dir := budgetProject(t, targets)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\n"+mcp)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: npx\n"+mcp)
 }
 
 func TestLint_CodexMCPExperimentalEnvironmentWarns(t *testing.T) {

@@ -64,8 +64,8 @@ func TestMCPTools_OverviewFindsListingThroughProjectDirectoryAlias(t *testing.T)
 	alias := filepath.Join(t.TempDir(), "project-link")
 	testutil.DirectoryAlias(t, project, alias)
 	srv := fakeMCP(t, "synthetic-credential")
-	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [claude]\nbuiltins: []\n")
-	mustWriteGlobalTest(t, filepath.Join(project, ".agnostic-ai", "mcps", "workspace.yaml"), "type: http\nurl: "+srv.URL+"\nheaders:\n  Authorization: Bearer synthetic-credential\n")
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [claude]\nbuiltins: []\n")
+	writeFile(t, filepath.Join(project, ".agnostic-ai", "mcps", "workspace.yaml"), "type: http\nurl: "+srv.URL+"\nheaders:\n  Authorization: Bearer synthetic-credential\n")
 	root, entries, err := mcpToolsScope(alias, false)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +144,7 @@ func TestMCPTools_ChildUsesSelectedRootFromAnotherDirectory(t *testing.T) {
 	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
 		t.Setenv(key, root)
 	}
-	mustWriteGlobalTest(t, filepath.Join(root, "project-marker"), "project")
+	writeFile(t, filepath.Join(root, "project-marker"), "project")
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -276,8 +276,8 @@ func TestMCPTools_RedactsResolvedCredentialsBeforeCachingOrDisplaying(t *testing
 		t.Fatal(err)
 	}
 	t.Setenv("AGNOSTIC_AI_HOME", root)
-	mustWriteGlobalTest(t, filepath.Join(root, "agnostic-ai.yaml"), "targets: [claude]\n")
-	mustWriteGlobalTest(t, filepath.Join(root, "mcps", "private.yaml"), "type: http\nurl: "+url+"\n")
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(root, "mcps", "private.yaml"), "type: http\nurl: "+url+"\n")
 	text, err := runCLI(t, "mcp", "tools", "--global", "--timeout", "1s")
 	if err != nil {
 		t.Fatal(err)

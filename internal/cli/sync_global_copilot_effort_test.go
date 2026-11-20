@@ -40,9 +40,9 @@ func copilotAgentEffort(doc map[string]any, name string) any {
 
 func TestSyncGlobal_CopilotAgentEffortLandsInUserSettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
 	settings := filepath.Join(home, ".copilot", "settings.json")
-	mustWriteGlobalTest(t, settings, `{
+	writeFile(t, settings, `{
   "theme": "dark",
   "subagents": {"agents": {"reviewer": {"model": "gpt-6-sol"}}}
 }`)
@@ -85,13 +85,13 @@ func TestSyncGlobal_CopilotAgentEffortLandsInUserSettings(t *testing.T) {
 func TestSyncGlobal_CopilotAgentEffortRemovalKeepsUserSettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	agent := filepath.Join(source, "agents", "reviewer.md")
-	mustWriteGlobalTest(t, agent, globalEffortAgent)
-	mustWriteGlobalTest(t, filepath.Join(home, ".copilot", "settings.json"), `{"theme": "dark"}`)
+	writeFile(t, agent, globalEffortAgent)
+	writeFile(t, filepath.Join(home, ".copilot", "settings.json"), `{"theme": "dark"}`)
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}
 
-	mustWriteGlobalTest(t, agent, "---\nname: reviewer\ndescription: Review code\n---\nReview carefully.\n")
+	writeFile(t, agent, "---\nname: reviewer\ndescription: Review code\n---\nReview carefully.\n")
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}
@@ -106,10 +106,10 @@ func TestSyncGlobal_CopilotAgentEffortRemovalKeepsUserSettings(t *testing.T) {
 
 func TestSyncGlobal_CopilotHandSetEffortStopsBeforeWrites(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
 	settings := filepath.Join(home, ".copilot", "settings.json")
 	original := `{"subagents": {"agents": {"reviewer": {"effortLevel": "low"}}}}`
-	mustWriteGlobalTest(t, settings, original)
+	writeFile(t, settings, original)
 
 	_, _, err := runGlobalAgentTest("--only", "copilot")
 	if err == nil || !strings.Contains(err.Error(), "effortLevel") {
@@ -129,7 +129,7 @@ func TestSyncGlobal_CopilotHandSetEffortStopsBeforeWrites(t *testing.T) {
 
 func TestSyncGlobal_CopilotUnsupportedEffortKeepsNote(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\neffort: max\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\neffort: max\n---\nReview.\n")
 
 	_, warnings, err := runGlobalAgentTest("--only", "copilot")
 	if err != nil {
@@ -145,9 +145,9 @@ func TestSyncGlobal_CopilotUnsupportedEffortKeepsNote(t *testing.T) {
 
 func TestSyncGlobal_CopilotAgentEffortKeepsKeyOrderAndIndent(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
 	settings := filepath.Join(home, ".copilot", "settings.json")
-	mustWriteGlobalTest(t, settings, `{
+	writeFile(t, settings, `{
     "theme": "dark",
     "subagents": {
         "maxDepth": 3,
@@ -183,10 +183,10 @@ func TestSyncGlobal_CopilotAgentEffortKeepsKeyOrderAndIndent(t *testing.T) {
 
 func TestSyncGlobal_CopilotCommentedSettingsStopBeforeRewrite(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
 	settings := filepath.Join(home, ".copilot", "settings.json")
 	original := "{\n  // keep me\n  \"theme\": \"dark\"\n}\n"
-	mustWriteGlobalTest(t, settings, original)
+	writeFile(t, settings, original)
 
 	_, _, err := runGlobalAgentTest("--only", "copilot")
 	if err == nil || !strings.Contains(err.Error(), "comments") || !strings.Contains(err.Error(), "--backup") {
@@ -212,7 +212,7 @@ func TestSyncGlobal_CopilotCommentedSettingsStopBeforeRewrite(t *testing.T) {
 
 func TestSyncGlobal_CopilotCommentedSettingsWithNothingToWriteSync(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), globalEffortAgent)
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestSyncGlobal_CopilotCommentedSettingsWithNothingToWriteSync(t *testing.T)
 		t.Fatal(err)
 	}
 	commented := strings.Replace(string(data), "{\n", "{\n  // added by hand\n", 1)
-	mustWriteGlobalTest(t, settings, commented)
+	writeFile(t, settings, commented)
 
 	if _, _, err := runGlobalAgentTest("--only", "copilot"); err != nil {
 		t.Fatalf("an unchanged effort needs no rewrite, so comments cannot block the sync: %v", err)
