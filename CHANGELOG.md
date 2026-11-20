@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `sync` and `validate` refuse an `outputs.<target>` path that resolves into `.agnostic-ai/` or a configured spec folder, such as `.agnostic-ai/agnostic_ai.md` on macOS or `.agnostic-ai/rules/../AGNOSTIC_AI.md`, instead of overwriting the source file (#3740).
 - The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
 - `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
 - `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
