@@ -66,6 +66,7 @@ type Config struct {
 	Doctor        DoctorConfig         `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
 	Coverage      CoverageConfig       `yaml:"coverage,omitempty"       json:"coverage,omitempty"`
 	Memory        MemoryConfig         `yaml:"memory,omitempty"         json:"memory,omitempty"`
+	Conversations ConversationsConfig  `yaml:"conversations,omitempty" json:"conversations,omitzero"`
 	Approvals     ApprovalsConfig      `yaml:"approvals,omitempty"      json:"approvals,omitzero"`
 }
 
@@ -562,6 +563,9 @@ func (c *Config) validate(root string, files []*configFile) error {
 		return err
 	}
 	if err := c.Coverage.Validate(source); err != nil {
+		return err
+	}
+	if _, err := c.Conversations.ShellThreshold(source); err != nil {
 		return err
 	}
 	if err := c.Approvals.Validate(source); err != nil {

@@ -317,3 +317,21 @@ test('choosing a fixture drops a late open failure from the one before', async (
   assert.equal((await postJSON(preview.url + '/dev/fixture', { name: 'mixed' })).status, 204)
   assert.equal((await fetch(preview.url + '/api/open/late')).status, 204)
 })
+
+test('the forgotten shell fixture refuses stale identities and changes only the chosen shell', async (t) => {
+  const preview = await startPreview({ port: 0, fixture: 'stuck-shells' })
+  t.after(preview.close)
+  const before = await inbox(preview.url)
+  const row = before.body.view.conversations.find((row) => row.id === 'shells-working')
+  const [first, other] = row.stuckShells
+  const body = { tool: row.tool, id: row.id, pid: first.pid, procStart: first.procStart }
+  const refused = await postJSON(preview.url + '/api/stop-shell', { ...body, procStart: 'stale' })
+  assert.equal(refused.status, 409)
+
+  const stopped = await postJSON(preview.url + '/api/stop-shell', body)
+  assert.equal(stopped.status, 200)
+  assert.ok(stopped.headers.get('List-Version'))
+  assert.deepEqual(await stopped.json(), { stillRunning: [{ pid: first.pid + 1, procStart: first.procStart }] })
+  const after = await inbox(preview.url)
+  assert.deepEqual(after.body.view.conversations.find((row) => row.id === body.id).stuckShells, [other])
+})

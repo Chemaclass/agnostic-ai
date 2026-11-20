@@ -224,6 +224,7 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 | CodeBuddy | [Auto mode](https://www.codebuddy.ai/docs/cli/permission-modes), an AI reviewer; not run by us | `permissions.defaultMode: "auto"` in `~/.codebuddy/settings.json` |
 | Codex | [Auto-review](https://learn.chatgpt.com/docs/agent-approvals-security) | `approvals_reviewer = "auto_review"` in `~/.codex/config.toml` |
 | Cursor (`cursor-agent` only) | [Auto-review](https://cursor.com/docs/agent/security/run-modes), a server classifier | `approvalMode: "auto-review"` in `~/.cursor/cli-config.json` |
+| Devin CLI (`windsurf`) | [Smart mode](https://docs.devin.ai/cli/reference/permissions), a fast model; not run by us | `permission_mode: "smart"` in `~/.config/devin/config.json` (`%APPDATA%\devin\config.json` on Windows) |
 | Qoder | [Auto mode](https://docs.qoder.com/cli/permissions), a two-stage classifier; not run by us | `general.defaultPermissionMode: "auto"` in `~/.qoder/settings.json` |
 | Vibe | [Smart-approve](https://docs.mistral.ai/vibe/code/cli/configuration-reference), a classifier; not run by us | `default_agent = "smart-approve"` in `~/.vibe/config.toml` |
 | Qwen Code | [Auto mode](https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md), an LLM classifier; not run by us | `tools.approvalMode: "auto"` in `~/.qwen/settings.json` |
@@ -235,12 +236,25 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 - Qwen Code already runs auto mode in a trusted folder when `tools.approvalMode` is unset, so `ask` alone does not bring its prompts back; `approvals status` says so. Set `x-qwen.tools.approvalMode: default` in a home settings spec to see them. Qwen Code asks anyway in an untrusted folder and with `--bare` or `--safe-mode`, and a project's `.qwen/settings.json` can set the same key. Checked against the Qwen Code 0.28.0 package.
 - CodeBuddy takes `defaultMode: "auto"` only from user settings and the command line; a project file cannot grant it. It falls back to `default` when `permissions.disableAutoMode` is `"disable"` or auto mode is unavailable, and `approvals status` notes the first. `sync --global` writes `~/.codebuddy/settings.json` even when `CODEBUDDY_CONFIG_DIR` moves CodeBuddy's settings elsewhere; status notes that too. Checked against the CodeBuddy 2.185.0 package and its permission-modes page.
 - cursor-agent reads `cli-config.json` from `CURSOR_CONFIG_DIR`, else `$XDG_CONFIG_HOME/cursor`, else `~/.cursor`, and `sync --global` follows the same order. cursor-agent rewrites that file itself, so sync owns only `approvalMode` there. cursor-agent writes `approvalMode: "allowlist"` as its own default, so review replaces that value and gives the key back when review goes; any other value set by hand stays. `x-cursor.approvalMode` in a home settings spec wins and must be `allowlist`, `unrestricted` or `auto-review`, since cursor-agent sets a file with any other value aside and starts over. `CURSOR_CONFIG_DIR` and `XDG_CONFIG_HOME` must be absolute paths. Auto-review needs a classifier-capable model and team permission, or cursor-agent falls back to its allowlist. The Cursor desktop app keeps its own setting, and `approvals status` says to turn on Auto-review there. Checked against cursor-agent 2026.11.11, which kept the key when it rewrote the file.
+- Devin CLI reads `permission_mode` only from the user config, so a project cannot set it. `--permission-mode` replaces it for one launch. Devin's docs also show `DEVIN_PERMISSION_MODE=smart devin`, and `approvals status` notes a set variable; that the variable wins over the file is our reading, not stated. A `null` value means normal, so review replaces it. Your organization's policy can remove Smart mode, and sandbox sessions do not offer it; the docs do not say what Devin does with the key then. `approvals status` reports `dangerous` as approving every call. Sync owns only `permission_mode` in that file; `x-windsurf.permission_mode` in a home settings spec wins and must be `normal`, `accept-edits`, `smart` or `dangerous`. Your own `deny` and `ask` rules still come first. From the Devin CLI configuration and permissions pages; Devin CLI is not installed here.
 - Qoder reads `general.defaultPermissionMode` from every settings layer, so a project's `.qoder/settings.json` can set it too, and an untrusted folder starts in `default`, as does a session with no classifier model available. An older `tools.approvalMode` key counts as the user's mode, so review leaves it. Checked against the Qoder CLI 1.1.93 package.
 - Vibe takes a `default_agent` that a person sets as an opt-in, so smart-approve starts even before the mode reaches Vibe's mode picker. An organization can still exclude it, and a trusted project's `.vibe/config.toml`, `VIBE_DEFAULT_AGENT`, an admin config, or `--agent` replaces the user file's value. In the user file, `x-vibe` cannot set `default_agent`, so only a hand-set value wins; Vibe can also write `default_agent = "ask"` there itself when `disabled_agents` lists `accept-edits`. With `bypass_tool_permissions = true`, Vibe approves every call and the classifier never runs; `approvals status` notes it and a set `VIBE_DEFAULT_AGENT`. Checked against the mistral-vibe 3.1.3 package.
 - A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code). A new session reads the new settings.
 - agnostic-ai logs no decision the reviewer makes. Each tool keeps its own record, and each review costs the tool's own model calls.
 
 Run [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) to see the mode and route per tool, and [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) to show every prompt again.
+
+## Conversations {#global-conversations}
+
+Set how long a Claude Code background shell can run before it appears in the [Conversations list and companion](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
+
+```yaml
+# $AGNOSTIC_AI_HOME/agnostic-ai.yaml or $AGNOSTIC_AI_HOME/local/agnostic-ai.yaml
+conversations:
+  stuckShellAfter: 45m
+```
+
+The default is `30m`. Use a nonnegative duration such as `1h30m`, or `0` to turn off the warnings and stop action. Only the home config controls this setting. The local home setting takes precedence over the shared home setting. Restart `agnostic-ai serve` or the companion to use the new value.
 
 ## MCP servers {#global-mcp-servers}
 

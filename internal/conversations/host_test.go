@@ -33,14 +33,14 @@ func ghosttyTable(tabs ...[]ProcessInfo) []ProcessInfo {
 }
 
 func TestParseProcessTable_KeepsTheStartTimeAndACommandWithSpaces(t *testing.T) {
-	table := parseProcessTable("  761     1 S      ??       Sat Nov  7 15:23:53 2026     /Applications/Ghostty.app/Contents/MacOS/ghostty\n" +
-		"56521 56407 S+     ttys000  Tue Nov 10 20:15:20 2026     /Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Plugin).app/Contents/MacOS/Cursor Helper (Plugin)\n" +
+	table := parseProcessTable("  761     1   761 S      ??       Sat Nov  7 15:23:53 2026     /Applications/Ghostty.app/Contents/MacOS/ghostty\n" +
+		"56521 56407 56521 S+     ttys000  Tue Nov 10 20:15:20 2026     /Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Plugin).app/Contents/MacOS/Cursor Helper (Plugin)\n" +
 		"not a process line\n")
 
 	if len(table) != 2 {
 		t.Fatalf("table = %+v", table)
 	}
-	if app := table[0]; app.PID != 761 || app.PPID != 1 || app.TTY != "" || app.Started != "Sat Nov  7 15:23:53 2026" || app.Command != ghosttyApp {
+	if app := table[0]; app.PID != 761 || app.PPID != 1 || app.PGID != 761 || app.TTY != "" || app.Started != "Sat Nov  7 15:23:53 2026" || app.Command != ghosttyApp {
 		t.Errorf("app row = %+v", app)
 	}
 	if helper := table[1]; helper.TTY != "/dev/ttys000" || helper.Stat != "S+" || !strings.HasSuffix(helper.Command, "Cursor Helper (Plugin)") {

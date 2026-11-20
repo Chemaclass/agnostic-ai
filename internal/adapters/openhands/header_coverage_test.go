@@ -73,7 +73,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // reach OpenHands only through the shared AGENTS.md entry-point this
 // adapter never writes itself (see openhands.go); r4 carries a `globs`
 // value and becomes a path-triggered rule, landing at
-// `.agents/skills/r4/SKILL.md` (see path_rules.go).
+// `.agents/skills/r4.md` (see path_rules.go).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},

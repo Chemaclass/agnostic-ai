@@ -96,6 +96,9 @@ func (g *gate) changeDir(args []shellWord, cwd *string) string {
 	if g.protected(abs) || g.secret(abs) {
 		return RuleProtectedPath
 	}
+	if rule := g.specRule(abs); rule != "" {
+		return rule
+	}
 	*cwd = abs
 	return ""
 }
@@ -328,7 +331,7 @@ func (g *gate) pathValue(value, cwd string) string {
 	if g.protected(abs) {
 		return RuleProtectedPath
 	}
-	return ""
+	return g.specRule(abs)
 }
 
 func pathLike(word string) bool {

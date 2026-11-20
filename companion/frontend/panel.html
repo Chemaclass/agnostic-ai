@@ -55,6 +55,16 @@
         <button class="confirm-delete" id="delete-go" type="button">Delete permanently</button>
       </div>
     </section>
+    <section class="notice confirm" id="stop-shell-dialog" role="alertdialog" aria-modal="true" aria-labelledby="stop-shell-title" aria-describedby="stop-shell-command stop-shell-details" hidden>
+      <p class="confirm-title" id="stop-shell-title">Stop shell?</p>
+      <select class="stop-shell-choice" id="stop-shell-choice" aria-label="Choose a shell" hidden></select>
+      <code class="stop-shell-command" id="stop-shell-command" hidden></code>
+      <p class="confirm-details" id="stop-shell-details" hidden></p>
+      <div class="notice-actions confirm-actions">
+        <button class="confirm-cancel" id="stop-shell-cancel" type="button">Cancel</button>
+        <button class="confirm-delete" id="stop-shell-go" type="button">Stop shell</button>
+      </div>
+    </section>
     <section class="notice confirm" id="quit-confirm" role="alertdialog" aria-modal="true" aria-labelledby="quit-title" aria-describedby="quit-body" hidden>
       <p class="confirm-title" id="quit-title">Quit Agnostic AI companion?</p>
       <p class="confirm-body" id="quit-body">Quit stops the program, so the shortcut will not bring it back. To start it again, run <code>agnostic-ai companion</code>, or ask your AI tool to run it. The shortcut works only after Hide.</p>
@@ -81,6 +91,7 @@
       <button class="menu-item" id="rename" type="button" role="menuitem">Rename…</button>
       <button class="menu-item" id="open-web" type="button" role="menuitem" title="Also open on claude.ai">Open on claude.ai</button>
       <button class="menu-item is-danger" id="delete" type="button" role="menuitem" title="Removes the chat from this computer. It cannot be undone.">Delete permanently…</button>
+      <button class="menu-item is-danger" id="stop-shell" type="button" role="menuitem">Stop shell…</button>
     </div>
     <p class="toast" id="toast" role="status" data-tone="info" hidden><svg class="tone-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2.6L14 13H2zM8 6.7v3.1M8 11.3v.1"/></svg><span id="toast-text"></span></p>
   </main>

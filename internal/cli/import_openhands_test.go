@@ -47,7 +47,7 @@ func TestImportOpenhands_RoundTripFixedPoint(t *testing.T) {
 	execCLI(t, "sync", "-t", "openhands")
 	first := snapshotEmitted(t, dir)
 	for _, want := range []string{
-		".agents/skills/api/SKILL.md", ".agents/skills/release/SKILL.md",
+		".agents/skills/api.md", ".agents/skills/release/SKILL.md",
 		".agents/agents/reviewer.md", ".openhands/hooks.json", ".openhands/setup.sh",
 	} {
 		if _, ok := first[want]; !ok {
@@ -77,6 +77,68 @@ func TestImportOpenhands_RoundTripFixedPoint(t *testing.T) {
 	if len(second) != len(first) {
 		t.Errorf("re-emit wrote %d files, first emit wrote %d: %v", len(second), len(first), keys(second))
 	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+}
+
+func TestImportOpenhands_ReadsScopedRuleFromSkillFolder(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [openhands]\n")
+	const old = ".agents/skills/api/SKILL.md"
+	const rule = "---\npaths: [src/api/**]\n---\n\nValidate requests.\n"
+	writeFile(t, old, rule)
+
+	execCLI(t, "import", "openhands")
+	if got := readFile(t, ".agnostic-ai/rules/api.md"); !strings.Contains(got, "src/api/**") || !strings.Contains(got, "Validate requests.") {
+		t.Errorf("import lost rule paths or body:\n%s", got)
+	}
+	if _, err := os.Stat(".agnostic-ai/skills/api"); !os.IsNotExist(err) {
+		t.Errorf("expected no skill spec for the rule, got %v", err)
+	}
+	execCLI(t, "sync", "-t", "openhands")
+	if got := readFile(t, ".agents/skills/api.md"); !strings.Contains(got, "src/api/**") || !strings.Contains(got, "Validate requests.") {
+		t.Errorf("sync lost rule paths or body:\n%s", got)
+	}
+	if got := readFile(t, old); got != rule {
+		t.Errorf("sync changed the hand-written rule:\n%s", got)
+	}
+	execCLI(t, "sync", "--check", "-t", "openhands")
+	execCLI(t, "lint")
+}
+
+func TestImportOpenhands_RoundTripsReservedRuleAndSameNameSkill(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [openhands, codex]\n")
+	writeFile(t, ".agnostic-ai/rules/skill.md", "---\nname: skill\npaths: [docs/**]\n---\n\nCheck docs links.\n")
+	writeFile(t, ".agnostic-ai/rules/skill-path-rule.md", "---\nname: skill-path-rule\npaths: [tests/**]\n---\n\nReview tests.\n")
+	writeFile(t, ".agnostic-ai/rules/release.md", "---\nname: release\npaths: [release/**]\n---\n\nReview release files.\n")
+	writeFile(t, ".agnostic-ai/skills/release/SKILL.md", "---\nname: release\ndescription: Cut a release\n---\n\nTag and publish.\n")
+
+	execCLI(t, "sync")
+	first := snapshotEmitted(t, dir)
+	if _, ok := first[".agents/skills/skill-path-rule-2.md"]; !ok {
+		t.Fatal("sync did not write the reserved rule under a distinct filename")
+	}
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
+		t.Fatalf("wipe source specs: %v", err)
+	}
+	execCLI(t, "import", "openhands")
+	for path, want := range map[string]string{
+		".agnostic-ai/rules/skill.md":           "Check docs links.",
+		".agnostic-ai/rules/skill-path-rule.md": "Review tests.",
+		".agnostic-ai/rules/release.md":         "Review release files.",
+		".agnostic-ai/skills/release/SKILL.md":  "Tag and publish.",
+	} {
+		if got := readFile(t, path); !strings.Contains(got, want) {
+			t.Errorf("%s is missing %q:\n%s", path, want, got)
+		}
+	}
+	execCLI(t, "sync")
+	assertEmittedEqual(t, first, snapshotEmitted(t, dir))
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
 }
 
 // Sync no longer writes config.toml, but a team on legacy OpenHands (V0)

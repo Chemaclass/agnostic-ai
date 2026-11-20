@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -105,8 +106,9 @@ func importFromOpenhands(root string, src config.Sources) error {
 // later ones, whatever kind it imported as.
 func importOpenhandsSkillTrees(root string, src config.Sources) (rules, skills int, err error) {
 	seen := map[string]bool{}
+	seenRules := map[string]bool{}
 	for _, dir := range append([]string{openhandsSkillsDir}, openhandsLegacySkillDirs...) {
-		r, s, err := importOpenhandsSkillDir(filepath.Join(root, filepath.FromSlash(dir)), root, src, seen)
+		r, s, err := importOpenhandsSkillDir(filepath.Join(root, filepath.FromSlash(dir)), root, src, seen, seenRules)
 		if err != nil {
 			return rules, skills, err
 		}
@@ -119,7 +121,7 @@ func importOpenhandsSkillTrees(root string, src config.Sources) (rules, skills i
 // importOpenhandsSkillDir imports one skill directory. Flat files and
 // path-triggered skill folders are classified first; the remaining
 // folders then copy as ordinary skills.
-func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[string]bool) (rules, skills int, err error) {
+func importOpenhandsSkillDir(dir, root string, src config.Sources, seen, seenRules map[string]bool) (rules, skills int, err error) {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, 0, nil
@@ -134,7 +136,7 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		} else if !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
-		if seen[name] {
+		if e.IsDir() && seen[name] {
 			continue
 		}
 		data, err := os.ReadFile(file)
@@ -145,11 +147,26 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 			return rules, skills, fmt.Errorf("read %s: %w", file, err)
 		}
 		meta, body := splitMdcFrontmatter([]byte(header.Strip(string(data))))
-		switch openhandsSkillKind(meta, e.IsDir()) {
+		kind := openhandsSkillKind(meta, e.IsDir())
+		nativeName := name
+		if !e.IsDir() && kind == "rule" && len(openhandsPaths(meta["paths"])) > 0 {
+			declaredName, _ := meta["name"].(string)
+			if sourceName, ok := openhands.PathRuleSourceName(name, declaredName); ok {
+				name, nativeName = sourceName, declaredName
+			}
+		}
+		if seen[nativeName] {
+			continue
+		}
+		switch kind {
 		case "skill":
 			continue // copied with its assets below
 		case "rule":
+			if seenRules[name] {
+				continue
+			}
 			err = writeOpenhandsRule(filepath.Join(importSourcePath(root, src.Rules), name+".md"), name, meta, body)
+			seenRules[name] = true
 			rules++
 		default:
 			// `triggers` has no portable spelling, so it stays under
@@ -160,7 +177,7 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		if err != nil {
 			return rules, skills, err
 		}
-		seen[name] = true
+		seen[nativeName] = true
 	}
 	n, err := importSkillFoldersWith(root, dir, importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seen, TransformSkill: moveOpenhandsTriggers, Fields: &openhandsSkillFields})
 	return rules, skills + n, err
@@ -245,7 +262,7 @@ func openhandsSpecMeta(name string, meta map[string]any, portable ...string) map
 
 // writeOpenhandsRule writes a rule spec. A path-triggered rule keeps its
 // globs as `paths` and its other native keys under x-openhands, which
-// the emitter merges back into the SKILL.md. An always-on rule reaches
+// the emitter merges back into the Markdown file. An always-on rule reaches
 // OpenHands through AGENTS.md, which has no frontmatter, so its native
 // keys are dropped.
 func writeOpenhandsRule(path, name string, meta map[string]any, body string) error {

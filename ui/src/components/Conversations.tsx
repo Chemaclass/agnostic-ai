@@ -6,11 +6,11 @@
 // only posts which one and shows the reply. A static snapshot has no
 // server to read the chats, so it only says what it needs.
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, type ConversationOpenOutcome } from '../api'
-import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationRoute, ConversationSource, ConversationsView } from '../contract'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
+import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -70,6 +70,18 @@ export function ConversationsPage() {
     return cached ? [cached] : []
   })
   const [error, setError] = useState<Error>()
+  const [refresh, setRefresh] = useState(0)
+  const [shellFeedback, setShellFeedback] = useState<ReadonlyMap<string, ShellFeedback>>(() => new Map())
+  const updateShellFeedback = (key: string, feedback?: ShellFeedback) => {
+    setShellFeedback((current) => {
+      if (!feedback && !current.has(key)) return current
+      const next = new Map(current)
+      if (feedback) next.set(key, feedback)
+      else next.delete(key)
+      return next
+    })
+    if (feedback) setRefresh((count) => count + 1)
+  }
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
   const query = app.state.q ?? ''
@@ -132,7 +144,7 @@ export function ConversationsPage() {
       },
     )
     return () => controller.abort()
-  }, [needsServer, app.source, editor, cacheKey, searched])
+  }, [needsServer, app.source, editor, cacheKey, searched, refresh])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
 
@@ -238,7 +250,7 @@ export function ConversationsPage() {
             <h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2>
             <ul className="conversation-list">
               {group.conversations.map((conversation) => (
-                <ConversationRow key={rowKey(conversation)} conversation={conversation} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} />
+                <ConversationRow key={rowKey(conversation)} conversation={conversation} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
               ))}
             </ul>
           </section>
@@ -362,9 +374,15 @@ function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute, 
 
 const rowKey = (conversation: Conversation) => `${conversation.tool}:${conversation.id}`
 
-function ConversationRow({ conversation, under, now, editor, canOpen, opened, onOpened }: { conversation: Conversation; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void }) {
+interface ShellFeedback {
+  message: string
+  failed: boolean
+}
+
+function ConversationRow({ conversation, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback }: { conversation: Conversation; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
+  const [shellSelection, setShellSelection] = useState<StuckShell>()
   const openButton = useRef<HTMLButtonElement>(null)
   const actions = useRef<HTMLDivElement>(null)
   const title = chatText(conversation.title || 'Untitled')
@@ -372,6 +390,12 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
   const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
   const command = opened ? undefined : rowCommand(route)
+  const shells = conversation.stuckShells ?? []
+  const chooseShell = (shell: StuckShell) => {
+    setStatus(undefined)
+    onShellFeedback()
+    setShellSelection(shell)
+  }
 
   const open = async (request: ConversationOpenRequest = { tool: conversation.tool, id: conversation.id, editor }, ownRow = true, subject = title.text) => {
     if (pending) return
@@ -381,6 +405,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
     }
     setPending(true)
     setStatus(undefined)
+    onShellFeedback()
     const outcome = await openConversation(request)
     setStatus(openStatus(outcome, route, subject))
     setPending(false)
@@ -390,6 +415,8 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
       if (ownRow) onOpened()
     }
   }
+
+  const statusTone = shellFeedback ? (shellFeedback.failed ? 'failed' : 'opened') : status?.tone
 
   // Open now rows always show the ink pill; the others turn their link into it on hover and focus.
   return (
@@ -414,6 +441,12 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
         {withheld.includes('prompt')
           ? <Withheld label={withheldLabel('prompt')} />
           : prompt && <p className="conversation-prompt" title={prompt.text}><span className="conversation-label">Last prompt:</span> {prompt.shell ? <code>{prompt.text}</code> : prompt.text}</p>}
+        {shells.map((shell) => (
+          <p className="conversation-shell-warning" key={shellKey(shell)}>
+            {shellWarning(shell, now)}. <ShellCommand command={shell.command} />
+            {shells.length > 1 && <> (PID {shell.pid})</>}
+          </p>
+        ))}
       </div>
       <div className="conversation-actions" ref={actions}>
         <button ref={openButton} type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={() => open()}>
@@ -424,9 +457,14 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
             Open on claude.ai
           </button>
         )}
-        {command && (
+        {(command || (canOpen && shells.length > 0)) && (
           <RowActions label={title.text}>
-            <CopyButton text={command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />
+            {command && <CopyButton text={command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />}
+            {canOpen && shells.map((shell) => (
+              <button key={shellKey(shell)} type="button" className="button button-quiet" aria-haspopup="dialog" onClick={() => chooseShell(shell)}>
+                {shells.length === 1 ? 'Stop shell…' : `Stop shell (PID ${shell.pid})…`}
+              </button>
+            ))}
           </RowActions>
         )}
       </div>
@@ -437,10 +475,80 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
         open(request, ownRow, ownRow ? title.text : helperTitle(helper))
       }} />
       <div className="conversation-result">
-        <p className={`conversation-status${status ? ` is-${status.tone}` : ''}`} role="status">{pending ? 'Opening…' : status?.message ?? ''}</p>
+        <p className={`conversation-status${statusTone ? ` is-${statusTone}` : ''}`} role="status">{pending ? 'Opening…' : shellFeedback?.message ?? status?.message ?? ''}</p>
         {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${status.subject}`} />}
       </div>
+      {shellSelection && (
+        <StopShellDialog
+          conversation={conversation}
+          shell={canOpen ? selectedStuckShell(shells, shellSelection) : undefined}
+          now={now}
+          onClose={() => setShellSelection(undefined)}
+          onResult={(feedback) => {
+            onShellFeedback(feedback)
+            openButton.current?.focus()
+          }}
+        />
+      )}
     </li>
+  )
+}
+
+function shellKey(shell: ConversationProcessRef): string {
+  return `${shell.pid}:${shell.procStart}`
+}
+
+function ShellCommand({ command }: { command: string }) {
+  return command ? <code title={command}>{command}</code> : <span>Command hidden</span>
+}
+
+function StopShellDialog({ conversation, shell, now, onClose, onResult }: { conversation: Conversation; shell?: StuckShell; now: Date; onClose: () => void; onResult: (feedback: ShellFeedback) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const cancel = useRef<HTMLButtonElement>(null)
+  const title = useId()
+  const summary = useId()
+  const [stopping, setStopping] = useState(false)
+
+  useEffect(() => {
+    dialog.current?.showModal()
+    cancel.current?.focus()
+  }, [])
+
+  const stop = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!shell || stopping) return
+    setStopping(true)
+    let message: string
+    let failed = false
+    try {
+      const { stillRunning } = await stopConversationShell({ tool: conversation.tool, id: conversation.id, pid: shell.pid, procStart: shell.procStart })
+      message = stillRunning?.length
+        ? `Stop signal sent. Processes still running (PID${stillRunning.length === 1 ? '' : 's'} ${stillRunning.map(({ pid }) => pid).join(', ')}).`
+        : 'Shell stopped.'
+    } catch (error) {
+      failed = true
+      message = error instanceof Error ? error.message : 'Could not stop the shell.'
+    }
+    dialog.current?.close()
+    onResult({ message, failed })
+  }
+
+  return (
+    <dialog ref={dialog} className="support-dialog conversation-shell-dialog" aria-labelledby={title} aria-describedby={summary} onClose={onClose} onCancel={(event) => { if (stopping) event.preventDefault() }}>
+      <form className="support-dialog-body" onSubmit={stop}>
+        <div className="support-dialog-head"><h2 id={title}>Stop this shell?</h2></div>
+        <div id={summary}>
+          {shell ? <>
+            <p>{shellWarning(shell, now)}. <ShellCommand command={shell.command} /></p>
+            <p>Send a stop signal to {plural(shell.processCount, 'process', 'processes')} in this group.</p>
+          </> : <p>The shell details changed. Close this dialog to choose again.</p>}
+        </div>
+        <div className="conversation-shell-dialog-actions">
+          <button ref={cancel} type="button" className="button" disabled={stopping} onClick={() => dialog.current?.close()}>Cancel</button>
+          <button type="submit" className="button button-primary" disabled={!shell || stopping}>{stopping ? 'Stopping…' : 'Stop shell'}</button>
+        </div>
+      </form>
+    </dialog>
   )
 }
 

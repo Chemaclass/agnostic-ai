@@ -183,7 +183,8 @@ type Conversation struct {
 	// of their own and still work: its native subagents, and the Codex runs
 	// a Claude Code session started with `codex exec`. Nil when none works
 	// or their states are unknown; see helpers.go.
-	Helpers []helper `json:"helpers,omitempty"`
+	Helpers     []helper     `json:"helpers,omitempty"`
+	StuckShells []StuckShell `json:"stuckShells,omitempty"`
 	// Waiting says what a waiting conversation waits for, when its tool
 	// says: an approval, with the call when the transcript shows it, or
 	// an answer. Nil when the kind is unknown.
@@ -261,9 +262,22 @@ type Conversation struct {
 	// underAppArchive: archived in its app and, since then, nothing was
 	// written and its tool never said it was working. See appArchives.
 	underAppArchive bool
+	shellSession    *liveProcess
+	shellOnly       bool
+	mainWorking     bool
 	// pendingReply is a reply whose credential check waits for a page,
 	// for a store that lists thousands of rows with their replies.
 	pendingReply *texts
+}
+
+type StuckShell struct {
+	PID          int    `json:"pid"`
+	ProcStart    string `json:"procStart"`
+	Command      string `json:"command"`
+	Since        string `json:"since"`
+	HelperID     string `json:"helperId,omitempty"`
+	HelperName   string `json:"helperName,omitempty"`
+	ProcessCount int    `json:"processCount"`
 }
 
 // Ref names one conversation of any tool.

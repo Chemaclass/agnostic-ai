@@ -197,6 +197,8 @@ func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 		attendedAt = closedWrittenAt
 	}
 	switch {
+	case c.shellOnly:
+		return StateBlocked
 	case c.Live && c.Activity == ActivityWaiting && (attendedAt.IsZero() || written.After(attendedAt)):
 		return StateBlocked
 	case workingNow(c):
@@ -251,7 +253,7 @@ func knownClosed(c Conversation) bool {
 }
 
 func workingNow(c Conversation) bool {
-	return (c.Live && c.Activity == ActivityWorking) || (!knownClosed(c) && c.WorkingSubagents != nil && *c.WorkingSubagents > 0)
+	return (c.Live && c.Activity == ActivityWorking && !c.shellOnly) || (!knownClosed(c) && c.WorkingSubagents != nil && *c.WorkingSubagents > 0)
 }
 
 // needsPerson reports whether a state counts toward View.NeedsYou.

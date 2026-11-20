@@ -3,7 +3,7 @@
 // shows as. The server sends the rows newest first; these helpers keep
 // that order.
 
-import type { Conversation, ConversationActivity, ConversationApp, ConversationHelper, ConversationOpenReply, ConversationOpenRequest, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView } from '../contract'
+import type { Conversation, ConversationActivity, ConversationApp, ConversationHelper, ConversationOpenReply, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView, StuckShell } from '../contract'
 import { plural } from './format'
 
 const APP_LABELS = {
@@ -288,6 +288,7 @@ const ACTIVITY_BADGES = {
 
 /** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. A wait read from silence says how long nothing came instead. */
 export function liveBadge(conversation: Conversation, now: Date): LiveBadge | undefined {
+  if (conversation.waiting?.for === 'shell') return undefined
   const { activity } = conversation
   if (activity === 'waiting') return quietBadge(conversation, now) ?? ACTIVITY_BADGES.waiting
   if (activity === 'working') return ACTIVITY_BADGES[activity]
@@ -430,4 +431,30 @@ export function helperOpenRequest(parent: Conversation, helper: ConversationHelp
 
 export function helperTooltip(helper: ConversationHelper): string {
   return helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in, and show how to reach this subagent'
+}
+
+export function isConversationProcessRef(value: unknown): value is ConversationProcessRef {
+  if (!value || typeof value !== 'object') return false
+  const { pid, procStart } = value as Record<string, unknown>
+  return typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 1 && typeof procStart === 'string' && procStart.trim() !== ''
+}
+
+export function selectedStuckShell(shells: readonly StuckShell[], selected: StuckShell): StuckShell | undefined {
+  return shells.find((shell) => shell.pid === selected.pid &&
+    shell.procStart === selected.procStart &&
+    shell.command === selected.command &&
+    shell.since === selected.since &&
+    shell.helperName === selected.helperName &&
+    shell.processCount === selected.processCount)
+}
+
+export function shellWarning(shell: StuckShell, now: Date): string {
+  const minutes = Math.max(0, Math.floor((now.getTime() - Date.parse(shell.since)) / 60_000))
+  const hours = Math.floor(minutes / 60)
+  const age = hours >= 24 ? plural(Math.floor(hours / 24), 'day')
+    : hours > 0 ? plural(hours, 'hour')
+    : minutes > 0 ? plural(minutes, 'minute')
+    : 'less than a minute'
+  const subject = shell.helperName ? `${shell.helperName} left a shell running` : 'Shell running'
+  return `${subject} for ${age}`
 }

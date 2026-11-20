@@ -17,15 +17,23 @@ import (
 
 // KiroAskRuleFiles lists the Kiro files that may hold permission rules
 // for a session in cwd: the user permissions file, every workspace
-// permissions file under home, since the folder name is a hash of the
+// permissions file in the Kiro config root, since the folder name is a hash of the
 // workspace that the hook cannot compute, and the agent profiles in the
 // user folder and in .kiro/agents of cwd and every folder above it
 // (kiro.dev/docs/permissions.md).
-func KiroAskRuleFiles(home, cwd string) []string {
-	files := []string{filepath.Join(home, ".kiro", "settings", "permissions.yaml")}
-	workspaces, _ := filepath.Glob(filepath.Join(home, ".kiro", "workspace-roots", "*", "permissions.yaml"))
-	files = append(files, workspaces...)
-	dirs := []string{filepath.Join(home, ".kiro", "agents")}
+func KiroAskRuleFiles(root, cwd string) ([]string, error) {
+	files := []string{filepath.Join(root, "settings", "permissions.yaml")}
+	workspaces := filepath.Join(root, "workspace-roots")
+	entries, err := readKiroRuleDir(workspaces)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Type()&fs.ModeSymlink != 0 {
+			files = append(files, filepath.Join(workspaces, entry.Name(), "permissions.yaml"))
+		}
+	}
+	dirs := []string{filepath.Join(root, "agents")}
 	if filepath.IsAbs(cwd) {
 		for dir := filepath.Clean(cwd); ; dir = filepath.Dir(dir) {
 			dirs = append(dirs, filepath.Join(dir, ".kiro", "agents"))
@@ -35,15 +43,25 @@ func KiroAskRuleFiles(home, cwd string) []string {
 		}
 	}
 	for _, dir := range dirs {
-		entries, _ := os.ReadDir(dir)
+		entries, err := readKiroRuleDir(dir)
+		if err != nil {
+			return nil, err
+		}
 		for _, entry := range entries {
-			name := entry.Name()
-			if !entry.IsDir() && slices.ContainsFunc([]string{".json", ".yaml", ".yml", ".md"}, func(ext string) bool { return strings.HasSuffix(name, ext) }) {
-				files = append(files, filepath.Join(dir, name))
+			if !entry.IsDir() && slices.Contains([]string{".json", ".yaml", ".yml", ".md"}, filepath.Ext(entry.Name())) {
+				files = append(files, filepath.Join(dir, entry.Name()))
 			}
 		}
 	}
-	return files
+	return files, nil
+}
+
+func readKiroRuleDir(path string) ([]os.DirEntry, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return entries, nil
 }
 
 // KiroHasAskRule reports whether any of files holds a rule with effect

@@ -12,11 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// A rule carrying the cross-tool `globs` field (the Cursor spelling)
-// becomes a path-triggered rule (docs.openhands.dev/overview/skills/path):
-// a `paths:` frontmatter list, folder form, in the same shared
-// `.agents/skills/` tree skills already use.
-func TestEmit_Rule_WithGlobsWritesPathTriggeredSkillFolder(t *testing.T) {
+func TestEmit_Rule_WithGlobsWritesFlatPathTriggeredRule(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -25,13 +21,38 @@ func TestEmit_Rule_WithGlobsWritesPathTriggeredSkillFolder(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/skills/api-validation/SKILL.md"))
+	got := readFile(t, filepath.Join(dir, ".agents/skills/api-validation.md"))
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/api-validation/SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("expected the rule to have no skill folder, got %v", err)
+	}
 	if !strings.HasPrefix(got, "---\n") {
 		t.Fatalf("frontmatter must be first, got:\n%s", got)
 	}
-	for _, want := range []string{"paths:", "src/api/**/*.ts", "Validate all request inputs with zod."} {
+	for _, want := range []string{"name: path-rule/api-validation", "paths:", "src/api/**/*.ts", "Validate all request inputs with zod."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestEmit_Rule_AvoidsReservedFlatNames(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	var entries []spec.Entry
+	want := map[string]string{
+		"agent": "agent-path-rule", "agents": "agents-path-rule", "claude": "claude-path-rule",
+		"gemini": "gemini-path-rule", "README": "README-path-rule-2",
+		"skill": "skill-path-rule", "readme-path-rule": "readme-path-rule",
+	}
+	for name := range want {
+		entries = append(entries, spec.Entry{Kind: spec.KindRule, Name: name, Meta: map[string]any{"paths": "docs/**"}, Body: name})
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	for name, filename := range want {
+		got := readFile(t, filepath.Join(dir, ".agents/skills", filename+".md"))
+		if !strings.Contains(got, "name: path-rule/"+name+"\n") || !strings.Contains(got, "docs/**") {
+			t.Errorf("rule %s lost name or paths:\n%s", name, got)
 		}
 	}
 }
@@ -50,7 +71,7 @@ func TestEmit_Rule_WithPathsFieldWinsOverGlobs(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/skills/auth/SKILL.md"))
+	got := readFile(t, filepath.Join(dir, ".agents/skills/auth.md"))
 	for _, want := range []string{"src/auth/**", "**/*.session.ts"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -64,7 +85,7 @@ func TestEmit_Rule_WithPathsFieldWinsOverGlobs(t *testing.T) {
 // A rule carrying a source-layout scope, but no explicit globs/paths,
 // still becomes a path-triggered rule scoped to `<scope>/**`, the same
 // fallback order Copilot's own applyTo derivation uses.
-func TestEmit_Rule_WithSourceLayoutScopeWritesPathTriggeredSkillFolder(t *testing.T) {
+func TestEmit_Rule_WithSourceLayoutScopeWritesFlatPathTriggeredRule(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	entries := []spec.Entry{
@@ -73,7 +94,7 @@ func TestEmit_Rule_WithSourceLayoutScopeWritesPathTriggeredSkillFolder(t *testin
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	got := readFile(t, filepath.Join(dir, ".agents/skills/auth/SKILL.md"))
+	got := readFile(t, filepath.Join(dir, ".agents/skills/auth.md"))
 	for _, want := range []string{"backend/api/**", "scoped body"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -93,8 +114,8 @@ func TestEmit_Rule_AlwaysOnWritesNothing(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/r1/SKILL.md")); !os.IsNotExist(err) {
-		t.Errorf("adapter should not write a skill folder for an always-on rule, err=%v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/r1.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write a file for an always-on rule, err=%v", err)
 	}
 }
 
@@ -109,8 +130,8 @@ func TestEmit_Rule_AlwaysApplyTrueOverridesGlobs(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/r1/SKILL.md")); !os.IsNotExist(err) {
-		t.Errorf("adapter should not write a skill folder when alwaysApply overrides globs, err=%v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".agents/skills/r1.md")); !os.IsNotExist(err) {
+		t.Errorf("adapter should not write a file when alwaysApply overrides globs, err=%v", err)
 	}
 }
 
@@ -142,16 +163,13 @@ func TestEmit_Rule_CatchAllGlobStaysAlwaysOn(t *testing.T) {
 			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := os.Stat(filepath.Join(dir, ".agents/skills", c.name, "SKILL.md")); !os.IsNotExist(err) {
-				t.Errorf("adapter should not write a skill folder for a catch-all glob, err=%v", err)
+			if _, err := os.Stat(filepath.Join(dir, ".agents/skills", c.name+".md")); !os.IsNotExist(err) {
+				t.Errorf("adapter should not write a file for a catch-all glob, err=%v", err)
 			}
 		})
 	}
 }
 
-// A path-triggered rule shares outputs.openhands.skills-dir with
-// regular skills: the issue's Fix note says no separate
-// outputs.openhands.rules-dir workaround is needed.
 func TestEmit_Rule_PathTriggeredHonorsSkillsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -164,7 +182,7 @@ func TestEmit_Rule_PathTriggeredHonorsSkillsDirOverride(t *testing.T) {
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "custom/skills/r1/SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "custom/skills/r1.md")); err != nil {
 		t.Errorf("expected override dir to hold the path-triggered rule file: %v", err)
 	}
 }

@@ -91,6 +91,10 @@ export function deleteConversation(conversation) {
   return change('/api/delete', { tool: conversation.tool, id: conversation.id })
 }
 
+export function stopShell(conversation, shell) {
+  return change('/api/stop-shell', { tool: conversation.tool, id: conversation.id, pid: shell.pid, procStart: shell.procStart })
+}
+
 /** Turns automatic approvals off for every tool and project, from the next request on. Answers {body, version}. */
 export function askApprovals() {
   return change('/api/approvals/ask', { mode: 'ask' })

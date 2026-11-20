@@ -10,6 +10,14 @@ CLAUDE.md, AGENTS.md, and the other AI tool files are generated from `.agnostic-
 
 ## Rules
 
+### readme
+
+<!-- source: .agnostic-ai/rules/openhands-path-rule.md scope: 1 -->
+Applies to: `docs/**`
+
+Check documentation links.
+
+
 ### sample-rule
 
 <!-- source: .agnostic-ai/rules/sample-rule.md -->

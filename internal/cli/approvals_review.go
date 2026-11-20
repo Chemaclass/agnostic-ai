@@ -50,6 +50,8 @@ var nativeReviewers = map[string]nativeReviewer{
 		off: &reviewerOff{key: "permissions.disableAutoMode", value: "disable", why: "CodeBuddy starts in default instead"}},
 	"codex": {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review",
 		off: &reviewerOff{key: "approval_policy", value: "never", why: "it reviews only prompts, so use on-request or a granular policy"}},
+	"windsurf": {name: "Devin smart mode", key: "permission_mode", value: "smart", overrideEnv: "DEVIN_PERMISSION_MODE",
+		off: &reviewerOff{key: "permission_mode", value: "dangerous", why: "Devin approves every call instead"}},
 	"vibe": {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve", overrideEnv: "VIBE_DEFAULT_AGENT",
 		off: &reviewerOff{key: "bypass_tool_permissions", value: true, why: "Vibe approves every call instead"}},
 	"cursor": {name: "cursor-agent Auto-review", key: "approvalMode", value: "auto-review",
@@ -117,7 +119,7 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 	}
 	have, present := settingsLookup(current, reviewer.key, format)
 	recorded, owned := previous[reviewer.key]
-	if present && !owned && reviewer.toolDefault != nil && sameSetting(have, reviewer.toolDefault) {
+	if present && !owned && (have == nil || reviewer.toolDefault != nil && sameSetting(have, reviewer.toolDefault)) {
 		// Record the tool's own default as ours, so the merge replaces it
 		// and removing review hands the key back to the tool.
 		previous = maps.Clone(previous)
@@ -178,6 +180,7 @@ func readReviewerState(tool, userHome string, state globalState) (reviewerState,
 		}
 	}
 	rs.have, rs.present = settingsLookup(rs.values, reviewer.key, g.settings.format)
+	rs.present = rs.present && rs.have != nil
 	rs.on = sameSetting(rs.have, reviewer.value) || (!rs.present && reviewer.defaultOn != "")
 	recorded, owned := state.Settings[tool][reviewer.key]
 	rs.written = rs.on && owned && sameSetting(recorded, rs.have)
