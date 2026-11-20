@@ -104,13 +104,26 @@ func qoderRequest(r Request) Request {
 	switch r.Call {
 	case "Bash", "Read":
 	case "Edit", "Write":
-		if path, _ := r.Input["file_path"].(string); dotPath(underCwd(path, r.Cwd)) {
+		if path, _ := r.Input["file_path"].(string); qoderProtectedPath(path, r.Cwd) {
 			r.Call = ""
 		}
 	default:
 		r.Call = ""
 	}
 	return r
+}
+
+func qoderProtectedPath(path, cwd string) bool {
+	if dotPath(underCwd(path, cwd)) {
+		return true
+	}
+	if path == "" || !filepath.IsAbs(cwd) {
+		return false
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(cwd, path)
+	}
+	return dotPath(underCwd(ResolveLinks(path), ResolveLinks(cwd)))
 }
 
 // underCwd is path relative to cwd when it lies there, so a dot folder

@@ -1,6 +1,10 @@
 package approvals
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestNativeRequest_Kiro(t *testing.T) {
 	r := NativeRequest("kiro", Request{Call: "execute_bash", Input: map[string]any{"command": "go test ./...", "summary": "Run tests"}, Cwd: testRoot})
@@ -74,8 +78,23 @@ func TestNativeRequest_QoderDotPaths(t *testing.T) {
 			t.Errorf("Write %s mapped to %q, want %q", path, r.Call, want)
 		}
 	}
-	inDot := NativeRequest("qoder", Request{Call: "Edit", Input: map[string]any{"file_path": "/home/me/.worktrees/proj/main.go"}, PermissionMode: "default", Cwd: "/home/me/.worktrees/proj"})
+	cwd := filepath.Join(t.TempDir(), ".worktrees", "proj")
+	inDot := NativeRequest("qoder", Request{Call: "Edit", Input: map[string]any{"file_path": filepath.Join(cwd, "main.go")}, PermissionMode: "default", Cwd: cwd})
 	if inDot.Call != "Edit" {
 		t.Errorf("a session inside a dot folder mapped Edit to %q", inDot.Call)
+	}
+}
+
+func TestQoderProtectedPath_ChecksResolvedLink(t *testing.T) {
+	cwd := t.TempDir()
+	protected := filepath.Join(cwd, ".protected")
+	if err := os.Mkdir(protected, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(protected, filepath.Join(cwd, "linked")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if !qoderProtectedPath(filepath.Join("linked", "notes.md"), cwd) {
+		t.Error("a path resolved under a dot folder should stay protected")
 	}
 }
