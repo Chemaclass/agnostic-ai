@@ -137,10 +137,31 @@ func TestImport_MultiSourceRunPrintsNextStepsOnce(t *testing.T) {
 func TestImport_KimiAndVibePrintNextSteps(t *testing.T) {
 	for _, source := range []string{"kimi", "vibe"} {
 		t.Run(source, func(t *testing.T) {
-			out := runImportForNextSteps(t, "version: 1\ntargets: ["+source+"]\n", nil, source)
+			out := runImportForNextSteps(t, "version: 1\ntargets: ["+source+"]\n", map[string]string{"AGENTS.md": "Keep edits small.\n", ".kimi-code/AGENTS.md": "Keep edits small.\n"}, source)
 			if got := strings.Count(out, "next steps:"); got != 1 {
 				t.Errorf("want one next steps block, got %d:\n%s", got, out)
 			}
 		})
+	}
+}
+
+func TestImport_RerunAfterSyncSaysNothingChanged(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/agents/reviewer.md", "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview the diff.\n")
+	writeFile(t, ".claude/settings.json", `{"theme": "dark"}`)
+	execCLI(t, "import", "claude")
+	execCLI(t, "sync")
+
+	buf := captureSummary(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"import", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "no spec changed") || strings.Contains(out, "next steps:") {
+		t.Errorf("a re-import that writes nothing must say so:\n%s", out)
 	}
 }

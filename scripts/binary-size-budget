@@ -989,7 +989,5 @@
 # MCP `$${NAME}` values when it rewrites the spec from a tool file.
 # Allow 8192 bytes, rounded up to a 4096-byte page.
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
-# #3750 measured 27300000 bytes locally (make size-check) on main
-# 93439df62: doctor runs sync's hand-written file guards and warns once
-# per missing pack. Allow 8192 bytes, rounded up to a 4096-byte page.
-27312128
+# Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
+27320320

@@ -58,7 +58,7 @@ func newRenderCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				captured, err := captureEmit(adapter, single, cfg)
+				captured, err := captureEmit(adapter, singleEntryBundle(flatCommandsAmong(bundle, []spec.Entry{entry}, t)[0]), cfg)
 				if err != nil {
 					return fmt.Errorf("%s: %w", t, err)
 				}
