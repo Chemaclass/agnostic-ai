@@ -315,3 +315,39 @@ func strconvQuote(s string) string {
 	quoted, _ := json.Marshal(s)
 	return string(quoted)
 }
+
+func TestHookApprove_MovedSpecFoldersAsk(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\nsources:\n  hooks: config/hooks\n")
+	write := func(rel string) string {
+		payload, err := json.Marshal(map[string]any{
+			"session_id": "s", "cwd": project, "permission_mode": "default", "hook_event_name": "PermissionRequest",
+			"tool_name": "Write", "tool_input": map[string]any{"file_path": filepath.Join(project, rel), "content": "x"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(payload)
+	}
+	if got := runApprove(t, "claude", write("notes.md")); got != approveAllowReply {
+		t.Fatalf("plain edit reply = %q, want the allow reply", got)
+	}
+	for _, rel := range []string{"config/hooks/guard.yaml", ".agnostic-ai/agents/reviewer.md"} {
+		if got := runApprove(t, "claude", write(rel)); got != "" {
+			t.Errorf("%s reply = %q, want nothing", rel, got)
+		}
+	}
+	writeFile(t, filepath.Join(project, "agnostic-ai.local.yaml"), "sources:\n  hooks: [a, b]\n")
+	if got := runApprove(t, "claude", write("notes.md")); got != "" {
+		t.Errorf("broken project config reply = %q, want nothing", got)
+	}
+	entries := approveLog(t, source)
+	rules := []string{}
+	for _, e := range entries {
+		rules = append(rules, e.Rule)
+	}
+	want := []string{"", approvals.RuleProtectedPath, approvals.RuleProtectedPath, approvals.RuleProjectConfig}
+	if strings.Join(rules, ",") != strings.Join(want, ",") {
+		t.Errorf("logged rules = %v, want %v", rules, want)
+	}
+}
