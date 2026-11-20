@@ -137,6 +137,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Qoder
 
+- Import keeps an explicit Qoder MCP protocol revision through sync (#3769).
 - `approvals` set to `review` turns on Qoder auto mode: `sync --global` writes `general.defaultPermissionMode: "auto"` to `~/.qoder/settings.json`, and `approvals status` names it (#3700).
 
 #### Qwen Code

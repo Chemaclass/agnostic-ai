@@ -694,6 +694,8 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 			normalizeGeminiMCP(server)
 		case "qwen":
 			normalizeGeminiTransport(server)
+		case "qoder":
+			normalizeQoderMCP(server)
 		}
 		adapters.EscapeMCPLiterals(target, server)
 		adapters.ReadMCPEnvRefs(target, server)

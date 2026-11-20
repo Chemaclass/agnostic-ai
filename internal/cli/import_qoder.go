@@ -172,10 +172,26 @@ func importQoderMCP(root, dstDir string) (int, error) {
 		return 0, nil
 	}
 	clean, skipped := withoutMCPOAuthCredentials(servers)
+	for _, raw := range clean {
+		server, _ := raw.(map[string]any)
+		normalizeQoderMCP(server)
+	}
 	count, err := writeMCPYAMLs("qoder", clean, dstDir)
 	if err != nil {
 		return count, err
 	}
 	reportMCPLiteralRefs(skipped)
 	return count, nil
+}
+
+func normalizeQoderMCP(server map[string]any) {
+	if revision, ok := server["protocolVersion"].(string); ok {
+		native, _ := server["x-qoder"].(map[string]any)
+		if native == nil {
+			native = map[string]any{}
+		}
+		native["protocolVersion"] = revision
+		server["x-qoder"] = native
+		delete(server, "protocolVersion")
+	}
 }
