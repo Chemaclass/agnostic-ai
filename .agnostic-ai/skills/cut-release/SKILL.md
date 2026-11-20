@@ -24,7 +24,12 @@ Use this workflow when the user asks to publish a new version. A request to prep
    - minor: additive features
    - major: breaking changes after v1.0; while on 0.x, use a minor release
      with explicit breaking notes, as required by `spec-migration`
-3. Update `CHANGELOG.md`: drop empty `### ` and `#### ` headings from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a heading with no entries. Reset `## [Unreleased]` to empty.
+3. Run `make changelog`. It appends each `changes/*.md` entry under its
+   heading in `## [Unreleased]` and deletes those files; `changes/README.md`
+   stays. Pull requests opened before `changes/` existed may still have edited
+   `## [Unreleased]` directly; the script keeps those lines.
+
+   Update `CHANGELOG.md`: drop empty `### ` and `#### ` headings from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a heading with no entries. Reset `## [Unreleased]` to empty.
 
    Curate the section first with the layout, entry rules, and length check in
    `.agnostic-ai/agents/changelog-curator.md`. Condensing keeps every `#NNN`.
@@ -47,7 +52,10 @@ Use this workflow when the user asks to publish a new version. A request to prep
 4. Bump `version` in `cmd/agnostic-ai/main.go`, `extra.version` in
    `docs/site/config.toml`, and both release values in the root
    `agnostic-ai.yaml`: the minimum `requires: ">=X.Y.Z"` and the `$schema`
-   URL's `vX.Y.Z` tag. Keep
+   URL's `vX.Y.Z` tag. Run `make size-budget` to set
+   `scripts/binary-size-budget` to the release binary's size plus 2 MiB of
+   headroom; pull requests are checked by growth, so only a release raises
+   this upper bound. Keep
    them in the release commit. `make site-test` fails when these values
    disagree with the latest dated changelog section.
 5. After finalizing the changelog, create exactly one
@@ -77,8 +85,8 @@ Use this workflow when the user asks to publish a new version. A request to prep
    release commit across all three OSes. The plugin version-bump job is
    PR-only; if the plugin changed since the last release, confirm that its
    PR check passed.
-7. Confirm the version file, site version, project config pins, dated
-   changelog section, briefing, archive changes, and any `signals.tsv` or
+7. Confirm the version file, site version, project config pins, size budget,
+   dated changelog section, removed `changes/*.md` files, briefing, archive changes, and any `signals.tsv` or
    tracked generated output changes are all staged for the same commit. Review the staged diff for
    unrelated edits and record the tested tree. If release inputs changed after
    validation, rerun the affected checks before committing. Commit `chore(release): vX.Y.Z`, GPG-signed.

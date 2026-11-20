@@ -18,7 +18,7 @@ Start with the [Crush setup](@/docs/targets/crush.md).
 - **Skills**: written to `.agents/skills/`, the first project path Crush scans. Targets sharing the folder get identical files, written once. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
 - **Agents**: skipped with a warning. `outputs.crush.agents: skill` converts them to skills.
 - **`crush.json`**: sync keeps your `models`, `providers`, `lsp`, and `options` keys.
-  - Crush prefers `crushrc`, a Bash startup script, and adds new options only there.
+  - Crush prefers `crushrc`, a Bash startup script. Crush 0.102.0 also accepts [`options.prompts`](https://github.com/charmbracelet/crush/blob/v0.102.0/docs/config/README.md#option-prompt) in `crush.json`. Add that block directly to the native JSON file and sync keeps it.
   - JSON is deprecated but works. Sync writes `crush.json`, never `crushrc`.
   - An MCP field that exists only in `crushrc` cannot be set here.
 - **Ignore**: `.crushignore` uses gitignore syntax ([Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md)). Hand-written files get the usual protection.
