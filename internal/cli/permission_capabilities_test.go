@@ -106,8 +106,8 @@ func TestMigrate_CapabilitiesRewritesPermissionRulesInPlace(t *testing.T) {
 	}
 	for _, want := range []string{
 		"rewrote .agnostic-ai/settings/permissions.yaml",
-		"skipped .agnostic-ai/settings/permissions.yaml: keeps WebFetch(domain:go.dev) as an alias: no capability stands for it alone",
-		"skipped .agnostic-ai/settings/permissions.yaml: keeps Write(.env) as an alias: Claude Code never consults a Write(path) rule",
+		"    keeps WebFetch(domain:go.dev) as an alias: no capability stands for it alone",
+		"    keeps Write(.env) as an alias: Claude Code never consults a Write(path) rule",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)

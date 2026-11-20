@@ -379,6 +379,8 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	}
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		entry["enabled"] = false
+	} else if native, _ := e.Meta["x-"+target].(map[string]any); native["enabled"] == true {
+		entry["enabled"] = true
 	}
 	// OpenCode uses milliseconds for local and remote MCP request timeouts.
 	if timeout, ok := emit.IntField(e.Meta, "timeout"); ok {

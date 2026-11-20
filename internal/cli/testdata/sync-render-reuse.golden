@@ -14,19 +14,19 @@ $ agnostic-ai sync
     1 agent          .claude/agents/        a1
 ✓ codex now reads, from .agnostic-ai/:
     instructions     AGENTS.md
-    1 rule                                  r1
+    1 rule           AGENTS.md              r1
     2 skills         .agents/skills/        handoff, s1
     1 agent          .codex/agents/         a1
 ✓ opencode now reads, from .agnostic-ai/:
     instructions     AGENTS.md
-    1 rule                                  r1
+    1 rule           AGENTS.md              r1
     2 skills         .opencode/skills/      handoff, s1
     1 agent          .opencode/agents/      a1
 ✓ kilo now reads, from .agnostic-ai/:
     instructions     AGENTS.md
-    1 rule                                  r1
-    2 skills                                handoff, s1
-    1 agent                                 a1
+    1 rule           AGENTS.md              r1
+    2 skills         .agents/skills/        handoff, s1
+    1 agent          .kilo/agents/a1.md     a1
 ✓ copilot now reads, from .agnostic-ai/:
     instructions     .github/copilot-instructions.md
     1 rule           .github/instructions/  r1

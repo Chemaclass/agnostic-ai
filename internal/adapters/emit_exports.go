@@ -97,6 +97,10 @@ func MatchesSum(data []byte, sum string) bool { return emit.MatchesSum(data, sum
 // this to suppress warnings under --quiet.
 func SetWarner(w io.Writer) { emit.Warner = w }
 
+// Warner returns the writer capability warnings go to, so a caller that
+// silences them can put it back.
+func Warner() io.Writer { return emit.Warner }
+
 // ResetCapabilityWarnings clears buffered capability warnings without
 // printing. Used by tests and by `sync --watch` before each new pass.
 func ResetCapabilityWarnings() { emit.ResetCapabilityWarnings() }

@@ -32,6 +32,17 @@ func importSources() string {
 	return strings.Join(names, ", ")
 }
 
+// completeImportSources offers each source not yet on the command line.
+func completeImportSources(_ *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	var out []cobra.Completion
+	for _, name := range append(slices.Sorted(slices.Values(importSourceNames)), "all") {
+		if strings.HasPrefix(name, toComplete) && !slices.Contains(args, name) {
+			out = append(out, name)
+		}
+	}
+	return out, cobra.ShellCompDirectiveNoFileComp
+}
+
 func newImportCmd() *cobra.Command {
 	var dryRun, diff, global, overwrite bool
 	cmd := &cobra.Command{
@@ -69,6 +80,7 @@ func newImportCmd() *cobra.Command {
 
   # Replace existing specs that hold different content
   agnostic-ai import claude --overwrite`,
+		ValidArgsFunction: completeImportSources,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if global {
 				return nil

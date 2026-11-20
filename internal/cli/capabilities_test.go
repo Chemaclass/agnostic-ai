@@ -159,8 +159,8 @@ func TestMigrate_CapabilitiesRewritesToolsInPlaceAndKeepsAliases(t *testing.T) {
 		"would rewrite .agnostic-ai/agents/reviewer.md",
 		"would rewrite .agnostic-ai/agents/writer.md",
 		"skipped .agnostic-ai/agents/explorer.md: keeps tools: as written: no entry has a capability of its own",
-		"skipped .agnostic-ai/agents/reviewer.md: keeps Grep as an alias: no capability stands for it alone",
-		"skipped .agnostic-ai/agents/writer.md: keeps WebFetch as an alias: web also grants WebSearch",
+		"would rewrite .agnostic-ai/agents/reviewer.md\n    keeps Grep as an alias: no capability stands for it alone",
+		"would rewrite .agnostic-ai/agents/writer.md\n    keeps WebFetch as an alias: web also grants WebSearch",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("dry run misses %q:\n%s", want, out)
