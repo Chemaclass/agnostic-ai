@@ -6,9 +6,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.96.0 - 2026-11-20
+
 ### Highlights
 
-- Set `approvals` to keep prompts, use a supported tool's reviewer, or let trusted Claude Code or Codex hooks answer routine prompts on macOS and Linux (#3700).
+- Set `approvals` to keep prompts, use a tool's reviewer, or let trusted hooks answer routine prompts in five tools on macOS and Linux (#3700).
 - The companion lists cached Claude app chats and Cowork tasks with coding sessions, plus cached ChatGPT chats when `sqlite3` is available (#3511).
 - On macOS, Ctrl+Alt+V opens the send picker or pastes into the only eligible Claude Code or Codex chat shown in Terminal or Ghostty (#3522, #3550).
 - On macOS 13+, `companion install` can download the matching app without Go or Xcode tools from the release-tag CLI unless you pass `--source` (#3516).
@@ -16,23 +18,33 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `import` updates existing single-file skills by name without creating a duplicate after `sync` (#3797).
+- Fresh `init --demo` projects pass `lint` and need no spec migration (#3798).
+- The web interface explains how to open it when a link from another site is refused (#3799).
+
 #### Approvals
 
 - Set `approvals` modes and tool or folder overrides in home config, with `always-ask` rules for `yolo` and only `ask` allowed in project config (#3700).
 - When settings allow, `sync --global` enables `review` for Claude Code, Codex, `cursor-agent`, Devin CLI, CodeBuddy, Vibe, Qoder and Qwen Code (#3700).
 - On macOS and Linux, use `sync --global` with the `approvals` built-in and trust its hooks to use `yolo` in Claude Code or Codex (#3700).
-- `approvals status` shows how each configured tool handles prompts, and `approvals ask` turns off hook answers on the next request (#3700).
-- `approvals log` prints the hook's decisions, with `--since` and `--json` (#3808).
+- `approvals status` shows how each configured tool handles prompts, and `approvals log` prints the hook's decisions with `--since` and `--json` (#3700, #3808).
 - The companion counts prompts approved by the hook, shows known reasons for waits, and sets home approvals to `ask` with **Ask me** (#3700).
 
 #### Approval safeguards
 
-- After `approvals ask`, run `sync --global` to undo sync-owned reviewer settings and switch modes in running reviewer sessions (#3700).
+- `approvals ask` stops hook answers. `sync --global` clears sync-owned reviewer settings. Switch modes in running sessions in the tool (#3700).
 - In `yolo`, edits to agent specs, moved agent, hook, MCP or settings folders, and legacy `agnostic.config.yaml` ask for approval (#3700, #3790).
-- In `yolo`, a `Read` or `Edit` ask rule with a path now covers shell commands, `rtk` commands match `Bash` ask rules, and path rules match through links and in any letter case (#3808).
-- In `yolo`, a session whose project is the home folder, edits to tool folders, login agents and `bin` folders under home, reads of `.git` folders and Git config, and links to credential files ask for approval (#3808).
-- Qwen Code `yolo` asks while a `.env`, `.qwen/.env` or settings `env` block sets a variable that moves the hook's policy, such as `AGNOSTIC_AI_HOME` (#3808).
-- A Claude Code session with `AGNOSTIC_AI_APPROVALS=ask` logs `asked` for each prompt, so the companion shows it at once instead of waiting 10 seconds for the hook (#3808).
+- In `yolo`, a `Read` or `Edit` ask rule with a path covers shell commands, `rtk` matches `Bash` ask rules, and path rules follow links and ignore case (#3808).
+- In `yolo`, home-folder sessions, edits to tool, login-agent and home `bin` folders, reads of `.git` or Git config, and links to credential files ask (#3808).
+- With `AGNOSTIC_AI_APPROVALS=ask`, Claude Code logs `asked` for each prompt, so the companion shows it at once, not after 10 seconds (#3808).
+
+#### Approvals in the interface
+
+- The chat list shows the approvals mode in use and keeps the **Needs you** count consistent during searches (#3799).
+- The companion keeps keyboard focus on toggles and shows expanded approvals inside their chat row (#3799).
+- Permission previews show which shared ask or deny rules a personal list leaves out (#3799).
+- The web interface suggests a settings file when the defaults file already holds permission rules (#3799).
+- `approvals ask` and **Ask me** explain how to change approvals by hand when YAML aliases or merges prevent an edit (#3799).
 
 #### Sync safety
 
@@ -134,6 +146,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Needs you** puts permission requests first and shows details when available, and the circle shows a lock when a chat is blocked (#3526, #3533).
 - On macOS and Linux, terminal chats from Claude Code, Codex and `cursor-agent` move to **Archived** once known closed, even unread (#3527, #3596).
 
+#### Chat menu
+
+- The companion chat menu lets you mark a chat complete, undo completion, or hide an archived chat (#3800, #3804).
+- **Stop chat…** in the macOS companion asks before ending a live Claude Code terminal session and keeps its transcript (#3805, #3806).
+- The companion and web dashboard flag forgotten Claude Code background shells and let you choose one to stop (#3792).
+- The list marks a chat that waits for your permission, an answer or a forgotten shell with the circle's lock, apart from unread replies (#3807).
+
 #### Chat history and actions
 
 - Codex, Cursor editor and Cowork archives show under **Archived**, along with Claude app chats the running server saw leave the sidebar (#3524).
@@ -221,6 +240,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - Project import and sync keep remote MCP `oauth.mode` for Kiro IDE 1.4.236+ and CLI 3.5.0+ V3 sessions (#3767).
 - `validate` and `sync` accept `PermissionRequest` command hooks for V3 sessions in Kiro CLI 3.4.0 and later (#3554).
+- With the `approvals` built-in, `sync --global` adds a `yolo` hook for routine prompts in Kiro CLI 3.4.0+ V3 sessions (#3700, #3788).
 
 #### OpenHands
 
@@ -238,6 +258,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Qwen Code
 
 - Project and user settings round-trip supported `effort` values through `model.reasoningEffort` in Qwen Code 0.28.0 and later (#3556).
+- In `yolo`, `sync --global` adds a hook for safe shell, read, edit and write calls. Set `tools.approvalMode` to `default` or `auto_edit` (#3700, #3789).
+- A `permissions.ask` rule or a `.env` or `env` block that moves the hook's policy turns the Qwen Code hook off; `approvals status` says so (#3700, #3808).
 
 #### Junie
 
@@ -246,6 +268,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Qoder
 
 - Project and user import and sync keep a Qoder MCP server's explicit `protocolVersion` (#3769).
+- In `yolo`, `sync --global` adds a Qoder hook for safe `Bash`, `Read`, `Edit` and `Write` calls in `default` and `accept_edits` mode (#3700, #3791).
+- A `permissions.ask` rule in Qoder user or project settings turns its hook off, and `approvals status` says so (#3700, #3791).
 
 #### Kilo Code
 
