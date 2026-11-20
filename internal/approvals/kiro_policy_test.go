@@ -23,6 +23,14 @@ func TestKiroPolicy_AddThenRemoveRestoresBytes(t *testing.T) {
 			before: "# keep me\nrules:\n  - capability: shell # inline\n    match: [\"git *\"]\n    effect: allow\n",
 			added:  "# keep me\nrules:\n  - capability: shell # inline\n    match: [\"git *\"]\n    effect: allow\npolicies:\n  - approve-for-me\n",
 		},
+		"document end marker": {
+			before: "rules: []\n... # end\n# keep this\n",
+			added:  "rules: []\npolicies:\n  - approve-for-me\n... # end\n# keep this\n",
+		},
+		"flow list with whitespace": {
+			before: "policies: [  dev-shell]\n",
+			added:  "policies: [approve-for-me,   dev-shell]\n",
+		},
 		"no final newline": {
 			before: "rules: []",
 			added:  "rules: []\npolicies:\n  - approve-for-me\n",
@@ -126,6 +134,9 @@ func TestKiroPolicy_RefusesShapesItCannotEditInPlace(t *testing.T) {
 		"policies is text":    "policies: approve-for-me\n",
 		"policies is a map":   "policies:\n  a: b\n",
 		"two documents":       "rules: []\n---\nrules: []\n",
+		"duplicate policies":  "policies: [dev-shell]\npolicies: [read-all]\n",
+		"merge key":           "<<: {policies: [dev-shell]}\n",
+		"split key layout":    "? policies\n: \n  - dev-shell\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := approvals.AddKiroPolicy("p.yaml", []byte(data), preset); err == nil || !strings.Contains(err.Error(), "p.yaml") {

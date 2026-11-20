@@ -629,6 +629,9 @@ func TestApprovalsStatus_KiroReview(t *testing.T) {
 			if tc.on != (kiro.Effective == config.ApprovalsReview) || kiro.Review != kiroReviewerName {
 				t.Errorf("kiro: %+v", kiro)
 			}
+			if tc.mode == "review" && kiro.MinVersion != "2.36.0" {
+				t.Errorf("kiro review minimum version = %q, want 2.36.0", kiro.MinVersion)
+			}
 			if !slices.ContainsFunc(kiro.Notes, func(n string) bool { return strings.Contains(n, tc.note) }) {
 				t.Errorf("notes %q miss %q", kiro.Notes, tc.note)
 			}

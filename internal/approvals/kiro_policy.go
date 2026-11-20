@@ -13,10 +13,12 @@ import (
 )
 
 // KiroReviewPreset is the policy preset that turns on Kiro's reviewer,
-// Approve for me (kiro.dev/docs/permissions.md#approve-for-me).
+// Approve for me (kiro.dev/docs/permissions/#approve-for-me).
 const KiroReviewPreset = "approve-for-me"
 
 const kiroPoliciesKey = "policies"
+
+var kiroDocumentEnd = regexp.MustCompile(`(?m)^\.\.\.(?:[ \t\r]|$)`)
 
 // KiroPolicyOwned is what an add put in a permissions file beyond the
 // item itself, so removing the item restores the bytes it found.
@@ -72,18 +74,25 @@ func parseKiroPolicies(path string, data []byte) (kiroPolicies, error) {
 	if root.Kind != yaml.MappingNode || root.Style&yaml.FlowStyle != 0 || root.Column != 1 {
 		return kiroPolicies{}, fmt.Errorf("%s: not a block mapping at the left margin", path)
 	}
+	var policies kiroPolicies
 	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Tag == "!!merge" {
+			return kiroPolicies{}, fmt.Errorf("%s: top-level YAML merge keys cannot be edited in place", path)
+		}
 		if root.Content[i].Value != kiroPoliciesKey {
 			continue
+		}
+		if policies.key != nil {
+			return kiroPolicies{}, fmt.Errorf("%s: more than one %s key", path, kiroPoliciesKey)
 		}
 		key, list := root.Content[i], root.Content[i+1]
 		empty := list.Kind == yaml.ScalarNode && list.Tag == "!!null" && list.Value == ""
 		if list.Kind != yaml.SequenceNode && !empty {
 			return kiroPolicies{}, fmt.Errorf("%s: %s is not a list", path, kiroPoliciesKey)
 		}
-		return kiroPolicies{key: key, list: list}, nil
+		policies = kiroPolicies{key: key, list: list}
 	}
-	return kiroPolicies{}, nil
+	return policies, nil
 }
 
 // KiroListsPolicy reports whether the policies list in data holds preset.
@@ -111,11 +120,15 @@ func AddKiroPolicy(path string, data []byte, preset string) (KiroPolicyAdd, erro
 	switch {
 	case policies.key == nil:
 		owned.CreatedKey = true
-		if text != "" && !strings.HasSuffix(text, "\n") {
+		at := len(text)
+		if end := kiroDocumentEnd.FindStringIndex(text); end != nil {
+			at = end[0]
+		} else if text != "" && !strings.HasSuffix(text, "\n") {
 			text += eol
+			at = len(text)
 			owned.AddedNewline = true
 		}
-		text += kiroPoliciesKey + ":" + eol + "  - " + preset + eol
+		text = text[:at] + kiroPoliciesKey + ":" + eol + "  - " + preset + eol + text[at:]
 	case policies.list.Kind == yaml.SequenceNode && policies.list.Style&yaml.FlowStyle != 0:
 		at, err := offsetOf(path, text, policies.list.Line, policies.list.Column)
 		if err != nil {
@@ -145,7 +158,22 @@ func AddKiroPolicy(path string, data []byte, preset string) (KiroPolicyAdd, erro
 		}
 		text = text[:at] + strings.Repeat(" ", indent) + "- " + preset + eol + text[at:]
 	}
-	return KiroPolicyAdd{Data: []byte(text), Changed: true, Owned: owned}, nil
+	edited := []byte(text)
+	listed, err := KiroListsPolicy(path, edited, preset)
+	if err != nil {
+		return KiroPolicyAdd{}, err
+	}
+	if !listed {
+		return KiroPolicyAdd{}, fmt.Errorf("%s: could not list %s under %s", path, preset, kiroPoliciesKey)
+	}
+	restored, err := RemoveKiroPolicy(path, edited, preset, owned)
+	if err != nil {
+		return KiroPolicyAdd{}, err
+	}
+	if !bytes.Equal(restored, data) {
+		return KiroPolicyAdd{}, fmt.Errorf("%s: cannot edit the %s list in place", path, kiroPoliciesKey)
+	}
+	return KiroPolicyAdd{Data: edited, Changed: true, Owned: owned}, nil
 }
 
 // RemoveKiroPolicy takes preset out of the policies list, along with
@@ -189,7 +217,15 @@ func RemoveKiroPolicy(path string, data []byte, preset string, owned KiroPolicyO
 	if owned.AddedNewline && atEnd {
 		text = strings.TrimSuffix(strings.TrimSuffix(text, "\n"), "\r")
 	}
-	return []byte(text), nil
+	edited := []byte(text)
+	listed, err := KiroListsPolicy(path, edited, preset)
+	if err != nil {
+		return nil, err
+	}
+	if listed {
+		return nil, fmt.Errorf("%s: more than one copy of %s under %s", path, preset, kiroPoliciesKey)
+	}
+	return edited, nil
 }
 
 // removeFlowItem cuts item and the comma that joins it to a neighbor
@@ -208,7 +244,7 @@ func removeFlowItem(path, text string, item *yaml.Node) (string, error) {
 	}
 	from, to := at, at+len(token)
 	if rest := strings.TrimLeft(text[to:], " \t"); strings.HasPrefix(rest, ",") {
-		to = len(text) - len(strings.TrimLeft(rest[1:], " \t"))
+		to = len(text) - len(strings.TrimPrefix(rest[1:], " "))
 	} else if head := strings.TrimRight(text[:from], " \t"); strings.HasSuffix(head, ",") {
 		from = len(head) - 1
 	}
@@ -235,7 +271,7 @@ func removeLine(path, text string, line int, pattern *regexp.Regexp) (string, bo
 // lineStarts is the byte offset where each line begins.
 func lineStarts(text string) []int {
 	starts := []int{0}
-	for i := 0; i < len(text); i++ {
+	for i := range len(text) {
 		if text[i] == '\n' && i+1 < len(text) {
 			starts = append(starts, i+1)
 		}

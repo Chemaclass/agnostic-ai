@@ -227,7 +227,7 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 | Devin CLI (`windsurf`) | [Smart mode](https://docs.devin.ai/cli/reference/permissions), a fast model; not run by us | `permission_mode: "smart"` in `~/.config/devin/config.json` (`%APPDATA%\devin\config.json` on Windows) |
 | Qoder | [Auto mode](https://docs.qoder.com/cli/permissions), a two-stage classifier; not run by us | `general.defaultPermissionMode: "auto"` in `~/.qoder/settings.json` |
 | Vibe | [Smart-approve](https://docs.mistral.ai/vibe/code/cli/configuration-reference), a classifier; not run by us | `default_agent = "smart-approve"` in `~/.vibe/config.toml` |
-| Kiro | [Approve for me](https://kiro.dev/docs/permissions.md#approve-for-me), Kiro's trust classifier; not run by us | `approve-for-me` under `policies:` in `~/.kiro/settings/permissions.yaml` |
+| Kiro | [Approve for me](https://kiro.dev/docs/permissions/#approve-for-me), Kiro's trust classifier; not run by us | `approve-for-me` under `policies:` in `~/.kiro/settings/permissions.yaml` |
 | Qwen Code | [Auto mode](https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md), an LLM classifier; not run by us | `tools.approvalMode: "auto"` in `~/.qwen/settings.json` |
 
 - A home settings spec that sets the same key wins: `permissions.default-mode` where the tool maps it, otherwise the key under `x-<tool>`, such as `x-codex.approvals_reviewer`. A value set outside agnostic-ai stays as it is, and `sync --global` warns that the reviewer stays off.

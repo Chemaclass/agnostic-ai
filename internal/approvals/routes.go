@@ -136,7 +136,7 @@ var routes = []Route{
 	}, Review: &Mechanism{
 		Name:     "Kiro Approve for me",
 		File:     "~/.kiro/settings/permissions.yaml",
-		Evidence: "https://kiro.dev/docs/permissions.md",
+		Evidence: "https://kiro.dev/docs/permissions/",
 	}},
 	{Target: "openhands", Reason: reasonNoRoute},
 	{Target: "opencode", Reason: reasonNoRoute},

@@ -169,6 +169,12 @@ func loadGlobalStateUpTo(path string, version int) (globalState, error) {
 // by absolute path, so syncing on would sweep that home's files.
 func foreignGlobalPath(old globalState, home string) string {
 	roots := globalRoots(home)
+	for _, target := range slices.Sorted(maps.Keys(old.ReviewPolicies)) {
+		policy := old.ReviewPolicies[target]
+		if policy.Home != home || !filepath.IsAbs(policy.Path) {
+			return policy.Path
+		}
+	}
 	for _, path := range append(slices.Clone(old.Files), old.Created...) {
 		if !filepath.IsAbs(path) {
 			return path

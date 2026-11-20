@@ -575,6 +575,10 @@ func (p *globalPlan) snapshotTargetTOML(target string, g globalTarget) error {
 // placeEdit plans a key-level edit of a user file another program may
 // also write.
 func (p *globalPlan) placeEdit(path string, m globalSettingsMerge, mode fs.FileMode) error {
+	return p.placeEditFromSnapshot(path, m, mode, nil)
+}
+
+func (p *globalPlan) placeEditFromSnapshot(path string, m globalSettingsMerge, mode fs.FileMode, snapshot *diskSnapshot) error {
 	if m.data == nil && len(m.adopted) == 0 {
 		return nil
 	}
@@ -596,7 +600,9 @@ func (p *globalPlan) placeEdit(path string, m globalSettingsMerge, mode fs.FileM
 	}
 	w := &p.writes[i]
 	if w.planned == nil {
-		snapshot := p.initialTOML[path]
+		if snapshot == nil {
+			snapshot = p.initialTOML[path]
+		}
 		if snapshot == nil {
 			var err error
 			snapshot, err = snapshotFile(path)

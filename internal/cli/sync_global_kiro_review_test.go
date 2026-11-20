@@ -106,3 +106,73 @@ func TestSyncGlobal_ApprovalsReviewWarnsOnKiroPermissionsItCannotEdit(t *testing
 		t.Errorf("warnings do not explain the skip:\n%s", warnings)
 	}
 }
+
+func TestSyncGlobal_ApprovalsReviewKeepsKiroOwnershipAfterUneditableFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("KIRO_HOME", "")
+	path := filepath.Join(home, ".kiro", "settings", "permissions.yaml")
+	writeFile(t, path, handWrittenKiroPermissions)
+	writeHomeApprovals(t, source, "approvals:\n  mode: review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	managed := readFile(t, path)
+	writeFile(t, path, "policies: [\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil || !strings.Contains(warnings, "leaves") {
+		t.Fatalf("sync with malformed permissions: %v\n%s", err, warnings)
+	}
+
+	writeFile(t, path, managed)
+	writeHomeApprovals(t, source, "approvals:\n  mode: ask\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
+		t.Fatalf("sync with ask: %v\n%s", err, warnings)
+	}
+	if got := readFile(t, path); got != handWrittenKiroPermissions {
+		t.Errorf("permissions.yaml = %q, want the original rules", got)
+	}
+}
+
+func TestSyncGlobal_ApprovalsReviewWaitsToMoveKiroPresetUntilOldFileIsEditable(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("KIRO_HOME", "")
+	path := filepath.Join(home, ".kiro", "settings", "permissions.yaml")
+	writeFile(t, path, handWrittenKiroPermissions)
+	writeHomeApprovals(t, source, "approvals:\n  mode: review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	managed := readFile(t, path)
+	writeFile(t, path, strings.Replace(managed, "approve-for-me\n", "approve-for-me # keep\n", 1))
+	newRoot := t.TempDir()
+	t.Setenv("KIRO_HOME", newRoot)
+	newPath := filepath.Join(newRoot, "settings", "permissions.yaml")
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil || !strings.Contains(warnings, "leaves") {
+		t.Fatalf("sync with uneditable preset: %v\n%s", err, warnings)
+	}
+	if _, err := os.Stat(newPath); !os.IsNotExist(err) {
+		t.Errorf("new permissions.yaml was written before removing the old preset: %v", err)
+	}
+
+	writeFile(t, path, managed)
+	if _, warnings, err := runGlobalAgentTest("--only", "kiro"); err != nil {
+		t.Fatalf("sync after repairing old permissions: %v\n%s", err, warnings)
+	}
+	if got := readFile(t, path); got != handWrittenKiroPermissions {
+		t.Errorf("old permissions.yaml = %q, want the original rules", got)
+	}
+	if got := readFile(t, newPath); got != "policies:\n  - approve-for-me\n" {
+		t.Errorf("new permissions.yaml = %q, want only the reviewer preset", got)
+	}
+}
+
+func TestForeignGlobalPath_RejectsAReviewerPolicyFromAnotherHome(t *testing.T) {
+	home := t.TempDir()
+	otherHome := t.TempDir()
+	path := filepath.Join(otherHome, ".kiro", "settings", "permissions.yaml")
+	state := globalState{ReviewPolicies: map[string]globalReviewPolicy{"kiro": {Path: path, Home: otherHome}}}
+	if got := foreignGlobalPath(state, home); got != path {
+		t.Errorf("foreign reviewer policy = %q, want %q", got, path)
+	}
+}
