@@ -67,18 +67,19 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 
 // importedOnceFile is a config file a tool reads that sync never
 // writes, so import leaves it in place. dest, with %s for the name, is
-// the file sync writes from its spec, which the tool loads as well, and
-// tool names that tool. A file whose dest is empty has no such copy.
-type importedOnceFile struct{ glob, target, kind, suffix, dest, tool string }
+// the file sync writes from its spec under outputs dir out, which the
+// tool loads as well, and tool names that tool. A file whose dest is
+// empty has no such copy.
+type importedOnceFile struct{ glob, target, kind, suffix, dest, out, tool string }
 
 // unmanagedImportedOnce lists the imported-once files. One stays
 // unmanaged until the spec import writes from it exists, then while it
 // duplicates the file sync wrote from that spec.
 var unmanagedImportedOnce = []importedOnceFile{
-	{cursorLegacyRulesFile, "cursor", "rules", "", "", ""},
-	{".github/prompts/*" + copilotPromptSuffix, "copilot", "commands", copilotPromptSuffix, ".github/skills/%s/SKILL.md", "Copilot"},
-	{".opencode/agent/*.md", "opencode", "agents", ".md", ".opencode/agents/%s.md", "OpenCode"},
-	{".opencode/command/*.md", "opencode", "commands", ".md", ".opencode/commands/%s.md", "OpenCode"},
+	{cursorLegacyRulesFile, "cursor", "rules", "", "", "", ""},
+	{".github/prompts/*" + copilotPromptSuffix, "copilot", "commands", copilotPromptSuffix, ".github/skills/%s/SKILL.md", "skills", "Copilot"},
+	{".opencode/agent/*.md", "opencode", "agents", ".md", ".opencode/agents/%s.md", "agents", "OpenCode"},
+	{".opencode/command/*.md", "opencode", "commands", ".md", ".opencode/commands/%s.md", "commands", "OpenCode"},
 }
 
 // nameOf returns the spec name of the imported-once file at path.
@@ -86,14 +87,29 @@ func (f importedOnceFile) nameOf(path string) string {
 	return strings.TrimPrefix(strings.TrimSuffix(filepath.Base(path), f.suffix), ".")
 }
 
-// duplicate returns the file sync wrote from the spec of the
-// imported-once file at path, when it exists under root.
-func (f importedOnceFile) duplicate(root, path string) (string, bool) {
-	if f.dest == "" {
+// destFor returns the file sync writes from the spec named name, for an
+// enabled target with the default output folder. A `group:name` command
+// lands as `group-name`.
+func (f importedOnceFile) destFor(cfg *config.Config, name string) (string, bool) {
+	if f.dest == "" || cfg == nil || !slices.Contains(cfg.Targets, f.target) {
 		return "", false
 	}
-	dest := fmt.Sprintf(f.dest, f.nameOf(path))
-	return dest, fileExists(filepath.Join(root, filepath.FromSlash(dest)))
+	o := cfg.Outputs[f.target]
+	if map[string]string{"agents": o.AgentsDir, "commands": o.CommandsDir, "skills": o.SkillsDir}[f.out] != "" {
+		return "", false
+	}
+	return fmt.Sprintf(f.dest, strings.ReplaceAll(name, ":", "-")), true
+}
+
+// duplicate returns the generated file under root that repeats the
+// imported-once file at path.
+func (f importedOnceFile) duplicate(root string, cfg *config.Config, path string) (string, bool) {
+	dest, ok := f.destFor(cfg, f.nameOf(path))
+	if !ok {
+		return "", false
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(dest)))
+	return dest, err == nil && header.Has(string(data))
 }
 
 // unmanagedMCPFiles lists MCP files sync replaces whole. JSON carries no
@@ -119,21 +135,19 @@ var unmanagedScopedFiles = []struct{ nativeDir, file, target string }{
 }
 
 // noteImportedOnceDuplicates names each imported-once file of target
-// whose spec exists, to delete after the next sync: sync writes that spec
-// to another file, the tool loads both, and a later spec edit reaches
-// only the copy. Import never removes a file it did not write.
+// whose spec sync writes for it, to delete after the next sync: the tool
+// loads both, and a later spec edit reaches only the copy. Import never
+// removes a file it did not write.
 func noteImportedOnceDuplicates(root, target string, cfg *config.Config) {
-	if cfg == nil || !slices.Contains(cfg.Targets, target) {
-		return
-	}
 	for _, c := range unmanagedImportedOnce {
-		if c.target != target || c.dest == "" {
+		if c.target != target {
 			continue
 		}
 		matches, _ := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
 		for _, m := range matches {
 			name := c.nameOf(m)
-			if !fileExists(filepath.Join(unmanagedSourceDir(root, cfg, c.kind), name+".md")) {
+			dest, ok := c.destFor(cfg, name)
+			if !ok || !c.specEmits(root, cfg, name) {
 				continue
 			}
 			if data, err := os.ReadFile(m); err != nil || header.Has(string(data)) {
@@ -143,10 +157,25 @@ func noteImportedOnceDuplicates(root, target string, cfg *config.Config) {
 			if err != nil {
 				rel = m
 			}
-			summaryf("  ! delete %s after the next sync: sync writes it to %s, and %s loads both\n",
-				filepath.ToSlash(rel), fmt.Sprintf(c.dest, name), c.tool)
+			summaryf("  ! delete %s after the next sync: sync writes it to %s, and %s loads both\n", filepath.ToSlash(rel), dest, c.tool)
 		}
 	}
+}
+
+// specEmits reports whether the spec named name reaches the target of f,
+// and as the file dest names: Copilot gets a command as a skill only
+// when it writes commands as skills.
+func (f importedOnceFile) specEmits(root string, cfg *config.Config, name string) bool {
+	kind := map[string]spec.Kind{"agents": spec.KindAgent, "commands": spec.KindCommand}[f.kind]
+	data, err := os.ReadFile(filepath.Join(unmanagedSourceDir(root, cfg, f.kind), name+".md"))
+	if err != nil {
+		return false
+	}
+	e, err := spec.ParseMarkdownBytes(kind, data)
+	if err != nil || !e.EmitsTo(f.target) {
+		return false
+	}
+	return f.out != "skills" || adapters.WritesCommandsAsSkills(cfg, f.target)
 }
 
 // unmanagedFinding is one config file present on disk but not generated
@@ -207,7 +236,7 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 				add(m, c.target)
 				continue
 			}
-			if dest, ok := c.duplicate(root, m); ok {
+			if dest, ok := c.duplicate(root, cfg, m); ok {
 				if f := add(m, c.target); f != nil {
 					f.Duplicate = fmt.Sprintf("delete it: sync writes %s from its spec, and %s loads both", dest, c.tool)
 				}

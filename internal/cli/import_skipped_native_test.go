@@ -196,12 +196,29 @@ func TestDoctor_ListsAnOriginalThatDuplicatesAGeneratedFile(t *testing.T) {
 	if !ok {
 		t.Fatalf("doctor printed no unmanaged config section:\n%s", out)
 	}
-	for _, want := range []string{".opencode/agent/planner.md", ".github/prompts/plan.prompt.md"} {
+	section, _, _ = strings.Cut(section, "\n\n")
+	for _, want := range []string{
+		"✗ .opencode/agent/planner.md\n    → delete it: sync writes .opencode/agents/planner.md from its spec, and OpenCode loads both",
+		"✗ .github/prompts/plan.prompt.md\n    → delete it: sync writes .github/skills/plan/SKILL.md from its spec, and Copilot loads both",
+	} {
 		if !strings.Contains(section, want) {
-			t.Errorf("doctor stopped listing %s while it duplicates a generated file:\n%s", want, section)
+			t.Errorf("doctor lacks %q while the original duplicates a generated file:\n%s", want, section)
 		}
 	}
-	if !strings.Contains(section, "delete it") {
-		t.Errorf("doctor did not say to delete the duplicate:\n%s", section)
+}
+
+// A spec that never reaches the tool leaves the original as its only copy.
+func TestImport_KeepsQuietAboutAnOriginalWhoseSpecSkipsTheTool(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, copilot]\n")
+	writeFile(t, ".agnostic-ai/commands/plan.md", "---\ndescription: Make a plan.\ntargets: [claude]\n---\n\nPlan.\n")
+	writeFile(t, ".github/prompts/plan.prompt.md", "---\ndescription: Make another plan.\n---\n\nPlan more.\n")
+	buf := captureSummary(t)
+
+	execCLI(t, "import", "copilot")
+
+	if !strings.Contains(buf.String(), "imported") || strings.Contains(buf.String(), "delete .github/prompts/plan.prompt.md") {
+		t.Errorf("import said to delete the only copy Copilot has:\n%s", buf.String())
 	}
 }
