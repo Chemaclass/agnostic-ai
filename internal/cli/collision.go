@@ -52,6 +52,25 @@ func detectRenderedCollisions(renders *targetRenders, cfg *config.Config, target
 	return found.winners, err
 }
 
+// renderedOwners maps each path the targets render to the targets that
+// write it, as the sync collision check sees them. A target that does not
+// resolve or render is left out; its own sync reports why.
+func renderedOwners(cfg *config.Config, renders *targetRenders, targets []string) map[string][]string {
+	defer adapters.SetAsideNotes()()
+	owners := map[string][]string{}
+	for _, t := range targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue
+		}
+		render := renders.captureQuiet(adapter, cfg)
+		for _, f := range render.files {
+			owners[f.Path] = append(owners[f.Path], t)
+		}
+	}
+	return owners
+}
+
 // renderedCollisions is what findRenderedCollisions saw: the winners, the
 // shared rules-files, and the instructions files the run writes.
 type renderedCollisions struct {

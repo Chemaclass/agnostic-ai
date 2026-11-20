@@ -128,6 +128,11 @@ func NewRootCmd(version string) *cobra.Command {
 	root.SetHelpCommandGroupID("maintenance")
 	root.SetCompletionCommandGroupID("maintenance")
 	root.InitDefaultCompletionCmd()
+	// Cobra prints help and exits 0 for `completion <unknown shell>`.
+	if completion, _, err := root.Find([]string{"completion"}); err == nil {
+		completion.Args = cobra.NoArgs
+		completion.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
+	}
 	signRootHelp(root)
 	profileEachRun(root, &profilePath)
 	guidedUpgradeEachRun(root)

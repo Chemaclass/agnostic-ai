@@ -626,7 +626,10 @@ func newMemoryLintCmd() *cobra.Command {
 			}
 			if len(findings) == 0 {
 				if stores, err := memoryStores(); err != nil || !anyMemoryStore(stores) {
-					cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(defaultMemoryStores[0].dir), filepath.ToSlash(defaultMemoryStores[1].dir))
+					if err != nil {
+						stores = defaultMemoryStores
+					}
+					cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(stores[0].dir), filepath.ToSlash(stores[1].dir))
 					return nil
 				}
 				cmd.Println("ok, no memory findings")

@@ -98,7 +98,13 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 		}
 		cfg := scope.cfg.WithAdditionalTargets(scope.targets...)
 		entryFiles, _ := renderEntryPointFiles(cfg, b, cfg.Targets, "")
-		if err := outputPathCollisions(".", cfg, nil, entryFiles, nil); err != nil {
+		var owners map[string][]string
+		// Only a filesystem where case does not count stores two such
+		// spellings as one file, so a case-sensitive one skips the render.
+		if caseInsensitiveFS(".") {
+			owners = renderedOwners(cfg, newTargetRenders(cfg, b), cfg.Targets)
+		}
+		if err := outputPathCollisions(".", cfg, owners, entryFiles, nil); err != nil {
 			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "outputs", Message: err.Error()})
 		}
 	}

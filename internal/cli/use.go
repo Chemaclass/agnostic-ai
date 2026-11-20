@@ -47,6 +47,9 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := stopOnMissingPacks("."); err != nil {
+				return err
+			}
 			lock, err := acquireLedgerLock(".", "use")
 			if err != nil {
 				return err
@@ -515,8 +518,12 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 			if len(entries) == 0 || supports != nil && !slices.Contains(supports, kindOf(kind)) {
 				continue
 			}
+			location := where[strings.ToLower(kind)]
+			if location == "" {
+				location = landingLocation(cfg, b, t, entries)
+			}
 			label := fmt.Sprintf("%d %s", len(entries), countLabel(kind, len(entries)))
-			_, _ = fmt.Fprintf(w, "    %-16s %-22s %s\n", label, where[strings.ToLower(kind)], entryNames(entries))
+			_, _ = fmt.Fprintf(w, "    %-16s %-22s %s\n", label, location, entryNames(entries))
 		}
 	}
 	_, _ = fmt.Fprintln(w, "  edit .agnostic-ai/ and run agnostic-ai sync to change what every tool reads")

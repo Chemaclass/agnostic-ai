@@ -42,6 +42,8 @@ The web interface, its API and the companion have their own pages: [`view` and `
 
 List the output files and sections a spec feeds, using the `<!-- source: ... -->` markers in merged documents. With `--file`, list instructions that apply to a source file.
 
+Name a spec by its path, or by its path under `.agnostic-ai/` such as `rules/conventional-commits.md`.
+
 Pass an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/docs/cli-reference/check.md#lint) such as `LINT011` to see its cause and fix. Lint codes also show severity and any related `lint` config key (`severity` and `config` in JSON).
 
 ```bash
@@ -118,7 +120,7 @@ agnostic-ai explain rules/conventional-commits.md --layers
 ```text
 rule conventional-commits
   .agnostic-ai/packs/team/rules/conventional-commits.md [pack:team] base (replaced)
-  rules/conventional-commits.md [project] replace (contributor)
+  .agnostic-ai/rules/conventional-commits.md [project] replace (contributor)
   .agnostic-ai/local/rules/conventional-commits.md [project-user] extend (contributor)
 effective source: .agnostic-ai/local/rules/conventional-commits.md
 ```
