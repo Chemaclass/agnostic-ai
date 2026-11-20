@@ -161,6 +161,7 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 - `on` is a [portable event](@/docs/spec-format/hook-reference.md#portable-events).
 - `match` (`shell`, `edit`, `read`, or `web`) goes only with `before-tool` and `after-tool`.
 - `timeout` is a whole number of seconds above zero.
+- A `command` or `description` that holds a recognized literal credential, such as a token, a `Bearer` value, or a password, returns 400, and so does a `name` that is a token. The text inside `$(...)` and backticks is checked too. Read the secret at run time instead: `$GITHUB_TOKEN`, `${GITHUB_TOKEN}`, `$(gh auth token)`, or a backtick command. A quoted assignment such as `AUTH="Bearer $TOKEN"` is still refused.
 - `action: "preview"` returns `file`, `spec`, `syncCommand`, and `expected`. It answers 422 with `problems` when `validate` would report the hook.
 - `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`.
 - An existing hook name returns 409. So does a changed preview.
