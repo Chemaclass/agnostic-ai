@@ -811,6 +811,35 @@ func TestDecide_MovedSpecFoldersAsk(t *testing.T) {
 	wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/services/web/cfg/agents/x.md"}), p), "")
 }
 
+func TestDecide_SpecFoldersFromTheSessionFolder(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	calls := map[string]int{}
+	p.SpecSources = func(dir string) ([]string, error) {
+		calls[dir]++
+		if dir == testRoot+"/services/api" {
+			return []string{testRoot + "/shared/hooks", testRoot + "/services/api/.agnostic-ai/agents"}, nil
+		}
+		return nil, nil
+	}
+	session := func(r Request) Request {
+		r.Cwd = testRoot + "/services/api"
+		return r
+	}
+	for _, file := range []string{"shared/hooks/x.yaml", "services/api/.agnostic-ai/agents/x.md"} {
+		wantDecision(t, Decide(session(call("Write", map[string]any{"file_path": testRoot + "/" + file})), p), RuleProtectedPath)
+	}
+	wantDecision(t, Decide(session(bash("go build -o .agnostic-ai/agents/x ./cmd/x")), p), RuleProtectedPath)
+	wantDecision(t, Decide(session(bash("cd .agnostic-ai/agents")), p), RuleProtectedPath)
+	clear(calls)
+	wantDecision(t, Decide(session(call("apply_patch", map[string]any{"input": "*** Begin Patch\n*** Add File: a.go\n+x\n*** Add File: b.go\n+y\n*** End Patch"})), p), "")
+	for dir, n := range calls {
+		if n > 1 {
+			t.Errorf("SpecSources(%s) ran %d times in one request", dir, n)
+		}
+	}
+}
+
 func TestDecide_MovedSpecFolderThroughALink(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

@@ -26,6 +26,20 @@ func TestSpecSources_ReadsMovedFolders(t *testing.T) {
 	if slices.Contains(got, filepath.Join(root, "config/skills")) {
 		t.Errorf("spec folders %v hold the skills folder", got)
 	}
+	for _, sub := range []string{".agnostic-ai/agents", ".agnostic-ai/local/hooks", ".agnostic-ai/mcps"} {
+		if !slices.Contains(got, filepath.Join(root, sub)) {
+			t.Errorf("spec folders %v miss the default %s", got, sub)
+		}
+	}
+}
+
+func TestSpecSources_NestedProjectDefaults(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\n")
+	got, err := approvals.SpecSources(root)
+	if err != nil || !slices.Contains(got, filepath.Join(root, ".agnostic-ai", "hooks")) {
+		t.Errorf("spec folders = %v, %v; want the default hooks folder", got, err)
+	}
 }
 
 func TestSpecSources_BrokenConfigIsAnError(t *testing.T) {

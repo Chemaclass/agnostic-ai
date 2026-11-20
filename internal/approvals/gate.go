@@ -198,10 +198,11 @@ func isMCP(call string) bool {
 
 // gate holds one request's resolved folders.
 type gate struct {
-	policy Policy
-	roots  []string
-	cwd    string
-	home   string
+	policy    Policy
+	roots     []string
+	cwd       string
+	home      string
+	specCache map[string]specFolders
 }
 
 func newGate(r Request, policy Policy) (*gate, bool) {

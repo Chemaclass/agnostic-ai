@@ -20,11 +20,17 @@ const RuleProjectConfig = "project-config"
 // agents, hooks, MCP servers or tool settings that run without a prompt.
 var specSourceKeys = []string{"agents", "hooks", "mcps", "settings"}
 
+// defaultSpecDirs are the spec folders, under a project config's own
+// folder, whose specs sync turns into agents, hooks, servers or settings.
+var defaultSpecDirs = []string{"agents", "hooks", "mcps", "settings", "overlays", "scripts", "packs"}
+
 // SpecSources returns the absolute folders that the project config
-// files in dir, base and local alike, move agent, hook, MCP or settings
-// specs to. It is the SpecSources a hook passes in a Policy. A file that
-// exists but does not parse, a source that is not text, or one that
-// names dir itself or a folder above it is an error, so the gate asks.
+// files in dir, base and local alike, keep agent, hook, MCP or settings
+// specs in: the default folders under dir/.agnostic-ai when any config
+// file is there, and each folder sources.* moves them to. It is the
+// SpecSources a hook passes in a Policy. A file that exists but does not
+// parse, a source that is not text, or one that names dir itself or a
+// folder above it is an error, so the gate asks.
 func SpecSources(dir string) ([]string, error) {
 	var dirs []string
 	for _, name := range []string{config.ConfigFileName, config.LegacyConfigFileName, config.LocalOverrideFileName} {
@@ -32,6 +38,11 @@ func SpecSources(dir string) ([]string, error) {
 		found, err := specSources(path)
 		if err != nil {
 			return nil, err
+		}
+		if found != nil && len(dirs) == 0 {
+			for _, sub := range defaultSpecDirs {
+				dirs = append(dirs, filepath.Join(dir, config.SourceBaseDir, sub), filepath.Join(dir, config.SourceBaseDir, "local", sub))
+			}
 		}
 		for _, source := range found {
 			if !filepath.IsAbs(source) {
@@ -47,6 +58,8 @@ func SpecSources(dir string) ([]string, error) {
 	return dirs, nil
 }
 
+// specSources returns the sources.* folders path names. found is nil
+// when path does not exist and empty, not nil, when it names none.
 func specSources(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -61,7 +74,7 @@ func specSources(path string) ([]string, error) {
 	if err := yaml.Unmarshal(data, &file); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	var out []string
+	out := []string{}
 	for _, key := range specSourceKeys {
 		value, set := file.Sources[key]
 		if !set || value == nil {

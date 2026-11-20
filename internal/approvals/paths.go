@@ -222,25 +222,22 @@ func underFold(p, dir string) bool {
 }
 
 // specRule asks for a write to abs under, or above, a folder that a
-// project config file in a folder above abs moves specs to. It reads
-// every folder up to the file system root, as written and with links
-// resolved, so a config below the session folder or above the Git root
-// counts. A config that does not read asks.
+// project config file moves specs to. It reads the configs in every
+// folder above abs, as written and with links resolved, and above the
+// session folder, up to the file system root, so a config below the
+// session folder, above the Git root, or one whose source points
+// outside its own folder counts. A config that does not read asks.
 func (g *gate) specRule(abs string) string {
 	if g.policy.SpecSources == nil {
 		return ""
 	}
-	paths := []string{abs}
+	starts := []string{filepath.Dir(abs), g.cwd}
 	if g.policy.Resolve != nil {
-		if real := filepath.Clean(g.policy.Resolve(abs)); real != abs {
-			paths = append(paths, real)
-		}
+		starts = append(starts, filepath.Dir(filepath.Clean(g.policy.Resolve(abs))))
 	}
-	seen := map[string]bool{}
-	for _, p := range paths {
-		for dir := filepath.Dir(p); !seen[dir]; dir = filepath.Dir(dir) {
-			seen[dir] = true
-			sources, err := g.policy.SpecSources(dir)
+	for _, start := range starts {
+		for dir := start; ; dir = filepath.Dir(dir) {
+			sources, err := g.specSourcesIn(dir)
 			if err != nil {
 				return RuleProjectConfig
 			}
@@ -249,9 +246,30 @@ func (g *gate) specRule(abs string) string {
 					return RuleProtectedPath
 				}
 			}
+			if filepath.Dir(dir) == dir {
+				break
+			}
 		}
 	}
 	return ""
+}
+
+// specSourcesIn is SpecSources for dir, read once per request.
+func (g *gate) specSourcesIn(dir string) ([]string, error) {
+	if found, ok := g.specCache[dir]; ok {
+		return found.dirs, found.err
+	}
+	dirs, err := g.policy.SpecSources(dir)
+	if g.specCache == nil {
+		g.specCache = map[string]specFolders{}
+	}
+	g.specCache[dir] = specFolders{dirs: dirs, err: err}
+	return dirs, err
+}
+
+type specFolders struct {
+	dirs []string
+	err  error
 }
 
 func (g *gate) protectedRel(rel string) bool {
