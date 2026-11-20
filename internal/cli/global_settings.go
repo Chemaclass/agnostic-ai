@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -27,7 +28,13 @@ type globalSettingsFile struct {
 	// resolve replaces path for a file whose folder follows the tool's own
 	// variables rather than the target's root.
 	resolve func(home string) string
-	private bool
+	// absEnv are the variables resolve reads, each of which must be an
+	// absolute path when set.
+	absEnv []string
+	// toolOwned marks a file the tool rewrites itself: sync reads it only
+	// when it has a key to write or remove there.
+	toolOwned bool
+	private   bool
 	// json-flat treats dotted names as literal root keys.
 	format string
 	// Empty native keys have no mapping.
@@ -120,7 +127,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	out := append(slices.Clip(permissions), personal...)
 	if model := adapters.SettingsModel(settings, target); model != "" {
 		if f.model == "" {
-			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
+			adapters.NoteSettingsFieldNoOp(target, "model", models, cmp.Or(f.allowedReason, "its user settings file has no default model key"))
 		} else {
 			out = append(out, globalSetting{target: target, key: f.model, value: model, field: "model", source: lastSettingsSource(settings, "model", target)})
 		}
@@ -128,7 +135,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	if effort := adapters.SettingsEffort(settings, target); effort != nil {
 		switch {
 		case f.effort == "":
-			adapters.NoteSettingsFieldNoOp(target, "effort", efforts, "its user settings file has no default effort key")
+			adapters.NoteSettingsFieldNoOp(target, "effort", efforts, cmp.Or(f.allowedReason, "its user settings file has no default effort key"))
 		case f.accepts(effort):
 			out = append(out, globalSetting{target: target, key: f.effort, value: effort, field: "effort", source: lastSettingsSource(settings, "effort", target)})
 			if f.effortGap.surface != "" {
@@ -249,6 +256,12 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 			if value != nil && f.allowed[key] == "string" {
 				if text, ok := value.(string); !ok || strings.TrimSpace(text) == "" {
 					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a nonempty string")
+					continue
+				}
+			}
+			if choices, ok := strings.CutPrefix(f.allowed[key], "enum:"); ok && value != nil {
+				if text, _ := value.(string); !slices.Contains(strings.Split(choices, "|"), text) {
+					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field takes one of "+strings.ReplaceAll(choices, "|", ", "))
 					continue
 				}
 			}

@@ -208,3 +208,59 @@ func TestSyncGlobal_CursorSettingsWriteOnlyApprovalMode(t *testing.T) {
 		t.Errorf("approvalMode = %v", have)
 	}
 }
+
+func TestSyncGlobal_ApprovalsReviewReplacesCursorDefault(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := cursorCLIConfigPath(home)
+	original := "{\n  \"version\": 1,\n  \"approvalMode\": \"allowlist\",\n  \"hints\": true\n}\n"
+	writeFile(t, path, original)
+	writeHomeApprovals(t, source, "approvals:\n  tools:\n    cursor: review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if have, _ := reviewerKey(t, path, "json", "approvalMode"); have != "auto-review" {
+		t.Errorf("approvalMode = %v:\n%s", have, readFile(t, path))
+	}
+
+	writeHomeApprovals(t, source, "")
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync without review: %v\n%s", err, warnings)
+	}
+	if have, ok := reviewerKey(t, path, "json", "approvalMode"); ok {
+		t.Errorf("removing review left approvalMode = %v", have)
+	}
+	if have, _ := reviewerKey(t, path, "json", "hints"); have != true {
+		t.Errorf("sync dropped cursor-agent's keys:\n%s", readFile(t, path))
+	}
+}
+
+func TestSyncGlobal_CursorRejectsUnknownApprovalMode(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "x-cursor:\n  approvalMode: auto_review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	if _, ok := reviewerKey(t, cursorCLIConfigPath(home), "json", "approvalMode"); ok {
+		t.Error("sync wrote a value cursor-agent rejects")
+	}
+}
+
+func TestSyncGlobal_CursorSkipsABrokenConfigItDoesNotWrite(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	writeFile(t, cursorCLIConfigPath(home), "{ broken")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("a broken cli-config.json stopped the sync: %v\n%s", err, warnings)
+	}
+}
+
+func TestGlobalTargets_CursorConfigDirMustBeAbsolute(t *testing.T) {
+	t.Setenv("CURSOR_CONFIG_DIR", "relcfg")
+
+	if err := globalTargets["cursor"].rootError("cursor"); err == nil || !strings.Contains(err.Error(), "CURSOR_CONFIG_DIR") {
+		t.Errorf("rootError = %v", err)
+	}
+}

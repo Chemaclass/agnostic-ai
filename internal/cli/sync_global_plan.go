@@ -661,6 +661,11 @@ func (p *globalPlan) planSettings(target string, g globalTarget) error {
 	}
 	path := g.path(home, g.settings.path)
 	previous := old.Settings[target]
+	if g.settings.toolOwned && len(want) == 0 && len(previous) == 0 && old.SettingsPaths[target] == "" {
+		if mode, _ := homeToolMode(p.approvals, target); mode != config.ApprovalsReview {
+			return nil
+		}
+	}
 	previousRules := old.PermissionRules[target]
 	originals := old.SettingsOriginals[target]
 	parents := jsonParents{created: old.SettingsParents[target]}
@@ -682,7 +687,7 @@ func (p *globalPlan) planSettings(target string, g globalTarget) error {
 		originals = nil
 		parents = jsonParents{}
 	}
-	want, err := p.approvalsReviewSetting(target, path, g.settings.format, want, previous)
+	want, previous, err := p.approvalsReviewSetting(target, path, g.settings.format, want, previous)
 	if err != nil {
 		return err
 	}

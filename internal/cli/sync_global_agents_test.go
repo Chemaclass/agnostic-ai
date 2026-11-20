@@ -22,6 +22,7 @@ func globalAgentTestHome(t *testing.T) (string, string) {
 		}
 	}
 	t.Setenv("HOME", home)
+	t.Setenv("CURSOR_CONFIG_DIR", "")
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))

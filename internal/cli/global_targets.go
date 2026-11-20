@@ -237,8 +237,9 @@ var globalTargets = map[string]globalTarget{
 		// cursor-agent rewrites cli-config.json itself, so sync owns only
 		// approvalMode there.
 		settings: globalSettingsFile{
-			path: globalPathHome + ".cursor/cli-config.json", format: "json", resolve: cursorCLIConfigPath,
-			allowed:       map[string]string{"approvalMode": "string"},
+			path: globalPathHome + ".cursor/cli-config.json", format: "json", resolve: cursorCLIConfigPath, toolOwned: true,
+			absEnv:        []string{"CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"},
+			allowed:       map[string]string{"approvalMode": "enum:allowlist|unrestricted|auto-review"},
 			allowedReason: "sync --global writes only approvalMode to cursor-agent's cli-config.json",
 		},
 		hookFoldArgs: true,

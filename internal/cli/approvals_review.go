@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -29,6 +30,9 @@ type nativeReviewer struct {
 	overrideEnv string
 	// reviewNote is a fixed limit status names whenever the mode is review.
 	reviewNote string
+	// toolDefault is the value the tool writes itself when nobody chose
+	// one, so review may replace it as if the key were unset.
+	toolDefault any
 }
 
 type reviewerOff struct {
@@ -49,7 +53,8 @@ var nativeReviewers = map[string]nativeReviewer{
 	"vibe": {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve", overrideEnv: "VIBE_DEFAULT_AGENT",
 		off: &reviewerOff{key: "bypass_tool_permissions", value: true, why: "Vibe approves every call instead"}},
 	"cursor": {name: "cursor-agent Auto-review", key: "approvalMode", value: "auto-review",
-		reviewNote: "the Cursor desktop app keeps its own approval setting; turn on Auto-review there too"},
+		toolDefault: "allowlist",
+		reviewNote:  "the Cursor desktop app keeps its own approval setting; turn on Auto-review there too"},
 	"qoder": {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
 	"qwen":  {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
@@ -87,51 +92,61 @@ func (p *globalPlan) loadPlanApprovals() error {
 // home config sets review for target. A settings spec that sets the key
 // wins, and a value set outside agnostic-ai stays unowned: a different
 // one with a warning, the same one so removing review keeps it.
-func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []globalSetting, previous map[string]any) ([]globalSetting, error) {
+func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []globalSetting, previous map[string]any) ([]globalSetting, map[string]any, error) {
 	reviewer, ok := nativeReviewers[target]
 	mode, from := homeToolMode(p.approvals, target)
 	if !ok || mode != config.ApprovalsReview {
-		return want, nil
+		return want, previous, nil
 	}
 	for _, s := range want {
 		if settingsKeysOverlap(s.key, reviewer.key, format) || (reviewer.legacyKey != "" && settingsKeysOverlap(s.key, reviewer.legacyKey, format)) {
-			return want, nil
+			return want, previous, nil
 		}
 	}
 	data := p.baseFor(path)
 	if data == nil {
 		read, err := os.ReadFile(path)
 		if err != nil && !os.IsNotExist(err) {
-			return nil, fmt.Errorf("read %s: %w", path, err)
+			return nil, nil, fmt.Errorf("read %s: %w", path, err)
 		}
 		data = read
 	}
 	current, err := settingsValues(path, format, data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	have, present := settingsLookup(current, reviewer.key, format)
 	recorded, owned := previous[reviewer.key]
+	if present && !owned && reviewer.toolDefault != nil && sameSetting(have, reviewer.toolDefault) {
+		// Record the tool's own default as ours, so the merge replaces it
+		// and removing review hands the key back to the tool.
+		previous = maps.Clone(previous)
+		if previous == nil {
+			previous = map[string]any{}
+		}
+		previous[reviewer.key] = have
+		recorded, owned = have, true
+	}
 	if legacy, ok := settingsLookup(current, reviewer.legacyKey, format); reviewer.legacyKey != "" && ok && !present {
 		_, err := fmt.Fprintf(p.warn, "warning: %s: %s: review leaves %s = %s in %s, set outside agnostic-ai; %s stays off until you remove it\n",
 			target, from, reviewer.legacyKey, settingsValueText(reviewer.legacyKey, legacy), path, reviewer.name)
 		if err != nil {
-			return nil, fmt.Errorf("write approvals warning: %w", err)
+			return nil, nil, fmt.Errorf("write approvals warning: %w", err)
 		}
-		return want, nil
+		return want, previous, nil
 	}
 	if present && (!owned || !sameSetting(have, recorded)) {
 		if sameSetting(have, reviewer.value) {
-			return want, nil
+			return want, previous, nil
 		}
 		_, err := fmt.Fprintf(p.warn, "warning: %s: %s: review leaves %s = %s in %s, set outside agnostic-ai; %s stays off until you remove it\n",
 			target, from, reviewer.key, settingsValueText(reviewer.key, have), path, reviewer.name)
 		if err != nil {
-			return nil, fmt.Errorf("write approvals warning: %w", err)
+			return nil, nil, fmt.Errorf("write approvals warning: %w", err)
 		}
-		return want, nil
+		return want, previous, nil
 	}
-	return append(want, globalSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), nil
+	return append(want, globalSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), previous, nil
 }
 
 // reviewerState is a native reviewer key as the user settings file holds
