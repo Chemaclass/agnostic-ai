@@ -248,11 +248,13 @@ type bashOutput struct {
 }
 
 type bashParser struct {
-	src      []rune
-	i        int
-	depth    int
-	heredocs []heredoc
-	out      *bashOutput
+	src   []rune
+	i     int
+	depth int
+	// inTestBracket is set while reading the words of `[` or `[[`.
+	inTestBracket bool
+	heredocs      []heredoc
+	out           *bashOutput
 }
 
 // listShape describes a list of commands. plain is one command with no
@@ -399,8 +401,9 @@ func (p *bashParser) parseList(end rune) listShape {
 			p.i++
 			needCommand, shape.single = true, false
 		case p.peek(0) == ';', p.peek(0) == '&':
-			// Claude Code cannot read `;` or `&` inside parentheses.
-			if end == ')' {
+			// Claude Code cannot read `;` or `&` inside parentheses, nor `&`
+			// inside an `if` or loop.
+			if end == ')' || p.peek(0) == '&' && len(open) > 0 {
 				p.fail()
 			}
 			p.i++
@@ -486,7 +489,9 @@ keywords:
 			p.fail()
 			break
 		}
+		p.inTestBracket = len(words) > 0 && (words[0].text == "[" || words[0].text == "[[")
 		w := p.parseWord(len(words) == 0)
+		p.inTestBracket = false
 		p.record(w, !w.assignment)
 		if w.assignment {
 			assignments++
@@ -555,7 +560,7 @@ func claudeReadsArguments(argv []string) bool {
 	case slices.Contains(claudeDeclarations, name):
 		for _, operand := range argv[1:] {
 			flag := strings.HasPrefix(operand, "-")
-			if flag && (strings.HasPrefix(operand, "--") || name == "declare" || name == "typeset") || !flag && !declarationOperand.MatchString(operand) {
+			if flag && (strings.HasPrefix(operand, "--") || name == "declare" || name == "typeset") || !flag && !declarationOperand.MatchString(operand) || tildeValue(operand) {
 				return false
 			}
 		}
@@ -563,6 +568,12 @@ func claudeReadsArguments(argv []string) bool {
 		return !strings.ContainsAny(argv[1], "*?[") && !slices.ContainsFunc(argv[2:], func(a string) bool { return strings.ContainsAny(a, "?[") })
 	}
 	return true
+}
+
+// tildeValue reports whether an assignment's value holds a `~`.
+func tildeValue(operand string) bool {
+	_, value, ok := strings.Cut(operand, "=")
+	return ok && strings.Contains(value, "~")
 }
 
 // parseForHeader reads the name and words of a `for` loop. Claude Code
@@ -731,7 +742,7 @@ func (p *bashParser) parseWord(commandPosition bool) bashWord {
 	w := bashWord{literal: true}
 	var text strings.Builder
 	valueParts, valueSubs := 0, 0
-	inLiteral, sawBrace := false, false
+	inLiteral, quotedParts := false, 0
 	part := func(other bool) {
 		valueParts++
 		w.parts++
@@ -743,11 +754,8 @@ func (p *bashParser) parseWord(commandPosition bool) bashWord {
 		if strings.ContainsRune(bashDelimiters, r) {
 			break
 		}
-		if r == '{' {
-			sawBrace = true
-		}
 		switch {
-		case r == '=' && w.parts == 0 && (p.peek(1) == 0 || strings.ContainsRune(bashDelimiters, p.peek(1)) || isNameRune(p.peek(1), false) || strings.ContainsRune("./~-", p.peek(1))):
+		case r == '=' && w.parts == 0 && !p.inTestBracket && (p.peek(1) == 0 || strings.ContainsRune(bashDelimiters, p.peek(1)) || isNameRune(p.peek(1), false) || strings.ContainsRune("./~-", p.peek(1))):
 			// A lone `=` does not parse, and `=cmd` is a zsh expansion.
 			p.fail()
 			return w
@@ -774,21 +782,20 @@ func (p *bashParser) parseWord(commandPosition bool) bashWord {
 			p.out.unreadableNested = true
 			w.literal = false
 			part(true)
+			quotedParts++
 			p.i = end + 1
 		case r == '"':
 			p.i++
 			p.parseDoubleQuoted(&w, &text)
 			w.literal = false
 			part(true)
+			quotedParts++
 		case r == '\\' && p.peek(1) == '\n':
 			p.i += 2
 		case r == '\\':
 			if p.i+1 >= len(p.src) {
 				p.fail()
 				return w
-			}
-			if p.src[p.i+1] == '{' {
-				sawBrace = true
 			}
 			text.WriteRune(p.src[p.i+1])
 			p.out.unreadableNested = true
@@ -804,12 +811,6 @@ func (p *bashParser) parseWord(commandPosition bool) bashWord {
 			}
 			part(!variable && !substitution)
 		default:
-			// Claude Code cannot read a brace expansion, nor a `{` before an
-			// unquoted `,` or `..` in the same word.
-			if sawBrace && (r == ',' || r == '.' && p.peek(1) == '.') {
-				p.fail()
-				return w
-			}
 			text.WriteRune(r)
 			if !inLiteral {
 				part(true)
@@ -819,6 +820,11 @@ func (p *bashParser) parseWord(commandPosition bool) bashWord {
 		}
 	}
 	w.text = text.String()
+	// Claude Code cannot read a word with a `{` and a `,` or `..` unless
+	// the whole word is quoted.
+	if strings.Contains(w.text, "{") && (strings.Contains(w.text, ",") || strings.Contains(w.text, "..")) && quotedParts != w.parts {
+		p.fail()
+	}
 	w.valueIsSubstitution = w.assignment && valueParts == 1 && valueSubs == 1
 	return w
 }
@@ -890,7 +896,11 @@ func (p *bashParser) readCatHeredoc(text *strings.Builder) bool {
 		if !strings.HasPrefix(after, ")") {
 			return false
 		}
-		text.WriteString(strings.TrimRight(rest[len(m[0]):pos], "\n"))
+		body := strings.TrimRight(rest[len(m[0]):pos], "\n")
+		if strings.HasPrefix(body, "=") || strings.HasPrefix(body, "~") {
+			p.fail()
+		}
+		text.WriteString(body)
 		p.i += utf8.RuneCountInString(rest[:len(rest)-len(after)+1])
 		return true
 	}
