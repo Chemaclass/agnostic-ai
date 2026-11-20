@@ -86,6 +86,12 @@ type Policy struct {
 	AgnosticHome string
 	// Protected are the settings specs' protected blocks.
 	Protected []spec.ProtectGroup
+	// SpecSources, when set, returns the absolute folders that the
+	// project config files in one folder move agent, hook, MCP or
+	// settings specs to. The gate calls it for each folder above a path
+	// a call writes; a write under a returned folder asks, and an error
+	// asks. SpecSources is the one a hook passes.
+	SpecSources func(dir string) ([]string, error)
 	// AlwaysAsk are permission rules, such as Bash(make deploy*), that
 	// ask on a match, read the way Claude Code reads its permission
 	// rules. The caller passes the person's own ask rules from the tool's
@@ -120,7 +126,8 @@ var (
 
 // Decide returns Approved only when policy is yolo, the request is one
 // the gate reads in full, and no always-ask rule matches. Anything it
-// cannot read asks. It does no I/O unless policy.Resolve does.
+// cannot read asks. It does no I/O unless policy.Resolve or
+// policy.SpecSources does.
 func Decide(r Request, policy Policy) Decision {
 	if policy.Mode != ModeYolo {
 		return asked(RuleMode)
@@ -430,6 +437,9 @@ func (g *gate) targetRule(p, cwd, outsideRule string) string {
 	}
 	if g.protected(abs) || g.protectedBelow(g.relative(abs)) {
 		return RuleProtectedPath
+	}
+	if rule := g.specRule(abs); rule != "" {
+		return rule
 	}
 	return ""
 }

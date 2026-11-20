@@ -84,6 +84,7 @@ Field details: [approvals reference](@/docs/global-configuration-reference.md#gl
 | Privilege and processes: `sudo`, `chmod -R`, `chown`, `kill`, `launchctl`, `crontab` | Changes the system |
 | A read or an edit outside the project | Outside the folder you work in |
 | An edit to `.git/`, `.github/workflows/`, shell profiles, tool settings and hook files, `agnostic-ai.yaml`, or anything under `$AGNOSTIC_AI_HOME` | Could turn the gate off |
+| An edit to agent, hook, MCP or settings specs, in `.agnostic-ai/` or a folder that a project `sources` setting moves them to, in any config file above the edited file. Every edit asks while such a config does not read, or names its own folder as a source | The next sync turns them into hooks, servers or permission modes, such as an agent's `x-claude` `hooks` or `permissionMode` |
 | A command that names `AGNOSTIC_AI_` settings | Could change the policy |
 | MCP tools, web fetch and search, questions to you such as `AskUserQuestion` | Not a call the gate reads |
 | A Claude Code session in any mode but manual or accept edits, such as auto or plan | In auto or plan the tool's reviewer or a rule already chose to ask you; other modes were not tested |

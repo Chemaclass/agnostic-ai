@@ -120,6 +120,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 			ProjectRoot:  approveProjectRoot(p.Cwd),
 			Home:         userHome,
 			AgnosticHome: source,
+			SpecSources:  approvals.SpecSources,
 			AlwaysAsk:    append(append([]string(nil), home.AlwaysAsk...), settings.Ask...),
 			RuleRoots:    append([]string{p.Cwd, projectDir}, settings.RuleRoots...),
 			Resolve:      approvals.ResolveLinks,
