@@ -242,6 +242,50 @@ func TestEmit_Hook_PreCompactWritesAndNotesTheInertEvent(t *testing.T) {
 	}
 }
 
+// The VS Code extension wires six of Cline's ten hook names
+// (apps/vscode/src/sdk/hooks-adapter.ts, "Deferred hooks (NOT wired
+// here)"). TaskResume, TaskError and SessionShutdown still run in the
+// Cline CLI, so each writes its script and earns the CLI-only note; the
+// six both runtimes run do not.
+func TestEmit_Hook_CLIOnlyEventsNoteTheVSCodeGap(t *testing.T) {
+	const cliOnly = "the Cline VS Code extension"
+	for _, event := range []string{"TaskResume", "TaskError", "SessionShutdown"} {
+		t.Run(event, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			buf := swapNoteWarner(t)
+			entries := []spec.Entry{
+				{Kind: spec.KindHook, Name: "h", Meta: map[string]any{"event": event, "command": "echo hi"}},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatalf("emit: %v", err)
+			}
+			emit.FlushCoverageNotes()
+			if _, err := os.Stat(filepath.Join(dir, ".clinerules/hooks", event)); err != nil {
+				t.Errorf("expected .clinerules/hooks/%s: %v", event, err)
+			}
+			if !strings.Contains(buf.String(), cliOnly) {
+				t.Errorf("expected a CLI-only note for %s, got: %q", event, buf.String())
+			}
+		})
+	}
+	for _, event := range []string{"TaskStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "TaskComplete", "TaskCancel"} {
+		t.Run(event, func(t *testing.T) {
+			testutil.TempCwd(t)
+			buf := swapNoteWarner(t)
+			entries := []spec.Entry{
+				{Kind: spec.KindHook, Name: "h", Meta: map[string]any{"event": event, "command": "echo hi"}},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatalf("emit: %v", err)
+			}
+			emit.FlushCoverageNotes()
+			if strings.Contains(buf.String(), cliOnly) {
+				t.Errorf("expected no CLI-only note for %s, got: %q", event, buf.String())
+			}
+		})
+	}
+}
+
 // A bundle with no hook spec writes no hooks directory.
 func TestEmit_Hook_NoHooksNoDirectory(t *testing.T) {
 	dir := testutil.TempCwd(t)

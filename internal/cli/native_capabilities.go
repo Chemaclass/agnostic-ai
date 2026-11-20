@@ -9,6 +9,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kimi"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
@@ -152,10 +153,10 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Stop", "Notification",
 	),
 	"crush": setOf(crush.HookEvents()...),
+	"grok":  setOf(grok.HookEvents()...),
 	// The nine events docs.factory.com/harness/hooks' own Event
 	// reference table lists for Droid CLI's `.factory/hooks.json`
 	// (verified 2026-09-11; #629).
-	"grok": setOf("SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied", "Stop", "StopFailure", "StopCancelled", "Notification", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact"),
 	"factory": setOf(
 		"PreToolUse", "PostToolUse",
 		"UserPromptSubmit", "Notification",
