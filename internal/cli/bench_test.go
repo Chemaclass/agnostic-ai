@@ -29,7 +29,7 @@ package cli
 //   - BenchmarkExplainFile:       `explain --file`, one emit per rule.
 //   - BenchmarkLint:              the full project `lint` report.
 //   - BenchmarkValidate:          `validate`, and the render its case
-//     collision check adds when outputs can clash by case.
+//     collision check adds.
 //   - BenchmarkWatchResync:       one `sync --watch` event, three subjects.
 //
 // Fixtures are deterministic (content fixed per index) so numbers stay
@@ -478,9 +478,9 @@ func BenchmarkLint(b *testing.B) {
 }
 
 // BenchmarkValidate measures `validate` (#3733). validate is every issue
-// it reports for a project whose outputs cannot clash by case, which
-// skips the render. render is the cost that check adds when they can:
-// every target rendered to find the paths it writes.
+// it reports, which renders every target where letter case does not
+// count. render is that render alone, the cost the case-only collision
+// check adds.
 func BenchmarkValidate(b *testing.B) {
 	for _, n := range benchSpecCounts {
 		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {

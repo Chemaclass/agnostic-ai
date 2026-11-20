@@ -36,6 +36,33 @@ func TestValidate_ReportsOutputsThatDifferOnlyInCase(t *testing.T) {
 			paths: []string{"Src/AGENTS.md", "src/AGENTS.md"},
 		},
 		{
+			name: "rule paths",
+			yaml: "version: 1\ntargets: [codex]\n",
+			files: map[string]string{
+				"rules/one.md": "---\nname: one\npaths: [\"src/**\"]\n---\nOne.\n",
+				"rules/two.md": "---\nname: two\npaths: [\"Src/**\"]\n---\nTwo.\n",
+			},
+			paths: []string{"Src/AGENTS.md", "src/AGENTS.md"},
+		},
+		{
+			name: "target scope overrides",
+			yaml: "version: 1\ntargets: [codex]\n",
+			files: map[string]string{
+				"rules/one.md": "---\nname: one\nx-codex:\n  scope: src\n---\nOne.\n",
+				"rules/two.md": "---\nname: two\nx-codex:\n  scope: Src\n---\nTwo.\n",
+			},
+			paths: []string{"Src/AGENTS.md", "src/AGENTS.md"},
+		},
+		{
+			name: "dot-slash scope",
+			yaml: "version: 1\ntargets: [codex]\n",
+			files: map[string]string{
+				"rules/one.md": "---\nname: one\nscope: ./src\n---\nOne.\n",
+				"rules/two.md": "---\nname: two\nscope: Src\n---\nTwo.\n",
+			},
+			paths: []string{"Src/AGENTS.md", "src/AGENTS.md"},
+		},
+		{
 			name: "configured skills folder",
 			yaml: "version: 1\ntargets: [claude, codex]\noutputs:\n  claude:\n    skills-dir: .Agents/skills\n",
 			files: map[string]string{
