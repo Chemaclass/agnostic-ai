@@ -56,9 +56,12 @@ export const HEALTH_STATUS: Record<Exclude<HealthTone, 'clean'>, string> = {
   warning: 'Worth a look',
 }
 
-/** The rail's Setup health row: "1 to fix, 12 you could add", plus a status for screen readers. */
+/** The rail's Setup health row, in the page's words: "1 to fix, 3 worth a look, 12 you could add", plus a status for screen readers. */
 export function healthRow(count: Pick<FindingCount, 'errors' | 'warnings'>, gaps: number): { status: string; summary: string } {
   const findings = count.errors + count.warnings
-  const parts = [findings ? `${findings} to fix` : 'Nothing to fix', gaps ? `${gaps} you could add` : '']
+  const parts = findings
+    ? [count.errors ? `${count.errors} to fix` : '', count.warnings ? `${count.warnings} worth a look` : '']
+    : ['Nothing to fix']
+  parts.push(gaps ? `${gaps} you could add` : '')
   return { status: findings ? 'Needs attention' : 'All clear', summary: parts.filter(Boolean).join(', ') }
 }

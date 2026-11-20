@@ -136,7 +136,7 @@ Shows how much text each coding tool reads, as a [context report](@/docs/cli-ref
 
 ## Setup health {#setup-health}
 
-Lists what to fix. **Setup health** in the rail shows the count, such as **1 error, 3 warnings**. Click it to open the page (`?view=health`).
+Lists what to fix. **Setup health** in the rail shows the counts in the page's words, such as **1 to fix, 3 worth a look, 12 you could add**. Click it to open the page (`?view=health`).
 
 1. Read **Fix first** and **Worth a look**.
 2. Open a finding to see its fix, **Open** in your editor and **Copy path**.
@@ -149,7 +149,7 @@ Lists what to fix. **Setup health** in the rail shows the count, such as **1 err
 | **Recheck** | Reruns the checks and reports what disappeared, appeared or remains. |
 
 {% <details summary="Details: recheck, global findings, suggestions"> %}
-- On phones, the top bar shows a chip such as **1E 3W**. With no findings the rail says **No findings**.
+- On phones, the top bar shows a chip such as **1E 3W**. With no findings the chip says **No findings** and the rail says **Nothing to fix**.
 - A finding's **Details** holds **Open**, **Copy path** and **Recheck**, then the suggested fix, explanation and full prompt.
 - Checkboxes select findings or suggestions. A bar shows the count, **Copy prompt** and **Clear**.
 - **Recheck** beside **Checked just now** reruns every section's checks and reports what disappeared, appeared or remains.
@@ -184,14 +184,14 @@ Lists the MCP server specs, and servers a tool keeps in its own file.
 |------|------------|
 | Spec rows | MCP server specs of your setup. |
 | **Found in tools** | Servers a tool keeps in its own file that no spec covers. |
-| **Add to your setup** | Previews a spec for one. **Apply** saves it. |
+| **Import** | Previews a spec for one. **Apply** saves it. |
 | **Save new servers for** | Project or Local. |
 
 {% <details summary="Details: native rows, where saves go"> %}
 - **Found in tools** covers servers such as one you signed in to inside Claude Code.
-- **Add to your setup** previews one spec file, its contents, the variables you must set and the tools it reaches after sync.
+- **Import** previews one spec file, its contents, the variables you must set and the tools it reaches after sync.
 - In `view --json`, an MCP item whose spec sets `disabled` carries it in `fields`, and a local override's value wins. A turned-off server is left out of the verdict and rail counts and shown as off.
-- Each native row names the server, the tool or tools that hold it, the file (`~/.claude.json`, `.mcp.json`), and the transport. It also shows the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file).
+- Each native row names the server and the tool or tools that hold it. **Details** adds the file (`~/.claude.json`, `.mcp.json`), the transport, and the `agnostic-ai import <tool>` command that turns the server into a spec (`import --global <tool>` for a user file). With several files, it also picks the one **Import** reads.
 - A project page reads each tool's project and user files, plus Claude Code's servers for this project under `projects` in `~/.claude.json`. `--global` reads user files only.
 - A native row has no command when no import reads its file, such as Claude Code's per-project servers or an `outputs` MCP file path the tool's import does not follow.
 - Native rows hide the server's own command, arguments, URL, environment, and header values. A file the page cannot read adds no row.
@@ -199,7 +199,7 @@ Lists the MCP server specs, and servers a tool keeps in its own file.
 - **Apply** saves the spec using the [MCP import rules](@/docs/spec-format/mcp-import.md), then asks you to run `agnostic-ai sync` (or `sync --global`).
 - Project and Global saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
 - The save stops when the spec name already exists, or when import cannot rewrite a credential.
-- Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Add to your setup** action.
+- Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Import** action.
 {% </details> %}
 
 ## Lifecycle and hooks {#lifecycle}
@@ -220,6 +220,7 @@ Lists hooks by stage. **Show all stages** adds stages with no hooks. **Add hook*
 - Each stage starts closed, with its timing and hook count. **Add hook** sits at the end of the toolbar. **Expand all** and **Collapse all** control the visible stages.
 - The preview holds only the fields you filled. **Command** shows `match` or `matcher`, `type`, `timeout` and `disabled`.
 - Project and Global saves use the project's configured hook source folder (`.agnostic-ai/hooks/` by default), or `hooks/` in the global home. Local saves use `.agnostic-ai/local/hooks/`, or `local/hooks/` in the home, with the same Git-ignore check as other local saves.
+- A stage some configured tools lack, such as **After a file edit** for Cursor, names them under the field; the hook gets `targets-exclude` for them.
 - The save stops when the name is taken, in any layer and in any letter case. It also stops for a hook that `validate` would report, such as a tool match a configured tool lacks.
 - The form cannot edit or delete hooks, or write a tool's own event name. Snapshots and the mock have no **Add hook** action.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links.
@@ -317,6 +318,7 @@ Move or copy a spec between the project and the global setup.
   - In a global view started inside a project, the action is **Copy to project**.
   - After a move, run `agnostic-ai sync` and `agnostic-ai sync --global`.
   - A skill goes with its whole folder.
+  - A hook goes with the shared scripts it runs. A move leaves them in place too, since other hooks may run them. A script the destination holds with other content stops the copy.
   - When a spec is already there, both stay off until you tick **Replace it**, which replaces the whole spec.
   - Built-ins, pack specs, and local specs have no such action. Commands, review instructions, and settings stay too, since the global setup does not read them as specs.
   - A rule with a scope, paths, or a target condition cannot go to the global setup, where rules apply to every file.

@@ -90,7 +90,10 @@ type hookSpecRequest struct {
 	Command     string `json:"command"`
 	Timeout     *int   `json:"timeout,omitempty"`
 	Description string `json:"description,omitempty"`
-	Expected    string `json:"expected,omitempty"`
+	// TargetsExclude names the configured tools that have no event for
+	// the stage, so the hook leaves them out instead of failing validate.
+	TargetsExclude []string `json:"targetsExclude,omitempty"`
+	Expected       string   `json:"expected,omitempty"`
 }
 
 type hookSpecPreview struct {
@@ -135,7 +138,11 @@ func (h *editHandler) serveHook(w http.ResponseWriter, body []byte) {
 		writeEditJSON(w, http.StatusOK, proposed)
 		return
 	}
-	if req.Expected == "" || req.Expected != proposed.Expected {
+	if req.Expected == "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: errApplyWithoutPreview})
+		return
+	}
+	if req.Expected != proposed.Expected {
 		writeEditJSON(w, http.StatusConflict, editError{Error: "The hook or its destination changed; review a fresh preview before applying"})
 		return
 	}
@@ -198,6 +205,11 @@ func (req hookSpecRequest) check() error {
 			return fmt.Errorf("match must be one of %s, or left out for every tool", strings.Join(hookFormMatches, ", "))
 		}
 	}
+	for _, target := range req.TargetsExclude {
+		if !slugRe.MatchString(target) {
+			return fmt.Errorf("targetsExclude: %q is not a tool name", target)
+		}
+	}
 	if req.Timeout != nil && *req.Timeout <= 0 {
 		return errors.New("timeout must be a whole number of seconds above zero")
 	}
@@ -226,6 +238,33 @@ func writeHookError(w http.ResponseWriter, err error) {
 	writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error()})
 }
 
+// checkTargetsExclude refuses a tool the setup does not configure, a
+// repeat, and a list that leaves the hook no tool to run on. It returns
+// the list without the tools that write no hooks in this scope, which the
+// hook never reaches anyway.
+func checkTargetsExclude(exclude, configured, hookTargets []string) ([]string, error) {
+	writers := slices.DeleteFunc(slices.Clone(hookTargets), func(target string) bool {
+		_, ok := targetsSupportingKind[spec.KindHook][target]
+		return !ok
+	})
+	var kept []string
+	for i, target := range exclude {
+		if !slices.Contains(configured, target) {
+			return nil, hookSpecProblems{fmt.Sprintf("targetsExclude: %s is not a configured tool", target)}
+		}
+		if slices.Contains(exclude[:i], target) {
+			return nil, hookSpecProblems{fmt.Sprintf("targetsExclude: %s is listed twice", target)}
+		}
+		if slices.Contains(writers, target) {
+			kept = append(kept, target)
+		}
+	}
+	if len(kept) > 0 && !slices.ContainsFunc(writers, func(target string) bool { return !slices.Contains(kept, target) }) {
+		return nil, hookSpecProblems{"targetsExclude leaves the hook no tool to run on"}
+	}
+	return kept, nil
+}
+
 // hookSpecYAML writes the fields in the order the hook reference lists them.
 // The command keeps every byte, since trailing spaces and backslashes can
 // change what the shell runs; the first style that reads back unchanged wins.
@@ -251,6 +290,13 @@ func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
 		if req.Timeout != nil {
 			add("timeout", strconv.Itoa(*req.Timeout), 0, "!!int")
 		}
+		if len(req.TargetsExclude) > 0 {
+			list := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+			for _, target := range req.TargetsExclude {
+				list.Content = append(list.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: target})
+			}
+			m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "targets-exclude"}, list)
+		}
 		data, err := encodeYAML(&yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{m}})
 		if err != nil {
 			continue
@@ -274,6 +320,11 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 			return hookSpecPreview{}, "", hookEditConflict{hookExists(req.Name)}
 		}
 	}
+	kept, err := checkTargetsExclude(req.TargetsExclude, scope.targets, scope.hookTargets)
+	if err != nil {
+		return hookSpecPreview{}, "", err
+	}
+	req.TargetsExclude = kept
 	dir := filepath.Join(h.root, "hooks")
 	if !h.global {
 		dir = config.ResolveSourcePath(h.root, scope.cfg.Sources.Hooks)

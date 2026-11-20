@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 )
 
 // importClaudeCommands copies `.claude/commands/*.md` into the commands
@@ -18,21 +15,14 @@ func importClaudeCommands(root, dstDir string, layout claudeLayout) (int, error)
 	if !dirExists(src) {
 		return 0, nil
 	}
-	count, err := copyMarkdownDir(src, dstDir)
+	written, err := copyMarkdownDirTo(src, dstDir)
 	if err != nil {
-		return count, err
+		return len(written), err
 	}
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return count, fmt.Errorf("read %s: %w", src, err)
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-		if err := moveClaudeOnlyKeysInFile(filepath.Join(dstDir, e.Name())); err != nil {
-			return count, err
+	for _, path := range written {
+		if err := moveClaudeOnlyKeysInFile(path); err != nil {
+			return len(written), err
 		}
 	}
-	return count, nil
+	return len(written), nil
 }

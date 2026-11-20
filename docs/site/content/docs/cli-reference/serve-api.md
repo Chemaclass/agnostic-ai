@@ -23,7 +23,7 @@ The calls most people use:
 
 - `GET /api/health` checks that the server runs and which folder it reads.
 - `GET /api/views/overview` returns what the setup holds and what is missing.
-- An edit in two steps: send the request with `"action": "preview"`, read the plan, then send it again with `"action": "apply"` and the `expected` value the preview returned. Nothing is written until apply.
+- An edit in two steps: send the request with `"action": "preview"`, read the plan, then send it again with `"action": "apply"` and the `expected` value the preview returned. Nothing is written until apply. An apply without `expected` is a 400; one whose `expected` no longer matches is a 409.
 
 ```bash
 curl -s http://127.0.0.1:4310/api/health
@@ -49,7 +49,7 @@ Takes no input.
 
 ## `POST /api/switch`
 
-Body: `{}` with `Content-Type: application/json`.
+Body: `{}` with `Content-Type: application/json`. Any field is a 400.
 
 - Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server.
 - Returns `url`, `root`, `global`, and `started`.
@@ -64,7 +64,7 @@ Body: `{"git": true}` or `{"git": false}`. Project servers only.
 - Writes the starter files into the user configuration folder fixed at startup.
 - Replies `{root, created, git}`.
 - Answers 409 when a setup already exists.
-- Any other field is a 400.
+- A body without `git`, or with any other field, is a 400.
 
 ## `GET /api/views/overview`
 
@@ -161,6 +161,7 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 - `on` is a [portable event](@/docs/spec-format/hook-reference.md#portable-events).
 - `match` (`shell`, `edit`, `read`, or `web`) goes only with `before-tool` and `after-tool`.
 - `timeout` is a whole number of seconds above zero.
+- `targetsExclude` lists tools to leave out, written as `targets-exclude`. The page sends the configured tools that have no event for `on`. Each must be a configured tool, listed once, and at least one tool that writes hooks must remain. A tool that writes no hooks in the scope is accepted and left out of the file.
 - A `command` or `description` that holds a recognized literal credential, such as a token, a `Bearer` value, or a password, returns 400, and so does a `name` that is a token. The text inside `$(...)` and backticks is checked too. Read the secret at run time instead: `$GITHUB_TOKEN`, `${GITHUB_TOKEN}`, `$(gh auth token)`, or a backtick command. A quoted assignment such as `AUTH="Bearer $TOKEN"` is still refused.
 - `action: "preview"` returns `file`, `spec`, `syncCommand`, and `expected`. It answers 422 with `problems` when `validate` would report the hook.
 - `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`.
@@ -175,7 +176,8 @@ Body: `{action, kind, name, from, to, mode, overwrite?, expected?}`. Copies or m
 - `from` is the level this server reads and `to` is the other.
 - `mode` is `copy` or `move`.
 - A skill folder moves whole.
-- `action: "preview"` returns `source`, `destination`, `exists`, `files`, `syncCommands`, and `expected`.
+- A hook brings the shared scripts its commands run under `.agnostic-ai/scripts/`, with any per-tool copy in a subfolder. `scripts` lists those the destination lacks. A move keeps them in the source, since other hooks may run them.
+- `action: "preview"` returns `source`, `destination`, `exists`, `files`, `scripts` when there are any, `syncCommands`, and `expected`.
 - `action: "apply"` requires that `expected`, which holds for either `mode` and `overwrite`. It writes the destination, removes the source for `move`, and returns those fields with `ok: true`, plus `warning` when a leftover folder needs deleting by hand.
 
 These return 409:
@@ -184,6 +186,7 @@ These return 409:
 - A spec of that name at another path.
 - A changed preview.
 - A destination that is the source itself (one setup's folder links to the other's).
+- A hook script the destination already holds with other content.
 - A skill the destination would read differently (under another skill's folder, or over a folder of other skills).
 - A project server whose global setup does not exist yet. The reply carries `missing: true` and `root`.
 - A global server that knows no project.
@@ -191,6 +194,7 @@ These return 409:
 These return 422:
 
 - A built-in, a pack spec, a local spec, a `SKILL.md` directly in the skills folder, or a destination folder that links outside its setup.
+- A hook that runs a shared script that does not exist.
 - A rule sent to the global setup with a scope, paths, or target condition, including one under an `x-<target>` key for a target the global setup selects.
 
 ## `POST /api/edit/permissions`

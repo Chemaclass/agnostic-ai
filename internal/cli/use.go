@@ -495,7 +495,7 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 // A spec the last sync pass left out for a tool is not listed for it.
 func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []string) {
 	for _, t := range tools {
-		mine := b.For(t)
+		mine := adapters.FlatCommandNames(b.For(t), t)
 		if adapters.WritesCommandsAsSkills(cfg, t) {
 			commands := slices.DeleteFunc(slices.Clone(mine.Commands), func(e spec.Entry) bool {
 				return adapters.OmittedEntry(t, spec.KindCommand, e.Name)

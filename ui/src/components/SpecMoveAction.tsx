@@ -76,6 +76,7 @@ export function SpecMoveAction({ item }: { item: SectionItem }) {
       <h3>{label}: {item.label}</h3>
       <p>Write <Code>{preview.destination}</Code>. {destinationNote(preview)}</p>
       {preview.files.length > 1 && <p className="muted">The whole skill folder goes: {preview.files.map((file, index) => <span key={file}>{index > 0 && ', '}<Code>{file}</Code></span>)}.</p>}
+      {preview.scripts && preview.scripts.length > 0 && <p className="muted">The scripts it runs go too: {preview.scripts.map((file, index) => <span key={file}>{index > 0 && ', '}<Code>{file}</Code></span>)}. Move keeps them here as well, since other hooks may run them.</p>}
       {preview.exists && <label className="global-onboarding-git">
         <input type="checkbox" checked={overwrite} disabled={!!pending} onChange={(event) => setOverwrite(event.target.checked)} />
         Replace it

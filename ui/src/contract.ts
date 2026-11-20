@@ -591,6 +591,8 @@ export interface HookSpecRequest {
   command: string
   timeout?: number
   description?: string
+  /** Configured tools with no event for `on`, written as `targets-exclude`. */
+  targetsExclude?: string[]
   expected?: string
 }
 
@@ -621,6 +623,8 @@ export interface SpecMovePreview {
   exists: boolean
   /** The files written, relative to the spec's file or skill folder. */
   files: string[]
+  /** Shared scripts a hook runs that the destination lacks; written with it, and kept in the source on a move. */
+  scripts?: string[]
   syncCommands: string[]
   expected: string
   /** Set on an apply that worked but left a leftover folder to delete by hand. */

@@ -117,7 +117,11 @@ var errStalePreview = permissionEditConflict{errors.New("the source changed; rev
 // applyPreviewedEdit writes plan when expected still names it and a fresh
 // plan agrees, and reports the failure otherwise.
 func (h *editHandler) applyPreviewedEdit(w http.ResponseWriter, where editAudience, expected string, plan previewedEdit, replan func() (previewedEdit, error)) bool {
-	if expected == "" || plan.expected != expected {
+	if expected == "" {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: errApplyWithoutPreview})
+		return false
+	}
+	if plan.expected != expected {
 		writePermissionEditError(w, errStalePreview, http.StatusConflict, nil)
 		return false
 	}
