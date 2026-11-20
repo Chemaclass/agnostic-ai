@@ -153,8 +153,13 @@ func (e companionKeptAside) Error() string {
 
 func (e companionKeptAside) Unwrap() error { return e.err }
 
+// signCompanion signs app ad hoc with a designated requirement on the
+// bundle identifier alone. macOS keeps a privacy grant, such as
+// Accessibility, against that requirement; the default ad hoc one is the
+// code hash, which every new build changes.
 func signCompanion(ctx context.Context, app string) error {
-	out, err := exec.CommandContext(ctx, "codesign", "--force", "--sign", "-", app).CombinedOutput()
+	requirement := fmt.Sprintf("-r=designated => identifier %q", companionBundleID)
+	out, err := exec.CommandContext(ctx, "codesign", "--force", "--sign", "-", "--identifier", companionBundleID, requirement, app).CombinedOutput()
 	if err != nil {
 		return withWhatItSaid(err, out)
 	}

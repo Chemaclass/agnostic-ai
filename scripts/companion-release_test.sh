@@ -102,3 +102,20 @@ function test_it_fails_at_once_on_any_other_error() {
   assert_empty "$slept"
   assert_not_contains "resource busy" "$output"
 }
+
+function test_it_signs_the_app_with_a_requirement_on_its_identifier_alone() {
+  local tmp calls
+  tmp="$(mktemp -d)"
+  CODESIGN_CALLS="$tmp/calls"
+  # shellcheck disable=SC2329
+  function codesign() {
+    printf '%s|' "$@" >> "$CODESIGN_CALLS"
+    echo >> "$CODESIGN_CALLS"
+  }
+  sign_companion_app "my.app"
+  calls="$(cat "$tmp/calls")"
+  unset -f codesign
+  rm -rf "$tmp"
+
+  assert_same '--force|--sign|-|--identifier|dev.agnostic-ai.companion|-r=designated => identifier "dev.agnostic-ai.companion"|my.app|' "$calls"
+}

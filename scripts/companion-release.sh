@@ -26,7 +26,15 @@ hdiutil_retrying() {
   done
 }
 
-# Sourced by scripts/companion-release_test.sh for the function above.
+# macOS keeps a privacy grant, such as Accessibility, against the app's
+# designated requirement. The default ad hoc one is the code hash, which
+# every release changes, so the requirement names the bundle identifier.
+sign_companion_app() {
+  local id=dev.agnostic-ai.companion
+  codesign --force --sign - --identifier "$id" "-r=designated => identifier \"$id\"" "$1"
+}
+
+# Sourced by scripts/companion-release_test.sh for the functions above.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
   return 0
 fi
@@ -142,7 +150,7 @@ for arch in arm64 amd64; do
 PLIST
   plutil -lint "$contents/Info.plist"
   codesign --force --sign - "$contents/Resources/agnostic-ai"
-  codesign --force --sign - "$app"
+  sign_companion_app "$app"
   codesign --verify --deep --strict "$app"
   ln -s /Applications "$work/$arch/image/Applications"
   image="$outdir/${name}_darwin_${arch}.dmg"
