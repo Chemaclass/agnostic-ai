@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // sharedAgentFileTargets names the target that writes the same native
@@ -39,10 +40,7 @@ func portableModel(model string) bool {
 	if model == "inherit" {
 		return true
 	}
-	if importHookConfig == nil {
-		return false
-	}
-	_, tier := importHookConfig.Models[model]
+	_, tier := configTiers()[model]
 	return tier
 }
 
@@ -86,12 +84,11 @@ func reconcileImportedModel(existing, data []byte, path string, holdsModel bool)
 		}
 	}
 	targets := importModelTargets(source)
-	agent := slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "agents")
+	agent := agentSpecPath(path)
 	var unmark, mark []string
 	var result *yaml.Node
 	switch {
 	case current == nil && native == nil:
-		return data, nil
 	case current == nil:
 		result = native
 		if scopableModel(source, native.Value) {
@@ -143,8 +140,12 @@ func reconcileImportedModel(existing, data []byte, path string, holdsModel bool)
 	default:
 		return data, nil
 	}
-	if sameModelNode(result, mappingValue(importedMap, "model")) && len(mark)+len(unmark) == 0 && !hasEmptyScopedBlock(importedMap, targets) {
+	carried := otherScopedModels(existingMap, importedMap, targets)
+	if sameModelNode(result, mappingValue(importedMap, "model")) && len(mark)+len(unmark)+len(carried) == 0 && !hasEmptyScopedBlock(importedMap, targets) {
 		return data, nil
+	}
+	for _, target := range carried {
+		setScopedKey(importedMap, "model", target, scopedModel(existingMap, target))
 	}
 	if result == nil || result.Kind == yaml.MappingNode && len(result.Content) == 0 {
 		dropMappingKey(importedMap, "model")
@@ -174,10 +175,43 @@ func syncedModel(value *yaml.Node, target string, agent bool) *yaml.Node {
 		return nil
 	}
 	own := value.Kind == yaml.MappingNode && mappingValue(value, target) != nil
-	if agent && !own && adapters.ForeignClaudeModel(target, perTargetValue(value, target).Value) {
+	shared := perTargetValue(value, target).Value
+	if tier, named := configTiers()[shared]; named && !own {
+		_, own = tier.Models[target]
+		shared = tier.Models["default"]
+	}
+	if agent && !own && adapters.ForeignClaudeModel(target, shared) {
 		return nil
 	}
 	return given
+}
+
+// configTiers is the model tiers of the config being imported into.
+func configTiers() map[string]config.ModelTier {
+	if importHookConfig == nil {
+		return nil
+	}
+	return importHookConfig.Models
+}
+
+// agentSpecPath reports whether path is an agent spec, under the
+// configured agents source folder.
+func agentSpecPath(path string) bool {
+	dir := config.SourceBaseDir + "/agents"
+	if importHookConfig != nil && importHookConfig.Sources.Agents != "" {
+		dir = importHookConfig.Sources.Agents
+	}
+	if filepath.IsAbs(path) != filepath.IsAbs(dir) {
+		var err error
+		if path, err = filepath.Abs(path); err != nil {
+			return false
+		}
+		if dir, err = filepath.Abs(dir); err != nil {
+			return false
+		}
+	}
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // sameResolvedModel reports whether value gives target the model native
@@ -245,6 +279,31 @@ func dropMappingKey(mapping *yaml.Node, key string) {
 // scopedModel is target's `x-<target>.model` in spec, or nil.
 func scopedModel(spec *yaml.Node, target string) *yaml.Node {
 	return mappingValue(mappingValue(spec, "x-"+target), "model")
+}
+
+// otherScopedModels lists the tools outside targets whose
+// `x-<tool>.model` the existing spec sets and the imported one lacks. An
+// importer that replaces the whole spec, as Claude's does, would drop
+// them; they belong to another tool.
+func otherScopedModels(existing, imported *yaml.Node, targets []string) []string {
+	var out []string
+	for i := 0; existing != nil && i+1 < len(existing.Content); i += 2 {
+		target, ok := strings.CutPrefix(existing.Content[i].Value, "x-")
+		if ok && !slices.Contains(targets, target) && scopedModel(existing, target) != nil && scopedModel(imported, target) == nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+// setScopedKey sets `x-<target>.<key>` in mapping to value.
+func setScopedKey(mapping *yaml.Node, key, target string, value *yaml.Node) {
+	scoped := mappingValue(mapping, "x-"+target)
+	if scoped == nil || scoped.Kind != yaml.MappingNode {
+		scoped = &yaml.Node{Kind: yaml.MappingNode}
+		setMappingKey(mapping, "x-"+target, scoped)
+	}
+	setMappingKey(scoped, key, value)
 }
 
 // sameModelNode reports whether a and b hold the same model value.

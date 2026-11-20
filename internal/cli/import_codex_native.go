@@ -299,7 +299,7 @@ func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 				return
 			}
 		}
-		if adapters.ForeignClaudeModel("codex", adapters.SharedModel(fm, "codex")) {
+		if adapters.ForeignClaudeModel("codex", sharedCodexModel(fm)) {
 			return
 		}
 		mergeDivergentMetaKey(fm, xcodex, doc, "model")
@@ -325,6 +325,19 @@ func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 	default:
 		mergeDivergentMetaKey(fm, xcodex, doc, "model")
 	}
+}
+
+// sharedCodexModel is the shared model fm gives Codex, with a tier name
+// read as the tier's default when the tier has no Codex entry.
+func sharedCodexModel(fm map[string]any) string {
+	shared := adapters.SharedModel(fm, "codex")
+	if tier, named := configTiers()[shared]; named {
+		if _, own := tier.Models["codex"]; own {
+			return ""
+		}
+		return tier.Models["default"]
+	}
+	return shared
 }
 
 // mergeDivergentMetaKey records a per-target override for key when the
