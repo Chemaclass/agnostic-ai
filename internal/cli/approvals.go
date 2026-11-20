@@ -21,6 +21,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // approvalRouteFor and approvalsGOOS pick each tool's route; tests
@@ -239,6 +240,14 @@ func approvalHookProblem(tool string) string {
 		path, _ = claudeUserSettingsPath()
 	case "codex":
 		path, _ = codex.UserHooksPath()
+	case "qwen":
+		if home, err := globalUserHome(); err == nil {
+			if dir, ok := qwenUserDir(home); ok {
+				path = filepath.Join(dir, "settings.json")
+			} else {
+				return "QWEN_HOME is not an absolute path, so the hook cannot find the Qwen Code settings"
+			}
+		}
 	}
 	if path == "" {
 		return notSynced
@@ -257,7 +266,8 @@ func approvalHookProblem(tool string) string {
 			} `json:"PermissionRequest"`
 		} `json:"hooks"`
 	}
-	if err := json.Unmarshal(body, &file); err != nil {
+	stripped, _ := preview.StripJSONC(body)
+	if err := json.Unmarshal(stripped, &file); err != nil {
 		return fmt.Sprintf("%s does not parse: %v", path, err)
 	}
 	installed := false
@@ -271,6 +281,9 @@ func approvalHookProblem(tool string) string {
 	}
 	if file.DisableAllHooks {
 		return path + " sets disableAllHooks"
+	}
+	if tool == "qwen" {
+		return qwenAskProblem()
 	}
 	if tool != "codex" {
 		return ""
@@ -362,6 +375,47 @@ func kiroRulesAsk(root, cwd string) (bool, error) {
 		return false, err
 	}
 	return approvals.KiroHasAskRule(files)
+}
+
+func readQwenApprovalSettings(dir, cwd string) (approvals.QwenSettings, error) {
+	files, err := approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv)
+	if err != nil {
+		return approvals.QwenSettings{}, err
+	}
+	return approvals.ReadQwenSettings(files)
+}
+
+// qwenAskProblem says why the Qwen Code hook cannot approve: hooks are
+// off, a permissions.ask rule turns it off, or Qwen Code runs in a mode
+// in which the hook stays silent.
+func qwenAskProblem() string {
+	for _, env := range []string{"QWEN_CODE_SAFE_MODE", "QWEN_CODE_SIMPLE"} {
+		if os.Getenv(env) != "" {
+			return env + " is set, which turns off every Qwen Code hook"
+		}
+	}
+	home, err := globalUserHome()
+	if err != nil {
+		return "cannot find the home folder: " + err.Error()
+	}
+	dir, _ := qwenUserDir(home)
+	cwd, _ := os.Getwd()
+	settings, err := readQwenApprovalSettings(dir, cwd)
+	switch {
+	case err != nil:
+		return "cannot read the Qwen Code settings: " + err.Error()
+	case settings.HooksOff:
+		return "a Qwen Code settings file sets disableAllHooks"
+	case settings.Ask:
+		return "a Qwen Code settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
+	case settings.ApprovalMode != "default" && settings.ApprovalMode != "auto_edit":
+		mode := settings.ApprovalMode
+		if mode == "" {
+			mode = "auto in a trusted folder"
+		}
+		return "Qwen Code runs in " + mode + " mode, where the hook stays silent; set tools.approvalMode to default or auto_edit"
+	}
+	return ""
 }
 
 func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {

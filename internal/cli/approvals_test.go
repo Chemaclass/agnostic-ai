@@ -486,3 +486,73 @@ func TestApprovalsStatus_KiroHook(t *testing.T) {
 		})
 	}
 }
+
+func TestApprovalsStatus_QwenHook(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	const hook = `"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target qwen"}]}]}`
+	for name, tc := range map[string]struct {
+		body   string
+		routed bool
+	}{
+		"installed":     {"{\n  // mine\n  \"tools\": {\"approvalMode\": \"default\"},\n  " + hook + "\n}", true},
+		"auto edit":     {`{"tools":{"approvalMode":"auto_edit"},` + hook + `}`, true},
+		"mode unset":    {`{` + hook + `}`, false},
+		"auto mode":     {`{"tools":{"approvalMode":"auto"},` + hook + `}`, false},
+		"not installed": {`{"tools":{"approvalMode":"default"}}`, false},
+		"all hooks off": {`{"disableAllHooks":true,"tools":{"approvalMode":"default"},` + hook + `}`, false},
+		"ask rule":      {`{"permissions":{"ask":["edit"]},"tools":{"approvalMode":"default"},` + hook + `}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [qwen]\napprovals:\n  mode: yolo\n")
+			t.Setenv("QWEN_HOME", "")
+			t.Setenv("QWEN_CODE_SYSTEM_DEFAULTS_PATH", filepath.Join(t.TempDir(), "d.json"))
+			t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "s.json"))
+			t.Setenv("QWEN_CODE_SAFE_MODE", "")
+			t.Setenv("QWEN_CODE_SIMPLE", "")
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), tc.body)
+			qwen := toolStatus(t, approvalsStatusJSON(t), "qwen")
+			if tc.routed != (qwen.Effective == config.ApprovalsYolo) || !tc.routed && qwen.Reason == "" {
+				t.Errorf("qwen: %+v", qwen)
+			}
+		})
+	}
+}
+
+func TestApprovalsStatus_QwenHookOffElsewhere(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	const user = `{"tools":{"approvalMode":"default"},"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target qwen"}]}]}}`
+	for name, setup := range map[string]func(t *testing.T){
+		"system hooks off": func(t *testing.T) {
+			t.Helper()
+			writeFile(t, os.Getenv("QWEN_CODE_SYSTEM_SETTINGS_PATH"), `{"disableAllHooks":true}`)
+		},
+		"safe mode": func(t *testing.T) {
+			t.Helper()
+			t.Setenv("QWEN_CODE_SAFE_MODE", "1")
+		},
+		"relative home": func(t *testing.T) {
+			t.Helper()
+			t.Setenv("QWEN_HOME", "alt")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [qwen]\napprovals:\n  mode: yolo\n")
+			t.Setenv("QWEN_HOME", "")
+			t.Setenv("QWEN_CODE_SYSTEM_DEFAULTS_PATH", filepath.Join(t.TempDir(), "d.json"))
+			t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "s.json"))
+			t.Setenv("QWEN_CODE_SAFE_MODE", "")
+			t.Setenv("QWEN_CODE_SIMPLE", "")
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), user)
+			setup(t)
+			if qwen := toolStatus(t, approvalsStatusJSON(t), "qwen"); qwen.Effective == config.ApprovalsYolo || qwen.Reason == "" {
+				t.Errorf("qwen: %+v", qwen)
+			}
+		})
+	}
+}

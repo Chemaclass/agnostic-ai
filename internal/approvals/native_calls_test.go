@@ -27,3 +27,22 @@ func TestNativeRequest_Kiro(t *testing.T) {
 		t.Errorf("claude call mapped to %s", r.Call)
 	}
 }
+
+func TestNativeRequest_Qwen(t *testing.T) {
+	shell := NativeRequest("qwen", Request{Call: "run_shell_command", Input: map[string]any{"command": "go test ./...", "is_background": false, "description": "x"}, PermissionMode: "default", Cwd: testRoot})
+	if shell.Call != "Bash" || shell.Input["run_in_background"] != false {
+		t.Errorf("run_shell_command = %+v", shell)
+	}
+	wantDecision(t, Decide(shell, testPolicy()), "")
+	dir := NativeRequest("qwen", Request{Call: "run_shell_command", Input: map[string]any{"command": "ls", "is_background": false, "directory": "/tmp"}, PermissionMode: "default", Cwd: testRoot})
+	wantDecision(t, Decide(dir, testPolicy()), RuleInput)
+	for mode, rule := range map[string]string{"default": "", "auto_edit": "", "plan": RulePermissionMode, "auto": RulePermissionMode, "yolo": RulePermissionMode} {
+		r := NativeRequest("qwen", Request{Call: "read_file", Input: map[string]any{"file_path": testRoot + "/a.go"}, PermissionMode: mode, Cwd: testRoot})
+		wantDecision(t, Decide(r, testPolicy()), rule)
+	}
+	for call, want := range map[string]string{"edit": "Edit", "write_file": "Write", "read_file": "Read", "grep_search": "", "Bash": "", "web_fetch": ""} {
+		if r := NativeRequest("qwen", Request{Call: call}); r.Call != want {
+			t.Errorf("%s mapped to %q, want %q", call, r.Call, want)
+		}
+	}
+}

@@ -92,6 +92,7 @@ See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configurati
 - Portable [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`. Choose a native `voiceModel` before using dictation.
 - `agnostic-ai sync --global -t qwen` writes instructions, agents, skills, MCP, hooks, and settings under `~/.qwen/`.
 - `approvals` set to `review` for Qwen Code writes `tools.approvalMode: "auto"` to `~/.qwen/settings.json`, unless a settings spec sets `x-qwen.tools.approvalMode`. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
+- `approvals` set to `yolo`, with the `approvals` built-in in the home config, makes `sync --global` write a `PermissionRequest` hook to `~/.qwen/settings.json` that approves safe shell commands, reads, edits and writes. Any `permissions.ask` rule turns it off. See [Approvals](@/docs/approvals.md).
 - `QWEN_HOME` replaces that whole directory. `QWEN_RUNTIME_DIR` moves runtime state, not configuration.
 - `agnostic-ai import --global qwen` reads the user model, effort, permission lists, and MCP servers.
 - See [global configuration](@/docs/global-configuration.md).

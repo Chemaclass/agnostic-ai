@@ -32,7 +32,8 @@ func newHookApproveCmd() *cobra.Command {
 			"the decision. In every other case it prints nothing, so the tool shows its own prompt. It always exits 0, " +
 			"never denies, and writes nothing to stderr. For claude it also asks on a match with an ask rule in the " +
 			"Claude Code user, project, local or managed settings files. For kiro it asks whenever a Kiro permissions " +
-			"file or agent profile holds an ask or evaluate rule or the approve-for-me preset.",
+			"file or agent profile holds an ask or evaluate rule or the approve-for-me preset, and for qwen whenever a " +
+			"Qwen Code settings file lists a permissions.ask rule.",
 		Example: `  # Hook command sync --global writes for Claude Code
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook approve --target claude`,
 		Args:               cobra.ArbitraryArgs,
@@ -55,7 +56,7 @@ func newHookApproveCmd() *cobra.Command {
 	}
 	// A flag that does not parse must not reach stderr: leave the prompt.
 	cmd.SetFlagErrorFunc(func(*cobra.Command, error) error { return nil })
-	cmd.Flags().StringVarP(&target, "target", "t", "", "Tool that runs the hook: claude, codex or kiro (default $"+adapters.HookTargetEnv+")")
+	cmd.Flags().StringVarP(&target, "target", "t", "", "Tool that runs the hook: claude, codex, kiro or qwen (default $"+adapters.HookTargetEnv+")")
 	return cmd
 }
 
@@ -149,8 +150,8 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 // would answer. For Claude Code it returns the rules of its settings
 // files (decision 022); ok is false when a settings file does not read,
 // or a project file's env block moves the folders the hook reads its
-// policy from. For Kiro, whose rules the hook cannot match, ok is false
-// when any Kiro rule asks or a rules file does not read.
+// policy from. For Kiro and Qwen Code, whose rules the hook cannot
+// match, ok is false when any of their rules asks or a file does not read.
 func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings, bool) {
 	switch target {
 	case "kiro":
@@ -160,6 +161,13 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		}
 		ask, err := kiroRulesAsk(root, cwd)
 		return approvals.ClaudeSettings{}, err == nil && !ask
+	case "qwen":
+		dir, ok := qwenUserDir(userHome)
+		if !ok {
+			return approvals.ClaudeSettings{}, false
+		}
+		settings, err := readQwenApprovalSettings(dir, cwd)
+		return approvals.ClaudeSettings{}, err == nil && !settings.Ask
 	case "claude":
 	default:
 		return approvals.ClaudeSettings{}, true
@@ -171,6 +179,17 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		return approvals.ClaudeSettings{}, false
 	}
 	return settings, true
+}
+
+// qwenUserDir is Qwen Code's user folder: $QWEN_HOME, or ~/.qwen. ok is
+// false for a QWEN_HOME that is not absolute, which Qwen Code resolves
+// in ways the hook does not follow.
+func qwenUserDir(userHome string) (string, bool) {
+	dir := os.Getenv("QWEN_HOME")
+	if dir == "" {
+		return filepath.Join(userHome, ".qwen"), true
+	}
+	return dir, filepath.IsAbs(dir)
 }
 
 // approveProjectRoot is the root of the Git checkout that holds cwd, or

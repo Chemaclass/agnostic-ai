@@ -8,6 +8,8 @@ var permissionAllowReplies = map[string]string{
 	"codex":  `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`,
 	// Kiro's reply has no hookEventName (kiro.dev/docs/hooks/types.md).
 	"kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`,
+	// Qwen Code reads the same shape (docs/users/features/hooks.md).
+	"qwen": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`,
 }
 
 // PermissionAllowReply is target's PermissionRequest reply that allows
