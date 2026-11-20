@@ -158,10 +158,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Import preserves OpenCode V2's choice when `.agents` and `.claude` define the same skill.
 - `import opencode` reads the legacy `.opencode/agent/` and `.opencode/command/` folders, which `doctor` now lists, and keeps `"enabled": true` on an MCP server, with no replace warning on the next sync (#3702).
 
-#### Kilo Code
-
-- Sync leaves invalid MCP timeouts out of Kilo Code's config so one server cannot hide the rest (#3765).
-
 #### Cursor
 
 - `import cursor` reads `.cursor/mcp.json` and `.cursorrules`. `sync` stops instead of replacing an MCP file it did not write when the file names servers no spec has, and `doctor` lists that file as unmanaged (#3702).
