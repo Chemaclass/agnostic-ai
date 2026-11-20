@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { ConversationsView } from '../../src/contract'
 
 // The real companion pages, served by companion/dev/preview.mjs with fixture data.
 // Every test starts from a fixture; the preview holds one state, so tests run one at a time.
@@ -235,6 +236,60 @@ test('marking one chat complete shows a green tick, then archives it', async ({ 
   await expect(target).toBeHidden()
   await groupTitle(page, 'Archived').click()
   await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toBeAttached()
+})
+
+test('the row menu marks a chat complete with a tick and can return it to Active', async ({ page }) => {
+  await openPanel(page)
+  const marks = markBodies(page)
+  const target = row(page, 'Fix the login redirect')
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark complete' }).click()
+
+  await expect(target.locator('.action.is-done')).toBeAttached()
+  await expect(target).toBeHidden()
+  await groupTitle(page, 'Archived').click()
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  await expect(completeButton(target)).toBeAttached()
+  expect(marks).toEqual([
+    { tool: 'cursor', id: 'active-1', as: 'completed' },
+    { tool: 'cursor', id: 'active-1', as: 'open' },
+  ])
+})
+
+test('the row menu of an archived chat undoes complete or hides it', async ({ page }) => {
+  await openArchived(page)
+  const marks = markBodies(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  // Closed and quiet for days, it stays under Archived, now without the mark to undo.
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.keyboard.press('Escape')
+
+  await row(page, 'Sketch the pricing page').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Undo complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Hide from agnostic-ai' }).click()
+  await expect(row(page, 'Sketch the pricing page')).toHaveCount(0)
+  expect(marks).toEqual([
+    { tool: 'claude', id: 'done-2', as: 'open' },
+    { tool: 'claude', id: 'old-2', as: 'hidden' },
+  ])
+})
+
+test('a chat waiting on a forgotten shell keeps its place and only offers Undo after completion', async ({ page }) => {
+  await openPanel(page, 'stuck-shells')
+  const target = row(page, 'Preview the reporting changes')
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Mark complete' }).click()
+  await expect(completeButton(target)).toHaveCount(0)
+  await expect(target).toHaveClass(/needs-you/)
+
+  await target.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Mark complete' })).toBeHidden()
+  await page.getByRole('menuitem', { name: 'Undo complete' }).click()
+  await expect(completeButton(target)).toBeAttached()
 })
 
 test('a refused mark complete gives the tick back, keeps the row and says why', async ({ page }) => {
@@ -964,6 +1019,15 @@ test('the circle counts the conversations that need you, and names the waiting a
   await expect(page.getByRole('button', { name: 'Conversations: 1 waiting for you, 1 unread' })).toBeVisible()
 })
 
+test('a row that waits for the person shows the circle\'s lock; an unread reply keeps a plain dot', async ({ page }) => {
+  await openPanel(page)
+  const waiting = row(page, 'Approve the database migration').locator('.state')
+  await expect(waiting).toHaveClass('state is-blocked has-lock')
+  await expect(waiting.locator('svg')).toBeVisible()
+  await expect(waiting).toHaveCSS('background-color', 'rgb(240, 163, 94)')
+  await expect(row(page, 'Draft the release notes').locator('.state svg')).toHaveCount(0)
+})
+
 test('a chat waiting for the person gives the circle a solid badge with a lock; unread replies alone do not', async ({ page }) => {
   await page.request.post('/dev/fixture', { data: { name: 'mixed' } })
   await page.goto('/')
@@ -1013,7 +1077,28 @@ test('"N approved for you" folds out the approved requests, newest first, and op
   expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
-test('the header names the approvals mode, and Ask me turns approvals off', async ({ page }) => {
+test('the approved list folds out inside its row, and the keys stay on the toggle', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  const working = row(page, 'Fix the flaky login test')
+  await working.getByRole('button', { name: '▸ 3 approved for you' }).focus()
+  await page.keyboard.press('Space')
+  const open = working.getByRole('button', { name: '▾ 3 approved for you' })
+  await expect(open).toBeFocused()
+  await expect(working.getByRole('list', { name: 'Approved for you' })).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(working.getByRole('button', { name: '▸ 3 approved for you' })).toBeFocused()
+  await expect(page.getByRole('list', { name: 'Approved for you' })).toHaveCount(0)
+})
+
+test('folding a group by key keeps the keys on its title', async ({ page }) => {
+  await openPanel(page, 'auto-approvals')
+  await groupTitle(page, 'Needs you').focus()
+  await page.keyboard.press('Enter')
+  await expect(groupTitle(page, 'Needs you')).toBeFocused()
+  await expect(groupTitle(page, 'Needs you')).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('the header names the approvals mode and Ask me switches agnostic-ai to ask', async ({ page }) => {
   await openPanel(page, 'auto-approvals')
   const bar = page.getByRole('region', { name: 'Approvals' })
   await expect(bar).toContainText('Approvals: routine prompts are approved for you')
@@ -1021,7 +1106,7 @@ test('the header names the approvals mode, and Ask me turns approvals off', asyn
   await bar.getByRole('button', { name: 'Ask me' }).click()
   expect((await asked).postDataJSON()).toEqual({ mode: 'ask' })
   await expect(bar).toBeHidden()
-  await expect(page.locator('#toast-text')).toHaveText('Approvals off: every permission prompt reaches you again.')
+  await expect(page.locator('#toast-text')).toHaveText('Approvals set to ask. Your tool may still use its own reviewer.')
 
   await openPanel(page, 'mixed')
   await expect(page.getByRole('region', { name: 'Approvals' })).toBeHidden()
@@ -1908,8 +1993,10 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('menuitem', { name: 'Open on claude.ai' })).toBeFocused()
+  for (const name of ['Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByRole('menuitem', { name })).toBeFocused()
+  }
   await page.keyboard.press('ArrowDown')
   await expect(deleteItem(page)).toBeFocused()
 })
@@ -1919,14 +2006,126 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   await row(page, 'Approve the database migration').click({ button: 'right' })
   const read = page.getByRole('menuitem', { name: 'Mark as read' })
   const rename = page.getByRole('menuitem', { name: 'Rename…' })
+  const complete = page.getByRole('menuitem', { name: 'Mark complete' })
+  const stop = page.getByRole('menuitem', { name: 'Stop chat…' })
   await expect(read).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(rename).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(read).toBeFocused()
+  for (const item of [rename, complete, stop, read]) {
+    await page.keyboard.press('ArrowDown')
+    await expect(item).toBeFocused()
+  }
   await page.keyboard.press('ArrowUp')
-  await expect(rename).toBeFocused()
+  await expect(stop).toBeFocused()
   await expect(selected(page)).toContainText('Approve the database migration')
+})
+
+const stopChatDialog = (page: Page) => page.getByRole('alertdialog', { name: /^Stop "/ })
+
+async function askToStopChat(page: Page, title: string) {
+  await row(page, title).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
+  return stopChatDialog(page)
+}
+
+function stopsSent(page: Page) {
+  const sent: unknown[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/stop-session') sent.push(request.postDataJSON())
+  })
+  return sent
+}
+
+test('Stop chat shows only on a chat that runs on this computer, and asks first', async ({ page }) => {
+  await openPanel(page)
+  const sent = stopsSent(page)
+  await row(page, 'Fix the login redirect').click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
+  await page.keyboard.press('Escape')
+
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await expect(dialog).toContainText('Stop "Approve the database migration"?')
+  await expect(dialog).toContainText('Shell commands it started may keep running')
+  await expect(dialog).toContainText('The transcript stays')
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  expect(sent).toEqual([])
+})
+
+test('confirming Stop chat ends the selected process and archives the chat for resuming', async ({ page }) => {
+  await openPanel(page)
+  const sent = stopsSent(page)
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await dialog.getByRole('button', { name: 'Stop chat' }).click()
+
+  await expect(page.getByRole('status').filter({ hasText: 'Stopped.' })).toBeVisible()
+  await expect(dialog).toBeHidden()
+  expect(sent).toEqual([{ tool: 'claude', id: 'waits-1', pid: 4007, procStart: 'Fri Nov 20 09:00:00 2026' }])
+  const stopped = row(page, 'Approve the database migration')
+  await expect(stopped).toBeHidden()
+  await groupTitle(page, 'Archived').click()
+  await expect(stopped).toHaveAttribute('title', /^Resume in Terminal/)
+  await stopped.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
+})
+
+test('Stop chat asks again when the chat moves to another process', async ({ page }) => {
+  await openPanel(page)
+  const sent = stopsSent(page)
+  const title = 'Approve the database migration'
+  const dialog = await askToStopChat(page, title)
+  await expect(dialog).toBeVisible()
+  await page.route('**/api/inbox', async (route) => {
+    const response = await route.fetch()
+    const json = await response.json() as { view: ConversationsView }
+    const chat = json.view.conversations.find((conversation) => conversation.id === 'waits-1')
+    if (chat?.stoppable) chat.stoppable.procStart = 'replacement process'
+    await route.fulfill({ response, json })
+  })
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mixed' } })).ok()).toBe(true)
+  await expect(dialog).toBeHidden()
+  expect(sent).toEqual([])
+  await expect(await askToStopChat(page, title)).toBeVisible()
+})
+
+test('closing and reopening the panel clears the Stop chat question', async ({ page }) => {
+  await openPanel(page)
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await expect(dialog).toBeVisible()
+  expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
+  expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
+  await expect(dialog).toBeHidden()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
+})
+
+test('a late Stop chat reply leaves a second question open', async ({ page }) => {
+  await openPanel(page)
+  let release: () => void = () => {}
+  const held = new Promise<void>((done) => { release = done })
+  await page.route('**/api/stop-session', async (route) => {
+    await held
+    await route.continue()
+  })
+  try {
+    const first = await askToStopChat(page, 'Approve the database migration')
+    await first.getByRole('button', { name: 'Stop chat' }).click()
+    await page.keyboard.press('Escape')
+    const second = await askToStopChat(page, 'Refactor the search index')
+    release()
+    await expect(page.getByRole('status').filter({ hasText: 'Stopped.' })).toBeVisible()
+    await expect(second).toHaveAccessibleName('Stop "Refactor the search index"?')
+    await expect(second.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  } finally {
+    release()
+  }
+})
+
+test('a refused Stop chat says why', async ({ page }) => {
+  await openPanel(page)
+  await page.route('**/api/stop-session', (route) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'this chat no longer runs in a terminal here' }) }))
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await dialog.getByRole('button', { name: 'Stop chat' }).click()
+
+  await expect(page.getByText('this chat no longer runs in a terminal here')).toBeVisible()
 })
 
 test('the delete question keeps Tab on its buttons and closes on a click outside it', async ({ page }) => {

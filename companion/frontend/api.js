@@ -74,7 +74,7 @@ export const readLateOpenFailure = () => call('/api/open/late')
 export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
 
 /**
- * mark is `seen`, `completed` or `hidden`; answers {version}. With `later`, such as each mark of a run but the
+ * mark is `seen`, `completed`, `open` or `hidden`; answers {version}. With `later`, such as each mark of a run but the
  * last, the companion answers at once, with no version, and reads the list soon after.
  */
 export function markConversation(conversation, mark, { later = false } = {}) {
@@ -89,6 +89,11 @@ export function renameConversation(conversation, title) {
 /** Deletes an archived chat from this computer for good. Answers {body, version}; body is `{deleted, freedBytes?, note?}`. */
 export function deleteConversation(conversation) {
   return change('/api/delete', { tool: conversation.tool, id: conversation.id })
+}
+
+/** Ends the process `stoppable` named on a live Claude Code chat in a terminal; answers {body: {forced?, stillRunning?}, version}. */
+export function stopSession(conversation, process) {
+  return change('/api/stop-session', { tool: conversation.tool, id: conversation.id, pid: process.pid, procStart: process.procStart })
 }
 
 export function stopShell(conversation, shell) {

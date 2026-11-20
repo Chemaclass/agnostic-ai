@@ -57,7 +57,8 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if c.agents, err = importClaudeAgents(root, importSourcePath(root, src.Agents), layout); err != nil {
 		return err
 	}
-	if c.skills, err = importClaudeSkills(root, importSourcePath(root, src.Skills), layout); err != nil {
+	skillRefs := map[string]string{}
+	if c.skills, err = importClaudeSkills(root, importSourcePath(root, src.Skills), layout, skillRefs); err != nil {
 		return err
 	}
 	if c.hooks, err = importClaudeHooks(root, importSourcePath(root, src.Hooks)); err != nil {
@@ -131,7 +132,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 		return err
 	}
 	reportClaudeFilesNotImported(leftovers)
-	if err := resolveClaudeNativeRefs(root, src, layout, stopTracking()); err != nil {
+	if err := resolveClaudeNativeRefs(root, src, layout, stopTracking(), skillRefs); err != nil {
 		return err
 	}
 	return nil

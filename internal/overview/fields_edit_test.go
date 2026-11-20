@@ -232,6 +232,9 @@ func TestSettingsFields_NewDefaultSpecIsAChoiceAndNeverShadows(t *testing.T) {
 	if got == nil || got.Path != "" || !strings.Contains(got.DisabledReason, ".agnostic-ai/settings/base.yaml") {
 		t.Fatalf("taken defaults edit = %+v", got)
 	}
+	if !strings.Contains(got.DisabledReason, "create another settings spec, such as .agnostic-ai/settings/editor.yaml") {
+		t.Errorf("the reason names no fix: %q", got.DisabledReason)
+	}
 }
 
 func localOverlay(shared spec.Entry, path string, own map[string]any) spec.Entry {

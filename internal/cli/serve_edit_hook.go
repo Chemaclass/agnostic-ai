@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -116,7 +117,7 @@ func (p hookSpecProblems) Error() string {
 
 func (h *editHandler) serveHook(w http.ResponseWriter, body []byte) {
 	var req hookSpecRequest
-	if json.Unmarshal(body, &req) != nil || (req.Action != "preview" && req.Action != "apply") || req.Name == "" || req.On == "" {
+	if decodeStrictJSON(bytes.NewReader(body), &req) != nil || (req.Action != "preview" && req.Action != "apply") || req.Name == "" || req.On == "" {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send action preview or apply, audience, name, on, and command; timeout is whole seconds"})
 		return
 	}

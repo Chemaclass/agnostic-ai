@@ -464,6 +464,7 @@ func importCodexSkills(root, dstDir string) (int, error) {
 	locations = append(locations, scopedSkillDir{path: filepath.Join(root, codexSkillsDirs[1])})
 	rootScopeFirst(locations)
 	folders := skillFolderClaims{}
+	flat := map[string]map[string]string{}
 	for _, location := range locations {
 		srcDir := location.path
 		entries, err := os.ReadDir(srcDir)
@@ -491,17 +492,29 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			if adapters.WrittenFromCommand(string(skillMD)) {
 				continue
 			}
-			skillDst := filepath.Join(dstDir, filepath.FromSlash(location.scope), e.Name())
-			if !folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillDst, location.scope) {
+			skillDir := filepath.Join(dstDir, filepath.FromSlash(location.scope))
+			if _, found := flat[location.scope]; !found {
+				flat[location.scope] = flatSkillPaths(skillDir, location.scope)
+			}
+			skillPath := skillImportPath(skillDir, e.Name(), flat[location.scope])
+			if !folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillPath, location.scope) {
 				continue
 			}
 			seen[identity] = true
+			if filepath.Base(skillPath) != "SKILL.md" {
+				if err := copyDirTreeWith(skillSrc, skillPath, quoteCodexSkillHash, defaultSkillFields); err != nil {
+					return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
+				}
+				count++
+				continue
+			}
+			skillDst := filepath.Dir(skillPath)
 			merged := dirExists(skillDst)
 			if merged {
 				if err := withImportMerge(func() error { return mergeCodexSkillIntoExisting(skillSrc, skillDst) }); err != nil {
 					return count, fmt.Errorf("merge skill %s: %w", e.Name(), err)
 				}
-			} else if err := copyDirTree(skillSrc, skillDst); err != nil {
+			} else if err := copyDirTree(skillSrc, skillPath); err != nil {
 				return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 			}
 			if !merged {
@@ -510,7 +523,7 @@ func importCodexSkills(root, dstDir string) (int, error) {
 				// and truncates. Quote those scalars in the imported
 				// SKILL.md so a downstream sync survives the round-trip
 				// (#317).
-				if err := quoteHashInSkillFrontmatter(filepath.Join(skillDst, "SKILL.md")); err != nil {
+				if err := quoteHashInSkillFrontmatter(skillPath); err != nil {
 					return count, fmt.Errorf("quote-hash skill %s: %w", e.Name(), err)
 				}
 			}
@@ -518,7 +531,7 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			// import (no claude sibling on disk and no claude-merged
 			// SKILL.md already at the destination).
 			if !merged && claudePresent && !claudeHasSkill(root, e.Name()) {
-				if err := injectTargetInSkillMD(filepath.Join(skillDst, "SKILL.md"), "codex"); err != nil {
+				if err := injectTargetInSkillMD(skillPath, "codex"); err != nil {
 					return count, fmt.Errorf("scope skill %s: %w", e.Name(), err)
 				}
 			}
@@ -526,6 +539,18 @@ func importCodexSkills(root, dstDir string) (int, error) {
 		}
 	}
 	return count, folders.recordWorkspaces()
+}
+
+func quoteCodexSkillHash(data []byte) ([]byte, error) {
+	front, body, ok := splitFrontmatter(data)
+	if !ok {
+		return data, nil
+	}
+	quoted := quoteHashInPlainScalars(string(front))
+	if string(front) == quoted {
+		return data, nil
+	}
+	return []byte("---\n" + strings.TrimRight(quoted, "\n") + "\n---\n" + body), nil
 }
 
 func mergeCodexSkillIntoExisting(src, dst string) error {

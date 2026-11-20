@@ -393,13 +393,17 @@ func TestApprovalsAsk_WritesDespiteABrokenConfig(t *testing.T) {
 
 func TestApprovalsAskYAML(t *testing.T) {
 	cases := map[string]struct{ in, want, err string }{
-		"comments only":  {in: "# mine\n", want: "# mine\napprovals:\n  mode: ask\n"},
-		"document start": {in: "---\n", want: "---\napprovals:\n  mode: ask\n"},
-		"no newline":     {in: "targets: [claude]", want: "targets: [claude]\napprovals:\n  mode: ask\n"},
-		"flow mapping":   {in: "{targets: [claude]}\n", want: "{targets: [claude], approvals: {mode: ask}}\n"},
-		"two documents":  {in: "targets: [claude]\n---\nother: 1\n", err: "more than one YAML document"},
-		"an anchor":      {in: "approvals: &a {mode: yolo}\nmodels: {x: *a}\n", err: "anchor"},
-		"a list":         {in: "- a\n", err: "not a mapping"},
+		"comments only":                     {in: "# mine\n", want: "# mine\napprovals:\n  mode: ask\n"},
+		"document start":                    {in: "---\n", want: "---\napprovals:\n  mode: ask\n"},
+		"no newline":                        {in: "targets: [claude]", want: "targets: [claude]\napprovals:\n  mode: ask\n"},
+		"flow mapping":                      {in: "{targets: [claude]}\n", want: "{targets: [claude], approvals: {mode: ask}}\n"},
+		"two documents":                     {in: "targets: [claude]\n---\nother: 1\n", err: "more than one YAML document"},
+		"an anchor":                         {in: "approvals: &a {mode: yolo}\nmodels: {x: *a}\n", err: "anchor"},
+		"a list":                            {in: "- a\n", err: "not a mapping"},
+		"a merge key":                       {in: "base: &b\n  mode: yolo\n  always-ask: [\"Bash(make deploy*)\"]\napprovals:\n  <<: *b\n", err: "merge key"},
+		"an alias":                          {in: "base: &b\n  mode: yolo\napprovals: *b\n", err: "alias"},
+		"a root merge":                      {in: "base: &b\n  approvals: {mode: yolo}\n<<: *b\n", err: "merge key"},
+		"a root merge beside its own block": {in: "d: &d {targets: [claude]}\n<<: *d\napprovals: {mode: yolo}\n", want: "d: &d {targets: [claude]}\n!!merge <<: *d\napprovals:\n  mode: ask\n"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

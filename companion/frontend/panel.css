@@ -436,7 +436,7 @@ body {
 }
 
 .approved-list {
-  margin: -2px 0 4px 27px;
+  margin: 2px 0 0 4px;
   padding: 0 0 0 8px;
   border-left: 1.5px solid var(--hairline);
   list-style: none;
@@ -621,6 +621,25 @@ body {
 .state.is-unread {
   background: var(--action);
   box-shadow: 0 0 0 3px var(--action-soft);
+}
+
+/* The same lock the circle shows while a chat waits for you. */
+.state.has-lock {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--ink);
+}
+
+.state.has-lock > svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .state.is-working {

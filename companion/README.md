@@ -101,6 +101,14 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
+- The same menu offers **Mark complete** on an unmarked chat in Active or
+  Needs you, and **Hide from agnostic-ai** on an archived chat. A chat that
+  waits only on a forgotten shell stays in Needs you until the shell stops.
+  Once marked, it offers **Undo complete**. The
+  [usual rules for Archived](../docs/site/content/docs/cli-reference/conversations-api.md#get-apiviewsconversations) still apply.
+- On macOS, **Stop chat…** asks before ending a live Claude Code terminal
+  session. The transcript stays, so you can resume the chat later. Separate
+  shell processes may keep running.
 - **Mark all as read** beside Needs you does the same for every chat that
   group shows, after the search and the All, Local or Cloud choice. It shows
   only while the group is unfolded. A chat
@@ -170,7 +178,7 @@ five-dot fractal. A number beside an agent icon shows the count; its tooltip
 and accessible label say how many sub-agents are working.
 An idle parent stays under Working while its sub-agents work, with its own
 plain, still dot. A parent that needs your answer stays under Needs you with
-the ordinary orange dot and no orbiting bulbs of its own. Working satellites
+the orange lock dot and no orbiting bulbs of its own. Working satellites
 keep their blue cores and animation independently of the parent. An unavailable
 count adds no markers. Cloud and other tools' native sub-agents are not tracked.
 With animation off or your system's Reduce Motion enabled, the whole indicator

@@ -132,6 +132,17 @@ func checkedDecision(mode, from string) ApprovalDecision {
 	return ApprovalDecision{mode, from}
 }
 
+// ProjectFolders lists the folders named in approvals.projects with ~ expanded.
+func (p ApprovalsPolicy) ProjectFolders() []string {
+	var folders []string
+	for key := range p.Home.Projects {
+		if path, ok := projectKeyPath(key, p.UserHome); ok {
+			folders = append(folders, path)
+		}
+	}
+	return folders
+}
+
 // project returns the deepest projects key that holds dir. Two keys for
 // one folder resolve to the stricter mode.
 func (p ApprovalsPolicy) project(dir string) (key, mode string, ok bool) {

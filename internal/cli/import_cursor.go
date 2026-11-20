@@ -98,7 +98,80 @@ func importFromCursor(root string, src config.Sources) error {
 // trees into the matching canonical source scope, for every project
 // skill directory in cursorSkillsDirs.
 func importCursorSkills(root, dstDir string) (int, error) {
-	return importScopedSkillFoldersWith(root, cursorSkillsDirs, dstDir, &cursorSkillFields)
+	return importScopedSkillFoldersTransformed(root, cursorSkillsDirs, dstDir, &cursorSkillFields, nil, cursorWorkspaceCopies(root, dstDir))
+}
+
+type flatWorkspaceCopy struct {
+	source string
+	sum    string
+	owner  string
+}
+
+func (copy flatWorkspaceCopy) unchanged(native string) (bool, error) {
+	info, err := os.Lstat(native)
+	if err != nil || !info.Mode().IsRegular() {
+		return false, nil
+	}
+	if fileSum(native) != copy.sum {
+		return false, fmt.Errorf("%s is an edited workspace copy; bring its edits into %s before importing", native, copy.source)
+	}
+	if err := checkFlatSkillAssets(filepath.Dir(native), copy.source); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// A workspace copy with the same recorded bytes as its root skill is
+// already imported through the root. A distinct scoped spec takes precedence.
+func cursorWorkspaceCopies(root, dstDir string) map[string]flatWorkspaceCopy {
+	outputs := readStateFile(root).OutputSums
+	if len(outputs) == 0 {
+		return nil
+	}
+	copies := map[string]flatWorkspaceCopy{}
+	realRoot := realPath(root)
+	for name, source := range flatSkillPaths(dstDir, "") {
+		data, err := os.ReadFile(source)
+		if err != nil {
+			continue
+		}
+		skill, err := spec.ParseMarkdownBytes(spec.KindSkill, data)
+		if err != nil {
+			continue
+		}
+		workspaces, _ := skill.Meta["workspaces"].([]any)
+		native := filepath.Join(cursorSkillsDirs[0], name, "SKILL.md")
+		sum := outputs[filepath.ToSlash(native)]
+		if len(workspaces) == 0 || sum == "" {
+			continue
+		}
+		nativePath := filepath.Join(root, native)
+		info, err := os.Lstat(nativePath)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		owner := realPath(filepath.Dir(nativePath))
+		if _, inside := pathBelow(realRoot, owner); !inside {
+			continue
+		}
+		for _, raw := range workspaces {
+			folder, _ := raw.(string)
+			scope := filepath.Clean(filepath.FromSlash(strings.Trim(filepath.ToSlash(folder), "/")))
+			if scope == "." || !filepath.IsLocal(scope) {
+				continue
+			}
+			copyPath := filepath.Join(scope, native)
+			if outputs[filepath.ToSlash(copyPath)] != sum {
+				continue
+			}
+			target := filepath.Join(dstDir, scope)
+			if flatSkillPaths(target, filepath.ToSlash(scope))[name] != "" || fileExists(filepath.Join(target, name, "SKILL.md")) {
+				continue
+			}
+			copies[filepath.Join(root, filepath.Dir(copyPath))] = flatWorkspaceCopy{source: source, sum: sum, owner: owner}
+		}
+	}
+	return copies
 }
 
 // importFlatMarkdownFiles copies every top-level `*.md` in src into

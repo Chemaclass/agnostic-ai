@@ -87,6 +87,10 @@ type Scanner struct {
 	stoppingShells sync.Map
 	shellSignal    func(int, bool) error
 	shellWait      func(context.Context, time.Duration) error
+	// stoppingSessions and sessionSignal serve StopSession as the shell
+	// fields serve StopShell.
+	stoppingSessions sync.Map
+	sessionSignal    func(int, bool) error
 	// MarksPath is the file that keeps the person's seen and completed
 	// marks. Empty keeps none.
 	MarksPath string
@@ -260,7 +264,7 @@ func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp)
 		From: from.UTC().Format(time.RFC3339), To: to.UTC().Format(time.RFC3339),
 		Tools: []Source{}, Conversations: page,
 	}
-	view.NeedsYou = read.needsYou
+	view.NeedsYou, view.PermissionWaits = read.needsYou, read.waits
 	if read.marksErr != nil {
 		view.MarksNote = "Seen and completed marks are unavailable: " + read.marksErr.Error()
 	}
@@ -295,6 +299,7 @@ type keptSearch struct {
 	all       []Conversation
 	sources   []Source
 	needsYou  int
+	waits     []Conversation
 	marksErr  error
 	cloudNote string
 }
@@ -330,6 +335,11 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	needsYou, marksErr := s.applyMarks(results)
 	read = keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
+		for _, c := range result.conversations {
+			if _, waits := c.PermissionWait(); waits && c.Live {
+				read.waits = append(read.waits, c)
+			}
+		}
 		if opts.Tool == "" || result.source.Tool == opts.Tool {
 			read.all = append(read.all, result.conversations...)
 		}
@@ -521,7 +531,12 @@ func (s *Scanner) readSince(opts ScanOptions, span time.Duration) ([]sourceResul
 func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sourceResult, cloudNote string) {
 	readTable := sync.OnceValues(s.Processes.Table)
 	number := s.beginRead()
-	claude := readAt(s.Now(), s.scanClaude(ctx, opts))
+	at := s.Now()
+	claude, processErr := s.scanClaude(ctx, opts)
+	claude = readAt(at, claude)
+	if processErr == nil {
+		showStoppableSessions(claude.conversations, readTable)
+	}
 	claudeCloud, claudeNote := s.cloudRows(ctx, opts, ToolClaude, s.Cloud)
 	claude.conversations = shareCloud(append(claude.conversations, claudeCloud...))
 	whole := ctx.Err() == nil && len(opts.Within) == 0 && claude.source.Found && s.cloudWhole(ToolClaude, s.Cloud)

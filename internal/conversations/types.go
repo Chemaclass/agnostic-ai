@@ -121,14 +121,17 @@ type View struct {
 	// NeedsYou counts the blocked and unread conversations of every age
 	// and tool this server lists, whatever the page or the search.
 	NeedsYou int `json:"needsYou"`
+	// PermissionWaits holds live permission waits across all pages and
+	// filters, so the server can adjust NeedsYou and track ongoing waits.
+	PermissionWaits []Conversation `json:"-"`
 	// MarksNote says why the marks file could not be read or written;
 	// rows then show no marks.
 	MarksNote string `json:"marksNote,omitempty"`
 	// CloudNote says why a tool's cloud conversations are missing from
 	// the list, on a server that reads them; rows then hold none of them.
 	CloudNote string `json:"cloudNote,omitempty"`
-	// ApprovalsMode is the loosest approvals mode the home config sets,
-	// when it is review or yolo; empty when every request asks.
+	// ApprovalsMode is the loosest active approvals mode for the list.
+	// It is empty when no approvals route is active.
 	ApprovalsMode string         `json:"approvalsMode,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`
@@ -185,6 +188,10 @@ type Conversation struct {
 	// or their states are unknown; see helpers.go.
 	Helpers     []helper     `json:"helpers,omitempty"`
 	StuckShells []StuckShell `json:"stuckShells,omitempty"`
+	// Stoppable is the process of a live Claude Code session in a
+	// terminal that this server can end; see StopSession. A stop names
+	// it, so a chat that moved to another process is not stopped.
+	Stoppable *ProcessRef `json:"stoppable,omitempty"`
 	// Waiting says what a waiting conversation waits for, when its tool
 	// says: an approval, with the call when the transcript shows it, or
 	// an answer. Nil when the kind is unknown.

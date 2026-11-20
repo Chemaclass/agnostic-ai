@@ -270,14 +270,14 @@ type claudeJob struct {
 	State           string `json:"state"`
 }
 
-func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult {
+func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) (sourceResult, error) {
 	projects := filepath.Join(s.Stores.ClaudeDir, "projects")
 	if _, err := os.Stat(projects); err != nil {
-		return missing(ToolClaude, "No Claude Code sessions in "+projects)
+		return missing(ToolClaude, "No Claude Code sessions in "+projects), nil
 	}
 	// Subagent transcripts live one level deeper, under <session>/subagents.
 	files, listedAll := listTree(projects, 1, "*.jsonl")
-	live, liveRead, liveNote := s.claudeLiveSessions()
+	live, liveRead, liveNote, processErr := s.claudeLiveSessions()
 	jobs := s.claudeActiveJobs()
 	editor := extensionEditor(s.Stores.Home, "anthropic.claude-code", opts.Editor)
 	if s.claude == nil {
@@ -365,7 +365,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 	if listedAll && ctx.Err() == nil {
 		result.inventories = provenBy(sourceClaudeCode, ToolClaude, projects, ids)
 	}
-	return result
+	return result, processErr
 }
 
 // claudeRoute picks where a session reopens: its background job, the
@@ -604,7 +604,7 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // are never read. read is false when the sessions folder or the process
 // table could not be read, or a session file could not be read while the
 // process its name gives still runs; note then says which.
-func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool, note string) {
+func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool, note string, processErr error) {
 	entries, unreadable, entriesErr := s.claudeLiveEntries()
 	var processes []ProcessRef
 	for _, entry := range entries {
@@ -637,7 +637,7 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], status: entry.Status, entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor, statusSince: statusSince}
 		}
 	}
-	return live, err == nil && entriesErr == nil, note
+	return live, err == nil && entriesErr == nil, note, err
 }
 
 // unreadableHeld is the error for the unreadable session files whose

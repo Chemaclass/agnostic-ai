@@ -14,18 +14,21 @@ import (
 
 const permissionCreatedSpec = fieldCreatedMarker + "name: permissions\ndescription: Permission rules.\n"
 
-func (h *editHandler) permissionSource(where editAudience, shown, key string) (string, string, []string, error) {
+// permissionSource is the file an edit of key writes for where, its
+// scaffold, the files the edit reads, and the shared spec the file is
+// or overlays; nil when no spec is loaded yet.
+func (h *editHandler) permissionSource(where editAudience, shown, key string) (string, string, []string, *spec.Entry, error) {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, nil, err
 	}
 	edit := overview.PermissionFieldEdit(scope.bundle.Settings, scope.cfg, h.root, h.global)
 	if edit.DisabledReason != "" {
-		return "", "", nil, fmt.Errorf("permissions: %s", edit.DisabledReason)
+		return "", "", nil, nil, fmt.Errorf("permissions: %s", edit.DisabledReason)
 	}
 	if shown == "" {
 		if edit.Path == "" {
-			return "", "", nil, errors.New("several editable settings specs exist; choose a path")
+			return "", "", nil, nil, errors.New("several editable settings specs exist; choose a path")
 		}
 		shown = edit.Path
 	}
@@ -45,17 +48,24 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 	}
 	if chosen.Path != "" {
 		if reason := overview.PermissionEditDisabledReason(chosen, h.root); reason != "" && strings.HasPrefix(key, "permissions.") {
-			return "", "", nil, fmt.Errorf("%s", reason)
+			return "", "", nil, nil, fmt.Errorf("%s", reason)
 		}
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, where)
 		if err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, err
 		}
 		paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.global, chosen.Name)))
-		return file, scaffold, paths, nil
+		var shared *spec.Entry
+		switch {
+		case chosen.Base != nil:
+			shared = chosen.Base
+		case !overview.LocalLayer(chosen):
+			shared = &chosen
+		}
+		return file, scaffold, paths, shared, nil
 	}
 	if len(scope.bundle.Settings) != 0 || shown != edit.Path {
-		return "", "", nil, fmt.Errorf("%s is not an editable settings spec of this configuration", shown)
+		return "", "", nil, nil, fmt.Errorf("%s is not an editable settings spec of this configuration", shown)
 	}
 	file := edit.Path
 	if !filepath.IsAbs(file) {
@@ -66,16 +76,16 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 		file = filepath.Join(h.root, overview.SettingsOverlayPath(h.global, "permissions"))
 		scaffold = settingsOverlayScaffold("permissions")
 		if err := h.checkPersonalTarget(file); err != nil {
-			return "", "", nil, err
+			return "", "", nil, nil, err
 		}
 	}
 	if _, err := os.Lstat(file); err == nil {
-		return "", "", nil, fmt.Errorf("%s exists but is not a loaded settings spec", overviewDisplay(h.root, file))
+		return "", "", nil, nil, fmt.Errorf("%s exists but is not a loaded settings spec", overviewDisplay(h.root, file))
 	} else if !os.IsNotExist(err) {
-		return "", "", nil, fmt.Errorf("%s: %w", file, err)
+		return "", "", nil, nil, fmt.Errorf("%s: %w", file, err)
 	}
 	paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.global, "permissions")))
-	return file, scaffold, paths, nil
+	return file, scaffold, paths, nil, nil
 }
 
 func permissionEditRest(data, original []byte, clearing bool) []byte {

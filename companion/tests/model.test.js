@@ -2,9 +2,17 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
-import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf } from '../frontend/model.js'
+import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
-const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
+const row = (id, state, extra = {}) => ({
+  tool: 'claude',
+  id,
+  state,
+  title: id,
+  updatedAt: '2026-11-09T12:00:00Z',
+  ...(state === 'completed' ? { completedAt: '2026-11-09T13:00:00Z' } : {}),
+  ...extra,
+})
 
 test('groups rows by state, in list order, and leaves empty groups out', () => {
   const groups = grouped([row('a', 'dormant'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'completed')])
@@ -111,21 +119,21 @@ test('says which conversation a nested row was started from', () => {
 test('offers Mark as read only on a row that needs the person, and Rename on every row', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
-    [['read', 'rename'], ['read', 'rename'], ['rename'], ['rename'], ['rename', 'delete'], ['rename', 'delete']],
+    [['read', 'rename', 'complete'], ['read', 'rename', 'complete'], ['rename'], ['rename', 'complete'], ['rename', 'reopen', 'hide', 'delete'], ['rename', 'hide', 'delete']],
   )
 })
 
 test('offers Delete only on a chat under Archived that no process holds', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename'])
-  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'reopen', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'reopen', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename', 'complete'])
 })
 
 test('an archived chat has no read state: no Mark as read, and Delete without reading it first', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'delete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'reopen', 'hide', 'delete', 'web'])
   assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), 'hide')
   assert.equal(unreadMarkOf(row('a', 'dormant', { unread: true })), false)
   assert.equal(unreadMarkOf(row('a', 'active', { unread: true })), true)
@@ -550,6 +558,7 @@ test('a notice is an error when what was asked did not happen, and info when it 
       notTidied: 'info',
       shellNotStopped: 'error',
       shellProcessesLeft: 'info',
+      sessionNotStopped: 'error',
       subagent: 'info',
     },
   )
@@ -608,9 +617,9 @@ test('a shared row shows under Local and under Cloud, and counts once in each', 
 })
 
 test('offers Open on claude.ai only on a shared row, and names its cloud session', () => {
-  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'web'])
-  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'web'])
-  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename'])
+  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename', 'complete'])
   const sharedRow = shared('a', 'active')
   assert.deepEqual(cloudPageOf(sharedRow), { tool: 'claude', id: 'cse_a1', title: sharedRow.title })
   assert.equal(cloudPageOf(row('a', 'active')), undefined)
@@ -707,7 +716,7 @@ test('a group header names the unread chats it holds, and an archived one adds n
 
 test('a resumed chat with an unread marker offers Mark as read, and its tooltip says so', () => {
   const open = { kind: 'focus', label: 'Switch to Ghostty' }
-  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename', 'complete'])
   assert.equal(rowTooltipOf(row('a', 'active', { unread: true, open }), Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\nResumed with a reply from before that you have not read')
 })
 
@@ -797,11 +806,39 @@ test('the tooltip of a permission row names why approvals left it to the person'
 const shell = { pid: 42, procStart: 'shell-start', command: 'npm run dev', since: '2026-11-09T10:30:00Z', processCount: 3 }
 const shellNow = Date.parse('2026-11-09T12:00:00Z')
 
+test('a saved completion offers Undo complete, and an archived row can still be hidden', () => {
+  const completedAt = '2026-11-09T13:00:00Z'
+  assert.deepEqual(rowMenuOf(row('app-archive', 'dormant', { completedAt })), ['rename', 'reopen', 'hide', 'delete'])
+  const waiting = row('shell-wait', 'blocked', { completedAt, live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
+  assert.deepEqual(rowMenuOf(waiting), ['read', 'rename', 'reopen', 'stop-shell'])
+  assert.equal(rowActionOf(waiting), undefined)
+})
+
+test('offers Stop chat only on a live chat the server can stop, and says how it ended', () => {
+  const stoppable = { pid: 42, procStart: 'chat-start' }
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable })), ['rename', 'stop-session'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable })), ['rename'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename'])
+  assert.deepEqual(stopSessionConfirmOf(row('a', 'working', { title: 'Fix the build' })).title, 'Stop "Fix the build"?')
+  assert.match(stopSessionConfirmOf(row('a', 'working')).body, /transcript stays/)
+  assert.deepEqual(stoppedSessionOf({}), { message: 'Stopped.' })
+  assert.deepEqual(stoppedSessionOf({ forced: true }), { message: 'Stopped. It did not end when asked, so it was forced to.' })
+  assert.deepEqual(stoppedSessionOf({ stillRunning: true }), {
+    message: 'The Claude Code process is still running after the stop request.',
+    problem: true,
+  })
+  assert.deepEqual(stoppedSessionOf({ forced: true, stillRunning: true }), {
+    message: 'The Claude Code process is still running after a force stop.',
+    problem: true,
+  })
+  assert.equal(escapeTarget({ stopSessionOpen: true, rowMenuOpen: true }), 'stop-session')
+})
+
 test('warns about each shell with its age, command and owner when known', () => {
   const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })
-  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'stop-shell'])
-  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename'])
-  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename'])
+  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'complete', 'stop-shell'])
+  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename', 'complete'])
+  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename', 'complete'])
   assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'stop-shell'])
   assert.deepEqual(conversation.stuckShells.map((entry) => shellWarningOf(entry, shellNow)), [
     'Shell running for 1h: npm run dev',

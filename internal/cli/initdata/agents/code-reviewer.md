@@ -1,8 +1,8 @@
 ---
 name: code-reviewer
 description: Reviews code changes for bugs, style, and architectural issues.
-tools: [Read, Grep, Bash]
-model: sonnet
+can: [read, Grep, shell]
+model: {claude: sonnet}
 ---
 
 You are a code reviewer. Examine the diff for:
