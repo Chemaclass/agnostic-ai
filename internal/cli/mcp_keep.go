@@ -56,7 +56,7 @@ func unledgeredMCPFiles(renders *targetRenders, cfg *config.Config, targets, led
 // --backup replaces the file when its `<path>.bak` is free, and
 // --keep-edits leaves out a file Git tracks with edits.
 func keepHandWrittenMCPFiles(renders *targetRenders, cfg *config.Config, targets, ledgered []string, backup, keepEdits bool) error {
-	var lines []string
+	var stop handWrittenStop
 	for _, f := range unledgeredMCPFiles(renders, cfg, targets, ledgered) {
 		if keepEdits {
 			if sum := committedSum(f.path); sum != "" && fileSum(f.path) != sum {
@@ -75,16 +75,13 @@ func keepHandWrittenMCPFiles(renders *targetRenders, cfg *config.Config, targets
 			if _, err := os.Lstat(f.path + ".bak"); errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
-			lines = append(lines, fmt.Sprintf("%s holds MCP config agnostic-ai did not write, and %s.bak already exists, so --backup would replace it.\n  move %s.bak away, then run agnostic-ai sync --backup", path, path, path))
+			stop = stop.add(path, fmt.Sprintf("%s holds MCP config agnostic-ai did not write, and %s.bak already exists, so --backup would replace it.\n  move %s.bak away, then run agnostic-ai sync --backup", path, path, path))
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("%s holds MCP config agnostic-ai did not write and no spec has (%s).\n  keep it:    %s\n  replace it: agnostic-ai sync --backup, which keeps the file as %s.bak",
+		stop = stop.add(path, fmt.Sprintf("%s holds MCP config agnostic-ai did not write and no spec has (%s).\n  keep it:    %s\n  replace it: agnostic-ai sync --backup, which keeps the file as %s.bak",
 			path, strings.Join(lost, ", "), mcpKeepStep(cfg, path), path))
 	}
-	if len(lines) == 0 {
-		return nil
-	}
-	return handWrittenStop(lines)
+	return stop.err()
 }
 
 // unledgeredMCPSum stands in for the ledger sum of an unledgered MCP
