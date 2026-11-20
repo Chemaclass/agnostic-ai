@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import type { Stage } from '../contract'
-import { emptyHookDraft, hookDraftProblem, hookRequest, hookStages, takesMatch } from './hook-form'
+import { emptyHookDraft, hookDraftProblem, hookRequest, hookStages, stageExcludes, takesMatch } from './hook-form'
 
 const stage = (id: string): Stage => ({ id, label: id, description: '', targets: [] })
 
+const runBy = (id: string, ...targets: string[]): Stage => ({ id, label: id, description: '', targets: targets.map((target) => ({ target, label: target, event: id })) })
+
 describe('hook form', () => {
+  it('leaves out the hook tools a stage has no event for', () => {
+    const stages = [runBy('before-tool', 'claude', 'cursor'), runBy('after-edit', 'claude')]
+    expect(stageExcludes(stages, 'after-edit')).toEqual(['cursor'])
+    expect(stageExcludes(stages, 'before-tool')).toEqual([])
+    const draft = { ...emptyHookDraft('after-edit'), name: 'fmt', command: 'x' }
+    expect(hookRequest(draft, 'shared', 'preview', undefined, ['cursor'])).toEqual({ action: 'preview', audience: 'shared', name: 'fmt', on: 'after-edit', command: 'x', targetsExclude: ['cursor'] })
+  })
+
   it('offers only the portable stages the page shows', () => {
     expect(hookStages([stage('session-start'), stage('after-edit'), stage('native:BeforeAgent')]).map((s) => s.id)).toEqual(['session-start', 'after-edit'])
   })
