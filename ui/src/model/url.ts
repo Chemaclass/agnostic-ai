@@ -96,18 +96,32 @@ const SCHEME = /^[a-z][a-z0-9+.-]*:/i
  * Decides where the overview comes from. `?source=` names a static
  * snapshot directory (relative to the page) or an http(s) URL; `?mock=1`
  * loads the bundled fixture; otherwise a build-time default source
- * applies, and without one the client asks the server's /api.
+ * applies, and without one the client asks the server's /api. A client
+ * that `agnostic-ai serve` hosts passes its `servedOrigin`, and then reads
+ * snapshots only from that origin.
  */
-export function resolveDataSource(state: Pick<UrlState, 'mock' | 'source'>, defaultSource?: string): DataSource {
+export function resolveDataSource(state: Pick<UrlState, 'mock' | 'source'>, defaultSource?: string, servedOrigin?: string): DataSource {
   const raw = state.source ?? (state.mock ? undefined : defaultSource?.trim() || undefined)
   if (raw !== undefined) {
     if (SCHEME.test(raw) && !/^https?:/i.test(raw)) {
       return { kind: 'invalid', value: raw, reason: 'A snapshot source must be a relative directory or an http(s) URL.' }
     }
+    if (servedOrigin !== undefined && !sameOrigin(raw, servedOrigin)) {
+      return { kind: 'invalid', value: raw, reason: 'A running agnostic-ai serve reads snapshots only from its own address, so a link cannot show another site\'s setup here.' }
+    }
     return { kind: 'static', base: raw.endsWith('/') ? raw : `${raw}/` }
   }
   if (state.mock) return { kind: 'mock' }
   return { kind: 'api' }
+}
+
+/** Reports whether raw, resolved against origin, stays on that origin; `//host` counts as another site. */
+function sameOrigin(raw: string, origin: string): boolean {
+  try {
+    return new URL(raw, `${origin}/`).origin === origin
+  } catch {
+    return false
+  }
 }
 
 /** Context size can load its report: a running server or the bundled fixture, never a static snapshot. */

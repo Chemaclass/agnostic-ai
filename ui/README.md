@@ -62,7 +62,7 @@ go run ./cmd/agnostic-ai view --dir internal/authority/testdata/demo-project --j
   | sed "s|$PWD/|/path/to/agnostic-ai/|g" > ui/src/fixtures/overview.mock.json
 ```
 
-**Static snapshot.** Add `?source=<directory or URL>`, for example `?source=./snapshot`. The client reads `<source>/overview.json` with plain `fetch`. A relative source resolves against the page; an absolute one must be http(s). A snapshot or the mock fixture is read-only: the notice at the top of each page says that opening files, rechecks and switches need `agnostic-ai view`. A source that does not load shows **Could not load the snapshot**, with the URL and status under **Details** and **Retry**. Capture one from a running server:
+**Static snapshot.** Add `?source=<directory or URL>`, for example `?source=./snapshot`. The client reads `<source>/overview.json` with plain `fetch`. A relative source resolves against the page; an absolute one must be http(s). The client that `agnostic-ai serve` hosts reads a source only from its own origin, so a link cannot show another site's setup on the local page. A snapshot or the mock fixture is read-only: the notice at the top of each page says that opening files, rechecks and switches need `agnostic-ai view`. A source that does not load shows **Could not load the snapshot**, with the URL and status under **Details** and **Retry**. Capture one from a running server:
 
 ```sh
 mkdir -p snapshot
