@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -21,6 +22,17 @@ type nativeReviewer struct {
 	// legacyKey is an older key the tool copies into key when key is
 	// unset, so a value there is the user's mode too.
 	legacyKey string
+	// off is a value in the same file that keeps the reviewer from running.
+	off *reviewerOff
+	// moveEnv names a variable that moves the tool's settings file to a
+	// folder sync --global does not write.
+	moveEnv string
+}
+
+type reviewerOff struct {
+	key   string
+	value any
+	why   string
 }
 
 // nativeReviewers carry out review, each through a key in the user
@@ -28,9 +40,12 @@ type nativeReviewer struct {
 // user, policy, or flag settings.
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
-	"codex":  {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review"},
-	"qoder":  {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
-	"qwen":   {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
+	"codebuddy": {name: "CodeBuddy auto mode", key: "permissions.defaultMode", value: "auto", moveEnv: "CODEBUDDY_CONFIG_DIR",
+		off: &reviewerOff{key: "permissions.disableAutoMode", value: "disable", why: "CodeBuddy starts in default instead"}},
+	"codex": {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review",
+		off: &reviewerOff{key: "approval_policy", value: "never", why: "it reviews only prompts, so use on-request or a granular policy"}},
+	"qoder": {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
+	"qwen":  {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
 
 // homeToolMode is the mode the home config gives tool everywhere, which
@@ -149,8 +164,8 @@ func readReviewerState(tool, userHome string, state globalState) (reviewerState,
 }
 
 // notes say what keeps the reviewer from matching mode: the key missing
-// or changed under review, a Codex approval policy that never asks, or
-// the key still on where the mode is not review.
+// or changed under review, the key still on where the mode is not review,
+// a value that switches the reviewer off, or a moved settings folder.
 func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	r := rs.reviewer
 	want := settingsValueText(r.key, r.value)
@@ -172,10 +187,17 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 		// hand there is not worth a note.
 		notes = append(notes, fmt.Sprintf("%s is on: %s = %s in %s was set outside agnostic-ai", r.name, r.key, want, rs.path))
 	}
-	if tool == "codex" && (mode == config.ApprovalsReview || rs.on) {
-		if policy, _ := rs.values["approval_policy"].(string); policy == "never" {
-			notes = append(notes, fmt.Sprintf(`approval_policy = "never" in %s keeps %s from running; it reviews only prompts, so use on-request or a granular policy`, rs.path, r.name))
+	if mode != config.ApprovalsReview && !rs.on {
+		return notes
+	}
+	format := globalTargets[tool].settings.format
+	if off := r.off; off != nil {
+		if have, ok := settingsLookup(rs.values, off.key, format); ok && sameSetting(have, off.value) {
+			notes = append(notes, fmt.Sprintf("%s = %s in %s keeps %s from running; %s", off.key, settingsValueText(off.key, off.value), rs.path, r.name, off.why))
 		}
+	}
+	if r.moveEnv != "" && strings.TrimSpace(os.Getenv(r.moveEnv)) != "" {
+		notes = append(notes, fmt.Sprintf("%s is set, so %s reads its settings there, not from %s", r.moveEnv, tool, rs.path))
 	}
 	return notes
 }
