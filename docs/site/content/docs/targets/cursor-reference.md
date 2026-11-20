@@ -85,7 +85,7 @@ Sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` fi
 
 ### MCP
 
-`.cursor/mcp.json` under `mcpServers`. Each sync replaces the whole file from MCP specs. Cursor-only fields ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
+`.cursor/mcp.json` under `mcpServers`. Each sync replaces the whole file from MCP specs. Sync stops before it replaces a file it did not write that names a server no spec has: run `agnostic-ai import cursor` to keep the servers, or `agnostic-ai sync --backup` to replace the file and keep it as `.cursor/mcp.json.bak`. After import, the first sync keeps the file as `.cursor/mcp.json.bak` (see [hand edits](@/docs/cli-reference/sync.md#hand-edits)). Cursor-only fields ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
 
 - A stdio server accepts `envFile`, a path to an env file with extra variables.
 - A `${NAME}` reference in `env`, `headers`, `url`, or `args` is written as Cursor's `${env:NAME}`; `${workspaceFolder}` and Cursor's other variables stay as written. See [environment references](@/docs/spec-format/mcps.md#environment-references).
@@ -162,14 +162,18 @@ A rule you remove from a spec leaves `cli.json` on the next sync. A rule you wro
 |--------|---------|
 | `.cursor/rules/<name>.mdc` | `<rules>/<name>.md`, frontmatter kept as written |
 | `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md` |
+| `.cursorrules` | `<rules>/cursorrules.md` with `alwaysApply: true` |
 | (no `name:` in frontmatter) | `name:` added from the filename |
 | `.cursor/agents/<name>.md` | `<agents>/<name>.md`, generated header stripped |
 | `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder and all its files, SKILL.md merged onto the existing spec |
 | `.cursor/commands/<name>.md` | `<commands>/<name>.md`, generated header stripped |
+| `.cursor/mcp.json` | `<mcps>/<name>.yaml`, one per `mcpServers` entry |
 | `.cursor/BUGBOT.md` | `<reviews>/review.md` |
 | `<scope>/.cursor/BUGBOT.md` | `<reviews>/<scope-slug>.md` with `scope: <scope>`, such as `services-api.md` for `services/api` |
 
 Import skips a `BUGBOT.md` that sync wrote.
+
+Sync never writes `.cursorrules`, so import leaves it in place, and Cursor reads both it and the rule sync writes from it. Delete it after import.
 
 Both skill directories are project-level, at the root and in nested subdirectories. The nesting becomes the spec scope. `.cursor/skills` wins a same-name clash at the same scope.
 

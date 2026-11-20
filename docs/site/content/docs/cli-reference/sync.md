@@ -114,6 +114,7 @@ With nothing to do, `sync` prints `✓ 26 targets up to date · 49ms`. After an 
 - Exception: sync writes the file when that `.bak` is its own, unchanged, and holds the same bytes as the edited file.
 - Sync never writes an output onto a `.bak` it saved earlier, or onto another output's `<path>.bak`. It stops with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) first.
 - A key you add to a merged settings file such as `.claude/settings.json` stays in place, without a backup.
+- A file sync never wrote has no backup on its first write, with one exception: an MCP file sync writes whole, such as `.cursor/mcp.json`. Sync stops when that file names a server no spec has, or holds another key: run `agnostic-ai import <tool>` to keep it, or `sync --backup` to replace it and keep `<path>.bak`. Otherwise sync keeps the file as `<path>.bak` before the first write, unless Git has the same bytes committed.
 
 </details>
 

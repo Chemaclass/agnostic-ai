@@ -28,16 +28,30 @@ var cursorSkillsDirs = []string{
 }
 
 // importFromCursor reads existing Cursor config (.cursor/rules/*.mdc,
-// .cursor/agents/*.md, .cursor/skills/<name>/ and .agents/skills/<name>/
+// the legacy root .cursorrules, .cursor/mcp.json, .cursor/agents/*.md, .cursor/skills/<name>/ and .agents/skills/<name>/
 // folders, .cursor/commands/*.md, root and nested .cursor/BUGBOT.md, a
 // hand-authored .cursorignore, .cursor/worktrees.json and
 // .cursor/environment.json) under root and writes specs into the configured
 // source directories.
 func importFromCursor(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs); err != nil {
+		return err
+	}
+	// The legacy file goes first, so a rule of the same name in
+	// `.cursor/rules/`, which sync writes, wins.
+	legacy, err := importCursorLegacyRules(root, importSourcePath(root, src.Rules))
+	if err != nil {
 		return err
 	}
 	rules, err := importCursorRules(root, importSourcePath(root, src.Rules))
+	if err != nil {
+		return err
+	}
+	if legacy > 0 && fileExists(filepath.Join(root, ".cursor", "rules", cursorLegacyRuleName+".mdc")) {
+		legacy = 0
+	}
+	rules += legacy
+	mcps, err := importCursorMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
@@ -76,7 +90,7 @@ func importFromCursor(root string, src config.Sources) error {
 		return err
 	}
 	environments := worktrees + cloud
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d reviews, %d ignores, %d environments\n", rules, agents, skills, commands, reviews, ignores, environments)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d reviews, %d ignores, %d environments\n", rules, agents, skills, commands, mcps, reviews, ignores, environments)
 	return nil
 }
 
@@ -194,6 +208,52 @@ func importCursorRules(root, dstDir string) (int, error) {
 		return count, walkErr
 	}
 	return count, nil
+}
+
+// cursorMCPFile is the project MCP file Cursor reads and sync replaces
+// whole.
+var cursorMCPFile = filepath.Join(".cursor", "mcp.json")
+
+// importCursorMCP writes one spec per `mcpServers` entry in
+// `.cursor/mcp.json`, read as JSONC as Cursor does. No-op when the file
+// is absent.
+func importCursorMCP(root, dstDir string) (int, error) {
+	servers, err := readJSONCMapAt(filepath.Join(root, cursorMCPFile), "mcpServers")
+	if err != nil || len(servers) == 0 {
+		return 0, err
+	}
+	return writeMCPYAMLs("cursor", servers, dstDir)
+}
+
+// cursorLegacyRulesFile is the root rules file Cursor still reads ahead
+// of `.cursor/rules/`. Sync never writes it.
+const cursorLegacyRulesFile = ".cursorrules"
+
+// cursorLegacyRuleName names the rule import writes from it.
+const cursorLegacyRuleName = "cursorrules"
+
+// importCursorLegacyRules reads a root `.cursorrules` into an always-on
+// rule named after the file. No-op when the file is absent.
+func importCursorLegacyRules(root, dstDir string) (int, error) {
+	path := filepath.Join(root, cursorLegacyRulesFile)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", path, err)
+	}
+	importReadingNative(path)
+	name := cursorLegacyRuleName
+	translated, err := translateCursorRule(name, append([]byte("---\nalwaysApply: true\n---\n"), data...), false)
+	if err != nil {
+		return 0, fmt.Errorf("translate %s: %w", cursorLegacyRulesFile, err)
+	}
+	dst := filepath.Join(dstDir, name+".md")
+	if err := importWriteMarkdownCarrying(dst, translated, 0o644, importCarrying(cursorRuleKeys)); err != nil {
+		return 0, fmt.Errorf("write %s: %w", dst, err)
+	}
+	return 1, nil
 }
 
 // cursorRuleKeys are the frontmatter keys a `.mdc` rule carries.
