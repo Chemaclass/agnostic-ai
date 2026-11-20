@@ -409,7 +409,7 @@ type explainLintCodeOutput struct {
 func runExplainLintCode(cmd *cobra.Command, code string, jsonOut bool) error {
 	entry, ok := lintCodes[code]
 	if !ok {
-		return fmt.Errorf("unknown lint code: %s (see https://agnostic-ai.org/docs/cli-reference/check/ for the list)", code)
+		return fmt.Errorf("unknown lint code: %s (see https://agnostic-ai.org/docs/cli-reference/lint-codes/ for the list)", code)
 	}
 	if jsonOut {
 		enc := json.NewEncoder(cmd.OutOrStdout())

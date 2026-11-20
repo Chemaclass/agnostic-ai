@@ -9,6 +9,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
+- A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
+- `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `sync --jobs -1` fails with AAI-302, `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
+- From a subfolder of a project, `status`, `init`, `doctor`, `packs list` and `use` name the project with one sentence (#3749).
+- Cline: the note that some hook events run in the CLI only no longer prints when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3749).
 - The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
 - `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
 - `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
@@ -21,6 +25,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Sync honors `outputs.<target>.collision-policy`, which it ignored before. When the targets that write one path disagree, the strictest value applies: `fail` over `prompt` over `prefer-spec` (#3631).
 - Authority notes and opt-in links point directly to the reference pages that explain their settings (#3553).
 - A conversation request that names an unknown tool now gets an error that lists all four accepted tools: claude, codex, cursor and chatgpt (#3622).
+- `revert --force` no longer deletes `.agnostic-ai/AGNOSTIC_AI.md`, the note you write, or other files in `.agnostic-ai/` and the spec folders an `outputs` path points into, and `revert` prints how many files it restored and removed for each target (#3701).
 - On a fresh clone, `sync`, `sync --check`, `doctor --fix`, `use`, and `upgrade --requires` stop and name each pack `agnostic.packs.lock` lists but `.agnostic-ai/packs/` lacks, with `agnostic-ai packs update` as the fix. Before, they removed every file those packs generated. A lockfile that does not parse now stops them as well (#3712).
 - `sync -t claude` and `sync --check -t claude` write and expect the same `CLAUDE.md` as a full sync when another target writes `AGENTS.md`, so the two checks no longer fail each other (#3714).
 - `sync --plan` lists the `.gitignore` and `.worktreeinclude` changes sync makes, and `init --dry-run` lists the `.gitignore` init writes. `init` in an existing project fails before it picks targets (#3714).

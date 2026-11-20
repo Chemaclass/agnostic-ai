@@ -75,6 +75,8 @@ func newPacksCmd() *cobra.Command {
 
   # Remove a pack
   agnostic-ai packs remove superpowers`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
 	cmd.AddCommand(newPacksAddCmd(), newPacksRemoveCmd(), newPacksListCmd(), newPacksUpdateCmd())
 	return cmd
@@ -873,7 +875,7 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 func reportNoPacks(root string, out io.Writer, command string) {
 	if _, _, missing := config.ResolveConfigPath(root); missing != nil {
 		if dir, ok := enclosingProject(root); ok {
-			_, _ = fmt.Fprintf(out, "no packs installed here; this directory is inside the agnostic-ai project at %s; run agnostic-ai packs %s there.\n", dir, command)
+			_, _ = fmt.Fprintf(out, "no packs installed here; %s.\n", insideProjectHint(dir, "packs "+command))
 			return
 		}
 	}

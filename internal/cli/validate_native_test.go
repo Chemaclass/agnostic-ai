@@ -535,3 +535,22 @@ func TestValidate_PointsKiroPermissionRequestAliasAtCanonicalEvent(t *testing.T)
 		t.Errorf("expected canonical event advice for permissionRequest: %s", got)
 	}
 }
+
+func TestValidate_IgnoreSpecNoTargetReadsIsANote(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "secrets.md"), "---\nname: secrets\n---\n.env\n")
+	testutil.Chdir(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"validate"})
+	out, errOut := &bytes.Buffer{}, &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(errOut)
+	if err := root.Execute(); err != nil {
+		t.Errorf("validate failed on an ignore spec lint and sync accept: %v\n%s", err, out)
+	}
+	if !strings.Contains(errOut.String(), "note: .agnostic-ai/ignore/secrets.md: 1 ignore spec configured but no enabled target supports ignores") {
+		t.Errorf("want a note naming the ignore spec, got stderr:\n%s", errOut)
+	}
+}
