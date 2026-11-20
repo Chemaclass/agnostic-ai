@@ -3,6 +3,7 @@ package integration
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,7 +103,7 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 			var out, errOut bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &out, &errOut
 			err = cmd.Run()
-			if exit, ok := err.(*exec.ExitError); ok {
+			if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 				return out.String(), errOut.String(), exit.ExitCode()
 			}
 			must(t, err)

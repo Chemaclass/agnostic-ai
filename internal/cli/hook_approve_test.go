@@ -147,29 +147,37 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 			return `{"hook_event_name":"PreToolUse","cwd":` + strconvQuote(project) + `,"tool_name":"Bash","tool_input":{"command":"go test ./..."}}`
 		}},
 		{name: "environment says ask", home: yoloHome, target: "codex", setup: func(t *testing.T, _, _ string) {
+			t.Helper()
 			t.Setenv("AGNOSTIC_AI_APPROVALS", "ask")
 		}},
 		{name: "project file says ask", home: yoloHome, target: "claude", setup: func(t *testing.T, _, project string) {
+			t.Helper()
 			writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\napprovals:\n  mode: ask\n")
 		}},
 		{name: "claude project ask rule", home: yoloHome, target: "claude", rule: approvals.RuleAlwaysAsk, setup: func(t *testing.T, _, project string) {
+			t.Helper()
 			writeFile(t, filepath.Join(project, ".claude", "settings.json"), `{"permissions":{"ask":["Bash(go test*)"]}}`)
 		}},
 		{name: "claude user ask rule", home: yoloHome, target: "claude", rule: approvals.RuleAlwaysAsk, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
 			home, _ := os.UserHomeDir()
 			writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"ask":["Bash(go *)"]}}`)
 		}},
 		{name: "claude local ask rule", home: yoloHome, target: "claude", rule: approvals.RuleAlwaysAsk, setup: func(t *testing.T, _, project string) {
+			t.Helper()
 			writeFile(t, filepath.Join(project, ".claude", "settings.local.json"), `{"permissions":{"ask":["Bash"]}}`)
 		}},
 		{name: "claude managed ask rule", home: yoloHome, target: "claude", rule: approvals.RuleAlwaysAsk, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
 			writeFile(t, filepath.Join(claudeManagedDir, "managed-settings.json"), `{"permissions":{"ask":["Bash(go test:*)"]}}`)
 		}},
 		{name: "claude settings do not parse", home: yoloHome, target: "claude", setup: func(t *testing.T, _, project string) {
+			t.Helper()
 			writeFile(t, filepath.Join(project, ".claude", "settings.json"), `{"permissions":`)
 		}},
 		{name: "home always-ask", home: yoloHome + "  always-ask:\n    - \"Bash(go test*)\"\n", target: "codex", rule: approvals.RuleAlwaysAsk},
 		{name: "log cannot be written", home: yoloHome, target: "codex", setup: func(t *testing.T, source, _ string) {
+			t.Helper()
 			writeFile(t, filepath.Join(source, "local", "approvals"), "not a folder")
 		}},
 	}
