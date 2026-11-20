@@ -17,6 +17,9 @@ func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
 		t.Run(tool, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			t.Setenv(config.EnvApprovals, "")
+			if reviewer.moveEnv != "" {
+				t.Setenv(reviewer.moveEnv, "")
+			}
 			g := globalTargets[tool]
 			path := g.path(home, g.settings.path)
 			writeHomeApprovals(t, source, "approvals:\n  tools:\n    "+tool+": review\n")
@@ -131,5 +134,24 @@ func TestApprovalsStatus_HandSetQoderAutoIsNamedUnderAsk(t *testing.T) {
 
 	if len(qoder.Notes) != 1 || !strings.Contains(qoder.Notes[0], "outside agnostic-ai") {
 		t.Errorf("qoder notes: %q", qoder.Notes)
+	}
+}
+
+func TestApprovalsStatus_CodeBuddyAutoModeDisabledOrMoved(t *testing.T) {
+	home := approvalsUserHome(t)
+	t.Setenv("CODEBUDDY_CONFIG_DIR", "")
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [codebuddy]\napprovals:\n  mode: review\n")
+	writeFile(t, filepath.Join(home, ".codebuddy", "settings.json"), `{"permissions": {"defaultMode": "auto", "disableAutoMode": "disable"}}`)
+
+	codebuddy := toolStatus(t, approvalsStatusJSON(t), "codebuddy")
+	if len(codebuddy.Notes) != 1 || !strings.Contains(codebuddy.Notes[0], "disableAutoMode") {
+		t.Errorf("codebuddy notes: %q", codebuddy.Notes)
+	}
+
+	writeFile(t, filepath.Join(home, ".codebuddy", "settings.json"), `{"permissions": {"defaultMode": "auto"}}`)
+	t.Setenv("CODEBUDDY_CONFIG_DIR", t.TempDir())
+	codebuddy = toolStatus(t, approvalsStatusJSON(t), "codebuddy")
+	if len(codebuddy.Notes) != 1 || !strings.Contains(codebuddy.Notes[0], "CODEBUDDY_CONFIG_DIR") {
+		t.Errorf("codebuddy notes: %q", codebuddy.Notes)
 	}
 }
