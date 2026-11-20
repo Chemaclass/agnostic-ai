@@ -1000,6 +1000,7 @@ func TestSync_KeepsPackOutputsWhenTheLockfileIsBroken(t *testing.T) {
 	}{
 		"unreadable lockfile": {
 			breakIt: func(t *testing.T, root string) {
+				t.Helper()
 				mustWrite(t, filepath.Join(root, packsLockfile), "<<<<<<< HEAD\nversion: 1\n")
 			},
 			want: packsLockfile,

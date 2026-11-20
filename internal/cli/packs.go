@@ -819,8 +819,8 @@ func stopOnMissingPacks(projectRoot string) error {
 	if updatable {
 		msg += "; run `agnostic-ai packs update` before syncing"
 	}
-	for _, o := range outside {
-		msg += "\n  " + o
+	if len(outside) > 0 {
+		msg += "\n  " + strings.Join(outside, "\n  ")
 	}
 	return errors.New(msg)
 }
