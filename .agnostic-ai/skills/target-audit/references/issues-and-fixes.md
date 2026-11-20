@@ -32,7 +32,7 @@ Include applicable checklist items, marking exclusions with a reason:
 - Import side when the affected config is read back.
 - `docs/site/data/capabilities.toml`, the target page, and cross-target notes in `docs/site/content/docs/target-behavior.md`.
 - Configuration/spec docs and schema when their public contract changes; README for visible behavior.
-- `CHANGELOG.md` under Unreleased.
+- A changelog entry file, `changes/<slug>.md` (see `changes/README.md`).
 - Source-registry URL corrections, plus `scripts/target-audit/sources.lock` and `signals.tsv`.
 - Target tests, `capability_parity_test.go`, `kitsink_golden_test.go`, and `tests/integration/fixtures/golden/<target>/`. Check whether a round-trip test exists; golden trees often exist without one.
 - For a shipped built-in: per-target vendor evidence and a behavioral test, per `.agnostic-ai/skills/target-audit/references/builtins.md`. Hook capability alone never adds a target.

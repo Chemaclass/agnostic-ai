@@ -42,7 +42,7 @@ While the project is 0.x, a breaking release is a minor release whose CHANGELOG 
 4. Add or update the lint warning for the old form, pointing at `agnostic-ai migrate`.
 5. Make `import` write the new form and cover its round trip.
 6. Run `go test ./internal/cli -run Migrate`. The shared tests run `sync`, `migrate`, and `sync --check` on every registered migration's fixtures, project and global, then plan again to prove it is safe to run twice. These focused tests supplement the runtime gate in repository-root `docs/internal/contributing.md`, section "Choose checks for your change".
-7. Document the new form first on its spec-format page, keep the old form there as an alias, and add a CHANGELOG line that says "run `agnostic-ai migrate`".
+7. Document the new form first on its spec-format page, keep the old form there as an alias, and add a changelog entry (`changes/<slug>.md`) that says "run `agnostic-ai migrate`".
 8. In the PR body, state the migration ID, what it rewrites, what it skips, and the earliest release that may remove the old form.
 
 ## When the editor falls short

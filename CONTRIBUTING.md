@@ -47,7 +47,7 @@ Choose local checks and remote CI from [checks by change type](docs/internal/con
 ## Submit
 
 - Commit with a Conventional Commits prefix: `feat:`, `fix:`, `docs:`, `ref:`, `test:`, or `chore:`. Keep the subject under 72 characters and explain why in the body.
-- For a user-visible change, add one line under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) and update the docs it affects ([checklist](docs/internal/contributing.md#documentation-checklist)).
+- For a user-visible change, add a changelog entry as its own file, `changes/<slug>.md` ([format](changes/README.md)), and update the docs it affects ([checklist](docs/internal/contributing.md#documentation-checklist)).
 - In the pull request, say what changed and how you checked it, and link the issue. Push new commits to update it.
 
 ## Questions and reports

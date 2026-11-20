@@ -129,7 +129,7 @@ Text tokens meet 4.5:1 contrast on `canvas`, `surface`, and `sunken` in each the
 - **Atkinson Hyperlegible Next** (SIL OFL): body text at 15px, controls at 14px, small text at 13px; weights 400 and 600.
 - **System monospace**: paths, keys, rule values, counts, and uppercase labels at 12px with 0.08em tracking.
 
-Fraunces ships as two roman WOFF2 subsets, weights 500 and 600, at optical size 72. See [font sources and rebuild steps](src/assets/fonts/README.md) for the pinned google/fonts revision and all bundled faces. Record measured binary growth in `scripts/binary-size-budget` when changing fonts.
+Fraunces ships as two roman WOFF2 subsets, weights 500 and 600, at optical size 72. See [font sources and rebuild steps](src/assets/fonts/README.md) for the pinned google/fonts revision and all bundled faces. When a font change grows the binary more than the PR allowance, set the bytes it needs in `scripts/binary-size-growth` and say why there.
 
 ## Layout
 

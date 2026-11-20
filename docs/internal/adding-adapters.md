@@ -77,7 +77,7 @@ Add the target to `allTargets` in `internal/cli/init_interactive.go`. Decide sep
 - Update `README.md` supported-target summary and `docs/site/content/docs/configuration.md`.
 - Keep target facts on the target page and in the capability table. Do not add a per-tool paragraph to the targets index or to `target-behavior.md` prose; a table row is fine where that page already has one.
 - Run `make site-generate` to update the current supported and default target counts.
-- Add an `[Unreleased]` entry in `CHANGELOG.md`.
+- Add a changelog entry file, `changes/<slug>.md`, under `### By tool` ([format](../../changes/README.md)).
 - If config struct fields or tags change, run `go run ./cmd/schemagen`.
 - Regenerate the saved expected output files and supported-target lists listed in `.agnostic-ai/rules/capability-fixtures.md`.
 
