@@ -101,6 +101,7 @@ func importFromCopilot(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d hooks, %d mcps, %d settings\n",
 		counts.rules, counts.agents+agents+chatmodes, counts.skills+skills, commands, hooks, mcps, settings)
+	noteImportedOnceDuplicates(root, "copilot", importHookConfig)
 	return nil
 }
 

@@ -163,3 +163,18 @@ grok-mcp-dynamic-headers-command	grok	a headers_helper command to provide dynami
 kiro-hook-whole-input-replacement	kiro	updatedInput replaces the whole tool_input object. It is not merged, and later Pre Tool Use Hooks receive the replacement.	yes	signal:cap-kiro-hook-input-rewriting
 copilot-project-customization-evals	copilot	Create an eval for a skill, custom agent, or MCP tool in your project.	yes	signal:cap-project-customization-evaluations
 copilot-remote-review-default-effort	copilot	set it as your default review effort in personal, repository, organization, or enterprise settings.	yes	signal:cap-repository-adaptive-review-effort
+vibe-model-request-hook-types	vibe	`pre_llm` hooks run before each call to the model and can stop the turn	yes	signal:cap-model-request-hook-decisions
+vibe-goal-budget-limit	vibe	Highest token budget a /goal may set; a goal set without a budget gets this one.	yes	signal:cap-project-goal-token-budget
+kiro-remote-mcp-organization-mode	kiro	Each HTTP server chooses how Kiro gets its token with `oauth.mode`	yes	signal:cap-mcp-organization-sign-in-mode
+qoder-mcp-protocol-pin	qoder	MCP protocol revision to connect with, for example `"2025-11-25"` or `"2026-07-28"`.	yes	signal:cap-mcp-protocol-revision-pin
+openhands-flat-path-rule	openhands	Here’s a rule located at `.agents/skills/api-validation.md`:	yes	3768
+crush-json-prompt-template	crush	In `crush.json`, the same settings live under `options.prompts`.	yes	signal:cap-project-prompt-template-overrides
+cursor-environment-repository-clone	cursor	How Cursor clones the environment's repositories. Leave unset to keep Cursor's default clone.	yes	signal:cap-cloud-environment-clone-options
+kimi-kap-session-api	kimi	for HTTP-driven KAP automation	no	signal:cap-kimi-local-session-http-api
+antigravity-plugin-archive-validation	antigravity	expands `agy plugin validate` to support `.zip` files and GitHub URLs	no	signal:cap-extension-package-validation
+kiro-ide-permission-request-hook	kiro	Create a Permission Request Hook in the Hook editor	yes	signal:cap-kiro-hook-permission-answers
+kiro-ide-pretooluse-input	kiro	Pre Tool Use Hooks can also replace a tool call's input before it runs	yes	signal:cap-kiro-hook-input-rewriting
+junie-custom-model-effort-labels	junie	Use `efforts` and `defaultEffort` to configure reasoning effort support for a custom model profile.	yes	signal:cap-junie-custom-model-profiles
+crush-project-mcp-channel-setting	crush	Or persistently, with `channel_enabled` on the server's `mcp` entry	yes	signal:cap-mcp-channel-message-routing
+warp-factory-worker-skill-path	warp	`workers/<worker-name>/skills/<skill-name>/SKILL.md`, for a role-specific procedure such as a security review.	yes	signal:cap-factory-repository-skill-references
+ellipsis-review-permission-shortcuts	ellipsis	Each of `github` and `ellipsis` is `all`, `read_only`, or a list of entries, and a request goes through only when an entry allows it.	yes	signal:cap-ellipsis-session-api-permissions

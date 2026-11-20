@@ -125,7 +125,7 @@ func previewDrift(cfg *config.Config, bundle spec.Bundle, targets []string, back
 			readers = cfg.Targets
 		}
 		if err := keepHandWrittenInstructions(cfg, bundle, readers, ledger.state.Outputs, backup, false); err != nil {
-			return nil, syncDrops{}, nil, err
+			return nil, syncDrops{}, nil, withoutNothingWritten(err)
 		}
 	}
 	var guard func(*targetRenders, *config.Config) error
@@ -140,7 +140,7 @@ func previewDrift(cfg *config.Config, bundle spec.Bundle, targets []string, back
 	}
 	reports, err := collectGuardedDrift(ledger, cfg, bundle, targets, nil, gitignoreFlag, guard)
 	if err != nil {
-		return nil, syncDrops{}, nil, err
+		return nil, syncDrops{}, nil, withoutNothingWritten(err)
 	}
 	if opts.removals != nil {
 		if reports, err = opts.removals(reports); err != nil {

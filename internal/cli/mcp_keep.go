@@ -65,7 +65,7 @@ func keepHandWrittenMCPFiles(renders *targetRenders, cfg *config.Config, targets
 		}
 		lost, err := handWrittenMCPEntries(f.path, f.key, f.written)
 		if err != nil {
-			return fmt.Errorf("%w; nothing was written", err)
+			return nothingWritten{err}
 		}
 		if len(lost) == 0 {
 			continue
@@ -84,7 +84,7 @@ func keepHandWrittenMCPFiles(renders *targetRenders, cfg *config.Config, targets
 	if len(lines) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+	return handWrittenStop(lines)
 }
 
 // unledgeredMCPSum stands in for the ledger sum of an unledgered MCP

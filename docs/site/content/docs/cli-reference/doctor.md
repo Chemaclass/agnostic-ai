@@ -65,9 +65,10 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 | **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`. Next step: `/hooks`. | Untrusted, modified, or unreadable fails; disabled does not. Never grants trust. |
 | **MCP** | Whether each stdio `command:` is on PATH, and which `${NAME}` references are unset in this shell. | No |
 | **Claude hook specs** | A hook spec that runs its commands twice (see below). | No |
+| **Hand-written config** | An instructions file or whole MCP file, such as `.cursor/mcp.json`, holding config agnostic-ai did not write, which [stops sync](@/docs/cli-reference/sync.md). Doctor names the `import` that keeps it. | Yes, `--fix` stops on it; `--fix --backup` replaces it and keeps `<path>.bak` |
 | **Nested CLAUDE.md** | A hand-written `<dir>/CLAUDE.md` that repeats a scoped rule. | Yes, `--fix` removes it |
 | **Script divergence** | Same-named hook scripts with different bodies across tools. | Yes, no automatic fix |
-| **Unmanaged config** | Markdown and TOML config with no generated-file marker, a `.cursor/mcp.json` that names a server no spec has, and files sync never writes (such as `.cursorrules` or `.github/prompts/*.prompt.md`) until import has written their spec. Grouped by the `import` source that adopts each. | No |
+| **Unmanaged config** | Markdown and TOML config with no generated-file marker, a `.cursor/mcp.json` that names a server no spec has, and files sync never writes (such as `.cursorrules` or `.github/prompts/*.prompt.md`) until import has written their spec, and an OpenCode or Copilot original while sync writes a copy the tool also loads. Grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
 | **Global names** | A project skill or agent sharing a name with one in `~/.agnostic-ai/`, and which wins per tool. | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. | Never |

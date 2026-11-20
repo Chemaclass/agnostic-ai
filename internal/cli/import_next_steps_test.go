@@ -148,7 +148,7 @@ func TestImport_KimiAndVibePrintNextSteps(t *testing.T) {
 func TestImport_RerunAfterSyncSaysNothingChanged(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
-	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [handoff]\n")
 	writeFile(t, ".claude/agents/reviewer.md", "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview the diff.\n")
 	writeFile(t, ".claude/settings.json", `{"theme": "dark"}`)
 	execCLI(t, "import", "claude")

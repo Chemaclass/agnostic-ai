@@ -155,3 +155,70 @@ func TestImportFromCursor_ReadsMCPFileWithComments(t *testing.T) {
 		t.Errorf("mcps/linear.yaml = %q", got)
 	}
 }
+
+// setUpDuplicatedOriginals imports an OpenCode agent from the singular
+// folder and a Copilot prompt file, then syncs, so each original sits
+// beside the file sync wrote from its spec.
+func setUpDuplicatedOriginals(t *testing.T) string {
+	t.Helper()
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode, copilot]\n")
+	writeFile(t, ".opencode/agent/planner.md", "---\ndescription: Plans work.\n---\n\nPlan it.\n")
+	writeFile(t, ".github/prompts/plan.prompt.md", "---\ndescription: Make a plan.\n---\n\nPlan.\n")
+	buf := captureSummary(t)
+	execCLI(t, "import", "opencode")
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync")
+	return buf.String()
+}
+
+// After import and sync, OpenCode and Copilot load both the original and
+// the generated copy, and a later spec edit reaches only the copy.
+func TestImport_NamesOpenCodeAndCopilotOriginalsToDeleteAfterSync(t *testing.T) {
+	out := setUpDuplicatedOriginals(t)
+	for _, want := range []string{
+		"! delete .opencode/agent/planner.md after the next sync: sync writes it to .opencode/agents/planner.md, and OpenCode loads both",
+		"! delete .github/prompts/plan.prompt.md after the next sync: sync writes it to .github/skills/plan/SKILL.md, and Copilot loads both",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("import output lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestDoctor_ListsAnOriginalThatDuplicatesAGeneratedFile(t *testing.T) {
+	setUpDuplicatedOriginals(t)
+
+	out, _ := runCLI(t, "doctor")
+
+	_, section, ok := strings.Cut(out, "Unmanaged config")
+	if !ok {
+		t.Fatalf("doctor printed no unmanaged config section:\n%s", out)
+	}
+	section, _, _ = strings.Cut(section, "\n\n")
+	for _, want := range []string{
+		"✗ .opencode/agent/planner.md\n    → delete it: sync writes .opencode/agents/planner.md from its spec, and OpenCode loads both",
+		"✗ .github/prompts/plan.prompt.md\n    → delete it: sync writes .github/skills/plan/SKILL.md from its spec, and Copilot loads both",
+	} {
+		if !strings.Contains(section, want) {
+			t.Errorf("doctor lacks %q while the original duplicates a generated file:\n%s", want, section)
+		}
+	}
+}
+
+// A spec that never reaches the tool leaves the original as its only copy.
+func TestImport_KeepsQuietAboutAnOriginalWhoseSpecSkipsTheTool(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, copilot]\n")
+	writeFile(t, ".agnostic-ai/commands/plan.md", "---\ndescription: Make a plan.\ntargets: [claude]\n---\n\nPlan.\n")
+	writeFile(t, ".github/prompts/plan.prompt.md", "---\ndescription: Make another plan.\n---\n\nPlan more.\n")
+	buf := captureSummary(t)
+
+	execCLI(t, "import", "copilot")
+
+	if !strings.Contains(buf.String(), "imported") || strings.Contains(buf.String(), "delete .github/prompts/plan.prompt.md") {
+		t.Errorf("import said to delete the only copy Copilot has:\n%s", buf.String())
+	}
+}
