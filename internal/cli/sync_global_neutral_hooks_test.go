@@ -152,6 +152,7 @@ func TestSyncGlobal_WindowsHookUsesCopiedTargetScript(t *testing.T) {
 	}{
 		{name: "script path", command: ".agnostic-ai/scripts/guard.ps1"},
 		{name: "PowerShell command", command: `pwsh -File ".agnostic-ai/scripts/guard.ps1" --strict`, prefix: `pwsh -File "`, suffix: `" --strict`},
+		{name: "project root prefix", command: `$s = "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.ps1"; sh $s`, prefix: `$s = "`, suffix: `"; sh $s`},
 		{name: "separate POSIX arguments", command: `pwsh -File ".agnostic-ai/scripts/guard.ps1" --strict`, prefix: `pwsh -File "`, suffix: `" --strict`, args: "args: ['--posix-only']\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
