@@ -1,0 +1,1 @@
+{"hook_event_name":"PermissionRequest","cwd":"{{CWD}}","session_id":"abc123-def456-789","tool_name":"execute_bash","tool_input":{"command":"{{COMMAND}}","summary":"Run the command"},"permission":{"capability":"shell","command":"{{COMMAND}}"}}

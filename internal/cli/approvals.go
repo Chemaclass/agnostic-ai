@@ -230,6 +230,9 @@ const approvalHookCommand = "agnostic-ai hook approve"
 // sync --global has not written it, or Codex has not trusted it.
 func approvalHookProblem(tool string) string {
 	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --global"
+	if tool == "kiro" {
+		return kiroHookProblem(notSynced)
+	}
 	var path string
 	switch tool {
 	case "claude":
@@ -282,6 +285,83 @@ func approvalHookProblem(tool string) string {
 		}
 	}
 	return ""
+}
+
+// kiroHookProblem says why the Kiro approvals hook cannot answer: no
+// enabled PermissionRequest hook in ~/.kiro/hooks runs it, or a Kiro
+// rule asks, which turns the hook off.
+func kiroHookProblem(notSynced string) string {
+	home, err := globalUserHome()
+	if err != nil {
+		return notSynced
+	}
+	root, err := kiroApprovalRoot(home)
+	if err != nil {
+		return err.Error()
+	}
+	dir := filepath.Join(root, "hooks")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return notSynced
+	}
+	installed := false
+	for _, file := range files {
+		if file.IsDir() || filepath.Ext(file.Name()) != ".json" {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			continue
+		}
+		var file struct {
+			Hooks []struct {
+				Trigger string `json:"trigger"`
+				Enabled *bool  `json:"enabled"`
+				Action  struct {
+					Command string `json:"command"`
+				} `json:"action"`
+			} `json:"hooks"`
+		}
+		if json.Unmarshal(body, &file) != nil {
+			continue
+		}
+		for _, h := range file.Hooks {
+			if strings.EqualFold(h.Trigger, "PermissionRequest") && (h.Enabled == nil || *h.Enabled) && strings.Contains(h.Action.Command, approvalHookCommand) {
+				installed = true
+			}
+		}
+	}
+	if !installed {
+		return notSynced
+	}
+	cwd, _ := os.Getwd()
+	ask, err := kiroRulesAsk(root, cwd)
+	switch {
+	case err != nil:
+		return "cannot read the Kiro rules: " + err.Error()
+	case ask:
+		return "a Kiro permissions file or agent profile has an ask or evaluate rule, or approve-for-me, whose prompt a hook allow could answer; the hook asks every time"
+	}
+	return ""
+}
+
+func kiroApprovalRoot(home string) (string, error) {
+	if os.Getenv("KIRO_HOME") == "" {
+		return filepath.Join(home, ".kiro"), nil
+	}
+	root := globalTargets["kiro"].overrideRoot(home)
+	if root == "" {
+		return "", errors.New("cannot locate the Kiro rules under KIRO_HOME")
+	}
+	return root, nil
+}
+
+func kiroRulesAsk(root, cwd string) (bool, error) {
+	files, err := approvals.KiroAskRuleFiles(root, cwd)
+	if err != nil {
+		return false, err
+	}
+	return approvals.KiroHasAskRule(files)
 }
 
 func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {

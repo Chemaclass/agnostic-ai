@@ -46,6 +46,36 @@ func approvalsHookCommand(t *testing.T, path string) string {
 	return groups[0].Hooks[0].Command
 }
 
+// approvalsKiroHookCommand reads the one PermissionRequest command in a
+// Kiro hook file, or "" when there is none.
+func approvalsKiroHookCommand(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return ""
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct {
+		Hooks []struct {
+			Trigger string `json:"trigger"`
+			Timeout int    `json:"timeout"`
+			Action  struct {
+				Type    string `json:"type"`
+				Command string `json:"command"`
+			} `json:"action"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	if len(file.Hooks) != 1 || file.Hooks[0].Trigger != "PermissionRequest" || file.Hooks[0].Timeout != 10 || file.Hooks[0].Action.Type != "command" {
+		t.Fatalf("%s: hooks = %+v, want one PermissionRequest command with timeout 10", path, file.Hooks)
+	}
+	return file.Hooks[0].Action.Command
+}
+
 func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testing.T) {
 	skipEndToEndInShortMode(t)
 	if runtime.GOOS == "windows" {
@@ -78,15 +108,22 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		}
 	}
 	must(t, os.MkdirAll(source, 0o755))
-	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
 	run(base, "sync", "--global")
 
 	files := map[string]string{
 		"claude": filepath.Join(home, ".claude", "settings.json"),
 		"codex":  filepath.Join(codexHome, "hooks.json"),
+		"kiro":   filepath.Join(home, ".kiro", "hooks", "approve-permission-request.json"),
 	}
+	allow := map[string]string{"claude": approvalsAllowReply, "codex": approvalsAllowReply, "kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`}
+	shell := map[string]string{"claude": "Bash", "codex": "Bash", "kiro": "execute_bash"}
 	for target, path := range files {
-		command := approvalsHookCommand(t, path)
+		read := approvalsHookCommand
+		if target == "kiro" {
+			read = approvalsKiroHookCommand
+		}
+		command := read(t, path)
 		if !strings.Contains(command, "agnostic-ai hook approve --target "+target) {
 			t.Fatalf("%s: PermissionRequest command = %q", target, command)
 		}
@@ -94,7 +131,7 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 			t.Helper()
 			payload, err := json.Marshal(map[string]any{
 				"session_id": "s-" + target, "cwd": project, "permission_mode": "default", "hook_event_name": "PermissionRequest",
-				"tool_name": "Bash", "tool_input": map[string]any{"command": c, "description": "Run it"},
+				"tool_name": shell[target], "tool_input": map[string]any{"command": c},
 			})
 			must(t, err)
 			cmd := exec.Command("sh", "-c", command)
@@ -109,7 +146,7 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 			must(t, err)
 			return out.String(), errOut.String(), 0
 		}
-		if out, errOut, code := hook("go test ./..."); out != approvalsAllowReply || errOut != "" || code != 0 {
+		if out, errOut, code := hook("go test ./..."); out != allow[target] || errOut != "" || code != 0 {
 			t.Errorf("%s go test: stdout %q stderr %q exit %d; want the allow reply, no stderr, exit 0", target, out, errOut, code)
 		}
 		if out, errOut, code := hook("git push"); out != "" || errOut != "" || code != 0 {
@@ -117,11 +154,14 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 		}
 	}
 
-	must(t, os.WriteFile(filepath.Join(project, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex]\nbuiltins: [approvals]\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(project, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro]\nbuiltins: [approvals]\n"), 0o644))
 	run(project, "sync", "--gitignore=off")
 	for _, rel := range []string{".claude/settings.json", ".codex/hooks.json"} {
 		if command := approvalsHookCommand(t, filepath.Join(project, rel)); command != "" {
 			t.Errorf("project sync wrote a PermissionRequest hook to %s: %q", rel, command)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(project, ".kiro", "hooks", "approve-permission-request.json")); !os.IsNotExist(err) {
+		t.Errorf("project sync wrote the Kiro approvals hook: %v", err)
 	}
 }

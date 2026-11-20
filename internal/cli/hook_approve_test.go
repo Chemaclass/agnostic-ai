@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
+	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 )
 
 const approveAllowReply = `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`
@@ -26,6 +27,7 @@ func approveSetup(t *testing.T, shared string) (source, project string) {
 	source = approvalsHome(t, shared)
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("KIRO_HOME", "")
 	t.Setenv(adapters.HookTargetEnv, "")
 	managed := t.TempDir()
 	old := claudeManagedDir
@@ -95,11 +97,12 @@ func approveLog(t *testing.T, source string) []approvals.Entry {
 }
 
 func TestHookApprove_AllowsGoTest(t *testing.T) {
-	for _, target := range []string{"claude", "codex"} {
+	for _, target := range []string{"claude", "codex", "kiro"} {
 		t.Run(target, func(t *testing.T) {
 			source, project := approveSetup(t, yoloHome)
-			if got := runApprove(t, target, recordedPayload(t, target, project, "go test ./...")); got != approveAllowReply {
-				t.Fatalf("reply = %q, want %q", got, approveAllowReply)
+			want, _ := hookrun.PermissionAllowReply(target)
+			if got := runApprove(t, target, recordedPayload(t, target, project, "go test ./...")); got != string(want) {
+				t.Fatalf("reply = %q, want %q", got, want)
 			}
 			entries := approveLog(t, source)
 			if len(entries) != 1 || entries[0].Decision != approvals.Approved || entries[0].Tool != target || entries[0].Mode != "yolo" || entries[0].Session == "" {
@@ -110,7 +113,7 @@ func TestHookApprove_AllowsGoTest(t *testing.T) {
 }
 
 func TestHookApprove_GitPushAsks(t *testing.T) {
-	for _, target := range []string{"claude", "codex"} {
+	for _, target := range []string{"claude", "codex", "kiro"} {
 		t.Run(target, func(t *testing.T) {
 			source, project := approveSetup(t, yoloHome)
 			if got := runApprove(t, target, recordedPayload(t, target, project, "git push origin main")); got != "" {
@@ -175,6 +178,31 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 			t.Helper()
 			writeFile(t, filepath.Join(project, ".claude", "settings.json"), `{"permissions":`)
 		}},
+		{name: "kiro mode ask", home: "version: 1\napprovals:\n  mode: ask\n", target: "kiro"},
+		{name: "kiro unreadable config", home: "version: 1\napprovals: [\n", target: "kiro"},
+		{name: "kiro broken JSON", home: yoloHome, target: "kiro", payload: func(string) string { return `{"tool_name":"execute_bash",` }},
+		{name: "kiro user ask rule", home: yoloHome, target: "kiro", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".kiro", "settings", "permissions.yaml"), "rules:\n  - capability: shell\n    match: [\"git *\"]\n    effect: ask\n")
+		}},
+		{name: "kiro workspace ask rule", home: yoloHome, target: "kiro", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".kiro", "workspace-roots", "ab12", "permissions.yaml"), "rules:\n  - capability: fs_write\n    effect: ask\n")
+		}},
+		{name: "kiro agent profile ask rule", home: yoloHome, target: "kiro", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
+			t.Helper()
+			writeFile(t, filepath.Join(project, ".kiro", "agents", "dev.md"), "---\nname: dev\npermissions:\n  rules:\n    - capability: shell\n      effect: ask\n---\nBody\n")
+		}},
+		{name: "kiro rules do not parse", home: yoloHome, target: "kiro", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".kiro", "agents", "x.json"), `{"permissions":`)
+		}},
+		{name: "kiro write tool", home: yoloHome, target: "kiro", rule: approvals.RuleTool, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"tool_name":"fs_write","tool_input":{"path":"a.txt"}}`
+		}},
 		{name: "home always-ask", home: yoloHome + "  always-ask:\n    - \"Bash(go test*)\"\n", target: "codex", rule: approvals.RuleAlwaysAsk},
 		{name: "log cannot be written", home: yoloHome, target: "codex", setup: func(t *testing.T, source, _ string) {
 			t.Helper()
@@ -189,8 +217,8 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 			}
 			target := tc.target
 			payload := recordedPayload(t, "claude", project, "go test ./...")
-			if target == "codex" {
-				payload = recordedPayload(t, "codex", project, "go test ./...")
+			if target == "codex" || target == "kiro" {
+				payload = recordedPayload(t, target, project, "go test ./...")
 			}
 			if tc.payload != nil {
 				payload = tc.payload(project)
@@ -314,6 +342,50 @@ func TestHookApprove_UnknownFlagAndArgsStaySilent(t *testing.T) {
 func strconvQuote(s string) string {
 	quoted, _ := json.Marshal(s)
 	return string(quoted)
+}
+
+func TestHookApprove_KiroReadsAFileInTheProject(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	writeFile(t, filepath.Join(project, ".kiro", "agents", "plain.json"), `{"name":"plain","permissions":{"rules":[{"capability":"shell","effect":"allow"}]}}`)
+	payload := `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"session_id":"k","tool_name":"read_file","tool_input":{"path":` + strconvQuote(filepath.Join(project, "README.md")) + `},"permission":{"capability":"fs_read"}}`
+	want, _ := hookrun.PermissionAllowReply("kiro")
+	if got := runApprove(t, "kiro", payload); got != string(want) {
+		t.Fatalf("reply = %q, want %q", got, want)
+	}
+	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Tool != "kiro" || entries[0].Call != "read_file" || entries[0].Detail == "" {
+		t.Errorf("log = %+v, want one kiro read_file line with a detail", entries)
+	}
+}
+
+func TestHookApprove_KiroLogsTheCommand(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	runApprove(t, "kiro", recordedPayload(t, "kiro", project, "go test ./..."))
+	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Call != "execute_bash" || !strings.Contains(entries[0].Detail, "go test") {
+		t.Errorf("log = %+v, want the execute_bash command as the detail", entries)
+	}
+}
+
+func TestHookApprove_KiroReadsRulesFromOverride(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	root := filepath.Join(t.TempDir(), "kiro[profile]")
+	t.Setenv("KIRO_HOME", root)
+	writeFile(t, filepath.Join(root, "workspace-roots", "workspace", "permissions.yaml"), "rules:\n  - capability: shell\n    effect: ask\n")
+	if got := runApprove(t, "kiro", recordedPayload(t, "kiro", project, "go test ./...")); got != "" {
+		t.Errorf("reply = %q, want no reply when the active Kiro profile has an ask rule", got)
+	}
+}
+
+func TestHookApprove_KiroKeepsPromptWhenRuleDiscoveryFails(t *testing.T) {
+	_, project := approveSetup(t, yoloHome)
+	t.Setenv("KIRO_HOME", "")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(home, ".kiro", "workspace-roots"), "unreadable as a directory")
+	if got := runApprove(t, "kiro", recordedPayload(t, "kiro", project, "go test ./...")); got != "" {
+		t.Errorf("reply = %q, want no reply when Kiro workspace policies could not be listed", got)
+	}
 }
 
 func TestHookApprove_MovedSpecFoldersAsk(t *testing.T) {

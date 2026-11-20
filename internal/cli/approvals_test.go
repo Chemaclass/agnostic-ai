@@ -447,3 +447,42 @@ func TestApprovalRoutes_ReviewMatchesNativeReviewers(t *testing.T) {
 		}
 	}
 }
+
+func TestApprovalsStatus_KiroHook(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	t.Setenv("KIRO_HOME", "")
+	const hook = `{"version":"v1","hooks":[{"name":"approve","trigger":"PermissionRequest","timeout":10,"action":{"type":"command","command":"agnostic-ai hook approve --target kiro"}}]}`
+	for name, tc := range map[string]struct {
+		hook, rules      string
+		routed, override bool
+	}{
+		"installed":     {hook: hook, routed: true},
+		"override":      {hook: hook, routed: true, override: true},
+		"not installed": {},
+		"disabled":      {hook: strings.Replace(hook, `"timeout":10`, `"timeout":10,"enabled":false`, 1)},
+		"other trigger": {hook: strings.Replace(hook, "PermissionRequest", "PreToolUse", 1)},
+		"ask rule":      {hook: hook, rules: "rules:\n  - capability: shell\n    effect: ask\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [kiro]\napprovals:\n  mode: yolo\n")
+			home, _ := os.UserHomeDir()
+			root := filepath.Join(home, ".kiro")
+			if tc.override {
+				root = filepath.Join(t.TempDir(), "kiro[profile]")
+				t.Setenv("KIRO_HOME", root)
+			}
+			if tc.hook != "" {
+				writeFile(t, filepath.Join(root, "hooks", "approve-permission-request.json"), tc.hook)
+			}
+			if tc.rules != "" {
+				writeFile(t, filepath.Join(root, "settings", "permissions.yaml"), tc.rules)
+			}
+			kiro := toolStatus(t, approvalsStatusJSON(t), "kiro")
+			if tc.routed != (kiro.Effective == config.ApprovalsYolo) || tc.routed && kiro.MinVersion != "3.4.0" || !tc.routed && kiro.Reason == "" {
+				t.Errorf("kiro: %+v", kiro)
+			}
+		})
+	}
+}

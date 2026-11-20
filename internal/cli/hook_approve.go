@@ -31,7 +31,8 @@ func newHookApproveCmd() *cobra.Command {
 			"folder is yolo and no always-ask rule matches, it prints the tool's reply that allows this one call and logs " +
 			"the decision. In every other case it prints nothing, so the tool shows its own prompt. It always exits 0, " +
 			"never denies, and writes nothing to stderr. For claude it also asks on a match with an ask rule in the " +
-			"Claude Code user, project, local or managed settings files.",
+			"Claude Code user, project, local or managed settings files. For kiro it asks whenever a Kiro permissions " +
+			"file or agent profile holds an ask or evaluate rule or the approve-for-me preset.",
 		Example: `  # Hook command sync --global writes for Claude Code
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook approve --target claude`,
 		Args:               cobra.ArbitraryArgs,
@@ -54,7 +55,7 @@ func newHookApproveCmd() *cobra.Command {
 	}
 	// A flag that does not parse must not reach stderr: leave the prompt.
 	cmd.SetFlagErrorFunc(func(*cobra.Command, error) error { return nil })
-	cmd.Flags().StringVarP(&target, "target", "t", "", "Tool that runs the hook: claude or codex (default $"+adapters.HookTargetEnv+")")
+	cmd.Flags().StringVarP(&target, "target", "t", "", "Tool that runs the hook: claude, codex or kiro (default $"+adapters.HookTargetEnv+")")
 	return cmd
 }
 
@@ -112,10 +113,11 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 		return nil
 	}
 	request := approvals.Request{Call: p.Call, Input: p.Input, PermissionMode: p.PermissionMode, Cwd: p.Cwd}
+	native := approvals.NativeRequest(target, request)
 	decision := approvals.Decision{Outcome: approvals.Asked, Rule: approvals.RuleToolSettings}
-	if settings, ok := approveToolSettings(target, p.Cwd); ok {
+	if settings, ok := approveToolSettings(target, p.Cwd, userHome); ok {
 		projectDir := os.Getenv("CLAUDE_PROJECT_DIR")
-		decision = approvals.Decide(request, approvals.Policy{
+		decision = approvals.Decide(native, approvals.Policy{
 			Mode:         mode,
 			ProjectRoot:  approveProjectRoot(p.Cwd),
 			Home:         userHome,
@@ -127,7 +129,13 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 		})
 	}
 	log := approvals.Log{Path: filepath.Join(source, "local", "approvals", "decisions.jsonl")}
-	if err := log.Append(approvals.NewEntry(target, p.Session, mode, request, decision, now)); err != nil {
+	logged := native
+	if logged.Call == "" {
+		logged = request
+	}
+	entry := approvals.NewEntry(target, p.Session, mode, logged, decision, now)
+	entry.Call = request.Call
+	if err := log.Append(entry); err != nil {
 		// An approval must leave a line in the log; without one, ask.
 		return nil
 	}
@@ -137,12 +145,23 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	return allow
 }
 
-// approveToolSettings reads, for Claude Code, the ask rules of its
-// settings files: a hook allow would answer them (decision 022). ok is
-// false when a settings file does not read, or a project file's env
-// block moves the folders the hook reads its policy from.
-func approveToolSettings(target, cwd string) (approvals.ClaudeSettings, bool) {
-	if target != "claude" {
+// approveToolSettings reads the tool's own ask rules, which a hook allow
+// would answer. For Claude Code it returns the rules of its settings
+// files (decision 022); ok is false when a settings file does not read,
+// or a project file's env block moves the folders the hook reads its
+// policy from. For Kiro, whose rules the hook cannot match, ok is false
+// when any Kiro rule asks or a rules file does not read.
+func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings, bool) {
+	switch target {
+	case "kiro":
+		root, err := kiroApprovalRoot(userHome)
+		if err != nil {
+			return approvals.ClaudeSettings{}, false
+		}
+		ask, err := kiroRulesAsk(root, cwd)
+		return approvals.ClaudeSettings{}, err == nil && !ask
+	case "claude":
+	default:
 		return approvals.ClaudeSettings{}, true
 	}
 	user, _ := claudeUserSettingsPath()

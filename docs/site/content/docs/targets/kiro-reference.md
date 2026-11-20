@@ -77,6 +77,7 @@ Duplicates are merged. A Kiro category covers more than one tool, so access wide
 - Each `command` (string or list) becomes an `action: {"type": "command", "command": ...}` entry in the same file. The `name` gets a `-2`, `-3`, ... suffix to stay unique.
 - `disabled: true` writes `"enabled": false`. `description` is written to the file as documentation only.
 - `timeout: 0` disables the timeout; omitting it keeps Kiro's 60-second default.
+- Approvals: with `approvals.mode: yolo` and the `approvals` built-in in the home config, `sync --global` writes `~/.kiro/hooks/approve-permission-request.json`, a `PermissionRequest` hook that approves safe shell commands and file reads in Kiro CLI 3.4.0 or newer V3 sessions. A Kiro rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, turns it off. See [Approvals](@/docs/approvals.md).
 - `x-kiro` keys are copied to each entry. That is the only way to set `confirm` (ask before a Stop command hook runs, with `question`, `options` of `id`/`label`/`run`, and optional `confirmCommand`).
 - `x-kiro.action` takes `{type: agent, prompt: ...}` or `{type: command, command: ...}`. A valid one needs no portable `command` and replaces the whole list with one action. An invalid one fails sync.
 - `.agnostic-ai/scripts/<name>` references are copied to `.kiro/scripts/<name>`, outside `.kiro/hooks/` where Kiro reads hook files, and the command is rewritten. See [shared hook scripts](@/docs/spec-format/hook-recipes.md#shared-hook-scripts).
