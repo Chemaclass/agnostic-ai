@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
 - `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
 - `doctor` no longer fails when `CODEX_HOME` does not exist yet and the project has no Codex hooks file. `doctor --fix` saves each hand-edited file as `<path>.bak` before writing, as `sync` does (#3707).
 - From a subfolder of a project, a missing-config error (AAI-003), `doctor`, `import`, `packs list` and `packs update` name the project folder instead of suggesting `init`; `import` no longer leaves a lock file and `.gitignore` there; and `init` refuses to start a second project there, as `use` does (#3706).
