@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -33,18 +34,29 @@ func homeToolMode(home config.ApprovalsConfig, tool string) (mode, from string) 
 	return home.Mode, "approvals.mode"
 }
 
-// loadPlanApprovals reads the home approvals block for a global plan.
-func loadPlanApprovals(source string) (config.ApprovalsConfig, error) {
-	abs, err := filepath.Abs(source)
-	if err != nil {
-		return config.ApprovalsConfig{}, fmt.Errorf("resolve %s: %w", source, err)
+// loadPlanApprovals reads the home approvals block when a target with a
+// native reviewer is selected. A block that does not load writes no
+// reviewer key, with a warning: approvals then fall back to ask, and the
+// other surfaces still sync.
+func (p *globalPlan) loadPlanApprovals() error {
+	if !slices.ContainsFunc(p.targets, func(target string) bool { _, ok := nativeReviewers[target]; return ok }) {
+		return nil
 	}
-	return config.LoadHomeApprovals(abs)
+	approvals, err := config.LoadHomeApprovals(p.source)
+	if err == nil {
+		p.approvals = approvals
+		return nil
+	}
+	if _, werr := fmt.Fprintf(p.warn, "warning: %v; sync --global writes no native reviewer key\n", err); werr != nil {
+		return fmt.Errorf("write approvals warning: %w", werr)
+	}
+	return nil
 }
 
 // approvalsReviewSetting adds the native reviewer key to want when the
 // home config sets review for target. A settings spec that sets the key
-// wins, and a value set outside agnostic-ai stays, with a warning.
+// wins, and a value set outside agnostic-ai stays unowned: a different
+// one with a warning, the same one so removing review keeps it.
 func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []globalSetting, previous map[string]any) ([]globalSetting, error) {
 	reviewer, ok := nativeReviewers[target]
 	mode, from := homeToolMode(p.approvals, target)
@@ -70,7 +82,10 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 	}
 	have, present := settingsLookup(current, reviewer.key, format)
 	recorded, owned := previous[reviewer.key]
-	if present && !sameSetting(have, reviewer.value) && (!owned || !sameSetting(have, recorded)) {
+	if present && (!owned || !sameSetting(have, recorded)) {
+		if sameSetting(have, reviewer.value) {
+			return want, nil
+		}
 		_, err := fmt.Fprintf(p.warn, "warning: %s: %s: review leaves %s = %s in %s, set outside agnostic-ai; %s stays off until you remove it\n",
 			target, from, reviewer.key, settingsValueText(reviewer.key, have), path, reviewer.name)
 		if err != nil {
@@ -81,51 +96,66 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 	return append(want, globalSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), nil
 }
 
-// reviewerNotes says what keeps a tool's native reviewer from matching
-// the mode status resolved: the key missing or changed under review, a
-// Codex approval policy that never asks, or the key still on where the
-// mode is not review.
-func reviewerNotes(tool string, decision config.ApprovalDecision, home config.ApprovalsConfig, userHome string) []string {
+// reviewerState is a native reviewer key as the user settings file holds
+// it, and whether sync --global wrote it there.
+type reviewerState struct {
+	reviewer             nativeReviewer
+	path                 string
+	values               map[string]any
+	have                 any
+	present, on, written bool
+}
+
+func readReviewerState(tool, userHome string, state globalState) (reviewerState, bool, error) {
 	reviewer, ok := nativeReviewers[tool]
 	if !ok {
-		return nil
+		return reviewerState{}, false, nil
 	}
 	g := globalTargets[tool]
-	path := g.path(userHome, g.settings.path)
-	values, err := readSettingsValues(path, g.settings.format)
-	if err != nil {
-		return []string{err.Error()}
+	rs := reviewerState{reviewer: reviewer, path: g.path(userHome, g.settings.path)}
+	data, err := os.ReadFile(rs.path)
+	switch {
+	case os.IsNotExist(err):
+		rs.values = map[string]any{}
+	case err != nil:
+		return rs, true, fmt.Errorf("read %s: %w", rs.path, err)
+	default:
+		if rs.values, err = settingsValues(rs.path, g.settings.format, data); err != nil {
+			return rs, true, err
+		}
 	}
-	have, present := settingsLookup(values, reviewer.key, g.settings.format)
-	on := present && sameSetting(have, reviewer.value)
-	want := settingsValueText(reviewer.key, reviewer.value)
-	homeMode, _ := homeToolMode(home, tool)
+	rs.have, rs.present = settingsLookup(rs.values, reviewer.key, g.settings.format)
+	rs.on = rs.present && sameSetting(rs.have, reviewer.value)
+	recorded, owned := state.Settings[tool][reviewer.key]
+	rs.written = rs.on && owned && sameSetting(recorded, rs.have)
+	return rs, true, nil
+}
+
+// notes say what keeps the reviewer from matching mode: the key missing
+// or changed under review, a Codex approval policy that never asks, or
+// the key still on where the mode is not review.
+func (rs reviewerState) notes(tool, mode, homeMode string) []string {
+	r := rs.reviewer
+	want := settingsValueText(r.key, r.value)
 	var notes []string
 	switch {
-	case decision.Mode == config.ApprovalsReview && !present:
-		notes = append(notes, fmt.Sprintf("%s is off: %s is not set in %s; run sync --global to write %s", reviewer.name, reviewer.key, path, want))
-	case decision.Mode == config.ApprovalsReview && !on:
-		notes = append(notes, fmt.Sprintf("%s is off: %s is %s in %s, not %s", reviewer.name, reviewer.key, settingsValueText(reviewer.key, have), path, want))
-	case decision.Mode != config.ApprovalsReview && on && (tool == "codex" || homeMode == config.ApprovalsReview):
-		// Auto mode is Claude Code's own starting mode, so only the value
-		// review wrote is worth a note.
-		notes = append(notes, fmt.Sprintf("%s stays on from %s (%s = %s) until sync --global removes it or you change it", reviewer.name, path, reviewer.key, want))
+	case mode == config.ApprovalsReview && !rs.present:
+		notes = append(notes, fmt.Sprintf("%s is off: %s is not set in %s; run sync --global to write %s", r.name, r.key, rs.path, want))
+	case mode == config.ApprovalsReview && !rs.on:
+		notes = append(notes, fmt.Sprintf("%s is off: %s is %s in %s, not %s", r.name, r.key, settingsValueText(r.key, rs.have), rs.path, want))
+	case mode != config.ApprovalsReview && rs.written && homeMode == config.ApprovalsReview:
+		notes = append(notes, fmt.Sprintf("%s stays on here: sync --global wrote %s = %s to %s, which every folder reads", r.name, r.key, want, rs.path))
+	case mode != config.ApprovalsReview && rs.written:
+		notes = append(notes, fmt.Sprintf("%s stays on from %s until sync --global removes %s", r.name, rs.path, r.key))
+	case mode != config.ApprovalsReview && rs.on && tool == "codex":
+		// Auto mode is Claude Code's own starting mode, so a value set by
+		// hand there is not worth a note.
+		notes = append(notes, fmt.Sprintf("%s is on: %s = %s in %s was set outside agnostic-ai", r.name, r.key, want, rs.path))
 	}
-	if tool == "codex" && (decision.Mode == config.ApprovalsReview || on) {
-		if policy, _ := values["approval_policy"].(string); policy == "never" {
-			notes = append(notes, fmt.Sprintf(`approval_policy = "never" in %s keeps %s from running; it reviews only prompts, so use on-request or a granular policy`, path, reviewer.name))
+	if tool == "codex" && (mode == config.ApprovalsReview || rs.on) {
+		if policy, _ := rs.values["approval_policy"].(string); policy == "never" {
+			notes = append(notes, fmt.Sprintf(`approval_policy = "never" in %s keeps %s from running; it reviews only prompts, so use on-request or a granular policy`, rs.path, r.name))
 		}
 	}
 	return notes
-}
-
-func readSettingsValues(path, format string) (map[string]any, error) {
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return map[string]any{}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	return settingsValues(path, format, data)
 }

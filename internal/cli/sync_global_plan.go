@@ -36,12 +36,10 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 		}
 	}
-	approvals, err := loadPlanApprovals(source)
-	if err != nil {
+	p := newGlobalPlan(home, source, platform, targets, intro, b, old, agentErr, warn, onUnsupported)
+	if err := p.loadPlanApprovals(); err != nil {
 		return nil, globalState{}, err
 	}
-	p := newGlobalPlan(home, source, platform, targets, intro, b, old, agentErr, warn, onUnsupported)
-	p.approvals = approvals
 	p.carryOverState()
 	p.sweepOwnedSurfaces()
 	if err := p.eachTarget(p.planAgents, p.planInstructions, p.planRules, p.planSkills, p.planHookFiles, p.planJSONHooks); err != nil {

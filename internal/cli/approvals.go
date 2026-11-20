@@ -29,6 +29,9 @@ var approvalRoutes = map[string]map[string]string{
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
 	Tools []approvalsToolStatus `json:"tools"`
+	// reviewerWritten is set when a native reviewer key sync --global
+	// wrote is still on.
+	reviewerWritten bool
 }
 
 type approvalsToolStatus struct {
@@ -100,8 +103,11 @@ func newApprovalsAskCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("approvals: ask for every tool and project. Wrote %s.\n", path)
-			if slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
-				cmd.Println("Run sync --global to remove the native reviewer keys from the tools' user settings. A running session keeps its mode until you switch modes in the tool (Shift+Tab in Claude Code).")
+			if before.reviewerWritten {
+				cmd.Println("Run sync --global to remove the native reviewer keys it wrote to the tools' user settings.")
+			}
+			if before.reviewerWritten || slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
+				cmd.Println("A running session in a native reviewer mode keeps it until you switch modes in the tool (Shift+Tab in Claude Code).")
 			}
 			return nil
 		},
@@ -143,7 +149,12 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			}
 		}
 	}
+	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+	if err != nil {
+		return approvalsStatusOutput{}, err
+	}
 	policy := config.ApprovalsPolicy{Home: home, UserHome: userHome, Env: os.Getenv(config.EnvApprovals), ProjectAsk: projectAsk}
+	reviewerWritten := false
 	out := approvalsStatusOutput{Dir: dir, Tools: make([]approvalsToolStatus, 0, len(targets))}
 	for _, tool := range targets {
 		decision := policy.Resolve(tool, dir)
@@ -151,9 +162,20 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 		if route := approvalRoutes[tool][decision.Mode]; route != "" {
 			status.Effective, status.Route = decision.Mode, route
 		}
-		status.Notes = reviewerNotes(tool, decision, home, userHome)
+		rs, native, err := readReviewerState(tool, userHome, state)
+		if err != nil {
+			status.Notes = append(status.Notes, err.Error())
+		} else if native {
+			homeMode, _ := homeToolMode(home, tool)
+			status.Notes = rs.notes(tool, decision.Mode, homeMode)
+			if status.Effective == config.ApprovalsReview && !rs.on {
+				status.Effective = config.ApprovalsAsk
+			}
+			reviewerWritten = reviewerWritten || rs.written
+		}
 		out.Tools = append(out.Tools, status)
 	}
+	out.reviewerWritten = reviewerWritten
 	return out, nil
 }
 

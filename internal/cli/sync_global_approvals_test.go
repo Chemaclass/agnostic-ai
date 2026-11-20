@@ -155,3 +155,66 @@ func claudeDefaultMode(t *testing.T, path string) any {
 	permissions, _ := doc["permissions"].(map[string]any)
 	return permissions["defaultMode"]
 }
+
+func TestSyncGlobal_ApprovalsReviewKeepsHandSetMatchingValueOnRemoval(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	original := `{"permissions": {"defaultMode": "auto"}}` + "\n"
+	writeFile(t, path, original)
+	writeHomeApprovals(t, source, "approvals:\n  tools:\n    claude: review\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	writeHomeApprovals(t, source, "")
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync without review: %v\n%s", err, warnings)
+	}
+
+	if got := readFile(t, path); got != original {
+		t.Errorf("removing review dropped a hand-set value:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_BrokenApprovalsWarnsAndSyncs(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".codex", "config.toml")
+	writeFile(t, path, handWrittenCodexConfig)
+	writeHomeApprovals(t, source, "approvals:\n  mode: bogus\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "codex,cursor")
+	if err != nil {
+		t.Fatalf("an invalid approvals block stopped the sync: %v\n%s", err, warnings)
+	}
+
+	if !strings.Contains(warnings, "no native reviewer key") {
+		t.Errorf("no warning:\n%s", warnings)
+	}
+	if got := readFile(t, path); strings.Contains(got, "approvals_reviewer") {
+		t.Errorf("config.toml:\n%s", got)
+	}
+}
+
+func TestApprovalsStatus_NotesTheKeySyncWroteAfterAsk(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	t.Setenv(config.EnvApprovals, "")
+	writeHomeApprovals(t, source, "targets: [claude, codex]\napprovals:\n  mode: review\n")
+	if _, warnings, err := runGlobalAgentTest(); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	out, err := runCLI(t, "approvals", "ask")
+	if err != nil {
+		t.Fatalf("approvals ask: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "sync --global") {
+		t.Errorf("approvals ask hides the sync step:\n%s", out)
+	}
+	got := approvalsStatusJSON(t)
+	for _, tool := range []string{"claude", "codex"} {
+		s := toolStatus(t, got, tool)
+		if s.Effective != config.ApprovalsAsk || len(s.Notes) != 1 || !strings.Contains(s.Notes[0], "until sync --global removes") {
+			t.Errorf("%s: %+v", tool, s)
+		}
+	}
+}
