@@ -92,6 +92,11 @@ type Policy struct {
 	// settings, since a hook allow skips them (decision 022), and the
 	// approvals.always-ask list. They add to the fixed rules, never remove.
 	AlwaysAsk []string
+	// RuleRoots are more folders an AlwaysAsk path rule may be anchored
+	// at, such as the session folder and the folder of the settings file
+	// a rule came from. A rule asks when it matches from any of them or
+	// from the project root.
+	RuleRoots []string
 	// Resolve, when set, returns a path with its symbolic links
 	// resolved. Without it the gate compares paths as written.
 	Resolve func(string) string
@@ -120,7 +125,7 @@ func Decide(r Request, policy Policy) Decision {
 	if policy.Mode != ModeYolo {
 		return asked(RuleMode)
 	}
-	if r.PermissionMode == "auto" || r.PermissionMode == "plan" {
+	if !slices.Contains(approvingPermissionModes, r.PermissionMode) {
 		return asked(RulePermissionMode)
 	}
 	switch {
@@ -158,6 +163,12 @@ func Decide(r Request, policy Policy) Decision {
 	}
 	return approved
 }
+
+// approvingPermissionModes are the session modes in which a prompt
+// means the person would be asked: manual and accept-edits (decision
+// 022), or no mode in the payload. In auto or plan the reviewer or a
+// rule chose to ask; any other mode, such as dontAsk, was not measured.
+var approvingPermissionModes = []string{"", "default", "acceptEdits"}
 
 // shellInputKeys are the shell input fields the gate understands. Any
 // other, such as a working folder or a sandbox switch, changes what the
@@ -221,17 +232,96 @@ func (g *gate) alwaysAsk(r Request) string {
 	if len(g.policy.AlwaysAsk) == 0 {
 		return ""
 	}
-	body, err := json.Marshal(map[string]any{"tool_name": r.Call, "tool_input": r.Input})
-	if err != nil {
+	if searchCalls[r.Call] && slices.ContainsFunc(g.policy.AlwaysAsk, isReadPathRule) {
 		return RuleAlwaysAsk
 	}
+	bodies, ok := g.ruleCalls(r)
+	if !ok {
+		return RuleAlwaysAsk
+	}
+	roots := []string{g.roots[0]}
+	for _, root := range g.policy.RuleRoots {
+		if filepath.IsAbs(root) && !slices.Contains(roots, filepath.Clean(root)) {
+			roots = append(roots, filepath.Clean(root))
+		}
+	}
 	for _, rule := range g.policy.AlwaysAsk {
-		runs, err := hookrun.ClaudeIfRuns(rule, "PermissionRequest", body, g.roots[0])
-		if err != nil || runs {
-			return RuleAlwaysAsk
+		rule = asEditRule(rule)
+		for _, body := range bodies {
+			for _, root := range roots {
+				runs, err := hookrun.ClaudeIfRuns(rule, "PermissionRequest", body, root)
+				if err != nil || runs {
+					return RuleAlwaysAsk
+				}
+			}
 		}
 	}
 	return ""
+}
+
+// ruleCalls are the forms of r a permission rule is matched against: the
+// call as sent, plus an Edit call for each path an edit or patch writes
+// and a Read call for each path a read tool reads, since Claude Code
+// applies Edit rules to every file edit tool and Read rules to every
+// read tool. ok is false when a form does not encode.
+func (g *gate) ruleCalls(r Request) ([][]byte, bool) {
+	calls := []map[string]any{{"tool_name": r.Call, "tool_input": r.Input}}
+	addPath := func(tool, p string) {
+		if abs, ok := g.path(p, g.cwd); ok {
+			calls = append(calls, map[string]any{"tool_name": tool, "tool_input": map[string]any{"file_path": abs}})
+		}
+	}
+	switch {
+	case editCalls[r.Call] != "":
+		file, _ := r.Input[editCalls[r.Call]].(string)
+		addPath("Edit", file)
+	case patchCalls[r.Call]:
+		for _, field := range []string{"patch", "input", "command"} {
+			if body, ok := r.Input[field].(string); ok {
+				for _, op := range applypatch.Parse(body) {
+					addPath("Edit", op.Path)
+					if op.MoveTo != "" {
+						addPath("Edit", op.MoveTo)
+					}
+				}
+			}
+		}
+	case readCalls[r.Call]:
+		for _, field := range []string{"file_path", "notebook_path"} {
+			if p, ok := r.Input[field].(string); ok && p != "" {
+				addPath("Read", p)
+			}
+		}
+	}
+	bodies := make([][]byte, 0, len(calls))
+	for _, call := range calls {
+		body, err := json.Marshal(call)
+		if err != nil {
+			return nil, false
+		}
+		bodies = append(bodies, body)
+	}
+	return bodies, true
+}
+
+// searchCalls read every file under a folder, so a Read rule with a
+// path may cover any of them.
+var searchCalls = map[string]bool{"Glob": true, "Grep": true, "LS": true}
+
+func isReadPathRule(rule string) bool {
+	rest, ok := strings.CutPrefix(strings.TrimSpace(rule), "Read(")
+	return ok && strings.TrimSpace(strings.TrimSuffix(rest, ")")) != "*"
+}
+
+// asEditRule reads a Write, MultiEdit or NotebookEdit rule with a path
+// as the Edit rule Claude Code applies to every file edit tool.
+func asEditRule(rule string) string {
+	for _, tool := range []string{"Write(", "MultiEdit(", "NotebookEdit("} {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(rule), tool); ok {
+			return "Edit(" + rest
+		}
+	}
+	return rule
 }
 
 func namesPolicy(text string) bool {

@@ -2,12 +2,14 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -15,21 +17,18 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// approvalRoutes names how each tool carries out a loosening mode. A
-// tool or mode missing here has no safe route and falls back to ask.
-var approvalRoutes = map[string]map[string]string{
-	"claude":    {config.ApprovalsReview: nativeReviewers["claude"].name},
-	"codebuddy": {config.ApprovalsReview: nativeReviewers["codebuddy"].name},
-	"codex":     {config.ApprovalsReview: nativeReviewers["codex"].name},
-	"cursor":    {config.ApprovalsReview: nativeReviewers["cursor"].name},
-	"qoder":     {config.ApprovalsReview: nativeReviewers["qoder"].name},
-	"qwen":      {config.ApprovalsReview: nativeReviewers["qwen"].name},
-	"vibe":      {config.ApprovalsReview: nativeReviewers["vibe"].name},
-}
+// approvalRouteFor and approvalsGOOS pick each tool's route; tests
+// replace them.
+var (
+	approvalRouteFor = approvals.RouteFor
+	approvalsGOOS    = runtime.GOOS
+)
 
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
@@ -45,7 +44,14 @@ type approvalsToolStatus struct {
 	Mode      string `json:"mode"`
 	Effective string `json:"effective"`
 	From      string `json:"from"`
-	Route     string `json:"route,omitempty"`
+	// Route is what carries out Effective, when it loosens.
+	Route string `json:"route,omitempty"`
+	// Yolo and Review name the tool's route for each mode, or ask.
+	Yolo   string `json:"yolo"`
+	Review string `json:"review"`
+	// Reason says why Mode falls back to ask.
+	Reason     string `json:"reason,omitempty"`
+	MinVersion string `json:"min_version,omitempty"`
 	// Notes name what keeps the tool's native reviewer from matching Mode.
 	Notes []string `json:"notes,omitempty"`
 }
@@ -58,6 +64,8 @@ func newApprovalsCmd() *cobra.Command {
 			"decide, and yolo approves one call at a time unless an always-ask rule matches. review and yolo are read " +
 			"only from the home config ($AGNOSTIC_AI_HOME/agnostic-ai.yaml and its local/ file).",
 	}
+	cmd.Args = cobra.NoArgs
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
 	cmd.AddCommand(newApprovalsStatusCmd(), newApprovalsAskCmd())
 	return cmd
 }
@@ -163,10 +171,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	out := approvalsStatusOutput{Dir: dir, Tools: make([]approvalsToolStatus, 0, len(targets))}
 	for _, tool := range targets {
 		decision := policy.Resolve(tool, dir)
-		status := approvalsToolStatus{Tool: tool, Mode: decision.Mode, Effective: config.ApprovalsAsk, From: decision.From}
-		if route := approvalRoutes[tool][decision.Mode]; route != "" {
-			status.Effective, status.Route = decision.Mode, route
-		}
+		status := approvalsToolStatusFor(tool, decision)
 		rs, native, err := readReviewerState(tool, userHome, state)
 		if err != nil {
 			status.Notes = append(status.Notes, err.Error())
@@ -174,7 +179,8 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			homeMode, _ := homeToolMode(home, tool)
 			status.Notes = rs.notes(tool, decision.Mode, homeMode)
 			if status.Effective == config.ApprovalsReview && !rs.on {
-				status.Effective = config.ApprovalsAsk
+				status.Effective, status.Route = config.ApprovalsAsk, ""
+				status.Reason = "the reviewer is not on in the tool's user settings"
 			}
 			reviewerWritten = reviewerWritten || rs.written
 		}
@@ -182,6 +188,100 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	}
 	out.reviewerWritten = reviewerWritten
 	return out, nil
+}
+
+func approvalsToolStatusFor(tool string, decision config.ApprovalDecision) approvalsToolStatus {
+	route := approvalRouteFor(tool)
+	status := approvalsToolStatus{
+		Tool:       tool,
+		Mode:       decision.Mode,
+		Effective:  config.ApprovalsAsk,
+		From:       decision.From,
+		Yolo:       approvalsMechanismName(route.Mechanism(config.ApprovalsYolo, approvalsGOOS)),
+		Review:     approvalsMechanismName(route.Mechanism(config.ApprovalsReview, approvalsGOOS)),
+		Reason:     route.FallbackReason(decision.Mode, approvalsGOOS),
+		MinVersion: route.MinVersion,
+	}
+	mechanism := route.Mechanism(decision.Mode, approvalsGOOS)
+	if mechanism == nil {
+		return status
+	}
+	if mechanism.Name == approvals.MechanismPermissionHook {
+		if reason := approvalHookProblem(tool); reason != "" {
+			status.Reason = reason
+			return status
+		}
+	}
+	status.Effective, status.Route = decision.Mode, mechanism.Name
+	return status
+}
+
+func approvalsMechanismName(m *approvals.Mechanism) string {
+	if m == nil {
+		return config.ApprovalsAsk
+	}
+	return m.Name
+}
+
+// approvalHookCommand is the text every approvals hook command holds.
+const approvalHookCommand = "agnostic-ai hook approve"
+
+// approvalHookProblem says why tool's approvals hook cannot answer yet:
+// sync --global has not written it, or Codex has not trusted it.
+func approvalHookProblem(tool string) string {
+	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --global"
+	var path string
+	switch tool {
+	case "claude":
+		path, _ = claudeUserSettingsPath()
+	case "codex":
+		path, _ = codex.UserHooksPath()
+	}
+	if path == "" {
+		return notSynced
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return notSynced
+	}
+	var file struct {
+		DisableAllHooks bool `json:"disableAllHooks"`
+		Hooks           struct {
+			PermissionRequest []struct {
+				Hooks []struct {
+					Command string `json:"command"`
+				} `json:"hooks"`
+			} `json:"PermissionRequest"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(body, &file); err != nil {
+		return fmt.Sprintf("%s does not parse: %v", path, err)
+	}
+	installed := false
+	for _, group := range file.Hooks.PermissionRequest {
+		for _, handler := range group.Hooks {
+			installed = installed || strings.Contains(handler.Command, approvalHookCommand)
+		}
+	}
+	if !installed {
+		return notSynced
+	}
+	if file.DisableAllHooks {
+		return path + " sets disableAllHooks"
+	}
+	if tool != "codex" {
+		return ""
+	}
+	findings, err := codex.HookTrustFindings(path, body)
+	if err != nil {
+		return "cannot check that Codex trusts the hook: " + err.Error()
+	}
+	for _, f := range findings {
+		if f.Event == "PermissionRequest" && strings.Contains(f.Hook, approvalHookCommand) {
+			return "Codex has not trusted the hook; open /hooks in Codex to trust it"
+		}
+	}
+	return ""
 }
 
 func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
@@ -195,8 +295,8 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 		switch {
 		case s.Route != "":
 			line += "; through the " + s.Route
-		case s.Mode != config.ApprovalsAsk:
-			line += "; no route for " + s.Mode + ", falls back to ask"
+		case s.Reason != "":
+			line += "; falls back to ask: " + s.Reason
 		}
 		cmd.Println(line)
 		for _, note := range s.Notes {

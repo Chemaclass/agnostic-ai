@@ -11,7 +11,7 @@ group = "Reference"
 
 ## approvals
 
-Shows and stops automatic answers to permission prompts. The [`approvals` setting](@/docs/global-configuration-reference.md#global-approvals) takes `review` and `yolo` only from the home config; a project file may set `mode: ask` and nothing else.
+Shows and stops automatic answers to permission prompts. The [`approvals` setting](@/docs/global-configuration-reference.md#global-approvals) takes `review` and `yolo` only from the home config; a project file may set `mode: ask` and nothing else. [Approvals](@/docs/approvals.md) explains how to turn it on. Any other argument is an error.
 
 ```bash
 agnostic-ai approvals status          # mode and route per tool, here
@@ -21,11 +21,11 @@ agnostic-ai approvals ask             # show every prompt again
 
 ## approvals status
 
-Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line says so. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --global` turns on. No tool has a route for `yolo` yet.
+Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line gives the reason. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --global` turns on. Claude Code and Codex have a route for `yolo`: a hook. For `yolo` it also checks that the hook is installed and, for Codex, trusted in `/hooks`; until then the tool falls back to `ask`. On Windows `yolo` falls back to `ask`. [Approvals per tool](@/docs/approvals.md#per-tool) lists the routes.
 
 A `note:` line under a tool says what keeps its reviewer from matching the mode: the key is missing or set to another value in the user settings file (then `effective` is `ask`), Codex `approval_policy = "never"` stops Auto-review from running, or the reviewer stays on where the mode is not `review`, because `sync --global` wrote the key or, for Codex, it was set by hand.
 
-`--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, `route` when one exists, and `notes` when there are any.
+`--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, `yolo` and `review` (the tool's route for each mode, or `ask`), `reason` when the mode falls back to `ask`, `route` when one carries the mode, `min_version` when the route needs a release, and `notes` when there are any.
 
 ## approvals ask
 

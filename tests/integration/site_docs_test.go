@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -1036,6 +1037,9 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	if strings.Contains(agentSetup, "You do not need to read the rest") {
 		t.Error("agent-setup.txt carries the line meant for the person")
 	}
+	if !strings.Contains(fullDocs, "\n# Approvals\n") {
+		t.Error("llms-full.txt does not include the approvals page")
+	}
 	if !strings.Contains(fullDocs, "# Set up agnostic-ai with a coding agent") {
 		t.Error("llms-full.txt does not include the agent setup guide")
 	}
@@ -1316,6 +1320,69 @@ func TestSiteDocs_TargetsStateWhatLoadsAtSessionStart(t *testing.T) {
 
 // The configuration page lists the targets that write a merged rules file;
 // on any other target the key has no effect (#3295).
+// TestSiteDocs_ApprovalsTableMatchesRoutes keeps the per-tool table in
+// approvals.md in step with internal/approvals, the one route list.
+func TestSiteDocs_ApprovalsTableMatchesRoutes(t *testing.T) {
+	page, err := os.ReadFile(filepath.Join(siteDocsContentDir, "approvals.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, table, ok := strings.Cut(string(page), "## Per tool {#per-tool}")
+	if !ok {
+		t.Fatal("approvals.md: no Per tool section")
+	}
+	cell := func(m *approvals.Mechanism) string {
+		if m == nil {
+			return "asks"
+		}
+		return m.Name
+	}
+	rows := map[string][]string{}
+	closing := false
+	for _, line := range strings.Split(table, "\n") {
+		if !strings.HasPrefix(line, "| ") || strings.HasPrefix(line, "| Tool ") {
+			continue
+		}
+		cells := strings.Split(strings.Trim(line, "|"), "|")
+		for i := range cells {
+			cells[i] = strings.TrimSpace(cells[i])
+		}
+		if cells[0] == "Every other tool" {
+			closing = cells[1] == "asks" && cells[2] == "asks"
+			continue
+		}
+		m := regexp.MustCompile("\\(`([a-z]+)`\\)$").FindStringSubmatch(cells[0])
+		if m == nil || len(cells) != 4 {
+			t.Errorf("approvals.md row %q: want Tool (`id`) | review | yolo | Needs", line)
+			continue
+		}
+		rows[m[1]] = cells
+	}
+	if !closing {
+		t.Error("approvals.md: no closing row \"Every other tool | asks | asks\"")
+	}
+	for _, route := range approvals.Routes() {
+		yolo, review := route.Mechanism("yolo", "linux"), route.Mechanism("review", "linux")
+		cells, listed := rows[route.Target]
+		if yolo == nil && review == nil {
+			if listed {
+				t.Errorf("approvals.md lists %s, which has no route", route.Target)
+			}
+			continue
+		}
+		if !listed {
+			t.Errorf("approvals.md has no row for %s, which has a route", route.Target)
+			continue
+		}
+		if cells[1] != cell(review) || cells[2] != cell(yolo) {
+			t.Errorf("approvals.md %s: review %q yolo %q, want %q and %q", route.Target, cells[1], cells[2], cell(review), cell(yolo))
+		}
+		if route.MinVersion != "" && !strings.Contains(cells[3], route.MinVersion) {
+			t.Errorf("approvals.md %s: Needs %q does not name the minimum version %s", route.Target, cells[3], route.MinVersion)
+		}
+	}
+}
+
 func TestSiteDocs_RulesFileWritersMatchAdapters(t *testing.T) {
 	page, err := os.ReadFile(filepath.Join(siteDocsContentDir, "configuration-reference.md"))
 	if err != nil {

@@ -72,6 +72,15 @@ func builtinAction(t *testing.T, h http.Handler, path, id string) builtinChangeV
 	return result
 }
 
+func TestBuiltinChanges_RefusesApprovalsInAProject(t *testing.T) {
+	root := builtinChangeProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	rec := postEdit(t, h, builtinPreviewPath, `{"audience":"shared","name":"approvals","enabled":true}`, nil)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "home config") {
+		t.Fatalf("preview approvals = %d %s; want a refusal naming the home config", rec.Code, rec.Body)
+	}
+}
+
 func TestBuiltinChanges_PreviewApplyUndoRestoresProject(t *testing.T) {
 	root := builtinChangeProject(t)
 	before, err := snapshotBuiltinProject(root, nil)
@@ -153,6 +162,9 @@ func TestBuiltinChanges_UndoKeepsInterveningOutputEdit(t *testing.T) {
 
 func TestBuiltinChanges_EnableDisableMatchesOrdinarySync(t *testing.T) {
 	for _, name := range builtins.Names() {
+		if name == config.ApprovalsBuiltin {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			root := builtinChangeProject(t)
 			h := newBuiltinChangeHandler(root, false)
@@ -884,6 +896,9 @@ func TestBuiltinChanges_AnchoredSnapshotRejectsIdenticalReplacement(t *testing.T
 
 func TestBuiltinChanges_AllBuiltinsEnableDisableUndo(t *testing.T) {
 	for _, name := range builtins.Names() {
+		if name == config.ApprovalsBuiltin {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			root := builtinChangeProject(t)
 			h := newBuiltinChangeHandler(root, false)

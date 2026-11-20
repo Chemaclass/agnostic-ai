@@ -1,0 +1,8 @@
+name: approve-permission-request
+description: Answer a permission prompt by the approvals setting; print nothing to leave the prompt.
+targets: [claude, codex]
+event: PermissionRequest
+timeout: 10
+command: "command -v agnostic-ai >/dev/null 2>&1 || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 agnostic-ai hook approve --target claude 2>/dev/null; exit 0"
+x-codex:
+  command: "command -v agnostic-ai >/dev/null 2>&1 || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 agnostic-ai hook approve --target codex 2>/dev/null; exit 0"

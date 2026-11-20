@@ -81,9 +81,9 @@ func approvalsRuleReason(rule string) string {
 	return "Always asks"
 }
 
-// approvalsRouted reports whether tool carries out mode; see approvalRoutes.
+// approvalsRouted reports whether tool carries out mode.
 func approvalsRouted(tool, mode string) bool {
-	return approvalRoutes[tool][mode] != ""
+	return approvalRouteFor(tool).Mechanism(mode, approvalsGOOS) != nil
 }
 
 // approvalSession is what the decision log says about one session.
