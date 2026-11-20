@@ -1,6 +1,10 @@
 package approvals
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestNativeRequest_Kiro(t *testing.T) {
 	r := NativeRequest("kiro", Request{Call: "execute_bash", Input: map[string]any{"command": "go test ./...", "summary": "Run tests"}, Cwd: testRoot})
@@ -44,5 +48,53 @@ func TestNativeRequest_Qwen(t *testing.T) {
 		if r := NativeRequest("qwen", Request{Call: call}); r.Call != want {
 			t.Errorf("%s mapped to %q, want %q", call, r.Call, want)
 		}
+	}
+}
+
+func TestNativeRequest_Qoder(t *testing.T) {
+	for mode, rule := range map[string]string{"default": "", "accept_edits": "", "acceptEdits": "", "ACCEPT_EDITS": "", "auto": RulePermissionMode, "bypass_permissions": RulePermissionMode, "yolo": RulePermissionMode, "dont_ask": RulePermissionMode, "plan": RulePermissionMode, "": RulePermissionMode} {
+		r := NativeRequest("qoder", Request{Call: "Read", Input: map[string]any{"file_path": testRoot + "/a.go"}, PermissionMode: mode, Cwd: testRoot})
+		wantDecision(t, Decide(r, testPolicy()), rule)
+	}
+	for call, want := range map[string]string{"Bash": "Bash", "Read": "Read", "Edit": "Edit", "Write": "Write", "Glob": "", "WebFetch": "", "mcp__github__create_issue": "", "run_shell_command": ""} {
+		if r := NativeRequest("qoder", Request{Call: call}); r.Call != want {
+			t.Errorf("%s mapped to %q, want %q", call, r.Call, want)
+		}
+	}
+}
+
+func TestNativeRequest_QoderDotPaths(t *testing.T) {
+	for path, want := range map[string]string{
+		testRoot + "/main.go":             "Write",
+		testRoot + "/.ripgreprc":          "",
+		testRoot + "/.gitconfig":          "",
+		testRoot + "/.husky/pre-commit":   "",
+		testRoot + "/src/.env.local":      "",
+		testRoot + "/../other/.zshrc":     "",
+		"/home/me/.dotfiles/proj/main.go": "",
+	} {
+		r := NativeRequest("qoder", Request{Call: "Write", Input: map[string]any{"file_path": path}, PermissionMode: "default", Cwd: testRoot})
+		if r.Call != want {
+			t.Errorf("Write %s mapped to %q, want %q", path, r.Call, want)
+		}
+	}
+	cwd := filepath.Join(t.TempDir(), ".worktrees", "proj")
+	inDot := NativeRequest("qoder", Request{Call: "Edit", Input: map[string]any{"file_path": filepath.Join(cwd, "main.go")}, PermissionMode: "default", Cwd: cwd})
+	if inDot.Call != "Edit" {
+		t.Errorf("a session inside a dot folder mapped Edit to %q", inDot.Call)
+	}
+}
+
+func TestQoderProtectedPath_ChecksResolvedLink(t *testing.T) {
+	cwd := t.TempDir()
+	protected := filepath.Join(cwd, ".protected")
+	if err := os.Mkdir(protected, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(protected, filepath.Join(cwd, "linked")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if !qoderProtectedPath(filepath.Join("linked", "notes.md"), cwd) {
+		t.Error("a path resolved under a dot folder should stay protected")
 	}
 }

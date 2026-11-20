@@ -240,6 +240,10 @@ func approvalHookProblem(tool string) string {
 		path, _ = claudeUserSettingsPath()
 	case "codex":
 		path, _ = codex.UserHooksPath()
+	case "qoder":
+		if home, err := globalUserHome(); err == nil {
+			path = filepath.Join(home, ".qoder", "settings.json")
+		}
 	case "qwen":
 		if home, err := globalUserHome(); err == nil {
 			if dir, ok := qwenUserDir(home); ok {
@@ -284,6 +288,9 @@ func approvalHookProblem(tool string) string {
 	}
 	if tool == "qwen" {
 		return qwenAskProblem()
+	}
+	if tool == "qoder" {
+		return qoderAskProblem()
 	}
 	if tool != "codex" {
 		return ""
@@ -377,12 +384,12 @@ func kiroRulesAsk(root, cwd string) (bool, error) {
 	return approvals.KiroHasAskRule(files)
 }
 
-func readQwenApprovalSettings(dir, cwd string) (approvals.QwenSettings, error) {
+func readQwenApprovalSettings(dir, cwd string) (approvals.JSONSettings, error) {
 	files, err := approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv)
 	if err != nil {
-		return approvals.QwenSettings{}, err
+		return approvals.JSONSettings{}, err
 	}
-	return approvals.ReadQwenSettings(files)
+	return approvals.ReadJSONSettings(files)
 }
 
 // qwenAskProblem says why the Qwen Code hook cannot approve: hooks are
@@ -414,6 +421,31 @@ func qwenAskProblem() string {
 			mode = "auto in a trusted folder"
 		}
 		return "Qwen Code runs in " + mode + " mode, where the hook stays silent; set tools.approvalMode to default or auto_edit"
+	}
+	return ""
+}
+
+// qoderAskProblem says when a Qoder CLI permissions.ask rule, whose
+// prompt a hook allow could answer, turns the hook off.
+func qoderAskProblem() string {
+	home, err := globalUserHome()
+	if err != nil {
+		return "cannot find the home folder: " + err.Error()
+	}
+	cwd, _ := os.Getwd()
+	files, ok := qoderSettingsFiles(home, cwd)
+	if !ok {
+		return "cannot read the Qoder settings from a relative QODER_PROJECT_DIR"
+	}
+	settings, err := approvals.ReadJSONSettings(files)
+	mode := strings.ToLower(settings.DefaultPermissionMode)
+	switch {
+	case err != nil:
+		return "cannot read the Qoder settings: " + err.Error()
+	case settings.Ask:
+		return "a Qoder settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
+	case mode != "" && mode != "default" && mode != "accept_edits" && mode != "acceptedits":
+		return "Qoder runs in " + settings.DefaultPermissionMode + " mode, where the hook stays silent; set general.defaultPermissionMode to default or accept_edits"
 	}
 	return ""
 }

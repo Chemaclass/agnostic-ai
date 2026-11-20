@@ -137,7 +137,11 @@ var routes = []Route{
 	{Target: "openhands", Reason: reasonNoRoute},
 	{Target: "opencode", Reason: reasonNoRoute},
 	{Target: "pi", Reason: reasonNoRoute},
-	{Target: "qoder", Reason: reasonNotBuilt, Review: &Mechanism{
+	{Target: "qoder", Reason: reasonNotBuilt, Yolo: &Mechanism{
+		Name:     MechanismPermissionHook,
+		File:     "~/.qoder/settings.json",
+		Evidence: "https://docs.qoder.com/cli/hooks",
+	}, Review: &Mechanism{
 		Name:     "Qoder auto mode",
 		File:     "~/.qoder/settings.json",
 		Evidence: "https://docs.qoder.com/cli/permissions",

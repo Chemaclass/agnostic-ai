@@ -30,6 +30,7 @@ func approveSetup(t *testing.T, shared string) (source, project string) {
 	t.Setenv("KIRO_HOME", "")
 	t.Setenv(adapters.HookTargetEnv, "")
 	t.Setenv("QWEN_HOME", "")
+	t.Setenv("QODER_PROJECT_DIR", "")
 	t.Setenv("QWEN_CODE_SYSTEM_DEFAULTS_PATH", filepath.Join(t.TempDir(), "system-defaults.json"))
 	t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "settings.json"))
 	managed := t.TempDir()
@@ -100,7 +101,7 @@ func approveLog(t *testing.T, source string) []approvals.Entry {
 }
 
 func TestHookApprove_AllowsGoTest(t *testing.T) {
-	for _, target := range []string{"claude", "codex", "kiro", "qwen"} {
+	for _, target := range []string{"claude", "codex", "kiro", "qwen", "qoder"} {
 		t.Run(target, func(t *testing.T) {
 			source, project := approveSetup(t, yoloHome)
 			want, _ := hookrun.PermissionAllowReply(target)
@@ -116,7 +117,7 @@ func TestHookApprove_AllowsGoTest(t *testing.T) {
 }
 
 func TestHookApprove_GitPushAsks(t *testing.T) {
-	for _, target := range []string{"claude", "codex", "kiro", "qwen"} {
+	for _, target := range []string{"claude", "codex", "kiro", "qwen", "qoder"} {
 		t.Run(target, func(t *testing.T) {
 			source, project := approveSetup(t, yoloHome)
 			if got := runApprove(t, target, recordedPayload(t, target, project, "git push origin main")); got != "" {
@@ -222,6 +223,49 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 			t.Helper()
 			t.Setenv("QWEN_HOME", "alt")
 		}},
+		{name: "qoder mode ask", home: "version: 1\napprovals:\n  mode: ask\n", target: "qoder"},
+		{name: "qoder broken JSON", home: yoloHome, target: "qoder", payload: func(string) string { return `{"tool_name":"Bash",` }},
+		{name: "qoder auto mode", home: yoloHome, target: "qoder", rule: approvals.RulePermissionMode, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"auto","tool_name":"Bash","tool_input":{"command":"go test ./..."}}`
+		}},
+		{name: "qoder yolo mode", home: yoloHome, target: "qoder", rule: approvals.RulePermissionMode, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"go test ./..."}}`
+		}},
+		{name: "qoder no mode", home: yoloHome, target: "qoder", rule: approvals.RulePermissionMode, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"tool_name":"Bash","tool_input":{"command":"go test ./..."}}`
+		}},
+		{name: "qoder rm of a top-level folder", home: yoloHome, target: "qoder", payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"Bash","tool_input":{"command":"rm -rf /usr"}}`
+		}},
+		{name: "qoder other tool", home: yoloHome, target: "qoder", rule: approvals.RuleTool, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"WebFetch","tool_input":{"url":"https://example.com"}}`
+		}},
+		{name: "qoder user ask rule", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qoder", "settings.json"), `{"permissions":{"ask":["Bash(git push *)"]}}`)
+		}},
+		{name: "qoder local ask rule", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
+			t.Helper()
+			writeFile(t, filepath.Join(project, ".qoder", "settings.local.json"), `{"permissions":{"ask":["Edit"]}}`)
+		}},
+		{name: "qoder project folder ask rule", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			other := t.TempDir()
+			writeFile(t, filepath.Join(other, ".qoder", "settings.json"), `{"permissions":{"ask":["Bash(go test:*)"]}}`)
+			t.Setenv("QODER_PROJECT_DIR", other)
+		}},
+		{name: "qoder relative project folder", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			t.Setenv("QODER_PROJECT_DIR", "proj")
+		}},
+		{name: "qoder write to a dot file", home: yoloHome, target: "qoder", rule: approvals.RuleTool, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"Write","tool_input":{"file_path":` + strconvQuote(filepath.Join(project, ".ripgreprc")) + `,"content":"x"}}`
+		}},
+		{name: "qoder settings do not parse", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
+			t.Helper()
+			writeFile(t, filepath.Join(project, ".qoder", "settings.json"), `{"permissions":`)
+		}},
 		{name: "qwen other tool", home: yoloHome, target: "qwen", rule: approvals.RuleTool, payload: func(project string) string {
 			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"grep_search","tool_input":{"pattern":"x"}}`
 		}},
@@ -256,7 +300,7 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 			}
 			target := tc.target
 			payload := recordedPayload(t, "claude", project, "go test ./...")
-			if target == "codex" || target == "kiro" || target == "qwen" {
+			if target == "codex" || target == "kiro" || target == "qwen" || target == "qoder" {
 				payload = recordedPayload(t, target, project, "go test ./...")
 			}
 			if tc.payload != nil {
@@ -414,6 +458,18 @@ func TestHookApprove_QwenAutoEditAndEdits(t *testing.T) {
 	}
 	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Call != "edit" {
 		t.Errorf("log = %+v, want one qwen edit line", entries)
+	}
+}
+
+func TestHookApprove_QoderAcceptEditsWrite(t *testing.T) {
+	source, project := approveSetup(t, yoloHome)
+	payload := `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"accept_edits","session_id":"qd","tool_name":"Write","tool_input":{"file_path":` + strconvQuote(filepath.Join(project, "main.go")) + `,"content":"package main"}}`
+	want, _ := hookrun.PermissionAllowReply("qoder")
+	if got := runApprove(t, "qoder", payload); got != string(want) {
+		t.Fatalf("reply = %q, want %q", got, want)
+	}
+	if entries := approveLog(t, source); len(entries) != 1 || entries[0].Call != "Write" {
+		t.Errorf("log = %+v, want one qoder Write line", entries)
 	}
 }
 

@@ -556,3 +556,38 @@ func TestApprovalsStatus_QwenHookOffElsewhere(t *testing.T) {
 		})
 	}
 }
+
+func TestApprovalsStatus_QoderHook(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
+	t.Setenv("QODER_PROJECT_DIR", "")
+	const hook = `"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target qoder"}]}]}`
+	for name, tc := range map[string]struct {
+		body, project string
+		routed        bool
+	}{
+		"active project ask": {`{` + hook + `}`, `{"permissions":{"ask":["Edit"]}}`, false},
+		"installed":          {`{` + hook + `}`, "", true},
+		"not installed":      {`{}`, "", false},
+		"ask rule":           {`{"permissions":{"ask":["Edit"]},` + hook + `}`, "", false},
+		"accept edits":       {`{"general":{"defaultPermissionMode":"acceptEdits"},` + hook + `}`, "", true},
+		"auto mode":          {`{"general":{"defaultPermissionMode":"auto"},` + hook + `}`, "", false},
+		"yolo mode":          {`{"general":{"defaultPermissionMode":"bypass_permissions"},` + hook + `}`, "", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			approvalsHome(t, "version: 1\ntargets: [qoder]\napprovals:\n  mode: yolo\n")
+			home, _ := os.UserHomeDir()
+			writeFile(t, filepath.Join(home, ".qoder", "settings.json"), tc.body)
+			if tc.project != "" {
+				project := t.TempDir()
+				t.Setenv("QODER_PROJECT_DIR", project)
+				writeFile(t, filepath.Join(project, ".qoder", "settings.json"), tc.project)
+			}
+			qoder := toolStatus(t, approvalsStatusJSON(t), "qoder")
+			if tc.routed != (qoder.Effective == config.ApprovalsYolo) || !tc.routed && qoder.Reason == "" {
+				t.Errorf("qoder: %+v", qoder)
+			}
+		})
+	}
+}

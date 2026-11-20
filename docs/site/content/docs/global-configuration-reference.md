@@ -212,7 +212,7 @@ approvals:
 - A `projects` key is an absolute path or one under `~`, the home folder. The deepest folder that holds the session wins; links are resolved, and on macOS and Windows case is ignored. Two keys for one folder take the stricter mode.
 - The strictest source wins, in this order: `AGNOSTIC_AI_APPROVALS=ask` in the session's environment, a project file that says `ask`, `projects`, `tools`, `mode`. Any value of the environment variable means `ask`: it can only tighten.
 - A config without `approvals` behaves as `ask`. `$AGNOSTIC_AI_HOME` must be an absolute path for approvals to read it.
-- Only Claude Code, Codex, Kiro and Qwen Code carry out `yolo`, through a hook that `builtins: [approvals]` and `sync --global` install ([Approvals](@/docs/approvals.md)). Only the tools in [the review table](#global-approvals-review) carry out `review`. Every other tool falls back to `ask`, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) says so.
+- Only Claude Code, Codex, Kiro, Qwen Code and Qoder carry out `yolo`, through a hook that `builtins: [approvals]` and `sync --global` install ([Approvals](@/docs/approvals.md)). Only the tools in [the review table](#global-approvals-review) carry out `review`. Every other tool falls back to `ask`, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) says so.
 
 ### Review through the tool's own reviewer {#global-approvals-review}
 

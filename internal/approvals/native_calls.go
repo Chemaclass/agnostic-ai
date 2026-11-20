@@ -1,6 +1,10 @@
 package approvals
 
-import "maps"
+import (
+	"maps"
+	"path/filepath"
+	"strings"
+)
 
 // NativeRequest maps a tool call that target names its own way into the
 // call names and input fields the gate reads. For a target it maps, a
@@ -11,6 +15,8 @@ func NativeRequest(target string, r Request) Request {
 		return kiroRequest(r)
 	case "qwen":
 		return qwenRequest(r)
+	case "qoder":
+		return qoderRequest(r)
 	}
 	return r
 }
@@ -76,4 +82,67 @@ func qwenRequest(r Request) Request {
 		r.Call = ""
 	}
 	return r
+}
+
+// qoderModes maps Qoder CLI permission modes, which it accepts in snake
+// or camel case, to the gate's (docs.qoder.com/cli/permissions).
+var qoderModes = map[string]string{"default": "default", "accept_edits": "acceptEdits", "acceptedits": "acceptEdits"}
+
+// qoderRequest keeps the Claude-style names Qoder CLI uses for the tools
+// whose input the gate reads: Bash, Read, Edit and Write. Every other
+// call gets no name, and a mode other than default or accept edits keeps
+// a name the gate does not approve in. Qoder's protected paths, which
+// its docs list only by example (.git, .ripgreprc, Git config, shell
+// startup files), are dot names, so an Edit or Write through any dot
+// folder or file gets no name either.
+func qoderRequest(r Request) Request {
+	if mode, ok := qoderModes[strings.ToLower(r.PermissionMode)]; ok {
+		r.PermissionMode = mode
+	} else {
+		r.PermissionMode = "qoder:" + r.PermissionMode
+	}
+	switch r.Call {
+	case "Bash", "Read":
+	case "Edit", "Write":
+		if path, _ := r.Input["file_path"].(string); qoderProtectedPath(path, r.Cwd) {
+			r.Call = ""
+		}
+	default:
+		r.Call = ""
+	}
+	return r
+}
+
+func qoderProtectedPath(path, cwd string) bool {
+	if dotPath(underCwd(path, cwd)) {
+		return true
+	}
+	if path == "" || !filepath.IsAbs(cwd) {
+		return false
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(cwd, path)
+	}
+	return dotPath(underCwd(ResolveLinks(path), ResolveLinks(cwd)))
+}
+
+// underCwd is path relative to cwd when it lies there, so a dot folder
+// above the session folder does not count.
+func underCwd(path, cwd string) string {
+	if cwd == "" {
+		return path
+	}
+	if rel, err := filepath.Rel(cwd, path); err == nil && filepath.IsAbs(path) && !strings.HasPrefix(rel, "..") {
+		return rel
+	}
+	return path
+}
+
+func dotPath(path string) bool {
+	for part := range strings.FieldsFuncSeq(path, func(c rune) bool { return c == '/' || c == '\\' }) {
+		if strings.HasPrefix(part, ".") && part != "." && part != ".." {
+			return true
+		}
+	}
+	return false
 }

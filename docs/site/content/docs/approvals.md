@@ -1,6 +1,6 @@
 +++
 title = "Approvals"
-description = "Let a hook answer routine permission prompts in Claude Code, Codex, Kiro and Qwen Code, while risky calls still ask."
+description = "Let a hook answer routine permission prompts in Claude Code, Codex, Kiro, Qwen Code and Qoder, while risky calls still ask."
 weight = 73
 
 [extra]
@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Approvals
 
-With approvals in `yolo` mode, a hook answers routine permission prompts for you: it approves one tool call at a time, and leaves every risky call to you. Claude Code, Codex, Kiro and Qwen Code support it today.
+With approvals in `yolo` mode, a hook answers routine permission prompts for you: it approves one tool call at a time, and leaves every risky call to you. Claude Code, Codex, Kiro, Qwen Code and Qoder support it today.
 
 ## What the gate does not catch
 
@@ -37,7 +37,7 @@ agnostic-ai sync --global
 agnostic-ai approvals status
 ```
 
-`sync --global` writes a `PermissionRequest` hook to `~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.kiro/hooks/approve-permission-request.json` and `~/.qwen/settings.json` (or `$QWEN_HOME/settings.json`). A project sync never writes it, so a teammate never gets it from a committed file. Changing the mode later needs no sync: the hook reads the setting on each request.
+`sync --global` writes a `PermissionRequest` hook to `~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.kiro/hooks/approve-permission-request.json`, `~/.qwen/settings.json` (or `$QWEN_HOME/settings.json`) and `~/.qoder/settings.json`. A project sync never writes it, so a teammate never gets it from a committed file. Changing the mode later needs no sync: the hook reads the setting on each request.
 
 Two steps happen in the tools:
 
@@ -45,6 +45,7 @@ Two steps happen in the tools:
 - Claude Code runs no hook in a folder until you accept its workspace trust dialog.
 - Kiro runs the hook only in a Kiro CLI 3.4.0 or newer V3 session, or Kiro IDE 1.4.236 or newer. It approves shell commands (`execute_bash`) and file reads (`read_file`) only; writes, searches and every other Kiro tool ask. A rule with `effect: ask` or `effect: evaluate`, or the `approve-for-me` preset, in `~/.kiro/settings/permissions.yaml`, in any workspace permissions file under `~/.kiro/workspace-roots/`, or in an agent profile turns the hook off: a hook allow could answer that rule's prompt, or the one Kiro's reviewer shows when it is unsure, and the hook cannot match Kiro's rules. The hook checks the active `KIRO_HOME` profile when set, and leaves the native prompt in place if the policy files cannot be read. `approvals status` says why. Kiro asks before every shell command in a workspace you have not trusted; whether the hook can answer that prompt is not documented, so trust only workspaces you would run `yolo` in.
 - Qwen Code: the hook approves shell commands (`run_shell_command` without a `directory`), file reads, edits and writes in `default` and `auto_edit` mode; every other Qwen tool and mode asks. Qwen Code runs auto mode in a trusted folder unless `tools.approvalMode` says otherwise, so set it to `default` or `auto_edit` for the hook to answer. `disableAllHooks`, `--safe-mode` and `--bare` turn the hook off. A `permissions.ask` rule in the user, project or system settings turns the hook off: a hook allow skips that rule's prompt in Qwen Code, and the hook cannot match Qwen's rules. `approvals status` says so. Qwen Code asks you to approve a project's hooks, but this hook is a user hook.
+- Qoder: the hook approves `Bash` and `Read` calls, and `Edit` and `Write` calls outside dot folders and dot files, in `default` and `accept_edits` mode; every other tool and mode asks. A `permissions.ask` rule in `~/.qoder/settings.json` or in a project's `.qoder/settings.json` or `.qoder/settings.local.json` turns the hook off: Qoder runs the hook after its own rules ask, so a hook allow would skip that rule's prompt. `approvals status` says so. A file passed with `qoder --settings` and rules your organization manages are not read, so keep ask rules out of them. Qoder may report its plan state as `default` mode, in which case the hook can approve a safe call while you plan.
 
 ## Modes
 
@@ -136,7 +137,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
 | Kiro (`kiro`) | asks | PermissionRequest hook | Kiro CLI 3.4.0 or newer in a V3 session; no Kiro `ask` rule |
 | Cursor (`cursor`) | cursor-agent Auto-review | asks | `cursor-agent` only; a classifier-capable model and team permission; set Auto-review in the desktop app by hand |
-| Qoder (`qoder`) | Qoder auto mode | asks | Nothing extra |
+| Qoder (`qoder`) | Qoder auto mode | PermissionRequest hook | For `yolo`, no `permissions.ask` rule |
 | Qwen Code (`qwen`) | Qwen Code auto mode | PermissionRequest hook | For `yolo`, `tools.approvalMode` set to `default` or `auto_edit` and no `permissions.ask` rule; Qwen Code runs auto mode in a trusted folder when the key is unset |
 | Mistral Vibe (`vibe`) | Vibe smart-approve | asks | `bypass_tool_permissions` off |
 | Devin CLI (`windsurf`) | Devin smart mode | asks | Your `deny` and `ask` rules still come first; `--permission-mode` and `DEVIN_PERMISSION_MODE` replace it for one launch |

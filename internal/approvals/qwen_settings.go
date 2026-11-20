@@ -55,27 +55,30 @@ func QwenSettingsFiles(userDir, cwd, goos string, getenv func(string) string) ([
 	return files, nil
 }
 
-// QwenSettings is what the hook needs from Qwen Code's settings files.
-type QwenSettings struct {
+// JSONSettings is what the hook needs from a tool's JSON settings files.
+type JSONSettings struct {
 	// Ask is set when any file lists a permissions.ask rule.
 	Ask bool
 	// HooksOff is set when any file sets disableAllHooks.
 	HooksOff bool
 	// ApprovalMode is tools.approvalMode from the last file that sets it.
 	ApprovalMode string
+	// DefaultPermissionMode is general.defaultPermissionMode from the
+	// last file that sets it.
+	DefaultPermissionMode string
 }
 
-// ReadQwenSettings reads files, comments allowed, in precedence order. A
+// ReadJSONSettings reads files, comments allowed, in precedence order. A
 // file that exists but does not read or parse is an error.
-func ReadQwenSettings(files []string) (QwenSettings, error) {
-	var out QwenSettings
+func ReadJSONSettings(files []string) (JSONSettings, error) {
+	var out JSONSettings
 	for _, path := range files {
 		data, err := os.ReadFile(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return QwenSettings{}, fmt.Errorf("read %s: %w", path, err)
+			return JSONSettings{}, fmt.Errorf("read %s: %w", path, err)
 		}
 		data, _ = preview.StripJSONC(data)
 		var file struct {
@@ -86,14 +89,20 @@ func ReadQwenSettings(files []string) (QwenSettings, error) {
 			Tools struct {
 				ApprovalMode string `json:"approvalMode"`
 			} `json:"tools"`
+			General struct {
+				DefaultPermissionMode string `json:"defaultPermissionMode"`
+			} `json:"general"`
 		}
 		if err := json.Unmarshal(data, &file); err != nil {
-			return QwenSettings{}, fmt.Errorf("parse %s: %w", path, err)
+			return JSONSettings{}, fmt.Errorf("parse %s: %w", path, err)
 		}
 		out.Ask = out.Ask || len(file.Permissions.Ask) > 0
 		out.HooksOff = out.HooksOff || file.DisableAllHooks
 		if file.Tools.ApprovalMode != "" {
 			out.ApprovalMode = file.Tools.ApprovalMode
+		}
+		if file.General.DefaultPermissionMode != "" {
+			out.DefaultPermissionMode = file.General.DefaultPermissionMode
 		}
 	}
 	return out, nil

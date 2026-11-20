@@ -1,0 +1,1 @@
+{"session_id":"qd-1","transcript_path":"/tmp/qoder.jsonl","cwd":"{{CWD}}","hook_event_name":"PermissionRequest","permission_mode":"default","tool_name":"Bash","tool_input":{"command":"{{COMMAND}}"},"permission_suggestions":[]}

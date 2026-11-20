@@ -10,6 +10,8 @@ var permissionAllowReplies = map[string]string{
 	"kiro": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`,
 	// Qwen Code reads the same shape (docs/users/features/hooks.md).
 	"qwen": `{"hookSpecificOutput":{"decision":{"behavior":"allow"}}}`,
+	// Qoder requires hookEventName in hookSpecificOutput (docs.qoder.com/cli/hooks).
+	"qoder": `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`,
 }
 
 // PermissionAllowReply is target's PermissionRequest reply that allows
