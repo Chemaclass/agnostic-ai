@@ -989,4 +989,7 @@
 # MCP `$${NAME}` values when it rewrites the spec from a tool file.
 # Allow 8192 bytes, rounded up to a 4096-byte page.
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
-27291648
+# #3742 measured 27316384: hook run reads Bash if rules with a parser that
+# mirrors the Claude Code 2.1.328 hook matcher. Allow 8192 bytes, rounded
+# up to a 4096-byte page.
+27328512
