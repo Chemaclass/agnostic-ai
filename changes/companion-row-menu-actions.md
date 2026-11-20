@@ -1,3 +1,3 @@
 ### General
 
-- The companion's right-click menu on a chat now offers Mark complete, Undo complete and Hide from agnostic-ai.
+- The companion chat menu lets you mark a chat complete, undo completion, or hide an archived chat (#3800).

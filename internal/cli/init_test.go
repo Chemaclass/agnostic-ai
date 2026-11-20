@@ -1044,3 +1044,26 @@ func TestInitAll_SyncsAnAlwaysOnRule(t *testing.T) {
 		t.Fatalf("sync after init --all: %v\n%s", err, out)
 	}
 }
+
+func TestInitCmd_DemoProjectPassesLintWithNoMigration(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"init", "--all", "--demo", "--preset", "go"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	report, stderr, err := runLintJSON(t)
+	if err != nil {
+		t.Fatalf("lint: %v\n%s", err, stderr)
+	}
+	if len(report.Findings) != 0 {
+		t.Errorf("a fresh demo project must lint clean, got %+v", report.Findings)
+	}
+	if hint := pendingMigrationHint(projectMigrationScope(dir)); hint != "" {
+		t.Errorf("a fresh demo project must need no migration, got %q", hint)
+	}
+}

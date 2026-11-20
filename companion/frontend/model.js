@@ -537,13 +537,11 @@ export function unreadLabelOf(rows) {
 /** What a resumed chat's marker says: it is open again, with a reply from before the person has not read. */
 export const RESUMED_UNREAD = 'Resumed with a reply from before that you have not read'
 
-/**
- * The one action a row offers: hide a chat that is archived, archive one that
- * is not. A working chat offers none, since the work would undo the archive.
- */
+/** An archived row offers Hide. Other rows can be marked complete when they have no completion mark and are not working. */
 export function rowActionOf(conversation) {
-  if (conversation.state === 'working') return undefined
-  return GROUP_OF_STATE[conversation.state] === 'archived' ? 'hide' : 'archive'
+  if (GROUP_OF_STATE[conversation.state] === 'archived') return 'hide'
+  if (conversation.state === 'working' || conversation.completedAt) return undefined
+  return 'archive'
 }
 
 /**
@@ -554,7 +552,7 @@ export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename'] : ['rename']
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')
-  if (conversation.state === 'completed') offered.push('reopen')
+  if (conversation.completedAt) offered.push('reopen')
   if (action === 'hide') offered.push('hide')
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')

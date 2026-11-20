@@ -28,6 +28,7 @@ function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/a
     ...(reply ? { reply } : {}),
     ...(parent ? { parent } : {}),
     ...(live ? { live: true } : {}),
+    ...(state === 'completed' ? { completedAt: new Date(now).toISOString() } : {}),
     // Like the server: a live Claude Code session in a terminal can be stopped.
     ...(live && tool === 'claude' && app === 'cli' ? { stoppable: true } : {}),
     ...(shared ? { cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
@@ -227,6 +228,7 @@ function stuckShells(now) {
  * searchPages (a search answers {size} matches per page, each after {ms} milliseconds),
  * rereadMs (a mark answers that many milliseconds later, once the list read after it arrives),
  * marksIgnored (a mark is kept, but the list read after it shows the chat where it was),
+ * knownClosed and appArchived (ids known to be closed or archived by their tools),
  * heldOpens (opens of these conversation ids wait until POST /dev/release-opens),
  * openPending (the server did not answer an open in time, so nobody knows yet whether it opened),
  * lateOpenProblem (such an open fails later, with openCommand, once POST /dev/settle-late-opens),
@@ -304,6 +306,17 @@ export const FIXTURES = {
     markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
   },
   archived: { label: 'Archived chats to delete', conversations: archived },
+  completions: {
+    label: 'Completed chats in a terminal and the cloud, and one archived in its app',
+    conversations: (now) => [
+      conversation(now, 'claude', 'recent-complete', 'Check the new config', 'completed'),
+      conversation(now, 'claude', 'closed-complete', 'Finish the install', 'completed'),
+      conversation(now, 'claude', 'cloud-complete', 'Draft the release guide', 'completed', { app: 'cloud', minutesAgo: 3 * 24 * 60 }),
+      { ...conversation(now, 'claude', 'app-archive', 'Review next week', 'dormant', { app: 'cloud' }), completedAt: new Date(now).toISOString() },
+    ],
+    knownClosed: ['closed-complete'],
+    appArchived: ['app-archive'],
+  },
   'archived-shared': {
     label: 'An archived chat that was also on claude.ai, so its menu offers both the page and delete',
     conversations: (now) => [...archived(now), conversation(now, 'claude', 'done-rc', 'Ship the retry queue', 'completed', { minutesAgo: 2 * 24 * 60, shared: 'cse_done', live: false })],

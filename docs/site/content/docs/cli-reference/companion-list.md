@@ -130,8 +130,8 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 
 Right-click a row to reach what its buttons do, and a little more:
 
-- **Mark complete**: moves an active chat, or one that needs you, to Archived. A working chat has no Mark complete. A chat that needs you only because of a forgotten shell stays in Needs you until the shell stops.
-- **Undo complete**: takes the mark back from a chat you marked complete. It goes back to Active, unless it is closed or has been quiet for a while.
+- **Mark complete** moves an unmarked chat from Active or Needs you to Archived. A chat waiting only on a forgotten shell stays in Needs you until the shell stops.
+- **Undo complete** clears the mark you set. The [usual rules for Archived](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) still apply.
 - **Hide from agnostic-ai**: takes an archived chat out of every list and search. The tool keeps the chat.
 - **Stop chat…**: on macOS and Linux, ends a live Claude Code chat that runs in a terminal on this computer, after a question. It stops any work in progress. The transcript stays, so you can resume the chat later. Other chats have no Stop chat: a claude.ai chat, a Cowork task or a cloud session has no process here, and a background, editor or Claude app session belongs to the program that started it.
 
