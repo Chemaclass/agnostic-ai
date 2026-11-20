@@ -983,7 +983,6 @@
 # slices.Backward and other generic helpers) add 20480 bytes over main;
 # stringsseq stays off because it alone added about 65 KB. Allow 8192
 # bytes, rounded up to a 4096-byte page.
-# #3719 adds about 28 KB over main: copy to global brings the scripts a
-# hook runs, and Windows hook commands are read as PowerShell; allow 8192
-# bytes, rounded up to a 4096-byte page.
-27222016
+# Main at a4439281b measures 27213984 bytes after the QA fix round
+# (#3726 to #3748). Allow 8192 bytes, rounded up to a 4096-byte page.
+27226112
