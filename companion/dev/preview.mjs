@@ -40,6 +40,7 @@ function fixtureState(name, now) {
     name,
     fixture,
     conversations,
+    knownClosed: new Set(fixture.knownClosed),
     /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */
     polled: structuredClone(conversations),
     preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false },
@@ -256,7 +257,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     } else if (body.as === 'open') {
       delete marking.completedAt
       if (marking.state === 'completed') {
-        const knownClosed = state.fixture.knownClosed?.includes(marking.id)
+        const knownClosed = state.knownClosed.has(marking.id)
         const active = marking.live || OPEN_UNTIL_ARCHIVED.has(marking.app) || timeOf() - Date.parse(marking.updatedAt) < DAY_MS
         marking.state = active && !knownClosed ? 'active' : 'dormant'
       }
@@ -309,10 +310,16 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
   async function stopSession(request, response) {
     const body = await bodyOf(request)
     logCall('/api/stop-session', body)
+    if (typeof body?.id !== 'string' || !body.id.trim() ||
+        !Number.isInteger(body.pid) || body.pid <= 1 || typeof body.procStart !== 'string' || !body.procStart.trim()) {
+      return sendJSON(response, 400, { error: 'send {tool, id, pid, procStart}' })
+    }
     const row = find(body)
     if (!row?.live || row.stoppable?.pid !== body.pid || row.stoppable?.procStart !== body.procStart) return sendJSON(response, 409, { error: 'this chat no longer runs in a terminal here' })
-    for (const key of ['live', 'stoppable', 'activity', 'waiting', 'stuckShells']) delete row[key]
-    if (row.state === 'working' || row.state === 'blocked') row.state = 'active'
+    state.knownClosed.add(row.id)
+    for (const key of ['live', 'stoppable', 'activity', 'waiting', 'stuckShells', 'helpers', 'workingSubagents', 'unread', 'quietSince']) delete row[key]
+    row.state = row.completedAt ? 'completed' : 'dormant'
+    row.open = { ...row.open, kind: 'terminal', label: 'Resume in Terminal' }
     listChanged()
     response.setHeader('List-Version', state.version)
     sendJSON(response, 200, {})

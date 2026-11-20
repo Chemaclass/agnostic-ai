@@ -2,12 +2,15 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
 func TestServeMux_StopSessionRejectsInvalidAndUnlistedTargets(t *testing.T) {
@@ -38,5 +41,24 @@ func TestServeMux_StopSessionRejectsInvalidAndUnlistedTargets(t *testing.T) {
 				t.Errorf("stop session = %d %s (%v), want %d with a JSON error", rec.Code, rec.Body, err, tc.status)
 			}
 		})
+	}
+}
+
+type unreadableStopProcesses struct{ stillProcesses }
+
+func (unreadableStopProcesses) AliveAmong([]conversations.ProcessRef) (map[int]bool, error) {
+	return nil, errors.New("failed to read processes")
+}
+
+func TestStopSessionRoute_ReportsProcessReadFailure(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		t.Skip("requires support for stopping sessions")
+	}
+	h, _, _ := conversationsFixture(t, true)
+	h.scanner.Processes = unreadableStopProcesses{}
+	rec := postEdit(t, h, "/api/conversations/stop-session", `{"tool":"claude","id":"`+inProject+`","pid":4242,"procStart":"Sat Nov  7 11:00:00 2026"}`, nil)
+	var reply editError
+	if err := json.Unmarshal(rec.Body.Bytes(), &reply); rec.Code != http.StatusInternalServerError || err != nil || !strings.Contains(reply.Error, "failed to read processes") {
+		t.Errorf("stop session = %d %s (%v), want 500 with the read error", rec.Code, rec.Body, err)
 	}
 }

@@ -1,3 +1,3 @@
 ### General
 
-- The companion's right-click menu can stop a live local Claude Code chat with Stop chat…, after a question. The transcript stays.
+- **Stop chat…** in the macOS companion asks before ending a live Claude Code terminal session and keeps its transcript.

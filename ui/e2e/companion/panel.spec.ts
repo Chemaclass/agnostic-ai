@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { ConversationsView } from '../../src/contract'
 
 // The real companion pages, served by companion/dev/preview.mjs with fixture data.
 // Every test starts from a fixture; the preview holds one state, so tests run one at a time.
@@ -2010,6 +2011,12 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
 
 const stopChatDialog = (page: Page) => page.getByRole('alertdialog', { name: /^Stop "/ })
 
+async function askToStopChat(page: Page, title: string) {
+  await row(page, title).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
+  return stopChatDialog(page)
+}
+
 function stopsSent(page: Page) {
   const sent: unknown[] = []
   page.on('request', (request) => {
@@ -2025,36 +2032,89 @@ test('Stop chat shows only on a chat that runs on this computer, and asks first'
   await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
   await page.keyboard.press('Escape')
 
-  await row(page, 'Approve the database migration').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
-  await expect(stopChatDialog(page)).toContainText('Stop "Approve the database migration"?')
-  await expect(stopChatDialog(page)).toContainText('The transcript stays')
-  await expect(stopChatDialog(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await expect(dialog).toContainText('Stop "Approve the database migration"?')
+  await expect(dialog).toContainText('Shell commands it started may keep running')
+  await expect(dialog).toContainText('The transcript stays')
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
   await page.keyboard.press('Escape')
-  await expect(stopChatDialog(page)).toBeHidden()
+  await expect(dialog).toBeHidden()
   expect(sent).toEqual([])
 })
 
-test('confirming Stop chat ends it and says so', async ({ page }) => {
+test('confirming Stop chat ends the selected process and archives the chat for resuming', async ({ page }) => {
   await openPanel(page)
   const sent = stopsSent(page)
-  await row(page, 'Approve the database migration').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
-  await stopChatDialog(page).getByRole('button', { name: 'Stop chat' }).click()
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await dialog.getByRole('button', { name: 'Stop chat' }).click()
 
   await expect(page.getByRole('status').filter({ hasText: 'Stopped.' })).toBeVisible()
-  await expect(stopChatDialog(page)).toBeHidden()
+  await expect(dialog).toBeHidden()
   expect(sent).toEqual([{ tool: 'claude', id: 'waits-1', pid: 4007, procStart: 'Fri Nov 20 09:00:00 2026' }])
-  await row(page, 'Approve the database migration').click({ button: 'right' })
+  const stopped = row(page, 'Approve the database migration')
+  await expect(stopped).toBeHidden()
+  await groupTitle(page, 'Archived').click()
+  await expect(stopped).toHaveAttribute('title', /^Resume in Terminal/)
+  await stopped.click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
+})
+
+test('Stop chat asks again when the chat moves to another process', async ({ page }) => {
+  await openPanel(page)
+  const sent = stopsSent(page)
+  const title = 'Approve the database migration'
+  const dialog = await askToStopChat(page, title)
+  await expect(dialog).toBeVisible()
+  await page.route('**/api/inbox', async (route) => {
+    const response = await route.fetch()
+    const json = await response.json() as { view: ConversationsView }
+    const chat = json.view.conversations.find((conversation) => conversation.id === 'waits-1')
+    if (chat?.stoppable) chat.stoppable.procStart = 'replacement process'
+    await route.fulfill({ response, json })
+  })
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mixed' } })).ok()).toBe(true)
+  await expect(dialog).toBeHidden()
+  expect(sent).toEqual([])
+  await expect(await askToStopChat(page, title)).toBeVisible()
+})
+
+test('closing and reopening the panel clears the Stop chat question', async ({ page }) => {
+  await openPanel(page)
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await expect(dialog).toBeVisible()
+  expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
+  expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
+  await expect(dialog).toBeHidden()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
+})
+
+test('a late Stop chat reply leaves a second question open', async ({ page }) => {
+  await openPanel(page)
+  let release: () => void = () => {}
+  const held = new Promise<void>((done) => { release = done })
+  await page.route('**/api/stop-session', async (route) => {
+    await held
+    await route.continue()
+  })
+  try {
+    const first = await askToStopChat(page, 'Approve the database migration')
+    await first.getByRole('button', { name: 'Stop chat' }).click()
+    await page.keyboard.press('Escape')
+    const second = await askToStopChat(page, 'Refactor the search index')
+    release()
+    await expect(page.getByRole('status').filter({ hasText: 'Stopped.' })).toBeVisible()
+    await expect(second).toHaveAccessibleName('Stop "Refactor the search index"?')
+    await expect(second.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  } finally {
+    release()
+  }
 })
 
 test('a refused Stop chat says why', async ({ page }) => {
   await openPanel(page)
   await page.route('**/api/stop-session', (route) => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'this chat no longer runs in a terminal here' }) }))
-  await row(page, 'Approve the database migration').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Stop chat…' }).click()
-  await stopChatDialog(page).getByRole('button', { name: 'Stop chat' }).click()
+  const dialog = await askToStopChat(page, 'Approve the database migration')
+  await dialog.getByRole('button', { name: 'Stop chat' }).click()
 
   await expect(page.getByText('this chat no longer runs in a terminal here')).toBeVisible()
 })

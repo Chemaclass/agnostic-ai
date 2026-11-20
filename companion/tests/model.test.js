@@ -815,14 +815,22 @@ test('a saved completion offers Undo complete, and an archived row can still be 
 })
 
 test('offers Stop chat only on a live chat the server can stop, and says how it ended', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable: true })), ['rename', 'stop-session'])
-  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable: true })), ['rename'])
+  const stoppable = { pid: 42, procStart: 'chat-start' }
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable })), ['rename', 'stop-session'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable })), ['rename'])
   assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename'])
   assert.deepEqual(stopSessionConfirmOf(row('a', 'working', { title: 'Fix the build' })).title, 'Stop "Fix the build"?')
   assert.match(stopSessionConfirmOf(row('a', 'working')).body, /transcript stays/)
   assert.deepEqual(stoppedSessionOf({}), { message: 'Stopped.' })
   assert.deepEqual(stoppedSessionOf({ forced: true }), { message: 'Stopped. It did not end when asked, so it was forced to.' })
-  assert.equal(stoppedSessionOf({ forced: true, stillRunning: true }).problem, true)
+  assert.deepEqual(stoppedSessionOf({ stillRunning: true }), {
+    message: 'The Claude Code process is still running after the stop request.',
+    problem: true,
+  })
+  assert.deepEqual(stoppedSessionOf({ forced: true, stillRunning: true }), {
+    message: 'The Claude Code process is still running after a force stop.',
+    problem: true,
+  })
   assert.equal(escapeTarget({ stopSessionOpen: true, rowMenuOpen: true }), 'stop-session')
 })
 

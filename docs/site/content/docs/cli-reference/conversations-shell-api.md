@@ -32,13 +32,13 @@ In the [conversations response](@/docs/cli-reference/conversations-api.md#get-ap
 
 ## `POST /api/conversations/stop-session` {#post-api-conversations-stop-session}
 
-Send `{tool, id, pid, procStart}` as JSON from the server's own origin, with the process from the row's `stoppable`. A chat that moved to another process since is refused, not stopped.
+Send `{tool, id, pid, procStart}` as JSON from the server's own origin, with the process from the row's `stoppable`. If the chat has moved to another process, the server asks for a fresh confirmation.
 
-On macOS and Linux, the server scans again and checks that the session still runs in a terminal, that its process has the start time its session file names, and that the process is not this server or one of its parents. It sends SIGTERM to that process alone. If the same process, by PID and start time, still runs after five seconds, it sends SIGKILL. The transcript stays, so the chat can be resumed; a forced stop can lose the line Claude Code was writing. Shells the session started in their own process groups get no signal from the server and may keep running.
+On macOS and Linux, the server scans again and checks that the session still runs in a terminal, that its process has the start time its session file names, and that the process is not this server or one of its parents. It sends SIGTERM to that process alone. After five seconds, it sends SIGKILL only if the same process is still in a terminal and is safe to stop. The transcript stays, so the chat can be resumed; a forced stop can lose the line Claude Code was writing. Shells the session started in their own process groups get no signal from the server and may keep running.
 
 | Status | Meaning |
 |--------|---------|
-| 200 | The stop request completed. The body is `{forced?, stillRunning?}`: `forced` when the process ignored SIGTERM and got SIGKILL, `stillRunning` when even that did not end it. |
+| 200 | The stop request completed. The body is `{forced?, stillRunning?}`: `forced` when the server sent SIGKILL, `stillRunning` when the process is still running. |
 | 400 | The request body or a field is invalid. |
 | 409 | The server refused, for example because the session no longer runs in a terminal here, its process changed, or this server is already stopping it. |
 | 500 | The server could not complete the stop. |
