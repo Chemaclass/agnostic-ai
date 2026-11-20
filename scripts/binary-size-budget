@@ -983,7 +983,6 @@
 # slices.Backward and other generic helpers) add 20480 bytes over main;
 # stringsseq stays off because it alone added about 65 KB. Allow 8192
 # bytes, rounded up to a 4096-byte page.
-# #3750 measured 27222176 bytes on CI, where main a4439281b measured
-# 27213984 (already over): doctor runs sync's hand-written file guards
-# and warns once per missing pack. Rounded up to a 4096-byte page.
+# Main at a4439281b measures 27213984 bytes after the QA fix round
+# (#3726 to #3748). Allow 8192 bytes, rounded up to a 4096-byte page.
 27226112
