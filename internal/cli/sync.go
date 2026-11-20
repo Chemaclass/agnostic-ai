@@ -128,7 +128,17 @@ func previewDrift(cfg *config.Config, bundle spec.Bundle, targets []string, back
 			return nil, syncDrops{}, nil, err
 		}
 	}
-	reports, err := collectLoadedDriftWith(ledger, cfg, bundle, targets, nil, gitignoreFlag)
+	var guard func(*targetRenders, *config.Config) error
+	if opts.tree == nil {
+		guard = func(renders *targetRenders, readerCfg *config.Config) error {
+			readers := targets
+			if len(readers) == 0 {
+				readers = readerCfg.Targets
+			}
+			return keepHandWrittenMCPFiles(renders, readerCfg, readers, ledger.state.Outputs, backup, false)
+		}
+	}
+	reports, err := collectGuardedDrift(ledger, cfg, bundle, targets, nil, gitignoreFlag, guard)
 	if err != nil {
 		return nil, syncDrops{}, nil, err
 	}
@@ -192,6 +202,11 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 		}
 		tree = entered
 		defer tree.leave()
+	}
+	if tree == nil {
+		if err := stopOnMissingPacks("."); err != nil {
+			return err
+		}
 	}
 	// The state file lists every output, so one read serves the
 	// whole run. --against reads the trees it enters instead.
@@ -280,6 +295,9 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 // fixed order so the first conflict named stays the same. --global
 // checks the rest of its flags itself.
 func validateSyncFlags(f syncFlags) error {
+	if f.jobs < 0 {
+		return errs.Coded(errs.CodeFlagConflict, "--jobs: want 0 (one per CPU) or more, got %d", f.jobs)
+	}
 	if f.allowEmptyTargets && (f.check || f.plan || f.watch || f.global) {
 		return errs.Coded(errs.CodeFlagConflict, "--allow-empty-targets cannot be combined with --check, --plan, --watch, or --global")
 	}

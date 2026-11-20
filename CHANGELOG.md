@@ -8,7 +8,15 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064. No tool behavior changes yet (#3700).
+- A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
+- `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `sync --jobs -1` fails with AAI-302, `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
+- From a subfolder of a project, `status`, `init`, `doctor`, `packs list` and `use` name the project with one sentence (#3749).
+- Cline: the note that some hook events run in the CLI only no longer prints when `outputs.cline.hooks-dir` is `.cline/hooks`, a folder only the CLI reads (#3749).
+- The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
+- `validate` fails with AAI-102 for outputs that differ only in letter case on a filesystem where case does not count, the clash `sync` already rejects (#3733).
 - `sync` and `doctor --fix` no longer lose a hand edit made through a symlinked output. When the link points inside the project, the edit is saved as `<path>.bak`, as for a regular file (#3736).
+- `import` right after `sync` keeps an escaped MCP value such as `$${GITHUB_TOKEN}` escaped instead of turning it into a reference to the variable, on every tool that writes it as `${GITHUB_TOKEN}` (#3741).
 - `doctor` no longer fails when `CODEX_HOME` does not exist yet and the project has no Codex hooks file. `doctor --fix` saves each hand-edited file as `<path>.bak` before writing, as `sync` does (#3707).
 - From a subfolder of a project, a missing-config error (AAI-003), `doctor`, `import`, `packs list` and `packs update` name the project folder instead of suggesting `init`; `import` no longer leaves a lock file and `.gitignore` there; and `init` refuses to start a second project there, as `use` does (#3706).
 - `validate` fails when two specs of one kind share a name in one layer, and `sync` warns, naming the file that reaches no tool. `new` says when no enabled target reads the kind it wrote, and `validate` offers `--fix` only when an issue is autofixable (#3705).
@@ -18,10 +26,19 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Authority notes and opt-in links point directly to the reference pages that explain their settings (#3553).
 - A conversation request that names an unknown tool now gets an error that lists all four accepted tools: claude, codex, cursor and chatgpt (#3622).
 - Import writes a tool's own model only for that tool, as `model: {<tool>: <name>}`, so another tool no longer gets a model it cannot run. This covers agents and commands from every importer, and the Gemini, OpenCode, Copilot, Junie, Kilo, Qoder, Factory, Qwen, Pi and Vibe settings (#3703).
+- `revert --force` no longer deletes `.agnostic-ai/AGNOSTIC_AI.md`, the note you write, or other files in `.agnostic-ai/` and the spec folders an `outputs` path points into, and `revert` prints how many files it restored and removed for each target (#3701).
+- On a fresh clone, `sync`, `sync --check`, `doctor --fix`, `use`, and `upgrade --requires` stop and name each pack `agnostic.packs.lock` lists but `.agnostic-ai/packs/` lacks, with `agnostic-ai packs update` as the fix. Before, they removed every file those packs generated. A lockfile that does not parse now stops them as well (#3712).
 - `sync -t claude` and `sync --check -t claude` write and expect the same `CLAUDE.md` as a full sync when another target writes `AGENTS.md`, so the two checks no longer fail each other (#3714).
 - `sync --plan` lists the `.gitignore` and `.worktreeinclude` changes sync makes, and `init --dry-run` lists the `.gitignore` init writes. `init` in an existing project fails before it picks targets (#3714).
 - `hook run` checks a command inside escaped backticks or an escaped `$()` within backticks, as bash runs it, for a Claude Code `if: "Bash(...)"` rule, and runs the hook when an escaped backtick leaves a substitution open (#3681).
 - `hook run` checks more commands for a Claude Code `if: "Bash(...)"` rule as bash runs them: a command name with a backslash or quotes (`\git push`), a line continuation, an empty substitution before the command, a redirection before it (`2>&1 git push`), substitutions in a here-document body, and commands after a quote inside a comment or here-document. `eval`, and a command name built by a substitution or variable, always run the hook (#3698).
+- `explain rules/tone.md` and `explain rules/tone.md --layers` find `.agnostic-ai/rules/tone.md`, as the help and docs show; `explain tone` suggests the file. An unknown error code links the public error page (#3709).
+- `sync --jobs` rejects a negative count, and `sync --watch` prints one summary at start instead of two (#3709).
+- After a first sync, the list of what each tool reads names where rules and skills land for tools such as Codex, Cursor, Cline and Kiro, where it showed a blank (#3709).
+- `migrate` lists aliases it keeps in a rewritten file under that file's rewrite line, and a re-run says nothing for a skill it already rewrote (#3709).
+- `memory lint` with `memory.personal: repo` names the personal folder it looked in (#3709).
+- `packs add` says `reinstalled` for an installed pack and names a missing folder once; `packs list` shows no `@HEAD` for a local folder (#3709).
+- Shell completion offers source names after `import`, and `completion` with an unknown shell exits non-zero (#3709).
 
 - Kiro and Vibe hooks, Junie agent names, Qwen settings effort, and Copilot skill imports follow current native formats.
 - `agnostic-ai import` with several sources, or `all`, prints its next steps once at the end and no longer suggests importing a tool the same run imported. `import kimi` and `import vibe` now print them too (#3619).
@@ -118,6 +135,15 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### OpenCode
 
 - Import preserves OpenCode V2's choice when `.agents` and `.claude` define the same skill.
+- `import opencode` reads the legacy `.opencode/agent/` and `.opencode/command/` folders, which `doctor` now lists, and keeps `"enabled": true` on an MCP server, with no replace warning on the next sync (#3702).
+
+#### Cursor
+
+- `import cursor` reads `.cursor/mcp.json` and `.cursorrules`. `sync` stops instead of replacing an MCP file it did not write when the file names servers no spec has, and `doctor` lists that file as unmanaged (#3702).
+
+#### Copilot
+
+- `import copilot` reads `.github/prompts/*.prompt.md` as commands, and `doctor` lists prompt files not yet imported (#3702).
 
 #### Grok
 

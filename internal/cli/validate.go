@@ -49,6 +49,8 @@ func newValidateCmd() *cobra.Command {
 				// A user or plugin skill is valid and invisible here.
 				reportNotes(cmd, agentSkillTypos(b))
 			}
+			_, notes := splitOrphanIgnores(lintOrphanKinds(b, scope.targets, scope.support))
+			reportNotes(cmd, notes)
 			issues := scopeValidationIssues(scope)
 			if len(entries) == 0 {
 				reportIssues(cmd, issues)
@@ -86,15 +88,25 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	var scopeIssues []validationIssue
 	if scope.global {
 		scopeIssues = lintGlobalRules(b.Rules, scope.targets)
+		if _, err := config.LoadHomeApprovals(scope.source); err != nil {
+			scopeIssues = append(scopeIssues, validationIssue{Path: globalConfigPaths(scope.source)[0], Field: "approvals", Message: err.Error()})
+		}
 		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 	} else {
 		scopeIssues = lintEntryPointFences(".", scope.cfg)
+		scopeIssues = append(scopeIssues, approvalsValidationIssues(".")...)
 		for _, conflict := range sharedRulesFileConflicts(scope.cfg, scope.bundle, scope.targets) {
 			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "rules-file", Message: conflict})
 		}
 		cfg := scope.cfg.WithAdditionalTargets(scope.targets...)
 		entryFiles, _ := renderEntryPointFiles(cfg, b, cfg.Targets, "")
-		if err := outputPathCollisions(".", cfg, nil, entryFiles, nil); err != nil {
+		var owners map[string][]string
+		// Only a filesystem where case does not count stores two such
+		// spellings as one file, so a case-sensitive one skips the render.
+		if caseInsensitiveFS(".") {
+			owners = renderedOwners(cfg, newTargetRenders(cfg, b), cfg.Targets)
+		}
+		if err := outputPathCollisions(".", cfg, owners, entryFiles, nil); err != nil {
 			scopeIssues = append(scopeIssues, validationIssue{Path: config.ConfigFileName, Field: "outputs", Message: err.Error()})
 		}
 	}
@@ -104,7 +116,8 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	issues := shadowedSpecIssues(b)
 	issues = append(issues, lintEntries(entries)...)
 	issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
-	issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
+	orphans, _ := splitOrphanIgnores(lintOrphanKinds(b, scope.targets, scope.support))
+	issues = append(issues, orphans...)
 	if !scope.global {
 		issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
 		issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
@@ -340,6 +353,19 @@ func lintOrphanKinds(b spec.Bundle, targets []string, support kindSupport) []val
 		})
 	}
 	return out
+}
+
+// splitOrphanIgnores moves an ignore kind no target reads out of the
+// failing issues: lint and sync accept it, so validate only notes it.
+func splitOrphanIgnores(orphans []validationIssue) (issues, notes []validationIssue) {
+	for _, o := range orphans {
+		if o.Field == string(spec.KindIgnore) {
+			notes = append(notes, o)
+			continue
+		}
+		issues = append(issues, o)
+	}
+	return issues, notes
 }
 
 // hookEventAlias returns the first enabled target that accepts event as

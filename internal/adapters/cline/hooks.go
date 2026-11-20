@@ -92,7 +92,8 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		}
 	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
-	files := renderHookFiles(hooks, "")
+	// Only the default folder is one the VS Code extension reads too.
+	files := renderHookFiles(hooks, "", filepath.ToSlash(filepath.Clean(dir)) == defaultHooksDir)
 	if runtime.GOOS == "windows" {
 		files = append(files, renderWindowsHookFiles(hooks)...)
 	}
@@ -113,7 +114,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 }
 
 func GlobalHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
-	return renderHookFiles(GlobalSDKHooks(hooks), scriptsDir)
+	return renderHookFiles(GlobalSDKHooks(hooks), scriptsDir, false)
 }
 
 func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
@@ -130,7 +131,7 @@ func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
 	return filtered
 }
 
-func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScript {
+func renderHookFiles(hooks []spec.Entry, globalScriptsDir string, noteVSCodeGap bool) []emit.HookScript {
 	commands := map[string][]hookCommand{}
 	var order []string
 	var unmapped, matchers, timeouts, inert, cliOnly int
@@ -158,7 +159,7 @@ func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScr
 		if clineInertHookEvents[canonical] {
 			inert++
 		}
-		if clineCLIOnlyHookEvents[canonical] && globalScriptsDir == "" {
+		if clineCLIOnlyHookEvents[canonical] && noteVSCodeGap {
 			cliOnly++
 		}
 		if _, seen := commands[canonical]; !seen {

@@ -58,6 +58,9 @@ func TestExplain_LintCode_Unknown(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "unknown lint code") {
 		t.Fatalf("expected unknown-lint-code error, got %v", err)
 	}
+	if !strings.Contains(err.Error(), "/docs/cli-reference/lint-codes/") {
+		t.Errorf("error should link the lint-code list: %v", err)
+	}
 }
 
 // Every code lint can raise needs an explain entry and a row on the

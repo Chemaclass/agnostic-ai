@@ -34,7 +34,7 @@ try {
     configFile: join(root, 'vite.config.ts'),
     envDir: false,
     base: '/',
-    define: { 'import.meta.env.VITE_DEFAULT_SOURCE': 'undefined' },
+    define: { 'import.meta.env.VITE_DEFAULT_SOURCE': 'undefined', 'import.meta.env.VITE_SERVED': 'true' },
     build: { outDir: output, emptyOutDir: true },
   })
   const notices = []

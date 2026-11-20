@@ -37,6 +37,9 @@ func runUpgradeRequires() error {
 	if _, _, err := config.ResolveConfigPath("."); err != nil {
 		return err
 	}
+	if err := stopOnMissingPacks("."); err != nil {
+		return err
+	}
 	lock, err := acquireLedgerLock(".", "upgrade --requires")
 	if err != nil {
 		return err

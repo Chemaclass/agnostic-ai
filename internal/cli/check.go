@@ -243,6 +243,12 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets []string, 
 }
 
 func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
+	return collectGuardedDrift(ledger, loaded, b, targets, entryPointTargets, gitignoreFlag, nil)
+}
+
+// collectGuardedDrift is collectLoadedDriftWith with a guard that sees
+// the run's renders first and can stop the preview.
+func collectGuardedDrift(ledger ledgerSnapshot, loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string, guard func(*targetRenders, *config.Config) error) ([]driftReport, error) {
 	reports := make([]driftReport, 0, len(targets))
 	view := *loaded
 	cfg := &view
@@ -261,6 +267,11 @@ func collectLoadedDriftWith(ledger ledgerSnapshot, loaded *config.Config, b spec
 	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
 	renders := newTargetRenders(readerCfg, b)
+	if guard != nil {
+		if err := guard(renders, readerCfg); err != nil {
+			return nil, err
+		}
+	}
 	found, err := findRenderedCollisions(renders, readerCfg, targets, ".", state.Backups)
 	if err != nil {
 		return nil, err

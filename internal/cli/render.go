@@ -137,6 +137,9 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 	if _, err := os.Stat(input); err == nil {
 		return spec.Entry{}, fmt.Errorf("%s exists but is not loaded as a spec; ensure it lives under a configured source directory and uses a recognized extension", input)
 	}
+	if e, ok := entryUnderSpecRoot(input, all); ok {
+		return e, nil
+	}
 	base := filepath.Base(input)
 	var hints []string
 	for _, e := range all {
@@ -144,11 +147,45 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 			hints = append(hints, entrySourceText(e))
 		}
 	}
+	if len(hints) == 0 {
+		for _, e := range all {
+			if e.Name == input {
+				hints = append(hints, entrySourceText(e))
+			}
+		}
+	}
 	sort.Strings(hints)
 	if len(hints) > 0 {
 		return spec.Entry{}, fmt.Errorf("spec %q not found. Did you mean: %s", input, strings.Join(hints, ", "))
 	}
 	return spec.Entry{}, fmt.Errorf("spec %q not found", input)
+}
+
+// entryUnderSpecRoot finds the one spec whose path ends in input, so
+// rules/tone.md names .agnostic-ai/rules/tone.md. Among several layers,
+// such as a pack, the project spec, and its local/ layer, the project spec
+// wins. A bare file name resolves to none.
+func entryUnderSpecRoot(input string, all []spec.Entry) (spec.Entry, bool) {
+	rel := filepath.ToSlash(filepath.Clean(input))
+	if filepath.IsAbs(input) || !strings.Contains(rel, "/") || strings.HasPrefix(rel, "../") {
+		return spec.Entry{}, false
+	}
+	var found []spec.Entry
+	for _, e := range all {
+		if strings.HasSuffix(filepath.ToSlash(e.Path), "/"+rel) {
+			found = append(found, e)
+		}
+	}
+	if len(found) == 1 {
+		return found[0], true
+	}
+	project := filepath.Join(config.SourceBaseDir, filepath.FromSlash(rel))
+	for _, e := range found {
+		if filepath.Clean(e.Path) == project {
+			return e, true
+		}
+	}
+	return spec.Entry{}, false
 }
 
 // entryPointRuleFile returns the entry-point contribution a rule spec

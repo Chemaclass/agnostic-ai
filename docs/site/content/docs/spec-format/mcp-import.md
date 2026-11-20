@@ -19,6 +19,7 @@ Import cannot tell a token from a plain setting in a spec that will be committed
 - `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set. Mark it [`!literal`](@/docs/spec-format/mcps.md#plain-settings) by hand to put it back.
 - A tool's own reference form in `env`, `headers`, `url`, and `args` is read back as `${NAME}`.
 - A `${NAME}` in a field the tool never expands becomes [`$${NAME}`](@/docs/spec-format/mcps.md#literal-text).
+- A `${NAME}` in a field the tool expands stays a reference. Sync writes a spec's `$${NAME}` there as `${NAME}`, since no tool can hold a literal `${`, so import puts the `$${NAME}` back when the spec it replaces held it. The [per-tool table](@/docs/spec-format/mcps-reference.md#environment-references-by-target) shows which fields each tool expands.
 - A server that still holds a literal credential after the rewrite is left out. Import names the server and field.
 
 {% <details summary="Details: native reference forms and fields a tool never expands"> %}
