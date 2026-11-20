@@ -46,7 +46,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 - Without a terminal, `--fix` keeps them and explains why. It exits non-zero while any orphan remains.
 - `--backup` also covers removing a confirmed orphan or confirmed skill overrides.
 - A hand-edited file whose `<path>.bak` already holds an earlier edit is kept, and `--fix` fails until you move both into `.agnostic-ai/` and delete the `.bak`.
-- An edit made through a symlinked output is overwritten with no `.bak`, as `sync` does today.
+- An edit made through a symlinked output is handled as `sync` handles it. See [hand edits](@/docs/cli-reference/sync.md#hand-edits).
 - With `--scope project`, Codex hook trust shows `SKIPPED` in text. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and an empty `hook_trust`.
 - `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 - When sync removes unchanged managed keys from a shared settings file but keeps your keys and edits, doctor reports the file as out of date. JSON reports its action as `stale`.
@@ -67,7 +67,7 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 | **Claude hook specs** | A hook spec that runs its commands twice (see below). | No |
 | **Nested CLAUDE.md** | A hand-written `<dir>/CLAUDE.md` that repeats a scoped rule. | Yes, `--fix` removes it |
 | **Script divergence** | Same-named hook scripts with different bodies across tools. | Yes, no automatic fix |
-| **Unmanaged config** | Markdown and TOML config with no generated-file marker, grouped by the `import` source that adopts each. | No |
+| **Unmanaged config** | Markdown and TOML config with no generated-file marker, a `.cursor/mcp.json` that names a server no spec has, and files sync never writes (such as `.cursorrules` or `.github/prompts/*.prompt.md`) until import has written their spec. Grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
 | **Global names** | A project skill or agent sharing a name with one in `~/.agnostic-ai/`, and which wins per tool. | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. | Never |
