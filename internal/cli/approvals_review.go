@@ -16,12 +16,13 @@ type nativeReviewer struct {
 	value     any
 }
 
-// nativeReviewers carry out review. Claude Code honors auto mode only
-// from user, policy, or flag settings, and Codex reads approvals_reviewer
-// from config.toml, so both live in user files that sync --global owns.
+// nativeReviewers carry out review, each through a key in the user
+// settings file sync --global owns. Claude Code honors auto mode only from
+// user, policy, or flag settings.
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
 	"codex":  {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review"},
+	"qwen":   {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto"},
 }
 
 // homeToolMode is the mode the home config gives tool everywhere, which

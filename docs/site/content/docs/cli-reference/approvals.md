@@ -21,7 +21,7 @@ agnostic-ai approvals ask             # show every prompt again
 
 ## approvals status
 
-Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line says so. Claude Code and Codex have a route for `review`: their own reviewer, which [`sync --global` turns on](@/docs/global-configuration-reference.md#global-approvals-review). No tool has a route for `yolo` yet.
+Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line says so. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --global` turns on. No tool has a route for `yolo` yet.
 
 A `note:` line under a tool says what keeps its reviewer from matching the mode: the key is missing or set to another value in the user settings file (then `effective` is `ask`), Codex `approval_policy = "never"` stops Auto-review from running, or the reviewer stays on where the mode is not `review`, because `sync --global` wrote the key or, for Codex, it was set by hand.
 
