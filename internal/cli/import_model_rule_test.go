@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -67,6 +68,7 @@ func TestImport_ModelFollowsOneRuleForEveryFormat(t *testing.T) {
 }
 
 func checkModelRule(t *testing.T, c modelRuleCase) {
+	t.Helper()
 	switch {
 	case c.source == "claude" && len(c.imports[0]) > 1:
 		t.Skip("the same source twice")
@@ -152,16 +154,14 @@ func checkModelRule(t *testing.T, c modelRuleCase) {
 		entries := map[string]any{}
 		switch m := before["model"].(type) {
 		case map[string]any:
-			for k, v := range m {
-				entries[k] = v
-			}
+			maps.Copy(entries, m)
 		case string:
 			entries["default"] = m
 		}
 		for _, target := range importModelTargets(c.source) {
 			entries[target] = "m-new"
 		}
-		if !reflect.DeepEqual(after["model"], map[string]any(entries)) {
+		if !reflect.DeepEqual(after["model"], entries) {
 			t.Errorf("model: got %v, want %v\n%s", after["model"], entries, readFile(t, spec))
 		}
 	}
