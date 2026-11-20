@@ -25,7 +25,7 @@ The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional: targets, builtins, requires, lint, on-unsupported, models
+├── agnostic-ai.yaml        # optional: targets, builtins, requires, lint, on-unsupported, models, approvals
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
