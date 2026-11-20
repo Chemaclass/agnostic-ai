@@ -8,15 +8,53 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 )
 
-func TestQwenSettingsFiles(t *testing.T) {
-	env := map[string]string{"QWEN_CODE_SYSTEM_SETTINGS_PATH": "/custom/settings.json"}
-	got := approvals.QwenSettingsFiles("/home/me/.qwen", "/work/repo/sub", "linux", func(k string) string { return env[k] })
-	want := []string{"/etc/qwen-code/system-defaults.json", "/home/me/.qwen/settings.json", "/.qwen/settings.json", "/work/.qwen/settings.json", "/work/repo/.qwen/settings.json", "/work/repo/sub/.qwen/settings.json", "/custom/settings.json"}
-	if !slices.Equal(got, want) {
-		t.Errorf("files = %v, want %v in precedence order", got, want)
+func TestQwenSettingsFiles_DerivesDefaultsBesideSystemSettings(t *testing.T) {
+	root := t.TempDir()
+	user := filepath.Join(root, "home", ".qwen")
+	project := filepath.Join(root, "project")
+	cwd := filepath.Join(project, "sub")
+	systemDir := filepath.Join(root, "system")
+	systemFile := filepath.Join(systemDir, "custom.json")
+	env := map[string]string{"QWEN_CODE_SYSTEM_SETTINGS_PATH": systemFile}
+	files, err := approvals.QwenSettingsFiles(user, cwd, "linux", func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
 	}
-	if mac := approvals.QwenSettingsFiles("/u", "/w", "darwin", func(string) string { return "" }); !slices.Contains(mac, "/Library/Application Support/QwenCode/settings.json") {
-		t.Errorf("macOS files %v miss the system file", mac)
+	want := []string{
+		filepath.Join(systemDir, "system-defaults.json"),
+		filepath.Join(user, "settings.json"),
+		filepath.Join(project, ".qwen", "settings.json"),
+		filepath.Join(cwd, ".qwen", "settings.json"),
+		systemFile,
+	}
+	last := -1
+	for _, path := range want {
+		i := slices.Index(files, path)
+		if i <= last {
+			t.Errorf("files %v lack %s in precedence order", files, path)
+		}
+		last = i
+	}
+	env["QWEN_CODE_SYSTEM_DEFAULTS_PATH"] = filepath.Join(root, "explicit-defaults.json")
+	files, err = approvals.QwenSettingsFiles(user, cwd, "linux", func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 || files[0] != env["QWEN_CODE_SYSTEM_DEFAULTS_PATH"] {
+		t.Errorf("files %v do not start with the explicit defaults file", files)
+	}
+}
+
+func TestQwenSettingsFiles_RejectsRelativeSystemPaths(t *testing.T) {
+	for _, variable := range []string{"QWEN_CODE_SYSTEM_SETTINGS_PATH", "QWEN_CODE_SYSTEM_DEFAULTS_PATH"} {
+		t.Run(variable, func(t *testing.T) {
+			root := t.TempDir()
+			env := map[string]string{variable: "settings.json"}
+			files, err := approvals.QwenSettingsFiles(root, root, "linux", func(k string) string { return env[k] })
+			if err == nil || files != nil {
+				t.Errorf("files = %v, err = %v, want no files and an error", files, err)
+			}
+		})
 	}
 }
 

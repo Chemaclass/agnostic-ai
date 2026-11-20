@@ -161,7 +161,7 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		if !ok {
 			return approvals.ClaudeSettings{}, false
 		}
-		settings, err := approvals.ReadQwenSettings(approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv))
+		settings, err := readQwenApprovalSettings(dir, cwd)
 		return approvals.ClaudeSettings{}, err == nil && !settings.Ask
 	case "claude":
 	default:

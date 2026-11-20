@@ -347,6 +347,14 @@ func kiroHookProblem(notSynced string) string {
 	return ""
 }
 
+func readQwenApprovalSettings(dir, cwd string) (approvals.QwenSettings, error) {
+	files, err := approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv)
+	if err != nil {
+		return approvals.QwenSettings{}, err
+	}
+	return approvals.ReadQwenSettings(files)
+}
+
 // qwenAskProblem says why the Qwen Code hook cannot approve: hooks are
 // off, a permissions.ask rule turns it off, or Qwen Code runs in a mode
 // in which the hook stays silent.
@@ -362,7 +370,7 @@ func qwenAskProblem() string {
 	}
 	dir, _ := qwenUserDir(home)
 	cwd, _ := os.Getwd()
-	settings, err := approvals.ReadQwenSettings(approvals.QwenSettingsFiles(dir, cwd, runtime.GOOS, os.Getenv))
+	settings, err := readQwenApprovalSettings(dir, cwd)
 	switch {
 	case err != nil:
 		return "cannot read the Qwen Code settings: " + err.Error()

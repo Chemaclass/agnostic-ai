@@ -12,24 +12,31 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
-// QwenSettingsFiles lists the Qwen Code settings files that may apply to
-// a session in cwd, lowest precedence first: the system defaults file,
-// the user file in userDir, .qwen/settings.json in every folder from the
-// root down to cwd, and the system file. The two system files move to
-// the paths their environment variables name
-// (docs/users/configuration/settings.md).
-func QwenSettingsFiles(userDir, cwd, goos string, getenv func(string) string) []string {
-	system := map[string]string{"linux": "/etc/qwen-code", "darwin": "/Library/Application Support/QwenCode"}[goos]
-	systemFile := func(env, name string) []string {
-		if path := getenv(env); path != "" {
-			return []string{path}
-		}
-		if system != "" {
-			return []string{filepath.Join(system, name)}
-		}
-		return nil
+// QwenSettingsFiles lists the Qwen Code settings files in precedence order.
+// Unless set explicitly, system defaults live beside the system settings file.
+func QwenSettingsFiles(userDir, cwd, goos string, getenv func(string) string) ([]string, error) {
+	const settingsEnv = "QWEN_CODE_SYSTEM_SETTINGS_PATH"
+	const defaultsEnv = "QWEN_CODE_SYSTEM_DEFAULTS_PATH"
+	settings, defaults := getenv(settingsEnv), getenv(defaultsEnv)
+	if settings != "" && !filepath.IsAbs(settings) {
+		return nil, fmt.Errorf("%s is not an absolute path", settingsEnv)
 	}
-	files := systemFile("QWEN_CODE_SYSTEM_DEFAULTS_PATH", "system-defaults.json")
+	if defaults != "" && !filepath.IsAbs(defaults) {
+		return nil, fmt.Errorf("%s is not an absolute path", defaultsEnv)
+	}
+	if settings == "" {
+		settings = map[string]string{
+			"linux":  "/etc/qwen-code/settings.json",
+			"darwin": "/Library/Application Support/QwenCode/settings.json",
+		}[goos]
+	}
+	if defaults == "" && settings != "" {
+		defaults = filepath.Join(filepath.Dir(settings), "system-defaults.json")
+	}
+	var files []string
+	if defaults != "" {
+		files = append(files, defaults)
+	}
 	files = append(files, filepath.Join(userDir, "settings.json"))
 	if filepath.IsAbs(cwd) {
 		var project []string
@@ -42,7 +49,10 @@ func QwenSettingsFiles(userDir, cwd, goos string, getenv func(string) string) []
 		slices.Reverse(project)
 		files = append(files, project...)
 	}
-	return append(files, systemFile("QWEN_CODE_SYSTEM_SETTINGS_PATH", "settings.json")...)
+	if settings != "" {
+		files = append(files, settings)
+	}
+	return files, nil
 }
 
 // QwenSettings is what the hook needs from Qwen Code's settings files.
