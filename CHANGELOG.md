@@ -11,7 +11,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - New `approvals` setting: ask you, let a tool's own reviewer decide, or let a Claude Code or Codex hook approve safe calls, not on Windows (#3700).
 - The companion lists Claude app chats, Cowork tasks and ChatGPT desktop chats beside your coding sessions, read from this computer (#3511).
 - Ctrl+Alt+V sends copied text to a chat from any app; on macOS it is typed into live Claude Code or Codex tabs in Terminal or Ghostty (#3517, #3550).
-- On macOS, `companion install` downloads the app the release built and checks it, so a released CLI no longer needs Go or Xcode tools (#3516).
+- On macOS, `companion install` from a released CLI downloads the companion the release built and checks it, with no Go or Xcode tools (#3516).
 - `sync` stops when a locked pack is missing, instead of deleting its files, and refuses an output path that points into the source folder (#3712, #3740).
 
 ### General
