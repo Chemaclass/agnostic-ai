@@ -22,9 +22,9 @@ func windowsCheckout(t *testing.T, settings map[string]string, attributes string
 	for k, v := range settings {
 		git(t, dir, "config", k, v)
 	}
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), againstConfig("instructions"))
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), againstConfig("instructions"))
 	if attributes != "" {
-		mustWriteFile(t, filepath.Join(dir, ".gitattributes"), attributes)
+		writeFile(t, filepath.Join(dir, ".gitattributes"), attributes)
 	}
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -106,7 +106,7 @@ func TestSyncCheck_NamesCoreSymlinksForASpecLinkCheckedOutAsAPlainFile(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(dir, "shared", "instructions.md"), string(data)+"\nShared line.\n")
+	writeFile(t, filepath.Join(dir, "shared", "instructions.md"), string(data)+"\nShared line.\n")
 	if err := os.Remove(entry); err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestSyncCheckAgainst_KeepsTheCommitStepForCRLFGitStores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, path, strings.ReplaceAll(string(data), "\n", "\r\n"))
+	writeFile(t, path, strings.ReplaceAll(string(data), "\n", "\r\n"))
 	git(t, dir, "commit", "-q", "-am", "crlf")
 	for _, format := range []string{"human", "github"} {
 		t.Run(format, func(t *testing.T) {

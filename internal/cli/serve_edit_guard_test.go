@@ -32,8 +32,8 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 		}, path: editFieldPath, body: field, guarded: ".agnostic-ai/settings/defaults.yaml"},
 		{name: "local folder linked to a configured source", setup: func(t *testing.T, _ string) {
 			t.Helper()
-			mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\nsources:\n  settings: shared/settings\n")
-			mustWrite(t, "shared/settings/defaults.yaml", "name: defaults\ndescription: Team defaults.\nmodel: sonnet\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\nsources:\n  settings: shared/settings\n")
+			writeFile(t, "shared/settings/defaults.yaml", "name: defaults\ndescription: Team defaults.\nmodel: sonnet\n")
 			link(t, "../shared", ".agnostic-ai/local")
 		}, path: editFieldPath, body: `{"audience":"personal","path":"shared/settings/defaults.yaml","key":"model","value":"opus"}`, guarded: "shared/settings/defaults.yaml"},
 		{name: "personal config linked to the team config", setup: func(t *testing.T, _ string) {
@@ -47,7 +47,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 		{name: "tracked personal file", setup: func(t *testing.T, root string) {
 			t.Helper()
 			isolateGit(t)
-			mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nmodel: haiku\n")
+			writeFile(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nmodel: haiku\n")
 			git(t, root, "init", "-q")
 			git(t, root, "add", "-f", ".agnostic-ai/local/settings/defaults.yaml")
 			git(t, root, "commit", "-qm", "tracked")
@@ -55,7 +55,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 		{name: "tracked personal targets file", setup: func(t *testing.T, root string) {
 			t.Helper()
 			isolateGit(t)
-			mustWrite(t, "agnostic-ai.local.yaml", "targets: [claude]\n")
+			writeFile(t, "agnostic-ai.local.yaml", "targets: [claude]\n")
 			git(t, root, "init", "-q")
 			git(t, root, "add", "-f", "agnostic-ai.local.yaml")
 			git(t, root, "commit", "-qm", "tracked")
@@ -101,7 +101,7 @@ func TestGitTracks_MatchesATrackedPathInAnyCase(t *testing.T) {
 	isolateGit(t)
 	root := t.TempDir()
 	git(t, root, "init", "-q")
-	mustWrite(t, filepath.Join(root, "AGNOSTIC-AI.LOCAL.YAML"), "builtins: []\n")
+	writeFile(t, filepath.Join(root, "AGNOSTIC-AI.LOCAL.YAML"), "builtins: []\n")
 	git(t, root, "add", "AGNOSTIC-AI.LOCAL.YAML")
 	git(t, root, "commit", "-qm", "tracked")
 	if err := os.Remove(filepath.Join(root, "AGNOSTIC-AI.LOCAL.YAML")); err != nil {

@@ -11,10 +11,10 @@ import (
 func syncedTyposProject(t *testing.T) []string {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/pr-sweep/SKILL.md", "---\nname: pr-sweep\ndescription: Sweep PRs.\n---\nSweep.\n")
-	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\n---\nReview.\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: PreToolUse\ncommand: \"echo hi\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, ".agnostic-ai/skills/pr-sweep/SKILL.md", "---\nname: pr-sweep\ndescription: Sweep PRs.\n---\nSweep.\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: PreToolUse\ncommand: \"echo hi\"\n")
 	runSyncOK(t)
 	return readStateFile(".").Outputs
 }
@@ -41,7 +41,7 @@ func assertTypoRejected(t *testing.T, outputs []string, want string) {
 // only validate caught it (#1591).
 func TestSync_MistypedHookEventFailsBeforeAnyWrite(t *testing.T) {
 	outputs := syncedTyposProject(t)
-	mustWriteFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: PreToolUze\ncommand: \"echo hi\"\n")
+	writeFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: PreToolUze\ncommand: \"echo hi\"\n")
 
 	assertTypoRejected(t, outputs, `hook event "PreToolUze" (did you mean PreToolUse?)`)
 }
@@ -50,7 +50,7 @@ func TestSync_MistypedHookEventFailsBeforeAnyWrite(t *testing.T) {
 // typo only warns, in sync and in validate, and never in --json output.
 func TestSync_MistypedAgentSkillWarns(t *testing.T) {
 	syncedTyposProject(t)
-	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\nskills: [pr-swep]\n---\nReview.\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\nskills: [pr-swep]\n---\nReview.\n")
 	log := captureLog(t)
 
 	runSyncOK(t)
@@ -71,7 +71,7 @@ func TestSync_MistypedAgentSkillWarns(t *testing.T) {
 // or plugin skill, so only a likely typo of a project skill fails.
 func TestSync_AgentSkillFromOutsideTheProjectPasses(t *testing.T) {
 	syncedTyposProject(t)
-	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\nskills: [pr-sweep, deploy-to-prod, tools:pr-swep]\n---\nReview.\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\nskills: [pr-sweep, deploy-to-prod, tools:pr-swep]\n---\nReview.\n")
 
 	runSyncOK(t)
 }
@@ -80,7 +80,7 @@ func TestSync_AgentSkillFromOutsideTheProjectPasses(t *testing.T) {
 // not a typo.
 func TestSync_AnotherToolsHookEventPasses(t *testing.T) {
 	syncedTyposProject(t)
-	mustWriteFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: beforeShellExecution\ncommand: \"echo hi\"\n")
+	writeFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: beforeShellExecution\ncommand: \"echo hi\"\n")
 
 	runSyncOK(t)
 }
@@ -88,7 +88,7 @@ func TestSync_AnotherToolsHookEventPasses(t *testing.T) {
 // OpenHands names events in snake_case, so session_start is known.
 func TestSync_SnakeCaseHookEventPasses(t *testing.T) {
 	syncedTyposProject(t)
-	mustWriteFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: session_start\ncommand: \"echo hi\"\n")
+	writeFile(t, ".agnostic-ai/hooks/notify.yaml", "name: notify\nevent: session_start\ncommand: \"echo hi\"\n")
 
 	runSyncOK(t)
 }

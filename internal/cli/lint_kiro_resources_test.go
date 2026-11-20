@@ -11,8 +11,8 @@ const kiroHelperAgent = "---\nname: helper\ndescription: Helps.\nx-kiro:\n  reso
 func kiroResourcesProject(t *testing.T, targets, resources string) {
 	t.Helper()
 	dir := budgetProject(t, targets)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"), "Always body.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), strings.Replace(kiroHelperAgent, "%s", resources, 1))
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md"), "Always body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), strings.Replace(kiroHelperAgent, "%s", resources, 1))
 }
 
 func TestLint_KiroAgentResourcesWithoutAGENTSMdWarns(t *testing.T) {
@@ -63,8 +63,8 @@ func TestNamesAgentsMd_MatchesResourcesThatLoadTheRootFile(t *testing.T) {
 
 func TestLint_KiroAgentResourcesWithOnlyScopedRulesIsClean(t *testing.T) {
 	dir := budgetProject(t, "targets: [codex, kiro]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nglobs: [\"**/*.go\"]\n---\nGo body.\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), strings.Replace(kiroHelperAgent, "%s", `"file://.kiro/steering/**"`, 1))
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nglobs: [\"**/*.go\"]\n---\nGo body.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), strings.Replace(kiroHelperAgent, "%s", `"file://.kiro/steering/**"`, 1))
 
 	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT029")) != 0 {
 		t.Errorf("fileMatch rules keep their steering files, so nothing is lost:\n%s", out)

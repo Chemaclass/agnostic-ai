@@ -15,11 +15,11 @@ func TestExplainLayers_ResolvesReplacedAndExtendedSources(t *testing.T) {
 	dir := setupExplainFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	writeFile(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
 	pack := ".agnostic-ai/packs/team/rules/no-console-log.md"
 	personal := ".agnostic-ai/local/rules/no-console-log.md"
-	mustWrite(t, pack, "---\nname: no-console-log\n---\nPack rule.\n")
-	mustWrite(t, personal, "---\nname: no-console-log\n---\n::parent\nPersonal rule.\n")
+	writeFile(t, pack, "---\nname: no-console-log\n---\nPack rule.\n")
+	writeFile(t, personal, "---\nname: no-console-log\n---\n::parent\nPersonal rule.\n")
 	var first string
 	for _, selector := range []string{pack, "rules/no-console-log.md", personal, filepath.Join(dir, pack)} {
 		var out bytes.Buffer
@@ -94,8 +94,8 @@ func TestExplainLayers_BuiltinRemainsDiscoverableAfterReplacement(t *testing.T) 
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [handoff]\n")
-	mustWrite(t, ".agnostic-ai/skills/handoff.md", "---\nname: handoff\n---\nProject handoff.\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [handoff]\n")
+	writeFile(t, ".agnostic-ai/skills/handoff.md", "---\nname: handoff\n---\nProject handoff.\n")
 	var out bytes.Buffer
 	root := NewRootCmd("test")
 	root.SetOut(&out)

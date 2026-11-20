@@ -9,7 +9,7 @@ import (
 func mcpTimeoutLintProject(t *testing.T, targets, mcp string) {
 	t.Helper()
 	dir := budgetProject(t, targets)
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "slow.yaml"), "name: slow\ntype: http\nurl: https://x.example/mcp\n"+mcp)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "slow.yaml"), "name: slow\ntype: http\nurl: https://x.example/mcp\n"+mcp)
 }
 
 // A spec imported from Crush or Pi before #2997 holds seconds, such as

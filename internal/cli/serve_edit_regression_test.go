@@ -25,7 +25,7 @@ func TestEditBuiltinRoundTripKeepsUnrelatedBytes(t *testing.T) {
 		t.Run(original, func(t *testing.T) {
 			source := editHome(t)
 			file := filepath.Join(source, "agnostic-ai.yaml")
-			mustWriteGlobalTest(t, file, original)
+			writeFile(t, file, original)
 			if err := os.Chmod(file, 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -84,7 +84,7 @@ func TestEditInheritedBooleanWritesOnlyLocalOverride(t *testing.T) {
 	before, _ := os.ReadFile(shared)
 	local := filepath.Join(source, "local", "settings", "native.yaml")
 	original := "# personal\nx-claude:\n    alwaysThinkingEnabled: true # keep\n"
-	mustWriteGlobalTest(t, local, original)
+	writeFile(t, local, original)
 	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"local/settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
@@ -136,7 +136,7 @@ func TestEditRollbackPreservesConcurrentReplacement(t *testing.T) {
 func TestEditInterleavedBooleansKeepOtherEdits(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
-	mustWriteGlobalTest(t, file, "# mine\nx-claude:\n    verbose: false # first\n    alwaysThinkingEnabled: false # second\n")
+	writeFile(t, file, "# mine\nx-claude:\n    verbose: false # first\n    alwaysThinkingEnabled: false # second\n")
 	h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
 	for _, change := range []struct {
 		key   string
@@ -176,9 +176,9 @@ func TestEditRoundTripKeepsExternalUnrelatedSave(t *testing.T) {
 
 func TestEditBuiltinEmptyOverrideSurvivesNewHandler(t *testing.T) {
 	source := editHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nbuiltins: [memory]\n")
 	local := filepath.Join(source, "local", "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, local, "# local\nbuiltins:\n    - memory # chosen here\n")
+	writeFile(t, local, "# local\nbuiltins:\n    - memory # chosen here\n")
 	for _, enabled := range []string{"false", "true", "false"} {
 		w := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"personal","name":"memory","enabled":`+enabled+`}`, nil)
 		if w.Code != http.StatusOK {
@@ -245,7 +245,7 @@ func TestEditRollbackReportsRemovedParent(t *testing.T) {
 	source := editHome(t)
 	dir := filepath.Join(source, "isolated")
 	file := filepath.Join(dir, "config.yaml")
-	mustWriteGlobalTest(t, file, "targets: [claude]\n")
+	writeFile(t, file, "targets: [claude]\n")
 	calls := 0
 	h := &editHandler{root: source, global: true, validate: func() ([]string, error) {
 		calls++
@@ -284,7 +284,7 @@ func TestEditYAMLLayoutsKeepCommentsAndDocumentBoundaries(t *testing.T) {
 		t.Run(original, func(t *testing.T) {
 			source := editHome(t)
 			file := filepath.Join(source, "agnostic-ai.yaml")
-			mustWriteGlobalTest(t, file, original)
+			writeFile(t, file, original)
 			h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
 			for _, enabled := range []bool{true, false} {
 				if _, err := h.applyValidated(file, func(data []byte) ([]byte, error) { return setBuiltin(data, "handoff", enabled) }); err != nil {
@@ -386,12 +386,12 @@ func TestEditInheritedFalseRemainsAfterSharedValueChanges(t *testing.T) {
 	source := editHome(t)
 	local := filepath.Join(source, "local", "settings", "native.yaml")
 	original := "# my choice\nx-claude:\n    alwaysThinkingEnabled: true # keep\n"
-	mustWriteGlobalTest(t, local, original)
+	writeFile(t, local, original)
 	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"local/settings/native.yaml","key":"x-claude.verbose","value":false}`, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "native.yaml"), "x-claude:\n  verbose: true\n")
+	writeFile(t, filepath.Join(source, "settings", "native.yaml"), "x-claude:\n  verbose: true\n")
 	scope, err := loadCheckScope(true)
 	if err != nil {
 		t.Fatal(err)
@@ -459,8 +459,8 @@ func TestEditRequiresAnExplicitBoolean(t *testing.T) {
 			source := editHome(t)
 			config := filepath.Join(source, "agnostic-ai.yaml")
 			settings := filepath.Join(source, "settings", "native.yaml")
-			mustWriteGlobalTest(t, config, "targets: [claude]\nbuiltins: [memory]\n")
-			mustWriteGlobalTest(t, settings, "x-claude:\n  verbose: true\n")
+			writeFile(t, config, "targets: [claude]\nbuiltins: [memory]\n")
+			writeFile(t, settings, "x-claude:\n  verbose: true\n")
 			beforeConfig, _ := os.ReadFile(config)
 			beforeSettings, _ := os.ReadFile(settings)
 			w := postEdit(t, newEditHandler(source, true), request.path, request.body, nil)
@@ -481,7 +481,7 @@ func TestEditInheritedBooleanInTrailingCommaFlowMapIsPersisted(t *testing.T) {
 	shared := filepath.Join(source, "settings", "native.yaml")
 	before, _ := os.ReadFile(shared)
 	local := filepath.Join(source, "local", "settings", "native.yaml")
-	mustWriteGlobalTest(t, local, "x-claude: {alwaysThinkingEnabled: true,} # keep\n")
+	writeFile(t, local, "x-claude: {alwaysThinkingEnabled: true,} # keep\n")
 	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"local/settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
@@ -508,7 +508,7 @@ func TestEditErrorsRedactInvalidConfigCredentials(t *testing.T) {
 	token := "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	file := filepath.Join(source, "agnostic-ai.yaml")
 	original := "targets: [claude]\nbuiltins: [" + token + "]\n"
-	mustWriteGlobalTest(t, file, original)
+	writeFile(t, file, original)
 	w := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true}`, nil)
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("%d %s", w.Code, w.Body)

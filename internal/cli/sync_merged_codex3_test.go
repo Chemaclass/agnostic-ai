@@ -29,8 +29,8 @@ func TestDoctorFix_BackupKeepsConfirmedMergedRelease(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	const model = ".agnostic-ai/settings/model.yaml"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, model, "model: example-model\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, model, "model: example-model\n")
 	runSyncOK(t)
 	doc := readJSONMap(t, settings)
 	doc["model"] = map[string]any{"name": "edited"}
@@ -96,7 +96,7 @@ func TestDoctorFix_ReportsMergedLeftoverItKept(t *testing.T) {
 			doc["hooks"] = map[string]any{"Mine": []any{}}
 			writeJSONFile(t, settings, doc)
 		}},
-		{"malformed", func(t *testing.T) { t.Helper(); mustWriteFile(t, settings, "{\"hooks\":") }},
+		{"malformed", func(t *testing.T) { t.Helper(); writeFile(t, settings, "{\"hooks\":") }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			syncedGeminiWithHook(t, userSettings)

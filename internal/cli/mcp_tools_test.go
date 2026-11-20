@@ -48,10 +48,10 @@ func TestMCPTools_ListsAndCachesToolsTheOverviewThenReadsOffline(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", source)
 	t.Setenv("FAKE_MCP_TOKEN", "s3cret")
 	srv := fakeMCP(t, "s3cret")
-	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "mail.yaml"), fmt.Sprintf("name: mail\ntype: http\nurl: %s\nheaders:\n  Authorization: Bearer ${FAKE_MCP_TOKEN}\n", srv.URL))
-	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "unset.yaml"), fmt.Sprintf("name: unset\ntype: http\nurl: %s\nheaders:\n  Authorization: Bearer ${NOT_SET_ANYWHERE_TOKEN}\n", srv.URL))
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared\n")
+	writeFile(t, filepath.Join(source, "mcps", "mail.yaml"), fmt.Sprintf("name: mail\ntype: http\nurl: %s\nheaders:\n  Authorization: Bearer ${FAKE_MCP_TOKEN}\n", srv.URL))
+	writeFile(t, filepath.Join(source, "mcps", "unset.yaml"), fmt.Sprintf("name: unset\ntype: http\nurl: %s\nheaders:\n  Authorization: Bearer ${NOT_SET_ANYWHERE_TOKEN}\n", srv.URL))
 
 	out, err := runCLI(t, "mcp", "tools", "--global")
 	if err != nil {

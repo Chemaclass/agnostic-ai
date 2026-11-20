@@ -25,7 +25,7 @@ func TestGuidedUpgrade_UpdatedBinaryReconcilesRequires(t *testing.T) {
 	}
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	const original = "version: 1\ntargets: [claude]\nrequires: \">=0.81.0\"\n"
-	mustWriteFile(t, "agnostic-ai.yaml", original)
+	writeFile(t, "agnostic-ai.yaml", original)
 	deps := defaultGuidedUpgradeDeps()
 	deps.check = func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.82.0"}, nil }
 	deps.manualInstall = nil
@@ -105,7 +105,7 @@ func TestGuidedRequiresArgs_StayFixedAndHidden(t *testing.T) {
 func TestReconcileGuidedRequires_PrintsTheNewRequires(t *testing.T) {
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.81.0\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.81.0\"\n")
 	out := captureLogOut(t)
 	if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func TestReconcileGuidedRequires_PrintsTheNewRequires(t *testing.T) {
 func TestReconcileGuidedRequires_ReportsACollapsedRangeOnce(t *testing.T) {
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.80.0 <0.90.0\"\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \">=0.80.0 <0.90.0\"\n")
 	out := captureLogOut(t)
 	if err := reconcileGuidedRequires(root, "0.82.0"); err != nil {
 		t.Fatal(err)

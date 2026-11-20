@@ -47,12 +47,12 @@ func TestSync_MergesMCPServersByName(t *testing.T) {
 	for _, tc := range mergedMCPMaps {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\n")
 			mine := map[string]any{"command": "my-server", "args": []any{"--mine"}}
 			seed, _ := json.Marshal(map[string]any{"userKey": "kept", tc.key: map[string]any{"mine": mine}})
-			mustWriteFile(t, tc.file, string(seed)+"\n")
-			mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
-			mustWriteFile(t, ".agnostic-ai/mcps/gl.yaml", "name: gl\ncommand: npx\nargs: [gl-mcp]\n")
+			writeFile(t, tc.file, string(seed)+"\n")
+			writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\nargs: [gh-mcp]\n")
+			writeFile(t, ".agnostic-ai/mcps/gl.yaml", "name: gl\ncommand: npx\nargs: [gl-mcp]\n")
 			runSyncOK(t)
 			if got := mcpServerNames(t, tc.file, tc.key); !reflect.DeepEqual(got, []string{"gh", "gl", "mine"}) {
 				t.Fatalf("servers after first sync = %v", got)
@@ -82,9 +82,9 @@ func TestSync_MergesMCPServersByName(t *testing.T) {
 func TestSync_SpecServerReplacingUserServerIsNoted(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, "{\"mcpServers\": {\"gh\": {\"command\": \"mine\"}}}\n")
-	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, "{\"mcpServers\": {\"gh\": {\"command\": \"mine\"}}}\n")
+	writeFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
 	var warned bytes.Buffer
 	adapters.SetWarner(&warned)
 	defer adapters.SetWarner(os.Stderr)

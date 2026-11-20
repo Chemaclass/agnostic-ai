@@ -50,9 +50,9 @@ func assertOnlyUserAiderConf(t *testing.T) {
 func syncedAiderConf(t *testing.T, seed string) {
 	t.Helper()
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", aiderConfig)
+	writeFile(t, "agnostic-ai.yaml", aiderConfig)
 	if seed != "" {
-		mustWriteFile(t, aiderConf, seed)
+		writeFile(t, aiderConf, seed)
 	}
 	runSyncOK(t)
 	got := readYAMLMap(t, aiderConf)
@@ -70,7 +70,7 @@ func TestSync_DroppingAiderKeepsUserKeysInConfFile(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			syncedAiderConf(t, aiderUserConf)
-			mustWriteFile(t, "agnostic-ai.yaml", tc.config)
+			writeFile(t, "agnostic-ai.yaml", tc.config)
 			runSyncOK(t)
 			assertOnlyUserAiderConf(t)
 			if _, ok := readStateFile(".").Merged[aiderConf]; ok {
@@ -85,9 +85,9 @@ func TestSync_DroppingAiderKeepsUserKeysInConfFile(t *testing.T) {
 // leaves it written, with the user's keys in it.
 func TestSync_RemovingLastSpecKeepsAiderConf(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", aiderConfig)
-	mustWriteFile(t, aiderConf, aiderUserConf)
-	mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\n---\nBe terse.\n")
+	writeFile(t, "agnostic-ai.yaml", aiderConfig)
+	writeFile(t, aiderConf, aiderUserConf)
+	writeFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\n---\nBe terse.\n")
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/rules/style.md")
 	runSyncOK(t)
@@ -110,7 +110,7 @@ func TestSync_DroppingAiderRemovesConfOnlyWhenSyncCreatedIt(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			syncedAiderConf(t, tc.seed)
-			mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+			writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 			runSyncOK(t)
 			if tc.want == nil {
 				if fileExists(aiderConf) {
@@ -133,8 +133,8 @@ func TestSync_DroppingAiderKeepsCommentsAndOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, aiderConf, string(data)+"# keep me\nzebra: 1 # trailing\nalpha: 2\n")
-	mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+	writeFile(t, aiderConf, string(data)+"# keep me\nzebra: 1 # trailing\nalpha: 2\n")
+	writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 	runSyncOK(t)
 	out, err := os.ReadFile(aiderConf)
 	if err != nil {
@@ -157,7 +157,7 @@ func TestSync_DroppingAiderKeepsCommentsAndOrder(t *testing.T) {
 // doctor --fix releases the conf file the same way the sweep does.
 func TestDoctorFix_KeepsUserKeysInAiderConf(t *testing.T) {
 	syncedAiderConf(t, aiderUserConf)
-	mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+	writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 	_, _ = runCLI(t, "doctor", "--fix")
 	assertOnlyUserAiderConf(t)
 	runSyncOK(t, "--check")
@@ -171,8 +171,8 @@ func TestSync_DroppingAiderKeepsEditedModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, aiderConf, strings.Replace(string(data), "model: gpt-x", "model: mine", 1))
-	mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+	writeFile(t, aiderConf, strings.Replace(string(data), "model: gpt-x", "model: mine", 1))
+	writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 	out := syncOutput(t)
 	got := readYAMLMap(t, aiderConf)
 	want := map[string]any{"dark-mode": true, "read": []any{"NOTES.md"}, "model": "mine"}
@@ -206,7 +206,7 @@ func TestSync_OldLedgerKeepsAiderConf(t *testing.T) {
 			syncedAiderConf(t, aiderUserConf)
 			dropMergedRecords(t)
 			setLedgerVersion(t, version)
-			mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+			writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 			for range 2 {
 				out := syncOutput(t)
 				if got := readYAMLMap(t, aiderConf); got["dark-mode"] != true {
@@ -224,8 +224,8 @@ func TestSync_OldLedgerKeepsAiderConf(t *testing.T) {
 func TestSync_UnparseableAiderConfSaysWhy(t *testing.T) {
 	syncedAiderConf(t, aiderUserConf)
 	const broken = "dark-mode: [true\n"
-	mustWriteFile(t, aiderConf, broken)
-	mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+	writeFile(t, aiderConf, broken)
+	writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 	out := syncOutput(t)
 	if !strings.Contains(out, "does not parse") {
 		t.Errorf("no parse reason:\n%s", out)
@@ -263,17 +263,17 @@ func TestSync_AiderRulesFileChangeDropsTheOldReadEntry(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			mustWriteFile(t, aiderConf, tc.seed)
-			mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\n---\nBe terse.\n")
-			mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf(conf, "FIRST.md"))
+			writeFile(t, aiderConf, tc.seed)
+			writeFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\n---\nBe terse.\n")
+			writeFile(t, "agnostic-ai.yaml", fmt.Sprintf(conf, "FIRST.md"))
 			runSyncOK(t)
-			mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf(conf, "SECOND.md"))
+			writeFile(t, "agnostic-ai.yaml", fmt.Sprintf(conf, "SECOND.md"))
 			runSyncOK(t)
 			if got := readYAMLMap(t, aiderConf)["read"]; !reflect.DeepEqual(got, tc.afterMove) {
 				t.Errorf("read = %#v, want %#v", got, tc.afterMove)
 			}
 			runSyncOK(t, "--check")
-			mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+			writeFile(t, "agnostic-ai.yaml", withoutAiderCfg)
 			runSyncOK(t)
 			got := readYAMLMap(t, aiderConf)
 			want := map[string]any{"dark-mode": true, "read": tc.afterMove[:len(tc.afterMove)-1]}

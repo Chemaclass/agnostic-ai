@@ -14,17 +14,17 @@ import (
 func TestSync_RuleSyncDroppedIsTheUsersWhenReadded(t *testing.T) {
 	const file = ".cursor/cli.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, cline]\n")
-	mustWriteFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, cline]\n")
+	writeFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n  deny: [\"Bash(rm:*)\"]\n")
 	runSyncOK(t)
 	before := readJSONMap(t, file)
 	rule := before["permissions"].(map[string]any)["deny"].([]any)[0]
-	mustWriteFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n")
+	writeFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n")
 	runSyncOK(t)
 	// With no rule left, the file sync created left too; the user writes it back.
 	writeJSONFile(t, file, map[string]any{"permissions": map[string]any{"allow": []any{}, "deny": []any{rule}}})
 	runSyncOK(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 	got, _ := readJSONMap(t, file)["permissions"].(map[string]any)
 	if !reflect.DeepEqual(got["deny"], []any{rule}) {
@@ -37,11 +37,11 @@ func TestSync_RuleSyncDroppedIsTheUsersWhenReadded(t *testing.T) {
 func TestDoctorFix_RecordsMergedKeysItWrites(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 	runSyncOK(t)
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	_, _ = runCLI(t, "doctor", "--fix")
 	if readJSONMap(t, settings)["hooks"] == nil {
 		t.Fatal("doctor --fix did not write the hook")
@@ -57,16 +57,16 @@ func TestDoctorFix_RecordsMergedKeysItWrites(t *testing.T) {
 func TestSync_ProtectCleanupKeepsClaimOnGeneratedHooks(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
-	mustWriteFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
+	writeFile(t, geminiFmtHookSpec, "name: fmt\nevent: AfterTool\ncommand: echo hi\n")
 	runSyncOK(t)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 	removeSpecs(t, geminiFmtHookSpec)
 	runSyncOK(t)
-	if strings.Contains(readFileString(t, settings), "agnostic-ai-protect") {
-		t.Fatalf("protect hook stayed after its block left:\n%s", readFileString(t, settings))
+	if strings.Contains(readFile(t, settings), "agnostic-ai-protect") {
+		t.Fatalf("protect hook stayed after its block left:\n%s", readFile(t, settings))
 	}
 	removeSpecs(t, ".agnostic-ai/settings/model.yaml")
 	runSyncOK(t)
@@ -85,19 +85,19 @@ func TestSync_ProtectCleanupKeepsClaimOnGeneratedHooks(t *testing.T) {
 func TestSync_ProtectCleanupKeepsAHandWrittenHook(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
-	mustWriteFile(t, settings, userSettings)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, settings, userSettings)
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
 	runSyncOK(t)
 	doc := readJSONMap(t, settings)
 	hooks := doc["hooks"].(map[string]any)
 	hooks["AfterTool"] = []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "./mine.sh"}}}}
 	writeJSONFile(t, settings, doc)
-	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	writeFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/settings/model.yaml")
 	runSyncOK(t)
-	body := readFileString(t, settings)
+	body := readFile(t, settings)
 	if !strings.Contains(body, "./mine.sh") || strings.Contains(body, "agnostic-ai-protect") {
 		t.Errorf("want the hand-written hook kept and the protect hook gone:\n%s", body)
 	}
@@ -108,15 +108,15 @@ func TestSync_ProtectCleanupKeepsAHandWrittenHook(t *testing.T) {
 func TestSync_CursorUsersEmptyListOutlivesSyncsRule(t *testing.T) {
 	const file = ".cursor/cli.json"
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, cline]\n")
 	writeJSONFile(t, file, map[string]any{"permissions": map[string]any{"allow": []any{"Shell(ls)"}, "deny": []any{}}})
-	mustWriteFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
 	runSyncOK(t)
 	removeSpecs(t, ".agnostic-ai/settings/perms.yaml")
 	runSyncOK(t)
 	runSyncOK(t)
 	runSyncOK(t, "--check")
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)
 	got, _ := readJSONMap(t, file)["permissions"].(map[string]any)
 	if !reflect.DeepEqual(got, map[string]any{"allow": []any{"Shell(ls)"}, "deny": []any{}}) {

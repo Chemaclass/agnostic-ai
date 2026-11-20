@@ -14,7 +14,7 @@ func TestSync_SharedSkills_MissingExternalAdapterKeepsLinks(t *testing.T) {
 	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "skills", "wave.md"), "---\nname: wave\ndescription: Wave\n---\nWave at the user.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "wave.md"), "---\nname: wave\ndescription: Wave\n---\nWave at the user.\n")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestSync_SharedSkills_MissingExternalAdapterKeepsLinks(t *testing.T) {
 	}
 
 	t.Setenv("PATH", t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, cursor, fakex]\nsync:\n  shared-skills: true\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, cursor, fakex]\nsync:\n  shared-skills: true\n")
 	if err := os.Remove(filepath.Join(".agnostic-ai", "skills", "wave.md")); err != nil {
 		t.Fatal(err)
 	}

@@ -288,8 +288,8 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	remotePath := filepath.Join(source, "mcps", "remote.yaml")
 	local := "name: local\ncommand: server\nargs: ['--token', 'PREVIEW_SECRET_2021_FLAG']\nenv:\n  OPAQUE: !literal PREVIEW_SECRET_2021_ENV\n  REFERENCED: '${TOKEN}'\n"
 	remote := "name: remote\ntype: http\nurl: 'https://${HOST}/mcp?api_key=PREVIEW_SECRET_2021_URL'\nheaders:\n  Authorization: !literal 'Bearer PREVIEW_SECRET_2021_HEADER_OLD'\n"
-	mustWriteGlobalTest(t, localPath, local)
-	mustWriteGlobalTest(t, remotePath, remote)
+	writeFile(t, localPath, local)
+	writeFile(t, remotePath, remote)
 	path := filepath.Join(home, ".cursor", "mcp.json")
 
 	checkPreview := func(args []string, wantError bool, reference bool) {
@@ -331,7 +331,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	readServers := func() map[string]any {
 		t.Helper()
 		var doc map[string]any
-		if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, path)), &doc); err != nil {
 			t.Fatal("decode native MCP output")
 		}
 		servers, ok := doc["mcpServers"].(map[string]any)
@@ -352,7 +352,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 			t.Error("global write changed literal header or URL values")
 		}
 		var state globalState
-		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
 			t.Fatal("decode global ownership state")
 		}
 		for _, name := range []string{"local", "remote"} {
@@ -368,7 +368,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 		t.Fatal("initial global write failed")
 	}
 	assertRaw("Bearer PREVIEW_SECRET_2021_HEADER_OLD")
-	mustWriteGlobalTest(t, remotePath, strings.ReplaceAll(remote, "HEADER_OLD", "HEADER_NEW"))
+	writeFile(t, remotePath, strings.ReplaceAll(remote, "HEADER_OLD", "HEADER_NEW"))
 	for _, mode := range previewModes {
 		checkPreview(mode.args, mode.drift, false)
 	}
@@ -383,7 +383,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	if err != nil {
 		t.Fatal("encode conflicting native fixture")
 	}
-	mustWriteGlobalTest(t, path, string(data))
+	writeFile(t, path, string(data))
 	checkPreview([]string{"--dry-run"}, false, false)
 	checkPreview([]string{"--plan", "--json"}, false, false)
 	checkPreview(nil, true, false)
@@ -391,7 +391,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 
 func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(t *testing.T) {
 	home, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings", "opaque.yaml"), "name: opaque\nmodel: opus\nx-claude:\n  env:\n    args: [PREVIEW_SECRET_2021_OPAQUE]\n    command: [PREVIEW_SECRET_2021_COMMAND]\n    referenced: ['${TOKEN}']\n")
+	writeFile(t, filepath.Join(source, "settings", "opaque.yaml"), "name: opaque\nmodel: opus\nx-claude:\n  env:\n    args: [PREVIEW_SECRET_2021_OPAQUE]\n    command: [PREVIEW_SECRET_2021_COMMAND]\n    referenced: ['${TOKEN}']\n")
 	before := snapshotProject(t, home)
 	for _, args := range [][]string{{"--dry-run"}, {"--plan", "--json"}} {
 		out, warnings, err := runGlobalAgentTest(append([]string{"--only", "claude"}, args...)...)
@@ -413,7 +413,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 		t.Fatal("accepted native environment arrays failed to write")
 	}
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
 		t.Fatal("decode native environment settings")
 	}
 	env := doc["env"].(map[string]any)
@@ -424,7 +424,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 		}
 	}
 	var state globalState
-	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
 		t.Fatal("decode global environment ownership")
 	}
 	for _, key := range []string{"args", "command", "referenced"} {

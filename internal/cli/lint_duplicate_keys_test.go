@@ -33,9 +33,9 @@ func TestLintDuplicateKeys_ReportsEachRepeatedKeyOnce(t *testing.T) {
 func TestLint_FlagsARepeatedFrontmatterKey(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, ".agnostic-ai/skills/web/SKILL.md", "---\nname: web\nworkspaces: [apps/web]\ndescription: Web skill.\nworkspaces: [apps/web]\n---\n\nBody.\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "event: PostToolUse\ncommand: a\ncommand: b\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/web/SKILL.md", "---\nname: web\nworkspaces: [apps/web]\ndescription: Web skill.\nworkspaces: [apps/web]\n---\n\nBody.\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "event: PostToolUse\ncommand: a\ncommand: b\n")
 	out, err := runCLI(t, "lint")
 	if err != nil {
 		t.Fatalf("lint failed on a warning:\n%s", out)
@@ -56,8 +56,8 @@ func TestLint_FlagsARepeatedFrontmatterKey(t *testing.T) {
 		t.Errorf("lint --strict passed with a repeated key:\n%s", out)
 	}
 
-	mustWriteFile(t, ".agnostic-ai/skills/web/SKILL.md", "---\nname: web\nworkspaces: [apps/web]\ndescription: Web skill.\n---\n\nBody.\n")
-	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "event: PostToolUse\ncommand: a\n")
+	writeFile(t, ".agnostic-ai/skills/web/SKILL.md", "---\nname: web\nworkspaces: [apps/web]\ndescription: Web skill.\n---\n\nBody.\n")
+	writeFile(t, ".agnostic-ai/hooks/fmt.yaml", "event: PostToolUse\ncommand: a\n")
 	if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT046") {
 		t.Errorf("lint after removing the repeats: %v\n%s", err, out)
 	}

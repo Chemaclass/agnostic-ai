@@ -13,7 +13,7 @@ func TestHookRun_RejectsAPayloadThatIsNotAJSONObject(t *testing.T) {
 	dir := hookRunProject(t, "name: guard\nevent: PreToolUse\ncommand: 'true'\n")
 	for name, body := range map[string]string{"broken": "{not json", "null": "null", "list": "[]", "empty": ""} {
 		bad := filepath.Join(dir, name+".json")
-		mustWrite(t, bad, body)
+		writeFile(t, bad, body)
 
 		out, err := runHookRun(t, "guard", "--payload", bad, "--expect", "allow")
 		if err == nil || !strings.Contains(err.Error(), name+".json") {
@@ -27,7 +27,7 @@ func TestHookRun_RejectsAPayloadThatIsNotAJSONObject(t *testing.T) {
 
 func TestHookRun_JSONKeepsItsShapeWhenATargetCannotBeSetUp(t *testing.T) {
 	dir := hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: 'Edit|('\ncommand: 'true'\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [aider, claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [aider, claude]\n")
 
 	var stdout bytes.Buffer
 	root := NewRootCmd("test")
@@ -57,7 +57,7 @@ func TestHookRun_JSONKeepsItsShapeWhenATargetCannotBeSetUp(t *testing.T) {
 func TestHookRun_JSONCountsTheTargetsBeforeASetupError(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: Bash\nif: 'Bash(git'\ncommand: 'echo no >&2; exit 2'\n")
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, claude]\n")
 
 	var stdout bytes.Buffer
 	root := NewRootCmd("test")

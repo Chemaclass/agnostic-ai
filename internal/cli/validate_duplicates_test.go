@@ -13,10 +13,10 @@ import (
 func duplicateRuleProject(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "b.md"),
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "b.md"),
 		"---\nname: b\ndescription: first\nalwaysApply: true\n---\nbody1\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "b2.md"),
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "b2.md"),
 		"---\nname: b\ndescription: second\nalwaysApply: true\n---\nbody2\n")
 	testutil.Chdir(t, dir)
 }
@@ -49,8 +49,8 @@ func TestSync_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
 
 func TestValidate_NoAutofixHintWhenNothingIsAutofixable(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "x.md"), "---\nname: x\ndescription: d\n---\nnode_modules/\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "x.md"), "---\nname: x\ndescription: d\n---\nnode_modules/\n")
 	testutil.Chdir(t, dir)
 
 	out, err := runCLI(t, "validate")
@@ -64,7 +64,7 @@ func TestValidate_NoAutofixHintWhenNothingIsAutofixable(t *testing.T) {
 
 func TestNew_NotesWhenNoEnabledTargetReadsTheKind(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
 	testutil.Chdir(t, dir)
 
 	var logged bytes.Buffer
@@ -85,7 +85,7 @@ func TestNew_NotesWhenNoEnabledTargetReadsTheKind(t *testing.T) {
 
 func TestValidate_NamesTheSameLayerWinnerWhenALocalSpecExtendsIt(t *testing.T) {
 	duplicateRuleProject(t)
-	mustWriteFile(t, filepath.Join(".agnostic-ai", "local", "rules", "b.md"), "---\nname: b\n---\nlocal\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "local", "rules", "b.md"), "---\nname: b\n---\nlocal\n")
 
 	out, _ := runCLI(t, "validate")
 	if !strings.Contains(filepath.ToSlash(out), `duplicate rule name "b"; .agnostic-ai/rules/b2.md wins`) {
@@ -95,8 +95,8 @@ func TestValidate_NamesTheSameLayerWinnerWhenALocalSpecExtendsIt(t *testing.T) {
 
 func TestSyncGlobal_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "b.md"), "---\nname: b\n---\nbody1\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "rules", "b2.md"), "---\nname: b\n---\nbody2\n")
+	writeFile(t, filepath.Join(source, "rules", "b.md"), "---\nname: b\n---\nbody1\n")
+	writeFile(t, filepath.Join(source, "rules", "b2.md"), "---\nname: b\n---\nbody2\n")
 
 	_, errOut, err := runGlobalCheck("sync", "--dry-run")
 	if err != nil {

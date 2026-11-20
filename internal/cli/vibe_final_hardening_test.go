@@ -19,7 +19,7 @@ func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 			original := ""
 			if scenario == "existing-mode" {
 				original = "# user configuration\nkey=1\n"
-				mustWriteGlobalTest(t, path, original)
+				writeFile(t, path, original)
 				if err := os.Chmod(path, 0o640); err != nil {
 					t.Fatal(err)
 				}
@@ -54,7 +54,7 @@ func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 			if _, err := applyGlobalChanges(writes, nil, false, nil); err != nil {
 				t.Fatal(err)
 			}
-			body := readGlobalTest(t, path)
+			body := readFile(t, path)
 			if !strings.Contains(body, `active_model = "devstral"`) || !strings.HasPrefix(body, original) {
 				t.Errorf("written config lost settings or original bytes: %s", body)
 			}
@@ -70,7 +70,7 @@ func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 				t.Errorf("written config mode = %o, want %o", info.Mode().Perm(), wantMode)
 			}
 			if scenario != "model-only" {
-				hooks := readGlobalTest(t, filepath.Join(home, ".vibe/hooks.toml"))
+				hooks := readFile(t, filepath.Join(home, ".vibe/hooks.toml"))
 				if !strings.Contains(hooks, "pre_tool") {
 					t.Error("model plus hooks plan lost hook output")
 				}
