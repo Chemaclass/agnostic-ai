@@ -24,7 +24,10 @@ type globalSettingsFile struct {
 	// path is the user settings file, in the globalTargets path form.
 	path                   string
 	linuxPath, windowsPath string
-	private                bool
+	// resolve replaces path for a file whose folder follows the tool's own
+	// variables rather than the target's root.
+	resolve func(home string) string
+	private bool
 	// json-flat treats dotted names as literal root keys.
 	format string
 	// Empty native keys have no mapping.

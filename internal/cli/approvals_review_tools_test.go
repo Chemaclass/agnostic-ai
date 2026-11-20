@@ -32,7 +32,11 @@ func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
 				t.Errorf("%s in %s = %v, want %v", reviewer.key, path, have, reviewer.value)
 			}
 			s := toolStatus(t, approvalsStatusJSON(t), tool)
-			if s.Effective != config.ApprovalsReview || s.Route != reviewer.name || len(s.Notes) != 0 {
+			var want []string
+			if reviewer.reviewNote != "" {
+				want = []string{reviewer.reviewNote}
+			}
+			if s.Effective != config.ApprovalsReview || s.Route != reviewer.name || !slices.Equal(s.Notes, want) {
 				t.Errorf("status: %+v", s)
 			}
 
@@ -51,6 +55,7 @@ func TestSyncGlobal_ApprovalsReviewYieldsToTargetKeys(t *testing.T) {
 	for _, c := range []struct{ tool, spec string }{
 		{"codebuddy", "permissions:\n  default-mode: plan\n"},
 		{"codex", "x-codex:\n  approvals_reviewer: user\n"},
+		{"cursor", "x-cursor:\n  approvalMode: allowlist\n"},
 		{"qoder", "x-qoder:\n  general:\n    defaultPermissionMode: default\n"},
 		{"qwen", "x-qwen:\n  tools:\n    approvalMode: default\n"},
 	} {
@@ -166,5 +171,40 @@ func TestApprovalsStatus_VibeBypassStopsTheClassifier(t *testing.T) {
 
 	if len(vibe.Notes) != 1 || !strings.Contains(vibe.Notes[0], "bypass_tool_permissions") {
 		t.Errorf("vibe notes: %q", vibe.Notes)
+	}
+}
+
+func TestCursorCLIConfigPath_FollowsCursorAgent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CURSOR_CONFIG_DIR", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	if got := cursorCLIConfigPath(home); got != filepath.Join(home, ".cursor", "cli-config.json") {
+		t.Errorf("default: %s", got)
+	}
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
+	if got := cursorCLIConfigPath(home); got != filepath.Join(home, "xdg", "cursor", "cli-config.json") {
+		t.Errorf("XDG: %s", got)
+	}
+	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(home, "cfg"))
+	if got := cursorCLIConfigPath(home); got != filepath.Join(home, "cfg", "cli-config.json") {
+		t.Errorf("CURSOR_CONFIG_DIR: %s", got)
+	}
+}
+
+func TestSyncGlobal_CursorSettingsWriteOnlyApprovalMode(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "x-cursor:\n  approvalMode: allowlist\n  hints: false\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "cursor")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	values, ok := reviewerKey(t, cursorCLIConfigPath(os.Getenv("HOME")), "json", "hints")
+	if ok {
+		t.Errorf("sync wrote hints = %v", values)
+	}
+	if have, _ := reviewerKey(t, cursorCLIConfigPath(os.Getenv("HOME")), "json", "approvalMode"); have != "allowlist" {
+		t.Errorf("approvalMode = %v", have)
 	}
 }

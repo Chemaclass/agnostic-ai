@@ -234,6 +234,13 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".cursor/mcp.json", format: "json", key: "mcpServers"},
 		hooksFormat:  "cursor",
 		hookTarget:   hookTargetSessionEnv,
+		// cursor-agent rewrites cli-config.json itself, so sync owns only
+		// approvalMode there.
+		settings: globalSettingsFile{
+			path: globalPathHome + ".cursor/cli-config.json", format: "json", resolve: cursorCLIConfigPath,
+			allowed:       map[string]string{"approvalMode": "string"},
+			allowedReason: "sync --global writes only approvalMode to cursor-agent's cli-config.json",
+		},
 		hookFoldArgs: true,
 		bridge:       true,
 		bridgeEvent:  "sessionStart",
@@ -629,6 +636,9 @@ func (g globalTarget) pathForOS(home, p, goos string) string {
 	if goos == "windows" && p != "" && p == g.instructions && g.instructionsWindows != "" {
 		p = globalPathAppData + g.instructionsWindows
 	}
+	if p != "" && p == g.settings.path && g.settings.resolve != nil {
+		return g.settings.resolve(home)
+	}
 	if p != "" && p == g.settings.path {
 		p = g.settings.platformPath(goos)
 	}
@@ -704,4 +714,16 @@ func (g globalTarget) instructionsRootError(goos string) error {
 		}
 	}
 	return nil
+}
+
+// cursorCLIConfigPath is where cursor-agent reads cli-config.json:
+// CURSOR_CONFIG_DIR, else $XDG_CONFIG_HOME/cursor, else ~/.cursor.
+func cursorCLIConfigPath(home string) string {
+	if dir := strings.TrimSpace(os.Getenv("CURSOR_CONFIG_DIR")); dir != "" {
+		return filepath.Join(dir, "cli-config.json")
+	}
+	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+		return filepath.Join(xdg, "cursor", "cli-config.json")
+	}
+	return filepath.Join(home, ".cursor", "cli-config.json")
 }

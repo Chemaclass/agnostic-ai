@@ -27,6 +27,8 @@ type nativeReviewer struct {
 	// overrideEnv names a variable that makes the tool ignore the key in
 	// the file sync --global writes.
 	overrideEnv string
+	// reviewNote is a fixed limit status names whenever the mode is review.
+	reviewNote string
 }
 
 type reviewerOff struct {
@@ -46,6 +48,8 @@ var nativeReviewers = map[string]nativeReviewer{
 		off: &reviewerOff{key: "approval_policy", value: "never", why: "it reviews only prompts, so use on-request or a granular policy"}},
 	"vibe": {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve", overrideEnv: "VIBE_DEFAULT_AGENT",
 		off: &reviewerOff{key: "bypass_tool_permissions", value: true, why: "Vibe approves every call instead"}},
+	"cursor": {name: "cursor-agent Auto-review", key: "approvalMode", value: "auto-review",
+		reviewNote: "the Cursor desktop app keeps its own approval setting; turn on Auto-review there too"},
 	"qoder": {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
 	"qwen":  {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
@@ -188,6 +192,9 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 		// Auto mode is Claude Code's own starting mode, so a value set by
 		// hand there is not worth a note.
 		notes = append(notes, fmt.Sprintf("%s is on: %s = %s in %s was set outside agnostic-ai", r.name, r.key, want, rs.path))
+	}
+	if mode == config.ApprovalsReview && r.reviewNote != "" {
+		notes = append(notes, r.reviewNote)
 	}
 	if mode != config.ApprovalsReview && !rs.on {
 		return notes

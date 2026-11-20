@@ -99,6 +99,7 @@ effort:
 |---|---|
 | Claude | `low`, `medium`, `high`, `xhigh` |
 | Copilot | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` (each model accepts a subset) |
+| Cursor (`cursor-agent` only) | [Auto-review](https://cursor.com/docs/agent/security/run-modes), a server classifier | `approvalMode: "auto-review"` in `~/.cursor/cli-config.json` |
 | Qoder | `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max` |
 | Augment | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` |
 | Qwen | `low`, `medium`, `high`, `xhigh`, `max` (each provider maps the value to its active model) |
@@ -233,6 +234,7 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 - Codex Auto-review answers only prompts Codex would show. With `approval_policy = "never"` there are none, so the reviewer never runs; `approvals status` says so when `~/.codex/config.toml` sets it. It does not read a trusted project's `.codex/config.toml`, which can set either key too.
 - Qwen Code already runs auto mode in a trusted folder when `tools.approvalMode` is unset, so `ask` alone does not bring its prompts back; `approvals status` says so. Set `x-qwen.tools.approvalMode: default` in a home settings spec to see them. Qwen Code asks anyway in an untrusted folder and with `--bare` or `--safe-mode`, and a project's `.qwen/settings.json` can set the same key. Checked against the Qwen Code 0.28.0 package.
 - CodeBuddy takes `defaultMode: "auto"` only from user settings and the command line; a project file cannot grant it. It falls back to `default` when `permissions.disableAutoMode` is `"disable"` or auto mode is unavailable, and `approvals status` notes the first. `sync --global` writes `~/.codebuddy/settings.json` even when `CODEBUDDY_CONFIG_DIR` moves CodeBuddy's settings elsewhere; status notes that too. Checked against the CodeBuddy 2.185.0 package and its permission-modes page.
+- cursor-agent reads `cli-config.json` from `CURSOR_CONFIG_DIR`, else `$XDG_CONFIG_HOME/cursor`, else `~/.cursor`, and `sync --global` follows the same order. cursor-agent rewrites that file itself, so sync owns only `approvalMode` there; `x-cursor.approvalMode` in a home settings spec wins. Auto-review needs a classifier-capable model and team permission, or cursor-agent falls back to its allowlist. The Cursor desktop app keeps its own setting, and `approvals status` says to turn on Auto-review there. Checked against cursor-agent 2026.11.11, which kept the key when it rewrote the file.
 - Qoder reads `general.defaultPermissionMode` from every settings layer, so a project's `.qoder/settings.json` can set it too, and an untrusted folder starts in `default`, as does a session with no classifier model available. An older `tools.approvalMode` key counts as the user's mode, so review leaves it. Checked against the Qoder CLI 1.1.93 package.
 - Vibe takes a `default_agent` that a person sets as an opt-in, so smart-approve starts even before the mode reaches Vibe's mode picker. An organization can still exclude it, and a trusted project's `.vibe/config.toml`, `VIBE_DEFAULT_AGENT`, an admin config, or `--agent` replaces the user file's value. In the user file, `x-vibe` cannot set `default_agent`, so only a hand-set value wins; Vibe can also write `default_agent = "ask"` there itself when `disabled_agents` lists `accept-edits`. With `bypass_tool_permissions = true`, Vibe approves every call and the classifier never runs; `approvals status` notes it and a set `VIBE_DEFAULT_AGENT`. Checked against the mistral-vibe 3.1.3 package.
 - A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code). A new session reads the new settings.
@@ -322,6 +324,7 @@ If two tools would write different content to one path, the run stops before wri
 - Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` that pass the instructions to Cursor. The script is POSIX shell on macOS and Linux, PowerShell on Windows.
 - It needs neither agnostic-ai, Python, nor jq, and it adds context without enforcing policy.
 - Existing `sessionStart` entries stay.
+- Settings: global sync writes only `approvalMode` to cursor-agent's `cli-config.json`, for [`approvals`](#global-approvals-review). Other `x-cursor` keys give a note.
 
 **OpenCode**
 
