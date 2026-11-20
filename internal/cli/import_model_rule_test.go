@@ -31,27 +31,35 @@ func TestImport_ModelFollowsOneRuleForEveryFormat(t *testing.T) {
 		"claude first": func(s string) [][]string { return [][]string{{"claude", s}} },
 		"claude last":  func(s string) [][]string { return [][]string{{s, "claude"}} },
 	}
+	specs := map[string]func(source string) string{
+		"own entry": func(s string) string {
+			if s == "claude" || s == "opencode" {
+				return "{default: sonnet, opencode: gpt-5}"
+			}
+			return "{default: sonnet, opencode: gpt-5, " + s + ": m-src}"
+		},
+		"scalar":          func(string) string { return "sonnet" },
+		"claude-only map": func(string) string { return "{default: sonnet, claude: opus}" },
+	}
 	for _, f := range formats {
 		for order, imports := range orders {
-			for _, edit := range []string{"body", "model"} {
-				t.Run(f.kind+"/"+f.source+"/"+order+"/"+edit, func(t *testing.T) {
-					checkModelRule(t, f.kind, f.source, imports(f.source), edit)
-				})
+			for spec, model := range specs {
+				for _, edit := range []string{"body", "model"} {
+					t.Run(f.kind+"/"+f.source+"/"+order+"/"+spec+"/"+edit, func(t *testing.T) {
+						checkModelRule(t, f.kind, f.source, model(f.source), imports(f.source), edit)
+					})
+				}
 			}
 		}
 	}
 }
 
-func checkModelRule(t *testing.T, kind, source string, imports [][]string, edit string) {
+func checkModelRule(t *testing.T, kind, source, model string, imports [][]string, edit string) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	targets := []string{"claude", "opencode"}
 	if !slices.Contains(targets, source) {
 		targets = append(targets, source)
-	}
-	model := "{default: sonnet, opencode: gpt-5}"
-	if source != "claude" && source != "opencode" {
-		model = "{default: sonnet, opencode: gpt-5, " + source + ": m-src}"
 	}
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(targets, ", ")+"]\n")
 	spec := filepath.Join(dir, ".agnostic-ai", kind, "check.md")
@@ -92,10 +100,13 @@ func checkModelRule(t *testing.T, kind, source string, imports [][]string, edit 
 	want := before["model"]
 	if edit == "model" {
 		entries := map[string]any{}
-		if m, ok := want.(map[string]any); ok {
+		switch m := want.(type) {
+		case map[string]any:
 			for k, v := range m {
 				entries[k] = v
 			}
+		case string:
+			entries["default"] = m
 		}
 		for _, target := range importModelTargets(source) {
 			entries[target] = "m-new"

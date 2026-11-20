@@ -2,7 +2,9 @@ package cli
 
 import (
 	"path/filepath"
+	"reflect"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -31,22 +33,27 @@ func importModelTargets(source string) []string {
 	return []string{source}
 }
 
-// scopableModel reports whether an imported model is a name only the
-// source can run, so it gets a per-target entry. `inherit` and a tier
-// name are portable. Claude scopes only Claude model names.
+// portableModel reports whether model is `inherit` or a tier name, which
+// every tool reads the same way.
+func portableModel(model string) bool {
+	if model == "inherit" {
+		return true
+	}
+	if importHookConfig == nil {
+		return false
+	}
+	_, tier := importHookConfig.Models[model]
+	return tier
+}
+
+// scopableModel reports whether a model imported into a new spec is a
+// name only source can run, so it gets a per-target entry. Claude scopes
+// only Claude model names.
 func scopableModel(source, model string) bool {
 	if source == "claude" {
 		return adapters.ClaudeModel(model)
 	}
-	if model == "inherit" {
-		return false
-	}
-	if importHookConfig != nil {
-		if _, tier := importHookConfig.Models[model]; tier {
-			return false
-		}
-	}
-	return true
+	return !portableModel(model)
 }
 
 // reconcileImportedModel sets the model of an imported agent or command
@@ -79,54 +86,64 @@ func reconcileImportedModel(existing, data []byte, path string, holdsModel bool)
 		}
 	}
 	targets := importModelTargets(source)
+	agent := slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "agents")
 	var unmark, mark []string
 	var result *yaml.Node
 	switch {
-	case native == nil && (!holdsModel || current == nil):
-		result = current
+	case current == nil && native == nil:
+		return data, nil
 	case current == nil:
 		result = native
 		if scopableModel(source, native.Value) {
 			result = perTargetModel(nil, targets, native)
 		}
+	case scopedModel(existingMap, source) != nil && !scopedModelDeleted(existingMap, source):
+		result = current
+	case native == nil && (!holdsModel || syncedModel(current, source, agent) == nil):
+		result = current
+	case native != nil && sameResolvedModel(current, source, native, agent) && !scopedModelDeleted(existingMap, source):
+		result = current
+	case current.Kind == yaml.ScalarNode && native == nil:
+		result = current
+		if onlyTargetsRead(targets) {
+			result = nil
+			break
+		}
+		mark = targets
 	case current.Kind == yaml.ScalarNode:
-		switch {
-		case native == nil:
-		case sameResolvedModel(current, source, native):
-			result = current
-		case !scopableModel(source, native.Value) || onlyTargetsRead(targets):
-			result = native
-		default:
+		result = native
+		if !portableModel(native.Value) && !onlyTargetsRead(targets) {
 			result = perTargetModel(current, targets, native)
+		}
+		for _, target := range targets {
+			if scopedModelDeleted(existingMap, target) {
+				unmark = append(unmark, target)
+			}
 		}
 	case current.Kind == yaml.MappingNode:
 		result = current
-		if native != nil && sameResolvedModel(current, source, native) && !scopedModelDeleted(existingMap, source) {
-			break
-		}
 		for _, target := range targets {
-			scoped := mappingValue(mappingValue(existingMap, "x-"+target), "model")
-			deleted := scoped != nil && scoped.Tag == "!!null"
-			if scoped != nil && !deleted {
+			if scopedModel(existingMap, target) != nil && !scopedModelDeleted(existingMap, target) {
 				continue
 			}
 			if native == nil {
 				if mappingValue(result, target) != nil {
 					result = withoutMappingKey(result, target)
 				}
-				if resolvedTargetValue("model", result, target) != nil {
+				if syncedModel(result, target, agent) != nil {
 					mark = append(mark, target)
 				}
 				continue
 			}
-			if deleted || target == source || !sameResolvedModel(result, target, native) {
-				result = withMappingValue(result, target, native)
-			}
-			if deleted {
+			if scopedModelDeleted(existingMap, target) {
 				unmark = append(unmark, target)
 			}
+			result = withMappingValue(result, target, native)
 		}
 	default:
+		return data, nil
+	}
+	if sameModelNode(result, mappingValue(importedMap, "model")) && len(mark)+len(unmark) == 0 && !hasEmptyScopedBlock(importedMap, targets) {
 		return data, nil
 	}
 	if result == nil || result.Kind == yaml.MappingNode && len(result.Content) == 0 {
@@ -148,10 +165,25 @@ func reconcileImportedModel(existing, data []byte, path string, holdsModel bool)
 	return encodeFrontmatter(importedMap, rest, source)
 }
 
+// syncedModel is the model sync writes into target's file from value, or
+// nil when it writes none: no value reaches target, or target's adapter
+// drops a shared Claude model name its agents cannot load.
+func syncedModel(value *yaml.Node, target string, agent bool) *yaml.Node {
+	given := resolvedTargetValue("model", value, target)
+	if given == nil {
+		return nil
+	}
+	own := value.Kind == yaml.MappingNode && mappingValue(value, target) != nil
+	if agent && !own && adapters.ForeignClaudeModel(target, perTargetValue(value, target).Value) {
+		return nil
+	}
+	return given
+}
+
 // sameResolvedModel reports whether value gives target the model native
 // names, after tiers and aliases.
-func sameResolvedModel(value *yaml.Node, target string, native *yaml.Node) bool {
-	given := resolvedTargetValue("model", value, target)
+func sameResolvedModel(value *yaml.Node, target string, native *yaml.Node, agent bool) bool {
+	given := syncedModel(value, target, agent)
 	if given == nil {
 		return false
 	}
@@ -210,9 +242,34 @@ func dropMappingKey(mapping *yaml.Node, key string) {
 	}
 }
 
+// scopedModel is target's `x-<target>.model` in spec, or nil.
+func scopedModel(spec *yaml.Node, target string) *yaml.Node {
+	return mappingValue(mappingValue(spec, "x-"+target), "model")
+}
+
+// sameModelNode reports whether a and b hold the same model value.
+func sameModelNode(a, b *yaml.Node) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	var av, bv any
+	return a.Decode(&av) == nil && b.Decode(&bv) == nil && reflect.DeepEqual(av, bv)
+}
+
+// hasEmptyScopedBlock reports whether spec holds an empty x-<target> block
+// for one of targets.
+func hasEmptyScopedBlock(spec *yaml.Node, targets []string) bool {
+	for _, target := range targets {
+		if block := mappingValue(spec, "x-"+target); block != nil && block.Kind == yaml.MappingNode && len(block.Content) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // scopedModelDeleted reports whether the spec marks target's model
 // deleted with `x-<target>: {model: null}`.
 func scopedModelDeleted(spec *yaml.Node, target string) bool {
-	scoped := mappingValue(mappingValue(spec, "x-"+target), "model")
+	scoped := scopedModel(spec, target)
 	return scoped != nil && scoped.Tag == "!!null"
 }

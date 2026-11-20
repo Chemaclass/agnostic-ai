@@ -160,7 +160,7 @@ func TestImportAgents_ReimportSetsTheEntryWhenTheNativeModelBecomesTheDefault(t 
 			editNativeModel(t, tc.file, tc.key, "m-two")
 
 			got := reimportModelMap(t, tc.target)
-			want := fmt.Sprintf("model:\n  %s: m-two\n  default: m-two\n", tc.target)
+			want := fmt.Sprintf("model:\n  %s: m-two\n  default: m-two\n%s", tc.target, peerModelLine(tc.target, "m-two"))
 			if !hasBlock(got, want) {
 				t.Errorf("the entry should follow the native file:\n%s", got)
 			}

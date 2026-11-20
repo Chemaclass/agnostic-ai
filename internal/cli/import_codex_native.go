@@ -299,6 +299,9 @@ func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 				return
 			}
 		}
+		if adapters.ForeignClaudeModel("codex", adapters.SharedModel(fm, "codex")) {
+			return
+		}
 		mergeDivergentMetaKey(fm, xcodex, doc, "model")
 		return
 	}
