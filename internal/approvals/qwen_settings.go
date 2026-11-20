@@ -53,6 +53,9 @@ type JSONSettings struct {
 	HooksOff bool
 	// ApprovalMode is tools.approvalMode from the last file that sets it.
 	ApprovalMode string
+	// DefaultPermissionMode is general.defaultPermissionMode from the
+	// last file that sets it.
+	DefaultPermissionMode string
 }
 
 // ReadJSONSettings reads files, comments allowed, in precedence order. A
@@ -76,6 +79,9 @@ func ReadJSONSettings(files []string) (JSONSettings, error) {
 			Tools struct {
 				ApprovalMode string `json:"approvalMode"`
 			} `json:"tools"`
+			General struct {
+				DefaultPermissionMode string `json:"defaultPermissionMode"`
+			} `json:"general"`
 		}
 		if err := json.Unmarshal(data, &file); err != nil {
 			return JSONSettings{}, fmt.Errorf("parse %s: %w", path, err)
@@ -84,6 +90,9 @@ func ReadJSONSettings(files []string) (JSONSettings, error) {
 		out.HooksOff = out.HooksOff || file.DisableAllHooks
 		if file.Tools.ApprovalMode != "" {
 			out.ApprovalMode = file.Tools.ApprovalMode
+		}
+		if file.General.DefaultPermissionMode != "" {
+			out.DefaultPermissionMode = file.General.DefaultPermissionMode
 		}
 	}
 	return out, nil

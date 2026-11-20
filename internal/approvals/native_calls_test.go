@@ -58,3 +58,24 @@ func TestNativeRequest_Qoder(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeRequest_QoderDotPaths(t *testing.T) {
+	for path, want := range map[string]string{
+		testRoot + "/main.go":             "Write",
+		testRoot + "/.ripgreprc":          "",
+		testRoot + "/.gitconfig":          "",
+		testRoot + "/.husky/pre-commit":   "",
+		testRoot + "/src/.env.local":      "",
+		testRoot + "/../other/.zshrc":     "",
+		"/home/me/.dotfiles/proj/main.go": "",
+	} {
+		r := NativeRequest("qoder", Request{Call: "Write", Input: map[string]any{"file_path": path}, PermissionMode: "default", Cwd: testRoot})
+		if r.Call != want {
+			t.Errorf("Write %s mapped to %q, want %q", path, r.Call, want)
+		}
+	}
+	inDot := NativeRequest("qoder", Request{Call: "Edit", Input: map[string]any{"file_path": "/home/me/.worktrees/proj/main.go"}, PermissionMode: "default", Cwd: "/home/me/.worktrees/proj"})
+	if inDot.Call != "Edit" {
+		t.Errorf("a session inside a dot folder mapped Edit to %q", inDot.Call)
+	}
+}

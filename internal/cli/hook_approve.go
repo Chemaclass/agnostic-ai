@@ -157,7 +157,11 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		ask, err := approvals.KiroHasAskRule(approvals.KiroAskRuleFiles(userHome, cwd))
 		return approvals.ClaudeSettings{}, err == nil && !ask
 	case "qoder":
-		settings, err := approvals.ReadJSONSettings(approvals.QoderSettingsFiles(userHome, cwd))
+		files, ok := qoderSettingsFiles(userHome, cwd)
+		if !ok {
+			return approvals.ClaudeSettings{}, false
+		}
+		settings, err := approvals.ReadJSONSettings(files)
 		return approvals.ClaudeSettings{}, err == nil && !settings.Ask
 	case "qwen":
 		dir, ok := qwenUserDir(userHome)
@@ -177,6 +181,17 @@ func approveToolSettings(target, cwd, userHome string) (approvals.ClaudeSettings
 		return approvals.ClaudeSettings{}, false
 	}
 	return settings, true
+}
+
+// qoderSettingsFiles lists the Qoder settings files for a session in
+// cwd and in $QODER_PROJECT_DIR, which Qoder sets for its hooks. ok is
+// false when that variable is set but not absolute.
+func qoderSettingsFiles(userHome, cwd string) ([]string, bool) {
+	project := os.Getenv("QODER_PROJECT_DIR")
+	if project != "" && !filepath.IsAbs(project) {
+		return nil, false
+	}
+	return approvals.QoderSettingsFiles(userHome, cwd, project), true
 }
 
 // qwenUserDir is Qwen Code's user folder: $QWEN_HOME, or ~/.qwen. ok is

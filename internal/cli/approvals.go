@@ -396,11 +396,14 @@ func qoderAskProblem() string {
 	}
 	cwd, _ := os.Getwd()
 	settings, err := approvals.ReadJSONSettings(approvals.QoderSettingsFiles(home, cwd))
+	mode := strings.ToLower(settings.DefaultPermissionMode)
 	switch {
 	case err != nil:
 		return "cannot read the Qoder settings: " + err.Error()
 	case settings.Ask:
 		return "a Qoder settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
+	case mode != "" && mode != "default" && mode != "accept_edits" && mode != "acceptedits":
+		return "Qoder runs in " + settings.DefaultPermissionMode + " mode, where the hook stays silent; set general.defaultPermissionMode to default or accept_edits"
 	}
 	return ""
 }

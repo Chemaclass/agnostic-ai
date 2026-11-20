@@ -2,6 +2,7 @@ package approvals
 
 import (
 	"maps"
+	"path/filepath"
 	"strings"
 )
 
@@ -90,7 +91,10 @@ var qoderModes = map[string]string{"default": "default", "accept_edits": "accept
 // qoderRequest keeps the Claude-style names Qoder CLI uses for the tools
 // whose input the gate reads: Bash, Read, Edit and Write. Every other
 // call gets no name, and a mode other than default or accept edits keeps
-// a name the gate does not approve in.
+// a name the gate does not approve in. Qoder's protected paths, which
+// its docs list only by example (.git, .ripgreprc, Git config, shell
+// startup files), are dot names, so an Edit or Write through any dot
+// folder or file gets no name either.
 func qoderRequest(r Request) Request {
 	if mode, ok := qoderModes[strings.ToLower(r.PermissionMode)]; ok {
 		r.PermissionMode = mode
@@ -98,9 +102,34 @@ func qoderRequest(r Request) Request {
 		r.PermissionMode = "qoder:" + r.PermissionMode
 	}
 	switch r.Call {
-	case "Bash", "Read", "Edit", "Write":
+	case "Bash", "Read":
+	case "Edit", "Write":
+		if path, _ := r.Input["file_path"].(string); dotPath(underCwd(path, r.Cwd)) {
+			r.Call = ""
+		}
 	default:
 		r.Call = ""
 	}
 	return r
+}
+
+// underCwd is path relative to cwd when it lies there, so a dot folder
+// above the session folder does not count.
+func underCwd(path, cwd string) string {
+	if cwd == "" {
+		return path
+	}
+	if rel, err := filepath.Rel(cwd, path); err == nil && filepath.IsAbs(path) && !strings.HasPrefix(rel, "..") {
+		return rel
+	}
+	return path
+}
+
+func dotPath(path string) bool {
+	for part := range strings.FieldsFuncSeq(path, func(c rune) bool { return c == '/' || c == '\\' }) {
+		if strings.HasPrefix(part, ".") && part != "." && part != ".." {
+			return true
+		}
+	}
+	return false
 }

@@ -29,6 +29,7 @@ func approveSetup(t *testing.T, shared string) (source, project string) {
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
 	t.Setenv(adapters.HookTargetEnv, "")
 	t.Setenv("QWEN_HOME", "")
+	t.Setenv("QODER_PROJECT_DIR", "")
 	t.Setenv("QWEN_CODE_SYSTEM_DEFAULTS_PATH", filepath.Join(t.TempDir(), "system-defaults.json"))
 	t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "settings.json"))
 	managed := t.TempDir()
@@ -246,6 +247,19 @@ func TestHookApprove_PrintsNothing(t *testing.T) {
 		{name: "qoder local ask rule", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
 			t.Helper()
 			writeFile(t, filepath.Join(project, ".qoder", "settings.local.json"), `{"permissions":{"ask":["Edit"]}}`)
+		}},
+		{name: "qoder project folder ask rule", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			other := t.TempDir()
+			writeFile(t, filepath.Join(other, ".qoder", "settings.json"), `{"permissions":{"ask":["Bash(go test:*)"]}}`)
+			t.Setenv("QODER_PROJECT_DIR", other)
+		}},
+		{name: "qoder relative project folder", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, _ string) {
+			t.Helper()
+			t.Setenv("QODER_PROJECT_DIR", "proj")
+		}},
+		{name: "qoder write to a dot file", home: yoloHome, target: "qoder", rule: approvals.RuleTool, payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","cwd":` + strconvQuote(project) + `,"permission_mode":"default","tool_name":"Write","tool_input":{"file_path":` + strconvQuote(filepath.Join(project, ".ripgreprc")) + `,"content":"x"}}`
 		}},
 		{name: "qoder settings do not parse", home: yoloHome, target: "qoder", rule: approvals.RuleToolSettings, setup: func(t *testing.T, _, project string) {
 			t.Helper()
