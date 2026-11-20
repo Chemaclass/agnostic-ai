@@ -45,7 +45,7 @@ The prompt is all the cloud session knows. Write it like this:
 - First line: the goal in one plain sentence, with the branch name at the end in brackets. Some tools use it to make the session title.
 - **Done**: what this session finished, with paths relative to the project root.
 - **Next step**: the first thing to do, then what remains.
-- **Branch**: the pushed branch, and that the work is committed on it.
+- **Branch**: the pushed branch, that the work is committed on it, and that any pull request targets this branch, not the default branch.
 - **Verify**: the checks to run before calling it done.
 - Keep it under 60 lines. Never write secrets, tokens, or `.env` values.
 - Write it to a file through a quoted heredoc, so the shell expands nothing in it, then read the file into a variable. Keep the heredoc outside `$( )`: an older bash, such as macOS `/bin/bash` and `/bin/sh`, breaks on quotes and parentheses there. Set it and launch in one shell command: a variable does not survive to the next tool call, and the launch refuses an empty prompt. The file stays in the temp folder, which the system clears.
