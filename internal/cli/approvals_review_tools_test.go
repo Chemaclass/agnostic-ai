@@ -265,3 +265,49 @@ func TestGlobalTargets_CursorConfigDirMustBeAbsolute(t *testing.T) {
 		t.Errorf("rootError = %v", err)
 	}
 }
+
+func TestApprovalsStatus_DevinDangerousApprovesEverything(t *testing.T) {
+	home := approvalsUserHome(t)
+	t.Setenv("DEVIN_PERMISSION_MODE", "")
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [windsurf]\napprovals:\n  mode: review\n")
+	writeFile(t, filepath.Join(home, ".config", "devin", "config.json"), "{\"permission_mode\": \"dangerous\"}\n")
+
+	devin := toolStatus(t, approvalsStatusJSON(t), "windsurf")
+
+	if !slices.ContainsFunc(devin.Notes, func(n string) bool { return strings.Contains(n, "approves every call") }) {
+		t.Errorf("windsurf notes: %q", devin.Notes)
+	}
+}
+
+func TestSyncGlobal_ApprovalsReviewReplacesDevinNull(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("DEVIN_PERMISSION_MODE", "")
+	path := filepath.Join(home, ".config", "devin", "config.json")
+	writeFile(t, path, "{\n  \"permission_mode\": null,\n  \"theme_mode\": \"dark\"\n}\n")
+	writeHomeApprovals(t, source, "approvals:\n  tools:\n    windsurf: review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "windsurf"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if have, _ := reviewerKey(t, path, "json", "permission_mode"); have != "smart" {
+		t.Errorf("permission_mode = %v:\n%s", have, readFile(t, path))
+	}
+
+	writeHomeApprovals(t, source, "")
+	if _, warnings, err := runGlobalAgentTest("--only", "windsurf"); err != nil {
+		t.Fatalf("sync without review: %v\n%s", err, warnings)
+	}
+	if have, _ := reviewerKey(t, path, "json", "permission_mode"); have == "smart" {
+		t.Errorf("removing review left smart:\n%s", readFile(t, path))
+	}
+}
+
+func TestImportGlobal_SkipsAToolOwnedSettingsFile(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	writeFile(t, filepath.Join(home, ".config", "devin", "config.json"), "{ broken")
+	writeFile(t, cursorCLIConfigPath(home), "{ broken")
+
+	if _, stderr, err := runImportGlobalTest("windsurf", "cursor"); err != nil && strings.Contains(err.Error(), "parse") {
+		t.Fatalf("import read a file it takes nothing from: %v\n%s", err, stderr)
+	}
+}
