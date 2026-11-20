@@ -1693,12 +1693,14 @@ function searchSoon() {
   searchTimer = setTimeout(refresh, typed === '' ? 0 : SEARCH_PAUSE_MS)
 }
 
-queryInput.addEventListener('input', searchSoon)
-clearButton.addEventListener('click', () => {
+function clearSearch() {
   queryInput.value = ''
   searchSoon()
   queryInput.focus()
-})
+}
+
+queryInput.addEventListener('input', searchSoon)
+clearButton.addEventListener('click', clearSearch)
 // Settings
 
 const menu = document.getElementById('menu')
@@ -1880,9 +1882,10 @@ document.addEventListener('keydown', (event) => {
         leavePick()
         queryInput.focus()
       },
+      search: clearSearch,
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined })]()
+    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined, searching: queryInput.value !== '' })]()
     return
   }
   // Menus and confirmations handle Enter and Space on their own controls.

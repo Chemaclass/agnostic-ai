@@ -97,7 +97,7 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking }) {
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, searching }) {
   if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (stopShellOpen) return 'stop-shell'
@@ -106,6 +106,7 @@ export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen
   if (renaming) return 'rename'
   if (settingsOpen) return 'settings'
   if (picking) return 'pick'
+  if (searching) return 'search'
   return 'panel'
 }
 

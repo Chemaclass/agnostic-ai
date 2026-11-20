@@ -202,9 +202,9 @@ test('Hide stays plain after a new shortcut', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })).toBeVisible()
 })
 
-test('hidden, a chat that starts waiting brings the circle back at 25% with its count', async ({ page }) => {
+test('hidden, an unread reply brings back the faded circle without changing the waiting count', async ({ page }) => {
   await openCircle(page)
-  await expect(page.locator('#badge')).toHaveText('2')
+  await expect(page.locator('#badge')).toHaveText('1')
   expect((await page.request.post('/api/hide')).status()).toBe(204)
   await expect(page.locator('html')).toHaveAttribute('data-presence', 'hidden')
 
@@ -212,7 +212,8 @@ test('hidden, a chat that starts waiting brings the circle back at 25% with its 
 
   await expect(page.locator('html')).toHaveAttribute('data-presence', 'faded')
   await expect(circle(page)).toHaveCSS('opacity', '0.25')
-  await expect(page.locator('#badge')).toHaveText('3')
+  await expect(circle(page)).toHaveAccessibleName('Conversations: 1 waiting for you, 2 unread')
+  await expect(page.locator('#badge')).toHaveText('1')
   await circle(page).hover()
   await expect(circle(page)).toHaveCSS('opacity', '0.25')
 })
