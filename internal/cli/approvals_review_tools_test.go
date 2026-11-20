@@ -46,6 +46,7 @@ func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
 
 func TestSyncGlobal_ApprovalsReviewYieldsToTargetKeys(t *testing.T) {
 	for _, c := range []struct{ tool, spec string }{
+		{"codebuddy", "permissions:\n  default-mode: plan\n"},
 		{"codex", "x-codex:\n  approvals_reviewer: user\n"},
 		{"qoder", "x-qoder:\n  general:\n    defaultPermissionMode: default\n"},
 		{"qwen", "x-qwen:\n  tools:\n    approvalMode: default\n"},

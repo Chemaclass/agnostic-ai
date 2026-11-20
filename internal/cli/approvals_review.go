@@ -27,10 +27,11 @@ type nativeReviewer struct {
 // settings file sync --global owns. Claude Code honors auto mode only from
 // user, policy, or flag settings.
 var nativeReviewers = map[string]nativeReviewer{
-	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
-	"codex":  {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review"},
-	"qoder":  {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
-	"qwen":   {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
+	"claude":    {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
+	"codebuddy": {name: "CodeBuddy auto mode", key: "permissions.defaultMode", value: "auto"},
+	"codex":     {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review"},
+	"qoder":     {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
+	"qwen":      {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
 
 // homeToolMode is the mode the home config gives tool everywhere, which
