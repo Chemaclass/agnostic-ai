@@ -44,6 +44,7 @@ var nativeReviewers = map[string]nativeReviewer{
 		off: &reviewerOff{key: "permissions.disableAutoMode", value: "disable", why: "CodeBuddy starts in default instead"}},
 	"codex": {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review",
 		off: &reviewerOff{key: "approval_policy", value: "never", why: "it reviews only prompts, so use on-request or a granular policy"}},
+	"vibe":  {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve"},
 	"qoder": {name: "Qoder auto mode", key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
 	"qwen":  {name: "Qwen Code auto mode", key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
