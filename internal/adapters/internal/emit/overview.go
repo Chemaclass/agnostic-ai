@@ -108,20 +108,20 @@ func StripTargetOverview(body string) string {
 // the start marker on, which matches how a truncated generated block
 // should heal on the next sync.
 func stripMarkedBlock(body, startMarker, endMarker string) string {
-	start := strings.Index(body, startMarker)
-	if start < 0 {
+	before, after, ok := strings.Cut(body, startMarker)
+	if !ok {
 		return body
 	}
-	head := strings.TrimRight(body[:start], "\n")
-	rest := body[start+len(startMarker):]
-	end := strings.Index(rest, endMarker)
-	if end < 0 {
+	head := strings.TrimRight(before, "\n")
+	rest := after
+	_, after0, ok0 := strings.Cut(rest, endMarker)
+	if !ok0 {
 		if head == "" {
 			return ""
 		}
 		return head + "\n"
 	}
-	tail := strings.TrimLeft(rest[end+len(endMarker):], "\n")
+	tail := strings.TrimLeft(after0, "\n")
 	if head == "" {
 		return tail
 	}

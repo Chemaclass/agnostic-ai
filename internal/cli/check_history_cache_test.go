@@ -58,7 +58,7 @@ func TestHistoryRenderer_HeadCacheKeepsEightHistoricalAdmissions(t *testing.T) {
 			dir, git := gitRepo(t)
 			testutil.Chdir(t, dir)
 			var paths, commits []string
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				p := filepath.Join(".claude", fmt.Sprintf("file-%d.json", i))
 				mustWriteFile(t, p, "{}\n")
 				git("add", p)
@@ -87,7 +87,7 @@ func TestHistoryRenderer_HeadCacheKeepsEightHistoricalAdmissions(t *testing.T) {
 			if tc.headInHistory {
 				allowed = 7
 			}
-			for i := 0; i < 9; i++ {
+			for i := range 9 {
 				if got, want := h.proves(paths[i]), i < allowed; got != want {
 					t.Errorf("history %d proved=%v, want %v", i, got, want)
 				}

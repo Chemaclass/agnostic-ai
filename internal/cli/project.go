@@ -93,10 +93,10 @@ func newProjectCmd() *cobra.Command {
 		Example: "  agnostic-ai project --check\n  agnostic-ai project --bootstrap\n  agnostic-ai project -- hook memory --target codex",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && (check || bootstrap || args[0] == "project") {
-				return fmt.Errorf("project: command arguments cannot be combined with --check or --bootstrap, or recursively invoke project")
+				return errors.New("project: command arguments cannot be combined with --check or --bootstrap, or recursively invoke project")
 			}
 			if against != "" && !check {
-				return fmt.Errorf("project: --against requires --check")
+				return errors.New("project: --against requires --check")
 			}
 			return runProject(cmd, args, check, bootstrap, against)
 		},
@@ -127,8 +127,7 @@ func runProject(cmd *cobra.Command, args []string, check, bootstrap bool, agains
 		return err
 	}
 	binary, resolveErr := resolveProjectBinary(root, pkg, cfg.Requires)
-	var capabilityErr *projectCapabilityError
-	if errors.As(resolveErr, &capabilityErr) {
+	if _, ok := errors.AsType[*projectCapabilityError](resolveErr); ok {
 		return resolveErr
 	}
 	if resolveErr != nil && bootstrap && os.Getenv(projectBootstrapEnv) == "" {
@@ -436,7 +435,7 @@ func projectExactPackagePin(pkg projectPackage, requires string) (string, error)
 
 func projectInstallCommand(root string, pkg projectPackage) (*exec.Cmd, error) {
 	if pkg.Dependencies["agnostic-ai"] == "" && pkg.DevDependencies["agnostic-ai"] == "" {
-		return nil, fmt.Errorf("package.json must declare agnostic-ai before bootstrap can install it")
+		return nil, errors.New("package.json must declare agnostic-ai before bootstrap can install it")
 	}
 	engines, err := pkg.devEngineManagers()
 	if err != nil {
@@ -466,29 +465,29 @@ func projectInstallCommand(root string, pkg projectPackage) (*exec.Cmd, error) {
 				continue
 			}
 			if manager != "" {
-				return nil, fmt.Errorf("declare packageManager as npm, pnpm, or bun, with its committed lockfile")
+				return nil, errors.New("declare packageManager as npm, pnpm, or bun, with its committed lockfile")
 			}
 			manager = name
 		}
 		if manager == "" {
-			return nil, fmt.Errorf("declare packageManager as npm, pnpm, or bun, with its committed lockfile")
+			return nil, errors.New("declare packageManager as npm, pnpm, or bun, with its committed lockfile")
 		}
 	}
 	var install string
 	switch manager {
 	case "pnpm":
 		if !locks[manager] {
-			return nil, fmt.Errorf("pnpm bootstrap requires pnpm-lock.yaml")
+			return nil, errors.New("pnpm bootstrap requires pnpm-lock.yaml")
 		}
 		install = "pnpm install --frozen-lockfile"
 	case "npm":
 		if !locks[manager] {
-			return nil, fmt.Errorf("npm bootstrap requires package-lock.json")
+			return nil, errors.New("npm bootstrap requires package-lock.json")
 		}
 		install = "npm ci"
 	case "bun":
 		if !locks[manager] {
-			return nil, fmt.Errorf("bun bootstrap requires bun.lock")
+			return nil, errors.New("bun bootstrap requires bun.lock")
 		}
 		install = "bun install --frozen-lockfile"
 	default:

@@ -67,7 +67,7 @@ func TestSync_BareCapabilitiesWarnOnceEveryRunAndHonorSilent(t *testing.T) {
 	log := captureLogOut(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell, shell]\n")
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		log.Reset()
 		if err := runSyncOnce(dir, nil, false, false, "off", 1); err != nil {
 			t.Fatal(err)

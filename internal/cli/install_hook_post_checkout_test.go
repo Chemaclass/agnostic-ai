@@ -49,7 +49,7 @@ func TestInstallHookPostCheckout_UpgradesLegacyChecks(t *testing.T) {
 	if err := os.WriteFile(path, []byte(old), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := runInstallHook("--post-checkout"); err != nil {
 			t.Fatal(err)
 		}

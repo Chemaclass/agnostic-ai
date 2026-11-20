@@ -145,5 +145,4 @@ func TestNewSpecs_LoadAndRenderAddedKinds(t *testing.T) {
 			t.Error("copied render hint changed project files")
 		}
 	})
-
 }

@@ -606,9 +606,17 @@ func ResolveConfigPath(root string) (path string, legacy bool, err error) {
 	if fileExists(legacyPath) {
 		return legacyPath, true, nil
 	}
-	return "", false, errs.Coded(errs.CodeConfigMissing,
-		"read config: no %s or %s in %s",
-		ConfigFileName, LegacyConfigFileName, root)
+	return "", false, errs.Coded(errs.CodeConfigMissing, "read config: %w", &MissingError{Root: root})
+}
+
+// MissingError says root holds no config file, so a caller can tell
+// which folder lacked one.
+type MissingError struct {
+	Root string
+}
+
+func (e *MissingError) Error() string {
+	return fmt.Sprintf("no %s or %s in %s", ConfigFileName, LegacyConfigFileName, e.Root)
 }
 
 // configFile is one config file, read once. Every check and decode

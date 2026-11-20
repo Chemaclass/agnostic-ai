@@ -93,7 +93,7 @@ func mapCommand(command, cwd string, convert pathMap) string {
 		return command
 	}
 	start := 0
-	for n := 0; n < i; n++ {
+	for n := range i {
 		start += strings.Index(command[start:], fields[n]) + len(fields[n])
 	}
 	start += strings.Index(command[start:], fields[i])

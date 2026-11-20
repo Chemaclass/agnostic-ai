@@ -232,7 +232,7 @@ func claudeImportRefs(content string) []string {
 		default:
 			return ast.WalkContinue, nil
 		}
-		for i := 0; i < node.Lines().Len(); i++ {
+		for i := range node.Lines().Len() {
 			segment := node.Lines().At(i)
 			mask(segment.Start, segment.Stop)
 		}

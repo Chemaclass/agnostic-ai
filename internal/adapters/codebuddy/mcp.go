@@ -1,6 +1,7 @@
 package codebuddy
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -51,7 +52,7 @@ func MCPType(meta map[string]any) (string, error) {
 	kind, _ := meta["type"].(string)
 	if raw, set := meta["type"]; set {
 		if _, ok := raw.(string); !ok {
-			return "", fmt.Errorf("MCP type must be a string")
+			return "", errors.New("MCP type must be a string")
 		}
 	}
 	if kind == "" {
@@ -64,7 +65,7 @@ func MCPType(meta map[string]any) (string, error) {
 		}
 	}
 	if !slices.Contains([]string{"stdio", "http", "sse"}, kind) {
-		return "", fmt.Errorf("MCP type must be stdio, http, or sse")
+		return "", errors.New("MCP type must be stdio, http, or sse")
 	}
 	return kind, nil
 }

@@ -2,12 +2,12 @@ package grok
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -251,7 +251,7 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 
 func TestEmit_RejectsIgnoredCustomRuleAndGlobalIgnore(t *testing.T) {
 	for _, global := range []bool{false, true} {
-		t.Run(fmt.Sprint(global), func(t *testing.T) {
+		t.Run(strconv.FormatBool(global), func(t *testing.T) {
 			testutil.TempCwd(t)
 			if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
 				t.Fatalf("git: %v %s", err, out)

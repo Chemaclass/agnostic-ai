@@ -1,6 +1,7 @@
 package ellipsis
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -23,9 +24,7 @@ func reviewer(extra map[string]any) map[string]any {
 		"name":        "project-review",
 		"claude_code": map[string]any{"model": "claude-opus-5-5"},
 	}
-	for k, v := range extra {
-		r[k] = v
-	}
+	maps.Copy(r, extra)
 	return r
 }
 

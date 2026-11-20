@@ -76,16 +76,14 @@ func TestRemoveEmptyDirs_SurvivesAConcurrentWrite(t *testing.T) {
 		}
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for _, name := range names {
 				// Errors are expected and ignored: the pruner may have
 				// removed the directory already. The assertion is on
 				// the pruner, not on this writer.
 				_ = os.WriteFile(filepath.Join(name, "agent.md"), []byte("body"), 0o644)
 			}
-		}()
+		})
 
 		err := removeEmptyDirs(root)
 		// Wait before asserting: a t.Fatalf here would otherwise leave

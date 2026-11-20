@@ -167,8 +167,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if err != nil {
 		code := http.StatusUnprocessableEntity
-		var conflict *builtinConflict
-		if errors.As(err, &conflict) {
+		if _, ok := errors.AsType[*builtinConflict](err); ok {
 			code = http.StatusConflict
 			if r.URL.Path == builtinApplyPath && h.plan != nil && h.plan.view.ID == request.ID {
 				h.plan, h.last = nil, h.applied
@@ -198,7 +197,7 @@ func (h *builtinChangeHandler) status() builtinChangeView {
 // Cancel names its proposal so a stale tab cannot discard a newer preview.
 func (h *builtinChangeHandler) cancel(id string) (builtinChangeView, error) {
 	if h.plan == nil || h.plan.view.ID != id {
-		return builtinChangeView{}, builtinChanged(fmt.Errorf("this preview was already replaced or closed; reload the change state"))
+		return builtinChangeView{}, builtinChanged(errors.New("this preview was already replaced or closed; reload the change state"))
 	}
 	h.plan, h.last = nil, h.applied
 	return h.status(), nil
@@ -265,7 +264,7 @@ func builtinSameLock(root, path string, file *os.File) error {
 
 func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	if h.plan == nil || id == "" || h.plan.view.ID != id {
-		return builtinChangeView{}, builtinChanged(fmt.Errorf("proposal is no longer available; preview again"))
+		return builtinChangeView{}, builtinChanged(errors.New("proposal is no longer available; preview again"))
 	}
 	plan := h.plan
 	lock, created, err := lockBuiltinChange(h.root)
@@ -342,7 +341,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 
 func (h *builtinChangeHandler) restore(id string) (builtinChangeView, error) {
 	if h.after == nil || h.applied == nil || h.applied.ID != id || id == "" {
-		return builtinChangeView{}, builtinChanged(fmt.Errorf("undo is no longer available in this server session"))
+		return builtinChangeView{}, builtinChanged(errors.New("undo is no longer available in this server session"))
 	}
 	lock, _, err := lockBuiltinChange(h.root)
 	if err != nil {

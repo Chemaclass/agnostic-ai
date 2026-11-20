@@ -34,14 +34,14 @@ func writeLedgerlessScanFixture(tb testing.TB, root string, specs, files, extraD
 	tb.Helper()
 	writeStagedCheckFixture(tb, root, specs, files-extraDirs-userDotfiles)
 	var tracked []string
-	for i := 0; i < extraDirs; i++ {
+	for i := range extraDirs {
 		p := filepath.Join("apps", fmt.Sprintf("app-%04d", i), "src", "index.ts")
 		writeBenchFile(tb, filepath.Join(root, p), fmt.Sprintf("export const app%d = %d\n", i, i))
 		tracked = append(tracked, p)
 	}
 	commitFixtureFiles(tb, root, "application sources", tracked...)
 	var dotfiles []string
-	for i := 0; i < userDotfiles; i++ {
+	for i := range userDotfiles {
 		p := fmt.Sprintf(".tool-%d.json", i)
 		writeBenchFile(tb, filepath.Join(root, p), fmt.Sprintf("{\"tool\": %d}\n", i))
 		commitFixtureFiles(tb, root, fmt.Sprintf("configure tool %d", i), p)
@@ -63,14 +63,14 @@ func BenchmarkSyncWithoutLedger(b *testing.B) {
 		name   string
 		ledger bool
 	}{{"fresh-clone", false}, {"ledger-present", true}} {
-		b.Run(fmt.Sprintf("files=23000/%s", tc.name), func(b *testing.B) {
+		b.Run("files=23000/"+tc.name, func(b *testing.B) {
 			state := filepath.Join(root, filepath.FromSlash(stateFilePath(".")))
 			if err := runStagedCheckCommand(b, root, "sync"); err != nil {
 				b.Fatal(err)
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if !tc.ledger {
 					b.StopTimer()
 					if err := os.Remove(state); err != nil {

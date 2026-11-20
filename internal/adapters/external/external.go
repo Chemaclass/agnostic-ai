@@ -10,6 +10,7 @@ package external
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -270,7 +271,7 @@ func DecodeInput(r io.Reader) (Input, error) {
 // lookups (path separators, empty, leading dash).
 func validateName(name string) error {
 	if name == "" {
-		return fmt.Errorf("external adapter: empty name")
+		return errors.New("external adapter: empty name")
 	}
 	if strings.ContainsAny(name, "/\\") {
 		return fmt.Errorf("external adapter: name %q contains a path separator", name)

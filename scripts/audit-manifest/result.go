@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -187,7 +188,7 @@ func resultSummary(m *manifest) string {
 		if n == nil {
 			return "unknown"
 		}
-		return fmt.Sprint(*n)
+		return strconv.FormatInt(*n, 10)
 	}
 	for _, r := range m.Results {
 		timing := r.Timing

@@ -302,8 +302,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	}
 	var req conversationSendRequest
 	err := decodeOneJSON(w, r, maxConversationSendBytes, &req)
-	var overLimit *http.MaxBytesError
-	if errors.As(err, &overLimit) {
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 		tooLarge("over")
 		return
 	}

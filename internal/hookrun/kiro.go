@@ -84,7 +84,6 @@ func kiroToolMatches(matcher, tool string) (bool, error) {
 	}
 	if strings.HasPrefix(tool, "mcp_") {
 		values = append(values, "@mcp")
-
 	}
 	switch tool {
 	case "execute_bash":

@@ -247,13 +247,7 @@ func TestWatchDirs_IncludesOverlayDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Join(".", agnosticOverlayDir)
-	found := false
-	for _, p := range watchDirs(".", cfg) {
-		if p == want {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(watchDirs(".", cfg), want)
 	if !found {
 		t.Errorf("watchDirs missing %s\ngot %v", want, watchDirs(".", cfg))
 	}

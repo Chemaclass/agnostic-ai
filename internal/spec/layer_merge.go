@@ -94,9 +94,7 @@ func mergeMeta(base, over map[string]any) map[string]any {
 // marker, not a merge instruction.
 func mergeMap(base, over map[string]any, top, keepNull bool) map[string]any {
 	out := make(map[string]any, len(base)+len(over))
-	for k, v := range base {
-		out[k] = v
-	}
+	maps.Copy(out, base)
 	for k, v := range over {
 		if v == nil && !keepNull {
 			delete(out, k)

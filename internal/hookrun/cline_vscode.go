@@ -2,7 +2,8 @@ package hookrun
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -16,10 +17,10 @@ func BuildClineVSCodeTaskStart(root string, in Input) (Payload, error) {
 		return Payload{Body: in.Raw, Fires: true, Trigger: "task"}, nil
 	}
 	if in.Edit != "" || in.Bash != "" {
-		return Payload{}, fmt.Errorf("--edit and --bash build tool events, not TaskStart")
+		return Payload{}, errors.New("--edit and --bash build tool events, not TaskStart")
 	}
 	if in.Prompt != "" {
-		return Payload{}, fmt.Errorf("--prompt builds UserPromptSubmit, not TaskStart")
+		return Payload{}, errors.New("--prompt builds UserPromptSubmit, not TaskStart")
 	}
 	return clineMarshal(Payload{Fires: true, Trigger: "task"}, map[string]any{
 		"clineVersion": "", "hookName": "TaskStart", "timestamp": strconv.FormatInt(time.Now().UnixMilli(), 10),
@@ -78,9 +79,9 @@ func clineVSCodeReply(stdout string) map[string]any {
 	}
 	lines := strings.Split(stdout, "\n")
 	candidate, braces, collecting := "", 0, false
-	for i := len(lines) - 1; i >= 0; i-- {
-		for j := len(lines[i]) - 1; j >= 0; j-- {
-			switch lines[i][j] {
+	for _, line := range slices.Backward(lines) {
+		for j := len(line) - 1; j >= 0; j-- {
+			switch line[j] {
 			case '}':
 				braces++
 				collecting = true
@@ -89,7 +90,7 @@ func clineVSCodeReply(stdout string) map[string]any {
 			}
 		}
 		if collecting {
-			candidate = lines[i] + "\n" + candidate
+			candidate = line + "\n" + candidate
 		}
 		if collecting && braces == 0 {
 			break

@@ -286,8 +286,8 @@ func (c *ClaudeCloud) newRequest(ctx context.Context, method, path, token string
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("anthropic-client-platform", runtime.GOOS)
+	req.Header.Set("Anthropic-Version", "2023-06-01")
+	req.Header.Set("Anthropic-Client-Platform", runtime.GOOS)
 	req.Header.Set("User-Agent", "agnostic-ai")
 	return req, nil
 }
