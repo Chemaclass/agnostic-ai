@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,8 +55,15 @@ func TestDoctorFix_SavesAHandEditedFileAsBakBeforeWriting(t *testing.T) {
 	edited := string(original) + "my hand edit\n"
 	mustWriteFile(t, "CLAUDE.md", edited)
 
+	var logged bytes.Buffer
+	previous := logOut
+	logOut = &logged
+	t.Cleanup(func() { logOut = previous })
 	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err != nil {
 		t.Fatalf("doctor --fix: %v\n%s", err, out)
+	}
+	if !strings.Contains(logged.String(), "overwrote a hand edit to CLAUDE.md (saved as CLAUDE.md.bak)") {
+		t.Errorf("doctor --fix did not say it saved the edit:\n%s", logged.String())
 	}
 	backup, err := os.ReadFile("CLAUDE.md.bak")
 	if err != nil {
@@ -89,5 +97,37 @@ func TestDoctorFix_FailsWhenAnEarlierBakBlocksTheBackup(t *testing.T) {
 	}
 	if got, _ := os.ReadFile("CLAUDE.md.bak"); string(got) != "an earlier copy I keep\n" {
 		t.Errorf("doctor --fix replaced the earlier .bak:\n%s", got)
+	}
+}
+
+func TestDoctorFix_SaysItSavedARemovedHandEdit(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	spec := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
+	mustWriteFile(t, spec, "---\nname: style\nglobs: \"*.go\"\n---\nKeep it short.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	generated := filepath.Join(".claude", "rules", "style.md")
+	body, err := os.ReadFile(generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, generated, string(body)+"my hand edit\n")
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+
+	var logged bytes.Buffer
+	previous := logOut
+	logOut = &logged
+	t.Cleanup(func() { logOut = previous })
+	out, _ := runCLI(t, "doctor", "--fix", "--scope", "project")
+	if _, err := os.Stat(generated + ".bak"); err != nil {
+		t.Fatalf("doctor --fix kept the edited leftover instead of removing it:\n%s\n%s", out, logged.String())
+	}
+	want := "removed a hand edit to " + generated + " (saved as " + generated + ".bak)"
+	if !strings.Contains(filepath.ToSlash(logged.String()), filepath.ToSlash(want)) {
+		t.Errorf("doctor --fix did not say it saved the removed edit:\n%s", logged.String())
 	}
 }
