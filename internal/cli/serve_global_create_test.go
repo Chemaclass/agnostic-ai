@@ -275,3 +275,31 @@ func TestServeMux_GlobalCreateOnlyOnAProjectServer(t *testing.T) {
 		t.Errorf("project server did not create the setup: %v", err)
 	}
 }
+
+func TestGlobalCreate_NeedsTheGitChoice(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "home")
+	for _, body := range []string{`{}`, `{"git":null}`, `{"git":true,"x":1}`} {
+		if rec := postCreate(t, newGlobalCreateHandler(root), body, nil); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s = %d %s, want 400", body, rec.Code, rec.Body)
+		}
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Errorf("a refused request wrote the home: %v", err)
+	}
+}
+
+func TestSwitch_RefusesAnUnknownField(t *testing.T) {
+	started := false
+	h := newSwitchHandler(&switchPeer{root: t.TempDir(), global: true, dir: t.TempDir()}, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+		started = true
+		return nil, nil
+	})
+	defer h.close()
+	req := httptest.NewRequest(http.MethodPost, switchPath, strings.NewReader(`{"x":1}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest || started {
+		t.Errorf("switch = %d %s, started %v; want 400 and no server", rec.Code, rec.Body, started)
+	}
+}

@@ -1,13 +1,18 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -313,6 +318,43 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		return err
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores, %d settings (from windsurf)\n", c.rules, c.agents, c.skills, hooks, mcps, ignores, settings)
+	return noteWindsurfLegacyRules(root, scopes, cfg)
+}
+
+// noteWindsurfLegacyRules tells the user to delete each hand-written rule
+// in the legacy `.windsurf/rules/`, on every import while it stays. Sync writes the same
+// rule to `.devin/rules/`, Devin loads both folders, and sync leaves a
+// file it did not write in place, so every rule would load twice. Import
+// never removes a file it did not write.
+func noteWindsurfLegacyRules(root string, scopes []string, cfg *config.Config) error {
+	if cfg == nil || !slices.Contains(cfg.Targets, "windsurf") || windsurfRulesDirFromCfg(cfg) != "" {
+		return nil
+	}
+	for _, scope := range append([]string{""}, scopes...) {
+		dir, dest := filepath.Join(scope, windsurfRulesDirs[1]), filepath.Join(scope, windsurfRulesDirs[0])
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("read %s: %w", path, err)
+			}
+			if header.Has(string(data)) {
+				return nil
+			}
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return fmt.Errorf("resolve %s: %w", path, err)
+			}
+			summaryf("  ! delete %s after the next sync: sync writes it to %s, and Devin loads both folders\n",
+				filepath.ToSlash(rel), filepath.ToSlash(dest)+"/")
+			return nil
+		})
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	}
 	return nil
 }
 

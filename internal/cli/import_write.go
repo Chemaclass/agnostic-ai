@@ -211,6 +211,27 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	return os.WriteFile(path, data, mode)
 }
 
+// changed reports whether a file the run wrote now differs from what it
+// held before the run, so a file written and then put back counts as
+// unchanged.
+func (t *importTransaction) changed() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for path, prior := range t.files {
+		current, err := os.ReadFile(path)
+		if prior == nil {
+			if err == nil {
+				return true
+			}
+			continue
+		}
+		if err != nil || !bytes.Equal(current, prior.data) {
+			return true
+		}
+	}
+	return false
+}
+
 // importMkdirAll creates dir and its parents, unless a dry-run is active
 // and dir resolves outside its sandbox.
 func importMkdirAll(dir string, perm fs.FileMode) error { //nolint:unparam // perm names the mode at each call, like os.MkdirAll
