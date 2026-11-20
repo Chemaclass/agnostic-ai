@@ -13,8 +13,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Set `approvals` to keep prompts, use a tool's reviewer, or let trusted hooks answer routine prompts in five tools on macOS and Linux (#3700).
 - The companion lists cached Claude app chats and Cowork tasks with coding sessions, plus cached ChatGPT chats when `sqlite3` is available (#3511).
 - On macOS, Ctrl+Alt+V opens the send picker or pastes into the only eligible Claude Code or Codex chat shown in Terminal or Ghostty (#3522, #3550).
-- On macOS 13+, `companion install` can download the matching app without Go or Xcode tools from the release-tag CLI unless you pass `--source` (#3516).
-- `sync` stops if a locked pack is missing or a configured output path points into a source folder (#3712, #3740).
+- On macOS 13+, `companion install` can download the matching app when the release includes a prebuilt archive (#3516).
+- `sync` stops when a locked pack is missing or an output path points into a source folder (#3712, #3740).
+
+The v0.96.0 macOS companion archives were unavailable at publication. `companion install` builds this version locally using Go and Xcode Command Line Tools.
 
 ### General
 
@@ -32,7 +34,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Approval safeguards
 
-- `approvals ask` stops hook answers. `sync --global` clears sync-owned reviewer settings. Switch modes in running sessions in the tool (#3700).
+- `approvals ask` stops hook answers. Run `sync --global` to clear reviewer settings it wrote, then switch modes in running sessions (#3700).
 - In `yolo`, edits to agent specs, moved agent, hook, MCP or settings folders, and legacy `agnostic.config.yaml` ask for approval (#3700, #3790).
 - In `yolo`, a `Read` or `Edit` ask rule with a path covers shell commands, `rtk` matches `Bash` ask rules, and path rules follow links and ignore case (#3808).
 - In `yolo`, home-folder sessions, edits to tool, login-agent and home `bin` folders, reads of `.git` or Git config, and links to credential files ask (#3808).
@@ -48,15 +50,15 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Sync safety
 
-- `sync` stops if `agnostic.packs.lock` is invalid or names a missing pack, and names the missing packs before it can remove their generated files (#3712).
-- `sync`, `status` and `validate` refuse an `outputs` path that resolves into `.agnostic-ai/` or a spec folder, instead of overwriting the source (#3740).
+- `sync` stops on an invalid `agnostic.packs.lock` or missing locked packs, keeping their generated files (#3712).
+- `sync`, `status` and `validate` reject any `outputs` path that points into `.agnostic-ai/` or another spec folder (#3740).
 - `doctor --fix` backs up edits to whole generated files, and both it and `sync` back up edits through links into the project (#3707, #3736).
 - `revert --force` keeps files in `.agnostic-ai/` and configured spec folders, and `revert` reports how many files it restores or removes (#3701).
 - When tools write different content to one file, `sync` applies the strictest of their `outputs.<target>.collision-policy` settings (#3631).
 
 #### Sync checks and previews
 
-- `sync` stops if replacing a whole hand-written MCP file would lose settings, and `--backup` can proceed if the `.bak` path is free (#3702).
+- `sync` refuses to replace a hand-written MCP file if settings would be lost. Use `--backup` when the `.bak` path is free (#3702).
 - `sync --plan` previews `.gitignore` and `.worktreeinclude` changes, and `init --dry-run` previews `.gitignore` (#3714).
 - `sync --check`, `doctor --fix`, `use` and `upgrade --requires` stop on missing locked packs or an invalid `agnostic.packs.lock` (#3712).
 - `sync` spends less time writing output, including Kilo Code projects with many wildcard permissions (#3634).
@@ -102,7 +104,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Hooks and built-ins
 
 - `hook run` follows Claude Code 2.1.328 for `Bash(...)` matching for quotes, substitutions and wrappers such as `timeout` (#3681, #3698, #3742).
-- The opt-in `cloud-handoff` skill pushes work to a Git remote, then uses a signed-in Claude Code or Codex CLI to start a cloud session (#3666).
+- Enable `cloud-handoff` to push work to a branch and continue it with the signed-in Claude Code or Codex CLI (#3666).
 - Automatic Claude Code cloud launch uses `script`, while starting a Codex cloud task requires an environment ID (#3666).
 - Built-in session skills point to `cloud-handoff`, which stops if it cannot commit or push your work (#3690, #3692).
 
