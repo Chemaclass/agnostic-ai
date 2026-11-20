@@ -15,7 +15,7 @@ func codexProjectWithMissingCodexHome(t *testing.T) *config.Config {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	t.Setenv("CODEX_HOME", filepath.Join(dir, "codex-home-not-made-yet"))
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
 	cfg, err := config.Load(".")
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestCodexHookTrust_SkipsAMissingCodexHomeWhenNoHooksFileExists(t *testing.T
 
 func TestCodexHookTrust_ReportsAMissingCodexHomeWhenTheProjectHasHooks(t *testing.T) {
 	cfg := codexProjectWithMissingCodexHome(t)
-	mustWriteFile(t, filepath.Join(".codex", "hooks.json"), `{"hooks":{}}`)
+	writeFile(t, filepath.Join(".codex", "hooks.json"), `{"hooks":{}}`)
 
 	findings := collectCodexHookTrust(cfg, nil)
 	if len(findings) != 1 || !strings.Contains(findings[0].Problem, "CODEX_HOME") {
@@ -43,8 +43,8 @@ func TestCodexHookTrust_ReportsAMissingCodexHomeWhenTheProjectHasHooks(t *testin
 
 func TestDoctorFix_SavesAHandEditedFileAsBakBeforeWriting(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\nalwaysApply: true\n---\nKeep it short.\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\nalwaysApply: true\n---\nKeep it short.\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -53,7 +53,7 @@ func TestDoctorFix_SavesAHandEditedFileAsBakBeforeWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 	edited := string(original) + "my hand edit\n"
-	mustWriteFile(t, "CLAUDE.md", edited)
+	writeFile(t, "CLAUDE.md", edited)
 
 	var logged bytes.Buffer
 	previous := logOut
@@ -82,12 +82,12 @@ func TestDoctorFix_SavesAHandEditedFileAsBakBeforeWriting(t *testing.T) {
 
 func TestDoctorFix_FailsWhenAnEarlierBakBlocksTheBackup(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	mustWriteFile(t, "CLAUDE.md.bak", "an earlier copy I keep\n")
-	mustWriteFile(t, "CLAUDE.md", "my hand edit\n")
+	writeFile(t, "CLAUDE.md.bak", "an earlier copy I keep\n")
+	writeFile(t, "CLAUDE.md", "my hand edit\n")
 
 	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err == nil {
 		t.Fatalf("doctor --fix passed while it kept the edit:\n%s", out)
@@ -102,9 +102,9 @@ func TestDoctorFix_FailsWhenAnEarlierBakBlocksTheBackup(t *testing.T) {
 
 func TestDoctorFix_SaysItSavedARemovedHandEdit(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	spec := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
-	mustWriteFile(t, spec, "---\nname: style\nglobs: \"*.go\"\n---\nKeep it short.\n")
+	writeFile(t, spec, "---\nname: style\nglobs: \"*.go\"\n---\nKeep it short.\n")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
@@ -113,7 +113,7 @@ func TestDoctorFix_SaysItSavedARemovedHandEdit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, generated, string(body)+"my hand edit\n")
+	writeFile(t, generated, string(body)+"my hand edit\n")
 	if err := os.Remove(spec); err != nil {
 		t.Fatal(err)
 	}
@@ -129,5 +129,30 @@ func TestDoctorFix_SaysItSavedARemovedHandEdit(t *testing.T) {
 	want := "removed a hand edit to " + generated + " (saved as " + generated + ".bak)"
 	if !strings.Contains(filepath.ToSlash(logged.String()), filepath.ToSlash(want)) {
 		t.Errorf("doctor --fix did not say it saved the removed edit:\n%s", logged.String())
+	}
+}
+
+// doctor --fix shares sync's edit guard, so an edit made through a
+// symlinked output is saved too (#3736).
+func TestDoctorFix_SavesAHandEditMadeThroughASymlinkedOutput(t *testing.T) {
+	handEditProject(t, "claude")
+	generated, edited := linkHandEditOutput(t, handEditSkill)
+	var logged bytes.Buffer
+	previous := logOut
+	logOut = &logged
+	t.Cleanup(func() { logOut = previous })
+
+	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err != nil {
+		t.Fatalf("doctor --fix: %v\n%s", err, out)
+	}
+
+	if got, _ := os.ReadFile(handEditSkill + ".bak"); string(got) != edited {
+		t.Errorf(".bak = %q, want the hand edit", got)
+	}
+	if got, _ := os.ReadFile("notes/linked.md"); string(got) != generated {
+		t.Errorf("link target = %q, want the spec's version", got)
+	}
+	if want := "overwrote a hand edit to " + handEditSkill + " (saved as " + handEditSkill + ".bak)"; !strings.Contains(logged.String(), want) {
+		t.Errorf("doctor --fix output does not say %q:\n%s", want, logged.String())
 	}
 }
