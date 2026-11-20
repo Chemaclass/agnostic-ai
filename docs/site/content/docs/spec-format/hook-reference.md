@@ -163,7 +163,7 @@ command: 'files=$(agnostic-ai hook paths) || exit 1; printf "%s\n" "$files" | gr
 - `|| exit 1` fails the hook when `hook paths` fails (bad JSON, missing binary). Without it the loop would exit 0.
 - Command hooks receive event JSON on stdin. Read the shell command from `tool_input`.
 - `AGNOSTIC_AI_TARGET` names the tool that ran the hook ([details](@/docs/spec-format/hook-reference.md#hook-target)).
-- [Vibe](@/docs/targets/vibe.md#connections-settings-and-hooks) uses seven snake_case native events, all accepting `matcher`: `pre_tool`, `post_tool`, `pre_agent`, `post_agent`, `notification`, `session_start`, and `session_end`. Matchers take globs or regular expressions with a `re:` prefix. Vibe gets no portable events.
+- [Vibe](@/docs/targets/vibe-reference.md#hooks) uses native events such as `pre_tool` and `post_agent`. Vibe 3.1.3 adds `pre_llm` and `post_llm`. Sync writes `matcher` as native `match`. Matchers take globs or regular expressions with a `re:` prefix. Vibe gets no portable events.
 - [Kiro CLI 3.4.0](https://kiro.dev/docs/hooks/types/) adds `PermissionRequest` in V3 sessions, with a tool-name matcher and command actions only. The accepted alias `permissionRequest` gets validation advice to use the canonical event name.
 - OpenCode runs hooks as plugins ([V1 and V2 runtimes](@/docs/targets/opencode-reference.md#opencode-v2-hooks)).
 
