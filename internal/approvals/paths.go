@@ -89,14 +89,6 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 	}
 	// A backslash escapes the next rune; dropping it only widens the glob.
 	glob = strings.ReplaceAll(glob, `\`, "")
-	if _, ok := gitInternals.Match(strings.TrimPrefix(glob, "**/")); ok {
-		return RuleProtectedPath
-	}
-	for segment := range strings.SplitSeq(glob, "/") {
-		if strings.EqualFold(segment, ".git") {
-			return RuleProtectedPath
-		}
-	}
 	if pathLike(glob) {
 		return RuleOutsideProject
 	}
@@ -128,7 +120,31 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 			return RuleSecret
 		}
 	}
+	if gitGlob(glob) {
+		return RuleProtectedPath
+	}
 	return ""
+}
+
+// gitGlob reports a search glob that may match a Git folder or config
+// file, read the way the search tool reads it.
+func gitGlob(glob string) bool {
+	lower := strings.ToLower(glob)
+	for segment := range strings.SplitSeq(lower, "/") {
+		if segment == ".git" {
+			return true
+		}
+	}
+	re, err := dotGlobRegexp(lower)
+	if err != nil {
+		return true
+	}
+	for _, sample := range []string{".git/config", ".git/hooks/x", ".gitconfig", ".config/git/config", "dir/.git/config"} {
+		if re.MatchString(sample) {
+			return true
+		}
+	}
+	return false
 }
 
 // dotGlobRegexp reads a glob as search tools do: * and ? stay inside a
@@ -214,6 +230,17 @@ var homeProtected = spec.ProtectGroup{Paths: []string{
 	"Library/LaunchAgents", "Library/LaunchDaemons", ".config/autostart", ".config/systemd",
 	"bin", ".local/bin", "go/bin", ".cargo/bin", ".bun/bin", ".deno/bin", ".npm-global/bin",
 }}
+
+// homeTopProtected is fixedProtected anchored at the home folder: a
+// **/ pattern there means a folder right under home, so a tool folder
+// inside some project above the session does not protect it.
+var homeTopProtected = func() spec.ProtectGroup {
+	var group spec.ProtectGroup
+	for _, p := range fixedProtected.Paths {
+		group.Paths = append(group.Paths, strings.TrimPrefix(p, "**/"))
+	}
+	return group
+}()
 
 // protected reports whether abs, inside the project, is a path an edit
 // always asks for, or one under $AGNOSTIC_AI_HOME. Read from the home
@@ -316,7 +343,12 @@ func (g *gate) protectedFromHome(abs string) bool {
 				continue
 			}
 			rel = filepath.ToSlash(rel)
-			if _, ok := fixedProtected.Match(rel); ok {
+			if segments := strings.Split(rel, "/"); len(segments) > 2 && segments[1] == "worktrees" {
+				// A tool's own worktrees, such as ~/.codex/worktrees, hold
+				// checkouts, not the tool's settings.
+				continue
+			}
+			if _, ok := homeTopProtected.Match(rel); ok {
 				return true
 			}
 			if _, ok := homeProtected.Match(rel); ok {

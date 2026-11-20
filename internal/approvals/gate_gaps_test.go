@@ -221,3 +221,41 @@ func TestDotEnvSetsPolicy_DotenvForms(t *testing.T) {
 		}
 	}
 }
+
+func TestDecide_ToolFoldersInsideAProjectDoNotProtectIt(t *testing.T) {
+	t.Parallel()
+	for _, root := range []string{
+		testHome + "/Code/proj/.claude/worktrees/x", testHome + "/Code/.idea/p",
+		testHome + "/.codex/worktrees/ab12/proj", testHome + "/.cursor/worktrees/proj/x1",
+		testHome + "/Code/bin", testHome + "/go/src/github.com/a/bin",
+	} {
+		p := testPolicy()
+		p.ProjectRoot = root
+		r := call("Write", map[string]any{"file_path": root + "/main.go"})
+		r.Cwd = root
+		wantDecision(t, Decide(r, p), "")
+	}
+}
+
+func TestDotEnvSetsPolicy_UnicodeBlanks(t *testing.T) {
+	t.Parallel()
+	for _, text := range []string{
+		" AGNOSTIC_AI_HOME=/x", "\vAGNOSTIC_AI_HOME=/x", " AGNOSTIC_AI_HOME=/x", "#c AGNOSTIC_AI_HOME=/x",
+		"export AGNOSTIC_AI_HOME=/x", "AGNOSTIC_AI_HOME =/x", "AGNOSTIC_AI_HOME: /x",
+	} {
+		if !dotEnvSetsPolicy(text) {
+			t.Errorf("%q: not caught", text)
+		}
+	}
+}
+
+func TestDecide_GitGlobWildcardsAsk(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	for _, glob := range []string{".gi?/config", ".git*/config", ".[g]it/config", "*.gitconfig", "**/.git/**"} {
+		if got := Decide(call("Grep", map[string]any{"pattern": "x", "glob": glob}), p); got.Outcome != Asked {
+			t.Errorf("%q: got %+v, want asked", glob, got)
+		}
+	}
+	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "glob": "src/*.go"}), p), "")
+}

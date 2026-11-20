@@ -150,10 +150,12 @@ func QwenDotEnvMovesPolicy(cwd string) (bool, error) {
 
 // dotEnvLine is the line grammar of the dotenv package Qwen Code
 // loads .env files with: a key, then = or a colon and a blank.
-var dotEnvLine = regexp.MustCompile(`(?m)^[\s\x{FEFF}]*(?:export\s+)?([\w.-]+)(?:\s*=|:\s)`)
+// Its \s is JavaScript's, which also takes the vertical tab and every
+// Unicode space.
+var dotEnvLine = regexp.MustCompile(`(?m)^[\s\v\p{Z}\x{FEFF}]*(?:export[\s\v\p{Z}\x{FEFF}]+)?([\w.-]+)(?:[\s\v\p{Z}\x{FEFF}]*=|:[\s\v\p{Z}\x{FEFF}])`)
 
 func dotEnvSetsPolicy(text string) bool {
-	text = strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(text)
+	text = strings.NewReplacer("\r\n", "\n", "\r", "\n", "\u2028", "\n", "\u2029", "\n").Replace(text)
 	for _, m := range dotEnvLine.FindAllStringSubmatch(text, -1) {
 		if slices.ContainsFunc(policyEnv, func(key string) bool { return strings.EqualFold(key, m[1]) }) {
 			return true
