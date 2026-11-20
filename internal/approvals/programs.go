@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"maps"
 	"slices"
 	"strings"
 )
@@ -64,12 +65,10 @@ func opts(kind optionKind, text bool, names ...string) map[string]option {
 	return m
 }
 
-func merge(maps ...map[string]option) map[string]option {
+func merge(parts ...map[string]option) map[string]option {
 	m := map[string]option{}
-	for _, part := range maps {
-		for k, v := range part {
-			m[k] = v
-		}
+	for _, part := range parts {
+		maps.Copy(m, part)
 	}
 	return m
 }
