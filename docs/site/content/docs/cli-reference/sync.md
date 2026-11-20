@@ -112,6 +112,7 @@ With nothing to do, `sync` prints `✓ 26 targets up to date · 49ms`. After an 
 
 - With the [`memory` built-in](@/docs/memory.md), the line for an instructions file such as `GEMINI.md` also suggests saving a fact in `.agnostic-ai/memory/`, since a tool's own memory may have written the edit.
 - If `<path>.bak` exists, sync keeps the new edit in place and says so. It never replaces an earlier backup.
+- An edit made through a symlinked output counts too. When the link points inside the project, sync saves the edit as `<path>.bak` and writes through the link. When it points outside, sync refuses to write through it and leaves the edit alone; it never copies that file in.
 - Exception: sync writes the file when that `.bak` is its own, unchanged, and holds the same bytes as the edited file.
 - Sync never writes an output onto a `.bak` it saved earlier, or onto another output's `<path>.bak`. It stops with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) first.
 - A key you add to a merged settings file such as `.claude/settings.json` stays in place, without a backup.
