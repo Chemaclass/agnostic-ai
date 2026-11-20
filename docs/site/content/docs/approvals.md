@@ -130,6 +130,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 |---|---|---|---|
 | Claude Code (`claude`) | Claude Code auto mode | PermissionRequest hook | Claude Code 2.0.45 or newer; accept the workspace trust dialog |
 | Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
+| Qoder (`qoder`) | Qoder auto mode | asks | Nothing extra |
 | Qwen Code (`qwen`) | Qwen Code auto mode | asks | Qwen Code already runs auto mode in a trusted folder when the key is unset |
 | Every other tool | asks | asks | |
 

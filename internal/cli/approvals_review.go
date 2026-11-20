@@ -19,6 +19,9 @@ type nativeReviewer struct {
 	// askValue is the value that shows its prompts instead.
 	defaultOn string
 	askValue  any
+	// legacyKey is an older key the tool copies into key when key is
+	// unset, so a value there is the user's mode too.
+	legacyKey string
 }
 
 // nativeReviewers carry out review, each through a key in the user
@@ -27,6 +30,7 @@ type nativeReviewer struct {
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: approvals.RouteFor("claude").Review.Name, key: "permissions.defaultMode", value: "auto"},
 	"codex":  {name: approvals.RouteFor("codex").Review.Name, key: "approvals_reviewer", value: "auto_review"},
+	"qoder":  {name: approvals.RouteFor("qoder").Review.Name, key: "general.defaultPermissionMode", value: "auto", legacyKey: "tools.approvalMode"},
 	"qwen":   {name: approvals.RouteFor("qwen").Review.Name, key: "tools.approvalMode", value: "auto", defaultOn: "in a trusted folder", askValue: "default"},
 }
 
@@ -70,7 +74,7 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 		return want, nil
 	}
 	for _, s := range want {
-		if settingsKeysOverlap(s.key, reviewer.key, format) {
+		if settingsKeysOverlap(s.key, reviewer.key, format) || (reviewer.legacyKey != "" && settingsKeysOverlap(s.key, reviewer.legacyKey, format)) {
 			return want, nil
 		}
 	}
@@ -88,6 +92,14 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 	}
 	have, present := settingsLookup(current, reviewer.key, format)
 	recorded, owned := previous[reviewer.key]
+	if legacy, ok := settingsLookup(current, reviewer.legacyKey, format); reviewer.legacyKey != "" && ok && !present {
+		_, err := fmt.Fprintf(p.warn, "warning: %s: %s: review leaves %s = %s in %s, set outside agnostic-ai; %s stays off until you remove it\n",
+			target, from, reviewer.legacyKey, settingsValueText(reviewer.legacyKey, legacy), path, reviewer.name)
+		if err != nil {
+			return nil, fmt.Errorf("write approvals warning: %w", err)
+		}
+		return want, nil
+	}
 	if present && (!owned || !sameSetting(have, recorded)) {
 		if sameSetting(have, reviewer.value) {
 			return want, nil
@@ -156,7 +168,7 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	case mode != config.ApprovalsReview && rs.on && !rs.present:
 		notes = append(notes, fmt.Sprintf("%s is on %s while %s is unset in %s; to see prompts, set x-%s.%s to %s in a home settings spec",
 			r.name, r.defaultOn, r.key, rs.path, tool, r.key, settingsValueText(r.key, r.askValue)))
-	case mode != config.ApprovalsReview && rs.on && tool == "codex":
+	case mode != config.ApprovalsReview && rs.on && tool != "claude":
 		// Auto mode is Claude Code's own starting mode, so a value set by
 		// hand there is not worth a note.
 		notes = append(notes, fmt.Sprintf("%s is on: %s = %s in %s was set outside agnostic-ai", r.name, r.key, want, rs.path))

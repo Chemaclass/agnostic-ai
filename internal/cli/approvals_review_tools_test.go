@@ -47,6 +47,7 @@ func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
 func TestSyncGlobal_ApprovalsReviewYieldsToTargetKeys(t *testing.T) {
 	for _, c := range []struct{ tool, spec string }{
 		{"codex", "x-codex:\n  approvals_reviewer: user\n"},
+		{"qoder", "x-qoder:\n  general:\n    defaultPermissionMode: default\n"},
 		{"qwen", "x-qwen:\n  tools:\n    approvalMode: default\n"},
 	} {
 		t.Run(c.tool, func(t *testing.T) {
@@ -97,5 +98,37 @@ func TestApprovalsStatus_QwenAutoIsItsDefault(t *testing.T) {
 	qwen = toolStatus(t, approvalsStatusJSON(t), "qwen")
 	if qwen.Effective != config.ApprovalsReview || len(qwen.Notes) != 0 {
 		t.Errorf("an unset key reads as off: %+v", qwen)
+	}
+}
+
+func TestSyncGlobal_ApprovalsReviewLeavesQoderLegacyMode(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".qoder", "settings.json")
+	original := `{"tools": {"approvalMode": "default"}}` + "\n"
+	writeFile(t, path, original)
+	writeHomeApprovals(t, source, "approvals:\n  tools:\n    qoder: review\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "qoder")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	if got := readFile(t, path); got != original {
+		t.Errorf("settings.json:\n%s", got)
+	}
+	if !strings.Contains(warnings, "tools.approvalMode") {
+		t.Errorf("no warning:\n%s", warnings)
+	}
+}
+
+func TestApprovalsStatus_HandSetQoderAutoIsNamedUnderAsk(t *testing.T) {
+	home := approvalsUserHome(t)
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [qoder]\n")
+	writeFile(t, filepath.Join(home, ".qoder", "settings.json"), `{"general": {"defaultPermissionMode": "auto"}}`)
+
+	qoder := toolStatus(t, approvalsStatusJSON(t), "qoder")
+
+	if len(qoder.Notes) != 1 || !strings.Contains(qoder.Notes[0], "outside agnostic-ai") {
+		t.Errorf("qoder notes: %q", qoder.Notes)
 	}
 }
