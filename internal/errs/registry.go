@@ -76,8 +76,8 @@ var registry = map[Code]Entry{
 	CodeFlagConflict: {
 		Code:  CodeFlagConflict,
 		Title: "Mutually exclusive flags",
-		Cause: "Two flags whose effects conflict were passed together (e.g. `--only` with `--except`), or a flag was passed without the one it needs (e.g. `--diff` without `--dry-run`).",
-		Fix:   "The message names both flags. Drop one when they conflict; add the missing one when a flag needs another.",
+		Cause: "Two flags whose effects conflict were passed together (e.g. `--only` with `--except`), a flag was passed without the one it needs (e.g. `--diff` without `--dry-run`), or a flag got a value it cannot take (e.g. `--jobs -1`).",
+		Fix:   "The message names the flags. Drop one when they conflict, add the missing one when a flag needs another, or pass a value the message accepts.",
 	},
 	CodeEmptyTargets: {
 		Code:  CodeEmptyTargets,

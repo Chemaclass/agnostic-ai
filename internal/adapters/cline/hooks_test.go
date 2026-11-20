@@ -286,6 +286,24 @@ func TestEmit_Hook_CLIOnlyEventsNoteTheVSCodeGap(t *testing.T) {
 	}
 }
 
+// .cline/hooks is a folder only the Cline CLI reads, so a CLI-only event
+// written there has no VS Code gap to note.
+func TestEmit_Hook_CLIOnlyFolderSkipsTheVSCodeNote(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"cline": {HooksDir: ".cline/hooks"}}}
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h", Meta: map[string]any{"event": "TaskResume", "command": "echo hi"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "the Cline VS Code extension") {
+		t.Errorf("expected no VS Code note for a CLI-only folder, got: %q", buf.String())
+	}
+}
+
 // A bundle with no hook spec writes no hooks directory.
 func TestEmit_Hook_NoHooksNoDirectory(t *testing.T) {
 	dir := testutil.TempCwd(t)
