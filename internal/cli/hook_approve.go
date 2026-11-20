@@ -109,12 +109,14 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 		return nil
 	}
 	policy := config.ApprovalsPolicy{Home: home, UserHome: userHome, Env: os.Getenv(config.EnvApprovals), ProjectAsk: projectAsk}
-	mode := policy.Resolve(target, p.Cwd).Mode
+	resolved := policy.Resolve(target, p.Cwd)
+	mode := resolved.Mode
 	request := approvals.Request{Call: p.Call, Input: p.Input, PermissionMode: p.PermissionMode, Cwd: p.Cwd}
 	log := approvals.Log{Path: approvals.LogPath(source)}
 	if mode != config.ApprovalsYolo {
-		if home.Loosens() {
-			// The companion waits for a line before it shows a prompt.
+		if resolved.From == config.EnvApprovals && home.Loosens() {
+			// The companion cannot see a session's environment, so it
+			// would hold this prompt waiting for an answer that never comes.
 			_ = log.Append(approvals.NewEntry(target, p.Session, mode, request, approvals.Decision{Outcome: approvals.Asked, Rule: approvals.RuleMode}, now))
 		}
 		return nil
@@ -187,7 +189,7 @@ func nativeRulesQuiet(target, cwd, userHome string) bool {
 			return false
 		}
 		settings, err := approvals.ReadJSONSettings(files)
-		return err == nil && !settings.Ask
+		return err == nil && !settings.Ask && !settings.MovedEnv
 	case "qwen":
 		dir, ok := qwenUserDir(userHome)
 		if !ok {

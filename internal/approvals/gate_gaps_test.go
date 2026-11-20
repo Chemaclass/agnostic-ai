@@ -103,3 +103,121 @@ func TestDecide_ReadOfGitInternalsAsks(t *testing.T) {
 	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/sub/.GIT/config"}), p), RuleProtectedPath)
 	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/.github/x.yml"}), p), "")
 }
+
+func TestDecide_RtkEvasionsKeepBashAskRules(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	p.AlwaysAsk = []string{"Bash(go test:*)", "Bash(git log*)"}
+	for _, command := range []string{
+		" rtk go test ./...", "\trtk go test ./...", `"rtk" go test ./...`, `'rtk' go test ./...`,
+		`r\tk go test ./...`, `rtk "go" test ./...`, `rtk g\o test ./...`, `"rtk" git log`,
+	} {
+		if got := Decide(bash(command), p); got.Outcome != Asked {
+			t.Errorf("%q: got %+v, want asked", command, got)
+		}
+	}
+}
+
+func TestDecide_ToolFoldersUnderHomeAsk(t *testing.T) {
+	t.Parallel()
+	for root, file := range map[string]string{
+		testHome + "/.claude":       "settings.json",
+		testHome + "/.codex":        "config.toml",
+		testHome + "/.config":       "git/config",
+		testHome + "/.config/fish":  "config.fish",
+		testHome + "/Library":       "LaunchAgents/x.plist",
+		testHome + "/go":            "bin/agnostic-ai",
+		testHome + "/.local":        "bin/git",
+		testHome + "/.cargo":        "bin/x",
+		testHome + "/.agnostic-ai2": "notes.md",
+	} {
+		p := testPolicy()
+		p.ProjectRoot = root
+		r := call("Write", map[string]any{"file_path": root + "/" + file})
+		r.Cwd = root
+		want := RuleProtectedPath
+		if file == "notes.md" {
+			want = ""
+		}
+		wantDecision(t, Decide(r, p), want)
+	}
+}
+
+func TestDecide_PathRulesThroughALinkedRoot(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	if err := os.MkdirAll(filepath.Join(real, "private"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustSymlink(t, filepath.Join(real, "private"), filepath.Join(real, "pub"))
+	link := filepath.Join(base, "link")
+	mustSymlink(t, real, link)
+	p := testPolicy()
+	p.ProjectRoot = link
+	p.Resolve = ResolveLinks
+	p.AlwaysAsk = []string{"Edit(./private/**)"}
+	for _, file := range []string{filepath.Join(link, "pub", "x"), filepath.Join(real, "private", "x"), filepath.Join(link, "private", "x")} {
+		r := call("Write", map[string]any{"file_path": file})
+		r.Cwd = link
+		wantDecision(t, Decide(r, p), RuleAlwaysAsk)
+	}
+}
+
+func TestDecide_HomeRuleMatchesInAnyCase(t *testing.T) {
+	t.Parallel()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home folder")
+	}
+	p := testPolicy()
+	p.Home = home
+	p.ProjectRoot = filepath.Join(home, "proj")
+	p.AlwaysAsk = []string{"Edit(~/proj/private/**)"}
+	r := call("Write", map[string]any{"file_path": filepath.Join(home, "proj", "PRIVATE", "x")})
+	r.Cwd = p.ProjectRoot
+	wantDecision(t, Decide(r, p), RuleAlwaysAsk)
+}
+
+func TestDecide_LinkedHomeAsProjectAsks(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	real := filepath.Join(base, "realhome")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustSymlink(t, real, filepath.Join(base, "home"))
+	p := testPolicy()
+	p.Home = filepath.Join(base, "home")
+	p.ProjectRoot = real
+	p.Resolve = ResolveLinks
+	r := call("Write", map[string]any{"file_path": filepath.Join(real, "notes.txt")})
+	r.Cwd = real
+	wantDecision(t, Decide(r, p), RuleOutsideProject)
+}
+
+func TestDecide_GitConfigReadsAndGlobsAsk(t *testing.T) {
+	t.Parallel()
+	p := testPolicy()
+	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/.gitconfig"}), p), RuleProtectedPath)
+	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/.config/git/config"}), p), RuleProtectedPath)
+	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "glob": ".git/config"}), p), RuleProtectedPath)
+	wantDecision(t, Decide(call("Grep", map[string]any{"pattern": "x", "glob": "**/*.go"}), p), "")
+}
+
+func TestDotEnvSetsPolicy_DotenvForms(t *testing.T) {
+	t.Parallel()
+	for _, text := range []string{
+		"AGNOSTIC_AI_HOME=/x", "export\tAGNOSTIC_AI_HOME=/x", "AGNOSTIC_AI_HOME: /x", "A=1\rAGNOSTIC_AI_HOME=/x",
+		"\uFEFFAGNOSTIC_AI_HOME=/x", "  AGNOSTIC_AI_HOME = /x", "agnostic_ai_home=/x", "HOME=/x", "USERPROFILE=/x",
+	} {
+		if !dotEnvSetsPolicy(text) {
+			t.Errorf("%q: not caught", text)
+		}
+	}
+	for _, text := range []string{"# AGNOSTIC_AI_HOME=/x", "FOO=AGNOSTIC_AI_HOME", "MY_HOME=/x"} {
+		if dotEnvSetsPolicy(text) {
+			t.Errorf("%q: caught, want not", text)
+		}
+	}
+}

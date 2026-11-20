@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -147,12 +148,14 @@ func QwenDotEnvMovesPolicy(cwd string) (bool, error) {
 	}
 }
 
+// dotEnvLine is the line grammar of the dotenv package Qwen Code
+// loads .env files with: a key, then = or a colon and a blank.
+var dotEnvLine = regexp.MustCompile(`(?m)^[\s\x{FEFF}]*(?:export\s+)?([\w.-]+)(?:\s*=|:\s)`)
+
 func dotEnvSetsPolicy(text string) bool {
-	for line := range strings.SplitSeq(text, "\n") {
-		line = strings.TrimSpace(line)
-		line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
-		key, _, ok := strings.Cut(line, "=")
-		if ok && slices.Contains(policyEnv, strings.TrimSpace(key)) {
+	text = strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(text)
+	for _, m := range dotEnvLine.FindAllStringSubmatch(text, -1) {
+		if slices.ContainsFunc(policyEnv, func(key string) bool { return strings.EqualFold(key, m[1]) }) {
 			return true
 		}
 	}

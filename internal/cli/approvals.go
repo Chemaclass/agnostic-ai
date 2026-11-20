@@ -423,9 +423,9 @@ func qwenAskProblem() string {
 	case settings.Ask:
 		return "a Qwen Code settings file lists a permissions.ask rule, whose prompt a hook allow could answer; the hook asks every time"
 	case settings.MovedEnv:
-		return "a Qwen Code settings file's env block sets HOME or AGNOSTIC_AI_HOME, which would move the policy the hook reads; the hook asks every time"
+		return "a Qwen Code settings file's env block sets HOME, AGNOSTIC_AI_HOME, CLAUDE_CONFIG_DIR or USERPROFILE, which would move the policy the hook reads; the hook asks every time"
 	case qwenDotEnvMoves(cwd):
-		return "a .env or .qwen/.env file here or above sets HOME or AGNOSTIC_AI_HOME, which Qwen Code passes to its hooks; the hook asks every time"
+		return "a .env or .qwen/.env file here or above sets HOME, AGNOSTIC_AI_HOME, CLAUDE_CONFIG_DIR or USERPROFILE, which Qwen Code passes to its hooks; the hook asks every time"
 	case settings.ApprovalMode != "default" && settings.ApprovalMode != "auto_edit":
 		mode := settings.ApprovalMode
 		if mode == "" {

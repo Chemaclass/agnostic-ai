@@ -30,9 +30,9 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - After `approvals ask`, run `sync --global` to undo sync-owned reviewer settings and switch modes in running reviewer sessions (#3700).
 - In `yolo`, edits to agent specs, moved agent, hook, MCP or settings folders, and legacy `agnostic.config.yaml` ask for approval (#3700, #3790).
 - In `yolo`, a `Read` or `Edit` ask rule with a path now covers shell commands, `rtk` commands match `Bash` ask rules, and path rules match through links and in any letter case (#3808).
-- In `yolo`, a session whose project is the home folder, reads of `.git` folders, edits to `.gitconfig`, and links to credential files ask for approval (#3808).
-- Qwen Code `yolo` asks while a project `.env`, `.qwen/.env` or settings `env` block sets `HOME` or `AGNOSTIC_AI_HOME` (#3808).
-- In `review`, or where a tool or session stays at `ask`, the hook logs `asked`, so the companion shows a real Claude Code prompt without waiting 10 seconds (#3808).
+- In `yolo`, a session whose project is the home folder, edits to tool folders, login agents and `bin` folders under home, reads of `.git` folders and Git config, and links to credential files ask for approval (#3808).
+- Qwen Code `yolo` asks while a `.env`, `.qwen/.env` or settings `env` block sets a variable that moves the hook's policy, such as `AGNOSTIC_AI_HOME` (#3808).
+- A Claude Code session with `AGNOSTIC_AI_APPROVALS=ask` logs `asked` for each prompt, so the companion shows it at once instead of waiting 10 seconds for the hook (#3808).
 
 #### Sync safety
 

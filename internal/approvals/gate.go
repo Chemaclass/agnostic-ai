@@ -257,10 +257,19 @@ func (g *gate) alwaysAsk(r Request) string {
 	if !ok {
 		return RuleAlwaysAsk
 	}
-	roots := []string{g.roots[0]}
+	roots := slices.Clone(g.roots)
 	for _, root := range g.policy.RuleRoots {
-		if filepath.IsAbs(root) && !slices.Contains(roots, filepath.Clean(root)) {
-			roots = append(roots, filepath.Clean(root))
+		if !filepath.IsAbs(root) {
+			continue
+		}
+		forms := []string{filepath.Clean(root)}
+		if g.policy.Resolve != nil {
+			forms = append(forms, filepath.Clean(g.policy.Resolve(root)))
+		}
+		for _, form := range forms {
+			if !slices.Contains(roots, form) {
+				roots = append(roots, form)
+			}
 		}
 	}
 	for _, rule := range g.policy.AlwaysAsk {
@@ -269,7 +278,7 @@ func (g *gate) alwaysAsk(r Request) string {
 			for _, root := range roots {
 				rule, root := rule, root
 				if form.fold {
-					rule, root = foldRule(rule), strings.ToLower(root)
+					rule, root = g.foldRule(rule), strings.ToLower(root)
 				}
 				runs, err := hookrun.ClaudeIfRuns(rule, "PermissionRequest", form.body, root)
 				if err != nil || runs {
@@ -289,11 +298,16 @@ type ruleForm struct {
 	fold bool
 }
 
-// foldRule is rule with the pattern inside its parentheses in lower case.
-func foldRule(rule string) string {
+// foldRule is rule with the pattern inside its parentheses in lower
+// case. A ~/ pattern becomes the absolute // form of the home folder,
+// since the matcher would anchor ~ at the home folder as written.
+func (g *gate) foldRule(rule string) string {
 	tool, pattern, ok := strings.Cut(rule, "(")
 	if !ok {
 		return rule
+	}
+	if rest, ok := strings.CutPrefix(strings.TrimSpace(pattern), "~/"); ok {
+		pattern = "/" + filepath.ToSlash(g.home) + "/" + rest
 	}
 	return tool + "(" + strings.ToLower(pattern)
 }
@@ -302,12 +316,26 @@ func foldRule(rule string) string {
 // a session runs in the home folder outside any Git checkout: every file
 // of the person would count as the project.
 func (g *gate) holdsHome() bool {
-	for _, root := range g.roots {
-		if underFold(g.home, root) {
-			return true
+	for _, home := range g.homes() {
+		for _, root := range g.roots {
+			if underFold(home, root) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// homes is the home folder as given and, when the policy resolves
+// links, where it really is.
+func (g *gate) homes() []string {
+	homes := []string{g.home}
+	if g.policy.Resolve != nil {
+		if real := filepath.Clean(g.policy.Resolve(g.home)); real != g.home {
+			homes = append(homes, real)
+		}
+	}
+	return homes
 }
 
 // ruleCalls are the forms of r a permission rule is matched against: the
@@ -378,7 +406,7 @@ func (g *gate) ruleCalls(r Request) ([]ruleForm, bool) {
 
 // rtkPrefix finds an rtk word that runs the program after it, at the
 // start of the text or of a command in a list or pipeline.
-var rtkPrefix = regexp.MustCompile(`(^|[;&|(]\s*)rtk\s+(` + strings.Join(rtkPassThrough, "|") + `)\b`)
+var rtkPrefix = regexp.MustCompile(`(^\s*|[;&|(]\s*)rtk\s+(` + strings.Join(rtkPassThrough, "|") + `)\b`)
 
 // searchCalls read every file under a folder, so a Read rule with a
 // path may cover any of them.
@@ -545,9 +573,9 @@ func (g *gate) readRule(p, cwd string) string {
 	return ""
 }
 
-// gitInternals are the Git folders a read asks for: their config can
-// hold a token in a remote URL.
-var gitInternals = spec.ProtectGroup{Paths: []string{"**/.git"}}
+// gitInternals are the Git folders and config files a read asks for:
+// a config can hold a token in a remote URL.
+var gitInternals = spec.ProtectGroup{Paths: []string{"**/.git", "**/.gitconfig", "**/.config/git"}}
 
 func (g *gate) gitInternal(abs string) bool {
 	paths := []string{abs}

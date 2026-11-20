@@ -109,7 +109,9 @@ var rtkPassThrough = []string{"git", "go", "cargo", "npm", "pytest"}
 
 // program checks the first command of a pipeline against the table.
 func (g *gate) program(words []shellWord, cwd string) string {
-	if words[0].text == "rtk" && len(words) > 1 && slices.Contains(rtkPassThrough, words[1].text) {
+	// A quoted or escaped rtk or program name would not match the ask
+	// rules the way the plain words do, so it stays unstripped and asks.
+	if words[0].text == "rtk" && !words[0].quoted && len(words) > 1 && !words[1].quoted && slices.Contains(rtkPassThrough, words[1].text) {
 		words = words[1:]
 	}
 	name := words[0].text

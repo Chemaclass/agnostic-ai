@@ -89,6 +89,14 @@ func (g *gate) searchGlobRule(glob, cwd string) string {
 	}
 	// A backslash escapes the next rune; dropping it only widens the glob.
 	glob = strings.ReplaceAll(glob, `\`, "")
+	if _, ok := gitInternals.Match(strings.TrimPrefix(glob, "**/")); ok {
+		return RuleProtectedPath
+	}
+	for segment := range strings.SplitSeq(glob, "/") {
+		if strings.EqualFold(segment, ".git") {
+			return RuleProtectedPath
+		}
+	}
 	if pathLike(glob) {
 		return RuleOutsideProject
 	}
@@ -199,10 +207,23 @@ var fixedProtected = spec.ProtectGroup{Paths: []string{
 	"**/.config/fish",
 }}
 
+// homeProtected are paths under the home folder an edit always asks
+// for, beside fixedProtected read from the home folder: programs on the
+// PATH and login agents run without the person.
+var homeProtected = spec.ProtectGroup{Paths: []string{
+	"Library/LaunchAgents", "Library/LaunchDaemons", ".config/autostart", ".config/systemd",
+	"bin", ".local/bin", "go/bin", ".cargo/bin", ".bun/bin", ".deno/bin", ".npm-global/bin",
+}}
+
 // protected reports whether abs, inside the project, is a path an edit
-// always asks for, or one under $AGNOSTIC_AI_HOME.
+// always asks for, or one under $AGNOSTIC_AI_HOME. Read from the home
+// folder too, so a project inside a tool folder such as ~/.claude does
+// not make its files plain project files.
 func (g *gate) protected(abs string) bool {
 	if g.underFolder(abs, g.policy.AgnosticHome) {
+		return true
+	}
+	if g.protectedFromHome(abs) {
 		return true
 	}
 	if g.protectedRel(g.relative(abs)) {
@@ -278,6 +299,32 @@ func (g *gate) specSourcesIn(dir string) ([]string, error) {
 type specFolders struct {
 	dirs []string
 	err  error
+}
+
+func (g *gate) protectedFromHome(abs string) bool {
+	paths := []string{abs}
+	if g.policy.Resolve != nil {
+		paths = append(paths, filepath.Clean(g.policy.Resolve(abs)))
+	}
+	for _, home := range g.homes() {
+		for _, p := range paths {
+			if p == home || !underFold(p, home) {
+				continue
+			}
+			rel, err := filepath.Rel(strings.ToLower(home), strings.ToLower(p))
+			if err != nil {
+				continue
+			}
+			rel = filepath.ToSlash(rel)
+			if _, ok := fixedProtected.Match(rel); ok {
+				return true
+			}
+			if _, ok := homeProtected.Match(rel); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (g *gate) protectedRel(rel string) bool {

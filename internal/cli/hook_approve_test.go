@@ -532,14 +532,16 @@ func TestHookApprove_MovedSpecFoldersAsk(t *testing.T) {
 	}
 }
 
-func TestHookApprove_LogsAskedOutsideYolo(t *testing.T) {
+func TestHookApprove_LogsAskedWhenTheEnvironmentAsks(t *testing.T) {
 	cases := []struct {
 		name, home, env string
 		want            int
 	}{
-		{name: "review", home: "version: 1\napprovals:\n  mode: review\n", want: 1},
-		{name: "yolo for another tool", home: "version: 1\napprovals:\n  tools:\n    codex: yolo\n", want: 1},
 		{name: "env turns it off", home: yoloHome, env: "ask", want: 1},
+		{name: "env in review", home: "version: 1\napprovals:\n  mode: review\n", env: "ask", want: 1},
+		{name: "review", home: "version: 1\napprovals:\n  mode: review\n", want: 0},
+		{name: "yolo for another tool", home: "version: 1\napprovals:\n  tools:\n    codex: yolo\n", want: 0},
+		{name: "env with nothing loosened", home: "version: 1\n", env: "ask", want: 0},
 		{name: "ask everywhere", home: "version: 1\napprovals:\n  mode: ask\n", want: 0},
 		{name: "no approvals block", home: "version: 1\n", want: 0},
 	}
