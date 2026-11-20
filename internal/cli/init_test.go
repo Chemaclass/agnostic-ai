@@ -1051,8 +1051,7 @@ func TestInitCmd_DemoProjectPassesLintWithNoMigration(t *testing.T) {
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetIn(strings.NewReader("claude,codex,cursor,gemini,copilot,opencode,goose\n"))
-	root.SetArgs([]string{"init", "--demo", "--preset", "go"})
+	root.SetArgs([]string{"init", "--all", "--demo", "--preset", "go"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("init: %v", err)
 	}
