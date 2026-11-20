@@ -7,8 +7,8 @@
 # Generated outputs (CLAUDE.md, AGENTS.md, .cursor/, etc.) stay in .gitignore.
 
 version: 1
-requires: ">=0.95.0"
-builtins: [handoff, memory]
+requires: ">=0.96.0"
+builtins: [cloud-handoff, handoff, memory]
 
 # Use default source directories under .agnostic-ai/.
 # Dogfood the registered targets; Grok needs an explicit policy below.
