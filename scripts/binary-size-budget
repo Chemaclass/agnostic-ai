@@ -983,4 +983,8 @@
 # slices.Backward and other generic helpers) add 20480 bytes over main;
 # stringsseq stays off because it alone added about 65 KB. Allow 8192
 # bytes, rounded up to a 4096-byte page.
-27193344
+# #3731 measured 27193504 bytes in CI: Gemini and Qwen keep colon command
+# names while other tools get a flat dash name, and import notes Windsurf
+# legacy rules and unchanged specs. Allow 8192 bytes, rounded up to a
+# 4096-byte page.
+27205632
