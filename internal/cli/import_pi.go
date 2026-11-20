@@ -111,7 +111,7 @@ func importPiSettings(path, dst string) (int, error) {
 	}
 	doc := map[string]any{}
 	if model, ok := native["defaultModel"].(string); ok && model != "" {
-		doc["model"] = model
+		doc["model"] = targetModel("pi", model)
 	}
 	plan, level, err := planSettingsEffort("pi", native["defaultThinkingLevel"], dst, "pi.yaml")
 	if err != nil {
