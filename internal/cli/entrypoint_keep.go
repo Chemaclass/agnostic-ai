@@ -40,7 +40,7 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 	if err != nil {
 		return err
 	}
-	var lines []string
+	var stop handWrittenStop
 	for _, f := range files {
 		if cfg.IsUnmanaged(f.Path) || slices.Contains(ledgered, filepath.ToSlash(f.Path)) {
 			continue
@@ -64,24 +64,47 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 			if _, err := os.Lstat(f.Path + ".bak"); errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
-			lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s.bak already exists, so --backup would replace it.\n  move %s.bak away, then run agnostic-ai sync --backup", f.Path, f.Path, f.Path))
+			stop = stop.add(f.Path, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s.bak already exists, so --backup would replace it.\n  move %s.bak away, then run agnostic-ai sync --backup", f.Path, f.Path, f.Path))
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s does not have them.\n  keep them:    agnostic-ai import %s\n  replace them: agnostic-ai sync --backup, which keeps the file as %s.bak",
+		stop = stop.add(f.Path, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s does not have them.\n  keep them:    agnostic-ai import %s\n  replace them: agnostic-ai sync --backup, which keeps the file as %s.bak",
 			f.Path, adapters.AgnosticEntryPointPath, importSourceFor(f), f.Path))
 	}
-	if len(lines) == 0 {
-		return nil
-	}
-	return handWrittenStop(lines)
+	return stop.err()
 }
 
 // handWrittenStop is a stop on files holding config agnostic-ai did not
 // write: one entry per file, each with its keep and replace steps.
-type handWrittenStop []string
+type handWrittenStop []handWrittenFile
+
+// handWrittenFile is one file a hand-written file guard stops on. Its
+// message names the file on the first line and the steps on the rest.
+type handWrittenFile struct {
+	path, message string
+}
+
+func (s handWrittenStop) add(path, message string) handWrittenStop {
+	return append(s, handWrittenFile{path: filepath.ToSlash(path), message: message})
+}
+
+// err is s as an error, or nil when no file stopped the run.
+func (s handWrittenStop) err() error {
+	if len(s) == 0 {
+		return nil
+	}
+	return s
+}
+
+func (s handWrittenStop) messages() string {
+	lines := make([]string, len(s))
+	for i, f := range s {
+		lines[i] = f.message
+	}
+	return strings.Join(lines, "\n")
+}
 
 func (s handWrittenStop) Error() string {
-	return strings.Join(s, "\n") + "\nnothing was written"
+	return s.messages() + "\nnothing was written"
 }
 
 // nothingWritten is an error a hand-written file guard hit before any
@@ -96,7 +119,7 @@ func (e nothingWritten) Unwrap() error { return e.err }
 // file guard's error, for a run that never writes.
 func withoutNothingWritten(err error) error {
 	if stop, ok := errors.AsType[handWrittenStop](err); ok {
-		return errors.New(strings.Join(stop, "\n"))
+		return errors.New(stop.messages())
 	}
 	if read, ok := errors.AsType[nothingWritten](err); ok {
 		return read.err

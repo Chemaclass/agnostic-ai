@@ -46,17 +46,10 @@
 // checks compare every write to that path. Each event holds flat handlers;
 // only tool events accept matchers.
 //
-// crush.json is Crush's legacy format. The vendor's own docs call it
-// deprecated and freeze it: "new configuration options will only be
-// added to Bash-based config" (`crushrc`, a Bash script Crush sources
-// on startup, now the documented primary format). This adapter still
-// targets crush.json because crushrc needs its own design pass, not a
-// drift fix: shell-quoting arbitrary header/URL values and choosing how
-// a generated crushrc interacts with the merge below are open questions
-// (#674). Practical effect: our MCP entries keep loading, since the
-// vendor gives JSON no removal date and says it plans to keep it
-// working, but a future crush-only MCP field ships Bash-only and has no
-// path through this adapter. Discovery order matters too: on Unix,
+// Crush prefers crushrc and still reads the deprecated crush.json format.
+// Sync writes JSON and keeps hand-written keys such as options.prompts,
+// which Crush supports in JSON from 0.102.0.
+//
 // Crush reads `./.crushrc`, then `./crushrc`, then
 // `$XDG_CONFIG_HOME/crush/crushrc`, merges every legacy `crush.json` /
 // `.crush.json` found alongside those paths, with project settings

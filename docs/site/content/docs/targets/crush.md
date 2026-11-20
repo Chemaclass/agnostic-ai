@@ -54,7 +54,7 @@ Field mappings, MCP and hook output, and config keys: [native reference](@/docs/
 
 {% <details summary="More limits: crush.json and crushrc"> %}
 - Sync keeps your `models`, `providers`, `lsp`, and `options` keys in `crush.json`.
-- Crush now prefers `crushrc`, a Bash script it runs on startup, and adds new options only there.
+- Crush prefers `crushrc`, a Bash script it runs on startup. Crush 0.102.0 also supports `options.prompts` in `crush.json`. Add that block directly to the native JSON file. [Crush prompt overrides](https://github.com/charmbracelet/crush/blob/v0.102.0/docs/config/README.md#option-prompt)
 - JSON is deprecated but works, so sync writes `crush.json` and never `crushrc`.
 - An MCP field that exists only in `crushrc` cannot be set here.
 - Import cannot recover rule scope from the merged instructions.

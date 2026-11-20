@@ -140,7 +140,11 @@ var routes = []Route{
 		Evidence: "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md",
 	}},
 	{Target: "trae", Reason: "a hook allow still needs the person in manual mode"},
-	{Target: "vibe", Reason: reasonNotBuilt},
+	{Target: "vibe", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "Vibe smart-approve",
+		File:     "~/.vibe/config.toml",
+		Evidence: "https://docs.mistral.ai/vibe/code/cli/configuration-reference",
+	}},
 	{Target: "warp", Reason: "no external hook"},
 	{Target: "windsurf", Reason: reasonNotBuilt},
 	{Target: "zed", Reason: reasonNoReviewer + "; no hook system"},

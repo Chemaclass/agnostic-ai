@@ -133,6 +133,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
 | Qoder (`qoder`) | Qoder auto mode | asks | Nothing extra |
 | Qwen Code (`qwen`) | Qwen Code auto mode | asks | Qwen Code already runs auto mode in a trusted folder when the key is unset |
+| Mistral Vibe (`vibe`) | Vibe smart-approve | asks | `bypass_tool_permissions` off |
 | Every other tool | asks | asks | |
 
 On Windows `yolo` asks in every tool: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.
