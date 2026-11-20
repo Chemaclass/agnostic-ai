@@ -158,7 +158,7 @@ With approvals set to `review` or `yolo` in the home config, routine permission 
 - Claude Code shows its prompt while the approvals hook runs, and records the wait. So the companion lists a Claude Code permission wait only once the decision log says `asked` for that session, or once 10 seconds (the hook timeout) passed with no decision. Until then the row shows as working.
 - An `approved` line holds the wait for 10 seconds after it. A prompt still open after that reaches you, with "Still waits after the approvals hook approved a request".
 - A wait with no decision after 10 seconds reaches you with "No answer from the approvals hook".
-- In `review` the tool's own reviewer decides before the tool prompts, so a `review` wait reaches you at once, with "The tool's reviewer left this to you". With that reviewer off in the tool's user settings, `review` shows as `ask`, as `approvals status` says.
+- In `review` the approvals hook approves nothing, so a `review` wait reaches you at once, with "The tool's reviewer left this to you". With that reviewer off in the tool's user settings, `review` shows as `ask`, as `approvals status` says.
 - Codex waits for the hook before it prompts, so a Codex wait is never held.
 - A cloud session runs no local hook. Its wait says "Approvals do not reach cloud sessions".
 - The count comes from `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file. A native reviewer writes nothing there, so in `review` the count shows only what the hook logged. A logged detail that may hold a credential is left out.

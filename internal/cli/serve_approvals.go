@@ -201,26 +201,33 @@ func (s approvalsSnapshot) modeFor(tool conversations.Tool, folder string) (stri
 	return mode, carried
 }
 
-// headerMode is the loosest mode the home config sets anywhere that a
-// listed tool carries out, for the panel header; ask when none loosens
-// or the environment turns them off.
+// headerMode is the loosest mode the home config sets for a listed tool
+// that the tool carries out, for the panel header; ask when none
+// loosens or the environment turns them off. A project mode counts for
+// every listed tool, a tools mode for its tool, and the plain mode for
+// the tools no tools entry names.
 func (s approvalsSnapshot) headerMode() string {
 	if !s.policyOK || strings.TrimSpace(s.policy.Env) != "" {
 		return config.ApprovalsAsk
 	}
 	home := s.policy.Home
-	modes := []string{home.Mode}
-	for _, mode := range home.Tools {
-		modes = append(modes, mode)
-	}
-	for _, mode := range home.Projects {
-		modes = append(modes, mode)
-	}
 	loosest := config.ApprovalsAsk
-	for _, mode := range modes {
-		if approvalsLooseness(mode) > approvalsLooseness(loosest) && slices.ContainsFunc(approvalsListTools, func(tool conversations.Tool) bool { return s.carries(string(tool), mode) }) {
+	consider := func(mode string, tools ...conversations.Tool) {
+		if approvalsLooseness(mode) > approvalsLooseness(loosest) && slices.ContainsFunc(tools, func(tool conversations.Tool) bool { return s.carries(string(tool), mode) }) {
 			loosest = mode
 		}
+	}
+	var unnamed []conversations.Tool
+	for _, tool := range approvalsListTools {
+		if mode := home.Tools[string(tool)]; mode != "" {
+			consider(mode, tool)
+		} else {
+			unnamed = append(unnamed, tool)
+		}
+	}
+	consider(home.Mode, unnamed...)
+	for _, mode := range home.Projects {
+		consider(mode, approvalsListTools...)
 	}
 	return loosest
 }
@@ -248,8 +255,8 @@ func (s approvalsSnapshot) waitVerdict(c conversations.Conversation, since, now 
 	case !routed:
 		return fmt.Sprintf(approvalsReasonUnsupportedFmt, cmp.Or(approvalsToolLabels[c.Tool], string(c.Tool))), time.Time{}
 	case mode == config.ApprovalsReview:
-		// The reviewer decides before the tool shows a prompt, and the
-		// hook approves nothing in review, so the wait is the person's.
+		// The approvals hook approves nothing in review, so no answer
+		// is coming: the wait is the person's.
 		return approvalsReasonReviewer, time.Time{}
 	}
 	last, decided := s.decisionSince(c, since)

@@ -55,11 +55,14 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 			return "", "", nil, nil, err
 		}
 		paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.global, chosen.Name)))
-		shared := chosen
-		if chosen.Base != nil {
-			shared = *chosen.Base
+		var shared *spec.Entry
+		switch {
+		case chosen.Base != nil:
+			shared = chosen.Base
+		case !overview.LocalLayer(chosen):
+			shared = &chosen
 		}
-		return file, scaffold, paths, &shared, nil
+		return file, scaffold, paths, shared, nil
 	}
 	if len(scope.bundle.Settings) != 0 || shown != edit.Path {
 		return "", "", nil, nil, fmt.Errorf("%s is not an editable settings spec of this configuration", shown)

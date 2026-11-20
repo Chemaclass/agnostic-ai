@@ -349,12 +349,13 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 	index := -1
 	if root != nil {
 		for i := 0; i+1 < len(root.Content); i += 2 {
-			switch root.Content[i].Value {
-			case "approvals":
+			if root.Content[i].Value == "approvals" {
 				index = i + 1
-			case "<<":
-				return nil, errors.New("merges keys with a YAML merge key; set approvals.mode: ask by hand")
 			}
+		}
+		// A merged approvals block would win over one appended here.
+		if index < 0 && slices.ContainsFunc(root.Content, func(n *yaml.Node) bool { return n.Kind == yaml.ScalarNode && n.Value == "<<" }) {
+			return nil, errors.New("merges keys with a YAML merge key; set approvals.mode: ask by hand")
 		}
 	}
 	if index < 0 && (root == nil || root.Style&yaml.FlowStyle == 0) {

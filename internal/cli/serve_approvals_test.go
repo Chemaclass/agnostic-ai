@@ -447,7 +447,7 @@ func TestApprovalsSnapshot_HeaderModeIsTheLoosestSetting(t *testing.T) {
 	}
 }
 
-// The header names only a mode some listed tool carries out (#3799).
+// The header names only a mode the tool it is set for carries out (#3799).
 func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
 	home := config.ApprovalsConfig{Mode: config.ApprovalsReview, Tools: map[string]string{"cursor": config.ApprovalsYolo}}
 	for _, tc := range []struct {
@@ -456,7 +456,7 @@ func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
 		reviewerOn bool
 		want       string
 	}{
-		{"cursor has no yolo route", func(tool, mode string) bool { return mode == config.ApprovalsReview }, true, config.ApprovalsReview},
+		{"cursor has no yolo route", func(tool, mode string) bool { return mode == config.ApprovalsReview || tool == "claude" }, true, config.ApprovalsReview},
 		{"every reviewer is off", func(tool, mode string) bool { return mode == config.ApprovalsReview }, false, config.ApprovalsAsk},
 		{"no route at all", func(string, string) bool { return false }, true, config.ApprovalsAsk},
 	} {
@@ -467,6 +467,13 @@ func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
 		if got := snap.headerMode(); got != tc.want {
 			t.Errorf("%s: headerMode = %q, want %q", tc.name, got, tc.want)
 		}
+	}
+	claudeOnly := approvalsSnapshot{
+		policy:   config.ApprovalsPolicy{Home: config.ApprovalsConfig{Mode: config.ApprovalsReview, Tools: map[string]string{"claude": config.ApprovalsAsk}}},
+		policyOK: true, routed: func(tool, mode string) bool { return tool == "claude" },
+	}
+	if got := claudeOnly.headerMode(); got != config.ApprovalsAsk {
+		t.Errorf("review for tools with no route, ask for the one with a route: headerMode = %q, want ask", got)
 	}
 }
 
