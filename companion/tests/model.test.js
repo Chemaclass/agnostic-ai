@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({ tool: 'claude', id, state, title: id, updatedAt: '2026-11-09T12:00:00Z', ...extra })
 
@@ -721,4 +721,71 @@ test('a late open failure names its chat when the list holds it', () => {
     command: 'claude --resume done-2',
   })
   assert.deepEqual(lateOpenFailureOf({ id: 4, message: 'agnostic-ai did not answer.' }), { message: 'agnostic-ai did not answer.', late: true, id: 4 })
+})
+
+// What the person sees, per mode (issue #3700). The server shapes each row from the decision log: a request the
+// approvals hook approved, or may still answer, comes as working; one it left to the person comes blocked with a reason.
+const permission = (id, extra = {}) => row(id, 'blocked', { live: true, activity: 'waiting', waiting: { for: 'permission', tool: 'Bash', detail: 'git push' }, ...extra })
+const approvedRow = (id, approved) => row(id, 'working', { live: true, activity: 'working', approvals: { approved, recent: [{ time: '2026-11-09T11:59:00Z', call: 'Bash', detail: 'go test ./...' }] } })
+const needsYouIds = (view) => grouped(view.conversations).find((group) => group.id === 'needs-you')?.rows.map((r) => r.id) ?? []
+
+test('in ask every permission wait is a Needs permission row that counts, as today, with no reason', () => {
+  const view = { needsYou: 1, conversations: [permission('a')] }
+  assert.deepEqual(needsYouIds(view), ['a'])
+  assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0 })
+  assert.equal(approvalReasonOf(view.conversations[0]), undefined)
+  assert.equal(approvalsHeaderOf(view), undefined)
+})
+
+for (const mode of ['review', 'yolo']) {
+  test(`in ${mode} an approved request never shows under Needs you nor counts, and its row says how many were approved`, () => {
+    const view = { approvalsMode: mode, needsYou: 0, conversations: [approvedRow('a', 3)] }
+    assert.deepEqual(needsYouIds(view), [])
+    assert.deepEqual(waitingOf(view), { blocked: 0, unread: 0 })
+    assert.equal(approvedLabelOf(view.conversations[0]), '3 approved for you')
+    assert.equal(approvalOf(view.conversations[0]), undefined)
+  })
+
+  test(`in ${mode} a request the gate sends to the person shows under Needs you, counts, and names the rule`, () => {
+    const asked = permission('a', { approvals: { reason: 'Always asks: publishing', approved: 2 } })
+    const view = { approvalsMode: mode, needsYou: 1, conversations: [asked] }
+    assert.deepEqual(needsYouIds(view), ['a'])
+    assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0 })
+    assert.equal(approvalReasonOf(asked), 'Always asks: publishing')
+    assert.equal(approvedLabelOf(asked), '2 approved for you')
+  })
+
+  test(`in ${mode} a tool with no route shows its prompt and says approvals do not reach it`, () => {
+    const unsupported = permission('a', { tool: 'cursor', approvals: { reason: 'Approvals not supported for Cursor' } })
+    const view = { approvalsMode: mode, needsYou: 1, conversations: [unsupported] }
+    assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0 })
+    assert.equal(approvalReasonOf(unsupported), 'Approvals not supported for Cursor')
+  })
+}
+
+test('the header names the mode only while approvals answer prompts', () => {
+  assert.deepEqual(approvalsHeaderOf({ approvalsMode: 'yolo' }), { mode: 'yolo', label: 'Approvals: routine prompts are approved for you' })
+  assert.deepEqual(approvalsHeaderOf({ approvalsMode: 'review' }), { mode: 'review', label: "Approvals: your tools' reviewers answer routine prompts" })
+  assert.equal(approvalsHeaderOf({ approvalsMode: 'ask' }), undefined)
+  assert.equal(approvalsHeaderOf({}), undefined)
+  assert.equal(approvalsHeaderOf(undefined), undefined)
+})
+
+test('a reason shows only on a row that waits for a permission', () => {
+  assert.equal(approvalReasonOf(row('a', 'working', { approvals: { reason: 'Always asks: publishing' } })), undefined)
+  assert.equal(approvalReasonOf(permission('a', { approvals: { reason: '' } })), undefined)
+})
+
+test('the approved requests fold out newest first, with the detail when the server kept one', () => {
+  const conversation = row('a', 'active', { approvals: { approved: 2, recent: [{ time: '2026-11-09T11:59:00Z', call: 'Bash', detail: 'go test ./...' }, { time: '2026-11-09T11:58:00Z', call: 'Edit' }] } })
+  assert.deepEqual(approvedCallsOf(conversation), [{ text: 'Bash go test ./...', time: '2026-11-09T11:59:00Z' }, { text: 'Edit', time: '2026-11-09T11:58:00Z' }])
+  assert.equal(approvedToggleOf(conversation, false), '▸ 2 approved for you')
+  assert.equal(approvedToggleOf(conversation, true), '▾ 2 approved for you')
+  assert.equal(approvedToggleOf(row('b', 'active'), false), undefined)
+  assert.deepEqual(approvedCallsOf(row('b', 'active')), [])
+})
+
+test('the tooltip of a permission row names why approvals left it to the person', () => {
+  const asked = permission('a', { folder: '/w/app', open: { label: 'Switch to Ghostty' }, approvals: { reason: 'Always asks: publishing' } })
+  assert.equal(rowTooltipOf(asked, Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\n/w/app\nAlways asks: publishing')
 })

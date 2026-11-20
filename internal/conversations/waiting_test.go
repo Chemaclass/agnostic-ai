@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestApprovalOf_NamesWhatEachToolCallActsOn(t *testing.T) {
@@ -119,10 +120,11 @@ func TestScan_SaysWhatALiveClaudeSessionWaitsFor(t *testing.T) {
 	sessions := filepath.Join(stores.ClaudeDir, "sessions")
 	write(t, filepath.Join(sessions, "7.json"), `{"pid":7,"sessionId":"`+idCallsOnly+`","status":"waiting","waitingFor":"permission prompt"}`)
 	write(t, filepath.Join(sessions, "8.json"), `{"pid":8,"sessionId":"`+idMCPShape+`","status":"waiting","waitingFor":"permission prompt"}`)
-	write(t, filepath.Join(sessions, "1.json"), `{"pid":1,"sessionId":"`+idPermission+`","status":"waiting","waitingFor":"permission prompt"}`)
+	write(t, filepath.Join(sessions, "1.json"), `{"pid":1,"sessionId":"`+idPermission+`","status":"waiting","waitingFor":"permission prompt","statusUpdatedAt":1794045600500}`)
 	write(t, filepath.Join(sessions, "2.json"), `{"pid":2,"sessionId":"`+idQuestion+`","status":"waiting","waitingFor":"input needed"}`)
 	write(t, filepath.Join(sessions, "3.json"), `{"pid":3,"sessionId":"`+idDialog+`","status":"waiting","waitingFor":"dialog open"}`)
-	write(t, filepath.Join(sessions, "4.json"), `{"pid":4,"sessionId":"`+idAnswered+`","status":"waiting","waitingFor":"permission prompt"}`)
+	// A start in a shape the scan does not read leaves only the start unknown.
+	write(t, filepath.Join(sessions, "4.json"), `{"pid":4,"sessionId":"`+idAnswered+`","status":"waiting","waitingFor":"permission prompt","statusUpdatedAt":"soon"}`)
 	write(t, filepath.Join(sessions, "5.json"), `{"pid":5,"sessionId":"`+idTwoCalls+`","status":"waiting","waitingFor":"sandbox request"}`)
 	write(t, filepath.Join(sessions, "6.json"), `{"pid":6,"sessionId":"`+idSeenBefore+`","status":"waiting","waitingFor":"permission prompt"}`)
 
@@ -162,6 +164,15 @@ func TestScan_SaysWhatALiveClaudeSessionWaitsFor(t *testing.T) {
   "tool": "mcp__claude_ai_Notion__notion-fetch",
   "detail": "Notion fetch"
 }`,
+	}
+	if since, waits := byID(t, view, idPermission).PermissionWait(); !waits || !since.Equal(time.UnixMilli(1794045600500)) {
+		t.Errorf("the permission wait began %v (waits %t), want the session's statusUpdatedAt", since, waits)
+	}
+	if since, waits := byID(t, view, idAnswered).PermissionWait(); !waits || !since.IsZero() {
+		t.Errorf("a start that does not parse = %v (waits %t)", since, waits)
+	}
+	if _, waits := byID(t, view, idQuestion).PermissionWait(); waits {
+		t.Error("a question reads as a permission wait")
 	}
 	if reply := byID(t, view, idMCPShape).Reply; reply != "Fetching the page." {
 		t.Errorf("the reply beside an MCP call of any shape = %q", reply)

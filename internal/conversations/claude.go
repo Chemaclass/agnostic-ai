@@ -239,6 +239,8 @@ type claudeLive struct {
 	BridgeSessionID string `json:"bridgeSessionId"`
 	// WaitingFor says what a waiting session waits for; see claudeWaitKinds.
 	WaitingFor string `json:"waitingFor"`
+	// StatusUpdatedAt is when Status last changed, in Unix milliseconds.
+	StatusUpdatedAt json.RawMessage `json:"statusUpdatedAt"`
 }
 
 // claudeActivity maps a live session's status to what the page shows.
@@ -257,6 +259,8 @@ type liveSession struct {
 	entrypoint string
 	bridge     string
 	waitingFor string
+	// statusSince is when the status last changed; zero when unknown.
+	statusSince time.Time
 }
 
 type claudeJob struct {
@@ -304,6 +308,9 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) sourceResult
 		c.Activity = session.activity
 		if isLive && session.activity == ActivityWaiting {
 			c.Waiting = claudeWaiting(session.waitingFor, meta.pending)
+			if c.Waiting != nil {
+				c.Waiting.since = session.statusSince
+			}
 		}
 		// A subagent runs inside its session's process, so only a live
 		// session lists working ones. Work that cannot be read lists none.
@@ -616,7 +623,12 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			if json.Unmarshal(entry.StartedAt, &startedAt) != nil {
 				startedAt = 0 // An unsupported start format leaves only the worker count unknown.
 			}
-			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor}
+			var statusSince time.Time
+			var statusAt int64
+			if json.Unmarshal(entry.StatusUpdatedAt, &statusAt) == nil && statusAt > 0 {
+				statusSince = time.UnixMilli(statusAt)
+			}
+			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor, statusSince: statusSince}
 		}
 	}
 	return live, err == nil && entriesErr == nil, note

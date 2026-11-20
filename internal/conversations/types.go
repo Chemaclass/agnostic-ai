@@ -82,6 +82,28 @@ const (
 	FieldReply   = "reply"
 )
 
+// ApprovalsNote is what the approvals setting adds to a row.
+type ApprovalsNote struct {
+	// Approved counts the requests the approvals hook approved for this
+	// session, as far back as its decision log reaches.
+	Approved int `json:"approved,omitempty"`
+	// Recent are the latest of those requests, newest first.
+	Recent []ApprovedCall `json:"recent,omitempty"`
+	// Reason says why a permission wait reached the person: the
+	// always-ask rule that matched, or why approvals did not answer. It
+	// comes from agnostic-ai, never from text the session wrote.
+	Reason string `json:"reason,omitempty"`
+}
+
+// ApprovedCall is one request the approvals hook approved.
+type ApprovedCall struct {
+	Time string `json:"time"`
+	Call string `json:"call"`
+	// Detail is what the call acted on, without anything that may hold
+	// a credential; empty when it was left out.
+	Detail string `json:"detail,omitempty"`
+}
+
 // View is one page of the Conversations list.
 type View struct {
 	SchemaVersion string `json:"schemaVersion"`
@@ -104,7 +126,10 @@ type View struct {
 	MarksNote string `json:"marksNote,omitempty"`
 	// CloudNote says why a tool's cloud conversations are missing from
 	// the list, on a server that reads them; rows then hold none of them.
-	CloudNote     string         `json:"cloudNote,omitempty"`
+	CloudNote string `json:"cloudNote,omitempty"`
+	// ApprovalsMode is the loosest approvals mode the home config sets,
+	// when it is review or yolo; empty when every request asks.
+	ApprovalsMode string         `json:"approvalsMode,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`
 }
@@ -185,7 +210,10 @@ type Conversation struct {
 	// Cloud is the claude.ai session that shows this live local one too,
 	// with Remote Control on. Its cloud row is not listed apart.
 	Cloud *CloudRef `json:"cloud,omitempty"`
-	Open  Route     `json:"open"`
+	// Approvals is what the approvals hook decided for this session; nil
+	// when it decided nothing and has nothing to say about a wait.
+	Approvals *ApprovalsNote `json:"approvals,omitempty"`
+	Open      Route          `json:"open"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess

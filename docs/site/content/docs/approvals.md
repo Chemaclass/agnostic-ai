@@ -50,7 +50,7 @@ Two steps happen in the tools:
 
 `yolo` approves one call at a time when no always-ask rule matches. Each approval covers that call only; the hook never saves a rule, never changes the tool's mode and never rewrites the call. The hook took about 11 ms per prompt in our test on macOS; its real cost is the gate's limits above.
 
-`review` hands routine prompts to the tool's own reviewer model: Claude Code auto mode or Codex Auto-review, which `sync --global` turns on in the tool's user settings ([details](@/docs/global-configuration-reference.md#global-approvals-review)). Each review costs the tool's own model calls. In `review` the hook prints nothing, so Codex's reviewer answers instead of the hook.
+`review` hands routine prompts to the tool's own reviewer model, such as Claude Code auto mode, Codex Auto-review or Qwen Code auto mode, which `sync --global` turns on in the tool's user settings ([details](@/docs/global-configuration-reference.md#global-approvals-review)). Each review costs the tool's own model calls. In `review` the hook prints nothing, so Codex's reviewer answers instead of the hook.
 
 ## Settings
 
@@ -130,6 +130,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 |---|---|---|---|
 | Claude Code (`claude`) | Claude Code auto mode | PermissionRequest hook | Claude Code 2.0.45 or newer; accept the workspace trust dialog |
 | Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
+| Qwen Code (`qwen`) | Qwen Code auto mode | asks | Qwen Code already runs auto mode in a trusted folder when the key is unset |
 | Every other tool | asks | asks | |
 
 On Windows `yolo` asks in every tool: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.

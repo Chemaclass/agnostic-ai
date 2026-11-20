@@ -219,7 +219,7 @@ func TestSync_RefusesOutputsSpelledThroughALinkedSpecFolder(t *testing.T) {
 	writeFile(t, filepath.Join(victim, "AGNOSTIC_AI.md"), "Be brief.\n")
 	specLinkProject(t, victim, "outputs:\n  claude:\n    file: .agnostic-ai/new.sh\n    rules-dir: .agnostic-ai/planted\n")
 
-	if err := runProjectSync(); err == nil || !strings.Contains(err.Error(), "outside the project") {
+	if err := runProjectSync(); err == nil || !strings.Contains(err.Error(), "outside the project") && !strings.Contains(err.Error(), "points into .agnostic-ai/") {
 		t.Errorf("sync must refuse outputs through the linked spec folder, got %v", err)
 	}
 	mustNotExist(t, filepath.Join(victim, "new.sh"), filepath.Join(victim, "planted"))

@@ -126,7 +126,11 @@ var routes = []Route{
 	{Target: "opencode", Reason: reasonNoRoute},
 	{Target: "pi", Reason: reasonNoRoute},
 	{Target: "qoder", Reason: reasonNotBuilt},
-	{Target: "qwen", Reason: reasonNotBuilt},
+	{Target: "qwen", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "Qwen Code auto mode",
+		File:     "~/.qwen/settings.json",
+		Evidence: "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md",
+	}},
 	{Target: "trae", Reason: "a hook allow still needs the person in manual mode"},
 	{Target: "vibe", Reason: reasonNotBuilt},
 	{Target: "warp", Reason: "no external hook"},

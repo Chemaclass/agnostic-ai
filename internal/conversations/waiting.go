@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -30,6 +31,17 @@ type waitingOn struct {
 	// Detail is what that call acts on, short enough for a row: see
 	// callDetails. Left out when it may hold a credential.
 	Detail string `json:"detail,omitempty"`
+	// since is when the tool began to wait, when it says.
+	since time.Time
+}
+
+// PermissionWait reports whether the conversation waits for the person
+// to approve a tool call and, when its tool says, since when.
+func (c Conversation) PermissionWait() (since time.Time, waits bool) {
+	if c.Waiting == nil || c.Waiting.For != waitPermission {
+		return time.Time{}, false
+	}
+	return c.Waiting.since, true
 }
 
 // claudeWaitKinds maps the waitingFor a live Claude Code session writes

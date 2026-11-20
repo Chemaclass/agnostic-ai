@@ -8,6 +8,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ### General
 
+- `sync`, `sync --check`, `status` and `validate` refuse an `outputs.<target>` path that resolves into `.agnostic-ai/` or a configured spec folder, such as `.agnostic-ai/agnostic_ai.md` on macOS or `.agnostic-ai/rules/../AGNOSTIC_AI.md`, instead of overwriting the source file (#3740).
 - `approvals` set to `review` turns on the tool's own reviewer through `sync --global`: `permissions.defaultMode: "auto"` in `~/.claude/settings.json` (Claude Code auto mode) and `approvals_reviewer = "auto_review"` in `~/.codex/config.toml` (Codex Auto-review). A settings spec or a hand-set value wins. `approvals status` names the reviewer and notes when the key is missing, when Codex `approval_policy = "never"` keeps it from running, or when it stays on where the mode asks (#3700).
 - In the web interface, copying a hook to the global setup or the project brings the shared scripts it runs, a permission save keeps a block list as a block list, **Add hook** leaves out tools that lack the chosen stage, and the source view shows hooks whose Windows command has an `=` (#3719).
 - Web interface polish: after **Undo last change**, review notes stay grouped and bounded; the rail counts findings as the Setup health page does (to fix, worth a look); `/api/switch` and `/api/global/create` refuse unknown or missing fields; an apply without `expected` is a 400; and a YAML error inside an unclosed `[` or `{` names the right line (#3728).
@@ -17,6 +18,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - `agnostic-ai import` that changes no spec says so instead of pointing at sync (#3704).
 - New `approvals` setting in the home config, with `mode` (`ask`, `review` or `yolo`), per-tool and per-project overrides, and extra `always-ask` patterns. `agnostic-ai approvals status` prints the mode and route per tool, and `agnostic-ai approvals ask` shows every prompt again. A project file may set only `approvals.mode: ask`; any other value is LINT064 (#3700).
 - New `approvals` built-in for the home config. With `approvals.mode: yolo`, `sync --global` installs a `PermissionRequest` hook in Claude Code and Codex that approves one safe tool call at a time; deleting, publishing, network, secrets, edits outside the project and Claude Code `ask` rules still ask, and every decision goes to `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl`. A project sync skips the built-in. `approvals status` gives each tool's route and the reason it falls back to `ask`, including a Codex hook not yet trusted, and `approvals` rejects unknown arguments. See the new [Approvals](https://agnostic-ai.org/docs/approvals/) page (#3700).
+- The companion and `serve` show what approvals decided, for each tool with a route: a row says "3 approved for you", a permission the gate left to you names why (such as "Always asks: publishing"), and an approved request never shows under Needs you or counts on the circle. The panel header names the mode, and **Ask me** turns approvals off. `serve` adds `GET /api/views/approvals` and `POST /api/approvals/ask`, which accepts only `ask` (#3700).
 - A global Codex hook's `commandWindows` points at the copied script, without the `$CLAUDE_PROJECT_DIR/` prefix it kept before, so it runs on Windows (#3749).
 - `validate` notes an ignore spec no enabled target reads and passes, as `lint` and `sync` do. `explain` for an unknown lint code links the lint-code list, and `packs` rejects an unknown subcommand (#3749).
 - The web interface refuses to save a new hook whose command or description holds a credential, and the page a running server hosts reads `?source=` snapshots only from its own address (#3710).
@@ -36,6 +38,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - On a fresh clone, `sync`, `sync --check`, `doctor --fix`, `use`, and `upgrade --requires` stop and name each pack `agnostic.packs.lock` lists but `.agnostic-ai/packs/` lacks, with `agnostic-ai packs update` as the fix. Before, they removed every file those packs generated. A lockfile that does not parse now stops them as well (#3712).
 - `sync -t claude` and `sync --check -t claude` write and expect the same `CLAUDE.md` as a full sync when another target writes `AGENTS.md`, so the two checks no longer fail each other (#3714).
 - `sync --plan` lists the `.gitignore` and `.worktreeinclude` changes sync makes, and `init --dry-run` lists the `.gitignore` init writes. `init` in an existing project fails before it picks targets (#3714).
+- `hook run` reads a Claude Code `if: "Bash(...)"` rule as the Claude Code 2.1.328 hook matcher does. It matches commands inside `( )`, `if` and loop bodies, and after `!`, reads `"git" push 2>&1` as `git push`, and no longer strips wrappers such as `timeout`, `nohup`, or `nice`. It runs the hook for commands Claude Code cannot read, such as a `{ }` group, `<()`, a `{fd}>` redirection, backslash-escaped whitespace, or an unquoted here-document. `eval` and `bash <<'X'` bodies are no longer read as commands, and 4,000 nested `$()` take about 6 ms instead of almost a second (#3742).
 - `hook run` checks a command inside escaped backticks or an escaped `$()` within backticks, as bash runs it, for a Claude Code `if: "Bash(...)"` rule, and runs the hook when an escaped backtick leaves a substitution open (#3681).
 - `hook run` checks more commands for a Claude Code `if: "Bash(...)"` rule as bash runs them: a command name with a backslash or quotes (`\git push`), a line continuation, an empty substitution before the command, a redirection before it (`2>&1 git push`), substitutions in a here-document body, and commands after a quote inside a comment or here-document. `eval`, and a command name built by a substitution or variable, always run the hook (#3698).
 - `explain rules/tone.md` and `explain rules/tone.md --layers` find `.agnostic-ai/rules/tone.md`, as the help and docs show; `explain tone` suggests the file. An unknown error code links the public error page (#3709).
@@ -126,6 +129,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Collapse all** on Lifecycle also hides the stages without hooks again, so the list goes back to its first view. It used to fold the open stages but keep all stages listed (#3529).
 
 ### By tool
+
+#### Qwen Code
+
+- `approvals` set to `review` turns on Qwen Code auto mode: `sync --global` writes `tools.approvalMode: "auto"` to `~/.qwen/settings.json`, and `approvals status` names it (#3700).
 
 #### Goose
 
