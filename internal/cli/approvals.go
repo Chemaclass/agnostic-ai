@@ -22,9 +22,11 @@ import (
 // approvalRoutes names how each tool carries out a loosening mode. A
 // tool or mode missing here has no safe route and falls back to ask.
 var approvalRoutes = map[string]map[string]string{
-	"claude": {config.ApprovalsReview: nativeReviewers["claude"].name},
-	"codex":  {config.ApprovalsReview: nativeReviewers["codex"].name},
-	"qwen":   {config.ApprovalsReview: nativeReviewers["qwen"].name},
+	"claude":    {config.ApprovalsReview: nativeReviewers["claude"].name},
+	"codebuddy": {config.ApprovalsReview: nativeReviewers["codebuddy"].name},
+	"codex":     {config.ApprovalsReview: nativeReviewers["codex"].name},
+	"qoder":     {config.ApprovalsReview: nativeReviewers["qoder"].name},
+	"qwen":      {config.ApprovalsReview: nativeReviewers["qwen"].name},
 }
 
 type approvalsStatusOutput struct {
