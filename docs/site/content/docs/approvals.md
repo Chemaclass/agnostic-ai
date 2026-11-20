@@ -139,7 +139,7 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Claude Code (`claude`) | Claude Code auto mode | PermissionRequest hook | Claude Code 2.0.45 or newer; accept the workspace trust dialog |
 | CodeBuddy (`codebuddy`) | CodeBuddy auto mode | asks | Nothing extra |
 | Codex (`codex`) | Codex Auto-review | PermissionRequest hook | Trust the hook in `/hooks`; Auto-review needs an `approval_policy` that prompts |
-| Kiro (`kiro`) | asks | PermissionRequest hook | Kiro CLI 3.4.0 or newer in a V3 session; no Kiro `ask` rule |
+| Kiro (`kiro`) | Kiro Approve for me | PermissionRequest hook | For `yolo`, Kiro CLI 3.4.0 or newer in a V3 session and no Kiro `ask` rule; for `review`, a session where Kiro offers Approve for me (Kiro CLI 2.36 or newer in a V3 session, or Kiro IDE) |
 | Cursor (`cursor`) | cursor-agent Auto-review | asks | `cursor-agent` only; a classifier-capable model and team permission; set Auto-review in the desktop app by hand |
 | Qoder (`qoder`) | Qoder auto mode | PermissionRequest hook | For `yolo`, no `permissions.ask` rule |
 | Qwen Code (`qwen`) | Qwen Code auto mode | PermissionRequest hook | For `yolo`, `tools.approvalMode` set to `default` or `auto_edit` and no `permissions.ask` rule; Qwen Code runs auto mode in a trusted folder when the key is unset |
@@ -147,6 +147,6 @@ In `yolo`, every request the hook sees adds one line to `$AGNOSTIC_AI_HOME/local
 | Devin CLI (`windsurf`) | Devin smart mode | asks | Your `deny` and `ask` rules still come first; `--permission-mode` and `DEVIN_PERMISSION_MODE` replace it for one launch |
 | Every other tool | asks | asks | |
 
-The Kiro and Qoder `yolo` routes rest on the vendors' docs; we have not run them in a live session. The Qwen Code route was run with Qwen Code 0.28.0 and a local test model.
+The Kiro and Qoder `yolo` routes and the Kiro `review` route rest on the vendors' docs; we have not run them in a live session. The Qwen Code route was run with Qwen Code 0.28.0 and a local test model.
 
 On Windows `yolo` asks in every tool: the hook has no Windows command yet. `agnostic-ai approvals status` prints the route and the reason per tool.

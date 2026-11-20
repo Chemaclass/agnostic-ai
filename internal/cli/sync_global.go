@@ -31,8 +31,9 @@ const (
 	// Version 6 records the hooks file containers sync created; version
 	// 8 records the permission rules sync wrote; version 9 records the
 	// settings parents sync created; version 10 records the original of
-	// each key a personal field writes, per target and key.
-	globalStateVersion = 10
+	// each key a personal field writes, per target and key; version 11
+	// records the reviewer preset sync listed in a permissions file.
+	globalStateVersion = 11
 )
 
 type globalSyncOptions struct {

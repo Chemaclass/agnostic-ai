@@ -54,7 +54,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			return nil, p.next, err
 		}
 	}
-	if err := p.eachTarget(p.snapshotTargetTOML, p.planSettings, p.planTOMLArrays, p.planMCP); err != nil {
+	if err := p.eachTarget(p.snapshotTargetTOML, p.planSettings, p.planKiroReview, p.planTOMLArrays, p.planMCP); err != nil {
 		return nil, p.next, err
 	}
 	p.finalize()
@@ -87,7 +87,7 @@ type globalPlan struct {
 }
 
 func newGlobalPlan(home, source, platform string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) *globalPlan {
-	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SettingsOriginals: map[string]map[string]globalSettingOriginal{}, SettingsParents: map[string][]string{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SettingsOriginals: map[string]map[string]globalSettingOriginal{}, SettingsParents: map[string][]string{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, ReviewPolicies: map[string]globalReviewPolicy{}, Created: slices.Clone(old.Created)}
 	if next.TOMLArrays == nil {
 		next.TOMLArrays = map[string]map[string]tomlArrayLayout{}
 	}
@@ -146,6 +146,7 @@ func (p *globalPlan) carryOverState() {
 	keepUnselected(next.MCP, old.MCP, targets, sharedValue)
 	keepUnselected(next.SettingsPaths, old.SettingsPaths, targets, sharedValue)
 	keepUnselected(next.MCPPaths, old.MCPPaths, targets, sharedValue)
+	keepUnselected(next.ReviewPolicies, old.ReviewPolicies, targets, sharedValue)
 	for target, hooks := range old.Hooks {
 		next.Hooks[target] = cloneHookState(hooks)
 	}

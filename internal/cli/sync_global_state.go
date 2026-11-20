@@ -55,6 +55,10 @@ type globalState struct {
 	// live in, so a moved configuration root sweeps the old file.
 	SettingsPaths map[string]string `json:"settingsPaths,omitempty"`
 	MCPPaths      map[string]string `json:"mcpPaths,omitempty"`
+	// ReviewPolicies records, per target, the reviewer preset sync listed
+	// in a permissions file the user also writes, so a later sync takes
+	// out only that item.
+	ReviewPolicies map[string]globalReviewPolicy `json:"reviewPolicies,omitempty"`
 	// Created lists the user files sync created, which it removes once
 	// nothing is left in them. They also sit in Files, but a moved
 	// configuration root is expected for them, so they are not proof of
