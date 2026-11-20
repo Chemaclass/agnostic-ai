@@ -496,8 +496,13 @@ func importCodexSkills(root, dstDir string) (int, error) {
 				continue
 			}
 			seen[identity] = true
-			merged := dirExists(skillDst)
-			if merged {
+			spec, singleFile := singleFileSkillSpec(skillSrc, skillDst)
+			merged := singleFile || dirExists(skillDst)
+			if singleFile {
+				if err := withImportMerge(func() error { return mergeSkillBodies(spec, filepath.Join(skillSrc, "SKILL.md")) }); err != nil {
+					return count, fmt.Errorf("merge skill %s: %w", e.Name(), err)
+				}
+			} else if merged {
 				if err := withImportMerge(func() error { return mergeCodexSkillIntoExisting(skillSrc, skillDst) }); err != nil {
 					return count, fmt.Errorf("merge skill %s: %w", e.Name(), err)
 				}

@@ -255,10 +255,13 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 		}
 		skillDst := filepath.Join(dstDir, e.Name())
+		skillPath, singleFile := singleFileSkillSpec(skillSrc, skillDst)
+		if !singleFile {
+			skillPath = filepath.Join(skillDst, "SKILL.md")
+		}
 		if err := copyDirTree(skillSrc, skillDst); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
-		skillPath := filepath.Join(skillDst, "SKILL.md")
 		skillData, err := os.ReadFile(skillPath)
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", skillPath, err)
@@ -269,8 +272,8 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 				return count, err
 			}
 		}
-		if codexPresent && !codexHasSkill(root, e.Name()) {
-			if err := injectTargetInSkillMD(filepath.Join(skillDst, "SKILL.md"), "claude"); err != nil {
+		if !singleFile && codexPresent && !codexHasSkill(root, e.Name()) {
+			if err := injectTargetInSkillMD(skillPath, "claude"); err != nil {
 				return count, fmt.Errorf("scope skill %s: %w", e.Name(), err)
 			}
 		}

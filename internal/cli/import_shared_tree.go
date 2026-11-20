@@ -455,6 +455,9 @@ func realPath(path string) string {
 }
 
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
+	if spec, ok := singleFileSkillSpec(srcDir, dstDir); ok {
+		return copySkillFile(filepath.Join(srcDir, "SKILL.md"), spec, transformSkill, fields)
+	}
 	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -470,6 +473,9 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if !d.Type().IsRegular() || isSyncBackup(path) {
 			return nil
 		}
+		if filepath.Base(path) == "SKILL.md" {
+			return copySkillFile(path, target, transformSkill, fields)
+		}
 		info, err := d.Info()
 		if err != nil {
 			return err
@@ -478,31 +484,62 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if filepath.Base(path) != "SKILL.md" && header.Leads(path, string(data)) {
+		if header.Leads(path, string(data)) {
 			return nil
-		}
-		if filepath.Base(path) == "SKILL.md" {
-			importReadingNative(path)
-			data = []byte(header.Strip(string(data)))
-			if transformSkill != nil {
-				data, err = transformSkill(data)
-				if err != nil {
-					return fmt.Errorf("transform %s: %w", path, err)
-				}
-			}
 		}
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
-		}
-		if filepath.Base(path) == "SKILL.md" {
-			if err := importWriteSpecMarkdown(target, data, info.Mode().Perm(), fields); err != nil {
-				return fmt.Errorf("write %s: %w", target, err)
-			}
-			return nil
 		}
 		if err := importWriteFile(target, data, info.Mode().Perm()); err != nil {
 			return fmt.Errorf("write %s: %w", target, err)
 		}
 		return nil
 	})
+}
+
+// copySkillFile merges a native SKILL.md onto the spec at target.
+func copySkillFile(path, target string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	importReadingNative(path)
+	data = []byte(header.Strip(string(data)))
+	if transformSkill != nil {
+		if data, err = transformSkill(data); err != nil {
+			return fmt.Errorf("transform %s: %w", path, err)
+		}
+	}
+	if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(target), err)
+	}
+	if err := importWriteSpecMarkdown(target, data, info.Mode().Perm(), fields); err != nil {
+		return fmt.Errorf("write %s: %w", target, err)
+	}
+	return nil
+}
+
+// singleFileSkillSpec returns `<skillDst>.md` when the skill is already a
+// single-file spec and the native folder holds only its SKILL.md, which
+// is all sync writes for one. The import then updates that file; a
+// `<skillDst>/` folder beside it would declare the skill twice.
+func singleFileSkillSpec(skillSrc, skillDst string) (string, bool) {
+	spec := skillDst + ".md"
+	if dirExists(skillDst) || !fileExists(spec) {
+		return "", false
+	}
+	entries, err := os.ReadDir(skillSrc)
+	if err != nil {
+		return "", false
+	}
+	for _, e := range entries {
+		if e.Name() != "SKILL.md" && !isSyncBackup(filepath.Join(skillSrc, e.Name())) {
+			return "", false
+		}
+	}
+	return spec, true
 }
