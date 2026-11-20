@@ -93,7 +93,7 @@ packs:
     sha: 8ca22dba9a94f28898bbce59f2537ff4d87c747d
 ```
 
-Commit it so teammates and CI install the same commits.
+Commit it so teammates and CI install the same commits. The packs folder stays out of Git, so a fresh clone has the lockfile but no packs: run `agnostic-ai packs update` there before `sync`. Until then, `sync`, `sync --check`, `doctor --fix`, `use`, and `upgrade --requires` stop and name the missing packs instead of removing the files those packs generated. A lockfile that does not parse stops them too.
 
 </details>
 

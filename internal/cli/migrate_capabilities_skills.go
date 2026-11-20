@@ -55,6 +55,9 @@ func planCapabilitiesSkillTools(s migrationScope) ([]migrationChange, []migratio
 			}
 		}
 		if len(items) == 0 && !hasWebPair(list) {
+			if slices.ContainsFunc(tools, isNeutralCapability) {
+				continue
+			}
 			skip("keeps allowed-tools: as written: no entry has a capability of its own")
 			continue
 		}
@@ -91,4 +94,11 @@ func planCapabilitiesSkillTools(s migrationScope) ([]migrationChange, []migratio
 		}
 	}
 	return changes, skips, nil
+}
+
+// isNeutralCapability reports a neutral name, such as shell or
+// read(src/**), which a skill keeps under allowed-tools: once migrated.
+func isNeutralCapability(name string) bool {
+	tools, problem := spec.CapabilityTools([]string{name})
+	return problem == "" && !slices.Equal(tools, []string{name})
 }

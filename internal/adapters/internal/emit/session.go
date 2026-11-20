@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -414,12 +415,66 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	if err != nil || string(existing) == content {
 		return false
 	}
-	// A link's target may live outside the project; never copy it in.
-	if info, err := cur.lstat(); err != nil || !info.Mode().IsRegular() {
+	if info, err := cur.stat(); err != nil || !info.Mode().IsRegular() {
 		return false
 	}
+	gitPath := path
+	if cur.isLink() {
+		if linksToOutputSum(path, existing, sums) {
+			return false
+		}
+		if target, err := projectLinkTarget(path); err == nil {
+			gitPath = target
+		}
+	}
 	// A checkout or pull, not the user, changed a file that matches Git.
-	return !MatchesSum(existing, sum) && (committed == nil || !MatchesSum(existing, committed(path))) && !matchesAliasSum(path, existing, sums)
+	return !MatchesSum(existing, sum) && (committed == nil || !MatchesSum(existing, committed(gitPath))) && !matchesAliasSum(path, existing, sums)
+}
+
+// projectLinkTarget returns the file the link at path leads to, relative
+// to the working folder, or an error when it leads outside that folder.
+func projectLinkTarget(path string) (string, error) {
+	root, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if root, err = filepath.EvalSymlinks(root); err != nil {
+		return "", err
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%s links outside the project", path)
+	}
+	return rel, nil
+}
+
+// linksToOutputSum reports whether the link at path leads to another
+// output that still holds the bytes the last sync recorded for it.
+func linksToOutputSum(path string, existing []byte, sums map[string]string) bool {
+	own, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	for prior, sum := range sums {
+		if prior == path || !MatchesSum(existing, sum) {
+			continue
+		}
+		if info, err := os.Stat(prior); err == nil && os.SameFile(own, info) {
+			return true
+		}
+	}
+	return false
 }
 
 // TrustBackupsSince sets the sums of the `<path>.bak` files the last

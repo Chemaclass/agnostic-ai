@@ -24,6 +24,10 @@ var (
 	opencodeAgentsDir            = filepath.Join(".opencode", "agents")
 	opencodeSkillsDir            = filepath.Join(".opencode", "skills")
 	opencodeCommandsDir          = filepath.Join(".opencode", "commands")
+	// OpenCode still reads the singular folders. Sync writes the plural
+	// ones, so their copy of a name wins.
+	opencodeLegacyAgentsDir   = filepath.Join(".opencode", "agent")
+	opencodeLegacyCommandsDir = filepath.Join(".opencode", "command")
 )
 
 // opencodeMainFile returns the single entry-point import reads rules and
@@ -47,8 +51,8 @@ const (
 
 // importFromOpencode reads an existing OpenCode (SST) project
 // (`AGENTS.md` or the pre-#623 `.opencode/AGENTS.md`,
-// `.opencode/agents/`, `.opencode/skills/`, `.claude/skills/`,
-// `.agents/skills/`, `.opencode/commands/`,
+// `.opencode/agents/` or `agent/`, `.opencode/skills/`, `.claude/skills/`,
+// `.agents/skills/`, `.opencode/commands/` or `command/`,
 // `opencode.json`) under root and writes specs into the configured
 // source directories.
 func importFromOpencode(root string, src config.Sources) error {
@@ -67,18 +71,28 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importOpencodeAgents(root, importSourcePath(root, src.Agents))
-	if err != nil {
-		return err
+	agents := 0
+	for _, dir := range []string{opencodeLegacyAgentsDir, opencodeAgentsDir} {
+		n, err := importOpencodeAgents(root, dir, importSourcePath(root, src.Agents))
+		if err != nil {
+			return err
+		}
+		agents += n
 	}
+	agents -= sharedMarkdownNames(filepath.Join(root, opencodeLegacyAgentsDir), filepath.Join(root, opencodeAgentsDir))
 	skills, err := importScopedSkillFoldersWith(root, []string{opencodeSkillsDir, ".agents/skills", ".claude/skills"}, importSourcePath(root, src.Skills), &opencodeSkillFields)
 	if err != nil {
 		return err
 	}
-	commands, err := importOpencodeMarkdownDir(root, opencodeCommandsDir, importSourcePath(root, src.Commands))
-	if err != nil {
-		return err
+	commands := 0
+	for _, dir := range []string{opencodeLegacyCommandsDir, opencodeCommandsDir} {
+		n, err := importOpencodeMarkdownDir(root, dir, importSourcePath(root, src.Commands))
+		if err != nil {
+			return err
+		}
+		commands += n
 	}
+	commands -= sharedMarkdownNames(filepath.Join(root, opencodeLegacyCommandsDir), filepath.Join(root, opencodeCommandsDir))
 	mcps, err := importOpencodeMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
@@ -127,11 +141,11 @@ func importOpencodeMarkdownDir(root, dir, dstDir string) (int, error) {
 	return copyMarkdownDir(filepath.Join(root, dir), dstDir)
 }
 
-// importOpencodeAgents copies `.opencode/agents/*.md` like
+// importOpencodeAgents copies the `*.md` agents in dir like
 // importOpencodeMarkdownDir, with `steps` imported as the portable
 // `maxTurns`.
-func importOpencodeAgents(root, dstDir string) (int, error) {
-	src := filepath.Join(root, opencodeAgentsDir)
+func importOpencodeAgents(root, dir, dstDir string) (int, error) {
+	src := filepath.Join(root, dir)
 	if !dirExists(src) {
 		return 0, nil
 	}
@@ -172,9 +186,20 @@ func importOpencodeMCP(root, dstDir string) (int, error) {
 		if !ok {
 			continue
 		}
-		normalized[name] = nestOpencodeOnlyMCPKeys(normalizeOpencodeMCPEntry(entry))
+		normalized[name] = opencodeMCPSpec(entry)
 	}
 	return writeMCPYAMLs("opencode", normalized, dstDir)
+}
+
+// opencodeMCPSpec maps one `mcp.<name>` entry to spec meta. An explicit
+// `enabled: true` stays, under `x-opencode`, so sync writes the entry
+// back as it was.
+func opencodeMCPSpec(entry map[string]any) map[string]any {
+	spec := normalizeOpencodeMCPEntry(entry)
+	if entry["enabled"] == true {
+		spec["enabled"] = true
+	}
+	return nestOpencodeOnlyMCPKeys(spec)
 }
 
 // opencodePortableMCPKeys are the spec keys the OpenCode adapter reads
@@ -268,4 +293,20 @@ func opencodeMCPEnvReference(target, field, value string) bool {
 		}
 	}
 	return strings.TrimSpace(opencodeReference.ReplaceAllString(value, "")) == ""
+}
+
+// sharedMarkdownNames counts the top-level `*.md` names both folders
+// hold, which import writes to one spec.
+func sharedMarkdownNames(a, b string) int {
+	entries, err := os.ReadDir(a)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") && fileExists(filepath.Join(b, e.Name())) {
+			n++
+		}
+	}
+	return n
 }
