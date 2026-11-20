@@ -990,6 +990,8 @@
 # Allow 8192 bytes, rounded up to a 4096-byte page.
 # Merged branch growth of 53248 bytes over its base, on top of main's 27238400.
 # Merged branch growth of 28672 bytes over its base, on top of main's 27291648.
-# #3724 grew 12448 bytes over its base budget in CI: one model rule for
-# every agent and command importer. Add that, rounded up to 16384.
-27336704
+# Merged branch growth of 16384 bytes over its base, on top of main's 27320320.
+# #3724 measured 27353248 bytes in CI on top of that main: one model rule
+# for every agent and command importer. Allow 8192 bytes, rounded up to a
+# 4096-byte page.
+27365376

@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -115,6 +117,10 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || media != "application/json" {
 		writeEditJSON(w, http.StatusUnsupportedMediaType, editError{Error: "use Content-Type application/json"})
+		return
+	}
+	if err := decodeOneJSON(w, r, 1<<10, &struct{}{}); err != nil && !errors.Is(err, io.EOF) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send an empty JSON object: {}"})
 		return
 	}
 	if h.peer == nil {
