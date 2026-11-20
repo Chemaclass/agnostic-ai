@@ -27,7 +27,7 @@ func TestScopedRules_ReachNativeContext(t *testing.T) {
 		{"kiro", ".kiro/steering/payments.md", "services/payments/**"},
 		{"trae", "services/payments/.trae/rules/payments.md", "services/payments/**"},
 		{"qoder", ".qoder/rules/services/payments/payments.md", "paths:"},
-		{"openhands", ".agents/skills/payments/SKILL.md", "services/payments/**"},
+		{"openhands", ".agents/skills/payments.md", "services/payments/**"},
 		{"codex", "services/payments/AGENTS.md", "payment convention"},
 		{"gemini", "services/payments/GEMINI.md", "payment convention"},
 		{"qwen", "services/payments/QWEN.md", "payment convention"},
