@@ -56,6 +56,7 @@ func TestSyncGlobal_ApprovalsReviewYieldsToTargetKeys(t *testing.T) {
 		{"codebuddy", "permissions:\n  default-mode: plan\n"},
 		{"codex", "x-codex:\n  approvals_reviewer: user\n"},
 		{"cursor", "x-cursor:\n  approvalMode: allowlist\n"},
+		{"windsurf", "x-windsurf:\n  permission_mode: normal\n"},
 		{"qoder", "x-qoder:\n  general:\n    defaultPermissionMode: default\n"},
 		{"qwen", "x-qwen:\n  tools:\n    approvalMode: default\n"},
 	} {

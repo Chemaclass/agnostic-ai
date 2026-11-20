@@ -50,6 +50,7 @@ var nativeReviewers = map[string]nativeReviewer{
 		off: &reviewerOff{key: "permissions.disableAutoMode", value: "disable", why: "CodeBuddy starts in default instead"}},
 	"codex": {name: "Codex Auto-review", key: "approvals_reviewer", value: "auto_review",
 		off: &reviewerOff{key: "approval_policy", value: "never", why: "it reviews only prompts, so use on-request or a granular policy"}},
+	"windsurf": {name: "Devin smart mode", key: "permission_mode", value: "smart", overrideEnv: "DEVIN_PERMISSION_MODE"},
 	"vibe": {name: "Vibe smart-approve", key: "default_agent", value: "smart-approve", overrideEnv: "VIBE_DEFAULT_AGENT",
 		off: &reviewerOff{key: "bypass_tool_permissions", value: true, why: "Vibe approves every call instead"}},
 	"cursor": {name: "cursor-agent Auto-review", key: "approvalMode", value: "auto-review",
