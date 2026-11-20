@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -323,9 +324,7 @@ func TestValidateScopedRules_CompanionOnlyWhenClaudeReplacesIt(t *testing.T) {
 				t.Fatal(err)
 			}
 			meta := map[string]any{"scope": "services/api"}
-			for k, v := range tc.meta {
-				meta[k] = v
-			}
+			maps.Copy(meta, tc.meta)
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "api", Body: "Use integer minor units.", Meta: meta}})
 			cfg := &config.Config{Targets: tc.targets}
 			if tc.cfg != nil {

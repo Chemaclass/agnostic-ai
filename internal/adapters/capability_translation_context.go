@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"encoding/json"
+	"maps"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -87,9 +88,7 @@ func TranslatePermissionCapabilityIn(target, list, rule string, entry spec.Entry
 		finalNative := map[string]any{}
 		for _, candidate := range normalized {
 			permission, _ := emit.SettingsCustomObject(candidate, target, "permission")
-			for key, value := range permission {
-				finalNative[key] = value
-			}
+			maps.Copy(finalNative, permission)
 		}
 		for i, native := range result.Native {
 			key, _, _ := strings.Cut(native, "(")

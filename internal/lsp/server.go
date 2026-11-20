@@ -89,13 +89,11 @@ func (s *Server) Run() error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			var perr *parseError
-			if errors.As(err, &perr) {
+			if perr, ok := errors.AsType[*parseError](err); ok {
 				s.replyError(nil, errCodeParseError, perr.Error())
 				continue
 			}
-			var ierr *invalidRequestError
-			if errors.As(err, &ierr) {
+			if ierr, ok := errors.AsType[*invalidRequestError](err); ok {
 				s.replyError(ierr.id, errCodeInvalidRequest, ierr.Error())
 				continue
 			}
@@ -123,7 +121,7 @@ func (s *Server) dispatch(msg *Message) {
 	default:
 		if msg.ID != nil {
 			s.replyError(msg.ID, errCodeMethodNotFound,
-				fmt.Sprintf("method not supported: %s", msg.Method))
+				"method not supported: "+msg.Method)
 		}
 	}
 }
@@ -286,8 +284,8 @@ func uriToPath(uri string) string {
 // pathToURI converts an OS path to a file:// URI.
 func pathToURI(path string) string {
 	slashPath := filepath.ToSlash(path)
-	if strings.HasPrefix(slashPath, "//") {
-		host, rest, _ := strings.Cut(strings.TrimPrefix(slashPath, "//"), "/")
+	if after, ok := strings.CutPrefix(slashPath, "//"); ok {
+		host, rest, _ := strings.Cut(after, "/")
 		return (&url.URL{Scheme: "file", Host: host, Path: "/" + rest}).String()
 	}
 	abs, err := filepath.Abs(path)

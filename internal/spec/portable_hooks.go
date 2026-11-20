@@ -212,7 +212,7 @@ func PortableHookProblem(meta map[string]any) string {
 		return ""
 	}
 	if event != "before-tool" && event != "after-tool" {
-		return fmt.Sprintf("match: applies only to on: before-tool and after-tool, not %s", event)
+		return "match: applies only to on: before-tool and after-tool, not " + event
 	}
 	kind, _ := match.(string)
 	if server, ok := strings.CutPrefix(kind, mcpToolKind); ok {
@@ -243,10 +243,10 @@ func decisionProblem(meta map[string]any, on string) string {
 		return fmt.Sprintf("decision: %v is not a decision source; write decision: stdout", decision)
 	}
 	if on != "before-tool" {
-		return fmt.Sprintf("decision: stdout applies only to on: before-tool, not %s", on)
+		return "decision: stdout applies only to on: before-tool, not " + on
 	}
 	if kind, _ := meta["type"].(string); kind != "" && kind != "command" {
-		return fmt.Sprintf("decision: stdout applies only to command hooks, not type: %s", kind)
+		return "decision: stdout applies only to command hooks, not type: " + kind
 	}
 	if _, set := meta["commandWindows"]; set {
 		return "decision: stdout runs through a bash wrapper, which commandWindows would skip; remove commandWindows"
@@ -424,13 +424,13 @@ func nativeHookFor(target, on, kind string) (event, matcher, reason string) {
 	}
 	if server, ok := strings.CutPrefix(kind, mcpToolKind); ok {
 		if names.mcp == "" {
-			return "", "", fmt.Sprintf("%s has no MCP tool name a hook can match", target)
+			return "", "", target + " has no MCP tool name a hook can match"
 		}
 		return event, fmt.Sprintf(names.mcp, server), ""
 	}
 	matcher, ok = names.tools[kind]
 	if !ok && len(names.tools) == 1 {
-		return "", "", fmt.Sprintf("%s hooks take no matcher; write match: any or leave match out", target)
+		return "", "", target + " hooks take no matcher; write match: any or leave match out"
 	}
 	if !ok {
 		return "", "", fmt.Sprintf("%s has no %s tool a hook can match", target, kind)

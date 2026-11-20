@@ -124,7 +124,7 @@ func ReadFile(path string) ([]byte, error) {
 func mkdirAll(dir string, perm os.FileMode) error { //nolint:unparam // perm names the mode at each call, like os.MkdirAll
 	var err error
 	delay := time.Millisecond
-	for attempt := 0; attempt < 5; attempt++ {
+	for attempt := range 5 {
 		if err = os.MkdirAll(dir, perm); err == nil {
 			return nil
 		}
@@ -252,8 +252,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if err := s.checkProjectPath(path, "write", false); err != nil {
 		// Matching bytes need no write, so a linked spec folder that
 		// already holds the scaffold still syncs.
-		var linked *config.LinkRefusal
-		if !errors.As(err, &linked) {
+		if _, ok := errors.AsType[*config.LinkRefusal](err); !ok {
 			return err
 		}
 		existing, readErr := cur.bytes()

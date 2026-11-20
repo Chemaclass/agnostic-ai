@@ -979,4 +979,8 @@
 # #3591 measured 27152544 bytes locally (make size-check): companion uninstall, install and upgrade check whether the companion runs, record the installing commit, and keep a moved-aside app; the budget is that plus 8192, rounded up to a multiple of 4096.
 # #3516 measured 27168928 bytes: verified whole-app updates and bundled
 # command installation; allow 8192 bytes, rounded up to a 4096-byte page.
-27181056
+# #3699 measured 27181216 bytes: the modernize rewrites (errors.AsType,
+# slices.Backward and other generic helpers) add 20480 bytes over main;
+# stringsseq stays off because it alone added about 65 KB. Allow 8192
+# bytes, rounded up to a 4096-byte page.
+27193344

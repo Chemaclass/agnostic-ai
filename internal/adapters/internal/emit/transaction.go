@@ -66,8 +66,7 @@ func (s *Session) Rollback() error {
 		}
 		links = nil
 	}
-	for i := len(log) - 1; i >= 0; i-- {
-		e := log[i]
+	for _, e := range slices.Backward(log) {
 		if e.link != "" {
 			links = append(links, e)
 			continue

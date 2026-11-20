@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"maps"
 	"slices"
 	"sort"
@@ -35,7 +34,7 @@ func malformedGlobs(r spec.Entry) []string {
 }
 
 func malformedGlobsMessage(key string) string {
-	return fmt.Sprintf(`%s must be a string or a list of strings, such as globs: "*.go,*.mod" or globs: ["*.go", "*.mod"]`, key)
+	return key + " must be a string or a list of strings, such as globs: \"*.go,*.mod\" or globs: [\"*.go\", \"*.mod\"]"
 }
 
 const pathsConflictGlobsMessage = "paths and globs name different patterns; keep one of them, since paths is another name for globs"

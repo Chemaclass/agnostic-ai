@@ -98,9 +98,11 @@ func TestSyncCheckAgainstSkillLinks_DiagnosesExportPolicyInEveryFormat(t *testin
 						t.Fatalf("invalid JSON: %v\n%s", err, stdout)
 					}
 					cause = ""
+					var causeSb101 strings.Builder
 					for _, record := range out.Errors {
-						cause += record.Message + "\n"
+						causeSb101.WriteString(record.Message + "\n")
 					}
+					cause += causeSb101.String()
 				}
 				for _, want := range []string{checkedSkillLink, "core.symlinks=false", "plain file", "git config --local core.symlinks true", "shared-skills: false"} {
 					if !strings.Contains(cause, want) {
@@ -240,9 +242,11 @@ func TestSyncCheckAgainstSkillLinks_DiagnosesForceAddedIgnoredSkills(t *testing.
 				t.Fatalf("parse %s filtered=%t JSON: %v", ref, filtered, err)
 			}
 			cause := ""
+			var causeSb243 strings.Builder
 			for _, failure := range out.Errors {
-				cause += failure.Message + "\n"
+				causeSb243.WriteString(failure.Message + "\n")
 			}
+			cause += causeSb243.String()
 			if !strings.Contains(cause, checkedSkillLink) || !strings.Contains(cause, "core.symlinks=false") {
 				t.Errorf("%s filtered=%t: tracked ignored link needs its diagnosis: %s", ref, filtered, stdout)
 			}

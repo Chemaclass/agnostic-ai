@@ -119,13 +119,13 @@ func send(ctx context.Context, c Conversation, text string, markdown bool, proce
 		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("It shows in a %s terminal that may show another thread now, so nothing was typed.", toolLabels[c.Tool]))
 	}
 	if !typedInto[c.Tool] {
-		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("%s does not say when it waits for an answer, so nothing was typed.", toolLabels[c.Tool]))
+		return pasteByHand(ctx, c, processes, launcher, toolLabels[c.Tool]+" does not say when it waits for an answer, so nothing was typed.")
 	}
 	if waiting(c) {
 		return pasteByHand(ctx, c, processes, launcher, "It waits for your answer, and typed text could answer its question, so nothing was typed.")
 	}
 	if working(c) && !queuesTypedInput[c.Tool] {
-		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("%s is working and may drop typed text, so nothing was typed.", toolLabels[c.Tool]))
+		return pasteByHand(ctx, c, processes, launcher, toolLabels[c.Tool]+" is working and may drop typed text, so nothing was typed.")
 	}
 	if !working(c) && c.Activity != idleActivity[c.Tool] {
 		return pasteByHand(ctx, c, processes, launcher, "It does not say whether it is ready for text, so nothing was typed.")

@@ -61,6 +61,7 @@ package continueai
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -376,9 +377,7 @@ func mcpYAML(e spec.Entry) (string, error) {
 func mcpRequestOptions(meta map[string]any) map[string]any {
 	opts := map[string]any{}
 	if native, ok := meta["requestOptions"].(map[string]any); ok {
-		for key, value := range native {
-			opts[key] = value
-		}
+		maps.Copy(opts, native)
 	}
 	headers := emit.StringMap(meta["headers"])
 	if len(headers) == 0 {
@@ -386,9 +385,7 @@ func mcpRequestOptions(meta map[string]any) map[string]any {
 	}
 	// Native headers win on conflicts. Copying both maps keeps a
 	// Continue emission from changing metadata used by another target.
-	for key, value := range emit.StringMap(opts["headers"]) {
-		headers[key] = value
-	}
+	maps.Copy(headers, emit.StringMap(opts["headers"]))
 	opts["headers"] = headers
 	return opts
 }

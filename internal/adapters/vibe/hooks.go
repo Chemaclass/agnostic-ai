@@ -1,6 +1,7 @@
 package vibe
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"runtime"
@@ -74,7 +75,7 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 			return nil, fmt.Errorf("vibe: %s hook %s cannot set strict", event, h.Name)
 		}
 		if strings.TrimSpace(h.Name) == "" {
-			return nil, fmt.Errorf("vibe: hooks require a name")
+			return nil, errors.New("vibe: hooks require a name")
 		}
 		out = append(out, d)
 	}

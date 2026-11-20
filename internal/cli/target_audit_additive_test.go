@@ -68,7 +68,6 @@ func TestAuditJunieMCP_TimeoutMillisecondsRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(actual, want) {
 		t.Errorf("native MCP fields changed: got %#v, want %#v", actual, want)
 	}
-
 }
 
 func TestAuditCrushGoose_SharedManualSkillAndCommand(t *testing.T) {

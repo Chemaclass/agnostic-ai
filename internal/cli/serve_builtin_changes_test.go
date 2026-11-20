@@ -3,7 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -249,7 +249,7 @@ func TestBuiltinChanges_PartialWriteFailureRestoresFiles(t *testing.T) {
 	h.beforeWrite = func(string) error {
 		count++
 		if count == 3 {
-			return fmt.Errorf("injected write failure")
+			return errors.New("injected write failure")
 		}
 		return nil
 	}
@@ -282,7 +282,7 @@ func TestBuiltinChanges_RollbackKeepsAnInterveningEdit(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, first), []byte("Later edit.\n"), 0o600); err != nil {
 			return err
 		}
-		return fmt.Errorf("injected write failure")
+		return errors.New("injected write failure")
 	}
 	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
 	if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "could not restore") || !strings.Contains(rec.Body.String(), first) {
@@ -627,7 +627,7 @@ func TestBuiltinChanges_FailedLaterApplyKeepsSuccessfulUndo(t *testing.T) {
 	h.beforeWrite = func(string) error {
 		count++
 		if count == 2 {
-			return fmt.Errorf("injected failure")
+			return errors.New("injected failure")
 		}
 		return nil
 	}
@@ -648,7 +648,7 @@ func TestBuiltinChanges_FailedUndoCanRetryAfterCompleteRollback(t *testing.T) {
 	h.beforeWrite = func(string) error {
 		count++
 		if count == 2 {
-			return fmt.Errorf("injected failure")
+			return errors.New("injected failure")
 		}
 		return nil
 	}

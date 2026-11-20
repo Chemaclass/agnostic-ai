@@ -97,7 +97,6 @@ func TestQwen_ImportSyncNativeProject(t *testing.T) {
 			if strings.TrimSpace(header.Strip(have.Body)) != strings.TrimSpace(want.Body) {
 				t.Errorf("%s body=%q", path, have.Body)
 			}
-
 		}
 	}
 }

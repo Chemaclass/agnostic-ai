@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -26,7 +27,7 @@ func rewriteTopLevelYAMLKeys(src string, rewrites []yamlKeyRewrite) (string, err
 		return "", err
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode || doc.Content[0].Style&yaml.FlowStyle != 0 {
-		return "", fmt.Errorf("not a block mapping")
+		return "", errors.New("not a block mapping")
 	}
 	mapping := doc.Content[0]
 	lines := strings.SplitAfter(src, "\n")
@@ -68,7 +69,7 @@ func rewriteFrontmatterKeys(src string, rewrites []yamlKeyRewrite) (string, erro
 	const delim = "---"
 	rest, ok := strings.CutPrefix(src, delim)
 	if !ok {
-		return "", fmt.Errorf("no frontmatter")
+		return "", errors.New("no frontmatter")
 	}
 	end := strings.Index(rest, "\n"+delim)
 	if end < 0 {
@@ -149,7 +150,7 @@ func sameApartFrom(before, after string, rewrites []yamlKeyRewrite) error {
 		delete(next, rw.NewKey)
 	}
 	if !reflect.DeepEqual(old, next) {
-		return fmt.Errorf("the rewrite changes other keys")
+		return errors.New("the rewrite changes other keys")
 	}
 	return nil
 }

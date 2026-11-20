@@ -248,7 +248,7 @@ func (e *environmentConfig) readCompute(block map[string]any) []string {
 				problems = append(problems, path+" must be text such as 8GB or 30m")
 			}
 		default:
-			problems = append(problems, fmt.Sprintf("%s is not an Ellipsis compute key (use cpu, memory, timeout, idle)", path))
+			problems = append(problems, path+" is not an Ellipsis compute key (use cpu, memory, timeout, idle)")
 		}
 	}
 	e.compute = compute

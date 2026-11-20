@@ -160,9 +160,11 @@ func TestImportWindsurf_PreservesSkillTriggersUnderTargetMeta(t *testing.T) {
 			silence(t)
 			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [windsurf]\noutputs:\n  windsurf:\n    skills-dir: .devin/skills\n")
 			native := "---\nname: " + name + "\ndescription: " + name + "\ntriggers:\n"
+			var nativeSb162 strings.Builder
 			for _, trigger := range triggers {
-				native += "  - " + trigger.(string) + "\n"
+				nativeSb162.WriteString("  - " + trigger.(string) + "\n")
 			}
+			native += nativeSb162.String()
 			native += "---\n\nSkill body.\n"
 			writeFile(t, filepath.Join(".devin", "skills", name, "SKILL.md"), native)
 

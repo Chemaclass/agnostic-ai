@@ -2,7 +2,6 @@ package errs
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"strings"
 	"testing"
@@ -57,7 +56,7 @@ func TestCodeOf_NilAndPlainReturnEmpty(t *testing.T) {
 	if got := CodeOf(nil); got != "" {
 		t.Errorf("CodeOf(nil)=%q, want empty", got)
 	}
-	if got := CodeOf(fmt.Errorf("plain")); got != "" {
+	if got := CodeOf(errors.New("plain")); got != "" {
 		t.Errorf("CodeOf(plain)=%q, want empty", got)
 	}
 }

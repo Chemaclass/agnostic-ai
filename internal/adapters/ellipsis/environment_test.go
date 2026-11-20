@@ -1,6 +1,7 @@
 package ellipsis
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,9 +30,7 @@ func mcpSpec(name string, meta map[string]any) spec.Entry {
 // and one repository.
 func selected(extra map[string]any) map[string]any {
 	env := map[string]any{"name": "api-environment", "repository": map[string]any{"name": "api-repo"}}
-	for k, v := range extra {
-		env[k] = v
-	}
+	maps.Copy(env, extra)
 	return env
 }
 
