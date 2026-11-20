@@ -1021,7 +1021,7 @@ test('the circle counts the conversations that need you, and names the waiting a
 test('a row that waits for the person shows the circle\'s lock; an unread reply keeps a plain dot', async ({ page }) => {
   await openPanel(page)
   const waiting = row(page, 'Approve the database migration').locator('.state')
-  await expect(waiting).toHaveClass('state is-blocked')
+  await expect(waiting).toHaveClass('state is-blocked has-lock')
   await expect(waiting.locator('svg')).toBeVisible()
   await expect(waiting).toHaveCSS('background-color', 'rgb(240, 163, 94)')
   await expect(row(page, 'Draft the release notes').locator('.state svg')).toHaveCount(0)

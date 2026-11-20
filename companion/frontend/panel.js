@@ -212,8 +212,11 @@ function stateMark(conversation) {
   if (parentState === 'working') {
     mark.append(workSystem())
   }
-  // The circle's lock: a chat that waits on a permission, an answer or a shell, apart from unread replies.
-  if (parentState === 'blocked') mark.append(icon('lock', '0 0 16 16'))
+  // The circle's lock, on the chats the circle counts as waiting: apart from unread replies.
+  if (conversation.state === 'blocked') {
+    mark.classList.add('has-lock')
+    mark.append(icon('lock', '0 0 16 16'))
+  }
   if (conversation.workingSubagents > 0) {
     const workers = element('span', 'work-workers')
     for (let worker = 0; worker < conversation.workingSubagents; worker++) {

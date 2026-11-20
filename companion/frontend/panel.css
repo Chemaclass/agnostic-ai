@@ -624,7 +624,7 @@ body {
 }
 
 /* The same lock the circle shows while a chat waits for you. */
-.state.is-blocked {
+.state.has-lock {
   display: grid;
   place-items: center;
   width: 16px;
@@ -632,7 +632,7 @@ body {
   color: var(--ink);
 }
 
-.state.is-blocked > svg {
+.state.has-lock > svg {
   width: 10px;
   height: 10px;
   fill: none;

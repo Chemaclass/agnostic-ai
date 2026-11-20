@@ -280,7 +280,7 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 
 ## What a chat waits for {#waiting}
 
-In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. An unread reply has a plain orange dot.
+In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. An unread reply has a plain orange dot, and so does a wait you already read while its subagents still work under Working.
 
 A row that waits for you can carry [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) with `{for, tool?, detail?}`. `for` is `permission` (approve a tool call), `answer` (a question), or `shell` (a [forgotten shell](#stop-a-forgotten-shell) is the only work left). It is omitted when unknown.
 
