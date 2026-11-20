@@ -68,14 +68,14 @@ Undo a `sync --backup`. For each generated file and tool instruction file (`CLAU
 | `-t`, `--only`, `--except` | Select targets, as in [`sync`](@/docs/cli-reference/sync.md#sync). |
 | `--dry-run` | Show what it would do and change nothing. |
 | `--force` | Also delete generated files that have no `.bak`, including generated tool instruction files and your own files at the same paths. |
-| `--json` | Same format as `sync --json`. Actions: `"restore"`, `"remove"`, `"preserve"` (no `.bak`, no `--force`), `"skip"` (already gone). |
+| `--json` | Same format as `sync --json`. Actions: `"restore"`, `"remove"`, `"preserve"` (no `.bak`, no `--force`), `"keep"` (in the source tree), `"skip"` (already gone). |
 
 {% <details summary="Details: what revert restores and skips"> %}
 - Restored files keep their permissions, never wider than the file's.
 - A nested `CLAUDE.md` that sync deleted comes back too.
 - An unfiltered `revert` also restores intact recorded backups of removed outputs, including those from dropped targets.
 - Paths under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) are never touched.
-- Files in `.agnostic-ai/` and in the spec folders `sources` sets, your note `AGNOSTIC_AI.md` included, are what you write, so `revert` never restores or deletes them, even with `--force` and even when an `outputs` path points there.
+- Files in `.agnostic-ai/` and in the spec folders `sources` sets, your note `AGNOSTIC_AI.md` included, are what you write, so `revert` never restores or deletes them, even with `--force` and even when an `outputs` path or a link points there. A spec folder set to the project root does not count.
 - A shared `AGENTS.md` is handled once.
 - `revert` takes the project lock, so it stops while another command writes. `--dry-run` does not.
 {% </details> %}

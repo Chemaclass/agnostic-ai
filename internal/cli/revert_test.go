@@ -421,7 +421,7 @@ func TestRevertCmd_ForceKeepsFilesInTheSourceTree(t *testing.T) {
 		name, outputs, keep string
 	}{
 		{"case variant", "  codex:\n    file: .agnostic-ai/agnostic_ai.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
-		{"dot dot", "  codex:\n    file: x/../.agnostic-ai/AGNOSTIC_AI.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
+		{"dot dot", "  codex:\n    file: .agnostic-ai/rules/../AGNOSTIC_AI.md\n", ".agnostic-ai/AGNOSTIC_AI.md"},
 		{"rule file", "  codex:\n    file: .agnostic-ai/rules/style.md\n", ".agnostic-ai/rules/style.md"},
 		{"skills dir", "  claude:\n    skills-dir: .agnostic-ai/skills\n", ".agnostic-ai/skills/s1/SKILL.md"},
 	} {
@@ -473,6 +473,59 @@ func TestRevertCmd_ForceKeepsFilesInTheSourceTree(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// An output that is itself a link into the source tree is kept, so a
+// restore never writes through it into the note.
+func TestRevertCmd_KeepsAnOutputLinkedIntoTheSourceTree(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [codex]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	note := filepath.Join(".agnostic-ai", "AGNOSTIC_AI.md")
+	if err := os.WriteFile(note, []byte("Run tests.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(note, "AGENTS.md"); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	if err := os.WriteFile("AGENTS.md.bak", []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"revert", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(note); err != nil || string(got) != "Run tests.\n" {
+		t.Errorf("note = %q, err=%v", got, err)
+	}
+}
+
+// A spec folder at the project root would hold every output; it does not
+// make revert keep them all.
+func TestRevertCmd_ARootSpecFolderDoesNotKeepEveryOutput(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("agnostic-ai.yaml", []byte("version: 1\nsources:\n  hooks: .\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude", "--force"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
+		t.Errorf("CLAUDE.md kept, err=%v", err)
 	}
 }
 
