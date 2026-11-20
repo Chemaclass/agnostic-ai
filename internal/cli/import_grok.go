@@ -49,7 +49,7 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 			}
 		}
 	}
-	if _, err := importScopedSkillFoldersTransformed(root, []string{paths["SKILLS_DIR"]}, importSourcePath(root, src.Skills), &allSpecFields, importGrokSkillName); err != nil {
+	if _, err := importScopedSkillFoldersTransformed(root, []string{paths["SKILLS_DIR"]}, importSourcePath(root, src.Skills), &allSpecFields, importGrokSkillName, nil); err != nil {
 		return err
 	}
 	configPath := filepath.Join(root, paths["MCP_FILE"])

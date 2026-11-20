@@ -40,19 +40,24 @@ func trackImportWrites() func() map[string]bool {
 
 // nativeRefPrefix is one Claude-native spec directory and the source
 // directory import copied it into.
-type nativeRefPrefix struct{ native, source string }
+type nativeRefPrefix struct {
+	native, source string
+	flatSkills     map[string]string
+}
 
 // claudeRefPrefixes pairs each native directory with its source path.
-func claudeRefPrefixes(src config.Sources, layout claudeLayout) []nativeRefPrefix {
+func claudeRefPrefixes(src config.Sources, layout claudeLayout, flatSkills map[string]string) []nativeRefPrefix {
 	var out []nativeRefPrefix
-	for _, p := range [][2]string{
-		{layout.skills, src.Skills},
-		{layout.rules, src.Rules},
-		{layout.agents, src.Agents},
-		{layout.commands, src.Commands},
+	for _, p := range []nativeRefPrefix{
+		{native: layout.skills, source: src.Skills, flatSkills: flatSkills},
+		{native: layout.rules, source: src.Rules},
+		{native: layout.agents, source: src.Agents},
+		{native: layout.commands, source: src.Commands},
 	} {
-		if p[0] != "" && p[1] != "" {
-			out = append(out, nativeRefPrefix{filepath.ToSlash(filepath.Clean(p[0])), filepath.ToSlash(filepath.Clean(p[1]))})
+		if p.native != "" && p.source != "" {
+			p.native = filepath.ToSlash(filepath.Clean(p.native))
+			p.source = filepath.ToSlash(filepath.Clean(p.source))
+			out = append(out, p)
 		}
 	}
 	return out
@@ -67,8 +72,8 @@ var nativeRefRE = regexp.MustCompile(`(^|[^\w./-])((?:\./)?\.?[\w-][\w./-]*)`)
 // the entry file that imports an imported rule is dropped, since sync
 // delivers that rule to every target. A native path with no imported
 // spec behind it is reported and left as is.
-func resolveClaudeNativeRefs(root string, src config.Sources, layout claudeLayout, written map[string]bool) error {
-	prefixes := claudeRefPrefixes(src, layout)
+func resolveClaudeNativeRefs(root string, src config.Sources, layout claudeLayout, written map[string]bool, flatSkills map[string]string) error {
+	prefixes := claudeRefPrefixes(src, layout, flatSkills)
 	entry := filepath.Clean(filepath.Join(root, agnosticMainFile))
 	rulesPrefix := filepath.ToSlash(filepath.Clean(layout.rules)) + "/"
 	paths := make([]string, 0, len(written))
@@ -138,10 +143,16 @@ func rewriteNativeRefs(root, path, text string, prefixes []nativeRefPrefix) stri
 			dot, bare = "./", bare[2:]
 		}
 		for _, p := range prefixes {
-			if !strings.HasPrefix(bare, p.native+"/") || len(bare) == len(p.native)+1 {
+			suffix, ok := strings.CutPrefix(bare, p.native+"/")
+			if !ok || suffix == "" {
 				continue
 			}
-			mapped := p.source + strings.TrimPrefix(bare, p.native)
+			if name, file, _ := strings.Cut(suffix, "/"); file == "SKILL.md" {
+				if flat := p.flatSkills[name]; flat != "" {
+					suffix = flat
+				}
+			}
+			mapped := p.source + "/" + suffix
 			if _, err := os.Stat(importSourcePath(root, filepath.FromSlash(mapped))); err != nil {
 				rel, relErr := filepath.Rel(root, path)
 				if relErr != nil {

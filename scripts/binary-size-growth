@@ -2,6 +2,6 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3799 adds effective approval checks, permission preview notices, and
-# an explanation for refused browser navigation. Measured 20480 bytes.
+# #3797 adds flat skill matching, workspace copy checks, and path
+# guidance for native skills with bundled files. Measured 20480 bytes.
 20480
