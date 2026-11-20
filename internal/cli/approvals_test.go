@@ -20,7 +20,7 @@ func approvalsHome(t *testing.T, shared string) string {
 	t.Setenv(envUserGlobalRoot, source)
 	t.Setenv(config.EnvApprovals, "")
 	if shared != "" {
-		mustWriteFile(t, filepath.Join(source, config.ConfigFileName), shared)
+		writeFile(t, filepath.Join(source, config.ConfigFileName), shared)
 	}
 	testutil.Chdir(t, t.TempDir())
 	return source
@@ -114,7 +114,7 @@ func TestApprovalsStatus_EnvironmentAsks(t *testing.T) {
 
 func TestApprovalsStatus_ProjectFileAsks(t *testing.T) {
 	approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
-	mustWriteFile(t, config.ConfigFileName, "version: 1\napprovals:\n  mode: ask\n")
+	writeFile(t, config.ConfigFileName, "version: 1\napprovals:\n  mode: ask\n")
 
 	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
 
@@ -125,7 +125,7 @@ func TestApprovalsStatus_ProjectFileAsks(t *testing.T) {
 
 func TestApprovalsStatus_ProjectFileCannotLoosen(t *testing.T) {
 	approvalsHome(t, "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, config.ConfigFileName, "version: 1\napprovals:\n  mode: yolo\n")
+	writeFile(t, config.ConfigFileName, "version: 1\napprovals:\n  mode: yolo\n")
 
 	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
 
@@ -140,7 +140,7 @@ func TestApprovalsAsk_WritesTheLocalHomeConfig(t *testing.T) {
 	approvalRoutes = map[string]map[string]string{"codex": {config.ApprovalsReview: "Codex Auto-review"}}
 	source := approvalsHome(t, "version: 1\ntargets: [claude, codex]\napprovals:\n  mode: yolo\n  tools:\n    codex: review\n")
 	local := filepath.Join(source, "local", config.ConfigFileName)
-	mustWriteFile(t, local, "# mine\nmodels:\n  fast:\n    claude: haiku\napprovals:\n  tools:\n    codex: review\n  projects:\n    /tmp/x: yolo\n  always-ask:\n    - \"Bash(make deploy*)\"\n")
+	writeFile(t, local, "# mine\nmodels:\n  fast:\n    claude: haiku\napprovals:\n  tools:\n    codex: review\n  projects:\n    /tmp/x: yolo\n  always-ask:\n    - \"Bash(make deploy*)\"\n")
 
 	out, err := runCLI(t, "approvals", "ask")
 	if err != nil {
@@ -188,7 +188,7 @@ func TestApprovalsAsk_CreatesTheLocalHomeConfig(t *testing.T) {
 
 func TestGlobalConfig_ReadsApprovalsWithoutWarning(t *testing.T) {
 	source := t.TempDir()
-	mustWriteFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
+	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
 	var warn strings.Builder
 
 	if _, err := loadGlobalTargets(source, &warn); err != nil {
@@ -203,8 +203,8 @@ func TestGlobalConfig_ReadsApprovalsWithoutWarning(t *testing.T) {
 func approvalsProject(t *testing.T, cfg string) {
 	t.Helper()
 	approvalsHome(t, "")
-	mustWriteFile(t, config.ConfigFileName, cfg)
-	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, config.ConfigFileName, cfg)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 }
 
 func TestValidate_RejectsLooseningApprovalsInAProjectFile(t *testing.T) {
@@ -235,7 +235,7 @@ func TestValidate_AcceptsAskInAProjectFile(t *testing.T) {
 
 func TestValidate_SkipsApprovalsCheckInTheHomeConfig(t *testing.T) {
 	source := approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
-	mustWriteFile(t, filepath.Join(source, ".agnostic-ai/skills/review/SKILL.md"), "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	writeFile(t, filepath.Join(source, ".agnostic-ai/skills/review/SKILL.md"), "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	testutil.Chdir(t, source)
 
 	if out, err := runCLI(t, "validate"); err != nil {
@@ -290,7 +290,7 @@ func TestApprovalsAskYAML(t *testing.T) {
 
 func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
 	source := approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yollo\n")
-	mustWriteFile(t, filepath.Join(source, "rules", "style.md"), "Be brief.\n")
+	writeFile(t, filepath.Join(source, "rules", "style.md"), "Be brief.\n")
 
 	out, err := runCLI(t, "validate", "--global")
 
