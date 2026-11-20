@@ -1,4 +1,12 @@
 {
+  "mcp": {
+    "kilo-zero-timeout": {
+      "command": [
+        "server"
+      ],
+      "type": "local"
+    }
+  },
   "model": "example-model",
   "permission": {
     "bash": {

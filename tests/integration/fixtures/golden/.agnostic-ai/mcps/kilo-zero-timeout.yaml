@@ -1,0 +1,4 @@
+name: kilo-zero-timeout
+targets: [kilo]
+command: server
+timeout: 0

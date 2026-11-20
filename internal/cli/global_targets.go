@@ -234,6 +234,14 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".cursor/mcp.json", format: "json", key: "mcpServers"},
 		hooksFormat:  "cursor",
 		hookTarget:   hookTargetSessionEnv,
+		// cursor-agent rewrites cli-config.json itself, so sync owns only
+		// approvalMode there.
+		settings: globalSettingsFile{
+			path: globalPathHome + ".cursor/cli-config.json", format: "json", resolve: cursorCLIConfigPath, toolOwned: true,
+			absEnv:        []string{"CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"},
+			allowed:       map[string]string{"approvalMode": "enum:allowlist|unrestricted|auto-review"},
+			allowedReason: "sync --global writes only approvalMode to cursor-agent's cli-config.json",
+		},
 		hookFoldArgs: true,
 		bridge:       true,
 		bridgeEvent:  "sessionStart",
@@ -346,6 +354,13 @@ var globalTargets = map[string]globalTarget{
 		agentsWindows: "devin/agents",
 		instructions:  globalPathXDG + "devin/AGENTS.md",
 		skills:        globalPathHome + ".agents/skills",
+		// Devin also reads hooks and permissions here; sync owns only the
+		// permission mode.
+		settings: globalSettingsFile{
+			path: globalPathHome + ".config/devin/config.json", windowsPath: globalPathAppData + "devin/config.json", format: "json", toolOwned: true,
+			allowed:       map[string]string{"permission_mode": "enum:normal|accept-edits|smart|dangerous"},
+			allowedReason: "sync --global writes only permission_mode to Devin's config.json",
+		},
 	},
 	"amp": {
 		instructions: globalPathXDG + "amp/AGENTS.md",
@@ -629,6 +644,9 @@ func (g globalTarget) pathForOS(home, p, goos string) string {
 	if goos == "windows" && p != "" && p == g.instructions && g.instructionsWindows != "" {
 		p = globalPathAppData + g.instructionsWindows
 	}
+	if p != "" && p == g.settings.path && g.settings.resolve != nil {
+		return g.settings.resolve(home)
+	}
 	if p != "" && p == g.settings.path {
 		p = g.settings.platformPath(goos)
 	}
@@ -704,4 +722,16 @@ func (g globalTarget) instructionsRootError(goos string) error {
 		}
 	}
 	return nil
+}
+
+// cursorCLIConfigPath is where cursor-agent reads cli-config.json:
+// CURSOR_CONFIG_DIR, else $XDG_CONFIG_HOME/cursor, else ~/.cursor.
+func cursorCLIConfigPath(home string) string {
+	if dir := strings.TrimSpace(os.Getenv("CURSOR_CONFIG_DIR")); dir != "" {
+		return filepath.Join(dir, "cli-config.json")
+	}
+	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+		return filepath.Join(xdg, "cursor", "cli-config.json")
+	}
+	return filepath.Join(home, ".cursor", "cli-config.json")
 }

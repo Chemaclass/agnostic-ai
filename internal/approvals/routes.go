@@ -115,7 +115,11 @@ var routes = []Route{
 	{Target: "continue", Reason: "no documented hook surface"},
 	{Target: "copilot", Reason: reasonDenyRules},
 	{Target: "crush", Reason: reasonNotBuilt},
-	{Target: "cursor", Reason: reasonNotBuilt},
+	{Target: "cursor", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "cursor-agent Auto-review",
+		File:     "~/.cursor/cli-config.json",
+		Evidence: "https://cursor.com/docs/agent/security/run-modes",
+	}},
 	{Target: "ellipsis", Reason: reasonNoPrompt},
 	{Target: "factory", Reason: reasonNotBuilt},
 	{Target: "gemini", Reason: reasonNoApprove},
@@ -146,7 +150,11 @@ var routes = []Route{
 		Evidence: "https://docs.mistral.ai/vibe/code/cli/configuration-reference",
 	}},
 	{Target: "warp", Reason: "no external hook"},
-	{Target: "windsurf", Reason: reasonNotBuilt},
+	{Target: "windsurf", Reason: reasonNotBuilt, Review: &Mechanism{
+		Name:     "Devin smart mode",
+		File:     "~/.config/devin/config.json",
+		Evidence: "https://docs.devin.ai/cli/reference/permissions",
+	}},
 	{Target: "zed", Reason: reasonNoReviewer + "; no hook system"},
 }
 

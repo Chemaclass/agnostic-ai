@@ -136,7 +136,7 @@ func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
 func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testing.T) {
 	home := globalOverviewHome(t)
 	source := filepath.Join(home, "source")
-	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n  - cursor\n  - opencode\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n  - opencode\n")
 	writeFile(t, filepath.Join(source, "settings", "base.yaml"), "model: gpt-5\neffort: high\n")
 	testutil.Chdir(t, t.TempDir())
 
@@ -145,7 +145,7 @@ func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testi
 		served := serveAndFetchEvidence(t, args...)
 		rows := resolvedByTarget(t, &served.overview)
 		for _, field := range []string{"model", "effort"} {
-			for _, target := range []string{"cursor", "opencode"} {
+			for _, target := range []string{"opencode"} {
 				if got := rows[field][target]; !strings.Contains(got.Dropped, reason) {
 					t.Errorf("%v: %s %s = %+v, want dropped with %q", args, target, field, got, reason)
 				}

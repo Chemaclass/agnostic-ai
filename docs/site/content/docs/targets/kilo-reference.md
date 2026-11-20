@@ -90,7 +90,8 @@ Servers merge into the `mcp` map of `kilo.jsonc` (not the deprecated `mcpServers
 - Stdio sets `type: "local"`, joins `command` and `args` into one `command` array, and uses `environment` for env vars.
 - Remote sets `type: "remote"` with `url` and `headers`. `oauth: false` turns off automatic OAuth.
 - `disabled: true` writes `"enabled": false`. An enabled server gets no key.
-- Both keep `timeout` (milliseconds, zero included). `x-kilo` can override `timeout` and `oauth`.
+- `timeout` takes a whole number from 1 to `9007199254740991` milliseconds for either type. Sync reports an invalid value and leaves out the key, so Kilo uses its default timeout.
+- `x-kilo` can override `timeout` and `oauth`.
 - `sync` keeps your keys in `kilo.jsonc`. It reads JSONC, as Kilo documents, but drops comments and trailing commas with a warning.
 
 ## Hooks

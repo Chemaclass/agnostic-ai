@@ -32,7 +32,11 @@ func TestSyncGlobal_ApprovalsReviewEveryNativeReviewer(t *testing.T) {
 				t.Errorf("%s in %s = %v, want %v", reviewer.key, path, have, reviewer.value)
 			}
 			s := toolStatus(t, approvalsStatusJSON(t), tool)
-			if s.Effective != config.ApprovalsReview || s.Route != reviewer.name || len(s.Notes) != 0 {
+			var want []string
+			if reviewer.reviewNote != "" {
+				want = []string{reviewer.reviewNote}
+			}
+			if s.Effective != config.ApprovalsReview || s.Route != reviewer.name || !slices.Equal(s.Notes, want) {
 				t.Errorf("status: %+v", s)
 			}
 
@@ -51,6 +55,8 @@ func TestSyncGlobal_ApprovalsReviewYieldsToTargetKeys(t *testing.T) {
 	for _, c := range []struct{ tool, spec string }{
 		{"codebuddy", "permissions:\n  default-mode: plan\n"},
 		{"codex", "x-codex:\n  approvals_reviewer: user\n"},
+		{"cursor", "x-cursor:\n  approvalMode: allowlist\n"},
+		{"windsurf", "x-windsurf:\n  permission_mode: normal\n"},
 		{"qoder", "x-qoder:\n  general:\n    defaultPermissionMode: default\n"},
 		{"qwen", "x-qwen:\n  tools:\n    approvalMode: default\n"},
 	} {
@@ -166,5 +172,142 @@ func TestApprovalsStatus_VibeBypassStopsTheClassifier(t *testing.T) {
 
 	if len(vibe.Notes) != 1 || !strings.Contains(vibe.Notes[0], "bypass_tool_permissions") {
 		t.Errorf("vibe notes: %q", vibe.Notes)
+	}
+}
+
+func TestCursorCLIConfigPath_FollowsCursorAgent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CURSOR_CONFIG_DIR", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	if got := cursorCLIConfigPath(home); got != filepath.Join(home, ".cursor", "cli-config.json") {
+		t.Errorf("default: %s", got)
+	}
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
+	if got := cursorCLIConfigPath(home); got != filepath.Join(home, "xdg", "cursor", "cli-config.json") {
+		t.Errorf("XDG: %s", got)
+	}
+	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(home, "cfg"))
+	if got := cursorCLIConfigPath(home); got != filepath.Join(home, "cfg", "cli-config.json") {
+		t.Errorf("CURSOR_CONFIG_DIR: %s", got)
+	}
+}
+
+func TestSyncGlobal_CursorSettingsWriteOnlyApprovalMode(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "x-cursor:\n  approvalMode: allowlist\n  hints: false\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "cursor")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	values, ok := reviewerKey(t, cursorCLIConfigPath(os.Getenv("HOME")), "json", "hints")
+	if ok {
+		t.Errorf("sync wrote hints = %v", values)
+	}
+	if have, _ := reviewerKey(t, cursorCLIConfigPath(os.Getenv("HOME")), "json", "approvalMode"); have != "allowlist" {
+		t.Errorf("approvalMode = %v", have)
+	}
+}
+
+func TestSyncGlobal_ApprovalsReviewReplacesCursorDefault(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := cursorCLIConfigPath(home)
+	original := "{\n  \"version\": 1,\n  \"approvalMode\": \"allowlist\",\n  \"hints\": true\n}\n"
+	writeFile(t, path, original)
+	writeHomeApprovals(t, source, "approvals:\n  tools:\n    cursor: review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if have, _ := reviewerKey(t, path, "json", "approvalMode"); have != "auto-review" {
+		t.Errorf("approvalMode = %v:\n%s", have, readFile(t, path))
+	}
+
+	writeHomeApprovals(t, source, "")
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync without review: %v\n%s", err, warnings)
+	}
+	if have, ok := reviewerKey(t, path, "json", "approvalMode"); ok {
+		t.Errorf("removing review left approvalMode = %v", have)
+	}
+	if have, _ := reviewerKey(t, path, "json", "hints"); have != true {
+		t.Errorf("sync dropped cursor-agent's keys:\n%s", readFile(t, path))
+	}
+}
+
+func TestSyncGlobal_CursorRejectsUnknownApprovalMode(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "x-cursor:\n  approvalMode: auto_review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	if _, ok := reviewerKey(t, cursorCLIConfigPath(home), "json", "approvalMode"); ok {
+		t.Error("sync wrote a value cursor-agent rejects")
+	}
+}
+
+func TestSyncGlobal_CursorSkipsABrokenConfigItDoesNotWrite(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	writeFile(t, cursorCLIConfigPath(home), "{ broken")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("a broken cli-config.json stopped the sync: %v\n%s", err, warnings)
+	}
+}
+
+func TestGlobalTargets_CursorConfigDirMustBeAbsolute(t *testing.T) {
+	t.Setenv("CURSOR_CONFIG_DIR", "relcfg")
+
+	if err := globalTargets["cursor"].rootError("cursor"); err == nil || !strings.Contains(err.Error(), "CURSOR_CONFIG_DIR") {
+		t.Errorf("rootError = %v", err)
+	}
+}
+
+func TestApprovalsStatus_DevinDangerousApprovesEverything(t *testing.T) {
+	home := approvalsUserHome(t)
+	t.Setenv("DEVIN_PERMISSION_MODE", "")
+	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [windsurf]\napprovals:\n  mode: review\n")
+	writeFile(t, filepath.Join(home, ".config", "devin", "config.json"), "{\"permission_mode\": \"dangerous\"}\n")
+
+	devin := toolStatus(t, approvalsStatusJSON(t), "windsurf")
+
+	if !slices.ContainsFunc(devin.Notes, func(n string) bool { return strings.Contains(n, "approves every call") }) {
+		t.Errorf("windsurf notes: %q", devin.Notes)
+	}
+}
+
+func TestSyncGlobal_ApprovalsReviewReplacesDevinNull(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("DEVIN_PERMISSION_MODE", "")
+	path := filepath.Join(home, ".config", "devin", "config.json")
+	writeFile(t, path, "{\n  \"permission_mode\": null,\n  \"theme_mode\": \"dark\"\n}\n")
+	writeHomeApprovals(t, source, "approvals:\n  tools:\n    windsurf: review\n")
+
+	if _, warnings, err := runGlobalAgentTest("--only", "windsurf"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if have, _ := reviewerKey(t, path, "json", "permission_mode"); have != "smart" {
+		t.Errorf("permission_mode = %v:\n%s", have, readFile(t, path))
+	}
+
+	writeHomeApprovals(t, source, "")
+	if _, warnings, err := runGlobalAgentTest("--only", "windsurf"); err != nil {
+		t.Fatalf("sync without review: %v\n%s", err, warnings)
+	}
+	if have, _ := reviewerKey(t, path, "json", "permission_mode"); have == "smart" {
+		t.Errorf("removing review left smart:\n%s", readFile(t, path))
+	}
+}
+
+func TestImportGlobal_SkipsAToolOwnedSettingsFile(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	writeFile(t, filepath.Join(home, ".config", "devin", "config.json"), "{ broken")
+	writeFile(t, cursorCLIConfigPath(home), "{ broken")
+
+	if _, stderr, err := runImportGlobalTest("windsurf", "cursor"); err != nil && strings.Contains(err.Error(), "parse") {
+		t.Fatalf("import read a file it takes nothing from: %v\n%s", err, stderr)
 	}
 }

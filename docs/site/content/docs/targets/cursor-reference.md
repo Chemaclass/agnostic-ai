@@ -129,6 +129,8 @@ The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor S
 
 A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Sync writes only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents, and never widens a rule. The rules guard the Cursor CLI only, not the IDE agent.
 
+`approvals` set to `review` for Cursor makes `sync --global` write `approvalMode: "auto-review"` to cursor-agent's `cli-config.json`. It reaches `cursor-agent` only; set Auto-review in the desktop app by hand. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
+
 | Portable rule | Cursor rule | Notes |
 |---|---|---|
 | `Bash(git:*)`, `Bash(git *)` | `Shell(git)` | One command word only. `Shell(git)` covers bare `git` too. |
