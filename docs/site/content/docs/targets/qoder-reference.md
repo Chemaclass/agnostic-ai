@@ -61,6 +61,7 @@ See [Rule activation](#rule-activation) and [target behavior](@/docs/target-beha
 
 - The shared default model becomes `model.name`.
 - `permissions.allow`, `deny`, and `ask` are copied directly. An `x-qoder` settings block is merged in. Voice has no native key.
+- `approvals` set to `review` for Qoder makes `sync --global` write `general.defaultPermissionMode: "auto"` to `~/.qoder/settings.json`, unless a settings spec sets `x-qoder.general.defaultPermissionMode`. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
 - With `memory.personal: repo`, sync adds the personal store to `permissions.additionalDirectories`, so saves there are approved. Your entries stay. See [repo mode](@/docs/memory.md#one-store-per-repository).
 
 ### Hooks
