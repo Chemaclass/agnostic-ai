@@ -32,7 +32,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Approval safeguards
 
-- `approvals ask` stops hook answers on the next request, and `sync --global` then undoes sync-owned reviewer settings in running sessions (#3700).
+- `approvals ask` stops hook answers. `sync --global` clears sync-owned reviewer settings. Switch modes in running sessions in the tool (#3700).
 - In `yolo`, edits to agent specs, moved agent, hook, MCP or settings folders, and legacy `agnostic.config.yaml` ask for approval (#3700, #3790).
 - In `yolo`, a `Read` or `Edit` ask rule with a path covers shell commands, `rtk` matches `Bash` ask rules, and path rules follow links and ignore case (#3808).
 - In `yolo`, home-folder sessions, edits to tool, login-agent and home `bin` folders, reads of `.git` or Git config, and links to credential files ask (#3808).
@@ -258,7 +258,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 #### Qwen Code
 
 - Project and user settings round-trip supported `effort` values through `model.reasoningEffort` in Qwen Code 0.28.0 and later (#3556).
-- In `yolo`, `sync --global` adds a Qwen Code hook for safe shell, read, edit and write calls (#3700, #3789). Set `tools.approvalMode` to `auto_edit`.
+- In `yolo`, `sync --global` adds a hook for safe shell, read, edit and write calls. Set `tools.approvalMode` to `default` or `auto_edit` (#3700, #3789).
 - A `permissions.ask` rule or a `.env` or `env` block that moves the hook's policy turns the Qwen Code hook off; `approvals status` says so (#3700, #3808).
 
 #### Junie
