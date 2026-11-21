@@ -174,17 +174,17 @@ func rewriteHookProjectRoot(command, target string, projectRoot func() string, a
 }
 
 // ReportHookProjectRoot names references the target cannot safely expand.
-func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, global bool) error {
+func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, userLevel bool) error {
 	if mode == OnUnsupportedSilent || target == "claude" {
 		return nil
 	}
 	root := sync.OnceValue(projectHookRoot)
-	if global {
+	if userLevel {
 		root = func() string { return gitHookRoot }
 	}
 	for _, hook := range hooks {
 		metadata := []map[string]any{ResolveMeta(hook.Meta, target)}
-		if (target == "gemini" || target == "qwen") && !global {
+		if (target == "gemini" || target == "qwen") && !userLevel {
 			native, _ := hook.Meta["x-"+target].(map[string]any)
 			if raw, exists := native["hooks"]; exists {
 				metadata = HookCommandEntries(raw)
@@ -193,7 +193,7 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 		for _, meta := range metadata {
 			if windows, _ := meta["commandWindows"].(string); windows != "" {
 				refs, reason := hookRootReferences(windows)
-				translated := func() bool { return target == "codex" && !global && reason == "" && root() != "" }
+				translated := func() bool { return target == "codex" && !userLevel && reason == "" && root() != "" }
 				if (len(refs) > 0 || reason != "") && !translated() {
 					if err := reportHookRoot(target, hook, mode, "commandWindows", "Windows root references require a target-specific project root"); err != nil {
 						return err
@@ -277,7 +277,7 @@ func RewriteWindowsHookRoot(command, target string) string {
 	return rewriteHookProjectRoot(command, target, func() string { return projectHookRootEscaped(powershellRootEscape) }, nil)
 }
 
-func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {
+func RewriteUserHookRoot(command, target string, metadata ...map[string]any) string {
 	meta := hookRootMeta(target, metadata)
 	if !hookPOSIXShell(meta) {
 		return command

@@ -76,7 +76,7 @@ func TestConfig_UnknownOnUnsupportedValueFails(t *testing.T) {
 	assertConfigRejected(t, outputs, `on-unsupported: "wrn"`, "warn, error, silent")
 }
 
-func TestConfig_UnknownGlobalNameClashValueFails(t *testing.T) {
+func TestConfig_UnknownUserNameClashValueFails(t *testing.T) {
 	outputs := syncedKeysProject(t)
 	writeFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: quiet\n")
 

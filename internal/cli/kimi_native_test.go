@@ -51,8 +51,8 @@ func TestImportKimi_NativeRoundTrip(t *testing.T) {
 	execCLI(t, "sync", "--check", "-t", "kimi")
 	execCLI(t, "lint")
 }
-func TestSyncGlobal_KimiRestoresConfigAndUserHooks(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_KimiRestoresConfigAndUserHooks(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	root := filepath.Join(home, "current-kimi")
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
@@ -65,7 +65,7 @@ func TestSyncGlobal_KimiRestoresConfigAndUserHooks(t *testing.T) {
 	writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\ntarget: kimi\nevent: PreToolUse\ncommand: check\nmatcher: Bash\ntimeout: 5\n")
 	writeFile(t, filepath.Join(source, "agents/reviewer.md"), "---\nname: reviewer\ndescription: Review changes\ncan: []\n---\nReview changes.\n")
 	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: server\ndisabled: true\n")
-	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("sync: %v %s", err, w)
 	}
 	got := readFile(t, path)
@@ -82,7 +82,7 @@ func TestSyncGlobal_KimiRestoresConfigAndUserHooks(t *testing.T) {
 	} else if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Error("private mode widened")
 	}
-	if _, _, err := runGlobalAgentTest("--only", "kimi", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "kimi", "--check"); err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range []string{"settings/kimi.yaml", "hooks/guard.yaml", "agents/reviewer.md", "mcps/docs.yaml"} {
@@ -90,7 +90,7 @@ func TestSyncGlobal_KimiRestoresConfigAndUserHooks(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("remove: %v %s", err, w)
 	}
 	if got := readFile(t, path); got != original {
@@ -101,8 +101,8 @@ func TestSyncGlobal_KimiRestoresConfigAndUserHooks(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_KimiAdoptsNativeHooksAndMCP(t *testing.T) {
-	home, _ := globalAgentTestHome(t)
+func TestImportUser_KimiAdoptsNativeHooksAndMCP(t *testing.T) {
+	home, _ := userAgentTestHome(t)
 	root := filepath.Join(home, "kimi-current")
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
@@ -111,10 +111,10 @@ func TestImportGlobal_KimiAdoptsNativeHooksAndMCP(t *testing.T) {
 	beforeMCP := "{\"mcpServers\":{\"docs\":{\"transport\":\"sse\",\"url\":\"https://example.com/mcp\",\"enabled\":false,\"enabledTools\":[]}}}\n"
 	writeFile(t, path, before)
 	writeFile(t, mcp, beforeMCP)
-	if _, w, err := runImportGlobalTest("kimi"); err != nil {
+	if _, w, err := runImportUserTest("kimi"); err != nil {
 		t.Fatalf("import: %v %s", err, w)
 	}
-	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("adopt: %v %s", err, w)
 	}
 	if got := readFile(t, path); got != before {
@@ -123,20 +123,20 @@ func TestImportGlobal_KimiAdoptsNativeHooksAndMCP(t *testing.T) {
 	if got := readFile(t, mcp); got != beforeMCP {
 		t.Errorf("MCP changed on adoption: %q", got)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "kimi", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "kimi", "--check"); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestSyncGlobal_KimiEmptyMCPFilterIsNotUnrestricted(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_KimiEmptyMCPFilterIsNotUnrestricted(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	root := filepath.Join(home, "kimi")
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "mcp.json")
 	before := `{"mcpServers":{"docs":{"transport":"stdio","command":"server"}}}` + "\n"
 	writeFile(t, path, before)
 	writeFile(t, filepath.Join(source, "mcps/docs.yaml"), "name: docs\ncommand: server\nx-kimi:\n  enabledTools: []\n")
-	if _, _, err := runGlobalAgentTest("--only", "kimi"); err == nil {
+	if _, _, err := runUserAgentTest("--only", "kimi"); err == nil {
 		t.Fatal("empty allowlist was adopted as unrestricted user server")
 	}
 	if got := readFile(t, path); got != before {
@@ -161,14 +161,14 @@ func TestImportKimi_RefusesCredentialBearingMetadata(t *testing.T) {
 		})
 	}
 }
-func TestSyncGlobal_KimiCreatedConfigRemovedAndEffortLeftAlone(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_KimiCreatedConfigRemovedAndEffortLeftAlone(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	root := filepath.Join(home, "kimi")
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	specPath := filepath.Join(source, "settings/kimi.yaml")
 	writeFile(t, specPath, "model: existing-model\neffort: high\nx-kimi:\n  telemetry: false\n  thinking:\n    enabled: false\n")
-	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("create: %v %s", err, w)
 	}
 	got := readFile(t, path)
@@ -178,7 +178,7 @@ func TestSyncGlobal_KimiCreatedConfigRemovedAndEffortLeftAlone(t *testing.T) {
 	if err := os.Remove(specPath); err != nil {
 		t.Fatal(err)
 	}
-	if _, w, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatalf("remove: %v %s", err, w)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -202,11 +202,11 @@ func TestImportKimi_FolderSkillWinsAndFlatDescriptionMatchesNative(t *testing.T)
 	}
 }
 
-func TestImportKimi_DropsPrivateAndGlobalInstructionBlocks(t *testing.T) {
+func TestImportKimi_DropsPrivateAndUserInstructionBlocks(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\n")
-	writeFile(t, ".kimi-code/AGENTS.md", globalStart+"\nPersonal global instruction.\n"+globalEnd+"\n# Project\n\nPublic instruction.\n<!-- agnostic-ai:local:start -->\nPersonal local instruction.\n<!-- agnostic-ai:local:end -->\n")
+	writeFile(t, ".kimi-code/AGENTS.md", userStart+"\nPersonal global instruction.\n"+userEnd+"\n# Project\n\nPublic instruction.\n<!-- agnostic-ai:local:start -->\nPersonal local instruction.\n<!-- agnostic-ai:local:end -->\n")
 	execCLI(t, "import", "kimi")
 	source := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md")
 	if strings.Contains(source, "Personal") {
@@ -314,15 +314,15 @@ func TestImportKimi_KeepsNativeSkillAliasOrder(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_KimiPlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_KimiPlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	root := filepath.Join(home, "kimi")
 	t.Setenv("KIMI_CODE_HOME", root)
 	path := filepath.Join(root, "config.toml")
 	original := "# user\n[thinking]\neffort='low'\n"
 	writeFile(t, path, original)
 	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "existing-model"}}, {Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"target": "kimi", "event": "PreToolUse", "command": "check"}}})
-	writes, _, err := buildGlobalWrites(home, source, []string{"kimi"}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "warn")
+	writes, _, err := buildUserWrites(home, source, []string{"kimi"}, nil, bundle, userState{Version: userStateVersion}, nil, io.Discard, "warn")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,18 +344,18 @@ func TestSyncGlobal_KimiPlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T
 	}
 	edited := "# user changed while sync ran\n"
 	writeFile(t, path, edited)
-	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+	if _, err := applyUserChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("stale plan accepted: %v", err)
 	}
 	if got := readFile(t, path); got != edited {
 		t.Errorf("concurrent edit overwritten: %s", got)
 	}
 }
-func TestSyncGlobal_KimiFallbackRootAndMove(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_KimiFallbackRootAndMove(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("KIMI_CODE_HOME", "")
 	writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "name: guard\ntarget: kimi\nevent: Stop\ncommand: check\n")
-	if _, _, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".kimi-code/config.toml")
@@ -364,7 +364,7 @@ func TestSyncGlobal_KimiFallbackRootAndMove(t *testing.T) {
 	}
 	moved := filepath.Join(home, "custom-kimi")
 	t.Setenv("KIMI_CODE_HOME", moved)
-	if _, _, err := runGlobalAgentTest("--only", "kimi"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "kimi"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {

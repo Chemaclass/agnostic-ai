@@ -29,11 +29,11 @@ func newViewCmdWithBrowser(browser func(string) error) *cobra.Command {
 }
 
 type viewServer struct {
-	OK      bool   `json:"ok"`
-	Root    string `json:"root"`
-	Global  bool   `json:"global"`
-	UI      bool   `json:"ui"`
-	Version string `json:"version,omitempty"`
+	OK        bool   `json:"ok"`
+	Root      string `json:"root"`
+	UserLevel bool   `json:"global"`
+	UI        bool   `json:"ui"`
+	Version   string `json:"version,omitempty"`
 	// ProjectRoot is set by a global server started in a project.
 	ProjectRoot string `json:"projectRoot,omitempty"`
 }
@@ -82,7 +82,7 @@ func viewPortCandidates() []string {
 
 // serveView blocks while the server runs; a listen error means the port
 // was taken between the probe and the bind.
-func serveView(cmd *cobra.Command, browser func(string) error, addr, root string, global bool) error {
+func serveView(cmd *cobra.Command, browser func(string) error, addr, root string, userLevel bool) error {
 	serve := newServeCmdWithBrowser(browser)
 	// serve runs as a command of its own, outside the root, so it takes
 	// the root's version along for /api/health.
@@ -93,7 +93,7 @@ func serveView(cmd *cobra.Command, browser func(string) error, addr, root string
 	serve.SilenceErrors = true
 	serve.SilenceUsage = true
 	args := []string{"--open", "--addr", addr}
-	if global {
+	if userLevel {
 		args = append(args, "--scope", specScopeUser)
 	} else {
 		args = append(args, "--dir", root)
@@ -104,7 +104,7 @@ func serveView(cmd *cobra.Command, browser func(string) error, addr, root string
 
 func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Duration) *viewServer, ports []string, now func() time.Time) *cobra.Command {
 	var dir, addr string
-	var asJSON, global bool
+	var asJSON, userLevel bool
 	cmd := &cobra.Command{
 		Use:     "view",
 		Aliases: []string{"ui"},
@@ -127,7 +127,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			open := browser
-			companion := global && os.Getenv("AGNOSTIC_AI_COMPANION_VIEW") == "1"
+			companion := userLevel && os.Getenv("AGNOSTIC_AI_COMPANION_VIEW") == "1"
 			if companion {
 				// Commands launched later from the dashboard open their own browser normally.
 				_ = os.Unsetenv("AGNOSTIC_AI_COMPANION_VIEW")
@@ -138,21 +138,21 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 					return err
 				}
 			}
-			if global && cmd.Flags().Changed("dir") {
+			if userLevel && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--scope user and --dir cannot be combined")
 			}
-			root, useGlobal, err := resolveViewSource(dir, global, cmd.Flags().Changed("dir"))
+			root, useUser, err := resolveViewSource(dir, userLevel, cmd.Flags().Changed("dir"))
 			if err != nil {
 				return err
 			}
 			if asJSON {
-				in, err := loadOverviewInputs(root, useGlobal)
+				in, err := loadOverviewInputs(root, useUser)
 				if err != nil {
 					return err
 				}
 				return writeIndentedJSON(cmd, overview.Build(in))
 			}
-			src, err := openAuthoritySource(root, useGlobal)
+			src, err := openAuthoritySource(root, useUser)
 			if err != nil {
 				return err
 			}
@@ -165,8 +165,8 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 				return err
 			}
 			wantRoot := root
-			if useGlobal {
-				wantRoot, err = globalSourceRoot()
+			if useUser {
+				wantRoot, err = userSourceRoot()
 				if err != nil {
 					return err
 				}
@@ -177,8 +177,8 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 				candidates = []string{addr}
 			}
 			mismatch := func(addr string, running *viewServer) error {
-				if !sameProjectRoot(running.Root, wantRoot) || running.Global != useGlobal {
-					return fmt.Errorf("%s serves %s (global: %t); use --addr for another project or scope", addr, running.Root, running.Global)
+				if !sameProjectRoot(running.Root, wantRoot) || running.UserLevel != useUser {
+					return fmt.Errorf("%s serves %s (global: %t); use --addr for another project or scope", addr, running.Root, running.UserLevel)
 				}
 				if companion && running.Version != cmd.Root().Version {
 					return fmt.Errorf("%s serves agnostic-ai %s; use --addr for version %s", addr, running.Version, cmd.Root().Version)
@@ -217,7 +217,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 			budget := viewBusyProbeTimeout
 			var bindErr error
 			for _, candidate := range free {
-				err := serveView(cmd, open, candidate, root, useGlobal)
+				err := serveView(cmd, open, candidate, root, useUser)
 				var listenErr *net.OpError
 				if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
 					return err
@@ -249,7 +249,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
 	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Loopback address to listen on; when set, view never moves to another port.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON without opening the web interface.")
-	addScopeFlag(cmd, &global, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	addScopeFlag(cmd, &userLevel, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	return cmd
 }
 
@@ -262,8 +262,8 @@ func sameProjectRoot(a, b string) bool {
 	return os.SameFile(infoA, infoB)
 }
 
-func resolveViewSource(dir string, global, explicitDir bool) (string, bool, error) {
-	if global {
+func resolveViewSource(dir string, userLevel, explicitDir bool) (string, bool, error) {
+	if userLevel {
 		return "", true, nil
 	}
 	root, err := filepath.Abs(dir)
@@ -281,17 +281,17 @@ func resolveViewSource(dir string, global, explicitDir bool) (string, bool, erro
 		return root, false, nil
 	}
 	root = canonicalDir(root)
-	var globalRoots []os.FileInfo
-	if source, err := globalSourceRoot(); err == nil {
-		for _, path := range globalConfigPaths(source) {
+	var userRoots []os.FileInfo
+	if source, err := userSourceRoot(); err == nil {
+		for _, path := range userConfigPaths(source) {
 			if info, err := os.Stat(filepath.Dir(path)); err == nil {
-				globalRoots = append(globalRoots, info)
+				userRoots = append(userRoots, info)
 			}
 		}
 	}
 	for candidate := root; ; candidate = filepath.Dir(candidate) {
-		for _, globalRoot := range globalRoots {
-			if info, err := os.Stat(candidate); err == nil && os.SameFile(info, globalRoot) {
+		for _, userRoot := range userRoots {
+			if info, err := os.Stat(candidate); err == nil && os.SameFile(info, userRoot) {
 				return "", true, nil
 			}
 		}
@@ -309,9 +309,9 @@ func resolveViewSource(dir string, global, explicitDir bool) (string, bool, erro
 	}
 }
 
-func loadOverviewInputs(dir string, global bool) (overview.Inputs, error) {
-	if global {
-		return globalOverviewInputs()
+func loadOverviewInputs(dir string, userLevel bool) (overview.Inputs, error) {
+	if userLevel {
+		return userOverviewInputs()
 	}
 	src, err := openAuthoritySource(dir, false)
 	if err != nil {

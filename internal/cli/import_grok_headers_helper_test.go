@@ -27,14 +27,14 @@ func TestImportGrok_HeadersHelperRoundTrips(t *testing.T) {
 	execCLI(t, "lint")
 }
 
-func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
+func TestSyncUser_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 	for _, existing := range []bool{false, true} {
 		name := "created"
 		if existing {
 			name = "existing"
 		}
 		t.Run(name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			t.Setenv("GROK_HOME", "")
 			path := filepath.Join(home, ".grok/config.toml")
 			before := "# Keep formatting.\n[plugins]\ncustom = 'untouched' # Keep note.\n"
@@ -43,7 +43,7 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 			}
 			sourcePath := filepath.Join(source, "mcps/docs.yaml")
 			writeFile(t, sourcePath, "name: docs\nurl: https://example.com/mcp\nx-grok:\n  headers_helper: sh headers.sh\n")
-			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			got := readFile(t, path)
@@ -60,13 +60,13 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 			if !existing && runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 				t.Errorf("mode = %o, want 600", info.Mode().Perm())
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok", "--check"); err != nil {
 				t.Errorf("check: %v\n%s", err, warnings)
 			}
 			if err := os.Remove(sourcePath); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if existing {
@@ -80,23 +80,23 @@ func TestSyncGlobal_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_GrokHeadersHelperRoundTrips(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_GrokHeadersHelperRoundTrips(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
 	path := filepath.Join(home, ".grok/config.toml")
 	before := "# Keep comment.\n[mcp_servers.docs]\nurl = 'https://example.com/mcp'\nheaders_helper = 'sh headers.sh' # Keep helper.\n"
 	writeFile(t, path, before)
-	if _, warnings, err := runImportGlobalTest("grok"); err != nil {
+	if _, warnings, err := runImportUserTest("grok"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	assertGrokImportedHeadersHelper(t, readFile(t, filepath.Join(source, "mcps/docs.yaml")))
-	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != before {
 		t.Errorf("native config changed:\n%s", got)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "grok", "--check"); err != nil {
 		t.Errorf("check: %v\n%s", err, warnings)
 	}
 }

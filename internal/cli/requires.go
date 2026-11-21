@@ -66,14 +66,14 @@ func buildVersion(info *debug.BuildInfo, ok bool) string {
 	return info.Main.Version
 }
 
-// requireGlobalVersion is requireVersion for the home configs, where a
+// requireUserVersion is requireVersion for the home configs, where a
 // requires in local/agnostic-ai.yaml replaces the shared one and a null
 // clears it. With skipBroken set, a config that does not parse warns
 // there and is skipped instead of stopping the run.
-func requireGlobalVersion(source string, skipBroken io.Writer) error {
+func requireUserVersion(source string, skipBroken io.Writer) error {
 	var requires, path string
-	for _, p := range globalConfigPaths(source) {
-		doc, err := readGlobalConfig(p)
+	for _, p := range userConfigPaths(source) {
+		doc, err := readUserConfig(p)
 		if err != nil && skipBroken != nil {
 			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping it\n", err); werr != nil {
 				return fmt.Errorf("write global config warning: %w", werr)
@@ -100,8 +100,8 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 
 // servedRequiresOf reads servedRequires on each call, so the page sees
 // an edited requires, a switched branch, or an upgrade without a restart.
-func servedRequiresOf(root string, global bool) func() (string, *bool) {
-	return func() (string, *bool) { return servedRequires(root, global) }
+func servedRequiresOf(root string, userLevel bool) func() (string, *bool) {
+	return func() (string, *bool) { return servedRequires(root, userLevel) }
 }
 
 // servedRequires is the requires the page shows beside the running
@@ -109,9 +109,9 @@ func servedRequiresOf(root string, global bool) func() (string, *bool) {
 // that does not read shows no requires, and the page reports the load
 // error on its own, and so does a requires that does not parse. met is
 // nil for a build the check cannot place.
-func servedRequires(root string, global bool) (requires string, met *bool) {
-	if global {
-		requires = globalRequires(root)
+func servedRequires(root string, userLevel bool) (requires string, met *bool) {
+	if userLevel {
+		requires = userRequires(root)
 	} else {
 		cfg, _, err := config.LoadWithSources(root)
 		if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
@@ -142,7 +142,7 @@ func requireVersion(source, requires string) error {
 	return requireVersionInScope(source, requires, false)
 }
 
-func requireVersionInScope(source, requires string, global bool) error {
+func requireVersionInScope(source, requires string, userLevel bool) error {
 	if requires == "" {
 		return nil
 	}
@@ -171,11 +171,11 @@ func requireVersionInScope(source, requires string, global bool) error {
 	}
 	if !allowed {
 		above := req.Above(runningVersion)
-		if !global && above {
+		if !userLevel && above {
 			return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed.\n  The installed release is newer than this project allows.\n  fix: %s\n       This updates requires and the schema URL, then runs sync.%s", source, req, running, requiresFix(req, source), minimumHint(req, above))
 		}
 		var fix string
-		if global && above {
+		if userLevel && above {
 			fix = "update `requires` and the schema in " + source + " to adopt installed agnostic-ai " + running
 		} else {
 			fix = requiresFix(req, source)

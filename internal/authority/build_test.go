@@ -375,7 +375,7 @@ func TestBuild_FileMatchesWalkTheProjectWithinBounds(t *testing.T) {
 	}
 }
 
-func TestBuild_GlobalViewWritesNoPermissionRules(t *testing.T) {
+func TestBuild_UserViewWritesNoPermissionRules(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"settings/permissions.yaml": "permissions:\n  allow: [shell(go test:*)]\n",
 	})
@@ -384,7 +384,7 @@ func TestBuild_GlobalViewWritesNoPermissionRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := Build(cfg, b, Options{Root: root, Global: true, Now: fixedNow})
+	v, err := Build(cfg, b, Options{Root: root, UserLevel: true, Now: fixedNow})
 	if err != nil {
 		t.Fatal(err)
 	}

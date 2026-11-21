@@ -83,8 +83,8 @@ func TestLintJSON_EmptyProjectKeepsHintOnStderr(t *testing.T) {
 	}
 }
 
-func TestLintJSON_GlobalReportsErrorsAndFails(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestLintJSON_UserReportsErrorsAndFails(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "effort:\n  claude: max\n")
 
 	report, _, err := runLintJSON(t, "--scope", "user")

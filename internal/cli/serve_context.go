@@ -26,13 +26,13 @@ type contextView struct {
 
 // newContextHandler serves the explain --context report for one target.
 // It reads the project on every request, so a refresh sees edited specs.
-func newContextHandler(root string, global bool) http.Handler {
+func newContextHandler(root string, userLevel bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !allowGetOnly(w, r) {
 			return
 		}
 		view := contextView{SchemaVersion: "1", Targets: []string{}, FileTargets: []string{}}
-		if global {
+		if userLevel {
 			view.Reason = "Context size is reported for a project. Open a project to see it."
 			writeEditJSON(w, http.StatusOK, view)
 			return

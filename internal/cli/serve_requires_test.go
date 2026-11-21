@@ -11,9 +11,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 )
 
-func healthFields(t *testing.T, root string, global bool) map[string]json.RawMessage {
+func healthFields(t *testing.T, root string, userLevel bool) map[string]json.RawMessage {
 	t.Helper()
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: root, Global: global, Requires: servedRequiresOf(root, global)}, serveMuxOptions{compareInstalled: true}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: root, UserLevel: userLevel, Requires: servedRequiresOf(root, userLevel)}, serveMuxOptions{compareInstalled: true}))
 	t.Cleanup(srv.Close)
 	return getHealthFields(t, srv.URL)
 }
@@ -61,7 +61,7 @@ func TestHealthNamesRequiresAndWhetherTheRunningBuildMeetsIt(t *testing.T) {
 	}
 }
 
-func TestHealthReadsTheGlobalRequiresWhereLocalReplacesShared(t *testing.T) {
+func TestHealthReadsTheUserRequiresWhereLocalReplacesShared(t *testing.T) {
 	home := t.TempDir()
 	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\nrequires: \">=0.70.0\"\n")
 	writeFile(t, filepath.Join(home, "local", "agnostic-ai.yaml"), "requires: \">=0.90.0\"\n")
@@ -99,7 +99,7 @@ func TestHealthChecksRequiresInAConfigWithUnknownKeys(t *testing.T) {
 	}
 }
 
-func TestHealthLeavesOutAGlobalRequiresThatLocalClears(t *testing.T) {
+func TestHealthLeavesOutAUserRequiresThatLocalClears(t *testing.T) {
 	home := t.TempDir()
 	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "version: 1\nrequires: \">=0.90.0\"\n")
 	writeFile(t, filepath.Join(home, "local", "agnostic-ai.yaml"), "requires: null\n")

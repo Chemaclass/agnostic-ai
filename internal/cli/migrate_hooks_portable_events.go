@@ -36,25 +36,25 @@ type hookMigrationSpecs struct {
 // loadHookMigrationSpecs loads the project, or the global layers and the
 // targets a default sync --scope user writes hooks for.
 func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
-	if !s.global {
+	if !s.userLevel {
 		cfg, b, err := s.loadProject()
 		if err != nil {
 			return hookMigrationSpecs{}, err
 		}
 		return projectHookMigrationSpecs(s.root, cfg, b)
 	}
-	b, layers, err := s.loadGlobalSpecs()
+	b, layers, err := s.loadUserSpecs()
 	if err != nil {
 		return hookMigrationSpecs{}, err
 	}
-	targets, err := loadGlobalTargets(s.root, io.Discard)
+	targets, err := loadUserTargets(s.root, io.Discard)
 	if err != nil {
 		return hookMigrationSpecs{}, err
 	}
 	if targets == nil {
-		targets = globalTargetNames()
+		targets = userTargetNames()
 	}
-	return hookMigrationSpecs{bundle: b, layers: layers, targets: globalHookTargets(targets)}, nil
+	return hookMigrationSpecs{bundle: b, layers: layers, targets: userHookTargets(targets)}, nil
 }
 
 // projectHookMigrationSpecs is the project at root, loaded as cfg and b.

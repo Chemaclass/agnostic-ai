@@ -151,12 +151,12 @@ func TestImportWriteFile_RefusesAColonNameWhereItNamesAStream(t *testing.T) {
 }
 
 // One colon-named server in a home config does not stop import --scope user.
-func TestImportGlobal_SkipsAColonMCPNameWhereItNamesAStream(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_SkipsAColonMCPNameWhereItNamesAStream(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	config := filepath.Join(home, ".cursor", "mcp.json")
 	writeFile(t, config, `{"mcpServers": {"ns:tool": {"command": "x"}, "plain": {"command": "x"}}}`+"\n")
 	fakeWindowsDataStreams(t)
-	_, warnings, err := runImportGlobalTest("cursor")
+	_, warnings, err := runImportUserTest("cursor")
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}

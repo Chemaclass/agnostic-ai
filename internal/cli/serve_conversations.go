@@ -109,10 +109,10 @@ var deleteRefusalStatus = map[conversations.DeleteRefusal]int{
 // started in the project or one of its Git worktrees; a global server
 // lists them all.
 type conversationsHandler struct {
-	root     string
-	global   bool
-	scanner  *conversations.Scanner
-	launcher conversations.Launcher
+	root      string
+	userLevel bool
+	scanner   *conversations.Scanner
+	launcher  conversations.Launcher
 	// worktrees lists a project's Git worktrees; nil skips them.
 	worktrees func(root string) []string
 	// renameInTool writes a new name into the tool that keeps the
@@ -134,11 +134,11 @@ type conversationsHandler struct {
 // the server's write timeout still answers.
 const conversationOpenReplyTimeout = 90 * time.Second
 
-func newConversationsHandler(root string, global bool) *conversationsHandler {
+func newConversationsHandler(root string, userLevel bool) *conversationsHandler {
 	scanner := conversations.NewScanner()
 	return &conversationsHandler{
 		root:          root,
-		global:        global,
+		userLevel:     userLevel,
 		scanner:       scanner,
 		launcher:      conversations.SystemLauncher(),
 		worktrees:     gitWorktrees,
@@ -534,7 +534,7 @@ func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *conversationsHandler) scanOptions(editor string) conversations.ScanOptions {
 	opts := conversations.ScanOptions{Editor: editor, StuckShellAfter: h.stuckShellAfter}
-	if h.global {
+	if h.userLevel {
 		return opts
 	}
 	root, err := filepath.Abs(h.root)

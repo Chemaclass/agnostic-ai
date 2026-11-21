@@ -1,0 +1,257 @@
+package cli
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/BurntSushi/toml"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
+func TestSyncUser_VibeComposesNativeArraysAndSettings(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	root := filepath.Join(home, "custom-vibe")
+	t.Setenv("VIBE_HOME", root)
+	config := filepath.Join(root, "config.toml")
+	hooks := filepath.Join(root, "hooks.toml")
+	original := "# user\n[ui]\ncolor='blue'\n"
+	writeFile(t, config, original)
+	if err := os.Chmod(config, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(source, "settings", "model.yaml"), "model:\n  vibe: devstral\n")
+	writeFile(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ntype: stdio\ncommand: node\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: vibe\nevent: pre_tool\ncommand: echo '{}'\n")
+	if _, warnings, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("sync: %v %s", err, warnings)
+	}
+	got := readFile(t, config)
+	for _, want := range []string{`active_model = "devstral"`, `[[mcp_servers]]`, original} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q: %s", want, got)
+		}
+	}
+	if !strings.Contains(readFile(t, hooks), `type = "pre_tool"`) {
+		t.Fatal("missing native hook")
+	}
+	info, err := os.Stat(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Fatal("private config mode widened")
+	}
+	for _, f := range []string{"settings/model.yaml", "mcps/docs.yaml", "hooks/guard.yaml"} {
+		if err := os.Remove(filepath.Join(source, f)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, warnings, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("remove: %v %s", err, warnings)
+	}
+	if got := readFile(t, config); got != original {
+		t.Errorf("config not restored: got %q want %q", got, original)
+	}
+	if _, err := os.Stat(hooks); !os.IsNotExist(err) {
+		t.Fatalf("created hook file remains: %v", err)
+	}
+}
+
+func TestSyncUser_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	root := filepath.Join(home, "vibe-one")
+	t.Setenv("VIBE_HOME", root)
+	writeFile(t, filepath.Join(source, "settings", "model.yaml"), "model: devstral\n")
+	writeFile(t, filepath.Join(source, "mcps", "docs.yaml"), "name: docs\ncommand: node\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\ntarget: vibe\nevent: pre_tool\ncommand: echo '{}'\n")
+	if _, _, err := runUserAgentTest("--only", "vibe", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatal("dry run wrote files")
+	}
+	if _, _, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "config.toml")
+	before := readFile(t, path)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("created config mode = %v", info.Mode().Perm())
+	}
+	if _, _, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.ModTime().Equal(after.ModTime()) || readFile(t, path) != before {
+		t.Fatal("no-op rewrote config")
+	}
+	edited := strings.Replace(before, `command = "node"`, `command = "edited"`, 1)
+	writeFile(t, path, edited)
+	moved := filepath.Join(home, "vibe-two")
+	t.Setenv("VIBE_HOME", moved)
+	if _, _, err := runUserAgentTest("--only", "vibe"); err == nil {
+		t.Fatal("root move must protect edited old MCP record")
+	}
+	if got := readFile(t, path); got != edited {
+		t.Fatal("root move changed user edits")
+	}
+	if _, err := os.Stat(filepath.Join(moved, "config.toml")); !os.IsNotExist(err) {
+		t.Fatal("failed plan wrote new root")
+	}
+}
+
+func TestSyncUser_VibeInstructionsAgentsSkillsFollowHome(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	root := filepath.Join(home, "native-root")
+	t.Setenv("VIBE_HOME", root)
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Personal instructions.\n")
+	writeFile(t, filepath.Join(source, "rules", "style.md"), "---\nname: style\n---\nPersonal rule.\n")
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews\ncan: [read]\n---\nReview changes.\n")
+	writeFile(t, filepath.Join(source, "skills", "check", "SKILL.md"), "---\nname: check\ndescription: Checks\n---\nCheck changes.\n")
+	writeFile(t, filepath.Join(source, "skills", "check", "asset.txt"), "asset\n")
+	if _, warnings, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("%v %s", err, warnings)
+	}
+	for path, want := range map[string]string{"AGENTS.md": "Personal instructions.", "agents/reviewer.toml": `enabled_tools = ["read_file"]`, "skills/check/SKILL.md": "Check changes.", "skills/check/asset.txt": "asset\n"} {
+		if got := readFile(t, filepath.Join(root, path)); !strings.Contains(got, want) {
+			t.Errorf("%s: missing %q: %s", path, want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home, ".vibe")); !os.IsNotExist(err) {
+		t.Fatal("default root used despite VIBE_HOME")
+	}
+}
+
+func TestImportUser_VibeAdoptsUserEntriesAndExcludesOwnedRecords(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	root := filepath.Join(home, "vibe")
+	t.Setenv("VIBE_HOME", root)
+	config := "[[mcp_servers]]\nname='docs'\ntransport='http'\nurl='https://example.test/mcp'\n[mcp_servers.auth]\ntype='static'\napi_key_env='DOCS_TOKEN'\n"
+	hooks := "# personal hook\n[[hooks]]\nname='guard'\ntype='pre_tool'\ncommand=\"echo '{}'\"\nstrict=false\n"
+	writeFile(t, filepath.Join(root, "config.toml"), config)
+	writeFile(t, filepath.Join(root, "hooks.toml"), hooks)
+	if _, warnings, err := runImportUserTest("vibe"); err != nil {
+		t.Fatalf("import: %v %s", err, warnings)
+	}
+	if _, warnings, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("adopt: %v %s", err, warnings)
+	}
+	if got := readFile(t, filepath.Join(root, "config.toml")); got != config {
+		t.Errorf("adoption rewrote MCP: %s", got)
+	}
+	if got := readFile(t, filepath.Join(root, "hooks.toml")); got != hooks {
+		t.Errorf("adoption rewrote hooks: %s", got)
+	}
+	for _, path := range []string{"mcps/docs.yaml", "hooks/guard.yaml"} {
+		if err := os.Remove(filepath.Join(source, path)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, warnings, err := runImportUserTest("vibe"); err != nil {
+		t.Fatalf("import owned: %v %s", err, warnings)
+	}
+	for _, path := range []string{"mcps/docs.yaml", "hooks/guard.yaml"} {
+		if _, err := os.Stat(filepath.Join(source, path)); !os.IsNotExist(err) {
+			t.Errorf("owned entry imported again: %s", path)
+		}
+	}
+}
+
+func TestSyncUser_VibePlansOneConfigWriteAndRejectsConcurrentEdit(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	root := filepath.Join(home, "vibe")
+	t.Setenv("VIBE_HOME", root)
+	path := filepath.Join(root, "config.toml")
+	original := "# personal\n"
+	writeFile(t, path, original)
+	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "devstral"}}, {Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"command": "node"}}})
+	writes, _, err := buildUserWrites(home, source, []string{"vibe"}, nil, bundle, userState{Version: userStateVersion}, nil, io.Discard, "warn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, w := range writes {
+		if w.path == path {
+			count++
+			if w.planned == nil || string(w.planned.data) != original {
+				t.Fatal("missing original disk guard")
+			}
+			for _, want := range []string{"active_model", "mcp_servers"} {
+				if !strings.Contains(string(w.data), want) {
+					t.Errorf("combined plan lacks %s", want)
+				}
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("planned %d config writes", count)
+	}
+	edited := "# changed while sync ran\n"
+	writeFile(t, path, edited)
+	if _, err := applyUserChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+		t.Fatalf("stale plan accepted: %v", err)
+	}
+	if got := readFile(t, path); got != edited {
+		t.Fatal("concurrent user edit replaced")
+	}
+}
+
+func TestSyncUser_VibeNativeLifecycleEvents(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	root := filepath.Join(home, "vibe")
+	t.Setenv("VIBE_HOME", root)
+	strictByEvent := map[string]bool{
+		"pre_tool": false, "post_tool": false, "pre_agent": false, "post_agent": false,
+		"notification": false, "session_start": false, "session_end": false,
+		"pre_llm": true, "post_llm": true,
+	}
+	for event, strict := range strictByEvent {
+		name := strings.ReplaceAll(event, "_", "-")
+		hook := "name: " + name + "\ntarget: vibe\nevent: " + event + "\ncommand: echo done\nx-vibe:\n  match: main\n"
+		if strict {
+			hook += "  strict: true\n"
+		}
+		writeFile(t, filepath.Join(source, "hooks", name+".yaml"), hook)
+	}
+	if _, warnings, err := runUserAgentTest("--only", "vibe"); err != nil {
+		t.Fatalf("sync: %v %s", err, warnings)
+	}
+	got := readFile(t, filepath.Join(root, "hooks.toml"))
+	var native struct {
+		Hooks []struct {
+			Type, Match string
+			Strict      bool
+		}
+	}
+	if _, err := toml.Decode(got, &native); err != nil {
+		t.Fatal(err)
+	}
+	for _, hook := range native.Hooks {
+		strict, expected := strictByEvent[hook.Type]
+		if !expected || hook.Match != "main" || hook.Strict != strict {
+			t.Errorf("unexpected native hook: %+v", hook)
+		}
+		delete(strictByEvent, hook.Type)
+	}
+	if len(strictByEvent) > 0 {
+		t.Errorf("missing native hook types: %v", strictByEvent)
+	}
+	if _, warnings, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
+		t.Fatalf("check: %v %s", err, warnings)
+	}
+}

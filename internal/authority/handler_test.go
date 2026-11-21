@@ -143,13 +143,13 @@ func TestHandler_SchemaAndHealth(t *testing.T) {
 	}
 
 	var health struct {
-		OK     bool
-		Root   string
-		Global bool
-		UI     bool
+		OK        bool
+		Root      string
+		UserLevel bool `json:"global"`
+		UI        bool
 	}
 	getJSON(t, srv.URL+"/api/health", &health)
-	if !health.OK || health.Root != canonicalHealthRoot(t, demoRoot) || health.Global || health.UI {
+	if !health.OK || health.Root != canonicalHealthRoot(t, demoRoot) || health.UserLevel || health.UI {
 		t.Errorf("health = %+v", health)
 	}
 }
@@ -316,32 +316,32 @@ func canonicalHealthRoot(t *testing.T, root string) string {
 	return resolved
 }
 
-func TestHandler_HealthIdentifiesGlobalScope(t *testing.T) {
-	srv := demoServer(t, HandlerOptions{Global: true})
+func TestHandler_HealthIdentifiesUserScope(t *testing.T) {
+	srv := demoServer(t, HandlerOptions{UserLevel: true})
 	var health struct {
-		Root   string
-		Global bool
+		Root      string
+		UserLevel bool `json:"global"`
 	}
 	getJSON(t, srv.URL+"/api/health", &health)
-	if !health.Global || health.Root != canonicalHealthRoot(t, demoRoot) {
+	if !health.UserLevel || health.Root != canonicalHealthRoot(t, demoRoot) {
 		t.Errorf("health = %+v", health)
 	}
 }
 
-func TestHandler_HealthNamesTheProjectAGlobalServerStartedIn(t *testing.T) {
+func TestHandler_HealthNamesTheProjectAUserServerStartedIn(t *testing.T) {
 	project := t.TempDir()
-	srv := demoServer(t, HandlerOptions{Global: true, ProjectRoot: project})
+	srv := demoServer(t, HandlerOptions{UserLevel: true, ProjectRoot: project})
 	var health struct {
-		Global      bool
+		UserLevel   bool   `json:"global"`
 		ProjectRoot string `json:"projectRoot"`
 	}
 	getJSON(t, srv.URL+"/api/health", &health)
-	if !health.Global || health.ProjectRoot != canonicalHealthRoot(t, project) {
+	if !health.UserLevel || health.ProjectRoot != canonicalHealthRoot(t, project) {
 		t.Errorf("health = %+v", health)
 	}
 
 	var bare map[string]any
-	getJSON(t, demoServer(t, HandlerOptions{Global: true}).URL+"/api/health", &bare)
+	getJSON(t, demoServer(t, HandlerOptions{UserLevel: true}).URL+"/api/health", &bare)
 	if _, ok := bare["projectRoot"]; ok {
 		t.Errorf("health without a project = %v", bare)
 	}

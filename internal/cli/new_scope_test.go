@@ -202,7 +202,7 @@ func TestNewScopeLocal_WarnsWhenGitWouldCommitThePersonalLayer(t *testing.T) {
 }
 
 func TestNewScopeUser_WritesToTheUserHomeFromAnyDirectory(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	testutil.Chdir(t, t.TempDir())
 	summary := captureSummary(t)
 	if _, _, err := runSplit(t, "new", "rule", "my-style", "--scope", "user"); err != nil {
@@ -224,7 +224,7 @@ func TestNewScopeUser_WritesToTheUserHomeFromAnyDirectory(t *testing.T) {
 }
 
 func TestNewScopeUser_TakesOnlyTheKindsUserSyncLoads(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	testutil.Chdir(t, t.TempDir())
 	for _, kind := range []string{"command", "review", "environment", "ignore"} {
 		_, _, err := runSplit(t, "new", kind, "x", "--scope", "user")
@@ -245,7 +245,7 @@ func TestNewScopeUser_TakesOnlyTheKindsUserSyncLoads(t *testing.T) {
 }
 
 func TestNewScopeUser_RejectsARuleDirectory(t *testing.T) {
-	globalAgentTestHome(t)
+	userAgentTestHome(t)
 	testutil.Chdir(t, t.TempDir())
 	if _, _, err := runSplit(t, "new", "rule", "x", "--scope", "user", "--dir", "services"); err == nil || !strings.Contains(err.Error(), "--dir cannot be combined with --scope user") {
 		t.Errorf("want --dir refused at user scope, got %v", err)
@@ -254,7 +254,7 @@ func TestNewScopeUser_RejectsARuleDirectory(t *testing.T) {
 
 // A new user spec must pass the checks the user-level sync runs.
 func TestNewScopeUser_ScaffoldPassesUserValidation(t *testing.T) {
-	globalConfigTestHome(t)
+	userConfigTestHome(t)
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
 	if _, _, err := runSplit(t, "new", "rule", "my-style", "--scope", "user"); err != nil {
@@ -266,7 +266,7 @@ func TestNewScopeUser_ScaffoldPassesUserValidation(t *testing.T) {
 }
 
 func TestNewScope_ProjectIsTheDefaultAndStillRefusesTheUserHome(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	if err := os.MkdirAll(source, 0o755); err != nil {
 		t.Fatal(err)
 	}

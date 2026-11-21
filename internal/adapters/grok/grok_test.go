@@ -55,7 +55,7 @@ func TestWindowsScriptRewrite_RequiresNativeQuoting(t *testing.T) {
 		{"explicit invocation", `& ".agnostic-ai/scripts/guard.ps1"`, "C:/User Hooks", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			after := emit.RewriteGlobalHookPath(tc.command, "grok", tc.dir)
+			after := emit.RewriteUserHookPath(tc.command, "grok", tc.dir)
 			err := ValidateWindowsScriptRewrite(tc.command, after, tc.dir)
 			if (err != nil) != tc.reject {
 				t.Errorf("rewrite %q: rejection = %v, want %v", after, err, tc.reject)
@@ -249,9 +249,9 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 	testutil.AssertGoldenTree(t, dir, expected)
 }
 
-func TestEmit_RejectsIgnoredCustomRuleAndGlobalIgnore(t *testing.T) {
-	for _, global := range []bool{false, true} {
-		t.Run(strconv.FormatBool(global), func(t *testing.T) {
+func TestEmit_RejectsIgnoredCustomRuleAndUserIgnore(t *testing.T) {
+	for _, userLevel := range []bool{false, true} {
+		t.Run(strconv.FormatBool(userLevel), func(t *testing.T) {
 			testutil.TempCwd(t)
 			if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
 				t.Fatalf("git: %v %s", err, out)
@@ -262,7 +262,7 @@ func TestEmit_RejectsIgnoredCustomRuleAndGlobalIgnore(t *testing.T) {
 			cfg := visibleConfig()
 			cfg.Outputs = map[string]config.Output{"grok": {RulesDir: "custom/rules"}}
 			ignore := ".gitignore"
-			if global {
+			if userLevel {
 				ignore = filepath.Join(home, ".gitignore")
 			}
 			if err := os.WriteFile(ignore, []byte("custom/\n"), 0600); err != nil {

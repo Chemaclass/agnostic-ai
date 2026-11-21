@@ -64,21 +64,21 @@ func postSwitch(t *testing.T, h http.Handler) (*httptest.ResponseRecorder, switc
 	return rec, reply
 }
 
-func TestSwitch_StartsTheGlobalServerOnTheFirstFreePort(t *testing.T) {
+func TestSwitch_StartsTheUserServerOnTheFirstFreePort(t *testing.T) {
 	home, project := seededHome(t), configuredProject(t, t.TempDir())
 	ports := freeLoopbackAddrs(t, 2)
 	var started []startedPeer
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(other switchPeer, addr string) (*peerProcess, error) {
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(other switchPeer, addr string) (*peerProcess, error) {
 		started = append(started, startedPeer{addr, other})
-		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}), nil
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project}), nil
 	})
 	defer h.close()
 
 	rec, reply := postSwitch(t, h)
-	if rec.Code != http.StatusOK || !reply.Started || !reply.Global || reply.URL != "http://"+ports[0]+"/" {
+	if rec.Code != http.StatusOK || !reply.Started || !reply.UserLevel || reply.URL != "http://"+ports[0]+"/" {
 		t.Fatalf("switch = %d %s", rec.Code, rec.Body)
 	}
-	if len(started) != 1 || started[0].addr != ports[0] || !started[0].other.global || started[0].other.dir != project {
+	if len(started) != 1 || started[0].addr != ports[0] || !started[0].other.userLevel || started[0].other.dir != project {
 		t.Errorf("started = %+v", started)
 	}
 
@@ -92,9 +92,9 @@ func TestSwitch_ReusesARunningServerForTheOtherConfiguration(t *testing.T) {
 	home, project := seededHome(t), t.TempDir()
 	ports := freeLoopbackAddrs(t, 3)
 	fakePeer(t, ports[0], viewServer{OK: true, Root: t.TempDir(), UI: true})
-	fakePeer(t, ports[1], viewServer{OK: true, Root: home, Global: true, ProjectRoot: project})
-	fakePeer(t, ports[2], viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project})
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+	fakePeer(t, ports[1], viewServer{OK: true, Root: home, UserLevel: true, ProjectRoot: project})
+	fakePeer(t, ports[2], viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project})
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(switchPeer, string) (*peerProcess, error) {
 		t.Error("started a server while one runs")
 		return nil, errors.New("unexpected")
 	})
@@ -106,15 +106,15 @@ func TestSwitch_ReusesARunningServerForTheOtherConfiguration(t *testing.T) {
 	}
 }
 
-func TestSwitch_StartsItsOwnGlobalServerWhenTheRunningOneLinksToAnotherProject(t *testing.T) {
+func TestSwitch_StartsItsOwnUserServerWhenTheRunningOneLinksToAnotherProject(t *testing.T) {
 	home, project := seededHome(t), configuredProject(t, t.TempDir())
 	ports := freeLoopbackAddrs(t, 3)
-	fakePeer(t, ports[0], viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: t.TempDir()})
-	fakePeer(t, ports[1], viewServer{OK: true, Root: home, Global: true, UI: true})
+	fakePeer(t, ports[0], viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: t.TempDir()})
+	fakePeer(t, ports[1], viewServer{OK: true, Root: home, UserLevel: true, UI: true})
 	var started []string
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
 		started = append(started, addr)
-		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}), nil
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project}), nil
 	})
 	defer h.close()
 
@@ -125,7 +125,7 @@ func TestSwitch_StartsItsOwnGlobalServerWhenTheRunningOneLinksToAnotherProject(t
 }
 
 func TestPeerServerCommand_UsesFixedArguments(t *testing.T) {
-	args, dir := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", global: true, dir: "/work/repo"}, "127.0.0.1:4311")
+	args, dir := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", userLevel: true, dir: "/work/repo"}, "127.0.0.1:4311")
 	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--scope", "user"}) || dir != "/work/repo" {
 		t.Errorf("global = %v in %q", args, dir)
 	}
@@ -151,7 +151,7 @@ func TestSwitch_TriesTheNextPortWhenAStartedServerExits(t *testing.T) {
 	defer h.close()
 
 	rec, reply := postSwitch(t, h)
-	if rec.Code != http.StatusOK || reply.URL != "http://"+ports[1]+"/" || reply.Global || !slices.Equal(tried, ports) {
+	if rec.Code != http.StatusOK || reply.URL != "http://"+ports[1]+"/" || reply.UserLevel || !slices.Equal(tried, ports) {
 		t.Fatalf("switch = %d %s, tried %v", rec.Code, rec.Body, tried)
 	}
 }
@@ -159,7 +159,7 @@ func TestSwitch_TriesTheNextPortWhenAStartedServerExits(t *testing.T) {
 func TestSwitch_ReportsTheCommandWhenNoServerStarts(t *testing.T) {
 	home := seededHome(t)
 	ports := freeLoopbackAddrs(t, 1)
-	h := newSwitchHandler(&switchPeer{root: home, global: true}, ports, probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true}, ports, probeViewServer, func(switchPeer, string) (*peerProcess, error) {
 		return nil, errors.New("no executable")
 	})
 	defer h.close()
@@ -170,7 +170,7 @@ func TestSwitch_ReportsTheCommandWhenNoServerStarts(t *testing.T) {
 	}
 }
 
-func TestSwitch_GlobalServerWithoutAProjectHasNoWayBack(t *testing.T) {
+func TestSwitch_UserServerWithoutAProjectHasNoWayBack(t *testing.T) {
 	h := newSwitchHandler(nil, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
 		t.Error("started a server with no project")
 		return nil, errors.New("unexpected")
@@ -202,8 +202,8 @@ func TestSwitch_CloseStopsTheServersItStarted(t *testing.T) {
 	home, project := seededHome(t), configuredProject(t, t.TempDir())
 	ports := freeLoopbackAddrs(t, 1)
 	var peer *peerProcess
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
-		peer = fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project})
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		peer = fakePeer(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project})
 		return peer, nil
 	})
 	if rec, _ := postSwitch(t, h); rec.Code != http.StatusOK {
@@ -259,12 +259,12 @@ func TestSwitchPeerFor_ProjectServerPointsAtTheUserConfiguration(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	project := t.TempDir()
 	peer := switchPeerFor(project, false)
-	if peer == nil || !peer.global || !sameProjectRoot(peer.root, home) || !sameProjectRoot(peer.dir, project) {
+	if peer == nil || !peer.userLevel || !sameProjectRoot(peer.root, home) || !sameProjectRoot(peer.dir, project) {
 		t.Errorf("peer = %+v", peer)
 	}
 }
 
-func TestSwitchPeerFor_GlobalServerPointsBackAtTheProjectItStartedIn(t *testing.T) {
+func TestSwitchPeerFor_UserServerPointsBackAtTheProjectItStartedIn(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	project := t.TempDir()
 	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
@@ -272,7 +272,7 @@ func TestSwitchPeerFor_GlobalServerPointsBackAtTheProjectItStartedIn(t *testing.
 	writeFile(t, filepath.Join(nested, "main.go"), "package main\n")
 
 	peer := switchPeerFor(nested, true)
-	if peer == nil || peer.global || !sameProjectRoot(peer.root, project) {
+	if peer == nil || peer.userLevel || !sameProjectRoot(peer.root, project) {
 		t.Errorf("peer = %+v", peer)
 	}
 	if got := switchPeerFor(t.TempDir(), true); got != nil {
@@ -282,7 +282,7 @@ func TestSwitchPeerFor_GlobalServerPointsBackAtTheProjectItStartedIn(t *testing.
 
 func TestSwitch_RefusesOnceClosed(t *testing.T) {
 	home, project := t.TempDir(), t.TempDir()
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
 		t.Error("started a server after close")
 		return nil, errors.New("unexpected")
 	})
@@ -292,13 +292,13 @@ func TestSwitch_RefusesOnceClosed(t *testing.T) {
 	}
 }
 
-func TestSwitch_ReusesAGlobalServerItStartedWhoseHealthNamesNoProject(t *testing.T) {
+func TestSwitch_ReusesAUserServerItStartedWhoseHealthNamesNoProject(t *testing.T) {
 	home, project := seededHome(t), t.TempDir()
 	ports := freeLoopbackAddrs(t, 2)
 	var started []string
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
 		started = append(started, addr)
-		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true}), nil
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true}), nil
 	})
 	defer h.close()
 
@@ -360,7 +360,7 @@ func configuredProject(t *testing.T, dir string) string {
 	return dir
 }
 
-func TestSwitch_RacingProjectsEachOpenAGlobalServerThatLinksBack(t *testing.T) {
+func TestSwitch_RacingProjectsEachOpenAUserServerThatLinksBack(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		ports       int
@@ -386,7 +386,7 @@ func TestSwitch_RacingProjectsEachOpenAGlobalServerThatLinksBack(t *testing.T) {
 			handlers := make([]*switchHandler, len(projects))
 			for i, project := range projects {
 				var calls int
-				handlers[i] = newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+				handlers[i] = newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
 					calls++
 					if calls == 1 {
 						arrived.Done()
@@ -395,7 +395,7 @@ func TestSwitch_RacingProjectsEachOpenAGlobalServerThatLinksBack(t *testing.T) {
 							<-firstBound
 						}
 					}
-					process := fakeChild(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}, tc.exitsAtOnce)
+					process := fakeChild(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project}, tc.exitsAtOnce)
 					if i == 0 && calls == 1 {
 						close(firstBound)
 					}
@@ -436,7 +436,7 @@ func TestSwitch_RacingProjectsEachOpenAGlobalServerThatLinksBack(t *testing.T) {
 	}
 }
 
-func TestSwitch_AcceptsAStartedGlobalServerThatLinksToAnAncestorProject(t *testing.T) {
+func TestSwitch_AcceptsAStartedUserServerThatLinksToAnAncestorProject(t *testing.T) {
 	home := seededHome(t)
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	project := configuredProject(t, t.TempDir())
@@ -446,9 +446,9 @@ func TestSwitch_AcceptsAStartedGlobalServerThatLinksToAnAncestorProject(t *testi
 	}
 	ports := freeLoopbackAddrs(t, 2)
 	var started []string
-	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: folder}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: folder}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
 		started = append(started, addr)
-		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}), nil
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project}), nil
 	})
 	defer h.close()
 
@@ -477,7 +477,7 @@ func TestSwitchPeerFor_ProjectServedWithDirLinksBackToThatProject(t *testing.T) 
 }
 
 func TestPeerServerCommand_PassesTheAddressToGoBackTo(t *testing.T) {
-	args, _ := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", global: true, dir: "/work/repo", back: "127.0.0.1:5000"}, "127.0.0.1:4311")
+	args, _ := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", userLevel: true, dir: "/work/repo", back: "127.0.0.1:5000"}, "127.0.0.1:4311")
 	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--scope", "user", "--switch-back", "127.0.0.1:5000"}) {
 		t.Errorf("args = %v", args)
 	}
@@ -520,7 +520,7 @@ func TestSwitch_NamesTheSwitchBackAddressApartFromTheScannedRange(t *testing.T) 
 	for _, addr := range addrs {
 		fakePeer(t, addr, viewServer{OK: true, Root: t.TempDir(), UI: true})
 	}
-	h := newSwitchHandler(&switchPeer{root: home, global: true}, addrs[1:], probeViewServer, nil)
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true}, addrs[1:], probeViewServer, nil)
 	h.back = addrs[0]
 	defer h.close()
 
@@ -531,7 +531,7 @@ func TestSwitch_NamesTheSwitchBackAddressApartFromTheScannedRange(t *testing.T) 
 	}
 }
 
-func TestServe_GlobalServerGoesBackToTheProjectServerThatStartedIt(t *testing.T) {
+func TestServe_UserServerGoesBackToTheProjectServerThatStartedIt(t *testing.T) {
 	silence(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	project := configuredProject(t, t.TempDir())

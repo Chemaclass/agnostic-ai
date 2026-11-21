@@ -29,10 +29,10 @@ func TestErrorText_LeavesAPlainErrorAlone(t *testing.T) {
 func TestErrorText_RequiresKeepsOnlyTheContextualFix(t *testing.T) {
 	setRunningVersion(t, "v0.89.0")
 	cases := []struct {
-		name     string
-		requires string
-		global   bool
-		fix      string
+		name      string
+		requires  string
+		userLevel bool
+		fix       string
 	}{
 		{"newer project binary", "0.88.0", false, "`agnostic-ai upgrade --requires`"},
 		{"older project binary", ">=0.90.0", false, "`agnostic-ai upgrade`"},
@@ -40,7 +40,7 @@ func TestErrorText_RequiresKeepsOnlyTheContextualFix(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := requireVersionInScope("agnostic-ai.yaml", c.requires, c.global)
+			err := requireVersionInScope("agnostic-ai.yaml", c.requires, c.userLevel)
 			if err == nil {
 				t.Fatal("expected an unmet version requirement")
 			}

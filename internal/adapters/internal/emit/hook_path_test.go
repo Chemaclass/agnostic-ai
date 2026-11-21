@@ -2,22 +2,22 @@ package emit
 
 import "testing"
 
-func TestRewriteGlobalHookPath_GrokKeepsNativeDirectPaths(t *testing.T) {
+func TestRewriteUserHookPath_GrokKeepsNativeDirectPaths(t *testing.T) {
 	for _, tc := range []struct{ name, dir, want string }{
 		{"short Windows name", "C:/Users/RUNNER~1/hooks", "C:/Users/RUNNER~1/hooks/guard.sh"},
 		{"leading tilde", "~/hooks", "'~/hooks'/guard.sh"},
 		{"POSIX spaces", "/tmp/user hooks", "'/tmp/user hooks'/guard.sh"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := RewriteGlobalHookPath("$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.sh", "grok", tc.dir); got != tc.want {
+			if got := RewriteUserHookPath("$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.sh", "grok", tc.dir); got != tc.want {
 				t.Errorf("command = %q, want %q", got, tc.want)
 			}
 		})
 	}
-	if got := RewriteGlobalHookPath(".agnostic-ai/scripts/guard.sh", "kiro", "C:/Users/RUNNER~1/hooks"); got != "'C:/Users/RUNNER~1/hooks'/guard.sh" {
+	if got := RewriteUserHookPath(".agnostic-ai/scripts/guard.sh", "kiro", "C:/Users/RUNNER~1/hooks"); got != "'C:/Users/RUNNER~1/hooks'/guard.sh" {
 		t.Errorf("another target's quoting changed: %q", got)
 	}
-	if got := RewriteGlobalHookPath("$CLAUDE_PROJECT_DIR/.grok/hook-scripts/a.sh && .agnostic-ai/scripts/b.sh", "grok", "native/hooks"); got != "native/hooks/a.sh && native/hooks/b.sh" {
+	if got := RewriteUserHookPath("$CLAUDE_PROJECT_DIR/.grok/hook-scripts/a.sh && .agnostic-ai/scripts/b.sh", "grok", "native/hooks"); got != "native/hooks/a.sh && native/hooks/b.sh" {
 		t.Errorf("controlled project roots were not removed per reference: %q", got)
 	}
 }

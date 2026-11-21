@@ -305,7 +305,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	}
 	reportUserOwned(cmd, cfg)
 	reportLegacyDefaultInstructions(cmd)
-	reportGlobalNameClashes(cmd, scope.bundle, cfg)
+	reportUserNameClashes(cmd, scope.bundle, cfg)
 	// Stop on sync's hand-written file guards before the first --fix write.
 	if opts.fix {
 		if err := guardRenders(readLedger("."), cfg, scope.bundle, opts.targets, doctorHandWrittenGuard(cfg, scope.bundle, opts)); err != nil {

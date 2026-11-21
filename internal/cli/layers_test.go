@@ -26,10 +26,10 @@ func TestResolveLayers_ProjectOnlyByDefault(t *testing.T) {
 	}
 }
 
-func TestResolveLayers_DoesNotLoadGlobalHome(t *testing.T) {
-	globalHome := t.TempDir()
-	t.Setenv(envUserGlobalRoot, globalHome)
-	if err := os.MkdirAll(filepath.Join(globalHome, "rules"), 0o755); err != nil {
+func TestResolveLayers_DoesNotLoadUserHome(t *testing.T) {
+	userLevelHome := t.TempDir()
+	t.Setenv(envUserRoot, userLevelHome)
+	if err := os.MkdirAll(filepath.Join(userLevelHome, "rules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 

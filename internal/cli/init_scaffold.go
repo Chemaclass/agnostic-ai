@@ -174,7 +174,7 @@ func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 		}
 	}
 	note := filepath.Join(opts.Root, agnosticMainFile)
-	if !isGlobalSourceDir(filepath.Dir(note)) {
+	if !isUserSourceDir(filepath.Dir(note)) {
 		if _, err := os.Lstat(note); os.IsNotExist(err) {
 			fmt.Printf("create: %s\n", note)
 		} else if err != nil {
@@ -284,7 +284,7 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 // is left alone there.
 func writeStarterNote(root string) error {
 	path := filepath.Join(root, agnosticMainFile)
-	if isGlobalSourceDir(filepath.Dir(path)) {
+	if isUserSourceDir(filepath.Dir(path)) {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -294,18 +294,18 @@ func writeStarterNote(root string) error {
 	return err
 }
 
-// isGlobalSourceDir reports whether dir is the global source folder,
+// isUserSourceDir reports whether dir is the global source folder,
 // which a project in the home folder shares with `sync --scope user`.
-func isGlobalSourceDir(dir string) bool {
-	global, err := globalSourceRoot()
+func isUserSourceDir(dir string) bool {
+	source, err := userSourceRoot()
 	if err != nil {
 		return false
 	}
-	if filepath.Base(dir) == filepath.Base(global) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(global))) {
+	if filepath.Base(dir) == filepath.Base(source) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(source))) {
 		return true
 	}
 	a, errA := os.Stat(dir)
-	b, errB := os.Stat(global)
+	b, errB := os.Stat(source)
 	return errA == nil && errB == nil && os.SameFile(a, b)
 }
 
@@ -382,7 +382,7 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 	}
 	summaryf("\n")
 	summaryf("next steps:\n")
-	if regularFileInside(root, filepath.Join(root, agnosticMainFile)) && !isGlobalSourceDir(filepath.Join(root, defaultBaseDir)) {
+	if regularFileInside(root, filepath.Join(root, agnosticMainFile)) && !isUserSourceDir(filepath.Join(root, defaultBaseDir)) {
 		summaryf("  edit %s # the note every tool reads; commit it\n", agnosticMainFile)
 	}
 	if seeded {

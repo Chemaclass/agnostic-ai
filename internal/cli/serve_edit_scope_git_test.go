@@ -116,7 +116,7 @@ func TestEditScope_PersonalSaveInALinkedWorktreeStaysOutOfGit(t *testing.T) {
 	assertGitHides(t, linked, ".agnostic-ai/local/settings/defaults.yaml")
 }
 
-func TestEditScope_PersonalSaveInAGlobalSourceRepositoryStaysOutOfGit(t *testing.T) {
+func TestEditScope_PersonalSaveInAUserSourceRepositoryStaysOutOfGit(t *testing.T) {
 	silence(t)
 	isolateGit(t)
 	source := editHome(t)

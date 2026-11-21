@@ -76,7 +76,7 @@ func approvalsKiroHookCommand(t *testing.T, path string) string {
 	return file.Hooks[0].Action.Command
 }
 
-func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testing.T) {
+func TestBuiltinApprovals_UserSyncWritesTheHookAndProjectSyncDoesNot(t *testing.T) {
 	skipEndToEndInShortMode(t)
 	if runtime.GOOS == "windows" {
 		t.Skip("the approvals hook has no Windows command; approvals fall back to ask there")

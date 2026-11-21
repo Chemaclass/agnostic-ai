@@ -87,10 +87,10 @@ func TestSync_PlanDiffRejectsJSON(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	for _, global := range []bool{false, true} {
+	for _, userLevel := range []bool{false, true} {
 		args := []string{"sync", "--plan", "--diff", "--json"}
-		if global {
-			globalAgentTestHome(t)
+		if userLevel {
+			userAgentTestHome(t)
 			args = append(args, "--scope", "user")
 		}
 		root := NewRootCmd("test")
@@ -101,17 +101,17 @@ func TestSync_PlanDiffRejectsJSON(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_PlanDiffPrintsPlanThenDiffs(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_PlanDiffPrintsPlanThenDiffs(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.ToSlash(filepath.Join(home, ".claude", "CLAUDE.md"))
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one, revised.\n")
 	before := snapshotTree(t, home)
 
-	out, _, err := runGlobalAgentTest("--only", "claude", "--plan", "--diff")
+	out, _, err := runUserAgentTest("--only", "claude", "--plan", "--diff")
 	if err != nil {
 		t.Fatalf("a plan exits zero on drift: %v", err)
 	}
@@ -125,17 +125,17 @@ func TestSyncGlobal_PlanDiffPrintsPlanThenDiffs(t *testing.T) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
 	}
-	if _, _, err := runGlobalAgentTest("--only", "claude", "--plan", "--check", "--diff"); err == nil {
+	if _, _, err := runUserAgentTest("--only", "claude", "--plan", "--check", "--diff"); err == nil {
 		t.Error("--plan --check --diff must exit non-zero on drift")
 	}
 	if after := snapshotTree(t, home); !maps.Equal(before, after) {
 		t.Error("--plan --diff must change no user files or state")
 	}
 
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err = runGlobalAgentTest("--only", "claude", "--plan", "--check", "--diff")
+	out, _, err = runUserAgentTest("--only", "claude", "--plan", "--check", "--diff")
 	if err != nil || out != "No changes.\n" {
 		t.Errorf("after sync the plan has no changes and no diff, got err = %v, out:\n%s", err, out)
 	}

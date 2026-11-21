@@ -216,7 +216,7 @@ func runSplit(t *testing.T, args ...string) (stdout, stderr string, err error) {
 }
 
 func TestScopeFlag_GlobalAndScopeUserPrintTheSameStdout(t *testing.T) {
-	globalConfigTestHome(t)
+	userConfigTestHome(t)
 	const notice = "warning: --global is deprecated; use --scope user\n"
 	for _, args := range [][]string{
 		{"list"},
@@ -249,7 +249,7 @@ func TestScopeFlag_GlobalAndScopeUserPrintTheSameStdout(t *testing.T) {
 }
 
 func TestScopeFlag_QuietDropsTheDeprecationNotice(t *testing.T) {
-	globalConfigTestHome(t)
+	userConfigTestHome(t)
 	// --quiet sets the package verbosity, which later tests read.
 	before := verbosity
 	t.Cleanup(func() { verbosity = before })

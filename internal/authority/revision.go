@@ -128,7 +128,7 @@ func NewSnapshot(cfg *config.Config, b spec.Bundle, opts Options) Snapshot {
 		now = time.Now()
 	}
 	name := filepath.Base(p.absRoot)
-	if opts.Global {
+	if opts.UserLevel {
 		name = "global (" + p.root + ")"
 	}
 	configFiles := make([]string, 0, len(opts.ConfigFiles))

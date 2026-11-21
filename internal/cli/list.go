@@ -10,7 +10,7 @@ import (
 )
 
 func newListCmd() *cobra.Command {
-	var global, local bool
+	var userLevel, local bool
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -31,7 +31,7 @@ func newListCmd() *cobra.Command {
 			if verbosity < levelDefault {
 				warn = io.Discard
 			}
-			scope, err := loadSpecScope(global, warn)
+			scope, err := loadSpecScope(userLevel, warn)
 			if err != nil {
 				return err
 			}
@@ -77,7 +77,7 @@ func newListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	addScopeFlagWithLocal(cmd, &global, &local, "local lists only your personal specs in this project; user lists the specs of $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and their layers.")
+	addScopeFlagWithLocal(cmd, &userLevel, &local, "local lists only your personal specs in this project; user lists the specs of $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and their layers.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output specs and their provenance as JSON")
 	return cmd
 }

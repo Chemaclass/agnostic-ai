@@ -13,7 +13,7 @@ import (
 
 func devinMemoryHandler(t *testing.T) (string, string) {
 	t.Helper()
-	globalAgentTestHome(t)
+	userAgentTestHome(t)
 	root := setupMemoryProject(t, "windsurf")
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
@@ -53,7 +53,7 @@ func TestSync_DevinMemoryHasAnExplicitSessionStartLauncher(t *testing.T) {
 }
 
 func TestHookMemory_DevinUsesProjectEnvAndTaggedContext(t *testing.T) {
-	globalAgentTestHome(t)
+	userAgentTestHome(t)
 	memoryHookProject(t, sampleIndex)
 	root, err := os.Getwd()
 	if err != nil {

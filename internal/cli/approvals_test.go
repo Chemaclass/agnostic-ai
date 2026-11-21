@@ -19,7 +19,7 @@ func approvalsHome(t *testing.T, shared string) string {
 	home := t.TempDir()
 	source := filepath.Join(home, ".agnostic-ai")
 	t.Setenv("HOME", home)
-	t.Setenv(envUserGlobalRoot, source)
+	t.Setenv(envUserRoot, source)
 	t.Setenv(config.EnvApprovals, "")
 	if shared != "" {
 		writeFile(t, filepath.Join(source, config.ConfigFileName), shared)
@@ -322,12 +322,12 @@ func TestApprovalsAsk_CreatesTheLocalHomeConfig(t *testing.T) {
 	}
 }
 
-func TestGlobalConfig_ReadsApprovalsWithoutWarning(t *testing.T) {
+func TestUserConfig_ReadsApprovalsWithoutWarning(t *testing.T) {
 	source := t.TempDir()
 	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
 	var warn strings.Builder
 
-	if _, err := loadGlobalTargets(source, &warn); err != nil {
+	if _, err := loadUserTargets(source, &warn); err != nil {
 		t.Fatal(err)
 	}
 
@@ -428,7 +428,7 @@ func TestApprovalsAskYAML(t *testing.T) {
 	}
 }
 
-func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
+func TestValidateUser_ReportsABrokenApprovalsBlock(t *testing.T) {
 	source := approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yollo\n")
 	writeFile(t, filepath.Join(source, "rules", "style.md"), "Be brief.\n")
 

@@ -92,7 +92,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	if !filepath.IsAbs(p.Cwd) {
 		return nil
 	}
-	source, err := globalSourceRoot()
+	source, err := userSourceRoot()
 	if err != nil || !filepath.IsAbs(source) {
 		return nil
 	}
@@ -104,7 +104,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	if err != nil {
 		return nil
 	}
-	userHome, err := globalUserHome()
+	userHome, err := userHomeDir()
 	if err != nil || !filepath.IsAbs(userHome) {
 		return nil
 	}

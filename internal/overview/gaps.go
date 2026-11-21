@@ -37,7 +37,7 @@ var recommendedBuiltins = []struct {
 // `agnostic-ai new` writes project specs only.
 func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Health {
 	gaps := []Gap{}
-	if in.Global {
+	if in.UserLevel {
 		return Health{Gaps: gaps}
 	}
 	total := 0

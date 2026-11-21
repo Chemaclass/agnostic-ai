@@ -117,12 +117,12 @@ func RewriteHookPath(cmd, target string, metadata ...map[string]any) string {
 	return emit.RewriteHookPath(cmd, target, metadata...)
 }
 
-func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
-	return emit.RewriteGlobalWindowsHookPath(command, scriptsDir)
+func RewriteUserWindowsHookPath(command, scriptsDir string) string {
+	return emit.RewriteUserWindowsHookPath(command, scriptsDir)
 }
 
-func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
-	return emit.RewriteGlobalHookPath(command, target, scriptsDir, metadata...)
+func RewriteUserHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
+	return emit.RewriteUserHookPath(command, target, scriptsDir, metadata...)
 }
 
 type HookScript = emit.HookScript
@@ -139,12 +139,12 @@ func NeutralHookScriptsFor(hook spec.Entry, command, target, sourceDir, outputDi
 	return emit.NeutralHookScriptsFor(hook, command, target, sourceDir, outputDir, literal...)
 }
 
-func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {
-	return emit.RewriteGlobalHookRoot(command, target, metadata...)
+func RewriteUserHookRoot(command, target string, metadata ...map[string]any) string {
+	return emit.RewriteUserHookRoot(command, target, metadata...)
 }
 
-func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, global bool) error {
-	return emit.ReportHookProjectRoot(target, hooks, mode, global)
+func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, userLevel bool) error {
+	return emit.ReportHookProjectRoot(target, hooks, mode, userLevel)
 }
 
 // FlushCapabilityWarnings prints any buffered capability warnings,

@@ -43,8 +43,8 @@ type HandlerOptions struct {
 	Installed func(target string, cfg *config.Config, b spec.Bundle) (InstalledState, error)
 	// Now stamps each view; nil means the current time.
 	Now func() time.Time
-	// Global serves the user-level configuration, as Options.Global.
-	Global bool
+	// UserLevel serves the user-level configuration, as Options.UserLevel.
+	UserLevel bool
 	// ProjectRoot is the project a global server started in, so the
 	// page can offer the way back. Empty for a project server.
 	ProjectRoot string
@@ -88,10 +88,10 @@ type handler struct {
 }
 
 type serverIdentity struct {
-	OK     bool   `json:"ok"`
-	Root   string `json:"root"`
-	Global bool   `json:"global"`
-	UI     bool   `json:"ui"`
+	OK        bool   `json:"ok"`
+	Root      string `json:"root"`
+	UserLevel bool   `json:"global"`
+	UI        bool   `json:"ui"`
 	// ProjectRoot is set only on a global server started in a project.
 	ProjectRoot string `json:"projectRoot,omitempty"`
 	// Version is the agnostic-ai release that serves this page.
@@ -122,8 +122,8 @@ var endpoints = []endpoint{
 // NewHandler serves the Authority view as JSON, and the built client
 // when HandlerOptions.UIDir or UIFiles is set.
 func NewHandler(load Loader, opts HandlerOptions) http.Handler {
-	h := &handler{load: load, opts: opts, identity: serverIdentity{OK: true, Root: absoluteRoot(opts.Root), Global: opts.Global, UI: opts.UIDir != "" || opts.UIFiles != nil, Version: opts.Version}}
-	if opts.Global && opts.ProjectRoot != "" {
+	h := &handler{load: load, opts: opts, identity: serverIdentity{OK: true, Root: absoluteRoot(opts.Root), UserLevel: opts.UserLevel, UI: opts.UIDir != "" || opts.UIFiles != nil, Version: opts.Version}}
+	if opts.UserLevel && opts.ProjectRoot != "" {
 		h.identity.ProjectRoot = absoluteRoot(opts.ProjectRoot)
 	}
 	mux := http.NewServeMux()
@@ -275,9 +275,9 @@ func (h *handler) options(cfg *config.Config, b spec.Bundle, agentID, target str
 		Root:        h.opts.Root,
 		AgentID:     agentID,
 		Target:      target,
-		FileMatches: !h.opts.Global,
+		FileMatches: !h.opts.UserLevel,
 		ConfigFiles: h.configFiles(),
-		Global:      h.opts.Global,
+		UserLevel:   h.opts.UserLevel,
 	}
 	if h.opts.Now != nil {
 		opts.Now = h.opts.Now()

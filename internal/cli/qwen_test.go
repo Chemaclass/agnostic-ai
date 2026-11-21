@@ -121,10 +121,10 @@ func TestQwen_FileChangedMatcherPassesStrictLint(t *testing.T) {
 	}
 }
 
-func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
+func TestQwen_UserOwnershipAndRoot(t *testing.T) {
 	for _, existing := range []bool{false, true} {
 		t.Run(map[bool]string{false: "created", true: "existing"}[existing], func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			native := filepath.Join(t.TempDir(), "qwen-home")
 			t.Setenv("QWEN_HOME", native)
 			path := filepath.Join(native, "settings.json")
@@ -139,11 +139,11 @@ func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
 			for rel, body := range specs {
 				writeFile(t, filepath.Join(source, rel), body)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "qwen"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
-			got := readGlobalJSON(t, path)
-			handler := firstGlobalHandler(t, got, "PreToolUse")
+			got := readUserJSON(t, path)
+			handler := firstUserHandler(t, got, "PreToolUse")
 			deny := got["permissions"].(map[string]any)["deny"].([]any)
 			if !slices.Contains(deny, any("Bash(git push *)")) {
 				t.Errorf("scoped permission lost: %#v", deny)
@@ -171,7 +171,7 @@ func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "qwen"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if existing {
@@ -181,15 +181,15 @@ func TestQwen_GlobalOwnershipAndRoot(t *testing.T) {
 			} else if _, err := os.Stat(path); !os.IsNotExist(err) {
 				t.Errorf("created file survived: %v", err)
 			}
-			if _, _, err := runGlobalAgentTest("--only", "qwen", "--check"); err != nil {
+			if _, _, err := runUserAgentTest("--only", "qwen", "--check"); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
 }
 
-func TestQwen_GlobalNativeTreesAndImport(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestQwen_UserNativeTreesAndImport(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	native := filepath.Join(t.TempDir(), "qwen")
 	t.Setenv("QWEN_HOME", native)
 	for path, body := range map[string]string{"AGNOSTIC_AI.md": "# Agreements\nKeep changes small.\n", "agents/reviewer.md": "---\nname: reviewer\ndescription: Review\ncan: [read]\n---\nReview carefully.\n", "skills/check/SKILL.md": "---\nname: check\ndescription: Check\n---\nRun scripts/check.sh.\n", "skills/check/scripts/check.sh": "#!/bin/sh\necho checked\n"} {
@@ -198,10 +198,10 @@ func TestQwen_GlobalNativeTreesAndImport(t *testing.T) {
 	settings := filepath.Join(native, "settings.json")
 	original := `{"custom":true,"model":{"name":"native-model","temperature":0.3},"mcpServers":{"http":{"httpUrl":"https://example.test/mcp"},"sse":{"url":"https://example.test/events"}}}`
 	writeFile(t, settings, original)
-	if _, warnings, err := runImportGlobalTest("qwen"); err != nil {
+	if _, warnings, err := runImportUserTest("qwen"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, settings); got != original {
@@ -213,7 +213,7 @@ func TestQwen_GlobalNativeTreesAndImport(t *testing.T) {
 			t.Errorf("%s missing %q: %s", path, want, got)
 		}
 	}
-	if _, _, err := runGlobalAgentTest("--only", "qwen", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "qwen", "--check"); err != nil {
 		t.Fatal(err)
 	}
 }

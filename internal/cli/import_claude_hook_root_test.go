@@ -35,7 +35,7 @@ func TestImportClaude_ProjectRootHookRunsOnCodex(t *testing.T) {
 			if out, err := runCLI(t, "sync", "--only", "codex"); err != nil {
 				t.Fatalf("sync: %v %s", err, out)
 			}
-			hook := firstGlobalHandler(t, readGlobalJSON(t, ".codex/hooks.json"), "PostToolUse")
+			hook := firstUserHandler(t, readUserJSON(t, ".codex/hooks.json"), "PostToolUse")
 			command, _ := hook["command"].(string)
 			nested := filepath.Join(project, "child")
 			if err := os.Mkdir(nested, 0o755); err != nil {
@@ -56,13 +56,13 @@ func TestImportClaude_ProjectRootHookRunsOnCodex(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_HookRootUsesRuntimeProject(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_HookRootUsesRuntimeProject(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\ncommand: 'printf %s \"${CLAUDE_PROJECT_DIR}\"'\n")
-	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
-	command := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json")), "PreToolUse")["command"].(string)
+	command := firstUserHandler(t, readUserJSON(t, filepath.Join(home, ".codex", "hooks.json")), "PreToolUse")["command"].(string)
 	repo, _ := gitRepo(t)
 	child := filepath.Join(repo, "child")
 	if err := os.Mkdir(child, 0o755); err != nil {
@@ -81,34 +81,34 @@ func TestSyncGlobal_HookRootUsesRuntimeProject(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ntarget: codex\nshell: powershell\ncommand: '\"$CLAUDE_PROJECT_DIR/custom/guard.ps1\"'\n")
-	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "codex"); err != nil {
 		t.Fatal(err)
 	}
-	command := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json")), "PreToolUse")["command"].(string)
+	command := firstUserHandler(t, readUserJSON(t, filepath.Join(home, ".codex", "hooks.json")), "PreToolUse")["command"].(string)
 	if !strings.Contains(command, `"$CLAUDE_PROJECT_DIR/custom/guard.ps1"`) || strings.Contains(command, "git rev-parse") {
 		t.Errorf("non-POSIX root changed: %s", command)
 	}
 }
 
-func TestSyncGlobal_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: windows-guard\nevent: PreToolUse\ntarget: codex\ncommand: guard.sh\ncommandWindows: '$env:CLAUDE_PROJECT_DIR/custom/guard.ps1'\n")
-	_, warnings, err := runGlobalAgentTest("--only", "codex")
+	_, warnings, err := runUserAgentTest("--only", "codex")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(warnings, "windows-guard") || !strings.Contains(warnings, "commandWindows") {
 		t.Errorf("missing named Windows warning: %s", warnings)
 	}
-	handler := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json")), "PreToolUse")
+	handler := firstUserHandler(t, readUserJSON(t, filepath.Join(home, ".codex", "hooks.json")), "PreToolUse")
 	if handler["commandWindows"] != `$env:CLAUDE_PROJECT_DIR/custom/guard.ps1` {
 		t.Errorf("Windows override changed: %v", handler["commandWindows"])
 	}
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
-	if _, _, err := runGlobalAgentTest("--only", "codex"); err == nil || !strings.Contains(err.Error(), "windows-guard") {
+	if _, _, err := runUserAgentTest("--only", "codex"); err == nil || !strings.Contains(err.Error(), "windows-guard") {
 		t.Errorf("want named global Windows error, got %v", err)
 	}
 }

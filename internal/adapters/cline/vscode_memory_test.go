@@ -47,12 +47,12 @@ func TestEmit_VSCodeHookWritesNativePowerShellCompanion(t *testing.T) {
 	}
 }
 
-func TestGlobalHooks_ExcludeVSCodeOnlyMemoryHook(t *testing.T) {
+func TestUserHooks_ExcludeVSCodeOnlyMemoryHook(t *testing.T) {
 	hooks := []spec.Entry{
 		{Kind: spec.KindHook, Name: "memory-cline-task-start", Meta: map[string]any{"event": "TaskStart", "runtime": "vscode", "command": "echo memory"}},
 		{Kind: spec.KindHook, Name: "ordinary", Meta: map[string]any{"event": "PreToolUse", "command": "echo ordinary"}},
 	}
-	files := GlobalHookFiles(hooks, "/cline-global/hook-scripts")
+	files := UserHookFiles(hooks, "/cline-global/hook-scripts")
 	if len(files) != 1 || files[0].Path != "PreToolUse" {
 		t.Fatalf("VS Code-only memory hook must not reach SDK global hooks: %+v", files)
 	}
@@ -91,9 +91,9 @@ func nativeBuiltinClineMemoryHook(t *testing.T) spec.Entry {
 	return spec.Entry{}
 }
 
-func TestGlobalHooks_ActualBuiltinVSCodeMarkerOmitsSDKOutput(t *testing.T) {
+func TestUserHooks_ActualBuiltinVSCodeMarkerOmitsSDKOutput(t *testing.T) {
 	hook := nativeBuiltinClineMemoryHook(t)
-	if files := GlobalHookFiles([]spec.Entry{hook}, "/cline-global/hook-scripts"); len(files) != 0 {
+	if files := UserHookFiles([]spec.Entry{hook}, "/cline-global/hook-scripts"); len(files) != 0 {
 		t.Fatalf("actual builtin VS Code marker must omit global SDK hooks: %+v", files)
 	}
 }
