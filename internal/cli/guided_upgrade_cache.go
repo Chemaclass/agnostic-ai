@@ -16,23 +16,75 @@ type upgradeCheckCache struct {
 	OfferedAt time.Time
 	Current   string
 	Offer     upgradeOffer
+	// CompanionImageTag is the release whose checksums.txt was read for
+	// this Mac's companion disk image; CompanionImage says it was listed.
+	CompanionImageTag string
+	CompanionImage    bool
 }
 
-func cachedUpgradeOffer(current string) (upgradeOffer, error) {
+func upgradeCachePath() (string, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return upgradeOffer{}, fmt.Errorf("locate update cache: %w", err)
+		return "", fmt.Errorf("locate update cache: %w", err)
 	}
-	return cachedUpgradeOfferAt(filepath.Join(dir, "agnostic-ai", "update-check.json"), current, time.Now(), fetchUpgradeOffer)
+	return filepath.Join(dir, "agnostic-ai", "update-check.json"), nil
 }
 
-func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string) (upgradeOffer, error)) (upgradeOffer, error) {
+func recentUpgradeCheck(at, now time.Time) bool {
+	return !at.IsZero() && !at.After(now) && now.Sub(at) < 24*time.Hour
+}
+
+func readUpgradeCache(path string) upgradeCheckCache {
 	var cache upgradeCheckCache
 	if f, err := os.Open(path); err == nil {
 		_ = json.NewDecoder(io.LimitReader(f, 256<<10)).Decode(&cache)
 		_ = f.Close()
 	}
-	recent := func(at time.Time) bool { return !at.IsZero() && !at.After(now) && now.Sub(at) < 24*time.Hour }
+	return cache
+}
+
+// companionUpdateCacheAt answers the latest stable release, and whether
+// it has a companion disk image, from the update cache the guided upgrade
+// shares. It asks again after 24 hours, for another installed version, or
+// when refresh is set; a failed check is remembered for the day. image is
+// checked only for a newer release, and nil skips it.
+func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, fetch func(string) (upgradeOffer, error), image func(string) (bool, error)) (string, bool, error) {
+	cache := readUpgradeCache(path)
+	if refresh || !recentUpgradeCheck(cache.CheckedAt, now) || cache.Current != current {
+		offer, err := fetch(current)
+		if err != nil {
+			offer = upgradeOffer{}
+		}
+		if offer.Latest != cache.Offer.Latest {
+			cache.OfferedAt, cache.CompanionImageTag, cache.CompanionImage = time.Time{}, "", false
+		}
+		cache.CheckedAt, cache.Current, cache.Offer = now, current, offer
+		if err != nil {
+			_ = writeUpgradeCache(path, cache)
+			return "", false, err
+		}
+	}
+	latest := cache.Offer.Latest
+	if image != nil && newerStableRelease(latest, current) && (refresh || cache.CompanionImageTag != latest) {
+		if listed, err := image(latest); err == nil {
+			cache.CompanionImageTag, cache.CompanionImage = latest, listed
+		}
+	}
+	_ = writeUpgradeCache(path, cache)
+	return latest, cache.CompanionImageTag == latest && cache.CompanionImage, nil
+}
+
+func cachedUpgradeOffer(current string) (upgradeOffer, error) {
+	path, err := upgradeCachePath()
+	if err != nil {
+		return upgradeOffer{}, err
+	}
+	return cachedUpgradeOfferAt(path, current, time.Now(), fetchUpgradeOffer)
+}
+
+func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string) (upgradeOffer, error)) (upgradeOffer, error) {
+	cache := readUpgradeCache(path)
+	recent := func(at time.Time) bool { return recentUpgradeCheck(at, now) }
 	if !recent(cache.CheckedAt) || cache.Current != current {
 		offer, err := fetch(current)
 		if offer.Latest != cache.Offer.Latest {

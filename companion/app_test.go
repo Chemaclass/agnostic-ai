@@ -55,66 +55,6 @@ func TestFindBinary_UsesBundledCommandBeforeOtherLocations(t *testing.T) {
 	}
 }
 
-func TestLatestCompanionRelease_OffersOnlyNewStableVersions(t *testing.T) {
-	cases := []struct {
-		current, tag      string
-		draft, prerelease bool
-		want              string
-	}{
-		{"0.95.0", "v0.96.0", false, false, "0.96.0"},
-		{"0.95.0", "v0.95.0", false, false, ""},
-		{"0.96.0", "v0.95.0", false, false, ""},
-		{"0.95.0", "v0.97.0-rc.1", false, true, ""},
-		{"0.95.0", "v0.97.0", true, false, ""},
-		{"dev", "v0.97.0", false, false, ""},
-		{"0.9.0", "v0.10.0", false, false, "0.10.0"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.current+"/"+tc.tag, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Accept") != "application/vnd.github+json" {
-					t.Error("missing GitHub accept header")
-				}
-				_, _ = fmt.Fprintf(w, `{"tag_name":%q,"draft":%t,"prerelease":%t,"assets":[{"name":%q,"state":"uploaded","size":123}]}`, tc.tag, tc.draft, tc.prerelease, updateImageName())
-			}))
-			defer srv.Close()
-			got, err := latestCompanionRelease(context.Background(), srv.Client(), srv.URL, tc.current, updateImageName())
-			if err != nil || got != tc.want {
-				t.Errorf("latest release = %q, %v; want %q", got, err, tc.want)
-			}
-		})
-	}
-}
-
-func TestLatestCompanionRelease_RequiresImageForThisMac(t *testing.T) {
-	const arm = "agnostic-ai-companion_darwin_arm64.dmg"
-	for _, asset := range []releaseAsset{
-		{},
-		{Name: "agnostic-ai-companion_darwin_amd64.dmg", State: "uploaded", Size: 100},
-		{Name: "agnostic-ai-companion_darwin_arm64.tar.gz", State: "uploaded", Size: 100},
-		{Name: arm, State: "starter", Size: 100},
-		{Name: arm, State: "uploaded", Size: 0},
-	} {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v0.96.0", "assets": []releaseAsset{asset}})
-		}))
-		got, err := latestCompanionRelease(t.Context(), srv.Client(), srv.URL, "0.95.0", arm)
-		srv.Close()
-		if err != nil || got != "" {
-			t.Errorf("with asset %+v got %q, %v; want no update", asset, got, err)
-		}
-	}
-}
-
-func TestLatestCompanionRelease_ReportsFailedChecks(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "rate limited", http.StatusForbidden) }))
-	defer srv.Close()
-	_, err := latestCompanionRelease(context.Background(), srv.Client(), srv.URL, "0.95.0", "agnostic-ai-companion_darwin_arm64.dmg")
-	if err == nil || !strings.Contains(err.Error(), "403") {
-		t.Errorf("failed release check = %v", err)
-	}
-}
-
 func fakeBundledCommand(t *testing.T) string {
 	t.Helper()
 	app := filepath.Join(t.TempDir(), "Applications", "agnostic-ai companion.app")
@@ -360,7 +300,7 @@ func updateShell(t *testing.T, next string, err error) (*shell, *updateFeed, *ap
 		defer feed.mu.Unlock()
 		feed.told = append(feed.told, status)
 	}
-	s.appCommands.latest = func(context.Context) (release, error) { return release{Version: next}, err }
+	s.appCommands.latest = func(context.Context, bool) (release, error) { return release{Version: next}, err }
 	s.appCommands.ask = func() { t.Error("asked to update") }
 	return s, feed, menu
 }
@@ -393,7 +333,7 @@ func TestCheckUpdates_AutomaticCheckShowsTheReleaseWithoutAsking(t *testing.T) {
 
 func TestCheckUpdates_DisablesTheEntryWhileChecking(t *testing.T) {
 	s, _, menu := updateShell(t, "", nil)
-	s.appCommands.latest = func(context.Context) (release, error) {
+	s.appCommands.latest = func(context.Context, bool) (release, error) {
 		if item := menu.FindByLabel("Checking for updates…"); item == nil || item.Enabled() {
 			t.Errorf("while checking, menu = %q; want a disabled Checking for updates…", menuLabels(menu))
 		}
@@ -410,7 +350,7 @@ func TestCheckUpdates_DisablesTheEntryWhileChecking(t *testing.T) {
 func TestCheckUpdates_FailedAutomaticCheckKeepsTheLastAnswerSilently(t *testing.T) {
 	s, feed, _ := updateShell(t, "0.97.0", nil)
 	s.appCommands.checkUpdates(t.Context())
-	s.appCommands.latest = func(context.Context) (release, error) { return release{}, errors.New("offline") }
+	s.appCommands.latest = func(context.Context, bool) (release, error) { return release{}, errors.New("offline") }
 
 	s.appCommands.checkUpdates(t.Context())
 
@@ -522,7 +462,8 @@ func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 		{`/A.app: companion version "0.96.0", expected 0.97.0`, updateVerifying, "the download is not the version it should be"},
 		{`checksums.txt: Get "https://github.com/x/checksums.txt": dial tcp: lookup github.com: no such host`, updateDownloading, "the release could not be downloaded. Check your connection"},
 		{"x.dmg: download: 404 Not Found", updateDownloading, "the release could not be downloaded. Check your connection"},
-		{"/Volumes/agnostic-ai/agnostic-ai companion.app: stage update: read-only file system", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
+		{"/Volumes/agnostic-ai/agnostic-ai companion.app cannot be updated where it is (read-only file system). Move the app to Applications, open it from there, then update", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
+		{"/A/.companion-update-1/agnostic-ai companion.app is not signed by this project: codesign: exit status 3", updateVerifying, "the download is not signed by this project"},
 		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
 		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},
 		{"replace /A.app: permission denied", updateRestarting, "the update command failed"},
@@ -544,5 +485,94 @@ func TestUpdateStep_IsTheLastStepTheLogNames(t *testing.T) {
 		if got := updateStep(tc.log); got != tc.want {
 			t.Errorf("updateStep(%q) = %q; want %q", tc.log, got, tc.want)
 		}
+	}
+}
+
+// bundledScript makes the disk image app's bundled command a script that
+// answers update-status with status, and returns the file of its calls.
+func bundledScript(t *testing.T, status string) (*shell, string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake command is a shell script")
+	}
+	command := fakeBundledCommand(t)
+	calls := filepath.Join(t.TempDir(), "calls")
+	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" >> %q\necho %q\n", calls, status)
+	if err := os.WriteFile(command, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s, _, _, _ := menuShell(t)
+	s.appCommands.ask = func() {}
+	return s, calls
+}
+
+func TestDiskImageUpdate_OffersOnlyAReleaseWithADiskImage(t *testing.T) {
+	withVersion(t, "0.96.0")
+	for _, tc := range []struct {
+		image bool
+		want  string
+	}{{false, ""}, {true, "0.97.0"}} {
+		s, _ := bundledScript(t, fmt.Sprintf(`{"installed":"0.96.0","latest":"0.97.0","method":"binary","oneClick":true,"image":%t}`, tc.image))
+
+		s.appCommands.checkUpdates(t.Context())
+
+		if got := s.updateStatus(); got.Version != tc.want || got.Command != "" {
+			t.Errorf("with image %v, status = %+v; want version %q", tc.image, got, tc.want)
+		}
+	}
+}
+
+func TestDiskImageUpdate_AManualCheckAsksTheCLIToRefresh(t *testing.T) {
+	withVersion(t, "0.96.0")
+	s, calls := bundledScript(t, `{"installed":"0.96.0","latest":"0.96.0","method":"binary","oneClick":true,"image":false}`)
+
+	s.appCommands.checkUpdates(t.Context())
+	if rec := post(s, "/api/update"); rec.Code != http.StatusNoContent {
+		t.Fatalf("POST /api/update = %d", rec.Code)
+	}
+
+	waitFor(t, "the manual check", func() bool {
+		if !s.appCommands.busy.TryLock() {
+			return false
+		}
+		s.appCommands.busy.Unlock()
+		raw, _ := os.ReadFile(calls)
+		return strings.Count(string(raw), "\n") == 2
+	})
+	raw, _ := os.ReadFile(calls)
+	if string(raw) != "companion update-status --json\ncompanion update-status --json --refresh\n" {
+		t.Errorf("calls = %q", raw)
+	}
+}
+
+func TestFailedUpdateAfterRestart_ShowsARollbackOnceOnTheNextStart(t *testing.T) {
+	for _, tc := range []struct {
+		name, log string
+		want      updateStatus
+	}{
+		{"rollback", "Downloading agnostic-ai 0.97.0.\nChecking the downloaded app.\nRestarting the companion.\nError: replace /A.app: permission denied\n",
+			updateStatus{State: updateFailed, Version: "0.97.0", Reason: "the update command failed"}},
+		{"finished", "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nReplaced the companion app.\n", updateStatus{State: updateIdle}},
+		{"failed before the restart", "Downloading agnostic-ai 0.97.0.\nError: checksum mismatch\n", updateStatus{State: updateIdle}},
+		{"no log", "", updateStatus{State: updateIdle}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "companion-update.log")
+			if tc.log != "" {
+				if err := os.WriteFile(path, []byte(tc.log), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.want.State == updateFailed {
+				tc.want.Log = path
+			}
+
+			if got := failedUpdateAfterRestart(path); got != tc.want {
+				t.Errorf("first start = %+v; want %+v", got, tc.want)
+			}
+			if got := failedUpdateAfterRestart(path); got.State != updateIdle {
+				t.Errorf("second start = %+v; want idle", got)
+			}
+		})
 	}
 }
