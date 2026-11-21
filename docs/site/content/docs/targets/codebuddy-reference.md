@@ -95,7 +95,7 @@ Empty tool lists:
 - CodeBuddy applies agent, model, and hook overrides only with `context: fork`.
 - Bundled files are copied unchanged.
 - Commands keep description, argument hint, model, allowed tools, invocation control, and body placeholders.
-- User commands are not managed by agnostic-ai, although CodeBuddy has a user command directory.
+- User-level commands are not managed by agnostic-ai, although CodeBuddy has a user command directory.
 
 ### MCP permission rules
 

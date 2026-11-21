@@ -60,4 +60,4 @@ export function parseSpecMoved(value: unknown): SpecMoved | undefined {
   return moved
 }
 
-export const USER_SETUP_MISSING = 'The user setup does not exist yet. Create it with Open user settings at the foot of the sidebar, then copy again.'
+export const USER_SETUP_MISSING = 'The user setup does not exist yet. Create it with Open user-level settings at the foot of the sidebar, then copy again.'

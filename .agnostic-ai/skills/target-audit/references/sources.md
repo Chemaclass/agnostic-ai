@@ -171,7 +171,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## warp
 
-- docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/factories/factory-skills.md (versioned shared and per-agent factory procedures) · https://docs.warp.dev/agents/capabilities/mcp.md · https://docs.warp.dev/agents/capabilities/rules.md (project instruction discovery) · https://docs.warp.dev/agents/cli/configuration.md (CLI user instruction discovery)
+- docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/factories/factory-skills.md (versioned shared and per-agent factory procedures) · https://docs.warp.dev/agents/capabilities/mcp.md · https://docs.warp.dev/agents/capabilities/rules.md (project instruction discovery) · https://docs.warp.dev/agents/cli/configuration.md (CLI user-level instruction discovery)
 - changelog: https://docs.warp.dev/changelog/2026.md (dated release entries; advance the year when a new annual page appears) · https://docs.warp.dev/changelog.md (year index, retained to detect new annual pages; the old getting-started path redirects here)
 - schema: https://www.schemastore.org/warp-workflows.json
 - watch: a native rules-dir surface (today: AGENTS.md, `.agents/skills/`, workflows, `.warp/.mcp.json`); another move of the MCP page (it 308s from `/knowledge-and-collaboration/mcp`); whether either MCP table gains `description`, `disabled` or `roots`.
@@ -209,7 +209,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: a scoped rule emits to `<scope>/.agents/rules/<name>.md`, the vendor's own directory-scoped discovery; never nested deeper than one level (#1114).
 - trap: hooks (`.agents/hooks.json`) run in the IDE: `transcriptPath` resolves under `~/.gemini/antigravity-ide`. Do not re-open.
 - decision: subagents emit to nested `.agents/agents/<name>/agent.md` (#717). Never write a generic `tools`: the vocabulary (`view_file`, `run_command`) has zero Claude overlap and an unmapped name can hang the subagent. Use `x-antigravity.tools`.
-- decision: user skills go to `~/.gemini/config/skills/`; `~/.gemini/antigravity/skills/` is legacy (#896).
+- decision: user-level skills go to `~/.gemini/config/skills/`; `~/.gemini/antigravity/skills/` is legacy (#896).
 - note: `/docs/slash-commands` documents `/learn` proposing changes in `learning_proposal.md` before approved writes to `AGENTS.md`, `GEMINI.md`, `.agents/rules/*.md` or `.agents/skills/<name>/SKILL.md`. This is documented behavior, not a native execution check.
 - note: a rules file caps at 24,000 bytes and truncates over it, a coverage note (#1114, corrects the earlier 12,000-character/undocumented-outcome reading). A separate 20,000-token aggregate budget across `always_on` rules demotes the largest to a path-plus-description pointer; docs-only, no note.
 
@@ -393,7 +393,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: the releases feed includes the separate TypeScript SDK. Compare CLI v-tags when choosing a CLI baseline; releases/latest can select the SDK.
 - decision: portable agent effort and permissionMode are unsupported. Explicit native agent approval fields belong under x-qwen.
 - decision: HTTP uses httpUrl, SSE uses url, MCP timeout is milliseconds, and command hook timeout is seconds.
-- decision: user commands and ignore files are outside the current user target table. Project command support does not imply user command sync.
+- decision: user-level commands and ignore files are outside the current user-level target table. Project command support does not imply user-level command sync.
 - trap: `hooks.enabled`, `hooks.disabled` and `hooks.notifications` are skipped metadata in the released registry. Top-level `disableAllHooks` is the active control.
 - decision: native skill `model` round-trips under x-qwen and is applied as modelOverride. Shared skill model is not promoted.
 - trap: `isMcpServerDisabled` checks `mcp.excluded` and extension preferences, not a settings server's `disabled` field, despite manager comments mentioning it. Portable disabled servers are omitted.
@@ -405,7 +405,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - code: https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/vibe_schema.py (stable release commit 338ad4bf0f73c4dd879d667cf7ab011555ae1751; native config schema) · https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/models.py (MCP transports, authentication, and defaults) · https://github.com/mistralai/mistral-vibe/blob/v3.1.1/vibe/core/hooks/models.py (stable release commit 97e31350d2adc15c8a33a091566e897cbe9f41bc; seven native hook events and strict restrictions)
 - watch: VIBE_HOME, trusted project loading, AGENTS.md hierarchy, agent_type and enabled_tools, skill flags, config.toml mcp_servers arrays and auth, hooks.toml JSON decisions and Windows shell selection.
 - trap: empty enabled_tools enables every tool; skills allowed-tools does not enforce restrictions; hook exit 2 is a failure, not a denial.
-- decision: native hooks only; v3.1.1 adds pre_agent, notification, session_start and session_end to pre_tool, post_tool and post_agent. Strict is valid only for pre_tool, post_tool and pre_agent. Project and user sync emit all seven native events; portable event translation and built-in target selection remain unchanged. User TOML arrays are owned by native name and retain unrelated text.
+- decision: native hooks only; v3.1.1 adds pre_agent, notification, session_start and session_end to pre_tool, post_tool and post_agent. Strict is valid only for pre_tool, post_tool and pre_agent. Project and user-level sync emit all seven native events; portable event translation and built-in target selection remain unchanged. User TOML arrays are owned by native name and retain unrelated text.
 
 ## pi
 
@@ -415,7 +415,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: badlogic/pi-mono redirects to earendil-works/pi. The current package is @earendil-works/pi-coding-agent; the old @mariozechner package is not the current behavior reference.
 - decision: instructions load without project trust; project settings, MCP, skills, and prompt templates require Pi's trust choice. Sync does not grant trust or set defaultProjectTrust.
 - decision: portable disabled becomes native enabled with the opposite value. SSE is unsupported; allowed-tools is skill metadata, not an enforced permission limit.
-- decision: commands sync only at project scope. User instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.
+- decision: commands sync only at project scope. User-level instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.
 
 ## kimi
 

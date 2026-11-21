@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createUserSetup, USER_SETUP_BODY, UserSetupError, userSetupCreated, parseServedConfig, parseSwitchReply, requestSwitch, switchOffer } from './config-switch'
 
 describe('switch between project and global', () => {
-  it('reads the configuration a server reads, with the project a user server started in', () => {
+  it('reads the configuration a server reads, with the project a user-level server started in', () => {
     expect(parseServedConfig({ ok: true, root: '/repo', global: false, ui: true })).toEqual({ root: '/repo', userLevel: false })
     expect(parseServedConfig({ ok: true, root: '/home/.agnostic-ai', global: true, projectRoot: '/repo' }))
       .toEqual({ root: '/home/.agnostic-ai', userLevel: true, projectRoot: '/repo' })
@@ -18,15 +18,15 @@ describe('switch between project and global', () => {
     expect(parseServedConfig('nope')).toBeUndefined()
   })
 
-  it('offers user settings on a project page', () => {
+  it('offers user-level settings on a project page', () => {
     expect(switchOffer({ root: '/repo', userLevel: false })).toEqual({
-      label: 'Open user settings',
+      label: 'Open user-level settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
       command: 'agnostic-ai ui --scope user',
     })
   })
 
-  it('offers the way back only on a user page started in a project', () => {
+  it('offers the way back only on a user-level page started in a project', () => {
     expect(switchOffer({ root: '/home/.agnostic-ai', userLevel: true })).toBeUndefined()
     expect(switchOffer({ root: '/home/.agnostic-ai', userLevel: true, projectRoot: '/work/repo' })).toEqual({
       label: 'Open project repo',

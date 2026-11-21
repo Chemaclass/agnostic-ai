@@ -75,11 +75,11 @@ func TestCredentialPreview_UserDiffHidesSecretOnlyChange(t *testing.T) {
 		t.Error("secret-only drift must fail")
 	}
 	if strings.Contains(out.String(), "PREVIEW_SECRET_2021_") || !strings.Contains(out.String(), "sensitive") {
-		t.Error("user diff leaked credentials or lost the change signal")
+		t.Error("user-level diff leaked credentials or lost the change signal")
 	}
 	data, err := os.ReadFile(p)
 	if err != nil || !bytes.Equal(data, old) {
-		t.Error("user check changed disk content")
+		t.Error("user-level check changed disk content")
 	}
 }
 
@@ -297,20 +297,20 @@ func TestCredentialPreview_UserSummariesHideCredentialsAndPreserveWrites(t *test
 		before := snapshotProject(t, home)
 		out, warnings, err := runUserAgentTest(append([]string{"--only", "cursor"}, args...)...)
 		if (err != nil) != wantError {
-			t.Errorf("user preview %v: unexpected success/failure", args)
+			t.Errorf("user-level preview %v: unexpected success/failure", args)
 		}
 		public := out + warnings
 		if err != nil {
 			public += err.Error()
 		}
 		if strings.Contains(public, "PREVIEW_SECRET_2021_") {
-			t.Errorf("user preview %v leaked a credential", args)
+			t.Errorf("user-level preview %v leaked a credential", args)
 		}
 		if len(args) > 0 && args[len(args)-1] == "--json" && !json.Valid([]byte(out)) {
-			t.Errorf("user preview %v did not produce valid JSON", args)
+			t.Errorf("user-level preview %v did not produce valid JSON", args)
 		}
 		if reference && (!strings.Contains(out, "mcpServers.local") || !strings.Contains(out, "server") || !strings.Contains(out, "${") || !strings.Contains(out, "TOKEN}")) {
-			t.Errorf("user preview %v lost server names, ordinary command, or pure reference", args)
+			t.Errorf("user-level preview %v lost server names, ordinary command, or pure reference", args)
 		}
 		assertProjectUnchanged(t, before, snapshotProject(t, home))
 	}
@@ -346,26 +346,26 @@ func TestCredentialPreview_UserSummariesHideCredentialsAndPreserveWrites(t *test
 		localServer := servers["local"].(map[string]any)
 		remoteServer := servers["remote"].(map[string]any)
 		if localServer["env"].(map[string]any)["OPAQUE"] != "PREVIEW_SECRET_2021_ENV" || localServer["args"].([]any)[1] != "PREVIEW_SECRET_2021_FLAG" {
-			t.Error("user write changed literal environment or flag values")
+			t.Error("user-level write changed literal environment or flag values")
 		}
 		if remoteServer["headers"].(map[string]any)["Authorization"] != header || !strings.HasSuffix(remoteServer["url"].(string), "?api_key=PREVIEW_SECRET_2021_URL") {
-			t.Error("user write changed literal header or URL values")
+			t.Error("user-level write changed literal header or URL values")
 		}
 		var state userState
 		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
-			t.Fatal("decode user ownership state")
+			t.Fatal("decode user-level ownership state")
 		}
 		for _, name := range []string{"local", "remote"} {
 			if !sameSetting(state.MCP["cursor"]["mcpServers."+name], servers[name]) {
-				t.Error("user ownership state no longer records the exact raw server value")
+				t.Error("user-level ownership state no longer records the exact raw server value")
 			}
 		}
 		if _, _, err := runUserAgentTest("--only", "cursor", "--check"); err != nil {
-			t.Error("user check after raw write failed")
+			t.Error("user-level check after raw write failed")
 		}
 	}
 	if _, _, err := runUserAgentTest("--only", "cursor"); err != nil {
-		t.Fatal("initial user write failed")
+		t.Fatal("initial user-level write failed")
 	}
 	assertRaw("Bearer PREVIEW_SECRET_2021_HEADER_OLD")
 	writeFile(t, remotePath, strings.ReplaceAll(remote, "HEADER_OLD", "HEADER_NEW"))
@@ -399,13 +399,13 @@ func TestCredentialPreview_UserEnvironmentArraysHideLiteralsAndPreserveWrites(t 
 			t.Fatal("accepted native environment arrays failed to preview")
 		}
 		if strings.Contains(out+warnings, "PREVIEW_SECRET_2021_") {
-			t.Errorf("user environment preview %v leaked literal array values", args)
+			t.Errorf("user-level environment preview %v leaked literal array values", args)
 		}
 		if !strings.Contains(out, "${TOKEN}") || !strings.Contains(out, "opus") {
-			t.Errorf("user environment preview %v lost reference or ordinary model", args)
+			t.Errorf("user-level environment preview %v lost reference or ordinary model", args)
 		}
 		if args[len(args)-1] == "--json" && !json.Valid([]byte(out)) {
-			t.Error("user environment plan is not valid JSON")
+			t.Error("user-level environment plan is not valid JSON")
 		}
 		assertProjectUnchanged(t, before, snapshotProject(t, home))
 	}
@@ -420,20 +420,20 @@ func TestCredentialPreview_UserEnvironmentArraysHideLiteralsAndPreserveWrites(t 
 	for key, expected := range map[string]string{"args": "PREVIEW_SECRET_2021_OPAQUE", "command": "PREVIEW_SECRET_2021_COMMAND", "referenced": "${TOKEN}"} {
 		values, ok := env[key].([]any)
 		if !ok || len(values) != 1 || values[0] != expected {
-			t.Errorf("user write changed accepted native environment array %s", key)
+			t.Errorf("user-level write changed accepted native environment array %s", key)
 		}
 	}
 	var state userState
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
-		t.Fatal("decode user environment ownership")
+		t.Fatal("decode user-level environment ownership")
 	}
 	for _, key := range []string{"args", "command", "referenced"} {
 		if !sameSetting(state.Settings["claude"]["env."+key], env[key]) {
-			t.Errorf("user ownership changed raw environment array %s", key)
+			t.Errorf("user-level ownership changed raw environment array %s", key)
 		}
 	}
 	if _, _, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
-		t.Error("user check after environment write failed")
+		t.Error("user-level check after environment write failed")
 	}
 }
 

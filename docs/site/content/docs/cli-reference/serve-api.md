@@ -43,7 +43,7 @@ The routes below are the full reference. Edit and impact requests take JSON.
 Takes no input.
 
 - Returns `ok`, absolute `root`, `global`, `ui` (whether the web interface is served), and `version` (as `agnostic-ai --version` prints it). It does not load specs.
-- A user server started in a project adds that project's absolute `projectRoot`.
+- A user-level server started in a project adds that project's absolute `projectRoot`.
 - When the config sets [`requires`](@/docs/configuration.md#requires), it adds `requires` as written and `requiresMet`: `true` or `false`, or `null` for a build that is not a release. It reads both on each request.
 - While a conversation list is being read, it adds `scanningSince`: when that read began, in RFC 3339. The companion replaces a server whose read has run for over two minutes.
 
@@ -51,9 +51,9 @@ Takes no input.
 
 Body: `{}` with `Content-Type: application/json`. Any field is a 400.
 
-- Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a user server.
+- Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a user-level server.
 - Returns `url`, `root`, `global`, and `started`.
-- Answers 404 on a user server with no `projectRoot`.
+- Answers 404 on a user-level server with no `projectRoot`.
 - Answers 409 with `{error, missing, root}` and no server when the user configuration folder has no setup.
 - Answers 503 with the command to run when no server could start.
 
@@ -189,7 +189,7 @@ These return 409:
 - A hook script the destination already holds with other content.
 - A skill the destination would read differently (under another skill's folder, or over a folder of other skills).
 - A project server whose user setup does not exist yet. The reply carries `missing: true` and `root`.
-- A user server that knows no project.
+- A user-level server that knows no project.
 
 These return 422:
 
@@ -219,7 +219,7 @@ Body: `{action, audience, path?, protected, before?, expected?}`.
 - `before` is the selected audience's own block as shown, or `null`. A mismatch returns 409.
 - Preview returns `schemaVersion: "protected-edit/v1"`, `file`, `audience`, `before`, `protected`, `diff`, `expected`, and `syncCommand`, plus `cleared: true` when the file sets `protected: null`, which `protected: null` in the request removes.
 - Apply works as for `/api/edit/permissions`.
-- The user server returns 400, because `sync --scope user` does not write protected paths.
+- The user-level server returns 400, because `sync --scope user` does not write protected paths.
 
 ## `POST /api/edit/field`
 
@@ -236,7 +236,7 @@ Body: `{audience, path?, key, target?, value, expected?}` for `model`, `effort`,
 - `expected` is the value the page showed at that address in the file being written, or `null` if that file did not set it.
 - If the file now holds another value, or a personal file now sets that address for a shared save, the answer is 409 and nothing is written.
 - A file that already holds the new value counts as saved.
-- Voice values are a boolean for `voice.enabled`, `hold` or `tap` for `voice.mode`, and a non-empty string for `voice.language`. Only the user view and target `all` are accepted.
+- Voice values are a boolean for `voice.enabled`, `hold` or `tap` for `voice.mode`, and a non-empty string for `voice.language`. Only the user-level view and target `all` are accepted.
 - For voice, `null` clears one member, removing an empty `voice` map.
 
 ## `GET /api/changes/builtin`

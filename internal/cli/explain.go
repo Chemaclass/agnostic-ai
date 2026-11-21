@@ -84,7 +84,7 @@ func newExplainCmd() *cobra.Command {
   # Which sources replace or extend a spec
   agnostic-ai explain rules/conventional-commits.md --layers
 
-  # Where sync --scope user places a user spec, per target
+  # Where sync --scope user places a user-level spec, per target
   agnostic-ai explain --scope user settings/defaults.yaml
 
   # Look up an error code

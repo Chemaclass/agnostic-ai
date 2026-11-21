@@ -111,7 +111,7 @@ func TestCodebuddy_UserUnsupportedServerDoesNotDeleteManagedEntries(t *testing.T
 		t.Fatal("unsupported disabled server enabled or removed")
 	}
 	if got := readFile(t, path); got != before {
-		t.Errorf("invalid renderer changed user servers: %s", got)
+		t.Errorf("invalid renderer changed user-level servers: %s", got)
 	}
 }
 func TestCodebuddy_ImportUserUsesLegacyAndPreservesNativeMCPExtras(t *testing.T) {

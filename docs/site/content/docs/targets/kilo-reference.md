@@ -12,12 +12,12 @@ group = "Reference"
 
 Start with the [Kilo setup](@/docs/targets/kilo.md). For home configuration and ownership, see [user configuration](@/docs/global-configuration.md).
 
-## Shell commands in user skills {#shell-commands-in-global-skills}
+## Shell commands in user-level skills {#shell-commands-in-global-skills}
 
 `sync --scope user` writes skills to `~/.kilo/skills/`. Kilo supports inline `` !`command` `` placeholders there and in its trusted `~/.agents/skills/` and `~/.claude/skills/` directories ([shell commands in skills](https://kilo.ai/docs/customize/skills#shell-commands-in-skills)).
 
 - Kilo asks for approval on load. `KILO_DISABLE_SKILL_SHELL` disables execution.
-- Project and remote skills never execute them. A custom output directory is not trusted just because its source is global.
+- Project and remote skills never execute them. A custom output directory is not trusted just because its source is user-level.
 - The sync check accepts only inline placeholders at those user paths.
 - `$ARGUMENTS`, positional arguments, and Claude's ` ```! ` blocks stay unsupported.
 - Placeholders in ordinary code blocks are examples.

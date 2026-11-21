@@ -40,7 +40,7 @@ var userNameWinners = map[spec.Kind]map[string]bool{
 	spec.KindAgent: {"claude": false},
 }
 
-// userNameClash is a project spec whose name a user spec also uses,
+// userNameClash is a project spec whose name a user-level spec also uses,
 // with the targets where each copy wins.
 type userNameClash struct {
 	project     spec.Entry
@@ -80,7 +80,7 @@ func (c userNameClash) message() string {
 	}
 	if c.content == contentIdentical {
 		if c.project.Layer == layerNameBuiltin {
-			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom user copy and run `agnostic-ai sync --scope user`, or remove %s from the project's builtins list", c.head(), userLevel, c.project.Name)
+			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom user-level copy and run `agnostic-ai sync --scope user`, or remove %s from the project's builtins list", c.head(), userLevel, c.project.Name)
 		}
 		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the user-level one", c.head(), userLevel)
 	}
@@ -382,7 +382,7 @@ func reportUserNameClashes(cmd *cobra.Command, b spec.Bundle, cfg *config.Config
 		return
 	}
 	cmd.Println()
-	cmd.Println("User names:")
+	cmd.Println("Names shared with the user level:")
 	for _, c := range clashes {
 		if by := c.silencedBy(cfg.Sync); by != "" {
 			cmd.Printf("  ~ %s\n", c.silenced(by))

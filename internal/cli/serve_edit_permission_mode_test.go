@@ -32,7 +32,7 @@ func permissionModeIn(t *testing.T, file string) any {
 	return perms["default-mode"]
 }
 
-// userModeHandler is the user view over a user configuration with
+// userModeHandler is the user-level view over a user configuration with
 // Claude as its only tool, and the home sync --scope user writes into.
 func userModeHandler(t *testing.T, settings string) (*editHandler, string, string) {
 	t.Helper()
@@ -136,7 +136,7 @@ func TestPermissionModeEdit_ProjectRefusesBecauseOnlyUserSyncWritesIt(t *testing
 	h := targetProject(t, "name: defaults\n")
 	for _, audience := range []string{"shared", "personal"} {
 		code, body := permissionModeRequest(t, h, map[string]any{"audience": audience, "value": "plan"})
-		if code != http.StatusBadRequest || !strings.Contains(body, "user sync only") {
+		if code != http.StatusBadRequest || !strings.Contains(body, "user-level sync only") {
 			t.Errorf("%s = %d %s", audience, code, body)
 		}
 	}

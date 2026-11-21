@@ -137,7 +137,7 @@ func TestEditTargets_UserWritesTheHomeConfigAndRefusesProjectOnlyTools(t *testin
 		t.Fatalf("enable = %d %s", rec.Code, rec.Body)
 	}
 	data, _ := os.ReadFile(source + "/agnostic-ai.yaml")
-	if !strings.Contains(string(data), "# User targets.") || !strings.Contains(string(data), "- codex") {
+	if !strings.Contains(string(data), "# User-level targets.") || !strings.Contains(string(data), "- codex") {
 		t.Errorf("after enabling:\n%s", data)
 	}
 	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"ellipsis","enabled":true,"expected":false}`, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --scope user cannot write") {

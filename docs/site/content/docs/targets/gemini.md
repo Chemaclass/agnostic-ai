@@ -85,7 +85,7 @@ Gemini CLI edits its own memory files and cannot be stopped, so it would save te
 | --- | --- |
 | Project instructions: team conventions, architecture rules, workflows | `.agnostic-ai/memory/`, after you confirm, not `GEMINI.md` |
 | Private project memory: your machine and local setup | `~/.gemini/tmp/<project>/memory/`, plus a copy in your personal memory folder |
-| User personal memory: preferences for every project | `~/.gemini/GEMINI.md`, outside the block `sync --scope user` writes, plus a copy in your personal memory folder |
+| Personal memory for every project: your preferences | `~/.gemini/GEMINI.md`, outside the block `sync --scope user` writes, plus a copy in your personal memory folder |
 
 {% <details summary="Details: copies, edits, shared files"> %}
 - The copies let other tools read what Gemini CLI saves.

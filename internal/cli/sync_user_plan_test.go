@@ -190,7 +190,7 @@ func TestSyncUser_PlanMarksHandEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
-	if !strings.Contains(out, "conflict: edited since the last user sync") {
+	if !strings.Contains(out, "conflict: edited since the last user-level sync") {
 		t.Errorf("plan must mark the hand edit:\n%s", out)
 	}
 }

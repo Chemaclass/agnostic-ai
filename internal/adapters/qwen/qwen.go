@@ -31,7 +31,7 @@ const (
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindCommand, spec.KindMCP, spec.KindHook, spec.KindSettings, spec.KindIgnore},
-	// EmitAgents notes permissionMode itself, on the user path too.
+	// EmitAgents notes permissionMode itself, on the user-level path too.
 	SettingsFields:    []string{"effort"},
 	AgentFields:       []string{"maxTurns", "background", "hooks", "permissionMode"},
 	SkillFields:       emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},

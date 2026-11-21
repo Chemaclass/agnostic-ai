@@ -90,7 +90,7 @@ func TestAddUserSkill_LinkedSourceCopiesNestedAsset(t *testing.T) {
 		t.Errorf("user SKILL.md missing rendered body: %s", files["native/demo/SKILL.md"])
 	}
 	if _, ok := files["native/demo/nested-link/outside.txt"]; ok {
-		t.Error("user sync traversed a nested directory link")
+		t.Error("user-level sync traversed a nested directory link")
 	}
 }
 

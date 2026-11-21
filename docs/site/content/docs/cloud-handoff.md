@@ -76,4 +76,4 @@ agnostic-ai explain builtin:cloud-handoff
 agnostic-ai why .claude/skills/cloud-handoff/SKILL.md
 ```
 
-To replace the built-in, add a project skill named `cloud-handoff`; it wins. A user copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).
+To replace the built-in, add a project skill named `cloud-handoff`; it wins. A user-level copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).

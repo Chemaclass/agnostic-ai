@@ -136,7 +136,7 @@ Several settings files merge. Permission lists are joined in source order with d
 Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude-reference.md#claude-settings)).
 
 <details>
-<summary>Details: compare and user sync</summary>
+<summary>Details: compare and user-level sync</summary>
 
 - `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, output prerequisites, and that `permissions.default-mode` is written only by `sync --scope user`. It does not compare other settings fields.
 - `sync --scope user` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` lists. See [default model and effort](@/docs/global-configuration-reference.md#global-default-model-and-effort).
@@ -151,7 +151,7 @@ Run `agnostic-ai ui` in a project, or `agnostic-ai ui --scope user` for user set
 <summary>Details: which file it writes, what it cannot edit</summary>
 
 - A single-tool value writes `model.<tool>` or `effort.<tool>`.
-- Only the user view edits `session-retention-days`.
+- Only the user-level view edits `session-retention-days`.
 - The first save creates `settings/defaults.yaml` when no settings spec exists; with several, choose the file.
 - `x-*` keys, nested values, and a `model` that names a model tier need the source file.
 - A personal value for one tool writes only that tool's entry; the shared value still reaches the other tools (see [local overrides](@/docs/local-overrides.md)).

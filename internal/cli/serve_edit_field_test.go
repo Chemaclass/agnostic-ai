@@ -150,10 +150,10 @@ func TestEditField_UserRetention(t *testing.T) {
 	source := editHome(t)
 	h := newEditHandler(source, true)
 	if rec := postEdit(t, h, editFieldPath, `{"audience":"shared","key":"session-retention-days","value":7}`, nil); rec.Code != 200 {
-		t.Fatalf("user retention = %d %s", rec.Code, rec.Body)
+		t.Fatalf("user-level retention = %d %s", rec.Code, rec.Body)
 	}
 	if data, err := os.ReadFile(filepath.Join(source, "settings", "native.yaml")); err != nil || !strings.Contains(string(data), "session-retention-days: 7") {
-		t.Fatalf("user spec = %s %v", data, err)
+		t.Fatalf("user-level spec = %s %v", data, err)
 	}
 }
 

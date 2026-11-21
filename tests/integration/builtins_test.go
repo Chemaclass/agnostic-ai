@@ -411,14 +411,14 @@ func TestBuiltinHandoff(t *testing.T) {
 		dir := t.TempDir()
 		run(t, dir, "sync", "--scope", "user")
 		if _, err := os.Stat(filepath.Join(home, paths[0])); err != nil {
-			t.Errorf("user skill missing: %v", err)
+			t.Errorf("user-level skill missing: %v", err)
 		}
 		for _, args := range [][]string{{"list", "--scope", "user"}, {"explain", "builtin:handoff", "--scope", "user"}} {
 			if out := run(t, dir, args...); !strings.Contains(out, "builtin:handoff (agnostic-ai v0.80.0)") {
 				t.Errorf("%v missing user provenance: %s", args, out)
 			}
 			if out := run(t, dir, append(args, "--json")...); !json.Valid([]byte(out)) || !strings.Contains(out, `"builtin"`) || !strings.Contains(out, `"path": ""`) {
-				t.Errorf("%v missing user JSON provenance: %s", args, out)
+				t.Errorf("%v missing user-level JSON provenance: %s", args, out)
 			}
 		}
 	})

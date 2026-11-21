@@ -19,7 +19,7 @@ import (
 func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr fieldAddress, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
 	if !h.userLevel {
-		return "", nil, errors.New("permissions.default-mode applies through user sync only; set it in user settings (agnostic-ai ui --scope user)")
+		return "", nil, errors.New("permissions.default-mode applies through user-level sync only; set it in user-level settings (agnostic-ai ui --scope user)")
 	}
 	if addr.target != "" {
 		return "", nil, errors.New("the default permission mode has no per-tool value; send target all")
@@ -67,7 +67,7 @@ type shadowedFieldError struct{ error }
 
 // checkPermissionModeShadow refuses a mode save into file when a settings
 // spec that loads later sets the mode for any tool that applies it, since
-// user sync writes the last value for each tool.
+// user-level sync writes the last value for each tool.
 func (h *editHandler) checkPermissionModeShadow(file, key string) error {
 	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {

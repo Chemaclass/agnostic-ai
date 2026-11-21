@@ -26,7 +26,7 @@ Give each affected batch each target's baseline and changed paths: `git diff --n
 
 ## What to check per target
 
-For a skill: the tool still loads it from the path we write, accepts the emitted frontmatter and invokes it as documented. Check supported project and global installations in isolated temporary sources. User paths that agnostic-ai already emits are in scope; unrelated user preferences remain outside it.
+For a skill: the tool still loads it from the path we write, accepts the emitted frontmatter and invokes it as documented. Check supported project and global installations in isolated temporary sources. User-level paths that agnostic-ai already emits are in scope; unrelated user preferences remain outside it.
 
 For a hook, check each item against the target's own vendor page:
 
@@ -34,7 +34,7 @@ For a hook, check each item against the target's own vendor page:
 - Execution: whether the tool waits for the hook or runs it asynchronously, and its timeout.
 - Launcher: the shell or interpreter the tool uses, and how the command string is passed.
 - Output routing: where stdout and stderr go, and whether a JSON reply is required, parsed, or shown to the user or the model.
-- Configuration scope: check the supported project and user files we write, their precedence, the launch directory and project-root discovery. Verify session identity and isolation between projects.
+- Configuration scope: check the supported project and user-level files we write, their precedence, the launch directory and project-root discovery. Verify session identity and isolation between projects.
 - Required settings: any flag, feature gate, or trust prompt that must be set before the hook runs.
 
 ## Classify

@@ -123,7 +123,7 @@ Choice [0]:
 - Use option 4 for another tool.
 - Enter or `0` exits without action.
 - Every option keeps the original error status and does not rerun the failed command, so `agnostic-ai sync && git push` stops either way. Review the changes and rerun your command after the fix.
-- The menu is skipped for redirected input or output, CI, quiet or JSON output, user commands, checks, previews, watch mode, hooks, and editor services.
+- The menu is skipped for redirected input or output, CI, quiet or JSON output, user-level commands, checks, previews, watch mode, hooks, and editor services.
 
 </details>
 

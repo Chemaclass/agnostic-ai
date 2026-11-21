@@ -15,7 +15,7 @@ import (
 
 func TestGuidedUpgrade_RejectsLinkedWritableSpecLayersBeforeOfferAndLock(t *testing.T) {
 	setRunningVersion(t, "v0.81.0")
-	for _, name := range []string{"external local", "user local", "external source", "user source", "nested user local", "nested user source"} {
+	for _, name := range []string{"external local", "user-level local", "external source", "user source", "nested user-level local", "nested user source"} {
 		t.Run(name, func(t *testing.T) {
 			root := testutil.TempCwd(t)
 			outside := t.TempDir()
@@ -196,7 +196,7 @@ func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedUserHome(t *testing.T) {
 				t.Fatal(err)
 			}
 			if len(changes) != 1 {
-				t.Fatalf("user agent migration candidates=%d, want one", len(changes))
+				t.Fatalf("user-level agent migration candidates=%d, want one", len(changes))
 			}
 			deps := defaultGuidedUpgradeDeps()
 			deps.check = func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.82.0"}, nil }
@@ -211,16 +211,16 @@ func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedUserHome(t *testing.T) {
 			cmd.SetOut(&out)
 			handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
 			if handled || err != nil || installed || input.reads != 0 {
-				t.Errorf("user entry offered upgrade: handled=%v err=%v installed=%v reads=%d", handled, err, installed, input.reads)
+				t.Errorf("user-level entry offered upgrade: handled=%v err=%v installed=%v reads=%d", handled, err, installed, input.reads)
 			}
 			if !strings.Contains(out.String(), "user specs") || strings.Contains(out.String(), "[Y/n]") {
 				t.Errorf("unsafe offer: %s", out.String())
 			}
 			if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
-				t.Error("user entry reconciled")
+				t.Error("user-level entry reconciled")
 			}
 			if _, err := os.Stat(filepath.Join(root, ".agnostic-ai", projectLockName)); !os.IsNotExist(err) {
-				t.Errorf("user entry created project lock: %v", err)
+				t.Errorf("user-level entry created project lock: %v", err)
 			}
 			for path, want := range map[string]string{"agnostic-ai.yaml": originalConfig, target: originalAgent} {
 				data, err := os.ReadFile(path)
@@ -327,7 +327,7 @@ func TestGuidedUpgrade_RechecksEntryAliasIntoNestedUserBeforeLock(t *testing.T) 
 		t.Fatal(err)
 	}
 	if err := reconcileGuidedRequires(root, "0.82.0"); err == nil {
-		t.Error("user retargeted entry reconciled")
+		t.Error("user-level retargeted entry reconciled")
 	}
 	if _, err := os.Stat(filepath.Join(root, ".agnostic-ai", projectLockName)); !os.IsNotExist(err) {
 		t.Errorf("unsafe reconciliation created lock: %v", err)
@@ -337,7 +337,7 @@ func TestGuidedUpgrade_RechecksEntryAliasIntoNestedUserBeforeLock(t *testing.T) 
 		t.Fatal(err)
 	}
 	if string(data) != agent {
-		t.Errorf("user agent changed: %s", data)
+		t.Errorf("user-level agent changed: %s", data)
 	}
 }
 
@@ -408,7 +408,7 @@ func TestGuidedUpgrade_ShadowedUserMCPRemainsWritableToRawPlanner(t *testing.T) 
 		t.Fatal(err)
 	}
 	if len(bundle.MCPs) != 1 || bundle.MCPs[0].Path != local {
-		t.Fatalf("local override did not shadow user MCP: %+v", bundle.MCPs)
+		t.Fatalf("local override did not shadow user-level MCP: %+v", bundle.MCPs)
 	}
 	plan, err := planMCPLiterals(projectMigrationScope(root))
 	if err != nil {
@@ -432,7 +432,7 @@ func TestGuidedUpgrade_ShadowedUserMCPRemainsWritableToRawPlanner(t *testing.T) 
 		t.Fatal(err)
 	}
 	if string(data) != original {
-		t.Errorf("user MCP changed: %s", data)
+		t.Errorf("user-level MCP changed: %s", data)
 	}
 }
 

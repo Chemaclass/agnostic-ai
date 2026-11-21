@@ -10,7 +10,7 @@
 // vendor doc's own glob example is a single, non-recursive `*.md`, so
 // a lone glob entry would silently miss anything scoped. Kilo Code's
 // own precedence order is agent prompt > project `instructions` >
-// AGENTS.md > user (agents-md.md). AGENTS.md "cannot be individually
+// AGENTS.md > global (agents-md.md). AGENTS.md "cannot be individually
 // disabled: it is always loaded if present" (agents-md.md), and `sync`
 // inlines every unscoped rule body there (see inlineRulesTargets in
 // internal/adapters/internal/emit/rules_appendix.go). A rule file for

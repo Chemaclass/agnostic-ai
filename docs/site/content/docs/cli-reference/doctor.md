@@ -71,7 +71,7 @@ On a fresh CI runner, run `agnostic-ai doctor --checks project --check-reference
 | **Script divergence** | Same-named hook scripts with different bodies across tools. | Yes, no automatic fix |
 | **Unmanaged config** | Markdown and TOML config with no generated-file marker, a `.cursor/mcp.json` that names a server no spec has, and files sync never writes (such as `.cursorrules` or `.github/prompts/*.prompt.md`) until import has written their spec, and an OpenCode or Copilot original while sync writes a copy the tool also loads. Grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
-| **User names** | A project skill or agent sharing a name with one in `~/.agnostic-ai/`, and which wins per tool. | Never |
+| **Names shared with the user level** | A project skill or agent sharing a name with one in `~/.agnostic-ai/`, and which wins per tool. | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. | Never |
 | **Claude skill overrides** | Synced skills that Claude settings turn off or hide. See [below](#claude-skill-overrides). | Never |
 
@@ -82,7 +82,7 @@ On a fresh CI runner, run `agnostic-ai doctor --checks project --check-reference
 - Claude hook specs: with `claude` enabled, doctor flags a spec with several commands that `.claude/settings.json` already runs in one group with different settings, as an older `import claude` wrote it. To fix it, delete the spec, run `sync`, then run `import claude`.
 - Nested CLAUDE.md: the file equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code would load it beside the synced rule.
 - Script divergence: scripts under `.agnostic-ai/scripts/<tool>/`. Doctor suggests the path `.agnostic-ai/scripts/<basename>`.
-- User names: a name in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration-reference.md#global-shared-names).
+- Names shared with the user level: a name in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration-reference.md#global-shared-names).
 {% </details> %}
 
 ## Check skill links {#check-references}

@@ -321,11 +321,11 @@ func TestUserSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
 	}
 	for _, want := range []string{path, "update `requires`", "0.77.0"} {
 		if !strings.Contains(err.Error(), want) {
-			t.Errorf("user advice misses %q: %v", want, err)
+			t.Errorf("user-level advice misses %q: %v", want, err)
 		}
 	}
 	if strings.Contains(err.Error(), "upgrade --requires") || strings.Contains(err.Error(), "upgrade --version") {
-		t.Errorf("user advice must name a manual home-config reconciliation: %v", err)
+		t.Errorf("user-level advice must name a manual home-config reconciliation: %v", err)
 	}
 }
 
@@ -404,7 +404,7 @@ func TestListUser_WarnsOnUnparsableHomeConfig(t *testing.T) {
 		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)
 	}
 	if !strings.Contains(out, "rule\tsafe\tuser") {
-		t.Errorf("expected the user rule listed, got:\n%s", out)
+		t.Errorf("expected the user-level rule listed, got:\n%s", out)
 	}
 }
 

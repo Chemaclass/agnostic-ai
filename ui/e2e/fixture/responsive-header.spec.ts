@@ -14,7 +14,7 @@ test('keeps the project path under its name and the configuration switch in the 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/?view=context&tab=rules')
   const header = page.locator('.topbar')
-  await expect(header.getByRole('button', { name: 'Open user settings' })).toHaveCount(0)
+  await expect(header.getByRole('button', { name: 'Open user-level settings' })).toHaveCount(0)
   await expect(header.locator('.project-root')).toHaveText('/tmp/agnostic-ai')
   const title = (await header.locator('.project-title').boundingBox())!
   const path = (await header.locator('.project-root').boundingBox())!
@@ -22,7 +22,7 @@ test('keeps the project path under its name and the configuration switch in the 
   expect(path.x + path.width).toBeLessThanOrEqual((await page.locator('.rail').boundingBox())!.width)
 
   const footer = page.locator('.sidenav-footer')
-  const configuration = footer.getByRole('button', { name: 'Open user settings' })
+  const configuration = footer.getByRole('button', { name: 'Open user-level settings' })
   await expect(configuration).toBeInViewport({ ratio: 1 })
   const badge = (await footer.locator('.release-badge').boundingBox())!
   expect((await configuration.boundingBox())!.y).toBeLessThan(badge.y)
@@ -48,7 +48,7 @@ test('keeps the configuration switch reachable from the phone Menu', async ({ pa
     })).toBe(1)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
     const menu = await openMenu(page)
-    const configuration = menu.getByRole('button', { name: 'Open user settings' })
+    const configuration = menu.getByRole('button', { name: 'Open user-level settings' })
     await expect(configuration).toBeInViewport({ ratio: 1 })
     expect((await configuration.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     await page.keyboard.press('Escape')
@@ -92,7 +92,7 @@ test('opens the user setup panel from the rail above the page and returns focus 
   await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no user setup at ${root}`, missing: true, root } }))
   await page.setViewportSize({ width: 1280, height: 500 })
   await page.goto('/?view=settings')
-  const configuration = page.locator('.sidenav').getByRole('button', { name: 'Open user settings' })
+  const configuration = page.locator('.sidenav').getByRole('button', { name: 'Open user-level settings' })
   const panel = page.getByRole('dialog', { name: 'No user setup yet' })
 
   for (const close of ['Escape', 'Cancel'] as const) {
@@ -120,7 +120,7 @@ test('closes only the user setup panel on Escape inside the phone Menu', async (
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/?view=settings')
   const menu = await openMenu(page)
-  const configuration = menu.getByRole('button', { name: 'Open user settings' })
+  const configuration = menu.getByRole('button', { name: 'Open user-level settings' })
   await configuration.click()
   const panel = page.getByRole('dialog', { name: 'No user setup yet' })
   await expect(panel).toBeVisible()

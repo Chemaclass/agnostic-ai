@@ -122,7 +122,7 @@ describe('setup health', () => {
     expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the project or user configuration:\n\n1\. Lifecycle: prepare/)
   })
 
-  it('counts user findings and lists them apart from the project findings, with the section page link ids', () => {
+  it('counts user-level findings and lists them apart from the project findings, with the section page link ids', () => {
     const overview = view([section('settings', 5, [], [sectionError, userWarning])])
     expect(countFindings(overview)).toMatchObject({ errors: 1, warnings: 1 })
     const ids = findingEntryIds([sectionError, userWarning])
@@ -158,7 +158,7 @@ describe('setup health', () => {
     expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
   })
 
-  it('counts a user finding once beside the gaps, which stay out of the counts', () => {
+  it('counts a user-level finding once beside the gaps, which stay out of the counts', () => {
     const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
     const overview = { ...view([section('settings', 5, [], [userWarning])]), health: { gaps: [skills] } }
     expect(countFindings(overview)).toMatchObject({ errors: 0, warnings: 1 })

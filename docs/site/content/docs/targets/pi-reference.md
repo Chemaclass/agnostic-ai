@@ -57,9 +57,9 @@ Entries live under `mcpServers` in `.pi/mcp.json` ([Pi MCP](https://github.com/e
 `agnostic-ai sync --scope user -t pi` writes instructions, skills, MCP, and settings under `~/.pi/agent/`. See [user configuration](@/docs/global-configuration.md).
 
 - `PI_CODING_AGENT_DIR` replaces the whole agent directory.
-- Global HTTP MCP entries also keep `x-pi.auth: {provider: radius}`. Pi limits provider auth to user `mcp.json` and extensions ([release reference](https://github.com/earendil-works/pi/releases/tag/v0.99.2)), so project output omits it.
+- User-level HTTP MCP entries also keep `x-pi.auth: {provider: radius}`. Pi limits provider auth to user `mcp.json` and extensions ([release reference](https://github.com/earendil-works/pi/releases/tag/v0.99.2)), so project output omits it.
 - Existing `x-pi.oauth` stays separate.
-- User import scopes `auth` under `x-pi`, so equal native entries can be adopted without rewriting user content.
+- User-level import scopes `auth` under `x-pi`, so equal native entries can be adopted without rewriting user content.
 
 ## Config keys
 

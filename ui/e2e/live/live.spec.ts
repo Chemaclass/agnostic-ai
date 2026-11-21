@@ -150,7 +150,7 @@ async function voiceScreenshot(page: Page, path: string) {
   await page.screenshot({ path, fullPage: true, animations: 'disabled' })
 }
 
-test('live user voice saves false, mode and language, then removes its empty scaffold', async ({ page }, testInfo) => {
+test('live user-level voice saves false, mode and language, then removes its empty scaffold', async ({ page }, testInfo) => {
   const f = await fixture(true)
   try {
     await rm(f.settings)
@@ -285,15 +285,15 @@ test('live Authority previews source changes, saves rules, and applies them on t
   } finally { await f.close() }
 })
 
-test('live Authority sets protected paths, keeps a project deny for a local block, and leaves the mode to user settings', async ({ page }) => {
+test('live Authority sets protected paths, keeps a project deny for a local block, and leaves the mode to user-level settings', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     const original = '# Shared settings.\nname: native\npermissions:\n    deny: [edit(.env)] # Keep this rule.\nx-claude:\n    verbose: false\n'
     await put(f.settings, original)
     await page.goto(`${f.url}?view=authority`)
     const mode = alsoRow(page, 'Default permission mode')
-    await expect(mode).toContainText('Applies through user sync only. Set it in user settings.')
-    await expect(mode.getByRole('button', { name: 'Open user settings', exact: true })).toBeVisible()
+    await expect(mode).toContainText('Applies through user-level sync only. Set it in user-level settings.')
+    await expect(mode.getByRole('button', { name: 'Open user-level settings', exact: true })).toBeVisible()
     await expect(mode.getByRole('combobox')).toHaveCount(0)
 
     const guarded = alsoRow(page, 'Protected paths')
@@ -427,7 +427,7 @@ test('live Authority adds, edits, and resets the first local protected block wit
   } finally { await f.close() }
 })
 
-test('live user Authority sets the default permission mode and user sync writes it for Claude', async ({ page }) => {
+test('live user Authority sets the default permission mode and user-level sync writes it for Claude', async ({ page }) => {
   const f = await fixture(true)
   try {
     await page.goto(`${f.url}?view=authority`)
@@ -1700,7 +1700,7 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
   } finally { await f.close() }
 })
 
-test('live user voice explains a whole personal clear and refuses member edits', async ({ page, request }) => {
+test('live user-level voice explains a whole personal clear and refuses member edits', async ({ page, request }) => {
   const f = await fixture(true)
   try {
     const shared = 'name: native\nvoice:\n  enabled: true\n  mode: hold\n  language: es\n'
@@ -1724,7 +1724,7 @@ test('live user voice explains a whole personal clear and refuses member edits',
   } finally { await f.close() }
 })
 
-test('live user voice edits comment-only and whitespace-only settings without losing bytes', async ({ request }) => {
+test('live user-level voice edits comment-only and whitespace-only settings without losing bytes', async ({ request }) => {
   const f = await fixture(true)
   try {
     await rm(f.localSettings)
@@ -1739,7 +1739,7 @@ test('live user voice edits comment-only and whitespace-only settings without lo
   } finally { await f.close() }
 })
 
-test('live user voice edits an independent spec beside a personal clear', async ({ page }) => {
+test('live user-level voice edits an independent spec beside a personal clear', async ({ page }) => {
   const f = await fixture(true)
   try {
     await rm(f.settings)

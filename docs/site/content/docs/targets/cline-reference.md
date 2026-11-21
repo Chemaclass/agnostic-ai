@@ -79,13 +79,13 @@ Cline's workflows doc page now redirects to the [rules page](https://docs.cline.
 | `outputs.cline.hooks-dir` | `.clinerules/hooks` | the VS Code extension reads only `.clinerules/hooks`; the Cline CLI also reads `.cline/hooks` |
 | `outputs.cline.workflows-dir` | empty | opt-in; set it to `.clinerules/workflows`, the only path both hosts read |
 
-## User hooks {#global-hooks}
+## User-level hooks {#global-hooks}
 
-`agnostic-ai sync --scope user --only cline` writes one executable `~/.cline/hooks/<Event>` for each event in the user hook specs. `CLINE_DIR` moves that root. Commands for the same event share one script. Shared command bodies and portable wrappers live in `~/.cline/hook-scripts/`, outside the hook discovery folder.
+`agnostic-ai sync --scope user --only cline` writes one executable `~/.cline/hooks/<Event>` for each event in the user-level hook specs. `CLINE_DIR` moves that root. Commands for the same event share one script. Shared command bodies and portable wrappers live in `~/.cline/hook-scripts/`, outside the hook discovery folder.
 
-These user hooks run in the Cline SDK and CLI. The VS Code extension reads user hooks from the system Documents folder's `Cline/Hooks/`, which sync does not write. The [config reference](https://docs.cline.bot/getting-started/config) lists both locations; the [SDK path resolver](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/storage/paths.ts) and [extension loader](https://github.com/cline/cline/blob/main/apps/vscode/src/core/storage/disk.ts) show the reader difference.
+These user-level hooks run in the Cline SDK and CLI. The VS Code extension reads its own global hooks from the system Documents folder's `Cline/Hooks/`, which sync does not write. The [config reference](https://docs.cline.bot/getting-started/config) lists both locations; the [SDK path resolver](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/storage/paths.ts) and [extension loader](https://github.com/cline/cline/blob/main/apps/vscode/src/core/storage/disk.ts) show the reader difference.
 
-User sync preserves unrelated event files and stops on a conflicting hand-written event file. Removing a user spec removes its unchanged generated script. `import --scope user cline` does not import hook scripts.
+User-level sync preserves unrelated event files and stops on a conflicting hand-written event file. Removing a user-level spec removes its unchanged generated script. `import --scope user cline` does not import hook scripts.
 
 ## Import
 
@@ -106,7 +106,7 @@ Cline still reads a single-file `.clinerules`. It imports as one rule, `clinerul
 
 The `memory` builtin adds a project TaskStart hook that returns the existing memory indexes as `contextModification`. Cline VS Code waits up to 30 seconds, uses the workspace root as the working directory, and adds that text when the hook does not cancel. This needs Cline for VS Code 4.1.20 or later; earlier versions drop the text. The shared memory rule remains available when hooks are disabled. The default SDK and CLI TaskStart hooks remain detached and add no context.
 
-`x-cline.runtime: vscode` marks this project surface and prevents global SDK hook emission. The marker appears only in portable specs, not a vendor configuration file. On Windows, supply `commandWindows` for TaskStart to create the `.ps1` file the extension discovers. Existing hooks without this marker keep their outputs.
+`x-cline.runtime: vscode` marks this project surface and prevents user-level SDK hook emission. The marker appears only in portable specs, not a vendor configuration file. On Windows, supply `commandWindows` for TaskStart to create the `.ps1` file the extension discovers. Existing hooks without this marker keep their outputs.
 
 On Unix, `agnostic-ai hook run memory-cline-task-start --target cline --runtime vscode --format json` models the VS Code TaskStart payload, executable-file discovery, timeout, and reply. It runs the synced event file, including any siblings, and excludes a shared script from expectation checks. Windows diagnostics report not run because the extension's PowerShell installation resolver is not yet modeled. Default diagnostics continue to model the SDK.
 

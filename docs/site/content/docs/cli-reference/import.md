@@ -30,7 +30,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 `import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. An `import` that changes no spec says so instead of listing the sync steps. `import --scope user [targets]` reads your user config instead.
 
-{% <details summary="import all, entry files, and what user import reads"> %}
+{% <details summary="import all, entry files, and what user-level import reads"> %}
 
 - `import all` detects tools from config files and directories. A detected tool with no importer prints `skipping <tool>`. `all` cannot combine with other sources.
 - An entry file or skill folder that links outside the project is skipped with a `skipped <path>` note. When you name the tool (`import claude`), import follows an entry file link.
@@ -43,7 +43,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 {% </details> %}
 
 <details>
-<summary>User import rules</summary>
+<summary>User-level import rules</summary>
 
 - It leaves out anything a home spec provides, `local/` included. Existing specs stay, except for [voice additions](@/docs/spec-format/settings.md#voice-dictation) and new rules appended to `settings/permissions-claude.yaml`.
 - Permission rules come only from `permissions.allow`, `ask`, and `deny` in `~/.claude/settings.json`, never managed or project settings. Rules sync recorded there are left out. Rules with credentials or shell syntax it cannot inspect are left out with a warning.

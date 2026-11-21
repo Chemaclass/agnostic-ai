@@ -145,7 +145,7 @@ test('one scope choice changes every editor on the page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Local (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('names the user level and its local layer in the user view', async ({ page }) => {
+test('names the user level and its local layer in the user-level view', async ({ page }) => {
   const data = normalizeOverviewView(JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8')))
   data.global = true
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
@@ -155,7 +155,7 @@ test('names the user level and its local layer in the user view', async ({ page 
   const scope = page.locator('.edit-scope')
   await expect(scope.getByRole('button', { name: 'User (every project)', exact: true })).toHaveText('User')
   await expect(scope.getByRole('button', { name: 'Local (not committed)', exact: true })).toHaveText('Local')
-  await expect(scope.locator('.edit-scope-hint')).toHaveText('User files in ~/.agnostic-ai, used by every project. Local values win for you.')
+  await expect(scope.locator('.edit-scope-hint')).toHaveText('User-level files in ~/.agnostic-ai, used by every project. Local values win for you.')
   await scope.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
   await expect(scope.locator('.edit-scope-hint')).toHaveText('Local files in ~/.agnostic-ai/local, ignored by Git. Local values win.')
   await expect(scope).not.toContainText(/\b(shared|personal)\b/i)

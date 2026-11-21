@@ -77,7 +77,7 @@ func TestSyncUser_HookRootUsesRuntimeProject(t *testing.T) {
 		t.Fatal(canonicalErr)
 	}
 	if err != nil || string(output) != filepath.ToSlash(canonical) {
-		t.Errorf("user hook bound wrong root: command=%s result=%q err=%v want=%s", command, output, err, canonical)
+		t.Errorf("user-level hook bound wrong root: command=%s result=%q err=%v want=%s", command, output, err, canonical)
 	}
 }
 

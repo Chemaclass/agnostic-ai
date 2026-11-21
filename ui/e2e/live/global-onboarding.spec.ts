@@ -78,7 +78,7 @@ test('a project page offers to create the missing user setup and then opens it',
     })
 
     await page.goto(url)
-    await page.getByRole('button', { name: 'Open user settings' }).click()
+    await page.getByRole('button', { name: 'Open user-level settings' }).click()
 
     const panel = page.getByRole('dialog', { name: 'No user setup yet' })
     await expect(panel).toBeVisible()
@@ -89,7 +89,7 @@ test('a project page offers to create the missing user setup and then opens it',
     // The blank tab opened before the request is closed, so the panel is in the tab the user sees.
     await expect.poll(() => context.pages().length).toBe(1)
     await expect(panel.getByRole('button', { name: 'Create user setup' })).toBeFocused()
-    await expect(page.getByRole('button', { name: 'Open user settings' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Open user-level settings' })).toBeDisabled()
 
     const popup = page.waitForEvent('popup')
     await panel.getByRole('button', { name: 'Create user setup' }).click()

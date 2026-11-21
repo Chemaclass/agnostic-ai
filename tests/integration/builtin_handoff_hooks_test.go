@@ -126,7 +126,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 			}
 			if userLevel {
 				if !slices.Contains(state.Files, path) || state.Sums[path] == "" {
-					t.Errorf("user output ledger does not own %s", path)
+					t.Errorf("user-level output ledger does not own %s", path)
 				}
 			} else if !slices.Contains(state.Outputs, rel) || state.OutputSums[rel] == "" {
 				t.Errorf("project output ledger does not own %s", rel)
@@ -1159,16 +1159,16 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 		handoffAssertReply(t, "claude", handoffExecute(t, "claude", h, cwd, "{}", "foreign", ""), "")
 		if got := handoffRead(t, filepath.Join(dir, ".gitignore")); got != ignore {
-			t.Errorf("user hook changed .gitignore: %s", got)
+			t.Errorf("user-level hook changed .gitignore: %s", got)
 		}
 		if got := handoffRead(t, filepath.Join(dir, ".git", "info", "exclude")); got != exclude {
-			t.Errorf("user hook changed exclude: %s", got)
+			t.Errorf("user-level hook changed exclude: %s", got)
 		}
 		if got := handoffRead(t, filepath.Join(dir, ".agnostic-ai", "local", "HANDOFF.auto.md")); !strings.Contains(got, "tool: claude") {
 			t.Errorf("user snapshot = %s", got)
 		}
 		if _, err := os.Stat(filepath.Join(home, ".agnostic-ai", "local")); !os.IsNotExist(err) {
-			t.Errorf("user hook wrote home handoff: %v", err)
+			t.Errorf("user-level hook wrote home handoff: %v", err)
 		}
 	})
 

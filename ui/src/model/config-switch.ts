@@ -4,7 +4,7 @@ import { API, type UserCreateReply, type SwitchReply } from '../contract'
 export interface ServedConfig {
   root: string
   userLevel: boolean
-  /** The project a user server started in. */
+  /** The project a user-level server started in. */
   projectRoot?: string
   /** The agnostic-ai version that serves the page, as `--version` prints it. */
   version?: string
@@ -46,7 +46,7 @@ export function baseName(path: string): string {
 export function switchOffer(served: ServedConfig): SwitchOffer | undefined {
   if (!served.userLevel) {
     return {
-      label: 'Open user settings',
+      label: 'Open user-level settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
       command: 'agnostic-ai ui --scope user',
     }

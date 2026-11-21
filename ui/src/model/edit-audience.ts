@@ -8,8 +8,7 @@ export function readAudience(saved: string | null): EditAudience {
   return saved === 'personal' || saved === 'local' ? 'personal' : 'shared'
 }
 
-/** The level the page serves: a project, or the user setup in the home folder. */
-/** What people read for the level a page serves. */
+/** What people read for the level a page serves: a project, or the user setup in the home folder. */
 export function levelName(userLevel: boolean): 'project' | 'user' {
   return userLevel ? 'user' : 'project'
 }

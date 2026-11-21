@@ -100,7 +100,7 @@ func (s checkScope) migrationScope() migrationScope {
 }
 
 // loadCheckScope loads the project in the working directory, or the
-// user and user-local layers sync --scope user reads. The user scope
+// user-level and user-local layers sync --scope user reads. The user scope
 // checks against the targets a default sync --scope user writes, from the
 // home config or else every supported one, and against what each writes
 // at user level.
@@ -133,7 +133,7 @@ func loadCheckScopeAllHooks(userLevel bool) (checkScope, []spec.Entry, error) {
 	return scope, all, nil
 }
 
-// loadSpecScope is loadCheckScope without the user targets, for list,
+// loadSpecScope is loadCheckScope without the user-level targets, for list,
 // which reads only requires from the home config. With skipBroken set, a
 // home config that does not parse warns there instead of stopping.
 func loadSpecScope(userLevel bool, skipBroken io.Writer) (checkScope, error) {
@@ -198,7 +198,7 @@ func lintUserRules(rules []spec.Entry, targets []string) []validationIssue {
 		}
 		out = append(out, validationIssue{
 			Path:    rule.Path,
-			Message: fmt.Sprintf("user rule %q is scoped or conditional; user rules must apply unconditionally", rule.Name),
+			Message: fmt.Sprintf("user-level rule %q is scoped or conditional; user-level rules must apply unconditionally", rule.Name),
 		})
 	}
 	return out

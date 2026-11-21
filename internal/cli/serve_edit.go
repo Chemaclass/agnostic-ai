@@ -453,7 +453,7 @@ func requestOriginStatus(r *http.Request) int {
 // that then only names its spec.
 func (h *editHandler) settingsEdit(where editAudience, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
 	if voiceEditField(key) && !h.userLevel {
-		return "", nil, errors.New("voice is editable in the user view only")
+		return "", nil, errors.New("voice is editable in the user-level view only")
 	}
 	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {

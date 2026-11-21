@@ -48,7 +48,7 @@ func userHookPath(source string) string {
 
 func TestInstallHookUser_WritesTheUserGate(t *testing.T) {
 	source, _ := userGitHome(t)
-	existing := "#!/bin/sh\n# the user gate runs agnostic-ai sync --global --check\necho existing\n"
+	existing := "#!/bin/sh\n# the user-level gate runs agnostic-ai sync --global --check\necho existing\n"
 	if err := os.WriteFile(userHookPath(source), []byte(existing), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestInstallHookUser_WritesTheUserGate(t *testing.T) {
 		}
 	}
 	if strings.Contains(got, "agnostic-ai sync --check") {
-		t.Errorf("user hook runs the project check:\n%s", got)
+		t.Errorf("user-level hook runs the project check:\n%s", got)
 	}
 }
 

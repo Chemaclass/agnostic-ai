@@ -7,7 +7,7 @@ export function findingFacts(finding: ItemFinding): string[] {
     `Severity: ${finding.severity}`,
   ]
   if (finding.layer === 'user') lines.push('Layer: user setup, which reaches every project; edit it there, not in this project')
-  // A user path is relative to the user source, so the open path names the file.
+  // A user-level path is relative to the user source, so the open path names the file.
   const source = finding.layer === 'user' ? finding.openPath || finding.path : finding.path
   if (source) lines.push(`Source: ${source}${finding.line ? `:${finding.line}` : ''}`)
   else if (finding.line) lines.push(`Line: ${finding.line}`)
@@ -18,7 +18,7 @@ export function findingFacts(finding: ItemFinding): string[] {
 }
 
 export const FIX_GUIDANCE = [
-  'Inspect the source and confirm the cause before editing. Change the canonical specs, not generated files. Preserve unrelated content and tool behavior. Keep the same project or global scope. Do not disable the check or raise its budget to hide the finding.',
+  'Inspect the source and confirm the cause before editing. Change the canonical specs, not generated files. Preserve unrelated content and tool behavior. Keep the same project or user scope. Do not disable the check or raise its budget to hide the finding.',
   '',
   'Run the relevant agnostic-ai checks after the change. If generated files need updating, review sync --plan, then run sync and sync --check. Report what changed and any remaining findings.',
 ]

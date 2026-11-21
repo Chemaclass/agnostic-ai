@@ -299,7 +299,7 @@ func TestSyncUser_VibeSamplingDefaultControlsOwnership(t *testing.T) {
 				t.Fatal(err)
 			}
 			if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
-				t.Error("user sync widened private file permissions")
+				t.Error("user-level sync widened private file permissions")
 			}
 		})
 	}

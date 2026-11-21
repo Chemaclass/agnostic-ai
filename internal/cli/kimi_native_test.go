@@ -206,7 +206,7 @@ func TestImportKimi_DropsPrivateAndUserInstructionBlocks(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\n")
-	writeFile(t, ".kimi-code/AGENTS.md", userStart+"\nPersonal user instruction.\n"+userEnd+"\n# Project\n\nPublic instruction.\n<!-- agnostic-ai:local:start -->\nPersonal local instruction.\n<!-- agnostic-ai:local:end -->\n")
+	writeFile(t, ".kimi-code/AGENTS.md", userStart+"\nPersonal user-level instruction.\n"+userEnd+"\n# Project\n\nPublic instruction.\n<!-- agnostic-ai:local:start -->\nPersonal local instruction.\n<!-- agnostic-ai:local:end -->\n")
 	execCLI(t, "import", "kimi")
 	source := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md")
 	if strings.Contains(source, "Personal") {

@@ -28,7 +28,7 @@ func addUserHookFiles(home, source, target string, g userTarget, hooks []spec.En
 		return addUserGooseHookFiles(home, source, g, hooks, onUnsupported, add)
 	}
 	if target != "kiro" {
-		return fmt.Errorf("%s: native user hook directory rendering is unsupported", target)
+		return fmt.Errorf("%s: native user-level hook directory rendering is unsupported", target)
 	}
 	dir := g.path(home, g.hooksDir)
 	scriptsDir := g.path(home, g.hookScriptsDir)

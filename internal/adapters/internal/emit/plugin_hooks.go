@@ -325,7 +325,7 @@ func pluginModule(host PluginHookHost, name, hookKey, event, matcher string, com
 // call or skips the next command; only exit 2 on tool.execute.before
 // blocks.
 //
-// `.env()` on the one command, never on `$`, which is Bun's user and
+// `.env()` on the one command, never on `$`, which is Bun's global and
 // shared with every other plugin. It replaces the environment rather
 // than merging, hence the process.env spread.
 func runHelper(name, target string) string {

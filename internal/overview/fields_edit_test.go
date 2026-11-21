@@ -29,7 +29,7 @@ func TestSettingsFields_ExposeEditContract(t *testing.T) {
 	fields = buildFields(SectionSettings, nil, nil, cfg, "", true)
 	for _, f := range fields {
 		if f.Key == "session-retention-days" && (f.Editable == nil || f.Editable.Path != "settings/defaults.yaml" || f.Editable.DisabledReason != "") {
-			t.Fatalf("user retention = %+v", f.Editable)
+			t.Fatalf("user-level retention = %+v", f.Editable)
 		}
 	}
 }
@@ -188,7 +188,7 @@ func TestSettingsFields_DefaultPathAndSyncCommandFollowTheScope(t *testing.T) {
 	}
 	for _, f := range buildFields(SectionSettings, nil, nil, cfg, root, true) {
 		if f.Key == "model" && f.Editable.SyncCommand != "agnostic-ai sync --scope user" {
-			t.Fatalf("user model = %+v", f.Editable)
+			t.Fatalf("user-level model = %+v", f.Editable)
 		}
 	}
 }

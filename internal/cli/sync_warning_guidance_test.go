@@ -18,7 +18,7 @@ func TestSyncUser_UnsupportedAgentsGiveOneHomeConfigFix(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Count(warnings, "fix:") != 1 {
-		t.Errorf("want one fix for unsupported user agents: %s", warnings)
+		t.Errorf("want one fix for unsupported user-level agents: %s", warnings)
 	}
 	for _, want := range []string{filepath.Join(source, "agnostic-ai.yaml"), "`targets:`", "`targets-exclude:"} {
 		if !strings.Contains(warnings, want) {
@@ -26,7 +26,7 @@ func TestSyncUser_UnsupportedAgentsGiveOneHomeConfigFix(t *testing.T) {
 		}
 	}
 	if strings.Contains(warnings, "agents: skill") || strings.Contains(warnings, "on-unsupported: silent") {
-		t.Errorf("user agent fix must address target selection: %s", warnings)
+		t.Errorf("user-level agent fix must address target selection: %s", warnings)
 	}
 }
 
@@ -99,11 +99,11 @@ func TestSyncUserJSON_SuggestionsIncludeSharedSkillLimitAndPreviewParity(t *test
 			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview.\n")
 			out, previewWarnings, _ := runUserAgentTest("--only", "claude,codex,cursor,amp,zed", "--json", mode)
 			if previewWarnings != "" {
-				t.Errorf("user JSON %s leaked diagnostics: %s", mode, previewWarnings)
+				t.Errorf("user-level JSON %s leaked diagnostics: %s", mode, previewWarnings)
 			}
 			var preview syncJSONDrops
 			if err := json.Unmarshal([]byte(out), &preview); err != nil {
-				t.Fatalf("decode user preview: %v\n%s", err, out)
+				t.Fatalf("decode user-level preview: %v\n%s", err, out)
 			}
 			actual, warnings, err := runUserAgentTest("--only", "claude,codex,cursor,amp,zed", "--json")
 			if err != nil {
@@ -114,13 +114,13 @@ func TestSyncUserJSON_SuggestionsIncludeSharedSkillLimitAndPreviewParity(t *test
 				t.Fatal(err)
 			}
 			if warnings != "" {
-				t.Errorf("user JSON leaked diagnostics: %s", warnings)
+				t.Errorf("user-level JSON leaked diagnostics: %s", warnings)
 			}
 			if !slices.Equal(preview.Warnings, got.Warnings) || !slices.Equal(preview.Notes, got.Notes) {
 				t.Errorf("user %s differs from sync: %+v vs %+v", mode, preview, got)
 			}
 			if len(got.Warnings) != 2 {
-				t.Errorf("missing unsupported user agents: %+v", got.Warnings)
+				t.Errorf("missing unsupported user-level agents: %+v", got.Warnings)
 			}
 			for _, warning := range got.Warnings {
 				if !strings.Contains(warning.Suggestion, filepath.Join(source, "agnostic-ai.yaml")) || !strings.Contains(warning.Suggestion, "targets-exclude") {
@@ -140,7 +140,7 @@ func TestSyncUserJSON_SuggestionsIncludeSharedSkillLimitAndPreviewParity(t *test
 					}
 				}
 				if note.Suggestion != "" && !strings.Contains(plain, "fix: "+note.Suggestion) {
-					t.Errorf("user JSON suggestion differs from plain: %+v\n%s", note, plain)
+					t.Errorf("user-level JSON suggestion differs from plain: %+v\n%s", note, plain)
 				}
 			}
 			if shared == 0 {
@@ -196,8 +196,8 @@ func TestSyncUser_UnsupportedAgentFixNamesLocalTargetOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(warnings, "amp: user agents are unsupported") || !strings.Contains(warnings, localConfig) {
-		t.Errorf("unsupported user agent fix must name overriding target config: %s", warnings)
+	if !strings.Contains(warnings, "amp: user-level agents are unsupported") || !strings.Contains(warnings, localConfig) {
+		t.Errorf("unsupported user-level agent fix must name overriding target config: %s", warnings)
 	}
 }
 
@@ -264,12 +264,12 @@ func TestSyncUserJSON_FailureStillPrintsWarningsAndNotes(t *testing.T) {
 	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
 	writeFile(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
 	out, warnings, err := runUserAgentTest("--only", "claude,amp", "--json")
-	if err == nil || !strings.Contains(err.Error(), "edited since the last user sync") {
+	if err == nil || !strings.Contains(err.Error(), "edited since the last user-level sync") {
 		t.Fatalf("want hand-edit failure, got %v\n%s", err, out)
 	}
-	for _, want := range []string{"amp: user agents are unsupported", "note: `metadata`", "fix:"} {
+	for _, want := range []string{"amp: user-level agents are unsupported", "note: `metadata`", "fix:"} {
 		if !strings.Contains(warnings, want) {
-			t.Errorf("failed user JSON run lost %q:\n%s", want, warnings)
+			t.Errorf("failed user-level JSON run lost %q:\n%s", want, warnings)
 		}
 	}
 }
@@ -282,13 +282,13 @@ func TestSyncUserJSON_UnsupportedMCPLandsInWarnings(t *testing.T) {
 		t.Fatal(err)
 	}
 	if warnings != "" {
-		t.Errorf("user JSON leaked diagnostics: %s", warnings)
+		t.Errorf("user-level JSON leaked diagnostics: %s", warnings)
 	}
 	var got syncJSONDrops
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("decode: %v\n%s", err, out)
 	}
-	want := dropJSON{Target: "amp", Kind: "mcp", Count: 1, Message: "user MCP servers are unsupported; skipping srv"}
+	want := dropJSON{Target: "amp", Kind: "mcp", Count: 1, Message: "user-level MCP servers are unsupported; skipping srv"}
 	if !slices.Contains(got.Warnings, want) {
 		t.Errorf("warnings = %+v, want %+v", got.Warnings, want)
 	}

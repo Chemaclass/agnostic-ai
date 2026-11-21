@@ -285,7 +285,7 @@ func resolveUserTargets(o userSyncOptions, source string, warn io.Writer) (targe
 			return nil, nil, false, err
 		}
 		if _, werr := fmt.Fprintf(warn, "warning: %v; skipping %s\n", err, target); werr != nil {
-			return nil, nil, false, fmt.Errorf("write user target warning: %w", werr)
+			return nil, nil, false, fmt.Errorf("write user-level target warning: %w", werr)
 		}
 	}
 	return usable, configured, explicit, nil
@@ -310,20 +310,20 @@ func checkUserSpecIssues(bundle spec.Bundle, targets []string) error {
 	return stopOnIssues(issues)
 }
 
-// checkUserRules requires every user rule to apply unconditionally.
+// checkUserRules requires every user-level rule to apply unconditionally.
 func checkUserRules(rules []spec.Entry, targets []string) error {
 	for _, rule := range rules {
 		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
-			return fmt.Errorf("user rule %q is conditional for codebuddy; user rules must apply unconditionally", rule.Name)
+			return fmt.Errorf("user-level rule %q is conditional for codebuddy; user-level rules must apply unconditionally", rule.Name)
 		}
 		if userRuleConditional(rule, targets) {
-			return fmt.Errorf("user rule %q is scoped or conditional; user rules must apply unconditionally", rule.Name)
+			return fmt.Errorf("user-level rule %q is scoped or conditional; user-level rules must apply unconditionally", rule.Name)
 		}
 	}
 	return nil
 }
 
-// userRun is a planned user sync, ready for one output mode.
+// userRun is a planned user-level sync, ready for one output mode.
 type userRun struct {
 	cmd                *cobra.Command
 	o                  userSyncOptions
@@ -384,7 +384,7 @@ func (r userRun) plan() error {
 	for i := range records {
 		path := filepath.FromSlash(records[i].Path)
 		if slices.Contains(edited, path) {
-			records[i].Keys = append(records[i].Keys, "conflict: edited since the last user sync; move the edit into the source or use --backup")
+			records[i].Keys = append(records[i].Keys, "conflict: edited since the last user-level sync; move the edit into the source or use --backup")
 		}
 		if j := slices.IndexFunc(writes, func(w userWrite) bool { return w.path == path }); j >= 0 && writes[j].dropsComments {
 			records[i].Keys = append(records[i].Keys, "conflict: the rewrite drops the file's comments; use --backup")
@@ -504,9 +504,9 @@ func warnUnsupportedUserAgents(w io.Writer, source string, targets []string, age
 		if len(skipped) == 0 {
 			continue
 		}
-		message := "user agents are unsupported; skipping " + strings.Join(skipped, ", ")
+		message := "user-level agents are unsupported; skipping " + strings.Join(skipped, ", ")
 		if _, err := fmt.Fprintf(w, "warning: %s: %s\n", target, message); err != nil {
-			return nil, fmt.Errorf("write user agent warning: %w", err)
+			return nil, fmt.Errorf("write user-level agent warning: %w", err)
 		}
 		warnings = append(warnings, dropRecord{Target: target, Kind: string(spec.KindAgent), Count: len(skipped), Message: message})
 		unsupported = append(unsupported, target)
@@ -518,7 +518,7 @@ func warnUnsupportedUserAgents(w io.Writer, source string, targets []string, age
 			warnings[i].Suggestion = suggestion
 		}
 		if _, err := fmt.Fprintf(w, "    fix: %s\n", suggestion); err != nil {
-			return nil, fmt.Errorf("write user agent suggestion: %w", err)
+			return nil, fmt.Errorf("write user-level agent suggestion: %w", err)
 		}
 	}
 	return warnings, nil
@@ -533,7 +533,7 @@ func agentFailure(explicit bool, warn io.Writer) func(target string, err error) 
 			return err
 		}
 		if _, werr := fmt.Fprintf(warn, "warning: %v; skipping %s agents\n", err, target); werr != nil {
-			return fmt.Errorf("write user agent warning: %w", werr)
+			return fmt.Errorf("write user-level agent warning: %w", werr)
 		}
 		return nil
 	}

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
-  test('copies a refine prompt for the user instructions file only', async ({ page, context }) => {
+  test('copies a refine prompt for the user-level instructions file only', async ({ page, context }) => {
     const data = structuredClone(fixture)
     const contextSection = data.sections.find((section: { id: string }) => section.id === 'context')
     const instructions = { kind: 'instructions', name: 'AGNOSTIC_AI.md', label: 'AGNOSTIC_AI.md', description: 'Loaded at the start of every session: 120 words.', values: [], findings: [] }
@@ -22,7 +22,7 @@ test.describe('overview', () => {
     await refine.click()
     await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
-    expect(prompt).toContain('user agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
+    expect(prompt).toContain('user-level agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
     expect(prompt).toContain('Then wait for my explicit approval.')
   })
 })

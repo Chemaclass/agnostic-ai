@@ -113,7 +113,7 @@ func TestSyncUser_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
 	before := snapshotTree(t, home)
 
 	_, _, err = runUserAgentTest("--only", "claude", "--dry-run", "--diff")
-	if err == nil || !strings.Contains(err.Error(), "edited since the last user sync") {
+	if err == nil || !strings.Contains(err.Error(), "edited since the last user-level sync") {
 		t.Fatalf("the preview must stop where sync stops, got %v", err)
 	}
 	out, _, err := runUserAgentTest("--only", "claude", "--dry-run", "--diff", "--backup")

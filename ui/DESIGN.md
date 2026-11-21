@@ -141,7 +141,7 @@ Section links show their question above a live summary in small dim text. Conver
 
 Show the project path below its name in muted monospace. Truncate from the left and expose the full path on hover. Put the project GitHub icon at the end of the name row, labelled "owner/repo on GitHub".
 
-The rail foot contains Search and its shortcut, Open user settings or Open project, the theme button beside the agnostic-ai GitHub icon, then separate rows for the version and required release, Release notes, and Overview JSON.
+The rail foot contains Search and its shortcut, Open user-level settings or Open project, the theme button beside the agnostic-ai GitHub icon, then separate rows for the version and required release, Release notes, and Overview JSON.
 
 While the overview and server details load, preserve the rail layout with placeholder bars for the project, summaries, configuration switch, and version. Bars use `rail-dim` at 28% opacity, a 10px height, and pill corners. They pulse unless reduced motion is enabled.
 
@@ -157,7 +157,7 @@ At 760px and below, page links put icons above their short section names. Side p
 
 ## Components
 
-- **Verdict block:** an answer and up to three facts that affect a decision. **Tool support** opens the support table as an overlay; **Docs** sits at the right. Avoid "No findings", which the rail already communicates. Setup health adds one 14x22px bar with a 3px radius per supported improvement (`health.improvements`): accent-filled when used, outlined otherwise. A line states how many are in use. Hide the track when improvement data is absent, as in the user view.
+- **Verdict block:** an answer and up to three facts that affect a decision. **Tool support** opens the support table as an overlay; **Docs** sits at the right. Avoid "No findings", which the rail already communicates. Setup health adds one 14x22px bar with a 3px radius per supported improvement (`health.improvements`): accent-filled when used, outlined otherwise. A line states how many are in use. Hide the track when improvement data is absent, as in the user-level view.
 - **Finding card:** `surface`, 14px radius, and a 4px state-colored left border. Severity and section use 13px, weight 600, in the state color. The plain title uses Fraunces 22px; the source path uses body text. Keep the check message and suggested fix under Details unless two findings in one file share a title. Actions are **Copy prompt**, **Details**, and **Recheck** when a server is running.
 - **Finding details:** show the check code (for example `LINT038`) as a chip, the explanation, and the exact prompt. Limit long messages to three lines with **Show full message**. **Copy all fixes** sits beside **Fix first**. Recheck results appear below the card as a `Notice`: fixed, still there, or not confirmed.
 - **List rows:** hairline `line` separators without boxes. Names occupy a 180px lane; descriptions use `soft` and fill the available space; the primary action is an accent link in a fixed lane. Paths sit below in muted monospace. Secondary actions appear on hover or keyboard focus, with a `surface` background (`RowActions` in `ui.tsx`). Touch screens and widths of 760px or less use a 44px ⋯ menu.

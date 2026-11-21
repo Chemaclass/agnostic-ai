@@ -172,7 +172,7 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 	}
 	for _, rule := range []string{
 		"Write the file before proposing learnings",
-		"[project]", "[personal]", "[user]",
+		"[project]", "[personal]", "[global]",
 		"append-only diff per file", "YAML frontmatter", "alwaysApply: true",
 		"name: learnings-local", "omit `scope`, `globs`, and `paths`",
 		"confirmation of each item's content and scope", "only approved items",

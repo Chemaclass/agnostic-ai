@@ -106,15 +106,15 @@ func TestSyncUser_LostStateStillStopsOnADifferentFile(t *testing.T) {
 			{"agent", func(t *testing.T, home string) {
 				t.Helper()
 				editUserFile(t, filepath.Join(home, tc.root, "agents", "reviewer.md"), "Review carefully.", "Review carefully!")
-			}, "unmanaged user spec collision"},
+			}, "unmanaged user-level spec collision"},
 			{"skill file", func(t *testing.T, home string) {
 				t.Helper()
 				editUserFile(t, filepath.Join(home, tc.root, "skills", "tidy", "references", "notes.md"), "Notes.", "Notes!")
-			}, "unmanaged user skill collision"},
+			}, "unmanaged user-level skill collision"},
 			{"extra skill file", func(t *testing.T, home string) {
 				t.Helper()
 				writeFile(t, filepath.Join(home, tc.root, "skills", "tidy", "mine.md"), "Mine.\n")
-			}, "unmanaged user skill collision"},
+			}, "unmanaged user-level skill collision"},
 			{"hook", func(t *testing.T, home string) {
 				t.Helper()
 				editUserFile(t, filepath.Join(home, tc.root, tc.hooksFile), `"timeout": 30`, `"timeout": 60`)

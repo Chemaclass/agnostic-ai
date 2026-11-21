@@ -75,14 +75,14 @@ agnostic-ai sync --only claude,cursor
 </details>
 
 <details>
-<summary>User sync: accepted flags and output</summary>
+<summary>User-level sync: accepted flags and output</summary>
 
 - `sync --scope user` works outside a project. It never loads project config or packs.
 - It loads overrides from `local/` in the source root, and `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there.
 - Accepted: `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--backup`, `--plan`, `--json`, and `--diff` with `--dry-run`, `--check`, or `--plan`.
 - Rejected: `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
 - `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
-- Files per tool: [user output](@/docs/global-configuration-reference.md#global-output), [MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers), [model, effort, and permissions](@/docs/global-configuration-reference.md#global-default-model-and-effort).
+- Files per tool: [user-level output](@/docs/global-configuration-reference.md#global-output), [MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers), [model, effort, and permissions](@/docs/global-configuration-reference.md#global-default-model-and-effort).
 
 </details>
 
@@ -186,14 +186,14 @@ Each warning comes with one `fix:` line. Guidance never edits specs.
 <details>
 <summary>Next step by field, and when notes show</summary>
 
-- Unsupported user agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent.
+- Unsupported user-level agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent.
 - Repeated project notes stay hidden until they change or you pass `-vv`.
 
 | Field | Next step |
 |-------|-----------|
 | Skill `argument-hint` | Move it under each keeping tool's override block (today only `x-claude`). Put guidance other tools need in the description or body. |
-| Skill `metadata` | Move it under each keeping tool's override block (today `x-claude`, `x-cursor`, `x-opencode`). Shared user skill files have no overrides: use the description or body. |
-| Skill `disable-model-invocation` | Use a native invocation policy, or exclude tools that cannot enforce manual invocation. A copy another tool installs in a shared user skills directory still shows. |
+| Skill `metadata` | Move it under each keeping tool's override block (today `x-claude`, `x-cursor`, `x-opencode`). Shared user-level skill files have no overrides: use the description or body. |
+| Skill `disable-model-invocation` | Use a native invocation policy, or exclude tools that cannot enforce manual invocation. A copy another tool installs in a shared user-level skills directory still shows. |
 | Agent `readonly` | Configure and verify native permissions or session settings, or exclude tools that cannot enforce read-only access. |
 | Codex agent `sandbox_mode` | Enforce it in the parent session's `config.toml` (`sandbox_mode = "read-only"` for read-only), then set `x-codex: {sandbox_mode: null}` to omit the inactive key. If the session cannot enforce it, exclude the agent from Codex. |
 

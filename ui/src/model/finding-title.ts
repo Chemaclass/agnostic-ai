@@ -13,7 +13,7 @@ const TITLES: Record<string, string> = {
   LINT011: 'Your tools load more text at startup than the startup budget allows.',
   LINT012: 'A description is longer than the description budget.',
   LINT013: 'A rule lists the files it applies to in a form tools cannot read.',
-  LINT014: 'A user setting holds a value one of your tools cannot take.',
+  LINT014: 'A user-level setting holds a value one of your tools cannot take.',
   LINT015: 'This file points to another file by a path only one tool has.',
   LINT016: 'A development command is missing a name or a way to start it.',
   LINT017: 'A Git setting names a tool you have not selected.',

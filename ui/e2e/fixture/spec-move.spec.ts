@@ -55,7 +55,7 @@ test.describe('copy or move a spec to the other level', () => {
     await page.route('**/api/edit/spec/move', (route) => route.fulfill({ status: 409, json: { error: 'the user setup does not exist yet; create it first', missing: true, root: '/home/me/.agnostic-ai' } }))
     await page.goto('./?view=context&tab=agents')
     await page.getByRole('button', { name: 'Copy to user: reviewer' }).click()
-    await expect(page.getByRole('alert')).toContainText('Open user settings')
+    await expect(page.getByRole('alert')).toContainText('Open user-level settings')
   })
 
   test('names the failed action in the error', async ({ page }) => {

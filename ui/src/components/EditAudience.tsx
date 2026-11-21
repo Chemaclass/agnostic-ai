@@ -81,7 +81,7 @@ export function EditAudienceSwitch() {
   const userLevel = app.overview?.global === true
   const localFolder = userLevel ? '~/.agnostic-ai/local' : '.agnostic-ai/local'
   const hint = state.audience === 'shared'
-    ? `${userLevel ? 'User files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
+    ? `${userLevel ? 'User-level files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
     : `Local files in ${localFolder}, ignored by Git.${viewing ? ' Local values win.' : ''}`
   const option = (value: EditAudience) => (
     <button type="button" aria-label={audienceDescription(value, userLevel)} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>

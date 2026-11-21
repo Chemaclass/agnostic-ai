@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// Paths and formats are asserted independently of the user target table.
+// Paths and formats are asserted independently of the user-level target table.
 func TestSyncUser_AgentsUseNativeFormatsForEverySupportedTarget(t *testing.T) {
 	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review changes\n---\nReview carefully.\n")
@@ -58,12 +58,12 @@ func TestSyncUser_AgentsUseNativeFormatsForEverySupportedTarget(t *testing.T) {
 		} else if !strings.HasPrefix(string(data), "---\n") {
 			t.Errorf("%s lacks native frontmatter: %s", target, data)
 		}
-		if strings.Contains(warnings, target+": user agents are unsupported") {
+		if strings.Contains(warnings, target+": user-level agents are unsupported") {
 			t.Errorf("supported %s warned: %s", target, warnings)
 		}
 	}
 	for _, target := range []string{"amp", "zed", "warp", "crush"} {
-		if !strings.Contains(warnings, target+": user agents are unsupported") {
+		if !strings.Contains(warnings, target+": user-level agents are unsupported") {
 			t.Errorf("%s missing unsupported diagnostic: %s", target, warnings)
 		}
 	}

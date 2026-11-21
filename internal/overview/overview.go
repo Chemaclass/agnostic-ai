@@ -302,7 +302,7 @@ func placeFindings(sections []Section, findings []Finding) {
 		}
 		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, OpenPath: f.OpenPath, Fix: f.Fix, Explanation: f.Explanation, Layer: f.Layer}
 		placed := false
-		// A user finding's path is relative to the user source, so it
+		// A user-level finding's path is relative to the user source, so it
 		// never names a project item.
 		for si := range sections {
 			if f.Layer == LayerUser {

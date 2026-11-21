@@ -78,7 +78,7 @@ Field mappings, user configuration, and import: [Warp native reference](@/docs/t
 
 - Warp still supports `WARP.md` and prefers it over `AGENTS.md` in a directory with both. See [upgrading from WARP.md](@/docs/targets/warp-reference.md#upgrading-from-warp-md).
 - Warp also loads MCP servers from Claude Code's `.mcp.json` and Codex's `.codex/config.toml`, after approval. With `claude` or `codex` synced too, approve only one copy.
-- User MCP servers reach the Warp app only, not the Agent CLI ([details](@/docs/targets/warp-reference.md#app-and-cli)).
+- User-level MCP servers reach the Warp app only, not the Agent CLI ([details](@/docs/targets/warp-reference.md#app-and-cli)).
 
 {% <details summary="More limits"> %}
 - No skill can be kept user-only, so `disable-model-invocation` is dropped with a note and commands are skipped.

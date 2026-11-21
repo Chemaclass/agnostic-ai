@@ -62,7 +62,7 @@ func loadUserTargets(source string, warn io.Writer) ([]string, error) {
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
 			if _, err := fmt.Fprintf(warn, "warning: %s: user scope reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
-				return nil, fmt.Errorf("write user config warning: %w", err)
+				return nil, fmt.Errorf("write user-level config warning: %w", err)
 			}
 		}
 		node, ok := doc["targets"]
@@ -93,7 +93,7 @@ func loadUserTargets(source string, warn io.Writer) ([]string, error) {
 		}
 		if len(skipped) > 0 {
 			if _, err := fmt.Fprintf(warn, "warning: %s: sync --scope user cannot write %s; skipping them\n", path, strings.Join(skipped, ", ")); err != nil {
-				return nil, fmt.Errorf("write user config warning: %w", err)
+				return nil, fmt.Errorf("write user-level config warning: %w", err)
 			}
 		}
 		if len(kept) == 0 {
@@ -157,7 +157,7 @@ func loadUserModels(source string, skipBroken io.Writer) (map[string]config.Mode
 				return nil, nil, err
 			}
 			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping the models in %s\n", err, path); werr != nil {
-				return nil, nil, fmt.Errorf("write user config warning: %w", werr)
+				return nil, nil, fmt.Errorf("write user-level config warning: %w", werr)
 			}
 			for i := 0; i+1 < len(node.Content); i += 2 {
 				unloaded = append(unloaded, node.Content[i].Value)
@@ -202,7 +202,7 @@ func applyUserTiers(b *spec.Bundle, tiers map[string]config.ModelTier, unloaded 
 				continue
 			}
 			if _, err := fmt.Fprintf(warn, "warning: %s: model %q names a tier that did not load; omitting model\n", e.Path, name); err != nil {
-				return fmt.Errorf("write user config warning: %w", err)
+				return fmt.Errorf("write user-level config warning: %w", err)
 			}
 			e.Meta = maps.Clone(e.Meta)
 			delete(e.Meta, "model")

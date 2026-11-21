@@ -52,7 +52,7 @@ func TestSyncUser_CopilotAgentEffortLandsInUserSettings(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if strings.Contains(warnings, "effort") {
-		t.Errorf("user sync writes the effort, so no coverage note is due:\n%s", warnings)
+		t.Errorf("user-level sync writes the effort, so no coverage note is due:\n%s", warnings)
 	}
 	doc := readCopilotSettings(t, home)
 	if got := copilotAgentEffort(doc, "reviewer"); got != "xhigh" {

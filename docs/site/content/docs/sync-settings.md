@@ -24,8 +24,8 @@ Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key ([`s
 | [`shared-skills`](#syncshared-skills) | `false` | Link identical skill folders to one copy. |
 | [`unmanaged`](#syncunmanaged) | empty | Paths sync never touches. |
 | [`output-manifest`](#syncoutput-manifest) | `false` | Write `.agnostic-ai/outputs.lock`. |
-| [`allow-global-names`](#syncallow-global-names) | empty | Shared user names that do not warn. |
-| [`global-name-clash`](#syncglobal-name-clash) | `warn` | Warn about shared user names. |
+| [`allow-global-names`](#syncallow-global-names) | empty | Shared user-level names that do not warn. |
+| [`global-name-clash`](#syncglobal-name-clash) | `warn` | Warn about shared user-level names. |
 
 ### `sync.collision-policy` {#synccollision-policy}
 
@@ -169,7 +169,7 @@ sync:
 
 - Put the list in `agnostic-ai.local.yaml`, since the home exists only on your machine. A local list replaces the entire shared list.
 - Names match the way Claude Code folds skill names: case, spacing, and invisible characters do not count.
-- `doctor` still lists each allowed name under **User names**, marked as allowed.
+- `doctor` still lists each allowed name under **Names shared with the user level**, marked as allowed.
 
 </details>
 
@@ -186,8 +186,8 @@ sync:
 <details>
 <summary>When to use it</summary>
 
-- Use it when a project shadows user skills or agents as a rule. To accept a few names, use [`sync.allow-global-names`](#syncallow-global-names).
-- `doctor` still lists each shared name under **User names**, marked as ignored.
+- Use it when a project shadows user-level skills or agents as a rule. To accept a few names, use [`sync.allow-global-names`](#syncallow-global-names).
+- `doctor` still lists each shared name under **Names shared with the user level**, marked as ignored.
 - Any other value fails config load.
 
 </details>

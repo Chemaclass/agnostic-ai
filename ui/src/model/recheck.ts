@@ -53,7 +53,7 @@ export function recheckResult(target: RecheckTarget, before: OverviewView, after
     const key = findingKey(f.finding)
     counts.set(key, Math.max(0, (counts.get(key) ?? 0) - 1))
   }
-  // A user finding's path is relative to the user source, so only the same layer names the same file.
+  // A user-level finding's path is relative to the user source, so only the same layer names the same file.
   const sameLayer = (f: FoundFinding) => f.finding.layer === target.finding.layer
   const sameFile = (f: FoundFinding) => sameLayer(f) && f.finding.source === target.finding.source && (f.finding.path ?? '') === (target.finding.path ?? '')
   const added = now.filter((f) => {

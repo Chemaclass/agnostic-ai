@@ -263,10 +263,10 @@ func TestServeMux_UserCreateOnlyOnAProjectServer(t *testing.T) {
 	userLevel := newSwitchHandler(&switchPeer{root: src.root}, nil, probeViewServer, nil)
 	defer userLevel.close()
 	if code := post(newServeMux(src.load, opts, serveMuxOptions{compareInstalled: true, switches: userLevel})); code != http.StatusNotFound {
-		t.Errorf("user server create = %d, want 404", code)
+		t.Errorf("user-level server create = %d, want 404", code)
 	}
 	if _, err := os.Stat(home); err == nil {
-		t.Error("the user server created the folder")
+		t.Error("the user-level server created the folder")
 	}
 	if code := post(newServeMux(src.load, opts, serveMuxOptions{compareInstalled: true, switches: project})); code != http.StatusOK {
 		t.Errorf("project server create route = %d", code)

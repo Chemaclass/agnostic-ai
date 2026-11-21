@@ -115,7 +115,7 @@ func TestEditField_JustMeInTheUserViewWritesUnderLocal(t *testing.T) {
 		t.Errorf("user overlay = %q", got)
 	}
 	if got := readOptional(t, filepath.Join(source, "settings", "native.yaml")); got != shared {
-		t.Errorf("wrote the shared user spec: %q", got)
+		t.Errorf("wrote the shared user-level spec: %q", got)
 	}
 }
 

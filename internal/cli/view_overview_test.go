@@ -126,10 +126,10 @@ func TestView_DefaultSourceDoesNotMixProjectAndUserTargets(t *testing.T) {
 		userLevel     bool
 	}{
 
-		{name: "user local root", cwd: local, targets: []string{"codex"}, userLevel: true},
-		{name: "user local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
-		{name: "user local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
-		{name: "project inside user local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
+		{name: "user-level local root", cwd: local, targets: []string{"codex"}, userLevel: true},
+		{name: "user-level local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
+		{name: "user-level local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
+		{name: "project inside user-level local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
 		{name: "explicit local directory as project", cwd: outside, args: []string{"--dir", local}, targets: []string{"codex"}},
 		{name: "user source root", cwd: source, targets: []string{"codex"}, userLevel: true},
 		{name: "user source child", cwd: userNested, targets: []string{"codex"}, userLevel: true},
@@ -242,10 +242,10 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 		userLevel     bool
 	}{
 
-		{name: "user local root", cwd: local, targets: []string{"codex"}, userLevel: true},
-		{name: "user local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
-		{name: "user local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
-		{name: "project inside user local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
+		{name: "user-level local root", cwd: local, targets: []string{"codex"}, userLevel: true},
+		{name: "user-level local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
+		{name: "user-level local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
+		{name: "project inside user-level local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
 		{name: "explicit local directory as project", cwd: outside, args: []string{"--dir", local}, targets: []string{"codex"}},
 		{name: "user source root", cwd: source, targets: []string{"codex"}, userLevel: true},
 		{name: "user source child", cwd: userNested, targets: []string{"codex"}, userLevel: true},
@@ -973,7 +973,7 @@ func TestView_CompanionOpensOnlyItsOwnVersion(t *testing.T) {
 
 func TestView_CompanionServesFreshHomeWithoutCreatingConfig(t *testing.T) {
 	home := t.TempDir()
-	source := filepath.Join(home, "my user config")
+	source := filepath.Join(home, "my user-level config")
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", source)

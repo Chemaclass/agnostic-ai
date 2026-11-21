@@ -22,7 +22,7 @@ import (
 
 // errUserFileUnchanged reports that a merge leaves an existing file's
 // content as it is, so sync must neither rewrite nor remove it.
-var errUserFileUnchanged = errors.New("user file unchanged")
+var errUserFileUnchanged = errors.New("user-level file unchanged")
 
 // mergeUserHooks returns the hooks file with the managed entries
 // replaced, nil when the file should not exist, or errUserFileUnchanged
@@ -361,7 +361,7 @@ func (f *userHooksFile) reconcilePrevious(previous map[string][]any, planned []p
 		lost = stillLost
 		if len(lost) > 0 {
 			if _, err := fmt.Fprintf(f.warn, "warning: %s: managed %s hook is missing, so it counts as removed\n", f.path, event); err != nil {
-				return fmt.Errorf("write user hook warning: %w", err)
+				return fmt.Errorf("write user-level hook warning: %w", err)
 			}
 		}
 		switch {
@@ -812,7 +812,7 @@ func removeEqual(items []any, want any) ([]any, bool) {
 	return items, false
 }
 
-// userHookTarget tells a user hook which target ran it, the way the
+// userHookTarget tells a user-level hook which target ran it, the way the
 // target's userTarget.hookTarget says.
 type userHookTarget struct {
 	scriptsDir string

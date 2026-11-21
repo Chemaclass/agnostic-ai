@@ -268,7 +268,7 @@ func TestBuiltins_UserConfigLocalListReplacesSharedList(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(scope.bundle.Skills) != 1 || scope.bundle.Skills[0].Layer != "builtin" {
-		t.Errorf("user skills = %+v", scope.bundle.Skills)
+		t.Errorf("user-level skills = %+v", scope.bundle.Skills)
 	}
 	writeFile(t, filepath.Join(source, "local", config.ConfigFileName), "builtins: []\n")
 	scope, err = loadSpecScope(true, nil)
@@ -276,7 +276,7 @@ func TestBuiltins_UserConfigLocalListReplacesSharedList(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(scope.bundle.Skills) != 0 {
-		t.Errorf("user local opt-out skills = %+v", scope.bundle.Skills)
+		t.Errorf("user-level local opt-out skills = %+v", scope.bundle.Skills)
 	}
 }
 
@@ -452,7 +452,7 @@ func TestBuiltins_ProjectAndUserShareOriginWithoutNameClash(t *testing.T) {
 	}
 	clashes := userNameClashes(b, []string{"claude"})
 	if len(clashes) != 1 {
-		t.Errorf("custom project override did not clash with user builtin: %+v", clashes)
+		t.Errorf("custom project override did not clash with user-level builtin: %+v", clashes)
 		return
 	}
 	for _, message := range []string{clashes[0].String(), clashes[0].silenced("ignored by sync.global-name-clash")} {
@@ -473,7 +473,7 @@ func TestBuiltins_ProjectAndUserShareOriginWithoutNameClash(t *testing.T) {
 	}
 	clashes = userNameClashes(b, []string{"claude"})
 	if len(clashes) != 1 {
-		t.Fatalf("project builtin did not clash with user override: %+v", clashes)
+		t.Fatalf("project builtin did not clash with user-level override: %+v", clashes)
 	}
 	if message := clashes[0].String(); !strings.Contains(message, "builtin:handoff (agnostic-ai dev)") || strings.Contains(filepath.ToSlash(message), "agnostic-ai/builtins/") {
 		t.Errorf("project builtin clash reported a cache source: %s", message)
@@ -611,11 +611,11 @@ func TestBuiltins_UserSpecsAndPersonalOverridesWin(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(scope.bundle.Skills) != 1 {
-		t.Fatalf("user skills = %+v", scope.bundle.Skills)
+		t.Fatalf("user-level skills = %+v", scope.bundle.Skills)
 	}
 	e := scope.bundle.Skills[0]
 	if e.Layer != "user-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "User body.\nPersonal addition.") {
-		t.Errorf("user override = %+v", e)
+		t.Errorf("user-level override = %+v", e)
 	}
 }
 

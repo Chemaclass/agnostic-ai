@@ -47,7 +47,7 @@ const (
 // of that kind.
 type userTarget struct {
 	// instructions is the always-on context file the tool loads with no
-	// wiring. User rules inline into it.
+	// wiring. User-level rules inline into it.
 	instructions        string
 	instructionsWindows string
 	instructionsRoot    func(home, goos string) (string, error)
@@ -576,7 +576,7 @@ func userLevelPath(home, p string) string {
 	return filepath.Join(home, filepath.FromSlash(strings.TrimPrefix(p, userPathHome)))
 }
 
-// userRoots returns every directory a user path can resolve under:
+// userRoots returns every directory a user-level path can resolve under:
 // the home, and each configuration root variable that is set.
 func userRoots(home string) []string {
 	return userRootsForOS(home, runtime.GOOS)

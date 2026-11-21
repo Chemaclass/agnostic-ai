@@ -21,18 +21,18 @@ func TestSyncUser_AugmentMemoryIncludesItsExecutableBuiltinScript(t *testing.T) 
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(string(data), "#!/bin/sh\n") || !strings.Contains(string(data), "hook memory --target augment") {
-		t.Errorf("user Augment script does not load memory: %s", data)
+		t.Errorf("user-level Augment script does not load memory: %s", data)
 	}
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
-		t.Errorf("user Augment script is not executable: %o", info.Mode().Perm())
+		t.Errorf("user-level Augment script is not executable: %o", info.Mode().Perm())
 	}
 	command := firstUserHandler(t, readUserJSON(t, filepath.Join(home, ".augment", "settings.json")), "SessionStart")["command"].(string)
 	if command != filepath.ToSlash(path) {
-		t.Errorf("user Augment script command = %q, want %q", command, filepath.ToSlash(path))
+		t.Errorf("user-level Augment script command = %q, want %q", command, filepath.ToSlash(path))
 	}
 	if _, _, err := runUserAgentTest("--only", "augment", "--check"); err != nil {
 		t.Fatal(err)

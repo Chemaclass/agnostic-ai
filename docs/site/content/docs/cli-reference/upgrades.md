@@ -55,7 +55,7 @@ Outside a project, it updates only the tool. Rerun your command afterward; the r
 - A failed install or version check starts no project change. A later failed step stops, keeps what finished, and prints how to continue.
 - If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the user specs folder, the offer is skipped and names it. Links within the project are fine.
 - Project-local npm or pnpm installs, and npx, get a command to run yourself. Automatic npm updates apply only to confirmed global installs (a two-second check).
-- `AGNOSTIC_AI_NO_UPDATE_CHECK=1` turns the checks off. They are silent offline and skip CI, redirected input or output, JSON output, quiet mode, user commands, checks, previews, hooks, completion, editor services, and development builds.
+- `AGNOSTIC_AI_NO_UPDATE_CHECK=1` turns the checks off. They are silent offline and skip CI, redirected input or output, JSON output, quiet mode, user-level commands, checks, previews, hooks, completion, editor services, and development builds.
 
 {% </details> %}
 
@@ -84,7 +84,7 @@ After updating through a package manager, run its installed CLI from the project
 
 A missing key is added only to the base config. When a range becomes a minimum, the command prints the value it replaced. If sync fails, the version changes stay: fix the problem and run `sync` again.
 
-`--requires` needs a stable release build. It also reads `agnostic.config.yaml` and cannot combine with `--check`, `--version`, or `--run`. Update user config and package-manager files with their own commands.
+`--requires` needs a stable release build. It also reads `agnostic.config.yaml` and cannot combine with `--check`, `--version`, or `--run`. Update user-level config and package-manager files with their own commands.
 
 The config needs one root setting per line and a single-line `requires`. Before upgrading, expand a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines.
 

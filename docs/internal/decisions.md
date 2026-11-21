@@ -70,7 +70,7 @@ Design choices and their reasons. Add new decisions without removing earlier one
 
 **Status:** Proposed, awaiting maintainer acceptance.
 
-**Recommendation:** Retain the built-in and example pack with their current parity check. They duplicate seven pinned files; current packs cannot replace user built-in setup. No user setup or source asset changes.
+**Recommendation:** Retain the built-in and example pack with their current parity check. They duplicate seven pinned files; current packs cannot replace user-level built-in setup. No user setup or source asset changes.
 
 The [comparison and local proof](experiments/caveman-source-decision.md) record the existing contract, three options, pinning and ownership limits, and migration approval requirements for [#2458](https://github.com/Chemaclass/agnostic-ai/issues/2458).
 

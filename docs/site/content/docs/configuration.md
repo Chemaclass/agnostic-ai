@@ -201,7 +201,7 @@ Set `requires` to the release you use. An upgrade that changes built-in text mak
 - Before you enable RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman). Install RTK separately. Caveman comes from a fixed upstream version and needs no separate program.
 - An unknown name fails as AAI-004 and lists the valid names.
 - A project, pack, or personal spec with the same kind and name wins over the built-in in the project.
-- A user skill still wins on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).
+- A user-level skill still wins on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).
 - The same list works in the [user source config](@/docs/configuration-reference.md#global-configuration).
 - A `builtins` list in a local config replaces the shared list. `builtins: []` there turns every built-in off.
 - Removing a name makes the next sync delete the files and tool settings it managed. Unrelated settings and project overrides stay.

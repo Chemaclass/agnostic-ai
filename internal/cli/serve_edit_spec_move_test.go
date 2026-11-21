@@ -175,7 +175,7 @@ func TestSpecMove_Refusals(t *testing.T) {
 		{"local layer", moveBody("agent", "mine", "project", "global", "copy"), http.StatusUnprocessableEntity, "local"},
 		{"command", moveBody("command", "ship", "project", "global", "copy"), http.StatusBadRequest, "kind"},
 		{"settings", moveBody("settings", "defaults", "project", "global", "copy"), http.StatusBadRequest, "kind"},
-		{"scoped rule to global", moveBody("rule", "api", "project", "global", "copy"), http.StatusUnprocessableEntity, "user rules"},
+		{"scoped rule to global", moveBody("rule", "api", "project", "global", "copy"), http.StatusUnprocessableEntity, "user-level rules"},
 		{"unknown spec", moveBody("agent", "nobody", "project", "global", "copy"), http.StatusNotFound, "nobody"},
 		{"from another level", moveBody("agent", "guard", "global", "project", "copy"), http.StatusBadRequest, "from"},
 		{"same level", moveBody("agent", "guard", "project", "project", "copy"), http.StatusBadRequest, "to"},
@@ -335,7 +335,7 @@ func TestSpecMove_RefusesASkillAtTheSkillsFolderRoot(t *testing.T) {
 		t.Errorf("= %d %+v, want 422", code, reply)
 	}
 	if readOptional(t, filepath.Join(userLevel, "skills", "other", "SKILL.md")) == "" {
-		t.Error("the user skills folder lost a skill")
+		t.Error("the user-level skills folder lost a skill")
 	}
 }
 
@@ -356,7 +356,7 @@ func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
 	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/rules/web.md", "---\nname: web\ndescription: Web.\nx-claude:\n  paths: [\"web/**\"]\n---\n\nWeb.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("rule", "web", "project", "global", "move"))
-	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "user rules") {
+	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "user-level rules") {
 		t.Errorf("= %d %+v", code, reply)
 	}
 	if readOptional(t, filepath.Join(project, ".agnostic-ai", "rules", "web.md")) == "" {

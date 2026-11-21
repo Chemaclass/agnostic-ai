@@ -29,19 +29,23 @@ agnostic-ai new rule my-style --scope user         # user
 
 In a project, `agnostic-ai sync` reads built-ins, then [packs](@/docs/packs.md), then project specs, then local ones. A later layer wins over an earlier one with the same kind and name. A local spec does not replace the shared one: it [changes only the fields it writes](@/docs/local-overrides.md#override-fields).
 
-`agnostic-ai sync --scope user` is a separate run. It reads `~/.agnostic-ai/` and its own `local/` folder, and writes each tool's user files. It loads no project specs and no packs, and a project sync does not read `~/.agnostic-ai/`.
+`agnostic-ai sync --scope user` is a separate run. It reads built-ins, then `~/.agnostic-ai/`, then its own `local/` folder, and writes each tool's user files. It loads no project specs and no packs.
 
-`agnostic-ai list` prints the layer each spec came from: `builtin`, `pack:<name>`, `project` or `local`. `agnostic-ai list --scope user` prints `user` or `user-local`.
+Project and user specs never merge. When a project and your user setup both have a skill or agent of one name, each tool decides which it loads, and a project sync warns about the clash. See [shared names](@/docs/global-configuration-reference.md#global-shared-names).
+
+`agnostic-ai list` prints the layer each spec came from: `builtin`, `pack:<name>`, `project` or `local`. `agnostic-ai list --scope user` prints `builtin`, `user` or `user-local`.
 
 ## What each command takes
 
 | Commands | Scopes |
 |---|---|
 | `new`, `list` | `project`, `local`, `user` |
-| `sync`, `validate`, `lint`, `import`, `migrate`, `explain`, `install-hook`, `view`, `serve`, `mcp tools` | `project`, `user` |
-| `why`, `status`, `render`, `compare`, `graph`, `revert`, `cleanup` | `project` only; `--scope user` names the command to run instead |
+| `sync`, `validate`, `lint`, `import`, `migrate`, `explain`, `install-hook`, `view` (and `ui`), `serve`, `mcp tools` | `project`, `user` |
+| `why`, `status`, `render`, `compare`, `graph`, `revert`, `cleanup` | `project` only. Asked for `--scope user`, each stops and names the user-level command that does the job. |
 
 Local specs are part of a project, so the commands in the second row read them with `--scope project`.
+
+`init` and `doctor` work on a project and take no `--scope`. To start a user setup, create `~/.agnostic-ai/` yourself, run `new ... --scope user`, or use **Open user settings** in the web interface.
 
 ## Go further
 

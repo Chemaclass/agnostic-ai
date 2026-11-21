@@ -314,7 +314,7 @@ const PermissionModeKey = "permissions.default-mode"
 
 // PermissionModeProjectReason explains why a project cannot edit the
 // default mode: only sync --scope user writes Claude Code's defaultMode.
-const PermissionModeProjectReason = "Applies through user sync only. Set it in user settings."
+const PermissionModeProjectReason = "Applies through user-level sync only. Set it in user-level settings."
 
 // ProtectedKey is the settings block that lists protected paths.
 const ProtectedKey = "protected"

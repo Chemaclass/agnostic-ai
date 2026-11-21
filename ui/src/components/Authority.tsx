@@ -59,7 +59,7 @@ export function AuthorityFields({ title, fields, files, query, headingEntry }: {
 function EmptyRules({ entry, filtering, fields }: { entry: string; filtering: boolean; fields: SettingField[] }) {
   const audience = useEditAudience()
   const userLevel = useUserLevel()
-  const where = audience === 'personal' ? 'Saved in your local files, ignored by Git' : userLevel ? 'Saved in your user files' : 'Saved in the project, shared through Git'
+  const where = audience === 'personal' ? 'Saved in your local files, ignored by Git' : userLevel ? 'Saved in your user-level files' : 'Saved in the project, shared through Git'
   return <div className="authority-empty">
     <h2 id="authority-rules-title" className="empty-state-title" tabIndex={-1} data-entry={entry}>{filtering ? 'No matching rules.' : 'No rules yet.'}</h2>
     {!filtering && <p className="empty-state-text">A rule lets a command run without asking, asks before a risky one, or blocks what must never run. Sync writes the same rules to each tool that supports them.</p>}

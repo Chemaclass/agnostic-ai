@@ -295,7 +295,7 @@ func TestUpgradeRequires_RefusesUserHome(t *testing.T) {
 		t.Errorf("global-home reconciliation: got %v", err)
 	}
 	if after := readUpgradeRequiresFile(t, config.ConfigFileName); !bytes.Equal(before, after) {
-		t.Error("project reconciliation changed user config")
+		t.Error("project reconciliation changed user-level config")
 	}
 	assertAbsent(t, filepath.Join(".agnostic-ai", projectLockName))
 }

@@ -99,11 +99,11 @@ func TestNativeMCPServers_ReadsEachTargetsProjectAndUserFiles(t *testing.T) {
 	userLevel := nativeMCPServers(home, ".", "", cfg, true)
 	for _, s := range userLevel {
 		if s.Scope != overview.NativeScopeUser {
-			t.Errorf("user page lists a %s server: %+v", s.Scope, s)
+			t.Errorf("user-level page lists a %s server: %+v", s.Scope, s)
 		}
 	}
 	if len(userLevel) != 3 {
-		t.Errorf("user servers = %+v, want the three user servers", userLevel)
+		t.Errorf("user-level servers = %+v, want the three user-level servers", userLevel)
 	}
 }
 
@@ -310,11 +310,11 @@ func TestUserOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 	}
 	want := "GitHub:user:~/.claude.json,linear:user:~/.cursor/mcp.json,notion:user:~/.claude.json"
 	if strings.Join(got, ",") != want {
-		t.Errorf("user native rows = %v, want %s", got, want)
+		t.Errorf("user-level native rows = %v, want %s", got, want)
 	}
 	for _, secret := range nativeMCPSecrets {
 		if strings.Contains(out, secret) {
-			t.Errorf("user view contains %q", secret)
+			t.Errorf("user-level view contains %q", secret)
 		}
 	}
 }

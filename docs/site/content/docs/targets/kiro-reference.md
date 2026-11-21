@@ -91,7 +91,7 @@ agnostic-ai sync --scope user --only kiro
 agnostic-ai sync --scope user --only kiro --check
 ```
 
-Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to a valid absolute profile directory to change where agnostic-ai writes these folders and Kiro's other user files. Like [Kiro CLI](https://kiro.dev/docs/reference/settings/#environment-variables), sync uses `~/.kiro` when the value is relative, a filesystem root, your home directory, or one of its ancestors. User hooks and workspace hooks both run.
+Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to a valid absolute profile directory to change where agnostic-ai writes these folders and Kiro's other user-level files. Like [Kiro CLI](https://kiro.dev/docs/reference/settings/#environment-variables), sync uses `~/.kiro` when the value is relative, a filesystem root, your home directory, or one of its ancestors. User-level hooks and workspace hooks both run.
 
 Sync removes only recorded files after their specs are removed. A conflicting or edited file stops sync.
 
@@ -167,6 +167,6 @@ The imported spec loses some data, but the Kiro files sync writes stay the same:
 - Two hook files with the same `name` keep both hooks. The second gets a generated name, because spec names are unique file names.
 - <code>{&#123;filePath}}</code> stays as written. Kiro documents it as new in 3.0, and it means nothing elsewhere.
 
-## User voice language {#global-voice-language}
+## User-level voice language {#global-voice-language}
 
 `agnostic-ai sync --scope user --only kiro` writes home `voice.language` to the literal `"voice.language"` key in `~/.kiro/settings/cli.json`, or `settings/cli.json` under `KIRO_HOME`. Use `auto` to detect the transcription language. Kiro CLI has no on/off or capture mode key, so sync prints a note for `voice.enabled` and `voice.mode`. Other voice settings, including `voice.autoSubmit`, stay as written. Removing the portable language restores its previous value; a value you changed by hand stays yours. See [voice dictation](@/docs/spec-format/settings-reference.md#voice-dictation).

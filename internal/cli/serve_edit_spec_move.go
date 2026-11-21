@@ -100,7 +100,7 @@ type specMoveHandler struct {
 	root      string
 	userLevel bool
 	// peer is the other level, fixed when the server starts; nil when a
-	// user server knows no project.
+	// user-level server knows no project.
 	peer *switchPeer
 }
 
@@ -249,7 +249,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 			return specMovePlan{}, err
 		}
 		if conditional {
-			return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s has a scope, paths, or target condition; user rules must apply to every file and tool", req.Name)
+			return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s has a scope, paths, or target condition; user-level rules must apply to every file and tool", req.Name)
 		}
 	}
 	var srcDir string

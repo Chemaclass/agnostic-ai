@@ -42,7 +42,7 @@ Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
 | `local` | `<project>/.agnostic-ai/local/` | `agnostic-ai sync` in that project | `agnostic-ai list` |
 | `user-local` | `~/.agnostic-ai/local/` (or `$AGNOSTIC_AI_HOME/local/`) | `agnostic-ai sync --scope user` | `agnostic-ai list --scope user` |
 
-A folder loads only when it exists. Project sync ignores `~/.agnostic-ai/`, and user sync ignores every project. Your personal setup wins over the shared one.
+A folder loads only when it exists. Project sync loads no specs from `~/.agnostic-ai/`; it reads only their names, to warn when one clashes. User-level sync ignores every project. Your personal setup wins over the shared one.
 
 ## Layout
 

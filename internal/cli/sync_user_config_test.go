@@ -157,7 +157,7 @@ func TestValidateUser_ChecksHookEventsAgainstConfiguredTargets(t *testing.T) {
 	hook := filepath.Join(source, "hooks", "tool.yaml")
 	writeFile(t, hook, "name: tool\nevent: BeforeTool\ncommand: echo hi\n")
 	if out, _, err := runUserCheck("validate"); err != nil {
-		t.Fatalf("a gemini event is valid when gemini is a user target: %v\n%s", err, out)
+		t.Fatalf("a gemini event is valid when gemini is a user-level target: %v\n%s", err, out)
 	}
 
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
@@ -322,18 +322,18 @@ func TestLintUser_ChecksKindsAgainstUserSurfaces(t *testing.T) {
 		t.Helper()
 		_, advice, ok := strings.Cut(out, marker)
 		if !ok {
-			t.Errorf("missing user hook advice in:\n%s", out)
+			t.Errorf("missing user-level hook advice in:\n%s", out)
 			return
 		}
 		names := strings.Split(strings.SplitN(advice, "\n", 2)[0], ", ")
 		for _, target := range []string{"claude", "codebuddy", "grok"} {
 			if !slices.Contains(names, target) {
-				t.Errorf("user hook advice omits %s: %v", target, names)
+				t.Errorf("user-level hook advice omits %s: %v", target, names)
 			}
 		}
 		for _, target := range []string{"windsurf", "zed"} {
 			if slices.Contains(names, target) {
-				t.Errorf("user hook advice lists project-only hooks for %s", target)
+				t.Errorf("user-level hook advice lists project-only hooks for %s", target)
 			}
 		}
 	}
@@ -349,17 +349,17 @@ func TestLintUser_ChecksKindsAgainstUserSurfaces(t *testing.T) {
 		t.Fatalf("validate --scope user must reject hooks no configured target writes:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks.") {
-		t.Errorf("expected the hook orphan with the user hook targets, got:\n%s", out)
+		t.Errorf("expected the hook orphan with the user-level hook targets, got:\n%s", out)
 	}
 	checkHookAdvice(out, "Enable one of: ")
 
 	out, _, _ = runUserCheck("lint")
 	if !strings.Contains(out, hook+": hook spec not consumed by any enabled target;") {
-		t.Errorf("expected the user hook orphan finding, got:\n%s", out)
+		t.Errorf("expected the user-level hook orphan finding, got:\n%s", out)
 	}
 	checkHookAdvice(out, "targets that support hooks: ")
 	if strings.Contains(out, agent) {
-		t.Errorf("windsurf writes user agents, so the agent is not dead:\n%s", out)
+		t.Errorf("windsurf writes user-level agents, so the agent is not dead:\n%s", out)
 	}
 }
 

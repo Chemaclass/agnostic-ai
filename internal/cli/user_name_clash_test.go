@@ -116,7 +116,7 @@ func TestDoctor_ReportsAUserNameClashWithoutFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "User names:\n  ! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ") ||
+	if !strings.Contains(out, "Names shared with the user level:\n  ! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ") ||
 		!strings.Contains(out, "; claude loads the user-level one, which exists only on this machine;") {
 		t.Errorf("doctor should report the shared skill name:\n%s", out)
 	}
@@ -285,7 +285,7 @@ func TestUserNameClash_AbbreviatesHome(t *testing.T) {
 	}
 
 	if got := c.String(); !strings.Contains(got, "also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md;") {
-		t.Errorf("the user path should start with ~: %s", got)
+		t.Errorf("the user-level path should start with ~: %s", got)
 	}
 }
 
@@ -300,7 +300,7 @@ func TestUserNameClashes_AmpOnlyWhenBothWriteAmp(t *testing.T) {
 	got := clashesInWorkingDir(t)
 
 	if len(got) != 1 || !slices.Equal(got[0].userWins, []string{"claude"}) {
-		t.Errorf("Amp loads the project copy of a claude-only user skill, so only claude wins globally: %+v", got)
+		t.Errorf("Amp loads the project copy of a claude-only user-level skill, so only claude wins globally: %+v", got)
 	}
 }
 
@@ -312,7 +312,7 @@ func TestUserNameClashes_ClineLoadsTheUserSkill(t *testing.T) {
 	got := clashesInWorkingDir(t)
 
 	if len(got) != 1 || !slices.Equal(got[0].userWins, []string{"cline"}) {
-		t.Errorf("Cline loads the user skill over the project one: %+v", got)
+		t.Errorf("Cline loads the user-level skill over the project one: %+v", got)
 	}
 }
 
@@ -342,7 +342,7 @@ func TestUserNameClashes_SkipsTargetsWithNoUserLevelSurface(t *testing.T) {
 	got := clashesInWorkingDir(t)
 
 	if len(got) != 1 || len(got[0].userWins) != 0 || !slices.Equal(got[0].projectWins, []string{"claude"}) {
-		t.Errorf("amp writes no user agents, so it cannot hide one: %+v", got)
+		t.Errorf("amp writes no user-level agents, so it cannot hide one: %+v", got)
 	}
 }
 
@@ -402,7 +402,7 @@ func TestUserNameClashes_ComparesContent(t *testing.T) {
 			want:      contentDiffers,
 		},
 		{
-			name:      "asset only in the user copy",
+			name:      "asset only in the user-level copy",
 			userLevel: map[string]string{skill: skillSpec("gh-issue", ""), asset: "echo global\n"},
 			project:   map[string]string{skill: skillSpec("gh-issue", "")},
 			want:      contentDiffers,
@@ -509,7 +509,7 @@ func TestUserNameClash_MessagePerWinner(t *testing.T) {
 		want string
 	}{
 		{
-			name: "user wins",
+			name: "user-level wins",
 			c:    userNameClash{project: project, userLevel: userLevel, userWins: []string{"claude"}, content: contentDiffers},
 			want: " with different content; claude loads the user-level one, which exists only on this machine" + rename + "; project sync cannot select this skill instead on claude",
 		},

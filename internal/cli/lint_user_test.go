@@ -103,7 +103,7 @@ func TestValidateUser_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
 
 	out, _, err := runUserCheck("validate")
 	if err == nil {
-		t.Fatalf("validate --scope user must reject an event no hook-writing user target fires:\n%s", out)
+		t.Fatalf("validate --scope user must reject an event no hook-writing user-level target fires:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "PostCompaction"`) {
 		t.Errorf("expected the Devin-only event reported on %s, got:\n%s", hook, out)

@@ -108,7 +108,7 @@ func TestZedUserInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 				t.Errorf("JSON contribution misses canonical native path: %s", raw)
 			}
 			if _, err := runRoot(t, "import", "--scope", "user", "zed"); err == nil || !strings.Contains(err.Error(), "has no user settings, MCP file, or hook directory") {
-				t.Errorf("user instruction import contract changed: %v", err)
+				t.Errorf("user-level instruction import contract changed: %v", err)
 			}
 			if got := readFile(t, path); got != added {
 				t.Errorf("unsupported import changed native file: %q", got)

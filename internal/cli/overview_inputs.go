@@ -126,7 +126,7 @@ func overviewUserLayerFindings() []overview.Finding {
 			Severity:    lintError.String(),
 			Path:        display(configPath),
 			Message:     servedFindingMessage("The user setup did not load: " + err.Error()),
-			Explanation: "The overview shows no user findings until the user setup loads.",
+			Explanation: "The overview shows no user-level findings until the user setup loads.",
 		}}
 	} else {
 		findings = overviewScopeLintFindings(scope, configPath, display)
@@ -457,7 +457,7 @@ func projectInstructionDocuments() []overview.Document {
 	return instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, ".")
 }
 
-// userInstructionDocuments describes the user instructions file and its
+// userInstructionDocuments describes the user-level instructions file and its
 // local layer under source.
 func userInstructionDocuments(source string) []overview.Document {
 	return instructionDocuments([]instructionFile{

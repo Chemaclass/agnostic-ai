@@ -16,7 +16,7 @@ user preferences, stylistic or preference-only wording changes, or anything
 you could not open with your own tools. Current vendor evidence contradicting
 repository documentation can establish a `cosmetic` finding when the impact
 is wrong user guidance. It still requires the vendor quote, repository line,
-concrete impact, and smallest fix above. Existing user built-in output is
+concrete impact, and smallest fix above. Existing user-level built-in output is
 covered by the built-ins reference.
 
 A capability signal is not a finding and does not need a contradicting

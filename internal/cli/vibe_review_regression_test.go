@@ -51,13 +51,13 @@ func TestImportUser_VibeUnsafeHookDryRunKeepsSentinel(t *testing.T) {
 	name := "../../" + filepath.ToSlash(relative)
 	writeFile(t, filepath.Join(home, ".vibe/hooks.toml"), fmt.Sprintf("[[hooks]]\nname=%q\ntype='pre_tool'\ncommand='check'\n", name))
 	if _, _, err := runImportUserTest("vibe", "--dry-run"); err == nil {
-		t.Error("unsafe user hook name accepted")
+		t.Error("unsafe user-level hook name accepted")
 	}
 	if got := readFile(t, sentinel); got != "sentinel\n" {
-		t.Fatal("user dry run overwrote sentinel")
+		t.Fatal("user-level dry run overwrote sentinel")
 	}
 	if _, err := os.Stat(source); !os.IsNotExist(err) {
-		t.Error("user dry run wrote portable source")
+		t.Error("user-level dry run wrote portable source")
 	}
 }
 

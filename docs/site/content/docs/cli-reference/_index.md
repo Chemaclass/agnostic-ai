@@ -61,7 +61,7 @@ Commands that write hold one project lock. A second writer exits with the runnin
 <summary>Which commands lock, and the lock file</summary>
 
 - `sync` (including `--watch`, until it exits), `import`, `use`, `init`, and `migrate` hold the lock while they run.
-- `sync --check`, `sync --plan`, dry runs, `status`, `list`, and user commands take no lock.
+- `sync --check`, `sync --plan`, dry runs, `status`, `list`, and user-level commands take no lock.
 - The lock works between processes on one machine, not across a network file system.
 The lock file, `.agnostic-ai/.command-lock`, stays on disk. Do not delete it. The managed `.gitignore` block ignores it, and writing commands refresh those runtime entries even when generated outputs are committed. The operating system releases the lock when the process exits or is killed.
 

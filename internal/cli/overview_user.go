@@ -24,7 +24,7 @@ func newUserOverviewHandler(compareInstalled bool) http.Handler {
 	})
 }
 
-// userOverviewInputs loads the user and user-local layers as
+// userOverviewInputs loads the user-level and user-local layers as
 // lint --scope user does, runs the read-only checks that apply to them, and
 // builds the snapshot the overview names. The snapshot uses the options
 // the served Authority view uses for --scope user, so both report one
@@ -109,7 +109,7 @@ func userRequires(source string) string {
 func runUserOverviewChecks(scope checkScope, compareInstalled bool) overviewChecks {
 	overviewChecksMu.Lock()
 	defer overviewChecksMu.Unlock()
-	// Planning the user writes prints capability warnings and buffers
+	// Planning the user-level writes prints capability warnings and buffers
 	// coverage notes; a read-only view reports neither.
 	defer adapters.SetAsideNotes()()
 	adapters.SetWarner(io.Discard)
@@ -235,7 +235,7 @@ func userOverviewEvidenceNote(checks overviewChecks) string {
 		parts = append(parts, "The files sync --scope user would write were compared with disk for "+strings.Join(checks.compared, ", ")+".")
 	}
 	if len(checks.skipped) > 0 {
-		parts = append(parts, "Not compared, because user sync does not support the tool, its configuration root could not be resolved, or the plan failed: "+strings.Join(checks.skipped, ", ")+".")
+		parts = append(parts, "Not compared, because user-level sync does not support the tool, its configuration root could not be resolved, or the plan failed: "+strings.Join(checks.skipped, ", ")+".")
 	}
 	parts = append(parts, "The doctor checks read a project and did not run.", "Runtime enforcement is not observed.")
 	return strings.Join(parts, " ")

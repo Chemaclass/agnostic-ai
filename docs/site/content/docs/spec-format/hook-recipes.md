@@ -393,7 +393,7 @@ It misses pushes from script files and aliases. For stronger limits, use [`permi
 - Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working.
 - Script sharing does not translate event names or reply formats, so pick ones every tool supports.
 
-{% <details summary="Details: user sync and Copilot user hooks"> %}
+{% <details summary="Details: user-level sync and Copilot user hooks"> %}
 - `sync --scope user` copies scripts from the user source root's `scripts/` directory into the selected tools' user hook directories. Its commands use absolute paths to those copies.
 - [Copilot user hooks](@/docs/targets/copilot-reference.md#hooks) use the same command fields and event casing as project hooks. An imported one records its source file in `x-copilot.user-hook-file`.
 {% </details> %}

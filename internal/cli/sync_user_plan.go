@@ -196,7 +196,7 @@ func (p *userPlan) guardRemoval(path string, snap *diskSnapshot) {
 func (p *userPlan) place(path string, data []byte, mode fs.FileMode) (bool, error) {
 	if i, ok := p.seen[path]; ok {
 		if !bytes.Equal(p.writes[i].data, data) {
-			return false, fmt.Errorf("%s: two user targets emit different content to one path", path)
+			return false, fmt.Errorf("%s: two user-level targets emit different content to one path", path)
 		}
 		p.writes[i].addTarget(p.current)
 		return false, nil

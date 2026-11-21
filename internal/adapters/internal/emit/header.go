@@ -20,7 +20,7 @@ var provenanceEnabled atomic.Bool
 
 func init() { provenanceEnabled.Store(true) }
 
-// SetProvenanceEnabled flips the user toggle and returns the previous
+// SetProvenanceEnabled flips the global toggle and returns the previous
 // value so callers can `defer SetProvenanceEnabled(prev)`.
 func SetProvenanceEnabled(b bool) bool {
 	return provenanceEnabled.Swap(b)

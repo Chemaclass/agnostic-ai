@@ -388,7 +388,7 @@ func (e *projectCapabilityError) Error() string {
 	if errors.Is(e.err, context.DeadlineExceeded) || errors.Is(e.err, context.Canceled) {
 		return fmt.Sprintf("project binary %s could not complete the project command check: %v", e.selected, e.err)
 	}
-	return fmt.Sprintf("project binary %s does not support the project command; upgrade its owning package to a supporting release and update package.json and requires explicitly, then rerun (no user fallback): %v", e.selected, e.err)
+	return fmt.Sprintf("project binary %s does not support the project command; upgrade its owning package to a supporting release and update package.json and requires explicitly, then rerun (no global fallback): %v", e.selected, e.err)
 }
 
 func (e *projectCapabilityError) Unwrap() error { return e.err }

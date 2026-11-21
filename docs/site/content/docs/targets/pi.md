@@ -58,7 +58,7 @@ Have an existing setup? [Import it](@/docs/targets/pi-reference.md#import) befor
 | MCP servers | `.pi/mcp.json` |
 | Model and thinking settings | `.pi/settings.json` |
 
-Overrides, field mappings, user sync, and import: [native reference](@/docs/targets/pi-reference.md).
+Overrides, field mappings, user-level sync, and import: [native reference](@/docs/targets/pi-reference.md).
 
 ## Loading and limits
 
@@ -70,9 +70,9 @@ Overrides, field mappings, user sync, and import: [native reference](@/docs/targ
 - Trust stays Pi's decision. Sync writes no trust approvals and no `defaultProjectTrust`.
 - Agent, hook, ignore, review, and environment specs have no native output. Portable permission settings are unsupported.
 - Skill `allowed-tools` is metadata, not an enforced permission limit.
-- Invalid user MCP specifications stop sync before native files change.
+- Invalid user-level MCP specifications stop sync before native files change.
 - The default prompt directory loads direct Markdown children. Nested command names are unsupported.
-- Commands sync only at project scope. User command sync is unsupported.
+- Commands sync only at project scope. User-level command sync is unsupported.
 {% </details> %}
 
 {% <details summary="Recipe: add a disabled MCP server"> %}
