@@ -93,6 +93,73 @@ func TestNewScopeLocal_SkillFolderIsOverriddenByTheSameFolder(t *testing.T) {
 	}
 }
 
+// A local spec merges into a shared one by name, wherever the shared
+// file sits. A full scaffold there would replace the team's rule with
+// placeholders, so the override must be found by name.
+func TestNewScopeLocal_FindsTheSharedSpecByNameNotByPath(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/rules/backend/style.md", "---\nname: style\ndescription: Backend style.\nglobs: \"src/**/*.go\"\n---\n\nUse tabs.\n")
+	writeFile(t, ".agnostic-ai/agents/code-reviewer.md", "---\nname: reviewer\ndescription: Reviews.\n---\n\nReview.\n")
+	if out, errOut, err := runSplit(t, "sync", "--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s\n%s", err, out, errOut)
+	}
+	before, err := os.ReadFile(".claude/rules/style.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct{ kind, name, path string }{
+		{"rule", "style", ".agnostic-ai/local/rules/backend/style.md"},
+		{"agent", "reviewer", ".agnostic-ai/local/agents/code-reviewer.md"},
+	} {
+		if _, _, err := runSplit(t, "new", tc.kind, tc.name, "--scope", "local"); err != nil {
+			t.Fatalf("%s: %v", tc.kind, err)
+		}
+		body, err := os.ReadFile(tc.path)
+		if err != nil {
+			t.Fatalf("%s: want the override beside where the shared spec sits: %v", tc.kind, err)
+		}
+		if !strings.Contains(string(body), "name: "+tc.name) || strings.Contains(string(body), "TODO") {
+			t.Errorf("%s: want a name-only override, got:\n%s", tc.kind, body)
+		}
+	}
+	if out, errOut, err := runSplit(t, "sync", "--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s\n%s", err, out, errOut)
+	}
+	if after, _ := os.ReadFile(".claude/rules/style.md"); string(after) != string(before) {
+		t.Errorf("an untouched override changed the emitted rule:\n%s\nwas:\n%s", after, before)
+	}
+}
+
+// A file named after a spec that has another name is not that spec.
+func TestNewScopeLocal_AFileStemIsNotASpecName(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/agents/code-reviewer.md", "---\nname: reviewer\ndescription: Reviews.\n---\n\nReview.\n")
+	if _, _, err := runSplit(t, "new", "agent", "code-reviewer", "--scope", "local"); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(".agnostic-ai/local/agents/code-reviewer.md")
+	if string(body) != newSpecTemplate("agent", "code-reviewer") {
+		t.Errorf("no shared agent has this name, so it is a new spec with the full scaffold, got:\n%s", body)
+	}
+}
+
+func TestNewScopeLocal_RefusesASecondLocalSpecOfTheSameName(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/skills/dep/SKILL.md", "---\nname: dep\ndescription: Dep.\n---\n\nBody.\n")
+	writeFile(t, ".agnostic-ai/local/skills/dep.md", "---\nname: dep\n---\n")
+	_, _, err := runSplit(t, "new", "skill", "dep", "--scope", "local")
+	if err == nil || !strings.Contains(err.Error(), ".agnostic-ai/local/skills/dep.md already exists") {
+		t.Errorf("err=%v, want the existing local skill named", err)
+	}
+	if _, statErr := os.Stat(".agnostic-ai/local/skills/dep/SKILL.md"); statErr == nil {
+		t.Error("a second local skill of the same name was written")
+	}
+}
+
 func TestNewScopeLocal_NeverOverwritesAndDryRunWritesNothing(t *testing.T) {
 	testutil.Chdir(t, setupEmptyProject(t))
 	silence(t)
@@ -205,8 +272,8 @@ func TestNewScope_ProjectIsTheDefaultAndStillRefusesTheUserHome(t *testing.T) {
 	}
 	testutil.Chdir(t, source)
 	for _, args := range [][]string{{"new", "rule", "x"}, {"new", "rule", "x", "--scope", "project"}, {"new", "rule", "x", "--scope", "local"}} {
-		if _, _, err := runSplit(t, args...); err == nil || !strings.Contains(err.Error(), "global home") {
-			t.Errorf("%v inside the user home: err=%v, want the refusal", args, err)
+		if _, _, err := runSplit(t, args...); err == nil || !strings.Contains(err.Error(), "global home") || !strings.Contains(err.Error(), "new <kind> <name> --scope user") {
+			t.Errorf("%v inside the user home: err=%v, want the refusal to name new --scope user", args, err)
 		}
 	}
 }
@@ -238,7 +305,7 @@ func TestDoctor_WarnsWhenGitWouldCommitThePersonalLayer(t *testing.T) {
 	silence(t)
 	isolateGit(t)
 	gitInit(t, dir)
-	const marker = "Git does not ignore"
+	const marker = "Git would commit"
 
 	_, stderr, _ := runSplit(t, "doctor")
 	if strings.Contains(stderr, marker) {
@@ -259,5 +326,15 @@ func TestDoctor_WarnsWhenGitWouldCommitThePersonalLayer(t *testing.T) {
 	writeFile(t, ".gitignore", "/.agnostic-ai/local/\nagnostic-ai.local.yaml\n")
 	if _, stderr, _ = runSplit(t, "doctor"); strings.Contains(stderr, marker) {
 		t.Errorf("ignored personal layer still warned: %q", stderr)
+	}
+}
+
+func TestDoctor_ScopeWithASpecScopeSaysItIsTheOlderSpellingOfChecks(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	for _, scope := range []string{"user", "local", "runtime"} {
+		_, err := runDoctor(t, "--scope", scope)
+		if err == nil || !strings.Contains(err.Error(), "older spelling of --checks") || !strings.Contains(err.Error(), "all or project") {
+			t.Errorf("doctor --scope %s: err=%v", scope, err)
+		}
 	}
 }

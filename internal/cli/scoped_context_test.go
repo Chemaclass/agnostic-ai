@@ -236,10 +236,47 @@ func TestNew_DirRules(t *testing.T) {
 	}{
 		{[]string{"new", "agent", "a", "--dir", "services"}, "--dir is supported only for rules"},
 		{[]string{"new", "rule", "a", "--dir", ""}, "--dir requires a project-relative subdirectory"},
-		{[]string{"new", "rule", "a", "--dir", "x", "--scope", "y"}, "--scope y"},
+		{[]string{"new", "rule", "a", "--dir", "x", "--scope", "y/z"}, "--scope y/z"},
 	} {
 		if _, _, err := runSplit(t, tc.args...); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%v: err=%v, want %q", tc.args, err, tc.want)
 		}
+	}
+}
+
+// A value that does not read as a directory is a mistyped scope, most
+// likely "global", the old word for user. It must not create a rule.
+func TestNew_MistypedScopeIsNotTakenForADirectory(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	for _, args := range [][]string{
+		{"new", "rule", "a", "--scope", "global"},
+		{"new", "rule", "a", "--scope", "Local"},
+		{"new", "rule", "a", "--scope", ""},
+		{"new", "skill", "a", "--scope", "services/payments"},
+	} {
+		_, stderr, err := runSplit(t, args...)
+		if err == nil || !strings.Contains(err.Error(), "--scope must be project, local, or user") || !strings.Contains(err.Error(), "--dir") {
+			t.Errorf("%v: err=%v, want the three scopes and --dir named", args, err)
+		}
+		if strings.Contains(stderr, "deprecated") {
+			t.Errorf("%v: warned about a spelling the user did not mean: %q", args, stderr)
+		}
+	}
+	if entries, _ := os.ReadDir(".agnostic-ai/rules"); len(entries) != 0 {
+		t.Errorf("a mistyped scope created a rule: %v", entries)
+	}
+}
+
+// A top-level directory has no separator, so it counts as the older
+// spelling only when it exists.
+func TestNewRule_ScopeWithAnExistingTopLevelDirectoryStillWorks(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	if err := os.Mkdir("services", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, stderr, err := runSplit(t, "new", "rule", "a", "--scope", "services"); err != nil || !strings.Contains(stderr, "--dir services") {
+		t.Errorf("err=%v stderr=%q, want the rule created with a notice", err, stderr)
 	}
 }

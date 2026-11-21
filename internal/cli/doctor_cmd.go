@@ -112,6 +112,9 @@ func newDoctorCmd() *cobra.Command {
 				if cmd.Flags().Changed("checks") && opts.checks != opts.legacyScope {
 					return errs.Coded(errs.CodeFlagConflict, "--scope %s is the older spelling of --checks and cannot be combined with --checks %s", opts.legacyScope, opts.checks)
 				}
+				if opts.legacyScope != "all" && opts.legacyScope != "project" {
+					return fmt.Errorf("doctor --scope is the older spelling of --checks, which takes all or project; got %q. doctor checks a project and has no user or local mode", opts.legacyScope)
+				}
 				opts.checks = opts.legacyScope
 			}
 			if err := validateDoctorChecks(opts.checks); err != nil {
@@ -138,9 +141,11 @@ func newDoctorCmd() *cobra.Command {
 			}
 			// Advice, not a finding: it changes no exit code, and
 			// --checks project leaves personal files alone.
-			if opts.checks != "project" && verbosity >= levelDefault && hasPersonalLayer(".") {
-				if warning := localIgnoreWarning("."); warning != "" {
-					cmd.PrintErrf("warning: %s\n", warning)
+			if opts.checks != "project" && verbosity >= levelDefault {
+				if paths := personalPaths("."); len(paths) > 0 {
+					if warning := localIgnoreWarning(".", paths...); warning != "" {
+						cmd.PrintErrf("warning: %s\n", warning)
+					}
 				}
 			}
 			return runDoctorText(cmd, opts)

@@ -87,7 +87,12 @@ func newNewCmd() *cobra.Command {
 				case specScopeProject, specScopeUser, specScopeLocal:
 				default:
 					// Before --scope meant where a spec lives, it named
-					// a rule's directory here.
+					// a rule's directory here. Only a value that reads
+					// as one still does, so a mistyped scope is not
+					// taken for a directory.
+					if !legacyRuleDir(kind, scope) {
+						return fmt.Errorf("--scope must be %s, %s, or %s; got %q. For a rule's directory use --dir", specScopeProject, specScopeLocal, specScopeUser, scope)
+					}
 					if dirSet {
 						return errs.Coded(errs.CodeFlagConflict, "--scope %s is the older spelling of --dir and cannot be combined with it", scope)
 					}
@@ -168,7 +173,7 @@ func newNewCmd() *cobra.Command {
 				summaryf("→ real servers to copy: https://agnostic-ai.org/docs/spec-format/mcp-recipes/\n")
 			}
 			if place.scope == specScopeLocal {
-				if warning := localIgnoreWarning("."); warning != "" && verbosity >= levelDefault {
+				if warning := localIgnoreWarning(".", defaultProjectUser+"/"); warning != "" && verbosity >= levelDefault {
 					cmd.PrintErrf("warning: %s\n", warning)
 				}
 			}
@@ -331,4 +336,18 @@ func newRenderPathArg(path string) string {
 		return "'" + strings.ReplaceAll(path, "'", "''") + "'"
 	}
 	return adapters.ShellQuote(path)
+}
+
+// legacyRuleDir reports whether value, given to new --scope, is the
+// older spelling of --dir: a path with a separator, or a directory of
+// the project.
+func legacyRuleDir(kind, value string) bool {
+	if kind != string(spec.KindRule) || value == "" {
+		return false
+	}
+	if strings.ContainsAny(value, `/\`) {
+		return true
+	}
+	info, err := os.Stat(value)
+	return err == nil && info.IsDir()
 }

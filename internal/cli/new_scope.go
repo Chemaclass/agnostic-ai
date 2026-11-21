@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -41,36 +42,61 @@ func resolveNewPlace(scope, kind, name string) (newPlace, error) {
 		}
 		return newPlace{scope: scope, path: path}, nil
 	}
-	if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
-		return newPlace{}, err
-	}
-	cfg, err := config.Load(".")
-	if err != nil {
-		return newPlace{}, err
-	}
-	shared, err := newSpecPath(cfg, kind, name)
-	if err != nil {
+	if err := refuseGlobalHome(".", globalHomeNewRemedy); err != nil {
 		return newPlace{}, err
 	}
 	if scope != specScopeLocal {
-		return newPlace{scope: scope, path: shared, cfg: cfg}, nil
+		cfg, err := config.Load(".")
+		if err != nil {
+			return newPlace{}, err
+		}
+		path, err := newSpecPath(cfg, kind, name)
+		if err != nil {
+			return newPlace{}, err
+		}
+		return newPlace{scope: scope, path: path, cfg: cfg}, nil
+	}
+	// A local spec merges into a lower one by kind and name, wherever
+	// that file sits, so the loaded specs decide what this one changes.
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		return newPlace{}, err
 	}
 	path, err := newSpecPathIn(defaultProjectUser, defaultLayerSources(), kind, name)
 	if err != nil {
 		return newPlace{}, err
 	}
 	place := newPlace{scope: scope, path: path, cfg: cfg}
-	if _, err := os.Stat(shared); err == nil {
-		place.override = true
-	}
-	// A shared skill kept as a folder is overridden by the same folder.
-	if kind == string(spec.KindSkill) {
-		if _, err := os.Stat(filepath.Join(strings.TrimSuffix(shared, ".md"), "SKILL.md")); err == nil {
-			place.override = true
-			place.path = filepath.Join(strings.TrimSuffix(path, ".md"), "SKILL.md")
+	for _, e := range bundle.All() {
+		if string(e.Kind) != kind || e.Name != name {
+			continue
 		}
+		if e.Layer == layerNameProjectUser {
+			return newPlace{}, fmt.Errorf("%s already exists", filepath.ToSlash(e.Path))
+		}
+		place.override = true
+		place.path = localPathOver(cfg, kind, path, e)
 	}
 	return place, nil
+}
+
+// localPathOver is where the local spec that changes base goes: the
+// same place under the local folder as base has under its own, so a
+// rule in a subfolder keeps its directory and a skill kept as a folder
+// stays one. flat is the path for a spec outside the project's sources,
+// such as a built-in.
+func localPathOver(cfg *config.Config, kind, flat string, base spec.Entry) string {
+	shared, err := sourceDirForKind(cfg, kind)
+	local, localErr := sourceDirForKind(&config.Config{Sources: defaultLayerSources()}, kind)
+	if err == nil && localErr == nil && shared != "" {
+		if rel, err := filepath.Rel(shared, base.Path); err == nil && filepath.IsLocal(rel) {
+			return filepath.Join(defaultProjectUser, local, rel)
+		}
+	}
+	if filepath.Base(base.Path) == "SKILL.md" {
+		return filepath.Join(strings.TrimSuffix(flat, filepath.Ext(flat)), "SKILL.md")
+	}
+	return flat
 }
 
 // newSpecPathIn is the file for kind and name under root, laid out as
@@ -108,14 +134,15 @@ func newOverrideTemplate(path, name string) string {
 	return fmt.Sprintf("%s\nname: %s\n", hint, name)
 }
 
-// localIgnoreWarning says when Git would commit the personal layer, or
-// returns "" when it is ignored or dir is not in a repository.
-func localIgnoreWarning(dir string) string {
+// localIgnoreWarning says when Git would commit one of the personal
+// paths, or returns "" when each is ignored or dir is not in a
+// repository. It checks only the paths given.
+func localIgnoreWarning(dir string, paths ...string) string {
 	if _, err := gitquery.Toplevel(dir); err != nil {
 		return ""
 	}
 	var open []string
-	for _, path := range []string{defaultProjectUser + "/", config.LocalOverrideFileName} {
+	for _, path := range paths {
 		if !gitquery.Ignored(dir, path) {
 			open = append(open, path)
 		}
@@ -123,16 +150,18 @@ func localIgnoreWarning(dir string) string {
 	if len(open) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("Git does not ignore %s; add to .gitignore so personal specs stay out of commits", strings.Join(open, " or "))
+	return fmt.Sprintf("Git would commit %s. Add it to .gitignore, or run `git rm --cached` on it if Git already tracks it", strings.Join(open, " and "))
 }
 
-// hasPersonalLayer reports whether the project at dir holds personal
-// specs or a personal config.
-func hasPersonalLayer(dir string) bool {
-	for _, path := range []string{defaultProjectUser, config.LocalOverrideFileName} {
+// personalPaths lists the personal files the project at dir holds: its
+// local specs folder and its local config.
+func personalPaths(dir string) []string {
+	var found []string
+	for path, shown := range map[string]string{defaultProjectUser: defaultProjectUser + "/", config.LocalOverrideFileName: config.LocalOverrideFileName} {
 		if _, err := os.Stat(filepath.Join(dir, path)); err == nil {
-			return true
+			found = append(found, shown)
 		}
 	}
-	return false
+	slices.Sort(found)
+	return found
 }
