@@ -80,9 +80,7 @@ allow_remote_control socket-only
 listen_on unix:/tmp/kitty-{kitty_pid}
 ```
 
-The same lines work on Linux. A socket kitty names with `@`, such as `unix:@kitty`, is not found.
-
-Then any program you run can control kitty through that socket, not only agnostic-ai. Without them, a kitty session's app comes forward and the message gives these lines. agnostic-ai never edits `kitty.conf`.
+Then any program you run can control kitty through that socket, not only agnostic-ai. Without them, a kitty session's app comes forward and the message gives these lines. agnostic-ai never edits `kitty.conf`. The same lines work on Linux. A socket kitty names with `@`, such as `unix:@kitty`, is not found.
 
 ### When it refuses
 
