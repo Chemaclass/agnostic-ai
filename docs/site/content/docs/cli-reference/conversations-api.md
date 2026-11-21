@@ -73,7 +73,7 @@ Returns `tools` and `conversations`:
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, open}`.
 - `approvalsMode` is the loosest active mode for the project or global list, `review` or `yolo`. It is omitted when inactive.
-- Read [mailbox routes](@/docs/mailbox.md#mailbox-api) for `threads` and `mailboxWarning`.
+- [Mailbox routes](@/docs/mailbox.md#mailbox-api).
 
 Conversation fields:
 
