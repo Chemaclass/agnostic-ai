@@ -22,5 +22,5 @@ export function audienceDescription(audience: EditAudience, global: boolean): st
 
 /** The layer an item comes from, with each level's local layer shown as `local`. */
 export function layerLabel(layer: string): string {
-  return layer === 'project-user' || layer === 'global-local' ? 'local' : layer
+  return layer === 'local' || layer === 'user-local' ? 'local' : layer
 }

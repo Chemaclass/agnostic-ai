@@ -639,7 +639,7 @@ func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 	return isLocalStatePath(root, ev.Name)
 }
 
-// isLocalStatePath reports whether path is tool state in the project-user
+// isLocalStatePath reports whether path is tool state in the local
 // layer that no spec reads: a handoff file or the personal memory store.
 func isLocalStatePath(root, path string) bool {
 	return isHandoffPath(root, path) || isPersonalMemoryPath(root, path)

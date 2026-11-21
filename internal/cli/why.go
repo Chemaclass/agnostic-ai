@@ -83,6 +83,7 @@ func newWhyCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Same as --format json.")
+	addProjectOnlyScopeFlag(cmd, "`agnostic-ai explain --scope user <spec>` says where a user-level spec lands")
 	return cmd
 }
 

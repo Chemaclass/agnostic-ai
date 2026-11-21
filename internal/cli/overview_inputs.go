@@ -133,7 +133,7 @@ func overviewGlobalLayerFindings() []overview.Finding {
 	}
 	setFindingOpenPaths(findings, source)
 	for i := range findings {
-		findings[i].Layer = overview.LayerGlobal
+		findings[i].Layer = overview.LayerUser
 	}
 	return findings
 }
@@ -461,8 +461,8 @@ func projectInstructionDocuments() []overview.Document {
 // local layer under source.
 func globalInstructionDocuments(source string) []overview.Document {
 	return instructionDocuments([]instructionFile{
-		{path: filepath.Join(source, "AGNOSTIC_AI.md"), layer: "global"},
-		{path: filepath.Join(source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
+		{path: filepath.Join(source, "AGNOSTIC_AI.md"), layer: layerNameUser},
+		{path: filepath.Join(source, "local", "AGNOSTIC_AI.md"), layer: layerNameUserLocal},
 	}, source)
 }
 

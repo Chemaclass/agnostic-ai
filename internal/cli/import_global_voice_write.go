@@ -97,7 +97,7 @@ func importedVoiceDestinationAvailable(settings []spec.Entry, name, path string,
 				if filepath.Clean(current.Path) == filepath.Clean(path) {
 					return true
 				}
-			} else if current.Layer != "global-local" {
+			} else if current.Layer != "user-local" {
 				return false
 			}
 		}
@@ -107,7 +107,7 @@ func importedVoiceDestinationAvailable(settings []spec.Entry, name, path string,
 
 func importedVoiceLayerCompatible(settings []spec.Entry, name string, doc map[string]any) bool {
 	for _, entry := range settings {
-		if entry.Name != name || entry.Layer != "global-local" {
+		if entry.Name != name || entry.Layer != "user-local" {
 			continue
 		}
 		local := entry.LocalMeta

@@ -24,7 +24,7 @@ func newGlobalOverviewHandler(compareInstalled bool) http.Handler {
 	})
 }
 
-// globalOverviewInputs loads the global and global-local layers as
+// globalOverviewInputs loads the global and user-local layers as
 // lint --scope user does, runs the read-only checks that apply to them, and
 // builds the snapshot the overview names. The snapshot uses the options
 // the served Authority view uses for --scope user, so both report one

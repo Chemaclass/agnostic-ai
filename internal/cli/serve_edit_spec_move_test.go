@@ -103,7 +103,7 @@ func TestSpecMove_MovesASkillFolderToGlobal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.ContainsFunc(b.Skills, func(e spec.Entry) bool { return e.Name == "review-pr" && e.Layer == "global" }) {
+	if !slices.ContainsFunc(b.Skills, func(e spec.Entry) bool { return e.Name == "review-pr" && e.Layer == layerNameUser }) {
 		t.Errorf("global setup does not load the skill: %+v", b.Skills)
 	}
 }

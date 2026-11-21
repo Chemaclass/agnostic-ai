@@ -414,7 +414,7 @@ func TestGlobalNameClashes_ComparesContent(t *testing.T) {
 			want:    contentIdentical,
 		},
 		{
-			name: "global-local override keeps the shared folder's assets",
+			name: "user-local override keeps the shared folder's assets",
 			global: map[string]string{
 				skill:            skillSpec("gh-issue", ""),
 				asset:            "echo same\n",

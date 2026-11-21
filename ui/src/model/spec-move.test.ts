@@ -16,8 +16,8 @@ describe('spec move', () => {
     ['instructions', 'project'],
     ['skill', 'builtin'],
     ['skill', 'pack:team'],
-    ['skill', 'project-user'],
-    ['skill', 'global-local'],
+    ['skill', 'local'],
+    ['skill', 'user-local'],
   ])('leaves a %s from layer %s alone', (kind, layer) => {
     expect(canMoveSpec(item(kind, layer), 'project')).toBe(false)
     expect(canMoveSpec(item(kind, layer), 'global')).toBe(false)

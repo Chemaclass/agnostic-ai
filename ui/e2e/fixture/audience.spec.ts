@@ -28,7 +28,7 @@ for (const width of [320, 390, 1440]) {
         { spec: 'defaults', path: shared, values: [{ key: 'x-claude.verbose', type: 'bool', value: 'false' }, { key: 'x-claude.theme', type: 'text', value: 'light' }] },
       ],
     })
-    settings.items.push({ kind: 'settings', name: 'defaults', label: 'defaults', description: 'Personal defaults.', path: personal, layer: 'project-user', values: [], findings: [], localKeys: ['model', 'x-claude.verbose'] })
+    settings.items.push({ kind: 'settings', name: 'defaults', label: 'defaults', description: 'Personal defaults.', path: personal, layer: 'local', values: [], findings: [], localKeys: ['model', 'x-claude.verbose'] })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
     const edits: unknown[] = []

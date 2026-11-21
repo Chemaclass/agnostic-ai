@@ -29,6 +29,36 @@ type specSourceRef struct {
 	Builtin *builtinRef `json:"builtin,omitempty"`
 }
 
+// listedSpec is a spec as list --json prints it: its source, and the
+// lower-layer spec it changes when it is a local one.
+type listedSpec struct {
+	specSourceRef
+	Overrides *overriddenRef `json:"overrides,omitempty"`
+}
+
+// overriddenRef names the spec a local one of the same kind and name
+// merges into.
+type overriddenRef struct {
+	Layer string `json:"layer"`
+	Path  string `json:"path,omitempty"`
+}
+
+// entryOverrides returns the spec e changes, or nil when e stands alone.
+func entryOverrides(e spec.Entry) *overriddenRef {
+	if e.Base == nil {
+		return nil
+	}
+	layer := e.Base.Layer
+	if layer == "" {
+		layer = layerNameProject
+	}
+	ref := &overriddenRef{Layer: layer}
+	if builtinForEntry(*e.Base) == nil {
+		ref.Path = filepath.ToSlash(e.Base.Path)
+	}
+	return ref
+}
+
 type builtinMaterialization struct {
 	name    string
 	root    string

@@ -291,7 +291,7 @@ func pickSettings(b *spec.Bundle, cfg *config.Config, opts Options, p paths, sou
 	}
 	layer := "project"
 	if opts.Global {
-		layer = "global"
+		layer = "user"
 	}
 	for i, e := range b.Settings {
 		if _, ok := e.Meta["permissions"].(map[string]any); ok && (e.Layer == layer || e.Layer == "") {

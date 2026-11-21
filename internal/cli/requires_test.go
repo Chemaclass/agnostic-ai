@@ -403,7 +403,7 @@ func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
 	if !strings.Contains(errOut, "warning: [AAI-004] parse "+config) {
 		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)
 	}
-	if !strings.Contains(out, "rule\tsafe\tglobal") {
+	if !strings.Contains(out, "rule\tsafe\tuser") {
 		t.Errorf("expected the global rule listed, got:\n%s", out)
 	}
 }

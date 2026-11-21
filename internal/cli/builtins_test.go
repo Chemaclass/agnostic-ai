@@ -594,7 +594,7 @@ func TestBuiltins_PacksOverrideAndPersonalSpecsExtend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b.Skills) != 1 || b.Skills[0].Layer != "project-user" || !strings.Contains(b.Skills[0].Body, "Pack body.\nPersonal addition.") {
+	if len(b.Skills) != 1 || b.Skills[0].Layer != "local" || !strings.Contains(b.Skills[0].Body, "Pack body.\nPersonal addition.") {
 		t.Errorf("personal extension = %+v", b.Skills)
 	}
 }
@@ -614,7 +614,7 @@ func TestBuiltins_GlobalSpecsAndPersonalOverridesWin(t *testing.T) {
 		t.Fatalf("global skills = %+v", scope.bundle.Skills)
 	}
 	e := scope.bundle.Skills[0]
-	if e.Layer != "global-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "Global body.\nPersonal addition.") {
+	if e.Layer != "user-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "Global body.\nPersonal addition.") {
 		t.Errorf("global override = %+v", e)
 	}
 }

@@ -11,7 +11,7 @@ import (
 func globalFindings(findings []overview.Finding) []overview.Finding {
 	var out []overview.Finding
 	for _, f := range findings {
-		if f.Layer == overview.LayerGlobal {
+		if f.Layer == overview.LayerUser {
 			out = append(out, f)
 		}
 	}

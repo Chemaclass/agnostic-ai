@@ -53,7 +53,7 @@ export function countFindings(overview: OverviewView): FindingCount {
     // Ids come from the whole list, as the section page gives them.
     const ids = findingEntryIds(section.findings)
     for (const global of [false, true]) {
-      const picked = section.findings.map((finding, i) => ({ finding, id: ids[i] })).filter(({ finding }) => (finding.layer === 'global') === global)
+      const picked = section.findings.map((finding, i) => ({ finding, id: ids[i] })).filter(({ finding }) => (finding.layer === 'user') === global)
       add({ section, global: global || undefined, findings: picked.map(({ finding }) => finding), ids: picked.map(({ id }) => id) })
     }
   }

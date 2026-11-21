@@ -37,8 +37,8 @@ describe('audience labels', () => {
   })
 
   it.each([
-    ['project-user', 'local'],
-    ['global-local', 'local'],
+    ['local', 'local'],
+    ['user-local', 'local'],
     ['project', 'project'],
     ['global', 'global'],
     ['builtin', 'builtin'],

@@ -75,7 +75,7 @@ Global specs never merge with project specs. When both exist, each tool decides 
 - To start a home from what your tools already hold, run `agnostic-ai import --scope user` ([import](@/docs/cli-reference/import.md#import)).
 - `import --scope user` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into shared `settings/imported.yaml`. Tool arguments select which native files to read.
 - Existing home voice specs keep their scope ([voice import](@/docs/spec-format/settings.md#voice-dictation) lists exclusions and skipped values).
-- `list --scope user` shows the specs in effect with their `builtin`, `global`, or `global-local` layer.
+- `list --scope user` shows the specs in effect with their `builtin`, `user`, or `user-local` layer.
 - `validate --scope user` and `lint --scope user` check before a sync writes. `migrate --scope user` rewrites old spec forms.
 - The [CLI reference](@/docs/cli-reference/sync.md#sync) lists the accepted `sync` flags.
 - Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and name the user-level command to run instead. Read-only commands such as `lint`, `validate`, and `doctor` still run.
