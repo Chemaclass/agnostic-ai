@@ -104,7 +104,7 @@ test('the panel says each update step in plain words', () => {
   assert.equal(updateMessageOf({ state: 'idle', current }), undefined)
   assert.equal(updateMessageOf({ state: 'available', version: '0.97.0', current }), undefined)
   assert.deepEqual(updateMessageOf({ state: 'checking', current }), { text: 'Checking for updates…' })
-  assert.deepEqual(updateMessageOf({ state: 'idle', result: 'latest', current }), { text: 'No newer version is available for this Mac. You have v0.96.0.' })
+  assert.deepEqual(updateMessageOf({ state: 'idle', result: 'latest', current }), { text: 'No newer version is available for this computer. You have v0.96.0.' })
   assert.deepEqual(updateMessageOf({ state: 'idle', result: 'unreachable', current }), { text: 'Could not check for updates. Check your connection and try again.' })
   assert.deepEqual(updateMessageOf({ state: 'available', version: '0.97.0', result: 'unreachable', current }), { text: 'Could not check for updates. Check your connection and try again.' })
   assert.deepEqual(updateMessageOf({ state: 'updating', version: '0.97.0', step: 'downloading', current }), { text: 'Downloading v0.97.0…' })
@@ -125,7 +125,7 @@ test('a separate older command line tool gets a note with its own upgrade comman
   })
   assert.deepEqual(updateMessageOf({ state: 'checking', current: '0.96.0', olderCLI }), { text: 'Checking for updates…' })
   assert.deepEqual(updateMessageOf({ state: 'idle', result: 'latest', current: '0.96.0', olderCLI }), {
-    text: 'No newer version is available for this Mac. You have v0.96.0. The agnostic-ai command at /opt/homebrew/bin/agnostic-ai is v0.95.0, older than this app (v0.96.0). Run this in a terminal to upgrade it.',
+    text: 'No newer version is available for this computer. You have v0.96.0. The agnostic-ai command at /opt/homebrew/bin/agnostic-ai is v0.95.0, older than this app (v0.96.0). Run this in a terminal to upgrade it.',
     command: "'/opt/homebrew/bin/agnostic-ai' upgrade",
   })
 })
