@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateFeed, updateLabelOf, updateMessageOf } from '../frontend/model.js'
+import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateFeed, updateConfirmOf, updateLabelOf, updateMessageOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
@@ -108,4 +108,24 @@ test('the panel says each update step in plain words', () => {
 
 test('Escape answers the update question before the menus', () => {
   assert.equal(escapeTarget({ updateConfirmOpen: true, rowMenuOpen: true, settingsOpen: true }), 'update-confirm')
+})
+
+test('a terminal install that cannot update itself names the command to copy', () => {
+  assert.deepEqual(updateMessageOf({ state: 'failed', version: '0.97.0', reason: 'the package manager could not run from the companion', log: '/tmp/u.log', command: 'agnostic-ai upgrade', current: '0.96.0' }), {
+    text: 'The update did not finish: the package manager could not run from the companion. Your current version is still running.',
+    retry: true,
+    log: '/tmp/u.log',
+    command: 'agnostic-ai upgrade',
+  })
+  assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0' }), {
+    title: 'Update to v0.97.0 and restart?',
+    body: 'The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.',
+    go: 'Update and restart',
+  })
+  assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0', command: 'agnostic-ai upgrade' }), {
+    title: 'Update to v0.97.0',
+    body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',
+    go: 'Copy command',
+    command: 'agnostic-ai upgrade',
+  })
 })

@@ -173,13 +173,110 @@ func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 	}
 }
 
-func TestAppMenu_TerminalInstallHasNoUpdateEntryYet(t *testing.T) {
+// fakeTerminalCommand is the agnostic-ai command a terminal-installed
+// companion runs: a script that answers update-status with status and
+// fails upgrade with failure, and writes each call's arguments to calls.
+func fakeTerminalCommand(t *testing.T, status, failure string) (command, calls string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake command is a shell script")
+	}
+	dir := t.TempDir()
+	command, calls = filepath.Join(dir, binaryName), filepath.Join(dir, "calls")
+	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" >> %q\nif [ \"$1\" = companion ]; then echo %q; exit 0; fi\necho %q >&2\nexit 1\n", calls, status, failure)
+	if err := os.WriteFile(command, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	previous := terminalCommand
+	t.Cleanup(func() { terminalCommand = previous })
+	terminalCommand = func() (string, error) { return command, nil }
+	return command, calls
+}
+
+func withVersion(t *testing.T, running string) {
+	t.Helper()
+	previous := version
+	t.Cleanup(func() { version = previous })
+	version = running
+}
+
+func TestAppMenu_TerminalInstallChecksForUpdatesWithoutTheInstallItem(t *testing.T) {
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.96.0","method":"homebrew","oneClick":true}`, "")
+	s, _, _, menu := menuShell(t)
+
+	if s.appCommands == nil || menu.FindByLabel("Check for updates") == nil {
+		t.Fatalf("menu = %q; want Check for updates", menuLabels(menu))
+	}
+	if menu.FindByLabel("Install command line tool") != nil {
+		t.Error("a terminal install offers to install the command it already has")
+	}
+}
+
+func TestAppMenu_NoCommandMeansNoUpdateEntry(t *testing.T) {
 	s, _, _, menu := menuShell(t)
 	if s.appCommands != nil || menu.FindByLabel("Check for updates") != nil {
-		t.Fatalf("a companion without a bundled command offers updates")
+		t.Fatalf("a companion without any agnostic-ai command offers updates")
 	}
 	if got := s.updateStatus(); got.State != updateUnavailable {
 		t.Errorf("update status = %+v; want unavailable", got)
+	}
+}
+
+func TestTerminalUpdate_OffersTheLatestReleaseTheCommandReports(t *testing.T) {
+	withVersion(t, "0.96.0")
+	_, calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+	s, _, _, _ := menuShell(t)
+
+	s.appCommands.checkUpdates(t.Context())
+
+	if got := s.updateStatus(); got.State != updateAvailable || got.Version != "0.97.0" || got.Command != "" {
+		t.Errorf("status = %+v; want 0.97.0 in one click", got)
+	}
+	if raw, _ := os.ReadFile(calls); strings.TrimSpace(string(raw)) != "companion update-status --json" {
+		t.Errorf("calls = %q", raw)
+	}
+}
+
+func TestTerminalUpdate_ShowsTheCommandWhenItCannotRunFromTheApp(t *testing.T) {
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"unknown","oneClick":false}`, "")
+	s, _, _, _ := menuShell(t)
+
+	s.appCommands.checkUpdates(t.Context())
+
+	if got := s.updateStatus(); got.State != updateAvailable || got.Command != upgradeCommand {
+		t.Errorf("status = %+v; want the command to copy", got)
+	}
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), upgradeCommand) {
+		t.Errorf("start = %d %s; want a refusal naming the command", rec.Code, rec.Body)
+	}
+}
+
+func TestTerminalUpdate_RunsUpgradeAndNamesThePackageManagerDelay(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("one-click terminal updates run on macOS only")
+	}
+	withVersion(t, "0.96.0")
+	_, calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`,
+		"Error: the CLI is still 0.96.0: Homebrew does not serve 0.97.0 yet. Run agnostic-ai upgrade again later")
+	s, _, _, _ := menuShell(t)
+	s.appCommands.checkUpdates(t.Context())
+	done := make(chan updateStatus, 8)
+	s.tellUpdate = func(status updateStatus) { done <- status }
+
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusNoContent {
+		t.Fatalf("start = %d %s", rec.Code, rec.Body)
+	}
+
+	var got updateStatus
+	for got.State != updateFailed {
+		got = <-done
+	}
+	if got.Reason != "the package manager does not serve the new version yet. Try again later" || got.Command != upgradeCommand {
+		t.Errorf("failed status = %+v", got)
+	}
+	if raw, _ := os.ReadFile(calls); !strings.HasSuffix(strings.TrimSpace(string(raw)), "\nupgrade") {
+		t.Errorf("calls = %q; want upgrade last", raw)
 	}
 }
 
@@ -231,7 +328,7 @@ func updateShell(t *testing.T, next string, err error) (*shell, *updateFeed, *ap
 		defer feed.mu.Unlock()
 		feed.told = append(feed.told, status)
 	}
-	s.appCommands.latest = func(context.Context) (string, error) { return next, err }
+	s.appCommands.latest = func(context.Context) (release, error) { return release{Version: next}, err }
 	s.appCommands.ask = func() { t.Error("asked to update") }
 	return s, feed, menu
 }
@@ -264,11 +361,11 @@ func TestCheckUpdates_AutomaticCheckShowsTheReleaseWithoutAsking(t *testing.T) {
 
 func TestCheckUpdates_DisablesTheEntryWhileChecking(t *testing.T) {
 	s, _, menu := updateShell(t, "", nil)
-	s.appCommands.latest = func(context.Context) (string, error) {
+	s.appCommands.latest = func(context.Context) (release, error) {
 		if item := menu.FindByLabel("Checking for updates…"); item == nil || item.Enabled() {
 			t.Errorf("while checking, menu = %q; want a disabled Checking for updates…", menuLabels(menu))
 		}
-		return "", nil
+		return release{}, nil
 	}
 
 	s.appCommands.checkUpdates(t.Context())
@@ -281,7 +378,7 @@ func TestCheckUpdates_DisablesTheEntryWhileChecking(t *testing.T) {
 func TestCheckUpdates_FailedAutomaticCheckKeepsTheLastAnswerSilently(t *testing.T) {
 	s, feed, _ := updateShell(t, "0.97.0", nil)
 	s.appCommands.checkUpdates(t.Context())
-	s.appCommands.latest = func(context.Context) (string, error) { return "", errors.New("offline") }
+	s.appCommands.latest = func(context.Context) (release, error) { return release{}, errors.New("offline") }
 
 	s.appCommands.checkUpdates(t.Context())
 

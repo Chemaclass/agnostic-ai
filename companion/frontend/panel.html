@@ -99,8 +99,10 @@
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
       </button>
       <code class="notice-command" id="update-log" hidden></code>
+      <code class="notice-command" id="update-status-command" hidden></code>
       <div class="notice-actions">
         <button class="notice-copy" id="update-retry" type="button" hidden>Retry</button>
+        <button class="notice-copy" id="update-copy" type="button" hidden>Copy command</button>
       </div>
     </section>
     <section class="notice" id="notice" aria-label="Why it did not open" data-tone="info" hidden>
@@ -144,7 +146,8 @@
     </section>
     <section class="notice confirm" id="update-confirm" role="alertdialog" aria-modal="true" aria-labelledby="update-title" aria-describedby="update-body" hidden>
       <p class="confirm-title" id="update-title"></p>
-      <p class="confirm-body" id="update-body">The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.</p>
+      <p class="confirm-body" id="update-body"></p>
+      <code class="notice-command" id="update-command" hidden></code>
       <div class="notice-actions confirm-actions">
         <button class="confirm-cancel" id="update-cancel" type="button">Later</button>
         <button class="confirm-delete" id="update-go" type="button">Update and restart</button>

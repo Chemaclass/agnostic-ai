@@ -518,6 +518,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     'POST /api/update/start': (request, response) => {
       logCall('/api/update/start')
       if (state.update.state !== 'available' && state.update.state !== 'failed') return sendJSON(response, 409, { error: 'no update is known; check for updates first' })
+      if (state.update.state === 'available' && state.update.command) return sendJSON(response, 409, { error: `the companion cannot update this install itself; run ${state.update.command} in a terminal` })
       state.update = { state: 'updating', version: state.update.version, current: state.update.current, step: 'downloading' }
       noContent(response)
       emit('update', state.update)

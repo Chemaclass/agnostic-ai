@@ -495,3 +495,35 @@ test('a companion that cannot update itself shows no update entry and no badge',
   await openSettings(page)
   await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: /update/i })).toHaveCount(0)
 })
+
+test('a terminal install that cannot update itself copies the command instead', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-copy' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const starts = sent(page, '/api/update/start')
+
+  await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+  const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
+  await expect(question).toContainText('agnostic-ai upgrade')
+  await question.getByRole('button', { name: 'Copy command' }).click()
+
+  await expect(page.locator('#toast')).toHaveText('Copied agnostic-ai upgrade. Paste it in a terminal.')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('agnostic-ai upgrade')
+  expect(starts).toEqual([])
+})
+
+test('a failed terminal update offers Retry and the command to copy', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-failed-terminal' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const status = page.getByRole('region', { name: 'Update' })
+  await expect(status.getByRole('status')).toHaveText('The update did not finish: the package manager could not run from the companion. Your current version is still running.')
+  await expect(status.getByRole('button', { name: 'Retry' })).toBeVisible()
+
+  await status.getByRole('button', { name: 'Copy command' }).click()
+
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('agnostic-ai upgrade')
+})
