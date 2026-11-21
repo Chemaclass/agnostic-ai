@@ -29,9 +29,9 @@ The two certificates differ, so a user who switches between the disk image and t
 
 1. On the first install, `makeCompanionSigner` runs the system `openssl` (`/usr/bin/openssl`) to make an RSA 2048 certificate valid for 100 years, with the code signing usage, and bundles it with its key into a `.p12`.
 2. It creates `signer.keychain-db` with an empty password, imports the bundle (`-T /usr/bin/codesign`), and deletes the scratch files. This is the same path the release signing takes. The login keychain is not touched.
-3. It writes `signer.cer` last. A keychain without `signer.cer`, or one that lacks the certificate `signer.cer` names, is deleted and made again. An interrupted check keeps both files.
-4. Each install unlocks the keychain, since it locks itself after five minutes and on sleep, and sets the key's partition list so `codesign` uses it without a dialog.
-5. It adds the keychain to the user's keychain search list, runs `codesign --force --keychain <path> --sign <sha1> --identifier dev.agnostic-ai.companion -r=<requirement>`, and puts the list back. Some macOS setups find a signing identity only in a listed keychain, whatever `--keychain` says: a macOS 26.7 CI runner failed with `no identity found` while `security find-identity` listed the identity. A Mac at macOS 27 signed without it. The search list lives under `HOME`, so the Go tests that sign switch back to the real home directory, which the package's `TestMain` replaces.
+3. It writes `signer.cer` last. A keychain without `signer.cer`, or one that lacks the certificate `signer.cer` names, is deleted and made again. An interrupted or failed lookup keeps both files.
+4. Each install unlocks the keychain and sets the key's partition list so `codesign` uses it without a dialog.
+5. It adds the keychain to the user's keychain search list, runs `codesign --force --keychain <path> --sign <sha1> --identifier dev.agnostic-ai.companion -r=<requirement>`, then removes its temporary entry. Some macOS setups find a signing identity only in a listed keychain, whatever `--keychain` says: a macOS 26.7 CI runner failed with `no identity found` while `security find-identity` listed the identity. A Mac at macOS 27 signed without it. The search list lives under `HOME`, so the Go tests that sign switch back to the real home directory, which the package's `TestMain` replaces.
 
 The keychain has no password because the installer must sign without a prompt. A program running as the same user can read the key and sign a copy that macOS accepts. A password stored on the same Mac would not change that.
 
@@ -47,7 +47,7 @@ Two jobs in `release.yml` handle the companion:
 1. Imports the secret into a temporary keychain and stops unless it holds the certificate whose hash is pinned at the top of the script (`companion_release_cert`). A lookup by name would also match a certificate whose name only contains the expected one.
 2. Adds that keychain to the search list, and prints the hash and the certificate's end date in the job log.
 3. For each disk image: copies the app out, signs the bundled CLI and then the app, pins the hash in the app's requirement, checks the app against it with `codesign --verify -R`, and writes the disk image again.
-4. Puts the search list back and deletes the keychain on exit.
+4. Deletes the temporary keychain on exit, which also removes it from the search list.
 
 A stable release needs both disk images and both archives, so a failed build or signing stops it before anything is published. A prerelease ships without them. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
 
@@ -78,7 +78,7 @@ rm key.pem cert.cnf
 /usr/bin/openssl x509 -in cert.pem -outform der | shasum -a 1 | cut -d' ' -f1 | tr a-f A-F > cert.sha1
 ```
 
-- The name must be exactly `agnostic-ai companion release`; the script looks the certificate up by it.
+- The hash in `cert.sha1` must match the hash pinned in `scripts/companion-sign.sh`. The name helps identify the certificate when inspecting the keychain.
 - The password `agnostic-ai` is fixed and public. macOS cannot import a `.p12` without a password. The `.p12` file is the secret.
 - `-days 10950` is 30 years. Without `-days`, `openssl` makes a certificate that expires in 30 days, and `codesign` refuses an expired one.
 

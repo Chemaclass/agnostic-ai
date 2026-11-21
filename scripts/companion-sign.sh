@@ -68,12 +68,7 @@ source "$root/scripts/companion-release.sh"
 
 work="$(mktemp -d)"
 keychain="$work/signing.keychain-db"
-searched=()
-while IFS= read -r line; do
-  searched+=("$line")
-done < <(user_keychains)
 cleanup() {
-  security list-keychains -d user -s ${searched[@]+"${searched[@]}"} || true
   security delete-keychain "$keychain" 2> /dev/null || true
   if [ -d "$work/mount" ]; then
     hdiutil detach "$work/mount" -force > /dev/null 2>&1 || true
@@ -82,6 +77,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+searched_paths="$(user_keychains)"
+searched=()
+while IFS= read -r line; do
+  if [ -n "$line" ]; then
+    searched+=("$line")
+  fi
+done <<< "$searched_paths"
 import_companion_signer "$keychain"
 # Some macOS versions find a signing identity only in a keychain on the
 # search list, whatever codesign --keychain says.

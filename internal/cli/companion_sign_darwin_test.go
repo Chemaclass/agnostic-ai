@@ -4,6 +4,8 @@ package cli
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/user"
@@ -165,4 +167,108 @@ func useRealHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", me.HomeDir)
+}
+
+func TestCompanionSigner_PreservesAnUnreadableCertificate(t *testing.T) {
+	folder := t.TempDir()
+	cert := filepath.Join(folder, companionSignerCert)
+	keychain := filepath.Join(folder, companionSignerKeychain)
+	for _, path := range []string{cert, keychain} {
+		if err := os.WriteFile(path, []byte("original"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(cert, 0); err != nil {
+		t.Fatal(err)
+	}
+	mockCompanionSecurity(t, "exit 1")
+	if _, _, err := companionSigner(context.Background(), folder); !errors.Is(err, fs.ErrPermission) {
+		t.Errorf("signer error = %v, want permission error", err)
+	}
+	assertCompanionSignerFiles(t, cert, keychain)
+}
+
+func TestCompanionSigner_PreservesTheIdentityWhenLookupFails(t *testing.T) {
+	folder := t.TempDir()
+	cert := filepath.Join(folder, companionSignerCert)
+	keychain := filepath.Join(folder, companionSignerKeychain)
+	for _, path := range []string{cert, keychain} {
+		if err := os.WriteFile(path, []byte("original"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mockCompanionSecurity(t, "echo 'keychain unavailable' >&2; exit 1")
+	if _, _, err := companionSigner(context.Background(), folder); err == nil || !strings.Contains(err.Error(), "security find-certificate") {
+		t.Errorf("signer error = %v, want certificate lookup error", err)
+	}
+	assertCompanionSignerFiles(t, cert, keychain)
+}
+
+func TestSignCompanion_RejectsAConcurrentSigner(t *testing.T) {
+	folder := t.TempDir()
+	lock, err := os.Open(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = lock.Close() }()
+	if err := tryLockProjectFile(lock); err != nil {
+		t.Fatal(err)
+	}
+	if err := signCompanion(context.Background(), folder, "unused.app"); err == nil || !projectLockContended(err) {
+		t.Errorf("signer error = %v, want lock contention", err)
+	}
+}
+
+func TestSignCompanion_PreservesNewSearchListEntries(t *testing.T) {
+	dir := t.TempDir()
+	state := filepath.Join(dir, "search-list")
+	t.Setenv("SIGNER_TEST_LIST", state)
+	mockCompanionSecurity(t, `
+if [ "$#" -eq 3 ]; then
+	cat "$SIGNER_TEST_LIST"
+else
+	shift 4
+	printf '    "%s"\n' "$@" > "$SIGNER_TEST_LIST"
+fi
+`)
+	before := "    \"/original.keychain-db\"\n"
+	if err := os.WriteFile(state, []byte(before), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	extra := "    \"/added by another tool.keychain-db\"\n"
+	keychain := "/companion.keychain-db"
+	if err := withKeychainSearched(context.Background(), keychain, func() error {
+		return os.WriteFile(state, []byte(before+"    \""+keychain+"\"\n"+extra), 0o600)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != before+extra {
+		t.Errorf("search list = %q, want %q", after, before+extra)
+	}
+}
+
+func assertCompanionSignerFiles(t *testing.T, cert, keychain string) {
+	t.Helper()
+	if err := os.Chmod(cert, 0o600); err != nil {
+		t.Errorf("original certificate unavailable: %v", err)
+	}
+	for _, path := range []string{cert, keychain} {
+		content, err := os.ReadFile(path)
+		if err != nil || string(content) != "original" {
+			t.Errorf("original %s contents = %q, %v", path, content, err)
+		}
+	}
+}
+
+func mockCompanionSecurity(t *testing.T, script string) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "security"), []byte("#!/bin/sh\n"+script+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
