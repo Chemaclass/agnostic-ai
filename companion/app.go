@@ -161,6 +161,8 @@ type updateStatus struct {
 	Log     string `json:"log,omitempty"`
 	// Command is what to run in a terminal when the companion cannot update itself.
 	Command string `json:"command,omitempty"`
+	// Terminal says the companion was installed from the terminal and updates through agnostic-ai upgrade.
+	Terminal bool `json:"terminal,omitempty"`
 }
 
 // upgradeCommand updates a terminal install, the CLI and the companion together.
@@ -195,8 +197,6 @@ func updateFailureReason(log, step string) string {
 	switch {
 	case strings.Contains(log, "does not serve"):
 		return "the package manager does not serve the new version yet. Try again later"
-	case strings.Contains(log, "install method unknown"):
-		return "this install cannot be updated from the companion"
 	case strings.Contains(log, "executable file not found") || strings.Contains(log, "command not found"):
 		return "the package manager could not run from the companion"
 	case strings.Contains(log, "checksum mismatch"):
@@ -382,6 +382,7 @@ func (c *appCommands) status() updateStatus {
 // once and not kept, so a later read does not say it again.
 func (c *appCommands) setStatus(status updateStatus) {
 	status.Current = version
+	status.Terminal = c.app == ""
 	kept := status
 	kept.Result = ""
 	c.mu.Lock()
@@ -465,7 +466,11 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 // follows the steps the updater writes to its log.
 func (c *appCommands) update(next string) {
 	path := filepath.Join(filepath.Dir(c.shell.settingsPath), "companion-update.log")
-	step := updateDownloading
+	// agnostic-ai upgrade names no steps the panel follows.
+	step := ""
+	if c.app != "" {
+		step = updateDownloading
+	}
 	c.setStatus(updateStatus{State: updateUpdating, Version: next, Step: step})
 	failed := func(reason string) {
 		status := updateStatus{State: updateFailed, Version: next, Reason: reason, Log: path}
@@ -488,7 +493,7 @@ func (c *appCommands) update(next string) {
 		command = exec.Command(c.command, "upgrade")
 		command.Env = append(os.Environ(), "PATH="+packageManagerPath(os.Getenv("PATH")))
 	}
-	withoutConsoleWindow(command)
+	detached(command)
 	command.Stdout, command.Stderr = file, file
 	if err := command.Start(); err != nil {
 		log.Print(err)
@@ -505,9 +510,15 @@ func (c *appCommands) update(next string) {
 			out, _ := os.ReadFile(path)
 			if err != nil {
 				failed(updateFailureReason(string(out), updateStep(string(out))))
+				return
 			}
+			// The updater restarts the companion; one still running here was left out.
+			failed("the companion did not restart. Quit it and open it again")
 			return
 		case <-ticker.C:
+			if step == "" {
+				continue
+			}
 			out, _ := os.ReadFile(path)
 			if now := updateStep(string(out)); now != step {
 				step = now

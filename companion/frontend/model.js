@@ -1066,7 +1066,7 @@ export function updateMessageOf(update) {
 
 /** The question before an update: {title, body, go, command?}; with a command, the person runs it in a terminal. */
 export function updateConfirmOf(update) {
-  if (update.command) {
+  if (update.command && update.state !== 'failed') {
     return {
       title: `Update to v${update.version}`,
       body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',
@@ -1074,11 +1074,10 @@ export function updateConfirmOf(update) {
       command: update.command,
     }
   }
-  return {
-    title: `Update to v${update.version} and restart?`,
-    body: 'The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.',
-    go: 'Update and restart',
-  }
+  const body = update.terminal
+    ? 'Runs agnostic-ai upgrade: it upgrades the command line tool the way you installed it, then replaces and restarts the companion. Your settings and chats stay.'
+    : 'The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.'
+  return { title: `Update to v${update.version} and restart?`, body, go: 'Update and restart' }
 }
 
 /** The settings button's name while an update is known, or undefined when there is none. */

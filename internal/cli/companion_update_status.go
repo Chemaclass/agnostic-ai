@@ -2,8 +2,10 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -24,13 +26,14 @@ func companionUpdateStatusOf(info upgradeInfo) (companionUpdateStatus, error) {
 		if info.LatestError != nil {
 			return companionUpdateStatus{}, fmt.Errorf("check latest release: %w", info.LatestError)
 		}
-		return companionUpdateStatus{}, fmt.Errorf("check latest release: no published release")
+		return companionUpdateStatus{}, errors.New("check latest release: no published release")
 	}
 	latest, ok := stableReleaseVersion(info.Latest)
 	if !ok {
 		return companionUpdateStatus{}, fmt.Errorf("check latest release: %q is not a stable release", info.Latest)
 	}
-	return companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: info.Method != installUnknown}, nil
+	oneClick := info.Method != installUnknown && (info.Method != installBinary || standalonePlatformError(runtime.GOOS) == nil)
+	return companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: oneClick}, nil
 }
 
 func writeCompanionUpdateStatus(out io.Writer, info upgradeInfo) error {

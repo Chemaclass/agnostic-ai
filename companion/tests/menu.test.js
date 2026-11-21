@@ -122,6 +122,8 @@ test('a terminal install that cannot update itself names the command to copy', (
     body: 'The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.',
     go: 'Update and restart',
   })
+  assert.equal(updateConfirmOf({ state: 'failed', version: '0.97.0', command: 'agnostic-ai upgrade', terminal: true }).go, 'Update and restart')
+  assert.match(updateConfirmOf({ state: 'available', version: '0.97.0', terminal: true }).body, /^Runs agnostic-ai upgrade/)
   assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0', command: 'agnostic-ai upgrade' }), {
     title: 'Update to v0.97.0',
     body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',

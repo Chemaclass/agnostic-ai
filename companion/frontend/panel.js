@@ -1972,7 +1972,7 @@ function drawUpdateStatus() {
 
 updateCancel.addEventListener('click', closeUpdateConfirm)
 updateGo.addEventListener('click', () => {
-  const command = settings.update.command
+  const { command } = updateConfirmOf(settings.update)
   closeUpdateConfirm()
   if (command) copyUpdateCommand(command)
   else startUpdate().catch(sayFailure)

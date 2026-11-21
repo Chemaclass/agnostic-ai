@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -45,5 +46,15 @@ func TestCompanionUpdateStatus_FailsWhenTheLatestReleaseIsUnknown(t *testing.T) 
 	err = writeCompanionUpdateStatus(&out, upgradeInfo{Method: installNPM, Version: "0.96.0", Latest: "0.97.0-rc.1"})
 	if err == nil || !strings.Contains(err.Error(), "not a stable release") {
 		t.Errorf("prerelease err = %v", err)
+	}
+}
+
+func TestCompanionUpdateStatus_OneClickFollowsWhatUpgradeCanRun(t *testing.T) {
+	status, err := companionUpdateStatusOf(upgradeInfo{Method: installBinary, Version: "0.96.0", Latest: "0.97.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := standalonePlatformError(runtime.GOOS) == nil; status.OneClick != want {
+		t.Errorf("binary install on %s: oneClick = %v; want %v", runtime.GOOS, status.OneClick, want)
 	}
 }

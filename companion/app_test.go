@@ -175,14 +175,14 @@ func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 
 // fakeTerminalCommand is the agnostic-ai command a terminal-installed
 // companion runs: a script that answers update-status with status and
-// fails upgrade with failure, and writes each call's arguments to calls.
-func fakeTerminalCommand(t *testing.T, status, failure string) (command, calls string) {
+// fails upgrade with failure. It returns the file that holds each call's arguments.
+func fakeTerminalCommand(t *testing.T, status, failure string) (calls string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("the fake command is a shell script")
 	}
 	dir := t.TempDir()
-	command, calls = filepath.Join(dir, binaryName), filepath.Join(dir, "calls")
+	command, calls := filepath.Join(dir, binaryName), filepath.Join(dir, "calls")
 	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" >> %q\nif [ \"$1\" = companion ]; then echo %q; exit 0; fi\necho %q >&2\nexit 1\n", calls, status, failure)
 	if err := os.WriteFile(command, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
@@ -190,7 +190,7 @@ func fakeTerminalCommand(t *testing.T, status, failure string) (command, calls s
 	previous := terminalCommand
 	t.Cleanup(func() { terminalCommand = previous })
 	terminalCommand = func() (string, error) { return command, nil }
-	return command, calls
+	return calls
 }
 
 func withVersion(t *testing.T, running string) {
@@ -224,7 +224,7 @@ func TestAppMenu_NoCommandMeansNoUpdateEntry(t *testing.T) {
 
 func TestTerminalUpdate_OffersTheLatestReleaseTheCommandReports(t *testing.T) {
 	withVersion(t, "0.96.0")
-	_, calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+	calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
 	s, _, _, _ := menuShell(t)
 
 	s.appCommands.checkUpdates(t.Context())
@@ -252,12 +252,30 @@ func TestTerminalUpdate_ShowsTheCommandWhenItCannotRunFromTheApp(t *testing.T) {
 	}
 }
 
+func TestTerminalUpdate_SaysWhenUpgradeLeftTheCompanionRunning(t *testing.T) {
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+	s, _, _, _ := menuShell(t)
+	s.appCommands.checkUpdates(t.Context())
+	script := "#!/bin/sh\nexit 0\n"
+	if err := os.WriteFile(s.appCommands.command, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s.appCommands.current = updateStatus{State: updateAvailable, Version: "0.97.0"}
+
+	s.appCommands.update("0.97.0")
+
+	if got := s.updateStatus(); got.State != updateFailed || got.Reason != "the companion did not restart. Quit it and open it again" || got.Step != "" {
+		t.Errorf("status = %+v", got)
+	}
+}
+
 func TestTerminalUpdate_RunsUpgradeAndNamesThePackageManagerDelay(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("one-click terminal updates run on macOS only")
 	}
 	withVersion(t, "0.96.0")
-	_, calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`,
+	calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`,
 		"Error: the CLI is still 0.96.0: Homebrew does not serve 0.97.0 yet. Run agnostic-ai upgrade again later")
 	s, _, _, _ := menuShell(t)
 	s.appCommands.checkUpdates(t.Context())
@@ -494,6 +512,7 @@ func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
 		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},
 		{"replace /A.app: permission denied", updateRestarting, "the update command failed"},
+		{"→ brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai\nsh: brew: command not found\nError: upgrade: run brew: exit status 127", updateDownloading, "the package manager could not run from the companion"},
 	} {
 		if got := updateFailureReason(tc.log, tc.step); got != tc.want {
 			t.Errorf("updateFailureReason(%q) = %q; want %q", tc.log, got, tc.want)
