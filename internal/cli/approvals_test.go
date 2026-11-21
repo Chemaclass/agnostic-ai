@@ -504,7 +504,10 @@ func TestApprovalsStatus_QwenHook(t *testing.T) {
 		routed bool
 	}{
 		"installed":     {"{\n  // mine\n  \"tools\": {\"approvalMode\": \"default\"},\n  " + hook + "\n}", true},
-		"auto edit":     {`{"tools":{"approvalMode":"auto_edit"},` + hook + `}`, true},
+		"auto edit":     {`{"tools":{"approvalMode":"auto-edit"},` + hook + `}`, true},
+		"legacy alias":  {`{"tools":{"approvalMode":"auto_edit"},` + hook + `}`, true},
+		"mixed case":    {`{"tools":{"approvalMode":" Default "},` + hook + `}`, true},
+		"no separator":  {`{"tools":{"approvalMode":"AutoEdit"},` + hook + `}`, true},
 		"mode unset":    {`{` + hook + `}`, false},
 		"auto mode":     {`{"tools":{"approvalMode":"auto"},` + hook + `}`, false},
 		"not installed": {`{"tools":{"approvalMode":"default"}}`, false},

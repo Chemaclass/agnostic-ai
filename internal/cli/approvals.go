@@ -430,14 +430,24 @@ func qwenAskProblem() string {
 		return "a Qwen Code settings file's env block sets HOME, AGNOSTIC_AI_HOME, CLAUDE_CONFIG_DIR or USERPROFILE, which would move the policy the hook reads; the hook asks every time"
 	case qwenDotEnvMoves(cwd):
 		return "a .env or .qwen/.env file here or above sets HOME, AGNOSTIC_AI_HOME, CLAUDE_CONFIG_DIR or USERPROFILE, which Qwen Code passes to its hooks; the hook asks every time"
-	case settings.ApprovalMode != "default" && settings.ApprovalMode != "auto_edit":
+	case !qwenHookMode(settings.ApprovalMode):
 		mode := settings.ApprovalMode
 		if mode == "" {
 			mode = "auto in a trusted folder"
 		}
-		return "Qwen Code runs in " + mode + " mode, where the hook stays silent; set tools.approvalMode to default or auto_edit"
+		return "Qwen Code runs in " + mode + " mode, where the hook stays silent; set tools.approvalMode to default or auto-edit"
 	}
 	return ""
+}
+
+// qwenHookMode reports whether a tools.approvalMode value, spelled any
+// way Qwen Code accepts it, is a mode in which the hook answers prompts.
+func qwenHookMode(mode string) bool {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "default", "auto-edit", "auto_edit", "autoedit":
+		return true
+	}
+	return false
 }
 
 // qoderAskProblem says when a Qoder CLI permissions.ask rule, whose

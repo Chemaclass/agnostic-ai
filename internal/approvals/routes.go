@@ -140,7 +140,7 @@ var routes = []Route{
 	}},
 	{Target: "openhands", Reason: reasonNoRoute},
 	{Target: "opencode", Reason: reasonNoRoute},
-	{Target: "pi", Reason: reasonNoRoute},
+	{Target: "pi", Reason: reasonNoPrompt},
 	{Target: "qoder", Reason: reasonNotBuilt, Yolo: &Mechanism{
 		Name:     MechanismPermissionHook,
 		File:     "~/.qoder/settings.json",
