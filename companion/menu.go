@@ -66,6 +66,11 @@ func (s *shell) menuActions() map[string]func(on bool) {
 				log.Print(err)
 			}
 		},
+		checkForUpdatesID: func(on bool) {
+			if err := s.changeCheckForUpdates(on); err != nil {
+				log.Print(err)
+			}
+		},
 		"shortcut":     func(bool) { s.openSettings() },
 		"sendShortcut": func(bool) { s.comeBackOpenedOn(eventSendSettingsShown) },
 		updateID:       func(bool) { s.runUpdate() },
@@ -124,7 +129,7 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 		if act == nil {
 			return fmt.Errorf("the menu item %q has no handler", item.ID)
 		}
-		if item.ID == updateID && s.appCommands == nil {
+		if (item.ID == updateID || item.ID == checkForUpdatesID) && s.appCommands == nil {
 			continue
 		}
 		endsMenu := item.Kind == "action" && item.ID != updateID
@@ -185,6 +190,9 @@ func (s *shell) refreshNative() {
 	s.native["shortcut"].SetLabel(shortcutLabel(s.labels["shortcut"], prefs.Shortcut, isMac))
 	s.native["sendShortcut"].SetLabel(shortcutLabel(s.labels["sendShortcut"], prefs.SendShortcut, isMac))
 	s.native["hide"].SetLabel(hideLabel(s.labels["hide"], prefs))
+	if item := s.native[checkForUpdatesID]; item != nil {
+		item.SetChecked(prefs.CheckForUpdates)
+	}
 	if item := s.native[updateID]; item != nil {
 		status := s.updateStatus()
 		item.SetLabel(updateLabel(s.labels[updateID], status))

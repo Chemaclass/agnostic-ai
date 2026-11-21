@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ type preferences struct {
 	StartAtLogin        bool   `json:"startAtLogin"`
 	// StartAtLoginProblem says why the login setting could not be read.
 	StartAtLoginProblem string `json:"startAtLoginProblem,omitempty"`
+	CheckForUpdates     bool   `json:"checkForUpdates"`
 }
 
 // preferences reads the current settings; the login setting comes from
@@ -32,6 +34,7 @@ func (s *shell) preferences() preferences {
 		ShortcutProblem:     s.shortcutProblem,
 		SendShortcut:        s.settings.sendShortcut(),
 		SendShortcutProblem: s.sendShortcutProblem,
+		CheckForUpdates:     s.settings.checksForUpdates(),
 	}
 	s.mu.Unlock()
 	enabled, err := s.login.IsEnabled()
@@ -61,6 +64,27 @@ func (s *shell) changeStartAtLogin(on bool) error {
 	s.preferencesChanged()
 	if err != nil {
 		return fmt.Errorf("change start at login: %w", err)
+	}
+	return nil
+}
+
+// changeCheckForUpdates saves whether the companion checks for updates on
+// its own, and checks now when turned on.
+func (s *shell) changeCheckForUpdates(on bool) error {
+	s.mu.Lock()
+	before := s.settings
+	s.settings.CheckForUpdates = &on
+	err := writeSettings(s.settingsPath, s.settings)
+	if err != nil {
+		s.settings = before
+	}
+	s.mu.Unlock()
+	s.preferencesChanged()
+	if err != nil {
+		return fmt.Errorf("save check for updates: %w", err)
+	}
+	if on && s.appCommands != nil {
+		go s.appCommands.checkUpdates(context.Background())
 	}
 	return nil
 }
@@ -252,21 +276,23 @@ func (s *shell) setShortcut(change func(keys string) error) http.HandlerFunc {
 	}
 }
 
-// setStartAtLogin answers POST /api/preferences/start-at-login.
-func (s *shell) setStartAtLogin(w http.ResponseWriter, r *http.Request) {
-	body, ok := readBody[struct {
-		Enabled *bool `json:"enabled"`
-	}](w, r, "{enabled}")
-	if !ok {
-		return
+// setPreferenceSwitch answers a POST that turns one preference on or off.
+func (s *shell) setPreferenceSwitch(change func(bool) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, ok := readBody[struct {
+			Enabled *bool `json:"enabled"`
+		}](w, r, "{enabled}")
+		if !ok {
+			return
+		}
+		if body.Enabled == nil {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: "send {enabled}"})
+			return
+		}
+		if err := change(*body.Enabled); err != nil {
+			writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, s.preferences())
 	}
-	if body.Enabled == nil {
-		writeJSON(w, http.StatusBadRequest, apiError{Error: "send {enabled}"})
-		return
-	}
-	if err := s.changeStartAtLogin(*body.Enabled); err != nil {
-		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, s.preferences())
 }

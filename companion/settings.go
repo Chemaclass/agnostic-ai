@@ -36,6 +36,8 @@ type settings struct {
 	DimWhenIdle bool `json:"dimWhenIdle,omitempty"`
 	// SmallCompanion shows a 40-point circle instead of the 60-point one.
 	SmallCompanion bool `json:"smallCompanion,omitempty"`
+	// CheckForUpdates is whether the companion checks for updates on its own; nil means it does.
+	CheckForUpdates *bool `json:"checkForUpdates,omitempty"`
 }
 
 // shortcut is the saved shortcut, or the default before one was saved.
@@ -57,6 +59,10 @@ func (s settings) sendShortcut() string {
 // bubbleSide is the bubble window's width and height for the saved circle size.
 func (s settings) bubbleSide() int {
 	return bubbleSideFor(s.SmallCompanion)
+}
+
+func (s settings) checksForUpdates() bool {
+	return s.CheckForUpdates == nil || *s.CheckForUpdates
 }
 
 func (s settings) animate() bool {

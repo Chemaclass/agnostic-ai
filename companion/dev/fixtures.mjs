@@ -341,6 +341,11 @@ export const FIXTURES = {
     conversations: mixed,
     update: { state: 'failed', version: '0.97.0', current: '0.96.0', reason: 'the package manager could not run from the companion', log: '/Users/you/Library/Application Support/agnostic-ai/companion-update.log', command: 'agnostic-ai upgrade' },
   },
+  'update-older-cli': {
+    label: 'A separate command line tool older than the disk image app',
+    conversations: mixed,
+    update: { state: 'idle', current: '0.96.0', olderCLI: { path: '/opt/homebrew/bin/agnostic-ai', version: '0.95.0', command: "'/opt/homebrew/bin/agnostic-ai' upgrade" } },
+  },
   'update-failed': {
     label: 'An update that failed its checksum',
     conversations: mixed,

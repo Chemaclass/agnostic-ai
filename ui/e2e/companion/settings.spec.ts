@@ -274,9 +274,9 @@ test('the menu shows the shared list, in its order, with the values in effect', 
   await openPanel(page)
   await openSettings(page)
 
-  // This fixture cannot update itself, so it has no update entry.
+  // This fixture cannot update itself, so it has no update entry and no switch for it.
   const labels = await settingsMenu(page).locator('.menu-label, .menu-item').allTextContents()
-  expect(labels).toEqual(items.filter((item) => item.id !== 'update').map((item) => item.label))
+  expect(labels).toEqual(items.filter((item) => item.id !== 'update' && item.id !== 'checkForUpdates').map((item) => item.label))
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Small companion' })).toHaveAttribute('aria-checked', 'false')
@@ -549,4 +549,34 @@ test('a failed terminal update offers Retry and the command to copy', async ({ p
   await status.getByRole('button', { name: 'Copy command' }).click()
 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('agnostic-ai upgrade')
+})
+
+test('Check for updates automatically is on by default and turns off', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-available' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const saves = sent(page, '/api/preferences/check-for-updates')
+  await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  const automatic = settingsMenu(page).getByRole('switch', { name: 'Check for updates automatically' })
+  await expect(automatic).toHaveAttribute('aria-checked', 'true')
+
+  await automatic.click()
+
+  await expect(automatic).toHaveAttribute('aria-checked', 'false')
+  expect(saves).toEqual(['/api/preferences/check-for-updates'])
+  await expect(settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true })).toBeEnabled()
+})
+
+test('an older separate command line tool shows both versions and its upgrade command', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-older-cli' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const status = page.getByRole('region', { name: 'Update' })
+  await expect(status.getByRole('status')).toHaveText('The agnostic-ai command at /opt/homebrew/bin/agnostic-ai is v0.95.0, older than this app (v0.96.0). Run this in a terminal to upgrade it.')
+  await expect(status.getByRole('button', { name: 'Retry' })).toBeHidden()
+
+  await status.getByRole('button', { name: 'Copy command' }).click()
+
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("'/opt/homebrew/bin/agnostic-ai' upgrade")
 })
