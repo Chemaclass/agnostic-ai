@@ -84,7 +84,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 		}
 	})
 
-	scriptLifecycle := func(t *testing.T, global bool) {
+	scriptLifecycle := func(t *testing.T, userLevel bool) {
 		t.Helper()
 		dir := project(t)
 		handoffInitGit(t, dir)
@@ -92,7 +92,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 		configPath := filepath.Join(dir, "agnostic-ai.yaml")
 		statePath := filepath.Join(dir, ".agnostic-ai", ".sync-state")
 		args := []string{"sync", "--gitignore=off"}
-		if global {
+		if userLevel {
 			root = filepath.Join(t.TempDir(), "home with ' apostrophe 雪")
 			source := filepath.Join(root, ".agnostic-ai")
 			handoffSetenv(t, "HOME", root)
@@ -124,7 +124,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 			if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 				t.Errorf("script is not executable: %s", path)
 			}
-			if global {
+			if userLevel {
 				if !slices.Contains(state.Files, path) || state.Sums[path] == "" {
 					t.Errorf("global output ledger does not own %s", path)
 				}
@@ -1195,17 +1195,17 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		if err := os.MkdirAll(cwd, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		globalRoots := []struct{ name, path string }{{"home", home}}
+		userRoots := []struct{ name, path string }{{"home", home}}
 		if runtime.GOOS != "windows" {
 			alias := filepath.Join(t.TempDir(), "global home alias")
 			if err := os.Symlink(home, alias); err != nil {
 				t.Fatal(err)
 			}
-			globalRoots = append(globalRoots, struct{ name, path string }{"symlink", alias})
+			userRoots = append(userRoots, struct{ name, path string }{"symlink", alias})
 		}
-		for _, globalRoot := range globalRoots {
-			t.Run(globalRoot.name, func(t *testing.T) {
-				handoffSetenv(t, "AGNOSTIC_AI_HOME", globalRoot.path)
+		for _, userRoot := range userRoots {
+			t.Run(userRoot.name, func(t *testing.T) {
+				handoffSetenv(t, "AGNOSTIC_AI_HOME", userRoot.path)
 				for _, target := range handoffHookTargets {
 					t.Run(target, func(t *testing.T) {
 						event := "PreCompact"

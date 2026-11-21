@@ -268,24 +268,24 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 	}
 }
 
-func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestLintUser_MeasuresHomeWithNoSpecs(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(3000)+"\n")
 
-	out, _, err := runGlobalCheck("lint", "--strict")
+	out, _, err := runUserCheck("lint", "--strict")
 	if err == nil || len(findingLines(out, "LINT011")) != 1 {
 		t.Errorf("a 3000-word home AGNOSTIC_AI.md with no specs must still fail --strict, got %v:\n%s", err, out)
 	}
 }
 
-func TestLintGlobal_ValidatesBudgetAfterLocalOverride(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestLintUser_ValidatesBudgetAfterLocalOverride(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: -1\n")
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 100\n")
 	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
-	if out, _, err := runGlobalCheck("lint", "--strict"); err != nil {
+	if out, _, err := runUserCheck("lint", "--strict"); err != nil {
 		t.Errorf("local/agnostic-ai.yaml replaces the negative value, so lint must pass: %v\n%s", err, out)
 	}
 }
@@ -299,16 +299,16 @@ func TestLintBudget_RejectsNegativeBudget(t *testing.T) {
 	}
 }
 
-func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestLintUser_WarnsWhenInstructionsExceedBudget(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
 	writeFile(t, filepath.Join(source, "local", "AGNOSTIC_AI.md"), words(15)+"\n")
 	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\n"+words(10)+"\n")
 
-	out, errOut, err := runGlobalCheck("lint")
+	out, errOut, err := runUserCheck("lint")
 	if err != nil {
-		t.Fatalf("a budget warning alone must not fail lint --global: %v\n%s", err, out)
+		t.Fatalf("a budget warning alone must not fail lint --scope user: %v\n%s", err, out)
 	}
 	if strings.Contains(errOut, "ignoring") {
 		t.Errorf("the home config's lint key must be read, not ignored:\n%s", errOut)
@@ -323,20 +323,20 @@ func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 			t.Errorf("LINT011 line lacks %q:\n%s", want, lines[0])
 		}
 	}
-	if _, _, err := runGlobalCheck("lint", "--strict"); err == nil {
-		t.Error("lint --global --strict must fail on a budget warning")
+	if _, _, err := runUserCheck("lint", "--strict"); err == nil {
+		t.Error("lint --scope user --strict must fail on a budget warning")
 	}
 }
 
-func TestLintGlobal_LocalConfigReplacesBudget(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestLintUser_LocalConfigReplacesBudget(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: 10\n  description-chars: 10\n")
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 5000\n")
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(80)+"\n")
 	skill := filepath.Join(source, "skills", "review", "SKILL.md")
 	writeFile(t, skill, "---\nname: review\ndescription: Review the code in front of you\n---\nReview it.\n")
 
-	out, _, _ := runGlobalCheck("lint")
+	out, _, _ := runUserCheck("lint")
 	if strings.Contains(out, "LINT011") {
 		t.Errorf("local/agnostic-ai.yaml raised the word budget, so no LINT011 expected:\n%s", out)
 	}

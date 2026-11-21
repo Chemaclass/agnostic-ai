@@ -163,7 +163,7 @@ func TestGuidedUpgrade_RechecksRetargetedSpecDirectoryBeforeLock(t *testing.T) {
 	}
 }
 
-func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedGlobalHome(t *testing.T) {
+func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedUserHome(t *testing.T) {
 	setRunningVersion(t, "v0.81.0")
 	for _, name := range []string{"project file", "project kind", "local file", "local kind"} {
 		t.Run(name, func(t *testing.T) {
@@ -235,7 +235,7 @@ func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedGlobalHome(t *testing.T) {
 	}
 }
 
-func TestGuidedUpgrade_NestedGlobalHomeKeepsBenignSourceAliases(t *testing.T) {
+func TestGuidedUpgrade_NestedUserHomeKeepsBenignSourceAliases(t *testing.T) {
 	setRunningVersion(t, "v0.81.0")
 	for _, name := range []string{"internal file", "internal kind", "external custom source"} {
 		t.Run(name, func(t *testing.T) {
@@ -298,7 +298,7 @@ func TestGuidedUpgrade_NestedGlobalHomeKeepsBenignSourceAliases(t *testing.T) {
 	}
 }
 
-func TestGuidedUpgrade_RechecksEntryAliasIntoNestedGlobalBeforeLock(t *testing.T) {
+func TestGuidedUpgrade_RechecksEntryAliasIntoNestedUserBeforeLock(t *testing.T) {
 	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
@@ -341,7 +341,7 @@ func TestGuidedUpgrade_RechecksEntryAliasIntoNestedGlobalBeforeLock(t *testing.T
 	}
 }
 
-func TestGuidedUpgrade_NestedGlobalHomeUsesPhysicalDirectoryIdentity(t *testing.T) {
+func TestGuidedUpgrade_NestedUserHomeUsesPhysicalDirectoryIdentity(t *testing.T) {
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
@@ -366,7 +366,7 @@ func TestGuidedUpgrade_NestedGlobalHomeUsesPhysicalDirectoryIdentity(t *testing.
 	}
 }
 
-func TestGuidedUpgrade_ShadowedGlobalEntryStillRefusesUpgrade(t *testing.T) {
+func TestGuidedUpgrade_ShadowedUserEntryStillRefusesUpgrade(t *testing.T) {
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	t.Setenv("AGNOSTIC_AI_HOME", home)
@@ -386,7 +386,7 @@ func TestGuidedUpgrade_ShadowedGlobalEntryStillRefusesUpgrade(t *testing.T) {
 	}
 }
 
-func TestGuidedUpgrade_ShadowedGlobalMCPRemainsWritableToRawPlanner(t *testing.T) {
+func TestGuidedUpgrade_ShadowedUserMCPRemainsWritableToRawPlanner(t *testing.T) {
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	t.Setenv("AGNOSTIC_AI_HOME", home)

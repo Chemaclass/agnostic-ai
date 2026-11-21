@@ -11,7 +11,7 @@ import (
 func approvalsUserHome(t *testing.T) string {
 	t.Helper()
 	home := filepath.Dir(approvalsHome(t, ""))
-	for _, g := range globalTargets {
+	for _, g := range userTargets {
 		if g.rootEnv != "" {
 			t.Setenv(g.rootEnv, "")
 		}
@@ -42,7 +42,7 @@ func TestApprovalsStatus_ReviewerKeyMissingAsksForSync(t *testing.T) {
 
 	codex := toolStatus(t, approvalsStatusJSON(t), "codex")
 
-	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "approvals_reviewer") || !strings.Contains(codex.Notes[0], "sync --global") {
+	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "approvals_reviewer") || !strings.Contains(codex.Notes[0], "sync --scope user") {
 		t.Errorf("codex notes: %q", codex.Notes)
 	}
 }
@@ -67,11 +67,11 @@ func TestApprovalsStatus_CodexApprovalPolicyNeverStopsTheReviewer(t *testing.T) 
 }
 
 func TestApprovalsStatus_ReviewerStaysOnWhereTheModeAsks(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	t.Setenv(config.EnvApprovals, "")
 	dir := t.TempDir()
 	writeHomeApprovals(t, source, "targets: [claude, codex]\napprovals:\n  mode: review\n  projects:\n    "+filepath.ToSlash(dir)+": ask\n")
-	if _, warnings, err := runGlobalAgentTest(); err != nil {
+	if _, warnings, err := runUserAgentTest(); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	t.Chdir(dir)
@@ -105,7 +105,7 @@ func TestApprovalsStatus_HandSetCodexReviewerIsNamedAsOutside(t *testing.T) {
 
 	codex := toolStatus(t, approvalsStatusJSON(t), "codex")
 
-	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "outside agnostic-ai") || strings.Contains(codex.Notes[0], "sync --global") {
+	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "outside agnostic-ai") || strings.Contains(codex.Notes[0], "sync --scope user") {
 		t.Errorf("codex notes: %q", codex.Notes)
 	}
 }

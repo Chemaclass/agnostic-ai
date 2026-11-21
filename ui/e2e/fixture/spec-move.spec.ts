@@ -14,7 +14,7 @@ test.describe('copy or move a spec to the other level', () => {
       const body = route.request().postDataJSON() as Record<string, unknown>
       requests.push(body)
       if (body.action === 'apply') moved = true
-      await route.fulfill({ json: { source: '.agnostic-ai/agents/reviewer.md', destination: '~/.agnostic-ai/agents/reviewer.md', exists: false, files: ['reviewer.md'], syncCommands: body.mode === 'move' ? ['agnostic-ai sync', 'agnostic-ai sync --global'] : ['agnostic-ai sync --global'], expected: 'rev-1', ...(moved ? { ok: true } : {}) } })
+      await route.fulfill({ json: { source: '.agnostic-ai/agents/reviewer.md', destination: '~/.agnostic-ai/agents/reviewer.md', exists: false, files: ['reviewer.md'], syncCommands: body.mode === 'move' ? ['agnostic-ai sync', 'agnostic-ai sync --scope user'] : ['agnostic-ai sync --scope user'], expected: 'rev-1', ...(moved ? { ok: true } : {}) } })
     })
     await page.goto('./?view=context&tab=agents')
     await page.getByRole('button', { name: 'Copy to global: reviewer' }).click()
@@ -23,7 +23,7 @@ test.describe('copy or move a spec to the other level', () => {
     await expect(panel).toContainText('Nothing is there yet.')
     await expect(panel.getByRole('checkbox')).toHaveCount(0)
     await panel.getByRole('button', { name: 'Move' }).click()
-    await expect(page.getByRole('status').filter({ hasText: 'Moved reviewer to ~/.agnostic-ai/agents/reviewer.md.' })).toContainText('agnostic-ai sync --global')
+    await expect(page.getByRole('status').filter({ hasText: 'Moved reviewer to ~/.agnostic-ai/agents/reviewer.md.' })).toContainText('agnostic-ai sync --scope user')
     expect(requests[0]).toMatchObject({ action: 'preview', kind: 'agent', name: 'reviewer', from: 'project', to: 'global', mode: 'copy', overwrite: false })
     expect(requests[1]).toMatchObject({ action: 'apply', mode: 'move', overwrite: false, expected: 'rev-1' })
   })
@@ -35,7 +35,7 @@ test.describe('copy or move a spec to the other level', () => {
     await page.route('**/api/edit/spec/move', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown>
       if (body.action === 'apply') applied.push(body)
-      await route.fulfill({ json: { source: '.agnostic-ai/rules/testing.md', destination: '~/.agnostic-ai/rules/testing.md', exists: true, files: ['testing.md'], syncCommands: ['agnostic-ai sync --global'], expected: 'rev-2' } })
+      await route.fulfill({ json: { source: '.agnostic-ai/rules/testing.md', destination: '~/.agnostic-ai/rules/testing.md', exists: true, files: ['testing.md'], syncCommands: ['agnostic-ai sync --scope user'], expected: 'rev-2' } })
     })
     await page.goto('./?view=context&tab=rules')
     await page.getByRole('button', { name: 'Copy to global: testing' }).click()
@@ -64,7 +64,7 @@ test.describe('copy or move a spec to the other level', () => {
     await page.route('**/api/edit/spec/move', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown>
       if (body.action === 'apply') return route.fulfill({ status: 409, json: { error: 'the destination changed; preview again' } })
-      await route.fulfill({ json: { source: '.agnostic-ai/agents/reviewer.md', destination: '~/.agnostic-ai/agents/reviewer.md', exists: false, files: ['reviewer.md'], syncCommands: ['agnostic-ai sync --global'], expected: 'rev-1' } })
+      await route.fulfill({ json: { source: '.agnostic-ai/agents/reviewer.md', destination: '~/.agnostic-ai/agents/reviewer.md', exists: false, files: ['reviewer.md'], syncCommands: ['agnostic-ai sync --scope user'], expected: 'rev-1' } })
     })
     await page.goto('./?view=context&tab=agents')
     await page.getByRole('button', { name: 'Copy to global: reviewer' }).click()

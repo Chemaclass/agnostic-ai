@@ -7,7 +7,7 @@ import (
 )
 
 func TestServeEditMCP_PreviewOnlyNamesToolsThatWriteTheServer(t *testing.T) {
-	source, _ := mcpEditGlobal(t, `{"mcpServers":{"github":{"command":"github-mcp","env":{"GITHUB_TOKEN":"ghp_synthetic123"}}}}`)
+	source, _ := mcpEditUser(t, `{"mcpServers":{"github":{"command":"github-mcp","env":{"GITHUB_TOKEN":"ghp_synthetic123"}}}}`)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, kimi]\n")
 	preview := mcpEditPreview(t, newEditHandler(source, true), mcpEditIdentity("github", "shared", "user", "~/.claude.json"))
 	if !slices.Equal(preview.Targets, []string{"claude"}) {

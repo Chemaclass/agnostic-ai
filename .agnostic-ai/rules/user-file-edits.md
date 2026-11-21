@@ -1,11 +1,11 @@
 ---
 name: user-file-edits
-description: Safety rules for code that edits files in the user's home under sync --global.
-globs: "internal/cli/{sync_global,global_,settings_,grok_settings_,import_global}*.go"
+description: Safety rules for code that edits files in the user's home under sync --scope user.
+globs: "internal/cli/{sync_user,user_,settings_,grok_settings_,import_user}*.go"
 alwaysApply: false
 ---
 
-`sync --global` edits files the user and other tools also write (`~/.claude.json`, `~/.codex/config.toml`):
+`sync --scope user` edits files the user and other tools also write (`~/.claude.json`, `~/.codex/config.toml`):
 
 - Edit text in place; never re-encode. Formatting, comments and keys sync does not own stay byte for byte.
 - Prove add-then-remove restores the original bytes, for an existing file and one sync created.

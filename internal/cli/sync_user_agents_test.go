@@ -1,0 +1,339 @@
+package cli
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+func userAgentTestHome(t *testing.T) (string, string) {
+	t.Helper()
+	home := t.TempDir()
+	for _, g := range userTargets {
+		if g.rootEnv != "" {
+			t.Setenv(g.rootEnv, "")
+		}
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("CURSOR_CONFIG_DIR", "")
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
+	source := filepath.Join(home, "source")
+	t.Setenv("AGNOSTIC_AI_HOME", source)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("FLATPAK_XDG_CONFIG_HOME", "")
+	if err := os.Unsetenv("FLATPAK_XDG_CONFIG_HOME"); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, t.TempDir())
+	return home, source
+}
+
+func runUserAgentTest(args ...string) (string, string, error) {
+	var out, warnings bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetErr(&warnings)
+	cmd.SetArgs(append([]string{"sync", "--scope", "user"}, args...))
+	err := cmd.Execute()
+	return out.String(), warnings.String(), err
+}
+
+const userReviewer = `---
+name: reviewer
+description: Review code
+model:
+  claude: sonnet
+  default: other-model
+tools: [Read, Grep]
+x-claude:
+  model: opus
+  permissionMode: plan
+x-codex:
+  model: codex-only
+---
+Review carefully.
+::target claude
+Claude detail.
+::end
+::target codex
+Codex detail.
+::end
+`
+
+func TestSyncUser_AgentWorksOutsideProject(t *testing.T) {
+	for _, defaultRoot := range []bool{true, false} {
+		name := "override"
+		if defaultRoot {
+			name = "default"
+		}
+		t.Run(name, func(t *testing.T) {
+			home, source := userAgentTestHome(t)
+			if defaultRoot {
+				t.Setenv("AGNOSTIC_AI_HOME", "")
+				source = filepath.Join(home, ".agnostic-ai")
+			}
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userReviewer)
+			path := filepath.Join(home, ".claude", "agents", "reviewer.md")
+			state := filepath.Join(source, "state", "global.json")
+			out, _, err := runUserAgentTest("--only", "claude", "--dry-run")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, path) {
+				t.Errorf("preview missing agent: %s", out)
+			}
+			for _, p := range []string{path, state} {
+				if _, err := os.Stat(p); !os.IsNotExist(err) {
+					t.Errorf("dry-run wrote %s", p)
+				}
+			}
+			if _, _, err := runUserAgentTest("--only", "claude", "--check"); err == nil {
+				t.Error("check accepted missing agent")
+			}
+			if _, err := os.Stat(state); !os.IsNotExist(err) {
+				t.Error("check wrote state")
+			}
+			if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{"name: reviewer", "description: Review code", "model: opus", "permissionMode: plan", "Read", "Grep", "Review carefully.", "Claude detail."} {
+				if !strings.Contains(string(data), want) {
+					t.Errorf("agent missing %q:\n%s", want, data)
+				}
+			}
+			for _, unwanted := range []string{"x-claude", "x-codex", "other-model", "codex-only", "Codex detail.", "::target"} {
+				if strings.Contains(string(data), unwanted) {
+					t.Errorf("agent contains %q:\n%s", unwanted, data)
+				}
+			}
+			beforeState, err := os.ReadFile(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			afterState, err := os.ReadFile(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(data, after) || !bytes.Equal(beforeState, afterState) {
+				t.Error("second sync changed output or state")
+			}
+			if _, _, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, path, "changed\n")
+			if _, _, err := runUserAgentTest("--only", "claude", "--check"); err == nil || !strings.Contains(err.Error(), path) {
+				t.Errorf("want agent drift: %v", err)
+			}
+			unchanged, err := os.ReadFile(path)
+			if err != nil || string(unchanged) != "changed\n" {
+				t.Errorf("check rewrote agent: %s, %v", unchanged, err)
+			}
+			if _, _, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
+				t.Fatal(err)
+			}
+			backup, err := os.ReadFile(path + ".bak")
+			if err != nil || string(backup) != "changed\n" {
+				t.Errorf("backup = %q, %v", backup, err)
+			}
+		})
+	}
+}
+
+func TestSyncUser_AgentCollisionStopsAllWrites(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userReviewer)
+	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "New instructions.\n")
+	path := filepath.Join(home, ".claude", "agents", "reviewer.md")
+	writeFile(t, path, "Personal agent.\n")
+	if _, _, err := runUserAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "unmanaged") {
+		t.Fatalf("want collision: %v", err)
+	}
+	for _, p := range []string{filepath.Join(home, ".claude", "CLAUDE.md"), filepath.Join(source, "state", "global.json")} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("collision wrote %s", p)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "Personal agent.\n" {
+		t.Errorf("personal agent changed: %s, %v", data, err)
+	}
+}
+
+func TestSyncUser_AgentCleanupHonorsSelectionAndOwnership(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	agentSource := filepath.Join(source, "agents", "reviewer.md")
+	writeFile(t, agentSource, userReviewer)
+	personal := filepath.Join(home, ".claude", "agents", "personal.md")
+	writeFile(t, personal, "Personal agent.\n")
+	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n---\nReview.\n")
+	if _, _, err := runUserAgentTest("--only", "claude,cursor"); err != nil {
+		t.Fatal(err)
+	}
+	agent := filepath.Join(home, ".claude", "agents", "reviewer.md")
+	if err := os.Remove(agentSource); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runUserAgentTest("--only", "cursor"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(agent); err != nil {
+		t.Fatalf("unselected agent removed: %v", err)
+	}
+	for _, flag := range []string{"--dry-run", "--check"} {
+		_, _, err := runUserAgentTest("--only", "claude", flag)
+		if flag == "--check" && err == nil {
+			t.Error("check missed removed source")
+		}
+		if flag == "--dry-run" && err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(agent); err != nil {
+			t.Errorf("%s removed agent: %v", flag, err)
+		}
+	}
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(agent); !os.IsNotExist(err) {
+		t.Errorf("removed source still emitted: %v", err)
+	}
+	for _, p := range []string{personal, filepath.Join(home, ".cursor", "skills", "review", "SKILL.md")} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("unrelated file removed: %s: %v", p, err)
+		}
+	}
+	if _, _, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSyncUser_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	for name, routing := range map[string]string{
+		"claude-only": "targets: [claude]", "excluded": "targets: [claude, amp]\ntarget-exclude: claude", "shared": "", "elsewhere": "target: gemini",
+	} {
+		writeFile(t, filepath.Join(source, "agents", name+".md"), "---\nname: "+name+"\ndescription: Reviews.\n"+routing+"\n---\nReview.\n")
+	}
+	_, warnings, err := runUserAgentTest("--only", "claude,amp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"claude-only", "shared"} {
+		if _, err := os.Stat(filepath.Join(home, ".claude", "agents", name+".md")); err != nil {
+			t.Errorf("missing %s: %v", name, err)
+		}
+	}
+	for _, name := range []string{"excluded", "elsewhere"} {
+		if _, err := os.Stat(filepath.Join(home, ".claude", "agents", name+".md")); !os.IsNotExist(err) {
+			t.Errorf("emitted filtered %s", name)
+		}
+	}
+	for _, want := range []string{"amp", "global agents", "excluded", "shared"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("missing warning %q: %s", want, warnings)
+		}
+	}
+	for _, unwanted := range []string{"claude-only", "elsewhere"} {
+		if strings.Contains(warnings, unwanted) {
+			t.Errorf("warned for filtered %s: %s", unwanted, warnings)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home, ".amp", "agents")); !os.IsNotExist(err) {
+		t.Error("invented Cursor global path")
+	}
+	_, warnings, err = runUserAgentTest("--target", "claude,amp", "--except", "amp")
+	if err != nil || warnings != "" {
+		t.Errorf("excluded target warned: %s, %v", warnings, err)
+	}
+}
+
+func TestSyncUser_AgentsPreserveExistingStateAndNativeSettings(t *testing.T) {
+	for _, version := range []int{1, 2} {
+		t.Run(strconv.Itoa(version), func(t *testing.T) {
+			home, source := userAgentTestHome(t)
+			unselected := filepath.Join(home, ".cursor", "skills", "review", "SKILL.md")
+			writeFile(t, unselected, "Existing skill.\n")
+			statePath := filepath.Join(source, "state", "global.json")
+			old, err := json.Marshal(userState{Version: version, Files: []string{unselected}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, statePath, string(old))
+			settings := filepath.Join(home, ".claude", "settings.json")
+			writeFile(t, settings, `{"model":"sonnet","hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"user-command"}]}]}}`)
+			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userReviewer)
+			if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
+				t.Fatal(err)
+			}
+			next, err := loadUserState(statePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{unselected, filepath.Join(home, ".claude", "agents", "reviewer.md")} {
+				if !slices.Contains(next.Files, want) {
+					t.Errorf("ownership missing %s: %v", want, next.Files)
+				}
+			}
+			data, err := os.ReadFile(settings)
+			if err != nil || !strings.Contains(string(data), "user-command") || !strings.Contains(string(data), "sonnet") {
+				t.Errorf("native settings lost: %s, %v", data, err)
+			}
+			if _, _, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestSyncUser_AgentReadonlyMaps(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview code.\n")
+	_, warnings, err := runUserAgentTest("--only", "codex,cursor,claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".codex", "agents", "reviewer.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `sandbox_mode = "read-only"`) {
+		t.Errorf("readonly missing from Codex agent: %s", data)
+	}
+	claude, err := os.ReadFile(filepath.Join(home, ".claude", "agents", "reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(claude), "disallowedTools: Write, Edit, NotebookEdit\n") || strings.Contains(string(claude), "readonly:") {
+		t.Errorf("readonly not mapped on the Claude agent: %s", claude)
+	}
+	codexNote := "note: `sandbox_mode` on 1 agent has no effect on codex (`readonly: true` also writes it;"
+	if strings.Count(warnings, codexNote) != 1 {
+		t.Errorf("want one Codex sandbox note, got: %s", warnings)
+	}
+	if strings.Contains(strings.ReplaceAll(warnings, codexNote, ""), "`readonly`") {
+		t.Errorf("supported readonly got note: %s", warnings)
+	}
+	if _, _, err := runUserAgentTest("--only", "codex,cursor,claude", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}

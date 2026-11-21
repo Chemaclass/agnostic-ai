@@ -23,7 +23,7 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 	} {
 		for _, before := range []string{"absent", "empty", "unrelated", "existing values"} {
 			t.Run(tc.target+"/"+before, func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				path := filepath.Join(home, filepath.FromSlash(tc.file))
 				original := tc.original
 				switch before {
@@ -47,7 +47,7 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 				}
 				specPath := filepath.Join(source, "settings", "voice.yaml")
 				writeFile(t, specPath, targetVoiceSpec)
-				if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--backup"); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", tc.target, "--backup"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 				data, err := os.ReadFile(path)
@@ -68,13 +68,13 @@ func TestVoiceTargets_WriteCheckAndRestore(t *testing.T) {
 						t.Error("portable enabled changed the Grok shortcut")
 					}
 				}
-				if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--check"); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", tc.target, "--check"); err != nil {
 					t.Errorf("check after sync: %v\n%s", err, warnings)
 				}
 				if err := os.Remove(specPath); err != nil {
 					t.Fatal(err)
 				}
-				if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", tc.target); err != nil {
 					t.Fatalf("remove voice: %v\n%s", err, warnings)
 				}
 				if before == "absent" {
@@ -96,9 +96,9 @@ func TestVoiceTargets_TranslateHoldMode(t *testing.T) {
 		{"grok", ".grok/config.toml", grokTOMLFormat, "ui.voice_capture_mode", "hold"},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), "voice:\n  mode: hold\n")
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			path := filepath.Join(home, filepath.FromSlash(tc.file))
@@ -130,12 +130,12 @@ func TestVoiceTargets_QwenNoteDependsOnVoiceModel(t *testing.T) {
 		{"same run empty", "{\"voiceModel\":\"whisper\"}\n", "x-qwen:\n  voiceModel: ''\n", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			if tc.native != "" {
 				writeFile(t, filepath.Join(home, ".qwen", "settings.json"), tc.native)
 			}
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.extra)
-			_, warnings, err := runGlobalAgentTest("--only", "qwen", "--backup")
+			_, warnings, err := runUserAgentTest("--only", "qwen", "--backup")
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -151,9 +151,9 @@ func TestVoiceTargets_QwenNoteDependsOnVoiceModel(t *testing.T) {
 }
 
 func TestVoiceTargets_GrokExplainsEnabledLimit(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-	_, warnings, err := runGlobalAgentTest("--only", "grok")
+	_, warnings, err := runUserAgentTest("--only", "grok")
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
@@ -175,9 +175,9 @@ func TestVoiceTargets_NativeParentOverridesPortableValues(t *testing.T) {
 		{"vibe", ".vibe/config.toml", "toml", "x-vibe:\n  voice_mode_enabled: false\n", map[string]any{"voice_mode_enabled": false}, nil},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec+tc.override)
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			path := filepath.Join(home, filepath.FromSlash(tc.file))
@@ -199,7 +199,7 @@ func TestVoiceTargets_NativeParentOverridesPortableValues(t *testing.T) {
 					t.Errorf("overridden %s remains: %v", key, got)
 				}
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--check"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target, "--check"); err != nil {
 				t.Errorf("check after override: %v\n%s", err, warnings)
 			}
 		})
@@ -207,7 +207,7 @@ func TestVoiceTargets_NativeParentOverridesPortableValues(t *testing.T) {
 }
 
 func TestVoiceTargets_ExplainListsAllWrittenKeys(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
 	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
 	if err != nil {
@@ -234,9 +234,9 @@ func TestVoiceTargets_ExplainUnsupportedMembersAndDeferredMappings(t *testing.T)
 		{"kiro", []string{"Kiro CLI has no dictation on/off setting", "Kiro CLI has no voice capture mode setting"}},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
-			_, source := globalAgentTestHome(t)
+			_, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-			_, warnings, err := runGlobalAgentTest("--only", tc.target)
+			_, warnings, err := runUserAgentTest("--only", tc.target)
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -251,10 +251,10 @@ func TestVoiceTargets_ExplainUnsupportedMembersAndDeferredMappings(t *testing.T)
 
 func TestVoiceTargets_EveryUnmappedTargetHasASpecificNote(t *testing.T) {
 	for _, target := range adapters.Names() {
-		if globalTargets[target].settings.voice != nil {
+		if userTargets[target].settings.voice != nil {
 			continue
 		}
-		if reason := voiceTargetNoOpReason(target); reason == "" || reason == "no voice dictation setting sync --global can write" {
+		if reason := voiceTargetNoOpReason(target); reason == "" || reason == "no voice dictation setting sync --scope user can write" {
 			t.Errorf("%s has no specific voice note", target)
 		}
 	}
@@ -268,10 +268,10 @@ func TestVoiceTargets_RemovalKeepsUserEdits(t *testing.T) {
 		{"vibe", ".vibe/config.toml", "voice_mode_enabled = false # user choice\n"},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			settings := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, settings, targetVoiceSpec)
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			path := filepath.Join(home, filepath.FromSlash(tc.file))
@@ -279,7 +279,7 @@ func TestVoiceTargets_RemovalKeepsUserEdits(t *testing.T) {
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			data := readFile(t, path)
@@ -317,19 +317,19 @@ func TestVoiceTargets_RestoreTOMLValuePreservesUserFormatting(t *testing.T) {
 		{"grok multiline literal", "grok", ".grok/config.toml", "voice:\n  mode: tap\n", "[ui]\r\nvoice_capture_mode = '''hold''' # old\r\n", "[ui]\r\nvoice_capture_mode = \"toggle\" # new\r\n", "[ui]\r\nvoice_capture_mode = '''hold''' # new\r\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, filepath.FromSlash(tc.path))
 			settings := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, path, tc.original)
 			writeFile(t, settings, tc.spec)
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target, "--backup"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target, "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			writeFile(t, path, tc.edited)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", tc.target); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if got := readFile(t, path); got != tc.want {
@@ -341,14 +341,14 @@ func TestVoiceTargets_RestoreTOMLValuePreservesUserFormatting(t *testing.T) {
 
 func TestVoiceTargets_QwenNotesRemovedModel(t *testing.T) {
 	const note = "Qwen keeps dictation off until a voice model is chosen"
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
-	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("initial sync: %v\n%s", err, warnings)
 	}
 	writeFile(t, settings, "voice:\n  enabled: true\n")
-	_, warnings, err := runGlobalAgentTest("--only", "qwen")
+	_, warnings, err := runUserAgentTest("--only", "qwen")
 	if err != nil {
 		t.Fatalf("second sync: %v\n%s", err, warnings)
 	}
@@ -362,17 +362,17 @@ func TestVoiceTargets_QwenNotesRemovedModel(t *testing.T) {
 }
 
 func TestVoiceTargets_QwenKeepsUserChangedModelWithoutNote(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, settings, "voice:\n  enabled: true\nx-qwen:\n  voiceModel: whisper\n")
-	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("initial sync: %v\n%s", err, warnings)
 	}
 	path := filepath.Join(home, ".qwen", "settings.json")
 	data := readFile(t, path)
 	writeFile(t, path, strings.Replace(data, "whisper", "custom", 1))
 	writeFile(t, settings, "voice:\n  enabled: true\n")
-	_, warnings, err := runGlobalAgentTest("--only", "qwen")
+	_, warnings, err := runUserAgentTest("--only", "qwen")
 	if err != nil {
 		t.Fatalf("second sync: %v\n%s", err, warnings)
 	}
@@ -422,19 +422,19 @@ func TestVoiceTargets_GrokParentRestorePreservesUserComments(t *testing.T) {
 		{"child only", "[ui.status_line]\nenabled=true\n", "[ui]\n# note\n", "[ui]\n# note\n[ui.status_line]\nenabled=true\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".grok", "config.toml")
 			settings := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, path, tc.original)
 			writeFile(t, settings, "voice:\n  mode: tap\nx-grok:\n  ui: {}\n")
-			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok", "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			writeFile(t, path, tc.edited)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if got := readFile(t, path); got != tc.want {
@@ -453,19 +453,19 @@ func TestVoiceTargets_GrokRestoresMultilineQuoteEndings(t *testing.T) {
 		{"hash and escape", `'es#"de'`, `"""es#\"de"""`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".grok", "config.toml")
 			settings := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, path, "[ui]\r\nvoice_stt_language = 'en'\r\n")
 			writeFile(t, settings, "voice:\n  language: "+tc.yaml+"\n")
-			if _, warnings, err := runGlobalAgentTest("--only", "grok", "--backup"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok", "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			writeFile(t, path, "[ui]\r\nvoice_stt_language = "+tc.native+" # new\r\n")
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "grok"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, warnings)
 			}
 			if got, want := readFile(t, path), "[ui]\r\nvoice_stt_language = 'en' # new\r\n"; got != want {

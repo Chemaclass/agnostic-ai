@@ -9,8 +9,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestSyncGlobal_GrokRejectsInvalidSkillBeforeNativeWrites(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_GrokRejectsInvalidSkillBeforeNativeWrites(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
 	instructions := filepath.Join(home, ".grok", "AGENTS.md")
 	before := "Personal instructions.\n"
@@ -18,7 +18,7 @@ func TestSyncGlobal_GrokRejectsInvalidSkillBeforeNativeWrites(t *testing.T) {
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared instructions.\n")
 	name := strings.Repeat("a", 65)
 	writeFile(t, filepath.Join(source, "skills", name+".md"), "---\nname: "+name+"\ndescription: Inspect a diff.\n---\nRead the diff.\n")
-	if _, _, err := runGlobalAgentTest("--only", "grok"); err == nil || !strings.Contains(err.Error(), "64") {
+	if _, _, err := runUserAgentTest("--only", "grok"); err == nil || !strings.Contains(err.Error(), "64") {
 		t.Fatalf("invalid global native identity accepted: %v", err)
 	}
 	if got := readFile(t, instructions); got != before {
@@ -57,18 +57,18 @@ func TestImportGrok_SkillNamesKeepNativeFallbacksOnFreshSync(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_GrokKeepsNativeDirectoryNameFallback(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_GrokKeepsNativeDirectoryNameFallback(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")
 	writeFile(t, filepath.Join(source, "skills", "review.md"), "---\nname: review\ndescription: Inspect a diff.\nx-grok:\n  name: '!!!'\n---\nRead the supplied diff.\n")
-	if _, _, err := runGlobalAgentTest("--only", "grok"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "grok"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".grok", "skills", "review", "SKILL.md")
 	if data := readFile(t, path); !strings.Contains(data, "!!!") || !strings.Contains(data, "Read the supplied diff.") {
 		t.Errorf("native fallback content changed: %s", data)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "grok", "--check"); err != nil {
 		t.Fatal(err)
 	}
 }

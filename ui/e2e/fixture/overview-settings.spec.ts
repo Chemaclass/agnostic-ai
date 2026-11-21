@@ -250,7 +250,7 @@ test.describe('overview', () => {
     const toggle = page.getByRole('switch', { name: 'memory built-in' })
     await expect(toggle).toHaveAttribute('aria-checked', 'false')
     await expect(page.getByText('Saves source files.')).toHaveCount(1)
-    await expect(page.getByText('agnostic-ai sync --global', { exact: true })).toBeVisible()
+    await expect(page.getByText('agnostic-ai sync --scope user', { exact: true })).toBeVisible()
     await expect(page.getByRole('switch')).toHaveCount(builtinCount)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
@@ -441,7 +441,7 @@ test.describe('overview', () => {
     const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
     const nativeLocal = '.agnostic-ai/local/settings/native.yaml'
     Object.assign(field('x-'), { set: [{ spec: 'native', path: nativeLocal, local: true, values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }, { key: 'x-claude.theme', type: 'text', value: 'dark' }] }] })
-    settings.items.push({ kind: 'settings', name: 'native', label: 'native', path: nativeLocal, layer: 'project-user', localKeys: ['x-claude.verbose'], values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }], findings: [] })
+    settings.items.push({ kind: 'settings', name: 'native', label: 'native', path: nativeLocal, layer: 'local', localKeys: ['x-claude.verbose'], values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }], findings: [] })
     const [a, b, localB] = ['.agnostic-ai/settings/a.yaml', '.agnostic-ai/settings/b.yaml', '.agnostic-ai/local/settings/b.yaml']
     Object.assign(field('model'), {
       set: [
@@ -523,7 +523,7 @@ test.describe('overview', () => {
     const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
     const path = 'settings/defaults.yaml'
     for (const [key, kind, allowed] of [['voice.enabled', 'boolean', undefined], ['voice.mode', 'text', ['hold', 'tap']], ['voice.language', 'text', undefined]] as const) {
-      Object.assign(fields.find((field: { key: string }) => field.key === key), { key, label: key === 'voice.enabled' ? 'Voice dictation' : key === 'voice.mode' ? 'Voice mode' : 'Voice language', description: '', set: [], editable: { kind, path, allowed, syncCommand: 'agnostic-ai sync --global' } })
+      Object.assign(fields.find((field: { key: string }) => field.key === key), { key, label: key === 'voice.enabled' ? 'Voice dictation' : key === 'voice.mode' ? 'Voice mode' : 'Voice language', description: '', set: [], editable: { kind, path, allowed, syncCommand: 'agnostic-ai sync --scope user' } })
     }
     const posted: Record<string, unknown>[] = []
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
@@ -555,7 +555,7 @@ test.describe('overview', () => {
     await language.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => posted.at(-1)).toMatchObject({ key: 'voice.language', value: 'es' })
     for (const field of [voice, mode, language]) {
-      await expect(field).toContainText('Run agnostic-ai sync --global to apply.')
+      await expect(field).toContainText('Run agnostic-ai sync --scope user to apply.')
       await field.getByRole('button', { name: 'Clear', exact: true }).click()
       await expect.poll(() => posted.at(-1)?.value).toBeNull()
     }
@@ -564,7 +564,7 @@ test.describe('overview', () => {
   test('shows configured project voice values read-only', async ({ page }) => {
     const data = structuredClone(fixture)
     const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
-    const reason = 'Voice is written only by sync --global. Open Settings in agnostic-ai ui --global.'
+    const reason = 'Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user.'
     for (const [key, label, value] of [['voice.enabled', 'Voice dictation', 'false'], ['voice.mode', 'Voice mode', 'tap'], ['voice.language', 'Voice language', 'es']]) {
       Object.assign(fields.find((field: { key: string }) => field.key === key), { key, label, description: '', set: [{ spec: 'voice', path: '.agnostic-ai/settings/voice.yaml', values: [{ key, type: key === 'voice.enabled' ? 'bool' : 'text', value }] }], editable: { kind: key === 'voice.enabled' ? 'boolean' : 'text', disabledReason: reason } })
     }
@@ -590,14 +590,14 @@ test.describe('overview', () => {
         { spec: 'a', path: paths[0], values: [{ key: 'model', type: 'text', value: 'sonnet' }] },
         { spec: 'b', path: paths[1], values: [{ key: 'model', type: 'text', value: 'opus' }] },
       ],
-      editable: { kind: 'text', path: paths[1], paths, syncCommand: 'agnostic-ai sync --global' },
+      editable: { kind: 'text', path: paths[1], paths, syncCommand: 'agnostic-ai sync --scope user' },
     })
     Object.assign(field('effort'), {
       set: [{ spec: 'a', path: paths[0], values: [{ key: 'effort.claude', type: 'text', value: 'high' }] }],
       editable: { kind: 'text', paths, disabledReason: 'This field has a non-scalar value; edit the spec directly.' },
     })
     Object.assign(field('session-retention-days'), {
-      editable: { kind: 'number', path: paths[0], disabledReason: 'Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global.' },
+      editable: { kind: 'number', path: paths[0], disabledReason: 'Session retention is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user.' },
     })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     let edit: unknown
@@ -609,7 +609,7 @@ test.describe('overview', () => {
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.getByRole('combobox')).toHaveValue(paths[1])
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
-    await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
+    await expect(model).toContainText('Run agnostic-ai sync --scope user to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => edit).toEqual({ audience: 'shared', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })

@@ -32,21 +32,21 @@ func permissionModeIn(t *testing.T, file string) any {
 	return perms["default-mode"]
 }
 
-// globalModeHandler is the global view over a user configuration with
-// Claude as its only tool, and the home sync --global writes into.
-func globalModeHandler(t *testing.T, settings string) (*editHandler, string, string) {
+// userModeHandler is the global view over a user configuration with
+// Claude as its only tool, and the home sync --scope user writes into.
+func userModeHandler(t *testing.T, settings string) (*editHandler, string, string) {
 	t.Helper()
 	silence(t)
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	if settings != "" {
 		writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), settings)
 	}
-	return &editHandler{root: source, global: true}, home, source
+	return &editHandler{root: source, userLevel: true}, home, source
 }
 
-func TestPermissionModeEdit_GlobalSaveReachesClaudeThroughGlobalSync(t *testing.T) {
-	h, home, source := globalModeHandler(t, "")
+func TestPermissionModeEdit_UserSaveReachesClaudeThroughUserSync(t *testing.T) {
+	h, home, source := userModeHandler(t, "")
 	code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "value": "plan", "expected": nil})
 	if code != http.StatusOK || !strings.Contains(body, "settings/permissions.yaml") {
 		t.Fatalf("save = %d %s", code, body)
@@ -55,8 +55,8 @@ func TestPermissionModeEdit_GlobalSaveReachesClaudeThroughGlobalSync(t *testing.
 	if got := permissionModeIn(t, file); got != "plan" {
 		t.Fatalf("default-mode = %v in %s", got, readProjectFile(t, file))
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 	var native map[string]any
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
@@ -74,7 +74,7 @@ func TestPermissionModeEdit_GlobalSaveReachesClaudeThroughGlobalSync(t *testing.
 }
 
 func TestPermissionModeEdit_AddsToTheExistingPermissionsMappingAndKeepsTheRest(t *testing.T) {
-	h, _, source := globalModeHandler(t, "# Team rules.\nname: defaults\npermissions:\n  allow: [read(src/**)] # Keep.\nmodel: sonnet\n")
+	h, _, source := userModeHandler(t, "# Team rules.\nname: defaults\npermissions:\n  allow: [read(src/**)] # Keep.\nmodel: sonnet\n")
 	file := filepath.Join(source, "settings", "defaults.yaml")
 	if code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "value": "acceptEdits", "expected": nil}); code != http.StatusOK {
 		t.Fatalf("save = %d %s", code, body)
@@ -95,7 +95,7 @@ func TestPermissionModeEdit_AddsToTheExistingPermissionsMappingAndKeepsTheRest(t
 }
 
 func TestPermissionModeEdit_RejectsModesClaudeCodeDoesNotTake(t *testing.T) {
-	h, _, source := globalModeHandler(t, "name: defaults\n")
+	h, _, source := userModeHandler(t, "name: defaults\n")
 	for _, value := range []any{"yolo", "", 3, "Plan"} {
 		code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "value": value})
 		if code != http.StatusBadRequest || !strings.Contains(body, "default, manual, acceptEdits, plan, auto, dontAsk, bypassPermissions") {
@@ -111,7 +111,7 @@ func TestPermissionModeEdit_RejectsModesClaudeCodeDoesNotTake(t *testing.T) {
 }
 
 func TestPermissionModeEdit_LocalSaveWritesTheOverlay(t *testing.T) {
-	h, _, source := globalModeHandler(t, "name: defaults\npermissions:\n  default-mode: default\n")
+	h, _, source := userModeHandler(t, "name: defaults\npermissions:\n  default-mode: default\n")
 	if code, body := permissionModeRequest(t, h, map[string]any{"audience": "personal", "value": "bypassPermissions", "expected": nil}); code != http.StatusOK {
 		t.Fatalf("save = %d %s", code, body)
 	}
@@ -124,7 +124,7 @@ func TestPermissionModeEdit_LocalSaveWritesTheOverlay(t *testing.T) {
 }
 
 func TestPermissionModeEdit_RefusesWhileALocalFileClearsPermissions(t *testing.T) {
-	h, _, source := globalModeHandler(t, "name: defaults\npermissions:\n  allow: [read]\n")
+	h, _, source := userModeHandler(t, "name: defaults\npermissions:\n  allow: [read]\n")
 	writeFile(t, filepath.Join(source, "local", "settings", "defaults.yaml"), "name: defaults\npermissions: null\n")
 	code, body := permissionModeRequest(t, h, map[string]any{"audience": "personal", "value": "plan"})
 	if code != http.StatusBadRequest || !strings.Contains(body, "permissions: null") {
@@ -132,7 +132,7 @@ func TestPermissionModeEdit_RefusesWhileALocalFileClearsPermissions(t *testing.T
 	}
 }
 
-func TestPermissionModeEdit_ProjectRefusesBecauseOnlyGlobalSyncWritesIt(t *testing.T) {
+func TestPermissionModeEdit_ProjectRefusesBecauseOnlyUserSyncWritesIt(t *testing.T) {
 	h := targetProject(t, "name: defaults\n")
 	for _, audience := range []string{"shared", "personal"} {
 		code, body := permissionModeRequest(t, h, map[string]any{"audience": audience, "value": "plan"})
@@ -146,7 +146,7 @@ func TestPermissionModeEdit_ProjectRefusesBecauseOnlyGlobalSyncWritesIt(t *testi
 }
 
 func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
-	h, home, source := globalModeHandler(t, "")
+	h, home, source := userModeHandler(t, "")
 	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
 	writeFile(t, filepath.Join(source, "settings", "z.yaml"), "name: z\npermissions:\n  default-mode: bypassPermissions\n")
 	code, body := permissionModeRequest(t, h, map[string]any{"audience": "shared", "path": "settings/a.yaml", "value": "plan", "expected": nil})
@@ -158,8 +158,8 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 	}
 	nativeMode := func() any {
 		t.Helper()
-		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-			t.Fatalf("sync --global: %v\n%s", err, warnings)
+		if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
+			t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 		}
 		var native map[string]any
 		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
@@ -180,7 +180,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 }
 
 func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing.T) {
-	h, home, source := globalModeHandler(t, "")
+	h, home, source := userModeHandler(t, "")
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
 	writeFile(t, filepath.Join(source, "settings", "a.yaml"), "name: a\npermissions:\n  allow: [read]\n")
 	writeFile(t, filepath.Join(source, "settings", "z.yaml"), "name: z\ntargets: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
@@ -188,8 +188,8 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing
 	if code != http.StatusConflict || !strings.Contains(body, "settings/z.yaml sets permissions.default-mode for claude") {
 		t.Fatalf("shadowed save = %d %s", code, body)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 	var native map[string]any
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {

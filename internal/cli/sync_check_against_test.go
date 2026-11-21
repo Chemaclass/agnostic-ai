@@ -140,10 +140,10 @@ func TestSyncCheckAgainst_ReadsSpecsFromTheRefNotTheWorkingTree(t *testing.T) {
 func TestSyncCheckAgainst_RejectsBadUse(t *testing.T) {
 	committedProject(t, "instructions")
 	for name, args := range map[string][]string{
-		"without --check": {"sync", "--against", "index"},
-		"unknown ref":     {"sync", "--check", "--against", "main"},
-		"with --global":   {"sync", "--check", "--scope", "user", "--against", "index"},
-		"with --watch":    {"sync", "--check", "--watch", "--against", "index"},
+		"without --check":   {"sync", "--against", "index"},
+		"unknown ref":       {"sync", "--check", "--against", "main"},
+		"with --scope user": {"sync", "--check", "--scope", "user", "--against", "index"},
+		"with --watch":      {"sync", "--check", "--watch", "--against", "index"},
 	} {
 		root := NewRootCmd("test")
 		root.SetArgs(args)

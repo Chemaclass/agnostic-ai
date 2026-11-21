@@ -586,7 +586,7 @@ func TestMemoryPath_FailsOutsideAProject(t *testing.T) {
 
 // The user's global source root is often a Git checkout. It is never a
 // project, whichever path reaches it.
-func TestMemoryProjectRoot_RejectsTheGlobalSourceRootCheckout(t *testing.T) {
+func TestMemoryProjectRoot_RejectsTheUserSourceRootCheckout(t *testing.T) {
 	real := t.TempDir()
 	link := filepath.Join(t.TempDir(), "home-link")
 	if err := os.Symlink(real, link); err != nil {
@@ -650,7 +650,7 @@ func TestMemoryPath_NoConfigUsesTheCheckoutFolders(t *testing.T) {
 
 // On a case-insensitive filesystem, a global root spelled with another
 // case is still the same folder as Git's top level.
-func TestMemoryProjectRoot_RejectsTheGlobalRootSpelledInAnotherCase(t *testing.T) {
+func TestMemoryProjectRoot_RejectsTheUserRootSpelledInAnotherCase(t *testing.T) {
 	real := filepath.Join(t.TempDir(), "Global-Home")
 	if err := os.MkdirAll(real, 0o755); err != nil {
 		t.Fatal(err)

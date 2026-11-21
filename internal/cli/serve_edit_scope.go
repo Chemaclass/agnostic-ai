@@ -84,8 +84,8 @@ func (a editAudience) legacyScope() string {
 // builtinsConfigFiles are the committed config and the personal one whose
 // builtins list replaces it.
 func (h *editHandler) builtinsConfigFiles() (team, local string) {
-	if h.global {
-		paths := globalConfigPaths(h.root)
+	if h.userLevel {
+		paths := userConfigPaths(h.root)
 		return paths[0], paths[1]
 	}
 	team = filepath.Join(h.root, config.ConfigFileName)
@@ -131,7 +131,7 @@ func (h *editHandler) builtinsEdit(where editAudience, req builtinRequest) (stri
 		return "", nil, err
 	}
 	inherited := ""
-	if !h.global {
+	if !h.userLevel {
 		if inherited, err = inheritedPersonalMemory(h.root); err != nil {
 			return "", nil, err
 		}
@@ -260,7 +260,7 @@ func inheritedPersonalMemory(root string) (string, error) {
 // teamBuiltins is the committed builtins list; a global source without a
 // config turns none on.
 func (h *editHandler) teamBuiltins() ([]string, error) {
-	if team, _ := h.builtinsConfigFiles(); h.global {
+	if team, _ := h.builtinsConfigFiles(); h.userLevel {
 		if _, err := os.Stat(team); os.IsNotExist(err) {
 			return nil, nil
 		}
@@ -270,8 +270,8 @@ func (h *editHandler) teamBuiltins() ([]string, error) {
 
 // overviewBuiltins reports the team builtins list and whether the
 // personal config replaces it, for the overview's local badges.
-func overviewBuiltins(root string, global bool) ([]string, bool) {
-	h := &editHandler{root: root, global: global}
+func overviewBuiltins(root string, userLevel bool) ([]string, bool) {
+	h := &editHandler{root: root, userLevel: userLevel}
 	_, local := h.builtinsConfigFiles()
 	list, err := h.teamBuiltins()
 	if err != nil {
@@ -297,7 +297,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, where editAud
 		case local && e.Base != nil:
 			scaffold = settingsOverlayScaffold(e.Name)
 		case !local:
-			file, scaffold = filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name)), settingsOverlayScaffold(e.Name)
+			file, scaffold = filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, e.Name)), settingsOverlayScaffold(e.Name)
 			if _, err := os.Lstat(file); err == nil {
 				return "", "", fmt.Errorf("%s exists but does not overlay the settings spec named %q", overviewDisplay(h.root, file), e.Name)
 			} else if !os.IsNotExist(err) {
@@ -354,10 +354,10 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 // personalRoot is the personal folder a personal write of file must stay
 // in, or the personal config when file is that config.
 func (h *editHandler) personalRoot(file string) (root string, folder bool) {
-	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
+	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.userLevel {
 		return personalConfig, false
 	}
-	return filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x")))), true
+	return filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.userLevel, "x")))), true
 }
 
 // keepPersonalOutOfGit makes sure Git ignores file before a personal write
@@ -479,9 +479,9 @@ func outsideGit(dir string) bool {
 // teamSourcePaths are the committed config files and spec folders an
 // edit must never reach through a personal path.
 func (h *editHandler) teamSourcePaths() ([]string, error) {
-	sources, base := globalSources, h.root
+	sources, base := userSources, h.root
 	paths := []string{filepath.Join(h.root, config.ConfigFileName), filepath.Join(h.root, config.LegacyConfigFileName)}
-	if !h.global {
+	if !h.userLevel {
 		cfg, err := config.Load(h.root)
 		if err != nil {
 			return nil, err

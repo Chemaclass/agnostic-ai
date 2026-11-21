@@ -92,19 +92,19 @@ func TestBareGeminiVariables(t *testing.T) {
 	}
 }
 
-func TestLintGlobal_GeminiHookVariableInQuotesFailsStrict(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestLintUser_GeminiHookVariableInQuotesFailsStrict(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [gemini]\n")
 	writeFile(t, filepath.Join(source, "hooks", "check.yaml"), "name: check\nevent: PreToolUse\ncommand: 'echo \"$GEMINI_PROJECT_DIR\"'\n")
 
-	out, _, err := runGlobalCheck("lint")
+	out, _, err := runUserCheck("lint")
 	if err != nil {
 		t.Fatalf("a warning alone must pass: %v\n%s", err, out)
 	}
 	if len(findingLines(out, "LINT030")) != 1 {
-		t.Errorf("want one LINT030 from lint --global:\n%s", out)
+		t.Errorf("want one LINT030 from lint --scope user:\n%s", out)
 	}
-	if _, _, err := runGlobalCheck("lint", "--strict"); err == nil {
-		t.Error("lint --global --strict must fail on LINT030")
+	if _, _, err := runUserCheck("lint", "--strict"); err == nil {
+		t.Error("lint --scope user --strict must fail on LINT030")
 	}
 }

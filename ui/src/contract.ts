@@ -472,8 +472,8 @@ export interface ItemFinding {
   openPath?: string
   fix?: string
   explanation?: string
-  /** `global` for a finding on the global setup in a project's overview; its path is relative to the global source. */
-  layer?: 'global'
+  /** `user` for a finding on the global setup in a project's overview; its path is relative to the global source. */
+  layer?: 'user'
 }
 
 export interface SectionItem {
@@ -848,7 +848,7 @@ export interface ContextReport {
 
 export interface ContextView {
   schemaVersion: string
-  /** False for user configuration (`serve --global`), with the reason. */
+  /** False for user configuration (`serve --scope user`), with the reason. */
   supported: boolean
   reason: string
   root?: string
@@ -1154,7 +1154,7 @@ export interface ConversationOpenReply {
 //   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet?, scanningSince? }; scanningSince is when the running conversation read began, set only while one runs
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
-//   POST /api/global/create                               → GlobalCreateReply (body: { git })
+//   POST /api/global/create                               → UserCreateReply (body: { git })
 //   POST /api/edit/spec/move                              → SpecMovePreview (body: SpecMoveRequest); 409 { missing, root } when there is no global setup
 export const API = {
   view: '/api/views/authority',
@@ -1196,7 +1196,7 @@ export interface SourceView {
 }
 
 /** The global setup folder the page just created. */
-export interface GlobalCreateReply {
+export interface UserCreateReply {
   root: string
   created: string[]
   git: string

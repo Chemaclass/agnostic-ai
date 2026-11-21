@@ -159,16 +159,16 @@ func TestSync_WideningErrorNamesTheTargetOnce(t *testing.T) {
 	}
 }
 
-// sync --global honors on-unsupported for the widening, as project sync
+// sync --scope user honors on-unsupported for the widening, as project sync
 // does.
-func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
+func TestSyncUser_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
 	for _, mode := range []string{"warn", "silent", "error"} {
 		t.Run(mode, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			notes := captureNotes(t)
 			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
 			writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview.\n")
-			_, warnings, err := runGlobalAgentTest("--only", "claude")
+			_, warnings, err := runUserAgentTest("--only", "claude")
 			const line = "shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern"
 			if mode == "error" {
 				if err == nil || !strings.Contains(err.Error(), "claude: ") || !strings.Contains(err.Error(), line) {
@@ -180,7 +180,7 @@ func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("sync --global: %v\n%s", err, warnings)
+				t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 			}
 			if got := strings.Contains(notes.String()+warnings, line); got != (mode == "warn") {
 				t.Errorf("%s: note shown = %v\n%s%s", mode, got, notes, warnings)

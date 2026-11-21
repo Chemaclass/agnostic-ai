@@ -118,7 +118,7 @@ func writeMCPError(w http.ResponseWriter, err error) {
 }
 
 func (h *editHandler) mcpPreview(req mcpSpecRequest, where editAudience) (mcpSpecPreview, string, error) {
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return mcpSpecPreview{}, "", err
 	}
@@ -133,14 +133,14 @@ func (h *editHandler) mcpPreview(req mcpSpecRequest, where editAudience) (mcpSpe
 	}
 	cfg := scope.cfg
 	source := scope.source
-	if h.global {
+	if h.userLevel {
 		cfg = &config.Config{Targets: scope.targets}
 	}
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return mcpSpecPreview{}, "", err
 	}
-	rows := nativeMCPServers(home, h.root, source, cfg, h.global)
+	rows := nativeMCPServers(home, h.root, source, cfg, h.userLevel)
 	if !slices.ContainsFunc(rows, func(row overview.NativeMCP) bool {
 		return row.Name == req.Name && row.Target == req.Target && row.Path == req.Path && row.Scope == req.Scope
 	}) {
@@ -162,7 +162,7 @@ func (h *editHandler) mcpPreview(req mcpSpecRequest, where editAudience) (mcpSpe
 		variables = []string{}
 	}
 	dir := filepath.Join(h.root, "mcps")
-	if !h.global {
+	if !h.userLevel {
 		dir = config.ResolveSourcePath(h.root, cfg.Sources.MCPs)
 	}
 	if where == audiencePersonal {
@@ -187,13 +187,13 @@ func (h *editHandler) mcpPreview(req mcpSpecRequest, where editAudience) (mcpSpe
 			return mcpSpecPreview{}, "", err
 		}
 	}
-	targets, err := mcpPreviewTargets(cfg, h.global, data)
+	targets, err := mcpPreviewTargets(cfg, h.userLevel, data)
 	if err != nil {
 		return mcpSpecPreview{}, "", err
 	}
 	command := "agnostic-ai sync"
-	if h.global {
-		command += " --global"
+	if h.userLevel {
+		command += " --scope user"
 	}
 	proposed := mcpSpecPreview{File: overviewDisplay(h.root, file), Spec: string(data), Variables: variables, Targets: targets, SyncCommand: command}
 	fingerprint, err := json.Marshal(struct {
@@ -213,11 +213,11 @@ func (h *editHandler) mcpNativeServer(home string, cfg *config.Config, req mcpSp
 	var servers map[string]map[string]any
 	var path, format string
 	if req.Scope == overview.NativeScopeUser {
-		g := globalTargets[req.Target]
+		g := userTargets[req.Target]
 		path, format = g.mcpPath(home), g.mcp.format
 		servers = readNativeMCPServers(path, format, g.mcp.key)
-	} else if req.Target == "claude" && req.Path == nativeHomePath(home, globalTargets["claude"].mcpPath(home)) {
-		path, format = globalTargets["claude"].mcpPath(home), "json"
+	} else if req.Target == "claude" && req.Path == nativeHomePath(home, userTargets["claude"].mcpPath(home)) {
+		path, format = userTargets["claude"].mcpPath(home), "json"
 		servers = claudeLocalMCPServers(path, h.root)
 	} else {
 		f := projectNativeMCP[req.Target]

@@ -110,12 +110,15 @@ The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) t
 
 ## list
 
-Print all loaded specs as `kind<tab>name<tab>layer`; built-ins add their name and the running version. With no specs, a hint goes to stderr and stdout stays empty.
+Print all loaded specs as `kind<tab>name<tab>layer`; built-ins add their name and the running version, and a local spec that changes a shared one adds `overrides:<layer>`. With no specs, a hint goes to stderr and stdout stays empty.
+
+Layers are `builtin`, `pack:<name>`, `project` and `local` in a project, and `user` and `user-local` at user scope. Releases up to v0.96.0 printed `project-user`, `global` and `global-local`.
 
 | Flag | Description |
 |------|-------------|
 | `--scope user` | List the specs in effect from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, including enabled built-ins. Works outside a project. |
-| `--json` | Print an `entries` array of `kind`, `name`, `path`, and `layer`. A built-in has an empty `path` and a `builtin` object with `name` and `version`. An empty scope prints an empty array. |
+| `--scope local` | List only your personal specs in this project, from `.agnostic-ai/local/`. |
+| `--json` | Print an `entries` array of `kind`, `name`, `path`, and `layer`. A built-in has an empty `path` and a `builtin` object with `name` and `version`. A local spec that changes a shared one has an `overrides` object with that spec's `layer` and `path`. An empty scope prints an empty array. |
 
 ## new
 
@@ -124,13 +127,16 @@ Create one spec in its configured `sources:` directory. Kinds: `agent`, `skill`,
 ```bash
 agnostic-ai new rule no-console-log     # → <rules>/no-console-log.md
 agnostic-ai new hook fmt-on-save        # → <hooks>/fmt-on-save.yaml
-agnostic-ai new rule payments-context --scope services/payments
+agnostic-ai new rule payments-context --dir services/payments
+agnostic-ai new rule scratch-notes --scope local   # → .agnostic-ai/local/rules/scratch-notes.md
+agnostic-ai new rule my-style --scope user         # → ~/.agnostic-ai/rules/my-style.md
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--dry-run` | Preview the destination and exact content. |
-| `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
+| `--scope <project\|local\|user>` | Where the spec lives. `project` (default) is shared with the team. `local` is yours in this project: see [local overrides](@/docs/local-overrides.md#add-a-spec). `user` is yours in every project and works from any directory: see [global configuration](@/docs/global-configuration.md#source-and-targets). |
+| `--dir <dir>` | `new rule` only. Create a flat rule for a project-relative directory. `--scope <dir>` is the older spelling, still accepted with a deprecation warning on stderr. See [scoped context](@/docs/scoped-context.md). |
 
 Names are lowercase slugs (`[a-z0-9][a-z0-9-]*`). Replace the `TODO` description and body afterward; `lint` reports the placeholder description as LINT031.
 

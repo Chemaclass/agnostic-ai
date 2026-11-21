@@ -25,8 +25,8 @@ describe('audience labels', () => {
     ['shared', true, 'Global'],
     ['personal', false, 'Local'],
     ['personal', true, 'Local'],
-  ] as const)('shows %s as %s in global=%s', (audience, global, label) => {
-    expect(audienceLabel(audience, global)).toBe(label)
+  ] as const)('shows %s as %s in global=%s', (audience, userLevel, label) => {
+    expect(audienceLabel(audience, userLevel)).toBe(label)
   })
 
   it('says whether Git tracks the files', () => {
@@ -37,10 +37,10 @@ describe('audience labels', () => {
   })
 
   it.each([
-    ['project-user', 'local'],
-    ['global-local', 'local'],
+    ['local', 'local'],
+    ['user-local', 'local'],
     ['project', 'project'],
-    ['global', 'global'],
+    ['user', 'user'],
     ['builtin', 'builtin'],
   ])('shows layer %s as %s', (layer, label) => {
     expect(layerLabel(layer)).toBe(label)

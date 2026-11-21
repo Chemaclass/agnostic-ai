@@ -13,21 +13,21 @@ import (
 // so that paths read as sync reads them, or the user-level
 // configuration.
 type authoritySource struct {
-	root   string
-	global bool
+	root      string
+	userLevel bool
 	// close returns to the directory the command started in.
 	close func()
 }
 
 // openAuthoritySource enters dir for a project, since sync and the
 // generated files it compares name paths from the project root.
-func openAuthoritySource(dir string, global bool) (*authoritySource, error) {
-	if global {
-		root, err := globalSourceRoot()
+func openAuthoritySource(dir string, userLevel bool) (*authoritySource, error) {
+	if userLevel {
+		root, err := userSourceRoot()
 		if err != nil {
 			return nil, err
 		}
-		return &authoritySource{root: root, global: true, close: func() {}}, nil
+		return &authoritySource{root: root, userLevel: true, close: func() {}}, nil
 	}
 	src := &authoritySource{root: ".", close: func() {}}
 	if dir == "" || filepath.Clean(dir) == "." {
@@ -46,9 +46,9 @@ func openAuthoritySource(dir string, global bool) (*authoritySource, error) {
 
 // load reads the configuration and specs. The global configuration has
 // no project config: its targets come from the home config, or are
-// every target sync --global writes.
+// every target sync --scope user writes.
 func (s *authoritySource) load() (*config.Config, spec.Bundle, error) {
-	if !s.global {
+	if !s.userLevel {
 		return loadProject(s.root)
 	}
 	scope, err := loadCheckScope(true)
@@ -62,8 +62,8 @@ func (s *authoritySource) load() (*config.Config, spec.Bundle, error) {
 // root.
 func (s *authoritySource) configFiles() []string {
 	var out []string
-	if s.global {
-		for _, path := range globalConfigPaths(s.root) {
+	if s.userLevel {
+		for _, path := range userConfigPaths(s.root) {
 			if _, err := os.Stat(path); err == nil {
 				if rel, err := filepath.Rel(s.root, path); err == nil {
 					out = append(out, filepath.ToSlash(rel))

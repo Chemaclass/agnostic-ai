@@ -174,7 +174,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 func SessionOnlyEvent(event string) bool { return sessionOnlyEvents[event] }
 
 // NoteUserHookGaps raises the coverage note the project hooks block
-// raises for a Claude-style matcher, for hooks sync --global writes to
+// raises for a Claude-style matcher, for hooks sync --scope user writes to
 // ~/.augment/settings.json.
 func NoteUserHookGaps(hooks []spec.Entry) { buildHooksBlock(hooks) }
 

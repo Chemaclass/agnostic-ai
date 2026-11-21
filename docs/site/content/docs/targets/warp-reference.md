@@ -53,14 +53,14 @@ Start with the [Warp setup](@/docs/targets/warp.md). Output keys are listed unde
 
 ## Global configuration
 
-- `agnostic-ai sync --global --only warp` adds home MCP specs to `~/.warp/.mcp.json`, with the same fields as project output.
+- `agnostic-ai sync --scope user --only warp` adds home MCP specs to `~/.warp/.mcp.json`, with the same fields as project output.
 - The Warp app starts these servers automatically. The Agent CLI does not read this file ([app and CLI](#app-and-cli)).
 - A spec with `disabled: true` is left out, with an explanation.
-- `agnostic-ai import --global warp` reads the file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
+- `agnostic-ai import --scope user warp` reads the file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
 
 ### Voice dictation
 
-Add [portable voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) to your home specs, then run `agnostic-ai sync --global --only warp`. Sync writes enabled and language into Warp's [settings file](https://docs.warp.dev/terminal/settings/):
+Add [portable voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) to your home specs, then run `agnostic-ai sync --scope user --only warp`. Sync writes enabled and language into Warp's [settings file](https://docs.warp.dev/terminal/settings/):
 
 | System | File |
 |---|---|
@@ -72,7 +72,7 @@ Add [portable voice settings](@/docs/spec-format/settings-reference.md#voice-dic
 - Warp has no capture-mode setting, so `voice.mode` gives a note. The activation shortcut and other preferences stay in Warp.
 - Comments and unrelated keys in `[agents.voice]` are kept. Removing portable voice restores the original values.
 - An existing inline or dotted definition of this table is left alone with an error asking for an explicit `[agents.voice]` table.
-- `explain --global settings/voice.yaml` shows the file and keys for your platform.
+- `explain --scope user settings/voice.yaml` shows the file and keys for your platform.
 
 ## Warp app and Agent CLI {#app-and-cli}
 
@@ -83,7 +83,7 @@ The app and the Agent CLI keep separate MCP settings ([CLI configuration](https:
 | Warp app | `~/.warp/.mcp.json` | `.warp/.mcp.json` |
 | Warp Agent CLI | its own file | `.warp/.mcp.json`, listed as off in `/mcp` until you enable each server |
 
-- Global servers written by sync reach the app only. `sync --global` does not write the CLI file, so the CLI gets your rules and skills but no global MCP servers.
+- Global servers written by sync reach the app only. `sync --scope user` does not write the CLI file, so the CLI gets your rules and skills but no global MCP servers.
 - To copy your app setup to the CLI once, run `/tui-migrate-setup` in the CLI. Later changes to `~/.warp/.mcp.json` do not follow.
 - CLI file path: Warp documents only macOS, `~/.warp_cli/.mcp.json`. For other systems the path comes from Warp's source, not its docs: `cli/.mcp.json` in the Warp config directory. A running CLI has not confirmed it. The `/mcp` header shows the file the CLI reads.
 - Warp's CLI page says project MCP files are not detected, but the shipped CLI lists servers from `.warp/.mcp.json` in `/mcp`. They stay off until you enable each one.

@@ -95,7 +95,7 @@ func specOrigin(in Inputs, e spec.Entry, key, target, base string) (ValueOrigin,
 // foreignModel reports whether project sync drops e's shared model for
 // target as a Claude model name target cannot load.
 func (in Inputs) foreignModel(e spec.Entry, key, target string) bool {
-	return key == "model" && !in.Global && foreignClaudeModel(e, target)
+	return key == "model" && !in.UserLevel && foreignClaudeModel(e, target)
 }
 
 // placeOrigin adds origin to the candidate winners, or to tv.Others with
@@ -167,7 +167,7 @@ func perToolValue(e spec.Entry, key, target string, local bool, tiers map[string
 
 // foreignClaudeModel reports whether e's shared model is a Claude model
 // name target cannot load, which project sync drops before it resolves.
-// sync --global writes it.
+// sync --scope user writes it.
 func foreignClaudeModel(e spec.Entry, target string) bool {
 	return adapters.ForeignClaudeModel(target, adapters.SharedModel(map[string]any{"model": e.Meta["model"]}, target))
 }

@@ -95,7 +95,7 @@ test('a project page offers to create the missing global setup and then opens it
     await panel.getByRole('button', { name: 'Create global setup' }).click()
     const tab = await popup
     await expect(panel).toBeHidden()
-    await expect(page.locator('.config-switch').getByRole('status')).toHaveText(`Created ${home}. Add files, then run "agnostic-ai sync --global".`)
+    await expect(page.locator('.config-switch').getByRole('status')).toHaveText(`Created ${home}. Add files, then run "agnostic-ai sync --scope user".`)
     await expect.poll(() => tab.url()).toBe(url)
 
     expect(await readFile(join(home, 'agnostic-ai.yaml'), 'utf8')).toBe('version: 1\n')

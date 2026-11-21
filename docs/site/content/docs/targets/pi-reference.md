@@ -54,7 +54,7 @@ Entries live under `mcpServers` in `.pi/mcp.json` ([Pi MCP](https://github.com/e
 
 ## Global configuration
 
-`agnostic-ai sync --global -t pi` writes instructions, skills, MCP, and settings under `~/.pi/agent/`. See [global configuration](@/docs/global-configuration.md).
+`agnostic-ai sync --scope user -t pi` writes instructions, skills, MCP, and settings under `~/.pi/agent/`. See [global configuration](@/docs/global-configuration.md).
 
 - `PI_CODING_AGENT_DIR` replaces the whole agent directory.
 - Global HTTP MCP entries also keep `x-pi.auth: {provider: radius}`. Pi limits provider auth to global `mcp.json` and extensions ([release reference](https://github.com/earendil-works/pi/releases/tag/v0.99.2)), so project output omits it.
@@ -89,4 +89,4 @@ Import reads root and scoped instructions, skill folders and resources, direct p
 - Native MCP `enabled` is inverted back to portable `disabled`.
 - Project control-only overrides import with `targets: [pi]`.
 - Model and thinking level become portable settings. `defaultProvider` stays under `x-pi`.
-- `agnostic-ai import --global pi` reads supported user-level files.
+- `agnostic-ai import --scope user pi` reads supported user-level files.

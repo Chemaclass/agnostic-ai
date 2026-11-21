@@ -31,20 +31,20 @@ var settingsFields = map[string][]fieldDef{
 	SectionSettings: {
 		{key: "model", label: "Default model", description: "The model each tool starts with: one value, a map per tool, or a model tier name."},
 		{key: "effort", label: "Reasoning effort", description: "The default reasoning effort: one value, or a map per tool."},
-		{key: "session-retention-days", label: "Session retention", description: "Days to keep session transcripts, at least 1. Only sync --global writes it."},
-		{key: "voice.enabled", label: "Voice dictation", description: "Turn voice dictation on or off. Only sync --global writes it."},
+		{key: "session-retention-days", label: "Session retention", description: "Days to keep session transcripts, at least 1. Only sync --scope user writes it."},
+		{key: "voice.enabled", label: "Voice dictation", description: "Turn voice dictation on or off. Only sync --scope user writes it."},
 		{key: "voice.mode", label: "Voice mode", description: "Hold to record, or tap to start and stop recording."},
 		{key: "voice.language", label: "Voice language", description: "The spoken language passed to each tool that supports it."},
 		{key: "x-", label: "Native keys", description: "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.", prefix: true},
 	},
 }
 
-// voiceGlobalOnlyReason explains why a project cannot edit voice fields.
-const voiceGlobalOnlyReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
+// voiceUserOnlyReason explains why a project cannot edit voice fields.
+const voiceUserOnlyReason = "Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user."
 
 // buildFields lists every field of section with the values each settings
 // spec in items gives it.
-func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, root string, global bool) []SettingField {
+func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, root string, userLevel bool) []SettingField {
 	defs := settingsFields[section]
 	if defs == nil {
 		return nil
@@ -57,10 +57,10 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 	for _, d := range defs {
 		f := SettingField{Key: d.key, Label: d.label, Description: d.description, Set: fieldSources(d, items, byName, root)}
 		if section == SectionAuthority {
-			f.Editable = authorityFieldEdit(d, entries, cfg, root, global)
+			f.Editable = authorityFieldEdit(d, entries, cfg, root, userLevel)
 		}
 		if section == SectionSettings && !d.prefix && cfg != nil {
-			f.Editable = settingsFieldEdit(d, f.Set, items, entries, byName, cfg, root, global)
+			f.Editable = settingsFieldEdit(d, f.Set, items, entries, byName, cfg, root, userLevel)
 		}
 		fields = append(fields, f)
 	}
@@ -127,46 +127,46 @@ func clearedGroup(d fieldDef, e spec.Entry) string {
 
 // authorityFieldEdit is the editor of an Authority field, or nil for a
 // key that has none.
-func authorityFieldEdit(d fieldDef, entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
+func authorityFieldEdit(d fieldDef, entries []spec.Entry, cfg *config.Config, root string, userLevel bool) *FieldEdit {
 	switch {
 	case d.key == PermissionModeKey:
-		edit := PermissionFieldEdit(entries, cfg, root, global)
+		edit := PermissionFieldEdit(entries, cfg, root, userLevel)
 		edit.Kind = "text"
 		edit.Allowed = slices.Clone(spec.PermissionModes)
-		if !global {
+		if !userLevel {
 			edit.DisabledReason = PermissionModeProjectReason
 		}
 		return edit
 	case d.key == ProtectedKey:
-		return protectedFieldEdit(entries, cfg, root, global)
+		return protectedFieldEdit(entries, cfg, root, userLevel)
 	case PermissionListField(d.key):
-		return PermissionFieldEdit(entries, cfg, root, global)
+		return PermissionFieldEdit(entries, cfg, root, userLevel)
 	}
 	return nil
 }
 
 // settingsFieldEdit is the editor of a Settings field. Its disabled
 // reasons are applied in order, and a later rule replaces an earlier one.
-func settingsFieldEdit(d fieldDef, set []FieldSource, items []SectionItem, entries []spec.Entry, byName map[string]spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
-	edit := settingsFieldKind(d, cfg.Targets, global)
-	paths := settingsEditPaths(d, edit, items, byName, root, global)
-	settingsEditTarget(d, edit, paths, entries, byName, cfg, root, global)
-	settingsDisabledReason(d, edit, set, entries, byName, root, global)
+func settingsFieldEdit(d fieldDef, set []FieldSource, items []SectionItem, entries []spec.Entry, byName map[string]spec.Entry, cfg *config.Config, root string, userLevel bool) *FieldEdit {
+	edit := settingsFieldKind(d, cfg.Targets, userLevel)
+	paths := settingsEditPaths(d, edit, items, byName, root, userLevel)
+	settingsEditTarget(d, edit, paths, entries, byName, cfg, root, userLevel)
+	settingsDisabledReason(d, edit, set, entries, byName, root, userLevel)
 	return edit
 }
 
 // settingsFieldKind starts the editor of d with its value kind, the
-// values it allows, and the rule that limits it to sync --global.
-func settingsFieldKind(d fieldDef, targets []string, global bool) *FieldEdit {
+// values it allows, and the rule that limits it to sync --scope user.
+func settingsFieldKind(d fieldDef, targets []string, userLevel bool) *FieldEdit {
 	edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
-	if global {
-		edit.SyncCommand = "agnostic-ai sync --global"
+	if userLevel {
+		edit.SyncCommand = "agnostic-ai sync --scope user"
 	}
 	switch {
 	case d.key == "session-retention-days":
 		edit.Kind = "number"
-		if !global {
-			edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
+		if !userLevel {
+			edit.DisabledReason = "Session retention is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user."
 		}
 	case d.voice():
 		if d.key == "voice.enabled" {
@@ -175,8 +175,8 @@ func settingsFieldKind(d fieldDef, targets []string, global bool) *FieldEdit {
 		if d.key == "voice.mode" {
 			edit.Allowed = slices.Clone(spec.VoiceModes)
 		}
-		if !global {
-			edit.DisabledReason = voiceGlobalOnlyReason
+		if !userLevel {
+			edit.DisabledReason = voiceUserOnlyReason
 		}
 	case d.key == "effort":
 		addEffortLevels(edit, targets)
@@ -215,7 +215,7 @@ func addEffortLevels(edit *FieldEdit, targets []string) {
 
 // settingsEditPaths adds the team path of every settings spec that can
 // take d, and returns those paths by spec name.
-func settingsEditPaths(d fieldDef, edit *FieldEdit, items []SectionItem, byName map[string]spec.Entry, root string, global bool) map[string]string {
+func settingsEditPaths(d fieldDef, edit *FieldEdit, items []SectionItem, byName map[string]spec.Entry, root string, userLevel bool) map[string]string {
 	paths := map[string]string{}
 	for _, it := range items {
 		e, ok := byName[it.Name]
@@ -225,7 +225,7 @@ func settingsEditPaths(d fieldDef, edit *FieldEdit, items []SectionItem, byName 
 		paths[it.Name] = SettingsTeamPath(root, e)
 		edit.Paths = append(edit.Paths, paths[it.Name])
 		if d.voice() {
-			edit.Sources = append(edit.Sources, FieldEditSource{Path: paths[it.Name], Spec: e.Name, LocalPath: localEditPath(root, e, global), DisabledReason: VoiceEditDisabledReason(e, root)})
+			edit.Sources = append(edit.Sources, FieldEditSource{Path: paths[it.Name], Spec: e.Name, LocalPath: localEditPath(root, e, userLevel), DisabledReason: VoiceEditDisabledReason(e, root)})
 		}
 	}
 	return paths
@@ -233,12 +233,12 @@ func settingsEditPaths(d fieldDef, edit *FieldEdit, items []SectionItem, byName 
 
 // settingsEditTarget picks the file an edit of d writes, or the reason
 // none can, and the personal file beside it.
-func settingsEditTarget(d fieldDef, edit *FieldEdit, paths map[string]string, entries []spec.Entry, byName map[string]spec.Entry, cfg *config.Config, root string, global bool) {
+func settingsEditTarget(d fieldDef, edit *FieldEdit, paths map[string]string, entries []spec.Entry, byName map[string]spec.Entry, cfg *config.Config, root string, userLevel bool) {
 	defaultPath := "settings/defaults.yaml"
-	if !global {
+	if !userLevel {
 		defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
 	}
-	inEffect := SettingsInEffect(entries, d.key, cfg.Targets, global)
+	inEffect := SettingsInEffect(entries, d.key, cfg.Targets, userLevel)
 	if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
 		edit.Path = paths[entries[target].Name]
 	} else if inEffect >= 0 || len(edit.Paths) == 0 {
@@ -257,15 +257,15 @@ func settingsEditTarget(d fieldDef, edit *FieldEdit, paths map[string]string, en
 		edit.Path = edit.Paths[0]
 	}
 	if at := slices.IndexFunc(entries, func(e spec.Entry) bool { return edit.Path != "" && SettingsTeamPath(root, e) == edit.Path }); at >= 0 {
-		edit.LocalPath = localEditPath(root, entries[at], global)
+		edit.LocalPath = localEditPath(root, entries[at], userLevel)
 	} else if edit.Path == defaultPath {
-		edit.LocalPath = SettingsOverlayPath(global, "defaults")
+		edit.LocalPath = SettingsOverlayPath(userLevel, "defaults")
 	}
 }
 
 // settingsDisabledReason applies the rules that disable an edit of d, in
 // order: a non-scalar value, a model tier, then the voice rules.
-func settingsDisabledReason(d fieldDef, edit *FieldEdit, set []FieldSource, entries []spec.Entry, byName map[string]spec.Entry, root string, global bool) {
+func settingsDisabledReason(d fieldDef, edit *FieldEdit, set []FieldSource, entries []spec.Entry, byName map[string]spec.Entry, root string, userLevel bool) {
 	for _, source := range set {
 		for _, value := range source.Values {
 			if d.voice() && source.Local && value.Key == "voice" && personalFieldCleared(byName[source.Spec], "voice") {
@@ -284,8 +284,8 @@ func settingsDisabledReason(d fieldDef, edit *FieldEdit, set []FieldSource, entr
 	if !d.voice() {
 		return
 	}
-	if !global {
-		edit.DisabledReason = voiceGlobalOnlyReason
+	if !userLevel {
+		edit.DisabledReason = voiceUserOnlyReason
 		return
 	}
 	if len(edit.Paths) > 1 {
@@ -301,11 +301,11 @@ func settingsDisabledReason(d fieldDef, edit *FieldEdit, set []FieldSource, entr
 
 // localEditPath is the personal file an edit of e writes: e itself when
 // it is a local file, its overlay file otherwise.
-func localEditPath(root string, e spec.Entry, global bool) string {
+func localEditPath(root string, e spec.Entry, userLevel bool) string {
 	if LocalLayer(e) {
 		return SpecPath(root, e)
 	}
-	return SettingsOverlayPath(global, e.Name)
+	return SettingsOverlayPath(userLevel, e.Name)
 }
 
 // PermissionModeKey is the settings field that holds the default
@@ -313,7 +313,7 @@ func localEditPath(root string, e spec.Entry, global bool) string {
 const PermissionModeKey = "permissions.default-mode"
 
 // PermissionModeProjectReason explains why a project cannot edit the
-// default mode: only sync --global writes Claude Code's defaultMode.
+// default mode: only sync --scope user writes Claude Code's defaultMode.
 const PermissionModeProjectReason = "Applies through global sync only. Set it in global settings."
 
 // ProtectedKey is the settings block that lists protected paths.
@@ -322,14 +322,14 @@ const ProtectedKey = "protected"
 // protectedFieldEdit edits the protected block in the spec the permission
 // lists edit. A personal permissions: null leaves it editable, as it
 // clears only the permissions group.
-func protectedFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
-	edit := PermissionFieldEdit(entries, cfg, root, global)
+func protectedFieldEdit(entries []spec.Entry, cfg *config.Config, root string, userLevel bool) *FieldEdit {
+	edit := PermissionFieldEdit(entries, cfg, root, userLevel)
 	edit.Kind = "protected-list"
 	for i := range edit.Sources {
 		edit.Sources[i].DisabledReason = ""
 	}
-	if global {
-		edit.DisabledReason = "sync --global does not write protected paths. Protect files from a project's Authority page."
+	if userLevel {
+		edit.DisabledReason = "sync --scope user does not write protected paths. Protect files from a project's Authority page."
 	}
 	return edit
 }
@@ -376,10 +376,10 @@ func PermissionEditDisabledReason(e spec.Entry, root string) string {
 	return SpecPath(root, e) + " sets permissions: null, which clears every permission list. Remove permissions: null from that local file before editing an individual list."
 }
 
-func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
+func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, userLevel bool) *FieldEdit {
 	edit := &FieldEdit{Kind: "permission-list", SyncCommand: "agnostic-ai sync"}
-	if global {
-		edit.SyncCommand += " --global"
+	if userLevel {
+		edit.SyncCommand += " --scope user"
 	}
 	var candidates []spec.Entry
 	for _, e := range entries {
@@ -387,7 +387,7 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 			candidates = append(candidates, e)
 			path := SettingsTeamPath(root, e)
 			edit.Paths = append(edit.Paths, path)
-			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localEditPath(root, e, global), DisabledReason: PermissionEditDisabledReason(e, root)})
+			edit.Sources = append(edit.Sources, FieldEditSource{Path: path, Spec: e.Name, LocalPath: localEditPath(root, e, userLevel), DisabledReason: PermissionEditDisabledReason(e, root)})
 		}
 	}
 	if len(candidates) == 1 {
@@ -403,7 +403,7 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 		return edit
 	}
 	file := filepath.Join(root, "settings", "permissions.yaml")
-	if !global {
+	if !userLevel {
 		source := config.SourceBaseDir + "/settings"
 		if cfg != nil && cfg.Sources.Settings != "" {
 			source = cfg.Sources.Settings
@@ -411,7 +411,7 @@ func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, 
 		file = filepath.Join(config.ResolveSourcePath(root, source), "permissions.yaml")
 	}
 	edit.Path = displayPath(root, file)
-	edit.LocalPath = SettingsOverlayPath(global, "permissions")
+	edit.LocalPath = SettingsOverlayPath(userLevel, "permissions")
 	edit.Sources = []FieldEditSource{{Path: edit.Path, Spec: "permissions", LocalPath: edit.LocalPath}}
 	return edit
 }
@@ -438,7 +438,7 @@ func (d fieldDef) values(all []Value) []Value {
 
 // LocalLayer reports whether e comes from a personal, git-ignored layer.
 func LocalLayer(e spec.Entry) bool {
-	return e.Layer == "project-user" || e.Layer == "global-local"
+	return e.Layer == "local" || e.Layer == "user-local"
 }
 
 // LocalSets reports whether a personal file itself sets the dotted key
@@ -486,9 +486,9 @@ func SettingsValuePath(root string, e spec.Entry, key string, targets []string, 
 
 // SettingsOverlayPath is the personal file, relative to the project or
 // global source root, that overlays the settings spec named name.
-func SettingsOverlayPath(global bool, name string) string {
+func SettingsOverlayPath(userLevel bool, name string) string {
 	dir := config.SourceBaseDir + "/local/settings"
-	if global {
+	if userLevel {
 		dir = "local/settings"
 	}
 	return dir + "/" + name + ".yaml"
@@ -529,7 +529,7 @@ func SettingsEditCandidate(e spec.Entry, key string) bool {
 // SettingsInEffect is the index in the ordered settings of the spec whose
 // key sync uses: the last one that sets it for every target and no later
 // spec overrides, else the last one that sets it. -1 when none does.
-func SettingsInEffect(settings []spec.Entry, key string, targets []string, global bool) int {
+func SettingsInEffect(settings []spec.Entry, key string, targets []string, userLevel bool) int {
 	last := -1
 	for i, setting := range slices.Backward(settings) {
 		if !hasField(setting, key) {
@@ -538,7 +538,7 @@ func SettingsInEffect(settings []spec.Entry, key string, targets []string, globa
 		if last < 0 {
 			last = i
 		}
-		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(setting, key, t) }) && SettingsOverride(settings, i, key, targets, global) < 0 {
+		if !slices.ContainsFunc(targets, func(t string) bool { return !setsFor(setting, key, t) }) && SettingsOverride(settings, i, key, targets, userLevel) < 0 {
 			return i
 		}
 	}
@@ -567,10 +567,10 @@ func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, target
 // SettingsOverride is the index of a spec after i that gives key a value
 // for every target settings[i] applies to, or -1. With i < 0 the edited
 // spec applies to every target and every spec counts as later.
-func SettingsOverride(settings []spec.Entry, i int, key string, targets []string, global bool) int {
+func SettingsOverride(settings []spec.Entry, i int, key string, targets []string, userLevel bool) int {
 	applies := appliesTo(settings, i, targets)
 	for j := len(settings) - 1; j > i; j-- {
-		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !overridesFor(settings[j], key, t, global) }) {
+		if hasField(settings[j], key) && !slices.ContainsFunc(applies, func(t string) bool { return !overridesFor(settings[j], key, t, userLevel) }) {
 			return j
 		}
 	}
@@ -578,10 +578,10 @@ func SettingsOverride(settings []spec.Entry, i int, key string, targets []string
 }
 
 // overridesFor is setsFor for a later spec, without the Claude model
-// name target cannot load, as project sync drops it. sync --global
+// name target cannot load, as project sync drops it. sync --scope user
 // writes it.
-func overridesFor(e spec.Entry, key, target string, global bool) bool {
-	if key == "model" && !global && foreignClaudeModel(e, target) {
+func overridesFor(e spec.Entry, key, target string, userLevel bool) bool {
+	if key == "model" && !userLevel && foreignClaudeModel(e, target) {
 		e = withoutSharedModel(e)
 	}
 	return setsFor(e, key, target)

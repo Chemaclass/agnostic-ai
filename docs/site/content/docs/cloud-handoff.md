@@ -20,7 +20,7 @@ requires: ">=0.96.0"
 builtins: [cloud-handoff]
 ```
 
-- Off unless you list it, because it pushes and starts paid work in the cloud. `init` does not turn it on. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
+- Off unless you list it, because it pushes and starts paid work in the cloud. `init` does not turn it on. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --scope user`.
 - Most tools get a skill; tools with `emit-skills-as-commands` also get a command. Aider gets inline text when `outputs.aider.rules-file` is set, so its sessions carry the skill's words every time. Jules has no skill support.
 
 ## Say the phrase
@@ -57,7 +57,7 @@ The cloud session starts from the pushed branch. A Claude Code session puts its 
 ## Where the session shows up
 
 - The agent's last reply starts with the session link, so the local chat shows where the work went.
-- The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) within about a minute, and in the global web interface when it runs with `agnostic-ai serve --global --cloud-sessions`, after a reload. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
+- The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) within about a minute, and in the global web interface when it runs with `agnostic-ai serve --scope user --cloud-sessions`, after a reload. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
 - Bring the work back with `claude --teleport <session-id>`, or with `codex cloud diff <url>` and then `codex cloud apply <url>`.
 
 ## Limits

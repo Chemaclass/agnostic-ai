@@ -28,7 +28,7 @@ const (
 var ApprovalModes = []string{ApprovalsAsk, ApprovalsReview, ApprovalsYolo}
 
 // ApprovalsBuiltin is the built-in that installs the approvals hooks.
-// Only sync --global writes it: a project sync skips it.
+// Only sync --scope user writes it: a project sync skips it.
 const ApprovalsBuiltin = "approvals"
 
 // EnvApprovals names the variable that turns approvals off for one
@@ -368,7 +368,7 @@ func ProjectApprovalsIssues(root string) ([]ApprovalsIssue, error) {
 		if builtins != nil && builtins.Kind == yaml.SequenceNode {
 			for _, item := range builtins.Content {
 				if item.Value == ApprovalsBuiltin {
-					issues = append(issues, ApprovalsIssue{path, item.Line, "builtins: approvals is read only from the home config, where sync --global writes its hooks; a project sync skips it"})
+					issues = append(issues, ApprovalsIssue{path, item.Line, "builtins: approvals is read only from the home config, where sync --scope user writes its hooks; a project sync skips it"})
 				}
 			}
 		}

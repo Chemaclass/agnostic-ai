@@ -18,11 +18,11 @@ const permissionCreatedSpec = fieldCreatedMarker + "name: permissions\ndescripti
 // scaffold, the files the edit reads, and the shared spec the file is
 // or overlays; nil when no spec is loaded yet.
 func (h *editHandler) permissionSource(where editAudience, shown, key string) (string, string, []string, *spec.Entry, error) {
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return "", "", nil, nil, err
 	}
-	edit := overview.PermissionFieldEdit(scope.bundle.Settings, scope.cfg, h.root, h.global)
+	edit := overview.PermissionFieldEdit(scope.bundle.Settings, scope.cfg, h.root, h.userLevel)
 	if edit.DisabledReason != "" {
 		return "", "", nil, nil, fmt.Errorf("permissions: %s", edit.DisabledReason)
 	}
@@ -54,7 +54,7 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 		if err != nil {
 			return "", "", nil, nil, err
 		}
-		paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.global, chosen.Name)))
+		paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, chosen.Name)))
 		var shared *spec.Entry
 		switch {
 		case chosen.Base != nil:
@@ -73,7 +73,7 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 	}
 	scaffold := permissionCreatedSpec
 	if where == audiencePersonal {
-		file = filepath.Join(h.root, overview.SettingsOverlayPath(h.global, "permissions"))
+		file = filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, "permissions"))
 		scaffold = settingsOverlayScaffold("permissions")
 		if err := h.checkPersonalTarget(file); err != nil {
 			return "", "", nil, nil, err
@@ -84,7 +84,7 @@ func (h *editHandler) permissionSource(where editAudience, shown, key string) (s
 	} else if !os.IsNotExist(err) {
 		return "", "", nil, nil, fmt.Errorf("%s: %w", file, err)
 	}
-	paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.global, "permissions")))
+	paths = append(paths, filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, "permissions")))
 	return file, scaffold, paths, nil, nil
 }
 

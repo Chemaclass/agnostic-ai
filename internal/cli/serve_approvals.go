@@ -440,8 +440,8 @@ type approvalsReader struct {
 
 func newApprovalsReader() *approvalsReader {
 	return &approvalsReader{
-		source:    globalSourceRoot,
-		home:      globalUserHome,
+		source:    userSourceRoot,
+		home:      userHomeDir,
 		env:       func() string { return os.Getenv(config.EnvApprovals) },
 		now:       time.Now,
 		routed:    approvalsRouted,
@@ -456,12 +456,12 @@ func approvalsActivated(tool, mode, home string) bool {
 	if home == "" {
 		return false
 	}
-	rs, native, err := readReviewerState(tool, home, globalState{})
+	rs, native, err := readReviewerState(tool, home, userState{})
 	if err != nil || !native || !rs.on {
 		return false
 	}
 	if off := rs.reviewer.off; off != nil {
-		if value, ok := settingsLookup(rs.values, off.key, globalTargets[tool].settings.format); ok && sameSetting(value, off.value) {
+		if value, ok := settingsLookup(rs.values, off.key, userTargets[tool].settings.format); ok && sameSetting(value, off.value) {
 			return false
 		}
 	}
@@ -474,7 +474,7 @@ func reviewerFiles(userHome string) []string {
 	var paths []string
 	for _, tool := range approvalsListTools {
 		if _, ok := nativeReviewers[string(tool)]; ok {
-			g := globalTargets[string(tool)]
+			g := userTargets[string(tool)]
 			paths = append(paths, g.path(userHome, g.settings.path))
 		}
 	}
@@ -488,7 +488,7 @@ func (a *approvalsReader) files() (configs []string, log string, err error) {
 	if err != nil {
 		return nil, "", err
 	}
-	return globalConfigPaths(source), approvals.LogPath(source), nil
+	return userConfigPaths(source), approvals.LogPath(source), nil
 }
 
 // stamp names the state of every input of applyApprovals for the list
@@ -682,7 +682,7 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
-	path := globalConfigPaths(source)[1]
+	path := userConfigPaths(source)[1]
 	if err := writeApprovalsAsk(path); err != nil {
 		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 		return

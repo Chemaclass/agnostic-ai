@@ -1,0 +1,338 @@
+package cli
+
+import (
+	"fmt"
+	"io"
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
+)
+
+// userConfigPaths lists the home configs in load order: the source
+// root's agnostic-ai.yaml, then local/agnostic-ai.yaml, whose keys
+// replace the shared ones.
+func userConfigPaths(source string) []string {
+	return []string{filepath.Join(source, config.ConfigFileName), filepath.Join(source, "local", config.ConfigFileName)}
+}
+
+// readUserConfig parses one home config by top-level key. A missing
+// file reads as empty.
+func readUserConfig(path string) (map[string]yaml.Node, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc map[string]yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+	}
+	return doc, nil
+}
+
+// loadUserTargets reads the targets the home configs select. It
+// returns nil when neither file sets targets. Global mode reads only
+// targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations.
+func loadUserTargets(source string, warn io.Writer) ([]string, error) {
+	var targets []string
+	for _, path := range userConfigPaths(source) {
+		doc, err := readUserConfig(path)
+		if err != nil {
+			return nil, err
+		}
+		var ignored []string
+		for key := range doc {
+			// Every agnostic-ai.yaml carries version, so it is not a surprise.
+			if key != "targets" && key != "builtins" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "models" && key != "approvals" && key != "conversations" && key != "version" {
+				ignored = append(ignored, key)
+			}
+		}
+		if len(ignored) > 0 {
+			slices.Sort(ignored)
+			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+				return nil, fmt.Errorf("write global config warning: %w", err)
+			}
+		}
+		node, ok := doc["targets"]
+		if !ok {
+			continue
+		}
+		var list []string
+		if err := node.Decode(&list); err != nil {
+			return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: targets: %w", path, err)
+		}
+		if len(list) == 0 {
+			return nil, fmt.Errorf("%s: targets is empty; name at least one target or remove the key", path)
+		}
+		// A project-shaped config lists targets with no user-level
+		// surface, such as aider; skipping them keeps it usable here.
+		var kept, skipped []string
+		for _, target := range list {
+			switch {
+			case slices.Contains(kept, target) || slices.Contains(skipped, target):
+				// A repeated name counts once.
+			case slices.Contains(userTargetNames(), target):
+				kept = append(kept, target)
+			case slices.Contains(adapters.Names(), target):
+				skipped = append(skipped, target)
+			default:
+				return nil, unsupportedUserTarget(path, target)
+			}
+		}
+		if len(skipped) > 0 {
+			if _, err := fmt.Fprintf(warn, "warning: %s: sync --scope user cannot write %s; skipping them\n", path, strings.Join(skipped, ", ")); err != nil {
+				return nil, fmt.Errorf("write global config warning: %w", err)
+			}
+		}
+		if len(kept) == 0 {
+			return nil, fmt.Errorf("%s: no listed target has a user-level surface; supported: %s", path, strings.Join(userTargetNames(), ", "))
+		}
+		targets = kept
+	}
+	return targets, nil
+}
+
+func loadUserBuiltins(source string, skipBroken io.Writer) ([]string, error) {
+	var names []string
+	for _, path := range userConfigPaths(source) {
+		doc, err := readUserConfig(path)
+		if err != nil {
+			if skipBroken != nil {
+				continue
+			}
+			return nil, err
+		}
+		node, ok := doc["builtins"]
+		if !ok {
+			continue
+		}
+		var list []string
+		if err := node.Decode(&list); err != nil {
+			return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: builtins: %w", path, err)
+		}
+		if err := validateBuiltinNames(list, path); err != nil {
+			return nil, err
+		}
+		names = list
+	}
+	return names, nil
+}
+
+// loadUserModels reads the model tiers the home configs name. A tier in
+// local/agnostic-ai.yaml replaces the same-name tier in the shared file.
+// With skipBroken set, a file whose models do not load warns there and
+// adds none, and the names it declares come back as unloaded, so no spec
+// writes one as a model id.
+func loadUserModels(source string, skipBroken io.Writer) (map[string]config.ModelTier, []string, error) {
+	tiers := map[string]config.ModelTier{}
+	var unloaded []string
+	for _, path := range userConfigPaths(source) {
+		doc, err := readUserConfig(path)
+		if err != nil {
+			if skipBroken != nil {
+				// requireUserVersion already warned about this file.
+				continue
+			}
+			return nil, nil, err
+		}
+		node, ok := doc["models"]
+		if !ok {
+			continue
+		}
+		layer, err := decodeUserTiers(node, path)
+		if err != nil {
+			if skipBroken == nil {
+				return nil, nil, err
+			}
+			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping the models in %s\n", err, path); werr != nil {
+				return nil, nil, fmt.Errorf("write global config warning: %w", werr)
+			}
+			for i := 0; i+1 < len(node.Content); i += 2 {
+				unloaded = append(unloaded, node.Content[i].Value)
+			}
+			continue
+		}
+		maps.Copy(tiers, layer)
+	}
+	return tiers, unloaded, nil
+}
+
+func decodeUserTiers(node yaml.Node, path string) (map[string]config.ModelTier, error) {
+	var layer map[string]config.ModelTier
+	if err := node.Decode(&layer); err != nil {
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: models: %w", path, err)
+	}
+	if err := config.ValidateModels(layer, path); err != nil {
+		return nil, err
+	}
+	if err := validateTierTargets(layer, path); err != nil {
+		return nil, err
+	}
+	return layer, nil
+}
+
+// applyUserTiers resolves tiers in b, then drops each spec `model` that
+// still names a tier from a skipped file, warning on warn, so a tier name
+// never reaches a tool as a model id.
+func applyUserTiers(b *spec.Bundle, tiers map[string]config.ModelTier, unloaded []string, warn io.Writer) error {
+	b.ApplyModelTiers(tiers)
+	if len(unloaded) == 0 {
+		return nil
+	}
+	for _, entries := range [][]spec.Entry{b.Agents, b.Skills, b.Commands, b.Settings} {
+		for i := range entries {
+			e := &entries[i]
+			name, _ := e.Meta["model"].(string)
+			if scoped, ok := e.Meta["model"].(map[string]any); ok {
+				name, _ = scoped["default"].(string)
+			}
+			if e.ModelTier != "" || !slices.Contains(unloaded, name) {
+				continue
+			}
+			if _, err := fmt.Fprintf(warn, "warning: %s: model %q names a tier that did not load; omitting model\n", e.Path, name); err != nil {
+				return fmt.Errorf("write global config warning: %w", err)
+			}
+			e.Meta = maps.Clone(e.Meta)
+			delete(e.Meta, "model")
+		}
+	}
+	return nil
+}
+
+// loadUserOnUnsupported reads the on-unsupported policy the home
+// configs set. A key in local/agnostic-ai.yaml replaces the same key in
+// the shared file. It returns "" when neither sets it, which reads as warn.
+func loadUserOnUnsupported(source string) (string, error) {
+	var mode string
+	for _, path := range userConfigPaths(source) {
+		doc, err := readUserConfig(path)
+		if err != nil {
+			return "", err
+		}
+		node, ok := doc["on-unsupported"]
+		if !ok {
+			continue
+		}
+		if err := node.Decode(&mode); err != nil {
+			return "", errs.Coded(errs.CodeConfigDecode, "parse %s: on-unsupported: %w", path, err)
+		}
+	}
+	return mode, nil
+}
+
+// loadUserLint reads the lint budgets the home configs set. A key in
+// local/agnostic-ai.yaml replaces the same key in the shared file, as
+// the project's agnostic-ai.local.yaml does.
+func loadUserLint(source string) (config.LintConfig, error) {
+	var lint config.LintConfig
+	var sources []string
+	for _, path := range userConfigPaths(source) {
+		doc, err := readUserConfig(path)
+		if err != nil {
+			return config.LintConfig{}, err
+		}
+		node, ok := doc["lint"]
+		if !ok {
+			continue
+		}
+		if err := node.Decode(&lint); err != nil {
+			return config.LintConfig{}, errs.Coded(errs.CodeConfigDecode, "parse %s: lint: %w", path, err)
+		}
+		sources = append(sources, path)
+	}
+	if err := lint.Validate(strings.Join(sources, " + ")); err != nil {
+		return config.LintConfig{}, err
+	}
+	return lint, nil
+}
+
+// Remedies refuseUserSource offers besides pointing AGNOSTIC_AI_HOME away.
+const (
+	userHomeSyncRemedy    = "run `agnostic-ai sync --scope user`"
+	userHomeSpecsRemedy   = "edit its specs by hand and run `agnostic-ai sync --scope user`"
+	userHomeNewRemedy     = "run `agnostic-ai new <kind> <name> --scope user`"
+	userHomeHookRemedy    = "run `agnostic-ai install-hook --scope user`"
+	userHomeMigrateRemedy = "run `agnostic-ai migrate --scope user`"
+)
+
+// refuseUserSource stops a project command in the global source root or
+// any directory inside it. Read as a project, the home config would send
+// native files and project scaffolding into the home or its local/ layer.
+// Walking the resolved path and comparing with os.SameFile sees through
+// symlinks and path case.
+func refuseUserSource(dir, remedy string) error {
+	source, err := userSourceRoot()
+	if err != nil {
+		return nil
+	}
+	root, err := os.Stat(source)
+	if err != nil {
+		return nil
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return nil
+	}
+	current, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return nil
+	}
+	var inside []string
+	for {
+		if info, err := os.Stat(current); err == nil && os.SameFile(info, root) {
+			break
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return nil
+		}
+		inside = append([]string{filepath.Base(current)}, inside...)
+		current = parent
+	}
+	// A home kept in HOME itself would otherwise refuse every project
+	// under HOME, so there only the root is guarded.
+	if len(inside) > 0 && isUserHome(root) {
+		return nil
+	}
+	where := source + " is the global home"
+	if len(inside) > 0 {
+		where = filepath.Join(append([]string{source}, inside...)...) + " is inside the global home " + source
+	}
+	if os.Getenv(envUserRoot) != "" {
+		return fmt.Errorf("%s (%s); %s, or unset %s if this is a project", where, envUserRoot, remedy, envUserRoot)
+	}
+	return fmt.Errorf("%s (%s is unset); %s, or set %s to another root if this is a project", where, envUserRoot, remedy, envUserRoot)
+}
+
+func isUserHome(dir os.FileInfo) bool {
+	home, err := userHomeDir()
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(home)
+	return err == nil && os.SameFile(info, dir)
+}
+
+// unsupportedUserTarget rejects a target sync --scope user cannot write,
+// suggesting the closest supported name. where leads the message.
+func unsupportedUserTarget(where, target string) error {
+	if _, ok := userTargets[target]; ok {
+		return nil
+	}
+	if s := suggest.Name(target, userTargetNames()); s != "" {
+		return fmt.Errorf("%s: unsupported target %q (did you mean %s?)", where, target, s)
+	}
+	return fmt.Errorf("%s: unsupported target %q (supported: %s)", where, target, strings.Join(userTargetNames(), ", "))
+}

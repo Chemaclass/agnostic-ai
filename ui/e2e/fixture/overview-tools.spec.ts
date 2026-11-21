@@ -53,7 +53,7 @@ test.describe('overview', () => {
     await expect(details).toBeVisible()
     await expect(details).toContainText('~/.claude.json')
     await expect(details).toContainText('http')
-    await expect(details).toContainText('agnostic-ai import --global claude')
+    await expect(details).toContainText('agnostic-ai import --scope user claude')
     await expect(details.getByRole('button', { name: 'Copy import command for notion' })).toBeVisible()
     await expect(row.getByRole('button', { name: 'Import notion' })).toHaveCount(0)
     await page.getByRole('searchbox').fill('notion')

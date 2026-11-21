@@ -12,7 +12,7 @@ func kimiHookIdentity(record map[string]any) string {
 	if command, ok := canonical["command"].(string); ok {
 		canonical["command"] = kimi.DeclaredHookCommand(command)
 	}
-	return "kimi-" + globalSum(kimiRecordJSON(canonical))
+	return "kimi-" + userSum(kimiRecordJSON(canonical))
 }
 func kimiHookRecordsByID(records []map[string]any) map[string]map[string]any {
 	out := map[string]map[string]any{}

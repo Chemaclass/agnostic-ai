@@ -32,7 +32,7 @@ agnostic-ai reads specs from the project and writes configuration files. It send
 - A target in `targets:` that is not built in runs `agnostic-ai-adapter-<name>` from your `PATH`. Check that a target name is spelled right.
 - `install-hook` writes Git hooks that run `agnostic-ai sync`.
 
-**Files it writes.** Project outputs go under the project root. `sync --global` writes user configuration under your home directory, such as `~/.claude/settings.json`.
+**Files it writes.** Project outputs go under the project root. `sync --scope user` writes user configuration under your home directory, such as `~/.claude/settings.json`.
 
 ## What to review
 

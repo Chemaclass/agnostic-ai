@@ -256,14 +256,14 @@ test.describe('setup health', () => {
   test('counts a global setup finding and lists it as Global setup', async ({ page }) => {
     const { data } = scenario()
     const settings = section(data, 'settings')
-    settings.findings = [{ source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'global' }]
+    settings.findings = [{ source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'user' }]
     await serve(page, data)
     await page.goto('/?view=health')
     await expect(healthRow(page, '1 to fix, 4 worth a look')).toBeVisible()
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Worth a look 4' }) })
     const place = warnings.locator('.health-place', { hasText: 'Global setup' })
     await expect(place.locator('.finding')).toHaveCount(1)
-    await expect(place.locator('.finding .badge', { hasText: 'global' })).toBeVisible()
+    await expect(place.locator('.finding .badge', { hasText: 'user' })).toBeVisible()
     await place.getByText('Details', { exact: true }).click()
     await expect(place.locator('textarea')).toHaveValue(/Source: \/home\/u\/\.agnostic-ai\/agents\/helper\.md/)
   })

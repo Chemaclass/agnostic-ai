@@ -134,7 +134,7 @@ var lintCodes = map[string]lintCode{
 	"LINT010": {
 		Severity: lintError,
 		Title:    "Conditional rule in global specs",
-		Cause:    "With `--global`, a rule has scope, path, glob, or target conditions, which `sync --global` rejects.",
+		Cause:    "With `--scope user`, a rule has scope, path, glob, or target conditions, which `sync --scope user` rejects.",
 		Fix:      "Remove the conditions, or move the rule into a project's `.agnostic-ai/`.",
 	},
 	"LINT011": {
@@ -160,7 +160,7 @@ var lintCodes = map[string]lintCode{
 	"LINT014": {
 		Severity: lintError,
 		Title:    "Global setting a target cannot take",
-		Cause:    "With `--global`, a settings `effort` or `permissions.default-mode` holds a value a target's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. The finding names the field and the values the target accepts.",
+		Cause:    "With `--scope user`, a settings `effort` or `permissions.default-mode` holds a value a target's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --scope user` drops it with a note. The finding names the field and the values the target accepts.",
 		Fix:      "Use one of the values the finding lists, or set the field per target.",
 	},
 	"LINT015": {
@@ -378,7 +378,7 @@ var lintCodes = map[string]lintCode{
 	"LINT053": {
 		Severity: lintError,
 		Title:    "Spec or setting a selected tool refuses",
-		Cause:    "A tool in `targets` refuses a spec or setting before it writes anything, and that stops sync for every tool. CodeBuddy takes agent names of lowercase letters and hyphens only. Zed and OpenCode take skill names of 1 to 64 lowercase letters or digits with single hyphens, and Junie takes agent names that start with a lowercase letter or digit followed by lowercase letters, digits, hyphens, or underscores; this covers commands and agents a tool writes as skills. Grok reads project rules only from committed files, so it refuses rules while `gitignore.enabled` is on and `gitignore.commit` lacks `grok:instructions`. Each tool reports its first refusal. Tools outside `targets` and `lint --global` are not checked.",
+		Cause:    "A tool in `targets` refuses a spec or setting before it writes anything, and that stops sync for every tool. CodeBuddy takes agent names of lowercase letters and hyphens only. Zed and OpenCode take skill names of 1 to 64 lowercase letters or digits with single hyphens, and Junie takes agent names that start with a lowercase letter or digit followed by lowercase letters, digits, hyphens, or underscores; this covers commands and agents a tool writes as skills. Grok reads project rules only from committed files, so it refuses rules while `gitignore.enabled` is on and `gitignore.commit` lacks `grok:instructions`. Each tool reports its first refusal. Tools outside `targets` and `lint --scope user` are not checked.",
 		Fix:      "Rename the spec as the message says, or add `grok:instructions` to `gitignore.commit`. Removing the tool from `targets` also clears it.",
 	},
 	"LINT054": {

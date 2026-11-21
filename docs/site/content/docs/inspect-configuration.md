@@ -19,7 +19,7 @@ From the folder containing `agnostic-ai.yaml` or any folder inside it, run:
 agnostic-ai ui
 ```
 
-Keep the terminal running. The browser opens at `http://127.0.0.1:4310`, or the next free port it prints. Outside a project, or with `--global`, it shows your user configuration. Ports and flags: [`view`](@/docs/cli-reference/serve.md#view).
+Keep the terminal running. The browser opens at `http://127.0.0.1:4310`, or the next free port it prints. Outside a project, or with `--scope user`, it shows your user configuration. Ports and flags: [`view`](@/docs/cli-reference/serve.md#view).
 
 ## Fix a warning
 
@@ -48,4 +48,4 @@ agnostic-ai sync --check
 Review the plan first. `sync --check` exits 0 once files match. Reload the page to see updated findings; the view and search stay in the address bar, unsaved input is lost.
 
 - Per-agent permission decisions, browser switches, and undo: [`serve`](@/docs/cli-reference/serve.md#serve).
-- Voice dictation: in `agnostic-ai ui --global`, open **Settings > Preferences** to turn it on, choose hold or tap, and set the language. Then run `agnostic-ai sync --global`.
+- Voice dictation: in `agnostic-ai ui --scope user`, open **Settings > Preferences** to turn it on, choose hold or tap, and set the language. Then run `agnostic-ai sync --scope user`.

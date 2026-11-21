@@ -19,7 +19,7 @@ func approvalsHome(t *testing.T, shared string) string {
 	home := t.TempDir()
 	source := filepath.Join(home, ".agnostic-ai")
 	t.Setenv("HOME", home)
-	t.Setenv(envUserGlobalRoot, source)
+	t.Setenv(envUserRoot, source)
 	t.Setenv(config.EnvApprovals, "")
 	if shared != "" {
 		writeFile(t, filepath.Join(source, config.ConfigFileName), shared)
@@ -163,7 +163,7 @@ func TestApprovalsStatus_HookNotInstalled(t *testing.T) {
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 
 	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
-	if claude.Effective != config.ApprovalsAsk || !strings.Contains(claude.Reason, "sync --global") {
+	if claude.Effective != config.ApprovalsAsk || !strings.Contains(claude.Reason, "sync --scope user") {
 		t.Errorf("claude: %+v", claude)
 	}
 }
@@ -322,12 +322,12 @@ func TestApprovalsAsk_CreatesTheLocalHomeConfig(t *testing.T) {
 	}
 }
 
-func TestGlobalConfig_ReadsApprovalsWithoutWarning(t *testing.T) {
+func TestUserConfig_ReadsApprovalsWithoutWarning(t *testing.T) {
 	source := t.TempDir()
 	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
 	var warn strings.Builder
 
-	if _, err := loadGlobalTargets(source, &warn); err != nil {
+	if _, err := loadUserTargets(source, &warn); err != nil {
 		t.Fatal(err)
 	}
 
@@ -428,14 +428,14 @@ func TestApprovalsAskYAML(t *testing.T) {
 	}
 }
 
-func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
+func TestValidateUser_ReportsABrokenApprovalsBlock(t *testing.T) {
 	source := approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yollo\n")
 	writeFile(t, filepath.Join(source, "rules", "style.md"), "Be brief.\n")
 
 	out, err := runCLI(t, "validate", "--scope", "user")
 
 	if err == nil || !strings.Contains(out, "yollo") {
-		t.Fatalf("validate --global passed or did not name the value: %v\n%s", err, out)
+		t.Fatalf("validate --scope user passed or did not name the value: %v\n%s", err, out)
 	}
 }
 

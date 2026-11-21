@@ -90,7 +90,43 @@ func installCompanionCommand(out io.Writer, app string, folders []string, lookPa
 
 type companionAppDeps struct {
 	prepare func(context.Context, io.Writer, string, string) (string, error)
-	start   func(string) error
+	// sameSigner refuses a built app that does not meet the installed app's designated requirement.
+	sameSigner func(ctx context.Context, installed, built string) error
+	start      func(string) error
+}
+
+// errInstalledUnpinned is an installed app whose signature names no
+// certificate, such as one signed ad hoc, so no update can match it.
+var errInstalledUnpinned = errors.New("the app that runs is not signed with a project certificate")
+
+// pinnedRequirement is the explicit designated requirement `codesign -d -r-`
+// printed, when it pins a certificate. An ad hoc app prints an implicit
+// "# designated => cdhash H..." line instead.
+func pinnedRequirement(output string) (string, bool) {
+	for line := range strings.Lines(output) {
+		if requirement, ok := strings.CutPrefix(strings.TrimSpace(line), "designated => "); ok && strings.Contains(requirement, "certificate leaf = H\"") {
+			return requirement, true
+		}
+	}
+	return "", false
+}
+
+// sameCompanionSigner checks built against the requirement the installed app
+// was signed with: the bundle identifier and the pinned project certificate.
+// It needs no gh, and stops a replaced release file unless the key leaked too.
+func sameCompanionSigner(ctx context.Context, installed, built string) error {
+	output, err := exec.CommandContext(ctx, "codesign", "-d", "-r-", installed).Output()
+	if err != nil {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+			err = withWhatItSaid(err, exit.Stderr)
+		}
+		return fmt.Errorf("codesign: read the requirement of %s: %w", installed, err)
+	}
+	requirement, ok := pinnedRequirement(string(output))
+	if !ok {
+		return fmt.Errorf("%s: %w", installed, errInstalledUnpinned)
+	}
+	return runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", "-R="+requirement, built)
 }
 
 func updateCompanionApp(ctx context.Context, out io.Writer, app, version string, tools companionTools, deps companionAppDeps) error {
@@ -105,7 +141,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	version = release
 	staging, err := os.MkdirTemp(filepath.Dir(app), ".companion-update-")
 	if err != nil {
-		return fmt.Errorf("%s: stage update: %w", app, err)
+		return fmt.Errorf("%s cannot be updated where it is (%w). Move the app to Applications, open it from there, then update", app, err)
 	}
 	keep := false
 	defer func() {
@@ -119,6 +155,11 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", app, err)
 	}
+	if err := deps.sameSigner(ctx, app, built); errors.Is(err, errInstalledUnpinned) {
+		return fmt.Errorf("%w. Download the new disk image by hand once", err)
+	} else if err != nil {
+		return fmt.Errorf("%s is not signed by this project: %w", built, err)
+	}
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("update %s: %w", app, err)
 	}
@@ -131,6 +172,10 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if _, ok := errors.AsType[companionKeptAside](err); ok {
 		keep = true
 		return err
+	}
+	if err == nil {
+		// The restarted companion reads this line to tell a finished swap from a rollback.
+		_, _ = fmt.Fprintln(out, "Replaced the companion app.")
 	}
 	if startErr := deps.start(app); startErr != nil {
 		return errors.Join(err, fmt.Errorf("start %s: %w", app, startErr))
@@ -251,7 +296,7 @@ replaces the app, and starts it again.`,
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), companionDownloadWait)
 			defer cancel()
-			return updateCompanionApp(ctx, cmd.OutOrStdout(), updateApp, version, tools, companionAppDeps{prepare: prepareCompanionApp, start: func(app string) error { return runCompanionAppTool(context.Background(), "open", "-a", app) }})
+			return updateCompanionApp(ctx, cmd.OutOrStdout(), updateApp, version, tools, companionAppDeps{prepare: prepareCompanionApp, sameSigner: sameCompanionSigner, start: func(app string) error { return runCompanionAppTool(context.Background(), "open", "-a", app) }})
 		},
 	}
 	update.Flags().StringVar(&updateApp, "app", "", "Absolute path of the companion app.")

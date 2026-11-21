@@ -54,7 +54,7 @@ One custom subagent at `.agents/agents/<name>/agent.md`, the nested form in [Ant
 
 ### Skills
 
-Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --global` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
+Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --scope user` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
 
 Antigravity documents no field that keeps a skill user-only: the agent reads relevant skills on its own, and `/<skill-name>` runs one by hand ([Antigravity skills](https://antigravity.google/docs/skills)). Its `disable-slash-command: true` does the opposite, leaving the skill to the model. So `disable-model-invocation` is dropped with a note, and commands are skipped.
 
@@ -88,7 +88,7 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 - Sync removes the `.agent/rules` and `.agent/skills` files it wrote, unless `outputs.antigravity.rules-dir` / `skills-dir` opts back into the legacy path.
 - Agents used to be flattened into `.agents/rules/agent-<name>.md`, which the subagent loader does not read. Sync removes the copy it wrote for every current agent.
 - Sync removes a flat agent profile it wrote when no enabled tool still writes it. With Goose or OpenHands enabled, it stays as their output.
-- The IDE still loads `~/.gemini/antigravity/skills/`, which older versions wrote, but the Antigravity app does not. Move those skills or re-run `sync --global`.
+- The IDE still loads `~/.gemini/antigravity/skills/`, which older versions wrote, but the Antigravity app does not. Move those skills or re-run `sync --scope user`.
 
 </details>
 
@@ -106,9 +106,9 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 
 ## Global configuration
 
-`agnostic-ai sync --global --only antigravity` adds your home MCP specs to `~/.gemini/config/mcp_config.json`, using the same fields as project output. A disabled server keeps `disabled: true`.
+`agnostic-ai sync --scope user --only antigravity` adds your home MCP specs to `~/.gemini/config/mcp_config.json`, using the same fields as project output. A disabled server keeps `disabled: true`.
 
-`agnostic-ai import --global antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
+`agnostic-ai import --scope user antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
 
 ## Import
 

@@ -97,7 +97,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 			return err
 		}
 	}
-	// Noted here rather than through caps, since sync --global writes
+	// Noted here rather than through caps, since sync --scope user writes
 	// agents without the project coverage report.
 	emit.NoteFieldNoOp(target, spec.KindAgent, "permissionMode", permissionModes, "use x-qwen.approvalMode; native modes have different approval semantics")
 	return nil

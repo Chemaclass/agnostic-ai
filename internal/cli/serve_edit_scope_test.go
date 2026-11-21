@@ -102,7 +102,7 @@ func TestEditField_TeamScopeWritesTheSharedSpecBehindAnOverlay(t *testing.T) {
 	}
 }
 
-func TestEditField_JustMeInTheGlobalViewWritesUnderLocal(t *testing.T) {
+func TestEditField_JustMeInTheUserViewWritesUnderLocal(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	h := newEditHandler(source, true)

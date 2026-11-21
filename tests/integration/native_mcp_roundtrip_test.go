@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestNativeMCPGlobal_ClientSettingsRoundTrip(t *testing.T) {
+func TestNativeMCPUser_ClientSettingsRoundTrip(t *testing.T) {
 	binary := builtBinary(t)
 	for _, target := range []string{"copilot", "pi"} {
 		t.Run(target, func(t *testing.T) {

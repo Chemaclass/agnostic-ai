@@ -28,8 +28,8 @@ const (
 // switchPeer is the configuration the page switches to. It is fixed when
 // the server starts; no request names a path.
 type switchPeer struct {
-	root   string
-	global bool
+	root      string
+	userLevel bool
 	// dir is where a started global server runs, so its health names the
 	// project it came from.
 	dir string
@@ -45,10 +45,10 @@ type peerProcess struct {
 }
 
 type switchReply struct {
-	URL     string `json:"url"`
-	Root    string `json:"root"`
-	Global  bool   `json:"global"`
-	Started bool   `json:"started"`
+	URL       string `json:"url"`
+	Root      string `json:"root"`
+	UserLevel bool   `json:"global"`
+	Started   bool   `json:"started"`
 }
 
 // switchMissingReply answers a switch to a global home that does not exist
@@ -79,28 +79,28 @@ func newSwitchHandler(peer *switchPeer, ports []string, probe func(string, time.
 // switchPeerFor names the other configuration of a server reading root:
 // the user configuration for a project, or for a global server the
 // project that contains the directory it started in.
-func switchPeerFor(root string, global bool) *switchPeer {
+func switchPeerFor(root string, userLevel bool) *switchPeer {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil
 	}
-	if global {
-		project, useGlobal, err := resolveViewSource(abs, false, false)
-		if err != nil || useGlobal {
+	if userLevel {
+		project, useUser, err := resolveViewSource(abs, false, false)
+		if err != nil || useUser {
 			return nil
 		}
 		return &switchPeer{root: project}
 	}
-	home, err := globalSourceRoot()
+	home, err := userSourceRoot()
 	if err != nil {
 		return nil
 	}
-	return &switchPeer{root: home, global: true, dir: abs}
+	return &switchPeer{root: home, userLevel: true, dir: abs}
 }
 
 func (p switchPeer) command() string {
-	if p.global {
-		return "agnostic-ai ui --global"
+	if p.userLevel {
+		return "agnostic-ai ui --scope user"
 	}
 	return "agnostic-ai ui --dir " + shellQuote(p.root)
 }
@@ -134,8 +134,8 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	peer := *h.peer
-	if peer.global {
-		missing, err := globalHomeMissing(peer.root)
+	if peer.userLevel {
+		missing, err := userHomeMissing(peer.root)
 		if err != nil {
 			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 			return
@@ -146,7 +146,7 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	reply := func(addr string, started bool) {
-		writeEditJSON(w, http.StatusOK, switchReply{URL: "http://" + addr + "/", Root: peer.root, Global: peer.global, Started: started})
+		writeEditJSON(w, http.StatusOK, switchReply{URL: "http://" + addr + "/", Root: peer.root, UserLevel: peer.userLevel, Started: started})
 	}
 	var free []string
 	for _, addr := range h.candidates() {
@@ -185,14 +185,14 @@ func (h *switchHandler) serves(addr string, running *viewServer) bool {
 	if !h.readsPeer(running) {
 		return false
 	}
-	if !h.peer.global || h.runs(addr) {
+	if !h.peer.userLevel || h.runs(addr) {
 		return true
 	}
 	return running.ProjectRoot != "" && sameProjectRoot(running.ProjectRoot, h.peer.dir)
 }
 
 func (h *switchHandler) readsPeer(running *viewServer) bool {
-	return running.UI && running.Global == h.peer.global && sameProjectRoot(running.Root, h.peer.root)
+	return running.UI && running.UserLevel == h.peer.userLevel && sameProjectRoot(running.Root, h.peer.root)
 }
 
 // startedHere checks the answer on a port this handler just started a
@@ -203,11 +203,11 @@ func (h *switchHandler) startedHere(running *viewServer) bool {
 	if !h.readsPeer(running) {
 		return false
 	}
-	if !h.peer.global {
+	if !h.peer.userLevel {
 		return true
 	}
-	project, useGlobal, err := resolveViewSource(h.peer.dir, false, false)
-	if err != nil || useGlobal {
+	project, useUser, err := resolveViewSource(h.peer.dir, false, false)
+	if err != nil || useUser {
 		return running.ProjectRoot == ""
 	}
 	return sameProjectRoot(running.ProjectRoot, project)
@@ -278,7 +278,7 @@ func (h *switchHandler) close() {
 func peerServerCommand(peer switchPeer, addr string) ([]string, string) {
 	args := []string{"serve", "--addr", addr}
 	dir := ""
-	if peer.global {
+	if peer.userLevel {
 		args, dir = append(args, "--scope", specScopeUser), peer.dir
 	} else {
 		args = append(args, "--dir", peer.root)

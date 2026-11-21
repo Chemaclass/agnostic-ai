@@ -14,14 +14,18 @@ import (
 
 const (
 	layerNameProject     = "project"
-	layerNameProjectUser = "project-user"
+	layerNameProjectUser = "local"
+	// layerNameUser and layerNameUserLocal are the layers of the user
+	// home and of its local/ folder.
+	layerNameUser      = "user"
+	layerNameUserLocal = "user-local"
 
 	// defaultProjectUser sits inside the source dir, the same shape as the
 	// global `~/.agnostic-ai/local/`.
 	defaultProjectUser = config.SourceBaseDir + "/local"
 )
 
-// defaultLayerSources is the fixed source layout used by the project-user
+// defaultLayerSources is the fixed source layout used by the local
 // layer. The project layer keeps its configurable
 // `cfg.Sources` paths.
 func defaultLayerSources() config.Sources {
@@ -43,7 +47,7 @@ func defaultLayerSources() config.Sources {
 // high-precedence. Optional layers are skipped when their root does
 // not exist.
 func resolveLayers(projectRoot string, cfg *config.Config) ([]spec.Layer, error) {
-	// Only sync --global writes the approvals hooks, into user-level files:
+	// Only sync --scope user writes the approvals hooks, into user-level files:
 	// a committed project file must not hand them to a teammate.
 	names := slices.DeleteFunc(slices.Clone(cfg.Builtins), func(name string) bool { return name == config.ApprovalsBuiltin })
 	layers, err := resolveBuiltinLayers(names, projectRoot)
@@ -69,7 +73,7 @@ func resolveProjectLayer(projectRoot string, cfg *config.Config) spec.Layer {
 	}
 }
 
-// resolveProjectUserLayer returns the project-user layer when
+// resolveProjectUserLayer returns the local layer when
 // `<projectRoot>/.agnostic-ai/local` exists.
 func resolveProjectUserLayer(projectRoot string) (spec.Layer, bool) {
 	pu := filepath.Join(projectRoot, defaultProjectUser)

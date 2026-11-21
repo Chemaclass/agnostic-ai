@@ -62,7 +62,7 @@ func TestSync_PortableHookRunsOnceOnCursorBesideClaude(t *testing.T) {
 	writeFile(t, filepath.Join(hooks, "status.yaml"), "on: stop\ntarget: claude\ncommand: 'echo stop'\n")
 	mustSync(t)
 
-	settings := readGlobalJSON(t, filepath.Join(dir, ".claude", "settings.json"))
+	settings := readUserJSON(t, filepath.Join(dir, ".claude", "settings.json"))
 	var guarded, audit string
 	for _, group := range settings["hooks"].(map[string]any)["PreToolUse"].([]any) {
 		for _, h := range group.(map[string]any)["hooks"].([]any) {
@@ -74,7 +74,7 @@ func TestSync_PortableHookRunsOnceOnCursorBesideClaude(t *testing.T) {
 			}
 		}
 	}
-	if stop := firstGlobalHandler(t, settings, "Stop")["command"]; audit != "echo audit" || stop != "echo stop" {
+	if stop := firstUserHandler(t, settings, "Stop")["command"]; audit != "echo audit" || stop != "echo stop" {
 		t.Errorf("a native hook, and one that does not reach Cursor, stay as written: %q %q", audit, stop)
 	}
 	for env, want := range map[string]int{"cursor": 0, "claude": 2, "": 2} {

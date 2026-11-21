@@ -70,12 +70,12 @@ var nativeMCPTransports = []string{"stdio", "http", "sse", "streamable-http"}
 // entry, a header, or a URL, leaves this function. A server a global
 // sync wrote, as state/global.json under source records, is left out. A
 // file that is missing or does not parse gives no servers.
-func nativeMCPServers(home, root, source string, cfg *config.Config, global bool) []overview.NativeMCP {
+func nativeMCPServers(home, root, source string, cfg *config.Config, userLevel bool) []overview.NativeMCP {
 	if cfg == nil {
 		return nil
 	}
 	var out []overview.NativeMCP
-	if !global {
+	if !userLevel {
 		for _, target := range cfg.Targets {
 			f, ok := projectNativeMCP[target]
 			if !ok {
@@ -92,25 +92,25 @@ func nativeMCPServers(home, root, source string, cfg *config.Config, global bool
 			servers := readNativeMCPServers(filepath.Join(root, path), f.format, f.key)
 			out = appendNativeMCPs(out, servers, target, filepath.ToSlash(path), overview.NativeScopeProject, importCmd, nil)
 		}
-		if slices.Contains(cfg.Targets, "claude") && globalTargets["claude"].rootError("claude") == nil {
-			path := globalTargets["claude"].mcpPath(home)
+		if slices.Contains(cfg.Targets, "claude") && userTargets["claude"].rootError("claude") == nil {
+			path := userTargets["claude"].mcpPath(home)
 			out = appendNativeMCPs(out, claudeLocalMCPServers(path, root), "claude", nativeHomePath(home, path), overview.NativeScopeProject, "", nil)
 		}
 	}
 	var owned map[string]map[string]any
 	if source != "" {
-		if state, err := loadGlobalState(filepath.Join(source, "state", "global.json")); err == nil {
+		if state, err := loadUserState(filepath.Join(source, "state", "global.json")); err == nil {
 			owned = state.MCP
 		}
 	}
 	for _, target := range cfg.Targets {
-		g, ok := globalTargets[target]
+		g, ok := userTargets[target]
 		if !ok || g.mcp.path == "" || g.mcp.retired != "" || g.rootError(target) != nil {
 			continue
 		}
 		path := g.mcpPath(home)
 		servers := readNativeMCPServers(path, g.mcp.format, g.mcp.key)
-		out = appendNativeMCPs(out, servers, target, nativeHomePath(home, path), overview.NativeScopeUser, "agnostic-ai import --global "+target, owned[target])
+		out = appendNativeMCPs(out, servers, target, nativeHomePath(home, path), overview.NativeScopeUser, "agnostic-ai import --scope user "+target, owned[target])
 	}
 	return out
 }

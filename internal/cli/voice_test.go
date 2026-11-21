@@ -14,7 +14,7 @@ const voiceHomeSpec = "voice:\n  enabled: true\n  mode: tap\n  language: es\n"
 
 const claudeVoiceLanguageNote = "Claude reads the dictation language from its response language; set x-claude.language to change both"
 
-func TestVoice_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
+func TestVoice_UserWritesAndRestoresOwnedKeys(t *testing.T) {
 	for _, tc := range []struct{ name, original string }{
 		{"absent", ""},
 		{"other keys", "{\n  \"theme\": \"dark\"\n}\n"},
@@ -23,14 +23,14 @@ func TestVoice_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 		{"matching values", "{\"voice\":{\"enabled\":true,\"mode\":\"tap\"}}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
 			if tc.original != "" {
 				writeFile(t, path, tc.original)
 			}
 			settings := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, settings, voiceHomeSpec)
-			_, warnings, err := runGlobalAgentTest("--only", "claude", "--backup")
+			_, warnings, err := runUserAgentTest("--only", "claude", "--backup")
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
@@ -50,13 +50,13 @@ func TestVoice_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 			if _, present := settingsLookup(values, "language", "json"); present {
 				t.Errorf("voice.language reached Claude's response language: %s", got)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
 				t.Errorf("check after sync: %v\n%s", err, warnings)
 			}
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("removal: %v\n%s", err, warnings)
 			}
 			if tc.original == "" {
@@ -71,12 +71,12 @@ func TestVoice_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 }
 
 func TestVoice_ConflictNamesTheNativeOverride(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"voice\":{\"mode\":\"hold\"}}\n"
 	writeFile(t, path, original)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), voiceHomeSpec)
-	_, _, err := runGlobalAgentTest("--only", "claude")
+	_, _, err := runUserAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), `set x-claude.voice.mode to "hold"`) {
 		t.Errorf("conflict does not name the x-claude override: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestVoice_LintsModeValues(t *testing.T) {
 		{"voice: true\n", false},
 	} {
 		t.Run(tc.spec, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), tc.spec)
 			out, err := runRoot(t, "lint", "--scope", "user")
 			if strings.Contains(out, "LINT054") == tc.valid {
@@ -109,7 +109,7 @@ func TestVoice_LintsModeValues(t *testing.T) {
 			if _, err := runRoot(t, "validate", "--scope", "user"); (err == nil) != tc.valid {
 				t.Errorf("validate valid=%t: %v", tc.valid, err)
 			}
-			_, warnings, err := runGlobalAgentTest("--only", "claude")
+			_, warnings, err := runUserAgentTest("--only", "claude")
 			if (err == nil) != tc.valid {
 				t.Errorf("sync valid=%t: %v\n%s", tc.valid, err, warnings)
 			}
@@ -132,10 +132,10 @@ func TestVoice_ClaudeOverrideWins(t *testing.T) {
 		{"whole object", "x-claude:\n  voice: {}\n", map[string]any{"voice": map[string]any{}}, []string{"voice.enabled", "voice.mode"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), voiceHomeSpec+tc.override)
-			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			values, err := settingsValues(path, "json", []byte(readFile(t, path)))
@@ -152,10 +152,10 @@ func TestVoice_ClaudeOverrideWins(t *testing.T) {
 					t.Errorf("portable %s = %v survived the x-claude override", key, have)
 				}
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
 				t.Errorf("check after sync: %v\n%s", err, warnings)
 			}
-			state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+			state, err := loadUserState(filepath.Join(source, "state", "global.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -169,7 +169,7 @@ func TestVoice_ClaudeOverrideWins(t *testing.T) {
 }
 
 func TestVoice_ExplainsMappingsAndUnsupportedTargets(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), voiceHomeSpec)
 	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
 	if err != nil {
@@ -180,14 +180,14 @@ func TestVoice_ExplainsMappingsAndUnsupportedTargets(t *testing.T) {
 			t.Errorf("missing Claude mapping %s: %s", key, out)
 		}
 	}
-	_, warnings, err := runGlobalAgentTest("--only", "codex")
+	_, warnings, err := runUserAgentTest("--only", "codex")
 	if err != nil || !strings.Contains(warnings, "voice") || !strings.Contains(warnings, "no voice dictation setting") {
 		t.Errorf("missing unsupported-target note: %v\n%s", err, warnings)
 	}
 }
 
 func TestVoice_ProjectSyncLeavesNativeVoiceAlone(t *testing.T) {
-	globalAgentTestHome(t)
+	userAgentTestHome(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
 	writeFile(t, filepath.Join(".agnostic-ai", "settings", "voice.yaml"), voiceHomeSpec)
 	var notes bytes.Buffer
@@ -197,7 +197,7 @@ func TestVoice_ProjectSyncLeavesNativeVoiceAlone(t *testing.T) {
 	if _, err := runRoot(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
-	if out := notes.String(); !strings.Contains(out, "voice is personal; only sync --global writes it") {
+	if out := notes.String(); !strings.Contains(out, "voice is personal; only sync --scope user writes it") {
 		t.Errorf("missing personal-scope note: %s", out)
 	}
 	data, err := os.ReadFile(filepath.Join(".claude", "settings.json"))
@@ -210,31 +210,31 @@ func TestVoice_ProjectSyncLeavesNativeVoiceAlone(t *testing.T) {
 }
 
 func TestVoice_StateVersionIsRefusedByThePreviousRelease(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(home, ".claude", "settings.json"), "{\"voice\":{\"mode\":\"hold\"}}\n")
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), voiceHomeSpec)
-	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	path := filepath.Join(source, "state", "global.json")
-	state, err := loadGlobalState(path)
+	state, err := loadUserState(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if original, present := state.SettingsOriginals["claude"]["voice.mode"]; !present || original.Raw != `"hold"` {
 		t.Errorf("state lacks the original voice.mode: %+v", state.SettingsOriginals)
 	}
-	if _, err := loadGlobalStateUpTo(path, 9); err == nil {
+	if _, err := loadUserStateUpTo(path, 9); err == nil {
 		t.Errorf("a release that reads state version 9 accepted this state file")
 	}
 }
 
 func TestVoice_MigratesVersion9RetentionOriginals(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	writeFile(t, path, "{\"cleanupPeriodDays\": 3650}\n")
 	writeFile(t, filepath.Join(source, "state", "global.json"), `{"version":9,"files":[],"settings":{"claude":{"cleanupPeriodDays":3650}},"settingsPaths":{"claude":"`+filepath.ToSlash(path)+`"},"sessionRetention":{"claude":{"key":"cleanupPeriodDays","raw":"30","present":true}}}`)
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != "{\"cleanupPeriodDays\": 30}\n" {
@@ -243,17 +243,17 @@ func TestVoice_MigratesVersion9RetentionOriginals(t *testing.T) {
 }
 
 func TestVoice_ParentOverrideAfterPortableSyncRestoresOriginal(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"voice\":{\"mode\":  \"hold\"}}\n"
 	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, settings, voiceHomeSpec)
-	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("initial sync: %v\n%s", err, warnings)
 	}
 	writeFile(t, settings, voiceHomeSpec+"x-claude:\n  voice: {}\n")
-	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("override sync: %v\n%s", err, warnings)
 	}
 	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
@@ -263,13 +263,13 @@ func TestVoice_ParentOverrideAfterPortableSyncRestoresOriginal(t *testing.T) {
 	if got, ok := values["voice"].(map[string]any); !ok || len(got) != 0 {
 		t.Errorf("parent override = %#v, want empty object", values["voice"])
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
 		t.Errorf("check after override: %v\n%s", err, warnings)
 	}
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("remove override: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != original {
@@ -278,24 +278,24 @@ func TestVoice_ParentOverrideAfterPortableSyncRestoresOriginal(t *testing.T) {
 }
 
 func TestVoice_ParentOverrideCanReturnToPortableMembers(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"voice\":{\"mode\":  \"hold\"}}\n"
 	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	for _, contents := range []string{voiceHomeSpec, voiceHomeSpec + "x-claude:\n  voice: {}\n", voiceHomeSpec} {
 		writeFile(t, settings, contents)
-		if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+		if _, warnings, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 			t.Fatalf("sync: %v\n%s", err, warnings)
 		}
-		if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+		if _, warnings, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
 			t.Fatalf("check: %v\n%s", err, warnings)
 		}
 	}
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != original {
@@ -304,18 +304,18 @@ func TestVoice_ParentOverrideCanReturnToPortableMembers(t *testing.T) {
 }
 
 func TestVoice_RemovalPreservesUserChanges(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, settings, voiceHomeSpec)
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	writeFile(t, path, "{\"voice\":{\"enabled\":false,\"mode\":\"tap\",\"autoSubmit\":true}}\n")
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
 	values, err := settingsValues(path, "json", []byte(readFile(t, path)))
@@ -333,22 +333,22 @@ func TestVoice_RemovalPreservesUserChanges(t *testing.T) {
 }
 
 func TestVoice_InitialParentOverrideRestoresOriginal(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	original := "{\"voice\":{\"mode\":  \"hold\"}}\n"
 	writeFile(t, path, original)
 	settings := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, settings, voiceHomeSpec+"x-claude:\n  voice: {}\n")
-	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("sync override: %v\n%s", err, warnings)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
 		t.Errorf("check: %v\n%s", err, warnings)
 	}
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatalf("removal: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != original {
@@ -363,7 +363,7 @@ func TestVoice_EmptyOverrideThenPortableRestoresOriginal(t *testing.T) {
 		{"existing empty voice", "{\"voice\": { }, \"theme\": \"dark\"}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
 			if tc.original != "" {
 				writeFile(t, path, tc.original)
@@ -371,14 +371,14 @@ func TestVoice_EmptyOverrideThenPortableRestoresOriginal(t *testing.T) {
 			settings := filepath.Join(source, "settings", "voice.yaml")
 			for _, contents := range []string{"x-claude:\n  voice: {}\n", voiceHomeSpec} {
 				writeFile(t, settings, contents)
-				if _, warnings, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 			}
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("removal: %v\n%s", err, warnings)
 			}
 			if tc.original == "" {

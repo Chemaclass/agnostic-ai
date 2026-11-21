@@ -18,8 +18,8 @@ import (
 // in one file.
 func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr fieldAddress, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
-	if !h.global {
-		return "", nil, errors.New("permissions.default-mode applies through global sync only; set it in global settings (agnostic-ai ui --global)")
+	if !h.userLevel {
+		return "", nil, errors.New("permissions.default-mode applies through global sync only; set it in global settings (agnostic-ai ui --scope user)")
 	}
 	if addr.target != "" {
 		return "", nil, errors.New("the default permission mode has no per-tool value; send target all")
@@ -69,7 +69,7 @@ type shadowedFieldError struct{ error }
 // spec that loads later sets the mode for any tool that applies it, since
 // global sync writes the last value for each tool.
 func (h *editHandler) checkPermissionModeShadow(file, key string) error {
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return err
 	}
@@ -77,16 +77,16 @@ func (h *editHandler) checkPermissionModeShadow(file, key string) error {
 	at := slices.IndexFunc(settings, func(e spec.Entry) bool {
 		return resolvedAbs(e.Path) == resolvedAbs(file) ||
 			e.Base != nil && resolvedAbs(e.Base.Path) == resolvedAbs(file) ||
-			!overview.LocalLayer(e) && resolvedAbs(filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name))) == resolvedAbs(file)
+			!overview.LocalLayer(e) && resolvedAbs(filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, e.Name))) == resolvedAbs(file)
 	})
 	if at < 0 {
 		return nil
 	}
 	for _, target := range scope.targets {
-		if globalTargets[target].settings.permissionMode == "" || !settings[at].EmitsTo(target) {
+		if userTargets[target].settings.permissionMode == "" || !settings[at].EmitsTo(target) {
 			continue
 		}
-		if j := overview.SettingsOverride(settings, at, key, []string{target}, h.global); j >= 0 {
+		if j := overview.SettingsOverride(settings, at, key, []string{target}, h.userLevel); j >= 0 {
 			return shadowedFieldError{fmt.Errorf("%s sets %s for %s and loads after %s, so sync keeps its value; edit that spec", overview.SpecPath(h.root, settings[j]), key, target, overview.SpecPath(h.root, settings[at]))}
 		}
 	}

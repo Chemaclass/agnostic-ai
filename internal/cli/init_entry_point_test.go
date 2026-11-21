@@ -139,15 +139,15 @@ func TestImportAll_ReplacesTheStarterNoteWithARootAgentsMainFile(t *testing.T) {
 }
 
 // In the home folder, .agnostic-ai/AGNOSTIC_AI.md is the global
-// instructions file, which sync --global shares with every project.
-func TestInitCmd_LeavesTheGlobalNoteAloneInTheHomeFolder(t *testing.T) {
+// instructions file, which sync --scope user shares with every project.
+func TestInitCmd_LeavesTheUserNoteAloneInTheHomeFolder(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
 	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(envUserGlobalRoot, filepath.Join(dir, ".agnostic-ai"))
+	t.Setenv(envUserRoot, filepath.Join(dir, ".agnostic-ai"))
 
 	if err := runInitPiped(t, "claude\n"); err != nil {
 		t.Fatalf("init: %v", err)
@@ -157,7 +157,7 @@ func TestInitCmd_LeavesTheGlobalNoteAloneInTheHomeFolder(t *testing.T) {
 	}
 }
 
-func TestInitCmd_DryRunLeavesTheGlobalNoteOutThroughALinkedHome(t *testing.T) {
+func TestInitCmd_DryRunLeavesTheUserNoteOutThroughALinkedHome(t *testing.T) {
 	base := t.TempDir()
 	real := filepath.Join(base, "real")
 	if err := os.Mkdir(real, 0o755); err != nil {
@@ -169,7 +169,7 @@ func TestInitCmd_DryRunLeavesTheGlobalNoteOutThroughALinkedHome(t *testing.T) {
 	}
 	testutil.Chdir(t, real)
 	captureLogOut(t)
-	t.Setenv(envUserGlobalRoot, filepath.Join(link, ".agnostic-ai"))
+	t.Setenv(envUserRoot, filepath.Join(link, ".agnostic-ai"))
 
 	out, err := runInitCapturingStdout(t, "--all", "--dry-run")
 	if err != nil {

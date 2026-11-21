@@ -83,7 +83,7 @@ export function ItemList({ items, hideValues, sharedUnlisted }: { items: Section
               ? <BuiltinChange name={item.name} label={item.label} on={on} local={viewAudience === 'personal' && (item.local ?? false)} fallback={control} renderHeading={heading} />
               : heading(control)}
             <SpecMoveAction item={item} />
-            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
+            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'local' || item.layer === 'user-local'} localKeys={item.localKeys} />}
             {item.tools && !(sharedUnlisted && item.tools.state === 'not-listed') && <Tools listing={item.tools} />}
             {item.kind === 'hook' ? <HookCommand item={item} /> : <SourceContent item={item} />}
             <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
@@ -103,7 +103,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
   const root = useContext(ConfigurationRoot)
   const audience = useViewAudience()
   const app = useApp()
-  const refinable = item.kind === 'instructions' && item.layer === 'global'
+  const refinable = item.kind === 'instructions' && item.layer === 'user'
   const openable = app.source.kind === 'api' && item.openPath !== undefined
   if (item.kind === 'builtin') return <BuiltinHeading item={item} control={control} />
   return (

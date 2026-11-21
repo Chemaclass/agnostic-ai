@@ -53,8 +53,8 @@ func ReportClaudeBodySyntax(target string, kind spec.Kind, entries []spec.Entry,
 	return reportClaudeBodySyntax(target, kind, entries, mode, false)
 }
 
-// ReportGlobalSkillSyntax accounts for Kilo inline shell placeholders at trusted user paths.
-func ReportGlobalSkillSyntax(target string, entries []spec.Entry, mode, home, dir string) error {
+// ReportUserSkillSyntax accounts for Kilo inline shell placeholders at trusted user paths.
+func ReportUserSkillSyntax(target string, entries []spec.Entry, mode, home, dir string) error {
 	trusted := false
 	if target == "kilo" && filepath.IsAbs(home) && filepath.IsAbs(dir) {
 		for _, root := range []string{".kilo", ".agents", ".claude"} {

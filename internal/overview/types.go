@@ -23,8 +23,8 @@ type View struct {
 	Targets       []TargetSupport    `json:"targets"`
 	Tools         ToolCatalog        `json:"tools"`
 	Health        Health             `json:"health"`
-	// Global is true for user configuration, which has no project to size.
-	Global bool `json:"global,omitempty"`
+	// UserLevel is true for user configuration, which has no project to size.
+	UserLevel bool `json:"global,omitempty"`
 	// Repository is the project's GitHub repository, read from its origin
 	// remote. Absent for user configuration and any other host.
 	Repository *Repository `json:"repository,omitempty"`
@@ -364,7 +364,7 @@ type ItemFinding struct {
 	Fix string `json:"fix,omitempty"`
 	// Explanation says why it matters, when known.
 	Explanation string `json:"explanation,omitempty"`
-	// Layer is "global" for a finding on the global setup, shown in a
+	// Layer is "user" for a finding on the global setup, shown in a
 	// project's overview; its Path is relative to the global source.
 	Layer string `json:"layer,omitempty"`
 }
@@ -458,14 +458,14 @@ type Finding struct {
 	// Section is the harness section a finding that names no configured
 	// item belongs to, when the check knows it.
 	Section string
-	// Layer is LayerGlobal for a finding on the global setup shown in a
+	// Layer is LayerUser for a finding on the global setup shown in a
 	// project's overview, and empty for the setup the view shows.
 	Layer string
 }
 
-// LayerGlobal marks a finding on the global setup (~/.agnostic-ai/),
+// LayerUser marks a finding on the global setup (~/.agnostic-ai/),
 // which reaches every project.
-const LayerGlobal = "global"
+const LayerUser = "user"
 
 // Document is an instructions file the caller found, such as
 // AGNOSTIC_AI.md, with its path as the view shows it.

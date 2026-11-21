@@ -38,10 +38,10 @@ type specMigration struct {
 }
 
 // migrationScope is the spec tree a migration reads and writes: the
-// project at root, or the global home at root that sync --global reads.
+// project at root, or the global home at root that sync --scope user reads.
 type migrationScope struct {
-	root   string
-	global bool
+	root      string
+	userLevel bool
 	// project, when set, holds the project at root once loaded, so the
 	// migrations of one plan read it once instead of each loading it.
 	project *loadedProject
@@ -159,7 +159,7 @@ func (p pendingMigration) needsUser() bool {
 }
 
 func newMigrateCmd() *cobra.Command {
-	var dryRun, list, global bool
+	var dryRun, list, userLevel bool
 	var only []string
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -183,7 +183,7 @@ func newMigrateCmd() *cobra.Command {
   # Rewrite the global specs sync --scope user reads
   agnostic-ai migrate --scope user`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			scope, err := resolveMigrationScope(global)
+			scope, err := resolveMigrationScope(userLevel)
 			if err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ func newMigrateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if global {
+			if userLevel {
 				selected = slices.DeleteFunc(slices.Clone(selected), func(m specMigration) bool { return m.ProjectOnly })
 			}
 			pending := planMigrations(scope, selected)
@@ -211,7 +211,7 @@ func newMigrateCmd() *cobra.Command {
 				printMigrationPlan(out, pending, true, quiet)
 				return planFailures(pending)
 			}
-			if !global {
+			if !userLevel {
 				lock, err := acquireProjectLock(".", "migrate")
 				if err != nil {
 					return err
@@ -228,22 +228,22 @@ func newMigrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
 	cmd.Flags().BoolVar(&list, "list", false, "List every migration and whether it applies here.")
 	cmd.Flags().StringSliceVar(&only, "only", nil, "Run only these migration groups (comma-separated).")
-	addScopeFlag(cmd, &global, "Rewrite the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --scope user writes.")
+	addScopeFlag(cmd, &userLevel, "Rewrite the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --scope user writes.")
 	cmd.MarkFlagsMutuallyExclusive("list", "dry-run")
 	return cmd
 }
 
-// resolveMigrationScope is the global home with --global, else the
+// resolveMigrationScope is the global home with --scope user, else the
 // project in the working directory.
-func resolveMigrationScope(global bool) (migrationScope, error) {
-	if global {
-		source, err := globalSourceRoot()
+func resolveMigrationScope(userLevel bool) (migrationScope, error) {
+	if userLevel {
+		source, err := userSourceRoot()
 		if err != nil {
 			return migrationScope{}, err
 		}
-		return migrationScope{root: source, global: true}, nil
+		return migrationScope{root: source, userLevel: true}, nil
 	}
-	if err := refuseGlobalHome(".", globalHomeMigrateRemedy); err != nil {
+	if err := refuseUserSource(".", userHomeMigrateRemedy); err != nil {
 		return migrationScope{}, err
 	}
 	if _, _, err := config.ResolveConfigPath("."); err != nil {
@@ -281,8 +281,8 @@ func selectMigrations(set bool, only []string) ([]specMigration, error) {
 // from: the project with its packs and local/ layer, or the global home
 // and its local/ layer.
 func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
-	if s.global {
-		return s.loadGlobalSpecs()
+	if s.userLevel {
+		return s.loadUserSpecs()
 	}
 	cfg, b, err := s.loadProject()
 	if err != nil {
@@ -292,17 +292,17 @@ func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
 	return withoutBuiltinEntries(b), withoutBuiltinLayers(layers), err
 }
 
-// loadGlobalSpecs loads the global layers as sync --global reads them,
+// loadUserSpecs loads the global layers as sync --scope user reads them,
 // after the home config's requires holds.
-func (s migrationScope) loadGlobalSpecs() (spec.Bundle, []spec.Layer, error) {
-	if err := requireGlobalVersion(s.root, nil); err != nil {
+func (s migrationScope) loadUserSpecs() (spec.Bundle, []spec.Layer, error) {
+	if err := requireUserVersion(s.root, nil); err != nil {
 		return spec.Bundle{}, nil, err
 	}
-	names, err := loadGlobalBuiltins(s.root, nil)
+	names, err := loadUserBuiltins(s.root, nil)
 	if err != nil {
 		return spec.Bundle{}, nil, err
 	}
-	layers, err := globalLayers(s.root, names)
+	layers, err := userLayers(s.root, names)
 	if err != nil {
 		return spec.Bundle{}, nil, err
 	}
@@ -360,7 +360,7 @@ func (s migrationScope) keepInSpecRoots(changes []migrationChange) ([]migrationC
 func (s migrationScope) specRoots() ([]string, map[string]string) {
 	local := filepath.Join(s.root, defaultProjectUser)
 	packDirs := []string{filepath.Join(s.root, packsDir)}
-	if s.global {
+	if s.userLevel {
 		local = filepath.Join(s.root, "local")
 		packDirs = append(packDirs, filepath.Join(s.root, filepath.Base(packsDir)))
 	}
@@ -390,7 +390,7 @@ func (s migrationScope) outsideSpecRoots(c migrationChange, roots []string, pack
 		paths = append(paths, filepath.Dir(c.NewPath))
 	}
 	where := "the project"
-	if s.global {
+	if s.userLevel {
 		where = "the global home"
 	}
 	for _, path := range paths {

@@ -96,16 +96,16 @@ func runOverviewChecksWith(root string, cfg *config.Config, b spec.Bundle, compa
 		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
 	}
 	setFindingOpenPaths(out.findings, root)
-	out.findings = append(out.findings, overviewGlobalLayerFindings()...)
+	out.findings = append(out.findings, overviewUserLayerFindings()...)
 	return out
 }
 
-// overviewGlobalLayerFindings is what lint --global reports for the
+// overviewUserLayerFindings is what lint --scope user reports for the
 // global setup, which reaches every project, marked with its layer. The
 // doctor checks read a project's files, so the global setup has none. A
 // missing global setup has no findings.
-func overviewGlobalLayerFindings() []overview.Finding {
-	source, err := globalSourceRoot()
+func overviewUserLayerFindings() []overview.Finding {
+	source, err := userSourceRoot()
 	if err != nil {
 		return nil
 	}
@@ -115,8 +115,8 @@ func overviewGlobalLayerFindings() []overview.Finding {
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
 	defer adapters.DrainNotes()
-	configPath := globalConfigPaths(source)[0]
-	display := func(path string) string { return globalOverviewPath(source, path) }
+	configPath := userConfigPaths(source)[0]
+	display := func(path string) string { return userOverviewPath(source, path) }
 	var findings []overview.Finding
 	scope, err := loadCheckScope(true)
 	if err != nil {
@@ -133,7 +133,7 @@ func overviewGlobalLayerFindings() []overview.Finding {
 	}
 	setFindingOpenPaths(findings, source)
 	for i := range findings {
-		findings[i].Layer = overview.LayerGlobal
+		findings[i].Layer = overview.LayerUser
 	}
 	return findings
 }
@@ -444,11 +444,11 @@ func overviewInputsWith(root string, compareInstalled bool) (overview.Inputs, er
 // hold in their own project and user files. Without a home it lists
 // none.
 func projectNativeMCPServers(cfg *config.Config) []overview.NativeMCP {
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return nil
 	}
-	source, _ := globalSourceRoot()
+	source, _ := userSourceRoot()
 	return nativeMCPServers(home, ".", source, cfg, false)
 }
 
@@ -457,12 +457,12 @@ func projectInstructionDocuments() []overview.Document {
 	return instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, ".")
 }
 
-// globalInstructionDocuments describes the global instructions file and its
+// userInstructionDocuments describes the global instructions file and its
 // local layer under source.
-func globalInstructionDocuments(source string) []overview.Document {
+func userInstructionDocuments(source string) []overview.Document {
 	return instructionDocuments([]instructionFile{
-		{path: filepath.Join(source, "AGNOSTIC_AI.md"), layer: "global"},
-		{path: filepath.Join(source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
+		{path: filepath.Join(source, "AGNOSTIC_AI.md"), layer: layerNameUser},
+		{path: filepath.Join(source, "local", "AGNOSTIC_AI.md"), layer: layerNameUserLocal},
 	}, source)
 }
 
@@ -486,7 +486,7 @@ func instructionDocuments(sources []instructionFile, root string) []overview.Doc
 			abs = src.path
 		}
 		docs = append(docs, overview.Document{
-			Path:    globalOverviewPath(root, src.path),
+			Path:    userOverviewPath(root, src.path),
 			AbsPath: abs,
 			Layer:   src.layer,
 			Words:   len(strings.Fields(header.Strip(string(data)))),

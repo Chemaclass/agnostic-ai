@@ -96,9 +96,9 @@ func NoteDroppedSkillFields(target string, skills []spec.Entry, shared bool) {
 	emit.NoteDroppedSkillFields(target, (spec.Bundle{Skills: skills}).For(target).Skills, coverage)
 }
 
-// ReportGlobalSkillSyntax checks syntax against the resolved user skill destination.
-func ReportGlobalSkillSyntax(target string, skills []spec.Entry, mode, home, dir string) error {
-	return emit.ReportGlobalSkillSyntax(target, (spec.Bundle{Skills: skills}).For(target).Skills, mode, home, dir)
+// ReportUserSkillSyntax checks syntax against the resolved user skill destination.
+func ReportUserSkillSyntax(target string, skills []spec.Entry, mode, home, dir string) error {
+	return emit.ReportUserSkillSyntax(target, (spec.Bundle{Skills: skills}).For(target).Skills, mode, home, dir)
 }
 
 // RenderSkillSidecars returns target's extra per-skill files, keyed by

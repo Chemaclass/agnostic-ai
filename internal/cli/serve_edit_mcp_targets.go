@@ -9,7 +9,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func mcpPreviewTargets(cfg *config.Config, global bool, data []byte) ([]string, error) {
+func mcpPreviewTargets(cfg *config.Config, userLevel bool, data []byte) ([]string, error) {
 	entry, err := spec.ParseYAMLBytes(spec.KindMCP, data)
 	if err != nil {
 		return nil, err
@@ -21,9 +21,9 @@ func mcpPreviewTargets(cfg *config.Config, global bool, data []byte) ([]string, 
 			continue
 		}
 		var reaches bool
-		if global {
-			g, ok := globalTargets[target]
-			if !ok || g.mcp.path == "" || g.mcp.retired != "" || g.rootError(target) != nil || unsupportedGlobalTarget("--global", target) != nil {
+		if userLevel {
+			g, ok := userTargets[target]
+			if !ok || g.mcp.path == "" || g.mcp.retired != "" || g.rootError(target) != nil || unsupportedUserTarget("--scope user", target) != nil {
 				continue
 			}
 			entries := []spec.Entry{entry}

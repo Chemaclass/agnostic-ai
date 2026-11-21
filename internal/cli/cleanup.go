@@ -47,7 +47,7 @@ Pair with --dry-run to preview the deletions without touching disk.`,
   agnostic-ai cleanup --backups`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_ = backups
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			if dryRun {
@@ -60,6 +60,7 @@ Pair with --dry-run to preview the deletions without touching disk.`,
 	}
 	cmd.Flags().BoolVar(&backups, "backups", false, "Explicit form of the default cleanup mode (.bak removal). Kept for scripts; bare `cleanup` does the same thing today.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report intended deletions without touching disk")
+	addProjectOnlyScopeFlag(cmd, "user-level sync keeps no .bak files unless you pass --backup, and those are yours to remove")
 	return cmd
 }
 

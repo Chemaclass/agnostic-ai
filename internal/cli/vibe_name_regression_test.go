@@ -11,10 +11,10 @@ import (
 	"testing"
 )
 
-func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
+func TestSyncUser_VibeNativeAliasIdentity(t *testing.T) {
 	for _, mode := range []string{"equal", "different", "duplicate", "empty"} {
 		t.Run(mode, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := "# user\nkey=1\n\n[[mcp_servers]]\nname='docs.api'\ntransport='stdio'\ncommand='node'\n"
 			if mode == "different" {
@@ -28,7 +28,7 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 			}
 			writeFile(t, path, original)
 			writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\n")
-			_, w, err := runGlobalAgentTest("--only", "vibe")
+			_, w, err := runUserAgentTest("--only", "vibe")
 			if mode != "equal" {
 				if err == nil {
 					t.Errorf("invalid/conflicting native alias accepted: %s", w)
@@ -44,18 +44,18 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 			if got := readFile(t, path); got != original {
 				t.Fatalf("adoption changed bytes: %q", got)
 			}
-			state, err := loadGlobalState(filepath.Join(source, "state/global.json"))
+			state, err := loadUserState(filepath.Join(source, "state/global.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
 			if _, ok := state.MCP["vibe"]["docs.api"]; !ok {
 				t.Fatal("ownership did not retain physical name")
 			}
-			if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
 				t.Fatalf("repeat: %v %s", err, w)
 			}
 			writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: updated\n")
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("owned alias update: %v %s", err, w)
 			}
 			doc, err := readVibeTOML(path)
@@ -73,13 +73,13 @@ func TestSyncGlobal_VibeNativeAliasIdentity(t *testing.T) {
 	}
 }
 func TestImportVibe_NativeMCPIdentityRejectsBeforeWrites(t *testing.T) {
-	for _, global := range []bool{false, true} {
-		t.Run(strconv.FormatBool(global), func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+	for _, userLevel := range []bool{false, true} {
+		t.Run(strconv.FormatBool(userLevel), func(t *testing.T) {
+			home, source := userAgentTestHome(t)
 			body := "[[mcp_servers]]\nname='docs.api'\ncommand='node'\n\n[[mcp_servers]]\nname='docs_api'\ncommand='node'\n"
-			if global {
+			if userLevel {
 				writeFile(t, filepath.Join(home, ".vibe/config.toml"), body)
-				if _, _, err := runImportGlobalTest("vibe"); err == nil {
+				if _, _, err := runImportUserTest("vibe"); err == nil {
 					t.Error("duplicate identity imported")
 				}
 				if _, err := os.Stat(source); !os.IsNotExist(err) {
@@ -101,15 +101,15 @@ func TestImportVibe_NativeMCPIdentityRejectsBeforeWrites(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T) {
+func TestSyncUser_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T) {
 	for _, scenario := range []string{"desired-collision", "invalid-current-unrelated", "renamed", "renamed-removal", "renamed-root-move", "ambiguous-state", "key-disagreement"} {
 		t.Run(scenario, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			mcp := filepath.Join(source, "mcps/docs.api.yaml")
 			writeFile(t, path, "# keep\nkey=1\n")
 			writeFile(t, mcp, "name: docs.api\ncommand: node\n")
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("setup: %v %s", err, w)
 			}
 			statePath := filepath.Join(source, "state/global.json")
@@ -133,7 +133,7 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 					t.Setenv("VIBE_HOME", filepath.Join(home, "new-vibe"))
 				}
 			case "ambiguous-state", "key-disagreement":
-				state, err := loadGlobalState(statePath)
+				state, err := loadUserState(statePath)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -153,7 +153,7 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 				t.Fatal(err)
 			}
 			original, stateBefore := readFile(t, path), readFile(t, statePath)
-			if _, _, err := runGlobalAgentTest("--only", "vibe"); err == nil {
+			if _, _, err := runUserAgentTest("--only", "vibe"); err == nil {
 				t.Error("identity conflict accepted")
 			}
 			if got := readFile(t, path); got != original {
@@ -177,10 +177,10 @@ func TestSyncGlobal_VibeNativeIdentityFailurePreservesStateAndMode(t *testing.T)
 		})
 	}
 }
-func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
+func TestSyncUser_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 	for _, adopted := range []bool{false, true} {
 		t.Run(strconv.FormatBool(adopted), func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := "# unrelated\nkey=1\n"
 			native := original
@@ -192,13 +192,13 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 			writeFile(t, path, native)
 			mcp := filepath.Join(source, "mcps/"+name+".yaml")
 			writeFile(t, mcp, "name: "+name+"\ncommand: node\n")
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("add: %v %s", err, w)
 			}
 			if adopted && readFile(t, path) != native {
 				t.Fatal("adoption changed physical bytes")
 			}
-			if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
 				t.Fatalf("reload check: %v %s", err, w)
 			}
 			if !adopted {
@@ -208,13 +208,13 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 				mcp = filepath.Join(source, "mcps/docs_api.yaml")
 			}
 			writeFile(t, mcp, "name: docs_api\ncommand: updated\n")
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("alias update: %v %s", err, w)
 			}
-			if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
 				t.Fatalf("updated alias reload: %v %s", err, w)
 			}
-			state, err := loadGlobalState(filepath.Join(source, "state/global.json"))
+			state, err := loadUserState(filepath.Join(source, "state/global.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -229,7 +229,7 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 			if err := os.Remove(mcp); err != nil {
 				t.Fatal(err)
 			}
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("remove: %v %s", err, w)
 			}
 			want := original
@@ -242,10 +242,10 @@ func TestSyncGlobal_VibeNativeRawIdentityRestoresOriginalBytes(t *testing.T) {
 		})
 	}
 }
-func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
+func TestImportUser_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 	for _, equal := range []bool{false, true} {
 		t.Run(strconv.FormatBool(equal), func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			src := filepath.Join(source, "mcps/docs_api.yaml")
 			specBody := "name: docs_api\ncommand: node\n"
 			writeFile(t, src, specBody)
@@ -256,7 +256,7 @@ func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := fmt.Sprintf("# native\n[[mcp_servers]]\nname='docs.api'\ncommand=%q\ntransport='stdio'\n", command)
 			writeFile(t, path, original)
-			_, _, err := runImportGlobalTest("vibe")
+			_, _, err := runImportUserTest("vibe")
 			if equal {
 				if err != nil {
 					t.Fatal(err)
@@ -268,10 +268,10 @@ func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 				if len(entries) != 1 {
 					t.Fatalf("alias imported duplicate source: %v", entries)
 				}
-				if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+				if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 					t.Fatalf("import alias adoption: %v %s", err, w)
 				}
-				if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+				if _, w, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
 					t.Fatalf("import alias sync check: %v %s", err, w)
 				}
 			} else if err == nil {
@@ -287,18 +287,18 @@ func TestImportGlobal_VibeHomeNativeAliasCoverageChecksBodies(t *testing.T) {
 	}
 }
 func TestImportVibe_NoncanonicalNativeNameRoundTripsFresh(t *testing.T) {
-	for _, global := range []bool{false, true} {
-		t.Run(strconv.FormatBool(global), func(t *testing.T) {
-			home, _ := globalAgentTestHome(t)
+	for _, userLevel := range []bool{false, true} {
+		t.Run(strconv.FormatBool(userLevel), func(t *testing.T) {
+			home, _ := userAgentTestHome(t)
 			path := ".vibe/config.toml"
-			if global {
+			if userLevel {
 				path = filepath.Join(home, path)
 			} else {
 				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")
 			}
 			writeFile(t, path, "[[mcp_servers]]\nname='docs.api'\ncommand='node'\ntransport='stdio'\n")
-			if global {
-				if _, _, err := runImportGlobalTest("vibe"); err != nil {
+			if userLevel {
+				if _, _, err := runImportUserTest("vibe"); err != nil {
 					t.Fatal(err)
 				}
 			} else {
@@ -307,11 +307,11 @@ func TestImportVibe_NoncanonicalNativeNameRoundTripsFresh(t *testing.T) {
 			if err := os.Remove(path); err != nil {
 				t.Fatal(err)
 			}
-			if global {
-				if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if userLevel {
+				if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 					t.Fatalf("fresh sync: %v %s", err, w)
 				}
-				if _, w, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+				if _, w, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
 					t.Fatalf("check: %v %s", err, w)
 				}
 			} else {
@@ -334,11 +334,11 @@ func TestImportVibe_NoncanonicalNativeNameRoundTripsFresh(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_VibeExcludedNativeAliasDoesNotCollide(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_VibeExcludedNativeAliasDoesNotCollide(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "mcps/docs_api.yaml"), "name: docs_api\ncommand: node\nx-vibe:\n  name: ignored\n")
 	writeFile(t, filepath.Join(source, "mcps/docs.api.yaml"), "name: docs.api\ncommand: node\ntarget-exclude: vibe\n")
-	if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("excluded alias: %v %s", err, w)
 	}
 	path := filepath.Join(home, ".vibe/config.toml")
@@ -357,7 +357,7 @@ func TestSyncGlobal_VibeExcludedNativeAliasDoesNotCollide(t *testing.T) {
 func TestImportVibe_InvalidNativeMCPNameRejectsBeforeSources(t *testing.T) {
 	for _, name := range []string{"---", "../docs", "bad\\name"} {
 		t.Run(name, func(t *testing.T) {
-			globalAgentTestHome(t)
+			userAgentTestHome(t)
 			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")
 			writeFile(t, ".vibe/config.toml", fmt.Sprintf("[[mcp_servers]]\nname=%q\ncommand='node'\n", name))
 			cmd := NewRootCmd("test")
