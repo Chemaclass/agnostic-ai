@@ -107,14 +107,13 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) 
 		if err != nil {
 			return alive, err
 		}
-		started := map[int]string{}
+		started := map[int]ProcessInfo{}
 		for _, process := range table {
-			started[process.PID] = process.Started
+			started[process.PID] = process
 		}
 		for _, process := range processes {
-			start, runs := started[process.PID]
-			// A process of another account may hide its start; it still runs.
-			if runs && process.PID > 0 && (process.ProcStart == "" || start == "" || start == strings.TrimSpace(process.ProcStart)) {
+			listed, runs := started[process.PID]
+			if runs && process.PID > 0 && (process.ProcStart == "" || hidesClaudeStart(listed) || listed.Started == strings.TrimSpace(process.ProcStart)) {
 				alive[process.PID] = true
 			}
 		}

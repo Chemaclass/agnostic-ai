@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -160,9 +162,12 @@ func TestWindowsProcStart_ReadsAFileTimeInProcStart(t *testing.T) {
 
 func TestSystemProcesses_OnWindowsAProcessThatHidesItsStartRuns(t *testing.T) {
 	defer func(saved nativeReader) { nativeProcesses = saved }(nativeProcesses)
-	nativeProcesses = fakeNative{table: []ProcessInfo{{PID: 7, Command: "claude"}}}
+	nativeProcesses = fakeNative{table: []ProcessInfo{{PID: 7, Command: "claude"}, {PID: 8, Command: "svchost"}}}
 
-	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: 7, ProcStart: startFiletimeText}}); err != nil || !alive[7] {
+	alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: 7, ProcStart: startFiletimeText}, {PID: 8, ProcStart: startFiletimeText}})
+	// A service that hides its start and took a crashed session's pid
+	// does not hold the session open.
+	if err != nil || !alive[7] || alive[8] {
 		t.Errorf("alive %v err %v", alive, err)
 	}
 }
@@ -205,7 +210,27 @@ func TestFocusTerminal_OnWindowsACodexThreadGetsTheSameReply(t *testing.T) {
 
 	reply := focusTerminal(context.Background(), c, fakeProcesses{alive: map[int]bool{42: true}}, windowsLauncher{})
 
-	if !strings.HasPrefix(reply.Message, "It is open in another window (process 42)") {
+	// Windows cannot tell a thread Codex's background service keeps from
+	// one a terminal runs, so no resume command is offered.
+	if !strings.HasPrefix(reply.Message, "It is open in another window (process 42)") || reply.Command != "" {
 		t.Errorf("reply %+v", reply)
+	}
+}
+
+func TestNativeHoldersUnder_FollowsALinkedFolderAndNamesFilesUnderIt(t *testing.T) {
+	defer func(saved nativeReader) { nativeProcesses = saved }(nativeProcesses)
+	nativeProcesses = fakeNative{}
+	target, link := t.TempDir(), filepath.Join(t.TempDir(), "locks")
+	if err := os.WriteFile(filepath.Join(target, "a.lock"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Skip("cannot make a link here")
+	}
+
+	held, err := nativeHoldersUnder(link)
+
+	if err != nil || held[filepath.Join(link, "a.lock")] != 7 || len(held) != 1 {
+		t.Errorf("held %v err %v", held, err)
 	}
 }

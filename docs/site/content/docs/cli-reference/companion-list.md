@@ -368,7 +368,7 @@ Remove a chat from this computer for good.
 | Claude Code, on this computer | Yes |
 | Codex | No. Close it, then run `codex delete <id>`. |
 | Cursor editor chat, cloud session | No. Delete it where it lives. |
-| `cursor-agent`, any chat on Windows | Not yet. |
+| `cursor-agent` | Not yet. |
 
 A chat that cannot be deleted says why when you choose the item.
 

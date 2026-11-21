@@ -96,21 +96,13 @@ func nativeAppRunning(table []ProcessInfo, name string) bool {
 }
 
 // nativeHoldersUnder is HoldersUnder through the native reader: every
-// file under dir, named under dir as given when dir is a link.
+// file under dir, named under dir as given.
 func nativeHoldersUnder(dir string) (map[string]int, error) {
-	resolved, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		return map[string]int{}, err
-	}
-	named := map[string]string{}
+	// The trailing separator makes the walk enter dir when it is a link
+	// or a junction, which EvalSymlinks does not resolve.
 	var files []string
-	err = filepath.WalkDir(resolved, func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(filepath.Clean(dir)+string(filepath.Separator), func(path string, entry fs.DirEntry, err error) error {
 		if err == nil && entry.Type().IsRegular() {
-			rel, relErr := filepath.Rel(resolved, path)
-			if relErr != nil {
-				return relErr
-			}
-			named[path] = filepath.Join(dir, rel)
 			files = append(files, path)
 		}
 		return err
@@ -118,12 +110,15 @@ func nativeHoldersUnder(dir string) (map[string]int, error) {
 	if err != nil {
 		return map[string]int{}, err
 	}
-	held, err := nativeProcesses.holders(files)
-	under := make(map[string]int, len(held))
-	for path, pid := range held {
-		under[named[path]] = pid
-	}
-	return under, err
+	return nativeProcesses.holders(files)
+}
+
+// hidesClaudeStart reports whether process is a Claude Code runtime whose
+// start this user may not read, as for a process of another account. It
+// counts as the process a session file names; any other program on that
+// pid, such as a service that took a crashed session's pid, does not.
+func hidesClaudeStart(process ProcessInfo) bool {
+	return process.Started == "" && (process.Command == "claude" || process.Command == "node")
 }
 
 // commandName is the program a command line runs: the base name of its

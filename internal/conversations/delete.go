@@ -320,9 +320,9 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 	if err != nil {
 		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
 	}
-	started := map[int]string{}
+	started := map[int]ProcessInfo{}
 	for _, process := range table {
-		started[process.PID] = process.Started
+		started[process.PID] = process
 	}
 	live := false
 	entries, unreadable, err := s.claudeLiveEntries()
@@ -335,8 +335,8 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
 	}
 	for _, entry := range entries {
-		start, runs := started[entry.PID]
-		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || start == "" || start == strings.TrimSpace(entry.ProcStart)) {
+		process, runs := started[entry.PID]
+		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || hidesClaudeStart(process) || process.Started == strings.TrimSpace(entry.ProcStart)) {
 			live = true
 		}
 	}

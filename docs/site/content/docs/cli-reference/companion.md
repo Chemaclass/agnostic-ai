@@ -139,7 +139,7 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | `winget install SQLite.SQLite` puts `sqlite3` on `PATH` | Pass: SQLite 3.54.1 |
 | A click on an ended chat resumes it in a new PowerShell window, in the chat's folder | Pass |
 | A running Claude Code chat (`claude.exe` 2.1.330) and Codex thread (0.171.0) show as open, and a click starts no second copy | Pass |
-| Once ended, each shows as closed, and the Claude Code chat resumes | Pass |
+| Once ended, each shows as closed, and a click starts its resume command in a new PowerShell window | Pass |
 | A running chat cannot be deleted; an archived ended chat can | Pass |
 | A `codex://` link opens the app registered for it | Pass, with a stand-in app |
 | The Claude Code cloud sign-in is read from `~/.claude/.credentials.json` | Pass with a fake token: the API refused it, as it should |
@@ -148,7 +148,7 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | `companion uninstall` leaves no process, `Run` value, program or companion folder | Pass |
 
 {% <details summary="Details: what did not run on Windows"> %}
-- Not run: Windows 11 or any desktop a person uses; a standard (not administrator) account; **Start at login** across a real login; a new shortcut; more than one screen; Cursor chats; a real Claude Code or Codex sign-in; a cloud session opened in the browser.
+- Not run: Windows 11 or any desktop a person uses; a standard (not administrator) account; **Start at login** across a real login; a new shortcut; more than one screen; Cursor chats; working and waiting states; a real Claude Code or Codex sign-in; a cloud session opened in the browser.
 - `agnostic-ai serve`, which the companion starts, has a console window of its own, hidden.
 - A chat that still runs in a terminal shows as open, but the server cannot bring its window forward on Windows.
 {% </details> %}

@@ -410,8 +410,14 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	}
 	placed := c.placed
 	// Windows places no process in a terminal, and no window comes forward.
+	// Nor can it tell a thread Codex's background service keeps, which no
+	// resume command may compete with.
 	if placed == nil && shellSystem == "windows" {
-		return resumeElsewhere(fmt.Sprintf("It is open in another window (process %d), and agnostic-ai cannot bring a window forward on Windows. Switch to it there.", c.process.PID), c.Open.Command)
+		resume := c.Open.Command
+		if c.Tool == ToolCodex {
+			resume = ""
+		}
+		return resumeElsewhere(fmt.Sprintf("It is open in another window (process %d), and agnostic-ai cannot bring a window forward on Windows. Switch to it there.", c.process.PID), resume)
 	}
 	// A thread the Codex daemon holds is live even with no client in
 	// front of it, so the reply never offers to resume it again.

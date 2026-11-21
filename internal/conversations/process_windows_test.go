@@ -73,3 +73,25 @@ func TestWindowsProcesses_NameTheProcessThatHoldsAFile(t *testing.T) {
 		t.Errorf("under %v err %v", under, err)
 	}
 }
+
+func TestWindowsProcesses_FindAHeldFileUnderAJunction(t *testing.T) {
+	target := t.TempDir()
+	junction := filepath.Join(t.TempDir(), "locks")
+	if out, err := exec.Command("cmd.exe", "/c", "mklink", "/J", junction, target).CombinedOutput(); err != nil {
+		t.Fatalf("mklink: %v %s", err, out)
+	}
+	held := filepath.Join(junction, "held.lock")
+	if err := os.WriteFile(held, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(held)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+
+	under, err := SystemProcesses{}.HoldersUnder(junction)
+	if err != nil || under[held] != os.Getpid() {
+		t.Errorf("under %v err %v; want %s held by %d", under, err, held, os.Getpid())
+	}
+}
