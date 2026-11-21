@@ -21,7 +21,7 @@ Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for a
 
 ## Source and targets
 
-The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --scope user` runs from any directory; `--scope user` is its older spelling, still accepted with a deprecation warning on stderr. It loads no packs or project specs. [Global output](@/docs/global-configuration-reference.md#global-output) lists the paths it writes.
+The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --scope user` runs from any directory; `--global` is its older spelling: still accepted, with a deprecation warning on stderr, and the only one releases up to v0.96.0 take. It loads no packs or project specs. [Global output](@/docs/global-configuration-reference.md#global-output) lists the paths it writes.
 
 ```text
 ~/.agnostic-ai/
@@ -76,7 +76,7 @@ Global specs never merge with project specs. When both exist, each tool decides 
 - `list --scope user` shows the specs in effect with their `builtin`, `global`, or `global-local` layer.
 - `validate --scope user` and `lint --scope user` check before a sync writes. `migrate --scope user` rewrites old spec forms.
 - The [CLI reference](@/docs/cli-reference/sync.md#sync) lists the accepted `sync` flags.
-- Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and point you to the `--scope user` form. Read-only commands such as `lint`, `validate`, and `doctor` still run.
+- Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and name the user-level command to run instead. Read-only commands such as `lint`, `validate`, and `doctor` still run.
 - Keep the home in its own Git repository and push it to a remote to back it up.
 - For a home kept in Git, `install-hook --scope user` writes a pre-commit hook that runs `lint --scope user --strict`, `validate --scope user`, and `sync --scope user --check`.
 

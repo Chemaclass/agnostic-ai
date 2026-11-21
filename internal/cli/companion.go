@@ -330,7 +330,7 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 		Long: "Starts the companion: a small circle that floats over every app and counts the " +
 			"Claude Code, Codex and Cursor conversations that wait for you, with a searchable " +
 			"list that opens each one where it lives. It asks a server of its own, " +
-			"`agnostic-ai serve --scope user`, which it starts when it needs a list and stops when " +
+			"a user-level `agnostic-ai serve`, which it starts when it needs a list and stops when " +
 			"it quits. Install it first with " +
 			"`agnostic-ai companion install`. Starting it again brings back a hidden companion. " +
 			"`agnostic-ai companion stop` ends it and `agnostic-ai companion uninstall` removes it.",
