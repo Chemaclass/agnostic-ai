@@ -219,3 +219,27 @@ func TestQueue_PutsAStagedMessageBackForDelivery(t *testing.T) {
 	}
 	requireGuard(t, s.Queue(ctx, first.Thread, first.N), "paused")
 }
+
+func TestApprove_AHeldOrRejectedHandoffCannotBeAnswered(t *testing.T) {
+	ctx := t.Context()
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(ctx, claude, Gives{root, []string{"scope"}}, root); err != nil {
+		t.Fatal(err)
+	}
+	gives := Gives{root, []string{"scope/a.go"}}
+	held, err := s.SendFromAgent(ctx, claude, SendRequest{To: codex, Type: Handoff, Body: "Take it.", Gives: &gives}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{"accept", "decline"} {
+		requireGuard(t, s.AnswerHandoff(ctx, held.Thread, held.N, action), "format")
+	}
+	if err := s.Approve(ctx, held.Thread, held.N, "reject"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.AnswerHandoff(ctx, held.Thread, held.N, "decline"), "rejected")
+	if got := onlyThread(t, s).Messages[0].Handoff; got != Offered {
+		t.Errorf("handoff answer = %q", got)
+	}
+}

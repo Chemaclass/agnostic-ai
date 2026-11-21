@@ -1778,6 +1778,8 @@ const settings = {
   items: undefined,
   /** Each row's control by its id in menu.json. */
   controls: new Map(),
+  /** Each row's placed element by its id, to hide a row whose value could not be read. */
+  rows: new Map(),
   /** What the shell last said: {shortcut, shortcutProblem?, startAtLogin, startAtLoginProblem?}. */
   preferences: undefined,
   /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}. */
@@ -1788,6 +1790,12 @@ const settings = {
   recording: undefined,
   /** Why the last change was refused; shown until the next change. */
   refusal: undefined,
+}
+
+/** A setting the server keeps, such as mailbox approval, hides its row when it cannot be read. */
+function unreadSetting(error) {
+  if (!(error instanceof CallError)) throw error
+  return undefined
 }
 
 /** Saves one setting and shows what the shell now holds, or why it refused. */
@@ -1854,6 +1862,7 @@ function buildMenu(rows) {
     if (row.hint) control.title = row.hint
     control.addEventListener('click', act)
     settings.controls.set(row.id, control)
+    settings.rows.set(row.id, placed)
     // The problem line sits between the settings and the actions.
     if (row.kind === 'action') menu.append(placed)
     else menu.insertBefore(placed, menuProblem)
@@ -1863,6 +1872,8 @@ function buildMenu(rows) {
 function drawSettings() {
   for (const row of menuRowsOf(settings.items, settings, isMac)) {
     const control = settings.controls.get(row.id)
+    settings.rows.get(row.id).hidden = Boolean(row.unavailable)
+    if (row.unavailable) continue
     if (row.kind === 'action') control.textContent = row.label
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
     if (row.kind !== 'shortcut') continue
@@ -1889,7 +1900,7 @@ function closeMenu() {
 /** Opens the menu with the values in effect; `focus` names the row to focus. */
 async function openMenu(focus) {
   try {
-    const [items, preferences, appearance, mailbox] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readMailboxSettings()])
+    const [items, preferences, appearance, mailbox] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readMailboxSettings().catch(unreadSetting)])
     if (!settings.items) {
       settings.items = items
       buildMenu(menuRowsOf(items, { preferences, appearance, mailbox }, isMac))

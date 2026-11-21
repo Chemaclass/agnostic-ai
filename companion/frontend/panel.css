@@ -1185,7 +1185,8 @@ body {
   animation: menu-in 160ms var(--ease-out);
 }
 
-.menu[hidden] {
+.menu[hidden],
+.menu-row[hidden] {
   display: none;
 }
 

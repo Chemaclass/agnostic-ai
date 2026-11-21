@@ -57,3 +57,9 @@ test('a switch with no value in either reply is refused', () => {
 test('an unknown kind is refused', () => {
   assert.throws(() => menuRowsOf([{ id: 'animate', label: 'Animate', kind: 'slider' }], { preferences, appearance }), /unknown kind slider/)
 })
+
+test('a page setting the server could not answer is left out, not refused', () => {
+  const rows = menuRowsOf(items, { preferences, appearance, mailbox: undefined })
+  assert.equal(rows.find((row) => row.id === 'approveAgentSends').unavailable, true)
+  assert.equal(rows.filter((row) => row.unavailable).length, 1)
+})

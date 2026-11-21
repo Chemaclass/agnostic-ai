@@ -321,6 +321,14 @@ test('the approval switch saves the mailbox setting and starts on', async ({ pag
   expect((await (await page.request.get('/api/mailbox/settings')).json()).approveAgentSends).toBe(false)
 })
 
+test('the menu still opens when the mailbox setting cannot be read, without its switch', async ({ page }) => {
+  await page.route('**/api/mailbox/settings', (route) => route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"The server is restarting."}' }))
+  await openPanel(page)
+  await openSettings(page)
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Start at login' })).toBeVisible()
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Ask me before an agent sends a message' })).toBeHidden()
+})
+
 test('switching Small companion in the menu saves it', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)

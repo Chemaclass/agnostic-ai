@@ -162,7 +162,8 @@ test('labels message states and offers approve, reject and queue only where they
   assert.deepEqual(messageActionsOf({ state: 'waiting' }, { status: 'paused' }), [])
   assert.deepEqual(messageActionsOf({ state: 'staged' }, open), ['queue'])
   assert.deepEqual(messageActionsOf({ state: 'staged' }, { status: 'closed' }), [])
-  for (const state of ['delivered', 'rejected', 'reserved', 'cancelled']) assert.deepEqual(messageActionsOf({ state }, open), [])
+  assert.deepEqual(messageActionsOf({ state: 'reserved' }, open), ['type', 'copy'])
+  for (const state of ['delivered', 'rejected', 'cancelled']) assert.deepEqual(messageActionsOf({ state }, open), [])
 })
 
 test('offers Delete only on a chat under Archived that no process holds', () => {

@@ -325,3 +325,21 @@ func TestDeliver_MissingEmptyCorruptAndBusyMailboxes(t *testing.T) {
 		t.Errorf("reserve waited %s for the lock", waited)
 	}
 }
+
+func TestDeliver_AnExpiredReservationCanStillBeStagedByHand(t *testing.T) {
+	ctx := t.Context()
+	s := Store{Dir: t.TempDir()}
+	first := sendQuestion(t, s, "")
+	reserve(t, s)
+	requireGuard(t, s.ConfirmStage(ctx, first.Thread, first.N, "copy"), "format")
+	editThread(t, s, first.Thread, func(th *Thread) {
+		old := th.Messages[0].ReservedAt.Add(-reservationAge - time.Second)
+		th.Messages[0].ReservedAt = &old
+	})
+	if err := s.ConfirmStage(ctx, first.Thread, first.N, "copy"); err != nil {
+		t.Fatal(err)
+	}
+	if m := onlyThread(t, s).Messages[0]; m.State != Staged || m.ReservedAt != nil {
+		t.Errorf("staged message = %+v", m)
+	}
+}

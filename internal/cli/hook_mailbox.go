@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	mailboxHookTimeout  = 2 * time.Second
-	mailboxHookMaxInput = 64 << 10
+	mailboxHookTimeout = 2 * time.Second
+	// mailboxReserveTimeout leaves the rest of the time limit to save the result.
+	mailboxReserveTimeout = mailboxHookTimeout - mailbox.DeliveryLockWait
+	mailboxHookMaxInput   = 64 << 10
 )
 
 type mailboxHookInput struct {
@@ -60,14 +62,21 @@ func newHookMailboxCmd() *cobra.Command {
 // deliverMailbox prints from this goroutine only, so a reservation that
 // finishes after the time limit can never print late.
 func deliverMailbox(ctx context.Context, target string, in io.Reader, out io.Writer) {
-	ctx, cancel := context.WithTimeout(ctx, mailboxHookTimeout)
-	defer cancel()
+	settle, cancelSettle := context.WithTimeout(context.WithoutCancel(ctx), mailboxHookTimeout)
+	defer cancelSettle()
+	reserving, cancelReserve := context.WithTimeout(ctx, mailboxReserveTimeout)
+	defer cancelReserve()
 	reserved := make(chan mailboxReservation, 1)
-	go func() { reserved <- reserveMailbox(ctx, target, in) }()
+	go func() { reserved <- reserveMailbox(reserving, target, in) }()
 	var r mailboxReservation
 	select {
 	case r = <-reserved:
-	case <-ctx.Done():
+	case <-reserving.Done():
+		select {
+		case late := <-reserved:
+			_ = late.store.PutBack(settle, late.delivery)
+		default:
+		}
 		return
 	}
 	if r.delivery.Block == "" {
@@ -82,10 +91,10 @@ func deliverMailbox(ctx context.Context, target string, in io.Reader, out io.Wri
 		}
 	}
 	if err != nil {
-		_ = r.store.PutBack(ctx, r.delivery)
+		_ = r.store.PutBack(settle, r.delivery)
 		return
 	}
-	_ = r.store.Confirm(ctx, r.delivery)
+	_ = r.store.Confirm(settle, r.delivery)
 }
 
 func reserveMailbox(ctx context.Context, target string, in io.Reader) mailboxReservation {

@@ -614,6 +614,7 @@ export function messageActionsOf({ state }, { status }) {
     case 'held':
       return ['approve', 'reject']
     case 'waiting':
+    case 'reserved':
       return status === 'paused' ? [] : ['type', 'copy']
     case 'staged':
       return status === 'open' || status === 'closing' ? ['queue'] : []
@@ -1044,6 +1045,7 @@ export function menuRowsOf(items, { preferences, appearance, mailbox }, isMac = 
   return items.map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
+    if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
     if (item.kind === 'switch') {
       if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
       value = values[item.id]

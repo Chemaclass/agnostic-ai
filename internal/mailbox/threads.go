@@ -309,6 +309,7 @@ func (t Thread) stageFor(m *Message) (Stage, error) {
 
 func (t *Thread) markStaged(m *Message, how string) {
 	m.State = Staged
+	m.ReservedAt = nil
 	t.settle()
 	t.addEvent(time.Now().UTC(), how, m.N)
 }
@@ -327,7 +328,7 @@ func (t Thread) canStage(m *Message) *Refusal {
 	case Closed:
 		return NewRefusal("closed")
 	}
-	if m.State != Waiting {
+	if !m.deliverable(time.Now().UTC()) {
 		return &Refusal{"format", "That message is no longer waiting.", "Refresh the thread and choose a waiting message."}
 	}
 	return nil
