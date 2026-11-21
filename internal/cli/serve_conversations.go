@@ -31,7 +31,11 @@ const (
 
 // conversationPaths are the endpoints conversationsHandler serves. The
 // mux mounts each one and serializeAPI leaves each out of its lock.
-var conversationPaths = []string{conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath, conversationDeletePath, conversationSendPath, conversationStopShellPath, conversationStopSessionPath}
+var conversationPaths = []string{
+	conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath,
+	conversationDeletePath, conversationSendPath, conversationStopShellPath, conversationStopSessionPath,
+	mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath,
+}
 
 // maxConversationOpenBytes bounds an open request: a tool, an id, an editor and a helper.
 const maxConversationOpenBytes = 4 << 10
@@ -161,6 +165,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.stopShell(w, r)
 	case conversationStopSessionPath:
 		h.stopSession(w, r)
+	case mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath:
+		h.serveMailbox(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -197,6 +203,11 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	if h.approvals != nil {
 		tagged += "\x00" + h.approvals.stamp(r.URL.RawQuery)
 	}
+	store, hasMailbox := h.mailboxStore()
+	hasMailbox = hasMailbox && mailboxOriginStatus(r) == 0
+	if hasMailbox {
+		tagged += "\x00mailbox\x00" + store.Stamp()
+	}
 	tag := listTag(tagged, r)
 	w.Header().Set("ETag", tag)
 	if r.Header.Get("If-None-Match") == tag {
@@ -213,6 +224,9 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 			folder = opts.Within[0]
 		}
 		h.approvals.decorate(&view, folder, r.URL.RawQuery)
+	}
+	if hasMailbox {
+		h.addMailboxSummaries(r.Context(), store, &view, opts)
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }

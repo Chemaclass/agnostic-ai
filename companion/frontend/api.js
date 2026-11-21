@@ -22,7 +22,11 @@ async function answered(path, options) {
     if (options?.signal?.aborted) throw new GivenUp()
     throw new CallError('The companion could not reach its own shell.', { cause })
   }
-  if (!response.ok) throw new CallError(body.error)
+  if (!response.ok) {
+    const error = new CallError(body.error)
+    if (body.guard) error.guard = body.guard
+    throw error
+  }
   return { body, version: response.headers.get('List-Version') || undefined }
 }
 
@@ -114,6 +118,15 @@ export const readClipboard = () => call('/api/clipboard')
  */
 export function sendClipboard(conversation, hash) {
   return post('/api/send', { tool: conversation.tool, id: conversation.id, hash })
+}
+
+export const sendMessage = (message) => change('/api/mailbox/send', message)
+export function readThreads({ tool, id }, signal) {
+  return call('/api/mailbox/threads?' + new URLSearchParams({ tool, id }), { signal })
+}
+export const changeThread = (thread, action) => change('/api/mailbox/thread', { thread, action })
+export function stageMessage(thread, n, how, { confirm } = {}) {
+  return change('/api/mailbox/stage', { thread, n, how, ...(confirm ? { confirm } : {}) })
 }
 
 export const togglePanel = () => post('/api/panel/toggle')

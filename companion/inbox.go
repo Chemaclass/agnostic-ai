@@ -6,8 +6,10 @@ import (
 	"errors"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,13 +30,17 @@ const maxRequestBytes = 4 << 10
 
 // The server's endpoints the companion uses.
 const (
-	serverListPath        = "/api/views/conversations"
-	serverOpenPath        = "/api/conversations/open"
-	serverMarkPath        = "/api/conversations/mark"
-	serverRenamePath      = "/api/conversations/rename"
-	serverDeletePath      = "/api/conversations/delete"
-	serverStopShellPath   = "/api/conversations/stop-shell"
-	serverStopSessionPath = "/api/conversations/stop-session"
+	serverListPath           = "/api/views/conversations"
+	serverOpenPath           = "/api/conversations/open"
+	serverMarkPath           = "/api/conversations/mark"
+	serverRenamePath         = "/api/conversations/rename"
+	serverDeletePath         = "/api/conversations/delete"
+	serverStopShellPath      = "/api/conversations/stop-shell"
+	serverStopSessionPath    = "/api/conversations/stop-session"
+	serverMailboxSendPath    = "/api/mailbox/send"
+	serverMailboxThreadsPath = "/api/mailbox/threads"
+	serverMailboxThreadPath  = "/api/mailbox/thread"
+	serverMailboxStagePath   = "/api/mailbox/stage"
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"
@@ -291,7 +297,22 @@ type stillOpening struct {
 // but the last, it leaves that list to the poll loop.
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
+		switch path {
+		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath:
+			if !mailboxPageAllowed(w, r) {
+				return
+			}
+			if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mediaType != "application/json" {
+				writeJSON(w, http.StatusUnsupportedMediaType, apiError{Error: "Send Content-Type: application/json."})
+				return
+			}
+		}
+		limit := int64(maxRequestBytes)
+		if path == serverMailboxSendPath {
+			// Let the server answer with the mailbox size guard.
+			limit = 1 << 20
+		}
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: "the request is larger than the companion sends"})
 			return
@@ -300,9 +321,14 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 			in.passOpen(w, r, body)
 			return
 		}
-		answer, err := in.server.callWithin(r.Context(), in.server.callWait, http.MethodPost, path, body, "")
+		wait := in.server.callWait
+		if path == serverMailboxStagePath {
+			wait = in.server.sendWait
+		}
+		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
 		switch {
 		case err != nil || answer.status >= 300:
+		case path == serverMailboxStagePath && !mailboxDidStage(answer.body):
 		case r.URL.Query().Get("read") == "later":
 			in.refreshSoon()
 		case in.readAfterChange(r.Context()):
@@ -312,6 +338,36 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 		}
 		in.answer(w, answer, err)
 	}
+}
+
+func mailboxDidStage(body []byte) bool {
+	var result struct {
+		Staged bool `json:"staged"`
+	}
+	return json.Unmarshal(body, &result) == nil && result.Staged
+}
+
+func (in *inbox) mailboxThreads(w http.ResponseWriter, r *http.Request) {
+	if !mailboxPageAllowed(w, r) {
+		return
+	}
+	query := r.URL.Query()
+	path := serverMailboxThreadsPath + "?" + url.Values{
+		"tool": {query.Get("tool")},
+		"id":   {query.Get("id")},
+	}.Encode()
+	answer, err := in.server.get(r.Context(), path, "")
+	in.answer(w, answer, err)
+}
+
+func mailboxPageAllowed(w http.ResponseWriter, r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	samePage := origin == "" || origin == "null" || origin == "wails://"+r.Host || origin == "http://"+r.Host
+	if !samePage || strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
+		writeJSON(w, http.StatusForbidden, apiError{Error: "The mailbox is available from the companion page only."})
+		return false
+	}
+	return true
 }
 
 // readAfterChange reads the list a change made, for up to changeWait,

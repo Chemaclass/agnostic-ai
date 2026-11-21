@@ -74,7 +74,7 @@ func CleanSendText(text string) string {
 // tab. Anywhere else it switches to the conversation and leaves the
 // paste to the person, since the clipboard still holds the text.
 func Send(ctx context.Context, c Conversation, text string, processes Processes, launcher Launcher) SendReply {
-	return send(ctx, c, text, false, processes, launcher)
+	return send(ctx, c, text, copiedText, processes, launcher)
 }
 
 // SendMarkdown sends Markdown made from copied HTML, as Send does, and
@@ -82,69 +82,111 @@ func Send(ctx context.Context, c Conversation, text string, processes Processes,
 // holds the Markdown once the tab is found. A plain send never changes
 // the clipboard.
 func SendMarkdown(ctx context.Context, c Conversation, markdown string, processes Processes, launcher Launcher) SendReply {
-	return send(ctx, c, markdown, true, processes, launcher)
+	return send(ctx, c, markdown, markdownText, processes, launcher)
 }
 
-func send(ctx context.Context, c Conversation, text string, markdown bool, processes Processes, launcher Launcher) SendReply {
+// SendComposed types text written in the companion into a live session.
+func SendComposed(ctx context.Context, c Conversation, text string, processes Processes, launcher Launcher) SendReply {
+	return send(ctx, c, text, composedText, processes, launcher)
+}
+
+type sendSource uint8
+
+const (
+	copiedText sendSource = iota
+	markdownText
+	composedText
+)
+
+func send(ctx context.Context, c Conversation, text string, source sendSource, processes Processes, launcher Launcher) SendReply {
+	const copyTip = " Use Copy message to paste it yourself."
+	composed := source == composedText
+	hand := func(why string) SendReply {
+		if composed {
+			return SendReply{Message: firstNonEmpty(why, "This session cannot receive typed text.") + copyTip}
+		}
+		return pasteByHand(ctx, c, processes, launcher, why)
+	}
 	if len(text) > MaxSendBytes {
 		return SendReply{Message: fmt.Sprintf("The text is %s, over the %s a send takes, so nothing was typed.", sizeOf(len(text)), sizeOf(MaxSendBytes))}
 	}
 	copied := text
 	text = CleanSendText(text)
 	if strings.TrimSpace(text) == "" {
+		if composed {
+			return SendReply{Message: "The message is empty."}
+		}
 		return SendReply{Message: "Nothing to send: copy some text first."}
 	}
+	resumeTip := " Open it to resume it, then paste with Cmd+V."
+	if composed {
+		resumeTip = copyTip
+	}
 	if c.App == AppCloud || c.Tool == ToolChatGPT || c.Open.Kind == RouteLink {
-		return pasteByHand(ctx, c, processes, launcher, "")
+		return hand("")
 	}
 	if c.Open.Kind == RouteTerminal {
 		held, ok := heldNow(c, processes)
 		if !ok {
-			return SendReply{Message: "It is not running, so nothing was typed. Open it to resume it, then paste with Cmd+V."}
+			return SendReply{Message: "It is not running, so nothing was typed." + resumeTip}
 		}
 		c = held
 	}
 	if c.Open.Kind != RouteFocus {
-		return pasteByHand(ctx, c, processes, launcher, "")
+		return hand("")
 	}
 	if c.process == nil || !processes.Alive(c.process.PID, c.process.ProcStart) {
-		return SendReply{Message: "It ended since the list was read, so nothing was typed. Open it to resume it, then paste with Cmd+V."}
+		return SendReply{Message: "It ended since the list was read, so nothing was typed." + resumeTip}
 	}
 	placed := c.placed
 	if placed == nil || placed.claudeBackground || len(placed.ttys) > 0 || !tabApps[placed.host.App] || placed.host.TTY == "" {
-		return pasteByHand(ctx, c, processes, launcher, "")
+		return hand("")
 	}
 	// The client was matched by its command line or first thread, and may have switched thread since.
 	if placed.process.PID != c.process.PID {
-		return pasteByHand(ctx, c, processes, launcher, fmt.Sprintf("It shows in a %s terminal that may show another thread now, so nothing was typed.", toolLabels[c.Tool]))
+		return hand(fmt.Sprintf("It shows in a %s terminal that may show another thread now, so nothing was typed.", toolLabels[c.Tool]))
 	}
 	if !typedInto[c.Tool] {
-		return pasteByHand(ctx, c, processes, launcher, toolLabels[c.Tool]+" does not say when it waits for an answer, so nothing was typed.")
+		return hand(toolLabels[c.Tool] + " does not say when it waits for an answer, so nothing was typed.")
 	}
 	if waiting(c) {
-		return pasteByHand(ctx, c, processes, launcher, "It waits for your answer, and typed text could answer its question, so nothing was typed.")
+		return hand("It waits for your answer, and typed text could answer its question, so nothing was typed.")
 	}
 	if working(c) && !queuesTypedInput[c.Tool] {
-		return pasteByHand(ctx, c, processes, launcher, toolLabels[c.Tool]+" is working and may drop typed text, so nothing was typed.")
+		return hand(toolLabels[c.Tool] + " is working and may drop typed text, so nothing was typed.")
 	}
 	if !working(c) && c.Activity != idleActivity[c.Tool] {
-		return pasteByHand(ctx, c, processes, launcher, "It does not say whether it is ready for text, so nothing was typed.")
+		return hand("It does not say whether it is ready for text, so nothing was typed.")
 	}
 	app, tty := placed.host.App, placed.host.TTY
 	if !holdsTerminal(processes, placed.process, tty) {
-		return SendReply{Message: fmt.Sprintf("Its terminal on %s does not show it right now, so nothing was typed. Switch to it, then paste with Cmd+V.", shortTTY(tty))}
+		next := " Switch to it, then paste with Cmd+V."
+		if composed {
+			next = copyTip
+		}
+		return SendReply{Message: fmt.Sprintf("Its terminal on %s does not show it right now, so nothing was typed.", shortTTY(tty)) + next}
 	}
-	setsClipboard := markdown && app == "Terminal"
-	if app == "Terminal" && !markdown && copied != text {
-		return pasteByHand(ctx, c, processes, launcher, "The copied text ends in white space or holds characters a send drops, and Terminal would paste them, so nothing was pasted.")
+	setsClipboard := source != copiedText && app == "Terminal"
+	if app == "Terminal" && source == copiedText && copied != text {
+		return hand("The copied text ends in white space or holds characters a send drops, and Terminal would paste them, so nothing was pasted.")
 	}
 	ok, err := launcher.TypeInTab(ctx, app, tty, text, setsClipboard)
 	byHand := " The text is on the clipboard: paste it with Cmd+V."
+	if composed {
+		byHand = copyTip
+	}
 	pasteSet, maybeSet, unknownSet := byHand, "", byHand
 	if setsClipboard {
-		pasteSet = " The clipboard now holds the Markdown: paste it with Cmd+V."
-		maybeSet = " The clipboard may now hold the Markdown."
-		unknownSet = " The clipboard may now hold the Markdown: paste it with Cmd+V."
+		label := "the Markdown"
+		if composed {
+			label = "the message"
+		}
+		pasteSet = " The clipboard now holds " + label + ": paste it with Cmd+V."
+		maybeSet = " The clipboard may now hold " + label + "."
+		unknownSet = " The clipboard may now hold " + label + ": paste it with Cmd+V."
+		if composed {
+			unknownSet = maybeSet + copyTip
+		}
 	}
 	switch {
 	case errors.Is(err, errAutomationDenied):
@@ -167,11 +209,14 @@ func send(ctx context.Context, c Conversation, text string, markdown bool, proce
 		verb = "Pasted"
 	}
 	what, clipboard := "", ""
-	if markdown {
+	if source == markdownText {
 		what = " the Markdown"
 		if app == "Terminal" {
 			clipboard = " The clipboard now holds the Markdown."
 		}
+	}
+	if composed && setsClipboard {
+		clipboard = " The clipboard now holds the message."
 	}
 	return SendReply{Sent: true, Message: fmt.Sprintf("%s%s into the %s tab that runs it.%s Press Enter there to send it.", verb, what, app, clipboard)}
 }

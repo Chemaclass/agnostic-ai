@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"path/filepath"
 	"regexp"
@@ -279,5 +280,74 @@ func TestLinkOf_ReadsALinkLineOnlyInsideAWrapper(t *testing.T) {
 	}
 	if ref, _, ok := linkOf("<user_query>Continues claude:" + idSafari + "\nGo on</user_query>"); !ok || ref.ID != idSafari {
 		t.Errorf("ref %+v ok %v", ref, ok)
+	}
+}
+
+func TestScan_OmitsMailboxTextFromConversationPreviews(t *testing.T) {
+	const block = "<agnostic-ai-mailbox>\nMessages from other agent sessions.\n{\"body\":\"mailbox-only text\"}\n</agnostic-ai-mailbox>"
+	latest := "Add a test\n" + block + "\nfor the parser"
+	reply := block + "\nThe parser tests pass."
+	claudeID, codexID := idCache, idSafari
+	state := fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads": asJSON(t, []obj{{
+			"id": codexID, "cwd": "/tmp/app", "created_at_ms": 1794038400000,
+			"updated_at_ms": 1794042000000, "originator": "codex-tui", "source": "cli",
+			"title": block + "\nFix the parser", "first_user_message": block + "\nFix the parser",
+		}}),
+	})
+	scanner, stores := testScanner(t, func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if filepath.Base(path) == "state_5.sqlite" {
+			return state(ctx, path, query)
+		}
+		return RunSQLite(ctx, path, query)
+	}, fakeProcesses{})
+	write(t, filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", claudeID+".jsonl"), lines(
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-07T08:00:00.000Z",
+			"message": obj{"role": "user", "content": block + "\nFix the parser"}},
+		obj{"type": "user", "cwd": "/tmp/app", "entrypoint": "cli", "timestamp": "2026-11-07T08:01:00.000Z",
+			"message": obj{"role": "user", "content": latest}},
+		obj{"type": "last-prompt", "lastPrompt": latest},
+		obj{"type": "assistant", "timestamp": "2026-11-07T08:02:00.000Z",
+			"message": obj{"role": "assistant", "content": []obj{textPart(reply)}}},
+	))
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	codexHistory(t, filepath.Join(stores.CodexDir, "thread_history_1.sqlite"), [][5]string{
+		{codexID, "1", "0", "userMessage", asJSON(t, obj{"type": "userMessage", "content": []obj{{"type": "text", "text": latest}}})},
+		{codexID, "1", "1", "agentMessage", codexAgentItem(reply, "")},
+	})
+
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	for _, id := range []string{claudeID, codexID} {
+		row := byID(t, view, id)
+		if row.Title != "Fix the parser" || !slices.Equal(row.Opening, []string{"Fix the parser"}) {
+			t.Errorf("%s: title %q, opening %q", row.Tool, row.Title, row.Opening)
+		}
+		if row.Prompt != "Add a test for the parser" || row.Reply != "The parser tests pass." {
+			t.Errorf("%s: prompt %q, reply %q", row.Tool, row.Prompt, row.Reply)
+		}
+	}
+
+	shown := showTexts(texts{title: block, firstPrompt: block, lastPrompt: block, reply: block})
+	if shown.title != "" || len(shown.opening) != 0 || shown.prompt != "" || shown.reply != "" {
+		t.Errorf("a preview of just a mailbox block shows %+v", shown)
+	}
+}
+
+func TestAgentSaid_DropsMailboxTextAcrossBoundedReplySlices(t *testing.T) {
+	message := "<agnostic-ai-mailbox>\nMessages from other agent sessions.\n" + strings.Repeat("long mailbox body ", 300) +
+		"\n</agnostic-ai-mailbox>\nThe parser tests pass."
+	ends := replyEnds{Start: message[:replyCheckedBytes], Ending: message[len(message)-replyCheckedBytes:], Length: len(message)}
+	reply, question := ends.said("")
+	if reply != "The parser tests pass." || question != "" {
+		t.Errorf("reply = %q, question = %q", reply, question)
+	}
+}
+
+func TestShowTexts_PreservesLiteralUnpairedMailboxTags(t *testing.T) {
+	title := "Where is <agnostic-ai-mailbox> documented?"
+	reply := "The literal tag is </agnostic-ai-mailbox> in this example."
+	shown := showTexts(texts{title: title, reply: reply})
+	if shown.title != title || shown.reply != reply {
+		t.Errorf("title = %q, reply = %q", shown.title, shown.reply)
 	}
 }
