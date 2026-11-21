@@ -265,11 +265,16 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 // buildCompanion builds the companion into build.into and returns the program.
 func buildCompanion(ctx context.Context, out io.Writer, live bool, tools companionTools, build companionBuild) (string, error) {
 	_, _ = fmt.Fprintf(out, "Building the companion for agnostic-ai %s on this machine.\n", build.version)
+	var missing []companionNeed
 	for _, need := range companionNeeds[build.goos] {
 		if !tools.succeeds(ctx, need.check[0], need.check[1:]...) {
-			return "", fmt.Errorf("the companion needs %s to build. %s, then run this again", need.what, need.fix)
+			missing = append(missing, need)
+			continue
 		}
 		_, _ = fmt.Fprintf(out, "✓ %s found\n", need.what)
+	}
+	if len(missing) > 0 {
+		return "", missingNeedsError(ctx, tools, missing)
 	}
 	if build.source == "" && build.revision == "" {
 		return "", errors.New("this agnostic-ai does not record the commit it was built from, so it cannot fetch the companion's source; pass --source with the companion folder of an agnostic-ai checkout")
@@ -288,6 +293,37 @@ func buildCompanion(ctx context.Context, out io.Writer, live bool, tools compani
 		return "", fmt.Errorf("the build failed (%w):\n%s", buildErr, strings.Join(progress.last, "\n"))
 	}
 	return builtCompanion(build)
+}
+
+// missingNeedsError names every need the machine lacks and how to meet
+// them, with one install command for this machine's package manager.
+func missingNeedsError(ctx context.Context, tools companionTools, missing []companionNeed) error {
+	var whats, fixes []string
+	var packaged []companionNeed
+	for _, need := range missing {
+		whats = append(whats, need.what)
+		if need.packages == nil {
+			fixes = append(fixes, need.fix)
+		} else {
+			packaged = append(packaged, need)
+		}
+	}
+	if len(packaged) > 0 {
+		fixes = append(fixes, packagesFix(ctx, tools, packaged))
+	}
+	return fmt.Errorf("the companion needs %s to build. %s, then run this again", andList(whats), strings.Join(fixes, ". "))
+}
+
+func packagesFix(ctx context.Context, tools companionTools, needs []companionNeed) string {
+	for _, manager := range linuxPackageManagers {
+		if tools.succeeds(ctx, manager.name, "--version") {
+			return "Run: " + manager.installCommand(needs)
+		}
+	}
+	if len(needs) == 1 {
+		return needs[0].fix
+	}
+	return "Install them (" + installLines(needs) + ")"
 }
 
 // whileHeld runs change again for a while when it fails. A program that
