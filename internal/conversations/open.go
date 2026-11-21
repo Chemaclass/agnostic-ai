@@ -181,7 +181,7 @@ func SystemLauncher() Launcher {
 // from the server's own scan, never from the request.
 func Open(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
 	reply := openRoute(ctx, c, processes, launcher)
-	reply.Command = commandHere(runtime.GOOS, reply.Command)
+	reply.Command = commandHere(shellSystem, reply.Command)
 	return reply
 }
 

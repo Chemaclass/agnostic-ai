@@ -806,8 +806,12 @@ func shellQuote(path string) string {
 // A folder with control characters gives no line: a person who copies
 // it would paste them into a terminal.
 func resumeIn(folder, command string) string {
-	return resumeLine(runtime.GOOS, folder, command)
+	return resumeLine(shellSystem, folder, command)
 }
+
+// shellSystem picks the shell a resume line is written for. Tests pin
+// it, so the lines they expect do not depend on the system they run on.
+var shellSystem = runtime.GOOS
 
 // resumeLine is the line that runs command in folder, for the shell a
 // person on goos types in: PowerShell on Windows, a POSIX shell elsewhere.
