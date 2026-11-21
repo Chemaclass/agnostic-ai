@@ -272,6 +272,17 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --scope
 
 The companion installed from the terminal offers the same update in its menus. It asks its CLI for the latest stable release on start and every 24 hours, without opening a window. On macOS, **Update to vX.Y.Z** then **Update and restart** runs `agnostic-ai upgrade` for you, which upgrades the CLI by its install method and then replaces and restarts the companion. When it cannot run from the app, such as an unknown install method or a package manager the app cannot find, and on other systems, the list shows `agnostic-ai upgrade` with **Copy command** to run in a terminal, and **Release page** to open that release on GitHub. When Homebrew or npm does not serve the new release yet, the list says so; choose **Retry** later.
 
+Turn off **Check for updates automatically** in either menu to stop that check here too. On macOS, a companion started from Finder or at login gets a short `PATH`, so the terminal-installed companion also looks for the package manager in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. An npm that comes from a Node version manager such as nvm is not in those folders, so the update fails with "the package manager could not run from the companion" and shows the command to copy.
+
+{% <details summary="Details: what ran for updates"> %}
+- Ran on macOS 27 (arm64): `agnostic-ai companion update-status --json --refresh` with the short `PATH` a Finder launch gets and an empty home folder. It read the latest release, v0.96.0, and reported no disk image, as the release page shows.
+- Ran with the same short `PATH` plus the folders above: Homebrew was found and ran; an npm installed through nvm was not found.
+- The companion's Go tests cover each update state, both install kinds and each failure reason. Its node tests and the Playwright suite cover what the list shows in each state.
+- Not run: a whole update from one released disk image to the next, since no release ships a disk image yet. That covers the download, build provenance, the signer check, the swap and the restart.
+- Not run: that the updated app opens without a Gatekeeper dialog, and that Accessibility access survives a real update.
+- Not run: a certificate rotation, and a restart of a terminal-installed companion started from a terminal window.
+{% </details> %}
+
 {% <details summary="Details: failures and version mismatch"> %}
 - The companion is downloaded or built as `companion install` does, and progress is printed.
 - Settings and Start at login stay as they were.
