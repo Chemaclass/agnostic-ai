@@ -169,7 +169,7 @@ func (k konsoleTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err != nil || !ok {
 		return false, err
 	}
-	for _, part := range konsoleParts("\x1b[200~" + text + "\x1b[201~") {
+	for _, part := range textParts("\x1b[200~"+text+"\x1b[201~", sendPart) {
 		if _, err := k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.sendText", "string:"+part); err != nil {
 			return false, err
 		}
@@ -177,16 +177,16 @@ func (k konsoleTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	return true, nil
 }
 
-// konsoleSendPart bounds each piece of sent text: Linux refuses a single
+// sendPart bounds each piece of sent text: Linux refuses a single
 // argument over 128 KB, and a send may be larger.
-const konsoleSendPart = 64 << 10
+const sendPart = 64 << 10
 
-// konsoleParts cuts text into pieces of at most konsoleSendPart bytes,
-// never inside a character.
-func konsoleParts(text string) []string {
+// textParts cuts text into pieces of at most size bytes, never inside a
+// character.
+func textParts(text string, size int) []string {
 	var parts []string
-	for len(text) > konsoleSendPart {
-		cut := konsoleSendPart
+	for len(text) > size {
+		cut := size
 		for cut > 0 && !utf8.RuneStart(text[cut]) {
 			cut--
 		}

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // kittyLs is `kitty @ ls` cut to the fields the server reads: two OS
@@ -137,5 +138,27 @@ func TestOwnSocket_OnlyASocketThisUserOwns(t *testing.T) {
 
 	if !ownSocket(socket) || ownSocket(file) || ownSocket(filepath.Join(dir, "missing")) {
 		t.Errorf("socket %v, file %v", ownSocket(socket), ownSocket(file))
+	}
+}
+
+func TestKitty_TypesALargeTextInPartsThatFitOneArgument(t *testing.T) {
+	text := strings.Repeat("aé\\", MaxSendBytes/4)
+	commands := &fakeCommands{out: map[string]string{"kitty @ --to unix:/tmp/kitty-900 ls": kittyLs}}
+
+	if ok, err := testKitty(commands).typeIn(context.Background(), "/dev/ttys041", text); !ok || err != nil {
+		t.Fatalf("ok %v err %v", ok, err)
+	}
+
+	parts := sentParts(commands.calls)
+	if len(parts) < 2 {
+		t.Fatalf("parts = %d, want the text cut", len(parts))
+	}
+	for _, part := range parts {
+		if len(part) >= linuxArgMax || !utf8.ValidString(part) {
+			t.Errorf("part of %d bytes, valid UTF-8 %v", len(part), utf8.ValidString(part))
+		}
+	}
+	if got := strings.Join(parts, ""); got != `\e[200~`+kittyText(text)+`\e[201~` {
+		t.Errorf("joined parts differ from the pasted text")
 	}
 }

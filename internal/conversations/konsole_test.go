@@ -200,7 +200,7 @@ func TestKonsole_LongTextGoesInPartsInsideOnePaste(t *testing.T) {
 	parts := 0
 	for _, call := range commands.calls {
 		if part, ok := strings.CutPrefix(call, konsoleDBus+"/Sessions/2 org.kde.konsole.Session.sendText string:"); ok {
-			if len(part) > konsoleSendPart+len("\x1b[200~") {
+			if len(part) > sendPart+len("\x1b[200~") {
 				t.Errorf("a part of %d bytes", len(part))
 			}
 			sent.WriteString(part)

@@ -170,8 +170,21 @@ func (k kittyTab) typeIn(ctx context.Context, tty, text string) (bool, error) {
 	if err := k.activate(ctx, to, window); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
-	_, err = k.at(ctx, to, "send-text", "--match", "id:"+window, "--", `\e[200~`+kittyText(text)+`\e[201~`)
-	return err == nil, err
+	// Half a part of text stays within one part once its backslashes are doubled.
+	parts := textParts(text, sendPart/2)
+	for i, part := range parts {
+		value := kittyText(part)
+		if i == 0 {
+			value = `\e[200~` + value
+		}
+		if i == len(parts)-1 {
+			value += `\e[201~`
+		}
+		if _, err := k.at(ctx, to, "send-text", "--match", "id:"+window, "--", value); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 // newTab opens a tab in kitty's active window and types command and
