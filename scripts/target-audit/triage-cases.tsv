@@ -183,3 +183,5 @@ opencode-v1-skill-name-loader	opencode	OpenCode V1 skips skill folders whose nam
 kiro-memory-menu-location	kiro	Kiro IDE users set built-in memory through the Kiro Agent: Memory setting.	The **Kiro Agent: Memory** setting is deprecated and directs you to this menu.	contradicts	3773
 crush-json-prompt-configuration	crush	New Crush options only reach crushrc.	In `crush.json`, the same settings live under `options.prompts`.	contradicts	3774
 junie-acp-primary-agent-docs	junie	Junie's documentation describes standalone --agent sessions in ACP mode.	Standalone `--agent` sessions work in interactive TUI, headless (`--task` / positional task), and ACP modes.	supports	3775
+qwen-approval-mode-auto-edit	qwen	Qwen Code documents the edit-approving tools.approvalMode value as auto_edit.	auto-edit (automatically approve file edits)	contradicts	3861
+pi-no-permission-prompt	pi	Pi asks for approval before it runs a tool call.	it does not ask for approval before every tool call.	contradicts	3862
