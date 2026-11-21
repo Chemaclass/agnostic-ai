@@ -124,13 +124,16 @@ Create one spec in its configured `sources:` directory. Kinds: `agent`, `skill`,
 ```bash
 agnostic-ai new rule no-console-log     # → <rules>/no-console-log.md
 agnostic-ai new hook fmt-on-save        # → <hooks>/fmt-on-save.yaml
-agnostic-ai new rule payments-context --scope services/payments
+agnostic-ai new rule payments-context --dir services/payments
+agnostic-ai new rule scratch-notes --scope local   # → .agnostic-ai/local/rules/scratch-notes.md
+agnostic-ai new rule my-style --scope user         # → ~/.agnostic-ai/rules/my-style.md
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--dry-run` | Preview the destination and exact content. |
-| `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
+| `--scope <project\|local\|user>` | Where the spec lives. `project` (default) is shared with the team. `local` is yours in this project: see [local overrides](@/docs/local-overrides.md#add-a-spec). `user` is yours in every project and works from any directory: see [global configuration](@/docs/global-configuration.md#source-and-targets). |
+| `--dir <dir>` | `new rule` only. Create a flat rule for a project-relative directory. `--scope <dir>` is the older spelling, still accepted with a deprecation warning on stderr. See [scoped context](@/docs/scoped-context.md). |
 
 Names are lowercase slugs (`[a-z0-9][a-z0-9-]*`). Replace the `TODO` description and body afterward; `lint` reports the placeholder description as LINT031.
 

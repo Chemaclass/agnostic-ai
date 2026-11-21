@@ -36,6 +36,8 @@ The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync
 └── local/                  # optional personal layer, same layout
 ```
 
+Create a spec there from any directory with `agnostic-ai new rule my-style --scope user`. It takes agents, skills, rules, hooks, MCP servers, and settings. A user-level rule starts without `globs`, since it applies everywhere.
+
 `local/` works as in a project ([local overrides](@/docs/local-overrides.md#override-fields)): a spec there merges into the shared spec of the same kind and name, and a new name adds one. `local/AGNOSTIC_AI.md` comes last in the managed instructions block. Add `/local/` to the source root's `.gitignore` before adding personal files.
 
 To sync a fixed set of tools without `--only` on every run, list them in the source root's `agnostic-ai.yaml`:

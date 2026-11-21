@@ -59,7 +59,7 @@ const doctorLong = "Start troubleshooting with doctor. It is read-only by defaul
 	"  9. Suggest a concrete next step.\n\n" +
 	"Exits non-zero on any drift, lint error, inactive Codex hook, or unknown -t target; lint warnings show without\n" +
 	"failing. Subcommands run individual checks.\n\n" +
-	"--scope project skips local Codex hook trust and reports it as skipped, " +
+	"--checks project skips local Codex hook trust and reports it as skipped, " +
 	"and reads only the shared Claude settings file for skillOverrides. " +
 	"All project checks stay enabled. With --fix, only project drift is repaired; " +
 	"trust is never approved. JSON output stays read-only, so --json rejects --fix."
@@ -68,7 +68,7 @@ const doctorExample = `  # Project and local runtime diagnostic
   agnostic-ai doctor
 
   # Validate project files on a fresh CI runner
-  agnostic-ai doctor --scope project --check-references
+  agnostic-ai doctor --checks project --check-references
 
   # Reconcile drift in place, keeping a .bak of every file it overwrites
   agnostic-ai doctor --fix --backup
@@ -87,13 +87,15 @@ const doctorExample = `  # Project and local runtime diagnostic
 
 // doctorOptions holds the doctor flags.
 type doctorOptions struct {
-	targets    []string
-	scope      string
-	fix        bool
-	backup     bool
-	jsonOut    bool
-	checkGlobs bool
-	checkRefs  bool
+	targets []string
+	checks  string
+	// legacyScope holds --scope, the older spelling of --checks.
+	legacyScope string
+	fix         bool
+	backup      bool
+	jsonOut     bool
+	checkGlobs  bool
+	checkRefs   bool
 }
 
 func newDoctorCmd() *cobra.Command {
@@ -104,8 +106,22 @@ func newDoctorCmd() *cobra.Command {
 		Long:    doctorLong,
 		Example: doctorExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateDoctorScope(opts.scope); err != nil {
+			if cmd.Flags().Changed(scopeFlagName) {
+				// Before --scope meant where specs live, it chose the
+				// checks here.
+				if cmd.Flags().Changed("checks") && opts.checks != opts.legacyScope {
+					return errs.Coded(errs.CodeFlagConflict, "--scope %s is the older spelling of --checks and cannot be combined with --checks %s", opts.legacyScope, opts.checks)
+				}
+				if opts.legacyScope != "all" && opts.legacyScope != "project" {
+					return fmt.Errorf("doctor --scope is the older spelling of --checks, which takes all or project; got %q. doctor checks a project and has no user or local mode", opts.legacyScope)
+				}
+				opts.checks = opts.legacyScope
+			}
+			if err := validateDoctorChecks(opts.checks); err != nil {
 				return err
+			}
+			if cmd.Flags().Changed(scopeFlagName) && verbosity >= levelDefault {
+				cmd.PrintErrf("warning: doctor --scope is deprecated; use --checks %s\n", opts.checks)
 			}
 			if opts.jsonOut && opts.fix {
 				return errs.Coded(errs.CodeFlagConflict, "--json is read-only and cannot be combined with --fix")
@@ -123,11 +139,25 @@ func newDoctorCmd() *cobra.Command {
 			if opts.jsonOut {
 				return runDoctorJSON(cmd, opts)
 			}
+			// Advice, not a finding: it changes no exit code, and
+			// --checks project leaves personal files alone.
+			if opts.checks != "project" && verbosity >= levelDefault {
+				if paths := personalPaths("."); len(paths) > 0 {
+					if warning := localIgnoreWarning(".", paths...); warning != "" {
+						cmd.PrintErrf("warning: %s\n", warning)
+					}
+				}
+			}
 			return runDoctorText(cmd, opts)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&opts.targets, "target", "t", nil, "Targets to check (default: all in config)")
-	cmd.Flags().StringVar(&opts.scope, "scope", "all", "Checks to run: all includes local hook trust and personal Claude settings; project skips them")
+	cmd.Flags().StringVar(&opts.checks, "checks", "all", "Checks to run: all includes local hook trust and personal Claude settings; project skips them")
+	cmd.Flags().StringVar(&opts.legacyScope, scopeFlagName, "", "Same as --checks.")
+	_ = cmd.Flags().MarkHidden(scopeFlagName)
+	_ = cmd.RegisterFlagCompletionFunc("checks", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		return []string{"all", "project"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	cmd.Flags().BoolVar(&opts.fix, "fix", false, "Reconcile drift, and in a terminal offer removal of kept orphans and of skillOverrides entries for synced skills")
 	cmd.Flags().BoolVar(&opts.backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting, confirmed orphan removal, or confirmed skillOverrides removal")
 	cmd.Flags().BoolVar(&opts.jsonOut, "json", false, "Output as JSON for machine consumption")
@@ -181,10 +211,10 @@ func runDoctorJSON(cmd *cobra.Command, opts doctorOptions) error {
 	if gate.hookScripts, _, err = collectDivergentHookScripts("."); err != nil {
 		return err
 	}
-	hookTrust, trustCheck := doctorTrustForScope(scope.cfg, targets, opts.scope)
+	hookTrust, trustCheck := doctorTrustForScope(scope.cfg, targets, opts.checks)
 	var overrides []*skillOverrideReport
 	if claudeSkillOverridesSelected(scope.cfg, targets) {
-		overrides = collectClaudeSkillOverrides(scope.cfg, scope.bundle, opts.scope == "project")
+		overrides = collectClaudeSkillOverrides(scope.cfg, scope.bundle, opts.checks == "project")
 	}
 	return printDoctorJSON(cmd, displayReports, handWritten, gate, refs, opts.checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
 }
@@ -283,7 +313,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 		}
 	}
 	if claudeSkillOverridesSelected(cfg, targets) {
-		overrides := collectClaudeSkillOverrides(cfg, scope.bundle, opts.scope == "project")
+		overrides := collectClaudeSkillOverrides(cfg, scope.bundle, opts.checks == "project")
 		reportClaudeSkillOverrides(cmd, overrides)
 		if opts.fix {
 			if err := fixClaudeSkillOverrides(cmd, localSkillOverrides(overrides), opts.backup); err != nil {
@@ -344,7 +374,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 
 	packaging := collectPackagingIgnoreFindings(drift.reports)
 	reportPackagingIgnoreFindings(cmd, packaging)
-	hookTrust, trustCheck := doctorTrustForScope(cfg, targets, opts.scope)
+	hookTrust, trustCheck := doctorTrustForScope(cfg, targets, opts.checks)
 	if trustCheck != nil {
 		cmd.Printf("\nCodex hook trust:\n  SKIPPED: %s\n", trustCheck.Reason)
 	}
@@ -517,7 +547,7 @@ func finishDoctorText(cmd *cobra.Command, opts doctorOptions, cfg *config.Config
 			return err
 		}
 		summaryf("→ reconciled %d file(s)\n", fixed+f.drift.removedCopies+removedOrphans)
-		hookTrust, _ = doctorTrustForScope(cfg, opts.targets, opts.scope)
+		hookTrust, _ = doctorTrustForScope(cfg, opts.targets, opts.checks)
 		reportCodexHookTrust(cmd, hookTrust)
 		if n := orphanedCount(reports); n > 0 {
 			return fmt.Errorf("%d orphaned file(s) need manual removal", n)

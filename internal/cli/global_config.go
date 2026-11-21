@@ -262,6 +262,7 @@ func loadGlobalLint(source string) (config.LintConfig, error) {
 const (
 	globalHomeSyncRemedy    = "run `agnostic-ai sync --scope user`"
 	globalHomeSpecsRemedy   = "edit its specs by hand and run `agnostic-ai sync --scope user`"
+	globalHomeNewRemedy     = "run `agnostic-ai new <kind> <name> --scope user`"
 	globalHomeHookRemedy    = "run `agnostic-ai install-hook --scope user`"
 	globalHomeMigrateRemedy = "run `agnostic-ai migrate --scope user`"
 )
