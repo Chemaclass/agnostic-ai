@@ -91,7 +91,11 @@ func newNewCmd() *cobra.Command {
 					// as one still does, so a mistyped scope is not
 					// taken for a directory.
 					if !legacyRuleDir(kind, scope) {
-						return fmt.Errorf("--scope must be %s, %s, or %s; got %q. For a rule's directory use --dir", specScopeProject, specScopeLocal, specScopeUser, scope)
+						hint := ""
+						if kind == string(spec.KindRule) {
+							hint = ". For a rule's directory use --dir"
+						}
+						return fmt.Errorf("--scope must be %s, %s, or %s; got %q%s", specScopeProject, specScopeLocal, specScopeUser, scope, hint)
 					}
 					if dirSet {
 						return errs.Coded(errs.CodeFlagConflict, "--scope %s is the older spelling of --dir and cannot be combined with it", scope)
@@ -344,6 +348,13 @@ func newRenderPathArg(path string) string {
 func legacyRuleDir(kind, value string) bool {
 	if kind != string(spec.KindRule) || value == "" {
 		return false
+	}
+	// A scope in another case, or the old word for user, is a slip even
+	// when a directory of that name exists.
+	for _, word := range []string{specScopeProject, specScopeLocal, specScopeUser, legacyGlobalFlagName} {
+		if strings.EqualFold(value, word) {
+			return false
+		}
 	}
 	if strings.ContainsAny(value, `/\`) {
 		return true

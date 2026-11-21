@@ -338,3 +338,49 @@ func TestDoctor_ScopeWithASpecScopeSaysItIsTheOlderSpellingOfChecks(t *testing.T
 		}
 	}
 }
+
+// A pack spec in a subfolder is overridden in the same subfolder, as a
+// project spec is, so the override keeps the rule's directory.
+func TestNewScopeLocal_OverrideOfAPackSpecKeepsItsSubfolder(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	writeFile(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	writeFile(t, ".agnostic-ai/packs/team/rules/svc/packrule.md", "---\nname: packrule\ndescription: Pack rule.\nalwaysApply: true\n---\n\nFrom the pack.\n")
+	if _, _, err := runSplit(t, "new", "rule", "packrule", "--scope", "local"); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(".agnostic-ai/local/rules/svc/packrule.md")
+	if err != nil {
+		t.Fatalf("want the override in the pack rule's subfolder: %v", err)
+	}
+	if strings.Contains(string(body), "TODO") {
+		t.Errorf("want a name-only override, got:\n%s", body)
+	}
+}
+
+// A listed pack that is not installed hides its specs. A scaffold over
+// one of their names would replace the pack's spec once it is installed.
+func TestNewScopeLocal_RefusesWhileAPackIsMissing(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	writeFile(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	if _, _, err := runSplit(t, "new", "skill", "deep", "--scope", "local"); err == nil || !strings.Contains(err.Error(), "team") {
+		t.Errorf("err=%v, want the missing pack named", err)
+	}
+	if _, err := os.Stat(".agnostic-ai/local"); err == nil {
+		t.Error("a local spec was written while a pack was missing")
+	}
+	if _, _, err := runSplit(t, "new", "skill", "deep"); err != nil {
+		t.Errorf("a project spec does not depend on the pack: %v", err)
+	}
+}
+
+func TestNewScopeLocal_SaysWhyABrokenSpecStopsIt(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/rules/bad.md", "---\nname: [bad\n---\n")
+	_, _, err := runSplit(t, "new", "rule", "mine", "--scope", "local")
+	if err == nil || !strings.Contains(err.Error(), "reads the project's specs") || !strings.Contains(err.Error(), "bad.md") {
+		t.Errorf("err=%v, want the reason and the broken file", err)
+	}
+}

@@ -249,11 +249,21 @@ func TestNew_DirRules(t *testing.T) {
 func TestNew_MistypedScopeIsNotTakenForADirectory(t *testing.T) {
 	dir := setupEmptyProject(t)
 	testutil.Chdir(t, dir)
+	// A directory named like a scope does not make the slip a path.
+	for _, name := range []string{"global", "user"} {
+		if err := os.Mkdir(name, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := runSplit(t, "new", "skill", "a", "--scope", "services/payments"); err == nil || strings.Contains(err.Error(), "--dir") {
+		t.Errorf("a skill has no directory, so the error must not offer --dir: %v", err)
+	}
 	for _, args := range [][]string{
 		{"new", "rule", "a", "--scope", "global"},
 		{"new", "rule", "a", "--scope", "Local"},
 		{"new", "rule", "a", "--scope", ""},
-		{"new", "skill", "a", "--scope", "services/payments"},
+		{"new", "rule", "a", "--scope", "Global"},
+		{"new", "rule", "a", "--scope", "USER"},
 	} {
 		_, stderr, err := runSplit(t, args...)
 		if err == nil || !strings.Contains(err.Error(), "--scope must be project, local, or user") || !strings.Contains(err.Error(), "--dir") {

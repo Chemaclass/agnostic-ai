@@ -58,7 +58,16 @@ func resolveNewPlace(scope, kind, name string) (newPlace, error) {
 	}
 	// A local spec merges into a lower one by kind and name, wherever
 	// that file sits, so the loaded specs decide what this one changes.
+	// A pack that is listed but missing hides its specs, and a full
+	// scaffold over one of their names would replace it once installed.
+	if err := stopOnMissingPacks("."); err != nil {
+		return newPlace{}, err
+	}
 	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		return newPlace{}, fmt.Errorf("new --scope %s reads the project's specs to tell a new one from a change to a shared one: %w", specScopeLocal, err)
+	}
+	layers, err := resolveLayers(".", cfg)
 	if err != nil {
 		return newPlace{}, err
 	}
@@ -75,21 +84,37 @@ func resolveNewPlace(scope, kind, name string) (newPlace, error) {
 			return newPlace{}, fmt.Errorf("%s already exists", filepath.ToSlash(e.Path))
 		}
 		place.override = true
-		place.path = localPathOver(cfg, kind, path, e)
+		place.path = localPathOver(layers, kind, path, e)
 	}
 	return place, nil
 }
 
 // localPathOver is where the local spec that changes base goes: the
-// same place under the local folder as base has under its own, so a
-// rule in a subfolder keeps its directory and a skill kept as a folder
-// stays one. flat is the path for a spec outside the project's sources,
-// such as a built-in.
-func localPathOver(cfg *config.Config, kind, flat string, base spec.Entry) string {
-	shared, err := sourceDirForKind(cfg, kind)
-	local, localErr := sourceDirForKind(&config.Config{Sources: defaultLayerSources()}, kind)
-	if err == nil && localErr == nil && shared != "" {
-		if rel, err := filepath.Rel(shared, base.Path); err == nil && filepath.IsLocal(rel) {
+// same place under the local folder as base has under its own layer, so
+// a rule in a subfolder keeps its directory and a skill kept as a folder
+// stays one, for a pack as for the project. flat is the path for a spec
+// whose layer has no folder here, such as a built-in.
+func localPathOver(layers []spec.Layer, kind, flat string, base spec.Entry) string {
+	local, err := sourceDirForKind(&config.Config{Sources: defaultLayerSources()}, kind)
+	if err != nil {
+		return flat
+	}
+	name := base.Layer
+	if name == "" {
+		name = layerNameProject
+	}
+	for _, layer := range layers {
+		if layer.Name != name {
+			continue
+		}
+		dir, err := sourceDirForKind(&config.Config{Sources: layer.Sources}, kind)
+		if err != nil || dir == "" {
+			continue
+		}
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(layer.Root, dir)
+		}
+		if rel, err := filepath.Rel(dir, base.Path); err == nil && filepath.IsLocal(rel) {
 			return filepath.Join(defaultProjectUser, local, rel)
 		}
 	}
@@ -150,7 +175,8 @@ func localIgnoreWarning(dir string, paths ...string) string {
 	if len(open) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("Git would commit %s. Add it to .gitignore, or run `git rm --cached` on it if Git already tracks it", strings.Join(open, " and "))
+	names := strings.Join(open, " and ")
+	return fmt.Sprintf("Git would commit %s. Add %s to .gitignore, or run `git rm -r --cached %s` if Git already tracks it", names, names, strings.Join(open, " "))
 }
 
 // personalPaths lists the personal files the project at dir holds: its
