@@ -1120,7 +1120,7 @@ export interface ConversationSendRequest {
   html?: string
 }
 
-/** sent is true only when the text was typed into a live Terminal or Ghostty session; otherwise message says why, or to paste with Cmd+V. For Terminal, the clipboard holds what was pasted afterwards. */
+/** sent is true only when the text was typed into a live Terminal, Ghostty or iTerm session; otherwise message says why, or to paste with Cmd+V. For Terminal, the clipboard holds what was pasted afterwards. */
 export interface ConversationSendReply {
   sent: boolean
   message: string
