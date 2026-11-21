@@ -102,3 +102,48 @@ function test_it_fails_at_once_on_any_other_error() {
   assert_empty "$slept"
   assert_not_contains "resource busy" "$output"
 }
+
+function stub_go_download() {
+  GO_OUTCOMES="$1"
+  GO_CALLS="$2"
+  : > "$GO_CALLS"
+  # shellcheck disable=SC2329
+  function go() {
+    printf '%s\n' "$*" >> "$GO_CALLS"
+    case "$(sed -n "$(wc -l < "$GO_CALLS")p" "$GO_OUTCOMES")" in
+      ok) return 0 ;;
+      timeout) echo 'go: lookup proxy.golang.org: i/o timeout' >&2; return 1 ;;
+      checksum) echo 'go: checksum mismatch (previous request: i/o timeout)' >&2; return 2 ;;
+    esac
+  }
+}
+
+function test_go_dependency_fetch_retries_the_release_dns_failure() {
+  local tmp status=0 output
+  tmp="$(mktemp -d)"
+  printf '%s\n' timeout timeout ok > "$tmp/outcomes"
+  stub_go_download "$tmp/outcomes" "$tmp/calls"
+  stub_sleep "$tmp/slept"
+  output="$(download_modules 2>&1)" || status=$?
+  assert_same "0" "$status"
+  assert_contains "lookup proxy.golang.org: i/o timeout" "$output"
+  assert_same "3" "$(wc -l < "$tmp/calls" | tr -d ' ')"
+  assert_same "5 10 " "$(tr '\n' ' ' < "$tmp/slept")"
+  unset -f go sleep
+  rm -rf "$tmp"
+}
+
+function test_go_dependency_fetch_does_not_retry_a_checksum_error() {
+  local tmp status=0 output
+  tmp="$(mktemp -d)"
+  printf '%s\n' checksum ok > "$tmp/outcomes"
+  stub_go_download "$tmp/outcomes" "$tmp/calls"
+  stub_sleep "$tmp/slept"
+  output="$(download_modules 2>&1)" || status=$?
+  assert_same "2" "$status"
+  assert_contains "checksum mismatch" "$output"
+  assert_same "1" "$(wc -l < "$tmp/calls" | tr -d ' ')"
+  assert_empty "$(cat "$tmp/slept")"
+  unset -f go sleep
+  rm -rf "$tmp"
+}

@@ -17,11 +17,15 @@ updates archive, RSS entry identifier (GUID), old `.html` address, and sitemap U
 The version, changelog, and announcement must share one commit. Push that commit,
 wait for its complete continuous integration (CI) run on Linux, macOS, and Windows, then sign and push the tag.
 
-The tag workflow uses `scripts/release-notes.sh` to build GitHub Release notes from the dated `CHANGELOG.md` section.
+Before tagging, confirm that the manual CI run for the release commit built and verified both macOS disk images and companion archives, and that its web client check passed. Go users can install a stable tag as soon as it is pushed.
+
+The tag workflow builds one candidate and tests the dashboard inside its Linux archive. It checks the asset inventory and checksums, then signs the candidate files and package manifests. It uploads the verified assets to a draft, compares the uploaded digests, and publishes the draft. Stable releases require both macOS disk images and both companion archives. Prereleases can omit them.
+
+The tag workflow uses `scripts/release-notes.sh` to build GitHub Release notes from the dated `CHANGELOG.md` section and the verified asset inventory.
 
 After pushing the tag, watch both workflows:
 
-- `Release` builds release files and publishes the GitHub Release from the tag.
+- `Release` publishes the GitHub Release and then starts the distribution jobs.
 - `Pages` deploys the Zola site and playground automatically from the release
   commit on `main`.
 
@@ -43,14 +47,14 @@ safe retry, then watch the manual run to completion.
 
 ### One-time setup per channel
 
-Each publishing channel requires its own credential. Without the secret, GoReleaser builds the manifest and skips the push; missing setup does not fail a release. Its log does not distinguish a skipped push from a successful one. The `distribution` job checks that the channel serves the new version (#920).
+Each publishing channel requires its own credential. GoReleaser builds the manifests without those credentials. After publication, each channel job verifies its manifest before using its scoped credential. Unconfigured channels show as skipped. Homebrew and Scoop publish the stable version. The `distribution` job checks npm and the configured Homebrew tap.
 
 - **Homebrew**: `Chemaclass/homebrew-tap` updates its own cask without a secret in this repository. Its [Update agnostic-ai cask workflow](https://github.com/Chemaclass/homebrew-tap/blob/main/.github/workflows/update-agnostic-ai-cask.yml) runs at minutes 23 and 53 each hour. It resolves the latest release, rewrites `Casks/agnostic-ai.rb` from `checksums.txt`, checks that all four archives return 200, and commits with its `GITHUB_TOKEN`. The cask can lag until the next successful run; dispatch the workflow to update it sooner.
 
   Optional pushes at tag time use `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` or `HOMEBREW_TAP_TOKEN`; both produce identical files. These cross-repository pushes need a credential created through a browser, since GitHub has no API to create an App or personal access token (PAT). Missing credentials left ten releases with a stale cask (#943, #920). Scoop and winget still lack credentials and stay skipped.
 - **Scoop**: create the public repo `Chemaclass/scoop-bucket` with a `main` branch, then add a `SCOOP_BUCKET_TOKEN` repo secret (PAT with `contents: write` on that repo). Users: `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket`.
 - **winget**: fork `microsoft/winget-pkgs` to `Chemaclass/winget-pkgs`, then add `WINGET_TOKEN` (PAT with `contents: write` on the fork and `pull_requests: write` upstream). Microsoft reviews each PR, so a new version lands in `winget search` hours to days after the GitHub release.
-- **macOS companion signing**: add `COMPANION_SIGNING_P12`, the project certificate. Without it the companion job fails, and the release publishes without companion files. [macOS companion signing](companion-signing.md) explains how to make, store, rotate and check it.
+- **macOS companion signing**: add `COMPANION_SIGNING_P12`, the project certificate. Without it the signing job fails, which stops a stable release; a prerelease ships without companion files. [macOS companion signing](companion-signing.md) explains how to make, store, rotate and check it.
 - **npm**: `npm/` holds the parent package. Add `NPM_TOKEN` (automation token). The token must publish `agnostic-ai` and create packages in the `agnostic-ai` npm organization. Create that organization before the first release with platform packages.
 
 ### npm publish order
@@ -73,7 +77,7 @@ Every new publish uses `--provenance`, which attaches signed records of the buil
 
 Re-run the same release after a temporary registry or signing-service failure when the published packages have valid attestations. Verified platform packages are skipped and missing packages publish before the parent. If a tarball reached npm without its required attestation, stop: npm versions are immutable and re-running cannot attach a replacement. Prepare a new version of all seven packages through the normal release process. Do not plain-publish, unpublish, or move the old tag to bypass verification.
 
-If the **Attest build provenance** step failed, the archives already on the release page carry no attestation, and `scripts/npm-binaries.sh` refuses them. A re-run attests the archives it rebuilds, which match the uploaded ones only when the build is byte-for-byte reproducible. Prepare a new version instead.
+If candidate validation or attestation fails, no GitHub release is published. Re-run the failed job against the staged candidate while its Actions artifact is available. If publication stops after an upload, the release stays a draft. Re-run **Publish the verified release** against the same signed candidate. It compares existing draft assets and uploads missing files. It stops if any existing file has a different digest. Check the failing file and the retained candidate before touching a draft. Published releases keep their original files.
 
 See [npm provenance verification](https://docs.npmjs.com/viewing-package-provenance/) and the [npm verifier implementation](https://github.com/npm/cli/blob/v11.5.1/lib/utils/verify-signatures.js).
 

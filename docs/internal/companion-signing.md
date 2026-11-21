@@ -39,8 +39,8 @@ The keychain has no password because the installer must sign without a prompt. A
 
 Two jobs in `release.yml` handle the companion:
 
-1. `companion` builds the archives and disk images with `scripts/companion-release.sh`, signed ad hoc, and uploads them as `companion-built`. It fetches and runs dependency code, so it reads no secret.
-2. `companion-sign` downloads them and runs `scripts/companion-sign.sh` with `COMPANION_SIGNING_P12`. It sets up no toolchain and runs only this repository's scripts. It uploads the result as `companion-dist`, which GoReleaser attaches to the release.
+1. `companion` builds the archives and disk images with `scripts/companion-release.sh`, signed ad hoc, and uploads them as an artifact. It fetches and runs dependency code, so it reads no secret.
+2. `companion-sign` downloads that artifact by its id and runs `scripts/companion-sign.sh` with `COMPANION_SIGNING_P12`. It sets up no toolchain and runs only this repository's scripts. It uploads the signed files as a new artifact, whose id the candidate build (`goreleaser`) downloads.
 
 `scripts/companion-sign.sh`:
 
@@ -49,7 +49,7 @@ Two jobs in `release.yml` handle the companion:
 3. For each disk image: copies the app out, signs the bundled CLI and then the app, pins the hash in the app's requirement, checks the app against it with `codesign --verify -R`, and writes the disk image again.
 4. Puts the search list back and deletes the keychain on exit.
 
-If either job fails, the release publishes without the companion files. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
+A stable release needs both disk images and both archives, so a failed build or signing stops it before anything is published. A prerelease ships without them. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
 
 ## Make the release certificate
 

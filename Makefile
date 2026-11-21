@@ -103,8 +103,9 @@ test-shell: build
 
 define run-shell-tests
 bashunit scripts/docfetch_test.sh
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/release-channel_test.py
 bashunit --parallel scripts/release-notes_test.sh scripts/target-facts_test.sh \
-		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/companion-release_test.sh scripts/companion-sign_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
+		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/companion-release_test.sh scripts/companion-sign_test.sh scripts/release-assets_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
 		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh scripts/changelog-assemble_test.sh \
 		scripts/bench-commands_test.sh scripts/test-go_test.sh scripts/go-packages_test.sh scripts/doctor-dev_test.sh scripts/gofmt-on-edit_test.sh

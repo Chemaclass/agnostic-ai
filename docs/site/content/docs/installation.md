@@ -13,7 +13,11 @@ next_label = "Set up your project"
 
 # Installation
 
-For the floating companion on macOS, download a `.dmg` from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest), drag the app to Applications, and open it. It includes the CLI and offers updates from its right-click menu. See [Companion installation](@/docs/cli-reference/companion.md#install) for your processor, the first-launch prompt, and the optional command line tool.
+## macOS companion
+
+The floating companion includes the full web dashboard and the command line tool. Choose your Apple silicon or Intel download and follow the [Companion installation steps](@/docs/cli-reference/companion.md#install).
+
+## Command line
 
 Install the `agnostic-ai` command. It does not install any coding tool. npm needs Node 18 or newer; other methods ship a binary that needs neither Node nor Go. macOS needs 13 Ventura or later.
 

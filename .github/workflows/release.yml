@@ -35,16 +35,14 @@ jobs:
           npm --prefix ui ci --ignore-scripts
           npm --prefix ui run bundle:check
 
-  # The macOS companion needs C, so it builds on a Mac, apart from the
-  # publish tokens like ui-bundle. GoReleaser attaches the archives and
-  # lists them in checksums.txt, which the provenance step signs.
   companion:
     name: macOS companion
     runs-on: macos-latest
-    # GoReleaser waits for this job, so a hung build must not hold the release.
     timeout-minutes: 20
     permissions:
       contents: read
+    outputs:
+      artifact: ${{ steps.archives.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -55,16 +53,19 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: companion/go.mod
-          # Same rule as the GoReleaser job: release builds use no cache.
           cache: false
 
       - name: Build the companion archives
+        id: package
+        continue-on-error: ${{ contains(github.ref_name, '-') }}
         run: scripts/companion-release.sh "${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/companion-dist"
 
       - name: Hand the archives to the signing job
+        id: archives
+        if: steps.package.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: companion-built
+          name: companion-built-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
             ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.dmg
@@ -82,6 +83,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    outputs:
+      artifact: ${{ steps.archives.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -89,20 +92,26 @@ jobs:
           persist-credentials: false
 
       - name: Download the built archives
+        if: needs.companion.outputs.artifact != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: companion-built
+          artifact-ids: ${{ needs.companion.outputs.artifact }}
           path: ${{ runner.temp }}/companion-dist
 
       - name: Sign the disk images
+        id: sign
+        if: needs.companion.outputs.artifact != ''
+        continue-on-error: ${{ contains(github.ref_name, '-') }}
         env:
           COMPANION_SIGNING_P12: ${{ secrets.COMPANION_SIGNING_P12 }}
         run: scripts/companion-sign.sh "$RUNNER_TEMP/companion-dist"
 
       - name: Hand the archives to GoReleaser
+        id: archives
+        if: steps.sign.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: companion-dist
+          name: companion-dist-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
             ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.dmg
@@ -110,26 +119,13 @@ jobs:
           retention-days: 1
 
   goreleaser:
-    name: GoReleaser
-    # A failed companion build does not hold back the release: the archives
-    # are left out and `agnostic-ai companion install` builds on the Mac
-    # instead, as it did before they existed.
+    name: Build release candidate
     needs: [ui-bundle, companion, companion-sign]
-    if: ${{ !cancelled() && needs.ui-bundle.result == 'success' }}
     runs-on: ubuntu-latest
-    # id-token and attestations let the job sign build provenance for each
-    # release file through Sigstore, with no key of ours to leak or rotate.
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    # The `secrets` context is not available in a step `if:`, so record the
-    # App's presence here, where it is. The mint step below calls
-    # `core.setFailed` when its identifier or its key is empty, which would
-    # fail the whole release over a credential that does not exist yet, and
-    # no missing credential is allowed to do that in this workflow.
-    env:
-      HOMEBREW_TAP_APP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '' }}
+      contents: read
+    outputs:
+      artifact: ${{ steps.candidate.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -141,49 +137,21 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
-          # Release binaries build from a clean cache. A cache entry saved
-          # earlier in the same tag run, such as from ui-bundle, would
-          # otherwise feed the signed build.
           cache: false
 
       - name: Build release notes from CHANGELOG.md
-        run: |
-          scripts/release-notes.sh "${GITHUB_REF_NAME}" CHANGELOG.md "${GITHUB_REPOSITORY}" > NOTES.md
-          echo "--- NOTES.md ---"
-          cat NOTES.md
+        run: scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/NOTES.md"
 
-      - name: Mint the Homebrew tap token from the GitHub App
-        id: tap_token
-        # Skipped until the App exists, so a release never fails over it,
-        # and skipped on every fork, which cannot read the secrets anyway.
-        # A skipped step leaves its outputs empty, which is what the
-        # fallback below reads.
-        if: env.HOMEBREW_TAP_APP_CONFIGURED == 'true'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
-        with:
-          # v3 deprecated `app-id` in favor of `client-id`, but the action
-          # sends whichever is set as the JWT issuer and GitHub accepts the
-          # App ID there. #943 stores the App ID, so name that input.
-          app-id: ${{ secrets.HOMEBREW_TAP_APP_ID }}
-          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
-          # Without these the token is scoped to this repository, which is
-          # not the one the cask is pushed to. Naming the tap alone also
-          # bounds a leak to it, which a classic PAT with `repo` never did.
-          owner: Chemaclass
-          repositories: homebrew-tap
-          permission-contents: write
-
-      # Outside the checkout: GoReleaser refuses a tree with untracked files.
       - name: Download the companion archives
-        if: needs.companion-sign.result == 'success'
+        if: needs.companion-sign.outputs.artifact != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: companion-dist
+          artifact-ids: ${{ needs.companion-sign.outputs.artifact }}
           path: ${{ runner.temp }}/companion-dist
 
-      - name: Report a release without the companion archives
-        if: needs.companion-sign.result != 'success'
-        run: echo "::warning::the macOS companion did not build or sign, so this release ships without it and companion install builds it on the Mac"
+      - name: Report a prerelease without the companion archives
+        if: needs.companion-sign.outputs.artifact == ''
+        run: echo "::notice::companion build or signing failed. Prereleases can ship without macOS companion files."
 
       - name: Install Syft for the SBOMs
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
@@ -192,50 +160,28 @@ jobs:
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           version: v2.20.1
-          args: release --clean --release-notes=NOTES.md
+          args: release --skip=publish --clean --release-notes=${{ runner.temp }}/NOTES.md
         env:
           COMPANION_DIST: ${{ runner.temp }}/companion-dist
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # An installation token that expires in an hour when the App is
-          # set up, the stored PAT while it is not, and empty when neither
-          # exists, which is the case goreleaser skips the cask push on. The
-          # App's private key does not expire, so once it is in place there
-          # is nothing left to rotate (#943).
-          HOMEBREW_TAP_TOKEN: ${{ steps.tap_token.outputs.token || secrets.HOMEBREW_TAP_TOKEN }}
-          # Both optional: the matching publisher builds its manifest and skips
-          # the push when its secret is absent, so the release still succeeds.
-          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Attest build provenance
-        id: attest
-        # Also after a failed package-manager push: the archives are already
-        # uploaded by then, and each one needs its provenance.
-        if: ${{ !cancelled() && hashFiles('dist/checksums.txt') != '' }}
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
-        with:
-          subject-checksums: dist/checksums.txt
-
-      - name: Attach the provenance bundle to the release
-        # The attestation lives in GitHub's attestation store. A copy on the
-        # release page lets `gh attestation verify --bundle` work from the
-        # downloaded files alone, and lets OpenSSF Scorecard see a signed
-        # release.
-        if: ${{ steps.attest.outputs.bundle-path != '' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+      - name: Stage and validate the release inventory
         run: |
-          cp "$BUNDLE" agnostic-ai.intoto.jsonl
-          gh release upload "$GITHUB_REF_NAME" agnostic-ai.intoto.jsonl --clobber
+          python3 scripts/release-assets.py stage "$GITHUB_REF_NAME" dist "$RUNNER_TEMP/companion-dist" "$RUNNER_TEMP/candidate"
+
+      - name: Hand the candidate to the smoke and signing jobs
+        id: candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-candidate-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
 
   ui-smoke:
     name: Archived web interface
-    # Its own job for the same reason as ui-bundle: Node never runs where
-    # the publish tokens or the OIDC request token are.
     needs: goreleaser
-    # A failed companion job upstream would otherwise skip this check.
-    if: ${{ !cancelled() && needs.goreleaser.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -250,28 +196,154 @@ jobs:
         with:
           node-version: '26'
 
-      - name: Download the Linux archive
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern agnostic-ai_linux_amd64.tar.gz --dir "$RUNNER_TEMP/archive"
+      - name: Download the staged candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.goreleaser.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate
 
       - name: Verify the archived web interface
         run: |
           archive_dir="$(mktemp -d)"
-          tar -xzf "$RUNNER_TEMP/archive/agnostic-ai_linux_amd64.tar.gz" -C "$archive_dir" agnostic-ai
+          tar -xzf "$RUNNER_TEMP/candidate/assets/agnostic-ai_linux_amd64.tar.gz" -C "$archive_dir" agnostic-ai
           node scripts/ui-smoke.js "$archive_dir/agnostic-ai"
+
+  attest:
+    name: Attest the verified candidate
+    needs: [goreleaser, ui-smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      artifact: ${{ steps.signed.outputs.artifact-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the smoke-tested candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.goreleaser.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate
+
+      - name: Prepare the attestation subjects
+        run: python3 scripts/release-assets.py subjects "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate" > "$RUNNER_TEMP/subjects.txt"
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-checksums: ${{ runner.temp }}/subjects.txt
+
+      - name: Add the portable provenance bundle
+        id: bundle
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          cp "$BUNDLE" "$RUNNER_TEMP/candidate/assets/agnostic-ai.intoto.jsonl"
+          echo "digest=$(sha256sum "$BUNDLE" | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Retain the signed candidate
+        id: signed
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: signed-release-candidate-${{ steps.bundle.outputs.digest }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  publish:
+    name: Publish the verified release
+    needs: attest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: read
+    outputs:
+      artifact: ${{ needs.attest.outputs.artifact }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the signed candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.attest.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate
+
+      - name: Publish the checked bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/release-assets.py inventory "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate" > "$RUNNER_TEMP/assets.txt"
+          scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md "$GITHUB_REPOSITORY" "$RUNNER_TEMP/assets.txt" > "$RUNNER_TEMP/NOTES.md"
+          python3 scripts/release-assets.py publish "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate" "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)" "$RUNNER_TEMP/NOTES.md"
+
+  channel-manifests:
+    name: Publish ${{ matrix.channel }} manifest
+    needs: publish
+    if: github.repository == 'Chemaclass/agnostic-ai'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [homebrew, scoop, winget]
+    env:
+      HOMEBREW_TAP_APP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the signed candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.publish.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate
+
+      - name: Mint the Homebrew tap token from the GitHub App
+        id: tap_token
+        if: matrix.channel == 'homebrew' && env.HOMEBREW_TAP_APP_CONFIGURED == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.HOMEBREW_TAP_APP_ID }}
+          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
+          owner: Chemaclass
+          repositories: homebrew-tap
+          permission-contents: write
+
+      - name: Verify the manifest bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          python3 scripts/release-assets.py verify-channel "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate" "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)" "$CHANNEL"
+
+      - name: Publish the channel manifest
+        env:
+          CHANNEL: ${{ matrix.channel }}
+          GH_TOKEN: ${{ (matrix.channel == 'homebrew' && (steps.tap_token.outputs.token || secrets.HOMEBREW_TAP_TOKEN)) || (matrix.channel == 'scoop' && secrets.SCOOP_BUCKET_TOKEN) || (matrix.channel == 'winget' && secrets.WINGET_TOKEN) || '' }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::$CHANNEL skipped because its token is unconfigured"
+            exit 0
+          fi
+          python3 scripts/release-channel.py "$CHANNEL" "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate/channels"
 
   npm:
     name: npm
-    # The platform packages carry the release binaries, so this job can only
-    # run once GoReleaser has uploaded them. It runs even when the GoReleaser
-    # job failed: assets upload before the Homebrew, Scoop, and winget pushes,
-    # so a package-manager token going stale must not also hold back npm.
-    # scripts/npm-binaries.sh is the real gate, rather than the job result: it
-    # fails when an archive is missing, does not match its checksum, or has no
-    # build provenance from this workflow for the tag.
-    needs: goreleaser
-    if: always() && needs.goreleaser.result != 'cancelled' && needs.goreleaser.result != 'skipped'
+    needs: publish
     runs-on: ubuntu-latest
     # id-token lets npm mint the short-lived OIDC token that a provenance
     # attestation is signed against. It works alongside the existing token
@@ -335,16 +407,8 @@ jobs:
 
   distribution:
     name: Distribution channels
-    # Every package-manager push in this pipeline is skipped when its token
-    # is absent, by design, so a fork or a local run still releases. That
-    # also means a token going empty is indistinguishable from a fork build
-    # in the goreleaser log, and the release still reports success. It hid a
-    # stale Homebrew cask for ten releases (#920).
-    #
-    # This job is the check nobody had: ask each published channel what
-    # version it actually serves and compare it against the tag.
-    needs: [goreleaser, npm]
-    if: always() && github.repository == 'Chemaclass/agnostic-ai' && needs.goreleaser.result == 'success'
+    needs: [publish, npm, channel-manifests]
+    if: ${{ !cancelled() && github.repository == 'Chemaclass/agnostic-ai' && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
@@ -379,6 +443,10 @@ jobs:
         run: |
           set -euo pipefail
           want="${GITHUB_REF_NAME#v}"
+          if [[ "${want%%+*}" == *-* ]]; then
+            echo "::notice::Homebrew checks the stable cask only"
+            exit 0
+          fi
           if [ "$TAP_CONFIGURED" != "true" ]; then
             echo "::notice::no tap credential here, which is expected. Chemaclass/homebrew-tap updates its own cask on a half-hourly schedule with its own GITHUB_TOKEN, so brew catches up within the hour and this repository holds no secret for it. Run that repository's 'Update agnostic-ai cask' workflow to pull it forward."
             exit 0
@@ -478,30 +546,3 @@ jobs:
             echo "::error::the npm release is incomplete; installs break on any platform whose package is missing, and an unpinned install resolves whatever ${dist_tag} still points at"
             exit 1
           fi
-
-      # A release without the archives leaves users without Go unable to
-      # install the companion, so only a prerelease may ship without them.
-      - name: Release ships the companion archives
-        if: ${{ !cancelled() }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          case "$GITHUB_REF_NAME" in
-            *-*)
-              echo "prerelease $GITHUB_REF_NAME: the companion archives are optional"
-              exit 0
-              ;;
-          esac
-          assets=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          missing=0
-          for arch in arm64 amd64; do
-            for extension in tar.gz dmg; do
-              name="agnostic-ai-companion_darwin_${arch}.${extension}"
-              if ! grep -qx "$name" <<<"$assets"; then
-                echo "::error::release $GITHUB_REF_NAME lacks $name"
-                missing=1
-              fi
-            done
-          done
-          exit "$missing"
