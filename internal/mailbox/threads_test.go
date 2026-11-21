@@ -33,7 +33,7 @@ func TestStore_PauseResumeAllowMoreAndStopAreRecorded(t *testing.T) {
 		}
 	}
 	thread := onlyThread(t, s)
-	if thread.Status != Closed || thread.Cap != 16 || thread.Messages[0].State != Cancelled {
+	if thread.Status != Closed || thread.Cap != 16 || thread.Messages[0].State != Canceled {
 		t.Errorf("stopped thread = %+v", thread)
 	}
 	_, err = s.Send(ctx, codex, SendRequest{To: claude, Type: Finding, Thread: first.Thread, Body: "Use the scanner."})

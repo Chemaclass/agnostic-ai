@@ -30,7 +30,7 @@ func (t Thread) valid(id string) bool {
 			return false
 		}
 		switch m.State {
-		case Waiting, Staged, Cancelled:
+		case Waiting, Staged, Canceled:
 		default:
 			return false
 		}
@@ -123,7 +123,7 @@ func (s Store) Change(ctx context.Context, id, action string) error {
 		thread.Status = Closed
 		for i := range thread.Messages {
 			if thread.Messages[i].State == Waiting {
-				thread.Messages[i].State = Cancelled
+				thread.Messages[i].State = Canceled
 			}
 		}
 	case "raise-cap":

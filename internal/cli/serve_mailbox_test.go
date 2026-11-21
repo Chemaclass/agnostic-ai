@@ -207,7 +207,7 @@ func TestMailboxHTTP_PauseResumeAndStopKeepTheirChangesInTheThread(t *testing.T)
 
 	rec := mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/threads?tool=claude&id="+inProject, "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"closed"`) ||
-		!strings.Contains(rec.Body.String(), `"cap":16`) || strings.Count(rec.Body.String(), `"state":"cancelled"`) != 9 {
+		!strings.Contains(rec.Body.String(), `"cap":16`) || strings.Count(rec.Body.String(), `"state":"cancelled"`) != 9 { //nolint:misspell // Match the mailbox/v1 wire spelling.
 		t.Errorf("stopped thread = %d %s", rec.Code, rec.Body)
 	}
 }

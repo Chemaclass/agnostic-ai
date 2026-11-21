@@ -308,7 +308,7 @@ func readJSON(path string, dst any) error {
 		return fmt.Errorf("parse %s: %w", path, err)
 	}
 	var extra json.RawMessage
-	if err := decoder.Decode(&extra); err != io.EOF {
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		if err == nil {
 			err = errors.New("extra JSON value")
 		}

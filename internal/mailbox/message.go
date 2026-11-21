@@ -17,9 +17,9 @@ const (
 	Closing = "closing"
 	Closed  = "closed"
 
-	Waiting   = "waiting"
-	Staged    = "staged"
-	Cancelled = "cancelled"
+	Waiting  = "waiting"
+	Staged   = "staged"
+	Canceled = "cancelled" //nolint:misspell // mailbox/v1 uses this spelling on disk and over HTTP.
 )
 
 const schemaVersion = "mailbox/v1"
