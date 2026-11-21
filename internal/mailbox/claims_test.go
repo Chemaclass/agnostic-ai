@@ -437,14 +437,14 @@ func TestClaims_AcceptRefusesAPathThatNowResolvesElsewhere(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "other"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if !resolvesUnchanged(Gives{root, []string{"scope/a.go"}}) {
+	if !resolvesUnchanged(Gives{root, []string{"scope/a.go"}}, false) {
 		t.Fatal("an unchanged path counts as moved")
 	}
 	if err := os.MkdirAll(filepath.Join(root, "scope"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	claimSymlink(t, filepath.Join(root, "other", "a.go"), filepath.Join(root, "scope", "a.go"))
-	if resolvesUnchanged(Gives{root, []string{"scope/a.go"}}) {
+	if resolvesUnchanged(Gives{root, []string{"scope/a.go"}}, false) {
 		t.Error("a path swapped for a symlink counts as unchanged")
 	}
 }

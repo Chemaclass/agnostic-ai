@@ -107,7 +107,7 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	}
 	if !claimPathEqual(scope.Worktree, message.Gives.Worktree, fold) ||
 		!slices.EqualFunc(scope.Paths, message.Gives.Paths, func(a, b string) bool { return claimPathEqual(a, b, fold) }) ||
-		!resolvesUnchanged(scope) {
+		!resolvesUnchanged(scope, fold) {
 		return &Refusal{"ownership", "The offered paths now resolve to a different location.", "Review the paths and send a new handoff."}
 	}
 
@@ -125,10 +125,10 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 
 // resolvesUnchanged repeats the file checks under the lock, without Git, so a
 // symlink swapped while acceptance waited for the lock is caught.
-func resolvesUnchanged(scope Gives) bool {
+func resolvesUnchanged(scope Gives, fold bool) bool {
 	for _, named := range scope.Paths {
 		again, err := resolveClaimPath(scope.Worktree, named)
-		if err != nil || again != named {
+		if err != nil || !claimPathEqual(again, named, fold) {
 			return false
 		}
 	}
