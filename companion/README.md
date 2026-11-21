@@ -105,6 +105,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - Choose **Send to session…** on a local Claude Code or Codex chat to start
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). The thread appears under both chats.
   Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
+  A message an agent sends shows as **Held for you** until you choose **Approve** or **Reject**.
+  **Queue for delivery** hands a staged message back to the
+  [mailbox built-in](https://agnostic-ai.org/docs/mailbox/#deliver-with-the-next-prompt),
+  which delivers it with the session's next prompt.
 - Choose **Claim files…** to record which paths a session is working on. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
 - On a chat in Needs you, the same menu offers **Mark as read**. It takes the
   chat out of Needs you without opening it, for a reply you already read in
@@ -229,6 +233,9 @@ change made in one shows in the other.
   companion where it is now, so turn it off and on again after you move the
   file. A change made in System Settings shows in the right-click menu once
   the ⋯ menu was opened or another setting changed.
+- **Ask me before an agent sends a message** holds each mailbox message an
+  agent sends until you approve it. It is on by default, and only the list's
+  ⋯ menu shows it, because the server keeps the setting.
 - **Open from anywhere** shows the shortcut. In the ⋯ menu, click it, then
   press the new keys: at least one of Ctrl, Alt or Cmd (the Windows or Super
   key elsewhere), and a letter, digit, Space, Enter, Tab, Backspace, Delete,
