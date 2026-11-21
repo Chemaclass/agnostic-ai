@@ -49,6 +49,10 @@ func (windowsLauncher) FocusTab(context.Context, string, string) (bool, error) {
 
 func (windowsLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
 
+func (windowsLauncher) ShowTmuxPane(context.Context, int, string) (int, error) {
+	return 0, errNotHere
+}
+
 func (windowsLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
 	return false, errNotHere
 }
