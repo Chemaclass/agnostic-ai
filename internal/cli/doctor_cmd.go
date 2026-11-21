@@ -136,6 +136,13 @@ func newDoctorCmd() *cobra.Command {
 			if opts.jsonOut {
 				return runDoctorJSON(cmd, opts)
 			}
+			// Advice, not a finding: it changes no exit code, and
+			// --checks project leaves personal files alone.
+			if opts.checks != "project" && verbosity >= levelDefault && hasPersonalLayer(".") {
+				if warning := localIgnoreWarning("."); warning != "" {
+					cmd.PrintErrf("warning: %s\n", warning)
+				}
+			}
 			return runDoctorText(cmd, opts)
 		},
 	}

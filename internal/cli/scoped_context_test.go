@@ -225,15 +225,6 @@ func TestNew_ScopeValuesAreNotDirectories(t *testing.T) {
 	if strings.Contains(string(body), "scope:") {
 		t.Errorf("--scope project wrote a directory scope: %s", body)
 	}
-	for _, scope := range []string{"user", "local"} {
-		_, _, err := runSplit(t, "new", "rule", "b", "--scope", scope)
-		if err == nil || !strings.Contains(err.Error(), "--scope "+scope) {
-			t.Errorf("--scope %s: err=%v, want it refused by name", scope, err)
-		}
-		if _, statErr := os.Stat(".agnostic-ai/rules/b.md"); statErr == nil {
-			t.Errorf("--scope %s wrote a rule", scope)
-		}
-	}
 }
 
 func TestNew_DirRules(t *testing.T) {

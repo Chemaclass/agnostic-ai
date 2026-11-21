@@ -23,8 +23,14 @@ For personal configuration values, use `agnostic-ai.local.yaml` (see [configurat
 
 ## Add a spec
 
+```bash
+agnostic-ai new rule scratch-notes --scope local
+```
+
 - A new name adds a spec on your machine.
-- The same kind and name as a shared spec [changes only the fields you write](#override-fields).
+- The same kind and name as a shared spec [changes only the fields you write](#override-fields). `new` then starts the file with the name only.
+
+`new --scope local` and `doctor` warn when Git does not ignore `.agnostic-ai/local/` or `agnostic-ai.local.yaml`.
 
 Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
 
