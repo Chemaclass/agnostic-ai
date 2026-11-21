@@ -1,6 +1,6 @@
 # agnostic-ai development
 
-agnostic-ai emits native AI tool configuration from portable specs. Go code: `cmd/`, `internal/`. Docs site: `docs/site/`. Editor extensions: `editors/`.
+agnostic-ai emits native AI tool configuration from portable specs. Go code: `cmd/`, `internal/`. Web client: `ui/`, with its built bundle committed in `ui/embedded/`. Companion app: `companion/`, its own Go module that root Go commands skip. Docs site: `docs/site/`. Editor extensions: `editors/`.
 
 Edit canonical specs in `.agnostic-ai/` and `agnostic-ai.yaml`, then run `go run ./cmd/agnostic-ai sync`. Native files such as `AGENTS.md` and `CLAUDE.md` are generated and ignored; `.openhands/setup.sh` is generated but tracked. Review tracked output before committing.
 
