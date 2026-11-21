@@ -163,10 +163,17 @@ func makeCompanionSigner(ctx context.Context, folder, keychain string) ([]byte, 
 	if err := os.WriteFile(certPEM, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600); err != nil {
 		return nil, err
 	}
+	// Imported as one .p12, the key and certificate form a signing
+	// identity; imported apart, a CI runner's macOS found none. Go cannot
+	// write a .p12, so the system openssl does. Its password guards nothing:
+	// the file is deleted at once, and macOS refuses a .p12 without one.
+	bundle := filepath.Join(scratch, "id.p12")
+	if out, err := exec.CommandContext(ctx, "/usr/bin/openssl", "pkcs12", "-export", "-inkey", keyFile, "-in", certPEM, "-out", bundle, "-passout", "pass:agnostic-ai").CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("openssl pkcs12: %w", withWhatItSaid(err, out))
+	}
 	for _, args := range [][]string{
 		{"create-keychain", "-p", "", keychain},
-		{"import", keyFile, "-k", keychain, "-f", "openssl", "-t", "priv", "-T", "/usr/bin/codesign"},
-		{"import", certPEM, "-k", keychain},
+		{"import", bundle, "-k", keychain, "-P", "agnostic-ai", "-T", "/usr/bin/codesign"},
 	} {
 		if err := runSecurity(ctx, args...); err != nil {
 			return nil, err
