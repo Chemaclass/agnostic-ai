@@ -317,3 +317,22 @@ Codex with `approvals_reviewer = "auto_review"` (set with `-c`):
 **Accepted limits:** One run per case on one account, macOS only. The `ask` rule finding rests on one project-level rule on `Bash`; no user, local or managed rule and no user-level Claude Code hook were tried. Not measured: the classic Claude Code renderer (`CLAUDE_CODE_NO_FLICKER=0`), the `bypassPermissions` and `dontAsk` modes, a Claude Code auto mode prompt caused by its classifier rather than a rule (the probe ran only harmless commands, which the classifier allowed), Codex `ask` and `deny` rules (`execpolicy` or `prefix_rule`), Codex in its other sandbox modes and collaboration modes and the `permission_mode` values there, a hook file in a Codex project `.codex/hooks.json`, MCP tool calls, Claude Code sandboxed network requests, Windows and Linux, and the start time of `agnostic-ai hook approve`, which does not exist yet. The script hook ran in 30 to 260 ms. Whether a running companion scan lands in the short wait was not measured; the status file shows it can.
 
 **Revisit when:** Claude Code documents how `PermissionRequest` hooks rank against `ask` rules, or adds a field that names the rule behind a prompt; or Codex adds the active reviewer to the hook input.
+
+## 023: The macOS companion is signed with self-signed certificates
+
+**Date:** 2026-11-21
+
+**Context:** Ad hoc signing made the app's designated requirement its code hash, so each update lost the Accessibility grant the companion needs to paste ([#3601](https://github.com/Chemaclass/agnostic-ai/issues/3601)). Apple ties privacy grants to the designated requirement, and the signer in it prevents impersonation ([TN3127](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements/)). The project has no Apple Developer ID.
+
+**Decision:** Sign with self-signed certificates and pin each one in the requirement: a certificate made on each Mac for `agnostic-ai companion install`, and one project certificate, kept in the `COMPANION_SIGNING_P12` secret, for the release disk image. [macOS companion signing](companion-signing.md) has the details and the manual steps.
+
+**Options not taken:**
+
+- **Apple Developer ID:** needs a paid Apple account. It would also allow notarization, but the maintainer chose not to have one.
+- **Requirement on the bundle identifier alone:** keeps the grant, but any program that copies the identifier meets the rule. A local `codesign` check accepted two different programs with it.
+- **One certificate for both paths:** the terminal installer signs on the user's Mac, so it cannot hold the project key.
+- **Passwords on the keychain or the `.p12`:** the installer must sign without a prompt, so a per-Mac password would sit on the same Mac as the key. In CI it would be a second secret beside the first. The `.p12` has the fixed password `agnostic-ai` only because macOS cannot import one without a password.
+
+**Accepted limits:** A program running as the same user can read the per-Mac key and sign a copy that macOS accepts. Switching between the disk image and the terminal installer resets the grant once. A new project certificate resets it for every disk image user. Gatekeeper still reports an unidentified developer, as it did with ad hoc signing.
+
+**Revisit when:** the project gets an Apple Developer ID, or Gatekeeper starts treating untrusted self-signed apps differently from ad hoc ones.
