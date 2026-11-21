@@ -117,6 +117,9 @@ func checkClaimStrings(value string) *Refusal {
 }
 
 func resolveClaimPath(root, relative string) (string, error) {
+	if !filepath.IsLocal(filepath.FromSlash(relative)) {
+		return "", invalidClaimPath()
+	}
 	at := filepath.Join(root, filepath.FromSlash(relative))
 	var missing []string
 	for hops := 0; ; {
