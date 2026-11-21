@@ -1079,8 +1079,27 @@ export function updateMessageOf(update) {
   if (update.result === 'latest') return { text: `No newer version is available for this Mac. You have v${update.current}.` }
   if (update.state === 'checking') return { text: 'Checking for updates…' }
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
-  if (update.state === 'failed') return { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
+  if (update.state === 'failed') {
+    const failed = { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
+    return update.command ? { ...failed, command: update.command } : failed
+  }
   return undefined
+}
+
+/** The question before an update: {title, body, go, command?}; with a command, the person runs it in a terminal. */
+export function updateConfirmOf(update) {
+  if (update.command && update.state !== 'failed') {
+    return {
+      title: `Update to v${update.version}`,
+      body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',
+      go: 'Copy command',
+      command: update.command,
+    }
+  }
+  const body = update.terminal
+    ? 'Runs agnostic-ai upgrade: it upgrades the command line tool the way you installed it, then replaces and restarts the companion. Your settings and chats stay.'
+    : 'The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.'
+  return { title: `Update to v${update.version} and restart?`, body, go: 'Update and restart' }
 }
 
 /** The settings button's name while an update is known, or undefined when there is none. */

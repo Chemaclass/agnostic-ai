@@ -10,3 +10,8 @@ import (
 func withoutConsoleWindow(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 }
+
+// detached hides the console window; a Windows child already outlives the companion.
+func detached(command *exec.Cmd) {
+	withoutConsoleWindow(command)
+}

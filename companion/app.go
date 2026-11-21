@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -158,7 +159,29 @@ type updateStatus struct {
 	Result  string `json:"result,omitempty"`
 	Reason  string `json:"reason,omitempty"`
 	Log     string `json:"log,omitempty"`
+	// Command is what to run in a terminal when the companion cannot update itself.
+	Command string `json:"command,omitempty"`
+	// Terminal says the companion was installed from the terminal and updates through agnostic-ai upgrade.
+	Terminal bool `json:"terminal,omitempty"`
 }
+
+// upgradeCommand updates a terminal install, the CLI and the companion together.
+const upgradeCommand = "agnostic-ai upgrade"
+
+// release is a newer release to offer; Command is set when the companion
+// cannot run the update itself.
+type release struct {
+	Version string
+	Command string
+}
+
+// terminalCommand finds the agnostic-ai command of a companion installed
+// from the terminal.
+var terminalCommand = findBinary
+
+// terminalOneClick says agnostic-ai upgrade can replace and restart the
+// companion here; elsewhere the panel shows the command to copy.
+var terminalOneClick = runtime.GOOS == "darwin"
 
 // updateStep is the last step the update log names.
 func updateStep(log string) string {
@@ -176,6 +199,10 @@ func updateStep(log string) string {
 // updateFailureReason says in plain words why an update stopped at step.
 func updateFailureReason(log, step string) string {
 	switch {
+	case strings.Contains(log, "does not serve"):
+		return "the package manager does not serve the new version yet. Try again later"
+	case strings.Contains(log, "executable file not found") || strings.Contains(log, "command not found"):
+		return "the package manager could not run from the companion"
 	case strings.Contains(log, "checksum mismatch"):
 		return "the download did not match its checksum"
 	case strings.Contains(log, "build provenance did not verify"):
@@ -211,11 +238,14 @@ func (status updateStatus) busy() bool {
 	return status.State == updateChecking || status.State == updateUpdating
 }
 
+// appCommands updates the companion. app is the disk image app holding
+// command; a companion installed from the terminal has no app and runs
+// agnostic-ai upgrade with its command instead.
 type appCommands struct {
 	shell        *shell
 	app, command string
 	busy         sync.Mutex
-	latest       func(context.Context) (string, error)
+	latest       func(context.Context) (release, error)
 	inform       func(title, message string)
 	// ask opens the list on the question whether to update.
 	ask func()
@@ -225,13 +255,19 @@ type appCommands struct {
 }
 
 func (s *shell) ownAppCommands() *appCommands {
-	app, command, ok := ownBundledCommand()
-	if !ok {
+	controls := &appCommands{shell: s, current: updateStatus{State: updateIdle}}
+	if app, command, ok := ownBundledCommand(); ok {
+		controls.app, controls.command = app, command
+		controls.latest = func(ctx context.Context) (release, error) {
+			next, err := latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version, updateImageName())
+			return release{Version: next}, err
+		}
+	} else if command, err := terminalCommand(); err == nil {
+		controls.command = command
+		controls.latest = func(ctx context.Context) (release, error) { return terminalRelease(ctx, command, version) }
+	} else {
 		return nil
 	}
-	controls := &appCommands{shell: s, app: app, command: command, current: updateStatus{State: updateIdle}, latest: func(ctx context.Context) (string, error) {
-		return latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version, updateImageName())
-	}}
 	controls.inform = func(title, message string) {
 		dialog := s.app.Dialog.Info().SetTitle(title).SetMessage(message)
 		dialog.AddButton("OK").SetAsDefault()
@@ -241,7 +277,41 @@ func (s *shell) ownAppCommands() *appCommands {
 	return controls
 }
 
-// updateStatus is the update entry's state; a companion without a bundled command has none yet.
+// terminalRelease asks command for the latest stable release. The update
+// runs in one click on macOS, where agnostic-ai upgrade also replaces and
+// restarts the companion.
+func terminalRelease(ctx context.Context, command, current string) (release, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	ask := exec.CommandContext(ctx, command, "companion", "update-status", "--json")
+	withoutConsoleWindow(ask)
+	out, err := ask.Output()
+	if err != nil {
+		return release{}, fmt.Errorf("check for companion updates: %w", err)
+	}
+	var status struct {
+		Latest   string `json:"latest"`
+		OneClick bool   `json:"oneClick"`
+	}
+	if err := json.Unmarshal(out, &status); err != nil {
+		return release{}, fmt.Errorf("check for companion updates: %w", err)
+	}
+	installed, ok := stableReleaseVersion(current)
+	if !ok {
+		return release{}, nil
+	}
+	latest, ok := stableReleaseVersion(status.Latest)
+	if !ok || slices.Compare(latest[:], installed[:]) <= 0 {
+		return release{}, nil
+	}
+	next := release{Version: strings.TrimPrefix(status.Latest, "v")}
+	if !status.OneClick || !terminalOneClick {
+		next.Command = upgradeCommand
+	}
+	return next, nil
+}
+
+// updateStatus is the update entry's state; a companion that finds no agnostic-ai command has none.
 func (s *shell) updateStatus() updateStatus {
 	if s.appCommands == nil {
 		return updateStatus{State: updateUnavailable}
@@ -295,6 +365,10 @@ func (s *shell) startUpdate(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusConflict, apiError{Error: "no update is known; check for updates first"})
 		return
 	}
+	if status.State == updateAvailable && status.Command != "" {
+		writeJSON(w, http.StatusConflict, apiError{Error: "the companion cannot update this install itself; run " + status.Command + " in a terminal"})
+		return
+	}
 	if !c.begin(func() { c.update(status.Version) }) {
 		writeJSON(w, http.StatusConflict, apiError{Error: "the companion is busy with an update or an install; try again in a moment"})
 		return
@@ -312,6 +386,7 @@ func (c *appCommands) status() updateStatus {
 // once and not kept, so a later read does not say it again.
 func (c *appCommands) setStatus(status updateStatus) {
 	status.Current = version
+	status.Terminal = c.app == ""
 	kept := status
 	kept.Result = ""
 	c.mu.Lock()
@@ -377,7 +452,7 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 		c.setStatus(known)
 		return
 	}
-	if next == "" {
+	if next.Version == "" {
 		found := updateStatus{State: updateIdle}
 		if asked {
 			found.Result = updateLatest
@@ -385,7 +460,7 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 		c.setStatus(found)
 		return
 	}
-	c.setStatus(updateStatus{State: updateAvailable, Version: next})
+	c.setStatus(updateStatus{State: updateAvailable, Version: next.Version, Command: next.Command})
 	if asked {
 		c.ask()
 	}
@@ -395,10 +470,18 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 // follows the steps the updater writes to its log.
 func (c *appCommands) update(next string) {
 	path := filepath.Join(filepath.Dir(c.shell.settingsPath), "companion-update.log")
-	step := updateDownloading
+	// agnostic-ai upgrade names no steps the panel follows.
+	step := ""
+	if c.app != "" {
+		step = updateDownloading
+	}
 	c.setStatus(updateStatus{State: updateUpdating, Version: next, Step: step})
 	failed := func(reason string) {
-		c.setStatus(updateStatus{State: updateFailed, Version: next, Reason: reason, Log: path})
+		status := updateStatus{State: updateFailed, Version: next, Reason: reason, Log: path}
+		if c.app == "" {
+			status.Command = upgradeCommand
+		}
+		c.setStatus(status)
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -410,6 +493,11 @@ func (c *appCommands) update(next string) {
 	// The updater must survive the companion ending while it replaces the
 	// app, so it writes to the log file and never to a pipe.
 	command := exec.Command(c.command, "companion", "update-app", "--app", c.app, "--version", next)
+	if c.app == "" {
+		command = exec.Command(c.command, "upgrade")
+		command.Env = append(os.Environ(), "PATH="+packageManagerPath(os.Getenv("PATH")))
+	}
+	detached(command)
 	command.Stdout, command.Stderr = file, file
 	if err := command.Start(); err != nil {
 		log.Print(err)
@@ -426,9 +514,15 @@ func (c *appCommands) update(next string) {
 			out, _ := os.ReadFile(path)
 			if err != nil {
 				failed(updateFailureReason(string(out), updateStep(string(out))))
+				return
 			}
+			// The updater restarts the companion; one still running here was left out.
+			failed("the companion did not restart. Quit it and open it again")
 			return
 		case <-ticker.C:
+			if step == "" {
+				continue
+			}
 			out, _ := os.ReadFile(path)
 			if now := updateStep(string(out)); now != step {
 				step = now
@@ -436,6 +530,24 @@ func (c *appCommands) update(next string) {
 			}
 		}
 	}
+}
+
+// packageManagerPath adds the folders package managers install into to
+// path: an app started from the desktop gets a short PATH without them.
+func packageManagerPath(path string) string {
+	folders := filepath.SplitList(path)
+	extra := usualSystemFolders
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, folder := range usualFolders {
+			extra = append(extra, filepath.Join(home, folder))
+		}
+	}
+	for _, folder := range extra {
+		if !slices.Contains(folders, folder) {
+			folders = append(folders, folder)
+		}
+	}
+	return strings.Join(folders, string(os.PathListSeparator))
 }
 
 func (c *appCommands) watchUpdates(ctx context.Context) {

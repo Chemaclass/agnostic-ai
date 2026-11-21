@@ -149,7 +149,7 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 		added.OnClick(func(clicked *application.Context) { act(clicked.IsChecked()) })
 		native[item.ID] = added
 		labels[item.ID] = item.Label
-		if item.ID == updateID {
+		if item.ID == updateID && s.appCommands.app != "" {
 			controls := s.appCommands
 			menu.Add("Install command line tool").OnClick(func(*application.Context) { go controls.installCommand() })
 		}
