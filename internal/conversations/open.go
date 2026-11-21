@@ -198,32 +198,10 @@ func openRoute(ctx context.Context, c Conversation, processes Processes, launche
 		if held, ok := heldNow(c, processes); ok {
 			return focusTerminal(ctx, held, processes, launcher)
 		}
-		if mayStillRun(c, processes, time.Now()) {
-			return OpenReply{Message: mayStillRunMessage, Command: c.Open.Command}
-		}
 		return resumeTerminal(ctx, c, launcher)
 	default:
 		return OpenReply{Message: fmt.Sprintf("No way to open a %s conversation here.", toolLabels[c.Tool])}
 	}
-}
-
-// mayStillRunMessage is the reply for a terminal session that may
-// still run on a system whose processes cannot be checked.
-const mayStillRunMessage = "agnostic-ai cannot tell on Windows whether this session still runs, and a second copy would compete with it. If it ended, run this command in a terminal."
-
-// mayStillRun reports whether a terminal session was written within
-// activeSpan, or at an unknown time, on a system whose processes cannot
-// be checked. One quiet for longer is dormant, and counts as ended.
-func mayStillRun(c Conversation, processes Processes, now time.Time) bool {
-	written := lastWritten(c)
-	return cannotCheckProcesses(processes, runtime.GOOS) && c.Open.Command != "" && (written.IsZero() || now.Sub(written) < activeSpan)
-}
-
-// cannotCheckProcesses reports whether the processes are this system's
-// own on Windows, where none can be checked: they are read with ps.
-func cannotCheckProcesses(processes Processes, goos string) bool {
-	_, system := processes.(SystemProcesses)
-	return system && goos == "windows"
 }
 
 // subagentGone is the reply for a subagent its chat no longer lists:
@@ -265,8 +243,7 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	}
 	// Another program with the store open, such as a database viewer,
 	// must not stop an ended chat from resuming.
-	command, _, _ := strings.Cut(processes.Args([]int{pid})[pid], " ")
-	if !agentCommands[filepath.Base(command)] {
+	if !agentCommands[commandName(processes.Args([]int{pid})[pid])] {
 		return c, false
 	}
 	c.Live = true
@@ -434,6 +411,16 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 		return resumeTerminal(ctx, c, launcher)
 	}
 	placed := c.placed
+	// Windows places no process in a terminal, and no window comes forward.
+	// Nor can it tell a thread Codex's background service keeps, which no
+	// resume command may compete with.
+	if placed == nil && shellSystem == "windows" {
+		resume := c.Open.Command
+		if c.Tool == ToolCodex {
+			resume = ""
+		}
+		return resumeElsewhere(fmt.Sprintf("It is open in another window (process %d), and agnostic-ai cannot bring a window forward on Windows. Switch to it there.", c.process.PID), resume)
+	}
 	// A thread the Codex daemon holds is live even with no client in
 	// front of it, so the reply never offers to resume it again.
 	if c.Tool == ToolCodex && (placed == nil || len(placed.ttys) > 0) {

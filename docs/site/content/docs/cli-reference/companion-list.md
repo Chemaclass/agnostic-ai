@@ -67,7 +67,7 @@ If a chat does not open, the reason stays above the list.
 - **Copy resume command** copies the command to run in a terminal.
 - It is also offered for a chat still running where no tab shows it, such as in a detached `tmux` session or after its tab closed. It comes with a note to end that process first, since two copies of one session would compete.
 - A chat whose tab was found, and a Codex thread Codex's background service keeps, never offer it.
-- On Windows a click opens editor chats, Codex threads and cloud sessions, and resumes an ended terminal chat in a new PowerShell window. A terminal chat written in the last day offers its command instead, since the server cannot tell on Windows whether it still runs. Commands on Windows are for PowerShell.
+- On Windows a click opens editor chats, Codex threads and cloud sessions, and resumes an ended terminal chat in a new PowerShell window. A chat that still runs shows as open and is never started twice, but its window is not brought forward. Commands on Windows are for PowerShell.
 {% </details> %}
 
 ## Send copied text {#send-copied-text}
@@ -369,7 +369,7 @@ Remove a chat from this computer for good.
 | Claude Code, on this computer | Yes |
 | Codex | No. Close it, then run `codex delete <id>`. |
 | Cursor editor chat, cloud session | No. Delete it where it lives. |
-| `cursor-agent`, any chat on Windows | Not yet. |
+| `cursor-agent` | Not yet. |
 
 A chat that cannot be deleted says why when you choose the item.
 
@@ -377,7 +377,6 @@ A chat that cannot be deleted says why when you choose the item.
 - Codex deletes a thread even while it is open, so close it first.
 - Delete a Cursor editor chat in Cursor, and a cloud session where it runs. `cursor-agent` chats cannot be deleted yet.
 - Cursor keeps every chat in one shared database.
-- On Windows the server cannot tell whether a session still runs.
 - Offered on any archived chat that no process holds and whose latest reply you have read: one you marked complete, or one that is closed.
 - Closed means right away for a Claude Code, Codex or `cursor-agent` chat run in a terminal, and after a day for an editor panel or a background job.
 - A chat that went quiet by itself is checked again when you confirm. If it closed with a reply you have not read, or anything was written in it while the delete runs, it is not deleted.

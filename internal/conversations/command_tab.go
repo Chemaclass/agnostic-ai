@@ -46,7 +46,7 @@ var linuxCommandTabs = map[string]commandTab{
 // a system with a reader.
 func readEnvironments(pids []int) (map[int][]string, error) {
 	if environmentReader == nil {
-		return nil, errNoProcessRead
+		return nil, errors.New(string(environmentUnsupported))
 	}
 	return environmentReader(pids)
 }
