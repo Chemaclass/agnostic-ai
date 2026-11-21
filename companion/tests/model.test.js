@@ -2,6 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
+import { missingToolsNoteOf } from '../frontend/model.js'
+
 import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({
@@ -942,4 +944,18 @@ test('names the handoff and claim statuses shown in the panel', async () => {
   assert.equal(claimCountOf(2), '2 claims')
   assert.equal(conflictLabelOf({ path: 'src/a.go' }, 'Parser session'), 'Path conflict: src/a.go is held by Parser session.')
   assert.equal(conflictLabelOf({ path: 'src/a.go' }), 'Path conflict: no session holds src/a.go.')
+})
+
+test('says which tools cannot be read without a command, and none for a tool that is just absent', () => {
+  const view = {
+    tools: [
+      { tool: 'claude', label: 'Claude Code', found: true },
+      { tool: 'codex', label: 'Codex', found: false, note: 'Reading Codex threads needs the sqlite3 command', needs: 'sqlite3' },
+      { tool: 'cursor', label: 'Cursor', found: false, note: 'No Cursor chat index at C:\\x' },
+      { tool: 'chatgpt', label: 'ChatGPT', found: false, note: 'Reading ChatGPT chats needs the sqlite3 command', needs: 'sqlite3' },
+    ],
+  }
+  assert.equal(missingToolsNoteOf(view), 'Codex and ChatGPT chats are missing: reading them needs the sqlite3 command.')
+  assert.equal(missingToolsNoteOf({ tools: [view.tools[0], view.tools[2]] }), undefined)
+  assert.equal(missingToolsNoteOf({}), undefined)
 })

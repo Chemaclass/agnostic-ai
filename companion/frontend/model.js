@@ -1133,3 +1133,13 @@ export function menuRowsOf(items, { preferences, appearance, mailbox, update = {
     return { ...item, value }
   })
 }
+
+const listed = new Intl.ListFormat('en', { type: 'conjunction' })
+
+/** Why some tools list nothing: their store needs a command this computer lacks, such as sqlite3 on Windows. */
+export function missingToolsNoteOf(view) {
+  const lacking = (view.tools ?? []).filter((tool) => tool.needs)
+  if (lacking.length === 0) return undefined
+  const commands = [...new Set(lacking.map((tool) => tool.needs))]
+  return `${listed.format(lacking.map((tool) => tool.label))} chats are missing: reading them needs the ${listed.format(commands)} command.`
+}

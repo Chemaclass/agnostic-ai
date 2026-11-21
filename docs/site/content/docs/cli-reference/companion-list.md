@@ -66,6 +66,7 @@ If a chat does not open, the reason stays above the list.
 - **Copy resume command** copies the command to run in a terminal.
 - It is also offered for a chat still running where no tab shows it, such as in a detached `tmux` session or after its tab closed. It comes with a note to end that process first, since two copies of one session would compete.
 - A chat whose tab was found, and a Codex thread Codex's background service keeps, never offer it.
+- On Windows a click opens editor chats, Codex threads and cloud sessions, and resumes an ended terminal chat in a new PowerShell window. A terminal chat written in the last day offers its command instead, since the server cannot tell on Windows whether it still runs. Commands on Windows are for PowerShell.
 {% </details> %}
 
 ## Send copied text {#send-copied-text}

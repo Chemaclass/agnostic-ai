@@ -105,7 +105,7 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 - A row's action reopens the chat where it lives: the Terminal, Ghostty, iTerm, WezTerm or kitty tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
 - **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
 - The first time, macOS asks to let agnostic-ai control each terminal app.
-- Codex and Cursor chats need the `sqlite3` command.
+- Codex and Cursor chats need the `sqlite3` command. On Windows, `winget install SQLite.SQLite` installs it. The list says which chats are missing without it.
 - In `review` and `yolo`, a permission prompt the approvals hook approved is not listed as waiting. See [approvals in the companion](@/docs/cli-reference/companion.md#approvals), and [`GET /api/views/approvals`](@/docs/cli-reference/serve-api.md#get-api-views-approvals) and [`POST /api/approvals/ask`](@/docs/cli-reference/serve-api.md#post-api-approvals-ask) for the routes.
 - See [`/api/views/conversations`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
 {% </details> %}

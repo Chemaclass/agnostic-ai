@@ -182,7 +182,7 @@ func findIn(results []sourceResult, tool Tool, id string) (Conversation, bool) {
 // deleteUnsupported says why a conversation's store cannot be deleted
 // from here; empty for a local Claude Code session.
 func (s *Scanner) deleteUnsupported(c Conversation) string {
-	if _, system := s.Processes.(SystemProcesses); system && runtime.GOOS == "windows" {
+	if cannotCheckProcesses(s.Processes, runtime.GOOS) {
 		return "agnostic-ai cannot tell on Windows whether a session still runs, so it deletes none."
 	}
 	switch {

@@ -77,7 +77,7 @@ func (s *Scanner) scanChatGPT(ctx context.Context, opts ScanOptions) sourceResul
 	path := chatGPTCatalogPath(s.Stores.CodexDir)
 	rows, err := queryRows[chatGPTRow](ctx, s.SQLite, path, chatGPTChatsQuery)
 	if errors.Is(err, errNoSQLite) {
-		return missing(ToolChatGPT, "Reading ChatGPT chats needs the sqlite3 command")
+		return needsSQLite(ToolChatGPT, "Reading ChatGPT chats needs the sqlite3 command")
 	}
 	if err != nil {
 		return missing(ToolChatGPT, "Could not read the ChatGPT app's chat list "+filepath.Base(path))

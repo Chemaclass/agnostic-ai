@@ -101,7 +101,7 @@ type CloudCredentials interface {
 // keychain, or in its credentials file on Linux. Claude Code renews it
 // there; this reads it on each call and never touches the refresh token.
 type KeychainCredentials struct {
-	// GOOS is the running system; only darwin and linux have a store to read.
+	// GOOS is the running system; only darwin, linux and windows have a store to read.
 	GOOS string
 	// Read returns the stored sign-in's JSON.
 	Read func(ctx context.Context) ([]byte, error)
@@ -113,7 +113,7 @@ func NewKeychainCredentials() KeychainCredentials {
 }
 
 func newKeychainCredentials(goos string) KeychainCredentials {
-	if goos == "linux" {
+	if goos == "linux" || goos == "windows" {
 		path := filepath.Join(DefaultStores().ClaudeDir, claudeCredentialsFile)
 		return KeychainCredentials{GOOS: goos, Read: func(context.Context) ([]byte, error) { return os.ReadFile(path) }}
 	}
@@ -154,7 +154,7 @@ func (k KeychainCredentials) AccessToken(ctx context.Context) (string, error) {
 	store := fmt.Sprintf("keychain entry %q", claudeKeychainService)
 	switch k.GOOS {
 	case "darwin":
-	case "linux":
+	case "linux", "windows":
 		store = "Claude Code's " + claudeCredentialsFile
 	default:
 		return "", &CloudError{Tool: ToolClaude, Reason: CloudUnsupported, Cause: fmt.Errorf("no Claude sign-in store known on %s", k.GOOS)}

@@ -706,6 +706,13 @@ func missing(tool Tool, note string) sourceResult {
 	return sourceResult{source: Source{Tool: tool, Label: toolLabels[tool], Note: note}}
 }
 
+// needsSQLite is the result for a store only the sqlite3 command reads.
+func needsSQLite(tool Tool, note string) sourceResult {
+	result := missing(tool, note)
+	result.source.Needs = "sqlite3"
+	return result
+}
+
 func found(tool Tool, conversations []Conversation) sourceResult {
 	return sourceResult{source: Source{Tool: tool, Label: toolLabels[tool], Found: true}, conversations: conversations}
 }
@@ -799,6 +806,24 @@ func shellQuote(path string) string {
 // A folder with control characters gives no line: a person who copies
 // it would paste them into a terminal.
 func resumeIn(folder, command string) string {
+	return resumeLine(shellSystem, folder, command)
+}
+
+// shellSystem picks the shell a resume line is written for. Tests pin
+// it, so the lines they expect do not depend on the system they run on.
+var shellSystem = runtime.GOOS
+
+// resumeLine is the line that runs command in folder, for the shell a
+// person on goos types in: PowerShell on Windows, a POSIX shell elsewhere.
+func resumeLine(goos, folder, command string) string {
+	line := posixResumeLine(folder, command)
+	if goos == "windows" && line != "" {
+		return powerShellLine(line)
+	}
+	return line
+}
+
+func posixResumeLine(folder, command string) string {
 	if hasControl(folder) {
 		return ""
 	}

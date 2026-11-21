@@ -62,12 +62,12 @@ If a release ships without the companion archive, the installer builds the compa
 | System | Status |
 |--------|--------|
 | macOS | Supported (macOS 13 or later). |
-| Windows | Not supported. [Help with #3221](https://github.com/Chemaclass/agnostic-ai/issues/3221). |
+| Windows | Builds and runs on a GitHub Actions Windows Server 2025 runner. Not yet tried on a Windows 11 desktop. [Help with #3221](https://github.com/Chemaclass/agnostic-ai/issues/3221). |
 | Linux | Builds and runs in containers, on X11 and Wayland. Not yet tried on a desktop with a real screen. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
 
 {% <details summary="Details: download, build, signing, login item"> %}
 - Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later.
-- CI builds and tests it on Windows and Linux. Nobody has run it on Windows. On Linux it ran only in containers: see [What ran on Linux](#linux-runs).
+- CI builds and tests it on Windows and Linux. On Windows it ran only on a GitHub Actions runner: see [What ran on Windows](#windows-runs). On Linux it ran only in containers: see [What ran on Linux](#linux-runs).
 - Running `agnostic-ai companion` again tells you when the companion was built for another release, or installed by an `agnostic-ai` built from another commit. When the companion cannot run, it says so and names its path.
 - On a Mac older than macOS 13, install stops and says why.
 - Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` that runs through Rosetta gets the Apple silicon one. It needs no compiler.
@@ -120,6 +120,36 @@ Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/
 - On Wayland the desktop places windows, not the program. Under Sway the circle opened in the middle of the screen as a floating window with a title bar, and its saved place was not used. This Sway rule puts it back in a corner without the title bar: `for_window [app_id="org.wails.agnostic-ai_companion"] border none, sticky enable, move position 1170 690`.
 - Wayland has no standard way to keep a window over the others. Under Sway a floating window stays over tiled ones.
 - A chat that still runs in a terminal cannot be switched to on Linux. The list says where it runs.
+{% </details> %}
+
+### What ran on Windows {#windows-runs}
+
+Every run below used a GitHub Actions `windows-latest` runner: Windows Server 2025 (x64) with WebView2 157, signed in as an administrator, with a 1024x768 screen and no person at it. Clicks and keys came from a script.
+
+| Check | Result |
+|-------|--------|
+| `companion install` without Go names it and builds nothing | Pass |
+| `companion install` builds with Go alone | Pass |
+| The circle shows, round, over other windows, with no console window of its own | Pass |
+| A second start brings back the running one | Pass: same process |
+| The right-click menu, and **Hide** from it | Pass: windows hidden, server keeps reading |
+| `Ctrl+Alt+Space` brings back a hidden companion with its list | Pass |
+| A Claude Code chat lists | Pass |
+| The list says Codex chats are missing without `sqlite3` | Pass |
+| `winget install SQLite.SQLite` puts `sqlite3` on `PATH` | Pass: SQLite 3.54.1 |
+| A click on an ended chat resumes it in a new PowerShell window, in the chat's folder | Pass |
+| A click on a chat written in the last day offers its command, for PowerShell, instead | Pass |
+| A `codex://` link opens the app registered for it | Pass, with a stand-in app |
+| The Claude Code cloud sign-in is read from `~/.claude/.credentials.json` | Pass with a fake token: the API refused it, as it should |
+| **Start at login** writes its `Run` value, and `companion stop` | Pass |
+| `companion install` over a running companion | Pass: new file, new process |
+| `companion uninstall` leaves no process, `Run` value, program or companion folder | Pass |
+
+{% <details summary="Details: what did not run on Windows"> %}
+- Not run: Windows 11 or any desktop a person uses; a standard (not administrator) account; **Start at login** across a real login; a new shortcut; more than one screen; Codex and Cursor chats; working and waiting states; a real Claude Code sign-in; a cloud session opened in the browser; a real `claude` or `codex` resumed (neither is installed on the runner).
+- `agnostic-ai serve`, which the companion starts, has a console window of its own, hidden.
+- The server does not read processes on Windows yet, so it cannot tell whether a terminal chat still runs. A chat written in the last day is not resumed; its command shows instead. A chat left open but quiet for over a day is resumed as a second copy.
+- A chat that still runs in a terminal cannot be switched to on Windows, and a chat cannot be deleted there.
 {% </details> %}
 
 ## Commands {#commands}
@@ -272,13 +302,12 @@ A project server lists none, because a cloud session names no folder. To send th
 
 {% <details summary="Details: endpoints, privacy, refresh, failures, status"> %}
 - Claude Code reads `GET https://api.anthropic.com/v1/code/sessions?limit=100`. Codex reads `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads.
-- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). On Linux it is `.credentials.json` in `$CLAUDE_CONFIG_DIR` (default `~/.claude`), where Claude Code 2.1.330 for Linux writes it. No real Linux sign-in was tried yet. The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
+- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). On Linux and Windows it is `.credentials.json` in `$CLAUDE_CONFIG_DIR` (default `~/.claude`), where Claude Code 2.1.330 for Linux and for Windows writes it. No real Linux or Windows sign-in was tried yet. The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
 - Claude Code sessions open `https://claude.ai/code/session_<id>` in the browser. Codex threads open `codex://threads/<id>?hostId=durable`, handled by the Codex app.
 - Claude Code `working` shows only while the worker runs. Codex waits on an approval or on your input.
 - Limit: at most 100 sessions or threads. It does not page past them yet.
 - It uses their id, title or name, status and times. It never reads their messages.
 - The sign-in is sent only to its own host. It is never kept, printed or logged, and the refresh token is never used.
-- Claude Code sign-in: Windows is not supported yet.
 - Codex sign-in: without `auth.json` it asks nothing and says nothing, because you do not use Codex. A login with an API key has no cloud threads, and `cloudNote` says so.
 - Flag off: without `--cloud-sessions`, nothing reads your sign-in or leaves this machine.
 - Refresh: at most once a minute, with a 5-second timeout and no retry.
