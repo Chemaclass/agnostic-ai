@@ -44,9 +44,9 @@ To use the command in a terminal, right-click the circle and choose **Install co
 {% </details> %}
 
 {% <details summary="Update the disk-image app"> %}
-The app checks for updates on start and every 24 hours while it runs. Use **Check for updates** in the circle's right-click menu to check now. **Update and restart** replaces the app and its bundled CLI together. The download uses the same checksum and build provenance checks as the CLI installer.
+The app checks for updates on start and every 24 hours while it runs. A check it makes on its own opens no window: when a newer stable release has a disk image for this Mac, the update entry in both menus reads **Update to vX.Y.Z** and a dot appears on the list's ⋯ button. Choose **Check for updates** in either menu to check now; the list says what it found. Choose **Update to vX.Y.Z** to update: the list asks once, then **Update and restart** replaces the app and its bundled CLI together. The list shows each step: downloading and checking the checksum, checking the downloaded app, restarting. The download uses the same checksum and build provenance checks as the CLI installer.
 
-Separate npm or Homebrew installs keep their own update path. Running `agnostic-ai upgrade` from the bundled CLI link directs you to the app menu. If an update fails, see `~/Library/Application Support/agnostic-ai/companion-update.log`.
+Separate npm or Homebrew installs keep their own update path. Running `agnostic-ai upgrade` from the bundled CLI link directs you to the app menu. If an update fails before the restart, your current version keeps running. The list names the reason, such as a download that did not match its checksum, and the log, `~/Library/Application Support/agnostic-ai/companion-update.log`. **Retry** starts the update again.
 {% </details> %}
 
 ### Install from the terminal {#install-from-terminal}
@@ -116,7 +116,7 @@ If a release ships without the companion archive, the installer builds the compa
 
 ## The circle and its menus {#menus}
 
-Right-click the circle, or open the list's ⋯ menu. A settings change in one shows in the other. The disk-image app also offers **Install command line tool** and **Check for updates** in the circle's right-click menu.
+Right-click the circle, or open the list's ⋯ menu. A settings change in one shows in the other. The disk-image app also offers the update entry in both menus, and **Install command line tool** under it in the circle's right-click menu.
 
 | Menu item | What it does |
 |-----------|--------------|
@@ -127,6 +127,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. Only the list's ⋯ menu shows it. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
+| **Check for updates** | Disk-image app only. Checks for a newer release now. Reads **Update to vX.Y.Z** when one is known; choosing it asks, then updates and restarts. See [Install and start](#install). |
 | **Hide Agnostic AI companion** | Takes the circle and the list off the screen. It keeps running. |
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 

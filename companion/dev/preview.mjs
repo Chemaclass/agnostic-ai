@@ -50,6 +50,8 @@ function fixtureState(name, now) {
     polled: structuredClone(conversations),
     preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false },
     appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
+    /** The update entry; a terminal install has none yet. */
+    update: fixture.update ?? { state: 'unavailable' },
     /** What waited in the last list, as the shell remembers it. */
     waitingSeen: waitingIn(conversations),
     /** What the preview's clipboard holds, as the shell would read it. */
@@ -517,6 +519,19 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       state.preferences.startAtLogin = (await bodyOf(request)).enabled === true
       sendJSON(response, 200, state.preferences)
       emit('preferences', state.preferences)
+    },
+    'GET /api/update': (request, response) => sendJSON(response, 200, state.update),
+    'POST /api/update': (request, response) => {
+      logCall('/api/update')
+      noContent(response)
+    },
+    // Like the shell: only a known release can start, and the panel follows the first step.
+    'POST /api/update/start': (request, response) => {
+      logCall('/api/update/start')
+      if (state.update.state !== 'available' && state.update.state !== 'failed') return sendJSON(response, 409, { error: 'no update is known; check for updates first' })
+      state.update = { state: 'updating', version: state.update.version, current: state.update.current, step: 'downloading' }
+      noContent(response)
+      emit('update', state.update)
     },
     'GET /api/appearance': (request, response) => sendJSON(response, 200, state.appearance),
     'POST /api/appearance/animate': async (request, response) => {

@@ -1168,6 +1168,21 @@ body {
   fill: var(--paper);
 }
 
+#menu-button[data-update] {
+  position: relative;
+}
+
+#menu-button[data-update]::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--action);
+}
+
 /* Settings: a small sheet that rises over the foot. */
 
 /* Above the list's sticky group heads. */

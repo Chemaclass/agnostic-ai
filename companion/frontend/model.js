@@ -97,8 +97,9 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, mailboxOpen, searching }) {
+export function escapeTarget({ quitConfirmOpen, updateConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, mailboxOpen, searching }) {
   if (quitConfirmOpen) return 'quit-confirm'
+  if (updateConfirmOpen) return 'update-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (stopShellOpen) return 'stop-shell'
   if (stopSessionOpen) return 'stop-session'
@@ -142,12 +143,12 @@ export function takesText(conversation) {
 }
 
 /** The apps whose tabs the server can type into, as a live row's route names them: "Switch to Ghostty". */
-const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty'])
+const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm'])
 /** The tools the server types into: they say when they wait for an answer. */
 const TYPED_TOOLS = new Set(['claude', 'codex'])
 
 /**
- * The rows the copied text can be typed into, in list order: live, in a Terminal or Ghostty tab, under
+ * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty or iTerm tab, under
  * Needs you, Working or Active. Like the server, it leaves out a chat that waits for an answer, where typed text
  * could answer it, a Cursor chat, which does not say when it waits, and a working chat whose tool may drop typed text:
  * only Claude Code keeps it.
@@ -1035,15 +1036,68 @@ export function hideLabelOf(label, preferences) {
   return preferences.shortcutProblem ? `${label} (agnostic-ai companion brings it back)` : label
 }
 
+/** The update entry's label in its state; the shell's updateLabel says the same. */
+export function updateLabelOf(label, update) {
+  if (update.state === 'checking') return 'Checking for updates…'
+  if (update.state === 'available' || update.state === 'failed') return `Update to v${update.version}`
+  if (update.state === 'updating') return `Updating to v${update.version}…`
+  return label
+}
+
 /**
- * The settings menu's rows, from menu.json and the shell's two replies:
- * {id, label, kind, hint?, value}. A switch's value is its
- * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
- * Hide's label names the way back.
+ * Shows the newest update status. since() returns a show for a read started now,
+ * which drops the reply when an update event arrived while it was read.
  */
-export function menuRowsOf(items, { preferences, appearance, mailbox }, isMac = false) {
+export function updateFeed(show) {
+  let events = 0
+  return {
+    event(update) {
+      events += 1
+      show(update)
+    },
+    since() {
+      const at = events
+      return (update) => {
+        if (events === at) show(update)
+      }
+    },
+  }
+}
+
+const UPDATE_STEPS = {
+  downloading: (update) => `Downloading v${update.version}…`,
+  verifying: () => 'Checking the download…',
+  restarting: () => 'Restarting…',
+}
+
+/**
+ * What the panel says about the update: {text, retry?, log?}, or undefined when there is nothing to say.
+ * A check the companion made on its own says nothing once it ends.
+ */
+export function updateMessageOf(update) {
+  if (update.result === 'unreachable') return { text: 'Could not check for updates. Check your connection and try again.' }
+  if (update.result === 'latest') return { text: `No newer version is available for this Mac. You have v${update.current}.` }
+  if (update.state === 'checking') return { text: 'Checking for updates…' }
+  if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
+  if (update.state === 'failed') return { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
+  return undefined
+}
+
+/** The settings button's name while an update is known, or undefined when there is none. */
+export function updateBadgeOf(update) {
+  if (!update.version || update.state === 'updating') return undefined
+  return `Settings: update to v${update.version} available`
+}
+
+/**
+ * The settings menu's rows, from menu.json and the shell's three replies:
+ * {id, label, kind, hint?, value, disabled?}. A switch's value is its
+ * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
+ * Hide's label names the way back. The update entry shows only where the companion can update itself.
+ */
+export function menuRowsOf(items, { preferences, appearance, mailbox, update = { state: 'unavailable' } }, isMac = false) {
   const values = { ...appearance, ...preferences, ...mailbox }
-  return items.map((item) => {
+  return items.filter((item) => item.id !== 'update' || update.state !== 'unavailable').map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
     if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
@@ -1056,6 +1110,7 @@ export function menuRowsOf(items, { preferences, appearance, mailbox }, isMac = 
       value = preferences[item.id]
     }
     if (item.id === 'hide') return { ...item, label: hideLabelOf(item.label, preferences), value }
+    if (item.id === 'update') return { ...item, label: updateLabelOf(item.label, update), value, disabled: update.state === 'checking' || update.state === 'updating' }
     return { ...item, value }
   })
 }

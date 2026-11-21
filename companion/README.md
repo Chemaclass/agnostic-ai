@@ -50,6 +50,8 @@ with `make companion-run`.
 
 ## Upgrade
 
+The disk image app checks for a newer release on start and every 24 hours, without opening a window. The update entry in the right-click menu and the list's ⋯ menu then reads **Update to vX.Y.Z**, and a dot shows on the ⋯ button. Choose it, then **Update and restart** in the list, to update the app and its bundled CLI. The list shows each step, and on a failure before the restart the reason, the log and **Retry**; the current version keeps running. **Check for updates** checks now and says what it found. A companion installed from the terminal has no update entry yet; use `agnostic-ai upgrade`.
+
 `agnostic-ai upgrade` also replaces an installed companion through the updated CLI, downloaded or built as `install` does. It prints each step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
 
 If the companion update fails, the CLI stays upgraded and the old companion stays usable. The command explains the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
@@ -78,7 +80,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   for you stays under Needs you, even when its parent is active or archived.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click,
   on the name too. **F2** renames the selected chat.
-  A running chat comes up in the Terminal or Ghostty tab that runs it, ready
+  A running chat comes up in the Terminal, Ghostty or iTerm tab that runs it, ready
   for typing. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
   The reason stays above the list until you dismiss it or open another chat.
@@ -98,7 +100,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal or Ghostty tab takes the name too, in place of
-  the title the tool sets.
+  the title the tool sets. In iTerm the name goes on the chat's pane.
 - Right-click a chat and choose **Copy session ID** to copy its exact ID.
   A cloud chat gives you its cloud ID. Use the tool that owns the chat to
   decide how to open it. Copying keeps the chat state and marks.
@@ -157,7 +159,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   - The first chat the text can be typed into is selected. Nothing is sent
     until you press Enter or click.
   - A click on a subagent row sends the text to the chat it runs in.
-  - A live chat in a Terminal or Ghostty tab gets the text typed in, and the
+  - A live chat in a Terminal, Ghostty or iTerm tab gets the text typed in, and the
     list hides. For any other chat, the companion switches to it and says to
     paste with Cmd+V: the clipboard still holds the text.
   - A chat that ended is never resumed and typed into. A Cursor chat or a

@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"testing/fstest"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -138,16 +142,277 @@ func fakeBundledCommand(t *testing.T) string {
 	return command
 }
 
-func TestAppMenu_OffersInstallAndUpdatesForBundledCommand(t *testing.T) {
+func menuLabels(menu *application.Menu) []string {
+	var got []string
+	for i := 0; menu.ItemAt(i) != nil; i++ {
+		item := menu.ItemAt(i)
+		if item.IsSeparator() {
+			got = append(got, "---")
+			continue
+		}
+		got = append(got, item.Label())
+	}
+	return got
+}
+
+func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 	command := fakeBundledCommand(t)
-	menu := application.NewMenu()
-	controls := (&shell{}).addAppMenu(menu)
-	if controls == nil || controls.command != command {
-		t.Fatalf("app controls = %+v; want bundled command %s", controls, command)
+	s, _, _, menu := menuShell(t)
+	if s.appCommands == nil || s.appCommands.command != command {
+		t.Fatalf("app controls = %+v; want bundled command %s", s.appCommands, command)
+	}
+	got := strings.Join(menuLabels(menu)[7:], "|")
+	want := "Check for updates|Install command line tool|---|Hide Agnostic AI companion|Quit Agnostic AI companion"
+	if got != want {
+		t.Errorf("menu ends with %q; want %q", got, want)
 	}
 	for _, label := range []string{"Install command line tool", "Check for updates"} {
 		if item := menu.FindByLabel(label); item == nil || !item.Enabled() {
 			t.Errorf("menu has no enabled %q item", label)
+		}
+	}
+}
+
+func TestAppMenu_TerminalInstallHasNoUpdateEntryYet(t *testing.T) {
+	s, _, _, menu := menuShell(t)
+	if s.appCommands != nil || menu.FindByLabel("Check for updates") != nil {
+		t.Fatalf("a companion without a bundled command offers updates")
+	}
+	if got := s.updateStatus(); got.State != updateUnavailable {
+		t.Errorf("update status = %+v; want unavailable", got)
+	}
+}
+
+func TestUpdateLabel_FollowsTheState(t *testing.T) {
+	for _, tc := range []struct {
+		status updateStatus
+		want   string
+	}{
+		{updateStatus{State: updateIdle}, "Check for updates"},
+		{updateStatus{State: updateChecking}, "Checking for updates…"},
+		{updateStatus{State: updateAvailable, Version: "0.97.0"}, "Update to v0.97.0"},
+		{updateStatus{State: updateUpdating, Version: "0.97.0"}, "Updating to v0.97.0…"},
+		{updateStatus{State: updateFailed, Version: "0.97.0"}, "Update to v0.97.0"},
+	} {
+		if got := updateLabel("Check for updates", tc.status); got != tc.want {
+			t.Errorf("updateLabel(%+v) = %q; want %q", tc.status, got, tc.want)
+		}
+	}
+}
+
+// updateFeed is what the pages were told about updates.
+type updateFeed struct {
+	mu   sync.Mutex
+	told []updateStatus
+}
+
+func (f *updateFeed) all() []updateStatus {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.told)
+}
+
+func (f *updateFeed) last() updateStatus {
+	all := f.all()
+	if len(all) == 0 {
+		return updateStatus{}
+	}
+	return all[len(all)-1]
+}
+
+// updateShell is a disk image companion whose release check answers next, err.
+func updateShell(t *testing.T, next string, err error) (*shell, *updateFeed, *application.Menu) {
+	t.Helper()
+	fakeBundledCommand(t)
+	s, _, _, menu := menuShell(t)
+	feed := &updateFeed{}
+	s.tellUpdate = func(status updateStatus) {
+		feed.mu.Lock()
+		defer feed.mu.Unlock()
+		feed.told = append(feed.told, status)
+	}
+	s.appCommands.latest = func(context.Context) (string, error) { return next, err }
+	s.appCommands.ask = func() { t.Error("asked to update") }
+	return s, feed, menu
+}
+
+func post(s *shell, path string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	s.routes(&inbox{}, fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, nil))
+	return rec
+}
+
+func TestCheckUpdates_AutomaticCheckShowsTheReleaseWithoutAsking(t *testing.T) {
+	s, feed, menu := updateShell(t, "0.97.0", nil)
+
+	s.appCommands.checkUpdates(t.Context())
+
+	want := []updateStatus{{State: updateChecking, Current: version}, {State: updateAvailable, Version: "0.97.0", Current: version}}
+	if fmt.Sprint(feed.all()) != fmt.Sprint(want) {
+		t.Errorf("the pages were told %+v; want %+v", feed.all(), want)
+	}
+	if item := menu.FindByLabel("Update to v0.97.0"); item == nil || !item.Enabled() {
+		t.Errorf("menu = %q; want an enabled Update to v0.97.0", menuLabels(menu))
+	}
+	rec := httptest.NewRecorder()
+	s.routes(&inbox{}, fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/update", nil))
+	var got updateStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got != want[1] {
+		t.Errorf("GET /api/update = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestCheckUpdates_DisablesTheEntryWhileChecking(t *testing.T) {
+	s, _, menu := updateShell(t, "", nil)
+	s.appCommands.latest = func(context.Context) (string, error) {
+		if item := menu.FindByLabel("Checking for updates…"); item == nil || item.Enabled() {
+			t.Errorf("while checking, menu = %q; want a disabled Checking for updates…", menuLabels(menu))
+		}
+		return "", nil
+	}
+
+	s.appCommands.checkUpdates(t.Context())
+
+	if got := s.updateStatus(); got.State != updateIdle || got.Result != "" {
+		t.Errorf("after finding nothing on its own, status = %+v; want idle and quiet", got)
+	}
+}
+
+func TestCheckUpdates_FailedAutomaticCheckKeepsTheLastAnswerSilently(t *testing.T) {
+	s, feed, _ := updateShell(t, "0.97.0", nil)
+	s.appCommands.checkUpdates(t.Context())
+	s.appCommands.latest = func(context.Context) (string, error) { return "", errors.New("offline") }
+
+	s.appCommands.checkUpdates(t.Context())
+
+	if got := s.updateStatus(); got != (updateStatus{State: updateAvailable, Version: "0.97.0", Current: version}) {
+		t.Errorf("after a failed check, status = %+v; want the last answer", got)
+	}
+	all := feed.all()
+	if checking := all[len(all)-2]; checking.State != updateChecking || checking.Version != "0.97.0" {
+		t.Errorf("while checking again, the pages were told %+v; want the known version kept", checking)
+	}
+}
+
+func TestCheckNow_SaysWhatTheCheckFound(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		next   string
+		err    error
+		result string
+	}{
+		{"latest", "", nil, updateLatest},
+		{"offline", "", errors.New("offline"), updateUnreachable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, feed, _ := updateShell(t, tc.next, tc.err)
+
+			if rec := post(s, "/api/update"); rec.Code != http.StatusNoContent {
+				t.Fatalf("POST /api/update = %d %s", rec.Code, rec.Body)
+			}
+
+			waitFor(t, "the check", func() bool { return feed.last().Result != "" })
+			if got := feed.last(); got.State != updateIdle || got.Result != tc.result {
+				t.Errorf("after the check, the pages were told %+v; want idle with %s", got, tc.result)
+			}
+			if kept := s.updateStatus(); kept.Result != "" {
+				t.Errorf("the result is kept for later reads: %+v", kept)
+			}
+		})
+	}
+}
+
+func TestCheckNow_AsksBeforeUpdatingToTheReleaseItFound(t *testing.T) {
+	s, _, _ := updateShell(t, "0.97.0", nil)
+	asked := make(chan updateStatus, 1)
+	s.appCommands.ask = func() { asked <- s.updateStatus() }
+
+	post(s, "/api/update")
+
+	if got := <-asked; got.State != updateAvailable || got.Version != "0.97.0" {
+		t.Errorf("asked with status %+v", got)
+	}
+}
+
+func TestStartUpdate_RefusesWithoutAKnownReleaseOrWhileBusy(t *testing.T) {
+	s, _, _ := updateShell(t, "0.97.0", nil)
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict {
+		t.Errorf("start with no known release = %d", rec.Code)
+	}
+	s.appCommands.checkUpdates(t.Context())
+	s.appCommands.busy.Lock()
+	defer s.appCommands.busy.Unlock()
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "busy") {
+		t.Errorf("start while busy = %d %s", rec.Code, rec.Body)
+	}
+	if rec := post(s, "/api/update"); rec.Code != http.StatusConflict {
+		t.Errorf("check while busy = %d", rec.Code)
+	}
+}
+
+func TestStartUpdate_FollowsTheStepsAndNamesTheFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake updater is a shell script")
+	}
+	s, feed, _ := updateShell(t, "0.97.0", nil)
+	s.appCommands.checkUpdates(t.Context())
+	script := "#!/bin/sh\necho 'Downloading agnostic-ai 0.97.0.'\nsleep 0.4\necho 'Checking the downloaded app.'\nsleep 0.4\necho 'codesign: invalid signature' >&2\nexit 1\n"
+	if err := os.WriteFile(s.appCommands.command, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusNoContent {
+		t.Fatalf("POST /api/update/start = %d %s", rec.Code, rec.Body)
+	}
+
+	waitFor(t, "the update to fail", func() bool { return feed.last().State == updateFailed })
+	var steps []string
+	for _, status := range feed.all() {
+		if status.State == updateUpdating {
+			steps = append(steps, status.Step)
+		}
+	}
+	if strings.Join(steps, ",") != "downloading,verifying" {
+		t.Errorf("steps = %q", steps)
+	}
+	got := feed.last()
+	logPath := filepath.Join(filepath.Dir(s.settingsPath), "companion-update.log")
+	if got.Version != "0.97.0" || got.Reason != "the downloaded app failed its signature check" || got.Log != logPath {
+		t.Errorf("failed status = %+v", got)
+	}
+	if label := updateLabel("Check for updates", got); label != "Update to v0.97.0" {
+		t.Errorf("after a failure the entry reads %q", label)
+	}
+}
+
+func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
+	for _, tc := range []struct{ log, step, want string }{
+		{"prepare /A.app: agnostic-ai-companion_darwin_arm64.dmg: checksum mismatch", updateDownloading, "the download did not match its checksum"},
+		{"x.dmg: build provenance did not verify: gh said no", updateDownloading, "the download's build provenance did not verify"},
+		{"codesign: exit status 1", updateVerifying, "the downloaded app failed its signature check"},
+		{`/A.app: companion version "0.96.0", expected 0.97.0`, updateVerifying, "the download is not the version it should be"},
+		{`checksums.txt: Get "https://github.com/x/checksums.txt": dial tcp: lookup github.com: no such host`, updateDownloading, "the release could not be downloaded. Check your connection"},
+		{"x.dmg: download: 404 Not Found", updateDownloading, "the release could not be downloaded. Check your connection"},
+		{"/Volumes/agnostic-ai/agnostic-ai companion.app: stage update: read-only file system", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
+		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
+		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},
+		{"replace /A.app: permission denied", updateRestarting, "the update command failed"},
+	} {
+		if got := updateFailureReason(tc.log, tc.step); got != tc.want {
+			t.Errorf("updateFailureReason(%q) = %q; want %q", tc.log, got, tc.want)
+		}
+	}
+}
+
+func TestUpdateStep_IsTheLastStepTheLogNames(t *testing.T) {
+	for _, tc := range []struct{ log, want string }{
+		{"", updateDownloading},
+		{"Downloading agnostic-ai 0.97.0.\n", updateDownloading},
+		{"Downloading agnostic-ai 0.97.0.\nBuild provenance verified.\nChecking the downloaded app.\n", updateVerifying},
+		{"Downloading agnostic-ai 0.97.0.\nChecking the downloaded app.\nRestarting the companion.\n", updateRestarting},
+	} {
+		if got := updateStep(tc.log); got != tc.want {
+			t.Errorf("updateStep(%q) = %q; want %q", tc.log, got, tc.want)
 		}
 	}
 }

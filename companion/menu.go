@@ -68,6 +68,7 @@ func (s *shell) menuActions() map[string]func(on bool) {
 		},
 		"shortcut":     func(bool) { s.openSettings() },
 		"sendShortcut": func(bool) { s.comeBackOpenedOn(eventSendSettingsShown) },
+		updateID:       func(bool) { s.runUpdate() },
 		"hide":         func(bool) { s.hide() },
 		"quit":         func(bool) { s.askQuit() },
 	}
@@ -106,12 +107,15 @@ func (s *shell) bubbleMenu() error {
 var shownIDs = []string{"animate", "dimWhenIdle", "smallCompanion", "startAtLogin", "shortcut", "sendShortcut", "hide"}
 
 // fillBubbleMenu adds the shared list to the circle's menu, with a
-// separator before the actions, and shows the values in effect.
+// separator before the actions, and shows the values in effect. The update
+// entry and the app's own command stay above the separator.
 func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	actions := s.menuActions()
 	native := map[string]*application.MenuItem{}
 	labels := map[string]string{}
+	s.appCommands = s.ownAppCommands()
 	addSettingsHeader(menu)
+	afterAction := false
 	for i, item := range items {
 		if item.Page {
 			continue
@@ -120,9 +124,14 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 		if act == nil {
 			return fmt.Errorf("the menu item %q has no handler", item.ID)
 		}
-		if item.Kind == "action" && i > 0 && items[i-1].Kind != "action" {
+		if item.ID == updateID && s.appCommands == nil {
+			continue
+		}
+		endsMenu := item.Kind == "action" && item.ID != updateID
+		if endsMenu && i > 0 && !afterAction {
 			menu.AddSeparator()
 		}
+		afterAction = endsMenu
 		var added *application.MenuItem
 		switch item.Kind {
 		case "switch":
@@ -140,6 +149,10 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 		added.OnClick(func(clicked *application.Context) { act(clicked.IsChecked()) })
 		native[item.ID] = added
 		labels[item.ID] = item.Label
+		if item.ID == updateID {
+			controls := s.appCommands
+			menu.Add("Install command line tool").OnClick(func(*application.Context) { go controls.installCommand() })
+		}
 	}
 	for _, id := range shownIDs {
 		if native[id] == nil {
@@ -151,7 +164,6 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	s.labels = labels
 	s.nativeMu.Unlock()
 	s.refreshNative()
-	s.appCommands = s.addAppMenu(menu)
 	return nil
 }
 
@@ -173,6 +185,11 @@ func (s *shell) refreshNative() {
 	s.native["shortcut"].SetLabel(shortcutLabel(s.labels["shortcut"], prefs.Shortcut, isMac))
 	s.native["sendShortcut"].SetLabel(shortcutLabel(s.labels["sendShortcut"], prefs.SendShortcut, isMac))
 	s.native["hide"].SetLabel(hideLabel(s.labels["hide"], prefs))
+	if item := s.native[updateID]; item != nil {
+		status := s.updateStatus()
+		item.SetLabel(updateLabel(s.labels[updateID], status))
+		item.SetEnabled(!status.busy())
+	}
 }
 
 // macKeycaps is how each part of a shortcut reads on a Mac; model.js

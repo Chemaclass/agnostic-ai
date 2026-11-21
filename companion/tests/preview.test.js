@@ -346,7 +346,7 @@ test('the menu list is served with the pages', async (t) => {
   t.after(preview.close)
   const menu = await fetch(preview.url + '/menu.json')
   assert.equal(menu.status, 200)
-  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'approveAgentSends', 'shortcut', 'sendShortcut', 'hide', 'quit'])
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'approveAgentSends', 'shortcut', 'sendShortcut', 'update', 'hide', 'quit'])
 })
 
 test('the list menu turns animation, dimming and the small circle on and off and answers the appearance', async (t) => {
@@ -409,4 +409,18 @@ test('the preview approves, rejects and queues mailbox messages and keeps the ap
   assert.equal((await post('/api/mailbox/settings', { approveAgentSends: false })).status, 204)
   assert.equal((await post('/api/mailbox/settings', {})).status, 422)
   assert.deepEqual(await (await fetch(preview.url + '/api/mailbox/settings')).json(), { approveAgentSends: false })
+})
+
+test('the preview answers the update entry: none by default, a newer release in its fixture', async (t) => {
+  const plain = await startPreview({ port: 0 })
+  t.after(plain.close)
+  assert.deepEqual(await (await fetch(plain.url + '/api/update')).json(), { state: 'unavailable' })
+
+  const newer = await startPreview({ port: 0, fixture: 'update-available' })
+  t.after(newer.close)
+  assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'available', version: '0.97.0', current: '0.96.0' })
+  assert.equal((await fetch(newer.url + '/api/update', { method: 'POST' })).status, 204)
+  assert.equal((await fetch(plain.url + '/api/update/start', { method: 'POST' })).status, 409)
+  assert.equal((await fetch(newer.url + '/api/update/start', { method: 'POST' })).status, 204)
+  assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'updating', version: '0.97.0', current: '0.96.0', step: 'downloading' })
 })

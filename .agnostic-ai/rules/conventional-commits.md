@@ -5,4 +5,4 @@ globs: "**/*"
 alwaysApply: true
 ---
 
-Use Conventional Commits: `feat:`, `fix:`, `docs:`, `ref:` (not `refactor:`), `test:`, `chore:`. Subject under 72 characters; the body says why. Never mention AI assistance.
+Use Conventional Commits: `feat:`, `fix:`, `docs:`, `ref:` (not `refactor:`), `test:`, `perf:`, `ci:`, `chore:`. Subject under 72 characters; the body says why. Never mention AI assistance.
