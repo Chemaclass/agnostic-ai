@@ -263,7 +263,7 @@ test.describe('setup health', () => {
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Worth a look 4' }) })
     const place = warnings.locator('.health-place', { hasText: 'Global setup' })
     await expect(place.locator('.finding')).toHaveCount(1)
-    await expect(place.locator('.finding .badge', { hasText: 'global' })).toBeVisible()
+    await expect(place.locator('.finding .badge', { hasText: 'user' })).toBeVisible()
     await place.getByText('Details', { exact: true }).click()
     await expect(place.locator('textarea')).toHaveValue(/Source: \/home\/u\/\.agnostic-ai\/agents\/helper\.md/)
   })

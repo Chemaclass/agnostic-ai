@@ -110,7 +110,7 @@ The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) t
 
 ## list
 
-Print all loaded specs as `kind<tab>name<tab>layer`; built-ins add their name and the running version, and a local spec that changes a shared one adds `overrides <layer>`. With no specs, a hint goes to stderr and stdout stays empty.
+Print all loaded specs as `kind<tab>name<tab>layer`; built-ins add their name and the running version, and a local spec that changes a shared one adds `overrides:<layer>`. With no specs, a hint goes to stderr and stdout stays empty.
 
 Layers are `builtin`, `pack:<name>`, `project` and `local` in a project, and `user` and `user-local` at user scope. Releases up to v0.96.0 printed `project-user`, `global` and `global-local`.
 

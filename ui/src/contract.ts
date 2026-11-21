@@ -472,7 +472,7 @@ export interface ItemFinding {
   openPath?: string
   fix?: string
   explanation?: string
-  /** `global` for a finding on the global setup in a project's overview; its path is relative to the global source. */
+  /** `user` for a finding on the global setup in a project's overview; its path is relative to the global source. */
   layer?: 'user'
 }
 

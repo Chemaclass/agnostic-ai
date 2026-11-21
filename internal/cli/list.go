@@ -69,7 +69,7 @@ func newListCmd() *cobra.Command {
 				case origin != nil:
 					cmd.Printf("%s\t%s\t%s\t%s\n", e.Kind, e.Name, layer, origin.String())
 				case base != nil:
-					cmd.Printf("%s\t%s\t%s\toverrides %s\n", e.Kind, e.Name, layer, base.Layer)
+					cmd.Printf("%s\t%s\t%s\toverrides:%s\n", e.Kind, e.Name, layer, base.Layer)
 				default:
 					cmd.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
 				}

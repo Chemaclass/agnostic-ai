@@ -28,7 +28,7 @@ func TestList_NamesTheLocalLayerAndWhatItOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"rule\tstyle\tlocal\toverrides project\n",
+		"rule\tstyle\tlocal\toverrides:project\n",
 		"rule\tscratch\tlocal\n",
 		"rule\ttests\tproject\n",
 	} {
@@ -47,7 +47,7 @@ func TestList_ScopeLocalShowsOnlyPersonalSpecs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "rule\tscratch\tlocal\nrule\tstyle\tlocal\toverrides project\n"; sortedLines(out) != sortedLines(want) {
+	if want := "rule\tscratch\tlocal\nrule\tstyle\tlocal\toverrides:project\n"; sortedLines(out) != sortedLines(want) {
 		t.Errorf("list --scope local:\n%s\nwant:\n%s", out, want)
 	}
 
@@ -102,7 +102,7 @@ func TestList_UserScopeNamesTheUserLayers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"rule\tmine\tuser-local\toverrides user\n", "rule\tother\tuser\n"} {
+	for _, want := range []string{"rule\tmine\tuser-local\toverrides:user\n", "rule\tother\tuser\n"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list --scope user lacks %q:\n%s", want, out)
 		}

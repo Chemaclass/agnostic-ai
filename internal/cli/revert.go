@@ -172,7 +172,7 @@ func newRevertCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&force, "force", false, "Also delete adapter-emitted files that lack a .bak (use with care: removes user-authored files that share a path with adapter output)")
 	registerTargetCompletion(cmd)
-	addProjectOnlyScopeFlag(cmd, "`agnostic-ai sync --scope user` restores user-level files from their specs")
+	addProjectOnlyScopeFlag(cmd, "a user-level sync has no undo; `agnostic-ai sync --scope user --backup` keeps a .bak copy of each file it changes")
 	return cmd
 }
 
