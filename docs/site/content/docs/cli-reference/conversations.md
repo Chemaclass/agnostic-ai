@@ -63,6 +63,7 @@ It works from Claude Code, Codex, and Cursor's terminal agent (`cursor-agent`). 
 | iTerm | A new tab in the front window |
 | WezTerm, on macOS or Linux | A new tab in the window the command ran in |
 | kitty, with remote control on, on macOS or Linux | A new tab in the active window |
+| Konsole, with [sent commands allowed](#konsole-on-linux) | A new tab in its first window |
 | Terminal, macOS 26 or later | A new tab |
 | Terminal, older macOS | A new window |
 | Warp, an editor's terminal, or another app | A new Terminal window |
@@ -81,6 +82,10 @@ listen_on unix:/tmp/kitty-{kitty_pid}
 ```
 
 Then any program you run can control kitty through that socket, not only agnostic-ai. Without them, a kitty session's app comes forward and the message gives these lines. agnostic-ai never edits `kitty.conf`. The same lines work on Linux. A socket kitty names with `@`, such as `unix:@kitty`, is not found.
+
+#### Konsole on Linux {#konsole-on-linux}
+
+agnostic-ai reaches Konsole over D-Bus with `dbus-send`. It selects and names a tab with no setup. Typing text into a tab and running a command in a new tab need this setting, which recent Konsole versions keep off: **Settings › Configure Konsole › General › Enable the security sensitive parts of the DBus API**. While it is off, the reply names it, the text stays on the clipboard to paste, and a resumed chat gets a new tab in its folder and the command to run there. Konsole 23.08 has no such setting and allows both.
 
 ### When it refuses
 

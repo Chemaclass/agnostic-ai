@@ -152,3 +152,78 @@ func TestHostOf_NamesKonsole(t *testing.T) {
 		t.Errorf("host %+v ok %v, tab app %v", host, ok, tabApps["Konsole"])
 	}
 }
+
+func TestKonsole_ARefusalInAnotherLanguageIsStillTheSetting(t *testing.T) {
+	refused := errors.New("dbus-send: exit status 1: Error org.freedesktop.DBus.Error.AccessDenied: Sicherheitsrelevante DBus-API ist in den Einstellungen deaktiviert.")
+	commands := &fakeCommands{out: konsoleReplies(), errs: map[string]error{konsoleDBus + "/Sessions/2 org.kde.konsole.Session.sendText": refused}}
+
+	if _, err := testKonsole(commands).typeIn(context.Background(), "/dev/pts/0", "hello"); !errors.Is(err, errKonsoleCommandsOff) {
+		t.Errorf("err %v", err)
+	}
+}
+
+func TestKonsole_SkipsAnEnvironmentItCannotRead(t *testing.T) {
+	commands := &fakeCommands{out: konsoleReplies()}
+	konsole := testKonsole(commands)
+	read := konsole.environ
+	konsole.environ = func(pids []int) (map[int][]string, error) {
+		if slices.Contains(pids, 32) {
+			return nil, errors.New("open /proc/32/environ: permission denied")
+		}
+		return read(pids)
+	}
+
+	if ok, err := konsole.focus(context.Background(), "/dev/pts/0"); !ok || !errors.Is(err, errNotInFront) {
+		t.Errorf("ok %v err %v", ok, err)
+	}
+}
+
+func TestKonsole_ATitleKeepsItsPercentSigns(t *testing.T) {
+	commands := &fakeCommands{out: konsoleReplies()}
+
+	if _, err := testKonsole(commands).title(context.Background(), "/dev/pts/0", "Fix 100%d"); err != nil {
+		t.Fatal(err)
+	}
+	if last := commands.calls[len(commands.calls)-1]; strings.Contains(last, "%d") {
+		t.Errorf("Konsole would read %%d as a marker: %q", last)
+	}
+}
+
+func TestKonsole_LongTextGoesInPartsInsideOnePaste(t *testing.T) {
+	commands := &fakeCommands{out: konsoleReplies()}
+	text := strings.Repeat("é", 100_000)
+
+	if ok, err := testKonsole(commands).typeIn(context.Background(), "/dev/pts/0", text); !ok || err != nil {
+		t.Fatalf("ok %v err %v", ok, err)
+	}
+	var sent strings.Builder
+	parts := 0
+	for _, call := range commands.calls {
+		if part, ok := strings.CutPrefix(call, konsoleDBus+"/Sessions/2 org.kde.konsole.Session.sendText string:"); ok {
+			if len(part) > konsoleSendPart+len("\x1b[200~") {
+				t.Errorf("a part of %d bytes", len(part))
+			}
+			sent.WriteString(part)
+			parts++
+		}
+	}
+	if parts < 2 || sent.String() != "\x1b[200~"+text+"\x1b[201~" {
+		t.Errorf("%d parts, text kept %v", parts, sent.String() == "\x1b[200~"+text+"\x1b[201~")
+	}
+}
+
+func TestMacLauncher_KonsoleFallsBackLikeAnAppWithoutItsCommand(t *testing.T) {
+	if err := (macLauncher{}).RunInNewTab(context.Background(), "Konsole", "true"); !errors.Is(err, errNoTabCommand) {
+		t.Errorf("new tab: %v", err)
+	}
+	if _, err := (macLauncher{}).FocusTab(context.Background(), "Konsole", "/dev/ttys001"); !errors.Is(err, errNoTabCommand) {
+		t.Errorf("focus: %v", err)
+	}
+}
+
+func TestNotOpened_KonsoleRefusingTheCommandSaysTheTabOpened(t *testing.T) {
+	err := notOpened(tabOpening{app: "Konsole", err: errKonsoleCommandsOff}, "cd '/tmp/app' && x")
+	if !strings.Contains(err.Error(), "opened a Konsole tab") || !strings.Contains(err.Error(), "run this line there: cd '/tmp/app' && x") {
+		t.Errorf("err %v", err)
+	}
+}

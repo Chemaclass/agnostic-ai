@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Konsole puts these in the environment of every shell it starts: the
@@ -44,7 +45,8 @@ func (k konsoleTab) call(ctx context.Context, service, path, method string, args
 	switch {
 	case errors.Is(err, exec.ErrNotFound):
 		return "", fmt.Errorf("%w: %w", errNoTabCommand, err)
-	case err != nil && strings.Contains(err.Error(), "Security sensitive DBus API is disabled"):
+	// Konsole translates its reason, so its error name tells the refusal.
+	case err != nil && strings.Contains(err.Error(), "org.freedesktop.DBus.Error.AccessDenied"):
 		return "", errKonsoleCommandsOff
 	}
 	return out, err
@@ -68,11 +70,13 @@ func (k konsoleTab) address(tty string) (service, session string, err error) {
 		}
 	}
 	slices.Sort(pids)
-	environments, err := k.environ(pids)
-	if err != nil {
-		return "", "", fmt.Errorf("%w: %w", errNoTabCommand, err)
-	}
 	for _, pid := range pids {
+		// A process of another user, such as one run with sudo, keeps
+		// its environment from us; it is skipped.
+		environments, err := k.environ([]int{pid})
+		if err != nil {
+			continue
+		}
 		values := map[string]string{}
 		for _, entry := range environments[pid] {
 			if name, value, ok := strings.Cut(entry, "="); ok {
@@ -149,9 +153,14 @@ func (k konsoleTab) title(ctx context.Context, tty, title string) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	_, err = k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.setTitle", "int32:1", "string:"+title)
+	_, err = k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.setTitle", "int32:1", "string:"+konsoleTitle(title))
 	return err == nil, err
 }
+
+// konsoleTitle keeps a percent sign as it reads: Konsole keeps the title
+// as a format, where %d or %n stand for the folder or program, and has no
+// escape for one, so a full-width percent sign takes its place.
+func konsoleTitle(title string) string { return strings.ReplaceAll(title, "%", "\uff05") }
 
 // typeIn selects the tab and sends text as a bracketed paste, which
 // Konsole passes on as it is, so a line break does not submit it.
@@ -160,8 +169,31 @@ func (k konsoleTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err != nil || !ok {
 		return false, err
 	}
-	_, err = k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.sendText", "string:\x1b[200~"+text+"\x1b[201~")
-	return err == nil, err
+	for _, part := range konsoleParts("\x1b[200~" + text + "\x1b[201~") {
+		if _, err := k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.sendText", "string:"+part); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// konsoleSendPart bounds each piece of sent text: Linux refuses a single
+// argument over 128 KB, and a send may be larger.
+const konsoleSendPart = 64 << 10
+
+// konsoleParts cuts text into pieces of at most konsoleSendPart bytes,
+// never inside a character.
+func konsoleParts(text string) []string {
+	var parts []string
+	for len(text) > konsoleSendPart {
+		cut := konsoleSendPart
+		for cut > 0 && !utf8.RuneStart(text[cut]) {
+			cut--
+		}
+		parts = append(parts, text[:cut])
+		text = text[cut:]
+	}
+	return append(parts, text)
 }
 
 // newTab opens a tab in the first Konsole window, in the folder the
