@@ -490,6 +490,8 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 			cannot = setup.Error()
 		case errors.Is(err, errNoTabCommand):
 			// Without its command the app still comes forward below.
+		case ok && errors.Is(err, errNotInFront):
+			return switchThere(fmt.Sprintf("Selected the %s tab that runs it. Its window may be behind other windows.", app))
 		case errors.Is(err, errAutomationDenied):
 			return switchThere(allowControl("switching to", app, "then click again"))
 		case errors.Is(err, context.DeadlineExceeded):
@@ -963,21 +965,35 @@ func (l linuxLauncher) RunInNewTerminal(_ context.Context, command string) error
 	return err
 }
 
-func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
+func (linuxLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.focus(ctx, tty)
+	}
 	return false, errNotHere
 }
 
-func (linuxLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
-
-func (linuxLauncher) ShowTmuxPane(context.Context, int, string) (int, error) {
-	return 0, errNotHere
+func (linuxLauncher) RunInNewTab(ctx context.Context, app, command string) error {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.newTab(ctx, command)
+	}
+	return errNotHere
 }
 
-func (linuxLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
+func (linuxLauncher) ShowTmuxPane(ctx context.Context, server int, tty string) (int, error) {
+	return tmuxServers{run: run, path: tmuxPath, sockets: tmuxSockets}.show(ctx, server, tty)
+}
+
+func (linuxLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, error) {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.title(ctx, tty, title)
+	}
 	return false, errNotHere
 }
 
-func (linuxLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
+func (linuxLauncher) TypeInTab(ctx context.Context, app, tty, text string, _ bool) (bool, error) {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.typeIn(ctx, tty, text)
+	}
 	return false, errNotHere
 }
 

@@ -21,6 +21,18 @@ type kittyTab struct {
 	path   func() (string, error)
 	table  func() ([]ProcessInfo, error)
 	socket func(path string) bool
+	// noRaising is set where kitty's window cannot be brought forward
+	// from outside, as on Linux, where only macOS's open -a can.
+	noRaising bool
+}
+
+// raise brings kitty's window forward, or says it may stay behind.
+func (k kittyTab) raise(ctx context.Context) error {
+	if k.noRaising {
+		return errNotInFront
+	}
+	_, err := k.run(ctx, "open", "-a", "kitty")
+	return err
 }
 
 // kittyText keeps backslashes, which kitty reads as escapes in the
@@ -28,7 +40,7 @@ type kittyTab struct {
 func kittyText(text string) string { return strings.ReplaceAll(text, `\`, `\\`) }
 
 func isKitty(command string) bool {
-	return strings.HasSuffix(command, "/kitty.app/Contents/MacOS/kitty")
+	return strings.HasSuffix(command, "/kitty.app/Contents/MacOS/kitty") || programOf(command) == "kitty"
 }
 
 // remote is the address of the kitty that runs tty, or of the first
@@ -121,8 +133,7 @@ func (k kittyTab) activate(ctx context.Context, to, window string) error {
 	if _, err := k.at(ctx, to, "focus-window", "--match", "id:"+window); err != nil {
 		return err
 	}
-	_, err := k.run(ctx, "open", "-a", "kitty")
-	return err
+	return k.raise(ctx)
 }
 
 func (k kittyTab) focus(ctx context.Context, tty string) (bool, error) {
@@ -151,7 +162,7 @@ func (k kittyTab) typeIn(ctx context.Context, tty, text string) (bool, error) {
 	if err != nil || !ok {
 		return false, err
 	}
-	if err := k.activate(ctx, to, window); err != nil {
+	if err := k.activate(ctx, to, window); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
 	_, err = k.at(ctx, to, "send-text", "--match", "id:"+window, "--", `\e[200~`+kittyText(text)+`\e[201~`)
@@ -179,6 +190,8 @@ func (k kittyTab) newTab(ctx context.Context, command string) error {
 	if _, err := k.at(ctx, to, "send-text", "--match", "id:"+window, "--", kittyText(command)+`\r`); err != nil {
 		return err
 	}
-	_, err = k.run(ctx, "open", "-a", "kitty")
-	return err
+	if err := k.raise(ctx); !errors.Is(err, errNotInFront) {
+		return err
+	}
+	return nil
 }

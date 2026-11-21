@@ -14,6 +14,18 @@ import (
 type weztermTab struct {
 	run  func(ctx context.Context, name string, args ...string) (string, error)
 	path func() (string, error)
+	// noRaising is set where WezTerm's window cannot be brought forward
+	// from outside, as on Linux, where only macOS's open -a can.
+	noRaising bool
+}
+
+// raise brings WezTerm's window forward, or says it may stay behind.
+func (w weztermTab) raise(ctx context.Context) error {
+	if w.noRaising {
+		return errNotInFront
+	}
+	_, err := w.run(ctx, "open", "-a", "WezTerm")
+	return err
 }
 
 func weztermCLI(args ...string) []string {
@@ -77,8 +89,7 @@ func (w weztermTab) activate(ctx context.Context, pane uint64) error {
 	if _, err := w.cli(ctx, weztermCLI("activate-pane", "--pane-id", strconv.FormatUint(pane, 10))...); err != nil {
 		return err
 	}
-	_, err := w.run(ctx, "open", "-a", "WezTerm")
-	return err
+	return w.raise(ctx)
 }
 
 func (w weztermTab) focus(ctx context.Context, tty string) (bool, error) {
@@ -103,7 +114,7 @@ func (w weztermTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err != nil || !ok {
 		return false, err
 	}
-	if err := w.activate(ctx, pane); err != nil {
+	if err := w.activate(ctx, pane); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
 	_, err = w.cli(ctx, weztermSendArgs(pane, text, true)...)
@@ -125,6 +136,8 @@ func (w weztermTab) newTab(ctx context.Context, command string) error {
 	if _, err := w.cli(ctx, weztermSendArgs(pane, command+"\r", false)...); err != nil {
 		return err
 	}
-	_, err = w.run(ctx, "open", "-a", "WezTerm")
-	return err
+	if err := w.raise(ctx); !errors.Is(err, errNotInFront) {
+		return err
+	}
+	return nil
 }
