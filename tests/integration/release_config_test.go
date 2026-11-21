@@ -94,6 +94,8 @@ func workflowStepAt(t *testing.T, path, job, step string) (workflowStep, int) {
 // place instead of drifting between them.
 const (
 	tapMintStep     = "Mint the Homebrew tap token from the GitHub App"
+	channelJob      = "channel-manifests"
+	channelStep     = "Publish the channel manifest"
 	tapAppIDSecret  = "HOMEBREW_TAP_APP_ID"
 	tapAppKeySecret = "HOMEBREW_TAP_APP_PRIVATE_KEY"
 	tapPATSecret    = "HOMEBREW_TAP_TOKEN"
@@ -500,12 +502,12 @@ func TestReleaseWorkflow_DistributionChecksOutRepository(t *testing.T) {
 //
 // Nothing else catches this. The job only runs on a tag.
 func TestReleaseWorkflow_MintsTheTapTokenWithoutRequiringTheApp(t *testing.T) {
-	job := workflowJobs(t, releaseWorkflowPath)["goreleaser"]
+	job := workflowJobs(t, releaseWorkflowPath)[channelJob]
 	flag := job.Env["HOMEBREW_TAP_APP_CONFIGURED"]
 	if !strings.Contains(flag, tapAppIDSecret) || !strings.Contains(flag, tapAppKeySecret) {
-		t.Fatalf("the goreleaser job does not record whether both App secrets are set, so a step `if:` cannot test them, got %q", flag)
+		t.Fatalf("the channel job does not record whether both App secrets are set, got %q", flag)
 	}
-	mint, mintAt := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
+	mint, mintAt := workflowStepAt(t, releaseWorkflowPath, channelJob, tapMintStep)
 	if !strings.Contains(mint.If, "HOMEBREW_TAP_APP_CONFIGURED") {
 		t.Errorf("the mint step is not gated on the App being configured, so a release without the App fails on an empty app-id, got %q", mint.If)
 	}
@@ -515,9 +517,9 @@ func TestReleaseWorkflow_MintsTheTapTokenWithoutRequiringTheApp(t *testing.T) {
 	if mint.ID == "" {
 		t.Fatal("the mint step has no id, so nothing can read its token output")
 	}
-	_, releaseAt := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
+	_, releaseAt := workflowStepAt(t, releaseWorkflowPath, channelJob, channelStep)
 	if mintAt > releaseAt {
-		t.Errorf("the mint step runs after GoReleaser, so its token output is empty and the cask push silently falls back to the PAT")
+		t.Error("the mint step runs after the cask push")
 	}
 }
 
@@ -530,14 +532,14 @@ func TestReleaseWorkflow_MintsTheTapTokenWithoutRequiringTheApp(t *testing.T) {
 // does not fail the run, it just stops pushing the cask, which is how a
 // stale cask went unnoticed for ten releases (#920).
 func TestReleaseWorkflow_FallsBackToTheStoredTapToken(t *testing.T) {
-	mint, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
-	release, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
-	token := release.Env[tapPATSecret]
+	mint, _ := workflowStepAt(t, releaseWorkflowPath, channelJob, tapMintStep)
+	release, _ := workflowStepAt(t, releaseWorkflowPath, channelJob, channelStep)
+	token := release.Env["GH_TOKEN"]
 	if want := "steps." + mint.ID + ".outputs.token"; !strings.Contains(token, want) {
-		t.Errorf("GoReleaser does not read the minted token (%s), so the App would be set up and unused: %q", want, token)
+		t.Errorf("manifest publisher does not read the minted token (%s): %q", want, token)
 	}
 	if !strings.Contains(token, "secrets."+tapPATSecret) {
-		t.Errorf("GoReleaser has no fallback to the stored %s, so the cask stops being pushed until the App exists: %q", tapPATSecret, token)
+		t.Errorf("manifest publisher has no fallback to the stored %s: %q", tapPATSecret, token)
 	}
 }
 
@@ -552,7 +554,7 @@ func TestReleaseWorkflow_FallsBackToTheStoredTapToken(t *testing.T) {
 //
 // The pin is a commit SHA to match every other action in this repo.
 func TestReleaseWorkflow_ScopesTheTapTokenToTheTap(t *testing.T) {
-	mint, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
+	mint, _ := workflowStepAt(t, releaseWorkflowPath, channelJob, tapMintStep)
 	if !regexp.MustCompile(`^actions/create-github-app-token@[0-9a-f]{40}$`).MatchString(mint.Uses) {
 		t.Errorf("the mint step must use actions/create-github-app-token pinned to a commit SHA like the rest of this repo, got %q", mint.Uses)
 	}
@@ -713,26 +715,52 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 	if !needsJob(goreleaser.Needs, "companion") {
 		t.Errorf("goreleaser needs %v, want it to wait for companion", goreleaser.Needs)
 	}
-	if !strings.Contains(goreleaser.If, "!cancelled()") || strings.Contains(goreleaser.If, "needs.companion") { //nolint:misspell // GitHub Actions names the function cancelled()
-		t.Errorf("goreleaser runs if %q; a failed companion build must not hold back the release", goreleaser.If)
+	if goreleaser.If != "" {
+		t.Errorf("candidate build uses %q instead of the default success requirement", goreleaser.If)
 	}
 	if job.TimeoutMinutes == 0 {
 		t.Error("the companion job has no timeout; goreleaser waits for it")
 	}
-	// A job with no `if` is skipped when any job before it failed, so each
-	// one after goreleaser must say it runs past a failed companion build.
-	for name, later := range jobs {
-		if needsJob(later.Needs, "goreleaser") && !strings.Contains(later.If, "cancelled()") && !strings.Contains(later.If, "always()") { //nolint:misspell // GitHub Actions names the function cancelled()
-			t.Errorf("the %s job runs if %q, so a failed companion build skips it", name, later.If)
-		}
-	}
 	download, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Download the companion archives")
-	if download.If != "needs.companion.result == 'success'" {
+	if download.If != "needs.companion.outputs.artifact != ''" {
 		t.Errorf("the archives are downloaded if %q", download.If)
 	}
 	run, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
 	if run.Env["COMPANION_DIST"] != download.With["path"] {
 		t.Errorf("GoReleaser reads the archives from %q, the download writes them to %v", run.Env["COMPANION_DIST"], download.With["path"])
+	}
+}
+
+func TestReleaseWorkflow_ChecksCandidateBeforeAnyPublisher(t *testing.T) {
+	jobs := workflowJobs(t, releaseWorkflowPath)
+	for name, deps := range map[string][]string{
+		"goreleaser":        {"ui-bundle", "companion"},
+		"ui-smoke":          {"goreleaser"},
+		"attest":            {"goreleaser", "ui-smoke"},
+		"publish":           {"attest"},
+		"npm":               {"publish"},
+		"channel-manifests": {"publish"},
+	} {
+		needs := jobNeeds(t, releaseWorkflowPath, name)
+		for _, dep := range deps {
+			if !slices.Contains(needs, dep) {
+				t.Errorf("%s needs %v, want it to wait for %s", name, needs, dep)
+			}
+		}
+		if condition := jobs[name].If; strings.Contains(condition, "always()") || strings.Contains(condition, "failure()") {
+			t.Errorf("%s allows its prerequisites to fail: %q", name, condition)
+		}
+	}
+	for _, name := range []string{"goreleaser", "ui-smoke"} {
+		for scope, access := range jobs[name].Permissions {
+			if access == "write" {
+				t.Errorf("%s has %s: write before the candidate checks pass", name, scope)
+			}
+		}
+	}
+	build, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
+	if args, _ := build.With["args"].(string); !strings.Contains(args, "--skip=publish") {
+		t.Errorf("GoReleaser can publish while it builds: %q", args)
 	}
 }
 
@@ -783,9 +811,9 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 	if !ok || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.dmg") {
 		t.Errorf("the companion job does not upload disk images: %v", upload.With["path"])
 	}
-	guard := workflowRun(t, releaseWorkflowPath, "distribution", "Release ships the companion archives")
-	if !strings.Contains(guard, "dmg") {
-		t.Error("the release guard permits a stable release without disk images")
+	guard := workflowRun(t, releaseWorkflowPath, "goreleaser", "Stage and validate the release inventory")
+	if !strings.Contains(guard, "scripts/release-assets.py stage") {
+		t.Error("the candidate build does not validate the release inventory")
 	}
 	script := readRepoFile(t, "scripts/companion-release.sh")
 	for _, want := range []string{"name=agnostic-ai-companion", `"$outdir/${name}_darwin_${arch}.tar.gz"`, "for arch in arm64 amd64"} {
