@@ -643,6 +643,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("GET "+serverMailboxThreadsPath, in.mailboxThreads)
 	mux.HandleFunc("POST "+serverMailboxThreadPath, in.pass(serverMailboxThreadPath))
 	mux.HandleFunc("POST "+serverMailboxStagePath, in.pass(serverMailboxStagePath))
+	mux.HandleFunc("POST "+serverMailboxRefsPath, in.pass(serverMailboxRefsPath))
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)

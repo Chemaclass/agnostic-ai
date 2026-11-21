@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	Question = "question"
-	Finding  = "finding"
-	Done     = "done"
+	Question      = "question"
+	Finding       = "finding"
+	Done          = "done"
+	ReviewRequest = "review_request"
 
 	Open    = "open"
 	Paused  = "paused"
@@ -25,10 +26,39 @@ const (
 const schemaVersion = "mailbox/v1"
 
 type SendRequest struct {
-	To     conversations.Ref `json:"to"`
-	Type   string            `json:"type"`
-	Body   string            `json:"body,omitempty"`
-	Thread string            `json:"thread,omitempty"`
+	To           conversations.Ref `json:"to"`
+	Type         string            `json:"type"`
+	Body         string            `json:"body,omitempty"`
+	Thread       string            `json:"thread,omitempty"`
+	Refs         *ReviewInput      `json:"refs,omitempty"`
+	Models       *ModelInput       `json:"models,omitempty"`
+	ReviewFolder string            `json:"-"`
+}
+
+type ReviewInput struct {
+	Worktree string   `json:"worktree"`
+	Base     string   `json:"base"`
+	Commit   string   `json:"commit,omitempty"`
+	Paths    []string `json:"paths,omitempty"`
+}
+
+type ReviewRefs struct {
+	Worktree    string   `json:"worktree"`
+	Commit      string   `json:"commit"`
+	Base        string   `json:"base"`
+	Branch      string   `json:"branch,omitempty"`
+	Paths       []string `json:"paths"`
+	Uncommitted int      `json:"uncommitted"`
+}
+
+type ModelInput struct {
+	From string `json:"from,omitempty"`
+	To   string `json:"to,omitempty"`
+}
+
+type Model struct {
+	Name     string `json:"name"`
+	StatedBy string `json:"statedBy"`
 }
 
 type Receipt struct {
@@ -48,6 +78,7 @@ type Message struct {
 	From     Actor             `json:"from"`
 	To       conversations.Ref `json:"to"`
 	Body     string            `json:"body,omitempty"`
+	Refs     *ReviewRefs       `json:"refs,omitempty"`
 	State    string            `json:"state"`
 	At       time.Time         `json:"at"`
 	QueuedAt time.Time         `json:"queuedAt"`
@@ -59,6 +90,7 @@ type Thread struct {
 	Status        string               `json:"status"`
 	Cap           int                  `json:"cap"`
 	Between       [2]conversations.Ref `json:"between"`
+	Models        map[string]Model     `json:"models,omitempty"`
 	Messages      []Message            `json:"messages"`
 	Refusals      []RefusalRecord      `json:"refusals,omitempty"`
 	Events        []Event              `json:"events"`

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
@@ -26,7 +27,7 @@ func (t Thread) valid(id string) bool {
 	}
 	for i, m := range t.Messages {
 		if m.N != i+1 || !t.includes(m.From.Ref) || !t.includes(m.To) || m.From.Ref == m.To ||
-			m.From.By != "human" || (m.Type != Question && m.Type != Finding && m.Type != Done) {
+			m.From.By != "human" || !m.validType() {
 			return false
 		}
 		switch m.State {
@@ -36,6 +37,28 @@ func (t Thread) valid(id string) bool {
 		}
 	}
 	return true
+}
+
+func (m Message) validType() bool {
+	switch m.Type {
+	case Question, Finding, Done:
+		return m.Refs == nil
+	case ReviewRequest:
+		return m.Body == "" && m.Refs != nil && objectID.MatchString(m.Refs.Commit) && objectID.MatchString(m.Refs.Base)
+	default:
+		return false
+	}
+}
+
+func (t *Thread) recordModel(ref conversations.Ref, name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return
+	}
+	if t.Models == nil {
+		t.Models = map[string]Model{}
+	}
+	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: "human"}
 }
 
 func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {

@@ -35,6 +35,17 @@ func (s Store) Send(ctx context.Context, from conversations.Ref, req SendRequest
 	if refused != nil {
 		return Receipt{}, errors.Join(refused, s.RecordRefusal(ctx, from, req, refused))
 	}
+	var refs *ReviewRefs
+	if req.Type == ReviewRequest {
+		resolved, err := resolveReviewSend(ctx, req.ReviewFolder, *req.Refs)
+		if err != nil {
+			if refused, ok := errors.AsType[*Refusal](err); ok {
+				err = errors.Join(refused, s.RecordRefusal(ctx, from, req, refused))
+			}
+			return Receipt{}, err
+		}
+		refs = &resolved
+	}
 
 	release, err := s.lock(ctx)
 	if err != nil {
@@ -53,7 +64,8 @@ func (s Store) Send(ctx context.Context, from conversations.Ref, req SendRequest
 
 	message := Message{
 		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: "human"},
-		To: req.To, Body: conversations.CleanSendText(req.Body), State: Waiting, At: at, QueuedAt: at,
+		To: req.To, Body: conversations.CleanSendText(req.Body), Refs: refs,
+		State: Waiting, At: at, QueuedAt: at,
 	}
 
 	refused = thread.checkSend(from, req)
@@ -72,6 +84,10 @@ func (s Store) Send(ctx context.Context, from conversations.Ref, req SendRequest
 	}
 
 	thread.Messages = append(thread.Messages, message)
+	if req.Models != nil {
+		thread.recordModel(from, req.Models.From)
+		thread.recordModel(req.To, req.Models.To)
+	}
 	action := "send"
 	if message.Type == Done {
 		thread.Status = Closing
@@ -136,8 +152,11 @@ func (s Store) recordRefusal(at time.Time, from conversations.Ref, req SendReque
 		return s.recordAudit(at, from, req, refused)
 	}
 	stable := NewRefusal(refused.Guard)
-	if stable.Guard == "cap" {
+	switch {
+	case stable.Guard == "cap":
 		stable = capRefusal(thread.Cap)
+	case stable.Guard == "size" && req.Type == ReviewRequest:
+		stable = reviewSizeRefusal()
 	}
 	record := RefusalRecord{At: at, Type: knownType(req.Type), Guard: stable.Guard, Reason: stable.Reason}
 	if i := slices.Index(thread.Between[:], from); i >= 0 {

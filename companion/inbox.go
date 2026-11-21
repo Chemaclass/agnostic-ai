@@ -41,6 +41,7 @@ const (
 	serverMailboxThreadsPath = "/api/mailbox/threads"
 	serverMailboxThreadPath  = "/api/mailbox/thread"
 	serverMailboxStagePath   = "/api/mailbox/stage"
+	serverMailboxRefsPath    = "/api/mailbox/refs"
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"
@@ -300,7 +301,7 @@ type stillOpening struct {
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch path {
-		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath:
+		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath, serverMailboxRefsPath:
 			if !mailboxPageAllowed(w, r) {
 				return
 			}
@@ -332,7 +333,7 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 		}
 		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
 		switch {
-		case err != nil || answer.status >= 300:
+		case err != nil || answer.status >= 300 || path == serverMailboxRefsPath:
 		case path == serverMailboxStagePath && !mailboxDidStage(answer.body):
 		default:
 			in.noteListChange(w, r)

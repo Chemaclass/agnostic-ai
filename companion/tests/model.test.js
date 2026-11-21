@@ -897,3 +897,19 @@ test('confirms only an unchanged shell and names the processes still running aft
 test('Escape closes the stop shell confirmation before returning to the row menu', () => {
   assert.equal(escapeTarget({ stopShellOpen: true, rowMenuOpen: true }), 'stop-shell')
 })
+
+test('compares two stated model names without treating the tool as a model', async () => {
+  const { keyOf, reviewModelsOf } = await import('../frontend/model.js')
+  const sender = { tool: 'claude', id: 'a' }
+  const reviewer = { tool: 'codex', id: 'b' }
+  const models = {
+    [keyOf(sender)]: { name: ' GPT-5.5 ', statedBy: 'human' },
+    [keyOf(reviewer)]: { name: 'gpt-5.5', statedBy: 'human' },
+  }
+  assert.deepEqual(reviewModelsOf(models[keyOf(sender)].name, models[keyOf(reviewer)].name), {
+    from: 'GPT-5.5', to: 'gpt-5.5', same: true,
+  })
+  assert.deepEqual(reviewModelsOf('Model A', 'Model B'), { from: 'Model A', to: 'Model B', same: false })
+  assert.deepEqual(reviewModelsOf('Model A', ' '), { from: 'Model A', to: 'model unknown', same: false })
+  assert.deepEqual(reviewModelsOf(undefined, undefined), { from: 'model unknown', to: 'model unknown', same: false })
+})

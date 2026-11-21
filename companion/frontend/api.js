@@ -120,6 +120,10 @@ export function sendClipboard(conversation, hash) {
   return post('/api/send', { tool: conversation.tool, id: conversation.id, hash })
 }
 
+export function readRefs({ tool, id }, base, signal) {
+  return call('/api/mailbox/refs', { ...postOptions({ tool, id, ...(base ? { base } : {}) }), signal })
+}
+
 export const sendMessage = (message) => change('/api/mailbox/send', message)
 export function readThreads({ tool, id }, signal) {
   return call('/api/mailbox/threads?' + new URLSearchParams({ tool, id }), { signal })

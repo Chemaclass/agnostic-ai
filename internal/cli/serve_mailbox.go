@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"path/filepath"
@@ -16,6 +18,7 @@ const (
 	mailboxThreadsPath = "/api/mailbox/threads"
 	mailboxThreadPath  = "/api/mailbox/thread"
 	mailboxStagePath   = "/api/mailbox/stage"
+	mailboxRefsPath    = "/api/mailbox/refs"
 	// JSON escaping can grow a message well past the limit on its text.
 	maxMailboxRequestBytes = 64 << 10
 )
@@ -57,6 +60,8 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		h.changeMailboxThread(w, r, store)
 	case mailboxStagePath:
 		h.stageMailboxMessage(w, r, store)
+	case mailboxRefsPath:
+		h.readMailboxRefs(w, r)
 	}
 }
 
@@ -97,8 +102,26 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		writeMailboxError(w, refusal)
 	}
 
+	var raw json.RawMessage
+	if err := decodeOneJSON(w, r, maxMailboxRequestBytes, &raw); err != nil {
+		refuse(mailboxSendRequest{}, mailboxBodyRefusal(err))
+		return
+	}
+	if mailboxReviewEcho(raw) {
+		var audit struct {
+			From   conversations.Ref `json:"from"`
+			To     conversations.Ref `json:"to"`
+			Thread string            `json:"thread"`
+		}
+		_ = json.Unmarshal(raw, &audit)
+		refuse(mailboxSendRequest{
+			From:        audit.From,
+			SendRequest: mailbox.SendRequest{To: audit.To, Type: mailbox.ReviewRequest, Thread: audit.Thread},
+		}, mailbox.NewRefusal("echo"))
+		return
+	}
 	var req mailboxSendRequest
-	if err := decodeOneJSON(w, r, maxMailboxRequestBytes, &req); err != nil {
+	if err := decodeStrictJSON(bytes.NewReader(raw), &req); err != nil {
 		refuse(mailboxSendRequest{}, mailboxBodyRefusal(err))
 		return
 	}
@@ -106,12 +129,19 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		refuse(req, refusal)
 		return
 	}
-	to, refusal := h.mailboxDestination(ctx, req)
+	source, to, refusal := h.mailboxParticipants(ctx, req)
 	if refusal != nil {
 		refuse(req, refusal)
 		return
 	}
 	req.To = to
+	if req.Type == mailbox.ReviewRequest {
+		if !filepath.IsAbs(source.Folder) {
+			refuse(req, mailbox.NewRefusal("refs"))
+			return
+		}
+		req.ReviewFolder = source.Folder
+	}
 	receipt, err := store.Send(ctx, req.From, req.SendRequest)
 	if err != nil {
 		writeMailboxError(w, err)
@@ -120,7 +150,7 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 	writeEditJSON(w, http.StatusOK, receipt)
 }
 
-func (h *conversationsHandler) mailboxDestination(ctx context.Context, req mailboxSendRequest) (conversations.Ref, *mailbox.Refusal) {
+func (h *conversationsHandler) mailboxParticipants(ctx context.Context, req mailboxSendRequest) (conversations.Conversation, conversations.Ref, *mailbox.Refusal) {
 	from, to := req.From, req.To
 	candidates := []conversations.Ref{to}
 	if to.Tool == "" {
@@ -129,7 +159,7 @@ func (h *conversationsHandler) mailboxDestination(ctx context.Context, req mailb
 	found := h.scanner.FindRefs(ctx, h.scanOptions(""), append(candidates, from)...)
 	source := found[from]
 	if !canUseMailbox(source) || req.Thread == "" && source.Parent != nil {
-		return conversations.Ref{}, mailbox.NewRefusal("unknown-session")
+		return conversations.Conversation{}, conversations.Ref{}, mailbox.NewRefusal("unknown-session")
 	}
 	var destination conversations.Ref
 	for _, candidate := range candidates {
@@ -140,14 +170,14 @@ func (h *conversationsHandler) mailboxDestination(ctx context.Context, req mailb
 			refusal := mailbox.NewRefusal("unknown-session")
 			refusal.Reason = "Two local sessions use that ID."
 			refusal.Next = "Choose a session row to specify its tool."
-			return conversations.Ref{}, refusal
+			return conversations.Conversation{}, conversations.Ref{}, refusal
 		}
 		destination = candidate
 	}
 	if destination.ID == "" {
-		return conversations.Ref{}, mailbox.NewRefusal("unknown-session")
+		return conversations.Conversation{}, conversations.Ref{}, mailbox.NewRefusal("unknown-session")
 	}
-	return destination, nil
+	return source, destination, nil
 }
 
 func canUseMailbox(c conversations.Conversation) bool {

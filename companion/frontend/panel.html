@@ -40,8 +40,18 @@
       <output class="mailbox-muted" id="mailbox-from"></output>
       <label>Session ID <input id="mailbox-target" autocomplete="off" spellcheck="false" aria-describedby="mailbox-target-hint"></label>
       <p class="mailbox-muted" id="mailbox-target-hint">Click a session in the list or paste its ID here.</p>
-      <label>Type <select id="mailbox-type"><option value="question">Question</option><option value="finding">Finding</option></select></label>
-      <label>Message <textarea id="mailbox-body" rows="2"></textarea></label>
+      <label>Type <select id="mailbox-type"><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option></select></label>
+      <label id="mailbox-body-field">Message <textarea id="mailbox-body" rows="2"></textarea></label>
+      <div class="mailbox-review" id="mailbox-review" hidden>
+        <label>Base branch or commit <input id="mailbox-review-base" autocomplete="off" spellcheck="false" aria-describedby="mailbox-review-status"></label>
+        <p id="mailbox-review-status" class="mailbox-muted" role="status"></p>
+        <div id="mailbox-review-refs" class="mailbox-review-refs" role="group" aria-label="Resolved review" hidden></div>
+        <div class="mailbox-review-models">
+          <label>Sending model (optional) <input id="mailbox-sending-model" autocomplete="off" spellcheck="false"></label>
+          <label>Reviewing model (optional) <input id="mailbox-reviewing-model" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <p id="mailbox-review-comparison" class="mailbox-muted" role="status"></p>
+      </div>
       <div class="mailbox-actions">
         <button class="confirm-cancel" id="mailbox-cancel" type="button">Cancel</button>
         <button class="mailbox-send" id="mailbox-send" type="submit">Send message</button>

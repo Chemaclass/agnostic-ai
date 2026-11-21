@@ -1693,3 +1693,41 @@ button:focus-visible {
 .card.is-mailbox-composing .row .actions {
   display: none;
 }
+
+.mailbox-review {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mailbox-card [hidden] {
+  display: none;
+}
+
+.mailbox-review-models {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mailbox-review-refs {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mailbox-ref-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 0;
+}
+
+.mailbox-ref-details dt {
+  color: var(--paper-dim);
+}
+
+.mailbox-ref-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
