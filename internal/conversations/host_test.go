@@ -778,6 +778,9 @@ func TestTabApps_HaveEveryScript(t *testing.T) {
 		if _, ok := commandTabs[app]; ok {
 			continue
 		}
+		if _, ok := linuxCommandTabs[app]; ok {
+			continue
+		}
 		_, focus := tabScripts[app]
 		_, title := titleTabLines[app]
 		_, newTab := newTabLines[app]

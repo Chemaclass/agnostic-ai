@@ -29,7 +29,7 @@ func procargsEnvironments(pids []int) (map[int][]string, error) {
 		if !ok {
 			continue // Its boundaries cannot be read, so it links nothing.
 		}
-		environments[pid] = claudeEntries(entries)
+		environments[pid] = keptEntries(entries)
 	}
 	return environments, nil
 }

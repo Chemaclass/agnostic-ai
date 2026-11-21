@@ -21,6 +21,18 @@ type kittyTab struct {
 	path   func() (string, error)
 	table  func() ([]ProcessInfo, error)
 	socket func(path string) bool
+	// noRaising is set on Linux, where agnostic-ai does not bring kitty's
+	// window forward: Wayland lets no program raise another's window.
+	noRaising bool
+}
+
+// raise brings kitty's window forward, or says it may stay behind.
+func (k kittyTab) raise(ctx context.Context) error {
+	if k.noRaising {
+		return errNotInFront
+	}
+	_, err := k.run(ctx, "open", "-a", "kitty")
+	return err
 }
 
 // kittyText keeps backslashes, which kitty reads as escapes in the
@@ -28,11 +40,12 @@ type kittyTab struct {
 func kittyText(text string) string { return strings.ReplaceAll(text, `\`, `\\`) }
 
 func isKitty(command string) bool {
-	return strings.HasSuffix(command, "/kitty.app/Contents/MacOS/kitty")
+	return strings.HasSuffix(command, "/kitty.app/Contents/MacOS/kitty") || programOf(command) == "kitty"
 }
 
-// remote is the address of the kitty that runs tty, or of the first
-// kitty when tty is empty; pids holds the processes on tty.
+// remote is the address of the kitty that runs tty, or when tty is
+// empty of the first kitty that listens: on Linux each kitty started
+// alone is a process of its own. pids holds the processes on tty.
 func (k kittyTab) remote(tty string) (to string, pids map[int]bool, err error) {
 	table, err := k.table()
 	if err != nil {
@@ -46,8 +59,10 @@ func (k kittyTab) remote(tty string) (to string, pids map[int]bool, err error) {
 	kitty := 0
 	for _, process := range table {
 		switch {
-		case tty == "" && kitty == 0 && isKitty(process.Command) && !isKitty(byPID[process.PPID].Command):
-			kitty = process.PID
+		case tty == "" && isKitty(process.Command) && !isKitty(byPID[process.PPID].Command):
+			if kitty == 0 || !k.socket(kittySocket(kitty)) {
+				kitty = process.PID
+			}
 		case tty != "" && process.TTY == tty:
 			pids[process.PID] = true
 			if kitty == 0 && isKitty(byPID[process.PPID].Command) {
@@ -58,12 +73,14 @@ func (k kittyTab) remote(tty string) (to string, pids map[int]bool, err error) {
 	if kitty == 0 {
 		return "", pids, nil
 	}
-	socket := "/tmp/kitty-" + strconv.Itoa(kitty)
+	socket := kittySocket(kitty)
 	if !k.socket(socket) {
 		return "", pids, errKittyRemoteControlOff
 	}
 	return "unix:" + socket, pids, nil
 }
+
+func kittySocket(pid int) string { return "/tmp/kitty-" + strconv.Itoa(pid) }
 
 func (k kittyTab) at(ctx context.Context, to string, args ...string) (string, error) {
 	path, err := k.path()
@@ -121,8 +138,7 @@ func (k kittyTab) activate(ctx context.Context, to, window string) error {
 	if _, err := k.at(ctx, to, "focus-window", "--match", "id:"+window); err != nil {
 		return err
 	}
-	_, err := k.run(ctx, "open", "-a", "kitty")
-	return err
+	return k.raise(ctx)
 }
 
 func (k kittyTab) focus(ctx context.Context, tty string) (bool, error) {
@@ -151,7 +167,7 @@ func (k kittyTab) typeIn(ctx context.Context, tty, text string) (bool, error) {
 	if err != nil || !ok {
 		return false, err
 	}
-	if err := k.activate(ctx, to, window); err != nil {
+	if err := k.activate(ctx, to, window); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
 	_, err = k.at(ctx, to, "send-text", "--match", "id:"+window, "--", `\e[200~`+kittyText(text)+`\e[201~`)
@@ -179,6 +195,8 @@ func (k kittyTab) newTab(ctx context.Context, command string) error {
 	if _, err := k.at(ctx, to, "send-text", "--match", "id:"+window, "--", kittyText(command)+`\r`); err != nil {
 		return err
 	}
-	_, err = k.run(ctx, "open", "-a", "kitty")
-	return err
+	if err := k.raise(ctx); !errors.Is(err, errNotInFront) {
+		return err
+	}
+	return nil
 }

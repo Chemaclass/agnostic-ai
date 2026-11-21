@@ -57,6 +57,12 @@ func findBinary() (string, error) {
 	if _, command, ok := ownBundledCommand(); ok {
 		return command, nil
 	}
+	return separateBinary()
+}
+
+// separateBinary finds an agnostic-ai command installed apart from the
+// disk image app, such as with Homebrew or npm.
+func separateBinary() (string, error) {
 	if recorded, ok := recordedBinary(); ok {
 		return recorded, nil
 	}

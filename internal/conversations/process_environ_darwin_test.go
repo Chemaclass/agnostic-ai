@@ -27,7 +27,7 @@ func TestProcargsEnvironment_KeepsEachEntryWhole(t *testing.T) {
 	if !ok || strings.Join(entries, "|") != "REVIEW_TEXT=example CLAUDE_CODE_SESSION_ID="+idCache+"|HOME=/Users/me" {
 		t.Fatalf("the environment starts after the arguments and ends at the empty entry, actual %q %v", entries, ok)
 	}
-	if _, linked := claudeParentIn(claudeEntries(entries)); linked {
+	if _, linked := claudeParentIn(keptEntries(entries)); linked {
 		t.Error("names inside arguments or another value must not link")
 	}
 }

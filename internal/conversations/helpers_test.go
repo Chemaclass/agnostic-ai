@@ -341,7 +341,7 @@ func TestClaudeParentIn_NeedsOneChildSessionAndOneSessionID(t *testing.T) {
 }
 
 func TestClaudeEntries_KeepsOnlyTheSessionNames(t *testing.T) {
-	kept := claudeEntries([]string{"API_TOKEN=secret", "CLAUDE_CODE_SESSION_ID=" + idSafari, "CLAUDE_CODE_CHILD_SESSION=1", "X=CLAUDE_CODE_CHILD_SESSION=1"})
+	kept := keptEntries([]string{"API_TOKEN=secret", "CLAUDE_CODE_SESSION_ID=" + idSafari, "CLAUDE_CODE_CHILD_SESSION=1", "X=CLAUDE_CODE_CHILD_SESSION=1"})
 	if strings.Join(kept, " ") != "CLAUDE_CODE_SESSION_ID="+idSafari+" CLAUDE_CODE_CHILD_SESSION=1" {
 		t.Errorf("kept = %v", kept)
 	}

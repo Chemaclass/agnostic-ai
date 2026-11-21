@@ -34,6 +34,30 @@ var commandTabs = map[string]commandTab{
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return bundledCommand("kitty.app", "kitty") }, table: SystemProcesses{}.Table, socket: ownSocket},
 }
 
+// linuxCommandTabs drive the same apps on Linux, from PATH, without
+// bringing their windows forward.
+var linuxCommandTabs = map[string]commandTab{
+	"WezTerm": weztermTab{run: run, path: func() (string, error) { return commandOnPath("wezterm") }, noRaising: true},
+	"kitty":   kittyTab{run: run, path: func() (string, error) { return commandOnPath("kitty") }, table: SystemProcesses{}.Table, socket: ownSocket, noRaising: true},
+	"Konsole": konsoleTab{run: run, table: SystemProcesses{}.Table, environ: readEnvironments},
+}
+
+// readEnvironments reads the kept entries of each pid's environment, on
+// a system with a reader.
+func readEnvironments(pids []int) (map[int][]string, error) {
+	if environmentReader == nil {
+		return nil, errors.New(string(environmentUnsupported))
+	}
+	return environmentReader(pids)
+}
+
+func commandOnPath(name string) (string, error) {
+	if path, err := exec.LookPath(name); err == nil {
+		return path, nil
+	}
+	return "", errNoTabCommand
+}
+
 // bundledCommand finds an app's command. The companion started from
 // Finder has no shell PATH, so the app bundles come first.
 func bundledCommand(bundle, name string) (string, error) {
