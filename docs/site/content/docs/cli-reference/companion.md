@@ -84,7 +84,9 @@ If a release ships without the companion archive, the installer builds the compa
 - A build that fails leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
 - On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. The app stays out of the Dock.
-- The terminal installer signs the app on your machine with `codesign`, without a developer identity. The disk image carries an app signed during the release build.
+- The terminal installer signs the app on your machine with `codesign`, without a developer identity. It makes a certificate for this Mac on the first install and keeps it in the companion folder, so each later install keeps the app's Accessibility access. Uninstalling removes the certificate.
+- The disk image carries an app signed during the release build with the project's own certificate, so updating from one disk image to the next keeps Accessibility access too.
+- Switching between the disk image and the terminal installer changes the certificate, and so does the first install with this signing. Grant Accessibility access once more after either.
 - Start at login registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
 - An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
 {% </details> %}

@@ -65,9 +65,55 @@ jobs:
         continue-on-error: ${{ contains(github.ref_name, '-') }}
         run: scripts/companion-release.sh "${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/companion-dist"
 
-      - name: Hand the archives to GoReleaser
+      - name: Hand the archives to the signing job
         id: archives
         if: steps.package.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: companion-built-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
+            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.dmg
+          if-no-files-found: error
+          retention-days: 1
+
+  # Signs the disk images with the project certificate, so macOS keeps the
+  # app's Accessibility access across releases. The key stays out of the
+  # build job, which fetches and runs dependency code; this job runs only
+  # this repository's script. See docs/internal/companion-signing.md.
+  companion-sign:
+    name: Sign the macOS companion
+    needs: companion
+    runs-on: macos-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      artifact: ${{ steps.archives.outputs.artifact-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the built archives
+        if: needs.companion.outputs.artifact != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.companion.outputs.artifact }}
+          path: ${{ runner.temp }}/companion-dist
+
+      - name: Sign the disk images
+        id: sign
+        if: needs.companion.outputs.artifact != ''
+        continue-on-error: ${{ contains(github.ref_name, '-') }}
+        env:
+          COMPANION_SIGNING_P12: ${{ secrets.COMPANION_SIGNING_P12 }}
+        run: scripts/companion-sign.sh "$RUNNER_TEMP/companion-dist"
+
+      - name: Hand the archives to GoReleaser
+        id: archives
+        if: steps.sign.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: companion-dist-${{ github.run_attempt }}
@@ -79,7 +125,7 @@ jobs:
 
   goreleaser:
     name: Build release candidate
-    needs: [ui-bundle, companion]
+    needs: [ui-bundle, companion, companion-sign]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -102,15 +148,15 @@ jobs:
         run: scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/NOTES.md"
 
       - name: Download the companion archives
-        if: needs.companion.outputs.artifact != ''
+        if: needs.companion-sign.outputs.artifact != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          artifact-ids: ${{ needs.companion.outputs.artifact }}
+          artifact-ids: ${{ needs.companion-sign.outputs.artifact }}
           path: ${{ runner.temp }}/companion-dist
 
       - name: Report a prerelease without the companion archives
-        if: needs.companion.outputs.artifact == ''
-        run: echo "::notice::companion build failed. Prereleases can ship without macOS companion files."
+        if: needs.companion-sign.outputs.artifact == ''
+        run: echo "::notice::companion build or signing failed. Prereleases can ship without macOS companion files."
 
       - name: Install Syft for the SBOMs
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

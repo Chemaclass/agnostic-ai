@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -94,7 +93,7 @@ func bareCompanionFile(dir string) string {
 // macOS ties what the app registers, such as start at login, to its
 // signature; a signature made on this machine, with no developer
 // identity, is enough.
-func assembleCompanionApp(ctx context.Context, tools companionTools, program, app, version string) error {
+func assembleCompanionApp(ctx context.Context, tools companionTools, dir, program, app, version string) error {
 	contents := filepath.Join(app, "Contents")
 	for _, folder := range []string{"MacOS", "Resources"} {
 		if err := os.MkdirAll(filepath.Join(contents, folder), 0o700); err != nil {
@@ -114,7 +113,7 @@ func assembleCompanionApp(ctx context.Context, tools companionTools, program, ap
 	if err := os.Rename(program, inner); err != nil {
 		return err
 	}
-	if err := tools.sign(ctx, app); err != nil {
+	if err := tools.sign(ctx, companionFolder(dir), app); err != nil {
 		return fmt.Errorf("sign the companion: %w", err)
 	}
 	return nil
@@ -152,14 +151,6 @@ func (e companionKeptAside) Error() string {
 }
 
 func (e companionKeptAside) Unwrap() error { return e.err }
-
-func signCompanion(ctx context.Context, app string) error {
-	out, err := exec.CommandContext(ctx, "codesign", "--force", "--sign", "-", app).CombinedOutput()
-	if err != nil {
-		return withWhatItSaid(err, out)
-	}
-	return nil
-}
 
 // startedAtLogin reports whether one of the login entries an earlier
 // install left is there.

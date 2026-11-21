@@ -62,7 +62,7 @@ func builtTools(t *testing.T, lines ...string) companionTools {
 			return false, nil
 		},
 		noSessionBus: func() bool { return false },
-		sign:         func(context.Context, string) error { return nil },
+		sign:         func(context.Context, string, string) error { return nil },
 		rename:       os.Rename,
 		pause:        func(time.Duration) {},
 	}
@@ -93,7 +93,7 @@ func runsUntilAsked(asked *int) func(context.Context, string) (bool, error) {
 func TestInstallCompanion_BuildsTheCommitThisBinaryCameFromAndSaysHowFarItIs(t *testing.T) {
 	dir := t.TempDir()
 	tools := builtTools(t, "go: downloading github.com/wailsapp/wails/v3 v3.1.0", "go: downloading golang.org/x/sys v0.49.0", "internal/abi", "runtime", "github.com/chemaclass/agnostic-ai/companion")
-	tools.sign = func(context.Context, string) error {
+	tools.sign = func(context.Context, string, string) error {
 		t.Error("a program was signed outside macOS")
 		return nil
 	}

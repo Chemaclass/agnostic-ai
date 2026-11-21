@@ -92,7 +92,10 @@ func TestInstallCompanion_BuildsASignedAppOnMacOS(t *testing.T) {
 	dir := t.TempDir()
 	tools := builtTools(t)
 	var signed []string
-	tools.sign = func(_ context.Context, app string) error {
+	tools.sign = func(_ context.Context, folder, app string) error {
+		if folder != filepath.Join(dir, "companion") {
+			t.Errorf("signed with the certificate in %s, want the companion folder", folder)
+		}
 		if _, err := os.Stat(filepath.Join(app, "Contents", "Info.plist")); err != nil {
 			t.Errorf("signed before the app was complete: %v", err)
 		}
@@ -138,7 +141,7 @@ func TestInstallCompanion_KeepsTheInstalledAppWhenSigningFails(t *testing.T) {
 	dir := t.TempDir()
 	installed := installedCompanion(t, dir, "darwin")
 	tools := builtTools(t)
-	tools.sign = func(context.Context, string) error { return errors.New("codesign: no identity") }
+	tools.sign = func(context.Context, string, string) error { return errors.New("codesign: no identity") }
 	tools.quit = func(context.Context, string) (bool, error) {
 		t.Error("the running companion was stopped for an install that failed")
 		return false, nil

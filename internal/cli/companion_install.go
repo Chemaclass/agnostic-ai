@@ -140,7 +140,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	place := func() error { return tools.rename(built, target) }
 	if build.goos == "darwin" {
 		app := filepath.Join(staging, companionAppName+".app")
-		if err := assembleCompanionApp(ctx, tools, built, app, build.version); err != nil {
+		if err := assembleCompanionApp(ctx, tools, dir, built, app, build.version); err != nil {
 			return err
 		}
 		target = companionBundle(dir)

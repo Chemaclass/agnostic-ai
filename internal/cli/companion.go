@@ -119,7 +119,8 @@ type companionTools struct {
 	// noSessionBus reports whether this shell has no D-Bus session bus,
 	// the only way to reach a running companion on Linux.
 	noSessionBus func() bool
-	sign         func(ctx context.Context, app string) error
+	// sign signs the app with the certificate kept in folder.
+	sign func(ctx context.Context, folder, app string) error
 	// rename moves a file or folder, as os.Rename does.
 	rename func(from, to string) error
 	// macOS is this Mac's system version, such as "14.5"; empty elsewhere
