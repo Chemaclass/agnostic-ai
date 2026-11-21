@@ -17,7 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
-// userOverviewHome prepares a user home whose global source holds a
+// userOverviewHome prepares a user home whose user source holds a
 // skill, an agent, and an MCP server for Claude Code and Codex, and
 // returns the home. Nothing is synced yet.
 func userOverviewHome(t *testing.T) string {
@@ -90,8 +90,8 @@ func TestUserOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := overview.Build(in)
-	if !strings.HasPrefix(view.Snapshot.Project.Name, "global (") {
-		t.Errorf("project name = %q, want the global source", view.Snapshot.Project.Name)
+	if !strings.HasPrefix(view.Snapshot.Project.Name, "user (") {
+		t.Errorf("project name = %q, want the user source", view.Snapshot.Project.Name)
 	}
 	items := map[string][]string{}
 	for _, s := range view.Sections {
@@ -118,7 +118,7 @@ func TestUserOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 		t.Errorf("drift = %+v, want claude %s %s", driftFindings(in.Findings), claudeMD, driftNotGenerated)
 	}
 	if slices.ContainsFunc(in.Findings, func(f overview.Finding) bool { return f.Source == overview.SourceDoctor }) {
-		t.Error("doctor findings ran for the global configuration")
+		t.Error("doctor findings ran for the user configuration")
 	}
 	if in.Snapshot.Evidence.Installed != "checked" || !strings.Contains(in.Snapshot.Evidence.Note, "doctor checks read a project") {
 		t.Errorf("evidence = %+v", in.Snapshot.Evidence)
@@ -202,7 +202,7 @@ func TestView_UserPrintsTheUserLevelConfiguration(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &view); err != nil {
 		t.Fatalf("decode: %v\n%s", err, out)
 	}
-	if !strings.HasPrefix(view.Snapshot.Project.Name, "global (") || !slices.Equal(view.Snapshot.Targets, []string{"claude", "codex"}) {
+	if !strings.HasPrefix(view.Snapshot.Project.Name, "user (") || !slices.Equal(view.Snapshot.Targets, []string{"claude", "codex"}) {
 		t.Errorf("snapshot = %+v", view.Snapshot)
 	}
 

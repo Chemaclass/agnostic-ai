@@ -16,7 +16,7 @@ func TestUserTargets_TableInvariants(t *testing.T) {
 	}
 	for name, g := range userTargets {
 		if !known[name] {
-			t.Errorf("%s: global target is not a known adapter", name)
+			t.Errorf("%s: user-level target is not a known adapter", name)
 		}
 		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks, "agents": g.agents}
 		var declared int
@@ -37,7 +37,7 @@ func TestUserTargets_TableInvariants(t *testing.T) {
 		}
 		adapter, ok := adapters.Get(name)
 		if _, native := adapter.(adapters.AgentEmitter); ok && (g.agents != "") != native {
-			t.Errorf("%s: global agent directory and native emitter must agree", name)
+			t.Errorf("%s: user-level agent directory and native emitter must agree", name)
 		}
 		if (g.rootEnv == "") != (g.root == "") {
 			t.Errorf("%s: root override needs an environment variable and default root", name)

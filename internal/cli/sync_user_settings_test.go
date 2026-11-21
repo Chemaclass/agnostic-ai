@@ -635,7 +635,7 @@ func TestSyncUser_QwenSettingsReasoningEffort(t *testing.T) {
 		t.Fatal(err)
 	}
 	if native.Model["reasoningEffort"] != "high" {
-		t.Errorf("global Qwen effort absent: %s", got)
+		t.Errorf("user Qwen effort absent: %s", got)
 	}
 }
 

@@ -200,7 +200,7 @@ func displayProjectAsk(folder string) string {
 	return ask
 }
 
-// headerMode is the loosest active mode for the project. The global
+// headerMode is the loosest active mode for the project. The user
 // list considers the home policy for all listed tools and projects.
 func (s approvalsSnapshot) headerMode(folder string) string {
 	if !s.policyOK || strings.TrimSpace(s.policy.Env) != "" {

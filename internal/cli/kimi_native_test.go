@@ -173,7 +173,7 @@ func TestSyncUser_KimiCreatedConfigRemovedAndEffortLeftAlone(t *testing.T) {
 	}
 	got := readFile(t, path)
 	if strings.Contains(got, "thinking") || strings.Contains(got, "effort") {
-		t.Errorf("global nested table was owned: %s", got)
+		t.Errorf("user nested table was owned: %s", got)
 	}
 	if err := os.Remove(specPath); err != nil {
 		t.Fatal(err)
@@ -206,7 +206,7 @@ func TestImportKimi_DropsPrivateAndUserInstructionBlocks(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [kimi]\n")
-	writeFile(t, ".kimi-code/AGENTS.md", userStart+"\nPersonal global instruction.\n"+userEnd+"\n# Project\n\nPublic instruction.\n<!-- agnostic-ai:local:start -->\nPersonal local instruction.\n<!-- agnostic-ai:local:end -->\n")
+	writeFile(t, ".kimi-code/AGENTS.md", userStart+"\nPersonal user-level instruction.\n"+userEnd+"\n# Project\n\nPublic instruction.\n<!-- agnostic-ai:local:start -->\nPersonal local instruction.\n<!-- agnostic-ai:local:end -->\n")
 	execCLI(t, "import", "kimi")
 	source := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md")
 	if strings.Contains(source, "Personal") {

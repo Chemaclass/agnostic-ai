@@ -10,7 +10,7 @@ group = "Reference"
 
 # MCP import credentials
 
-How `import` turns MCP credentials into `${NAME}` references, and which servers it leaves out. The [Tools page's **Import** action](@/docs/cli-reference/serve.md#serve) uses the same rules for one server, including on the global page.
+How `import` turns MCP credentials into `${NAME}` references, and which servers it leaves out. The [Tools page's **Import** action](@/docs/cli-reference/serve.md#serve) uses the same rules for one server, including on the user-level page.
 
 ## What import writes
 
@@ -97,7 +97,7 @@ Check these by hand:
 
 </details>
 
-## Global import
+## User-level import {#global-import}
 
 `import --scope user` cannot change a server, so it leaves out each server with a literal credential: any credential above, or an `env` or header value with a [credential name](#credential-names) or that looks like a credential. It names the server and field, never the value.
 

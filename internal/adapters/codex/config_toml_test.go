@@ -976,7 +976,7 @@ func TestUserMCPServerTables_DropsDescriptionAndRoots(t *testing.T) {
 	}})
 	got := tables["fs"]
 	if strings.Contains(got, "description") || strings.Contains(got, "roots") {
-		t.Errorf("global table must not carry description or roots:\n%s", got)
+		t.Errorf("user-level table must not carry description or roots:\n%s", got)
 	}
 }
 

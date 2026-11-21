@@ -246,7 +246,7 @@ var hookProjectDirEnv = map[string]string{
 }
 
 // memoryProjectRoot finds the project the shared-memory skill uses: the
-// nearest ancestor with a project config, never the global source root,
+// nearest ancestor with a project config, never the user source root,
 // or else the Git checkout, since a global install reaches projects with
 // no config of their own.
 func memoryProjectRoot(target string) string {
@@ -281,7 +281,7 @@ func memoryProjectRoot(target string) string {
 	return top
 }
 
-// userRootMatcher returns a test for the global source root. It compares
+// userRootMatcher returns a test for the user source root. It compares
 // files, not path strings, so symlinks and a different path case on a
 // case-insensitive filesystem still match, as refuseUserSource does.
 func userRootMatcher() func(dir string) bool {

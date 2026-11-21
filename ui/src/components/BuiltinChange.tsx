@@ -235,7 +235,7 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
 
 /**
  * The preview flow for one model or effort field, for every tool or for one
- * target. supported is false in the global view, where a field save only
+ * target. supported is false in the user-level view, where a field save only
  * writes its source file.
  */
 export function useSettingChange(key: string, target?: string) {

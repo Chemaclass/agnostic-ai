@@ -21,7 +21,7 @@ func userSourceHome(home string) string {
 	return filepath.Join(home, ".agnostic-ai")
 }
 
-// userSources are the spec folders of the global source and of its
+// userSources are the spec folders of the user source and of its
 // local layer.
 var userSources = config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks", Settings: "settings", MCPs: "mcps"}
 
@@ -36,7 +36,7 @@ func userLayers(source string, names []string) ([]spec.Layer, error) {
 	}...), nil
 }
 
-// loadUserBundle loads the global specs. sync --scope user writes one
+// loadUserBundle loads the user specs. sync --scope user writes one
 // instructions block that every tool reads, so a built-in rule with a
 // scope or target condition stays out instead of stopping the sync.
 func loadUserBundle(source string, names []string) (spec.Bundle, error) {
@@ -71,9 +71,9 @@ func userSourceRoot() (string, error) {
 // targets to check them against.
 type checkScope struct {
 	userLevel bool
-	// source is the global source root; empty for a project.
+	// source is the user source root; empty for a project.
 	source string
-	// cfg is nil for the global scope, which has no config.
+	// cfg is nil for the user scope, which has no config.
 	cfg *config.Config
 	// models are the tiers specs name: the project's, or the home configs'.
 	models  map[string]config.ModelTier
@@ -82,11 +82,11 @@ type checkScope struct {
 	// a project is every enabled target.
 	hookTargets []string
 	// support maps each kind to the targets that write it: adapter
-	// output for a project, user-level surfaces for the global scope.
+	// output for a project, user-level surfaces for the user scope.
 	support kindSupport
 	bundle  spec.Bundle
 	// project is the loaded project that migration plans read; nil for
-	// the global scope.
+	// the user scope.
 	project *loadedProject
 }
 
@@ -94,13 +94,13 @@ type checkScope struct {
 // scope loaded.
 func (s checkScope) migrationScope() migrationScope {
 	if s.userLevel {
-		panic("migrationScope: spec migrations plan the project, not the global scope")
+		panic("migrationScope: spec migrations plan the project, not the user scope")
 	}
 	return migrationScope{root: ".", project: s.project}
 }
 
 // loadCheckScope loads the project in the working directory, or the
-// global and user-local layers sync --scope user reads. The global scope
+// user-level and user-local layers sync --scope user reads. The user scope
 // checks against the targets a default sync --scope user writes, from the
 // home config or else every supported one, and against what each writes
 // at user level.
@@ -133,7 +133,7 @@ func loadCheckScopeAllHooks(userLevel bool) (checkScope, []spec.Entry, error) {
 	return scope, all, nil
 }
 
-// loadSpecScope is loadCheckScope without the global targets, for list,
+// loadSpecScope is loadCheckScope without the user-level targets, for list,
 // which reads only requires from the home config. With skipBroken set, a
 // home config that does not parse warns there instead of stopping.
 func loadSpecScope(userLevel bool, skipBroken io.Writer) (checkScope, error) {
@@ -183,7 +183,7 @@ func (s checkScope) emptyHint() string {
 	if !s.userLevel {
 		return emptySpecsHint
 	}
-	return fmt.Sprintf("no global specs found in %s. add files under its "+
+	return fmt.Sprintf("no user specs found in %s. add files under its "+
 		"{agents,skills,rules,hooks,settings,mcps}/ or local/ directories, or set "+
 		"AGNOSTIC_AI_HOME to another root.", s.source)
 }
@@ -198,7 +198,7 @@ func lintUserRules(rules []spec.Entry, targets []string) []validationIssue {
 		}
 		out = append(out, validationIssue{
 			Path:    rule.Path,
-			Message: fmt.Sprintf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name),
+			Message: fmt.Sprintf("user-level rule %q is scoped or conditional; user-level rules must apply unconditionally", rule.Name),
 		})
 	}
 	return out

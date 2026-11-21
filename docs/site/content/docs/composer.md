@@ -93,7 +93,7 @@ agnostic-ai sync --check
 | Claude Code | `CLAUDE.md`, `.claude/rules/commit-subjects.md`, `.claude/skills/change-summary/SKILL.md` |
 | Codex | `AGENTS.md`, `.agents/skills/change-summary/SKILL.md` |
 
-The note is in both `CLAUDE.md` and `AGENTS.md`; Codex gets the rule inside `AGENTS.md`. Later: edit `.agnostic-ai/` and sync. Home-level files use [global configuration](@/docs/global-configuration.md). Settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
+The note is in both `CLAUDE.md` and `AGENTS.md`; Codex gets the rule inside `AGENTS.md`. Later: edit `.agnostic-ai/` and sync. Home-level files use [user configuration](@/docs/global-configuration.md). Settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
 
 ## Check each provider in Composer
 

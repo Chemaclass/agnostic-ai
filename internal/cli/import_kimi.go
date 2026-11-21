@@ -436,7 +436,7 @@ func readKimiInstructions(root, path string) ([]byte, error) {
 	body := string(data)
 	start, end := strings.Index(body, userStart), strings.Index(body, userEnd)
 	if (start >= 0) != (end >= 0) || start >= 0 && end < start {
-		return nil, fmt.Errorf("%s: corrupt agnostic-ai global instruction block", path)
+		return nil, fmt.Errorf("%s: corrupt agnostic-ai user-level instruction block", path)
 	}
 	if start >= 0 {
 		body = body[:start] + body[end+len(userEnd):]

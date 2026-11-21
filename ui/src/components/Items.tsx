@@ -217,7 +217,7 @@ export function OverrideComparison({ shared, personal }: { shared?: string; pers
   if (shared === personal) return null
   const label = (value?: string) => value === 'null' ? 'Cleared' : value ?? 'Not set'
   return <span className="override-comparison" role="note" aria-label={`Local overrides ${level}`}>
-    <span>{audienceLabel('shared', level === 'global')}: <strong>{label(shared)}</strong></span>
+    <span>{audienceLabel('shared', level === 'user')}: <strong>{label(shared)}</strong></span>
     <span aria-hidden="true">·</span>
     <span>Local: <strong>{label(personal)}</strong></span>
   </span>

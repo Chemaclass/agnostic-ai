@@ -48,7 +48,7 @@ function Finding({ finding: f, entryId, place, pickable = true, sharesTitle = fa
           <p className="finding-label">
             {pickable && <PickBox id={entryId} name={findingTitle(f)} />}
             <span>{HEALTH_STATUS[severity]}{owner && <> · <AppLink className="finding-section" to={{ view: owner.id as ViewId, entry: entryId }}>{owner.label}</AppLink></>}</span>
-            {f.layer === 'user' && <Badge tone="info" title="On the global setup (~/.agnostic-ai), which reaches every project">user</Badge>}
+            {f.layer === 'user' && <Badge tone="info" title="On the user setup (~/.agnostic-ai), which reaches every project">user</Badge>}
             {fresh && <Badge tone="accent">New since recheck</Badge>}
           </p>
           <FindingMessage message={findingTitle(f)} />

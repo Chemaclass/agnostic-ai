@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { audienceDescription, audienceLabel, layerLabel, levelName, readAudience } from './edit-audience'
+import { audienceDescription, audienceLabel, layerLabel, levelName, specLevel, readAudience } from './edit-audience'
 
 describe('saved edit audience', () => {
   it.each([
@@ -17,12 +17,17 @@ describe('saved edit audience', () => {
 describe('audience labels', () => {
   it('names the level of the served setup', () => {
     expect(levelName(false)).toBe('project')
-    expect(levelName(true)).toBe('global')
+    expect(levelName(true)).toBe('user')
+  })
+
+  it('keeps the API name of the user level for requests', () => {
+    expect(specLevel(false)).toBe('project')
+    expect(specLevel(true)).toBe('global')
   })
 
   it.each([
     ['shared', false, 'Project'],
-    ['shared', true, 'Global'],
+    ['shared', true, 'User'],
     ['personal', false, 'Local'],
     ['personal', true, 'Local'],
   ] as const)('shows %s as %s in global=%s', (audience, userLevel, label) => {
@@ -31,7 +36,7 @@ describe('audience labels', () => {
 
   it('says whether Git tracks the files', () => {
     expect(audienceDescription('shared', false)).toBe('Project (committed)')
-    expect(audienceDescription('shared', true)).toBe('Global (every project)')
+    expect(audienceDescription('shared', true)).toBe('User (every project)')
     expect(audienceDescription('personal', false)).toBe('Local (not committed)')
     expect(audienceDescription('personal', true)).toBe('Local (not committed)')
   })

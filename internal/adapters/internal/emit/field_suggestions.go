@@ -36,7 +36,7 @@ func fieldNoteSuggestion(kind spec.Kind, field, reason string, shared bool) stri
 				return ""
 			}
 			if shared {
-				return "put the argument hint in the skill description or body; shared global skill files omit target overrides"
+				return "put the argument hint in the skill description or body; shared user-level skill files omit target overrides"
 			}
 			if overrides := overridesFor(field); overrides != "" {
 				return "move `argument-hint` under " + overrides + " for the tools that read it, and put argument guidance in the description or body for other tools"
@@ -47,16 +47,16 @@ func fieldNoteSuggestion(kind spec.Kind, field, reason string, shared bool) stri
 				return ""
 			}
 			if shared {
-				return "keep descriptive metadata in the skill body; shared global skill files omit target overrides"
+				return "keep descriptive metadata in the skill body; shared user-level skill files omit target overrides"
 			}
 			if overrides := overridesFor(field); overrides != "" {
 				return "move `metadata` under " + overrides + " for the tools that read it; keep information other tools need in the skill body"
 			}
 			return "keep descriptive metadata in the skill body"
 		case "disable-model-invocation":
-			if reason == "the skill file has no disable-model-invocation field" || reason == "its global copy stays model-invocable" {
+			if reason == "the skill file has no disable-model-invocation field" || reason == "its user-level copy stays model-invocable" {
 				if shared {
-					return "if manual-only invocation is required, use a supported native skill invocation policy, or limit this skill to tools with manual-only enforcement using `targets-exclude:`; excluding a tool does not hide copies in shared global skill directories it reads"
+					return "if manual-only invocation is required, use a supported native skill invocation policy, or limit this skill to tools with manual-only enforcement using `targets-exclude:`; excluding a tool does not hide copies in shared user-level skill directories it reads"
 				}
 				return "if manual-only invocation is required, use a supported native skill invocation policy, or add tools without manual-only enforcement to this skill's `targets-exclude:`"
 			}

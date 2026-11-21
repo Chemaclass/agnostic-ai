@@ -37,7 +37,7 @@ In the same project, say “resume the handoff”. The tool finds the newest not
 - Handoffs stay on one machine; teammates never see them. Git ignores the notes, and linked worktrees can share them.
 - List saved tasks with [`agnostic-ai handoff list`](@/docs/cli-reference/maintain.md#handoff-list).
 - To replace the built-in, add a project skill named `handoff`; `agnostic-ai list` shows which wins.
-- Some tools load a clashing global built-in first ([shared names](@/docs/global-configuration-reference.md#global-shared-names)). Rename yours or turn the built-in off globally.
+- Some tools load a clashing user-level built-in first ([shared names](@/docs/global-configuration-reference.md#global-shared-names)). Rename yours or turn the built-in off globally.
 
 <details>
 <summary>Inspect note format, branch matching, and fallback stores</summary>
@@ -127,8 +127,8 @@ A lead asks each delegate to write a handoff for its branch before returning. Af
 | [personal] | `.agnostic-ai/local/rules/learnings-local.md` | `agnostic-ai sync` |
 | [global] | `~/.agnostic-ai/rules/learnings.md` | `agnostic-ai sync --scope user` |
 
-- Project lessons are shared in Git, personal ones stay in the checkout, global ones apply everywhere.
-- The project file follows `sources.rules` if changed; the global file follows `AGNOSTIC_AI_HOME` if set.
+- Project lessons are shared in Git, personal ones stay in the checkout, user-level ones apply everywhere.
+- The project file follows `sources.rules` if changed; the user-level file follows `AGNOSTIC_AI_HOME` if set.
 - If `agnostic-ai` is not on PATH, the skill prints the sync command.
 
 </details>
@@ -174,7 +174,7 @@ builtins: [handoff, handoff-hook]
 - They use the event's working directory (`cwd`), including in linked worktrees, even when the hook runs in the main checkout. Config discovery stays inside that checkout.
 - Empty input or no `cwd` uses the process directory. Invalid or ambiguous input saves nothing.
 - Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
-- They call scripts generated under `.claude/hooks/`, so completion messages show a short command. Project hooks find them through `CLAUDE_PROJECT_DIR`; global hooks use absolute paths.
+- They call scripts generated under `.claude/hooks/`, so completion messages show a short command. Project hooks find them through `CLAUDE_PROJECT_DIR`; user-level hooks use absolute paths.
 - Sync tracks the scripts and removes unchanged copies when you disable the built-in.
 
 **Requirements and tool settings**
@@ -192,10 +192,10 @@ If you set it to `false`, change only `hooks.showHookOutput` to `true` in your e
 
 Factory hooks only work per project, not through `sync --scope user`.
 
-### Global hooks
+### User-level hooks {#global-hooks}
 
 - Claude Code, Codex, Gemini CLI, and Qoder CLI can get the hooks through `agnostic-ai sync --scope user`. They still find the current project at run time.
-- A project sync adds `.agnostic-ai/local/` to the ignore file. With only global hooks or skills, add that line to the project's `.gitignore` yourself.
+- A project sync adds `.agnostic-ai/local/` to the ignore file. With only user-level hooks or skills, add that line to the project's `.gitignore` yourself.
 
 </details>
 

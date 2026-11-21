@@ -668,7 +668,7 @@ func TestSyncCheckAgainst_ScopesARuleFolderToADirectoryOnlyTheIndexHolds(t *test
 	stdout, _, err := checkAgainst(t, "index")
 
 	if err == nil {
-		t.Errorf("backend/ now scopes the rule, so the committed global output is stale:\n%s", stdout)
+		t.Errorf("backend/ now scopes the rule, so the committed user-level output is stale:\n%s", stdout)
 	}
 }
 

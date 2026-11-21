@@ -1,6 +1,6 @@
 +++
 title = "Zed native reference"
-description = "Native field mappings, config keys, global instructions, and import coverage for zed."
+description = "Native field mappings, config keys, user-level instructions, and import coverage for zed."
 weight = 111
 
 [extra]
@@ -88,9 +88,9 @@ With `outputs.zed.tasks-file` set, hooks become [Zed Tasks](https://zed.dev/docs
 | `outputs.zed.tasks-file` | empty | opt-in |
 | `outputs.zed.rules-file` | unset | writes the legacy single document and skips the pointer instructions, so pointing it at `.rules` replaces the pointer file instead of clashing with it |
 
-## Global instructions
+## User-level instructions {#global-instructions}
 
-`agnostic-ai sync --scope user --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). Each platform's path is in the [global output table](@/docs/global-configuration-reference.md#global-output). Skills still use `~/.agents/skills/`.
+`agnostic-ai sync --scope user --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). Each platform's path is in the [user-level output table](@/docs/global-configuration-reference.md#global-output). Skills still use `~/.agents/skills/`.
 
 | Platform | File |
 |---|---|
@@ -106,7 +106,7 @@ After a path correction:
 - Personal text and private permissions remain. A link to the active file is kept.
 - Old files the ledger has not recorded stay unchanged.
 - `explain --scope user rules/<name>.md` shows the current native file.
-- Global instruction import is not supported. Project `import zed` keeps its paths below.
+- User-level instruction import is not supported. Project `import zed` keeps its paths below.
 
 ## Import
 

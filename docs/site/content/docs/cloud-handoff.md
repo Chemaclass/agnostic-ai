@@ -57,7 +57,7 @@ The cloud session starts from the pushed branch. A Claude Code session puts its 
 ## Where the session shows up
 
 - The agent's last reply starts with the session link, so the local chat shows where the work went.
-- The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) within about a minute, and in the global web interface when it runs with `agnostic-ai serve --scope user --cloud-sessions`, after a reload. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
+- The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) within about a minute, and in the user web interface when it runs with `agnostic-ai serve --scope user --cloud-sessions`, after a reload. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
 - Bring the work back with `claude --teleport <session-id>`, or with `codex cloud diff <url>` and then `codex cloud apply <url>`.
 
 ## Limits
@@ -76,4 +76,4 @@ agnostic-ai explain builtin:cloud-handoff
 agnostic-ai why .claude/skills/cloud-handoff/SKILL.md
 ```
 
-To replace the built-in, add a project skill named `cloud-handoff`; it wins. A global copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).
+To replace the built-in, add a project skill named `cloud-handoff`; it wins. A user-level copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).

@@ -70,7 +70,7 @@ func TestMigrate_EveryMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
 	}
 }
 
-// The same invariant for the global home: sync --scope user, migrate
+// The same invariant for the user source: sync --scope user, migrate
 // --scope user, then sync --scope user --check passes, against the fixture in
 // testdata/migrate-global/<id>.
 func TestMigrate_EveryUserMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
@@ -85,7 +85,7 @@ func TestMigrate_EveryUserMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T
 			}
 			_, source := userAgentTestHome(t)
 			if _, err := os.Stat(src); err != nil {
-				t.Fatalf("migration %s has no global fixture at testdata/migrate-global/%s; mark it ProjectOnly if the global home never had its old form: %v", m.ID, m.ID, err)
+				t.Fatalf("migration %s has no user fixture at testdata/migrate-global/%s; mark it ProjectOnly if the user source never had its old form: %v", m.ID, m.ID, err)
 			}
 			if err := copyTree(src, source); err != nil {
 				t.Fatal(err)
@@ -113,7 +113,7 @@ func TestMigrate_EveryUserMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T
 }
 
 // userMigrationFixture copies testdata/migrate-global/<id> into a fresh
-// global home and returns its source root.
+// user source and returns its source root.
 func userMigrationFixture(t *testing.T, id string) string {
 	t.Helper()
 	src, err := filepath.Abs(filepath.Join("testdata", "migrate-global", id))
@@ -252,7 +252,7 @@ func TestMigrate_UserRewritesTheHomeAndLocalLayerAndKeepsModes(t *testing.T) {
 
 	testutil.Chdir(t, source)
 	if _, err := runCLI(t, "migrate"); err == nil || !strings.Contains(err.Error(), "run `agnostic-ai migrate --scope user`") {
-		t.Errorf("migrate in the global home must point at --scope user: %v", err)
+		t.Errorf("migrate in the user source must point at --scope user: %v", err)
 	}
 }
 
@@ -280,8 +280,8 @@ func TestMigrate_SkipsASymlinkIntoAPackAndNamesThePack(t *testing.T) {
 	}
 }
 
-// A global home can be a project's .agnostic-ai, with its packs beside
-// the global specs.
+// A user source can be a project's .agnostic-ai, with its packs beside
+// the user specs.
 func TestMigrate_UserSkipsASymlinkIntoAPack(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks need privileges on Windows")
@@ -301,7 +301,7 @@ func TestMigrate_UserSkipsASymlinkIntoAPack(t *testing.T) {
 
 	out, err := runCLI(t, "migrate", "--scope", "user")
 	if err != nil || !strings.Contains(out, "is in pack acme, which migrate never rewrites") {
-		t.Fatalf("a global symlink into a pack must be a skip: %v\n%s", err, out)
+		t.Fatalf("a user symlink into a pack must be a skip: %v\n%s", err, out)
 	}
 	if got, _ := os.ReadFile(packHook); string(got) != body {
 		t.Errorf("the pack's file must stay as written:\n%s", got)

@@ -1,6 +1,7 @@
 import { createContext, useContext, useId, useState, type ReactNode } from 'react'
 import { useApp } from './app-context'
-import { audienceDescription, audienceLabel, levelName, readAudience, type EditAudience } from '../model/edit-audience'
+import type { SpecLevel } from '../contract'
+import { audienceDescription, audienceLabel, levelName, readAudience, specLevel, type EditAudience } from '../model/edit-audience'
 
 export type { EditAudience }
 
@@ -50,14 +51,19 @@ export function useViewAudience(): EditAudience | undefined {
   return app.source.kind === 'api' && (app.state.view === 'settings' || app.state.view === 'authority') ? audience : undefined
 }
 
-/** Whether the page serves the global setup rather than a project. */
+/** Whether the page serves the user setup rather than a project. */
 export function useUserLevel(): boolean {
   return useApp().overview?.global === true
 }
 
-/** The level name for copy: `project` or `global`. */
-export function useLevelName(): 'project' | 'global' {
+/** The level name for copy: `project` or `user`. */
+export function useLevelName(): 'project' | 'user' {
   return levelName(useUserLevel())
+}
+
+/** The served level as the API names it, for requests. */
+export function useSpecLevel(): SpecLevel {
+  return specLevel(useUserLevel())
 }
 
 export function ViewPersonalButton() {
@@ -75,7 +81,7 @@ export function EditAudienceSwitch() {
   const userLevel = app.overview?.global === true
   const localFolder = userLevel ? '~/.agnostic-ai/local' : '.agnostic-ai/local'
   const hint = state.audience === 'shared'
-    ? `${userLevel ? 'Global files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
+    ? `${userLevel ? 'User-level files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
     : `Local files in ${localFolder}, ignored by Git.${viewing ? ' Local values win.' : ''}`
   const option = (value: EditAudience) => (
     <button type="button" aria-label={audienceDescription(value, userLevel)} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>

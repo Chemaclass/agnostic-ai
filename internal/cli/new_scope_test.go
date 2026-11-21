@@ -272,7 +272,7 @@ func TestNewScope_ProjectIsTheDefaultAndStillRefusesTheUserHome(t *testing.T) {
 	}
 	testutil.Chdir(t, source)
 	for _, args := range [][]string{{"new", "rule", "x"}, {"new", "rule", "x", "--scope", "project"}, {"new", "rule", "x", "--scope", "local"}} {
-		if _, _, err := runSplit(t, args...); err == nil || !strings.Contains(err.Error(), "global home") || !strings.Contains(err.Error(), "new <kind> <name> --scope user") {
+		if _, _, err := runSplit(t, args...); err == nil || !strings.Contains(err.Error(), "user source") || !strings.Contains(err.Error(), "new <kind> <name> --scope user") {
 			t.Errorf("%v inside the user home: err=%v, want the refusal to name new --scope user", args, err)
 		}
 	}

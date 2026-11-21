@@ -1,6 +1,6 @@
 import type { SectionItem, SpecLevel, SpecMovePreview, SpecMoveRequest } from '../contract'
 
-/** The kinds both a project and the global setup read. */
+/** The kinds both a project and the user setup read. */
 const MOVABLE_KINDS = ['rule', 'agent', 'skill', 'hook', 'mcp']
 
 export type SpecMoveMode = SpecMoveRequest['mode']
@@ -20,7 +20,8 @@ export function canMoveSpec(item: SectionItem, level: SpecLevel): boolean {
 }
 
 export function specMoveLabel(level: SpecLevel): string {
-  return `Copy to ${otherLevel(level)}`
+  // The API calls the user level `global`; people read "user".
+  return `Copy to ${otherLevel(level) === 'global' ? 'user' : 'project'}`
 }
 
 export function specMoveRequest(item: SectionItem, level: SpecLevel, action: SpecMoveRequest['action'], mode: SpecMoveMode = 'copy', overwrite = false, expected?: string): SpecMoveRequest {
@@ -59,4 +60,4 @@ export function parseSpecMoved(value: unknown): SpecMoved | undefined {
   return moved
 }
 
-export const USER_SETUP_MISSING = 'The global setup does not exist yet. Create it with Open global settings at the foot of the sidebar, then copy again.'
+export const USER_SETUP_MISSING = 'The user setup does not exist yet. Create it with Open user-level settings at the foot of the sidebar, then copy again.'

@@ -130,7 +130,7 @@ The controls govern normal mailbox use. Any process running as your OS user can 
 
 {% <details summary="Local routes and request fields"> %}
 
-The local global server provides these routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. `mailboxWarning` explains a partial read.
+The local user-level server provides these routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. `mailboxWarning` explains a partial read.
 
 | Method and path | Request and result |
 |---|---|

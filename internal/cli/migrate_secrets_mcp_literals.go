@@ -54,7 +54,7 @@ func secretsMCPLiteralsNote(s migrationScope) string {
 }
 
 // planMCPLiterals reads every MCP spec file of the scope, the project or
-// the global home, and its local/ layer on its own, so a local/ spec that extends a shared one
+// the user source, and its local/ layer on its own, so a local/ spec that extends a shared one
 // marks only the values it sets. Variable names follow import: an `env`
 // value reads its key, a header reads `<SERVER>_<HEADER>` and keeps a
 // `Bearer ` prefix, and a name already in use gets the server prefix.

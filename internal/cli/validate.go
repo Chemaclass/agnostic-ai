@@ -34,7 +34,7 @@ func newValidateCmd() *cobra.Command {
   # Reconcile autofixable issues in source spec files
   agnostic-ai validate --fix
 
-  # Validate the global specs before sync --scope user writes them
+  # Validate the user specs before sync --scope user writes them
   agnostic-ai validate --scope user`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			scope, err := loadCheckScope(userLevel)
@@ -76,7 +76,7 @@ func newValidateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
-	addScopeFlag(cmd, &userLevel, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes")
+	addScopeFlag(cmd, &userLevel, "Validate the user specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes")
 	return cmd
 }
 

@@ -65,4 +65,4 @@ agnostic-ai explain builtin:side-conversation
 agnostic-ai why .claude/skills/side-conversation/SKILL.md
 ```
 
-To replace the built-in, add a project skill named `side-conversation`; it wins. A global copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).
+To replace the built-in, add a project skill named `side-conversation`; it wins. A user-level copy can still win on some tools ([shared names](@/docs/global-configuration-reference.md#global-shared-names)).

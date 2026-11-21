@@ -1,16 +1,16 @@
 +++
-title = "Global configuration reference"
-description = "Shared names, default model and effort, user MCP servers, native discovery paths, and tools without global output."
+title = "User configuration reference"
+description = "Shared names, default model and effort, user MCP servers, native discovery paths, and tools without user-level output."
 weight = 136
 
 [extra]
-nav_title = "Global configuration reference"
+nav_title = "User configuration reference"
 group = "Reference"
 +++
 
-# Global configuration reference
+# User configuration reference
 
-Setup is in [Global configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail, and the [list of files `sync --scope user` writes](#global-output).
+Setup is in [User configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail, and the [list of files `sync --scope user` writes](#global-output).
 
 ## Shared names {#global-shared-names}
 
@@ -19,30 +19,30 @@ A project skill or agent can share its `name` with one in the home. Sync writes 
 `sync` and `doctor` print one warning per shared name. It names each target where one copy hides the other, which copy wins, and the fix:
 
 ```text
-! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`; project sync cannot select this skill instead on claude
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the user-level one, which exists only on this machine, gemini loads this one; to load both, rename the user-level one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`; project sync cannot select this skill instead on claude
 ```
 
 Why sync keeps both copies:
 
 - Claude Code, Cline, and Amp document no project setting that picks the project copy over a home skill and keeps the other home skills.
-- Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the global agents folders.
+- Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the user-level agents folders.
 - So sync explains the limit and leaves your home files alone. Doctor reports it even when sync warnings are off.
-- A winning global copy changes what you run, not what others run from the repository.
-- When only project copies win, the warning says the global one is unused here. When both copies match, it says to delete one before they drift apart.
+- A winning user-level copy changes what you run, not what others run from the repository.
+- When only project copies win, the warning says the user-level one is unused here. When both copies match, it says to delete one before they drift apart.
 
 The check covers these targets:
 
 | Target | Skill with the same name | Agent with the same name |
 |--------|--------------------------|--------------------------|
-| Amp | Global wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
-| Claude Code | Global wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
-| Cline | Global wins ([skills](https://docs.cline.bot/customization/skills.md)) when the project syncs `cline` and the home syncs `cline`, or any target that writes `~/.agents/skills/`, which Cline also reads ([config](https://docs.cline.bot/getting-started/config.md)) | Not checked |
+| Amp | User-level wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No user-level agents |
+| Claude Code | User-level wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
+| Cline | User-level wins ([skills](https://docs.cline.bot/customization/skills.md)) when the project syncs `cline` and the home syncs `cline`, or any target that writes `~/.agents/skills/`, which Cline also reads ([config](https://docs.cline.bot/getting-started/config.md)) | Not checked |
 | Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
 | Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
 
 Sync and doctor do not check other tools, though some document what happens:
 
-- [Kiro](https://kiro.dev/docs/skills/#skill-scope) prefers workspace skills over global skills.
+- [Kiro](https://kiro.dev/docs/skills/#skill-scope) prefers workspace skills over user-level skills.
 - [Qoder IDE](https://docs.qoder.com/extensions/skills) documents project skills taking priority over user skills. [Qoder CLI](https://docs.qoder.com/cli/Skills.md) documents user skills taking priority over project skills.
 - [Warp](https://docs.warp.dev/agents/capabilities/skills#skill-name-conflicts) prefers home skills, then higher directories, when it resolves names in the background. Its slash-command menu shows all matches, and a plain-language request gives the agent every match in scope with its path.
 
@@ -57,7 +57,7 @@ Sync and doctor do not check other tools, though some document what happens:
 
 To resolve a clash:
 
-- **Layer on purpose**: give the project spec its own name, such as a `gh-issue-project` skill beside a global `gh-issue`. Both then load everywhere.
+- **Layer on purpose**: give the project spec its own name, such as a `gh-issue-project` skill beside a user `gh-issue`. Both then load everywhere.
 - **Keep one name in both places**: list it in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names).
 - **Silence every shared name**: set [`sync.global-name-clash: ignore`](@/docs/sync-settings.md#syncglobal-name-clash).
 
@@ -134,7 +134,7 @@ permissions:
 
 Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule.
 
-- Claude Code saves standing approvals to the project's `.claude/settings.local.json`, which global import does not read ([Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files)).
+- Claude Code saves standing approvals to the project's `.claude/settings.local.json`, which user-level import does not read ([Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files)).
 - CodeBuddy Code also merges user permission lists and starting modes ([native limits](@/docs/targets/codebuddy.md#fields-and-limits)).
 - A `permissions` field on any other target raises a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead.
 
@@ -179,7 +179,7 @@ Each item wins over the one before it:
 - An `x-<target>` block sets that target's own keys in the same file. Nested objects merge leaf by leaf.
 - An `x-claude` key wins over the portable field it shares a key with.
 - A later spec wins key by key. `null` drops an earlier key.
-- Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`.
+- User-level sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`.
 - Tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` keys other than `allow`, `ask`, and `deny` raise a coverage note.
 - Project sync does not route `x-codex` into `.codex/config.toml`.
 
@@ -337,18 +337,18 @@ If two tools would write different content to one path, the run stops before wri
 **Cursor**
 
 - Cursor does not load the home-level `AGENTS.md`.
-- Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` that pass the instructions to Cursor. The script is POSIX shell on macOS and Linux, PowerShell on Windows.
+- User-level sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` that pass the instructions to Cursor. The script is POSIX shell on macOS and Linux, PowerShell on Windows.
 - It needs neither agnostic-ai, Python, nor jq, and it adds context without enforcing policy.
 - Existing `sessionStart` entries stay.
-- Settings: global sync writes only `approvalMode` to cursor-agent's `cli-config.json`, for [`approvals`](#global-approvals-review). Other `x-cursor` keys give a note.
+- Settings: user-level sync writes only `approvalMode` to cursor-agent's `cli-config.json`, for [`approvals`](#global-approvals-review). Other `x-cursor` keys give a note.
 
 **OpenCode**
 
-- `disable-model-invocation` stays in project and global skills. V2 honors it; V1 does not ([OpenCode skills](@/docs/targets/opencode.md) covers native metadata precedence).
+- `disable-model-invocation` stays in project and user-level skills. V2 honors it; V1 does not ([OpenCode skills](@/docs/targets/opencode.md) covers native metadata precedence).
 - V1 reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist.
-- The current [V2 migration guide](https://opencode.ai/v2/docs/migrate-v1#instruction-files) documents a `CLAUDE.md` fallback in each directory without `AGENTS.md`, plus `~/.claude/CLAUDE.md` when the global OpenCode `AGENTS.md` is absent.
+- The current [V2 migration guide](https://opencode.ai/v2/docs/migrate-v1#instruction-files) documents a `CLAUDE.md` fallback in each directory without `AGENTS.md`, plus `~/.claude/CLAUDE.md` when the user OpenCode `AGENTS.md` is absent.
 - V2 chooses per directory, so an `AGENTS.md` at the project root does not hide a nested `CLAUDE.md`.
-- In V2 2.3.1 and later, either `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` or `OPENCODE_DISABLE_CLAUDE_CODE` disables every `CLAUDE.md` fallback, both project and global ([2.3.1 release notes](https://github.com/anomalyco/opencode/releases/tag/v2.3.1)).
+- In V2 2.3.1 and later, either `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` or `OPENCODE_DISABLE_CLAUDE_CODE` disables every `CLAUDE.md` fallback, both project and user ([2.3.1 release notes](https://github.com/anomalyco/opencode/releases/tag/v2.3.1)).
 - Put OpenCode guidance in its `AGENTS.md` when syncing both tools.
 
 **Devin CLI and VS Code Copilot**
@@ -366,15 +366,15 @@ No user-level instructions file:
 
 Hooks reach these tools at user level: Claude Code, CodeBuddy Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, Cline SDK/CLI, Grok Build, Kimi Code CLI, Qwen Code, Mistral Vibe, and Goose. The others have no user-level hook output:
 
-- Factory, Devin CLI, Antigravity, and Crush use hook formats that global sync does not write.
+- Factory, Devin CLI, Antigravity, and Crush use hook formats that user-level sync does not write.
 - Junie's hooks are Early Access.
 - Amp, OpenCode, and Kilo take hooks only as TypeScript plugins. Sync writes them at project level only, for OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`).
 - OpenCode defaults to V1. A hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux.
 - On Windows, V2 refuses matching callbacks, so keep the default V1 hooks.
 
-## Global output {#global-output}
+## User-level output {#global-output}
 
-A dash means global sync writes nothing for that kind.
+A dash means user-level sync writes nothing for that kind.
 
 | Target | Instructions | Rules | Hooks | Skills | Agents | Session retention |
 |--------|--------------|-------|-------|--------|--------|-------------------|

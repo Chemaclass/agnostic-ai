@@ -41,7 +41,7 @@ async function waitForServer(child: ChildProcess) {
   })
 }
 
-test('a project page offers to create the missing global setup and then opens it', async ({ page, context }) => {
+test('a project page offers to create the missing user setup and then opens it', async ({ page, context }) => {
   const temporary = await mkdtemp(join(tmpdir(), 'agnostic-ui-onboarding-'))
   const project = join(temporary, 'project')
   const home = join(temporary, 'global')
@@ -78,9 +78,9 @@ test('a project page offers to create the missing global setup and then opens it
     })
 
     await page.goto(url)
-    await page.getByRole('button', { name: 'Open global settings' }).click()
+    await page.getByRole('button', { name: 'Open user-level settings' }).click()
 
-    const panel = page.getByRole('dialog', { name: 'No global setup yet' })
+    const panel = page.getByRole('dialog', { name: 'No user setup yet' })
     await expect(panel).toBeVisible()
     await expect(panel).toContainText('One folder for your own rules, skills, agents, hooks, settings and MCP servers.')
     await expect(panel).toContainText(home)
@@ -88,11 +88,11 @@ test('a project page offers to create the missing global setup and then opens it
     expect(await exists(home)).toBe(false)
     // The blank tab opened before the request is closed, so the panel is in the tab the user sees.
     await expect.poll(() => context.pages().length).toBe(1)
-    await expect(panel.getByRole('button', { name: 'Create global setup' })).toBeFocused()
-    await expect(page.getByRole('button', { name: 'Open global settings' })).toBeDisabled()
+    await expect(panel.getByRole('button', { name: 'Create user setup' })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Open user-level settings' })).toBeDisabled()
 
     const popup = page.waitForEvent('popup')
-    await panel.getByRole('button', { name: 'Create global setup' }).click()
+    await panel.getByRole('button', { name: 'Create user setup' }).click()
     const tab = await popup
     await expect(panel).toBeHidden()
     await expect(page.locator('.config-switch').getByRole('status')).toHaveText(`Created ${home}. Add files, then run "agnostic-ai sync --scope user".`)

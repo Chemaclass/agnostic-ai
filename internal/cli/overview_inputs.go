@@ -101,9 +101,9 @@ func runOverviewChecksWith(root string, cfg *config.Config, b spec.Bundle, compa
 }
 
 // overviewUserLayerFindings is what lint --scope user reports for the
-// global setup, which reaches every project, marked with its layer. The
-// doctor checks read a project's files, so the global setup has none. A
-// missing global setup has no findings.
+// user setup, which reaches every project, marked with its layer. The
+// doctor checks read a project's files, so the user setup has none. A
+// missing user setup has no findings.
 func overviewUserLayerFindings() []overview.Finding {
 	source, err := userSourceRoot()
 	if err != nil {
@@ -125,8 +125,8 @@ func overviewUserLayerFindings() []overview.Finding {
 			Code:        overview.CodeLintIncomplete,
 			Severity:    lintError.String(),
 			Path:        display(configPath),
-			Message:     servedFindingMessage("The global setup did not load: " + err.Error()),
-			Explanation: "The overview shows no global findings until the global setup loads.",
+			Message:     servedFindingMessage("The user setup did not load: " + err.Error()),
+			Explanation: "The overview shows no user-level findings until the user setup loads.",
 		}}
 	} else {
 		findings = overviewScopeLintFindings(scope, configPath, display)
@@ -139,7 +139,7 @@ func overviewUserLayerFindings() []overview.Finding {
 }
 
 // setFindingOpenPaths gives each lint and doctor finding the absolute
-// path of the file it names under base, the project root or global
+// path of the file it names under base, the project root or user
 // source. Drift findings name files the overview lists elsewhere.
 func setFindingOpenPaths(findings []overview.Finding, base string) {
 	for i := range findings {
@@ -457,7 +457,7 @@ func projectInstructionDocuments() []overview.Document {
 	return instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, ".")
 }
 
-// userInstructionDocuments describes the global instructions file and its
+// userInstructionDocuments describes the user-level instructions file and its
 // local layer under source.
 func userInstructionDocuments(source string) []overview.Document {
 	return instructionDocuments([]instructionFile{

@@ -26,7 +26,7 @@ agnostic-ai sync
 
 Saving a fact needs no further sync.
 
-- To enable it for all projects, use [global configuration](@/docs/global-configuration.md) instead. Pick one, or facts can load twice.
+- To enable it for all projects, use [user configuration](@/docs/global-configuration.md) instead. Pick one, or facts can load twice.
 - Claude Code needs a project sync either way.
 
 ## Two memories
@@ -133,7 +133,7 @@ Auggie documents startup context injection in 0.x. Its 1.x docs say `SessionStar
 - Hooks you wrote yourself stay.
 - It keeps the first 6,000 bytes, after dropping hidden characters. Facts past the cut never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, hidden characters included, so `memory lint` also warns there once they pass 6,000 bytes. Remove the hidden characters it reports.
 
-Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. Global sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline.md#vs-code-memory-startup).
+Cline VS Code gets a project-only `memory-cline-task-start` hook, which needs Cline for VS Code 4.1.20 or later with hooks enabled. User-level sync leaves it out, because the Cline SDK and CLI ignore TaskStart hook replies. See [Cline VS Code memory startup](@/docs/targets/cline.md#vs-code-memory-startup).
 
 Devin CLI uses the `memory-windsurf-session-start` hook with an explicit POSIX `sh` launcher and a 10-second timeout. It starts from `DEVIN_PROJECT_DIR` even when its process runs elsewhere. Native Windows hook execution is undocumented.
 
@@ -181,7 +181,7 @@ To share something a tool learned, ask it to save the fact in shared memory. Cla
 | Kilo Code | Kilo Memory: project notes outside the repository, no personal memory | Off (Settings > Context, or `/memory on`) |
 | Kiro | Memory: learned notes stored per user account, shared by the IDE and CLI | IDE 1.4.236+: open **Memories** and use the gear in the title bar. Earlier IDE versions use the **Kiro Agent: Memory** user setting. The default is **Don't use**, called **Off** before 1.4.215. In a local CLI V3 session, run `/memories` and choose `config`. [Kiro memory settings](https://kiro.dev/docs/memory/) |
 | Augment | Agent Memories in the IDE, which you approve one by one | Not documented |
-| Trae | Memories, global and for each project, as local Markdown files | Not documented |
+| Trae | Memories, user-level and per project, as local Markdown files | Not documented |
 | Goose | Memory extension: files in `.goose/memory/` and `~/.config/goose/memory/` | Not documented (Extensions) |
 | Jules | Memory in the Jules cloud for each repository | Not documented (repository settings) |
 | Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |

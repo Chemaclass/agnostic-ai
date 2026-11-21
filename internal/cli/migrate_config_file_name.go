@@ -13,7 +13,7 @@ import (
 
 // configFileNameMigration renames the legacy agnostic.config.yaml to
 // agnostic-ai.yaml. Both load the same config, so sync writes the same
-// files after it. The global home only ever read agnostic-ai.yaml.
+// files after it. The user source only ever read agnostic-ai.yaml.
 var configFileNameMigration = specMigration{
 	ID:          "config-file-name",
 	Group:       "config",

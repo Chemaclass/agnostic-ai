@@ -92,7 +92,7 @@ func TestSyncUser_ClineHookHonorsRootAndNeutralScript(t *testing.T) {
 	command.Stderr = &stderr
 	output, err := command.Output()
 	if err != nil {
-		t.Fatalf("run global hook from spaced path: %v\nstdout: %s\nstderr: %s", err, output, stderr.String())
+		t.Fatalf("run user-level hook from spaced path: %v\nstdout: %s\nstderr: %s", err, output, stderr.String())
 	}
 	var reply struct {
 		Cancel       bool   `json:"cancel"`
@@ -126,6 +126,6 @@ func TestSyncUser_ClineHookConflictKeepsNativeScript(t *testing.T) {
 func TestSyncUser_ClineHooksDoNotClaimUserImportSupport(t *testing.T) {
 	userAgentTestHome(t)
 	if _, _, err := runImportUserTest("cline"); err == nil {
-		t.Fatal("global hook directory falsely made Cline importable")
+		t.Fatal("user-level hook directory falsely made Cline importable")
 	}
 }

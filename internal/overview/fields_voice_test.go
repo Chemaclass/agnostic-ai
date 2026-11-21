@@ -35,7 +35,7 @@ func TestSettingsFields_VoiceEditContractFollowsScope(t *testing.T) {
 			}
 			if userLevel {
 				if edit.Path != "settings/defaults.yaml" || edit.DisabledReason != "" || edit.SyncCommand != "agnostic-ai sync --scope user" {
-					t.Errorf("global %s edit = %+v", tc.key, edit)
+					t.Errorf("user %s edit = %+v", tc.key, edit)
 				}
 			} else if edit.DisabledReason != "Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user." {
 				t.Errorf("project %s disabled reason = %q", tc.key, edit.DisabledReason)

@@ -320,7 +320,7 @@ var claudeHeaderEnv = regexp.MustCompile(`^(?:ANTHROPIC_CUSTOM_HEADERS|OTEL_EXPO
 
 // excludeClaudeCredentials removes each `env` value, helper command, and
 // status line command that holds a literal credential, by the rules the
-// MCP and global permission imports use, since the overlay is committed
+// MCP and user permission imports use, since the overlay is committed
 // (#2649). The warning names the key, never the value.
 func excludeClaudeCredentials(doc *adapters.OrderedJSON) error {
 	for _, key := range claudeCredentialHelpers {

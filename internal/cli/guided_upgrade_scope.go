@@ -11,7 +11,7 @@ import (
 )
 
 func validateGuidedProjectConfigs(root string) error {
-	if err := refuseUserSource(root, "upgrade global specs separately"); err != nil {
+	if err := refuseUserSource(root, "upgrade user specs separately"); err != nil {
 		return err
 	}
 	resolvedRoot, err := config.ResolveSourceAlias(root)
@@ -68,8 +68,8 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", path, err)
 	}
-	if err := refuseUserSource(target, "upgrade global specs separately"); err != nil {
-		return "", fmt.Errorf("%s points to global specs %s: %w", path, target, err)
+	if err := refuseUserSource(target, "upgrade user specs separately"); err != nil {
+		return "", fmt.Errorf("%s points to user specs %s: %w", path, target, err)
 	}
 	inside, err := guidedPhysicalPathInside(resolvedRoot, target)
 	if err != nil {
@@ -84,18 +84,18 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 func validateGuidedUserEntries(root, resolvedRoot string) error {
 	source, err := userSourceRoot()
 	if err != nil {
-		return fmt.Errorf("resolve global source root: %w", err)
+		return fmt.Errorf("resolve user source root: %w", err)
 	}
 	home, err := config.ResolveSourceAlias(source)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("resolve global source %s: %w", source, err)
+		return fmt.Errorf("resolve user source %s: %w", source, err)
 	}
 	home, err = filepath.Abs(home)
 	if err != nil {
-		return fmt.Errorf("resolve global source root: %w", err)
+		return fmt.Errorf("resolve user source root: %w", err)
 	}
 	nested, err := guidedPhysicalPathInside(resolvedRoot, home)
 	if err != nil {
@@ -131,7 +131,7 @@ func validateGuidedUserEntries(root, resolvedRoot string) error {
 				return err
 			}
 			if userLevel {
-				return fmt.Errorf("%s points to global specs %s; upgrade global specs separately", entry.Path, target)
+				return fmt.Errorf("%s points to user specs %s; upgrade user specs separately", entry.Path, target)
 			}
 		}
 	}

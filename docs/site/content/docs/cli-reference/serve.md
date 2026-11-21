@@ -148,7 +148,7 @@ Lists what to fix. **Setup health** in the rail shows the counts in the page's w
 | **Copy all fixes** | One prompt for all findings, errors first. |
 | **Recheck** | Reruns the checks and reports what disappeared, appeared or remains. |
 
-{% <details summary="Details: recheck, global findings, suggestions"> %}
+{% <details summary="Details: recheck, user-level findings, suggestions"> %}
 - On phones, the top bar shows a chip such as **1E 3W**. With no findings the chip says **No findings** and the rail says **Nothing to fix**.
 - A finding's **Details** holds **Open**, **Copy path** and **Recheck**, then the suggested fix, explanation and full prompt.
 - Checkboxes select findings or suggestions. A bar shows the count, **Copy prompt** and **Clear**.
@@ -160,11 +160,11 @@ Lists what to fix. **Setup health** in the rail shows the counts in the page's w
 - A setup check (`doctor`) finding that disappears shows as not confirmed, because the check skips files it cannot read.
 - Snapshots cannot recheck.
 - With warnings only, a line under the page title counts them and **Review** opens the folded list at the end of the page. Errors stay visible above the tabs.
-- In a project, the counts and **Setup health** include what `lint --scope user` reports for the global setup (`~/.agnostic-ai`), which reaches every project.
-  - Each such finding is labelled **user** and sits under Settings as **Global setup**. Its fix prompt names the file in the global setup.
-  - Doctor checks read project files, so the global setup has none.
-  - Without a global setup there are none.
-  - The JSON overview marks them `"layer": "user"`, with `path` relative to the global source.
+- In a project, the counts and **Setup health** include what `lint --scope user` reports for the user setup (`~/.agnostic-ai`), which reaches every project.
+  - Each such finding is labelled **user** and sits under Settings as **User setup**. Its fix prompt names the file in the user setup.
+  - Doctor checks read project files, so the user setup has none.
+  - Without a user setup there are none.
+  - The JSON overview marks them `"layer": "user"`, with `path` relative to the user source.
 - **You could add** lists unused features your enabled tools support: a context kind with no project spec, a hook stage with no matching hook (built-in hooks count), or the disabled `handoff` built-in.
 - Each suggestion shows its tool count and **Copy prompt**.
 - A row of bars shows supported features and which are in use, such as **7 of 9 features your tools support are in use**. When all are in use, no suggestions appear.
@@ -197,7 +197,7 @@ Lists the MCP server specs, and servers a tool keeps in its own file.
 - Native rows hide the server's own command, arguments, URL, environment, and header values. A file the page cannot read adds no row.
 - The JSON overview carries these rows as `native` on the Tools section.
 - **Apply** saves the spec using the [MCP import rules](@/docs/spec-format/mcp-import.md), then asks you to run `agnostic-ai sync` (or `sync --scope user`).
-- Project and Global saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the global home. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
+- Project and User saves use the project's configured MCP source folder (`.agnostic-ai/mcps/` by default), or `mcps/` in the user source. Local saves use `.agnostic-ai/local/mcps/`, or `local/mcps/` in the home.
 - The save stops when the spec name already exists, or when import cannot rewrite a credential.
 - Tool files stay as they are, including the original server. Each tool signs in on its own. Snapshots have no **Import** action.
 {% </details> %}
@@ -207,7 +207,7 @@ Lists the MCP server specs, and servers a tool keeps in its own file.
 Lists hooks by stage. **Show all stages** adds stages with no hooks. **Add hook** opens a form.
 
 1. Fill name, stage, tool match (Before and After a tool runs only), command, timeout in seconds and description.
-2. Choose **Save for**: Project or Global, or Local.
+2. Choose **Save for**: Project or User, or Local.
 3. **Preview** shows the one hook file it writes, in the [portable form](@/docs/spec-format/hook-reference.md#portable-events). **Apply** saves it, then run `agnostic-ai sync` (or `sync --scope user`).
 
 | Control | What it does |
@@ -219,7 +219,7 @@ Lists hooks by stage. **Show all stages** adds stages with no hooks. **Add hook*
 {% <details summary="Details: add-hook saves, redaction, search"> %}
 - Each stage starts closed, with its timing and hook count. **Add hook** sits at the end of the toolbar. **Expand all** and **Collapse all** control the visible stages.
 - The preview holds only the fields you filled. **Command** shows `match` or `matcher`, `type`, `timeout` and `disabled`.
-- Project and Global saves use the project's configured hook source folder (`.agnostic-ai/hooks/` by default), or `hooks/` in the global home. Local saves use `.agnostic-ai/local/hooks/`, or `local/hooks/` in the home, with the same Git-ignore check as other local saves.
+- Project and User saves use the project's configured hook source folder (`.agnostic-ai/hooks/` by default), or `hooks/` in the user source. Local saves use `.agnostic-ai/local/hooks/`, or `local/hooks/` in the home, with the same Git-ignore check as other local saves.
 - A stage some configured tools lack, such as **After a file edit** for Cursor, names them under the field; the hook gets `targets-exclude` for them.
 - The save stops when the name is taken, in any layer and in any letter case. It also stops for a hook that `validate` would report, such as a tool match a configured tool lacks.
 - The form cannot edit or delete hooks, or write a tool's own event name. Snapshots and the mock have no **Add hook** action.
@@ -240,7 +240,7 @@ Shows configured fields first and the rest under **Unconfigured fields**.
 
 | Field | Where you edit it |
 |-------|-------------------|
-| Global scalar fields | **Apply** and **Clear**. |
+| User scalar fields | **Apply** and **Clear**. |
 | Default model, reasoning effort | **What each tool gets**, with an edit control per tool. |
 
 {% <details summary="Details: what each tool gets"> %}
@@ -253,7 +253,7 @@ Shows configured fields first and the rest under **Unconfigured fields**.
   - It points out an `x-<tool>.model` native key. Other `x-<tool>` keys and imported native settings files are not covered.
   - The JSON overview carries it as `resolved` on those fields.
 - Under **What each tool gets**, each tool has its own edit control. It saves `model.<tool>` or `effort.<tool>` in the chosen file, which wins over the value for every tool.
-  - The origin line says where the value comes from, such as `local · codex` or `project · all tools` (`global · all tools` in the global view), and names the `agnostic-ai.yaml` key that replaces it when one does.
+  - The origin line says where the value comes from, such as `local · codex` or `project · all tools` (`user · all tools` in the user view), and names the `agnostic-ai.yaml` key that replaces it when one does.
   - **Use the value for every tool** removes that tool's entry.
   - Effort has a control only for tools that take an effort setting. A spec whose `model` names a model tier stays read-only here, and so does one tool's effort when the tier gives the effort.
 {% </details> %}
@@ -273,8 +273,8 @@ Turn built-ins on or off. Each switch previews the config edit, generated files 
 - Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
 - In a project, a default model or reasoning effort uses **Preview**, **Preview removal**, and **Preview local reset**. The preview names the settings file, the targets, and every source and generated file that changes.
 - **Apply** writes those files and checks the generated ones. That does not mean a running tool has reloaded them. Built-ins and settings share one **Undo last change**, which names the change.
-- Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --scope user`) to apply them.
-- In the global view, if a boolean or built-in changed since the page loaded, the save stops and offers **Reload**.
+- User-level built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --scope user`) to apply them.
+- In the user-level view, if a boolean or built-in changed since the page loaded, the save stops and offers **Reload**.
 - Apply needs no earlier sync: the preview lists the generated files, sync state, and lock `.gitignore` entries it creates.
 - The preview includes pending source changes when files are missing or match sync's recorded checksums, and undo can restore them.
 - These need the CLI: hand edits, files without ownership records, external adapters, paths outside the project, linked skill folders, and memory changes that need fact migration or external storage.
@@ -294,7 +294,7 @@ Turn built-ins on or off. Each switch previews the config edit, generated files 
 {% <details summary="Details: how a switch saves, turning a tool off"> %}
 - A switch saves the complete `targets` list to `agnostic-ai.yaml` in Project or `agnostic-ai.local.yaml` in Local.
 - The local list replaces the project list, as built-ins do.
-- With `--scope user`, it saves `agnostic-ai.yaml` or `local/agnostic-ai.yaml` in the home folder and lists only tools global sync supports.
+- With `--scope user`, it saves `agnostic-ai.yaml` or `local/agnostic-ai.yaml` in the home folder and lists only tools user-level sync supports.
 - When no file lists `targets`, the first project change writes the default list with your change.
 - Switching the tool back on removes that list only in the same `serve` session, with no intervening file edit. Otherwise, the file keeps the full list.
 - Turning a tool off asks for confirmation and explains the next sync.
@@ -306,23 +306,23 @@ Turn built-ins on or off. Each switch previews the config edit, generated files 
 - A stale switch stops with **Reload**.
 {% </details> %}
 
-## Copy to global {#copy-to-global}
+## Copy to user {#copy-to-global}
 
-Move or copy a spec between the project and the global setup.
+Move or copy a spec between the project and the user setup.
 
-1. Open **Copy to global** on a rule, agent, skill, hook or MCP spec. It shows the destination and whether a spec is already there.
+1. Open **Copy to user** on a rule, agent, skill, hook or MCP spec. It shows the destination and whether a spec is already there.
 2. Choose **Copy** (keeps the original) or **Move** (deletes it).
 3. Save. The page reloads and names the sync commands to run.
 
 {% <details summary="Details: what cannot be copied"> %}
-  - In a global view started inside a project, the action is **Copy to project**.
+  - In a user-level view started inside a project, the action is **Copy to project**.
   - After a move, run `agnostic-ai sync` and `agnostic-ai sync --scope user`.
   - A skill goes with its whole folder.
   - A hook goes with the shared scripts it runs. A move leaves them in place too, since other hooks may run them. A script the destination holds with other content stops the copy.
   - When a spec is already there, both stay off until you tick **Replace it**, which replaces the whole spec.
-  - Built-ins, pack specs, and local specs have no such action. Commands, review instructions, and settings stay too, since the global setup does not read them as specs.
-  - A rule with a scope, paths, or a target condition cannot go to the global setup, where rules apply to every file.
-  - When the global setup does not exist yet, create it with **Open global settings** first.
+  - Built-ins, pack specs, and local specs have no such action. Commands, review instructions, and settings stay too, since the user setup does not read them as specs.
+  - A rule with a scope, paths, or a target condition cannot go to the user setup, where rules apply to every file.
+  - When the user setup does not exist yet, create it with **Open user-level settings** first.
 {% </details> %}
 
 ## Rail, tabs and editor links {#rail-and-tabs}
@@ -333,26 +333,26 @@ The rail names the page and holds the footer links. On phones, **Menu** holds th
 |------|--------------|
 | **Docs** beside a heading | Opens the matching reference page. |
 | **Overview JSON** | Opens the overview behind the page. `Esc` closes it. |
-| **Open global settings** | On a project page, opens the user configuration. |
+| **Open user-level settings** | On a project page, opens the user configuration. |
 | **Settings > Editor** | Picks the editor Open links use. |
-| **View and edit** | Project (Global) or Local values. |
+| **View and edit** | Project (User) or Local values. |
 
-{% <details summary="Details: footer links, version range, global setup, tabs, editor links"> %}
+{% <details summary="Details: footer links, version range, user setup, tabs, editor links"> %}
 - **Docs** opens in a new tab.
 - The top bar on phones shows the name.
 - Version line: the agnostic-ai version that serves the page.
-- **Open project** on a global page that started in a project goes back.
+- **Open project** on a user-level page that started in a project goes back.
 - Editors: Cursor, VS Code, VS Code Insiders, VSCodium, Zed, or a custom link template with `{path}` and `{line}`.
 - **View and edit** sits beside the filter on Authority and Settings.
 - **Docs** also appears on empty sections.
-- On wide screens the **Project** or **Global** label shows the page's path under the name. On phones, **Menu** shows it.
+- On wide screens the **Project** or **User** label shows the page's path under the name. On phones, **Menu** shows it.
 - **agnostic-ai on GitHub** opens the agnostic-ai repository in a new tab. The GitHub button opens the project's repository, when `origin` points at GitHub.
 - The version line shows the `requires` range when the config sets [`requires`](@/docs/configuration.md#requires). When the running release is outside it, the line uses the warning color and the rail shows **Update needed** beside the version.
 - **Overview JSON** shows its endpoint, schema version, revision and the command that prints it (`agnostic-ai view --json`).
 - The GitHub button reads SSH and HTTPS remotes and drops any user name or token in the remote URL. Projects with no remote or another host, and the user configuration, show no button.
-- **Open global settings** reuses a `serve --scope user` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
-- When the user configuration folder does not exist or holds no agnostic-ai files (`agnostic-ai.yaml`, `AGNOSTIC_AI.md`, a spec folder, `local/` or `state/`), the button shows a short panel instead. **Create global setup** then writes an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/` (an existing one is kept), runs `git init` when the box is checked, git is installed and the folder is not already in a repository, and opens the global page.
-- **Create global setup** never touches a folder that already holds a setup.
+- **Open user-level settings** reuses a `serve --scope user` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port.
+- When the user configuration folder does not exist or holds no agnostic-ai files (`agnostic-ai.yaml`, `AGNOSTIC_AI.md`, a spec folder, `local/` or `state/`), the button shows a short panel instead. **Create user setup** then writes an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/` (an existing one is kept), runs `git init` when the box is checked, git is installed and the folder is not already in a repository, and opens the user-level page.
+- **Create user setup** never touches a folder that already holds a setup.
 - **Open project** shows the project's name. A server the button starts stops with the server that started it. The way back returns to that server, also when it runs on another `--addr`.
 - Each browser tab edits only the configuration it serves.
 - The editor choice is saved in the browser, not in config files.
@@ -377,16 +377,16 @@ The rail names the page and holds the footer links. On phones, **Menu** holds th
 
 | Choice | Writes |
 |--------|--------|
-| Project (Global in the global view) | Files Git tracks. |
+| Project (User in the user-level view) | Files Git tracks. |
 | Local | Git-ignored [local overrides](@/docs/local-overrides.md). Your values win for you. |
 
 {% <details summary="Project and local saves in detail"> %}
-- It reads **Project | Local** in a project and **Global | Local** in the global view, matching the chip beside the project name.
+- It reads **Project | Local** in a project and **User | Local** in the user-level view, matching the chip beside the project name.
 - **Project**, the default, shows the project's built-in states and settings, and writes files Git tracks.
 - **Local** shows your overrides, with values inherited from the project labeled. It writes git-ignored [local overrides](@/docs/local-overrides.md):
   - Built-ins go to `agnostic-ai.local.yaml`.
   - A settings field goes to `.agnostic-ai/local/settings/<name>.yaml`, which overlays the project spec of that name.
-- In the global view, **Global** writes `~/.agnostic-ai/`, and **Local** writes `local/agnostic-ai.yaml` and `local/settings/<name>.yaml` there.
+- In the user-level view, **User** writes `~/.agnostic-ai/`, and **Local** writes `local/agnostic-ai.yaml` and `local/settings/<name>.yaml` there.
 - Outputs a local built-in adds go to `.git/info/exclude`, not the project's `.gitignore` block.
 - The config snapshot and **What each tool gets** still describe the combined configuration used for sync.
 
@@ -424,7 +424,7 @@ Each saved rule also has **Edit**, which opens the editor on that line, and **Re
 
 The support table names which tools accept permissions.
 
-**Default permission mode** is editable in the global view only, because only `sync --scope user` writes Claude Code's `defaultMode`. There it offers the mode names Claude Code accepts, and **Save** writes `permissions.default-mode` to the same settings file as the rule lists. A project shows it read-only with **Open global settings**.
+**Default permission mode** is editable in the user-level view only, because only `sync --scope user` writes Claude Code's `defaultMode`. There it offers the mode names Claude Code accepts, and **Save** writes `permissions.default-mode` to the same settings file as the rule lists. A project shows it read-only with **Open user-level settings**.
 
 **Protected paths** opens an editor with one path per line, a decision (`ask` or `deny`), and a reason.
 
@@ -432,7 +432,7 @@ The support table names which tools accept permissions.
 - **Remove protected paths** previews removing it.
 - A local block starts from the project block merged under it, as sync reads them. It cannot lower a project `deny` to `ask`.
 - A local file that sets `protected: null` turns the project paths off for you. Local says so, and **Reset to project paths** removes the key, so the next sync protects them again.
-- The global view keeps it read-only, because `sync --scope user` does not write protected paths.
+- The user-level view keeps it read-only, because `sync --scope user` does not write protected paths.
 
 A local edit starts with the project rules and replaces only the selected list for that spec. Other settings keep inheriting.
 

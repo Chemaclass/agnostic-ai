@@ -47,7 +47,7 @@ const doctorLong = "Start troubleshooting with doctor. It is read-only by defaul
 	"  3. Report unsupported spec kinds per target, then spec health: the\n" +
 	"     findings `agnostic-ai lint` reports.\n" +
 	"  4. Report agentic config on disk not single-sourced from .agnostic-ai/,\n" +
-	"     project skills or agents that share a name with a global one, and\n" +
+	"     project skills or agents that share a name with a user-level one, and\n" +
 	"     synced skills a Claude settings file turns off (skillOverrides).\n" +
 	"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
 	"     a generated file still tracked despite being ignored.\n" +

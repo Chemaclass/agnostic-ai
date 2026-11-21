@@ -16,7 +16,7 @@ func editHome(t *testing.T) string {
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
 	source := filepath.Join(home, "source")
 	t.Setenv("AGNOSTIC_AI_HOME", source)
-	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "# Global targets.\ntargets:\n  - claude\n")
+	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "# User-level targets.\ntargets:\n  - claude\n")
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared\n")
 	writeFile(t, filepath.Join(source, "settings", "native.yaml"), "# Native keys.\nx-claude:\n  verbose: false\n")
 	return source
@@ -44,7 +44,7 @@ func TestEditHandler_SwitchesABuiltinAndKeepsComments(t *testing.T) {
 		t.Fatalf("enable = %d %s", rec.Code, rec.Body)
 	}
 	data, _ := os.ReadFile(config)
-	if !strings.Contains(string(data), "# Global targets.") || !strings.Contains(string(data), "builtins:\n  - memory") {
+	if !strings.Contains(string(data), "# User-level targets.") || !strings.Contains(string(data), "builtins:\n  - memory") {
 		t.Errorf("after enabling:\n%s", data)
 	}
 	if rec := postEdit(t, h, editBuiltinPath, `{"audience":"shared","name":"memory","enabled":false}`, nil); rec.Code != http.StatusOK {

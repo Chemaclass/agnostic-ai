@@ -19,7 +19,7 @@ global-configuration = "@/docs/targets/grok-reference.md"
 
 ## Import {#import .legacy-anchor}
 
-## Global configuration {#global-configuration .legacy-anchor}
+## User configuration {#global-configuration .legacy-anchor}
 
 Write Grok Build rules, agents, skills, commands, hooks, and MCP servers from your specs. Grok skips Git-ignored rule files, so `grok` is not a default target: select it and keep its instructions visible to Git.
 
@@ -64,7 +64,7 @@ Already have native files? Run [`agnostic-ai import grok`](@/docs/targets/grok-r
 | Shared hook scripts | `.grok/hook-scripts/` |
 | MCP and permission lists | `.grok/config.toml` |
 
-Scoped skills, agents, and commands go in the same directory under their source scope. Field mappings, import, and global configuration: [Grok native reference](@/docs/targets/grok-reference.md).
+Scoped skills, agents, and commands go in the same directory under their source scope. Field mappings, import, and user configuration: [Grok native reference](@/docs/targets/grok-reference.md).
 
 {% <details summary="Output overrides"> %}
 - Keys under `outputs.grok`: `dir`, `rules-dir`, `agents-dir`, `skills-dir`, `commands-dir`, `hooks-dir`, `mcp-file`, `conf-file`.

@@ -199,7 +199,7 @@ With two or more findings, **Copy all fixes** combines them into one prompt, err
 
 ## Context and source files
 
-**Context size** reads `GET /api/views/context?target=<tool>&file=<path>`. It is the first tab for projects with a coding tool, using a server or mock data. Snapshots, global configuration (`global` in the overview), and projects without a coding tool open the first populated tab instead.
+**Context size** reads `GET /api/views/context?target=<tool>&file=<path>`. It is the first tab for projects with a coding tool, using a server or mock data. Snapshots, user configuration (`global` in the overview), and projects without a coding tool open the first populated tab instead.
 
 The report matches `explain --context` for one target. **Check against a file** includes scoped rules when the tool supports them. Startup and on-demand counts come first, followed by a comparison with `startupWordBudget` (`lint.instructions-words`) and **Change budget** (`src/model/context-verdict.ts`). **Next** offers the largest startup source, **Copy command** for explain, and **Copy prompt** for a startup review.
 
@@ -223,17 +223,17 @@ With a server, **Add hook** previews and writes one portable hook spec, then ask
 
 ## Editing
 
-Settings and Authority use one scope selector per page: **Project | Local**, or **Global | Local** for user configuration. It changes displayed values and the save destination. Project and Global show their own values; Local shows git-ignored overrides and labels inherited values. Local values win. Differences show both values, such as **Project: Off · Local: On**; built-in counts follow the selected scope.
+Settings and Authority use one scope selector per page: **Project | Local**, or **User | Local** for user configuration. It changes displayed values and the save destination. Project and User show their own values; Local shows git-ignored overrides and labels inherited values. Local values win. Differences show both values, such as **Project: Off · Local: On**; built-in counts follow the selected scope.
 
 A local override disables the project control and offers **View local settings**. Reset actions appear in Local. API audiences remain `shared` and `personal`. The Config files tab hides the selector; its snapshot and **What each tool gets** show the combined configuration used by sync.
 
 Authority's **Add rules** and **Edit rules** accept one rule per line for Allow, Ask first, or Always blocked. Saved rules also have **Edit** and **Remove**. **Preview** shows the destination and exact diff; **Apply** saves the source file. The displayed sync command applies it to tools. Local lists replace project lists and show a comparison, with **Reset to the project rules** to inherit again. Multiple editable settings files require a choice.
 
-**Default permission mode** lists Claude Code's accepted mode names. It saves to the same settings file in the global view; projects show it read-only with **Open global settings**. **Protected paths** accepts paths, a decision, and a reason, with preview and save. Local blocks start from project values; the global view is read-only. See [permission editing](../docs/site/content/docs/cli-reference/serve.md#permission-editing).
+**Default permission mode** lists Claude Code's accepted mode names. It saves to the same settings file in the user-level view; projects show it read-only with **Open user-level settings**. **Protected paths** accepts paths, a decision, and a reason, with preview and save. Local blocks start from project values; the user-level view is read-only. See [permission editing](../docs/site/content/docs/cli-reference/serve.md#permission-editing).
 
 Coding-tool switches save `targets` through `POST /api/edit/targets`: `{audience, name, enabled, expected}` or `{audience: 'personal', reset: true, expected: [names]}`. Turning a tool off requires confirmation. The overview's `tools` catalog includes `source` (`default`, `shared`, `personal`) and `items`. Helpers live in `src/model/coding-tools.ts`; `targetDocPath` in `src/model/documentation.ts` supplies docs links.
 
-Values render as chips for lists, switches for booleans, and text otherwise. Native settings group keys by tool. Project built-in switches preview and apply changes across configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches validate and save source files. See [prerequisites and recovery](../docs/site/content/docs/cli-reference/serve.md#serve).
+Values render as chips for lists, switches for booleans, and text otherwise. Native settings group keys by tool. Project built-in switches preview and apply changes across configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. User-level built-ins and boolean switches validate and save source files. See [prerequisites and recovery](../docs/site/content/docs/cli-reference/serve.md#serve).
 
 Change previews keep Apply and Cancel at the top. Affected tools, changed files, and review notes start collapsed; notes group by tool, scroll within a bounded area, and offer **Copy notes** for the full text. Pending source changes stay visible above these details.
 

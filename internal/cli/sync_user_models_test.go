@@ -21,7 +21,7 @@ func TestSyncUser_ResolvesModelTiersFromHomeConfig(t *testing.T) {
 		t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 	}
 	if strings.Contains(errOut, "ignoring models") {
-		t.Errorf("models must be read in global mode:\n%s", errOut)
+		t.Errorf("models must be read in user scope:\n%s", errOut)
 	}
 	claude, err := os.ReadFile(filepath.Join(home, ".claude", "agents", "reviewer.md"))
 	if err != nil {

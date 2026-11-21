@@ -31,7 +31,7 @@ func TestSiteDocs_ExportsDisclosureBodiesWithoutTemplateMarkers(t *testing.T) {
 			t.Errorf("full export leaks %q", marker)
 		}
 	}
-	for _, title := range []string{"# Global configuration", "# Hook reference", "# Hook recipes", "# MCP import credentials", "# Lint codes"} {
+	for _, title := range []string{"# User configuration", "# Hook reference", "# Hook recipes", "# MCP import credentials", "# Lint codes"} {
 		if !strings.Contains(full, "\n"+title+"\n") {
 			t.Errorf("full export omitted reference %q", title)
 		}

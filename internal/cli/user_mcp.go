@@ -84,12 +84,12 @@ func warnUnsupportedUserMCP(warn io.Writer, targets []string, mcps []spec.Entry)
 		if len(names) == 0 {
 			continue
 		}
-		message := "global MCP servers are unsupported; skipping " + strings.Join(names, ", ")
+		message := "user-level MCP servers are unsupported; skipping " + strings.Join(names, ", ")
 		if f.retired != "" {
 			message = f.retired + "; skipping " + strings.Join(names, ", ")
 		}
 		if _, err := fmt.Fprintf(warn, "warning: %s: %s\n", target, message); err != nil {
-			return nil, fmt.Errorf("write global MCP warning: %w", err)
+			return nil, fmt.Errorf("write user-level MCP warning: %w", err)
 		}
 		warnings = append(warnings, dropRecord{Target: target, Kind: string(spec.KindMCP), Count: len(names), Message: message})
 	}
