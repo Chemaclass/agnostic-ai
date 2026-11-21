@@ -103,8 +103,8 @@ Conversation fields:
 - Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
-  - `focus` switches to the Terminal, Ghostty or iTerm tab (and iTerm pane) that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
-  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal, Ghostty or iTerm. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then says it resumes, such as `Resume in Ghostty`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
+  - `focus` switches to the Terminal, Ghostty, iTerm or WezTerm tab (and pane) that runs it. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
+  - `terminal` runs `command` in a new tab of the app the session last ran in, Terminal, Ghostty, iTerm or WezTerm. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then says it resumes, such as `Resume in Ghostty`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 {% </details> %}
 
@@ -172,9 +172,9 @@ Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from
 
 - For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
-- Not supported yet: tmux, WezTerm, kitty and Warp.
+- Not supported yet: tmux, kitty and Warp.
 - The route comes from the server's own scan, never from the request.
-- macOS asks once for Automation access to each app the server controls: Terminal, Ghostty and iTerm. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
+- macOS asks once for Automation access to each app the server controls: Terminal, Ghostty and iTerm (WezTerm needs none). The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
 - The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.
 - A conversation that opened is marked seen, and a completion on it is taken back.
 - A second open of the same conversation while one runs starts nothing: it waits for the first and returns the same reply. Opens of different conversations run side by side.
@@ -196,12 +196,12 @@ Types `text` into a conversation's input, never pressing Enter, and returns `{se
 
 {% <details summary="Send details, which chats get no text, and status codes"> %}
 
-- `sent` is true only when the text was typed into a live Terminal, Ghostty or iTerm tab.
+- `sent` is true only when the text was typed into a live Terminal, Ghostty, iTerm or WezTerm tab.
 - The conversation comes from the server's own scan, never from the request.
 - Right before typing, the server checks that the session still runs and holds its terminal in front. An ended session is never resumed and typed into.
 - `html`, the copied HTML, goes as Markdown instead when it holds links, tables, code blocks, headings or lists, and shows only words of `text`, in order. It keeps no attribute but short `http`, `https` and `mailto` link targets.
 - The text keeps its newlines and tabs. Other control characters, escape sequences and bracketed paste markers are removed, and trailing newlines are trimmed.
-- Ghostty and iTerm take the text as one paste, so several lines never submit one by one. Terminal pastes the clipboard with Cmd+V. Only Markdown is put there first, and `message` says so; plain text that cleaning would change, such as a trailing newline, is not pasted.
+- Ghostty, iTerm and WezTerm take the text as one paste, so several lines never submit one by one. Terminal pastes the clipboard with Cmd+V. Only Markdown is put there first, and `message` says so; plain text that cleaning would change, such as a trailing newline, is not pasted.
 - Never typed into: a Cursor session, which does not say when it waits; a working Codex session, which may drop the text; a session waiting for your answer, or in a state it does not report; a Codex thread shown by a client, which may have switched thread. Working Claude Code keeps the text.
 - Anywhere else the server switches to the conversation as `POST /api/conversations/open` does, and `message` says to paste with Cmd+V, such as for editor terminals.
 - macOS asks once for Automation access to each app. Terminal also needs Accessibility access.
@@ -246,7 +246,7 @@ Renames a conversation in its own tool first, then saves the name for every serv
 - Only once the tool has the name does it save `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search. A name the tool did not take is not saved.
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
-- On macOS, a running session's Terminal or Ghostty tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes. In iTerm the name goes on the session's pane.
+- On macOS, a running session's Terminal, Ghostty or WezTerm tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes. iTerm names the pane.
 
 | Status | Meaning |
 |--------|---------|

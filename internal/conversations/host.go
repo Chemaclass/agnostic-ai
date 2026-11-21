@@ -86,6 +86,7 @@ var terminalApps = []struct{ fragment, app string }{
 	// iTerm2 keeps its shells under a session server outside the app.
 	{"/iTerm2/iTermServer-", "iTerm"},
 	{"/Ghostty.app/", "Ghostty"},
+	{"/WezTerm.app/", "WezTerm"},
 	{"/Warp.app/", "Warp"},
 	{"/Cursor.app/", "Cursor"},
 	{"/Visual Studio Code.app/", "VS Code"},
