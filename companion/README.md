@@ -81,7 +81,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click,
   on the name too. **F2** renames the selected chat.
   A running chat comes up in the Terminal, Ghostty, iTerm, WezTerm or kitty tab that runs it, ready
-  for typing. When only the app can come forward, the list comes back and
+  for typing. Inside tmux, its pane is selected first. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
   The reason stays above the list until you dismiss it or open another chat.
   When a chat could not be resumed, **Copy resume command** copies the command

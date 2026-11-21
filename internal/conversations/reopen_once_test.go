@@ -301,3 +301,5 @@ func TestReopen_WaitsForTheRunningScanBeforeItFollowsTheLinkOfARunningDesktopSes
 		}
 	}
 }
+
+func (countingLauncher) ShowTmuxPane(context.Context, int, string) (int, error) { return 0, nil }
