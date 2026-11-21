@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -223,8 +224,10 @@ func TestKeychainCredentials_ReadsOnlyASignInThatMayListSessions(t *testing.T) {
 		text  string
 		cause string
 	}{
-		{"another system", KeychainCredentials{GOOS: "linux", Read: entry(`{}`)},
-			"this system has no supported place to read the Claude sign-in from; only macOS is supported.", "no Claude sign-in store known on linux"},
+		{"another system", KeychainCredentials{GOOS: "freebsd", Read: entry(`{}`)},
+			"this system has no supported place to read the Claude sign-in from; only macOS and Linux are supported.", "no Claude sign-in store known on freebsd"},
+		{"a Linux credentials file that is not JSON", KeychainCredentials{GOOS: "linux", Read: entry(`not json ` + fakeToken)},
+			"no Claude sign-in that may list cloud sessions was found on this machine. Sign in with `claude` first.", "Claude Code's .credentials.json is not the JSON Claude Code writes"},
 		{"no keychain entry", KeychainCredentials{GOOS: "darwin", Read: failing},
 			"no Claude sign-in that may list cloud sessions was found on this machine. Sign in with `claude` first.", "could not be found in the keychain"},
 		{"an entry that is not JSON", KeychainCredentials{GOOS: "darwin", Read: entry(`not json ` + fakeToken)},
@@ -256,6 +259,22 @@ func TestKeychainCredentials_ReadsOnlyASignInThatMayListSessions(t *testing.T) {
 	token, err := creds.AccessToken(context.Background())
 	if err != nil || token != fakeToken {
 		t.Errorf("a signed-in entry gave an error %v, or another token", err)
+	}
+}
+
+func TestNewKeychainCredentials_ReadsClaudeCodesCredentialsFileOnLinux(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	signIn := `{"claudeAiOauth": {"accessToken": "` + fakeToken + `", "scopes": ["user:sessions:claude_code"]}}`
+	if err := os.WriteFile(filepath.Join(dir, ".credentials.json"), []byte(signIn), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	creds := newKeychainCredentials("linux")
+
+	token, err := creds.AccessToken(context.Background())
+
+	if err != nil || token != fakeToken {
+		t.Errorf("token %q, err %v; want the file's token", token, err)
 	}
 }
 

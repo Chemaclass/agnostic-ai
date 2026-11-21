@@ -164,7 +164,7 @@ func SystemLauncher() Launcher {
 	case "darwin":
 		return macLauncher{}
 	case "linux":
-		return linuxLauncher{}
+		return linuxLauncher{start: startApart}
 	default:
 		return unsupportedLauncher{}
 	}
@@ -841,7 +841,24 @@ func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 	return err
 }
 
-type linuxLauncher struct{}
+// linuxTerminal is the terminal Debian and Ubuntu let the person choose.
+const linuxTerminal = "x-terminal-emulator"
+
+type linuxLauncher struct {
+	// start starts a program and returns without waiting for it.
+	start func(name string, args ...string) error
+}
+
+// startApart starts a program that outlives this call: a terminal
+// window stays open after the request that opened it ends.
+func startApart(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
+}
 
 func (linuxLauncher) OpenLink(ctx context.Context, link string) error {
 	if err := checkedLink(link); err != nil {
@@ -855,7 +872,15 @@ func (linuxLauncher) OpenFolder(context.Context, string, string) error { return 
 
 func (linuxLauncher) ActivateApp(context.Context, string) error { return errNotHere }
 
-func (linuxLauncher) RunInNewTerminal(context.Context, string) error { return errNotHere }
+// RunInNewTerminal keeps a shell open after command, as a macOS
+// Terminal window does.
+func (l linuxLauncher) RunInNewTerminal(_ context.Context, command string) error {
+	err := l.start(linuxTerminal, "-e", "sh", "-c", command+`; exec "${SHELL:-sh}"`)
+	if errors.Is(err, exec.ErrNotFound) {
+		return errNotHere
+	}
+	return err
+}
 
 func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
 	return false, errNotHere

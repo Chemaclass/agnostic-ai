@@ -63,11 +63,11 @@ If a release ships without the companion archive, the installer builds the compa
 |--------|--------|
 | macOS | Supported (macOS 13 or later). |
 | Windows | Not supported. [Help with #3221](https://github.com/Chemaclass/agnostic-ai/issues/3221). |
-| Linux | Not supported. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
+| Linux | Builds and runs in containers, on X11 and Wayland. Not yet tried on a desktop with a real screen. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
 
 {% <details summary="Details: download, build, signing, login item"> %}
 - Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later.
-- CI builds and tests it on Windows and Linux, but nobody has run it there.
+- CI builds and tests it on Windows and Linux. Nobody has run it on Windows. On Linux it ran only in containers: see [What ran on Linux](#linux-runs).
 - Running `agnostic-ai companion` again tells you when the companion was built for another release, or installed by an `agnostic-ai` built from another commit. When the companion cannot run, it says so and names its path.
 - On a Mac older than macOS 13, install stops and says why.
 - Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` that runs through Rosetta gets the Apple silicon one. It needs no compiler.
@@ -79,7 +79,7 @@ If a release ships without the companion archive, the installer builds the compa
 - A build uses the same commit as the `agnostic-ai` you run, and prints each step.
 - Build needs on macOS: Go and the Xcode Command Line Tools.
 - Build needs on Windows: Go.
-- Build needs on Linux: Go, a C compiler, and the GTK 4, WebKitGTK 6.0 and X11 development packages. Wayland compositors decide what stays on top, so the circle may not float there.
+- Build needs on Linux: Go, a C compiler, `pkg-config`, and the GTK 4, WebKitGTK 6.0 and X11 development packages. The command names every missing one at once, with one install line for `apt`, `dnf` or `pacman`, whichever the machine has.
 - When something is missing, the command names it, says how to get it, and builds nothing.
 - A build that fails leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
@@ -89,6 +89,37 @@ If a release ships without the companion archive, the installer builds the compa
 - Switching between the disk image and the terminal installer changes the certificate, and so does the first install with this signing. Grant Accessibility access once more after either.
 - Start at login registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
 - An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
+{% </details> %}
+
+### What ran on Linux {#linux-runs}
+
+Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/arm64`), with no monitor, keyboard or login. WebKitGTK needs its sandbox, so the containers ran with `--privileged`.
+
+| Check | Where | Result |
+|-------|-------|--------|
+| `companion install` names each missing package | Ubuntu 24.04, Fedora 43 | Pass: one `sudo apt install ...` or `sudo dnf install ...` line |
+| `companion install` builds with exactly those packages | Ubuntu 24.04, Fedora 43 | Pass |
+| The Arch package names exist and hold the `.pc` files | Arch Linux (`pacman -Si`, `pacman -F`), no build | Pass |
+| The circle is round with a see-through background | Ubuntu 24.04: Xvfb with Openbox and picom (X11); Sway headless (Wayland) | Pass |
+| The circle stays over other windows | Xvfb with Openbox | Pass |
+| `Ctrl+Alt+Space` brings back a hidden companion with its list | Xvfb with Openbox, keys sent by `xdotool` | Pass |
+| A second start brings back the running one | X11 and Wayland | Pass: same process |
+| **Hide** from the right-click menu | Xvfb with Openbox | Pass: windows off the screen, server keeps reading |
+| The list opens beside the circle | Xvfb with Openbox | Pass |
+| `companion stop`, and `stop` when nothing runs | X11 and Wayland | Pass |
+| `companion install` over a running companion | X11 and Wayland | Pass: new file, new process |
+| **Start at login** writes `~/.config/autostart/agnostic-ai-companion.desktop` | X11 and Wayland | Pass |
+| `companion uninstall` leaves no process, autostart entry or program | X11 and Wayland | Pass |
+| `stop` and `uninstall` with no session bus | X11 and Wayland | Pass: as described under [Commands](#commands) |
+| A Claude Code chat lists | X11 and Wayland, one session file | Pass |
+| A click on an ended chat resumes it in a new terminal window | Xvfb with Openbox, `x-terminal-emulator` set to `xterm` | Pass |
+| The Claude Code cloud sign-in is read from `~/.claude/.credentials.json` | Ubuntu 24.04, a fake token | Pass: the API refused it, as it should |
+
+{% <details summary="Details: what did not run on Linux, and Wayland"> %}
+- Not run: GNOME, KDE or any desktop with a real screen; a Wayland shortcut, which the desktop asks you to approve; a new shortcut; **Start at login** across a real login; a monitor unplugged; Codex and Cursor chats; working and waiting states; a real Claude Code sign-in; a cloud session opened in the browser.
+- On Wayland the desktop places windows, not the program. Under Sway the circle opened in the middle of the screen as a floating window with a title bar, and its saved place was not used. This Sway rule puts it back in a corner without the title bar: `for_window [app_id="org.wails.agnostic-ai_companion"] border none, sticky enable, move position 1170 690`.
+- Wayland has no standard way to keep a window over the others. Under Sway a floating window stays over tiled ones.
+- A chat that still runs in a terminal cannot be switched to on Linux. The list says where it runs.
 {% </details> %}
 
 ## Commands {#commands}
@@ -230,20 +261,20 @@ A project server lists none, because a cloud session names no folder. To send th
 
 | | Claude Code cloud | Codex cloud |
 |---|---|---|
-| Sign-in | The claude.ai login in the macOS keychain. Run `claude` to renew it. | The ChatGPT login in `auth.json` |
+| Sign-in | The claude.ai login in the macOS keychain, or in `.credentials.json` on Linux. Run `claude` to renew it. | The ChatGPT login in `auth.json` |
 | Opens | In the browser | In the Codex app |
 | Working | Status `working` | Status `active` |
 | Waiting for you | Status `blocked` | An approval or your input |
 
 {% <details summary="Details: endpoints, privacy, refresh, failures, status"> %}
 - Claude Code reads `GET https://api.anthropic.com/v1/code/sessions?limit=100`. Codex reads `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads.
-- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
+- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). On Linux it is `.credentials.json` in `$CLAUDE_CONFIG_DIR` (default `~/.claude`), where Claude Code writes it. The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
 - Claude Code sessions open `https://claude.ai/code/session_<id>` in the browser. Codex threads open `codex://threads/<id>?hostId=durable`, handled by the Codex app.
 - Claude Code `working` shows only while the worker runs. Codex waits on an approval or on your input.
 - Limit: at most 100 sessions or threads. It does not page past them yet.
 - It uses their id, title or name, status and times. It never reads their messages.
 - The sign-in is sent only to its own host. It is never kept, printed or logged, and the refresh token is never used.
-- Claude Code sign-in: Windows and Linux are not supported yet.
+- Claude Code sign-in: Windows is not supported yet.
 - Codex sign-in: without `auth.json` it asks nothing and says nothing, because you do not use Codex. A login with an API key has no cloud threads, and `cloudNote` says so.
 - Flag off: without `--cloud-sessions`, nothing reads your sign-in or leaves this machine.
 - Refresh: at most once a minute, with a 5-second timeout and no retry.
